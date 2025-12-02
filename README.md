@@ -1,2 +1,4 @@
-# nagiyu-platform
-Nagiyu Platform
+# Nagiyu Platform
+
+本リポジトリは複数のアプリケーションをモノレポとして管理する。  
+AWS 上で稼働する各サービスを共通 VPC・共通基盤上で運用しつつ、各サービス個別の開発とリリースを柔軟に行う。
