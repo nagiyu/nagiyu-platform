@@ -33,24 +33,23 @@
 - CI/CD パイプラインでのデプロイ権限
 - ローカル環境からの手動デプロイ権限
 
-### VPC（将来実装予定）
+### VPC (Virtual Private Cloud)
 
 ネットワーク基盤。
 
-**配置場所:** `infra/shared/vpc/` (予定)
+- [VPC 詳細ドキュメント](./vpc.md)
 
-**主なリソース (予定):**
-- VPC
-- パブリック/プライベートサブネット
+**配置場所:** `infra/shared/vpc/`
+
+**主なリソース:**
+- VPC (dev/prod 環境ごと)
+- パブリックサブネット
 - Internet Gateway
-- NAT Gateway
 - Route Table
-- Security Groups (共通)
 
 **用途:**
-- アプリケーション間のネットワーク分離
+- ECS/Batch 用のネットワーク提供
 - インターネットへのアクセス制御
-- 各種 AWS サービスへのプライベート接続
 
 ---
 
@@ -62,10 +61,9 @@
     - デプロイポリシー
     - IAM ユーザー (GitHub Actions, ローカル開発)
 
-2. **VPC リソース（将来）**
+2. **VPC リソース**
     - VPC およびサブネット
-    - Internet Gateway / NAT Gateway
-    - 共通 Security Groups
+    - Internet Gateway
 
 3. **その他の共通リソース（将来）**
     - CloudWatch Logs グループ
@@ -85,7 +83,16 @@ nagiyu-shared-{resource-type}
 **例:**
 - `nagiyu-shared-deploy-policy`
 - `nagiyu-shared-github-actions-user`
-- `nagiyu-shared-vpc` (将来)
+
+**注意:** VPC スタックは環境ごとに分かれるため、以下の命名規則を使用します。
+
+```
+nagiyu-{env}-vpc
+```
+
+**例:**
+- `nagiyu-dev-vpc`
+- `nagiyu-prod-vpc`
 
 ---
 
@@ -93,19 +100,31 @@ nagiyu-shared-{resource-type}
 
 共通インフラからは、アプリケーション固有リソースで参照するための Export 値を提供します。
 
-### 現在提供している Export
+### IAM リソースからの Export
 
 | Export 名 | 説明 | 提供元スタック |
 |----------|------|-------------|
 | `nagiyu-deploy-policy-arn` | デプロイポリシーの ARN | `nagiyu-shared-deploy-policy` |
 
-### 将来提供予定の Export (例)
+### VPC リソースからの Export
 
 | Export 名 | 説明 | 提供元スタック |
 |----------|------|-------------|
-| `nagiyu-vpc-id` | VPC ID | `nagiyu-shared-vpc` |
-| `nagiyu-public-subnet-ids` | パブリックサブネット ID リスト | `nagiyu-shared-vpc` |
-| `nagiyu-private-subnet-ids` | プライベートサブネット ID リスト | `nagiyu-shared-vpc` |
+| `nagiyu-{env}-vpc-id` | VPC ID | `nagiyu-{env}-vpc` |
+| `nagiyu-{env}-public-subnet-ids` | パブリックサブネット ID リスト (カンマ区切り) | `nagiyu-{env}-vpc` |
+| `nagiyu-{env}-igw-id` | Internet Gateway ID | `nagiyu-{env}-vpc` |
+
+**例 (dev 環境):**
+- `nagiyu-dev-vpc-id`
+- `nagiyu-dev-public-subnet-ids`
+- `nagiyu-dev-igw-id`
+
+### 将来提供予定の Export (例)
+
+| Export 名 | 説明 |
+|----------|------|
+| `nagiyu-{env}-log-group-arn` | CloudWatch Logs グループ ARN |
+| `nagiyu-{env}-parameter-store-kms-key-id` | Parameter Store 暗号化用 KMS キー ID |
 
 ---
 
