@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  IAM User for nagiyu local developers. This user attaches the shared managed policy.
+  AccessKey/SecretAccessKey の発行はセキュリティ上コンソールで手動発行してください（テンプレートでは自動生成しません）。
+
+Resources:
+  NagiyuLocalDevUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: nagiyu-local-dev
+      ManagedPolicyArns:
+        - !ImportValue nagiyu-github-actions-policy-arn
+      Tags:
+        - Key: Application
+          Value: nagiyu
+        - Key: Purpose
+          Value: Local developer (manual deploy)
+
+Outputs:
+  NagiyuLocalDevUserName:
+    Description: Local developer user name
+    Value: !Ref NagiyuLocalDevUser
+    Export:
+      Name: !Sub '${AWS::StackName}-NagiyuLocalDevUserName'
+
+  NagiyuLocalDevUserArn:
+    Description: Local developer user ARN
+    Value: !GetAtt NagiyuLocalDevUser.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-NagiyuLocalDevUserArn'

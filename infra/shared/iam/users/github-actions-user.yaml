@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  IAM User for nagiyu GitHub Actions that attaches the separated managed policy.
+
+Resources:
+  NagiyuGitHubActionsUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: nagiyu-github-actions
+      ManagedPolicyArns:
+        - !ImportValue nagiyu-deploy-policy-arn
+      Tags:
+        - Key: Application
+          Value: nagiyu
+        - Key: Purpose
+          Value: GitHub Actions CI/CD
+
+Outputs:
+  NagiyuGitHubActionsUserName:
+    Description: GitHub Actions user name
+    Value: !Ref NagiyuGitHubActionsUser
+    Export:
+      Name: !Sub '${AWS::StackName}-NagiyuGitHubActionsUserName'
+
+  NagiyuGitHubActionsUserArn:
+    Description: GitHub Actions user ARN
+    Value: !GetAtt NagiyuGitHubActionsUser.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-NagiyuGitHubActionsUserArn'
