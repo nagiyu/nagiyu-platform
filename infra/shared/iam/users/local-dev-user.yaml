@@ -14,7 +14,7 @@ Resources:
         - Key: Application
           Value: nagiyu
         - Key: Purpose
-          Value: Local developer (manual deploy)
+          Value: Local developer
 
 Outputs:
   NagiyuLocalDevUserName:
