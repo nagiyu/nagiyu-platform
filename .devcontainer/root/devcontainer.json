@@ -3,11 +3,12 @@
 {
 	"name": "Root",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/base:bullseye",
+	"dockerFile": "Dockerfile",
 	"containerEnv": {
 		"AWS_ACCESS_KEY_ID": "",
 		"AWS_SECRET_ACCESS_KEY": "",
-		"AWS_REGION": ""
+		"AWS_REGION": "",
+		"ANTHROPIC_API_KEY": ""
 	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
