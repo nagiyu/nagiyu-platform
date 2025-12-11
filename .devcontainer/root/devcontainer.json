@@ -7,8 +7,7 @@
 	"containerEnv": {
 		"AWS_ACCESS_KEY_ID": "",
 		"AWS_SECRET_ACCESS_KEY": "",
-		"AWS_REGION": "",
-		"ANTHROPIC_API_KEY": ""
+		"AWS_REGION": ""
 	},
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
