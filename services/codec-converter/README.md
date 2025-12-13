@@ -1,55 +1,55 @@
-# Codec Converter
+# Codec Converter（コーデックコンバータ）
 
-Video codec conversion service built with Next.js.
+Next.js で構築された動画コーデック変換サービスです。
 
-## Getting Started
+## はじめに
 
-First, install dependencies from the workspace root:
+まず、ワークスペースのルートから依存関係をインストールします：
 
 ```bash
 cd /path/to/nagiyu-platform
 npm install
 ```
 
-Then run the development server:
+次に、開発サーバーを起動します：
 
 ```bash
 cd services/codec-converter
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いて結果を確認してください。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`app/page.tsx` を編集してページを変更できます。ファイルを編集すると自動的にページが更新されます。
 
-## Learn More
+## 詳細情報
 
-To learn more about Next.js, take a look at the following resources:
+Next.js について詳しく知りたい場合は、以下のリソースを参照してください：
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Next.js ドキュメント](https://nextjs.org/docs) - Next.js の機能と API について学ぶ
+- [Next.js チュートリアル](https://nextjs.org/learn) - インタラクティブな Next.js チュートリアル
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+[Next.js GitHub リポジトリ](https://github.com/vercel/next.js)もご覧ください。フィードバックや貢献を歓迎します！
 
-## Build
+## ビルド
 
-To create a production build:
+本番用ビルドを作成するには：
 
 ```bash
 npm run build
 ```
 
-To start the production server:
+本番サーバーを起動するには：
 
 ```bash
 npm start
 ```
 
-## Project Structure
+## プロジェクト構成
 
-This service is part of the nagiyu-platform monorepo and follows the architecture defined in `specs/002-add-codec-converter/`.
+本サービスは nagiyu-platform モノレポの一部であり、`specs/002-add-codec-converter/` で定義されたアーキテクチャに従っています。
 
-For detailed documentation, see:
-- Specification: `specs/002-add-codec-converter/spec.md`
-- Implementation Plan: `specs/002-add-codec-converter/plan.md`
-- Tasks: `specs/002-add-codec-converter/tasks.md`
+詳細なドキュメントについては、以下を参照してください：
+- 仕様: `specs/002-add-codec-converter/spec.md`
+- 実装計画: `specs/002-add-codec-converter/plan.md`
+- タスク: `specs/002-add-codec-converter/tasks.md`
