@@ -79,23 +79,69 @@
 - タイムアウト: 2時間 (7200秒)
 - リソース: vCPU 2, メモリ 4GB (調整可能)
 
+**環境変数（静的、Job Definition に設定）**:
+- `S3_BUCKET`: S3 バケット名
+- `DYNAMODB_TABLE`: DynamoDB テーブル名
+- `AWS_REGION`: AWS リージョン
+
+**環境変数（動的、SubmitJob API で渡す）**:
+- `JOB_ID`: ジョブ ID（UUID）
+- `OUTPUT_CODEC`: 出力コーデック（h264, vp9, av1）
+
+**パラメータの渡し方**:
+- Lambda が `POST /api/jobs/:jobId/submit` を受け取る
+- DynamoDB からジョブ情報（jobId, outputCodec）を取得
+- AWS Batch の `SubmitJob` API を呼び出し
+- `containerOverrides.environment` で動的な環境変数を渡す
+
+```json
+{
+  "containerOverrides": {
+    "environment": [
+      {"name": "JOB_ID", "value": "550e8400-e29b-41d4-a716-446655440000"},
+      {"name": "OUTPUT_CODEC", "value": "vp9"}
+    ]
+  }
+}
+```
+
 **処理内容**:
-1. S3 から入力ファイル取得
-2. FFmpeg でコーデック変換
-3. S3 へ出力ファイルアップロード
-4. DynamoDB のステータス更新
+1. 環境変数から `JOB_ID`, `OUTPUT_CODEC`, `S3_BUCKET`, `DYNAMODB_TABLE` を取得
+2. **DynamoDB のステータスを PROCESSING に更新**
+3. S3 から入力ファイル取得（`s3://{S3_BUCKET}/uploads/{JOB_ID}/input.mp4`）
+4. FFmpeg でコーデック変換
+5. S3 へ出力ファイルアップロード（`s3://{S3_BUCKET}/outputs/{JOB_ID}/output.{ext}`）
+6. **DynamoDB のステータスを COMPLETED に更新**
+7. エラー時は **status を FAILED に更新**、errorMessage を保存
 
-**FFmpeg コマンド例**:
+**FFmpeg コマンド詳細**:
+
 ```bash
-# VP9 (WebM)
-ffmpeg -i input.mp4 -c:v libvpx-vp9 -c:a libopus output.webm
-
 # H.264 (MP4)
-ffmpeg -i input.mp4 -c:v libx264 -c:a aac output.mp4
+ffmpeg -i input.mp4 -c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k output.mp4
+
+# VP9 (WebM)
+ffmpeg -i input.mp4 -c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus -b:a 128k output.webm
 
 # AV1 (WebM)
-ffmpeg -i input.mp4 -c:v libaom-av1 -c:a libopus output.webm
+ffmpeg -i input.mp4 -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -c:a libopus -b:a 128k output.webm
 ```
+
+**エンコード設定の詳細**:
+
+| コーデック | ビデオオプション | 音声オプション | 説明 |
+|----------|--------------|--------------|------|
+| H.264 | `-preset medium -crf 23` | `-c:a aac -b:a 128k` | バランスの取れた品質と速度 |
+| VP9 | `-crf 30 -b:v 0` | `-c:a libopus -b:a 128k` | 品質ベース（CRF）モード |
+| AV1 | `-crf 30 -b:v 0 -cpu-used 4` | `-c:a libopus -b:a 128k` | 中程度の速度設定 |
+
+**品質設定の方針**:
+- **H.264**: CRF 23（デフォルト、視覚的に透明な品質）
+- **VP9**: CRF 30（H.264のCRF 23と同等の品質）
+- **AV1**: CRF 30 + cpu-used 4（品質と速度のバランス）
+- **音声**: すべて128kbps（標準的な品質）
+
+**注意**: 実際の運用で品質や速度に問題がある場合は、これらの値を調整する
 
 ### ストレージ
 
@@ -113,7 +159,9 @@ codec-converter-{env}/
 
 **設定**:
 - **暗号化**: SSE-S3 (サーバー側暗号化)
-- **Lifecycle Policy**: 24時間後に自動削除
+- **Lifecycle Policy**: オブジェクト作成日時から24時間後に自動削除
+    - すべてのオブジェクト（uploads/, outputs/）に適用
+    - 管理がシンプルで、確実に一時ファイルを削除できる
 - **バージョニング**: 無効
 - **アクセス制御**: 非公開 (Presigned URL のみ)
 
@@ -169,8 +217,20 @@ codec-converter-{env}/
 4. Lambda が S3 Presigned URL を生成
 5. Presigned URL をフロントエンドに返却
 6. ユーザーがブラウザから S3 へ直接アップロード (500MB まで)
-7. アップロード完了通知
-8. Lambda が AWS Batch ジョブを投入
+7. アップロード完了検知 (HTTP 200 OK レスポンス)
+8. フロントエンドが `POST /api/jobs/:jobId/submit` を呼び出し
+9. Lambda が AWS Batch ジョブを投入
+
+**アップロード完了の検知**:
+- フロントエンドが S3 Presigned URL へ PUT リクエスト
+- HTTP レスポンスステータス 200 OK で完了を判定
+- 完了後、`POST /api/jobs/:jobId/submit` を呼び出し
+
+**アップロード失敗時の処理**:
+- S3 からエラーレスポンス（4xx, 5xx）を受信
+- ユーザーにエラーメッセージを表示、再試行を促す
+- ジョブレコードは status: PENDING のまま DynamoDB に残る
+- 24時間後に TTL で自動削除される
 
 **重要なポイント**:
 - ユーザーは S3 へ直接アップロード (Lambda のペイロードサイズ制限を回避)
@@ -184,21 +244,45 @@ codec-converter-{env}/
 **ステップ**:
 
 1. AWS Batch が ECR から FFmpeg コンテナイメージ取得
-2. コンテナ起動、DynamoDB のステータスを PROCESSING に更新
-3. S3 から入力ファイル (`uploads/{jobId}/input.mp4`) をダウンロード
-4. FFmpeg でコーデック変換実行
-5. 変換結果を S3 (`outputs/{jobId}/output.webm`) へアップロード
-6. DynamoDB のステータスを COMPLETED に更新
-7. エラー時は status を FAILED に更新、errorMessage を保存
+2. コンテナ起動
+3. **DynamoDB のステータスを PROCESSING に更新**（コンテナ内スクリプトの最初で実行）
+4. S3 から入力ファイル (`uploads/{jobId}/input.mp4`) をダウンロード
+5. FFmpeg でコーデック変換実行
+6. 変換結果を S3 (`outputs/{jobId}/output.webm`) へアップロード
+7. DynamoDB のステータスを COMPLETED に更新
+8. エラー時は status を FAILED に更新、errorMessage を保存
+
+**DynamoDB ステータス更新のタイミング**:
+- **PENDING → PROCESSING**: Batch コンテナ起動直後（スクリプトの最初）
+    - ユーザーは「処理が始まった」ことをすぐに確認できる
+- **PROCESSING → COMPLETED**: 変換完了、S3 アップロード後
+- **PROCESSING → FAILED**: エラー発生時（FFmpeg エラー、S3 エラー、タイムアウト）
 
 **タイムアウト設定**:
 - ジョブタイムアウト: 2時間 (7200秒)
 - 500MB の動画でも余裕を持って処理可能
 
 **エラーハンドリング**:
-- FFmpeg エラー → status: FAILED
-- S3 アクセスエラー → status: FAILED
-- タイムアウト → status: FAILED
+- FFmpeg エラー → status: FAILED, errorMessage に詳細を保存
+- S3 アクセスエラー → status: FAILED, errorMessage に詳細を保存
+- タイムアウト → status: FAILED, errorMessage に詳細を保存
+
+### エラーハンドリング詳細
+
+#### 1. アップロード失敗（S3 への PUT 失敗）
+- **処理**: ユーザーにエラーメッセージ表示、再試行を促す
+- **DB**: status: PENDING のまま（TTL で 24時間後に自動削除）
+
+#### 2. Batch ジョブ投入失敗（`POST /api/jobs/:jobId/submit` 失敗）
+- **処理**: エラーメッセージと「再試行」ボタンを表示
+- **アクション**: 再度 `POST /api/jobs/:jobId/submit` を呼び出し
+- **DB**: status: PENDING のまま
+- **特殊ケース**: 409 Conflict（既に投入済み）の場合は、ジョブ詳細ページへ遷移
+
+#### 3. Batch ジョブ実行失敗（FFmpeg エラーなど）
+- **処理**: ジョブ詳細ページでエラーメッセージ表示
+- **DB**: status: FAILED, errorMessage に詳細を保存
+- **アクション**: トップページへ戻って最初からやり直し
 
 ### 3. ダウンロードフロー
 
@@ -287,6 +371,7 @@ codec-converter-{env}/
 - 非公開設定
 - Presigned URL のみでアクセス可能
 - CORS 設定でブラウザからのアップロードを許可
+  - 環境ごとに AllowedOrigins を設定（dev: localhost + dev環境ドメイン、prod: 本番ドメイン）
 
 **DynamoDB**:
 - IAM ロールで Lambda および Batch からのみアクセス可能
@@ -315,6 +400,8 @@ CloudFront で以下のヘッダーを設定:
 
 **DynamoDB TTL**:
 - `expiresAt` 属性で24時間後に自動削除
+- `expiresAt` の値: ジョブ作成時（`POST /api/jobs`）に `createdAt + 86400` (24時間後) を設定
+- TTL による削除は遅延する可能性があるが、永続化防止の目的では問題なし
 
 ### ログ管理
 

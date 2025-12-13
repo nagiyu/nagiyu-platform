@@ -171,6 +171,13 @@ curl -X GET https://codec-converter.example.com/api/jobs/550e8400-e29b-41d4-a716
 {}
 ```
 
+**処理内容**:
+1. DynamoDB から `jobId` に対応するジョブ情報（`outputCodec` など）を取得
+2. AWS Batch の `SubmitJob` API を呼び出し
+3. `containerOverrides.environment` で動的な環境変数を渡す:
+    - `JOB_ID`: ジョブ ID
+    - `OUTPUT_CODEC`: 出力コーデック
+
 **レスポンス** (200 OK):
 
 ```json
@@ -427,7 +434,25 @@ curl -O "https://s3.amazonaws.com/..."
 
 ## CORS 設定
 
-S3 バケットには以下の CORS 設定が必要です:
+S3 バケットには以下の CORS 設定が必要です。環境ごとに `AllowedOrigins` を変更します。
+
+### 開発環境 (dev)
+
+```json
+[
+  {
+    "AllowedHeaders": ["*"],
+    "AllowedMethods": ["PUT", "GET"],
+    "AllowedOrigins": [
+      "http://localhost:3000",
+      "https://dev-codec-converter.example.com"
+    ],
+    "ExposeHeaders": ["ETag"]
+  }
+]
+```
+
+### 本番環境 (prod)
 
 ```json
 [
@@ -439,6 +464,8 @@ S3 バケットには以下の CORS 設定が必要です:
   }
 ]
 ```
+
+**注意**: CloudFormation テンプレートでは、環境変数またはパラメータを使用して `AllowedOrigins` を動的に設定します。
 
 ---
 
