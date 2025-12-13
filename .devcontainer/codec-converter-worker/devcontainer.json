@@ -1,0 +1,39 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/typescript-node
+{
+	"name": "Codec Converter Worker",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"dockerFile": "Dockerfile",
+	"containerEnv": {
+		"AWS_ACCESS_KEY_ID": "",
+		"AWS_SECRET_ACCESS_KEY": "",
+		"AWS_REGION": ""
+	},
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/aws-cli:1": {}
+	},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	// "postCreateCommand": "yarn install",
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"donjayamanne.githistory", // Git History
+				"eamodio.gitlens", // GitLens
+				"GitHub.vscode-pull-request-github", // GitHub Pull Requests
+				"oderwat.indent-rainbow", // Indent Rainbow
+				"bierner.markdown-mermaid", // Markdown Mermaid Support
+				"humao.rest-client", // REST Client
+				"GitHub.copilot-chat", // GitHub Copilot Chat
+				"saoudrizwan.claude-dev", // Cline
+				"Anthropic.claude-code", // Claude Code for VS Code
+				"hediet.vscode-drawio" // Draw.io Integration
+			]
+		}
+	}
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+}

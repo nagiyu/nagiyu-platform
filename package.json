@@ -1,0 +1,7 @@
+{
+  "name": "nagiyu-platform",
+  "private": true,
+  "workspaces": [
+    "services/*"
+  ]
+}
