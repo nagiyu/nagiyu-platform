@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Codec Converter（コーデックコンバータ）
 
-## Getting Started
+Next.js で構築された動画コーデック変換サービスです。
 
-First, run the development server:
+## はじめに
+
+まず、ワークスペースのルートから依存関係をインストールします：
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cd /path/to/nagiyu-platform
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+次に、開発サーバーを起動します：
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd services/codec-converter
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開いて結果を確認してください。
 
-## Learn More
+`app/page.tsx` を編集してページを変更できます。ファイルを編集すると自動的にページが更新されます。
 
-To learn more about Next.js, take a look at the following resources:
+## 詳細情報
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js について詳しく知りたい場合は、以下のリソースを参照してください：
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- [Next.js ドキュメント](https://nextjs.org/docs) - Next.js の機能と API について学ぶ
+- [Next.js チュートリアル](https://nextjs.org/learn) - インタラクティブな Next.js チュートリアル
 
-## Deploy on Vercel
+[Next.js GitHub リポジトリ](https://github.com/vercel/next.js)もご覧ください。フィードバックや貢献を歓迎します！
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ビルド
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+本番用ビルドを作成するには：
+
+```bash
+npm run build
+```
+
+本番サーバーを起動するには：
+
+```bash
+npm start
+```
+
+## プロジェクト構成
+
+本サービスは nagiyu-platform モノレポの一部であり、`specs/002-add-codec-converter/` で定義されたアーキテクチャに従っています。
+
+詳細なドキュメントについては、以下を参照してください：
+- 仕様: `specs/002-add-codec-converter/spec.md`
+- 実装計画: `specs/002-add-codec-converter/plan.md`
+- タスク: `specs/002-add-codec-converter/tasks.md`
