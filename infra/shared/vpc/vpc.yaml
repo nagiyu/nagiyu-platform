@@ -81,7 +81,7 @@ Resources:
     Condition: IsProdEnvironment
     Properties:
       VpcId: !Ref NagiyuVPC
-      CidrBlock: 10.1.128.0/25
+      CidrBlock: 10.1.0.128/25
       AvailabilityZone: !Sub '${AWS::Region}b'
       MapPublicIpOnLaunch: true
       Tags:
