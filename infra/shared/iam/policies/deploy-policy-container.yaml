@@ -1,0 +1,111 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Container deployment policy for nagiyu.
+  Includes: ECR, ECS, Batch.
+
+Resources:
+  NagiyuDeployPolicyContainer:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: nagiyu-deploy-policy-container
+      Description: nagiyu コンテナデプロイ権限（ECR, ECS, Batch）
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # ==========================================
+          # Container - ECR, ECS, Batch
+          # ==========================================
+          - Sid: ECROperations
+            Effect: Allow
+            Action:
+              # Authentication
+              - ecr:GetAuthorizationToken
+              # Repository management
+              - ecr:CreateRepository
+              - ecr:DeleteRepository
+              - ecr:DescribeRepositories
+              - ecr:TagResource
+              - ecr:UntagResource
+              - ecr:ListTagsForResource
+              # Image operations
+              - ecr:BatchCheckLayerAvailability
+              - ecr:BatchGetImage
+              - ecr:GetDownloadUrlForLayer
+              - ecr:PutImage
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:ListImages
+              # Repository policy
+              - ecr:GetRepositoryPolicy
+              - ecr:SetRepositoryPolicy
+              - ecr:DeleteRepositoryPolicy
+              # Lifecycle policy
+              - ecr:PutLifecyclePolicy
+              - ecr:GetLifecyclePolicy
+              - ecr:DeleteLifecyclePolicy
+            Resource: '*'
+
+          - Sid: ECSOperations
+            Effect: Allow
+            Action:
+              # Cluster
+              - ecs:CreateCluster
+              - ecs:DeleteCluster
+              - ecs:DescribeClusters
+              - ecs:ListClusters
+              - ecs:PutClusterCapacityProviders
+              # Task Definition
+              - ecs:RegisterTaskDefinition
+              - ecs:DeregisterTaskDefinition
+              - ecs:DescribeTaskDefinition
+              - ecs:ListTaskDefinitions
+              - ecs:ListTaskDefinitionFamilies
+              # Service
+              - ecs:CreateService
+              - ecs:UpdateService
+              - ecs:DeleteService
+              - ecs:DescribeServices
+              - ecs:ListServices
+              # Task
+              - ecs:RunTask
+              - ecs:StopTask
+              - ecs:DescribeTasks
+              - ecs:ListTasks
+              # Container Instance
+              - ecs:DescribeContainerInstances
+              - ecs:ListContainerInstances
+              # Tags
+              - ecs:TagResource
+              - ecs:UntagResource
+              - ecs:ListTagsForResource
+            Resource: '*'
+
+          - Sid: BatchOperations
+            Effect: Allow
+            Action:
+              # Compute Environment
+              - batch:CreateComputeEnvironment
+              - batch:DeleteComputeEnvironment
+              - batch:UpdateComputeEnvironment
+              - batch:DescribeComputeEnvironments
+              # Job Queue
+              - batch:CreateJobQueue
+              - batch:DeleteJobQueue
+              - batch:UpdateJobQueue
+              - batch:DescribeJobQueues
+              # Job Definition
+              - batch:RegisterJobDefinition
+              - batch:DeregisterJobDefinition
+              - batch:DescribeJobDefinitions
+              # Tags
+              - batch:TagResource
+              - batch:UntagResource
+            Resource: '*'
+
+Outputs:
+  NagiyuDeployPolicyContainerArn:
+    Description: Container deploy policy ARN for nagiyu
+    Value: !Ref NagiyuDeployPolicyContainer
+    Export:
+      Name: nagiyu-deploy-policy-container-arn

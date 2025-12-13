@@ -32,14 +32,36 @@ aws configure
 
 ### 2. IAM デプロイポリシーの作成
 
-まず、デプロイに必要な権限を定義したポリシーを作成します。
+まず、デプロイに必要な権限を定義した4つのポリシーを作成します。
 
 ```bash
 cd infra/shared/iam/policies
 
+# Core Policy
 aws cloudformation create-stack \
-  --stack-name nagiyu-shared-deploy-policy \
-  --template-body file://deploy-policy.yaml \
+  --stack-name nagiyu-shared-deploy-policy-core \
+  --template-body file://deploy-policy-core.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Container Policy
+aws cloudformation create-stack \
+  --stack-name nagiyu-shared-deploy-policy-container \
+  --template-body file://deploy-policy-container.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Application Policy
+aws cloudformation create-stack \
+  --stack-name nagiyu-shared-deploy-policy-application \
+  --template-body file://deploy-policy-application.yaml \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Integration Policy
+aws cloudformation create-stack \
+  --stack-name nagiyu-shared-deploy-policy-integration \
+  --template-body file://deploy-policy-integration.yaml \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -48,7 +70,19 @@ aws cloudformation create-stack \
 
 ```bash
 aws cloudformation wait stack-create-complete \
-  --stack-name nagiyu-shared-deploy-policy \
+  --stack-name nagiyu-shared-deploy-policy-core \
+  --region us-east-1
+
+aws cloudformation wait stack-create-complete \
+  --stack-name nagiyu-shared-deploy-policy-container \
+  --region us-east-1
+
+aws cloudformation wait stack-create-complete \
+  --stack-name nagiyu-shared-deploy-policy-application \
+  --region us-east-1
+
+aws cloudformation wait stack-create-complete \
+  --stack-name nagiyu-shared-deploy-policy-integration \
   --region us-east-1
 ```
 
@@ -145,7 +179,10 @@ aws cloudformation list-stacks \
 ```
 
 以下のスタックが表示されることを確認:
-- `nagiyu-shared-deploy-policy`
+- `nagiyu-shared-deploy-policy-core`
+- `nagiyu-shared-deploy-policy-container`
+- `nagiyu-shared-deploy-policy-application`
+- `nagiyu-shared-deploy-policy-integration`
 - `nagiyu-shared-github-actions-user`
 - `nagiyu-shared-local-dev-user` (作成した場合)
 

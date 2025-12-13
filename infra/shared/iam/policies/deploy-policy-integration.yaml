@@ -1,0 +1,204 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Integration and security deployment policy for nagiyu.
+  Includes: KMS, Secrets Manager, Systems Manager, SNS, SQS, EventBridge, Auto Scaling.
+
+Resources:
+  NagiyuDeployPolicyIntegration:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: nagiyu-deploy-policy-integration
+      Description: nagiyu 統合・セキュリティデプロイ権限（KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling）
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # ==========================================
+          # Security - KMS, Secrets Manager, Systems Manager
+          # ==========================================
+          - Sid: KMSOperations
+            Effect: Allow
+            Action:
+              # Key management
+              - kms:CreateKey
+              - kms:DescribeKey
+              - kms:ListKeys
+              - kms:ListAliases
+              - kms:ScheduleKeyDeletion
+              - kms:CancelKeyDeletion
+              # Key policy
+              - kms:GetKeyPolicy
+              - kms:PutKeyPolicy
+              # Key rotation
+              - kms:EnableKeyRotation
+              - kms:DisableKeyRotation
+              - kms:GetKeyRotationStatus
+              # Alias
+              - kms:CreateAlias
+              - kms:DeleteAlias
+              - kms:UpdateAlias
+              # Grants
+              - kms:CreateGrant
+              - kms:RetireGrant
+              - kms:RevokeGrant
+              - kms:ListGrants
+              # Tags
+              - kms:TagResource
+              - kms:UntagResource
+              - kms:ListResourceTags
+              # Cryptographic operations (for CloudFormation resource property encryption)
+              - kms:Decrypt
+              - kms:Encrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+
+          - Sid: SecretsManagerOperations
+            Effect: Allow
+            Action:
+              # Secret management
+              - secretsmanager:CreateSecret
+              - secretsmanager:DeleteSecret
+              - secretsmanager:DescribeSecret
+              - secretsmanager:ListSecrets
+              - secretsmanager:GetSecretValue
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+              - secretsmanager:RestoreSecret
+              # Rotation
+              - secretsmanager:RotateSecret
+              - secretsmanager:CancelRotateSecret
+              # Resource policy
+              - secretsmanager:GetResourcePolicy
+              - secretsmanager:PutResourcePolicy
+              - secretsmanager:DeleteResourcePolicy
+              # Tags
+              - secretsmanager:TagResource
+              - secretsmanager:UntagResource
+            Resource: '*'
+
+          - Sid: SystemsManagerOperations
+            Effect: Allow
+            Action:
+              # Parameter Store
+              - ssm:PutParameter
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+              - ssm:DeleteParameter
+              - ssm:DeleteParameters
+              - ssm:DescribeParameters
+              # Parameter history
+              - ssm:GetParameterHistory
+              # Tags
+              - ssm:AddTagsToResource
+              - ssm:RemoveTagsFromResource
+              - ssm:ListTagsForResource
+            Resource: '*'
+
+          # ==========================================
+          # Messaging - SNS, SQS
+          # ==========================================
+          - Sid: SNSOperations
+            Effect: Allow
+            Action:
+              # Topic management
+              - sns:CreateTopic
+              - sns:DeleteTopic
+              - sns:GetTopicAttributes
+              - sns:SetTopicAttributes
+              - sns:ListTopics
+              # Subscription
+              - sns:Subscribe
+              - sns:Unsubscribe
+              - sns:ListSubscriptions
+              - sns:ListSubscriptionsByTopic
+              - sns:GetSubscriptionAttributes
+              - sns:SetSubscriptionAttributes
+              # Publishing (for CloudFormation notifications)
+              - sns:Publish
+              # Tags
+              - sns:TagResource
+              - sns:UntagResource
+              - sns:ListTagsForResource
+            Resource: '*'
+
+          - Sid: SQSOperations
+            Effect: Allow
+            Action:
+              # Queue management
+              - sqs:CreateQueue
+              - sqs:DeleteQueue
+              - sqs:GetQueueAttributes
+              - sqs:SetQueueAttributes
+              - sqs:ListQueues
+              - sqs:GetQueueUrl
+              # Message operations (for CloudFormation and testing)
+              - sqs:SendMessage
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:PurgeQueue
+              # Tags
+              - sqs:TagQueue
+              - sqs:UntagQueue
+              - sqs:ListQueueTags
+            Resource: '*'
+
+          # ==========================================
+          # Events - EventBridge
+          # ==========================================
+          - Sid: EventBridgeOperations
+            Effect: Allow
+            Action:
+              # Event Bus
+              - events:CreateEventBus
+              - events:DeleteEventBus
+              - events:DescribeEventBus
+              - events:ListEventBuses
+              # Rules
+              - events:PutRule
+              - events:DeleteRule
+              - events:DescribeRule
+              - events:ListRules
+              - events:EnableRule
+              - events:DisableRule
+              # Targets
+              - events:PutTargets
+              - events:RemoveTargets
+              - events:ListTargetsByRule
+              # Event patterns
+              - events:TestEventPattern
+              # Tags
+              - events:TagResource
+              - events:UntagResource
+              - events:ListTagsForResource
+            Resource: '*'
+
+          # ==========================================
+          # Auto Scaling - Application Auto Scaling
+          # ==========================================
+          - Sid: ApplicationAutoScalingOperations
+            Effect: Allow
+            Action:
+              # Scalable Target
+              - application-autoscaling:RegisterScalableTarget
+              - application-autoscaling:DeregisterScalableTarget
+              - application-autoscaling:DescribeScalableTargets
+              # Scaling Policy
+              - application-autoscaling:PutScalingPolicy
+              - application-autoscaling:DeleteScalingPolicy
+              - application-autoscaling:DescribeScalingPolicies
+              # Scheduled Action
+              - application-autoscaling:PutScheduledAction
+              - application-autoscaling:DeleteScheduledAction
+              - application-autoscaling:DescribeScheduledActions
+              # Tags
+              - application-autoscaling:TagResource
+              - application-autoscaling:UntagResource
+              - application-autoscaling:ListTagsForResource
+            Resource: '*'
+
+Outputs:
+  NagiyuDeployPolicyIntegrationArn:
+    Description: Integration and security deploy policy ARN for nagiyu
+    Value: !Ref NagiyuDeployPolicyIntegration
+    Export:
+      Name: nagiyu-deploy-policy-integration-arn

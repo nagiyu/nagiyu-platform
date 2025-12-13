@@ -33,7 +33,7 @@ infra/
 │   │   └── users/
 │   │       ├── github-actions-user.yaml
 │   │       └── local-dev-user.yaml
-│   └── vpc/            # VPC 関連（将来）
+│   └── vpc/            # VPC 関連
 │
 └── app-A/              # アプリケーション固有のリソース（将来）
     ├── lambda/         # Lambda 関数
@@ -63,11 +63,14 @@ infra/
     - 開発者がローカル環境から手動デプロイする際に使用
     - デプロイポリシーをアタッチ
 
-#### VPC（将来実装予定）
+#### VPC (Virtual Private Cloud)
 
-- 各アプリケーションが共有する VPC
-- パブリック/プライベートサブネット構成
-- NAT Gateway、Internet Gateway
+- 環境ごとに独立した VPC (dev/prod)
+- パブリックサブネット構成
+- Internet Gateway
+- ECS/Batch 用のネットワーク提供
+
+詳細は [VPC 詳細ドキュメント](./shared/vpc.md) を参照。
 
 ### アプリケーション固有インフラ (app-X/)
 
@@ -97,8 +100,10 @@ infra/shared/iam/users/local-dev-user.yaml
 ### 2. 共通インフラのデプロイ（初回のみ）
 
 ```
-infra/shared/vpc/ (将来)
+infra/shared/vpc/
 ```
+
+VPC は環境ごとにデプロイ (dev/prod)
 
 ### 3. アプリケーション固有リソースのデプロイ
 
@@ -122,6 +127,8 @@ nagiyu-{category}-{resource}
 - `nagiyu-shared-deploy-policy` - 共通デプロイポリシー
 - `nagiyu-shared-github-actions-user` - GitHub Actions ユーザー
 - `nagiyu-shared-local-dev-user` - ローカル開発ユーザー
+- `nagiyu-dev-vpc` - dev 環境 VPC
+- `nagiyu-prod-vpc` - prod 環境 VPC
 - `nagiyu-app-A-lambda` - app-A の Lambda リソース（将来）
 
 ---
@@ -153,3 +160,4 @@ nagiyu-{category}-{resource}
 - [初回セットアップ](./setup.md) - インフラの初期構築手順
 - [デプロイ手順](./deploy.md) - 日常的なデプロイ操作
 - [IAM 詳細](./shared/iam.md) - IAM リソースの詳細設計
+- [VPC 詳細](./shared/vpc.md) - VPC リソースの詳細設計

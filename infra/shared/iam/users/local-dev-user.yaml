@@ -9,12 +9,15 @@ Resources:
     Properties:
       UserName: nagiyu-local-dev
       ManagedPolicyArns:
-        - !ImportValue nagiyu-github-actions-policy-arn
+        - !ImportValue nagiyu-deploy-policy-core-arn
+        - !ImportValue nagiyu-deploy-policy-container-arn
+        - !ImportValue nagiyu-deploy-policy-application-arn
+        - !ImportValue nagiyu-deploy-policy-integration-arn
       Tags:
         - Key: Application
           Value: nagiyu
         - Key: Purpose
-          Value: Local developer (manual deploy)
+          Value: Local developer
 
 Outputs:
   NagiyuLocalDevUserName:
