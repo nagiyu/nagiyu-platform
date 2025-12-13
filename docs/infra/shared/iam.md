@@ -19,45 +19,130 @@ IAM リソースは以下の方針で管理されます。
 ```
 infra/shared/iam/
 ├── policies/
-│   └── deploy-policy.yaml       # デプロイ用 ManagedPolicy
+│   ├── deploy-policy-core.yaml        # コア権限（CloudFormation, IAM, Network）
+│   ├── deploy-policy-container.yaml   # コンテナ権限（ECR, ECS, Batch）
+│   ├── deploy-policy-application.yaml # アプリ権限（Lambda, API Gateway, S3, DynamoDB, CloudFront）
+│   └── deploy-policy-integration.yaml # 統合権限（KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling）
 └── users/
-    ├── github-actions-user.yaml # GitHub Actions 用 IAM ユーザー
-    └── local-dev-user.yaml      # ローカル開発用 IAM ユーザー
+    ├── github-actions-user.yaml       # GitHub Actions 用 IAM ユーザー
+    └── local-dev-user.yaml            # ローカル開発用 IAM ユーザー
 ```
 
 ---
 
 ## リソース詳細
 
-### 1. デプロイポリシー (`policies/deploy-policy.yaml`)
+### 1. デプロイポリシー（4つに分割）
 
-**スタック名:** `nagiyu-shared-deploy-policy`
+IAM マネージドポリシーのサイズ制限（6144文字）により、デプロイポリシーを4つに分割しています。
+
+#### 1.1. Core Policy (`deploy-policy-core.yaml`)
+
+**スタック名:** `nagiyu-shared-deploy-policy-core`
 
 **概要:**
-CloudFormation を使用したインフラデプロイに必要な権限を定義した ManagedPolicy。
+デプロイの中核となる権限を定義。必須のポリシー。
 
 **主な権限:**
-- CloudFormation: スタックの作成、更新、削除
-- ECR: Docker イメージのプッシュ/プル
-- Lambda: 関数の作成、更新、削除
-- DynamoDB: テーブルの作成、更新、削除
-- CloudWatch Logs: ロググループの作成、管理
-- S3: バケットの作成、オブジェクトの操作
-- IAM: ロール、ポリシーの作成（PassRole 含む）
-- API Gateway: API の作成、管理
-- CloudFront: ディストリビューションの作成、管理
-- その他: VPC、Security Groups、Batch など
+- **CloudFormation**: スタックの作成、更新、削除、ChangeSet 管理
+- **IAM**: ロール・ポリシー管理、PassRole、Service-linked role 作成
+- **Network (VPC/EC2)**: VPC、Subnet、Internet Gateway、NAT Gateway、Route Table、Security Group、Network Interface の管理
+- **CloudWatch Logs**: Log Group/Stream の作成、管理
 
 **Export 値:**
-- `nagiyu-deploy-policy-arn`: ポリシーの ARN（他のリソースから参照可能）
+- `nagiyu-deploy-policy-core-arn`: ポリシーの ARN
 
 **デプロイコマンド:**
 ```bash
 cd infra/shared/iam/policies
 
 aws cloudformation deploy \
-  --template-file deploy-policy.yaml \
-  --stack-name nagiyu-shared-deploy-policy \
+  --template-file deploy-policy-core.yaml \
+  --stack-name nagiyu-shared-deploy-policy-core \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+```
+
+#### 1.2. Container Policy (`deploy-policy-container.yaml`)
+
+**スタック名:** `nagiyu-shared-deploy-policy-container`
+
+**概要:**
+コンテナ関連サービスの権限を定義。
+
+**主な権限:**
+- **ECR**: リポジトリ管理、イメージのプッシュ/プル、ライフサイクルポリシー
+- **ECS**: クラスター、タスク定義、サービス、タスクの管理
+- **Batch**: Compute Environment、Job Queue、Job Definition の管理
+
+**Export 値:**
+- `nagiyu-deploy-policy-container-arn`: ポリシーの ARN
+
+**デプロイコマンド:**
+```bash
+cd infra/shared/iam/policies
+
+aws cloudformation deploy \
+  --template-file deploy-policy-container.yaml \
+  --stack-name nagiyu-shared-deploy-policy-container \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+```
+
+#### 1.3. Application Policy (`deploy-policy-application.yaml`)
+
+**スタック名:** `nagiyu-shared-deploy-policy-application`
+
+**概要:**
+アプリケーション層のサービス権限を定義。
+
+**主な権限:**
+- **Lambda**: 関数管理、バージョニング、エイリアス、Function URL
+- **S3**: バケット管理、オブジェクト操作、暗号化、ライフサイクル
+- **DynamoDB**: テーブル管理、TTL、継続的バックアップ
+- **API Gateway**: HTTP API/WebSocket API の管理
+- **CloudFront**: ディストリビューション管理、キャッシュ無効化
+
+**Export 値:**
+- `nagiyu-deploy-policy-application-arn`: ポリシーの ARN
+
+**デプロイコマンド:**
+```bash
+cd infra/shared/iam/policies
+
+aws cloudformation deploy \
+  --template-file deploy-policy-application.yaml \
+  --stack-name nagiyu-shared-deploy-policy-application \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+```
+
+#### 1.4. Integration Policy (`deploy-policy-integration.yaml`)
+
+**スタック名:** `nagiyu-shared-deploy-policy-integration`
+
+**概要:**
+システム統合・セキュリティ関連サービスの権限を定義。
+
+**主な権限:**
+- **KMS**: キー管理、暗号化/復号化操作
+- **Secrets Manager**: シークレット管理、ローテーション
+- **Systems Manager (Parameter Store)**: パラメータ管理
+- **SNS**: トピック管理、サブスクリプション
+- **SQS**: キュー管理、メッセージ操作
+- **EventBridge**: Event Bus、ルール、ターゲット管理
+- **Application Auto Scaling**: スケーリングターゲット、ポリシー管理
+
+**Export 値:**
+- `nagiyu-deploy-policy-integration-arn`: ポリシーの ARN
+
+**デプロイコマンド:**
+```bash
+cd infra/shared/iam/policies
+
+aws cloudformation deploy \
+  --template-file deploy-policy-integration.yaml \
+  --stack-name nagiyu-shared-deploy-policy-integration \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -72,7 +157,10 @@ CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
 **ユーザー名:** `nagiyu-github-actions`
 
 **アタッチされるポリシー:**
-- `nagiyu-deploy-policy` (ImportValue で参照)
+- `nagiyu-deploy-policy-core` (ImportValue で参照)
+- `nagiyu-deploy-policy-container` (ImportValue で参照)
+- `nagiyu-deploy-policy-application` (ImportValue で参照)
+- `nagiyu-deploy-policy-integration` (ImportValue で参照)
 
 **タグ:**
 - `Application: nagiyu`
@@ -110,7 +198,10 @@ aws cloudformation deploy \
 **ユーザー名:** `nagiyu-local-dev`
 
 **アタッチされるポリシー:**
-- `nagiyu-deploy-policy` (ImportValue で参照)
+- `nagiyu-deploy-policy-core` (ImportValue で参照)
+- `nagiyu-deploy-policy-container` (ImportValue で参照)
+- `nagiyu-deploy-policy-application` (ImportValue で参照)
+- `nagiyu-deploy-policy-integration` (ImportValue で参照)
 
 **タグ:**
 - `Application: nagiyu`
@@ -149,14 +240,63 @@ export AWS_PROFILE=nagiyu-local-dev
 
 IAM リソースは依存関係があるため、以下の順序でデプロイしてください。
 
-1. **デプロイポリシー** (`nagiyu-shared-deploy-policy`)
-    - ポリシーの ARN を Export する
+### ステップ1: デプロイポリシー（4つ）
 
-2. **GitHub Actions ユーザー** (`nagiyu-shared-github-actions-user`)
-    - デプロイポリシーの ARN を ImportValue で参照
+すべてのデプロイポリシーを先にデプロイします。順序は問いません。
 
-3. **ローカル開発ユーザー** (`nagiyu-shared-local-dev-user`)
-    - デプロイポリシーの ARN を ImportValue で参照
+```bash
+cd infra/shared/iam/policies
+
+# Core Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-core.yaml \
+  --stack-name nagiyu-shared-deploy-policy-core \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Container Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-container.yaml \
+  --stack-name nagiyu-shared-deploy-policy-container \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Application Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-application.yaml \
+  --stack-name nagiyu-shared-deploy-policy-application \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Integration Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-integration.yaml \
+  --stack-name nagiyu-shared-deploy-policy-integration \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+```
+
+### ステップ2: IAM ユーザー
+
+ポリシーのデプロイ完了後、IAM ユーザーをデプロイします。
+
+```bash
+cd infra/shared/iam/users
+
+# GitHub Actions ユーザー
+aws cloudformation deploy \
+  --template-file github-actions-user.yaml \
+  --stack-name nagiyu-shared-github-actions-user \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# ローカル開発ユーザー
+aws cloudformation deploy \
+  --template-file local-dev-user.yaml \
+  --stack-name nagiyu-shared-local-dev-user \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+```
 
 ---
 
@@ -213,15 +353,21 @@ aws iam delete-access-key \
 
 デプロイポリシーに権限を追加する場合:
 
-1. `infra/shared/iam/policies/deploy-policy.yaml` を編集
-2. デプロイ
+1. 該当するポリシーファイルを編集
+    - Core権限: `deploy-policy-core.yaml`
+    - Container権限: `deploy-policy-container.yaml`
+    - Application権限: `deploy-policy-application.yaml`
+    - Integration権限: `deploy-policy-integration.yaml`
+
+2. 該当するポリシーをデプロイ
 
 ```bash
 cd infra/shared/iam/policies
 
+# 例: Core Policy を更新
 aws cloudformation deploy \
-  --template-file deploy-policy.yaml \
-  --stack-name nagiyu-shared-deploy-policy \
+  --template-file deploy-policy-core.yaml \
+  --stack-name nagiyu-shared-deploy-policy-core \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -234,16 +380,37 @@ aws cloudformation deploy \
 
 ### ユーザー作成が失敗する
 
-**エラー:** `Export with name 'nagiyu-deploy-policy-arn' does not exist.`
+**エラー:** `Export with name 'nagiyu-deploy-policy-xxx-arn' does not exist.`
 
 **原因:** デプロイポリシーが先にデプロイされていない。
 
 **解決策:**
+4つのデプロイポリシーをすべてデプロイしてください。
+
 ```bash
 cd infra/shared/iam/policies
+
 aws cloudformation deploy \
-  --template-file deploy-policy.yaml \
-  --stack-name nagiyu-shared-deploy-policy \
+  --template-file deploy-policy-core.yaml \
+  --stack-name nagiyu-shared-deploy-policy-core \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+aws cloudformation deploy \
+  --template-file deploy-policy-container.yaml \
+  --stack-name nagiyu-shared-deploy-policy-container \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+aws cloudformation deploy \
+  --template-file deploy-policy-application.yaml \
+  --stack-name nagiyu-shared-deploy-policy-application \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+aws cloudformation deploy \
+  --template-file deploy-policy-integration.yaml \
+  --stack-name nagiyu-shared-deploy-policy-integration \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -255,9 +422,18 @@ aws cloudformation deploy \
 **原因:** デプロイポリシーに必要な権限が不足している。
 
 **解決策:**
-1. `deploy-policy.yaml` に必要な権限を追加
+1. 該当するポリシーファイルに必要な権限を追加
 2. ポリシーを再デプロイ
 3. 変更が反映されるまで数分待機
+
+### ポリシーサイズ制限エラー
+
+**エラー:** `Cannot exceed quota for PolicySize: 6144`
+
+**原因:** 単一ポリシーが 6144 文字を超えている。
+
+**解決策:**
+ポリシーは既に4つに分割されています。さらに権限が必要な場合は、新しいポリシーファイルを作成してください。
 
 ### アクセスキーが無効化されている
 
