@@ -1,0 +1,38 @@
+<mxfile host="65bd71144e">
+    <diagram name="Screen Transitions" id="screen-transitions">
+        <mxGraphModel dx="764" dy="482" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="top-page" value="トップページ&lt;br&gt;/&lt;br&gt;&lt;br&gt;・ファイルアップロード&lt;br&gt;・コーデック選択&lt;br&gt;・変換開始" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;align=center;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="100" width="200" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="job-detail-page" value="ジョブ詳細ページ&lt;br&gt;/jobs/:jobId&lt;br&gt;&lt;br&gt;・ステータス表示&lt;br&gt;・ダウンロード&lt;br&gt;(COMPLETED時)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;align=center;verticalAlign=middle;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="500" y="100" width="200" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow-upload" value="変換開始&lt;br&gt;(自動遷移)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.25;entryDx=0;entryDy=0;strokeWidth=2;fontSize=11;fontColor=#000000;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" parent="1" source="top-page" target="job-detail-page" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="arrow-back" value="トップページに戻る&lt;br&gt;(ユーザー操作)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;strokeWidth=2;dashed=1;fontSize=11;fontColor=#000000;" parent="1" source="job-detail-page" target="top-page" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="410" y="190"/>
+                            <mxPoint x="410" y="190"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="arrow-direct" value="URL直接アクセス&lt;br&gt;(ローカルストレージから復元)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;dashed=1;fontSize=11;fontColor=#000000;" parent="1" target="job-detail-page" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="600" y="20" as="sourcePoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="note" value="Note:&lt;br&gt;・実線: 自動遷移&lt;br&gt;・破線: ユーザー操作による遷移" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;align=left;verticalAlign=top;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="260" width="250" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="2" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="90" y="10" width="620" height="340" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
