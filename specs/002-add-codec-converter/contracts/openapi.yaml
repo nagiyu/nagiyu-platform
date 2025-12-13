@@ -1,0 +1,123 @@
+openapi: 3.0.3
+info:
+  title: Codec Converter API
+  version: 1.0.0
+  description: >-
+    Codec Converter の最小限の API 契約。日本語の説明は補足に記載。
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: codec-converter.example.com
+paths:
+  /api/jobs:
+    post:
+      summary: 新規ジョブ作成とアップロード用 Presigned URL 取得
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fileName:
+                  type: string
+                fileSize:
+                  type: integer
+                contentType:
+                  type: string
+                outputCodec:
+                  type: string
+                  enum: [h264, vp9, av1]
+              required: [fileName, fileSize, contentType, outputCodec]
+      responses:
+        '201':
+          description: ジョブ作成成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  uploadUrl:
+                    type: string
+                  uploadFields:
+                    type: object
+        '400':
+          description: バリデーションエラー
+  /api/jobs/{jobId}/submit:
+    post:
+      summary: Batch ジョブを投入する（アップロード完了後に呼ぶ）
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: ジョブ投入成功（Batch にて処理開始予定）
+        '404':
+          description: jobId が見つからない
+  /api/jobs/{jobId}:
+    get:
+      summary: ジョブステータス取得
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: ジョブ情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+                  inputFile:
+                    type: string
+                  outputFile:
+                    type: string
+                  outputCodec:
+                    type: string
+                  createdAt:
+                    type: integer
+                  updatedAt:
+                    type: integer
+                  errorMessage:
+                    type: string
+        '404':
+          description: jobId が見つからない
+  /api/jobs/{jobId}/download:
+    get:
+      summary: ダウンロード用 Presigned URL を生成して返す
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Presigned URL を返す
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  expiresIn:
+                    type: integer
+        '404':
+          description: jobId が見つからないまたは出力ファイル未生成
+components:
+  schemas: {}
