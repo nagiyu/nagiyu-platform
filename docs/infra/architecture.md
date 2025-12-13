@@ -20,6 +20,31 @@
 - **バージョン管理**: インフラ定義を Git で管理し、変更履歴を追跡
 - **再現性**: 環境の再構築が容易で、開発・本番環境の一貫性を保証
 
+### Web アプリケーション配信戦略
+
+本プラットフォームでは、以下の構成で Web アプリケーションを配信します。
+
+- **外部ドメイン管理**: ドメインは外部レンタルサーバーで取得・管理
+- **外部 DNS サービス**: Route 53 は使用せず、外部 DNS サービスでドメイン解決
+- **CloudFront**: カスタムドメインを設定し、AWS リソースを全世界に配信
+- **SSL/TLS**: ACM (AWS Certificate Manager) でワイルドカード証明書を管理
+
+#### 配信フロー
+
+```
+ユーザー
+  ↓ (HTTPS: https://example.com)
+外部 DNS サービス
+  ↓ (CNAME: example.com → d123456.cloudfront.net)
+CloudFront Distribution
+  ↓ (オリジン)
+AWS リソース
+  ├── S3 (静的コンテンツ)
+  ├── API Gateway (REST API)
+  ├── ALB → ECS (Web アプリ)
+  └── Lambda Function URL (サーバーレス関数)
+```
+
 ---
 
 ## ディレクトリ構造
@@ -29,16 +54,22 @@ infra/
 ├── shared/              # 全サービスで共有するリソース
 │   ├── iam/            # IAM ユーザー、ポリシー
 │   │   ├── policies/
-│   │   │   └── deploy-policy.yaml
+│   │   │   ├── deploy-policy-core.yaml
+│   │   │   ├── deploy-policy-container.yaml
+│   │   │   ├── deploy-policy-application.yaml
+│   │   │   └── deploy-policy-integration.yaml
 │   │   └── users/
 │   │       ├── github-actions-user.yaml
 │   │       └── local-dev-user.yaml
-│   └── vpc/            # VPC 関連
+│   ├── vpc/            # VPC 関連
+│   └── acm/            # ACM 証明書
+│       └── certificate.yaml
 │
 └── app-A/              # アプリケーション固有のリソース（将来）
     ├── lambda/         # Lambda 関数
     ├── dynamodb/       # DynamoDB テーブル
-    └── api-gateway/    # API Gateway
+    ├── api-gateway/    # API Gateway
+    └── cloudfront/     # CloudFront ディストリビューション
 ```
 
 ---
@@ -72,15 +103,27 @@ infra/
 
 詳細は [VPC 詳細ドキュメント](./shared/vpc.md) を参照。
 
+#### ACM (AWS Certificate Manager)
+
+- **ワイルドカード証明書**: `*.example.com` と `example.com` をカバー
+- **DNS 検証**: 外部 DNS サービスで CNAME レコードを手動設定
+- **共通証明書**: dev/prod 環境で同じ証明書を使用
+- **リージョン**: us-east-1 (CloudFront 用)
+
+詳細は [ACM 詳細ドキュメント](./shared/acm.md) を参照。
+
 ### アプリケーション固有インフラ (app-X/)
 
 各アプリケーション専用のリソース（将来実装予定）。
 
-- Lambda 関数
-- DynamoDB テーブル
-- API Gateway
-- S3 バケット
-- CloudFront ディストリビューション
+- **Lambda 関数**: サーバーレスアプリケーションロジック
+- **DynamoDB テーブル**: NoSQL データベース
+- **API Gateway**: REST API / HTTP API エンドポイント
+- **S3 バケット**: 静的コンテンツ (HTML, CSS, JS, 画像)
+- **CloudFront ディストリビューション**: カスタムドメインでの配信
+  - オリジン: S3, API Gateway, ALB, Lambda Function URL
+  - ACM 証明書を使用した HTTPS 配信
+  - 外部 DNS サービスから CNAME で参照
 
 ---
 
@@ -100,10 +143,12 @@ infra/shared/iam/users/local-dev-user.yaml
 ### 2. 共通インフラのデプロイ（初回のみ）
 
 ```
-infra/shared/vpc/
+infra/shared/vpc/      # VPC (環境ごと: dev/prod)
+infra/shared/acm/      # ACM 証明書 (共通)
 ```
 
-VPC は環境ごとにデプロイ (dev/prod)
+- VPC は環境ごとにデプロイ (dev/prod)
+- ACM 証明書は共通（ワイルドカードで dev/prod をカバー）
 
 ### 3. アプリケーション固有リソースのデプロイ
 
@@ -124,11 +169,17 @@ nagiyu-{category}-{resource}
 ```
 
 **例:**
-- `nagiyu-shared-deploy-policy` - 共通デプロイポリシー
+- `nagiyu-shared-deploy-policy-core` - 共通デプロイポリシー (Core)
+- `nagiyu-shared-deploy-policy-container` - 共通デプロイポリシー (Container)
+- `nagiyu-shared-deploy-policy-application` - 共通デプロイポリシー (Application)
+- `nagiyu-shared-deploy-policy-integration` - 共通デプロイポリシー (Integration)
 - `nagiyu-shared-github-actions-user` - GitHub Actions ユーザー
 - `nagiyu-shared-local-dev-user` - ローカル開発ユーザー
+- `nagiyu-shared-acm-certificate` - ACM 証明書
 - `nagiyu-dev-vpc` - dev 環境 VPC
 - `nagiyu-prod-vpc` - prod 環境 VPC
+- `nagiyu-dev-cloudfront-app-A` - app-A の CloudFront (dev 環境、将来)
+- `nagiyu-prod-cloudfront-app-A` - app-A の CloudFront (prod 環境、将来)
 - `nagiyu-app-A-lambda` - app-A の Lambda リソース（将来）
 
 ---
@@ -161,3 +212,5 @@ nagiyu-{category}-{resource}
 - [デプロイ手順](./deploy.md) - 日常的なデプロイ操作
 - [IAM 詳細](./shared/iam.md) - IAM リソースの詳細設計
 - [VPC 詳細](./shared/vpc.md) - VPC リソースの詳細設計
+- [ACM 詳細](./shared/acm.md) - SSL/TLS 証明書の管理
+- [CloudFront 詳細](./shared/cloudfront.md) - CloudFront の設計と運用

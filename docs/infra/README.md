@@ -18,9 +18,11 @@ AWS CloudFormation を用いて、共通基盤と各アプリケーション固�
 
 ### リソース別ドキュメント
 
-- [共通インフラ](./shared/README.md) - VPC、IAM など全サービスで共有するリソース
+- [共通インフラ](./shared/README.md) - VPC、IAM、ACM など全サービスで共有するリソース
     - [IAM](./shared/iam.md) - IAM ユーザー、ポリシーの設計と運用
     - [VPC](./shared/vpc.md) - VPC、ネットワーク設計と運用
+    - [ACM](./shared/acm.md) - SSL/TLS 証明書の管理
+    - [CloudFront](./shared/cloudfront.md) - CloudFront の設計と運用
 
 ---
 
@@ -30,9 +32,14 @@ AWS CloudFormation を用いて、共通基盤と各アプリケーション固�
 infra/
 ├── shared/           # 全サービスで共有するリソース
 │   ├── iam/         # IAM ユーザー、ポリシー
-│   └── vpc/         # VPC 関連
+│   ├── vpc/         # VPC 関連
+│   └── acm/         # ACM 証明書
 │
 └── app-A/           # アプリケーション固有のリソース（将来）
+    ├── lambda/      # Lambda 関数
+    ├── dynamodb/    # DynamoDB テーブル
+    ├── api-gateway/ # API Gateway
+    └── cloudfront/  # CloudFront ディストリビューション
 ```
 
 ---

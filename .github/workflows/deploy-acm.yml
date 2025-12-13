@@ -1,0 +1,66 @@
+name: Deploy ACM Certificate
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'infra/shared/acm/**'
+      - '.github/workflows/deploy-acm.yml'
+
+jobs:
+  deploy-acm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy ACM Certificate CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/shared/acm/certificate.yaml \
+            --stack-name nagiyu-shared-acm-certificate \
+            --parameter-overrides DomainName=${{ secrets.DOMAIN_NAME }} \
+            --region us-east-1 \
+            --no-fail-on-empty-changeset
+
+      - name: Get certificate ARN
+        id: cert
+        run: |
+          CERT_ARN=$(aws cloudformation describe-stacks \
+            --stack-name nagiyu-shared-acm-certificate \
+            --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
+            --output text \
+            --region us-east-1)
+          echo "certificate_arn=$CERT_ARN" >> $GITHUB_OUTPUT
+
+      - name: Get DNS validation records
+        run: |
+          echo "=== DNS Validation Records ==="
+          echo "Please add the following CNAME records to your external DNS service:"
+          echo ""
+          aws acm describe-certificate \
+            --certificate-arn ${{ steps.cert.outputs.certificate_arn }} \
+            --query "Certificate.DomainValidationOptions[*].[DomainName,ResourceRecord.Name,ResourceRecord.Value]" \
+            --output table \
+            --region us-east-1
+
+      - name: Display stack outputs
+        run: |
+          echo ""
+          echo "=== ACM Stack Outputs ==="
+          aws cloudformation describe-stacks \
+            --stack-name nagiyu-shared-acm-certificate \
+            --query "Stacks[0].Outputs" \
+            --region us-east-1 \
+            --output table

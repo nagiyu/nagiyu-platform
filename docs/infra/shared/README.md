@@ -51,6 +51,38 @@
 - ECS/Batch 用のネットワーク提供
 - インターネットへのアクセス制御
 
+### ACM (AWS Certificate Manager)
+
+SSL/TLS 証明書管理。
+
+- [ACM 詳細ドキュメント](./acm.md)
+
+**配置場所:** `infra/shared/acm/`
+
+**主なリソース:**
+- ワイルドカード証明書 (`*.example.com` と `example.com`)
+
+**用途:**
+- CloudFront でのカスタムドメイン HTTPS 配信
+- dev/prod 環境共通で使用
+
+### CloudFront
+
+Web アプリケーション配信 (CDN)。
+
+- [CloudFront 詳細ドキュメント](./cloudfront.md)
+
+**配置場所:** アプリケーションごとに `infra/app-X/cloudfront/` (将来)
+
+**主なリソース:**
+- Distribution (環境ごと: dev/prod)
+- オリジン設定 (S3, API Gateway, ALB, Lambda)
+
+**用途:**
+- カスタムドメインでの Web アプリ配信
+- 静的コンテンツと API の統合配信
+- 外部 DNS サービスとの連携
+
 ---
 
 ## デプロイ順序
@@ -58,14 +90,18 @@
 共通インフラは以下の順序でデプロイしてください。
 
 1. **IAM リソース**
-    - デプロイポリシー
+    - デプロイポリシー (4つ: core, container, application, integration)
     - IAM ユーザー (GitHub Actions, ローカル開発)
 
 2. **VPC リソース**
     - VPC およびサブネット
     - Internet Gateway
 
-3. **その他の共通リソース（将来）**
+3. **ACM リソース**
+    - SSL/TLS 証明書
+    - DNS 検証レコードの設定（外部 DNS サービスで手動）
+
+4. **その他の共通リソース（将来）**
     - CloudWatch Logs グループ
     - Parameter Store / Secrets Manager
     - ECR リポジトリ (共通)
@@ -81,8 +117,12 @@ nagiyu-shared-{resource-type}
 ```
 
 **例:**
-- `nagiyu-shared-deploy-policy`
+- `nagiyu-shared-deploy-policy-core`
+- `nagiyu-shared-deploy-policy-container`
+- `nagiyu-shared-deploy-policy-application`
+- `nagiyu-shared-deploy-policy-integration`
 - `nagiyu-shared-github-actions-user`
+- `nagiyu-shared-acm-certificate`
 
 **注意:** VPC スタックは環境ごとに分かれるため、以下の命名規則を使用します。
 
@@ -104,7 +144,10 @@ nagiyu-{env}-vpc
 
 | Export 名 | 説明 | 提供元スタック |
 |----------|------|-------------|
-| `nagiyu-deploy-policy-arn` | デプロイポリシーの ARN | `nagiyu-shared-deploy-policy` |
+| `nagiyu-deploy-policy-core-arn` | デプロイポリシー (Core) の ARN | `nagiyu-shared-deploy-policy-core` |
+| `nagiyu-deploy-policy-container-arn` | デプロイポリシー (Container) の ARN | `nagiyu-shared-deploy-policy-container` |
+| `nagiyu-deploy-policy-application-arn` | デプロイポリシー (Application) の ARN | `nagiyu-shared-deploy-policy-application` |
+| `nagiyu-deploy-policy-integration-arn` | デプロイポリシー (Integration) の ARN | `nagiyu-shared-deploy-policy-integration` |
 
 ### VPC リソースからの Export
 
@@ -118,6 +161,12 @@ nagiyu-{env}-vpc
 - `nagiyu-dev-vpc-id`
 - `nagiyu-dev-public-subnet-ids`
 - `nagiyu-dev-igw-id`
+
+### ACM リソースからの Export
+
+| Export 名 | 説明 | 提供元スタック |
+|----------|------|-------------|
+| `nagiyu-shared-acm-certificate-arn` | SSL/TLS 証明書の ARN | `nagiyu-shared-acm-certificate` |
 
 ### 将来提供予定の Export (例)
 
@@ -155,3 +204,6 @@ Export 値を参照しているスタックが存在する場合、削除は失�
 - [初回セットアップ](../setup.md) - 共通インフラの初期構築手順
 - [デプロイ手順](../deploy.md) - 日常的なデプロイ操作
 - [IAM 詳細](./iam.md) - IAM リソースの設計と運用
+- [VPC 詳細](./vpc.md) - VPC リソースの設計と運用
+- [ACM 詳細](./acm.md) - SSL/TLS 証明書の管理
+- [CloudFront 詳細](./cloudfront.md) - CloudFront の設計と運用
