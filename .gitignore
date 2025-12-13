@@ -95,9 +95,6 @@ jspm_packages/
 # Optional REPL history
 .node_repl_history
 
-# Output of 'npm pack'
-*.tgz
-
 # Yarn Integrity file
 .yarn-integrity
 
@@ -105,13 +102,8 @@ jspm_packages/
 .cache
 .parcel-cache
 
-# Next.js build output
-.next
-out
-
 # Nuxt.js build / generate output
 .nuxt
-dist
 
 # Serverless directories
 .serverless/
@@ -130,8 +122,3 @@ dist
 
 # Turbo
 .turbo
-
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
