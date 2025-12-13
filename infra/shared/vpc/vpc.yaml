@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  VPC resources for nagiyu platform (dev/prod environments).
+  Provides network foundation for ECS and AWS Batch workloads.
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Conditions:
+  IsDevEnvironment: !Equals [!Ref Environment, dev]
+  IsProdEnvironment: !Equals [!Ref Environment, prod]
+
+Resources:
+  # VPC
+  NagiyuVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !If
+        - IsDevEnvironment
+        - 10.0.0.0/24
+        - 10.1.0.0/24
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'nagiyu-${Environment}-vpc'
+        - Key: Application
+          Value: nagiyu
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Internet Gateway
+  NagiyuInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub 'nagiyu-${Environment}-igw'
+        - Key: Application
+          Value: nagiyu
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Attach Internet Gateway to VPC
+  NagiyuVPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref NagiyuVPC
+      InternetGatewayId: !Ref NagiyuInternetGateway
+
+  # Public Subnet 1a (exists in both dev and prod)
+  NagiyuPublicSubnet1a:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref NagiyuVPC
+      CidrBlock: !If
+        - IsDevEnvironment
+        - 10.0.0.0/24
+        - 10.1.0.0/25
+      AvailabilityZone: !Sub '${AWS::Region}a'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'nagiyu-${Environment}-public-subnet-1a'
+        - Key: Application
+          Value: nagiyu
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Type
+          Value: Public
+
+  # Public Subnet 1b (prod only)
+  NagiyuPublicSubnet1b:
+    Type: AWS::EC2::Subnet
+    Condition: IsProdEnvironment
+    Properties:
+      VpcId: !Ref NagiyuVPC
+      CidrBlock: 10.1.128.0/25
+      AvailabilityZone: !Sub '${AWS::Region}b'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'nagiyu-${Environment}-public-subnet-1b'
+        - Key: Application
+          Value: nagiyu
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Type
+          Value: Public
+
+  # Route Table for Public Subnets
+  NagiyuPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref NagiyuVPC
+      Tags:
+        - Key: Name
+          Value: !Sub 'nagiyu-${Environment}-public-rt'
+        - Key: Application
+          Value: nagiyu
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Default Route to Internet Gateway
+  NagiyuPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: NagiyuVPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref NagiyuPublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref NagiyuInternetGateway
+
+  # Associate Route Table with Public Subnet 1a
+  NagiyuPublicSubnet1aRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref NagiyuPublicSubnet1a
+      RouteTableId: !Ref NagiyuPublicRouteTable
+
+  # Associate Route Table with Public Subnet 1b (prod only)
+  NagiyuPublicSubnet1bRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: IsProdEnvironment
+    Properties:
+      SubnetId: !Ref NagiyuPublicSubnet1b
+      RouteTableId: !Ref NagiyuPublicRouteTable
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref NagiyuVPC
+    Export:
+      Name: !Sub 'nagiyu-${Environment}-vpc-id'
+
+  PublicSubnetIds:
+    Description: Public subnet IDs (comma-separated)
+    Value: !If
+      - IsProdEnvironment
+      - !Sub '${NagiyuPublicSubnet1a},${NagiyuPublicSubnet1b}'
+      - !Ref NagiyuPublicSubnet1a
+    Export:
+      Name: !Sub 'nagiyu-${Environment}-public-subnet-ids'
+
+  InternetGatewayId:
+    Description: Internet Gateway ID
+    Value: !Ref NagiyuInternetGateway
+    Export:
+      Name: !Sub 'nagiyu-${Environment}-igw-id'
+
+  VpcCidr:
+    Description: VPC CIDR block
+    Value: !GetAtt NagiyuVPC.CidrBlock
+    Export:
+      Name: !Sub 'nagiyu-${Environment}-vpc-cidr'

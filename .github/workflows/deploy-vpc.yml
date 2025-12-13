@@ -1,0 +1,53 @@
+name: Deploy VPC Infrastructure
+
+on:
+  push:
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    paths:
+      - 'infra/shared/vpc/**'
+      - '.github/workflows/deploy-vpc.yml'
+
+jobs:
+  deploy-vpc:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine environment from branch
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Deploy VPC CloudFormation stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/shared/vpc/vpc.yaml \
+            --stack-name nagiyu-${{ steps.env.outputs.environment }}-vpc \
+            --parameter-overrides Environment=${{ steps.env.outputs.environment }} \
+            --region us-east-1 \
+            --no-fail-on-empty-changeset
+
+      - name: Display stack outputs
+        run: |
+          echo "=== VPC Stack Outputs ==="
+          aws cloudformation describe-stacks \
+            --stack-name nagiyu-${{ steps.env.outputs.environment }}-vpc \
+            --query "Stacks[0].Outputs" \
+            --region us-east-1 \
+            --output table
