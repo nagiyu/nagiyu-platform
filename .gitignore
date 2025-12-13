@@ -20,7 +20,7 @@ out/
 # Next.js
 .next/
 next-env.d.ts
-.vercel
+.vercel/
 
 # Testing
 coverage/
@@ -101,9 +101,6 @@ jspm_packages/
 # parcel-bundler cache
 .cache
 .parcel-cache
-
-# Nuxt.js build / generate output
-.nuxt
 
 # Serverless directories
 .serverless/
