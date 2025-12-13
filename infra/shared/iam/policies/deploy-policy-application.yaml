@@ -109,8 +109,22 @@ Resources:
             Resource: '*'
 
           # ==========================================
-          # CDN & API - CloudFront, API Gateway
+          # CDN & API - CloudFront, API Gateway, ACM
           # ==========================================
+          - Sid: ACMOperations
+            Effect: Allow
+            Action:
+              # Certificate management
+              - acm:RequestCertificate
+              - acm:DeleteCertificate
+              - acm:DescribeCertificate
+              - acm:ListCertificates
+              # Tags
+              - acm:AddTagsToCertificate
+              - acm:RemoveTagsFromCertificate
+              - acm:ListTagsForCertificate
+            Resource: '*'
+
           - Sid: CloudFrontOperations
             Effect: Allow
             Action:
