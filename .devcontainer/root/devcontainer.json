@@ -27,7 +27,8 @@
 				"humao.rest-client", // REST Client
 				"GitHub.copilot-chat", // GitHub Copilot Chat
 				"saoudrizwan.claude-dev", // Cline
-				"Anthropic.claude-code" // Claude Code for VS Code
+				"Anthropic.claude-code", // Claude Code for VS Code
+				"hediet.vscode-drawio" // Draw.io Integration
 			]
 		}
 	}
