@@ -8,7 +8,10 @@ Resources:
     Properties:
       UserName: nagiyu-github-actions
       ManagedPolicyArns:
-        - !ImportValue nagiyu-deploy-policy-arn
+        - !ImportValue nagiyu-deploy-policy-core-arn
+        - !ImportValue nagiyu-deploy-policy-container-arn
+        - !ImportValue nagiyu-deploy-policy-application-arn
+        - !ImportValue nagiyu-deploy-policy-integration-arn
       Tags:
         - Key: Application
           Value: nagiyu

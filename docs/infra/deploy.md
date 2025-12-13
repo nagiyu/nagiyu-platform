@@ -45,9 +45,31 @@ aws cloudformation deploy \
 ```bash
 cd infra/shared/iam/policies
 
+# Core Policy
 aws cloudformation deploy \
-  --template-file deploy-policy.yaml \
-  --stack-name nagiyu-shared-deploy-policy \
+  --template-file deploy-policy-core.yaml \
+  --stack-name nagiyu-shared-deploy-policy-core \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Container Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-container.yaml \
+  --stack-name nagiyu-shared-deploy-policy-container \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Application Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-application.yaml \
+  --stack-name nagiyu-shared-deploy-policy-application \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region us-east-1
+
+# Integration Policy
+aws cloudformation deploy \
+  --template-file deploy-policy-integration.yaml \
+  --stack-name nagiyu-shared-deploy-policy-integration \
   --capabilities CAPABILITY_NAMED_IAM \
   --region us-east-1
 ```
@@ -190,12 +212,15 @@ aws cloudformation wait stack-delete-complete \
 ### 1. 共通 IAM リソース
 
 ```
-1. nagiyu-shared-deploy-policy
-2. nagiyu-shared-github-actions-user
-3. nagiyu-shared-local-dev-user
+1. nagiyu-shared-deploy-policy-core
+2. nagiyu-shared-deploy-policy-container
+3. nagiyu-shared-deploy-policy-application
+4. nagiyu-shared-deploy-policy-integration
+5. nagiyu-shared-github-actions-user
+6. nagiyu-shared-local-dev-user
 ```
 
-**依存関係:** deploy-policy → github-actions-user, local-dev-user
+**依存関係:** 4つのdeploy-policy → github-actions-user, local-dev-user
 
 ### 2. 共通インフラ（将来）
 

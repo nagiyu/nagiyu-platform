@@ -1,0 +1,176 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Application deployment policy for nagiyu.
+  Includes: Lambda, S3, DynamoDB, API Gateway, CloudFront.
+
+Resources:
+  NagiyuDeployPolicyApplication:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: nagiyu-deploy-policy-application
+      Description: nagiyu アプリケーションデプロイ権限（Lambda, S3, DynamoDB, API Gateway, CloudFront）
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # ==========================================
+          # Storage - S3, DynamoDB
+          # ==========================================
+          - Sid: S3Operations
+            Effect: Allow
+            Action:
+              # Bucket management
+              - s3:CreateBucket
+              - s3:DeleteBucket
+              - s3:ListAllMyBuckets
+              - s3:GetBucketLocation
+              # Bucket configuration
+              - s3:PutBucketPolicy
+              - s3:GetBucketPolicy
+              - s3:DeleteBucketPolicy
+              - s3:PutBucketTagging
+              - s3:GetBucketTagging
+              - s3:PutBucketVersioning
+              - s3:GetBucketVersioning
+              - s3:PutEncryptionConfiguration
+              - s3:GetEncryptionConfiguration
+              - s3:PutLifecycleConfiguration
+              - s3:GetLifecycleConfiguration
+              - s3:PutBucketCORS
+              - s3:GetBucketCORS
+              - s3:PutBucketPublicAccessBlock
+              - s3:GetBucketPublicAccessBlock
+              # Object operations
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:ListBucket
+              # Multipart upload
+              - s3:ListBucketMultipartUploads
+              - s3:AbortMultipartUpload
+            Resource: '*'
+
+          - Sid: DynamoDBOperations
+            Effect: Allow
+            Action:
+              # Table management
+              - dynamodb:CreateTable
+              - dynamodb:DeleteTable
+              - dynamodb:UpdateTable
+              - dynamodb:DescribeTable
+              - dynamodb:ListTables
+              # TTL
+              - dynamodb:UpdateTimeToLive
+              - dynamodb:DescribeTimeToLive
+              # Backup
+              - dynamodb:UpdateContinuousBackups
+              - dynamodb:DescribeContinuousBackups
+              # Tags
+              - dynamodb:TagResource
+              - dynamodb:UntagResource
+              - dynamodb:ListTagsOfResource
+            Resource: '*'
+
+          # ==========================================
+          # Compute - Lambda
+          # ==========================================
+          - Sid: LambdaOperations
+            Effect: Allow
+            Action:
+              # Function management
+              - lambda:CreateFunction
+              - lambda:DeleteFunction
+              - lambda:GetFunction
+              - lambda:GetFunctionConfiguration
+              - lambda:UpdateFunctionCode
+              - lambda:UpdateFunctionConfiguration
+              - lambda:ListFunctions
+              # Versioning
+              - lambda:PublishVersion
+              - lambda:ListVersionsByFunction
+              # Aliases
+              - lambda:CreateAlias
+              - lambda:UpdateAlias
+              - lambda:DeleteAlias
+              - lambda:GetAlias
+              - lambda:ListAliases
+              # Permissions
+              - lambda:AddPermission
+              - lambda:RemovePermission
+              - lambda:GetPolicy
+              # Function URL
+              - lambda:CreateFunctionUrlConfig
+              - lambda:UpdateFunctionUrlConfig
+              - lambda:DeleteFunctionUrlConfig
+              - lambda:GetFunctionUrlConfig
+              # Tags
+              - lambda:TagResource
+              - lambda:UntagResource
+              - lambda:ListTags
+            Resource: '*'
+
+          # ==========================================
+          # CDN & API - CloudFront, API Gateway
+          # ==========================================
+          - Sid: CloudFrontOperations
+            Effect: Allow
+            Action:
+              # Distribution management
+              - cloudfront:CreateDistribution
+              - cloudfront:UpdateDistribution
+              - cloudfront:DeleteDistribution
+              - cloudfront:GetDistribution
+              - cloudfront:GetDistributionConfig
+              - cloudfront:ListDistributions
+              # Invalidation
+              - cloudfront:CreateInvalidation
+              - cloudfront:GetInvalidation
+              - cloudfront:ListInvalidations
+              # Tags
+              - cloudfront:TagResource
+              - cloudfront:UntagResource
+              - cloudfront:ListTagsForResource
+            Resource: '*'
+
+          - Sid: APIGatewayOperations
+            Effect: Allow
+            Action:
+              # API management (HTTP API / WebSocket API)
+              - apigatewayv2:CreateApi
+              - apigatewayv2:UpdateApi
+              - apigatewayv2:DeleteApi
+              - apigatewayv2:GetApi
+              - apigatewayv2:GetApis
+              # Route
+              - apigatewayv2:CreateRoute
+              - apigatewayv2:UpdateRoute
+              - apigatewayv2:DeleteRoute
+              - apigatewayv2:GetRoute
+              - apigatewayv2:GetRoutes
+              # Integration
+              - apigatewayv2:CreateIntegration
+              - apigatewayv2:UpdateIntegration
+              - apigatewayv2:DeleteIntegration
+              - apigatewayv2:GetIntegration
+              - apigatewayv2:GetIntegrations
+              # Stage
+              - apigatewayv2:CreateStage
+              - apigatewayv2:UpdateStage
+              - apigatewayv2:DeleteStage
+              - apigatewayv2:GetStage
+              - apigatewayv2:GetStages
+              # Deployment
+              - apigatewayv2:CreateDeployment
+              - apigatewayv2:GetDeployment
+              - apigatewayv2:GetDeployments
+              # Tags
+              - apigatewayv2:TagResource
+              - apigatewayv2:UntagResource
+              - apigatewayv2:GetTags
+            Resource: '*'
+
+Outputs:
+  NagiyuDeployPolicyApplicationArn:
+    Description: Application deploy policy ARN for nagiyu
+    Value: !Ref NagiyuDeployPolicyApplication
+    Export:
+      Name: nagiyu-deploy-policy-application-arn
