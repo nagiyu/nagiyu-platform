@@ -2,10 +2,10 @@ name: Deploy VPC Infrastructure
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
+    branches:
+      - develop
+      - integration/**
+      - master
     paths:
       - 'infra/shared/vpc/**'
       - '.github/workflows/deploy-vpc.yml'
