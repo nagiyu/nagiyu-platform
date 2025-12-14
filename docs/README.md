@@ -10,6 +10,10 @@
 
 - [ブランチ戦略](./branching.md)
 
+### サービス
+
+- [Tools アプリ](./services/tools/README.md) - ツール集
+
 ### インフラストラクチャ
 
 - [インフラドキュメント](./infra/README.md) - インフラ関連ドキュメントの目次
