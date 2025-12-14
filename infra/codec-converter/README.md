@@ -25,7 +25,6 @@
 ## パラメータ
 
 - `Environment`: 環境名 (dev または prod)、デフォルト: dev
-- `ProjectName`: プロジェクト名、デフォルト: codec-converter
 
 ## 出力 (Exports)
 
