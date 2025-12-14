@@ -18,6 +18,13 @@ echo "S3 Bucket: ${S3_BUCKET}"
 echo "DynamoDB Table: ${DYNAMODB_TABLE}"
 echo "AWS Region: ${AWS_REGION}"
 
+# Export environment variables for Python scripts
+export JOB_ID
+export OUTPUT_CODEC
+export S3_BUCKET
+export DYNAMODB_TABLE
+export AWS_REGION
+
 # Working directory
 WORKDIR="/tmp/job-${JOB_ID}"
 mkdir -p "${WORKDIR}"
@@ -28,6 +35,10 @@ INPUT_FILE="${WORKDIR}/input.mp4"
 OUTPUT_FILE=""
 S3_INPUT_KEY="uploads/${JOB_ID}/input.mp4"
 S3_OUTPUT_KEY=""
+
+# Export file paths for Python scripts
+export INPUT_FILE
+export S3_INPUT_KEY
 
 # Determine output file extension and S3 key based on codec
 case "${OUTPUT_CODEC}" in
@@ -45,6 +56,10 @@ case "${OUTPUT_CODEC}" in
     ;;
 esac
 
+# Export output file paths for Python scripts
+export OUTPUT_FILE
+export S3_OUTPUT_KEY
+
 echo "Input S3 Key: ${S3_INPUT_KEY}"
 echo "Output S3 Key: ${S3_OUTPUT_KEY}"
 
@@ -53,13 +68,21 @@ update_status() {
   local status="$1"
   local error_message="${2:-}"
   
-  python3 - <<EOF
+  # Export variables for Python to access via environment
+  export UPDATE_STATUS="$status"
+  export UPDATE_ERROR_MESSAGE="$error_message"
+  
+  python3 - <<'EOF'
 import boto3
 import sys
+import os
 from datetime import datetime
 
-dynamodb = boto3.resource('dynamodb', region_name='${AWS_REGION}')
-table = dynamodb.Table('${DYNAMODB_TABLE}')
+dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
+table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
+
+status = os.environ['UPDATE_STATUS']
+error_message = os.environ.get('UPDATE_ERROR_MESSAGE', '')
 
 update_expr = 'SET #status = :status, #updated = :updated'
 expr_attr_names = {
@@ -67,23 +90,23 @@ expr_attr_names = {
     '#updated': 'updatedAt'
 }
 expr_attr_values = {
-    ':status': '${status}',
+    ':status': status,
     ':updated': int(datetime.utcnow().timestamp())
 }
 
-if '${error_message}':
+if error_message:
     update_expr += ', #error = :error'
     expr_attr_names['#error'] = 'errorMessage'
-    expr_attr_values[':error'] = '''${error_message}'''
+    expr_attr_values[':error'] = error_message
 
 try:
     table.update_item(
-        Key={'jobId': '${JOB_ID}'},
+        Key={'jobId': os.environ['JOB_ID']},
         UpdateExpression=update_expr,
         ExpressionAttributeNames=expr_attr_names,
         ExpressionAttributeValues=expr_attr_values
     )
-    print(f"Updated status to ${status}")
+    print(f"Updated status to {status}")
 except Exception as e:
     print(f"ERROR: Failed to update DynamoDB: {e}", file=sys.stderr)
     sys.exit(1)
@@ -107,16 +130,17 @@ echo "=== Downloading input file from S3 ==="
 python3 - <<'EOF' || handle_error "Failed to download input file from S3"
 import boto3
 import sys
+import os
 
-s3 = boto3.client('s3', region_name='${AWS_REGION}')
+s3 = boto3.client('s3', region_name=os.environ['AWS_REGION'])
 
 try:
     s3.download_file(
-        Bucket='${S3_BUCKET}',
-        Key='${S3_INPUT_KEY}',
-        Filename='${INPUT_FILE}'
+        Bucket=os.environ['S3_BUCKET'],
+        Key=os.environ['S3_INPUT_KEY'],
+        Filename=os.environ['INPUT_FILE']
     )
-    print(f"Downloaded: ${S3_INPUT_KEY}")
+    print(f"Downloaded: {os.environ['S3_INPUT_KEY']}")
 except Exception as e:
     print(f"ERROR: Failed to download from S3: {e}", file=sys.stderr)
     sys.exit(1)
@@ -162,16 +186,17 @@ echo "=== Uploading output file to S3 ==="
 python3 - <<'EOF' || handle_error "Failed to upload output file to S3"
 import boto3
 import sys
+import os
 
-s3 = boto3.client('s3', region_name='${AWS_REGION}')
+s3 = boto3.client('s3', region_name=os.environ['AWS_REGION'])
 
 try:
     s3.upload_file(
-        Filename='${OUTPUT_FILE}',
-        Bucket='${S3_BUCKET}',
-        Key='${S3_OUTPUT_KEY}'
+        Filename=os.environ['OUTPUT_FILE'],
+        Bucket=os.environ['S3_BUCKET'],
+        Key=os.environ['S3_OUTPUT_KEY']
     )
-    print(f"Uploaded: ${S3_OUTPUT_KEY}")
+    print(f"Uploaded: {os.environ['S3_OUTPUT_KEY']}")
 except Exception as e:
     print(f"ERROR: Failed to upload to S3: {e}", file=sys.stderr)
     sys.exit(1)
@@ -181,16 +206,17 @@ echo "Output file uploaded successfully"
 
 # Update DynamoDB with output file path
 echo "=== Updating job status to COMPLETED ==="
-python3 - <<EOF || handle_error "Failed to update status to COMPLETED"
+python3 - <<'EOF' || handle_error "Failed to update status to COMPLETED"
 import boto3
+import os
 from datetime import datetime
 
-dynamodb = boto3.resource('dynamodb', region_name='${AWS_REGION}')
-table = dynamodb.Table('${DYNAMODB_TABLE}')
+dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
+table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
 
 try:
     table.update_item(
-        Key={'jobId': '${JOB_ID}'},
+        Key={'jobId': os.environ['JOB_ID']},
         UpdateExpression='SET #status = :status, #updated = :updated, #output = :output',
         ExpressionAttributeNames={
             '#status': 'status',
@@ -200,7 +226,7 @@ try:
         ExpressionAttributeValues={
             ':status': 'COMPLETED',
             ':updated': int(datetime.utcnow().timestamp()),
-            ':output': '${S3_OUTPUT_KEY}'
+            ':output': os.environ['S3_OUTPUT_KEY']
         }
     )
     print("Status updated to COMPLETED")

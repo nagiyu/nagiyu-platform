@@ -2,10 +2,8 @@
 # Multi-stage build for minimal image size
 FROM jrottenberg/ffmpeg:6.1-alpine
 
-# Install Python runtime and dependencies as root
+# Install Python runtime and dependencies
 # Note: Using fixed package versions where possible for reproducibility
-USER root
-
 # Install Python, bash, and other required runtime dependencies
 # We install everything in one RUN command to minimize layers
 RUN apk add --no-cache \
