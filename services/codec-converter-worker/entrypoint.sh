@@ -26,12 +26,15 @@ update_job_status() {
     echo "Updating job status to: ${status}"
     
     local update_expr="SET #status = :status, updatedAt = :updated"
-    local expr_values="{\":status\": {\"S\": \"${status}\"}, \":updated\": {\"N\": \"$(date +%s)\"}}"
-    local expr_names='{"#status": "status"}'
+    local expr_attr_values
     
     if [ -n "${error_message}" ]; then
         update_expr="${update_expr}, errorMessage = :error"
-        expr_values="${expr_values%\}}, \":error\": {\"S\": \"${error_message}\"}}"
+        # Escape double quotes in error message for JSON
+        local escaped_error="${error_message//\"/\\\"}"
+        expr_attr_values="{\":status\": {\"S\": \"${status}\"}, \":updated\": {\"N\": \"$(date +%s)\"}, \":error\": {\"S\": \"${escaped_error}\"}}"
+    else
+        expr_attr_values="{\":status\": {\"S\": \"${status}\"}, \":updated\": {\"N\": \"$(date +%s)\"}}"
     fi
     
     aws dynamodb update-item \
@@ -39,8 +42,8 @@ update_job_status() {
         --table-name "${DYNAMODB_TABLE}" \
         --key "{\"jobId\": {\"S\": \"${JOB_ID}\"}}" \
         --update-expression "${update_expr}" \
-        --expression-attribute-values "${expr_values}" \
-        --expression-attribute-names "${expr_names}" \
+        --expression-attribute-values "${expr_attr_values}" \
+        --expression-attribute-names '{"#status": "status"}' \
         || echo "Warning: Failed to update DynamoDB status"
 }
 
@@ -67,15 +70,15 @@ INPUT_LOCAL_PATH="/tmp/input.mp4"
 case "${OUTPUT_CODEC}" in
     h264)
         OUTPUT_EXT="mp4"
-        FFMPEG_PARAMS="-c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k"
+        FFMPEG_PARAMS=(-c:v libx264 -preset medium -crf 23 -c:a aac -b:a 128k)
         ;;
     vp9)
         OUTPUT_EXT="webm"
-        FFMPEG_PARAMS="-c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus -b:a 128k"
+        FFMPEG_PARAMS=(-c:v libvpx-vp9 -crf 30 -b:v 0 -c:a libopus -b:a 128k)
         ;;
     av1)
         OUTPUT_EXT="webm"
-        FFMPEG_PARAMS="-c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -c:a libopus -b:a 128k"
+        FFMPEG_PARAMS=(-c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -c:a libopus -b:a 128k)
         ;;
     *)
         handle_error "Unsupported output codec: ${OUTPUT_CODEC}"
@@ -87,7 +90,7 @@ OUTPUT_S3_PATH="s3://${S3_BUCKET}/outputs/${JOB_ID}/output.${OUTPUT_EXT}"
 
 echo "Input: ${INPUT_S3_PATH}"
 echo "Output: ${OUTPUT_S3_PATH}"
-echo "FFmpeg parameters: ${FFMPEG_PARAMS}"
+echo "FFmpeg parameters: ${FFMPEG_PARAMS[*]}"
 
 # Download input file from S3
 echo "Downloading input file from S3..."
@@ -102,8 +105,7 @@ echo "Input file downloaded successfully ($(du -h ${INPUT_LOCAL_PATH} | cut -f1)
 
 # Run FFmpeg conversion
 echo "Starting FFmpeg conversion..."
-# shellcheck disable=SC2086
-ffmpeg -i "${INPUT_LOCAL_PATH}" ${FFMPEG_PARAMS} "${OUTPUT_LOCAL_FILE}" -y 2>&1 | tee /tmp/ffmpeg.log || handle_error "FFmpeg conversion failed"
+ffmpeg -i "${INPUT_LOCAL_PATH}" "${FFMPEG_PARAMS[@]}" "${OUTPUT_LOCAL_FILE}" -y 2>&1 | tee /tmp/ffmpeg.log || handle_error "FFmpeg conversion failed"
 
 # Verify output file was created
 if [ ! -f "${OUTPUT_LOCAL_FILE}" ]; then

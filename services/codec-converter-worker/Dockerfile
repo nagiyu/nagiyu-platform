@@ -7,12 +7,17 @@ FROM jrottenberg/ffmpeg:6.1-alpine
 # - python3 and pip for AWS CLI (S3 and DynamoDB operations)
 # - ca-certificates for SSL/TLS connections to AWS
 # - bash for entrypoint script
+# - curl for downloading AWS CLI v2 (alternative: use pip with venv)
 RUN apk add --no-cache \
     python3 \
     py3-pip \
     ca-certificates \
     bash \
-    && pip3 install --no-cache-dir --break-system-packages awscli
+    && python3 -m venv /opt/awscli \
+    && /opt/awscli/bin/pip install --no-cache-dir awscli
+
+# Add AWS CLI to PATH
+ENV PATH="/opt/awscli/bin:${PATH}"
 
 # Verify FFmpeg installation and required codecs
 RUN ffmpeg -version && \
