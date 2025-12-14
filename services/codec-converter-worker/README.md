@@ -42,6 +42,10 @@ AWS Batch で実行される動画変換ワーカー。FFmpeg を使用して動
 - `JOB_ID`: ジョブ ID（UUID）
 - `OUTPUT_CODEC`: 出力コーデック（`h264`, `vp9`, `av1`）
 
+### オプション環境変数
+
+- `WORK_DIR`: 作業ディレクトリ（デフォルト: `/tmp/worker`）
+
 ## ディレクトリ構造
 
 ```

@@ -11,19 +11,27 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
 
-// 環境変数
-const JOB_ID = process.env.JOB_ID!;
-const OUTPUT_CODEC = process.env.OUTPUT_CODEC!;
-const S3_BUCKET = process.env.S3_BUCKET!;
-const DYNAMODB_TABLE = process.env.DYNAMODB_TABLE!;
-const AWS_REGION = process.env.AWS_REGION!;
+// 環境変数の検証
+function getRequiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Required environment variable ${name} is not set`);
+  }
+  return value;
+}
+
+const JOB_ID = getRequiredEnv('JOB_ID');
+const OUTPUT_CODEC = getRequiredEnv('OUTPUT_CODEC');
+const S3_BUCKET = getRequiredEnv('S3_BUCKET');
+const DYNAMODB_TABLE = getRequiredEnv('DYNAMODB_TABLE');
+const AWS_REGION = getRequiredEnv('AWS_REGION');
 
 // AWS クライアントの初期化
 const s3Client = new S3Client({ region: AWS_REGION });
 const dynamoClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: AWS_REGION }));
 
-// 作業ディレクトリ
-const WORK_DIR = '/tmp/worker';
+// 作業ディレクトリ（環境変数で変更可能）
+const WORK_DIR = process.env.WORK_DIR || '/tmp/worker';
 
 /**
  * DynamoDB のステータスを更新
