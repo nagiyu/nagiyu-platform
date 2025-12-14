@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM role for Batch job execution (task role) in Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  BatchJobRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'codec-converter-batch-job-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource:
+                  - Fn::Sub:
+                      - '${BucketArn}/*'
+                      - BucketArn: !ImportValue
+                          Fn::Sub: 'codec-converter-s3-bucket-arn-${Environment}'
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                Resource: !ImportValue
+                  Fn::Sub: 'codec-converter-dynamodb-table-arn-${Environment}'
+        - PolicyName: CloudWatchLogsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+      Tags:
+        - Key: Name
+          Value: !Sub 'codec-converter-batch-job-role-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  BatchJobRoleArn:
+    Description: ARN of the Batch job role
+    Value: !GetAtt BatchJobRole.Arn
+    Export:
+      Name: !Sub 'codec-converter-batch-job-role-arn-${Environment}'
+
+  BatchJobRoleName:
+    Description: Name of the Batch job role
+    Value: !Ref BatchJobRole
+    Export:
+      Name: !Sub 'codec-converter-batch-job-role-name-${Environment}'

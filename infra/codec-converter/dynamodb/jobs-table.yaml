@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DynamoDB jobs table for Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub 'codec-converter-jobs-${Environment}'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        Enabled: true
+        AttributeName: expiresAt
+      SSESpecification:
+        SSEEnabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub 'codec-converter-jobs-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  JobsTableName:
+    Description: Name of the DynamoDB jobs table
+    Value: !Ref JobsTable
+    Export:
+      Name: !Sub 'codec-converter-dynamodb-table-name-${Environment}'
+
+  JobsTableArn:
+    Description: ARN of the DynamoDB jobs table
+    Value: !GetAtt JobsTable.Arn
+    Export:
+      Name: !Sub 'codec-converter-dynamodb-table-arn-${Environment}'
+
+  JobsTableStreamArn:
+    Description: Stream ARN of the DynamoDB jobs table
+    Value: !GetAtt JobsTable.StreamArn
+    Export:
+      Name: !Sub 'codec-converter-dynamodb-table-stream-arn-${Environment}'

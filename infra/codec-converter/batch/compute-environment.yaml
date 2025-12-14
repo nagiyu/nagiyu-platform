@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Batch compute environment for Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  # TODO: Update Subnets and SecurityGroupIds with actual VPC resources
+  # This is a placeholder - detailed network configuration will be completed in separate tasks
+  BatchComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub 'codec-converter-compute-env-${Environment}'
+      Type: MANAGED
+      State: ENABLED
+      ComputeResources:
+        Type: FARGATE
+        MaxvCpus: 6
+        # Placeholder: Using public subnets temporarily
+        # TODO: Create private subnets in VPC template and update this reference
+        Subnets:
+          Fn::Split:
+            - ','
+            - Fn::ImportValue: !Sub 'nagiyu-${Environment}-public-subnet-ids'
+        # Placeholder: Empty security groups list
+        # TODO: Create a dedicated security group for Batch jobs
+        SecurityGroupIds: []
+      Tags:
+        Name: !Sub 'codec-converter-compute-env-${Environment}'
+        Environment: !Ref Environment
+
+Outputs:
+  BatchComputeEnvironmentArn:
+    Description: ARN of the Batch compute environment
+    Value: !Ref BatchComputeEnvironment
+    Export:
+      Name: !Sub 'codec-converter-batch-compute-env-arn-${Environment}'
+
+  BatchComputeEnvironmentName:
+    Description: Name of the Batch compute environment
+    Value: !Sub 'codec-converter-compute-env-${Environment}'
+    Export:
+      Name: !Sub 'codec-converter-batch-compute-env-name-${Environment}'

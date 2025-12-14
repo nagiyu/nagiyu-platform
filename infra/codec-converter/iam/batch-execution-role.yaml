@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM role for Batch execution (execution role for Fargate) in Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  BatchExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'codec-converter-batch-execution-role-${Environment}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Tags:
+        - Key: Name
+          Value: !Sub 'codec-converter-batch-execution-role-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  BatchExecutionRoleArn:
+    Description: ARN of the Batch execution role
+    Value: !GetAtt BatchExecutionRole.Arn
+    Export:
+      Name: !Sub 'codec-converter-batch-execution-role-arn-${Environment}'
+
+  BatchExecutionRoleName:
+    Description: Name of the Batch execution role
+    Value: !Ref BatchExecutionRole
+    Export:
+      Name: !Sub 'codec-converter-batch-execution-role-name-${Environment}'

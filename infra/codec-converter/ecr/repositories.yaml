@@ -1,0 +1,99 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ECR repositories for Codec Converter service (Next.js and FFmpeg containers)
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  # ECR repository for Next.js application container
+  NextJsEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'codec-converter-nextjs-${Environment}'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: !Sub 'codec-converter-nextjs-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # ECR repository for FFmpeg worker container
+  FfmpegEcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub 'codec-converter-ffmpeg-${Environment}'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Name
+          Value: !Sub 'codec-converter-ffmpeg-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  NextJsEcrRepositoryUri:
+    Description: URI of the Next.js ECR repository
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${NextJsEcrRepository}'
+    Export:
+      Name: !Sub 'codec-converter-nextjs-ecr-uri-${Environment}'
+
+  NextJsEcrRepositoryArn:
+    Description: ARN of the Next.js ECR repository
+    Value: !GetAtt NextJsEcrRepository.Arn
+    Export:
+      Name: !Sub 'codec-converter-nextjs-ecr-arn-${Environment}'
+
+  FfmpegEcrRepositoryUri:
+    Description: URI of the FFmpeg ECR repository
+    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FfmpegEcrRepository}'
+    Export:
+      Name: !Sub 'codec-converter-ffmpeg-ecr-uri-${Environment}'
+
+  FfmpegEcrRepositoryArn:
+    Description: ARN of the FFmpeg ECR repository
+    Value: !GetAtt FfmpegEcrRepository.Arn
+    Export:
+      Name: !Sub 'codec-converter-ffmpeg-ecr-arn-${Environment}'

@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Batch job definition for Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  BatchJobDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      JobDefinitionName: !Sub 'codec-converter-job-definition-${Environment}'
+      Type: container
+      PlatformCapabilities:
+        - FARGATE
+      Parameters: {}
+      Timeout:
+        AttemptDurationSeconds: 7200
+      RetryStrategy:
+        Attempts: 1
+      ContainerProperties:
+        Image:
+          Fn::Sub:
+            - '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${RepositoryName}:latest'
+            - RepositoryName: !Sub 'codec-converter-ffmpeg-${Environment}'
+        JobRoleArn: !ImportValue
+          Fn::Sub: 'codec-converter-batch-job-role-arn-${Environment}'
+        ExecutionRoleArn: !ImportValue
+          Fn::Sub: 'codec-converter-batch-execution-role-arn-${Environment}'
+        ResourceRequirements:
+          - Type: VCPU
+            Value: '2'
+          - Type: MEMORY
+            Value: '4096'
+        Environment:
+          - Name: S3_BUCKET
+            Value: !ImportValue
+              Fn::Sub: 'codec-converter-s3-bucket-name-${Environment}'
+          - Name: DYNAMODB_TABLE
+            Value: !ImportValue
+              Fn::Sub: 'codec-converter-dynamodb-table-name-${Environment}'
+          - Name: AWS_REGION
+            Value: !Ref AWS::Region
+        LogConfiguration:
+          LogDriver: awslogs
+          Options:
+            awslogs-group: !ImportValue
+              Fn::Sub: 'codec-converter-batch-log-group-name-${Environment}'
+            awslogs-region: !Ref AWS::Region
+            awslogs-stream-prefix: batch
+      Tags:
+        Name: !Sub 'codec-converter-job-definition-${Environment}'
+        Environment: !Ref Environment
+
+Outputs:
+  BatchJobDefinitionArn:
+    Description: ARN of the Batch job definition
+    Value: !Ref BatchJobDefinition
+    Export:
+      Name: !Sub 'codec-converter-batch-job-definition-arn-${Environment}'
+
+  BatchJobDefinitionName:
+    Description: Name of the Batch job definition
+    Value: !Sub 'codec-converter-job-definition-${Environment}'
+    Export:
+      Name: !Sub 'codec-converter-batch-job-definition-name-${Environment}'
