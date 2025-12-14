@@ -1,0 +1,33 @@
+# 依存関係
+node_modules/
+
+# ビルド成果物
+dist/
+*.js
+*.js.map
+*.d.ts
+
+# ログファイル
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# テストとカバレッジ
+coverage/
+.nyc_output/

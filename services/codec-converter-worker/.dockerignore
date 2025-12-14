@@ -1,0 +1,33 @@
+# 依存関係（node_modules は除外、package-lock.json は含める）
+node_modules
+npm-debug.log
+
+# 開発環境
+.git
+.gitignore
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# テストとドキュメント
+*.test.ts
+*.spec.ts
+test
+tests
+coverage
+docs
+
+# ビルド成果物（ローカル）
+dist
+
+# 環境変数
+.env
+.env.local
+.env.*.local
+
+# その他
+README.md
+LICENSE
+*.md
