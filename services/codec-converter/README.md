@@ -74,6 +74,7 @@ npm start
 本サービスは nagiyu-platform モノレポの一部であり、`specs/002-add-codec-converter/` で定義されたアーキテクチャに従っています。
 
 詳細なドキュメントについては、以下を参照してください：
+
 - 仕様: `specs/002-add-codec-converter/spec.md`
 - 実装計画: `specs/002-add-codec-converter/plan.md`
 - タスク: `specs/002-add-codec-converter/tasks.md`
