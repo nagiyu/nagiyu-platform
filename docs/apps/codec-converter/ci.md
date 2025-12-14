@@ -1,10 +1,12 @@
 # Codec Converter CI ワークフロー
 
-このディレクトリには、Codec Converter サービスの継続的インテグレーション（CI）ワークフローが含まれています。
+このドキュメントでは、Codec Converter サービスの継続的インテグレーション（CI）ワークフローについて説明します。
 
 ## ワークフロー概要
 
 ### ci.yml
+
+CI ワークフローは `services/codec-converter/.github/workflows/ci.yml` に定義されています。
 
 **トリガー**:
 - `develop`, `integration/**`, `master`, `002-add-codec-converter` ブランチへのプッシュ
