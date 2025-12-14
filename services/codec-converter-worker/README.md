@@ -22,15 +22,26 @@ AWS Batch ワーカー用の Docker イメージ。FFmpeg を使用して動画�
 
 - **FFmpeg**: `jrottenberg/ffmpeg:6.1-alpine`
   - 理由: 
-    - 公式の well-maintained イメージ
-    - H.264, VP9, AV1 のコーデックをサポート
-    - Alpine ベースでサイズが小さい（セキュリティリスク軽減）
+    - Well-maintained な FFmpeg イメージ（Docker Hub で公式推奨）
+    - H.264 (libx264), VP9 (libvpx-vp9), AV1 (libaom-av1) のコーデックをサポート
+    - Alpine ベースでサイズが小さい（約 150MB、セキュリティリスク軽減）
     - 定期的にアップデートされている
-- **Node.js**: `node:20-alpine`
-  - 理由:
-    - AWS CLI の実行に必要
-    - 軽量な Alpine ベース
-    - LTS バージョンで安定性が高い
+    - 本番環境で広く使用されている実績
+
+### アーキテクチャの選択理由
+
+**単一ベースイメージ方式を採用**:
+- FFmpeg イメージに直接 Python/AWS CLI を追加する方式
+- Multi-stage build でコピーする方式は、依存ライブラリの問題で複雑化するため採用せず
+- 最終イメージサイズ: 約 200-300MB（FFmpeg + AWS CLI）
+
+**代替案として検討したもの**:
+1. **Multi-stage build (Node.js + FFmpeg コピー)**
+   - 却下理由: FFmpeg の共有ライブラリ依存関係が複雑で、コピーだけでは動作しない
+2. **AWS SDK for Go + 静的ビルド**
+   - 将来的な最適化候補だが、Phase 1 では AWS CLI で十分
+3. **Debian ベース FFmpeg**
+   - より大きなイメージサイズ（500MB+）になるため、Alpine を優先
 
 ## セキュリティ対策
 
@@ -53,6 +64,10 @@ AWS Batch ワーカー用の Docker イメージ。FFmpeg を使用して動画�
 - `OUTPUT_CODEC`: 出力コーデック（`h264`, `vp9`, `av1`）
 
 ## イメージのビルド
+
+**注意**: サンドボックス環境では Alpine パッケージリポジトリへのアクセス制限により、ビルドが完了しない場合があります。実際の環境（CI/CD や開発環境）でビルドしてください。
+
+詳細は [BUILD.md](./BUILD.md) を参照してください。
 
 ```bash
 cd services/codec-converter-worker
