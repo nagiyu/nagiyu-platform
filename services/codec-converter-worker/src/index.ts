@@ -9,6 +9,7 @@ import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { spawn } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
+import { Readable } from 'stream';
 
 // 環境変数
 const JOB_ID = process.env.JOB_ID!;
@@ -71,16 +72,19 @@ async function downloadInputFile(): Promise<string> {
   });
 
   const response = await s3Client.send(command);
+  
+  if (!response.Body) {
+    throw new Error('No body in S3 response');
+  }
+
   const fileStream = fs.createWriteStream(inputPath);
+  const bodyStream = response.Body as Readable;
 
   await new Promise<void>((resolve, reject) => {
-    if (response.Body) {
-      (response.Body as any).pipe(fileStream);
-      fileStream.on('finish', () => resolve());
-      fileStream.on('error', reject);
-    } else {
-      reject(new Error('No body in S3 response'));
-    }
+    bodyStream.on('error', reject);
+    fileStream.on('error', reject);
+    fileStream.on('finish', () => resolve());
+    bodyStream.pipe(fileStream);
   });
 
   console.log(`Downloaded to: ${inputPath}`);
