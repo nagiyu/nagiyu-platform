@@ -288,6 +288,8 @@ Resources:
   # AWS Batch - Compute Environment
   # ==========================================
   
+  # TODO: Update Subnets and SecurityGroupIds with actual VPC resources
+  # This is a placeholder - detailed network configuration will be completed in separate tasks
   BatchComputeEnvironment:
     Type: AWS::Batch::ComputeEnvironment
     Properties:
@@ -297,11 +299,15 @@ Resources:
       ComputeResources:
         Type: FARGATE
         MaxvCpus: 6
+        # Placeholder: Using public subnets temporarily
+        # TODO: Create private subnets in VPC template and update this reference
         Subnets:
-          - !ImportValue nagiyu-dev-vpc-private-subnet-1
-          - !ImportValue nagiyu-dev-vpc-private-subnet-2
-        SecurityGroupIds:
-          - !ImportValue nagiyu-dev-vpc-default-security-group
+          Fn::Split:
+            - ','
+            - Fn::ImportValue: !Sub 'nagiyu-${Environment}-public-subnet-ids'
+        # Placeholder: Empty security groups list
+        # TODO: Create a dedicated security group for Batch jobs
+        SecurityGroupIds: []
       Tags:
         Name: !Sub '${ProjectName}-compute-env-${Environment}'
         Environment: !Ref Environment
