@@ -31,6 +31,30 @@ Next.js について詳しく知りたい場合は、以下のリソースを参
 
 [Next.js GitHub リポジトリ](https://github.com/vercel/next.js)もご覧ください。フィードバックや貢献を歓迎します！
 
+## コード品質
+
+### Lint
+
+ESLint でコードをチェックするには：
+
+```bash
+npm run lint
+```
+
+### Format
+
+Prettier でコードをフォーマットするには：
+
+```bash
+npm run format
+```
+
+フォーマットをチェックするには（書き込みなし）：
+
+```bash
+npm run format:check
+```
+
 ## ビルド
 
 本番用ビルドを作成するには：
@@ -50,6 +74,7 @@ npm start
 本サービスは nagiyu-platform モノレポの一部であり、`specs/002-add-codec-converter/` で定義されたアーキテクチャに従っています。
 
 詳細なドキュメントについては、以下を参照してください：
+
 - 仕様: `specs/002-add-codec-converter/spec.md`
 - 実装計画: `specs/002-add-codec-converter/plan.md`
 - タスク: `specs/002-add-codec-converter/tasks.md`
