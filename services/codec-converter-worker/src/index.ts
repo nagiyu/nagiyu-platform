@@ -67,12 +67,17 @@ async function updateJobStatus(status: string, errorMessage?: string): Promise<v
 
 /**
  * S3 から入力ファイルをダウンロード
+ * 注: Phase 1 では入力ファイルは MP4 のみをサポート
  */
 async function downloadInputFile(): Promise<string> {
+  // Phase 1 では MP4 形式のみサポート
   const inputKey = `uploads/${JOB_ID}/input.mp4`;
   const inputPath = path.join(WORK_DIR, 'input.mp4');
 
   console.log(`Downloading from S3: ${inputKey}`);
+
+  // 作業ディレクトリが存在することを確認
+  fs.mkdirSync(WORK_DIR, { recursive: true });
 
   const command = new GetObjectCommand({
     Bucket: S3_BUCKET,

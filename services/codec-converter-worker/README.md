@@ -68,6 +68,20 @@ cd services/codec-converter-worker
 docker build -t codec-converter-worker:latest .
 ```
 
+**注意**: ビルドには数分かかる場合があります。FFmpeg とすべての依存関係をインストールするため、初回ビルドは特に時間がかかります。
+
+### ビルドの検証
+
+ビルドが成功したかを確認するには：
+
+```bash
+# イメージの確認
+docker images | grep codec-converter-worker
+
+# FFmpeg のバージョン確認
+docker run --rm codec-converter-worker:latest ffmpeg -version
+```
+
 ### ECR へのプッシュ
 
 ```bash
