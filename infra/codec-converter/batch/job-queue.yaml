@@ -1,0 +1,39 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Batch job queue for Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  BatchJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      JobQueueName: !Sub 'codec-converter-job-queue-${Environment}'
+      State: ENABLED
+      Priority: 1
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !ImportValue
+            Fn::Sub: 'codec-converter-batch-compute-env-arn-${Environment}'
+      Tags:
+        Name: !Sub 'codec-converter-job-queue-${Environment}'
+        Environment: !Ref Environment
+
+Outputs:
+  BatchJobQueueArn:
+    Description: ARN of the Batch job queue
+    Value: !Ref BatchJobQueue
+    Export:
+      Name: !Sub 'codec-converter-batch-queue-arn-${Environment}'
+
+  BatchJobQueueName:
+    Description: Name of the Batch job queue
+    Value: !Sub 'codec-converter-job-queue-${Environment}'
+    Export:
+      Name: !Sub 'codec-converter-batch-queue-name-${Environment}'

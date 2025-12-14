@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: S3 storage bucket for Codec Converter service
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Conditions:
+  IsDevEnvironment: !Equals [!Ref Environment, dev]
+
+Resources:
+  StorageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'codec-converter-${Environment}-${AWS::AccountId}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Suspended
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAfter24Hours
+            Status: Enabled
+            ExpirationInDays: 1
+            Prefix: ''
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins:
+              - !If
+                - IsDevEnvironment
+                - 'http://localhost:3000'
+                - 'https://codec-converter.example.com'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            AllowedHeaders:
+              - '*'
+            MaxAge: 3600
+      Tags:
+        - Key: Name
+          Value: !Sub 'codec-converter-storage-${Environment}'
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  StorageBucketName:
+    Description: Name of the S3 storage bucket
+    Value: !Ref StorageBucket
+    Export:
+      Name: !Sub 'codec-converter-s3-bucket-name-${Environment}'
+
+  StorageBucketArn:
+    Description: ARN of the S3 storage bucket
+    Value: !GetAtt StorageBucket.Arn
+    Export:
+      Name: !Sub 'codec-converter-s3-bucket-arn-${Environment}'
+
+  StorageBucketDomainName:
+    Description: Domain name of the S3 storage bucket
+    Value: !GetAtt StorageBucket.RegionalDomainName
+    Export:
+      Name: !Sub 'codec-converter-s3-bucket-domain-${Environment}'
