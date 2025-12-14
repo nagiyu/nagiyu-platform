@@ -1,0 +1,29 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+logs
+
+# Test files
+test
+tests
+*.test.js
+*.spec.js
+
+# Node modules (if applicable)
+node_modules
+
+# Temporary files
+tmp
+temp
+*.tmp
