@@ -76,7 +76,7 @@ update_status() {
 import boto3
 import sys
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
 table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
@@ -91,7 +91,7 @@ expr_attr_names = {
 }
 expr_attr_values = {
     ':status': status,
-    ':updated': int(datetime.utcnow().timestamp())
+    ':updated': int(datetime.now(timezone.utc).timestamp())
 }
 
 if error_message:
@@ -209,7 +209,7 @@ echo "=== Updating job status to COMPLETED ==="
 python3 - <<'EOF' || handle_error "Failed to update status to COMPLETED"
 import boto3
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 dynamodb = boto3.resource('dynamodb', region_name=os.environ['AWS_REGION'])
 table = dynamodb.Table(os.environ['DYNAMODB_TABLE'])
@@ -225,7 +225,7 @@ try:
         },
         ExpressionAttributeValues={
             ':status': 'COMPLETED',
-            ':updated': int(datetime.utcnow().timestamp()),
+            ':updated': int(datetime.now(timezone.utc).timestamp()),
             ':output': os.environ['S3_OUTPUT_KEY']
         }
     )
