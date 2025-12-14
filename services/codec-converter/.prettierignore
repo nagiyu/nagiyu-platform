@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.next
+out
+build
+dist
+
+# Environment files
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# TypeScript
+*.d.ts
+next-env.d.ts
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Misc
+.DS_Store
+*.log
+coverage
+.nyc_output
