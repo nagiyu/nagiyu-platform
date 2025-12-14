@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudWatch Logs log group for Codec Converter Batch jobs
+
+Parameters:
+  Environment:
+    Type: String
+    Description: Environment name (dev or prod)
+    AllowedValues:
+      - dev
+      - prod
+    Default: dev
+
+Resources:
+  BatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/batch/codec-converter-${Environment}'
+      RetentionInDays: 7
+
+Outputs:
+  BatchLogGroupName:
+    Description: Name of the Batch CloudWatch log group
+    Value: !Ref BatchLogGroup
+    Export:
+      Name: !Sub 'codec-converter-batch-log-group-name-${Environment}'
+
+  BatchLogGroupArn:
+    Description: ARN of the Batch CloudWatch log group
+    Value: !GetAtt BatchLogGroup.Arn
+    Export:
+      Name: !Sub 'codec-converter-batch-log-group-arn-${Environment}'
