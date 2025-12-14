@@ -30,7 +30,7 @@ update_job_status() {
     
     if [ -n "${error_message}" ]; then
         update_expr="${update_expr}, errorMessage = :error"
-        # Escape double quotes in error message for JSON
+        # Escape double quotes in error message for JSON (replace " with \")
         local escaped_error="${error_message//\"/\\\"}"
         expr_attr_values="{\":status\": {\"S\": \"${status}\"}, \":updated\": {\"N\": \"$(date +%s)\"}, \":error\": {\"S\": \"${escaped_error}\"}}"
     else

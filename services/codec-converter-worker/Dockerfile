@@ -21,7 +21,8 @@ ENV PATH="/opt/awscli/bin:${PATH}"
 
 # Verify FFmpeg installation and required codecs
 RUN ffmpeg -version && \
-    ffmpeg -codecs 2>&1 | grep -E "libx264|libvpx-vp9|libaom" || echo "Warning: Verifying codecs..."
+    ffmpeg -codecs 2>&1 | grep -E "libx264|libvpx-vp9|libaom" && \
+    echo "Codecs verified successfully"
 
 # Create non-root user for security
 RUN addgroup -g 1001 worker && \

@@ -37,7 +37,7 @@ required_vars=("JOB_ID" "OUTPUT_CODEC" "S3_BUCKET" "DYNAMODB_TABLE" "AWS_REGION"
 echo "  ✓ Checking required environment variables..."
 for var in "${required_vars[@]}"; do
     # Check for both ${VAR} and $VAR patterns
-    if grep -qE "\\\$\{${var}\}|\\\$${var}[^A-Za-z_]" entrypoint.sh; then
+    if grep -qE '\$\{'"${var}"'\}|\$'"${var}"'[^A-Za-z_]' entrypoint.sh; then
         echo "    ✓ ${var} is used"
     else
         echo "    ✗ ${var} is not found!"
