@@ -146,10 +146,14 @@ EOF
 fi
 
 # Step 3: Run FFmpeg conversion
+# Note: VIDEO_OPTS and AUDIO_OPTS are intentionally not quoted because they contain
+# multiple space-separated arguments that need to be word-split by the shell.
+# These values are controlled by the case statement above and don't come from user input.
 echo "Running FFmpeg conversion..."
-echo "Command: ffmpeg -i $INPUT_FILE -c:v $VIDEO_CODEC $VIDEO_OPTS -c:a $AUDIO_CODEC $AUDIO_OPTS $OUTPUT_FILE"
+echo "Command: ffmpeg -i \"$INPUT_FILE\" -c:v \"$VIDEO_CODEC\" $VIDEO_OPTS -c:a \"$AUDIO_CODEC\" $AUDIO_OPTS \"$OUTPUT_FILE\""
 
-if ! ffmpeg -i "$INPUT_FILE" -c:v $VIDEO_CODEC $VIDEO_OPTS -c:a $AUDIO_CODEC $AUDIO_OPTS "$OUTPUT_FILE" -y; then
+# shellcheck disable=SC2086
+if ! ffmpeg -i "$INPUT_FILE" -c:v "$VIDEO_CODEC" $VIDEO_OPTS -c:a "$AUDIO_CODEC" $AUDIO_OPTS "$OUTPUT_FILE" -y; then
   echo "ERROR: FFmpeg conversion failed"
   # Update status to FAILED
   /app/venv/bin/python3 <<EOF
