@@ -9,9 +9,9 @@
 CI ワークフローは `services/codec-converter/.github/workflows/ci.yml` に定義されています。
 
 **トリガー**:
-- `develop`, `integration/**`, `master`, `002-add-codec-converter` ブランチへのプッシュ
-- `develop`, `master` ブランチへのプルリクエスト
-- `services/codec-converter/` 配下のファイルが変更された場合のみ実行
+- `develop`, `integration/**`, `master` ブランチへのプッシュ
+- `develop`, `integration/**`, `master` ブランチへのプルリクエスト
+- `services/codec-converter/` 配下のファイルまたは該当ワークフロー自体が変更された場合のみ実行
 
 **ジョブ構成**:
 
@@ -39,7 +39,6 @@ CI ワークフローは `services/codec-converter/.github/workflows/ci.yml` に
 - `AWS_ACCESS_KEY_ID`: AWS アクセスキー ID
 - `AWS_SECRET_ACCESS_KEY`: AWS シークレットアクセスキー
 - `AWS_REGION`: AWS リージョン（デフォルト: us-east-1）
-- `AWS_ACCOUNT_ID`: AWS アカウント ID（ECR レポジトリの指定に使用）
 
 ## ローカルでの検証
 
@@ -64,6 +63,6 @@ npm test
 
 ## 注意事項
 
-- Node.js のバージョンは 20 を使用
+- Node.js のバージョンは 22 を使用
 - `npm ci` を使用して確実な依存関係のインストールを行う
 - キャッシュ機能を有効化してビルド時間を短縮

@@ -6,16 +6,17 @@ on:
       - develop
       - integration/**
       - master
-      - 002-add-codec-converter
     paths:
       - 'services/codec-converter/**'
-      - '.github/workflows/codec-converter-ci.yml'
+      - 'services/codec-converter/.github/workflows/ci.yml'
   pull_request:
     branches:
       - develop
+      - integration/**
       - master
     paths:
       - 'services/codec-converter/**'
+      - 'services/codec-converter/.github/workflows/ci.yml'
 
 jobs:
   lint-and-format:
@@ -31,7 +32,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: services/codec-converter/package-lock.json
 
@@ -58,7 +59,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: services/codec-converter/package-lock.json
 
@@ -89,7 +90,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: services/codec-converter/package-lock.json
 
