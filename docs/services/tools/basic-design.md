@@ -131,9 +131,8 @@ nagiyu-platform/
 │       │   ├── app/                     # App Router
 │       │   │   ├── layout.tsx           # 共通レイアウト
 │       │   │   ├── page.tsx             # トップページ (ツール一覧)
-│       │   │   ├── tools/               # ツールページ
-│       │   │   │   └── transit-converter/
-│       │   │   │       └── page.tsx     # 乗り換え変換ツール
+│       │   │   ├── transit-converter/   # 乗り換え変換ツール
+│       │   │   │   └── page.tsx
 │       │   │   ├── api/                 # API Routes
 │       │   │   │   └── health/
 │       │   │   │       └── route.ts     # ヘルスチェックAPI
@@ -152,7 +151,7 @@ nagiyu-platform/
 │       │   │
 │       │   ├── lib/                     # ユーティリティ・ロジック
 │       │   │   ├── parsers/
-│       │   │   │   └── yahooTransit.ts  # Yahoo乗り換えパーサー
+│       │   │   │   └── transitParser.ts  # 乗り換えパーサー
 │       │   │   ├── clipboard.ts         # クリップボード操作
 │       │   │   └── formatters.ts        # データ整形
 │       │   │
@@ -351,7 +350,7 @@ SecurityHeadersPolicy:
 | `/api/health` | GET | ヘルスチェック | なし | `{ status: "ok" }` |
 
 **将来追加予定のAPI:**
-- `/api/tools/transit` - サーバーサイドでYahoo乗り換えをパース (必要な場合)
+- `/api/tools/transit` - サーバーサイドで乗り換えをパース (必要な場合)
 
 #### 外部API
 
@@ -402,7 +401,7 @@ SecurityHeadersPolicy:
 | 画面ID | 画面名 | URL | 説明 |
 |--------|-------|-----|------|
 | SCR-001 | トップページ | `/` | ツール一覧を表示 |
-| SCR-002 | 乗り換え変換ツール | `/transit-converter` | Yahoo乗り換え情報を変換 |
+| SCR-002 | 乗り換え変換ツール | `/transit-converter` | 乗り換え情報を変換 |
 
 ### 6.3 ワイヤーフレーム (主要画面)
 
@@ -411,9 +410,9 @@ SecurityHeadersPolicy:
 ![トップページワイヤーフレーム](../../images/services/tools/wireframe-top.drawio.svg)
 
 **構成要素:**
-- ヘッダー: アプリ名、ナビゲーション
+- ヘッダー: アプリ名「Tools」(中央揃え)
 - メインコンテンツ: ツールカード一覧 (Grid レイアウト)
-- フッター: コピーライト、GitHubリンク
+- フッター: バージョン表示、将来実装予定リンク（プライバシーポリシー、利用規約）
 
 **レイアウト:**
 - PC: 3カラム
