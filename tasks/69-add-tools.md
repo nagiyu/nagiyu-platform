@@ -132,12 +132,12 @@ MVP では乗り換え案内変換ツールを実装し、将来的に JSON Form
 
 #### 3.1 環境セットアップ
 
-- [ ] Next.js プロジェクトの初期化
-- [ ] 必要な依存関係のインストール
-    - [ ] Material UI
-    - [ ] その他ライブラリ
-- [ ] ESLint / Prettier 設定
-- [ ] TypeScript 設定
+- [x] Next.js プロジェクトの初期化
+- [x] 必要な依存関係のインストール
+    - [x] Material UI
+    - [x] その他ライブラリ
+- [x] ESLint / Prettier 設定
+- [x] TypeScript 設定
 
 #### 3.2 最小限のページ実装
 
