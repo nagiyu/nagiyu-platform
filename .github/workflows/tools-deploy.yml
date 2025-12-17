@@ -1,0 +1,117 @@
+name: Tools App - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'services/tools/**'
+      - 'infra/tools/**'
+      - '.github/workflows/tools-deploy.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ap-northeast-1
+  ECR_REPOSITORY_DEV: tools-app-dev
+  ECR_REPOSITORY_PROD: tools-app-prod
+
+jobs:
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ steps.set-env.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY_PROD }}" >> "$GITHUB_ENV"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY_DEV }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        working-directory: ./services/tools
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          echo "image-uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Lambda function
+        env:
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          aws lambda update-function-code \
+            --function-name "tools-app-$ENVIRONMENT" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Wait for Lambda update to complete
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          aws lambda wait function-updated \
+            --function-name "tools-app-$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Verify deployment
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          FUNCTION_URL=$(aws lambda get-function-url-config \
+            --function-name "tools-app-$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}" \
+            --query 'FunctionUrl' \
+            --output text)
+          
+          echo "Function URL: $FUNCTION_URL"
+          
+          # ヘルスチェック
+          curl -f "$FUNCTION_URL/api/health" || exit 1
