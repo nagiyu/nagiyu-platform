@@ -9,9 +9,10 @@
 CI ワークフローは `services/codec-converter/.github/workflows/ci.yml` に定義されています。
 
 **トリガー**:
-- `develop`, `integration/**`, `master` ブランチへのプッシュ
 - `develop`, `integration/**`, `master` ブランチへのプルリクエスト
 - `services/codec-converter/` 配下のファイルまたは該当ワークフロー自体が変更された場合のみ実行
+
+**注意**: 実際の GitHub Actions 環境では、このワークフローファイルは `.github/workflows/codec-converter-ci.yml` に配置されます。
 
 **ジョブ構成**:
 

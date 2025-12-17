@@ -1,14 +1,6 @@
 name: Codec Converter CI
 
 on:
-  push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'services/codec-converter/**'
-      - 'services/codec-converter/.github/workflows/ci.yml'
   pull_request:
     branches:
       - develop
@@ -16,7 +8,7 @@ on:
       - master
     paths:
       - 'services/codec-converter/**'
-      - 'services/codec-converter/.github/workflows/ci.yml'
+      - '.github/workflows/codec-converter-ci.yml'
 
 jobs:
   lint-and-format:
