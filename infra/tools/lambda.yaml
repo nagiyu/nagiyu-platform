@@ -11,6 +11,11 @@ Parameters:
     Type: String
     Description: ECR Image URI
 
+  AppVersion:
+    Type: String
+    Description: Application version
+    Default: '1.0.0'
+
 Resources:
   ToolsLambdaExecutionRole:
     Type: AWS::IAM::Role
@@ -39,7 +44,7 @@ Resources:
       Environment:
         Variables:
           NODE_ENV: production
-          APP_VERSION: '1.0.0'
+          APP_VERSION: !Ref AppVersion
 
   ToolsLambdaFunctionUrl:
     Type: AWS::Lambda::Url
