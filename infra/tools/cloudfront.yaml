@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFront Distribution for Tools Application'
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, prod]
+    Default: dev
+
+  LambdaStackName:
+    Type: String
+    Default: tools-lambda
+
+  CertificateArn:
+    Type: String
+    Description: ACM Certificate ARN
+
+  DomainName:
+    Type: String
+    Description: Domain name (e.g., tools.nagiyu.com)
+
+Resources:
+  ToolsCloudfrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub 'Tools Application - ${Environment}'
+        Aliases:
+          - !Ref DomainName
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        DefaultCacheBehavior:
+          TargetOriginId: LambdaOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # CachingDisabled
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # AllViewerExceptHostHeader
+        Origins:
+          - Id: LambdaOrigin
+            DomainName: !Select
+              - 2
+              - !Split
+                - '/'
+                - !ImportValue
+                  'Fn::Sub': '${LambdaStackName}-FunctionUrl'
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+
+Outputs:
+  DistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref ToolsCloudfrontDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-DistributionId'
+
+  DistributionDomainName:
+    Description: CloudFront Distribution Domain Name
+    Value: !GetAtt ToolsCloudfrontDistribution.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-DomainName'
