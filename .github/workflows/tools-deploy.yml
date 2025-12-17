@@ -16,14 +16,15 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
-  build:
-    name: Build and Push Docker Image
+  infrastructure:
+    name: Deploy Infrastructure
     runs-on: ubuntu-latest
     
     outputs:
-      image-uri: ${{ steps.build-image.outputs.image-uri }}
       environment: ${{ steps.set-env.outputs.environment }}
-
+      ecr-stack-name: ${{ steps.set-env.outputs.ecr-stack-name }}
+      lambda-stack-name: ${{ steps.set-env.outputs.lambda-stack-name }}
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -33,11 +34,47 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "STACK_NAME=nagiyu-tools-ecr-prod" >> "$GITHUB_ENV"
+            echo "ecr-stack-name=nagiyu-tools-ecr-prod" >> "$GITHUB_OUTPUT"
+            echo "lambda-stack-name=nagiyu-tools-lambda-prod" >> "$GITHUB_OUTPUT"
           else
             echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "STACK_NAME=nagiyu-tools-ecr-dev" >> "$GITHUB_ENV"
+            echo "ecr-stack-name=nagiyu-tools-ecr-dev" >> "$GITHUB_OUTPUT"
+            echo "lambda-stack-name=nagiyu-tools-lambda-dev" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECR CloudFormation stack
+        env:
+          ECR_STACK_NAME: ${{ steps.set-env.outputs.ecr-stack-name }}
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/tools/ecr.yaml \
+            --stack-name "$ECR_STACK_NAME" \
+            --parameter-overrides Environment="$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}" \
+            --no-fail-on-empty-changeset
+          
+          echo "ECR stack deployed: $ECR_STACK_NAME"
+
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure
+    
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ needs.infrastructure.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,15 +85,17 @@ jobs:
 
       - name: Get ECR repository from CloudFormation
         id: get-ecr
+        env:
+          ECR_STACK_NAME: ${{ needs.infrastructure.outputs.ecr-stack-name }}
         run: |
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name "$STACK_NAME" \
+            --stack-name "$ECR_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}")
           
           if [ -z "$REPOSITORY_URI" ]; then
-            echo "Error: Could not find ECR repository. Make sure the CloudFormation stack $STACK_NAME exists."
+            echo "Error: Could not find ECR repository URI from stack $ECR_STACK_NAME"
             exit 1
           fi
           
@@ -81,7 +120,7 @@ jobs:
   deploy:
     name: Deploy to AWS Lambda
     runs-on: ubuntu-latest
-    needs: build
+    needs: [infrastructure, build]
     
     steps:
       - name: Checkout code
@@ -94,13 +133,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Deploy Lambda CloudFormation stack
+        env:
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/tools/lambda.yaml \
+            --stack-name "$LAMBDA_STACK_NAME" \
+            --parameter-overrides \
+              Environment="$ENVIRONMENT" \
+              ImageUri="$IMAGE_URI" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region "${{ env.AWS_REGION }}" \
+            --no-fail-on-empty-changeset
+          
+          echo "Lambda stack deployed: $LAMBDA_STACK_NAME"
+
       - name: Get Lambda function name from CloudFormation
         id: get-lambda
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
         run: |
-          LAMBDA_STACK_NAME="nagiyu-tools-lambda-$ENVIRONMENT"
-          
           # Get Lambda function ARN from CloudFormation
           FUNCTION_ARN=$(aws cloudformation describe-stacks \
             --stack-name "$LAMBDA_STACK_NAME" \
@@ -109,7 +164,7 @@ jobs:
             --region "${{ env.AWS_REGION }}")
           
           if [ -z "$FUNCTION_ARN" ]; then
-            echo "Error: Could not find Lambda function. Make sure the CloudFormation stack $LAMBDA_STACK_NAME exists."
+            echo "Error: Could not find Lambda function ARN from stack $LAMBDA_STACK_NAME"
             exit 1
           fi
           
@@ -117,7 +172,6 @@ jobs:
           FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')
           
           echo "function-name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
-          echo "stack-name=$LAMBDA_STACK_NAME" >> "$GITHUB_OUTPUT"
           echo "Lambda Function: $FUNCTION_NAME"
 
       - name: Update Lambda function
@@ -140,7 +194,7 @@ jobs:
 
       - name: Verify deployment
         env:
-          LAMBDA_STACK_NAME: ${{ steps.get-lambda.outputs.stack-name }}
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
         run: |
           # Get Function URL from CloudFormation
           FUNCTION_URL=$(aws cloudformation describe-stacks \

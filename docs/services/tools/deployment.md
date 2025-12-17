@@ -154,9 +154,10 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 
 ワークフローファイル: `.github/workflows/tools-deploy.yml`
 
-**前提条件:**
-- ECR リポジトリのCloudFormation スタック (`nagiyu-tools-ecr-dev` または `nagiyu-tools-ecr-prod`) が作成済み
-- Lambda 関数の CloudFormation スタック (`nagiyu-tools-lambda-dev` または `nagiyu-tools-lambda-prod`) が作成済み
+**完全自動化:**
+- インフラ (ECR, Lambda) の CloudFormation スタックもワークフロー内で自動デプロイ
+- 手動でのインフラセットアップは不要
+- CloudFormation テンプレートがリポジトリに含まれているため、変更があれば自動で反映
 
 **トリガー条件:**
 - `develop` ブランチ → 開発環境へデプロイ
@@ -164,15 +165,17 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 - `master` ブランチ → 本番環境へデプロイ
 
 **実行内容:**
-1. CloudFormation スタックから ECR リポジトリ URI を取得
-2. Docker イメージをビルドして ECR にプッシュ
-3. CloudFormation スタックから Lambda 関数名を取得
-4. Lambda 関数を新しいイメージで更新
-5. CloudFormation スタックから Function URL を取得してヘルスチェック
+1. **インフラデプロイ**: ECR リポジトリの CloudFormation スタックをデプロイ (`--no-fail-on-empty-changeset` で変更がなければスキップ)
+2. **ビルド**: ECR リポジトリ URI を取得し、Docker イメージをビルドして ECR にプッシュ
+3. **Lambda デプロイ**: Lambda 関数の CloudFormation スタックを新しいイメージでデプロイ
+4. **更新**: Lambda 関数コードを明示的に更新 (CloudFormation だけでは更新されない場合の保険)
+5. **検証**: Function URL を取得してヘルスチェック実行
 
 **CloudFormation との統合:**
-- ワークフローはリソース名をハードコードせず、CloudFormation スタックの出力から動的に取得
-- インフラの変更（リポジトリ名、関数名など）があってもワークフローの修正は不要
+- インフラとアプリケーションを一つのワークフローで完全自動デプロイ
+- CloudFormation テンプレート (`infra/tools/*.yaml`) が単一の真実の情報源
+- `--no-fail-on-empty-changeset` により、変更がない場合はスタック操作をスキップ
+- インフラの変更 (リポジトリ名、関数名など) があってもワークフローの修正は不要
 
 ### 2.3 デプロイ後の確認
 
