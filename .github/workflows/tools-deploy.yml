@@ -253,7 +253,7 @@ jobs:
           if [[ "$ENVIRONMENT" == "prod" ]]; then
             SUBDOMAIN="tools.${BASE_DOMAIN}"
           else
-            SUBDOMAIN="tools-${ENVIRONMENT}.${BASE_DOMAIN}"
+            SUBDOMAIN="${ENVIRONMENT}-tools.${BASE_DOMAIN}"
           fi
           
           echo "Deploying CloudFront for domain: $SUBDOMAIN"

@@ -173,7 +173,7 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 5. **検証**: Function URL を取得してヘルスチェック実行
 6. **CloudFront デプロイ**: CloudFront ディストリビューションの CloudFormation スタックをデプロイ
    - ACM 証明書 ARN を共有インフラスタックのエクスポートから自動取得
-   - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `tools-dev.example.com`)
+   - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `dev-tools.example.com`)
 
 **CloudFormation との統合:**
 - インフラとアプリケーションを一つのワークフローで完全自動デプロイ
