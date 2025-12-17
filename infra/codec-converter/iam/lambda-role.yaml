@@ -58,6 +58,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - batch:SubmitJob
+                Resource:
+                  - !Sub 'arn:aws:batch:${AWS::Region}:${AWS::AccountId}:job-definition/codec-converter-job-definition-${Environment}*'
+                  - !Sub 'arn:aws:batch:${AWS::Region}:${AWS::AccountId}:job-queue/codec-converter-job-queue-${Environment}'
+              - Effect: Allow
+                Action:
                   - batch:DescribeJobs
                 Resource: '*'
       Tags:
