@@ -14,8 +14,6 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY_DEV: tools-app-dev
-  ECR_REPOSITORY_PROD: tools-app-prod
 
 jobs:
   build:
@@ -35,10 +33,10 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY_PROD }}" >> "$GITHUB_ENV"
+            echo "STACK_NAME=nagiyu-tools-ecr-prod" >> "$GITHUB_ENV"
           else
             echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "ECR_REPOSITORY=${{ env.ECR_REPOSITORY_DEV }}" >> "$GITHUB_ENV"
+            echo "STACK_NAME=nagiyu-tools-ecr-dev" >> "$GITHUB_ENV"
           fi
 
       - name: Configure AWS credentials
@@ -48,6 +46,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get ECR repository from CloudFormation
+        id: get-ecr
+        run: |
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository. Make sure the CloudFormation stack $STACK_NAME exists."
+            exit 1
+          fi
+          
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -56,12 +71,12 @@ jobs:
         id: build-image
         working-directory: ./services/tools
         env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-          echo "image-uri=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy to AWS Lambda
@@ -79,42 +94,70 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get Lambda function name from CloudFormation
+        id: get-lambda
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          LAMBDA_STACK_NAME="nagiyu-tools-lambda-$ENVIRONMENT"
+          
+          # Get Lambda function ARN from CloudFormation
+          FUNCTION_ARN=$(aws cloudformation describe-stacks \
+            --stack-name "$LAMBDA_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$FUNCTION_ARN" ]; then
+            echo "Error: Could not find Lambda function. Make sure the CloudFormation stack $LAMBDA_STACK_NAME exists."
+            exit 1
+          fi
+          
+          # Extract function name from ARN
+          FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')
+          
+          echo "function-name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
+          echo "stack-name=$LAMBDA_STACK_NAME" >> "$GITHUB_OUTPUT"
+          echo "Lambda Function: $FUNCTION_NAME"
+
       - name: Update Lambda function
         env:
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
         run: |
           aws lambda update-function-code \
-            --function-name "tools-app-$ENVIRONMENT" \
+            --function-name "$FUNCTION_NAME" \
             --image-uri "$IMAGE_URI" \
             --region "${{ env.AWS_REGION }}"
 
       - name: Wait for Lambda update to complete
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
         run: |
           aws lambda wait function-updated \
-            --function-name "tools-app-$ENVIRONMENT" \
+            --function-name "$FUNCTION_NAME" \
             --region "${{ env.AWS_REGION }}"
 
       - name: Verify deployment
         env:
-          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          LAMBDA_STACK_NAME: ${{ steps.get-lambda.outputs.stack-name }}
         run: |
-          # Get Function URL
-          if ! FUNCTION_URL=$(aws lambda get-function-url-config \
-            --function-name "tools-app-$ENVIRONMENT" \
-            --region "${{ env.AWS_REGION }}" \
-            --query 'FunctionUrl' \
-            --output text 2>/dev/null); then
-            echo "Error: Failed to get Function URL. Make sure the Lambda function URL is configured."
+          # Get Function URL from CloudFormation
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$LAMBDA_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "Error: Failed to get Function URL from CloudFormation stack."
             exit 1
           fi
           
           echo "Function URL: $FUNCTION_URL"
           
           # Health check
-          if ! curl -f -s -o /dev/null -w "%{http_code}" "$FUNCTION_URL/api/health" | grep -q "200"; then
+          if ! curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" | grep -q "200"; then
             echo "Error: Health check failed. The application may not be running correctly."
             exit 1
           fi

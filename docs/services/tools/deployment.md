@@ -154,15 +154,25 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 
 ワークフローファイル: `.github/workflows/tools-deploy.yml`
 
+**前提条件:**
+- ECR リポジトリのCloudFormation スタック (`nagiyu-tools-ecr-dev` または `nagiyu-tools-ecr-prod`) が作成済み
+- Lambda 関数の CloudFormation スタック (`nagiyu-tools-lambda-dev` または `nagiyu-tools-lambda-prod`) が作成済み
+
 **トリガー条件:**
 - `develop` ブランチ → 開発環境へデプロイ
 - `integration/**` ブランチ → 開発環境へデプロイ
 - `master` ブランチ → 本番環境へデプロイ
 
 **実行内容:**
-1. Docker イメージをビルドして ECR にプッシュ
-2. Lambda 関数を新しいイメージで更新
-3. ヘルスチェックで動作確認
+1. CloudFormation スタックから ECR リポジトリ URI を取得
+2. Docker イメージをビルドして ECR にプッシュ
+3. CloudFormation スタックから Lambda 関数名を取得
+4. Lambda 関数を新しいイメージで更新
+5. CloudFormation スタックから Function URL を取得してヘルスチェック
+
+**CloudFormation との統合:**
+- ワークフローはリソース名をハードコードせず、CloudFormation スタックの出力から動的に取得
+- インフラの変更（リポジトリ名、関数名など）があってもワークフローの修正は不要
 
 ### 2.3 デプロイ後の確認
 
