@@ -10,15 +10,19 @@ import {
   Snackbar,
   Alert,
   CircularProgress,
+  Stack,
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
+import ContentPasteIcon from '@mui/icons-material/ContentPaste';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { SnackbarState } from '@/types/tools';
 import {
   parseTransitText,
   validateInput,
 } from '@/lib/parsers/transitParser';
 import { formatTransitRoute } from '@/lib/formatters/formatters';
+import { readFromClipboard, writeToClipboard } from '@/lib/clipboard';
 
 export default function TransitConverterPage() {
   const [inputText, setInputText] = useState<string>('');
@@ -94,6 +98,42 @@ export default function TransitConverterPage() {
     setError(null);
   };
 
+  const handleReadClipboard = async () => {
+    try {
+      const text = await readFromClipboard();
+      setInputText(text);
+      setError(null);
+      setSnackbar({
+        open: true,
+        message: 'クリップボードから読み取りました',
+        severity: 'success',
+      });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : 'クリップボードの読み取りに失敗しました',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await writeToClipboard(outputText);
+      setSnackbar({
+        open: true,
+        message: 'クリップボードにコピーしました',
+        severity: 'success',
+      });
+    } catch {
+      setSnackbar({
+        open: true,
+        message: 'コピーに失敗しました',
+        severity: 'error',
+      });
+    }
+  };
+
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
   };
@@ -129,7 +169,18 @@ export default function TransitConverterPage() {
           helperText={error}
           sx={{ mb: 2 }}
         />
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
+        >
+          <Button
+            variant="outlined"
+            startIcon={<ContentPasteIcon />}
+            onClick={handleReadClipboard}
+          >
+            クリップボードから読み取り
+          </Button>
           <Button
             variant="contained"
             startIcon={
@@ -140,7 +191,7 @@ export default function TransitConverterPage() {
           >
             変換
           </Button>
-        </Box>
+        </Stack>
       </Box>
 
       {/* 出力セクション */}
@@ -161,7 +212,19 @@ export default function TransitConverterPage() {
           }}
           sx={{ mb: 2 }}
         />
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={2}
+          sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
+        >
+          <Button
+            variant="contained"
+            startIcon={<ContentCopyIcon />}
+            onClick={handleCopy}
+            disabled={!outputText}
+          >
+            コピー
+          </Button>
           <Button
             variant="outlined"
             startIcon={<ClearIcon />}
@@ -170,7 +233,7 @@ export default function TransitConverterPage() {
           >
             クリア
           </Button>
-        </Box>
+        </Stack>
       </Box>
 
       {/* Snackbar */}
