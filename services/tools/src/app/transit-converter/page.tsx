@@ -74,7 +74,8 @@ export default function TransitConverterPage() {
         message: '変換が完了しました',
         severity: 'success',
       });
-    } catch {
+    } catch (error) {
+      console.error('Transit conversion error:', error);
       const errorMsg = '予期しないエラーが発生しました。';
       setError(errorMsg);
       setSnackbar({
