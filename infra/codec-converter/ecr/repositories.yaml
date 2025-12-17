@@ -1,5 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ECR repositories for Codec Converter service (Next.js and FFmpeg containers)
+Description: >-
+  ECR repositories for Codec Converter service
+  (Next.js and FFmpeg containers)
 
 Parameters:
   Environment:
@@ -76,7 +78,8 @@ Resources:
 Outputs:
   NextJsEcrRepositoryUri:
     Description: URI of the Next.js ECR repository
-    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${NextJsEcrRepository}'
+    Value: !Sub >-
+      ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${NextJsEcrRepository}
     Export:
       Name: !Sub 'codec-converter-nextjs-ecr-uri-${Environment}'
 
@@ -88,7 +91,8 @@ Outputs:
 
   FfmpegEcrRepositoryUri:
     Description: URI of the FFmpeg ECR repository
-    Value: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FfmpegEcrRepository}'
+    Value: !Sub >-
+      ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${FfmpegEcrRepository}
     Export:
       Name: !Sub 'codec-converter-ffmpeg-ecr-uri-${Environment}'
 
