@@ -24,6 +24,7 @@ jobs:
       environment: ${{ steps.set-env.outputs.environment }}
       ecr-stack-name: ${{ steps.set-env.outputs.ecr-stack-name }}
       lambda-stack-name: ${{ steps.set-env.outputs.lambda-stack-name }}
+      cloudfront-stack-name: ${{ steps.set-env.outputs.cloudfront-stack-name }}
     
     steps:
       - name: Checkout code
@@ -36,10 +37,12 @@ jobs:
             echo "environment=prod" >> "$GITHUB_OUTPUT"
             echo "ecr-stack-name=nagiyu-tools-ecr-prod" >> "$GITHUB_OUTPUT"
             echo "lambda-stack-name=nagiyu-tools-lambda-prod" >> "$GITHUB_OUTPUT"
+            echo "cloudfront-stack-name=nagiyu-tools-cloudfront-prod" >> "$GITHUB_OUTPUT"
           else
             echo "environment=dev" >> "$GITHUB_OUTPUT"
             echo "ecr-stack-name=nagiyu-tools-ecr-dev" >> "$GITHUB_OUTPUT"
             echo "lambda-stack-name=nagiyu-tools-lambda-dev" >> "$GITHUB_OUTPUT"
+            echo "cloudfront-stack-name=nagiyu-tools-cloudfront-dev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Configure AWS credentials
@@ -217,3 +220,73 @@ jobs:
           fi
           
           echo "Health check passed successfully!"
+
+      - name: Deploy CloudFront CloudFormation stack
+        env:
+          CLOUDFRONT_STACK_NAME: ${{ needs.infrastructure.outputs.cloudfront-stack-name }}
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Get base domain from ACM stack export
+          BASE_DOMAIN=$(aws cloudformation list-exports \
+            --query "Exports[?Name=='nagiyu-shared-acm-domain-name'].Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$BASE_DOMAIN" ]; then
+            echo "Error: Could not find base domain from ACM stack export 'nagiyu-shared-acm-domain-name'"
+            exit 1
+          fi
+          
+          # Get certificate ARN from ACM stack export
+          CERTIFICATE_ARN=$(aws cloudformation list-exports \
+            --query "Exports[?Name=='nagiyu-shared-acm-certificate-arn'].Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$CERTIFICATE_ARN" ]; then
+            echo "Error: Could not find certificate ARN from ACM stack export 'nagiyu-shared-acm-certificate-arn'"
+            exit 1
+          fi
+          
+          # Construct subdomain based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            SUBDOMAIN="tools.${BASE_DOMAIN}"
+          else
+            SUBDOMAIN="tools-${ENVIRONMENT}.${BASE_DOMAIN}"
+          fi
+          
+          echo "Deploying CloudFront for domain: $SUBDOMAIN"
+          echo "Using certificate: $CERTIFICATE_ARN"
+          
+          # Deploy CloudFront stack
+          aws cloudformation deploy \
+            --template-file infra/tools/cloudfront.yaml \
+            --stack-name "$CLOUDFRONT_STACK_NAME" \
+            --parameter-overrides \
+              Environment="$ENVIRONMENT" \
+              LambdaStackName="$LAMBDA_STACK_NAME" \
+              CertificateArn="$CERTIFICATE_ARN" \
+              DomainName="$SUBDOMAIN" \
+            --region "${{ env.AWS_REGION }}" \
+            --no-fail-on-empty-changeset
+          
+          echo "CloudFront stack deployed: $CLOUDFRONT_STACK_NAME"
+
+      - name: Display CloudFront information
+        env:
+          CLOUDFRONT_STACK_NAME: ${{ needs.infrastructure.outputs.cloudfront-stack-name }}
+        run: |
+          # Get CloudFront distribution domain
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$CLOUDFRONT_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          echo ""
+          echo "=== CloudFront Distribution ==="
+          echo "CloudFront Domain: $CF_DOMAIN"
+          echo ""
+          echo "Note: If this is a new distribution or domain configuration has changed,"
+          echo "please update your DNS records to point to the CloudFront domain."

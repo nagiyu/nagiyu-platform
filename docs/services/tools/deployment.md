@@ -155,9 +155,10 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 ワークフローファイル: `.github/workflows/tools-deploy.yml`
 
 **完全自動化:**
-- インフラ (ECR, Lambda) の CloudFormation スタックもワークフロー内で自動デプロイ
+- インフラ (ECR, Lambda, CloudFront) の CloudFormation スタックもワークフロー内で自動デプロイ
 - 手動でのインフラセットアップは不要
 - CloudFormation テンプレートがリポジトリに含まれているため、変更があれば自動で反映
+- ACM 証明書とドメイン名は既存の共通インフラから自動取得
 
 **トリガー条件:**
 - `develop` ブランチ → 開発環境へデプロイ
@@ -170,12 +171,16 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 3. **Lambda デプロイ**: Lambda 関数の CloudFormation スタックを新しいイメージでデプロイ
 4. **更新**: Lambda 関数コードを明示的に更新 (CloudFormation だけでは更新されない場合の保険)
 5. **検証**: Function URL を取得してヘルスチェック実行
+6. **CloudFront デプロイ**: CloudFront ディストリビューションの CloudFormation スタックをデプロイ
+   - ACM 証明書 ARN を共有インフラスタックのエクスポートから自動取得
+   - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `tools-dev.example.com`)
 
 **CloudFormation との統合:**
 - インフラとアプリケーションを一つのワークフローで完全自動デプロイ
 - CloudFormation テンプレート (`infra/tools/*.yaml`) が単一の真実の情報源
 - `--no-fail-on-empty-changeset` により、変更がない場合はスタック操作をスキップ
 - インフラの変更 (リポジトリ名、関数名など) があってもワークフローの修正は不要
+- ACM 証明書とドメイン名は CloudFormation エクスポートから動的に取得 (共有インフラとの連携)
 
 ### 2.3 デプロイ後の確認
 
