@@ -1,0 +1,193 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  Box,
+  Snackbar,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
+import ClearIcon from '@mui/icons-material/Clear';
+import SyncIcon from '@mui/icons-material/Sync';
+import { SnackbarState } from '@/types/tools';
+import {
+  parseTransitText,
+  validateInput,
+} from '@/lib/parsers/transitParser';
+import { formatTransitRoute } from '@/lib/formatters/formatters';
+
+export default function TransitConverterPage() {
+  const [inputText, setInputText] = useState<string>('');
+  const [outputText, setOutputText] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState<SnackbarState>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+
+  const handleConvert = () => {
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // 1. バリデーション
+      const validation = validateInput(inputText);
+      if (!validation.valid) {
+        setError(validation.error || '');
+        setSnackbar({
+          open: true,
+          message: validation.error || '入力エラーが発生しました',
+          severity: 'error',
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // 2. パース処理
+      const route = parseTransitText(inputText);
+      if (!route) {
+        const errorMsg =
+          'テキストを解析できませんでした。乗り換え案内のテキストを確認してください。';
+        setError(errorMsg);
+        setSnackbar({
+          open: true,
+          message: errorMsg,
+          severity: 'error',
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // 3. フォーマット処理
+      const formatted = formatTransitRoute(route);
+      setOutputText(formatted);
+      setError(null);
+
+      setSnackbar({
+        open: true,
+        message: '変換が完了しました',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Transit conversion error:', error);
+      const errorMsg = '予期しないエラーが発生しました。';
+      setError(errorMsg);
+      setSnackbar({
+        open: true,
+        message: errorMsg,
+        severity: 'error',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleClear = () => {
+    setInputText('');
+    setOutputText('');
+    setError(null);
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  return (
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom align="center">
+        乗り換え変換ツール
+      </Typography>
+
+      <Typography
+        variant="body1"
+        color="text.secondary"
+        paragraph
+        align="center"
+      >
+        乗り換え案内のテキストを貼り付けて、整形された形式に変換します。
+      </Typography>
+
+      {/* 入力セクション */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          入力
+        </Typography>
+        <TextField
+          fullWidth
+          multiline
+          rows={10}
+          placeholder="乗り換え案内のテキストをここに貼り付けてください..."
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          error={!!error}
+          helperText={error}
+          sx={{ mb: 2 }}
+        />
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={
+              isProcessing ? <CircularProgress size={20} /> : <SyncIcon />
+            }
+            onClick={handleConvert}
+            disabled={isProcessing || !inputText.trim()}
+          >
+            変換
+          </Button>
+        </Box>
+      </Box>
+
+      {/* 出力セクション */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="subtitle1" gutterBottom>
+          出力
+        </Typography>
+        <TextField
+          fullWidth
+          multiline
+          rows={10}
+          placeholder="変換された結果がここに表示されます..."
+          value={outputText}
+          slotProps={{
+            input: {
+              readOnly: true,
+            },
+          }}
+          sx={{ mb: 2 }}
+        />
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<ClearIcon />}
+            onClick={handleClear}
+            disabled={!inputText && !outputText}
+          >
+            クリア
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Container>
+  );
+}
