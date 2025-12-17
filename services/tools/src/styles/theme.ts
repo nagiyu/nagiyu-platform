@@ -127,7 +127,6 @@ const theme = createTheme({
         root: {
           borderRadius: 8,
           padding: '8px 16px',
-          textTransform: 'none',
         },
         contained: {
           boxShadow: 'none',
