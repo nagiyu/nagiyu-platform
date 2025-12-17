@@ -2,10 +2,10 @@ name: Tools App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
     paths:
       - 'services/tools/**'
       - 'infra/tools/**'
