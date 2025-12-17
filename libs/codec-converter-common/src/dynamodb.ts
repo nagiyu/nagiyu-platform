@@ -3,23 +3,23 @@
  * Provides utilities for DynamoDB operations including Job management
  */
 
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
   GetCommand,
   PutCommand,
   UpdateCommand,
   DeleteCommand,
-} from '@aws-sdk/lib-dynamodb';
+} from "@aws-sdk/lib-dynamodb";
 
 /**
  * Job status enum
  */
 export enum JobStatus {
-  PENDING = 'PENDING',
-  PROCESSING = 'PROCESSING',
-  COMPLETED = 'COMPLETED',
-  FAILED = 'FAILED',
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
 }
 
 /**
@@ -30,7 +30,7 @@ export interface Job {
   status: JobStatus;
   inputFile: string;
   outputFile?: string;
-  outputCodec: 'h264' | 'vp9' | 'av1';
+  outputCodec: "h264" | "vp9" | "av1";
   createdAt: number;
   updatedAt: number;
   expiresAt: number;
@@ -47,7 +47,9 @@ export class DynamoDBHelper {
   private tableName: string;
 
   constructor(tableName: string, region?: string) {
-    const ddbClient = new DynamoDBClient({ region: region || process.env.AWS_REGION || 'us-east-1' });
+    const ddbClient = new DynamoDBClient({
+      region: region || process.env.AWS_REGION || "us-east-1",
+    });
     this.client = DynamoDBDocumentClient.from(ddbClient);
     this.tableName = tableName;
   }
@@ -86,18 +88,22 @@ export class DynamoDBHelper {
    * @param status - New status
    * @param errorMessage - Optional error message (for FAILED status)
    */
-  async updateJobStatus(jobId: string, status: JobStatus, errorMessage?: string): Promise<void> {
+  async updateJobStatus(
+    jobId: string,
+    status: JobStatus,
+    errorMessage?: string,
+  ): Promise<void> {
     const updateExpression = errorMessage
-      ? 'SET #status = :status, updatedAt = :updatedAt, errorMessage = :errorMessage'
-      : 'SET #status = :status, updatedAt = :updatedAt';
+      ? "SET #status = :status, updatedAt = :updatedAt, errorMessage = :errorMessage"
+      : "SET #status = :status, updatedAt = :updatedAt";
 
     const expressionAttributeValues: Record<string, any> = {
-      ':status': status,
-      ':updatedAt': Math.floor(Date.now() / 1000),
+      ":status": status,
+      ":updatedAt": Math.floor(Date.now() / 1000),
     };
 
     if (errorMessage) {
-      expressionAttributeValues[':errorMessage'] = errorMessage;
+      expressionAttributeValues[":errorMessage"] = errorMessage;
     }
 
     const command = new UpdateCommand({
@@ -105,7 +111,7 @@ export class DynamoDBHelper {
       Key: { jobId },
       UpdateExpression: updateExpression,
       ExpressionAttributeNames: {
-        '#status': 'status',
+        "#status": "status",
       },
       ExpressionAttributeValues: expressionAttributeValues,
     });

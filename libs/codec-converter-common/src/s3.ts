@@ -3,8 +3,12 @@
  * Provides utilities for S3 operations including Presigned URL generation
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
  * S3Helper class for managing S3 operations
@@ -14,7 +18,9 @@ export class S3Helper {
   private bucketName: string;
 
   constructor(bucketName: string, region?: string) {
-    this.client = new S3Client({ region: region || process.env.AWS_REGION || 'us-east-1' });
+    this.client = new S3Client({
+      region: region || process.env.AWS_REGION || "us-east-1",
+    });
     this.bucketName = bucketName;
   }
 
@@ -24,7 +30,10 @@ export class S3Helper {
    * @param expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
    * @returns Presigned URL for PUT operation
    */
-  async getUploadPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
+  async getUploadPresignedUrl(
+    key: string,
+    expiresIn: number = 3600,
+  ): Promise<string> {
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: key,
@@ -38,7 +47,10 @@ export class S3Helper {
    * @param expiresIn - URL expiration time in seconds (default: 86400 = 24 hours)
    * @returns Presigned URL for GET operation
    */
-  async getDownloadPresignedUrl(key: string, expiresIn: number = 86400): Promise<string> {
+  async getDownloadPresignedUrl(
+    key: string,
+    expiresIn: number = 86400,
+  ): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: key,

@@ -3,5 +3,5 @@
  * Provides helpers for S3 and DynamoDB operations
  */
 
-export * from './s3';
-export * from './dynamodb';
+export * from "./s3";
+export * from "./dynamodb";
