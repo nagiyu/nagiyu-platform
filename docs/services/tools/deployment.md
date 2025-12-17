@@ -16,6 +16,11 @@ Tools アプリのインフラは以下の CloudFormation スタックで構成�
 
 ### 1.2 初回セットアップ
 
+**リージョン戦略:**
+- **ECR・Lambda**: `ap-northeast-1` (東京) - 日本ユーザー向けに低レイテンシ
+- **CloudFront**: グローバルサービス (CloudFormation スタックは `us-east-1` に配置)
+- **ACM 証明書**: `us-east-1` 必須 (CloudFront 用証明書の要件)
+
 #### ECR リポジトリの作成
 
 ```bash
@@ -51,6 +56,36 @@ aws cloudformation deploy \
   --parameter-overrides Environment=prod ImageUri=<ECR_IMAGE_URI> \
   --region ap-northeast-1
 ```
+
+#### CloudFront ディストリビューションの作成
+
+**前提条件**: ACM 証明書が `us-east-1` リージョンに作成済みであること ([共通インフラ - ACM](../../infra/shared/acm.md) 参照)
+
+```bash
+# 開発環境
+aws cloudformation deploy \
+  --template-file infra/tools/cloudfront.yaml \
+  --stack-name nagiyu-tools-cloudfront-dev \
+  --parameter-overrides \
+    Environment=dev \
+    LambdaStackName=nagiyu-tools-lambda-dev \
+    CertificateArn=<ACM_CERTIFICATE_ARN> \
+    DomainName=dev-tools.example.com \
+  --region us-east-1
+
+# 本番環境
+aws cloudformation deploy \
+  --template-file infra/tools/cloudfront.yaml \
+  --stack-name nagiyu-tools-cloudfront-prod \
+  --parameter-overrides \
+    Environment=prod \
+    LambdaStackName=nagiyu-tools-lambda-prod \
+    CertificateArn=<ACM_CERTIFICATE_ARN> \
+    DomainName=tools.example.com \
+  --region us-east-1
+```
+
+**注意**: CloudFront は `us-east-1` リージョンでスタックをデプロイします。Lambda は `ap-northeast-1` にありますが、CloudFront はグローバルサービスとして任意のリージョンのオリジンに接続できます。
 
 ### 1.3 環境ごとの設定
 
@@ -98,11 +133,14 @@ GitHub Actions で自動デプロイを行うには、OIDC を使用した AWS �
 
 #### OIDC 設定手順
 
+**注意**: IAM はグローバルサービスですが、リージョンとして `us-east-1` を指定することが一般的です。
+
 1. **AWS IAM で OIDC プロバイダーを作成**
 
    - AWS マネジメントコンソール → IAM → ID プロバイダー
    - プロバイダーの URL: `https://token.actions.githubusercontent.com`
    - 対象者: `sts.amazonaws.com`
+   - リージョン: IAM はグローバルサービス (コンソールは us-east-1 を使用)
 
 2. **デプロイ用 IAM ロールを作成**
 
@@ -132,6 +170,8 @@ GitHub Actions で自動デプロイを行うには、OIDC を使用した AWS �
 
 3. **ロールに権限を付与**
 
+   ECR (ap-northeast-1) と Lambda (ap-northeast-1) へのアクセス権限:
+   
    ```json
    {
      "Version": "2012-10-17",
