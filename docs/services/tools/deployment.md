@@ -17,9 +17,10 @@ Tools アプリのインフラは以下の CloudFormation スタックで構成�
 ### 1.2 初回セットアップ
 
 **リージョン戦略:**
-- **ECR・Lambda**: `ap-northeast-1` (東京) - 日本ユーザー向けに低レイテンシ
-- **CloudFront**: グローバルサービス (CloudFormation スタックは `us-east-1` に配置)
-- **ACM 証明書**: `us-east-1` 必須 (CloudFront 用証明書の要件)
+- **すべてのリソース**: `us-east-1` (バージニア北部)
+  - CloudFront 用 ACM 証明書との統一
+  - シンプルなリソース管理
+  - クロスリージョン設定の複雑さを回避
 
 #### ECR リポジトリの作成
 
@@ -29,14 +30,14 @@ aws cloudformation deploy \
   --template-file infra/tools/ecr.yaml \
   --stack-name nagiyu-tools-ecr-dev \
   --parameter-overrides Environment=dev \
-  --region ap-northeast-1
+  --region us-east-1
 
 # 本番環境
 aws cloudformation deploy \
   --template-file infra/tools/ecr.yaml \
   --stack-name nagiyu-tools-ecr-prod \
   --parameter-overrides Environment=prod \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 #### Lambda 関数の作成
@@ -47,14 +48,14 @@ aws cloudformation deploy \
   --template-file infra/tools/lambda.yaml \
   --stack-name nagiyu-tools-lambda-dev \
   --parameter-overrides Environment=dev ImageUri=<ECR_IMAGE_URI> \
-  --region ap-northeast-1
+  --region us-east-1
 
 # 本番環境
 aws cloudformation deploy \
   --template-file infra/tools/lambda.yaml \
   --stack-name nagiyu-tools-lambda-prod \
   --parameter-overrides Environment=prod ImageUri=<ECR_IMAGE_URI> \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 #### CloudFront ディストリビューションの作成
@@ -85,7 +86,7 @@ aws cloudformation deploy \
   --region us-east-1
 ```
 
-**注意**: CloudFront は `us-east-1` リージョンでスタックをデプロイします。Lambda は `ap-northeast-1` にありますが、CloudFront はグローバルサービスとして任意のリージョンのオリジンに接続できます。
+**注意**: すべてのリソースを `us-east-1` に配置することで、CloudFormation のクロスリージョンエクスポート/インポートの問題を回避し、管理を簡素化します。
 
 ### 1.3 環境ごとの設定
 
@@ -102,8 +103,8 @@ aws cloudformation deploy \
 
 ```bash
 # ECR ログイン
-aws ecr get-login-password --region ap-northeast-1 | \
-  docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.ap-northeast-1.amazonaws.com
+aws ecr get-login-password --region us-east-1 | \
+  docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
 # イメージのビルド
 cd services/tools
@@ -122,7 +123,7 @@ docker push <ECR_REGISTRY>/tools-app-dev:latest
 aws lambda update-function-code \
   --function-name tools-app-dev \
   --image-uri <ECR_REGISTRY>/tools-app-dev:latest \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 ### 2.2 GitHub Actionsによる自動デプロイ
@@ -170,7 +171,7 @@ GitHub Actions で自動デプロイを行うには、OIDC を使用した AWS �
 
 3. **ロールに権限を付与**
 
-   ECR (ap-northeast-1) と Lambda (ap-northeast-1) へのアクセス権限:
+   ECR と Lambda へのアクセス権限 (すべて us-east-1):
    
    ```json
    {
@@ -198,8 +199,8 @@ GitHub Actions で自動デプロイを行うには、OIDC を使用した AWS �
            "lambda:GetFunctionUrlConfig"
          ],
          "Resource": [
-           "arn:aws:lambda:ap-northeast-1:<AWS_ACCOUNT_ID>:function:tools-app-dev",
-           "arn:aws:lambda:ap-northeast-1:<AWS_ACCOUNT_ID>:function:tools-app-prod"
+           "arn:aws:lambda:us-east-1:<AWS_ACCOUNT_ID>:function:tools-app-dev",
+           "arn:aws:lambda:us-east-1:<AWS_ACCOUNT_ID>:function:tools-app-prod"
          ]
        }
      ]
@@ -235,12 +236,12 @@ GitHub Actions で自動デプロイを行うには、OIDC を使用した AWS �
 # 関数の状態確認
 aws lambda get-function \
   --function-name tools-app-dev \
-  --region ap-northeast-1
+  --region us-east-1
 
 # Function URL の取得
 aws lambda get-function-url-config \
   --function-name tools-app-dev \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 #### ヘルスチェック
@@ -372,7 +373,7 @@ Lambda は自動スケーリングされます。必要に応じて以下を調�
 aws lambda update-function-code \
   --function-name tools-app-dev \
   --image-uri <ECR_REGISTRY>/tools-app-dev:<PREVIOUS_TAG> \
-  --region ap-northeast-1
+  --region us-east-1
 ```
 
 ### 7.3 よくある障害と対処法
