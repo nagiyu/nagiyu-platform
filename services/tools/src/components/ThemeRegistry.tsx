@@ -5,7 +5,12 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Box, AppBar, Toolbar, Typography } from '@mui/material';
 import theme from '@/styles/theme';
 
-export default function ThemeRegistry({ children }: { children: React.ReactNode }) {
+interface ThemeRegistryProps {
+  children: React.ReactNode;
+  version?: string;
+}
+
+export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -36,7 +41,7 @@ export default function ThemeRegistry({ children }: { children: React.ReactNode 
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            v1.0.0
+            v{version}
           </Typography>
         </Box>
       </Box>
