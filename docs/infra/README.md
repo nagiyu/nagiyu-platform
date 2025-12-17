@@ -15,6 +15,7 @@ AWS CloudFormation を用いて、共通基盤と各アプリケーション固�
 
 - [初回セットアップ](./setup.md) - 初めてインフラを構築する際の手順
 - [デプロイ手順](./deploy.md) - 日常的なインフラ更新とデプロイ操作
+- [GitHub Actions CI/CD](./github-actions.md) - GitHub Actions を使用した自動デプロイの設定
 
 ### リソース別ドキュメント
 

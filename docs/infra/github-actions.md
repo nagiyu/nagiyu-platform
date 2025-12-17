@@ -1,6 +1,8 @@
-# GitHub Actions Workflows
+# GitHub Actions CI/CD
 
-このディレクトリには、nagiyu-platform の CI/CD ワークフローが含まれています。
+本ドキュメントは、nagiyu-platform における GitHub Actions を使用した CI/CD の設定と運用について説明します。
+
+---
 
 ## ワークフロー一覧
 
@@ -19,7 +21,8 @@
 
 ### GitHub Actions 用 IAM ロールの作成 (OIDC)
 
-Tools アプリのデプロイには、OIDC (OpenID Connect) を使用した AWS 認証が必要です。
+GitHub Actions から AWS リソースにアクセスするには、OIDC (OpenID Connect) を使用した認証が推奨されます。
+長期的なアクセスキーを使用せず、一時的な認証情報を取得できるため、セキュリティが向上します。
 
 #### 1. AWS IAM で OIDC プロバイダーを作成
 
@@ -77,7 +80,7 @@ Tools アプリのデプロイには、OIDC (OpenID Connect) を使用した AWS
         "ecr:BatchGetImage",
         "ecr:PutImage",
         "ecr:InitiateLayerUpload",
-        "ecr:UploadLayerPart",
+        "ecr:UploadLayerUpload",
         "ecr:CompleteLayerUpload"
       ],
       "Resource": "*"
@@ -114,9 +117,11 @@ Tools アプリのデプロイには、OIDC (OpenID Connect) を使用した AWS
 
 ---
 
-## Tools アプリのワークフロー詳細
+## ワークフロー詳細
 
-### トリガー条件
+### Tools アプリのデプロイワークフロー
+
+#### トリガー条件
 
 以下のブランチへの push 時に自動実行されます:
 
@@ -132,7 +137,7 @@ Tools アプリのデプロイには、OIDC (OpenID Connect) を使用した AWS
 
 手動実行も可能です (Actions タブから `workflow_dispatch` を使用)。
 
-### ジョブ構成
+#### ジョブ構成
 
 1. **Build Job**
    - Docker イメージをビルド
@@ -144,7 +149,7 @@ Tools アプリのデプロイには、OIDC (OpenID Connect) を使用した AWS
    - 更新完了を待機
    - ヘルスチェックで検証
 
-### デプロイ環境の判定
+#### デプロイ環境の判定
 
 - `master` ブランチ → 本番環境 (`prod`)
 - その他のブランチ → 開発環境 (`dev`)
@@ -182,3 +187,11 @@ Tools アプリのデプロイには、OIDC (OpenID Connect) を使用した AWS
 
 - [GitHub Actions - OIDC を使用した AWS との連携](https://docs.github.com/ja/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 - [AWS Lambda - コンテナイメージを使用した関数の更新](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-images.html)
+- [ブランチ戦略](../branching.md) - デプロイフローと関連するブランチ戦略
+
+---
+
+## 関連ドキュメント
+
+- [初回セットアップ](./setup.md) - IAM ユーザーとアクセスキーを使用した従来の設定方法
+- [デプロイ手順](./deploy.md) - 日常的なインフラ更新とデプロイ操作
