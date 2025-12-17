@@ -1,5 +1,10 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: S3 storage bucket for Codec Converter service
+Description: |
+  S3 storage bucket for Codec Converter service.
+  This bucket stores uploaded input files and converted output files using prefixes:
+  - uploads/{jobId}/ - Original uploaded MP4 files
+  - outputs/{jobId}/ - Converted video files
+  All objects are automatically deleted after 24 hours via lifecycle policy.
 
 Parameters:
   Environment:
@@ -16,6 +21,8 @@ Conditions:
 Resources:
   StorageBucket:
     Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       BucketName: !Sub 'codec-converter-${Environment}-${AWS::AccountId}'
       BucketEncryption:
@@ -56,6 +63,37 @@ Resources:
           Value: !Sub 'codec-converter-storage-${Environment}'
         - Key: Environment
           Value: !Ref Environment
+        - Key: Purpose
+          Value: 'Temporary storage for video conversion uploads and outputs'
+
+  # Bucket policy to enforce security best practices
+  StorageBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref StorageBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Deny all non-SSL requests (enforce HTTPS)
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt StorageBucket.Arn
+              - !Sub '${StorageBucket.Arn}/*'
+            Condition:
+              Bool:
+                'aws:SecureTransport': 'false'
+          # Deny requests without proper encryption
+          - Sid: DenyUnencryptedObjectUploads
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:PutObject'
+            Resource: !Sub '${StorageBucket.Arn}/*'
+            Condition:
+              StringNotEquals:
+                's3:x-amz-server-side-encryption': 'AES256'
 
 Outputs:
   StorageBucketName:
