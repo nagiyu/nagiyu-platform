@@ -1,0 +1,292 @@
+name: Tools App - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'services/tools/**'
+      - 'infra/tools/**'
+      - '.github/workflows/tools-deploy.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      ecr-stack-name: ${{ steps.set-env.outputs.ecr-stack-name }}
+      lambda-stack-name: ${{ steps.set-env.outputs.lambda-stack-name }}
+      cloudfront-stack-name: ${{ steps.set-env.outputs.cloudfront-stack-name }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "ecr-stack-name=nagiyu-tools-ecr-prod" >> "$GITHUB_OUTPUT"
+            echo "lambda-stack-name=nagiyu-tools-lambda-prod" >> "$GITHUB_OUTPUT"
+            echo "cloudfront-stack-name=nagiyu-tools-cloudfront-prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "ecr-stack-name=nagiyu-tools-ecr-dev" >> "$GITHUB_OUTPUT"
+            echo "lambda-stack-name=nagiyu-tools-lambda-dev" >> "$GITHUB_OUTPUT"
+            echo "cloudfront-stack-name=nagiyu-tools-cloudfront-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECR CloudFormation stack
+        env:
+          ECR_STACK_NAME: ${{ steps.set-env.outputs.ecr-stack-name }}
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/tools/ecr.yaml \
+            --stack-name "$ECR_STACK_NAME" \
+            --parameter-overrides Environment="$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}" \
+            --no-fail-on-empty-changeset
+          
+          echo "ECR stack deployed: $ECR_STACK_NAME"
+
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure
+    
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ needs.infrastructure.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CloudFormation
+        id: get-ecr
+        env:
+          ECR_STACK_NAME: ${{ needs.infrastructure.outputs.ecr-stack-name }}
+        run: |
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$ECR_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from stack $ECR_STACK_NAME"
+            exit 1
+          fi
+          
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        working-directory: ./services/tools
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: [infrastructure, build]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Lambda CloudFormation stack
+        env:
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/tools/lambda.yaml \
+            --stack-name "$LAMBDA_STACK_NAME" \
+            --parameter-overrides \
+              Environment="$ENVIRONMENT" \
+              ImageUri="$IMAGE_URI" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region "${{ env.AWS_REGION }}" \
+            --no-fail-on-empty-changeset
+          
+          echo "Lambda stack deployed: $LAMBDA_STACK_NAME"
+
+      - name: Get Lambda function name from CloudFormation
+        id: get-lambda
+        env:
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
+        run: |
+          # Get Lambda function ARN from CloudFormation
+          FUNCTION_ARN=$(aws cloudformation describe-stacks \
+            --stack-name "$LAMBDA_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$FUNCTION_ARN" ]; then
+            echo "Error: Could not find Lambda function ARN from stack $LAMBDA_STACK_NAME"
+            exit 1
+          fi
+          
+          # Extract function name from ARN
+          FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')
+          
+          echo "function-name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Lambda Function: $FUNCTION_NAME"
+
+      - name: Update Lambda function
+        env:
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
+        run: |
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Wait for Lambda update to complete
+        env:
+          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
+        run: |
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Verify deployment
+        env:
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
+        run: |
+          # Get Function URL from CloudFormation
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$LAMBDA_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "Error: Failed to get Function URL from CloudFormation stack."
+            exit 1
+          fi
+          
+          echo "Function URL: $FUNCTION_URL"
+          
+          # Health check
+          if ! curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" | grep -q "200"; then
+            echo "Error: Health check failed. The application may not be running correctly."
+            exit 1
+          fi
+          
+          echo "Health check passed successfully!"
+
+      - name: Deploy CloudFront CloudFormation stack
+        env:
+          CLOUDFRONT_STACK_NAME: ${{ needs.infrastructure.outputs.cloudfront-stack-name }}
+          LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Get base domain from ACM stack export
+          BASE_DOMAIN=$(aws cloudformation list-exports \
+            --query "Exports[?Name=='nagiyu-shared-acm-domain-name'].Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$BASE_DOMAIN" ]; then
+            echo "Error: Could not find base domain from ACM stack export 'nagiyu-shared-acm-domain-name'"
+            exit 1
+          fi
+          
+          # Get certificate ARN from ACM stack export
+          CERTIFICATE_ARN=$(aws cloudformation list-exports \
+            --query "Exports[?Name=='nagiyu-shared-acm-certificate-arn'].Value" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          if [ -z "$CERTIFICATE_ARN" ]; then
+            echo "Error: Could not find certificate ARN from ACM stack export 'nagiyu-shared-acm-certificate-arn'"
+            exit 1
+          fi
+          
+          # Construct subdomain based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            SUBDOMAIN="tools.${BASE_DOMAIN}"
+          else
+            SUBDOMAIN="${ENVIRONMENT}-tools.${BASE_DOMAIN}"
+          fi
+          
+          echo "Deploying CloudFront for domain: $SUBDOMAIN"
+          echo "Using certificate: $CERTIFICATE_ARN"
+          
+          # Deploy CloudFront stack
+          aws cloudformation deploy \
+            --template-file infra/tools/cloudfront.yaml \
+            --stack-name "$CLOUDFRONT_STACK_NAME" \
+            --parameter-overrides \
+              Environment="$ENVIRONMENT" \
+              LambdaStackName="$LAMBDA_STACK_NAME" \
+              CertificateArn="$CERTIFICATE_ARN" \
+              DomainName="$SUBDOMAIN" \
+            --region "${{ env.AWS_REGION }}" \
+            --no-fail-on-empty-changeset
+          
+          echo "CloudFront stack deployed: $CLOUDFRONT_STACK_NAME"
+
+      - name: Display CloudFront information
+        env:
+          CLOUDFRONT_STACK_NAME: ${{ needs.infrastructure.outputs.cloudfront-stack-name }}
+        run: |
+          # Get CloudFront distribution domain
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$CLOUDFRONT_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+          
+          echo ""
+          echo "=== CloudFront Distribution ==="
+          echo "CloudFront Domain: $CF_DOMAIN"
+          echo ""
+          echo "Note: If this is a new distribution or domain configuration has changed,"
+          echo "please update your DNS records to point to the CloudFront domain."
