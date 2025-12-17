@@ -18,9 +18,9 @@ Tools アプリのインフラは以下の CloudFormation スタックで構成�
 
 **リージョン戦略:**
 - **すべてのリソース**: `us-east-1` (バージニア北部)
-  - CloudFront 用 ACM 証明書との統一
-  - シンプルなリソース管理
-  - クロスリージョン設定の複雑さを回避
+    - CloudFront 用 ACM 証明書との統一
+    - シンプルなリソース管理
+    - クロスリージョン設定の複雑さを回避
 
 #### ECR リポジトリの作成
 
@@ -195,14 +195,14 @@ curl https://<FUNCTION_URL>/api/health
 GitHub Actions ワークフロー (`.github/workflows/tools-deploy.yml`) により、以下のプロセスが自動化されています:
 
 1. **Build Job**
-   - Docker イメージのビルド
-   - ECR へのプッシュ
-   - イメージ URI の出力
+    - Docker イメージのビルド
+    - ECR へのプッシュ
+    - イメージ URI の出力
 
 2. **Deploy Job**
-   - Lambda 関数コードの更新
-   - 更新完了の待機
-   - ヘルスチェックによる検証
+    - Lambda 関数コードの更新
+    - 更新完了の待機
+    - ヘルスチェックによる検証
 
 ### 3.2 ブランチごとのデプロイ戦略
 
