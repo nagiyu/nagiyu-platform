@@ -130,31 +130,6 @@ export function createJob(params: {
 }
 
 /**
- * Type guard to check if a status is valid
- * @param status - The status to check
- * @returns true if the status is a valid JobStatus
- */
-export function isValidJobStatus(status: string): status is JobStatus {
-  const validStatuses: string[] = [
-    'PENDING',
-    'PROCESSING',
-    'COMPLETED',
-    'FAILED',
-  ];
-  return validStatuses.indexOf(status) !== -1;
-}
-
-/**
- * Type guard to check if a codec is valid
- * @param codec - The codec to check
- * @returns true if the codec is a valid OutputCodec
- */
-export function isValidOutputCodec(codec: string): codec is OutputCodec {
-  const validCodecs: string[] = ['h264', 'vp9', 'av1'];
-  return validCodecs.indexOf(codec) !== -1;
-}
-
-/**
  * Validation constants
  */
 export const JobValidation = {
@@ -163,4 +138,28 @@ export const JobValidation = {
 
   /** Job expiration time in seconds (24 hours) */
   EXPIRATION_SECONDS: 86400,
+
+  /** Valid job statuses */
+  VALID_STATUSES: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] as const,
+
+  /** Valid output codecs */
+  VALID_CODECS: ['h264', 'vp9', 'av1'] as const,
 } as const;
+
+/**
+ * Type guard to check if a status is valid
+ * @param status - The status to check
+ * @returns true if the status is a valid JobStatus
+ */
+export function isValidJobStatus(status: string): status is JobStatus {
+  return JobValidation.VALID_STATUSES.indexOf(status as JobStatus) !== -1;
+}
+
+/**
+ * Type guard to check if a codec is valid
+ * @param codec - The codec to check
+ * @returns true if the codec is a valid OutputCodec
+ */
+export function isValidOutputCodec(codec: string): codec is OutputCodec {
+  return JobValidation.VALID_CODECS.indexOf(codec as OutputCodec) !== -1;
+}
