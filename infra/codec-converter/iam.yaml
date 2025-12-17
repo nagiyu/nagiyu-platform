@@ -100,7 +100,8 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: '*'
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/batch/codec-converter-*'
       Tags:
         - Key: Name
           Value: !Sub 'codec-converter-batch-job-role-${Environment}'
@@ -164,10 +165,16 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Sid: AllowBatchOperations
+              - Sid: AllowBatchJobSubmission
                 Effect: Allow
                 Action:
                   - batch:SubmitJob
+                Resource:
+                  - !Sub 'arn:aws:batch:${AWS::Region}:${AWS::AccountId}:job-queue/codec-converter-*'
+                  - !Sub 'arn:aws:batch:${AWS::Region}:${AWS::AccountId}:job-definition/codec-converter-*'
+              - Sid: AllowBatchJobDescribe
+                Effect: Allow
+                Action:
                   - batch:DescribeJobs
                 Resource: '*'
       Tags:
