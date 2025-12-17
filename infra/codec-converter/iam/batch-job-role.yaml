@@ -43,6 +43,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - dynamodb:GetItem
+                  - dynamodb:Query
                   - dynamodb:UpdateItem
                 Resource: !ImportValue
                   Fn::Sub: 'codec-converter-dynamodb-table-arn-${Environment}'
