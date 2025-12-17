@@ -105,13 +105,22 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
-          FUNCTION_URL=$(aws lambda get-function-url-config \
+          # Get Function URL
+          if ! FUNCTION_URL=$(aws lambda get-function-url-config \
             --function-name "tools-app-$ENVIRONMENT" \
             --region "${{ env.AWS_REGION }}" \
             --query 'FunctionUrl' \
-            --output text)
+            --output text 2>/dev/null); then
+            echo "Error: Failed to get Function URL. Make sure the Lambda function URL is configured."
+            exit 1
+          fi
           
           echo "Function URL: $FUNCTION_URL"
           
-          # ヘルスチェック
-          curl -f "$FUNCTION_URL/api/health" || exit 1
+          # Health check
+          if ! curl -f -s -o /dev/null -w "%{http_code}" "$FUNCTION_URL/api/health" | grep -q "200"; then
+            echo "Error: Health check failed. The application may not be running correctly."
+            exit 1
+          fi
+          
+          echo "Health check passed successfully!"
