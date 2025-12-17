@@ -1,6 +1,14 @@
-// MUI theme configuration
 import { createTheme } from '@mui/material/styles';
 
-export const theme = createTheme({
-  // Theme customization will be added here
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#424242',
+    },
+  },
 });
+
+export default theme;
