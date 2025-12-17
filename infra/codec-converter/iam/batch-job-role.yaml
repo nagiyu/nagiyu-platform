@@ -43,6 +43,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - dynamodb:GetItem
+                  - dynamodb:Query
                   - dynamodb:UpdateItem
                 Resource: !ImportValue
                   Fn::Sub: 'codec-converter-dynamodb-table-arn-${Environment}'
@@ -55,7 +56,8 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
-                Resource: '*'
+                Resource:
+                  - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/batch/job:*'
       Tags:
         - Key: Name
           Value: !Sub 'codec-converter-batch-job-role-${Environment}'
