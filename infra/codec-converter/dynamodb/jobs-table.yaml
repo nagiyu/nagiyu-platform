@@ -45,9 +45,3 @@ Outputs:
     Value: !GetAtt JobsTable.Arn
     Export:
       Name: !Sub 'codec-converter-dynamodb-table-arn-${Environment}'
-
-  JobsTableStreamArn:
-    Description: Stream ARN of the DynamoDB jobs table
-    Value: !GetAtt JobsTable.StreamArn
-    Export:
-      Name: !Sub 'codec-converter-dynamodb-table-stream-arn-${Environment}'
