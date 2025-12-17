@@ -25,8 +25,7 @@ Codec Converter のインフラは以下のコンポーネントで構成され�
 ```
 infra/codec-converter/
 ├── ecr/
-│   ├── nextjs-repository.yaml    # Next.js 用 ECR リポジトリ
-│   └── ffmpeg-repository.yaml    # FFmpeg 用 ECR リポジトリ
+│   └── repositories.yaml         # ECR リポジトリ (Next.js, FFmpeg)
 ├── iam/
 │   ├── lambda-role.yaml          # Lambda 実行ロール
 │   ├── batch-job-role.yaml       # Batch ジョブ実行ロール
@@ -38,7 +37,8 @@ infra/codec-converter/
 ├── batch/
 │   ├── compute-environment.yaml  # Batch Compute Environment
 │   ├── job-queue.yaml            # Batch Job Queue
-│   └── job-definition.yaml       # Batch Job Definition
+│   ├── job-definition.yaml       # Batch Job Definition
+│   └── log-group.yaml            # CloudWatch Logs ロググループ
 ├── lambda/
 │   └── nextjs-function.yaml      # Lambda 関数
 └── cloudfront/
@@ -128,12 +128,10 @@ Environment:
 ### 1. ECR リポジトリ
 
 **スタック名**:
-- `codec-converter-ecr-nextjs-{env}`
-- `codec-converter-ecr-ffmpeg-{env}`
+- `codec-converter-ecr-{env}`
 
 **リソース**:
-- `nextjs-repository.yaml`: Next.js + Lambda Web Adapter イメージ用
-- `ffmpeg-repository.yaml`: FFmpeg イメージ用
+- `repositories.yaml`: Next.js と FFmpeg 用の ECR リポジトリ（両方を1つのテンプレートで管理）
 
 **設定**:
 - リポジトリ名:
@@ -197,11 +195,15 @@ Environment:
 ### 5. AWS Batch
 
 **スタック名**:
+- `codec-converter-batch-log-{env}`
 - `codec-converter-batch-compute-{env}`
 - `codec-converter-batch-queue-{env}`
 - `codec-converter-batch-job-{env}`
 
 **リソース**:
+- `log-group.yaml`: CloudWatch Logs ロググループ
+    - ロググループ名: `/aws/batch/codec-converter-{env}`
+    - 保持期間: 7日間
 - `compute-environment.yaml`: Fargate コンピューティング環境
     - タイプ: Fargate
     - 最大 vCPU: 6 (3ジョブ × 2 vCPU)
@@ -282,25 +284,14 @@ Environment:
 
 #### 1-1. ECR リポジトリ作成
 
-**Next.js 用リポジトリ**:
-
 ```bash
 cd infra/codec-converter/ecr
 aws cloudformation deploy \
-  --template-file nextjs-repository.yaml \
-  --stack-name codec-converter-ecr-nextjs-dev \
-  --parameter-overrides Env=dev \
+  --template-file repositories.yaml \
+  --stack-name codec-converter-ecr-dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
-
-**FFmpeg 用リポジトリ**:
-
-```bash
-aws cloudformation deploy \
-  --template-file ffmpeg-repository.yaml \
-  --stack-name codec-converter-ecr-ffmpeg-dev \
-  --parameter-overrides Env=dev \
-  --region ap-northeast-1
 ```
 
 #### 1-2. コンテナイメージビルド & プッシュ
@@ -351,7 +342,7 @@ cd infra/codec-converter/iam
 aws cloudformation deploy \
   --template-file lambda-role.yaml \
   --stack-name codec-converter-iam-lambda-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ap-northeast-1
 ```
@@ -362,7 +353,7 @@ aws cloudformation deploy \
 aws cloudformation deploy \
   --template-file batch-job-role.yaml \
   --stack-name codec-converter-iam-batch-job-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ap-northeast-1
 ```
@@ -373,7 +364,7 @@ aws cloudformation deploy \
 aws cloudformation deploy \
   --template-file batch-execution-role.yaml \
   --stack-name codec-converter-iam-batch-execution-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --capabilities CAPABILITY_NAMED_IAM \
   --region ap-northeast-1
 ```
@@ -385,7 +376,7 @@ cd infra/codec-converter/s3
 aws cloudformation deploy \
   --template-file storage-bucket.yaml \
   --stack-name codec-converter-s3-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
@@ -396,20 +387,30 @@ cd infra/codec-converter/dynamodb
 aws cloudformation deploy \
   --template-file jobs-table.yaml \
   --stack-name codec-converter-dynamodb-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
 #### 1-6. Batch リソース作成
 
-**Compute Environment**:
+**CloudWatch Logs ロググループ**:
 
 ```bash
 cd infra/codec-converter/batch
 aws cloudformation deploy \
+  --template-file log-group.yaml \
+  --stack-name codec-converter-batch-log-dev \
+  --parameter-overrides Environment=dev \
+  --region ap-northeast-1
+```
+
+**Compute Environment**:
+
+```bash
+aws cloudformation deploy \
   --template-file compute-environment.yaml \
   --stack-name codec-converter-batch-compute-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
@@ -419,7 +420,7 @@ aws cloudformation deploy \
 aws cloudformation deploy \
   --template-file job-queue.yaml \
   --stack-name codec-converter-batch-queue-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
@@ -429,7 +430,7 @@ aws cloudformation deploy \
 aws cloudformation deploy \
   --template-file job-definition.yaml \
   --stack-name codec-converter-batch-job-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
@@ -442,7 +443,7 @@ cd infra/codec-converter/lambda
 aws cloudformation deploy \
   --template-file nextjs-function.yaml \
   --stack-name codec-converter-lambda-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
@@ -454,7 +455,7 @@ aws cloudformation deploy \
   --template-file distribution.yaml \
   --stack-name codec-converter-cloudfront-dev \
   --parameter-overrides \
-    Env=dev \
+    Environment=dev \
     DomainName=codec-converter.dev.example.com \
     AcmCertificateArn=arn:aws:acm:us-east-1:... \
   --region us-east-1
@@ -483,7 +484,7 @@ cd infra/codec-converter/{component}
 aws cloudformation deploy \
   --template-file {specific-file}.yaml \
   --stack-name codec-converter-{component}-{resource}-dev \
-  --parameter-overrides Env=dev \
+  --parameter-overrides Environment=dev \
   --region ap-northeast-1
 ```
 
