@@ -130,89 +130,25 @@ aws lambda update-function-code \
 
 #### 前提条件
 
-GitHub Actions で自動デプロイを行うには、OIDC を使用した AWS 認証の設定が必要です。
+GitHub Actions で自動デプロイを行うには、既存の IAM ユーザー (`nagiyu-github-actions`) の認証情報が必要です。
 
-#### OIDC 設定手順
+IAM ユーザーは `infra/shared/iam/users/github-actions-user.yaml` で定義されており、以下のポリシーがアタッチされています:
+- `nagiyu-deploy-policy-core`
+- `nagiyu-deploy-policy-container` (ECR 権限を含む)
+- `nagiyu-deploy-policy-application` (Lambda 権限を含む)
+- `nagiyu-deploy-policy-integration`
 
-**注意**: IAM はグローバルサービスですが、リージョンとして `us-east-1` を指定することが一般的です。
+#### GitHub Secrets の設定
 
-1. **AWS IAM で OIDC プロバイダーを作成**
+GitHub リポジトリの Settings → Secrets and variables → Actions で以下を確認:
 
-   - AWS マネジメントコンソール → IAM → ID プロバイダー
-   - プロバイダーの URL: `https://token.actions.githubusercontent.com`
-   - 対象者: `sts.amazonaws.com`
-   - リージョン: IAM はグローバルサービス (コンソールは us-east-1 を使用)
+| Name | 説明 | 設定済み |
+|------|------|---------|
+| `AWS_ACCESS_KEY_ID` | IAM ユーザーのアクセスキー ID | ✓ (共通インフラで設定済み) |
+| `AWS_SECRET_ACCESS_KEY` | IAM ユーザーのシークレットアクセスキー | ✓ (共通インフラで設定済み) |
+| `AWS_REGION` | デプロイ先リージョン (`us-east-1`) | ✓ (共通インフラで設定済み) |
 
-2. **デプロイ用 IAM ロールを作成**
-
-   Trust Policy:
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Principal": {
-           "Federated": "arn:aws:iam::<AWS_ACCOUNT_ID>:oidc-provider/token.actions.githubusercontent.com"
-         },
-         "Action": "sts:AssumeRoleWithWebIdentity",
-         "Condition": {
-           "StringEquals": {
-             "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-           },
-           "StringLike": {
-             "token.actions.githubusercontent.com:sub": "repo:nagiyu/nagiyu-platform:*"
-           }
-         }
-       }
-     ]
-   }
-   ```
-
-3. **ロールに権限を付与**
-
-   ECR と Lambda へのアクセス権限 (すべて us-east-1):
-   
-   ```json
-   {
-     "Version": "2012-10-17",
-     "Statement": [
-       {
-         "Effect": "Allow",
-         "Action": [
-           "ecr:GetAuthorizationToken",
-           "ecr:BatchCheckLayerAvailability",
-           "ecr:GetDownloadUrlForLayer",
-           "ecr:BatchGetImage",
-           "ecr:PutImage",
-           "ecr:InitiateLayerUpload",
-           "ecr:UploadLayerPart",
-           "ecr:CompleteLayerUpload"
-         ],
-         "Resource": "*"
-       },
-       {
-         "Effect": "Allow",
-         "Action": [
-           "lambda:UpdateFunctionCode",
-           "lambda:GetFunctionConfiguration",
-           "lambda:GetFunctionUrlConfig"
-         ],
-         "Resource": [
-           "arn:aws:lambda:us-east-1:<AWS_ACCOUNT_ID>:function:tools-app-dev",
-           "arn:aws:lambda:us-east-1:<AWS_ACCOUNT_ID>:function:tools-app-prod"
-         ]
-       }
-     ]
-   }
-   ```
-
-4. **GitHub Secrets の設定**
-
-   GitHub リポジトリの Settings → Secrets and variables → Actions で以下を追加:
-   
-   - Name: `AWS_DEPLOY_ROLE_ARN`
-   - Value: `arn:aws:iam::<AWS_ACCOUNT_ID>:role/github-actions-deploy-role`
+**注意**: これらのシークレットは既存の共通インフラワークフロー (ACM, VPC など) と共有されます。
 
 #### ワークフロー詳細
 
