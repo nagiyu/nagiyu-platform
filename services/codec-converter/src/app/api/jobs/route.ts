@@ -27,6 +27,12 @@ interface CreateJobRequest {
 }
 
 /**
+ * Validation constants
+ */
+const ACCEPTED_CONTENT_TYPE = 'video/mp4';
+const UPLOAD_URL_EXPIRATION_SECONDS = 3600; // 1 hour
+
+/**
  * Validate the request body
  * @param body - The request body to validate
  * @returns Error message if validation fails, null otherwise
@@ -56,8 +62,8 @@ function validateRequest(body: CreateJobRequest): string | null {
   }
 
   // Only accept MP4 files (Phase 1 requirement)
-  if (!body.contentType.startsWith('video/mp4')) {
-    return 'Only MP4 files (video/mp4) are accepted in Phase 1';
+  if (!body.contentType.startsWith(ACCEPTED_CONTENT_TYPE)) {
+    return `Only MP4 files (${ACCEPTED_CONTENT_TYPE}) are accepted in Phase 1`;
   }
 
   // Validate outputCodec
@@ -153,12 +159,16 @@ export async function POST(request: NextRequest) {
     try {
       uploadUrl = await s3Helper.getUploadPresignedUrl(inputFileKey, {
         contentType: body.contentType,
-        expiresIn: 3600, // 1 hour
+        expiresIn: UPLOAD_URL_EXPIRATION_SECONDS,
       });
     } catch (error) {
       console.error('Failed to generate upload presigned URL:', error);
-      // Job is already created in DynamoDB, but we can't generate upload URL
-      // Consider this a partial failure
+      // Clean up the job record since we cannot provide an upload URL
+      try {
+        await dbHelper.deleteJob(jobId);
+      } catch (deleteError) {
+        console.error('Failed to clean up job after URL generation failure:', deleteError);
+      }
       return NextResponse.json(
         { error: 'Failed to generate upload URL' },
         { status: 500 }

@@ -3,26 +3,29 @@
  * Provides utilities for DynamoDB operations for Job management
  */
 
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import {
-  DynamoDBClient,
-  GetItemCommand,
-  PutItemCommand,
-  UpdateItemCommand,
-} from '@aws-sdk/client-dynamodb';
-import { marshall, unmarshall } from '@aws-sdk/util-dynamodb';
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  UpdateCommand,
+  DeleteCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { Job, JobStatus } from './models/job';
 
 /**
  * DynamoDB helper class for managing Job entities
  */
 export class DynamoDBHelper {
-  private client: DynamoDBClient;
+  private docClient: DynamoDBDocumentClient;
   private tableName: string;
 
   constructor(tableName: string, region?: string) {
-    this.client = new DynamoDBClient({
+    const client = new DynamoDBClient({
       region: region || process.env.AWS_REGION || 'us-east-1',
     });
+    // Use DocumentClient for automatic marshalling/unmarshalling
+    this.docClient = DynamoDBDocumentClient.from(client);
     this.tableName = tableName;
   }
 
@@ -32,18 +35,18 @@ export class DynamoDBHelper {
    * @returns The Job object if found, null otherwise
    */
   async getJob(jobId: string): Promise<Job | null> {
-    const command = new GetItemCommand({
+    const command = new GetCommand({
       TableName: this.tableName,
-      Key: marshall({ jobId }),
+      Key: { jobId },
     });
 
-    const response = await this.client.send(command);
+    const response = await this.docClient.send(command);
 
     if (!response.Item) {
       return null;
     }
 
-    return unmarshall(response.Item) as Job;
+    return response.Item as Job;
   }
 
   /**
@@ -54,12 +57,25 @@ export class DynamoDBHelper {
    * by the Job model's createJob function, ensuring TTL cleanup after 24 hours
    */
   async putJob(job: Job): Promise<void> {
-    const command = new PutItemCommand({
+    const command = new PutCommand({
       TableName: this.tableName,
-      Item: marshall(job),
+      Item: job,
     });
 
-    await this.client.send(command);
+    await this.docClient.send(command);
+  }
+
+  /**
+   * Delete a job from DynamoDB
+   * @param jobId - The unique job identifier
+   */
+  async deleteJob(jobId: string): Promise<void> {
+    const command = new DeleteCommand({
+      TableName: this.tableName,
+      Key: { jobId },
+    });
+
+    await this.docClient.send(command);
   }
 
   /**
@@ -88,17 +104,17 @@ export class DynamoDBHelper {
       expressionAttributeValues[':errorMessage'] = errorMessage;
     }
 
-    const command = new UpdateItemCommand({
+    const command = new UpdateCommand({
       TableName: this.tableName,
-      Key: marshall({ jobId }),
+      Key: { jobId },
       UpdateExpression: updateExpression,
       ExpressionAttributeNames: {
         '#status': 'status', // Using alias because 'status' is a reserved word in DynamoDB
       },
-      ExpressionAttributeValues: marshall(expressionAttributeValues),
+      ExpressionAttributeValues: expressionAttributeValues,
     });
 
-    await this.client.send(command);
+    await this.docClient.send(command);
   }
 
   /**
@@ -109,17 +125,17 @@ export class DynamoDBHelper {
   async updateJobOutputFile(jobId: string, outputFile: string): Promise<void> {
     const now = Math.floor(Date.now() / 1000); // epoch seconds
 
-    const command = new UpdateItemCommand({
+    const command = new UpdateCommand({
       TableName: this.tableName,
-      Key: marshall({ jobId }),
+      Key: { jobId },
       UpdateExpression: 'SET outputFile = :outputFile, updatedAt = :updatedAt',
-      ExpressionAttributeValues: marshall({
+      ExpressionAttributeValues: {
         ':outputFile': outputFile,
         ':updatedAt': now,
-      }),
+      },
     });
 
-    await this.client.send(command);
+    await this.docClient.send(command);
   }
 
   /**
@@ -131,10 +147,10 @@ export class DynamoDBHelper {
   }
 
   /**
-   * Get the DynamoDB client instance
-   * @returns DynamoDBClient instance
+   * Get the DynamoDB document client instance
+   * @returns DynamoDBDocumentClient instance
    */
-  getClient(): DynamoDBClient {
-    return this.client;
+  getDocClient(): DynamoDBDocumentClient {
+    return this.docClient;
   }
 }
