@@ -270,7 +270,89 @@ aws logs tail /aws/lambda/tools-app-dev --follow
 
 ## 5. 運用
 
-### 5.1 日常運用タスク
+### 5.1 バージョン管理
+
+#### 5.1.1 バージョン番号のルール
+
+本プロジェクトは [Semantic Versioning](https://semver.org/) に準拠します:
+
+- **メジャー (X.0.0)**: 破壊的変更
+- **マイナー (0.X.0)**: 新機能追加（後方互換性あり）
+- **パッチ (0.0.X)**: バグ修正
+
+#### 5.1.2 バージョン管理の Single Source of Truth
+
+**`services/tools/package.json` の `version` フィールドがすべてのバージョン情報の唯一の真実の情報源です。**
+
+他の場所（CloudFormation パラメータ、環境変数、ドキュメント等）にバージョン番号を直接記載しないでください。
+
+#### 5.1.3 バージョン更新手順
+
+新しいバージョンをリリースする際の手順:
+
+```bash
+# package.json のバージョンを更新（npm version コマンド推奨）
+cd services/tools
+
+# パッチバージョンアップ（例: 1.0.0 → 1.0.1）
+npm version patch
+
+# マイナーバージョンアップ（例: 1.0.0 → 1.1.0）
+npm version minor
+
+# メジャーバージョンアップ（例: 1.0.0 → 2.0.0）
+npm version major
+
+# コミット & プッシュ
+git add .
+git commit -m "chore: bump version to X.Y.Z"
+git push origin <branch-name>
+```
+
+**`npm version` コマンドの動作:**
+- `package.json` の `version` フィールドを自動更新
+- Git タグを自動作成（`vX.Y.Z` 形式）
+- 自動的に git commit を作成
+
+#### 5.1.4 デプロイ時のバージョン設定
+
+GitHub Actions が自動的に以下を実行します:
+
+1. **`package.json` からバージョンを読み取り**
+    ```yaml
+    - name: Get version from package.json
+        run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+    ```
+
+2. **CloudFormation パラメータとして渡す**
+    ```yaml
+    aws cloudformation deploy \
+        --parameter-overrides AppVersion="$VERSION" \
+        ...
+    ```
+
+3. **Lambda 環境変数 `APP_VERSION` に設定**
+    - CloudFormation が自動的に Lambda の環境変数として設定
+    - アプリケーションは `process.env.APP_VERSION` から取得
+
+#### 5.1.5 バージョン表示
+
+デプロイされたアプリケーションのバージョンは以下で確認可能:
+
+- **Footer**: すべてのページ下部に `vX.Y.Z` として表示
+- **Health API**: `https://tools.example.com/api/health` のレスポンス
+
+```json
+{
+    "status": "ok",
+    "timestamp": "2025-12-18T12:34:56.789Z",
+    "version": "1.0.0"
+}
+```
+
+### 5.2 日常運用タスク
 
 (将来実装予定)
 

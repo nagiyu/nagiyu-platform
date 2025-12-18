@@ -459,6 +459,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 ```
 
+**バージョン管理:**
+- **Single Source of Truth**: `package.json` の `version` フィールド
+- デプロイ時に GitHub Actions が `package.json` からバージョンを読み取る
+- CloudFormation の `AppVersion` パラメータ経由で Lambda 環境変数 `APP_VERSION` に設定
+- アプリケーションは `process.env.APP_VERSION` から取得
+
 #### 1.2.3 トップページ（ツール一覧）の状態
 
 ```typescript
@@ -883,7 +889,7 @@ export async function GET() {
 - **環境変数**:
     - `NODE_ENV=production`
     - `PORT=3000` (Lambda Web Adapter用)
-    - `APP_VERSION=1.0.0`
+    - `APP_VERSION` (デプロイ時に `package.json` から自動設定)
 
 #### 2.2.2 Lambda Web Adapter 設定
 
