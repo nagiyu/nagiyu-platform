@@ -1,9 +1,5 @@
 # Toolsアプリ 基本設計書
 
-**バージョン**: 1.0.0
-**最終更新日**: 2025-12-14
-**ステータス**: 初版作成
-
 ---
 
 ## 1. システムアーキテクチャ
@@ -16,15 +12,15 @@
 
 ```
 ユーザー (ブラウザ)
-  ↓ HTTPS
+    ↓ HTTPS
 外部DNSサービス
-  ↓ CNAME (tools.example.com → d123456.cloudfront.net)
+    ↓ CNAME (tools.example.com → d123456.cloudfront.net)
 CloudFront Distribution
-  ↓ オリジン
+    ↓ オリジン
 Lambda Function URL (Next.js SSR + Lambda Web Adapter)
-  ├─ Next.js App Router
-  ├─ Material UI コンポーネント
-  └─ 静的アセット (_next/static, public)
+    ├─ Next.js App Router
+    ├─ Material UI コンポーネント
+    └─ 静的アセット (_next/static, public)
 ```
 
 ### 1.2 技術スタック
@@ -120,73 +116,6 @@ Next.js の API Routes (`app/api/` ディレクトリ) を使用。
     - `NODE_ENV=production`
     - `PORT=3000` (Lambda Web Adapter用)
     - その他、必要に応じて追加
-
-### 2.3 ディレクトリ構造
-
-```
-nagiyu-platform/
-├── services/
-│   └── tools/                           # Next.js プロジェクトルート
-│       ├── src/
-│       │   ├── app/                     # App Router
-│       │   │   ├── layout.tsx           # 共通レイアウト
-│       │   │   ├── page.tsx             # トップページ (ツール一覧)
-│       │   │   ├── transit-converter/   # 乗り換え変換ツール
-│       │   │   │   └── page.tsx
-│       │   │   ├── api/                 # API Routes
-│       │   │   │   └── health/
-│       │   │   │       └── route.ts     # ヘルスチェックAPI
-│       │   │   └── globals.css          # グローバルスタイル
-│       │   │
-│       │   ├── components/              # React コンポーネント
-│       │   │   ├── layout/
-│       │   │   │   ├── Header.tsx
-│       │   │   │   └── Footer.tsx
-│       │   │   ├── tools/
-│       │   │   │   ├── ToolCard.tsx
-│       │   │   │   └── TransitConverter.tsx
-│       │   │   └── common/
-│       │   │       ├── Button.tsx
-│       │   │       └── CopyButton.tsx
-│       │   │
-│       │   ├── lib/                     # ユーティリティ・ロジック
-│       │   │   ├── parsers/
-│       │   │   │   └── transitParser.ts  # 乗り換えパーサー
-│       │   │   ├── clipboard.ts         # クリップボード操作
-│       │   │   └── formatters.ts        # データ整形
-│       │   │
-│       │   ├── styles/                  # スタイル関連
-│       │   │   └── theme.ts             # MUIテーマ定義
-│       │   │
-│       │   └── types/                   # TypeScript型定義
-│       │       └── tools.ts
-│       │
-│       ├── public/                      # 静的ファイル
-│       │   ├── icons/
-│       │   │   ├── icon-192.png
-│       │   │   └── icon-512.png
-│       │   ├── manifest.json            # PWAマニフェスト
-│       │   └── robots.txt
-│       │
-│       ├── Dockerfile                   # Lambda コンテナイメージ
-│       ├── .dockerignore
-│       ├── package.json
-│       ├── package-lock.json
-│       ├── tsconfig.json
-│       ├── next.config.js
-│       ├── eslint.config.js
-│       ├── .prettierrc
-│       └── README.md
-│
-├── infra/
-│   └── tools/                           # CloudFormation テンプレート
-│       ├── ecr.yaml                     # ECR リポジトリ
-│       ├── lambda.yaml                  # Lambda 関数
-│       └── cloudfront.yaml              # CloudFront Distribution
-│
-└── docs/
-    └── services/tools/                  # ドキュメント (本ファイル等)
-```
 
 ---
 
@@ -320,51 +249,9 @@ SecurityHeadersPolicy:
 
 ---
 
-## 4. データベース設計
-
-### 4.1 ER図
-
-**現時点**: データベース不要
-
-ユーザーデータを保存しないため、データベースは使用しない。
-将来的にツールの使用履歴やお気に入り機能を実装する場合は、ローカルストレージまたは DynamoDB を検討。
-
-### 4.2 テーブル定義 (概要)
-
-該当なし
-
-### 4.3 リレーション
-
-該当なし
-
----
-
 ## 5. API設計
 
-### 5.1 APIエンドポイント一覧
-
-#### 内部API (Next.js API Routes)
-
-| エンドポイント | メソッド | 説明 | リクエスト | レスポンス |
-|--------------|---------|------|----------|----------|
-| `/api/health` | GET | ヘルスチェック | なし | `{ status: "ok" }` |
-
-**将来追加予定のAPI:**
-- `/api/tools/transit` - サーバーサイドで乗り換えをパース (必要な場合)
-
-#### 外部API
-
-なし (現時点では外部APIは使用しない)
-
-### 5.2 認証・認可方式
-
-**認証**: なし (全機能を認証なしで提供)
-
-**将来**: ユーザー機能を追加する場合
-- Cognito または Auth0 を検討
-- JWT ベースの認証
-
-### 5.3 エラーハンドリング方針
+### 5.1 エラーハンドリング方針
 
 #### クライアントサイド
 
@@ -412,7 +299,7 @@ SecurityHeadersPolicy:
 **構成要素:**
 - ヘッダー: アプリ名「Tools」(中央揃え)
 - メインコンテンツ: ツールカード一覧 (Grid レイアウト)
-- フッター: バージョン表示、将来実装予定リンク（プライバシーポリシー、利用規約）
+- フッター: バージョン表示、将来実装予定リンク (プライバシーポリシー、利用規約)
 
 **レイアウト:**
 - PC: 3カラム
@@ -507,42 +394,3 @@ SecurityHeadersPolicy:
 
 - APIキー等のシークレットを保存
 - デプロイ時に取得して Lambda 環境変数に設定
-
----
-
-## 付録
-
-### A. 技術選定の理由
-
-#### Next.js を選んだ理由
-- React エコシステムの中で最も人気のあるフルスタックフレームワーク
-- SSR、SSG、ISR など柔軟なレンダリング戦略
-- App Router で最新のReact機能 (Server Components等) を学習可能
-- Vercel によるサポートが手厚い
-
-#### Material UI を選んだ理由
-- 豊富なコンポーネント
-- デザインの一貫性が保ちやすい
-- レスポンシブデザインが容易
-- カスタマイズ性が高い
-
-#### Lambda Web Adapter を選んだ理由
-- サーバーレスでコスト最適化
-- Next.js を Lambda で動かす最もシンプルな方法
-- AWS統一のインフラ構成
-- スケーラビリティが高い
-
-### B. 変更履歴
-
-| 日付 | バージョン | 変更内容 | 担当者 |
-|------|-----------|---------|--------|
-| 2025-12-14 | 1.0.0 | 初版作成 | - |
-
----
-
-**承認**
-
-本基本設計書は、プロジェクトオーナーの承認を経て確定版となります。
-
-- [ ] 基本設計の承認
-- [ ] 次フェーズ (詳細設計) への移行許可
