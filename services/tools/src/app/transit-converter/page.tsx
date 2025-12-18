@@ -162,6 +162,7 @@ export default function TransitConverterPage() {
           fullWidth
           multiline
           rows={10}
+          label="乗り換え案内テキスト"
           placeholder="乗り換え案内のテキストをここに貼り付けてください..."
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
@@ -178,6 +179,7 @@ export default function TransitConverterPage() {
             variant="outlined"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
+            aria-label="クリップボードから乗り換え案内テキストを読み取る"
           >
             クリップボードから読み取り
           </Button>
@@ -188,6 +190,7 @@ export default function TransitConverterPage() {
             }
             onClick={handleConvert}
             disabled={isProcessing || !inputText.trim()}
+            aria-label="乗り換え案内テキストを変換する"
           >
             変換
           </Button>
@@ -203,6 +206,7 @@ export default function TransitConverterPage() {
           fullWidth
           multiline
           rows={10}
+          label="変換結果"
           placeholder="変換された結果がここに表示されます..."
           value={outputText}
           slotProps={{
@@ -222,6 +226,7 @@ export default function TransitConverterPage() {
             startIcon={<ContentCopyIcon />}
             onClick={handleCopy}
             disabled={!outputText}
+            aria-label="変換結果をクリップボードにコピーする"
           >
             コピー
           </Button>
@@ -230,6 +235,7 @@ export default function TransitConverterPage() {
             startIcon={<ClearIcon />}
             onClick={handleClear}
             disabled={!inputText && !outputText}
+            aria-label="入力と出力をクリアする"
           >
             クリア
           </Button>
