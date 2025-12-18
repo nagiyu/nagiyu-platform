@@ -96,6 +96,24 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
     - `lg`: 1200px〜 (デスクトップ)
     - `xl`: 1536px〜 (大型ディスプレイ)
 
+#### PWA 構成
+
+- **パッケージ**: next-pwa (Next.js用PWAプラグイン)
+- **Service Worker**: 自動生成
+    - 静的アセットのキャッシュ
+    - オフライン時のフォールバック
+- **Manifest**: `public/manifest.json`
+    - アプリ名: "Tools"
+    - 表示モード: standalone
+    - テーマカラー: #1976d2 (プライマリカラー)
+    - アイコン: 192x192, 512x512
+- **キャッシュ戦略**:
+    - 静的ファイル: Cache First
+    - API: Network First (オフライン時はキャッシュ)
+- **オフライン対応**:
+    - 基本的なクライアントサイドツールはオフラインで動作
+    - オンライン/オフライン状態の表示
+
 ### 2.2 バックエンド構成
 
 #### Next.js API Routes

@@ -204,6 +204,33 @@ aws lambda get-function-url-config \
 curl https://<FUNCTION_URL>/api/health
 ```
 
+#### PWA 確認
+
+デプロイ後、以下のPWA機能を確認:
+
+1. **manifest.json の確認**
+    ```bash
+    curl https://<DOMAIN>/manifest.json
+    ```
+
+2. **Service Worker の確認**
+    - ブラウザの開発者ツール → Application → Service Workers
+    - Service Worker が登録されていることを確認
+
+3. **インストール可能性の確認**
+    - Chrome: アドレスバーにインストールアイコンが表示される
+    - モバイル: 「ホーム画面に追加」が表示される
+
+4. **Lighthouse PWAスコア**
+    ```bash
+    # Chrome DevTools で Lighthouse を実行
+    # PWA カテゴリのスコアが 90 以上であることを確認
+    ```
+
+5. **オフライン動作確認**
+    - ブラウザの開発者ツール → Network → Offline モードに切り替え
+    - 基本的なページが表示されることを確認
+
 ---
 
 ## 3. CI/CD
