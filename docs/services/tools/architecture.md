@@ -65,6 +65,7 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | リンター | ESLint | コード品質チェック |
 | フォーマッター | Prettier | コード整形 |
 | テスト | Jest + React Testing Library | ユニットテスト |
+| CI/CD | GitHub Actions | 自動ビルド・テスト・デプロイ |
 
 ### 1.3 コンポーネント構成
 
@@ -264,6 +265,120 @@ SecurityHeadersPolicy:
 
 - 基本的に CORS は不要 (同一オリジン)
 - 将来的に外部APIを使用する場合のみ設定
+
+---
+
+## 4. CI/CD 設計
+
+### 4.1 GitHub Actions ワークフロー構成
+
+Tools アプリでは、2つの GitHub Actions ワークフローを使用します:
+
+#### 1. プルリクエスト検証ワークフロー (`tools-pr.yml`)
+
+**目的**: develop および integration/** ブランチへのプルリクエスト時に品質を検証
+
+**トリガー条件**:
+- `pull_request` イベント
+- 対象ブランチ: `develop`, `integration/**`
+- 対象パス:
+    - `services/tools/**`
+    - `infra/tools/**`
+    - `.github/workflows/tools-pr.yml`
+
+**実行内容**:
+1. **Next.js ビルド検証**
+    - `npm ci` で依存関係をインストール
+    - `npm run build` でプロダクションビルドを実行
+    - ビルドエラーの早期検出
+
+2. **Docker イメージビルド検証** (Lambda 用)
+    - Lambda デプロイ用 Docker イメージをビルド
+    - Dockerfile の構文エラーやビルドエラーを検出
+    - ECR へのプッシュは行わない (検証のみ)
+
+3. **単体テスト実行**
+    - `npm test` で Jest テストスイートを実行
+    - テストカバレッジの確認
+    - 全テストの合格を必須とする
+
+**マージ条件**:
+- すべてのジョブ (Next.js ビルド、Docker ビルド、テスト) が成功すること
+- GitHub のブランチプロテクションルールで必須チェックとして設定
+
+#### 2. デプロイワークフロー (`tools-deploy.yml`)
+
+**目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
+
+**トリガー条件**:
+- `push` イベント
+- 対象ブランチ: `develop`, `integration/**`, `master`
+- 対象パス:
+    - `services/tools/**`
+    - `infra/tools/**`
+    - `.github/workflows/tools-deploy.yml`
+
+**実行内容**:
+1. インフラストラクチャのデプロイ (ECR)
+2. Docker イメージのビルドと ECR へのプッシュ
+3. Lambda 関数のデプロイ
+4. CloudFront ディストリビューションのデプロイ
+
+**環境分離**:
+- `develop`, `integration/**` → 開発環境 (dev)
+- `master` → 本番環境 (prod)
+
+### 4.2 CI/CD フロー図
+
+```
+Pull Request (to develop/integration/**)
+    ↓
+PR検証ワークフロー実行
+    ├─ Next.js ビルド検証
+    ├─ Docker イメージビルド検証
+    └─ 単体テスト実行
+    ↓
+すべて成功 → マージ可能
+    ↓
+マージ (develop/integration/** へ push)
+    ↓
+デプロイワークフロー実行
+    ├─ ECR スタックデプロイ
+    ├─ Docker ビルド & プッシュ
+    ├─ Lambda デプロイ
+    └─ CloudFront デプロイ
+    ↓
+開発環境へデプロイ完了
+```
+
+### 4.3 ワークフロー設計方針
+
+#### PR検証の重要性
+
+- **master ブランチは対象外**: 本番環境への直接プッシュは行わないため、PR検証も不要
+- **早期フィードバック**: マージ前に問題を検出し、デプロイ失敗を防ぐ
+- **品質保証**: すべてのコードがビルド・テストを通過してからマージ
+- **コスト最適化**:
+    - PR段階では ECR プッシュやデプロイを行わない
+    - 検証のみに留めることで AWS リソース使用を最小化
+
+#### テスト戦略
+
+**単体テスト対象**:
+- ビジネスロジック (`src/lib/parsers/`, `src/lib/formatters/`)
+- ユーティリティ関数 (`src/lib/clipboard.ts`)
+- API Routes (`src/app/api/**`)
+
+**テスト要件**:
+- 全テストが合格すること
+- 重要なロジックにはテストカバレッジを確保
+
+#### ブランチ保護ルール
+
+develop および integration/** ブランチには以下を設定:
+- PR検証ワークフローの成功を必須とする
+- 直接プッシュを禁止 (PR経由のみ)
+- レビュー承認を推奨 (チーム規模に応じて)
 
 ---
 

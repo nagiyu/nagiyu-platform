@@ -235,29 +235,112 @@ curl https://<FUNCTION_URL>/api/health
 
 ## 3. CI/CD
 
-### 3.1 ワークフロー設定
+### 3.1 ワークフロー概要
 
-GitHub Actions ワークフロー (`.github/workflows/tools-deploy.yml`) により、以下のプロセスが自動化されています:
+Tools アプリでは、2つの GitHub Actions ワークフローを使用します:
 
-1. **Build Job**
-    - Docker イメージのビルド
-    - ECR へのプッシュ
-    - イメージ URI の出力
+#### 1. プルリクエスト検証ワークフロー (`.github/workflows/tools-pr.yml`)
 
-2. **Deploy Job**
-    - Lambda 関数コードの更新
-    - 更新完了の待機
-    - ヘルスチェックによる検証
+**目的**: develop および integration/** ブランチへのプルリクエスト時に品質を検証
+
+**トリガー条件**:
+```yaml
+on:
+  pull_request:
+    branches:
+        - develop
+        - integration/**
+    paths:
+        - 'services/tools/**'
+        - 'infra/tools/**'
+        - '.github/workflows/tools-pr.yml'
+```
+
+**ジョブ構成**:
+
+1. **nextjs-build**: Next.js アプリケーションのビルド検証
+    - 依存関係のインストール (`npm ci`)
+    - プロダクションビルドの実行 (`npm run build`)
+    - TypeScript 型チェックとビルドエラーの検出
+
+2. **docker-build**: Lambda 用 Docker イメージのビルド検証
+    - Dockerfile を使用したイメージビルド
+    - ビルドエラーの早期検出
+    - ECR へのプッシュは行わない (検証のみ)
+
+3. **test**: 単体テストの実行
+    - Jest テストスイートの実行 (`npm test`)
+    - すべてのテストの合格を確認
+
+**マージ条件**:
+- すべてのジョブが成功すること
+- GitHub のブランチプロテクションルールで必須チェックとして設定推奨
+
+#### 2. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
+
+**目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
+
+**トリガー条件**:
+```yaml
+on:
+  push:
+    branches:
+        - develop
+        - integration/**
+        - master
+    paths:
+        - 'services/tools/**'
+        - 'infra/tools/**'
+        - '.github/workflows/tools-deploy.yml'
+```
+
+**ジョブ構成**:
+
+1. **infrastructure**: ECR リポジトリの CloudFormation スタックデプロイ
+2. **build**: Docker イメージのビルドと ECR へのプッシュ
+3. **deploy**: Lambda と CloudFront のデプロイ
 
 ### 3.2 ブランチごとのデプロイ戦略
 
-| ブランチ | 環境 | 自動デプロイ |
-|---------|------|------------|
-| `develop` | 開発 | ✅ |
-| `integration/**` | 開発 | ✅ |
-| `master` | 本番 | ✅ |
+| ブランチ | 環境 | PR検証 | 自動デプロイ |
+|---------|------|--------|------------|
+| `develop` | 開発 | ✅ | ✅ |
+| `integration/**` | 開発 | ✅ | ✅ |
+| `master` | 本番 | - | ✅ |
 
-### 3.3 デプロイ承認フロー
+**注**: master ブランチへは直接プッシュせず、develop からのマージのみを想定しているため、PR検証は不要です。
+
+### 3.3 ワークフロー実行例
+
+#### プルリクエスト作成時
+
+```bash
+# feature ブランチから develop へのプルリクエスト作成
+git checkout -b feature/new-tool
+git push origin feature/new-tool
+
+# GitHub でプルリクエスト作成
+# → tools-pr.yml が自動実行される
+#   ✓ Next.js ビルド検証
+#   ✓ Docker ビルド検証
+#   ✓ 単体テスト実行
+# → すべて成功でマージ可能
+```
+
+#### マージ後のデプロイ
+
+```bash
+# プルリクエストをマージ
+# → develop ブランチに push される
+# → tools-deploy.yml が自動実行される
+#   1. ECR スタックデプロイ
+#   2. Docker イメージビルド & プッシュ
+#   3. Lambda デプロイ
+#   4. CloudFront デプロイ
+# → 開発環境へデプロイ完了
+```
+
+### 3.4 デプロイ承認フロー
 
 現在は自動デプロイのみですが、将来的に本番環境への承認フローを追加する場合:
 
@@ -418,6 +501,40 @@ aws lambda update-function-code \
 - Docker イメージのビルドエラー → ローカルでイメージをビルドしてテスト
 - 環境変数の設定ミス → Lambda の環境変数を確認
 - メモリ不足 → Lambda のメモリサイズを増やす
+
+#### PR検証ワークフローが失敗する
+
+**症状:** プルリクエストのチェックが失敗する
+
+**原因と対処:**
+
+1. **Next.js ビルドエラー**
+    - TypeScript の型エラー → `npm run build` をローカルで実行して確認
+    - 依存関係の問題 → `package.json` と `package-lock.json` の整合性を確認
+
+2. **Docker ビルドエラー**
+    - Dockerfile の構文エラー → ローカルで `docker build` を実行して確認
+    - ベースイメージの問題 → イメージのバージョンや可用性を確認
+
+3. **単体テストの失敗**
+    - テストコードのバグ → `npm test` をローカルで実行して修正
+    - 新機能のテスト不足 → 追加した機能に対するテストを実装
+
+**デバッグ方法:**
+```bash
+# ローカルで PR検証と同じステップを実行
+cd services/tools
+
+# 1. Next.js ビルド検証
+npm ci
+npm run build
+
+# 2. Docker ビルド検証
+docker build -t tools-pr-test .
+
+# 3. テスト実行
+npm test
+```
 
 ---
 

@@ -218,13 +218,21 @@
 
 #### 5.3 CI/CD パイプライン構築
 
-- [x] GitHub Actions ワークフロー (`.github/workflows/tools-deploy.yml`)
+- [x] GitHub Actions デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
     - [x] ECR スタックデプロイ
     - [x] Docker イメージビルド＆プッシュ
     - [x] Lambda スタックデプロイ
     - [x] Function URL ヘルスチェック
     - [x] CloudFront スタックデプロイ
     - [x] ブランチ別環境分離 (develop → dev, master → prod)
+- [ ] GitHub Actions PR検証ワークフロー (`.github/workflows/tools-pr.yml`)
+    - [ ] Next.js ビルド検証
+    - [ ] Docker イメージビルド検証
+    - [ ] 単体テスト実行
+    - [ ] 対象ブランチ: develop, integration/**
+- [ ] ブランチ保護ルールの設定
+    - [ ] develop ブランチでPR検証を必須化
+    - [ ] integration/** ブランチでPR検証を必須化
 
 ---
 
