@@ -7,8 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { DynamoDBHelper } from '@/lib/db';
-import { S3Helper } from '@/lib/s3';
+import { DynamoDBHelper, S3Helper } from '@nagiyu/codec-converter-common';
 import {
   createJob,
   isValidOutputCodec,

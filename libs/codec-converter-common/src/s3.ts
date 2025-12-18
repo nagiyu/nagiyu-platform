@@ -11,6 +11,24 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
+ * Options for generating upload presigned URLs
+ */
+export interface UploadPresignedUrlOptions {
+  /** URL expiration time in seconds (default: 3600 = 1 hour) */
+  expiresIn?: number;
+  /** Content-Type header to enforce for the upload */
+  contentType?: string;
+}
+
+/**
+ * Options for generating download presigned URLs
+ */
+export interface DownloadPresignedUrlOptions {
+  /** URL expiration time in seconds (default: 86400 = 24 hours) */
+  expiresIn?: number;
+}
+
+/**
  * S3Helper class for managing S3 operations
  */
 export class S3Helper {
@@ -27,30 +45,44 @@ export class S3Helper {
   /**
    * Generate a Presigned URL for uploading files to S3
    * @param key - S3 object key (e.g., "uploads/{jobId}/input.mp4")
-   * @param expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
+   * @param options - Upload options including expiration and content type
    * @returns Presigned URL for PUT operation
    */
   async getUploadPresignedUrl(
     key: string,
-    expiresIn: number = 3600,
+    options: UploadPresignedUrlOptions = {},
   ): Promise<string> {
-    const command = new PutObjectCommand({
+    const { expiresIn = 3600, contentType } = options;
+
+    const commandParams: {
+      Bucket: string;
+      Key: string;
+      ContentType?: string;
+    } = {
       Bucket: this.bucketName,
       Key: key,
-    });
+    };
+
+    if (contentType) {
+      commandParams.ContentType = contentType;
+    }
+
+    const command = new PutObjectCommand(commandParams);
     return await getSignedUrl(this.client, command, { expiresIn });
   }
 
   /**
    * Generate a Presigned URL for downloading files from S3
    * @param key - S3 object key (e.g., "outputs/{jobId}/output.mp4")
-   * @param expiresIn - URL expiration time in seconds (default: 86400 = 24 hours)
+   * @param options - Download options including expiration
    * @returns Presigned URL for GET operation
    */
   async getDownloadPresignedUrl(
     key: string,
-    expiresIn: number = 86400,
+    options: DownloadPresignedUrlOptions = {},
   ): Promise<string> {
+    const { expiresIn = 86400 } = options;
+
     const command = new GetObjectCommand({
       Bucket: this.bucketName,
       Key: key,
