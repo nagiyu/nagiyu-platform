@@ -1,65 +1,397 @@
-import Image from 'next/image';
+'use client';
+
+import { useState, useRef, DragEvent, ChangeEvent, FormEvent } from 'react';
 import styles from './page.module.css';
+import { JobValidation, OutputCodec } from '@/lib/models/job';
+
+/**
+ * Validation constants for frontend
+ */
+const ACCEPTED_FILE_EXTENSION = '.mp4';
+const ACCEPTED_MIME_TYPE = 'video/mp4';
+const MAX_FILE_SIZE = JobValidation.MAX_FILE_SIZE; // 500MB
+
+/**
+ * Job status type for tracking upload/job creation progress
+ */
+type UploadStatus =
+  | 'idle'
+  | 'validating'
+  | 'creating_job'
+  | 'uploading'
+  | 'submitting'
+  | 'completed'
+  | 'error';
 
 export default function Home() {
+  // State management
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedCodec, setSelectedCodec] = useState<OutputCodec>('h264');
+  const [isDragging, setIsDragging] = useState(false);
+  const [status, setStatus] = useState<UploadStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [jobId, setJobId] = useState<string>('');
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Validate file before upload
+   */
+  const validateFile = (file: File): string | null => {
+    // Check file extension
+    if (!file.name.toLowerCase().endsWith(ACCEPTED_FILE_EXTENSION)) {
+      return `MP4ファイルのみアップロード可能です（現在: ${file.name}）`;
+    }
+
+    // Check MIME type
+    if (!file.type.startsWith(ACCEPTED_MIME_TYPE)) {
+      return `MP4形式のファイルのみ対応しています（現在: ${file.type || '不明'}）`;
+    }
+
+    // Check file size (500MB limit)
+    if (file.size > MAX_FILE_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      return `ファイルサイズは500MB以下である必要があります（現在: ${sizeMB}MB）`;
+    }
+
+    if (file.size === 0) {
+      return 'ファイルが空です';
+    }
+
+    return null;
+  };
+
+  /**
+   * Handle file selection
+   */
+  const handleFileSelect = (file: File) => {
+    const validationError = validateFile(file);
+    if (validationError) {
+      setErrorMessage(validationError);
+      setStatus('error');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
+    setErrorMessage('');
+    setStatus('idle');
+  };
+
+  /**
+   * Handle file input change
+   */
+  const handleFileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  /**
+   * Handle drag events
+   */
+  const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      handleFileSelect(files[0]);
+    }
+  };
+
+  /**
+   * Open file picker
+   */
+  const handleBrowseClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  /**
+   * Handle form submission and upload
+   */
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!selectedFile) {
+      setErrorMessage('ファイルを選択してください');
+      setStatus('error');
+      return;
+    }
+
+    try {
+      setStatus('creating_job');
+      setErrorMessage('');
+      setUploadProgress(0);
+
+      // Step 1: Create job and get presigned URL
+      const createJobResponse = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: selectedFile.name,
+          fileSize: selectedFile.size,
+          contentType: selectedFile.type,
+          outputCodec: selectedCodec,
+        }),
+      });
+
+      if (!createJobResponse.ok) {
+        const errorData = await createJobResponse.json();
+        throw new Error(errorData.error || 'ジョブの作成に失敗しました');
+      }
+
+      const { jobId: createdJobId, uploadUrl } =
+        await createJobResponse.json();
+      setJobId(createdJobId);
+
+      // Step 2: Upload file to S3 using presigned URL
+      setStatus('uploading');
+
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: selectedFile,
+        headers: {
+          'Content-Type': selectedFile.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('ファイルのアップロードに失敗しました');
+      }
+
+      setUploadProgress(100);
+
+      // Step 3: Submit job to Batch
+      setStatus('submitting');
+
+      const submitResponse = await fetch(
+        `/api/jobs/${createdJobId}/submit`,
+        {
+          method: 'POST',
+        }
+      );
+
+      if (!submitResponse.ok) {
+        const errorData = await submitResponse.json();
+        throw new Error(errorData.error || 'ジョブの投入に失敗しました');
+      }
+
+      setStatus('completed');
+    } catch (error) {
+      console.error('Upload error:', error);
+      setErrorMessage(
+        error instanceof Error ? error.message : '予期しないエラーが発生しました'
+      );
+      setStatus('error');
+    }
+  };
+
+  /**
+   * Reset form
+   */
+  const handleReset = () => {
+    setSelectedFile(null);
+    setSelectedCodec('h264');
+    setStatus('idle');
+    setErrorMessage('');
+    setUploadProgress(0);
+    setJobId('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <div className={styles.page}>
       <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{' '}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{' '}
-            or the{' '}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{' '}
-            center.
-          </p>
+        <div className={styles.header}>
+          <h1>Codec Converter</h1>
+          <p>動画ファイルを別のコーデックに変換します</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <form className={styles.form} onSubmit={handleSubmit}>
+          {/* File Upload Area */}
+          <div
+            className={`${styles.dropzone} ${isDragging ? styles.dragging : ''} ${selectedFile ? styles.hasFile : ''}`}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onClick={handleBrowseClick}
+            role="button"
+            tabIndex={0}
+            aria-label="ファイルをドラッグ＆ドロップまたはクリックして選択"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleBrowseClick();
+              }
+            }}
           >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_FILE_EXTENSION}
+              onChange={handleFileInputChange}
+              className={styles.fileInput}
+              aria-label="ファイル選択"
             />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+            {selectedFile ? (
+              <div className={styles.fileInfo}>
+                <div className={styles.fileName}>{selectedFile.name}</div>
+                <div className={styles.fileSize}>
+                  {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                </div>
+              </div>
+            ) : (
+              <div className={styles.dropzoneContent}>
+                <svg
+                  className={styles.uploadIcon}
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <p>
+                  <strong>ファイルをドラッグ＆ドロップ</strong>
+                  <br />
+                  またはクリックして選択
+                </p>
+                <p className={styles.constraints}>
+                  MP4形式、最大500MB
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Codec Selection */}
+          <div className={styles.codecSelection}>
+            <label htmlFor="codec-select" className={styles.label}>
+              出力コーデック
+            </label>
+            <select
+              id="codec-select"
+              value={selectedCodec}
+              onChange={(e) => setSelectedCodec(e.target.value as OutputCodec)}
+              className={styles.select}
+              disabled={status !== 'idle' && status !== 'error'}
+            >
+              <option value="h264">H.264 (広く互換性のある形式)</option>
+              <option value="vp9">VP9 (高効率な圧縮)</option>
+              <option value="av1">AV1 (最新の高効率コーデック)</option>
+            </select>
+          </div>
+
+          {/* Error Message */}
+          {errorMessage && (
+            <div className={styles.error} role="alert" aria-live="polite">
+              {errorMessage}
+            </div>
+          )}
+
+          {/* Progress Display */}
+          {status !== 'idle' && status !== 'error' && status !== 'completed' && (
+            <div className={styles.progress}>
+              <div className={styles.progressLabel}>
+                {status === 'validating' && '検証中...'}
+                {status === 'creating_job' && 'ジョブを作成中...'}
+                {status === 'uploading' && `アップロード中... ${uploadProgress}%`}
+                {status === 'submitting' && '変換ジョブを投入中...'}
+              </div>
+              {status === 'uploading' && (
+                <div className={styles.progressBar}>
+                  <div
+                    className={styles.progressFill}
+                    style={{ width: `${uploadProgress}%` }}
+                    role="progressbar"
+                    aria-valuenow={uploadProgress}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Success Message */}
+          {status === 'completed' && (
+            <div className={styles.success} role="status" aria-live="polite">
+              <p>✓ 変換ジョブを投入しました</p>
+              <p className={styles.jobId}>ジョブID: {jobId}</p>
+              <p className={styles.jobNote}>
+                変換が完了したら、ジョブIDを使ってダウンロードできます
+              </p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className={styles.actions}>
+            {status === 'completed' ? (
+              <button
+                type="button"
+                onClick={handleReset}
+                className={styles.button}
+              >
+                新しいファイルをアップロード
+              </button>
+            ) : (
+              <>
+                <button
+                  type="submit"
+                  className={`${styles.button} ${styles.primary}`}
+                  disabled={
+                    !selectedFile ||
+                    (status !== 'idle' && status !== 'error')
+                  }
+                >
+                  {status === 'idle' || status === 'error'
+                    ? '変換を開始'
+                    : '処理中...'}
+                </button>
+                {selectedFile && (status === 'idle' || status === 'error') && (
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className={`${styles.button} ${styles.secondary}`}
+                  >
+                    キャンセル
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </form>
       </main>
     </div>
   );
