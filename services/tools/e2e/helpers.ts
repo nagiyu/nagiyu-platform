@@ -1,4 +1,4 @@
-import { test as base } from '@playwright/test';
+import { test as base, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -25,7 +25,10 @@ export { expect } from '@playwright/test';
 /**
  * Helper function to wait for network idle
  */
-export async function waitForNetworkIdle(page: any, timeout = 5000) {
+export async function waitForNetworkIdle(
+  page: Page,
+  timeout = 5000
+): Promise<void> {
   await page.waitForLoadState('networkidle', { timeout });
 }
 
@@ -33,7 +36,7 @@ export async function waitForNetworkIdle(page: any, timeout = 5000) {
  * Helper function to take screenshot with timestamp
  */
 export async function takeTimestampedScreenshot(
-  page: any,
+  page: Page,
   name: string
 ): Promise<void> {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
