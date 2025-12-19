@@ -29,7 +29,7 @@ export default function DisplaySettingsSection({
       newSettings.showPlatform = false;
     }
 
-    // ルート詳細の子項目がすべて有効になった場合、親も有効にする
+    // ルート詳細の子項目が有効になった場合、親も有効にする
     if (
       (key === 'showTimeRange' || key === 'showLineName' || key === 'showPlatform') &&
       newSettings[key]

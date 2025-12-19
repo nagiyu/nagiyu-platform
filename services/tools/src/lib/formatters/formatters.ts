@@ -19,14 +19,16 @@ export function formatTransitRoute(
   // 出発地・到着地、時刻
   const departureArrivalParts: string[] = [];
   if (settings.showDepartureArrival) {
+    // 出発地とオプションで出発時刻
     departureArrivalParts.push(route.departure);
     if (settings.showTime) {
       departureArrivalParts.push(route.departureTime);
     }
-  }
-
-  if (settings.showDepartureArrival) {
+    
+    // 矢印で区切る
     departureArrivalParts.push('→');
+    
+    // 到着地とオプションで到着時刻
     departureArrivalParts.push(route.arrival);
     if (settings.showTime) {
       departureArrivalParts.push(route.arrivalTime);
