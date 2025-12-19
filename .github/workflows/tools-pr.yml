@@ -1,0 +1,70 @@
+name: Tools App - PR Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - integration/**
+    paths:
+      - 'services/tools/**'
+      - 'infra/tools/**'
+      - '.github/workflows/tools-pr.yml'
+
+jobs:
+  nextjs-build:
+    name: Next.js Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './services/tools/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./services/tools
+        run: npm ci
+
+      - name: Build Next.js application
+        working-directory: ./services/tools
+        run: npm run build
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        working-directory: ./services/tools
+        run: docker build -t tools-pr-test .
+
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './services/tools/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: ./services/tools
+        run: npm ci
+
+      - name: Run tests
+        working-directory: ./services/tools
+        run: npm test

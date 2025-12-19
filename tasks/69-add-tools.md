@@ -225,11 +225,11 @@
     - [x] Function URL ヘルスチェック
     - [x] CloudFront スタックデプロイ
     - [x] ブランチ別環境分離 (develop → dev, master → prod)
-- [ ] GitHub Actions PR検証ワークフロー (`.github/workflows/tools-pr.yml`)
-    - [ ] Next.js ビルド検証
-    - [ ] Docker イメージビルド検証
-    - [ ] 単体テスト実行
-    - [ ] 対象ブランチ: develop, integration/**
+- [x] GitHub Actions PR検証ワークフロー (`.github/workflows/tools-pr.yml`)
+    - [x] Next.js ビルド検証
+    - [x] Docker イメージビルド検証
+    - [x] 単体テスト実行
+    - [x] 対象ブランチ: develop, integration/**
 - [ ] ブランチ保護ルールの設定
     - [ ] develop ブランチでPR検証を必須化
     - [ ] integration/** ブランチでPR検証を必須化
