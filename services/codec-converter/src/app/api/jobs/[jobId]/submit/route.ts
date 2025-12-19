@@ -16,6 +16,14 @@ import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
+ * Get current Unix timestamp in seconds
+ * @returns Current timestamp as Unix epoch seconds
+ */
+function getUnixTimestamp(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+/**
  * Validate if a string is a valid UUID v4
  * @param jobId - The job ID to validate
  * @returns true if valid UUID v4, false otherwise
@@ -111,7 +119,6 @@ export async function POST(
     // only one will successfully transition the job from PENDING to PROCESSING
     try {
       // Update job status to PROCESSING with a condition that it must be PENDING
-      const now = Math.floor(Date.now() / 1000);
       const updateCommand = new UpdateCommand({
         TableName: dynamoTableName,
         Key: { jobId },
@@ -123,7 +130,7 @@ export async function POST(
         ExpressionAttributeValues: {
           ':pending': JobStatus.PENDING,
           ':processing': JobStatus.PROCESSING,
-          ':updatedAt': now,
+          ':updatedAt': getUnixTimestamp(),
         },
       });
 
