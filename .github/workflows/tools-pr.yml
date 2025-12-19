@@ -72,7 +72,7 @@ jobs:
   e2e-test:
     name: Run E2E Tests
     runs-on: ubuntu-latest
-    
+
     permissions:
       contents: read
 
@@ -118,3 +118,56 @@ jobs:
           name: test-results
           path: services/tools/test-results/
           retention-days: 30
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [nextjs-build, docker-build, test, e2e-test]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Next.js Build': '${{ needs.nextjs-build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}',
+              'Unit Tests': '${{ needs.test.result }}',
+              'E2E Tests': '${{ needs.e2e-test.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ All Checks Passed'
+              : '## ❌ Some Checks Failed';
+
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
