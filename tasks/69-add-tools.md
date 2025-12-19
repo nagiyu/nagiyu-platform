@@ -314,62 +314,71 @@
 
 #### 7.5.1 型定義追加
 
-- [ ] `DisplaySettings` インターフェースを `src/types/tools.ts` に追加
-- [ ] `DEFAULT_DISPLAY_SETTINGS` 定数を定義
-- [ ] `TransitRoute` インターフェースに以下を追加
-    - [ ] `transferCount?: number` プロパティ
-    - [ ] `distance?: string` プロパティ
+- [x] `DisplaySettings` インターフェースを `src/types/tools.ts` に追加
+- [x] `DEFAULT_DISPLAY_SETTINGS` 定数を定義
+- [x] `TransitRoute` インターフェースに以下を追加
+    - [x] `transferCount?: number` プロパティ
+    - [x] `distance?: string` プロパティ
 
 #### 7.5.2 パーサー拡張
 
-- [ ] `src/lib/parsers/transitParser.ts` に乗換回数抽出処理を追加
-    - [ ] 正規表現: `/乗換\s+(\d+)回/`
-- [ ] 距離抽出処理を追加
-    - [ ] 正規表現: `/距離\s+([\d.]+)\s*km/`
-- [ ] 単体テストを追加 (`__tests__/transitParser.test.ts`)
-    - [ ] 乗換回数抽出テスト
-    - [ ] 距離抽出テスト
+- [x] `src/lib/parsers/transitParser.ts` に乗換回数抽出処理を追加
+    - [x] 正規表現: `/乗換\s+(\d+)回/`
+- [x] 距離抽出処理を追加
+    - [x] 正規表現: `/距離\s+([\d.]+)\s*km/`
+- [x] 単体テストを追加 (`__tests__/transitParser.test.ts`)
+    - [x] 乗換回数抽出テスト
+    - [x] 距離抽出テスト
 
 #### 7.5.3 フォーマッター拡張
 
-- [ ] `src/lib/formatters/formatters.ts` を拡張
-    - [ ] `formatTransitRoute()` に `DisplaySettings` パラメータを追加
-    - [ ] 各設定項目に応じた条件分岐を実装
-    - [ ] 乗換回数の出力処理を追加
-    - [ ] 距離の出力処理を追加
-- [ ] 単体テストを追加 (`__tests__/formatters.test.ts`)
-    - [ ] 設定による表示/非表示テスト
-    - [ ] デフォルト設定テスト
+- [x] `src/lib/formatters/formatters.ts` を拡張
+    - [x] `formatTransitRoute()` に `DisplaySettings` パラメータを追加
+    - [x] 各設定項目に応じた条件分岐を実装
+    - [x] 乗換回数の出力処理を追加
+    - [x] 距離の出力処理を追加
+- [x] 単体テストを追加 (`__tests__/formatters.test.ts`)
+    - [x] 設定による表示/非表示テスト
+    - [x] デフォルト設定テスト
 
 #### 7.5.4 UI実装
 
-- [ ] `DisplaySettingsSection` コンポーネントを作成
-    - [ ] Accordion で折りたたみ可能にする
-    - [ ] 各チェックボックスを実装
-        - [ ] 日付を表示
-        - [ ] 所要時間を表示
-        - [ ] 運賃を表示
-        - [ ] 乗換回数を表示
-        - [ ] 距離を表示
-        - [ ] ルート詳細を表示（親チェックボックス）
-            - [ ] 時刻範囲を表示
-            - [ ] 路線名を表示
-            - [ ] 番線情報を表示
-- [ ] `src/app/transit-converter/page.tsx` に統合
-    - [ ] `DisplaySettings` の state 管理
-    - [ ] チェックボックス変更時の処理
-    - [ ] フォーマッター呼び出し時に設定を渡す
+- [x] `DisplaySettingsSection` コンポーネントを作成
+    - [x] Accordion で折りたたみ可能にする
+    - [x] 各チェックボックスを実装
+        - [x] 日付を表示
+        - [x] 所要時間を表示
+        - [x] 運賃を表示
+        - [x] 乗換回数を表示
+        - [x] 距離を表示
+        - [x] ルート詳細を表示（親チェックボックス）
+            - [x] 時刻範囲を表示
+            - [x] 路線名を表示
+            - [x] 番線情報を表示
+- [x] `src/app/transit-converter/page.tsx` に統合
+    - [x] `DisplaySettings` の state 管理
+    - [x] チェックボックス変更時の処理
+    - [x] フォーマッター呼び出し時に設定を渡す
 
 #### 7.5.5 LocalStorage 連携
 
-- [ ] LocalStorage への保存処理を実装
-    - [ ] キー: `'transit-converter-display-settings'`
-    - [ ] チェックボックス変更時に保存
-- [ ] LocalStorage からの読み込み処理を実装
-    - [ ] `useEffect()` で初期化時に読み込み
-    - [ ] デフォルト設定とマージ
-- [ ] エラーハンドリング
-    - [ ] LocalStorage が使えない環境への対応
+- [x] LocalStorage への保存処理を実装
+    - [x] キー: `'transit-converter-display-settings'`
+    - [x] チェックボックス変更時に保存
+- [x] LocalStorage からの読み込み処理を実装
+    - [x] `useEffect()` で初期化時に読み込み
+    - [x] デフォルト設定とマージ
+- [x] エラーハンドリング
+    - [x] LocalStorage が使えない環境への対応
+- [ ] 手動動作確認（デプロイ環境）
+    - [ ] 表示設定のAccordionが展開/折りたたみできる
+    - [ ] 各チェックボックスをクリックすると即座に出力が更新される
+    - [ ] ルート詳細の親チェックボックスを外すと子項目も無効になる
+    - [ ] 子項目をチェックすると親項目も自動的に有効になる
+    - [ ] 設定を変更してページをリロードしても設定が保持される
+    - [ ] プライベートモードでもエラーなく動作する（設定は保存されない）
+    - [ ] 距離と番線情報はデフォルトで非表示
+    - [ ] その他の項目はデフォルトで表示
 
 #### 7.5.6 Web Share Target 対応（PWA完了後）
 

@@ -65,6 +65,8 @@ describe('transitParser', () => {
       expect(result?.arrivalTime).toBe('09:45');
       expect(result?.duration).toBe('45分');
       expect(result?.fare).toBe('500円');
+      expect(result?.transferCount).toBe(1);
+      expect(result?.distance).toBe('30.5 km');
       expect(result?.routeSteps).toHaveLength(3);
 
       // 最初の駅
@@ -121,7 +123,48 @@ describe('transitParser', () => {
       expect(result?.arrivalTime).toBe('09:45');
       expect(result?.duration).toBe('');
       expect(result?.fare).toBe('');
+      expect(result?.transferCount).toBeUndefined();
+      expect(result?.distance).toBeUndefined();
       expect(result?.routeSteps).toHaveLength(0);
+    });
+
+    it('正常系: 乗換回数を抽出できる', () => {
+      const input = `A駅 ⇒ B駅
+2025年1月15日(月)
+09:00 ⇒ 09:45
+所要時間 45分
+運賃[IC優先] 500円
+乗換 2回`;
+
+      const result = parseTransitText(input);
+      expect(result).not.toBeNull();
+      expect(result?.transferCount).toBe(2);
+    });
+
+    it('正常系: 距離を抽出できる', () => {
+      const input = `A駅 ⇒ B駅
+2025年1月15日(月)
+09:00 ⇒ 09:45
+所要時間 45分
+運賃[IC優先] 500円
+距離 42.3 km`;
+
+      const result = parseTransitText(input);
+      expect(result).not.toBeNull();
+      expect(result?.distance).toBe('42.3 km');
+    });
+
+    it('正常系: 乗換回数と距離が含まれないテキストでもパースできる', () => {
+      const input = `A駅 ⇒ B駅
+2025年1月15日(月)
+09:00 ⇒ 09:45
+所要時間 45分
+運賃[IC優先] 500円`;
+
+      const result = parseTransitText(input);
+      expect(result).not.toBeNull();
+      expect(result?.transferCount).toBeUndefined();
+      expect(result?.distance).toBeUndefined();
     });
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -16,24 +16,64 @@ import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { SnackbarState } from '@/types/tools';
+import { SnackbarState, DisplaySettings, DEFAULT_DISPLAY_SETTINGS, TransitRoute } from '@/types/tools';
 import {
   parseTransitText,
   validateInput,
 } from '@/lib/parsers/transitParser';
 import { formatTransitRoute } from '@/lib/formatters/formatters';
 import { readFromClipboard, writeToClipboard } from '@/lib/clipboard';
+import DisplaySettingsSection from '@/components/tools/DisplaySettingsSection';
+
+const STORAGE_KEY = 'transit-converter-display-settings';
 
 export default function TransitConverterPage() {
   const [inputText, setInputText] = useState<string>('');
   const [outputText, setOutputText] = useState<string>('');
+  const [parsedRoute, setParsedRoute] = useState<TransitRoute | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(
+    DEFAULT_DISPLAY_SETTINGS,
+  );
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
     message: '',
     severity: 'info',
   });
+
+  // LocalStorageから設定を読み込む
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...parsed });
+      }
+    } catch (error) {
+      console.error('Failed to load display settings from localStorage:', error);
+      // エラーが発生してもデフォルト設定で続行
+    }
+  }, []);
+
+  // 設定変更時にLocalStorageに保存
+  const handleDisplaySettingsChange = (newSettings: DisplaySettings) => {
+    setDisplaySettings(newSettings);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+    } catch (error) {
+      console.error('Failed to save display settings to localStorage:', error);
+      // 保存エラーは無視（プライベートモード等）
+    }
+  };
+
+  // DisplaySettings変更時に自動的に再フォーマット
+  useEffect(() => {
+    if (parsedRoute) {
+      const formatted = formatTransitRoute(parsedRoute, displaySettings);
+      setOutputText(formatted);
+    }
+  }, [displaySettings, parsedRoute]);
 
   const handleConvert = () => {
     setIsProcessing(true);
@@ -68,8 +108,9 @@ export default function TransitConverterPage() {
         return;
       }
 
-      // 3. フォーマット処理
-      const formatted = formatTransitRoute(route);
+      // 3. フォーマット処理（DisplaySettings適用）
+      const formatted = formatTransitRoute(route, displaySettings);
+      setParsedRoute(route);
       setOutputText(formatted);
       setError(null);
 
@@ -95,6 +136,7 @@ export default function TransitConverterPage() {
   const handleClear = () => {
     setInputText('');
     setOutputText('');
+    setParsedRoute(null);
     setError(null);
   };
 
@@ -152,6 +194,14 @@ export default function TransitConverterPage() {
       >
         乗り換え案内のテキストを貼り付けて、整形された形式に変換します。
       </Typography>
+
+      {/* 表示設定セクション */}
+      <Box sx={{ mb: 3 }}>
+        <DisplaySettingsSection
+          settings={displaySettings}
+          onChange={handleDisplaySettingsChange}
+        />
+      </Box>
 
       {/* 入力セクション */}
       <Box sx={{ mb: 3 }}>
