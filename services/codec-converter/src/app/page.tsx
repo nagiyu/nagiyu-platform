@@ -16,7 +16,6 @@ const MAX_FILE_SIZE = JobValidation.MAX_FILE_SIZE; // 500MB
  */
 type UploadStatus =
   | 'idle'
-  | 'validating'
   | 'creating_job'
   | 'uploading'
   | 'submitting'
@@ -34,6 +33,7 @@ export default function Home() {
   const [jobId, setJobId] = useState<string>('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef<number>(0);
 
   /**
    * Validate file before upload
@@ -94,18 +94,24 @@ export default function Home() {
   };
 
   /**
-   * Handle drag events
+   * Handle drag events with counter to prevent flickering
    */
   const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    dragCounterRef.current++;
+    if (dragCounterRef.current === 1) {
+      setIsDragging(true);
+    }
   };
 
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(false);
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragging(false);
+    }
   };
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
@@ -116,6 +122,7 @@ export default function Home() {
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    dragCounterRef.current = 0;
     setIsDragging(false);
 
     const files = e.dataTransfer.files;
@@ -163,8 +170,19 @@ export default function Home() {
       });
 
       if (!createJobResponse.ok) {
-        const errorData = await createJobResponse.json();
-        throw new Error(errorData.error || 'ジョブの作成に失敗しました');
+        let errorMessage = 'ジョブの作成に失敗しました';
+        try {
+          const contentType = createJobResponse.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errorData = await createJobResponse.json();
+            if (errorData && typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            }
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       const { jobId: createdJobId, uploadUrl } =
@@ -220,8 +238,19 @@ export default function Home() {
       );
 
       if (!submitResponse.ok) {
-        const errorData = await submitResponse.json();
-        throw new Error(errorData.error || 'ジョブの投入に失敗しました');
+        let errorMessage = 'ジョブの投入に失敗しました';
+        try {
+          const contentType = submitResponse.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const errorData = await submitResponse.json();
+            if (errorData && typeof errorData.error === 'string') {
+              errorMessage = errorData.error;
+            }
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       setStatus('completed');
@@ -244,6 +273,7 @@ export default function Home() {
     setErrorMessage('');
     setUploadProgress(0);
     setJobId('');
+    dragCounterRef.current = 0;
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -265,16 +295,24 @@ export default function Home() {
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            onClick={handleBrowseClick}
-            role="button"
-            tabIndex={0}
-            aria-label="ファイルをドラッグ＆ドロップまたはクリックして選択"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleBrowseClick();
-              }
-            }}
+            onClick={!selectedFile ? handleBrowseClick : undefined}
+            role={!selectedFile ? 'button' : undefined}
+            tabIndex={!selectedFile ? 0 : undefined}
+            aria-label={
+              !selectedFile
+                ? 'ファイルをドラッグ＆ドロップまたはクリックして選択'
+                : undefined
+            }
+            onKeyDown={
+              !selectedFile
+                ? (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleBrowseClick();
+                    }
+                  }
+                : undefined
+            }
           >
             <input
               ref={fileInputRef}
@@ -286,7 +324,10 @@ export default function Home() {
             />
 
             {selectedFile ? (
-              <div className={styles.fileInfo}>
+              <div
+                className={styles.fileInfo}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className={styles.fileName}>{selectedFile.name}</div>
                 <div className={styles.fileSize}>
                   {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
@@ -349,7 +390,6 @@ export default function Home() {
           {status !== 'idle' && status !== 'error' && status !== 'completed' && (
             <div className={styles.progress}>
               <div className={styles.progressLabel}>
-                {status === 'validating' && '検証中...'}
                 {status === 'creating_job' && 'ジョブを作成中...'}
                 {status === 'uploading' && `アップロード中... ${uploadProgress}%`}
                 {status === 'submitting' && '変換ジョブを投入中...'}

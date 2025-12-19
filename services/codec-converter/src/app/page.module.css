@@ -92,6 +92,7 @@
 .dropzone.hasFile {
   background-color: var(--success-bg);
   border-color: var(--success-border);
+  cursor: default;
 }
 
 .fileInput {
