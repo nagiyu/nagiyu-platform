@@ -247,11 +247,12 @@
 - [x] テスト実行環境
     - [x] Jest 設定
     - [x] React Testing Library 統合
-- [ ] **E2Eテストセットアップ**
-    - [ ] Playwright のインストール (`@playwright/test`)
-    - [ ] playwright.config.ts の作成
-    - [ ] テストディレクトリ構造作成 (`e2e/`)
-    - [ ] GitHub Actions PR ワークフロー更新
+- [x] **E2Eテストセットアップ**
+    - [x] Playwright のインストール (`@playwright/test`)
+    - [x] playwright.config.ts の作成
+    - [x] テストディレクトリ構造作成 (`e2e/`)
+    - [x] GitHub Actions PR ワークフロー更新
+    - [x] Jest設定の修正（E2Eテストディレクトリを除外）
 - [ ] **E2Eテスト実装 - 乗り換え変換ツール**
     - [ ] 基本フロー (入力 → 変換 → コピー)
     - [ ] クリップボード読み取り機能
