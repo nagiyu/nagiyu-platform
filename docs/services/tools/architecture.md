@@ -108,6 +108,12 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
     - 表示モード: standalone
     - テーマカラー: #1976d2 (プライマリカラー)
     - アイコン: 192x192, 512x512
+- **Web Share Target**: 他のアプリから共有されたコンテンツを受け取る
+    - アクション: `/transit-converter`
+    - メソッド: GET
+    - パラメータ: title, text, url
+    - 用途: 乗換案内URLや乗換案内テキストを他のアプリから直接受け取り、自動的に入力欄に挿入
+    - 制約: HTTPS環境でのみ動作、iOS Safariでは制限あり
 - **キャッシュ戦略**:
     - 静的ファイル: Cache First
     - API: Network First (オフライン時はキャッシュ)
