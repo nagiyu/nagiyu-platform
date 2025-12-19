@@ -382,14 +382,16 @@
 
 #### 7.5.6 Web Share Target 対応（PWA完了後）
 
-- [ ] `manifest.json` に `share_target` セクションを追加
-    - [ ] `action: "/transit-converter"`
-    - [ ] `method: "GET"`
-    - [ ] `params: { title, text, url }`
-- [ ] URLパラメータ処理を実装
-    - [ ] `useSearchParams()` で `url` / `text` パラメータを取得
-    - [ ] 入力欄に自動挿入
-    - [ ] Suspense でラップ
+- [x] `manifest.json` に `share_target` セクションを追加
+    - [x] `action: "/transit-converter"`
+    - [x] `method: "GET"`
+    - [x] `params: { title, text, url }`
+- [x] URLパラメータ処理を実装
+    - [x] `useSearchParams()` で `url` / `text` パラメータを取得
+    - [x] 入力欄に自動挿入
+    - [x] Suspense でラップ
+    - [x] URLパラメータのクリーンアップ処理
+    - [x] ユーザー通知（Snackbar）
 - [ ] 動作確認
     - [ ] ngrok で HTTPS 環境構築
     - [ ] 実機（iOS/Android）でテスト
