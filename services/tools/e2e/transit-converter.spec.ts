@@ -53,9 +53,11 @@ test.describe('Transit Converter - E2E Tests', () => {
   });
 
   test.describe('1. 基本フロー（入力→変換→コピー）', () => {
-    test('should convert transit text and copy to clipboard', async ({ page, context }) => {
-      // クリップボード権限の付与
-      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    test('should convert transit text and copy to clipboard', async ({ page, context, browserName }) => {
+      // クリップボード権限の付与 (Safari/WebKitは clipboard-write をサポートしていないためスキップ)
+      if (browserName === 'chromium') {
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      }
 
       // ページの全textareaを取得し、最初の空のものが入力フィールド
       // Material UIでは、label配下にtextareaがあるので、「入力」セクションの下のtextareaを探す
@@ -89,14 +91,18 @@ test.describe('Transit Converter - E2E Tests', () => {
       // コピー成功のSnackbarが表示されることを確認
       await expect(page.locator('text=クリップボードにコピーしました')).toBeVisible({ timeout: 10000 });
 
-      // クリップボードの内容を確認
-      const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
-      expect(clipboardText).toContain('渋谷');
-      expect(clipboardText).toContain('新宿');
+      // クリップボードの内容を確認 (Chromiumのみ)
+      if (browserName === 'chromium') {
+        const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+        expect(clipboardText).toContain('渋谷');
+        expect(clipboardText).toContain('新宿');
+      }
     });
 
-    test('should handle transit text with transfers', async ({ page, context }) => {
-      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    test('should handle transit text with transfers', async ({ page, context, browserName }) => {
+      if (browserName === 'chromium') {
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      }
 
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
       await inputField.fill(VALID_TRANSIT_TEXT_WITH_TRANSFER);
@@ -208,8 +214,10 @@ test.describe('Transit Converter - E2E Tests', () => {
   });
 
   test.describe('4. 表示設定の永続化（LocalStorage）', () => {
-    test('should save and restore display settings', async ({ page, context }) => {
-      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    test('should save and restore display settings', async ({ page, context, browserName }) => {
+      if (browserName === 'chromium') {
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      }
 
       // まず変換を実行して出力を生成
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
@@ -338,8 +346,10 @@ test.describe('Transit Converter - E2E Tests', () => {
   });
 
   test.describe('6. クリア機能', () => {
-    test('should clear both input and output', async ({ page, context }) => {
-      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    test('should clear both input and output', async ({ page, context, browserName }) => {
+      if (browserName === 'chromium') {
+        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      }
 
       // まず入力して変換
       const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
