@@ -45,7 +45,7 @@ export default function Home() {
     }
 
     // Check MIME type
-    if (!file.type.startsWith(ACCEPTED_MIME_TYPE)) {
+    if (file.type !== ACCEPTED_MIME_TYPE) {
       return `MP4形式のファイルのみ対応しています（現在: ${file.type || '不明'}）`;
     }
 
@@ -167,22 +167,43 @@ export default function Home() {
         await createJobResponse.json();
       setJobId(createdJobId);
 
-      // Step 2: Upload file to S3 using presigned URL
+      // Step 2: Upload file to S3 using presigned URL with progress tracking
       setStatus('uploading');
 
-      const uploadResponse = await fetch(uploadUrl, {
-        method: 'PUT',
-        body: selectedFile,
-        headers: {
-          'Content-Type': selectedFile.type,
-        },
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(percentComplete);
+          }
+        });
+
+        // Handle completion
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error('ファイルのアップロードに失敗しました'));
+          }
+        });
+
+        // Handle errors
+        xhr.addEventListener('error', () => {
+          reject(new Error('ファイルのアップロードに失敗しました'));
+        });
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('アップロードがキャンセルされました'));
+        });
+
+        // Send the request
+        xhr.open('PUT', uploadUrl);
+        xhr.setRequestHeader('Content-Type', selectedFile.type);
+        xhr.send(selectedFile);
       });
-
-      if (!uploadResponse.ok) {
-        throw new Error('ファイルのアップロードに失敗しました');
-      }
-
-      setUploadProgress(100);
 
       // Step 3: Submit job to Batch
       setStatus('submitting');
