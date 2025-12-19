@@ -16,7 +16,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import { SnackbarState, DisplaySettings, DEFAULT_DISPLAY_SETTINGS } from '@/types/tools';
+import { SnackbarState, DisplaySettings, DEFAULT_DISPLAY_SETTINGS, TransitRoute } from '@/types/tools';
 import {
   parseTransitText,
   validateInput,
@@ -30,6 +30,7 @@ const STORAGE_KEY = 'transit-converter-display-settings';
 export default function TransitConverterPage() {
   const [inputText, setInputText] = useState<string>('');
   const [outputText, setOutputText] = useState<string>('');
+  const [parsedRoute, setParsedRoute] = useState<TransitRoute | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(
@@ -66,6 +67,14 @@ export default function TransitConverterPage() {
     }
   };
 
+  // DisplaySettings変更時に自動的に再フォーマット
+  useEffect(() => {
+    if (parsedRoute) {
+      const formatted = formatTransitRoute(parsedRoute, displaySettings);
+      setOutputText(formatted);
+    }
+  }, [displaySettings, parsedRoute]);
+
   const handleConvert = () => {
     setIsProcessing(true);
     setError(null);
@@ -101,6 +110,7 @@ export default function TransitConverterPage() {
 
       // 3. フォーマット処理（DisplaySettings適用）
       const formatted = formatTransitRoute(route, displaySettings);
+      setParsedRoute(route);
       setOutputText(formatted);
       setError(null);
 
@@ -126,6 +136,7 @@ export default function TransitConverterPage() {
   const handleClear = () => {
     setInputText('');
     setOutputText('');
+    setParsedRoute(null);
     setError(null);
   };
 
