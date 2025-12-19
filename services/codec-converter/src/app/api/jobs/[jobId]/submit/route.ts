@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBHelper, BatchHelper, JobStatus } from '@nagiyu/codec-converter-common';
+import { DynamoDBHelper, BatchHelper, JobStatus, getUnixTimestamp } from '@nagiyu/codec-converter-common';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
@@ -14,14 +14,6 @@ import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
  * UUID v4 validation regex
  */
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-/**
- * Get current Unix timestamp in seconds
- * @returns Current timestamp as Unix epoch seconds
- */
-function getUnixTimestamp(): number {
-  return Math.floor(Date.now() / 1000);
-}
 
 /**
  * Validate if a string is a valid UUID v4

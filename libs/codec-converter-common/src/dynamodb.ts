@@ -11,6 +11,7 @@ import {
   UpdateCommand,
   DeleteCommand,
 } from "@aws-sdk/lib-dynamodb";
+import { getUnixTimestamp } from "./utils";
 
 /**
  * Job status enum
@@ -99,7 +100,7 @@ export class DynamoDBHelper {
 
     const expressionAttributeValues: Record<string, any> = {
       ":status": status,
-      ":updatedAt": Math.floor(Date.now() / 1000),
+      ":updatedAt": getUnixTimestamp(),
     };
 
     if (errorMessage) {

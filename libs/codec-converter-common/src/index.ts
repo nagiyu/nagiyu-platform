@@ -6,3 +6,4 @@
 export * from "./s3";
 export * from "./dynamodb";
 export * from "./batch";
+export * from "./utils";
