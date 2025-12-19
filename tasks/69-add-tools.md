@@ -247,6 +247,29 @@
 - [x] テスト実行環境
     - [x] Jest 設定
     - [x] React Testing Library 統合
+- [ ] **E2Eテストセットアップ**
+    - [ ] Playwright のインストール (`@playwright/test`)
+    - [ ] playwright.config.ts の作成
+    - [ ] テストディレクトリ構造作成 (`e2e/`)
+    - [ ] GitHub Actions PR ワークフロー更新
+- [ ] **E2Eテスト実装 - 乗り換え変換ツール**
+    - [ ] 基本フロー (入力 → 変換 → コピー)
+    - [ ] クリップボード読み取り機能
+    - [ ] Web Share Target 機能 (URLパラメータ経由)
+    - [ ] 表示設定の永続化 (LocalStorage)
+    - [ ] エラーハンドリング (無効な入力、空入力)
+    - [ ] クリア機能
+- [ ] **E2Eテスト実装 - その他ページ**
+    - [ ] ホームページ - ツールカード表示とナビゲーション
+    - [ ] オフライン対応 - PWA機能 (Service Worker)
+- [ ] **レスポンシブテスト設定**
+    - [ ] Chromium デスクトップ
+    - [ ] Chromium モバイル (Pixel 5)
+    - [ ] Safari モバイル (iPhone 12)
+- [ ] **アクセシビリティテスト**
+    - [ ] @axe-core/playwright のインストール
+    - [ ] 全ページでアクセシビリティスキャン実行
+    - [ ] WCAG 2.1 Level AA 準拠確認
 
 #### 6.2 レスポンシブ対応・アクセシビリティ
 

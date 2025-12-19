@@ -64,7 +64,9 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | パッケージマネージャ | npm | 依存関係管理 |
 | リンター | ESLint | コード品質チェック |
 | フォーマッター | Prettier | コード整形 |
-| テスト | Jest + React Testing Library | ユニットテスト |
+| テスト (単体) | Jest + React Testing Library | ユニットテスト |
+| テスト (E2E) | Playwright | ブラウザ自動化テスト |
+| テスト (アクセシビリティ) | @axe-core/playwright | アクセシビリティ検証 |
 | CI/CD | GitHub Actions | 自動ビルド・テスト・デプロイ |
 
 ### 1.3 コンポーネント構成
