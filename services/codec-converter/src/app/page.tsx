@@ -39,8 +39,12 @@ export default function Home() {
    * Validate file before upload
    */
   const validateFile = (file: File): string | null => {
-    // Check file extension
-    if (!file.name.toLowerCase().endsWith(ACCEPTED_FILE_EXTENSION)) {
+    // Check file extension - extract the actual extension
+    const fileName = file.name.toLowerCase();
+    const lastDotIndex = fileName.lastIndexOf('.');
+    const fileExtension = lastDotIndex !== -1 ? fileName.substring(lastDotIndex) : '';
+    
+    if (fileExtension !== ACCEPTED_FILE_EXTENSION) {
       return `MP4ファイルのみアップロード可能です（現在: ${file.name}）`;
     }
 
