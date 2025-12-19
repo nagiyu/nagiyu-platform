@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import {
   Container,
   Typography,
@@ -16,6 +16,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { useSearchParams } from 'next/navigation';
 import { SnackbarState, DisplaySettings, DEFAULT_DISPLAY_SETTINGS, TransitRoute } from '@/types/tools';
 import {
   parseTransitText,
@@ -27,7 +28,8 @@ import DisplaySettingsSection from '@/components/tools/DisplaySettingsSection';
 
 const STORAGE_KEY = 'transit-converter-display-settings';
 
-export default function TransitConverterPage() {
+function TransitConverterContent() {
+  const searchParams = useSearchParams();
   const [inputText, setInputText] = useState<string>('');
   const [outputText, setOutputText] = useState<string>('');
   const [parsedRoute, setParsedRoute] = useState<TransitRoute | null>(null);
@@ -55,6 +57,30 @@ export default function TransitConverterPage() {
       // エラーが発生してもデフォルト設定で続行
     }
   }, []);
+
+  // Web Share Target: URLパラメータから共有されたデータを取得
+  useEffect(() => {
+    const sharedUrl = searchParams.get('url');
+    const sharedText = searchParams.get('text');
+
+    if (sharedUrl || sharedText) {
+      // URLまたはテキストを入力欄に自動挿入（URLを優先）
+      const sharedContent = sharedUrl || sharedText || '';
+      setInputText(sharedContent);
+
+      // URLパラメータをクリーンアップ（履歴を汚染しないように）
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({}, '', '/transit-converter');
+      }
+
+      // 共有されたことを通知
+      setSnackbar({
+        open: true,
+        message: '共有されたデータを読み込みました',
+        severity: 'info',
+      });
+    }
+  }, [searchParams]);
 
   // 設定変更時にLocalStorageに保存
   const handleDisplaySettingsChange = (newSettings: DisplaySettings) => {
@@ -308,5 +334,18 @@ export default function TransitConverterPage() {
         </Alert>
       </Snackbar>
     </Container>
+  );
+}
+
+export default function TransitConverterPage() {
+  return (
+    <Suspense fallback={
+      <Container maxWidth="md" sx={{ py: 4, textAlign: 'center' }}>
+        <CircularProgress />
+        <Typography sx={{ mt: 2 }}>読み込み中...</Typography>
+      </Container>
+    }>
+      <TransitConverterContent />
+    </Suspense>
   );
 }
