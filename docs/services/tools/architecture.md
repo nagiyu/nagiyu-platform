@@ -1,9 +1,5 @@
 # Toolsアプリ 基本設計書
 
-**バージョン**: 1.0.0
-**最終更新日**: 2025-12-14
-**ステータス**: 初版作成
-
 ---
 
 ## 1. システムアーキテクチャ
@@ -16,15 +12,15 @@
 
 ```
 ユーザー (ブラウザ)
-  ↓ HTTPS
+    ↓ HTTPS
 外部DNSサービス
-  ↓ CNAME (tools.example.com → d123456.cloudfront.net)
+    ↓ CNAME (tools.example.com → d123456.cloudfront.net)
 CloudFront Distribution
-  ↓ オリジン
+    ↓ オリジン
 Lambda Function URL (Next.js SSR + Lambda Web Adapter)
-  ├─ Next.js App Router
-  ├─ Material UI コンポーネント
-  └─ 静的アセット (_next/static, public)
+    ├─ Next.js App Router
+    ├─ Material UI コンポーネント
+    └─ 静的アセット (_next/static, public)
 ```
 
 ### 1.2 技術スタック
@@ -69,6 +65,7 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | リンター | ESLint | コード品質チェック |
 | フォーマッター | Prettier | コード整形 |
 | テスト | Jest + React Testing Library | ユニットテスト |
+| CI/CD | GitHub Actions | 自動ビルド・テスト・デプロイ |
 
 ### 1.3 コンポーネント構成
 
@@ -100,6 +97,24 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
     - `lg`: 1200px〜 (デスクトップ)
     - `xl`: 1536px〜 (大型ディスプレイ)
 
+#### PWA 構成
+
+- **パッケージ**: next-pwa (Next.js用PWAプラグイン)
+- **Service Worker**: 自動生成
+    - 静的アセットのキャッシュ
+    - オフライン時のフォールバック
+- **Manifest**: `public/manifest.json`
+    - アプリ名: "Tools"
+    - 表示モード: standalone
+    - テーマカラー: #1976d2 (プライマリカラー)
+    - アイコン: 192x192, 512x512
+- **キャッシュ戦略**:
+    - 静的ファイル: Cache First
+    - API: Network First (オフライン時はキャッシュ)
+- **オフライン対応**:
+    - 基本的なクライアントサイドツールはオフラインで動作
+    - オンライン/オフライン状態の表示
+
 ### 2.2 バックエンド構成
 
 #### Next.js API Routes
@@ -120,73 +135,6 @@ Next.js の API Routes (`app/api/` ディレクトリ) を使用。
     - `NODE_ENV=production`
     - `PORT=3000` (Lambda Web Adapter用)
     - その他、必要に応じて追加
-
-### 2.3 ディレクトリ構造
-
-```
-nagiyu-platform/
-├── services/
-│   └── tools/                           # Next.js プロジェクトルート
-│       ├── src/
-│       │   ├── app/                     # App Router
-│       │   │   ├── layout.tsx           # 共通レイアウト
-│       │   │   ├── page.tsx             # トップページ (ツール一覧)
-│       │   │   ├── transit-converter/   # 乗り換え変換ツール
-│       │   │   │   └── page.tsx
-│       │   │   ├── api/                 # API Routes
-│       │   │   │   └── health/
-│       │   │   │       └── route.ts     # ヘルスチェックAPI
-│       │   │   └── globals.css          # グローバルスタイル
-│       │   │
-│       │   ├── components/              # React コンポーネント
-│       │   │   ├── layout/
-│       │   │   │   ├── Header.tsx
-│       │   │   │   └── Footer.tsx
-│       │   │   ├── tools/
-│       │   │   │   ├── ToolCard.tsx
-│       │   │   │   └── TransitConverter.tsx
-│       │   │   └── common/
-│       │   │       ├── Button.tsx
-│       │   │       └── CopyButton.tsx
-│       │   │
-│       │   ├── lib/                     # ユーティリティ・ロジック
-│       │   │   ├── parsers/
-│       │   │   │   └── transitParser.ts  # 乗り換えパーサー
-│       │   │   ├── clipboard.ts         # クリップボード操作
-│       │   │   └── formatters.ts        # データ整形
-│       │   │
-│       │   ├── styles/                  # スタイル関連
-│       │   │   └── theme.ts             # MUIテーマ定義
-│       │   │
-│       │   └── types/                   # TypeScript型定義
-│       │       └── tools.ts
-│       │
-│       ├── public/                      # 静的ファイル
-│       │   ├── icons/
-│       │   │   ├── icon-192.png
-│       │   │   └── icon-512.png
-│       │   ├── manifest.json            # PWAマニフェスト
-│       │   └── robots.txt
-│       │
-│       ├── Dockerfile                   # Lambda コンテナイメージ
-│       ├── .dockerignore
-│       ├── package.json
-│       ├── package-lock.json
-│       ├── tsconfig.json
-│       ├── next.config.js
-│       ├── eslint.config.js
-│       ├── .prettierrc
-│       └── README.md
-│
-├── infra/
-│   └── tools/                           # CloudFormation テンプレート
-│       ├── ecr.yaml                     # ECR リポジトリ
-│       ├── lambda.yaml                  # Lambda 関数
-│       └── cloudfront.yaml              # CloudFront Distribution
-│
-└── docs/
-    └── services/tools/                  # ドキュメント (本ファイル等)
-```
 
 ---
 
@@ -320,51 +268,123 @@ SecurityHeadersPolicy:
 
 ---
 
-## 4. データベース設計
+## 4. CI/CD 設計
 
-### 4.1 ER図
+### 4.1 GitHub Actions ワークフロー構成
 
-**現時点**: データベース不要
+Tools アプリでは、2つの GitHub Actions ワークフローを使用します:
 
-ユーザーデータを保存しないため、データベースは使用しない。
-将来的にツールの使用履歴やお気に入り機能を実装する場合は、ローカルストレージまたは DynamoDB を検討。
+#### 1. プルリクエスト検証ワークフロー (`tools-pr.yml`)
 
-### 4.2 テーブル定義 (概要)
+**目的**: develop および integration/** ブランチへのプルリクエスト時に品質を検証
 
-該当なし
+**トリガー条件**:
+- `pull_request` イベント
+- 対象ブランチ: `develop`, `integration/**`
+- 対象パス:
+    - `services/tools/**`
+    - `infra/tools/**`
+    - `.github/workflows/tools-pr.yml`
 
-### 4.3 リレーション
+**実行内容**:
+1. **Next.js ビルド検証**
+    - `npm ci` で依存関係をインストール
+    - `npm run build` でプロダクションビルドを実行
+    - ビルドエラーの早期検出
 
-該当なし
+2. **Docker イメージビルド検証** (Lambda 用)
+    - Lambda デプロイ用 Docker イメージをビルド
+    - Dockerfile の構文エラーやビルドエラーを検出
+    - ECR へのプッシュは行わない (検証のみ)
+
+3. **単体テスト実行**
+    - `npm test` で Jest テストスイートを実行
+    - テストカバレッジの確認
+    - 全テストの合格を必須とする
+
+**マージ条件**:
+- すべてのジョブ (Next.js ビルド、Docker ビルド、テスト) が成功すること
+- GitHub のブランチプロテクションルールで必須チェックとして設定
+
+#### 2. デプロイワークフロー (`tools-deploy.yml`)
+
+**目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
+
+**トリガー条件**:
+- `push` イベント
+- 対象ブランチ: `develop`, `integration/**`, `master`
+- 対象パス:
+    - `services/tools/**`
+    - `infra/tools/**`
+    - `.github/workflows/tools-deploy.yml`
+
+**実行内容**:
+1. インフラストラクチャのデプロイ (ECR)
+2. Docker イメージのビルドと ECR へのプッシュ
+3. Lambda 関数のデプロイ
+4. CloudFront ディストリビューションのデプロイ
+
+**環境分離**:
+- `develop`, `integration/**` → 開発環境 (dev)
+- `master` → 本番環境 (prod)
+
+### 4.2 CI/CD フロー図
+
+```
+Pull Request (to develop/integration/**)
+    ↓
+PR検証ワークフロー実行
+    ├─ Next.js ビルド検証
+    ├─ Docker イメージビルド検証
+    └─ 単体テスト実行
+    ↓
+すべて成功 → マージ可能
+    ↓
+マージ (develop/integration/** へ push)
+    ↓
+デプロイワークフロー実行
+    ├─ ECR スタックデプロイ
+    ├─ Docker ビルド & プッシュ
+    ├─ Lambda デプロイ
+    └─ CloudFront デプロイ
+    ↓
+開発環境へデプロイ完了
+```
+
+### 4.3 ワークフロー設計方針
+
+#### PR検証の重要性
+
+- **master ブランチは対象外**: 本番環境への直接プッシュは行わないため、PR検証も不要
+- **早期フィードバック**: マージ前に問題を検出し、デプロイ失敗を防ぐ
+- **品質保証**: すべてのコードがビルド・テストを通過してからマージ
+- **コスト最適化**:
+    - PR段階では ECR プッシュやデプロイを行わない
+    - 検証のみに留めることで AWS リソース使用を最小化
+
+#### テスト戦略
+
+**単体テスト対象**:
+- ビジネスロジック (`src/lib/parsers/`, `src/lib/formatters/`)
+- ユーティリティ関数 (`src/lib/clipboard.ts`)
+- API Routes (`src/app/api/**`)
+
+**テスト要件**:
+- 全テストが合格すること
+- 重要なロジックにはテストカバレッジを確保
+
+#### ブランチ保護ルール
+
+develop および integration/** ブランチには以下を設定:
+- PR検証ワークフローの成功を必須とする
+- 直接プッシュを禁止 (PR経由のみ)
+- レビュー承認を推奨 (チーム規模に応じて)
 
 ---
 
 ## 5. API設計
 
-### 5.1 APIエンドポイント一覧
-
-#### 内部API (Next.js API Routes)
-
-| エンドポイント | メソッド | 説明 | リクエスト | レスポンス |
-|--------------|---------|------|----------|----------|
-| `/api/health` | GET | ヘルスチェック | なし | `{ status: "ok" }` |
-
-**将来追加予定のAPI:**
-- `/api/tools/transit` - サーバーサイドで乗り換えをパース (必要な場合)
-
-#### 外部API
-
-なし (現時点では外部APIは使用しない)
-
-### 5.2 認証・認可方式
-
-**認証**: なし (全機能を認証なしで提供)
-
-**将来**: ユーザー機能を追加する場合
-- Cognito または Auth0 を検討
-- JWT ベースの認証
-
-### 5.3 エラーハンドリング方針
+### 5.1 エラーハンドリング方針
 
 #### クライアントサイド
 
@@ -412,7 +432,7 @@ SecurityHeadersPolicy:
 **構成要素:**
 - ヘッダー: アプリ名「Tools」(中央揃え)
 - メインコンテンツ: ツールカード一覧 (Grid レイアウト)
-- フッター: バージョン表示、将来実装予定リンク（プライバシーポリシー、利用規約）
+- フッター: バージョン表示、将来実装予定リンク (プライバシーポリシー、利用規約)
 
 **レイアウト:**
 - PC: 3カラム
@@ -507,42 +527,3 @@ SecurityHeadersPolicy:
 
 - APIキー等のシークレットを保存
 - デプロイ時に取得して Lambda 環境変数に設定
-
----
-
-## 付録
-
-### A. 技術選定の理由
-
-#### Next.js を選んだ理由
-- React エコシステムの中で最も人気のあるフルスタックフレームワーク
-- SSR、SSG、ISR など柔軟なレンダリング戦略
-- App Router で最新のReact機能 (Server Components等) を学習可能
-- Vercel によるサポートが手厚い
-
-#### Material UI を選んだ理由
-- 豊富なコンポーネント
-- デザインの一貫性が保ちやすい
-- レスポンシブデザインが容易
-- カスタマイズ性が高い
-
-#### Lambda Web Adapter を選んだ理由
-- サーバーレスでコスト最適化
-- Next.js を Lambda で動かす最もシンプルな方法
-- AWS統一のインフラ構成
-- スケーラビリティが高い
-
-### B. 変更履歴
-
-| 日付 | バージョン | 変更内容 | 担当者 |
-|------|-----------|---------|--------|
-| 2025-12-14 | 1.0.0 | 初版作成 | - |
-
----
-
-**承認**
-
-本基本設計書は、プロジェクトオーナーの承認を経て確定版となります。
-
-- [ ] 基本設計の承認
-- [ ] 次フェーズ (詳細設計) への移行許可

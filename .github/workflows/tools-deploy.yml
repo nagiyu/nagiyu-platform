@@ -70,14 +70,23 @@ jobs:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     needs: infrastructure
-    
+
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       environment: ${{ needs.infrastructure.outputs.environment }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/tools
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -141,6 +150,7 @@ jobs:
           LAMBDA_STACK_NAME: ${{ needs.infrastructure.outputs.lambda-stack-name }}
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
         run: |
           aws cloudformation deploy \
             --template-file infra/tools/lambda.yaml \
@@ -148,11 +158,12 @@ jobs:
             --parameter-overrides \
               Environment="$ENVIRONMENT" \
               ImageUri="$IMAGE_URI" \
+              AppVersion="$APP_VERSION" \
             --capabilities CAPABILITY_NAMED_IAM \
             --region "${{ env.AWS_REGION }}" \
             --no-fail-on-empty-changeset
-          
-          echo "Lambda stack deployed: $LAMBDA_STACK_NAME"
+
+          echo "Lambda stack deployed: $LAMBDA_STACK_NAME (version: $APP_VERSION)"
 
       - name: Get Lambda function name from CloudFormation
         id: get-lambda

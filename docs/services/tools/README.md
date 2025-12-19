@@ -2,8 +2,8 @@
 
 ## 概要
 
-Toolsアプリは、開発者向けの便利なツールを集約したWebアプリケーションです。
-JSONフォーマッター、Base64エンコーダー、ハッシュジェネレーターなど、日常的な開発作業で使用する小さなツールを、ブラウザ上で手軽に利用できます。
+Toolsアプリは、便利なツールを集約したWebアプリケーションです。
+JSONフォーマッター、Base64エンコーダー、乗り換え案内変換など、日常的な作業で使用する小さなツールを、ブラウザ上で手軽に利用できます。
 
 ---
 
@@ -11,24 +11,14 @@ JSONフォーマッター、Base64エンコーダー、ハッシュジェネレ�
 
 本プロジェクトのドキュメントは、ウォーターフォール型開発プロセスに沿って整理されています。
 
-### 開発プロセスドキュメント
-
-| フェーズ | ドキュメント | 説明 |
-|---------|------------|------|
-| 要件定義 | [requirements.md](./requirements.md) | ビジネス要件、機能要件、非機能要件、ユースケース |
-| 基本設計 | [basic-design.md](./basic-design.md) | システムアーキテクチャ、インフラ設計、API設計、画面設計 |
-| 詳細設計 | [detailed-design.md](./detailed-design.md) | フロントエンド/バックエンド詳細設計、個別ツール仕様 |
-| 実装 | [implementation.md](./implementation.md) | 開発環境構築、コーディング規約、AI開発ガイド |
-| テスト | [testing.md](./testing.md) | テスト計画、テスト仕様、テスト実施手順 |
-| デプロイ・運用 | [deployment.md](./deployment.md) | デプロイ手順、CI/CD、監視、障害対応 |
-
-### 補足資料
+### プロジェクトドキュメント
 
 | ドキュメント | 説明 |
 |------------|------|
-| [appendix/glossary.md](./appendix/glossary.md) | プロジェクト用語集 |
-| [appendix/decision-log.md](./appendix/decision-log.md) | 設計判断記録（ADR） |
-| [appendix/tools-catalog.md](./appendix/tools-catalog.md) | 実装済みツール一覧と仕様 |
+| [requirements.md](./requirements.md) | ビジネス要件、機能要件、非機能要件、ユースケース |
+| [architecture.md](./architecture.md) | システムアーキテクチャ、インフラ設計、画面設計 |
+| [deployment.md](./deployment.md) | デプロイ手順、CI/CD、監視、障害対応 |
+| [tools-catalog.md](./tools-catalog.md) | 実装済みツール一覧 |
 
 ---
 
@@ -37,15 +27,14 @@ JSONフォーマッター、Base64エンコーダー、ハッシュジェネレ�
 ### 開発者向け
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
-2. **設計を確認する**: [basic-design.md](./basic-design.md) と [detailed-design.md](./detailed-design.md) を読む
-3. **環境を構築する**: [implementation.md](./implementation.md) の手順に従う
-4. **開発を開始する**: コーディング規約とAI開発ガイドを参照
+2. **設計を確認する**: [architecture.md](./architecture.md) を読む
+3. **実装を確認する**: ソースコード (`services/tools/`) を参照
 
 ### 運用担当者向け
 
 1. **デプロイ手順を確認**: [deployment.md](./deployment.md) を読む
-2. **監視設定を確認**: 監視・アラートセクションを参照
-3. **障害対応フローを理解**: 障害対応セクションを参照
+2. **監視・ログ確認**: CloudWatch Logs を参照
+3. **障害対応**: [deployment.md](./deployment.md) の障害対応セクションを参照
 
 ---
 
