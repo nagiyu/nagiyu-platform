@@ -13,16 +13,17 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.705.0",
+    "@aws-sdk/client-batch": "^3.705.0",
     "@aws-sdk/client-dynamodb": "^3.705.0",
+    "@aws-sdk/client-s3": "^3.705.0",
     "@aws-sdk/lib-dynamodb": "^3.705.0",
     "@aws-sdk/s3-request-presigner": "^3.705.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "typescript": "^5.7.2",
     "eslint": "^9",
-    "prettier": "^3.4.2"
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
   },
   "engines": {
     "node": ">=22.0.0"
