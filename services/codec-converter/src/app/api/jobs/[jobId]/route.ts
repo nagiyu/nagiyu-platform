@@ -14,6 +14,20 @@ import { DynamoDBHelper } from '@nagiyu/codec-converter-common';
 const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
+ * Response interface for GET /api/jobs/{jobId}
+ */
+interface JobResponse {
+  jobId: string;
+  status: string;
+  inputFile: string;
+  outputCodec: string;
+  createdAt: number;
+  updatedAt: number;
+  outputFile?: string;
+  errorMessage?: string;
+}
+
+/**
  * Validate if a string is a valid UUID v4
  * @param jobId - The job ID to validate
  * @returns true if valid UUID v4, false otherwise
@@ -64,16 +78,7 @@ export async function GET(
     const dbHelper = new DynamoDBHelper(dynamoTableName);
 
     // Retrieve job from DynamoDB
-    let job;
-    try {
-      job = await dbHelper.getJob(jobId);
-    } catch (error) {
-      console.error('Failed to retrieve job from DynamoDB:', error);
-      return NextResponse.json(
-        { error: 'Failed to retrieve job from database' },
-        { status: 500 }
-      );
-    }
+    const job = await dbHelper.getJob(jobId);
 
     // Return 404 if job not found
     if (!job) {
@@ -84,17 +89,7 @@ export async function GET(
     }
 
     // Return job data in JSON format as per OpenAPI spec
-    // Include all fields that might be present in the job
-    const response: {
-      jobId: string;
-      status: string;
-      inputFile: string;
-      outputCodec: string;
-      createdAt: number;
-      updatedAt: number;
-      outputFile?: string;
-      errorMessage?: string;
-    } = {
+    const response: JobResponse = {
       jobId: job.jobId,
       status: job.status,
       inputFile: job.inputFile,
