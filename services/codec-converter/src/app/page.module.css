@@ -78,7 +78,7 @@
   position: relative;
 }
 
-.dropzone:hover {
+.dropzone:not(.hasFile):hover {
   background-color: var(--dropzone-hover);
   border-color: var(--border-color-focus);
 }

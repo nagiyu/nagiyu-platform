@@ -132,6 +132,14 @@ export default function Home() {
   };
 
   /**
+   * Handle drag end to reset counter in case of cancelled drag
+   */
+  const handleDragEnd = () => {
+    dragCounterRef.current = 0;
+    setIsDragging(false);
+  };
+
+  /**
    * Open file picker
    */
   const handleBrowseClick = () => {
@@ -295,24 +303,21 @@ export default function Home() {
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            onClick={!selectedFile ? handleBrowseClick : undefined}
-            role={!selectedFile ? 'button' : undefined}
-            tabIndex={!selectedFile ? 0 : undefined}
+            onDragEnd={handleDragEnd}
+            onClick={handleBrowseClick}
+            role="button"
+            tabIndex={0}
             aria-label={
               !selectedFile
                 ? 'ファイルをドラッグ＆ドロップまたはクリックして選択'
-                : undefined
+                : 'ファイルが選択されています。Enterキーまたはスペースキーで別のファイルを選択できます'
             }
-            onKeyDown={
-              !selectedFile
-                ? (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleBrowseClick();
-                    }
-                  }
-                : undefined
-            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleBrowseClick();
+              }
+            }}
           >
             <input
               ref={fileInputRef}
@@ -400,6 +405,7 @@ export default function Home() {
                     className={styles.progressFill}
                     style={{ width: `${uploadProgress}%` }}
                     role="progressbar"
+                    aria-label="ファイルアップロードの進捗"
                     aria-valuenow={uploadProgress}
                     aria-valuemin={0}
                     aria-valuemax={100}
