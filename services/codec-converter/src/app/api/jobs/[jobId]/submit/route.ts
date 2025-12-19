@@ -117,6 +117,11 @@ export async function POST(
     // Use conditional update to prevent duplicate submissions (concurrent execution guard)
     // This ensures that even if multiple requests come in simultaneously,
     // only one will successfully transition the job from PENDING to PROCESSING
+    //
+    // Note: We use a direct UpdateCommand here instead of dbHelper.updateJobStatus()
+    // because we need the ConditionExpression to ensure atomicity. The condition
+    // guarantees that the status is PENDING before updating to PROCESSING, which
+    // prevents race conditions where multiple requests try to submit the same job.
     try {
       // Update job status to PROCESSING with a condition that it must be PENDING
       const updateCommand = new UpdateCommand({

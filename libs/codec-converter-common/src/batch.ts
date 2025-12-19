@@ -24,7 +24,11 @@ export class BatchHelper {
   /**
    * Submit a job to AWS Batch
    * @param jobId - UUID of the job (used as Batch job name)
-   * @param parameters - Optional job parameters to pass to the Batch job
+   * @param parameters - Optional job parameters to pass to the Batch job.
+   *                     These parameters are key-value pairs that will be passed
+   *                     to the container as environment variables or command-line arguments,
+   *                     depending on how the job definition is configured.
+   *                     Example: { "inputFormat": "mp4", "outputFormat": "webm" }
    * @returns The Batch job ID
    */
   async submitJob(
