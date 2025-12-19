@@ -61,7 +61,17 @@ export function parseTransitText(input: string): TransitRoute | null {
   const fareMatch = input.match(/運賃\[.*?\]\s+(.+)/);
   const fare = fareMatch ? fareMatch[1] : '';
 
-  // 6. ルート詳細の抽出
+  // 6. 乗換回数の抽出
+  const transferCountMatch = input.match(/乗換\s+(\d+)回/);
+  const transferCount = transferCountMatch
+    ? parseInt(transferCountMatch[1], 10)
+    : undefined;
+
+  // 7. 距離の抽出
+  const distanceMatch = input.match(/距離\s+([\d.]+)\s*km/);
+  const distance = distanceMatch ? `${distanceMatch[1]} km` : undefined;
+
+  // 8. ルート詳細の抽出
   const routeSteps: RouteStep[] = [];
   let currentStation = '';
   let currentTimeRange = '';
@@ -125,6 +135,8 @@ export function parseTransitText(input: string): TransitRoute | null {
     arrivalTime,
     duration,
     fare,
+    transferCount,
+    distance,
     routeSteps,
   };
 }
