@@ -8,6 +8,7 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import theme from '@/styles/theme';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import MigrationDialog from '@/components/dialogs/MigrationDialog';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
@@ -19,6 +20,7 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <MigrationDialog />
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <Header />
           <Box component="main" sx={{ flexGrow: 1 }}>
