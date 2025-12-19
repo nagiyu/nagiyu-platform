@@ -310,6 +310,83 @@
 
 ---
 
+### ステップ7.5: 詳細表示トグル機能実装
+
+#### 7.5.1 型定義追加
+
+- [ ] `DisplaySettings` インターフェースを `src/types/tools.ts` に追加
+- [ ] `DEFAULT_DISPLAY_SETTINGS` 定数を定義
+- [ ] `TransitRoute` インターフェースに以下を追加
+    - [ ] `transferCount?: number` プロパティ
+    - [ ] `distance?: string` プロパティ
+
+#### 7.5.2 パーサー拡張
+
+- [ ] `src/lib/parsers/transitParser.ts` に乗換回数抽出処理を追加
+    - [ ] 正規表現: `/乗換\s+(\d+)回/`
+- [ ] 距離抽出処理を追加
+    - [ ] 正規表現: `/距離\s+([\d.]+)\s*km/`
+- [ ] 単体テストを追加 (`__tests__/transitParser.test.ts`)
+    - [ ] 乗換回数抽出テスト
+    - [ ] 距離抽出テスト
+
+#### 7.5.3 フォーマッター拡張
+
+- [ ] `src/lib/formatters/formatters.ts` を拡張
+    - [ ] `formatTransitRoute()` に `DisplaySettings` パラメータを追加
+    - [ ] 各設定項目に応じた条件分岐を実装
+    - [ ] 乗換回数の出力処理を追加
+    - [ ] 距離の出力処理を追加
+- [ ] 単体テストを追加 (`__tests__/formatters.test.ts`)
+    - [ ] 設定による表示/非表示テスト
+    - [ ] デフォルト設定テスト
+
+#### 7.5.4 UI実装
+
+- [ ] `DisplaySettingsSection` コンポーネントを作成
+    - [ ] Accordion で折りたたみ可能にする
+    - [ ] 各チェックボックスを実装
+        - [ ] 日付を表示
+        - [ ] 所要時間を表示
+        - [ ] 運賃を表示
+        - [ ] 乗換回数を表示
+        - [ ] 距離を表示
+        - [ ] ルート詳細を表示（親チェックボックス）
+            - [ ] 時刻範囲を表示
+            - [ ] 路線名を表示
+            - [ ] 番線情報を表示
+- [ ] `src/app/transit-converter/page.tsx` に統合
+    - [ ] `DisplaySettings` の state 管理
+    - [ ] チェックボックス変更時の処理
+    - [ ] フォーマッター呼び出し時に設定を渡す
+
+#### 7.5.5 LocalStorage 連携
+
+- [ ] LocalStorage への保存処理を実装
+    - [ ] キー: `'transit-converter-display-settings'`
+    - [ ] チェックボックス変更時に保存
+- [ ] LocalStorage からの読み込み処理を実装
+    - [ ] `useEffect()` で初期化時に読み込み
+    - [ ] デフォルト設定とマージ
+- [ ] エラーハンドリング
+    - [ ] LocalStorage が使えない環境への対応
+
+#### 7.5.6 Web Share Target 対応（PWA完了後）
+
+- [ ] `manifest.json` に `share_target` セクションを追加
+    - [ ] `action: "/transit-converter"`
+    - [ ] `method: "GET"`
+    - [ ] `params: { title, text, url }`
+- [ ] URLパラメータ処理を実装
+    - [ ] `useSearchParams()` で `url` / `text` パラメータを取得
+    - [ ] 入力欄に自動挿入
+    - [ ] Suspense でラップ
+- [ ] 動作確認
+    - [ ] ngrok で HTTPS 環境構築
+    - [ ] 実機（iOS/Android）でテスト
+
+---
+
 ### ステップ8: デプロイ・動作確認
 
 #### 8.1 開発環境デプロイ
