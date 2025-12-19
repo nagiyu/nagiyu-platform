@@ -175,15 +175,40 @@ export async function POST(
     } catch (batchError) {
       console.error(`Failed to submit job ${jobId} to AWS Batch:`, batchError);
       
-      // Rollback: set job status back to PENDING since Batch submission failed
+      // Rollback: attempt to set job status back to PENDING since Batch submission failed.
+      // Use a conditional update so we only roll back if the job is still in PROCESSING.
+      // This prevents overwriting a status that may have been updated by another process.
       try {
-        await dbHelper.updateJobStatus(
-          jobId, 
-          JobStatus.PENDING
-        );
+        const rollbackCommand = new UpdateCommand({
+          TableName: dynamoTableName,
+          Key: { jobId },
+          UpdateExpression: 'SET #status = :pending, updatedAt = :updatedAt',
+          ConditionExpression: '#status = :processing',
+          ExpressionAttributeNames: {
+            '#status': 'status',
+          },
+          ExpressionAttributeValues: {
+            ':pending': JobStatus.PENDING,
+            ':processing': JobStatus.PROCESSING,
+            ':updatedAt': getUnixTimestamp(),
+          },
+        });
+
+        await dbHelper.getClient().send(rollbackCommand);
         console.log(`Rolled back job ${jobId} status to PENDING after Batch submission failure`);
       } catch (rollbackError) {
-        console.error(`Failed to rollback job ${jobId} status:`, rollbackError);
+        if (
+          rollbackError instanceof ConditionalCheckFailedException ||
+          (rollbackError instanceof Error && rollbackError.name === 'ConditionalCheckFailedException')
+        ) {
+          // The job status was no longer PROCESSING, so another process has already updated it.
+          // In this case, we intentionally skip the rollback to avoid overwriting a newer state.
+          console.log(
+            `Skipped rollback for job ${jobId} because status is no longer PROCESSING (likely updated concurrently)`
+          );
+        } else {
+          console.error(`Failed to rollback job ${jobId} status:`, rollbackError);
+        }
       }
 
       return NextResponse.json(
