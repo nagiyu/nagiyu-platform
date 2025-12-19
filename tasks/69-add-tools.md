@@ -421,6 +421,65 @@
 
 ---
 
+### ステップ7.6: 初回訪問ダイアログ実装
+
+#### 7.6.1 コンポーネント実装
+
+- [ ] `MigrationDialog` コンポーネントを作成 (`src/components/dialogs/MigrationDialog.tsx`)
+    - [ ] Material UI の `Dialog` コンポーネントを使用
+    - [ ] Client Component として実装 (`'use client'`)
+    - [ ] LocalStorage フラグの読み込み (`useEffect`)
+    - [ ] ダイアログの表示/非表示状態管理 (`useState`)
+    - [ ] 「今後表示しない」チェックボックス状態管理 (`useState`, デフォルト: `true`)
+    - [ ] タイトル: 「Toolsアプリが新しくなりました」
+    - [ ] 本文の実装:
+        - [ ] 移行案内テキスト
+        - [ ] 手順 (アンインストール→再インストール)
+        - [ ] プライバシー情報
+    - [ ] UI要素の実装:
+        - [ ] FormControlLabel + Checkbox (「今後表示しない」)
+        - [ ] 「閉じる」ボタン
+    - [ ] 「閉じる」ボタンクリック時の処理:
+        - [ ] チェックボックスがONの場合のみLocalStorageにフラグを保存
+        - [ ] ダイアログを閉じる
+    - [ ] 背景クリック無効化 (`disableEscapeKeyDown`, `onClose` 制御)
+    - [ ] エラーハンドリング (LocalStorage アクセス失敗時)
+
+#### 7.6.2 ThemeRegistry への統合
+
+- [ ] `ThemeRegistry` コンポーネントに `MigrationDialog` を追加
+    - [ ] `src/components/ThemeRegistry.tsx` を編集
+    - [ ] `MigrationDialog` をインポート
+    - [ ] `children` と同階層に配置
+
+#### 7.6.3 LocalStorage 仕様の実装
+
+- [ ] LocalStorage キー: `'tools-migration-dialog-shown'`
+- [ ] 値: `'true'` (文字列)
+- [ ] 読み込み処理:
+    - [ ] コンポーネントマウント時に `useEffect` で実行
+    - [ ] フラグが存在しない場合はダイアログを表示
+- [ ] 保存処理:
+    - [ ] 「今後表示しない」がONで「閉じる」をクリック時
+    - [ ] `try-catch` でエラーハンドリング
+
+#### 7.6.4 動作確認
+
+- [ ] ローカル環境での動作確認
+    - [ ] 初回訪問時にダイアログが表示される
+    - [ ] 「今後表示しない」がデフォルトでチェックされている
+    - [ ] チェックONで「閉じる」→次回表示されない
+    - [ ] チェックOFFで「閉じる」→次回も表示される
+    - [ ] 背景クリックでは閉じない
+    - [ ] LocalStorage を手動削除すると再度表示される
+    - [ ] プライベートモードでもエラーが発生しない
+- [ ] レスポンシブ確認
+    - [ ] モバイル表示
+    - [ ] タブレット表示
+    - [ ] デスクトップ表示
+
+---
+
 ### ステップ8: デプロイ・動作確認
 
 #### 8.1 開発環境デプロイ
