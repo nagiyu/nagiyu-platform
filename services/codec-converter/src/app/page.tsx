@@ -99,6 +99,10 @@ export default function Home() {
   const handleDragEnter = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    // Prevent drag during upload/processing
+    if (status !== 'idle' && status !== 'error') {
+      return;
+    }
     dragCounterRef.current++;
     if (dragCounterRef.current === 1) {
       setIsDragging(true);
@@ -108,6 +112,10 @@ export default function Home() {
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
+    // Prevent drag during upload/processing
+    if (status !== 'idle' && status !== 'error') {
+      return;
+    }
     dragCounterRef.current--;
     if (dragCounterRef.current === 0) {
       setIsDragging(false);
@@ -124,6 +132,11 @@ export default function Home() {
     e.stopPropagation();
     dragCounterRef.current = 0;
     setIsDragging(false);
+
+    // Prevent drop during upload/processing
+    if (status !== 'idle' && status !== 'error') {
+      return;
+    }
 
     const files = e.dataTransfer.files;
     if (files && files.length > 0) {
@@ -143,6 +156,10 @@ export default function Home() {
    * Open file picker
    */
   const handleBrowseClick = () => {
+    // Prevent file selection during upload/processing
+    if (status !== 'idle' && status !== 'error') {
+      return;
+    }
     fileInputRef.current?.click();
   };
 
@@ -306,13 +323,18 @@ export default function Home() {
             onDragEnd={handleDragEnd}
             onClick={handleBrowseClick}
             role="button"
-            tabIndex={0}
+            tabIndex={status === 'idle' || status === 'error' ? 0 : -1}
             aria-label={
               !selectedFile
                 ? 'ファイルをドラッグ＆ドロップまたはクリックして選択'
                 : 'ファイルが選択されています。Enterキーまたはスペースキーで別のファイルを選択できます'
             }
+            aria-disabled={status !== 'idle' && status !== 'error'}
             onKeyDown={(e) => {
+              // Prevent keyboard interaction during upload/processing
+              if (status !== 'idle' && status !== 'error') {
+                return;
+              }
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 handleBrowseClick();
@@ -326,6 +348,7 @@ export default function Home() {
               onChange={handleFileInputChange}
               className={styles.fileInput}
               aria-label="ファイル選択"
+              disabled={status !== 'idle' && status !== 'error'}
             />
 
             {selectedFile ? (
