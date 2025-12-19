@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+// LocalStorage key for migration dialog flag
+const MIGRATION_DIALOG_STORAGE_KEY = 'tools-migration-dialog-shown';
+
 test.describe('MigrationDialog', () => {
   // LocalStorageをクリアして初期状態にする
   test.beforeEach(async ({ page, context }) => {
@@ -66,9 +69,9 @@ test.describe('MigrationDialog', () => {
       await expect(dialog).not.toBeVisible();
       
       // LocalStorageにフラグが保存されていることを確認
-      const storageValue = await page.evaluate(() => 
-        localStorage.getItem('tools-migration-dialog-shown')
-      );
+      const storageValue = await page.evaluate((key) => 
+        localStorage.getItem(key)
+      , MIGRATION_DIALOG_STORAGE_KEY);
       expect(storageValue).toBe('true');
     });
 
@@ -97,9 +100,9 @@ test.describe('MigrationDialog', () => {
       await expect(dialog).toBeVisible();
       
       // LocalStorageにフラグが保存されていないことを確認
-      const storageValue = await page.evaluate(() => 
-        localStorage.getItem('tools-migration-dialog-shown')
-      );
+      const storageValue = await page.evaluate((key) => 
+        localStorage.getItem(key)
+      , MIGRATION_DIALOG_STORAGE_KEY);
       expect(storageValue).toBeNull();
     });
 
@@ -149,9 +152,9 @@ test.describe('MigrationDialog', () => {
       await expect(dialog).not.toBeVisible();
       
       // LocalStorageを手動削除
-      await page.evaluate(() => {
-        localStorage.removeItem('tools-migration-dialog-shown');
-      });
+      await page.evaluate((key) => {
+        localStorage.removeItem(key);
+      }, MIGRATION_DIALOG_STORAGE_KEY);
       
       // ページをリロード
       await page.reload();

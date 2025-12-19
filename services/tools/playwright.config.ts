@@ -72,7 +72,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run start',
     url: 'http://localhost:3000',
-    reuseExistingServer: true, // Always reuse existing server for local testing
+    reuseExistingServer: !process.env.CI || process.env.PLAYWRIGHT_REUSE_SERVER === 'true',
     timeout: 2 * 60 * 1000, // 2 minutes
   },
 });
