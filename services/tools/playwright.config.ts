@@ -19,6 +19,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
+  /* Set timeout for each test */
+  timeout: 30 * 1000, // 30 seconds per test
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
@@ -52,10 +54,11 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
     },
 
-    {
+    // Safari/WebKit tests - only run locally, not in CI due to setup complexity
+    ...(process.env.CI ? [] : [{
       name: 'safari-mobile',
       use: { ...devices['iPhone 12'] },
-    },
+    }]),
 
     /* Test against branded browsers. */
     // {
