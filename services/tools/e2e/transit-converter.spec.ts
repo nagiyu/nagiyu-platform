@@ -1,4 +1,4 @@
-import { test, expect } from './helpers';
+import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
 import { Page } from '@playwright/test';
 
 // テストデータ: 実際の乗り換え案内フォーマット
@@ -50,6 +50,9 @@ test.describe('Transit Converter - E2E Tests', () => {
     await page.goto('/transit-converter');
     await page.evaluate(() => localStorage.clear());
     await page.reload();
+    
+    // MigrationDialogが表示される場合は閉じる
+    await dismissMigrationDialogIfVisible(page);
   });
 
   test.describe('1. 基本フロー（入力→変換→コピー）', () => {
