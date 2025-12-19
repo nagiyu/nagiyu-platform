@@ -3,6 +3,8 @@ import withPWA from 'next-pwa';
 
 const nextConfig: NextConfig = {
   output: 'standalone', // Lambda デプロイ用
+  // Silence Turbopack warning when using webpack config
+  turbopack: {},
 };
 
 export default withPWA({
