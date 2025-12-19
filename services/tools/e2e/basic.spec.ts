@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 // Helper function to dismiss the migration dialog if it appears
 async function dismissMigrationDialog(page: any) {
   const closeButton = page.getByRole('button', { name: /閉じる/i });
-  if (await closeButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+  if (await closeButton.isVisible({ timeout: 500 }).catch(() => false)) {
     await closeButton.click();
     await expect(closeButton).not.toBeVisible();
   }
