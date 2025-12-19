@@ -20,20 +20,21 @@ export function formatTransitRoute(
   const departureArrivalParts: string[] = [];
   if (settings.showDepartureArrival) {
     departureArrivalParts.push(route.departure);
+    if (settings.showTime) {
+      departureArrivalParts.push(route.departureTime);
+    }
   }
-  if (settings.showTime && settings.showDepartureArrival) {
-    departureArrivalParts.push(route.departureTime);
-  }
-  departureArrivalParts.push('→');
+
   if (settings.showDepartureArrival) {
+    departureArrivalParts.push('→');
     departureArrivalParts.push(route.arrival);
-  }
-  if (settings.showTime && settings.showDepartureArrival) {
-    departureArrivalParts.push(route.arrivalTime);
+    if (settings.showTime) {
+      departureArrivalParts.push(route.arrivalTime);
+    }
   }
   
-  // 少なくとも出発地・到着地または時刻のどちらかが表示される場合のみ行を追加
-  if (settings.showDepartureArrival || settings.showTime) {
+  // 出発地・到着地が表示される場合のみ行を追加
+  if (departureArrivalParts.length > 0) {
     lines.push(departureArrivalParts.join(' '));
   }
 
