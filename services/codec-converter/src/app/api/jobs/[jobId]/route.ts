@@ -15,6 +15,11 @@ const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[
 
 /**
  * Response interface for GET /api/jobs/{jobId}
+ * 
+ * Note: This is separate from the Job type in the common library
+ * because the API response should only include fields specified
+ * in the OpenAPI contract, excluding internal fields like expiresAt,
+ * fileName, and fileSize.
  */
 interface JobResponse {
   jobId: string;
@@ -89,6 +94,7 @@ export async function GET(
     }
 
     // Return job data in JSON format as per OpenAPI spec
+    // Only include fields specified in the API contract
     const response: JobResponse = {
       jobId: job.jobId,
       status: job.status,
@@ -96,16 +102,9 @@ export async function GET(
       outputCodec: job.outputCodec,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
+      ...(job.outputFile && { outputFile: job.outputFile }),
+      ...(job.errorMessage && { errorMessage: job.errorMessage }),
     };
-
-    // Include optional fields if they exist
-    if (job.outputFile) {
-      response.outputFile = job.outputFile;
-    }
-
-    if (job.errorMessage) {
-      response.errorMessage = job.errorMessage;
-    }
 
     // Return success response
     return NextResponse.json(response, { status: 200 });
