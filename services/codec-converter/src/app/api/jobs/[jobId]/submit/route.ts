@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBHelper, BatchHelper, JobStatus } from '@nagiyu/codec-converter-common';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
+import { UpdateCommand } from '@aws-sdk/lib-dynamodb';
 
 /**
  * UUID v4 validation regex
@@ -111,7 +112,7 @@ export async function POST(
     try {
       // Update job status to PROCESSING with a condition that it must be PENDING
       const now = Math.floor(Date.now() / 1000);
-      const updateCommand = {
+      const updateCommand = new UpdateCommand({
         TableName: dynamoTableName,
         Key: { jobId },
         UpdateExpression: 'SET #status = :processing, updatedAt = :updatedAt',
@@ -124,11 +125,9 @@ export async function POST(
           ':processing': JobStatus.PROCESSING,
           ':updatedAt': now,
         },
-      };
+      });
 
-      await dbHelper.getClient().send(
-        new (await import('@aws-sdk/lib-dynamodb')).UpdateCommand(updateCommand)
-      );
+      await dbHelper.getClient().send(updateCommand);
     } catch (error) {
       // If the condition fails, it means the job is no longer PENDING
       // (either already submitted or status changed by another process)
