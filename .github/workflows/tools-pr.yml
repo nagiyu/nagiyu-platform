@@ -93,7 +93,7 @@ jobs:
 
       - name: Install Playwright Browsers
         working-directory: ./services/tools
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps
 
       - name: Build Next.js application
         working-directory: ./services/tools

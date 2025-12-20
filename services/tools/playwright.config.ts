@@ -15,16 +15,10 @@ export default defineConfig({
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
-  /* Retry on CI only - reduced to 1 for faster feedback */
-  retries: process.env.CI ? 1 : 0,
+  /* Retry on CI only */
+  retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
-  /* Set timeout for each test - longer in CI due to slower environment */
-  timeout: process.env.CI ? 90 * 1000 : 30 * 1000, // 90 seconds in CI, 30 seconds locally
-  /* Expect timeout for assertions */
-  expect: {
-    timeout: 15 * 1000, // 15 seconds for expect assertions
-  },
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
@@ -35,10 +29,6 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
-
-    /* Expect timeout for assertions */
-    actionTimeout: 15 * 1000, // 15 seconds for actions
-    navigationTimeout: 30 * 1000, // 30 seconds for page navigation
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -62,11 +52,10 @@ export default defineConfig({
       use: { ...devices['Pixel 5'] },
     },
 
-    // Safari/WebKit tests - only run locally, not in CI due to setup complexity
-    ...(process.env.CI ? [] : [{
+    {
       name: 'safari-mobile',
       use: { ...devices['iPhone 12'] },
-    }]),
+    },
 
     /* Test against branded browsers. */
     // {
