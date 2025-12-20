@@ -22,7 +22,7 @@ export default defineConfig({
   /* Set timeout for each test */
   timeout: 90 * 1000, // 90 seconds per test
   /* Set timeout for the entire test run */
-  globalTimeout: 120 * 60 * 1000, // 120 minutes for all tests
+  globalTimeout: 90 * 60 * 1000, // 90 minutes for all tests
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],

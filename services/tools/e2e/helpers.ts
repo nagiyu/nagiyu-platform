@@ -2,9 +2,23 @@ import { test as base, Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * Extended test fixture with accessibility testing support
+ * Extended test fixture with accessibility testing support and dialog handling
  */
 export const test = base.extend({
+  /**
+   * Automatically setup dialog handler to prevent test hanging
+   */
+  page: async ({ page }, use) => {
+    // Automatically dismiss any browser dialogs (alert, confirm, prompt)
+    // This prevents tests from hanging when unexpected dialogs appear
+    page.on('dialog', async (dialog) => {
+      console.log(`Dialog appeared: ${dialog.type()} - ${dialog.message()}`);
+      await dialog.dismiss();
+    });
+    
+    await use(page);
+  },
+  
   /**
    * Automatically run accessibility tests on each page
    */
