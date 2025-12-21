@@ -1,4 +1,4 @@
-import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
+import { test, expect, dismissMigrationDialogIfVisible, TIMEOUTS } from './helpers';
 
 test.describe('PWA - Service Worker and Manifest', () => {
   test('should register service worker', async ({ page, context }) => {
@@ -97,7 +97,7 @@ test.describe('PWA - Offline Functionality', () => {
     
     if (isProduction) {
       // Wait for service worker to be ready
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
 
       // Go offline
       await context.setOffline(true);
@@ -134,7 +134,7 @@ test.describe('PWA - Offline Functionality', () => {
     
     if (isProduction) {
       // Wait for service worker to cache the page
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
 
       // Go offline
       await context.setOffline(true);
@@ -171,7 +171,7 @@ test.describe('PWA - Offline Functionality', () => {
     
     if (isProduction) {
       // Wait for service worker
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
 
       // Go offline
       await context.setOffline(true);
