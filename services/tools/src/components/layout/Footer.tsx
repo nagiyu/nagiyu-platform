@@ -26,7 +26,7 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
             href="/privacy"
             sx={{
               pointerEvents: 'none',
-              color: 'text.secondary', // Changed from text.disabled to meet WCAG AA contrast (4.5:1)
+              color: 'text.secondary',
               textDecoration: 'none',
             }}
           >
@@ -38,7 +38,7 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
             href="/terms"
             sx={{
               pointerEvents: 'none',
-              color: 'text.secondary', // Changed from text.disabled to meet WCAG AA contrast (4.5:1)
+              color: 'text.secondary',
               textDecoration: 'none',
             }}
           >
