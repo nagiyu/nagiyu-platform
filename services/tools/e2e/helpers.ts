@@ -51,13 +51,25 @@ export async function dismissMigrationDialogIfVisible(
   page: Page
 ): Promise<void> {
   try {
-    const closeButton = page.getByRole('button', { name: /閉じる/i });
-    const isVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
+    // Wait a bit for the dialog to appear if it's going to
+    await page.waitForTimeout(500);
     
-    if (isVisible) {
-      await closeButton.click();
-      // Wait for the dialog to be dismissed
-      await page.getByRole('dialog').waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+    // Check if the dialog is visible
+    const dialog = page.getByRole('dialog');
+    const isDialogVisible = await dialog.isVisible().catch(() => false);
+    
+    if (isDialogVisible) {
+      // Find the close button
+      const closeButton = page.getByRole('button', { name: /閉じる/i });
+      const isButtonVisible = await closeButton.isVisible().catch(() => false);
+      
+      if (isButtonVisible) {
+        await closeButton.click();
+        // Wait for the dialog to be dismissed
+        await dialog.waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
+        // Give it a bit more time for any animations
+        await page.waitForTimeout(300);
+      }
     }
   } catch (error) {
     // Dialog not present or already dismissed, continue
