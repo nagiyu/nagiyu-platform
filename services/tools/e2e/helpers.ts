@@ -42,3 +42,24 @@ export async function takeTimestampedScreenshot(
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   await page.screenshot({ path: `screenshots/${name}-${timestamp}.png` });
 }
+
+/**
+ * Helper function to dismiss the migration dialog if it appears
+ * This should be called after navigating to a page where the dialog might appear
+ */
+export async function dismissMigrationDialogIfVisible(
+  page: Page
+): Promise<void> {
+  try {
+    const closeButton = page.getByRole('button', { name: /閉じる/i });
+    const isVisible = await closeButton.isVisible({ timeout: 1000 }).catch(() => false);
+    
+    if (isVisible) {
+      await closeButton.click();
+      // Wait for the dialog to be dismissed
+      await page.getByRole('dialog').waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+    }
+  } catch (error) {
+    // Dialog not present or already dismissed, continue
+  }
+}
