@@ -10,7 +10,7 @@ test.describe('PWA - Service Worker and Manifest', () => {
     // Note: Service worker is disabled in development mode (next-pwa config)
     // This test will pass in production build
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     if (isProduction) {
       // Check if service worker is registered
       const serviceWorkerRegistered = await page.evaluate(async () => {
@@ -66,7 +66,7 @@ test.describe('PWA - Service Worker and Manifest', () => {
     // Check manifest link
     const manifestLink = page.locator('link[rel="manifest"]');
     await expect(manifestLink).toBeAttached();
-    
+
     // Note: Next.js appleWebApp metadata is rendered differently
     // We just verify that the page has PWA capabilities
   });
@@ -94,7 +94,7 @@ test.describe('PWA - Offline Functionality', () => {
     // Note: In development mode, service worker is disabled
     // This test simulates offline behavior
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     if (isProduction) {
       // Wait for service worker to be ready
       await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
@@ -131,7 +131,7 @@ test.describe('PWA - Offline Functionality', () => {
     await expect(heading).toBeVisible();
 
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     if (isProduction) {
       // Wait for service worker to cache the page
       await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
@@ -168,7 +168,7 @@ test.describe('PWA - Offline Functionality', () => {
     await dismissMigrationDialogIfVisible(page);
 
     const isProduction = process.env.NODE_ENV === 'production';
-    
+
     if (isProduction) {
       // Wait for service worker
       await page.waitForTimeout(TIMEOUTS.SERVICE_WORKER_READY);
