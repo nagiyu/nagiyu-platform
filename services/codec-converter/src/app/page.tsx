@@ -441,7 +441,7 @@ export default function Home() {
 
           {/* Progress Display */}
           {status !== 'idle' && status !== 'error' && status !== 'completed' && (
-            <div className={styles.progress} aria-live="polite" role="status">
+            <div className={styles.progress} role="status">
               <div className={styles.progressLabel}>
                 {status === 'creating_job' && 'ジョブを作成中...'}
                 {status === 'uploading' && `アップロード中... ${uploadProgress}%`}
