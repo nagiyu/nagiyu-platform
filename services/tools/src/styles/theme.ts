@@ -3,9 +3,9 @@ import { createTheme } from '@mui/material/styles';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
+      main: '#1565c0', // Changed from #1976d2 to meet WCAG AA contrast (4.5:1) on #fafafa background
       light: '#42a5f5',
-      dark: '#1565c0',
+      dark: '#0d47a1',
       contrastText: '#ffffff',
     },
     secondary: {
