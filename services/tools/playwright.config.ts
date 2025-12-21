@@ -44,17 +44,29 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1920, height: 1080 },
+        deviceScaleFactor: 1,
+      },
     },
 
     {
       name: 'chromium-mobile',
-      use: { ...devices['Pixel 5'] },
+      use: {
+        ...devices['Pixel 5'],
+        viewport: { width: 393, height: 851 },
+        deviceScaleFactor: 2.75,
+      },
     },
 
     {
-      name: 'safari-mobile',
-      use: { ...devices['iPhone 12'] },
+      name: 'webkit-mobile',
+      use: {
+        ...devices['iPhone 12'],
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+      },
     },
 
     /* Test against branded browsers. */
