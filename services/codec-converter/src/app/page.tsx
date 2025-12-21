@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, DragEvent, ChangeEvent, FormEvent } from 'react';
+import { useState, useRef, useEffect, DragEvent, ChangeEvent, FormEvent } from 'react';
 import styles from './page.module.css';
 import { JobValidation, OutputCodec } from '@/lib/models/job';
 
@@ -34,6 +34,28 @@ export default function Home() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef<number>(0);
+  const xhrRef = useRef<XMLHttpRequest | null>(null);
+
+  /**
+   * Cleanup effect for aborting ongoing uploads and resetting drag state
+   */
+  useEffect(() => {
+    // Global dragend listener to ensure drag state is always reset
+    const handleGlobalDragEnd = () => {
+      dragCounterRef.current = 0;
+      setIsDragging(false);
+    };
+
+    window.addEventListener('dragend', handleGlobalDragEnd);
+
+    return () => {
+      // Abort ongoing upload on unmount
+      if (xhrRef.current) {
+        xhrRef.current.abort();
+      }
+      window.removeEventListener('dragend', handleGlobalDragEnd);
+    };
+  }, []);
 
   /**
    * Validate file before upload
@@ -45,7 +67,7 @@ export default function Home() {
     const fileExtension = lastDotIndex !== -1 ? fileName.substring(lastDotIndex) : '';
     
     if (fileExtension !== ACCEPTED_FILE_EXTENSION) {
-      return `MP4ファイルのみアップロード可能です（現在: ${file.name}）`;
+      return `MP4ファイルのみアップロード可能です（現在の拡張子: ${fileExtension || 'なし'}）`;
     }
 
     // Check MIME type
@@ -195,19 +217,19 @@ export default function Home() {
       });
 
       if (!createJobResponse.ok) {
-        let errorMessage = 'ジョブの作成に失敗しました';
+        let apiErrorMessage = 'ジョブの作成に失敗しました';
         try {
           const contentType = createJobResponse.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
             const errorData = await createJobResponse.json();
             if (errorData && typeof errorData.error === 'string') {
-              errorMessage = errorData.error;
+              apiErrorMessage = errorData.error;
             }
           }
         } catch (parseError) {
           console.error('Failed to parse error response:', parseError);
         }
-        throw new Error(errorMessage);
+        throw new Error(apiErrorMessage);
       }
 
       const { jobId: createdJobId, uploadUrl } =
@@ -219,6 +241,7 @@ export default function Home() {
 
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
+        xhrRef.current = xhr; // Store reference for cleanup
 
         // Track upload progress
         xhr.upload.addEventListener('progress', (e) => {
@@ -230,6 +253,7 @@ export default function Home() {
 
         // Handle completion
         xhr.addEventListener('load', () => {
+          xhrRef.current = null; // Clear reference
           if (xhr.status >= 200 && xhr.status < 300) {
             resolve();
           } else {
@@ -239,10 +263,12 @@ export default function Home() {
 
         // Handle errors
         xhr.addEventListener('error', () => {
+          xhrRef.current = null; // Clear reference
           reject(new Error('ファイルのアップロードに失敗しました'));
         });
 
         xhr.addEventListener('abort', () => {
+          xhrRef.current = null; // Clear reference
           reject(new Error('アップロードがキャンセルされました'));
         });
 
@@ -263,19 +289,19 @@ export default function Home() {
       );
 
       if (!submitResponse.ok) {
-        let errorMessage = 'ジョブの投入に失敗しました';
+        let apiErrorMessage = 'ジョブの投入に失敗しました';
         try {
           const contentType = submitResponse.headers.get('content-type') || '';
           if (contentType.includes('application/json')) {
             const errorData = await submitResponse.json();
             if (errorData && typeof errorData.error === 'string') {
-              errorMessage = errorData.error;
+              apiErrorMessage = errorData.error;
             }
           }
         } catch (parseError) {
           console.error('Failed to parse error response:', parseError);
         }
-        throw new Error(errorMessage);
+        throw new Error(apiErrorMessage);
       }
 
       setStatus('completed');
@@ -322,14 +348,13 @@ export default function Home() {
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
             onClick={handleBrowseClick}
-            role="button"
+            role="region"
             tabIndex={status === 'idle' || status === 'error' ? 0 : -1}
             aria-label={
               !selectedFile
                 ? 'ファイルをドラッグ＆ドロップまたはクリックして選択'
                 : 'ファイルが選択されています。Enterキーまたはスペースキーで別のファイルを選択できます'
             }
-            aria-disabled={status !== 'idle' && status !== 'error'}
             onKeyDown={(e) => {
               // Prevent keyboard interaction during upload/processing
               if (status !== 'idle' && status !== 'error') {
@@ -416,7 +441,7 @@ export default function Home() {
 
           {/* Progress Display */}
           {status !== 'idle' && status !== 'error' && status !== 'completed' && (
-            <div className={styles.progress}>
+            <div className={styles.progress} aria-live="polite" role="status">
               <div className={styles.progressLabel}>
                 {status === 'creating_job' && 'ジョブを作成中...'}
                 {status === 'uploading' && `アップロード中... ${uploadProgress}%`}
