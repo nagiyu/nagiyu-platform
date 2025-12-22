@@ -11,9 +11,7 @@ export const ERROR_MESSAGES = {
 /**
  * 入力バリデーション
  */
-export function validateInput(
-  input: string,
-): { valid: boolean; error?: string } {
+export function validateInput(input: string): { valid: boolean; error?: string } {
   // 空チェック
   if (!input || input.trim() === '') {
     return {
@@ -63,9 +61,7 @@ export function parseTransitText(input: string): TransitRoute | null {
 
   // 6. 乗換回数の抽出
   const transferCountMatch = input.match(/乗換\s+(\d+)回/);
-  const transferCount = transferCountMatch
-    ? parseInt(transferCountMatch[1], 10)
-    : undefined;
+  const transferCount = transferCountMatch ? parseInt(transferCountMatch[1], 10) : undefined;
 
   // 7. 距離の抽出
   const distanceMatch = input.match(/距離\s+([\d.]+)\s*km/);

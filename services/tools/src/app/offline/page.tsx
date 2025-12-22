@@ -19,17 +19,17 @@ export default function OfflinePage() {
         }}
       >
         <WifiOffIcon sx={{ fontSize: 80, color: 'text.secondary' }} />
-        
+
         <Typography variant="h4" component="h1" gutterBottom>
           オフラインです
         </Typography>
-        
+
         <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 600 }}>
           インターネット接続が利用できません。
           <br />
           接続を確認してから、もう一度お試しください。
         </Typography>
-        
+
         <Button
           variant="contained"
           startIcon={<RefreshIcon />}

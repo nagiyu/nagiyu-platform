@@ -1,8 +1,4 @@
-import {
-  parseTransitText,
-  validateInput,
-  ERROR_MESSAGES,
-} from '../transitParser';
+import { parseTransitText, validateInput, ERROR_MESSAGES } from '../transitParser';
 
 describe('transitParser', () => {
   describe('validateInput', () => {

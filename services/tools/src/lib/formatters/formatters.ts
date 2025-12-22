@@ -5,7 +5,7 @@ import { TransitRoute, DisplaySettings, DEFAULT_DISPLAY_SETTINGS } from '@/types
  */
 export function formatTransitRoute(
   route: TransitRoute,
-  settings: DisplaySettings = DEFAULT_DISPLAY_SETTINGS,
+  settings: DisplaySettings = DEFAULT_DISPLAY_SETTINGS
 ): string {
   const lines: string[] = [];
 
@@ -24,17 +24,17 @@ export function formatTransitRoute(
     if (settings.showTime) {
       departureArrivalParts.push(route.departureTime);
     }
-    
+
     // 矢印で区切る
     departureArrivalParts.push('→');
-    
+
     // 到着地とオプションで到着時刻
     departureArrivalParts.push(route.arrival);
     if (settings.showTime) {
       departureArrivalParts.push(route.arrivalTime);
     }
   }
-  
+
   // 出発地・到着地が表示される場合のみ行を追加
   if (departureArrivalParts.length > 0) {
     lines.push(departureArrivalParts.join(' '));
@@ -65,15 +65,13 @@ export function formatTransitRoute(
     lines.push('[ルート]');
     route.routeSteps.forEach((step, index) => {
       // 駅名は常に表示（ルート詳細が有効な場合）
-      const timeInfo =
-        settings.showTimeRange && step.timeRange ? ` (${step.timeRange})` : '';
+      const timeInfo = settings.showTimeRange && step.timeRange ? ` (${step.timeRange})` : '';
       lines.push(`${step.station}${timeInfo}`);
 
       // 最後の駅以外は路線情報を表示
       if (index < route.routeSteps.length - 1) {
         if (settings.showLineName && step.line) {
-          const platform =
-            settings.showPlatform && step.platform ? ` [${step.platform}]` : '';
+          const platform = settings.showPlatform && step.platform ? ` [${step.platform}]` : '';
           lines.push(`→ ${step.line}${platform}`);
         }
       }

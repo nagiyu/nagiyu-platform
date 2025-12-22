@@ -53,10 +53,7 @@ export default function DisplaySettingsSection({
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           <FormControlLabel
             control={
-              <Checkbox
-                checked={settings.showDate}
-                onChange={() => handleChange('showDate')}
-              />
+              <Checkbox checked={settings.showDate} onChange={() => handleChange('showDate')} />
             }
             label="日付を表示"
           />
@@ -71,10 +68,7 @@ export default function DisplaySettingsSection({
           />
           <FormControlLabel
             control={
-              <Checkbox
-                checked={settings.showTime}
-                onChange={() => handleChange('showTime')}
-              />
+              <Checkbox checked={settings.showTime} onChange={() => handleChange('showTime')} />
             }
             label="出発時刻・到着時刻を表示"
           />
@@ -89,10 +83,7 @@ export default function DisplaySettingsSection({
           />
           <FormControlLabel
             control={
-              <Checkbox
-                checked={settings.showFare}
-                onChange={() => handleChange('showFare')}
-              />
+              <Checkbox checked={settings.showFare} onChange={() => handleChange('showFare')} />
             }
             label="運賃を表示"
           />

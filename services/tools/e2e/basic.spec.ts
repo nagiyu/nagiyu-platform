@@ -23,9 +23,9 @@ test.describe('Tools App - Basic Functionality', () => {
 
     // Look for a link or card to the transit converter tool
     const transitLink = page.getByRole('link', { name: /乗り換え/i });
-    
+
     // If the link exists, click it and verify navigation
-    if (await transitLink.count() > 0) {
+    if ((await transitLink.count()) > 0) {
       await transitLink.first().click();
       await expect(page).toHaveURL(/transit-converter/);
     }

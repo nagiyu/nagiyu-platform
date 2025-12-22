@@ -17,11 +17,13 @@ import SyncIcon from '@mui/icons-material/Sync';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useSearchParams } from 'next/navigation';
-import { SnackbarState, DisplaySettings, DEFAULT_DISPLAY_SETTINGS, TransitRoute } from '@/types/tools';
 import {
-  parseTransitText,
-  validateInput,
-} from '@/lib/parsers/transitParser';
+  SnackbarState,
+  DisplaySettings,
+  DEFAULT_DISPLAY_SETTINGS,
+  TransitRoute,
+} from '@/types/tools';
+import { parseTransitText, validateInput } from '@/lib/parsers/transitParser';
 import { formatTransitRoute } from '@/lib/formatters/formatters';
 import { readFromClipboard, writeToClipboard } from '@/lib/clipboard';
 import DisplaySettingsSection from '@/components/tools/DisplaySettingsSection';
@@ -35,9 +37,7 @@ function TransitConverterContent() {
   const [parsedRoute, setParsedRoute] = useState<TransitRoute | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(
-    DEFAULT_DISPLAY_SETTINGS,
-  );
+  const [displaySettings, setDisplaySettings] = useState<DisplaySettings>(DEFAULT_DISPLAY_SETTINGS);
   const [snackbar, setSnackbar] = useState<SnackbarState>({
     open: false,
     message: '',
@@ -212,21 +212,13 @@ function TransitConverterContent() {
         乗り換え変換ツール
       </Typography>
 
-      <Typography
-        variant="body1"
-        color="text.secondary"
-        paragraph
-        align="center"
-      >
+      <Typography variant="body1" color="text.secondary" paragraph align="center">
         乗り換え案内のテキストを貼り付けて、整形された形式に変換します。
       </Typography>
 
       {/* 表示設定セクション */}
       <Box sx={{ mb: 3 }}>
-        <DisplaySettingsSection
-          settings={displaySettings}
-          onChange={handleDisplaySettingsChange}
-        />
+        <DisplaySettingsSection settings={displaySettings} onChange={handleDisplaySettingsChange} />
       </Box>
 
       {/* 入力セクション */}
@@ -261,9 +253,7 @@ function TransitConverterContent() {
           </Button>
           <Button
             variant="contained"
-            startIcon={
-              isProcessing ? <CircularProgress size={20} /> : <SyncIcon />
-            }
+            startIcon={isProcessing ? <CircularProgress size={20} /> : <SyncIcon />}
             onClick={handleConvert}
             disabled={isProcessing || !inputText.trim()}
             aria-label="乗り換え案内テキストを変換する"
@@ -325,11 +315,7 @@ function TransitConverterContent() {
         onClose={handleSnackbarClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          onClose={handleSnackbarClose}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleSnackbarClose} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -339,12 +325,14 @@ function TransitConverterContent() {
 
 export default function TransitConverterPage() {
   return (
-    <Suspense fallback={
-      <Container maxWidth="md" sx={{ py: 4, textAlign: 'center' }}>
-        <CircularProgress />
-        <Typography sx={{ mt: 2 }}>読み込み中...</Typography>
-      </Container>
-    }>
+    <Suspense
+      fallback={
+        <Container maxWidth="md" sx={{ py: 4, textAlign: 'center' }}>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>読み込み中...</Typography>
+        </Container>
+      }
+    >
       <TransitConverterContent />
     </Suspense>
   );

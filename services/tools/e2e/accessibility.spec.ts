@@ -3,7 +3,7 @@ import { test, expect, dismissMigrationDialogIfVisible } from './helpers';
 /**
  * Accessibility Tests for Tools App
  * Tests WCAG 2.1 Level AA compliance using @axe-core/playwright
- * 
+ *
  * Tag: @a11y
  */
 
@@ -11,12 +11,11 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
   test('should not have accessibility violations on homepage', async ({ page, makeAxeBuilder }) => {
     await page.goto('/');
     await dismissMigrationDialogIfVisible(page);
-    
+
     // Wait for the page to be fully loaded
     await page.waitForLoadState('networkidle');
 
-    const accessibilityScanResults = await makeAxeBuilder()
-      .analyze();
+    const accessibilityScanResults = await makeAxeBuilder().analyze();
 
     // Check for violations
     expect(accessibilityScanResults.violations).toEqual([]);
@@ -39,7 +38,7 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
     // Tool cards should be links with accessible names
     const toolCard = page.getByRole('link', { name: /乗り換え変換ツール/i });
     await expect(toolCard).toBeVisible();
-    
+
     // Check that the link has a valid href
     await expect(toolCard).toHaveAttribute('href', '/transit-converter');
   });
@@ -51,11 +50,13 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     await dismissMigrationDialogIfVisible(page);
   });
 
-  test('should not have accessibility violations in initial state', async ({ page, makeAxeBuilder }) => {
+  test('should not have accessibility violations in initial state', async ({
+    page,
+    makeAxeBuilder,
+  }) => {
     await page.waitForLoadState('networkidle');
 
-    const accessibilityScanResults = await makeAxeBuilder()
-      .analyze();
+    const accessibilityScanResults = await makeAxeBuilder().analyze();
 
     expect(accessibilityScanResults.violations).toEqual([]);
   });
@@ -64,13 +65,17 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
     await inputField.fill('渋谷 ⇒ 新宿\n2025年1月15日(月)\n09:00 ⇒ 09:15');
 
-    const accessibilityScanResults = await makeAxeBuilder()
-      .analyze();
+    const accessibilityScanResults = await makeAxeBuilder().analyze();
 
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('should not have accessibility violations after conversion', async ({ page, makeAxeBuilder, context, browserName }) => {
+  test('should not have accessibility violations after conversion', async ({
+    page,
+    makeAxeBuilder,
+    context,
+    browserName,
+  }) => {
     if (browserName === 'chromium') {
       await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     }
@@ -100,13 +105,15 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     // Wait for conversion to complete
     await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
 
-    const accessibilityScanResults = await makeAxeBuilder()
-      .analyze();
+    const accessibilityScanResults = await makeAxeBuilder().analyze();
 
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('should not have accessibility violations with error state', async ({ page, makeAxeBuilder }) => {
+  test('should not have accessibility violations with error state', async ({
+    page,
+    makeAxeBuilder,
+  }) => {
     const inputField = page.locator('text=入力').locator('..').locator('textarea').first();
     await inputField.fill('Invalid transit text');
 
@@ -116,8 +123,7 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     // Wait for error to appear
     await page.waitForTimeout(2000);
 
-    const accessibilityScanResults = await makeAxeBuilder()
-      .analyze();
+    const accessibilityScanResults = await makeAxeBuilder().analyze();
 
     expect(accessibilityScanResults.violations).toEqual([]);
   });
@@ -133,7 +139,9 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
 
   test('should have accessible buttons with ARIA labels', async ({ page }) => {
     // All main buttons should have proper aria-label
-    const readButton = page.getByRole('button', { name: 'クリップボードから乗り換え案内テキストを読み取る' });
+    const readButton = page.getByRole('button', {
+      name: 'クリップボードから乗り換え案内テキストを読み取る',
+    });
     await expect(readButton).toHaveAttribute('aria-label');
 
     const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
@@ -154,19 +162,21 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
 });
 
 test.describe('Accessibility Tests - Offline Page @a11y', () => {
-  test('should not have accessibility violations on offline page', async ({ page, makeAxeBuilder }) => {
+  test('should not have accessibility violations on offline page', async ({
+    page,
+    makeAxeBuilder,
+  }) => {
     await page.goto('/offline');
     await page.waitForLoadState('networkidle');
 
-    const accessibilityScanResults = await makeAxeBuilder()
-      .analyze();
+    const accessibilityScanResults = await makeAxeBuilder().analyze();
 
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
   test('should have proper heading on offline page', async ({ page }) => {
     await page.goto('/offline');
-    
+
     // Check for heading
     const heading = page.locator('h1, h2, h3, h4').first();
     await expect(heading).toBeVisible();
@@ -227,7 +237,10 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('should pass WCAG 2.1 Level A checks on transit converter', async ({ page, makeAxeBuilder }) => {
+  test('should pass WCAG 2.1 Level A checks on transit converter', async ({
+    page,
+    makeAxeBuilder,
+  }) => {
     await page.goto('/transit-converter');
     await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');
@@ -239,7 +252,10 @@ test.describe('Accessibility Tests - WCAG 2.1 Specific Checks @a11y', () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('should pass WCAG 2.1 Level AA checks on transit converter', async ({ page, makeAxeBuilder }) => {
+  test('should pass WCAG 2.1 Level AA checks on transit converter', async ({
+    page,
+    makeAxeBuilder,
+  }) => {
     await page.goto('/transit-converter');
     await dismissMigrationDialogIfVisible(page);
     await page.waitForLoadState('networkidle');

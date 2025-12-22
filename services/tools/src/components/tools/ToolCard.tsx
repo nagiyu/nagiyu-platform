@@ -1,11 +1,4 @@
-import {
-  Card,
-  CardContent,
-  CardActionArea,
-  Typography,
-  Box,
-  Chip,
-} from '@mui/material';
+import { Card, CardContent, CardActionArea, Typography, Box, Chip } from '@mui/material';
 import { ReactNode } from 'react';
 
 interface ToolCardProps {
@@ -16,13 +9,7 @@ interface ToolCardProps {
   category?: string;
 }
 
-export default function ToolCard({
-  title,
-  description,
-  icon,
-  href,
-  category,
-}: ToolCardProps) {
+export default function ToolCard({ title, description, icon, href, category }: ToolCardProps) {
   return (
     <Card>
       <CardActionArea href={href}>
