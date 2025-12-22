@@ -43,8 +43,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        working-directory: ./services/tools
-        run: docker build -t tools-pr-test .
+        run: docker build -t tools-pr-test -f services/tools/Dockerfile .
 
   test:
     name: Run Unit Tests
@@ -114,11 +113,53 @@ jobs:
           path: services/tools/test-results/
           retention-days: 30
 
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint --workspace=tools
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check --workspace=tools
+
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, e2e-test]
+    needs: [nextjs-build, docker-build, test, e2e-test, lint, format-check]
 
     permissions:
       contents: read
@@ -134,7 +175,9 @@ jobs:
               'Next.js Build': '${{ needs.nextjs-build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'E2E Tests': '${{ needs.e2e-test.result }}'
+              'E2E Tests': '${{ needs.e2e-test.result }}',
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}'
             };
 
             const statusEmoji = {

@@ -122,12 +122,11 @@ jobs:
 
       - name: Build and push Docker image
         id: build-image
-        working-directory: ./services/tools
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" .
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
