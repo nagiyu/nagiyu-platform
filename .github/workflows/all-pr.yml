@@ -1,20 +1,14 @@
-name: Tools App - PR Verification
+name: All Workspaces - PR Verification
 
 on:
   pull_request:
     branches:
       - develop
-      - integration/**
-    paths:
-      - 'services/tools/**'
-      - 'infra/tools/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/tools-pr.yml'
+      - master
 
 jobs:
-  nextjs-build:
-    name: Next.js Build Verification
+  build:
+    name: Build All Workspaces
     runs-on: ubuntu-latest
 
     steps:
@@ -31,23 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Next.js application
-        run: npm run build --workspace=tools
-
-  docker-build:
-    name: Docker Build Verification
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        working-directory: ./services/tools
-        run: docker build -t tools-pr-test .
+      - name: Build all workspaces
+        run: npm run build
 
   test:
-    name: Run Unit Tests
+    name: Test All Workspaces
     runs-on: ubuntu-latest
 
     steps:
@@ -64,11 +46,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test --workspace=tools
+      - name: Run unit tests
+        run: npm run test
 
   e2e-test:
-    name: Run E2E Tests
+    name: E2E Tests All Workspaces
     runs-on: ubuntu-latest
 
     permissions:
@@ -92,33 +74,75 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
         working-directory: ./services/tools
 
-      - name: Build Next.js application
-        run: npm run build --workspace=tools
+      - name: Build all workspaces
+        run: npm run build
 
-      - name: Run Playwright tests
-        run: npm run test:e2e --workspace=tools
+      - name: Run E2E tests
+        run: npm run test:e2e
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
-          path: services/tools/playwright-report/
+          name: playwright-report-all
+          path: services/*/playwright-report/
           retention-days: 30
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results
-          path: services/tools/test-results/
+          name: test-results-all
+          path: services/*/test-results/
           retention-days: 30
+
+  lint:
+    name: Lint All Workspaces
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+  format-check:
+    name: Format Check All Workspaces
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:check
 
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, e2e-test]
+    needs: [build, test, e2e-test, lint, format-check]
 
     permissions:
       contents: read
@@ -131,10 +155,11 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const results = {
-              'Next.js Build': '${{ needs.nextjs-build.result }}',
-              'Docker Build': '${{ needs.docker-build.result }}',
+              'Build': '${{ needs.build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'E2E Tests': '${{ needs.e2e-test.result }}'
+              'E2E Tests': '${{ needs.e2e-test.result }}',
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}'
             };
 
             const statusEmoji = {
@@ -146,10 +171,11 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ All Checks Passed'
-              : '## ❌ Some Checks Failed';
+              ? '## ✅ All Quality Checks Passed'
+              : '## ❌ Some Quality Checks Failed';
 
             let body = `${header}\n\n`;
+            body += '**All Workspaces Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

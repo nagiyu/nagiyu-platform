@@ -9,6 +9,8 @@ on:
     paths:
       - 'services/tools/**'
       - 'infra/tools/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/tools-deploy.yml'
   workflow_dispatch:
 
