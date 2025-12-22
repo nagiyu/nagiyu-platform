@@ -26,7 +26,7 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
             href="/privacy"
             sx={{
               pointerEvents: 'none',
-              color: 'text.disabled',
+              color: 'text.secondary',
               textDecoration: 'none',
             }}
           >
@@ -38,7 +38,7 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
             href="/terms"
             sx={{
               pointerEvents: 'none',
-              color: 'text.disabled',
+              color: 'text.secondary',
               textDecoration: 'none',
             }}
           >
