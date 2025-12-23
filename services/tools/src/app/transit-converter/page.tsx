@@ -253,7 +253,9 @@ function TransitConverterContent() {
           </Button>
           <Button
             variant="contained"
-            startIcon={isProcessing ? <CircularProgress size={20} /> : <SyncIcon />}
+            startIcon={
+              isProcessing ? <CircularProgress size={20} aria-label="変換処理中" /> : <SyncIcon />
+            }
             onClick={handleConvert}
             disabled={isProcessing || !inputText.trim()}
             aria-label="乗り換え案内テキストを変換する"
@@ -328,7 +330,7 @@ export default function TransitConverterPage() {
     <Suspense
       fallback={
         <Container maxWidth="md" sx={{ py: 4, textAlign: 'center' }}>
-          <CircularProgress />
+          <CircularProgress aria-label="ページ読み込み中" />
           <Typography sx={{ mt: 2 }}>読み込み中...</Typography>
         </Container>
       }

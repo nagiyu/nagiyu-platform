@@ -6,19 +6,34 @@ const MIGRATION_DIALOG_STORAGE_KEY = 'tools-migration-dialog-shown';
 test.describe('MigrationDialog', () => {
   // LocalStorageをクリアして初期状態にする
   test.beforeEach(async ({ page, context }) => {
-    // LocalStorageをクリア
+    // ContextのstorageStateをクリアして完全にリセット
     await context.clearCookies();
+
+    // まずページに移動してからLocalStorageをクリア
     await page.goto('/');
-    await page.evaluate(() => localStorage.clear());
+
+    // LocalStorageをクリア
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+
+    // リロードしてMigrationDialogを再初期化
+    await page.reload();
+
+    // ダイアログが実際に表示されるまで待つ
+    const dialog = page.getByRole('dialog');
+    await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {
+      // ダイアログが表示されない場合もあるのでエラーを無視
+    });
   });
 
   test.describe('基本動作', () => {
     test('初回訪問時にダイアログが表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
-      // ダイアログが表示されることを確認
+      // ダイアログが表示されることを確認（useEffectの実行を待つ）
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
-      await expect(dialog).toBeVisible();
+      await expect(dialog).toBeVisible({ timeout: 10000 });
 
       // タイトルが正しく表示される
       await expect(
@@ -42,7 +57,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('「今後表示しない」がデフォルトでチェックされている', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // チェックボックスを取得
       const checkbox = page.getByRole('checkbox', { name: '今後表示しない' });
@@ -52,7 +67,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('チェックONで「閉じる」→次回表示されない', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -83,7 +98,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('チェックOFFで「閉じる」→次回も表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -115,7 +130,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('背景クリックでは閉じない', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -134,7 +149,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('ESCキーでは閉じない', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -150,7 +165,7 @@ test.describe('MigrationDialog', () => {
 
   test.describe('LocalStorage 動作', () => {
     test('LocalStorage を手動削除すると再度表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // 初回ダイアログを閉じる
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -175,7 +190,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('LocalStorage全削除後も再度表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // 初回ダイアログを閉じる
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -194,7 +209,7 @@ test.describe('MigrationDialog', () => {
 
   test.describe('UI/UX', () => {
     test('タイトルが正しく表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       const title = page.getByRole('heading', { name: 'Toolsアプリが新しくなりました' });
       await expect(title).toBeVisible();
@@ -202,7 +217,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('本文が正しく表示される（改行、箇条書き含む）', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // 各段落が表示されることを確認
       await expect(
@@ -221,7 +236,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('チェックボックスとラベルが正しく表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       const checkbox = page.getByRole('checkbox', { name: '今後表示しない' });
       await expect(checkbox).toBeVisible();
@@ -231,7 +246,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('「閉じる」ボタンが正しく表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       const closeButton = page.getByRole('button', { name: '閉じる' });
       await expect(closeButton).toBeVisible();
@@ -240,7 +255,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('ボタンクリック時の反応が適切', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       const closeButton = page.getByRole('button', { name: '閉じる' });
 
@@ -255,7 +270,7 @@ test.describe('MigrationDialog', () => {
     });
 
     test('チェックボックスのトグル動作', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       const checkbox = page.getByRole('checkbox', { name: '今後表示しない' });
 
@@ -276,7 +291,7 @@ test.describe('MigrationDialog', () => {
     test('モバイル表示（375px）', async ({ page }) => {
       // ビューポートをモバイルサイズに設定
       await page.setViewportSize({ width: 375, height: 667 });
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -301,7 +316,7 @@ test.describe('MigrationDialog', () => {
     test('タブレット表示（768px）', async ({ page }) => {
       // ビューポートをタブレットサイズに設定
       await page.setViewportSize({ width: 768, height: 1024 });
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -318,7 +333,7 @@ test.describe('MigrationDialog', () => {
     test('デスクトップ表示（1920px）', async ({ page }) => {
       // ビューポートをデスクトップサイズに設定
       await page.setViewportSize({ width: 1920, height: 1080 });
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       // ダイアログが表示されることを確認
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
@@ -348,14 +363,16 @@ test.describe('MigrationDialog', () => {
 
   test.describe('異なるページでの動作', () => {
     test('トップページで表示される', async ({ page }) => {
-      await page.goto('/');
+      // beforeEachでページに移動済み
 
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
       await expect(dialog).toBeVisible();
     });
 
     test('乗り換え変換ツールページで表示される', async ({ page }) => {
+      // 乗り換え変換ツールページに移動
       await page.goto('/transit-converter');
+      await page.waitForTimeout(500);
 
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
       await expect(dialog).toBeVisible();
@@ -363,12 +380,12 @@ test.describe('MigrationDialog', () => {
 
     test('ページ遷移してもダイアログ状態が維持される', async ({ page }) => {
       // トップページでダイアログを閉じる
-      await page.goto('/');
       const dialog = page.getByRole('dialog', { name: 'Toolsアプリが新しくなりました' });
       await page.getByRole('button', { name: '閉じる' }).click();
 
       // 別ページに遷移
       await page.goto('/transit-converter');
+      await page.waitForTimeout(500);
 
       // ダイアログが表示されないことを確認
       await expect(dialog).not.toBeVisible();

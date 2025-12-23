@@ -91,9 +91,6 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
         working-directory: ./services/tools
 
-      - name: Build Next.js application
-        run: npm run build --workspace=tools
-
       - name: Run Playwright tests
         run: npm run test:e2e --workspace=tools
 

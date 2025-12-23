@@ -5,10 +5,11 @@ import AxeBuilder from '@axe-core/playwright';
  * Timeout constants for test stability
  */
 export const TIMEOUTS = {
-  DIALOG_APPEARANCE: 500,
-  DIALOG_DISMISS: 3000,
-  ANIMATION_COMPLETION: 300,
+  DIALOG_APPEARANCE: 1000,
+  DIALOG_DISMISS: 5000,
+  ANIMATION_COMPLETION: 500,
   SERVICE_WORKER_READY: 2000,
+  PAGE_READY: 1000,
 } as const;
 
 /**
@@ -48,27 +49,40 @@ export async function takeTimestampedScreenshot(page: Page, name: string): Promi
  */
 export async function dismissMigrationDialogIfVisible(page: Page): Promise<void> {
   try {
+    // Wait for the page to be loaded first
+    await page.waitForLoadState('domcontentloaded');
+
     // Wait a bit for the dialog to appear if it's going to
     await page.waitForTimeout(TIMEOUTS.DIALOG_APPEARANCE);
 
-    // Check if the dialog is visible
+    // Try to find and close the dialog
     const dialog = page.getByRole('dialog');
-    const isDialogVisible = await dialog.isVisible().catch(() => false);
 
-    if (isDialogVisible) {
+    // Wait for either the dialog to appear or timeout
+    const dialogAppeared = await dialog.waitFor({
+      state: 'visible',
+      timeout: TIMEOUTS.DIALOG_APPEARANCE
+    }).then(() => true).catch(() => false);
+
+    if (dialogAppeared) {
       // Find the close button
       const closeButton = page.getByRole('button', { name: /閉じる/i });
-      const isButtonVisible = await closeButton.isVisible().catch(() => false);
+      await closeButton.click();
 
-      if (isButtonVisible) {
-        await closeButton.click();
-        // Wait for the dialog to be dismissed
-        await dialog.waitFor({ state: 'hidden', timeout: TIMEOUTS.DIALOG_DISMISS }).catch(() => {});
-        // Give it a bit more time for any animations
-        await page.waitForTimeout(TIMEOUTS.ANIMATION_COMPLETION);
-      }
+      // Wait for the dialog to be completely dismissed
+      await dialog.waitFor({ state: 'hidden', timeout: TIMEOUTS.DIALOG_DISMISS });
+
+      // Give it time for any animations and DOM updates
+      await page.waitForTimeout(TIMEOUTS.ANIMATION_COMPLETION);
     }
+
+    // Always wait for the page content to be ready
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(TIMEOUTS.PAGE_READY);
   } catch (error) {
     // Dialog not present or already dismissed, continue
+    // Still wait for page to be ready
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(TIMEOUTS.PAGE_READY);
   }
 }

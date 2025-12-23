@@ -307,6 +307,9 @@ test.describe('Transit Converter - E2E Tests', () => {
 
       await page.goto('/transit-converter');
 
+      // LocalStorageエラーによりMigrationDialogが表示されるので閉じる
+      await dismissMigrationDialogIfVisible(page);
+
       // ページが正常にロードされることを確認（エラーが発生しない）
       const heading = page.locator('h1, h4').filter({ hasText: /乗り換え変換/ });
       await expect(heading).toBeVisible();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -15,23 +15,25 @@ import {
 const STORAGE_KEY = 'tools-migration-dialog-shown';
 
 export default function MigrationDialog() {
-  // 初期表示状態を計算（SSR時はfalse）
-  const [open, setOpen] = useState<boolean>(() => {
-    // SSR時はlocalStorageが存在しないためfalse
-    if (typeof window === 'undefined') {
-      return false;
-    }
+  // 初期表示状態は常にfalse（SSR/ハイドレーション対応）
+  const [open, setOpen] = useState<boolean>(false);
+  const [dontShowAgain, setDontShowAgain] = useState<boolean>(true);
+
+  // クライアントサイドでLocalStorageをチェックしてダイアログの表示状態を更新
+  useEffect(() => {
     try {
       const hasShown = localStorage.getItem(STORAGE_KEY);
       // フラグが存在しない場合のみダイアログを表示
-      return !hasShown;
+      if (!hasShown) {
+        setOpen(true);
+      }
     } catch (error) {
-      console.error('Failed to read migration dialog flag from localStorage:', error);
-      // LocalStorageアクセスエラーの場合は表示しない（プライベートモード等）
-      return false;
+      console.error('[MigrationDialog] Failed to read migration dialog flag from localStorage:', error);
+      // LocalStorageアクセスエラーの場合でもダイアログを表示
+      // (初回訪問の可能性が高いため、安全側に倒す)
+      setOpen(true);
     }
-  });
-  const [dontShowAgain, setDontShowAgain] = useState<boolean>(true);
+  }, []);
 
   const handleClose = () => {
     // 「今後表示しない」がONの場合のみLocalStorageに保存
