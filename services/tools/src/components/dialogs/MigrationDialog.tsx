@@ -30,7 +30,10 @@ export default function MigrationDialog() {
           setOpen(true);
         }
       } catch (error) {
-        console.error('[MigrationDialog] Failed to read migration dialog flag from localStorage:', error);
+        console.error(
+          '[MigrationDialog] Failed to read migration dialog flag from localStorage:',
+          error
+        );
         // LocalStorageアクセスエラーの場合でもダイアログを表示
         // (初回訪問の可能性が高いため、安全側に倒す)
         setOpen(true);

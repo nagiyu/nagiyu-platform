@@ -59,10 +59,13 @@ export async function dismissMigrationDialogIfVisible(page: Page): Promise<void>
     const dialog = page.getByRole('dialog');
 
     // Wait for either the dialog to appear or timeout
-    const dialogAppeared = await dialog.waitFor({
-      state: 'visible',
-      timeout: TIMEOUTS.DIALOG_APPEARANCE
-    }).then(() => true).catch(() => false);
+    const dialogAppeared = await dialog
+      .waitFor({
+        state: 'visible',
+        timeout: TIMEOUTS.DIALOG_APPEARANCE,
+      })
+      .then(() => true)
+      .catch(() => false);
 
     if (dialogAppeared) {
       // Find the close button
