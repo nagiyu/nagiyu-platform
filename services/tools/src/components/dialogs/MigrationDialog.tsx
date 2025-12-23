@@ -21,18 +21,23 @@ export default function MigrationDialog() {
 
   // クライアントサイドでLocalStorageをチェックしてダイアログの表示状態を更新
   useEffect(() => {
-    try {
-      const hasShown = localStorage.getItem(STORAGE_KEY);
-      // フラグが存在しない場合のみダイアログを表示
-      if (!hasShown) {
+    // LocalStorageチェックを次のレンダリングサイクルまで遅延
+    const timer = setTimeout(() => {
+      try {
+        const hasShown = localStorage.getItem(STORAGE_KEY);
+        // フラグが存在しない場合のみダイアログを表示
+        if (!hasShown) {
+          setOpen(true);
+        }
+      } catch (error) {
+        console.error('[MigrationDialog] Failed to read migration dialog flag from localStorage:', error);
+        // LocalStorageアクセスエラーの場合でもダイアログを表示
+        // (初回訪問の可能性が高いため、安全側に倒す)
         setOpen(true);
       }
-    } catch (error) {
-      console.error('[MigrationDialog] Failed to read migration dialog flag from localStorage:', error);
-      // LocalStorageアクセスエラーの場合でもダイアログを表示
-      // (初回訪問の可能性が高いため、安全側に倒す)
-      setOpen(true);
-    }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleClose = () => {
