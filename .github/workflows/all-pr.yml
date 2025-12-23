@@ -78,7 +78,14 @@ jobs:
         run: npm run build
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        env:
+          CI: true
+        run: |
+          npm run test:e2e
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
