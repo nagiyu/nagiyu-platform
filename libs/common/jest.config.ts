@@ -1,12 +1,15 @@
 import type { Config } from '@jest/types';
-import baseConfig from '../../configs/jest.config.base';
 
 const config: Config.InitialOptions = {
-  ...baseConfig,
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  // Exclude monorepo root from module scanning
+  modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
+  // Common coverage settings
+  coverageDirectory: 'coverage',
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
   coverageThreshold: {
     global: {
       branches: 80,
