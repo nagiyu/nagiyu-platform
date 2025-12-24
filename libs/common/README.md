@@ -21,7 +21,8 @@ This package is designed to be used within the Nagiyu Platform monorepo via npm 
 ## Usage
 
 ```typescript
-import {} from /* utilities will be added in future */ '@nagiyu/common';
+// Utilities will be added in future phases
+import {} from '@nagiyu/common';
 ```
 
 ## Design Principles
