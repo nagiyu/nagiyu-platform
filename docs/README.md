@@ -28,6 +28,10 @@
 
 - [Tools アプリ](./services/tools/README.md)
 
+## 共通ライブラリ
+
+- [@nagiyu/common](./libs/common/README.md) - フレームワーク非依存の共通ライブラリ
+
 ## インフラストラクチャ
 
 - [インフラドキュメント](./infra/README.md)
