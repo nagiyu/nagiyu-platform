@@ -1,0 +1,35 @@
+{
+  "name": "@nagiyu/common",
+  "version": "1.0.0",
+  "description": "Framework-agnostic common utility library for Nagiyu Platform",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "keywords": [
+    "nagiyu",
+    "common",
+    "utilities"
+  ],
+  "author": "Nagiyu Platform",
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20",
+    "eslint": "^9",
+    "jest": "^30.2.0",
+    "prettier": "^3.7.4",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
+    "typescript": "^5",
+    "typescript-eslint": "^8.21.0"
+  }
+}
