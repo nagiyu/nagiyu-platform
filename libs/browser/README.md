@@ -30,8 +30,14 @@
 
 ### 基本的なインポート
 
+将来的に追加されるユーティリティは以下のようにインポート可能になります：
+
 ```typescript
-import {} from /* utilities will be exported here */ '@nagiyu/browser';
+// 例: Clipboard APIラッパー（Phase 2で実装予定）
+import { clipboard } from '@nagiyu/browser';
+
+// 例: localStorage ラッパー（Phase 2で実装予定）
+import { storage } from '@nagiyu/browser';
 ```
 
 ## 依存関係

@@ -5,7 +5,7 @@ const config: Config.InitialOptions = {
   testEnvironment: 'jsdom',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
-  // Exclude monorepo root from module scanning
+  // Exclude monorepo root package.json from module resolution
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
   // Common coverage settings
   coverageDirectory: 'coverage',
