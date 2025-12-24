@@ -34,9 +34,9 @@ monorepo内のワークスペースとして利用します。
 
 ```json
 {
-    "dependencies": {
-        "@nagiyu/common": "workspace:*"
-    }
+  "dependencies": {
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -149,9 +149,3 @@ libs/ui → libs/browser → libs/common
 
 - [共通ライブラリ設計](../../development/shared-libraries.md) - ライブラリ全体の設計方針
 - [プラットフォームドキュメント](../../README.md) - プラットフォーム全体のドキュメント
-
----
-
-## ライセンス
-
-MIT
