@@ -34,9 +34,9 @@ monorepo内のワークスペースとして利用します。
 
 ```json
 {
-  "dependencies": {
-    "@nagiyu/common": "workspace:*"
-  }
+    "dependencies": {
+        "@nagiyu/common": "workspace:*"
+    }
 }
 ```
 
