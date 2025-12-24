@@ -17,8 +17,7 @@
 ```
 configs/
 ├── tsconfig.base.json      # TypeScript基本設定
-├── eslint.config.base.mjs  # ESLint基本設定
-└── jest.config.base.ts     # Jest基本設定
+└── eslint.config.base.mjs  # ESLint基本設定
 ```
 
 ### モノレポルート
@@ -89,35 +88,29 @@ export default [
 
 ## Jest設定
 
-### configs/jest.config.base.ts
+### 独立管理の方針
 
-#### 含まれる設定
+Jestは各サービス・ライブラリで独自に jest.config.ts を管理。
 
-- `testEnvironment: "jsdom"`: React対応
-- `moduleNameMapper`: パスエイリアス解決
-- モノレポルートの除外設定
+#### 理由
 
-#### 各サービスでの使用
+- TypeScript設定ファイルからのESMインポートに技術的制約
+- テスト環境がサービス/ライブラリごとに異なる（jsdom vs node）
+- Next.js等のフレームワーク固有の設定が必要
 
-サービスの jest.config.ts で extends。
+#### 推奨される共通設定
+
+各jest.config.tsに以下の設定を含めることを推奨:
 
 ```typescript
-import type { Config } from 'jest';
-import baseConfig from '../../configs/jest.config.base';
-
-const config: Config = {
-    ...baseConfig,
-    rootDir: '.',
-    // サービス固有の設定
-};
-
-export default config;
+{
+    // Exclude monorepo root from module scanning
+    modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
+    // Common coverage settings
+    coverageDirectory: 'coverage',
+    collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+}
 ```
-
-#### カスタマイズポイント
-
-- `setupFilesAfterEnv`: テストセットアップファイル
-- `testPathIgnorePatterns`: 除外パターン追加
 
 ## Prettier設定
 

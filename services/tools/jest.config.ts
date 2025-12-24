@@ -19,6 +19,9 @@ const config: Config = {
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   // Exclude monorepo root and build artifacts from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
+  // Common coverage settings
+  coverageDirectory: 'coverage',
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

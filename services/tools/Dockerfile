@@ -24,6 +24,10 @@ COPY --from=deps /app/services/tools/node_modules ./services/tools/node_modules
 
 # モノレポのルート設定をコピー
 COPY package*.json ./
+COPY .prettierrc ./
+
+# 共通設定ファイルをコピー
+COPY configs ./configs/
 
 # toolsサービスのファイルをコピー
 COPY services/tools ./services/tools/

@@ -5,8 +5,11 @@ const config: Config.InitialOptions = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
+  // Exclude monorepo root from module scanning
+  modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
+  // Common coverage settings
   coverageDirectory: 'coverage',
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
   coverageThreshold: {
     global: {
       branches: 80,
@@ -15,8 +18,6 @@ const config: Config.InitialOptions = {
       statements: 80,
     },
   },
-  // Exclude monorepo root from module scanning
-  modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
 };
 
 export default config;
