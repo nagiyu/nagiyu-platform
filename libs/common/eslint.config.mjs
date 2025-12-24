@@ -1,6 +1,3 @@
-import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import baseConfig from '../../configs/eslint.config.base.mjs';
 
-export default tseslint.config(eslint.configs.recommended, ...tseslint.configs.recommended, {
-  ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
-});
+export default baseConfig;

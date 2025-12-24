@@ -1,4 +1,5 @@
 import type { Config } from 'jest';
+import baseConfig from '../../configs/jest.config.base';
 import nextJest from 'next/jest.js';
 
 const createJestConfig = nextJest({
@@ -8,6 +9,7 @@ const createJestConfig = nextJest({
 
 // Add any custom config to be passed to Jest
 const config: Config = {
+  ...baseConfig,
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
   // Add more setup options before each test is run
@@ -17,8 +19,8 @@ const config: Config = {
   },
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
-  // Exclude monorepo root and build artifacts from module scanning
-  modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
+  // Build artifacts exclusion (extends base config's monorepo root exclusion)
+  modulePathIgnorePatterns: [...(baseConfig.modulePathIgnorePatterns || []), '<rootDir>/.next/'],
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
