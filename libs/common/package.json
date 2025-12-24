@@ -1,7 +1,6 @@
 {
   "name": "@nagiyu/common",
   "version": "1.0.0",
-  "description": "Framework-agnostic common utility library for Nagiyu Platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,13 +12,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "keywords": [
-    "nagiyu",
-    "common",
-    "utilities"
-  ],
-  "author": "Nagiyu Platform",
-  "license": "MIT",
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@types/jest": "^30.0.0",
