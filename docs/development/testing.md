@@ -180,6 +180,21 @@ on:
     - パス指定（`services/hoge`）ではなくパッケージ名（`@nagiyu/hoge`）を使用
     - より明示的で、リファクタリング時にも対応しやすい
 
+4. **ビルド順序の考慮**: 依存関係に従って順序を守る
+    ```yaml
+    - name: Build shared libraries
+        run: |
+            npm run build --workspace @nagiyu/common
+            npm run build --workspace @nagiyu/browser
+            npm run build --workspace @nagiyu/ui
+
+    - name: Build application
+        run: npm run build --workspace @nagiyu/hoge
+    ```
+    - **重要**: `npm run build` (全ワークスペース並列ビルド) を使用すると依存関係が考慮されず、ビルドエラーが発生する可能性があります
+    - ライブラリ間の依存関係: `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common`
+    - 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」を参照
+
 **標準ジョブ構成**:
 
 - **build**: ビルド検証

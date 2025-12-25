@@ -108,6 +108,42 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 各ライブラリの更新は、それを利用するサービスにのみ影響。
 
+## ビルド順序
+
+### 依存関係に基づくビルド順序
+
+ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
+
+1. `@nagiyu/common` - 依存なし（最初にビルド）
+2. `@nagiyu/browser` - `@nagiyu/common` に依存
+3. `@nagiyu/ui` - `@nagiyu/browser` に依存
+
+### 正しいビルドコマンド
+
+**モノレポ全体をビルドする場合:**
+
+```bash
+npm run build --workspace @nagiyu/common
+npm run build --workspace @nagiyu/browser
+npm run build --workspace @nagiyu/ui
+```
+
+**重要**: `npm run build --workspaces` は並列実行されるため、依存関係の順序が保証されず、ビルドエラーが発生する可能性があります。
+
+### CI/CDでのビルド
+
+GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行してください。
+
+```yaml
+- name: Build shared libraries
+    run: |
+        npm run build --workspace @nagiyu/common
+        npm run build --workspace @nagiyu/browser
+        npm run build --workspace @nagiyu/ui
+```
+
+詳細は [testing.md](./testing.md) の「GitHub Actions ワークフロー設計パターン」を参照してください。
+
 ## 利用ガイド
 
 ### Next.jsサービスでの使用

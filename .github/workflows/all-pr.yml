@@ -25,8 +25,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build all workspaces
-        run: npm run build
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build services
+        run: npm run build --workspace tools
 
   test:
     name: Test All Workspaces
@@ -74,8 +80,14 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
         working-directory: ./services/tools
 
-      - name: Build all workspaces
-        run: npm run build
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build services
+        run: npm run build --workspace tools
 
       - name: Run E2E tests
         env:
