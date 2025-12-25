@@ -1,4 +1,4 @@
-import { readFromClipboard, writeToClipboard } from '../clipboard';
+import { readFromClipboard, writeToClipboard } from '@nagiyu/browser';
 
 describe('clipboard', () => {
   describe('readFromClipboard', () => {

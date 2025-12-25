@@ -5,9 +5,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import theme from '@/styles/theme';
-import Header from '@/components/layout/Header';
-import Footer from '@/components/layout/Footer';
+import { theme, Header, Footer } from '@nagiyu/ui';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
 
 interface ThemeRegistryProps {
