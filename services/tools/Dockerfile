@@ -10,9 +10,14 @@ WORKDIR /app
 COPY package*.json ./
 # toolsサービスのpackage.jsonもコピー
 COPY services/tools/package.json ./services/tools/
+# 共通ライブラリのpackage.jsonもコピー
+COPY libs/common/package.json ./libs/common/
+COPY libs/browser/package.json ./libs/browser/
+COPY libs/ui/package.json ./libs/ui/
 
 # モノレポ全体の依存関係をインストール
-RUN npm ci
+# npm ci はワークスペースで問題があるため npm install を使用
+RUN npm install
 
 # ビルドステージ
 FROM base AS builder
@@ -28,6 +33,17 @@ COPY .prettierrc ./
 
 # 共通設定ファイルをコピー
 COPY configs ./configs/
+
+# 共通ライブラリをコピー
+COPY libs ./libs/
+
+# 共通ライブラリをビルド
+WORKDIR /app/libs/common
+RUN npm run build
+WORKDIR /app/libs/browser
+RUN npm run build
+WORKDIR /app/libs/ui
+RUN npm run build
 
 # toolsサービスのファイルをコピー
 COPY services/tools ./services/tools/
