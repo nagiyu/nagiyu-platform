@@ -3,6 +3,9 @@
  */
 export async function readFromClipboard(): Promise<string> {
   try {
+    if (!navigator.clipboard) {
+      throw new Error('Clipboard API is not supported');
+    }
     const text = await navigator.clipboard.readText();
     return text;
   } catch {
@@ -15,6 +18,9 @@ export async function readFromClipboard(): Promise<string> {
  */
 export async function writeToClipboard(text: string): Promise<void> {
   try {
+    if (!navigator.clipboard) {
+      throw new Error('Clipboard API is not supported');
+    }
     await navigator.clipboard.writeText(text);
   } catch {
     throw new Error('クリップボードへの書き込みに失敗しました。');

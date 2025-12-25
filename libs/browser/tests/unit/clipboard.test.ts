@@ -14,13 +14,12 @@ describe('clipboard', () => {
     });
 
     afterEach(() => {
-      // Restore original clipboard
-      if (originalClipboard) {
-        Object.defineProperty(navigator, 'clipboard', {
-          writable: true,
-          value: originalClipboard,
-        });
-      }
+      // Restore original clipboard (including undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        writable: true,
+        value: originalClipboard,
+        configurable: true,
+      });
     });
 
     it('正常系: クリップボードからテキストを正常に読み取れる', async () => {
@@ -29,6 +28,7 @@ describe('clipboard', () => {
       const mockReadText = jest.fn().mockResolvedValue(mockText);
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           readText: mockReadText,
         },
@@ -47,6 +47,7 @@ describe('clipboard', () => {
       const mockReadText = jest.fn().mockResolvedValue('');
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           readText: mockReadText,
         },
@@ -66,6 +67,7 @@ describe('clipboard', () => {
       const mockReadText = jest.fn().mockResolvedValue(mockText);
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           readText: mockReadText,
         },
@@ -84,6 +86,7 @@ describe('clipboard', () => {
       const mockReadText = jest.fn().mockRejectedValue(new Error('Permission denied'));
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           readText: mockReadText,
         },
@@ -100,6 +103,7 @@ describe('clipboard', () => {
       // Arrange: navigator.clipboard is undefined
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: undefined,
       });
 
@@ -119,13 +123,12 @@ describe('clipboard', () => {
     });
 
     afterEach(() => {
-      // Restore original clipboard
-      if (originalClipboard) {
-        Object.defineProperty(navigator, 'clipboard', {
-          writable: true,
-          value: originalClipboard,
-        });
-      }
+      // Restore original clipboard (including undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        writable: true,
+        value: originalClipboard,
+        configurable: true,
+      });
     });
 
     it('正常系: テキストをクリップボードに正常に書き込める', async () => {
@@ -134,6 +137,7 @@ describe('clipboard', () => {
       const mockWriteText = jest.fn().mockResolvedValue(undefined);
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           writeText: mockWriteText,
         },
@@ -152,6 +156,7 @@ describe('clipboard', () => {
       const mockWriteText = jest.fn().mockResolvedValue(undefined);
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           writeText: mockWriteText,
         },
@@ -171,6 +176,7 @@ describe('clipboard', () => {
       const mockWriteText = jest.fn().mockResolvedValue(undefined);
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           writeText: mockWriteText,
         },
@@ -190,6 +196,7 @@ describe('clipboard', () => {
       const mockWriteText = jest.fn().mockResolvedValue(undefined);
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           writeText: mockWriteText,
         },
@@ -208,6 +215,7 @@ describe('clipboard', () => {
       const mockWriteText = jest.fn().mockRejectedValue(new Error('Permission denied'));
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: {
           writeText: mockWriteText,
         },
@@ -224,6 +232,7 @@ describe('clipboard', () => {
       // Arrange: navigator.clipboard is undefined
       Object.defineProperty(global.navigator, 'clipboard', {
         writable: true,
+        configurable: true,
         value: undefined,
       });
 
