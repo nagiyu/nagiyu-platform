@@ -88,6 +88,9 @@ describe('Footer', () => {
     it('ContainerがmaxWidth="lg"で表示される', () => {
       const { container } = render(<Footer />);
 
+      // Note: This test relies on MUI class names which may change between versions.
+      // If this test fails after a MUI upgrade, consider updating the class name
+      // or using a different approach to verify the maxWidth prop.
       const containerElement = container.querySelector('.MuiContainer-maxWidthLg');
       expect(containerElement).toBeInTheDocument();
     });
