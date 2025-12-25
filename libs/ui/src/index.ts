@@ -1,3 +1,2 @@
-// Export UI components here
-// This file will be populated as components are added to the library
-export {};
+// Export UI components and theme here
+export { default as theme } from './styles/theme';
