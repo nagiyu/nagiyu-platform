@@ -20,9 +20,9 @@
 
 ```json
 {
-  "dependencies": {
-    "@nagiyu/browser": "workspace:*"
-  }
+    "dependencies": {
+        "@nagiyu/browser": "workspace:*"
+    }
 }
 ```
 
@@ -83,7 +83,3 @@ npm run format:check
 - TypeScript 5.x
 - Jest (テストフレームワーク)
 - jsdom (ブラウザ環境のモック)
-
-## ライセンス
-
-このプロジェクトは MIT と Apache 2.0 のデュアルライセンスです。
