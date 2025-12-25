@@ -32,7 +32,7 @@ jobs:
         run: npm ci
 
       - name: Build library
-        run: npm run build --workspace=libs/browser
+        run: npm run build --workspace=@nagiyu/browser
 
   test:
     name: Run Unit Tests
@@ -53,7 +53,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test --workspace=libs/browser
+        run: npm run test --workspace=@nagiyu/browser
 
   coverage:
     name: Test Coverage Check
@@ -74,7 +74,7 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: npm run test:coverage --workspace=libs/browser
+        run: npm run test:coverage --workspace=@nagiyu/browser
 
   lint:
     name: Lint Code
@@ -95,7 +95,7 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint --workspace=libs/browser
+        run: npm run lint --workspace=@nagiyu/browser
 
   format-check:
     name: Format Check
@@ -116,7 +116,7 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check --workspace=libs/browser
+        run: npm run format:check --workspace=@nagiyu/browser
 
   report:
     name: Report Results to PR
