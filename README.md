@@ -24,11 +24,11 @@ services/               # アプリケーション
 |
 libs/                   # 共通ライブラリ
 |   |
-|   +-- common/         # 完全フレームワーク非依存の汎用ユーティリティ
+|   +-- ui/             # Next.js + Material-UI コンポーネント
 |   |
-|   +-- browser/        # ブラウザAPI依存のユーティリティ
+|   +-- browser/        # ブラウザ API ラッパー
 |   |
-|   +-- ui/             # Next.js + Material-UI 依存のUIコンポーネント
+|   +-- common/         # フレームワーク非依存ユーティリティ
 |
 docs/                   # ドキュメント関連
 |   |
