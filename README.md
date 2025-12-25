@@ -33,6 +33,10 @@ libs/                   # 共通ライブラリ
 docs/                   # ドキュメント関連
 |   |
 |   +-- infra/          # インフラドキュメント
-|       |
-|       +-- shared/     # 共通インフラのドキュメント
+|   |   |
+|   |   +-- shared/     # 共通インフラのドキュメント
+|   |
+|   +-- development/    # 開発ガイドライン
 ```
+
+詳細は [docs/development/](docs/development/) を参照。
