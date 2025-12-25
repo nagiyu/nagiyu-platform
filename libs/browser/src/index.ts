@@ -7,3 +7,6 @@
 
 // Clipboard API utilities
 export { readFromClipboard, writeToClipboard } from './clipboard';
+
+// localStorage utilities
+export { getItem, setItem, removeItem } from './localStorage';
