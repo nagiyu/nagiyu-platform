@@ -245,9 +245,9 @@ const response: ApiResponse<UserData> = {
 
 | ライブラリ | バージョン | リリース日 |
 |-----------|----------|-----------|
-| `@nagiyu/common` | 1.0.0 | 2024-12 |
-| `@nagiyu/browser` | 1.0.0 | 2024-12 |
-| `@nagiyu/ui` | 1.0.0 | 2024-12 |
+| `@nagiyu/common` | 1.0.0 | 2024-12-25 |
+| `@nagiyu/browser` | 1.0.0 | 2024-12-25 |
+| `@nagiyu/ui` | 1.0.0 | 2024-12-25 |
 
 ### 更新の影響範囲
 
@@ -292,7 +292,7 @@ cd libs/common && npm run build
 import { Header, Footer, theme } from '@nagiyu/ui';
 
 // ブラウザAPIユーティリティのインポート
-import { clipboard, getItem, setItem } from '@nagiyu/browser';
+import { readFromClipboard, writeToClipboard, getItem, setItem } from '@nagiyu/browser';
 
 // 共通ユーティリティのインポート（将来）
 import { someUtil } from '@nagiyu/common';
