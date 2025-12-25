@@ -30,8 +30,6 @@
 
 ## 共通ライブラリ
 
-- [@nagiyu/ui](./libs/ui/README.md) - Next.js + Material-UI ベースの UI コンポーネント
-- [@nagiyu/browser](./libs/browser/README.md) - ブラウザ API ラッパー
 - [@nagiyu/common](./libs/common/README.md) - フレームワーク非依存の共通ライブラリ
 
 ## インフラストラクチャ
