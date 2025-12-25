@@ -2,3 +2,5 @@
 export { default as theme } from './styles/theme';
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps } from './components/layout/Header';
+export { default as Footer } from './components/layout/Footer';
+export type { FooterProps } from './components/layout/Footer';
