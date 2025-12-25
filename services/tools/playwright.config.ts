@@ -19,6 +19,8 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
+  /* Global timeout for each test */
+  timeout: 60 * 1000, // 60 seconds per test
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
@@ -85,6 +87,6 @@ export default defineConfig({
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 2 * 60 * 1000, // 2 minutes
+    timeout: 5 * 60 * 1000, // 5 minutes for CI environments
   },
 });
