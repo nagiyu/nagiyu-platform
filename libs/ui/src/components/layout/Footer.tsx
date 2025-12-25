@@ -12,11 +12,11 @@ export interface FooterProps {
 
 /**
  * Footer component that displays version information and links to privacy policy and terms of service.
- * 
+ *
  * @param props - The component props
  * @param props.version - The version string to display (default: "1.0.0")
  * @returns A footer element with version and policy links
- * 
+ *
  * @example
  * ```tsx
  * <Footer version="2.1.0" />
