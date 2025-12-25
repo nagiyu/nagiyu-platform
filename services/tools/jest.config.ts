@@ -14,6 +14,9 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^@nagiyu/ui$': '<rootDir>/../../libs/ui/src/index.ts',
+    '^@nagiyu/browser$': '<rootDir>/../../libs/browser/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
   },
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
