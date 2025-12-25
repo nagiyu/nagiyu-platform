@@ -52,9 +52,47 @@ configs/
 }
 ```
 
+#### 各ライブラリでの使用
+
+ライブラリの tsconfig.json で extends。
+
+```json
+{
+    "extends": "../../configs/tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["ES2020", "DOM"],
+        "declaration": true,
+        "outDir": "./dist"
+    },
+    "include": ["src/**/*", "tests/**/*"],
+    "exclude": ["node_modules", "dist"]
+}
+```
+
+**ビルド出力構造**:
+- ビルド出力は `dist/src/` と `dist/tests/` に分かれる
+- `package.json` の `exports` で `"./dist/src/index.js"` を指定することで、利用側は `dist/src/` を意識不要
+
+#### サービスとライブラリの違い
+
+| 項目 | サービス | ライブラリ |
+|------|---------|----------|
+| `include` | `**/*.ts`, `**/*.tsx` | `src/**/*`, `tests/**/*` |
+| `exclude` | `node_modules`, `e2e` | `node_modules`, `dist` |
+| `rootDir` | 指定しない | 指定しない |
+| ビルド出力 | `dist/**/*` | `dist/src/**/*`, `dist/tests/**/*` |
+| エントリーポイント | - | `dist/src/index.js` |
+| テスト型チェック | 対象に含まれる | 対象に含まれる |
+
+**設計思想**:
+- **サービス**: Next.js 環境全体を型チェック対象に含める
+- **ライブラリ**: `src` と `tests` のみを明示的に指定（配布用ライブラリとしての明確性）
+- **ライブラリのビルド出力**: `rootDir` を指定しないことで TypeScript が自動的に `dist/src/` に出力。`package.json` の `exports` で利用側に透過的
+- **共通**: テストコードも型チェック対象に含めることで品質を担保
+
 #### カスタマイズポイント
 
-- `paths`: サービス固有のパスエイリアス
+- `paths`: サービス固有のパスエイリアス（ライブラリでは使用不可）
 - `include/exclude`: 対象ファイルの調整
 
 ## ESLint設定
