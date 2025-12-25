@@ -125,43 +125,43 @@ services/{service-name}/
 サービスやライブラリごとに専用のPR検証ワークフローを作成することを推奨します。
 
 **ファイル名**: `.github/workflows/{target}-pr.yml`  
-（例: `browser-pr.yml`, `tools-pr.yml`, `common-pr.yml`）
+（例: `hoge-pr.yml`）
 
 **トリガー設定のベストプラクティス**:
 
 ```yaml
 on:
-  pull_request:
-    branches:
-      - develop           # メインブランチ
-      - integration/**    # 統合ブランチ
-    paths:
-      - 'libs/browser/**'           # ターゲットファイル
-      - 'libs/common/**'            # 依存ライブラリ
-      - 'package.json'              # ルートパッケージ定義
-      - 'package-lock.json'         # 依存関係ロック
-      - '.github/workflows/browser-pr.yml'  # ワークフロー自体
+    pull_request:
+        branches:
+            - develop           # メインブランチ
+            - integration/**    # 統合ブランチ
+        paths:
+            - 'libs/hoge/**'           # ターゲットファイル
+            - 'libs/common/**'            # 依存ライブラリ
+            - 'package.json'              # ルートパッケージ定義
+            - 'package-lock.json'         # 依存関係ロック
+            - '.github/workflows/hoge-pr.yml'  # ワークフロー自体
 ```
 
 **設計原則**:
 
 1. **ブランチフィルター**: `develop` と `integration/**` を標準とする
-   - `develop`: プロダクションに向けた統合ブランチ
-   - `integration/**`: フィーチャー統合用の作業ブランチ
+    - `develop`: プロダクションに向けた統合ブランチ
+    - `integration/**`: フィーチャー統合用の作業ブランチ
 
 2. **パスフィルター**: 関連ファイルのみでトリガー
-   - **ターゲット**: 変更対象のディレクトリ（例: `libs/browser/**`）
-   - **依存対象**: 直接依存するライブラリ（例: `libs/common/**`）
-   - **ルートパッケージ**: `package.json`, `package-lock.json`
-   - **ワークフロー自体**: ワークフロー定義ファイル
+    - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
+    - **依存対象**: 直接依存するライブラリ（例: `libs/common/**`）
+    - **ルートパッケージ**: `package.json`, `package-lock.json`
+    - **ワークフロー自体**: ワークフロー定義ファイル
 
 3. **ワークスペース指定**: パッケージ名を使用
-   ```yaml
-   - name: Run tests
-     run: npm run test --workspace=@nagiyu/browser
-   ```
-   - パス指定（`libs/browser`）ではなくパッケージ名（`@nagiyu/browser`）を使用
-   - より明示的で、リファクタリング時にも対応しやすい
+    ```yaml
+    - name: Run tests
+        run: npm run test --workspace=@nagiyu/hoge
+    ```
+    - パス指定（`services/hoge`）ではなくパッケージ名（`@nagiyu/hoge`）を使用
+    - より明示的で、リファクタリング時にも対応しやすい
 
 **標準ジョブ構成**:
 
@@ -179,12 +179,12 @@ Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定�
 ```typescript
 // jest.config.ts
 coverageThreshold: {
-  global: {
-    branches: 80,
-    functions: 80,
-    lines: 80,
-    statements: 80,
-  },
+    global: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+    },
 }
 ```
 
@@ -193,8 +193,6 @@ coverageThreshold: {
 - 無関係な変更でワークフローが実行されず、CIリソースを節約
 - 変更対象に応じた適切なテストのみ実行され、高速なフィードバック
 - ワークフロー定義が明確で、メンテナンスしやすい
-
-**参考実装**: `.github/workflows/browser-pr.yml`, `.github/workflows/tools-pr.yml`
 
 ## テスト作成ガイドライン
 
