@@ -21,9 +21,9 @@ Next.js 16 と Material-UI 7 を使用した、モダンで再利用可能なコ
 
 ```json
 {
-  "dependencies": {
-    "@nagiyu/ui": "*"
-  }
+    "dependencies": {
+        "@nagiyu/ui": "*"
+    }
 }
 ```
 
@@ -102,7 +102,3 @@ libs/ui/
 - **フレームワーク**: Jest + Testing Library
 - **環境**: jsdom (ブラウザDOM環境のシミュレーション)
 - **カバレッジ目標**: 80%以上
-
-## ライセンス
-
-このプロジェクトは MIT ライセンスと Apache License 2.0 のデュアルライセンスです。
