@@ -7,7 +7,6 @@ on:
       - integration/**
     paths:
       - 'services/tools/**'
-      - 'libs/**'
       - 'infra/tools/**'
       - 'package.json'
       - 'package-lock.json'
@@ -32,14 +31,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
       - name: Build Next.js application
-        run: npm run build --workspace tools
+        run: npm run build --workspace=tools
 
   docker-build:
     name: Docker Build Verification
@@ -71,7 +64,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test --workspace tools
+        run: npm run test --workspace=tools
 
   e2e-test:
     name: Run E2E Tests
@@ -94,12 +87,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium webkit
         working-directory: ./services/tools
@@ -108,7 +95,7 @@ jobs:
         env:
           CI: true
         run: |
-          npm run test:e2e --workspace tools
+          npm run test:e2e --workspace=tools
           if [ $? -ne 0 ]; then
             echo "E2E tests failed"
             exit 1
@@ -149,7 +136,7 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint --workspace tools
+        run: npm run lint --workspace=tools
 
   format-check:
     name: Format Check
@@ -170,7 +157,7 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check --workspace tools
+        run: npm run format:check --workspace=tools
 
   report:
     name: Report Results to PR

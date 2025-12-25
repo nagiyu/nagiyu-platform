@@ -1,8 +1,10 @@
 FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bullseye
 
-USER node
+USER root
 
-# Install Playwright browsers
-RUN npm exec --workspace tools -- playwright install --with-deps chromium webkit
+# Install Playwright system dependencies
+RUN npx -y playwright install-deps chromium webkit
+
+USER node
 
 RUN curl -fsSL https://claude.ai/install.sh | bash

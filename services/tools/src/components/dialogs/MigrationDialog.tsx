@@ -11,7 +11,6 @@ import {
   Checkbox,
   Typography,
 } from '@mui/material';
-import { getItem, setItem } from '@nagiyu/browser';
 
 const STORAGE_KEY = 'tools-migration-dialog-shown';
 
@@ -25,7 +24,7 @@ export default function MigrationDialog() {
     // LocalStorageチェックを次のレンダリングサイクルまで遅延
     const timer = setTimeout(() => {
       try {
-        const hasShown = getItem(STORAGE_KEY);
+        const hasShown = localStorage.getItem(STORAGE_KEY);
         // フラグが存在しない場合のみダイアログを表示
         if (!hasShown) {
           setOpen(true);
@@ -48,7 +47,7 @@ export default function MigrationDialog() {
     // 「今後表示しない」がONの場合のみLocalStorageに保存
     if (dontShowAgain) {
       try {
-        setItem(STORAGE_KEY, 'true');
+        localStorage.setItem(STORAGE_KEY, 'true');
       } catch (error) {
         console.error('Failed to save migration dialog flag to localStorage:', error);
         // 保存エラーは無視（プライベートモード等）

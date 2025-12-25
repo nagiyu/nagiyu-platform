@@ -152,25 +152,6 @@ import { something } from '../components/Button';
 - ビルド設定の複雑化を回避
 - 依存関係の明確化
 
-## TypeScript設定の方針
-
-### テストコードも型チェック対象に含める
-
-ライブラリの `tsconfig.json` では、`tests/` ディレクトリを型チェック対象に含める。
-
-### 理由
-
-- **早期発見**: テストコードの型エラーを開発時に検出
-- **品質向上**: Testing Library のマッチャー（`toBeInTheDocument` 等）の型補完が効く
-- **一貫性**: プロダクションコードと同じ型安全性をテストコードでも維持
-
-### 設計のポイント
-
-- `include` に `tests/**/*` を追加
-- `rootDir` は指定しない（TypeScript が自動的に共通の親ディレクトリを判断）
-- ビルド出力は `dist/src/` と `dist/tests/` に分かれるが、`package.json` の `exports` で `dist/src/index.js` を指定
-- テストファイル（`.test.ts`）は実行時のみ使用され、配布には影響しない
-
 ## 拡張性
 
 ### 将来の展開

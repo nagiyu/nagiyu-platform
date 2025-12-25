@@ -5,7 +5,9 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import { theme, Header, Footer } from '@nagiyu/ui';
+import theme from '@/styles/theme';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
 
 interface ThemeRegistryProps {
@@ -20,7 +22,7 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
         <CssBaseline />
         <MigrationDialog />
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Header title="Tools" ariaLabel="Tools ホームページに戻る" />
+          <Header />
           <Box component="main" sx={{ flexGrow: 1 }}>
             {children}
           </Box>

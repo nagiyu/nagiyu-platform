@@ -1,25 +1,37 @@
 # ベースイメージ
 FROM node:22-alpine AS base
 
+# 依存関係のインストールステージ
+FROM base AS deps
+WORKDIR /app
+
+# モノレポのルートからpackage.jsonとpackage-lock.jsonをコピー
+# ビルドコンテキストはリポジトリルート
+COPY package*.json ./
+# toolsサービスのpackage.jsonもコピー
+COPY services/tools/package.json ./services/tools/
+
+# モノレポ全体の依存関係をインストール
+RUN npm ci
+
 # ビルドステージ
 FROM base AS builder
 WORKDIR /app
 
-# モノレポ全体のファイルをコピー
+# 依存関係をコピー
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/services/tools/node_modules ./services/tools/node_modules
+
+# モノレポのルート設定をコピー
 COPY package*.json ./
-COPY configs ./configs/
-COPY libs ./libs/
+
+# toolsサービスのファイルをコピー
 COPY services/tools ./services/tools/
 
-# 依存関係をインストール（ソースコード存在下で実行）
-RUN npm ci
-
-# モノレポのルートからビルド（共通ライブラリも含めて）
+# Next.js アプリケーションをビルド
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build --workspace=libs/common
-RUN npm run build --workspace=libs/browser
-RUN npm run build --workspace=libs/ui
-RUN npm run build --workspace=tools
+WORKDIR /app/services/tools
+RUN npm run build
 
 # 本番ステージ
 FROM base AS runner

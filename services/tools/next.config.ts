@@ -7,8 +7,6 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname, '../../'), // モノレポルート
   // Silence Turbopack warning when using webpack config
   turbopack: {},
-  // Transpile workspace packages
-  transpilePackages: ['@nagiyu/ui', '@nagiyu/browser', '@nagiyu/common'],
 };
 
 export default withPWA({
