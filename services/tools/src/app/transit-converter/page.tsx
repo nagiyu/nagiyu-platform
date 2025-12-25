@@ -47,10 +47,9 @@ function TransitConverterContent() {
   // LocalStorageから設定を読み込む
   useEffect(() => {
     try {
-      const saved = getItem(STORAGE_KEY);
+      const saved = getItem<DisplaySettings>(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        setDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...parsed });
+        setDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...saved });
       }
     } catch (error) {
       console.error('Failed to load display settings from localStorage:', error);
@@ -86,7 +85,7 @@ function TransitConverterContent() {
   const handleDisplaySettingsChange = (newSettings: DisplaySettings) => {
     setDisplaySettings(newSettings);
     try {
-      setItem(STORAGE_KEY, JSON.stringify(newSettings));
+      setItem(STORAGE_KEY, newSettings);
     } catch (error) {
       console.error('Failed to save display settings to localStorage:', error);
       // 保存エラーは無視（プライベートモード等）
