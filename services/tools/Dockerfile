@@ -5,18 +5,16 @@ FROM node:22-alpine AS base
 FROM base AS deps
 WORKDIR /app
 
-# モノレポのルートからpackage.jsonとpackage-lock.jsonをコピー
-# ビルドコンテキストはリポジトリルート
+# モノレポ全体をコピー（package.jsonとlock file）
 COPY package*.json ./
-# toolsサービスのpackage.jsonもコピー
 COPY services/tools/package.json ./services/tools/
-# 共通ライブラリのpackage.jsonもコピー
 COPY libs/common/package.json ./libs/common/
 COPY libs/browser/package.json ./libs/browser/
 COPY libs/ui/package.json ./libs/ui/
 
-# npm ciのタイムアウト問題回避のため、--include-workspace-rootと--workspacesを使用
-RUN npm ci --include-workspace-root
+# モノレポ全体の依存関係をインストール
+# Docker環境での問題回避のため、legacy-peer-depsを使用
+RUN npm ci --legacy-peer-deps
 
 # ビルドステージ
 FROM base AS builder
@@ -24,33 +22,19 @@ WORKDIR /app
 
 # 依存関係をコピー
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/services/tools/node_modules ./services/tools/node_modules
 
-# モノレポのルート設定をコピー
+# モノレポ全体のファイルをコピー
 COPY package*.json ./
-COPY .prettierrc ./
-
-# 共通設定ファイルをコピー
 COPY configs ./configs/
-
-# 共通ライブラリをコピー
 COPY libs ./libs/
-
-# 共通ライブラリをビルド
-WORKDIR /app/libs/common
-RUN npm run build
-WORKDIR /app/libs/browser
-RUN npm run build
-WORKDIR /app/libs/ui
-RUN npm run build
-
-# toolsサービスのファイルをコピー
 COPY services/tools ./services/tools/
 
-# Next.js アプリケーションをビルド
+# モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
-WORKDIR /app/services/tools
-RUN npm run build
+RUN npm run build --workspace=libs/common
+RUN npm run build --workspace=libs/browser
+RUN npm run build --workspace=libs/ui
+RUN npm run build --workspace=tools
 
 # 本番ステージ
 FROM base AS runner

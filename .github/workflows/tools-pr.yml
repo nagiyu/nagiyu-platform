@@ -94,6 +94,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace=libs/common
+          npm run build --workspace=libs/browser
+          npm run build --workspace=libs/ui
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium webkit
         working-directory: ./services/tools
