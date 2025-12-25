@@ -17,8 +17,7 @@
 ```
 configs/
 ├── tsconfig.base.json      # TypeScript基本設定
-├── eslint.config.base.mjs  # ESLint基本設定
-└── jest.config.base.ts     # Jest基本設定
+└── eslint.config.base.mjs  # ESLint基本設定
 ```
 
 ### モノレポルート
@@ -53,9 +52,47 @@ configs/
 }
 ```
 
+#### 各ライブラリでの使用
+
+ライブラリの tsconfig.json で extends。
+
+```json
+{
+    "extends": "../../configs/tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["ES2020", "DOM"],
+        "declaration": true,
+        "outDir": "./dist"
+    },
+    "include": ["src/**/*", "tests/**/*"],
+    "exclude": ["node_modules", "dist"]
+}
+```
+
+**ビルド出力構造**:
+- ビルド出力は `dist/src/` と `dist/tests/` に分かれる
+- `package.json` の `exports` で `"./dist/src/index.js"` を指定することで、利用側は `dist/src/` を意識不要
+
+#### サービスとライブラリの違い
+
+| 項目 | サービス | ライブラリ |
+|------|---------|----------|
+| `include` | `**/*.ts`, `**/*.tsx` | `src/**/*`, `tests/**/*` |
+| `exclude` | `node_modules`, `e2e` | `node_modules`, `dist` |
+| `rootDir` | 指定しない | 指定しない |
+| ビルド出力 | `dist/**/*` | `dist/src/**/*`, `dist/tests/**/*` |
+| エントリーポイント | - | `dist/src/index.js` |
+| テスト型チェック | 対象に含まれる | 対象に含まれる |
+
+**設計思想**:
+- **サービス**: Next.js 環境全体を型チェック対象に含める
+- **ライブラリ**: `src` と `tests` のみを明示的に指定（配布用ライブラリとしての明確性）
+- **ライブラリのビルド出力**: `rootDir` を指定しないことで TypeScript が自動的に `dist/src/` に出力。`package.json` の `exports` で利用側に透過的
+- **共通**: テストコードも型チェック対象に含めることで品質を担保
+
 #### カスタマイズポイント
 
-- `paths`: サービス固有のパスエイリアス
+- `paths`: サービス固有のパスエイリアス（ライブラリでは使用不可）
 - `include/exclude`: 対象ファイルの調整
 
 ## ESLint設定
@@ -82,6 +119,13 @@ export default [
 ];
 ```
 
+#### Lint対象範囲
+
+- **本番コード**: `src/**/*.ts`, `src/**/*.tsx`
+- **テストコード**: `tests/**/*.ts`, `tests/**/*.tsx`
+
+テストコードも Lint の対象に含めることで、コード品質を一貫して保ちます。
+
 #### カスタマイズポイント
 
 - サービス固有のルール追加
@@ -89,35 +133,29 @@ export default [
 
 ## Jest設定
 
-### configs/jest.config.base.ts
+### 独立管理の方針
 
-#### 含まれる設定
+Jestは各サービス・ライブラリで独自に jest.config.ts を管理。
 
-- `testEnvironment: "jsdom"`: React対応
-- `moduleNameMapper`: パスエイリアス解決
-- モノレポルートの除外設定
+#### 理由
 
-#### 各サービスでの使用
+- TypeScript設定ファイルからのESMインポートに技術的制約
+- テスト環境がサービス/ライブラリごとに異なる（jsdom vs node）
+- Next.js等のフレームワーク固有の設定が必要
 
-サービスの jest.config.ts で extends。
+#### 推奨される共通設定
+
+各jest.config.tsに以下の設定を含めることを推奨:
 
 ```typescript
-import type { Config } from 'jest';
-import baseConfig from '../../configs/jest.config.base';
-
-const config: Config = {
-    ...baseConfig,
-    rootDir: '.',
-    // サービス固有の設定
-};
-
-export default config;
+{
+    // Exclude monorepo root from module scanning
+    modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
+    // Common coverage settings
+    coverageDirectory: 'coverage',
+    collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+}
 ```
-
-#### カスタマイズポイント
-
-- `setupFilesAfterEnv`: テストセットアップファイル
-- `testPathIgnorePatterns`: 除外パターン追加
 
 ## Prettier設定
 
