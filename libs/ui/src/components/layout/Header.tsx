@@ -13,9 +13,15 @@ export interface HeaderProps {
    * @default "/"
    */
   href?: string;
+  /**
+   * The aria-label for accessibility
+   * @default "{title} - Navigate to homepage"
+   */
+  ariaLabel?: string;
 }
 
-export default function Header({ title = 'Nagiyu Platform', href = '/' }: HeaderProps) {
+export default function Header({ title = 'Nagiyu Platform', href = '/', ariaLabel }: HeaderProps) {
+  const defaultAriaLabel = `${title} - Navigate to homepage`;
   return (
     <AppBar position="static" color="primary">
       <Toolbar
@@ -34,7 +40,7 @@ export default function Header({ title = 'Nagiyu Platform', href = '/' }: Header
             color: 'inherit',
             fontWeight: 600,
           }}
-          aria-label={`${title} ホームページに戻る`}
+          aria-label={ariaLabel || defaultAriaLabel}
         >
           {title}
         </Typography>

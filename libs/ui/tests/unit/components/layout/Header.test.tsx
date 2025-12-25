@@ -40,12 +40,26 @@ describe('Header', () => {
     it('デフォルトのaria-labelが正しく設定される', () => {
       render(<Header />);
 
-      const titleElement = screen.getByLabelText('Nagiyu Platform ホームページに戻る');
+      const titleElement = screen.getByLabelText('Nagiyu Platform - Navigate to homepage');
       expect(titleElement).toBeInTheDocument();
     });
 
     it('カスタムタイトルに基づいたaria-labelが設定される', () => {
       render(<Header title="Tools" />);
+
+      const titleElement = screen.getByLabelText('Tools - Navigate to homepage');
+      expect(titleElement).toBeInTheDocument();
+    });
+
+    it('カスタムaria-labelが正しく設定される', () => {
+      render(<Header ariaLabel="Custom accessibility label" />);
+
+      const titleElement = screen.getByLabelText('Custom accessibility label');
+      expect(titleElement).toBeInTheDocument();
+    });
+
+    it('日本語のaria-labelを設定できる', () => {
+      render(<Header title="Tools" ariaLabel="Tools ホームページに戻る" />);
 
       const titleElement = screen.getByLabelText('Tools ホームページに戻る');
       expect(titleElement).toBeInTheDocument();
