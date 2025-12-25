@@ -27,7 +27,7 @@
 ## 使用方法
 
 ```typescript
-import { /* 関数名 */ } from '@nagiyu/common';
+import {} from /* 関数名 */ '@nagiyu/common';
 
 // 利用例
 // （将来的に汎用ユーティリティが追加される予定）
