@@ -13,8 +13,7 @@ COPY libs/browser/package.json ./libs/browser/
 COPY libs/ui/package.json ./libs/ui/
 
 # モノレポ全体の依存関係をインストール
-# Docker環境での問題回避のため、legacy-peer-depsを使用
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 # ビルドステージ
 FROM base AS builder
