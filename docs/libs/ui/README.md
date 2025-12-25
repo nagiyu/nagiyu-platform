@@ -196,6 +196,6 @@ npm run build
 
 ## 関連ドキュメント
 
-- [共通ライブラリ設計](../../docs/development/shared-libraries.md)
-- [サービステンプレート](../../docs/development/service-template.md)
-- [アーキテクチャ方針](../../docs/development/architecture.md)
+- [共通ライブラリ設計](../../development/shared-libraries.md)
+- [サービステンプレート](../../development/service-template.md)
+- [アーキテクチャ方針](../../development/architecture.md)
