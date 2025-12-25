@@ -1,36 +1,18 @@
 # @nagiyu/common
 
+完全フレームワーク非依存の共通ユーティリティライブラリ
+
 ## 概要
 
-`@nagiyu/common` は、Nagiyuプラットフォーム全体で利用できる完全フレームワーク非依存の共通ライブラリパッケージです。
-外部依存を持たず、純粋なTypeScriptユーティリティと型定義を提供します。
+`@nagiyu/common` は、Nagiyu Platform 上の全サービスで共有される、フレームワークに依存しない汎用ユーティリティと型定義を提供します。外部依存を持たず、純粋な TypeScript/JavaScript として実装されています。
 
----
+## バージョン
 
-## 基本情報
+**現在のバージョン**: 1.0.0
 
-- **パッケージ名**: `@nagiyu/common`
-- **バージョン**: 1.0.0
-- **配置場所**: `libs/common/`
-- **外部依存**: なし（Node.js標準ライブラリのみ）
+## インストール
 
----
-
-## 設計原則
-
-- **ゼロ依存**: 外部依存なし（Node.js標準ライブラリのみ）
-- **フレームワーク非依存**: どのフレームワーク（Next.js、React、Vueなど）でも利用可能
-- **純粋関数**: すべてのユーティリティは純粋関数として実装
-- **型安全**: TypeScriptの厳格な型チェック
-- **高いテストカバレッジ**: 80%以上を維持
-
----
-
-## 利用方法
-
-### インストール
-
-monorepo内のワークスペースとして利用します。
+このライブラリはモノレポ内での使用を想定しており、サービスの `package.json` で参照します。
 
 ```json
 {
@@ -40,31 +22,75 @@ monorepo内のワークスペースとして利用します。
 }
 ```
 
-### インポート
+## 依存関係
+
+### External Dependencies
+
+なし（Node.js 標準ライブラリのみ使用可能）
+
+### Internal Dependencies
+
+なし（完全独立）
+
+## 現在の実装状況
+
+**Phase 1 完了**: パッケージ構造とビルド環境が整備されました。
+
+現在、このライブラリには具体的な実装はありませんが、将来的に以下のような汎用ユーティリティが追加される予定です。
+
+## 将来の実装予定
+
+### 型定義
+
+共通で使用される型定義を提供予定:
+
+- レスポンス型（API レスポンスの標準型）
+- エラー型（エラーハンドリングの標準型）
+- ページネーション型
+- その他の共通型定義
+
+### ユーティリティ関数
+
+以下のような汎用ユーティリティ関数を提供予定:
+
+- **データ変換**: オブジェクトの変換、配列操作
+- **バリデーション**: 入力値の検証、型ガード関数
+- **文字列操作**: フォーマット、パース、サニタイズ
+- **日付操作**: フォーマット、パース、計算
+- **数値操作**: フォーマット、計算、丸め処理
+
+### 設計原則
+
+すべての実装は以下の原則に従います:
+
+1. **純粋関数**: 副作用を持たない
+2. **型安全**: 厳密な TypeScript 型定義
+3. **テスト容易**: 高いテストカバレッジ（80%以上）
+4. **外部依存なし**: Node.js 標準ライブラリのみ使用
+5. **ドキュメント**: すべての関数に JSDoc コメント
+
+## 使用例（将来）
 
 ```typescript
-// 将来的にユーティリティが追加された際の使用例
-import {} from /* utilities */ "@nagiyu/common";
+// 型定義の使用
+import type { ApiResponse, PaginationParams } from '@nagiyu/common';
+
+interface UserData {
+  id: string;
+  name: string;
+}
+
+const response: ApiResponse<UserData> = {
+  success: true,
+  data: { id: '1', name: 'John' },
+};
+
+// ユーティリティ関数の使用（予定）
+import { formatDate, validateEmail } from '@nagiyu/common';
+
+const formattedDate = formatDate(new Date(), 'YYYY-MM-DD');
+const isValid = validateEmail('user@example.com');
 ```
-
----
-
-## ディレクトリ構成
-
-```
-libs/common/
-├── src/                    # ソースコード
-│   └── index.ts           # メインエクスポートファイル
-├── tests/                  # テストファイル
-│   └── unit/              # ユニットテスト
-├── dist/                   # ビルド出力（自動生成）
-├── package.json           # パッケージ設定
-├── tsconfig.json          # TypeScript設定
-├── jest.config.ts         # Jest設定
-└── eslint.config.mjs      # ESLint設定
-```
-
----
 
 ## 開発
 
@@ -77,13 +103,13 @@ npm run build
 ### テスト
 
 ```bash
-# 全テスト実行
+# 全テストを実行
 npm test
 
-# watchモード
+# ウォッチモードで実行
 npm run test:watch
 
-# カバレッジ付き実行
+# カバレッジを取得
 npm run test:coverage
 ```
 
@@ -93,59 +119,89 @@ npm run test:coverage
 # リント実行
 npm run lint
 
-# コード整形
+# フォーマット実行
 npm run format
 
-# 整形チェック
+# フォーマットチェック
 npm run format:check
 ```
 
----
+## 設計方針
 
-## 実装ルール
+### 依存関係ルール
 
-### パスエイリアス禁止
+- 外部パッケージへの依存は原則禁止
+- Node.js 標準ライブラリのみ使用可能
+- 他のライブラリ（`@nagiyu/ui`, `@nagiyu/browser`）からは参照可能
+- 逆方向の依存は禁止（このライブラリは他のライブラリを参照しない）
 
-ライブラリ内部では相対パスのみを使用してください。パスエイリアス（`@/...`など）は、ライブラリの配布時の一貫性を保つため使用禁止です。
+### 実装ガイドライン
+
+#### 純粋関数として実装
 
 ```typescript
-// ❌ パスエイリアスは使用しない
-import { something } from "@/utils/helper";
+// ✅ 推奨: 純粋関数
+export function add(a: number, b: number): number {
+  return a + b;
+}
 
-// ✅ 相対パスを使用
-import { something } from "../utils/helper";
+// ❌ 非推奨: 副作用を持つ
+let total = 0;
+export function addToTotal(value: number): void {
+  total += value; // グローバル状態を変更
+}
 ```
 
----
+#### 型安全性の確保
 
-## 依存関係ルール
+```typescript
+// ✅ 推奨: 厳密な型定義
+export function formatCurrency(amount: number, currency: 'JPY' | 'USD'): string {
+  // 実装...
+}
 
-このライブラリは依存関係階層の最下位に位置します：
-
+// ❌ 非推奨: 型定義が緩い
+export function formatCurrency(amount: any, currency: string): any {
+  // 実装...
+}
 ```
-libs/ui → libs/browser → libs/common
+
+#### テストの記述
+
+すべての関数に対して単体テストを記述し、80%以上のカバレッジを維持します。
+
+```typescript
+// tests/unit/utils.test.ts
+import { add } from '../../src/utils';
+
+describe('add', () => {
+  it('should add two numbers correctly', () => {
+    expect(add(1, 2)).toBe(3);
+  });
+
+  it('should handle negative numbers', () => {
+    expect(add(-1, -2)).toBe(-3);
+  });
+});
 ```
 
-- `libs/common` は他のlibsに依存しない
-- 他のライブラリは `libs/common` に依存可能
-- 循環依存は厳格に禁止
+## 貢献ガイドライン
 
----
+新しいユーティリティを追加する場合:
 
-## 今後の拡張
+1. **必要性の確認**: 複数のサービスで使用される汎用的な機能か確認
+2. **既存機能との重複確認**: 既に同様の機能がないか確認
+3. **設計レビュー**: ドキュメントに設計を記載し、レビューを受ける
+4. **実装**: 設計に従って実装
+5. **テスト**: 80%以上のカバレッジを達成
+6. **ドキュメント**: JSDoc コメントと README の更新
 
-現在このパッケージは、将来の共通ユーティリティのための基盤として機能します：
+## ライセンス
 
-- 共通型定義
-- データ変換ユーティリティ
-- バリデーションヘルパー
-- 純粋関数のユーティリティ
-
-新しいユーティリティは、サービスから抽出されるか、共通パターンとして識別された際に追加されます。
-
----
+このライブラリは Nagiyu Platform プロジェクトの一部であり、プロジェクトのライセンスに従います。
 
 ## 関連ドキュメント
 
-- [共通ライブラリ設計](../../development/shared-libraries.md) - ライブラリ全体の設計方針
-- [プラットフォームドキュメント](../../README.md) - プラットフォーム全体のドキュメント
+- [共通ライブラリ設計](../../docs/development/shared-libraries.md)
+- [サービステンプレート](../../docs/development/service-template.md)
+- [アーキテクチャ方針](../../docs/development/architecture.md)
