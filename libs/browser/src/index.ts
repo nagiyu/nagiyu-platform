@@ -5,5 +5,5 @@
  * Provides wrappers for browser-specific APIs with proper error handling and SSR support
  */
 
-// Export placeholder - will be populated with actual utilities in future tasks
-export {};
+// Clipboard API utilities
+export { readFromClipboard, writeToClipboard } from './clipboard';
