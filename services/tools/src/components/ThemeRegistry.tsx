@@ -20,7 +20,7 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
         <CssBaseline />
         <MigrationDialog />
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Header title='Tools' ariaLabel='Tools ホームページに戻る' />
+          <Header title="Tools" ariaLabel="Tools ホームページに戻る" />
           <Box component="main" sx={{ flexGrow: 1 }}>
             {children}
           </Box>
