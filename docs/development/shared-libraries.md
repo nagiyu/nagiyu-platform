@@ -1,5 +1,30 @@
 # 共通ライブラリ設計
 
+## 実装ステータス
+
+**バージョン**: 1.0.0  
+**ステータス**: ✅ 実装完了・本番利用可能  
+**最終更新**: 2025-12-25
+
+### 実装済みライブラリ
+
+- ✅ **@nagiyu/common** (1.0.0) - 完全フレームワーク非依存の汎用ユーティリティ
+- ✅ **@nagiyu/browser** (1.0.0) - ブラウザAPI依存のユーティリティ（Clipboard, LocalStorage）
+- ✅ **@nagiyu/ui** (1.0.0) - Next.js + Material-UI 依存のUIコンポーネント（Header, Footer, ThemeRegistry）
+
+### 検証状況
+
+- ✅ 全ライブラリのビルド成功
+- ✅ 全ユニットテスト合格（80%以上カバレッジ）
+- ✅ services/tools での実装・テスト完了
+- ✅ E2Eテスト完了（214/228テスト成功）
+- ✅ CI/CDワークフロー設定完了
+- ✅ ドキュメント整備完了
+
+詳細は [shared-libraries-extraction-roadmap.md](../../tasks/shared-libraries-extraction-roadmap.md) を参照。
+
+---
+
 ## 目的
 
 本ドキュメントは、プラットフォームにおける共通ライブラリの設計方針と利用ガイドラインを定義する。
