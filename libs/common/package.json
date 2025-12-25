@@ -11,12 +11,15 @@
     }
   },
   "scripts": {
-    "build": "tsc --project tsconfig.build.json",
+    "build": "tsc",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0"
   }
 }
