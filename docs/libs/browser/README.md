@@ -68,7 +68,7 @@ npm run test:coverage
 ### リント & フォーマット
 
 ```bash
-# リント実行
+# リント実行（src および tests が対象）
 npm run lint
 
 # フォーマット実行

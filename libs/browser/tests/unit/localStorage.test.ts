@@ -323,7 +323,7 @@ describe('localStorage', () => {
       // Arrange
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       // Create a custom error that mimics DOMException with code 22
-      const quotaError: any = new Error('Quota exceeded');
+      const quotaError = new Error('Quota exceeded') as Error & { code: number };
       quotaError.name = 'QuotaExceededError';
       quotaError.code = 22;
       // Make it instanceof DOMException for the check
