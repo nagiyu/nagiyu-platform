@@ -15,9 +15,8 @@ COPY libs/common/package.json ./libs/common/
 COPY libs/browser/package.json ./libs/browser/
 COPY libs/ui/package.json ./libs/ui/
 
-# モノレポ全体の依存関係をインストール
-# npm ci はワークスペースで問題があるため npm install を使用
-RUN npm install
+# npm ciのタイムアウト問題回避のため、--include-workspace-rootと--workspacesを使用
+RUN npm ci --include-workspace-root
 
 # ビルドステージ
 FROM base AS builder
