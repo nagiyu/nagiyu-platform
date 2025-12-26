@@ -94,10 +94,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> "$GITHUB_OUTPUT"
+          echo "AWS Account ID: $ACCOUNT_ID"
+
       - name: CDK Bootstrap (if needed)
         working-directory: ./infra/codec-converter
+        env:
+          ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
         run: |
-          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} \
+          npx cdk bootstrap aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.set-env.outputs.environment }}
 
       - name: CDK Deploy
