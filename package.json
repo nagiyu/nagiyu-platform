@@ -6,7 +6,7 @@
   "workspaces": [
     "services/*",
     "libs/*",
-    "infra/codec-converter"
+    "infra/*"
   ],
   "scripts": {
     "dev:tools": "npm run dev --workspace=services/tools",
