@@ -43,19 +43,18 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: infra/package-lock.json
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
-        working-directory: ./infra
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix infra
 
       - name: Build TypeScript
-        working-directory: ./infra
-        run: npm run build
+        run: npm run build:infra
 
       - name: CDK Synth
-        working-directory: ./infra
-        run: npm run synth
+        run: npm run cdk:synth
 
       - name: Upload CloudFormation templates
         uses: actions/upload-artifact@v4
@@ -81,15 +80,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          cache-dependency-path: infra/package-lock.json
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
-        working-directory: ./infra
-        run: npm ci
+        run: |
+          npm ci
+          npm ci --prefix infra
 
       - name: Build TypeScript
-        working-directory: ./infra
-        run: npm run build
+        run: npm run build:infra
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -99,9 +98,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: CDK Deploy
-        working-directory: ./infra
-        run: |
-          npx cdk deploy --all --require-approval never
+        run: npm run cdk:deploy -- --all --require-approval never
 
       - name: Display deployment summary
         run: |

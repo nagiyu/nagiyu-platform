@@ -10,11 +10,16 @@
   "scripts": {
     "dev:tools": "npm run dev --workspace=services/tools",
     "build": "npm run build --workspaces --if-present",
+    "build:infra": "npm run build --prefix infra",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "format": "npm run format --workspaces --if-present",
-    "format:check": "npm run format:check --workspaces --if-present"
+    "format:check": "npm run format:check --workspaces --if-present",
+    "cdk:synth": "npm run synth --prefix infra",
+    "cdk:deploy": "npm run deploy --prefix infra",
+    "cdk:diff": "npm run diff --prefix infra",
+    "cdk:destroy": "npm run destroy --prefix infra"
   },
   "engines": {
     "node": ">=22.0.0",

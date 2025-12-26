@@ -118,6 +118,16 @@ aws cloudformation deploy \
 
 CDK を使用する場合、まず依存関係をインストールします。
 
+**モノレポルートから実行（推奨）:**
+
+```bash
+# ルートと infra の両方の依存関係をインストール
+npm ci
+npm ci --prefix infra
+```
+
+**または、infra ディレクトリで実行:**
+
 ```bash
 cd infra
 npm ci
@@ -127,6 +137,14 @@ npm ci
 
 利用可能なスタックを確認:
 
+**ルートから実行（推奨）:**
+
+```bash
+npm run cdk:synth
+```
+
+**または、infra ディレクトリで実行:**
+
 ```bash
 cd infra
 npm run synth
@@ -135,6 +153,18 @@ npm run synth
 ### CDK スタックのデプロイ
 
 #### ローカル環境からのデプロイ
+
+**ルートから実行（推奨）:**
+
+```bash
+# すべてのスタックをデプロイ
+npm run cdk:deploy -- --all
+
+# 差分を確認
+npm run cdk:diff
+```
+
+**または、infra ディレクトリで実行:**
 
 ```bash
 cd infra
@@ -153,6 +183,10 @@ npm run deploy -- --all
 #### 承認なしデプロイ（CI/CD用）
 
 ```bash
+# ルートから
+npm run cdk:deploy -- --all --require-approval never
+
+# または infra ディレクトリから
 cd infra
 npx cdk deploy --all --require-approval never
 ```
@@ -160,6 +194,11 @@ npx cdk deploy --all --require-approval never
 ### GitHub Actions による CDK デプロイ
 
 ルートドメイン用の CDK スタックは `.github/workflows/root-deploy.yml` で自動デプロイされます。
+
+**ワークフローの特徴:**
+- モノレポルートから全コマンドを実行
+- `npm run build:infra`, `npm run cdk:synth`, `npm run cdk:deploy` を使用
+- 依存関係は root と infra の両方にインストール
 
 **注記**: `infra/root/**` ディレクトリは今後のイシューで作成されます。現時点ではワークフローが正常に動作し、CDK Synth が成功することを確認します。
 
