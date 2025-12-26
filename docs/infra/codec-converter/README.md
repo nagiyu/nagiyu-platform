@@ -89,4 +89,8 @@ The stack accepts the following context parameters:
 
 ## Architecture
 
-See [Architecture Documentation](../../docs/services/codec-converter/architecture.md) for detailed information about the overall system architecture.
+See [Architecture Documentation](../../services/codec-converter/architecture.md) for detailed information about the overall system architecture.
+
+## CDK Project Location
+
+The CDK TypeScript code is located in `/infra/codec-converter/`.

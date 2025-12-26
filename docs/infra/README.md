@@ -24,6 +24,10 @@ AWS CloudFormation を用いて、共通基盤と各アプリケーション固�
     - [ACM](./shared/acm.md) - SSL/TLS 証明書の管理
     - [CloudFront](./shared/cloudfront.md) - CloudFront の設計と運用
 
+### サービス別インフラ
+
+- [Codec Converter](./codec-converter/README.md) - 動画コーデック変換サービスのインフラ (AWS CDK)
+
 ---
 
 ## インフラディレクトリ構造
@@ -35,12 +39,17 @@ infra/
 │   ├── vpc/         # VPC 関連
 │   └── acm/         # ACM 証明書
 │
+├── codec-converter/ # Codec Converter サービス (AWS CDK)
+│
 └── app-A/           # アプリケーション固有のリソース（将来）
     ├── lambda/      # Lambda 関数
     ├── dynamodb/    # DynamoDB テーブル
     ├── api-gateway/ # API Gateway
     └── cloudfront/  # CloudFront ディストリビューション
 ```
+
+**注**: `infra/` ディレクトリ配下の各サービスは CloudFormation または AWS CDK で定義されます。
+ドキュメントは `docs/infra/` に配置します。
 
 ---
 
