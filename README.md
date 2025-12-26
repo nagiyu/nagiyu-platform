@@ -24,13 +24,19 @@ services/               # アプリケーション
 |
 libs/                   # 共通ライブラリ
 |   |
-|   +-- typescript-common/  # TypeScript 共通
+|   +-- common/         # 完全フレームワーク非依存の汎用ユーティリティ
 |   |
-|   +-- nextjs-common/      # Next.js 共通
+|   +-- browser/        # ブラウザAPI依存のユーティリティ
+|   |
+|   +-- ui/             # Next.js + Material-UI 依存のUIコンポーネント
 |
 docs/                   # ドキュメント関連
 |   |
 |   +-- infra/          # インフラドキュメント
-|       |
-|       +-- shared/     # 共通インフラのドキュメント
+|   |   |
+|   |   +-- shared/     # 共通インフラのドキュメント
+|   |
+|   +-- development/    # 開発ガイドライン
 ```
+
+詳細は [docs/development/](docs/development/) を参照。
