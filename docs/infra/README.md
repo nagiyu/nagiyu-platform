@@ -42,6 +42,9 @@ infra/
     └── cloudfront/  # CloudFront ディストリビューション
 ```
 
+**注**: `infra/` ディレクトリ配下の各サービスは CloudFormation または AWS CDK で定義されます。
+ドキュメントは `docs/infra/` に配置します。
+
 ---
 
 ## 関連ドキュメント

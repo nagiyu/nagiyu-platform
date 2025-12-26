@@ -1,0 +1,20 @@
+{
+  "name": "codec-converter",
+  "version": "0.1.0",
+  "bin": {
+    "codec-converter": "bin/codec-converter.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "aws-cdk": "2.1100.1"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.232.1",
+    "constructs": "^10.0.0"
+  }
+}
