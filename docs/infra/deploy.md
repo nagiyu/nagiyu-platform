@@ -121,9 +121,8 @@ CDK を使用する場合、まず依存関係をインストールします。
 **モノレポルートから実行（推奨）:**
 
 ```bash
-# ルートと infra の両方の依存関係をインストール
+# モノレポ全体の依存関係をインストール（infra を含む）
 npm ci
-npm ci --prefix infra
 ```
 
 **または、infra ディレクトリで実行:**
@@ -140,7 +139,7 @@ npm ci
 **ルートから実行（推奨）:**
 
 ```bash
-npm run cdk:synth
+npm run synth --workspace=@nagiyu/infra
 ```
 
 **または、infra ディレクトリで実行:**
@@ -158,10 +157,10 @@ npm run synth
 
 ```bash
 # すべてのスタックをデプロイ
-npm run cdk:deploy -- --all
+npm run deploy --workspace=@nagiyu/infra -- --all
 
 # 差分を確認
-npm run cdk:diff
+npm run diff --workspace=@nagiyu/infra
 ```
 
 **または、infra ディレクトリで実行:**
@@ -184,7 +183,7 @@ npm run deploy -- --all
 
 ```bash
 # ルートから
-npm run cdk:deploy -- --all --require-approval never
+npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
 
 # または infra ディレクトリから
 cd infra
@@ -197,8 +196,8 @@ npx cdk deploy --all --require-approval never
 
 **ワークフローの特徴:**
 - モノレポルートから全コマンドを実行
-- `npm run build:infra`, `npm run cdk:synth`, `npm run cdk:deploy` を使用
-- 依存関係は root と infra の両方にインストール
+- `npm run build --workspace=@nagiyu/infra`, `npm run synth --workspace=@nagiyu/infra`, `npm run deploy --workspace=@nagiyu/infra` を使用
+- 依存関係は `npm ci` で monorepo 全体をインストール（infra を含む）
 
 **注記**: `infra/root/**` ディレクトリは今後のイシューで作成されます。現時点ではワークフローが正常に動作し、CDK Synth が成功することを確認します。
 
