@@ -1,14 +1,21 @@
-name: All Workspaces - PR Verification
+name: UI Library - Verification
 
 on:
   pull_request:
     branches:
       - develop
-      - master
+      - integration/**
+    paths:
+      - 'libs/ui/**'
+      - 'libs/browser/**'
+      - 'libs/common/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ui-verify.yml'
 
 jobs:
   build:
-    name: Build All Workspaces
+    name: Build Library
     runs-on: ubuntu-latest
 
     steps:
@@ -25,11 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build all workspaces
-        run: npm run build
+      - name: Build library
+        run: npm run build --workspace=@nagiyu/ui
 
   test:
-    name: Test All Workspaces
+    name: Run Unit Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -46,15 +53,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run tests
+        run: npm run test --workspace=@nagiyu/ui
 
-  e2e-test:
-    name: E2E Tests All Workspaces
+  coverage:
+    name: Test Coverage Check
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code
@@ -70,41 +74,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium webkit
-        working-directory: ./services/tools
-
-      - name: Build all workspaces
-        run: npm run build
-
-      - name: Run E2E tests
-        env:
-          CI: true
-        run: |
-          npm run test:e2e
-          if [ $? -ne 0 ]; then
-            echo "E2E tests failed"
-            exit 1
-          fi
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report-all
-          path: services/*/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results-all
-          path: services/*/test-results/
-          retention-days: 30
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace=@nagiyu/ui
 
   lint:
-    name: Lint All Workspaces
+    name: Lint Code
     runs-on: ubuntu-latest
 
     steps:
@@ -122,10 +96,10 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint
+        run: npm run lint --workspace=@nagiyu/ui
 
   format-check:
-    name: Format Check All Workspaces
+    name: Format Check
     runs-on: ubuntu-latest
 
     steps:
@@ -143,13 +117,13 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check
+        run: npm run format:check --workspace=@nagiyu/ui
 
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [build, test, e2e-test, lint, format-check]
+    needs: [build, test, coverage, lint, format-check]
 
     permissions:
       contents: read
@@ -164,7 +138,7 @@ jobs:
             const results = {
               'Build': '${{ needs.build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'E2E Tests': '${{ needs.e2e-test.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}'
             };
@@ -178,11 +152,11 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ All Quality Checks Passed'
-              : '## ❌ Some Quality Checks Failed';
+              ? '## ✅ All Checks Passed'
+              : '## ❌ Some Checks Failed';
 
             let body = `${header}\n\n`;
-            body += '**All Workspaces Verification**\n\n';
+            body += '**UI Library Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

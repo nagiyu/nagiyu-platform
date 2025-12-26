@@ -78,7 +78,12 @@ export default defineConfig({
     //   name: 'Google Chrome',
     //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     // },
-  ],
+  ].filter((project) => {
+    // Filter projects based on PROJECT environment variable
+    const projectFilter = process.env.PROJECT;
+    if (!projectFilter) return true;
+    return project.name === projectFilter;
+  }),
 
   /* Run your local dev server before starting the tests */
   webServer: {

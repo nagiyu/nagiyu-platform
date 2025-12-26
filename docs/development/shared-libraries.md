@@ -108,6 +108,42 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 各ライブラリの更新は、それを利用するサービスにのみ影響。
 
+## ビルド順序
+
+### 依存関係に基づくビルド順序
+
+ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
+
+1. `@nagiyu/common` - 依存なし（最初にビルド）
+2. `@nagiyu/browser` - `@nagiyu/common` に依存
+3. `@nagiyu/ui` - `@nagiyu/browser` に依存
+
+### 正しいビルドコマンド
+
+**モノレポ全体をビルドする場合:**
+
+```bash
+npm run build --workspace @nagiyu/common
+npm run build --workspace @nagiyu/browser
+npm run build --workspace @nagiyu/ui
+```
+
+**重要**: `npm run build --workspaces` は並列実行されるため、依存関係の順序が保証されず、ビルドエラーが発生する可能性があります。
+
+### CI/CDでのビルド
+
+GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行してください。
+
+```yaml
+- name: Build shared libraries
+    run: |
+        npm run build --workspace @nagiyu/common
+        npm run build --workspace @nagiyu/browser
+        npm run build --workspace @nagiyu/ui
+```
+
+詳細は [testing.md](./testing.md) の「GitHub Actions ワークフロー設計パターン」を参照してください。
+
 ## 利用ガイド
 
 ### Next.jsサービスでの使用
@@ -151,6 +187,25 @@ import { something } from '../components/Button';
 - ライブラリとして配布する際の一貫性
 - ビルド設定の複雑化を回避
 - 依存関係の明確化
+
+## TypeScript設定の方針
+
+### テストコードも型チェック対象に含める
+
+ライブラリの `tsconfig.json` では、`tests/` ディレクトリを型チェック対象に含める。
+
+### 理由
+
+- **早期発見**: テストコードの型エラーを開発時に検出
+- **品質向上**: Testing Library のマッチャー（`toBeInTheDocument` 等）の型補完が効く
+- **一貫性**: プロダクションコードと同じ型安全性をテストコードでも維持
+
+### 設計のポイント
+
+- `include` に `tests/**/*` を追加
+- `rootDir` は指定しない（TypeScript が自動的に共通の親ディレクトリを判断）
+- ビルド出力は `dist/src/` と `dist/tests/` に分かれるが、`package.json` の `exports` で `dist/src/index.js` を指定
+- テストファイル（`.test.ts`）は実行時のみ使用され、配布には影響しない
 
 ## 拡張性
 

@@ -14,6 +14,8 @@
 
 ### 標準構成
 
+#### サービス
+
 ```
 services/{service-name}/
 ├── tests/
@@ -21,11 +23,26 @@ services/{service-name}/
 │   └── e2e/            # E2Eテスト（Playwright）
 ```
 
+#### ライブラリ
+
+```
+libs/{library-name}/
+├── tests/
+│   ├── unit/           # ユニットテスト（Jest）
+│   └── setup.ts        # Jest セットアップファイル
+```
+
 ### 設計思想
 
-- テストコードを `tests/` 配下に集約
-- テストの種類ごとにディレクトリを分離
-- 実装コード（`src/`）とテストコードを明確に区分
+- **統一性**: サービスもライブラリも同じ `tests/` 配下にテストを配置
+- **分離**: テストコードを `tests/` 配下に集約し、実装コード（`src/`）と明確に区分
+- **型安全性**: ライブラリでは `tests/` を TypeScript の型チェック対象に含める（詳細は [shared-libraries.md](./shared-libraries.md) 参照）
+
+#### ライブラリでE2Eテストがない理由
+
+- ライブラリは再利用可能なコンポーネント・ユーティリティの提供が責務
+- E2Eテストはサービス側で実施（実際のユーザーフローをテスト）
+- ライブラリではユニットテストで品質を担保
 
 ## ユニットテスト
 
@@ -117,6 +134,116 @@ services/{service-name}/
 - 並列実行数の調整
 - 失敗時のスクリーンショット・動画記録
 - リトライ設定（不安定なテストへの対処）
+
+### GitHub Actions ワークフロー設計パターン
+
+#### 推奨パターン: ターゲット別PR検証ワークフロー
+
+サービスやライブラリごとに専用のPR検証ワークフローを作成することを推奨します。
+
+**ファイル名**: `.github/workflows/{target}-verify.yml` または `.github/workflows/{target}-verify-fast.yml` / `.github/workflows/{target}-verify-full.yml`  
+（例: `hoge-verify.yml` または `hoge-verify-fast.yml` / `hoge-verify-full.yml`）
+
+#### 2段階CI戦略の適用
+
+E2Eテストを持つサービスでは、2段階のワークフローを作成します:
+
+**{target}-verify-fast.yml** (高速フィードバック):
+- トリガー: `integration/**` ブランチへのPR
+- E2Eテスト: chromium-mobile のみ
+- 目的: 開発中の素早いフィードバック
+
+**{target}-verify-full.yml** (完全テスト):
+- トリガー: `develop` ブランチへのPR
+- E2Eテスト: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
+- カバレッジチェック: 80%未満で失敗
+- 目的: マージ前の完全な検証
+
+**ライブラリの場合**:
+- E2Eテストがないため、単一の `{target}-verify.yml` のみ
+- トリガー: `develop` および `integration/**` ブランチへのPR
+
+**トリガー設定のベストプラクティス**:
+
+```yaml
+on:
+    pull_request:
+        branches:
+            - develop           # メインブランチ
+            - integration/**    # 統合ブランチ（fast verifyでは integration/** のみ）
+        paths:
+            - 'libs/hoge/**'           # ターゲットファイル
+            - 'libs/common/**'            # 依存ライブラリ
+            - 'package.json'              # ルートパッケージ定義
+            - 'package-lock.json'         # 依存関係ロック
+            - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
+```
+
+**設計原則**:
+
+1. **ブランチフィルター**: `develop` と `integration/**` を標準とする
+    - `develop`: プロダクションに向けた統合ブランチ
+    - `integration/**`: フィーチャー統合用の作業ブランチ
+
+2. **パスフィルター**: 関連ファイルのみでトリガー
+    - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
+    - **依存対象**: 直接依存するライブラリ（例: `libs/common/**`）
+    - **ルートパッケージ**: `package.json`, `package-lock.json`
+    - **ワークフロー自体**: ワークフロー定義ファイル
+
+3. **ワークスペース指定**: パッケージ名を使用
+    ```yaml
+    - name: Run tests
+        run: npm run test --workspace=@nagiyu/hoge
+    ```
+    - パス指定（`services/hoge`）ではなくパッケージ名（`@nagiyu/hoge`）を使用
+    - より明示的で、リファクタリング時にも対応しやすい
+
+4. **ビルド順序の考慮**: 依存関係に従って順序を守る
+    ```yaml
+    - name: Build shared libraries
+        run: |
+            npm run build --workspace @nagiyu/common
+            npm run build --workspace @nagiyu/browser
+            npm run build --workspace @nagiyu/ui
+
+    - name: Build application
+        run: npm run build --workspace @nagiyu/hoge
+    ```
+    - **重要**: `npm run build` (全ワークスペース並列ビルド) を使用すると依存関係が考慮されず、ビルドエラーが発生する可能性があります
+    - ライブラリ間の依存関係: `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common`
+    - 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」を参照
+
+**標準ジョブ構成**:
+
+- **build**: ビルド検証
+- **test**: ユニットテスト実行
+- **coverage**: テストカバレッジチェック（Jest の `coverageThreshold` 設定により、80%未満で自動失敗）
+- **lint**: ESLint によるコード品質チェック
+- **format-check**: Prettier によるフォーマットチェック
+- **report**: 全ジョブの結果をPRにコメント
+
+**カバレッジチェックの動作**:
+
+Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定義している場合、テストカバレッジが閾値を下回ると `npm run test:coverage` コマンドが非ゼロの終了コードで終了します。これによりGitHub Actionsのジョブが自動的に失敗し、PRマージを防ぎます。
+
+```typescript
+// jest.config.ts
+coverageThreshold: {
+    global: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+    },
+}
+```
+
+**利点**:
+
+- 無関係な変更でワークフローが実行されず、CIリソースを節約
+- 変更対象に応じた適切なテストのみ実行され、高速なフィードバック
+- ワークフロー定義が明確で、メンテナンスしやすい
 
 ## テスト作成ガイドライン
 

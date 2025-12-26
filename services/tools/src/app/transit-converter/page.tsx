@@ -25,7 +25,7 @@ import {
 } from '@/types/tools';
 import { parseTransitText, validateInput } from '@/lib/parsers/transitParser';
 import { formatTransitRoute } from '@/lib/formatters/formatters';
-import { readFromClipboard, writeToClipboard } from '@/lib/clipboard';
+import { readFromClipboard, writeToClipboard, getItem, setItem } from '@nagiyu/browser';
 import DisplaySettingsSection from '@/components/tools/DisplaySettingsSection';
 
 const STORAGE_KEY = 'transit-converter-display-settings';
@@ -47,10 +47,9 @@ function TransitConverterContent() {
   // LocalStorageから設定を読み込む
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = getItem<DisplaySettings>(STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        setDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...parsed });
+        setDisplaySettings({ ...DEFAULT_DISPLAY_SETTINGS, ...saved });
       }
     } catch (error) {
       console.error('Failed to load display settings from localStorage:', error);
@@ -86,7 +85,7 @@ function TransitConverterContent() {
   const handleDisplaySettingsChange = (newSettings: DisplaySettings) => {
     setDisplaySettings(newSettings);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newSettings));
+      setItem(STORAGE_KEY, newSettings);
     } catch (error) {
       console.error('Failed to save display settings to localStorage:', error);
       // 保存エラーは無視（プライベートモード等）
