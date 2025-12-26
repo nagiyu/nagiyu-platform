@@ -1,5 +1,9 @@
 name: Root Domain - CDK Deploy
 
+# This workflow deploys CDK stacks for the root domain (example.com)
+# Note: infra/root/** directory will be created in future issues
+# Currently only validates CDK synth until actual stacks are implemented
+
 on:
   push:
     branches:

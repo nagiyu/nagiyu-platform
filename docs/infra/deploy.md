@@ -161,10 +161,12 @@ npx cdk deploy --all --require-approval never
 
 ルートドメイン用の CDK スタックは `.github/workflows/root-deploy.yml` で自動デプロイされます。
 
+**注記**: `infra/root/**` ディレクトリは今後のイシューで作成されます。現時点ではワークフローが正常に動作し、CDK Synth が成功することを確認します。
+
 - **トリガー条件**: master ブランチへの push で、以下のパスが変更された場合
   - `infra/bin/**`
   - `infra/shared/vpc/**`
-  - `infra/root/**`
+  - `infra/root/**` (将来作成予定)
   - `infra/package.json`
   - `infra/cdk.json`
   - `infra/tsconfig.json`
