@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import Footer from '../../../../src/components/layout/Footer';
 
 describe('Footer', () => {
@@ -33,18 +34,93 @@ describe('Footer', () => {
   });
 
   describe('リンク機能', () => {
-    it('プライバシーポリシーリンクが正しいhrefを持つ', () => {
+    it('プライバシーポリシーリンクがbutton要素としてレンダリングされる', () => {
       render(<Footer />);
 
       const privacyLink = screen.getByText('プライバシーポリシー');
-      expect(privacyLink).toHaveAttribute('href', '/privacy');
+      expect(privacyLink.tagName).toBe('BUTTON');
     });
 
-    it('利用規約リンクが正しいhrefを持つ', () => {
+    it('利用規約リンクがbutton要素としてレンダリングされる', () => {
       render(<Footer />);
 
       const termsLink = screen.getByText('利用規約');
-      expect(termsLink).toHaveAttribute('href', '/terms');
+      expect(termsLink.tagName).toBe('BUTTON');
+    });
+
+    it('プライバシーポリシーリンククリックでダイアログが開く', async () => {
+      const user = userEvent.setup();
+      render(<Footer />);
+
+      const privacyLink = screen.getByText('プライバシーポリシー');
+      await user.click(privacyLink);
+
+      // ダイアログのタイトルが表示されることを確認
+      expect(screen.getByText('プライバシーポリシー', { selector: 'h2' })).toBeInTheDocument();
+    });
+
+    it('利用規約リンククリックでダイアログが開く', async () => {
+      const user = userEvent.setup();
+      render(<Footer />);
+
+      const termsLink = screen.getByText('利用規約');
+      await user.click(termsLink);
+
+      // ダイアログのタイトルが表示されることを確認
+      expect(screen.getByText('利用規約', { selector: 'h2' })).toBeInTheDocument();
+    });
+
+    it('ダイアログの閉じるボタンで閉じることができる', async () => {
+      const user = userEvent.setup();
+      render(<Footer />);
+
+      const privacyLink = screen.getByText('プライバシーポリシー');
+      await user.click(privacyLink);
+
+      // ダイアログが開いていることを確認
+      expect(screen.getByText('プライバシーポリシー', { selector: 'h2' })).toBeInTheDocument();
+
+      // 閉じるボタンを取得してクリック
+      const closeButtons = screen.getAllByText('閉じる');
+      await user.click(closeButtons[0]);
+
+      // ダイアログが閉じていることを確認（h2要素が存在しない）
+      await waitFor(() => {
+        expect(
+          screen.queryByText('プライバシーポリシー', { selector: 'h2' })
+        ).not.toBeInTheDocument();
+      });
+    });
+
+    it('複数のダイアログが独立して動作する', async () => {
+      const user = userEvent.setup();
+      render(<Footer />);
+
+      // プライバシーポリシーを開く
+      const privacyLink = screen.getByText('プライバシーポリシー');
+      await user.click(privacyLink);
+      expect(screen.getByText('プライバシーポリシー', { selector: 'h2' })).toBeInTheDocument();
+
+      // プライバシーポリシーを閉じる
+      const closeButtons = screen.getAllByText('閉じる');
+      await user.click(closeButtons[0]);
+      await waitFor(() => {
+        expect(
+          screen.queryByText('プライバシーポリシー', { selector: 'h2' })
+        ).not.toBeInTheDocument();
+      });
+
+      // 利用規約を開く
+      const termsLink = screen.getByText('利用規約');
+      await user.click(termsLink);
+      expect(screen.getByText('利用規約', { selector: 'h2' })).toBeInTheDocument();
+
+      // 利用規約を閉じる
+      const closeButtons2 = screen.getAllByText('閉じる');
+      await user.click(closeButtons2[0]);
+      await waitFor(() => {
+        expect(screen.queryByText('利用規約', { selector: 'h2' })).not.toBeInTheDocument();
+      });
     });
 
     it('リンクがクリック可能（pointer-eventsがnoneでない）', () => {
@@ -53,20 +129,9 @@ describe('Footer', () => {
       const privacyLink = screen.getByText('プライバシーポリシー');
       const termsLink = screen.getByText('利用規約');
 
-      // pointer-events: none が設定されていないことを確認
       // MUIのLinkコンポーネントはデフォルトでクリック可能
       expect(privacyLink).toBeInTheDocument();
       expect(termsLink).toBeInTheDocument();
-    });
-
-    it('リンクがa要素としてレンダリングされる', () => {
-      render(<Footer />);
-
-      const privacyLink = screen.getByText('プライバシーポリシー');
-      const termsLink = screen.getByText('利用規約');
-
-      expect(privacyLink.tagName).toBe('A');
-      expect(termsLink.tagName).toBe('A');
     });
   });
 
