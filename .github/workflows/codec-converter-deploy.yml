@@ -21,7 +21,6 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write
 
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
@@ -74,6 +73,7 @@ jobs:
         env:
           ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
         run: |
+          # Bootstrap is idempotent - safe to run on every deployment
           npx cdk bootstrap aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.set-env.outputs.environment }}
 
