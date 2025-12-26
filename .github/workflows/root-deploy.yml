@@ -1,0 +1,100 @@
+name: Root Domain - CDK Deploy
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'infra/bin/**'
+      - 'infra/shared/vpc/**'
+      - 'infra/root/**'
+      - 'infra/package.json'
+      - 'infra/cdk.json'
+      - 'infra/tsconfig.json'
+      - '.github/workflows/root-deploy.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '22'
+
+jobs:
+  cdk-synth:
+    name: CDK Synth (Validation)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./infra
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: ./infra
+        run: npm run build
+
+      - name: CDK Synth
+        working-directory: ./infra
+        run: npm run synth
+
+      - name: Upload CloudFormation templates
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-templates
+          path: infra/cdk.out/
+          retention-days: 7
+
+  cdk-deploy:
+    name: CDK Deploy (All Stacks)
+    runs-on: ubuntu-latest
+    needs: cdk-synth
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./infra
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: ./infra
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK Deploy
+        working-directory: ./infra
+        run: |
+          npx cdk deploy --all --require-approval never
+
+      - name: Display deployment summary
+        run: |
+          echo ""
+          echo "=== CDK Deployment Complete ==="
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo ""
+          echo "All CDK stacks have been deployed successfully."

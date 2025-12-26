@@ -112,6 +112,75 @@ aws cloudformation deploy \
 
 ---
 
+## CDK を使用したデプロイ
+
+### CDK の初回セットアップ
+
+CDK を使用する場合、まず依存関係をインストールします。
+
+```bash
+cd infra
+npm ci
+```
+
+### CDK スタックの確認
+
+利用可能なスタックを確認:
+
+```bash
+cd infra
+npm run synth
+```
+
+### CDK スタックのデプロイ
+
+#### ローカル環境からのデプロイ
+
+```bash
+cd infra
+
+# すべてのスタックをデプロイ
+npm run deploy -- --all
+
+# 特定のスタックをデプロイ
+npm run deploy -- <スタック名>
+
+# 差分を確認してからデプロイ
+npm run diff
+npm run deploy -- --all
+```
+
+#### 承認なしデプロイ（CI/CD用）
+
+```bash
+cd infra
+npx cdk deploy --all --require-approval never
+```
+
+### GitHub Actions による CDK デプロイ
+
+ルートドメイン用の CDK スタックは `.github/workflows/root-deploy.yml` で自動デプロイされます。
+
+- **トリガー条件**: master ブランチへの push で、以下のパスが変更された場合
+  - `infra/bin/**`
+  - `infra/shared/vpc/**`
+  - `infra/root/**`
+  - `infra/package.json`
+  - `infra/cdk.json`
+  - `infra/tsconfig.json`
+
+- **デプロイフロー**:
+  1. CDK Synth で構文検証と CloudFormation テンプレート生成
+  2. CDK Deploy ですべてのスタックをデプロイ
+
+ワークフローは手動でも実行可能:
+
+```
+GitHub Actions → root-deploy.yml → Run workflow
+```
+
+---
+
 ## GitHub Actions による自動デプロイ
 
 ### ワークフロー設定例
