@@ -728,7 +728,7 @@ Lambda関数は以前のバージョンへ即座にロールバック可能:
 - Pulumi: CDKと同等の機能だが、AWSエコシステムではCDKが主流
 
 **IaC構成**:
-- CDKプロジェクトは `infrastructure/codec-converter/` に配置
+- CDKプロジェクトは `infra/codec-converter/` に配置
 - 環境ごとのスタック (dev/prod) を分離
 - CI/CDからCDKデプロイを実行
 
