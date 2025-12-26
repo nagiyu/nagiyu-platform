@@ -1,4 +1,4 @@
-name: Tools App - PR Verification
+name: UI Library - Verification
 
 on:
   pull_request:
@@ -6,16 +6,16 @@ on:
       - develop
       - integration/**
     paths:
-      - 'services/tools/**'
-      - 'libs/**'
-      - 'infra/tools/**'
+      - 'libs/ui/**'
+      - 'libs/browser/**'
+      - 'libs/common/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/tools-pr.yml'
+      - '.github/workflows/ui-verify.yml'
 
 jobs:
-  nextjs-build:
-    name: Next.js Build Verification
+  build:
+    name: Build Library
     runs-on: ubuntu-latest
 
     steps:
@@ -32,25 +32,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Build Next.js application
-        run: npm run build --workspace tools
-
-  docker-build:
-    name: Docker Build Verification
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t tools-pr-test -f services/tools/Dockerfile .
+      - name: Build library
+        run: npm run build --workspace=@nagiyu/ui
 
   test:
     name: Run Unit Tests
@@ -71,14 +54,11 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm run test --workspace tools
+        run: npm run test --workspace=@nagiyu/ui
 
-  e2e-test:
-    name: Run E2E Tests
+  coverage:
+    name: Test Coverage Check
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code
@@ -94,41 +74,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium webkit
-        working-directory: ./services/tools
-
-      - name: Run Playwright tests
-        env:
-          CI: true
-        run: |
-          npm run test:e2e --workspace tools
-          if [ $? -ne 0 ]; then
-            echo "E2E tests failed"
-            exit 1
-          fi
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: services/tools/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: services/tools/test-results/
-          retention-days: 30
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace=@nagiyu/ui
 
   lint:
     name: Lint Code
@@ -149,7 +96,7 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint --workspace tools
+        run: npm run lint --workspace=@nagiyu/ui
 
   format-check:
     name: Format Check
@@ -170,13 +117,13 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check --workspace tools
+        run: npm run format:check --workspace=@nagiyu/ui
 
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, e2e-test, lint, format-check]
+    needs: [build, test, coverage, lint, format-check]
 
     permissions:
       contents: read
@@ -189,10 +136,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const results = {
-              'Next.js Build': '${{ needs.nextjs-build.result }}',
-              'Docker Build': '${{ needs.docker-build.result }}',
+              'Build': '${{ needs.build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'E2E Tests': '${{ needs.e2e-test.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}'
             };
@@ -210,6 +156,7 @@ jobs:
               : '## ❌ Some Checks Failed';
 
             let body = `${header}\n\n`;
+            body += '**UI Library Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

@@ -280,41 +280,62 @@ SecurityHeadersPolicy:
 
 ### 4.1 GitHub Actions ワークフロー構成
 
-Tools アプリでは、2つの GitHub Actions ワークフローを使用します:
+Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
 
-#### 1. プルリクエスト検証ワークフロー (`tools-pr.yml`)
+#### 1. 高速検証ワークフロー (`tools-verify-fast.yml`)
 
-**目的**: develop および integration/** ブランチへのプルリクエスト時に品質を検証
+**目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
 
 **トリガー条件**:
 - `pull_request` イベント
-- 対象ブランチ: `develop`, `integration/**`
+- 対象ブランチ: `integration/**`
 - 対象パス:
     - `services/tools/**`
+    - `libs/**`
     - `infra/tools/**`
-    - `.github/workflows/tools-pr.yml`
+    - `.github/workflows/tools-verify-fast.yml`
 
 **実行内容**:
 1. **Next.js ビルド検証**
     - `npm ci` で依存関係をインストール
     - `npm run build` でプロダクションビルドを実行
-    - ビルドエラーの早期検出
+2. **Docker ビルド検証**
+    - Dockerfile を使用したイメージビルド
+3. **単体テスト**
+    - Jest テストスイートの実行
+4. **E2Eテスト (高速)**
+    - chromium-mobile のみで実行
+    - `PROJECT=chromium-mobile` 環境変数を設定
+5. **リント・フォーマットチェック**
 
-2. **Docker イメージビルド検証** (Lambda 用)
-    - Lambda デプロイ用 Docker イメージをビルド
-    - Dockerfile の構文エラーやビルドエラーを検出
-    - ECR へのプッシュは行わない (検証のみ)
+#### 2. 完全検証ワークフロー (`tools-verify-full.yml`)
 
-3. **単体テスト実行**
-    - `npm test` で Jest テストスイートを実行
-    - テストカバレッジの確認
-    - 全テストの合格を必須とする
+**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
+
+**トリガー条件**:
+- `pull_request` イベント
+- 対象ブランチ: `develop`
+- 対象パス:
+    - `services/tools/**`
+    - `libs/**`
+    - `infra/tools/**`
+    - `.github/workflows/tools-verify-full.yml`
+
+**実行内容**:
+1. **Next.js ビルド検証**
+2. **Docker ビルド検証**
+3. **単体テスト**
+4. **カバレッジチェック**
+    - `npm run test:coverage` で80%未満の場合は失敗
+5. **E2Eテスト (完全)**
+    - 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）で実行
+6. **リント・フォーマットチェック**
 
 **マージ条件**:
-- すべてのジョブ (Next.js ビルド、Docker ビルド、テスト) が成功すること
+- すべてのジョブが成功すること
 - GitHub のブランチプロテクションルールで必須チェックとして設定
 
-#### 2. デプロイワークフロー (`tools-deploy.yml`)
+#### 3. デプロイワークフロー (`tools-deploy.yml`)
 
 **目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
 
