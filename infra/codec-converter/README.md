@@ -57,11 +57,26 @@ npx cdk deploy --context env=dev
 npx cdk deploy --context env=prod
 ```
 
+### Deploy with custom CORS origin
+
+```bash
+npx cdk deploy --context env=dev --context allowedOrigin=https://your-custom-domain.com
+```
+
 ### Destroy stack
 
 ```bash
 npx cdk destroy --context env=dev
 ```
+
+## Configuration
+
+The stack accepts the following context parameters:
+
+- `env`: Environment name (default: `dev`)
+  - Used for resource naming: `nagiyu-codec-converter-{resource}-{env}`
+- `allowedOrigin`: CORS allowed origin (default: `https://codec-converter.nagiyu.com`)
+  - Configure the origin allowed to make cross-origin requests to S3
 
 ## Useful commands
 

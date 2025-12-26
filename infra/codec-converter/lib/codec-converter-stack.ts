@@ -1,4 +1,4 @@
-import * as cdk from 'aws-cdk-lib/core';
+import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
@@ -9,6 +9,9 @@ export class CodecConverterStack extends cdk.Stack {
 
     // Environment name (default to 'dev')
     const envName = this.node.tryGetContext('env') || 'dev';
+    
+    // CORS allowed origin (configurable per environment)
+    const allowedOrigin = this.node.tryGetContext('allowedOrigin') || 'https://codec-converter.nagiyu.com';
 
     // S3 Bucket for input/output files
     const storageBucket = new s3.Bucket(this, 'StorageBucket', {
@@ -25,7 +28,7 @@ export class CodecConverterStack extends cdk.Stack {
       ],
       cors: [
         {
-          allowedOrigins: ['https://codec-converter.nagiyu.com'],
+          allowedOrigins: [allowedOrigin],
           allowedMethods: [s3.HttpMethods.PUT, s3.HttpMethods.GET],
           allowedHeaders: ['*'],
           maxAge: 3600,
