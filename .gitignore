@@ -70,3 +70,11 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# AWS CDK
+cdk.out/
+*.js
+*.d.ts
+!jest.config.js
+!eslint.config.js
+!eslint.config.mjs
