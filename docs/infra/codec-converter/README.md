@@ -1,96 +1,96 @@
-# Codec Converter Infrastructure
+# Codec Converter インフラストラクチャ
 
-AWS CDK project for Codec Converter infrastructure.
+Codec Converter サービスの AWS CDK プロジェクト
 
-## Overview
+## 概要
 
-This CDK project provisions the following AWS resources:
+この CDK プロジェクトは以下の AWS リソースをプロビジョニングします：
 
-- **S3 Bucket**: Storage for input/output video files
-  - Bucket name: `nagiyu-codec-converter-storage-{env}`
-  - SSE-S3 encryption enabled
-  - 24-hour lifecycle policy for automatic deletion
-  - CORS configuration for browser uploads
-  - Private access (Presigned URL only)
+- **S3 バケット**: 入力/出力動画ファイルのストレージ
+  - バケット名: `nagiyu-codec-converter-storage-{env}`
+  - SSE-S3 暗号化有効
+  - 24時間ライフサイクルポリシー（自動削除）
+  - CORS 設定（ブラウザアップロード対応）
+  - プライベートアクセス（Presigned URL のみ）
 
-- **DynamoDB Table**: Job management
-  - Table name: `nagiyu-codec-converter-jobs-{env}`
-  - Partition key: `jobId` (String)
-  - TTL enabled on `expiresAt` attribute
-  - On-demand billing mode
+- **DynamoDB テーブル**: ジョブ管理
+  - テーブル名: `nagiyu-codec-converter-jobs-{env}`
+  - パーティションキー: `jobId` (String)
+  - TTL 有効（`expiresAt` 属性）
+  - オンデマンド課金モード
 
-## Prerequisites
+## 前提条件
 
-- AWS CLI configured with appropriate credentials
+- AWS CLI が適切な認証情報で設定されていること
 - Node.js >= 22.0.0
 - npm >= 10.0.0
 
-## Usage
+## 使用方法
 
-### Install dependencies
+### 依存関係のインストール
 
 ```bash
 npm install
 ```
 
-### Build the project
+### プロジェクトのビルド
 
 ```bash
 npm run build
 ```
 
-### Synthesize CloudFormation template
+### CloudFormation テンプレートの合成
 
 ```bash
 npx cdk synth
 ```
 
-### Deploy to dev environment
+### dev 環境へのデプロイ
 
 ```bash
 npx cdk deploy --context env=dev
 ```
 
-### Deploy to prod environment
+### prod 環境へのデプロイ
 
 ```bash
 npx cdk deploy --context env=prod
 ```
 
-### Deploy with custom CORS origin
+### カスタム CORS オリジンを指定してデプロイ
 
 ```bash
 npx cdk deploy --context env=dev --context allowedOrigin=https://your-custom-domain.com
 ```
 
-### Destroy stack
+### スタックの削除
 
 ```bash
 npx cdk destroy --context env=dev
 ```
 
-## Configuration
+## 設定
 
-The stack accepts the following context parameters:
+スタックは以下のコンテキストパラメータを受け付けます：
 
-- `env`: Environment name (default: `dev`)
-  - Used for resource naming: `nagiyu-codec-converter-{resource}-{env}`
-- `allowedOrigin`: CORS allowed origin (default: `https://codec-converter.nagiyu.com`)
-  - Configure the origin allowed to make cross-origin requests to S3
+- `env`: 環境名（デフォルト: `dev`）
+  - リソース命名に使用: `nagiyu-codec-converter-{resource}-{env}`
+- `allowedOrigin`: CORS 許可オリジン（デフォルト: `https://codec-converter.nagiyu.com`）
+  - S3 へのクロスオリジンリクエストを許可するオリジンを設定
 
-## Useful commands
+## 便利なコマンド
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+* `npm run build`   TypeScript から JavaScript へコンパイル
+* `npm run watch`   変更を監視してコンパイル
+* `npm run test`    Jest 単体テストを実行
+* `npx cdk deploy`  デフォルトの AWS アカウント/リージョンにスタックをデプロイ
+* `npx cdk diff`    デプロイ済みスタックと現在の状態を比較
+* `npx cdk synth`   合成された CloudFormation テンプレートを出力
 
-## Architecture
+## アーキテクチャ
 
-See [Architecture Documentation](../../services/codec-converter/architecture.md) for detailed information about the overall system architecture.
+システム全体のアーキテクチャに関する詳細は [アーキテクチャドキュメント](../../services/codec-converter/architecture.md) を参照してください。
 
-## CDK Project Location
+## CDK プロジェクトの場所
 
-The CDK TypeScript code is located in `/infra/codec-converter/`.
+CDK TypeScript コードは `/infra/codec-converter/` に配置されています。
