@@ -27,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
 
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,6 +57,10 @@ jobs:
     name: Deploy CDK Infrastructure
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/master')
+
+    permissions:
+      contents: read
+      id-token: write
 
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
