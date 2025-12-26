@@ -86,7 +86,9 @@ describe('Footer', () => {
 
       // ダイアログが閉じていることを確認（h2要素が存在しない）
       await waitFor(() => {
-        expect(screen.queryByText('プライバシーポリシー', { selector: 'h2' })).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('プライバシーポリシー', { selector: 'h2' })
+        ).not.toBeInTheDocument();
       });
     });
 
@@ -103,7 +105,9 @@ describe('Footer', () => {
       const closeButtons = screen.getAllByText('閉じる');
       await user.click(closeButtons[0]);
       await waitFor(() => {
-        expect(screen.queryByText('プライバシーポリシー', { selector: 'h2' })).not.toBeInTheDocument();
+        expect(
+          screen.queryByText('プライバシーポリシー', { selector: 'h2' })
+        ).not.toBeInTheDocument();
       });
 
       // 利用規約を開く
