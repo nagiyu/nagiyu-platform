@@ -10,9 +10,7 @@ test.describe('Privacy Policy Dialog', () => {
     await dismissMigrationDialogIfVisible(page);
   });
 
-  test('フッターのプライバシーポリシーリンクをクリックするとダイアログが開く', async ({
-    page,
-  }) => {
+  test('フッターのプライバシーポリシーリンクをクリックするとダイアログが開く', async ({ page }) => {
     // Footer should be visible
     const footer = page.locator('footer');
     await expect(footer).toBeVisible();
@@ -233,9 +231,7 @@ test.describe('Multiple Dialogs Interaction', () => {
     await expect(dialog.getByText('プライバシーポリシー').first()).toBeVisible();
 
     // Close privacy policy dialog
-    let footerCloseButton = page
-      .locator('[role="dialog"]')
-      .getByRole('button', { name: '閉じる' });
+    let footerCloseButton = page.locator('[role="dialog"]').getByRole('button', { name: '閉じる' });
     await footerCloseButton.click();
     await expect(dialog).not.toBeVisible();
 
