@@ -1,19 +1,14 @@
-name: Common Library - PR Verification
+name: All Workspaces - Verification
 
 on:
   pull_request:
     branches:
       - develop
-      - integration/**
-    paths:
-      - 'libs/common/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/common-pr.yml'
+      - master
 
 jobs:
   build:
-    name: Build Library
+    name: Build All Workspaces
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +25,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build library
-        run: npm run build --workspace=@nagiyu/common
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build services
+        run: npm run build --workspace tools
 
   test:
-    name: Run Unit Tests
+    name: Test All Workspaces
     runs-on: ubuntu-latest
 
     steps:
@@ -51,12 +52,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm run test --workspace=@nagiyu/common
+      - name: Run unit tests
+        run: npm run test
 
-  coverage:
-    name: Test Coverage Check
+  e2e-test:
+    name: E2E Tests All Workspaces
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout code
@@ -72,11 +76,47 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests with coverage
-        run: npm run test:coverage --workspace=@nagiyu/common
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium webkit
+        working-directory: ./services/tools
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build services
+        run: npm run build --workspace tools
+
+      - name: Run E2E tests
+        env:
+          CI: true
+        run: |
+          npm run test:e2e
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-all
+          path: services/*/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-all
+          path: services/*/test-results/
+          retention-days: 30
 
   lint:
-    name: Lint Code
+    name: Lint All Workspaces
     runs-on: ubuntu-latest
 
     steps:
@@ -94,10 +134,10 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint --workspace=@nagiyu/common
+        run: npm run lint
 
   format-check:
-    name: Format Check
+    name: Format Check All Workspaces
     runs-on: ubuntu-latest
 
     steps:
@@ -115,13 +155,13 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check --workspace=@nagiyu/common
+        run: npm run format:check
 
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [build, test, coverage, lint, format-check]
+    needs: [build, test, e2e-test, lint, format-check]
 
     permissions:
       contents: read
@@ -136,7 +176,7 @@ jobs:
             const results = {
               'Build': '${{ needs.build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'Coverage Check': '${{ needs.coverage.result }}',
+              'E2E Tests': '${{ needs.e2e-test.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}'
             };
@@ -150,11 +190,11 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ All Checks Passed'
-              : '## ❌ Some Checks Failed';
+              ? '## ✅ All Quality Checks Passed'
+              : '## ❌ Some Quality Checks Failed';
 
             let body = `${header}\n\n`;
-            body += '**Common Library Verification**\n\n';
+            body += '**All Workspaces Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

@@ -236,23 +236,23 @@ curl https://<FUNCTION_URL>/api/health
 
 ### 3.1 ワークフロー概要
 
-Tools アプリでは、2つの GitHub Actions ワークフローを使用します:
+Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
 
-#### 1. プルリクエスト検証ワークフロー (`.github/workflows/tools-pr.yml`)
+#### 1. 高速検証ワークフロー (`.github/workflows/tools-verify-fast.yml`)
 
-**目的**: develop および integration/** ブランチへのプルリクエスト時に品質を検証
+**目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
 
 **トリガー条件**:
 ```yaml
 on:
   pull_request:
     branches:
-        - develop
         - integration/**
     paths:
         - 'services/tools/**'
+        - 'libs/**'
         - 'infra/tools/**'
-        - '.github/workflows/tools-pr.yml'
+        - '.github/workflows/tools-verify-fast.yml'
 ```
 
 **ジョブ構成**:
@@ -271,11 +271,51 @@ on:
     - Jest テストスイートの実行 (`npm test`)
     - すべてのテストの合格を確認
 
+4. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
+    - Playwright テストの実行（`PROJECT=chromium-mobile`）
+    - 高速フィードバックのため最小構成
+
+5. **lint**: リントチェック
+6. **format-check**: フォーマットチェック
+
 **マージ条件**:
 - すべてのジョブが成功すること
+
+#### 2. 完全検証ワークフロー (`.github/workflows/tools-verify-full.yml`)
+
+**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
+
+**トリガー条件**:
+```yaml
+on:
+  pull_request:
+    branches:
+        - develop
+    paths:
+        - 'services/tools/**'
+        - 'libs/**'
+        - 'infra/tools/**'
+        - '.github/workflows/tools-verify-full.yml'
+```
+
+**ジョブ構成**:
+
+1. **nextjs-build**: Next.js アプリケーションのビルド検証
+2. **docker-build**: Lambda 用 Docker イメージのビルド検証
+3. **test**: 単体テストの実行
+4. **coverage**: テストカバレッジチェック
+    - `npm run test:coverage` で80%未満の場合は失敗
+5. **e2e-test**: E2Eテストの実行（全デバイス）
+    - 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）で実行
+6. **lint**: リントチェック
+7. **format-check**: フォーマットチェック
+
+**マージ条件**:
+- すべてのジョブが成功すること
+- カバレッジが80%以上であること
 - GitHub のブランチプロテクションルールで必須チェックとして設定推奨
 
-#### 2. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
+#### 3. デプロイワークフロー (`.github/workflows/tools-deploy.yml`)
 
 **目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
 
@@ -314,15 +354,29 @@ on:
 #### プルリクエスト作成時
 
 ```bash
-# feature ブランチから develop へのプルリクエスト作成
+# feature ブランチから integration/** へのプルリクエスト作成
 git checkout -b feature/new-tool
 git push origin feature/new-tool
 
-# GitHub でプルリクエスト作成
-# → tools-pr.yml が自動実行される
+# GitHub でプルリクエストを integration/feature-test ブランチに作成
+# → tools-verify-fast.yml が自動実行される
 #   ✓ Next.js ビルド検証
 #   ✓ Docker ビルド検証
 #   ✓ 単体テスト実行
+#   ✓ E2Eテスト実行（chromium-mobile のみ）
+#   ✓ リントチェック
+#   ✓ フォーマットチェック
+# → すべて成功でマージ可能
+
+# integration/** ブランチから develop へのプルリクエスト作成
+# → tools-verify-full.yml が自動実行される
+#   ✓ Next.js ビルド検証
+#   ✓ Docker ビルド検証
+#   ✓ 単体テスト実行
+#   ✓ カバレッジチェック（80%以上）
+#   ✓ E2Eテスト実行（全デバイス）
+#   ✓ リントチェック
+#   ✓ フォーマットチェック
 # → すべて成功でマージ可能
 ```
 

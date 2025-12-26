@@ -141,8 +141,27 @@ libs/{library-name}/
 
 サービスやライブラリごとに専用のPR検証ワークフローを作成することを推奨します。
 
-**ファイル名**: `.github/workflows/{target}-pr.yml`  
-（例: `hoge-pr.yml`）
+**ファイル名**: `.github/workflows/{target}-verify.yml` または `.github/workflows/{target}-verify-fast.yml` / `.github/workflows/{target}-verify-full.yml`  
+（例: `hoge-verify.yml` または `hoge-verify-fast.yml` / `hoge-verify-full.yml`）
+
+#### 2段階CI戦略の適用
+
+E2Eテストを持つサービスでは、2段階のワークフローを作成します:
+
+**{target}-verify-fast.yml** (高速フィードバック):
+- トリガー: `integration/**` ブランチへのPR
+- E2Eテスト: chromium-mobile のみ
+- 目的: 開発中の素早いフィードバック
+
+**{target}-verify-full.yml** (完全テスト):
+- トリガー: `develop` ブランチへのPR
+- E2Eテスト: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
+- カバレッジチェック: 80%未満で失敗
+- 目的: マージ前の完全な検証
+
+**ライブラリの場合**:
+- E2Eテストがないため、単一の `{target}-verify.yml` のみ
+- トリガー: `develop` および `integration/**` ブランチへのPR
 
 **トリガー設定のベストプラクティス**:
 
@@ -151,13 +170,13 @@ on:
     pull_request:
         branches:
             - develop           # メインブランチ
-            - integration/**    # 統合ブランチ
+            - integration/**    # 統合ブランチ（fast verifyでは integration/** のみ）
         paths:
             - 'libs/hoge/**'           # ターゲットファイル
             - 'libs/common/**'            # 依存ライブラリ
             - 'package.json'              # ルートパッケージ定義
             - 'package-lock.json'         # 依存関係ロック
-            - '.github/workflows/hoge-pr.yml'  # ワークフロー自体
+            - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
 ```
 
 **設計原則**:
