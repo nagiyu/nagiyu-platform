@@ -50,8 +50,6 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
               onClick={() => setPrivacyOpen(true)}
               sx={{
                 color: 'text.secondary',
-                textDecoration: 'none',
-                cursor: 'pointer',
               }}
             >
               プライバシーポリシー
@@ -63,8 +61,6 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
               onClick={() => setTermsOpen(true)}
               sx={{
                 color: 'text.secondary',
-                textDecoration: 'none',
-                cursor: 'pointer',
               }}
             >
               利用規約
