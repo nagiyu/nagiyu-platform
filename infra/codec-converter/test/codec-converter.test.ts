@@ -12,11 +12,11 @@ test('S3 Bucket Created', () => {
       ServerSideEncryptionConfiguration: [
         {
           ServerSideEncryptionByDefault: {
-            SSEAlgorithm: 'AES256'
-          }
-        }
-      ]
-    }
+            SSEAlgorithm: 'AES256',
+          },
+        },
+      ],
+    },
   });
 });
 
@@ -29,7 +29,7 @@ test('DynamoDB Table Created', () => {
     BillingMode: 'PAY_PER_REQUEST',
     TimeToLiveSpecification: {
       AttributeName: 'expiresAt',
-      Enabled: true
-    }
+      Enabled: true,
+    },
   });
 });
