@@ -73,8 +73,6 @@ Thumbs.db
 
 # AWS CDK
 cdk.out/
-*.js
-*.d.ts
-!jest.config.js
-!eslint.config.js
-!eslint.config.mjs
+infra/**/*.js
+infra/**/*.d.ts
+!infra/**/jest.config.js
