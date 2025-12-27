@@ -31,7 +31,7 @@ export class AlbStack extends cdk.Stack {
     const vpcAttributes =
       environment === 'prod'
         ? {
-            vpcId: vpcId,
+            vpcId,
             availabilityZones: ['us-east-1a', 'us-east-1b'],
             publicSubnetIds: [
               cdk.Fn.select(0, publicSubnetIds),
@@ -39,7 +39,7 @@ export class AlbStack extends cdk.Stack {
             ],
           }
         : {
-            vpcId: vpcId,
+            vpcId,
             availabilityZones: ['us-east-1a'],
             publicSubnetIds: [cdk.Fn.select(0, publicSubnetIds)],
           };
