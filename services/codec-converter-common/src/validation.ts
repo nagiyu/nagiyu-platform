@@ -39,8 +39,7 @@ export function validateFileSize(fileSize: number): ValidationResult {
  * @returns バリデーション結果
  */
 export function validateMimeType(mimeType: string): ValidationResult {
-  const allowedMimeTypes: readonly string[] = ALLOWED_MIME_TYPES;
-  if (!allowedMimeTypes.includes(mimeType)) {
+  if (!ALLOWED_MIME_TYPES.includes(mimeType as (typeof ALLOWED_MIME_TYPES)[number])) {
     return {
       isValid: false,
       errorMessage: 'MP4ファイルのみアップロード可能です',
@@ -57,9 +56,8 @@ export function validateMimeType(mimeType: string): ValidationResult {
  */
 export function validateFileExtension(fileName: string): ValidationResult {
   const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
-  const allowedExtensions: readonly string[] = ALLOWED_FILE_EXTENSIONS;
 
-  if (!allowedExtensions.includes(extension)) {
+  if (!ALLOWED_FILE_EXTENSIONS.includes(extension as (typeof ALLOWED_FILE_EXTENSIONS)[number])) {
     return {
       isValid: false,
       errorMessage: 'MP4ファイルのみアップロード可能です',

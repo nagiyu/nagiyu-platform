@@ -5,7 +5,8 @@ const config: Config.InitialOptions = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
-  // Exclude monorepo root from module scanning
+  // Exclude monorepo root package.json to prevent Jest from scanning workspace root,
+  // which can cause module resolution issues in monorepo setups
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
   // Handle ES modules
   extensionsToTreatAsEsm: ['.ts'],
