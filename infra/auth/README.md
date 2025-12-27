@@ -16,7 +16,7 @@ AWS infrastructure for the Auth service, including DynamoDB user table, Secrets 
 - Billing Mode: `PAY_PER_REQUEST` (auto-scaling)
 - Point-in-time recovery: Enabled
 - Encryption: AWS managed key (default)
-- DeletionPolicy: `RETAIN` (prod), `DELETE` (dev/staging)
+- DeletionPolicy: `RETAIN` (prod), `DELETE` (dev)
 
 **Attributes** (application-defined, not in schema):
 - `userId`: Platform user ID (UUID v4)
@@ -82,19 +82,6 @@ aws cloudformation deploy \
   --tags Application=nagiyu Service=auth Environment=dev
 ```
 
-### Deploy to Staging Environment
-
-```bash
-# Replace 'dev' with 'staging' in all commands above
-aws cloudformation deploy \
-  --template-file infra/auth/dynamodb.yaml \
-  --stack-name nagiyu-auth-dynamodb-staging \
-  --parameter-overrides Environment=staging \
-  --tags Application=nagiyu Service=auth Environment=staging
-
-# ... repeat for secrets and ecr
-```
-
 ### Deploy to Production Environment
 
 ```bash
@@ -119,7 +106,6 @@ After deploying Secrets Manager, you must manually update the Google OAuth crede
    - Create OAuth 2.0 Client ID (Web application)
    - Authorized redirect URIs:
      - Dev: `https://dev-auth.nagiyu.com/api/auth/callback/google`
-     - Staging: `https://staging-auth.nagiyu.com/api/auth/callback/google`
      - Prod: `https://auth.nagiyu.com/api/auth/callback/google`
 
 2. **Update Secret in AWS**:
@@ -128,14 +114,6 @@ After deploying Secrets Manager, you must manually update the Google OAuth crede
    # Dev environment
    aws secretsmanager put-secret-value \
      --secret-id nagiyu-auth-google-oauth-dev \
-     --secret-string '{
-       "clientId": "YOUR_CLIENT_ID.apps.googleusercontent.com",
-       "clientSecret": "GOCSPX-YOUR_CLIENT_SECRET"
-     }'
-
-   # Staging environment
-   aws secretsmanager put-secret-value \
-     --secret-id nagiyu-auth-google-oauth-staging \
      --secret-string '{
        "clientId": "YOUR_CLIENT_ID.apps.googleusercontent.com",
        "clientSecret": "GOCSPX-YOUR_CLIENT_SECRET"

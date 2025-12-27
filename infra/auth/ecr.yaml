@@ -4,9 +4,9 @@ Description: 'ECR Repository for Auth Service'
 Parameters:
   Environment:
     Type: String
-    AllowedValues: [dev, staging, prod]
+    AllowedValues: [dev, prod]
     Default: dev
-    Description: Environment name (dev/staging/prod)
+    Description: Environment name (dev/prod)
 
   RepositoryName:
     Type: String
@@ -64,6 +64,6 @@ Outputs:
 
   RepositoryName:
     Description: ECR Repository Name
-    Value: !Sub '${RepositoryName}-${Environment}'
+    Value: !Ref AuthECRRepository
     Export:
       Name: !Sub '${AWS::StackName}-RepositoryName'

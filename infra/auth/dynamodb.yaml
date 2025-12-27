@@ -4,9 +4,9 @@ Description: 'DynamoDB User Table for Auth Service'
 Parameters:
   Environment:
     Type: String
-    AllowedValues: [dev, staging, prod]
+    AllowedValues: [dev, prod]
     Default: dev
-    Description: Environment name (dev/staging/prod)
+    Description: Environment name (dev/prod)
 
 Conditions:
   IsProduction: !Equals [!Ref Environment, prod]
