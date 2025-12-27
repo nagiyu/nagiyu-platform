@@ -100,18 +100,22 @@ jobs:
       - name: Get latest ECR image tag
         id: get-image-tag
         run: |
-          # Get ECR repository name from CloudFormation stack
-          REPOSITORY_NAME=$(aws cloudformation describe-stacks \
+          # Get ECR repository URI from CloudFormation stack
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name nagiyu-tools-ecr-prod \
-            --query "Stacks[0].Outputs[?OutputKey=='RepositoryName'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region ${{ env.AWS_REGION }})
 
-          if [ -z "$REPOSITORY_NAME" ]; then
-            echo "Warning: Could not find ECR repository, using 'latest' as fallback"
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Warning: Could not find ECR repository URI, using 'latest' as fallback"
             echo "image-tag=latest" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          # Extract repository name from URI (format: account.dkr.ecr.region.amazonaws.com/repo-name)
+          REPOSITORY_NAME=$(echo "$REPOSITORY_URI" | awk -F'/' '{print $NF}')
+          echo "Repository name: $REPOSITORY_NAME"
 
           # Get the most recent image tag (sorted by push date)
           IMAGE_TAG=$(aws ecr describe-images \
