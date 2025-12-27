@@ -69,73 +69,70 @@ infra/auth/
 
 ## Prerequisites
 
-- Node.js 18.x or later
+- Node.js 22.x or later (as per monorepo requirements)
 - AWS CLI configured with appropriate credentials
-- AWS CDK CLI: `npm install -g aws-cdk`
+- AWS CDK CLI (will be installed via npm)
 
 ## Installation
 
-```bash
-cd infra/auth
-npm install
-```
+**Note**: This project is part of the nagiyu-platform monorepo. Commands should be run from the repository root using workspace specification.
 
-## Build
+From the repository root:
 
 ```bash
-npm run build
+# Install all dependencies
+npm ci
+
+# Build the auth infrastructure package
+npm run build --workspace=@nagiyu/infra-auth
 ```
 
 ## CDK Commands
+
+**All commands should be run from the repository root.**
 
 ### Synthesize CloudFormation template
 
 ```bash
 # Dev environment
-npm run synth -- --context env=dev
+npm run synth --workspace=@nagiyu/infra-auth -- --context env=dev
 
 # Prod environment
-npm run synth -- --context env=prod
-```
-
-Or use the CDK CLI directly:
-
-```bash
-npx cdk synth --context env=dev
+npm run synth --workspace=@nagiyu/infra-auth -- --context env=prod
 ```
 
 ### Deploy
 
 ```bash
 # Bootstrap (first time only)
-npx cdk bootstrap aws://{account-id}/{region}
+npm run cdk --workspace=@nagiyu/infra-auth -- bootstrap aws://{account-id}/{region}
 
 # Deploy all stacks to dev
-npm run deploy:dev
+npm run deploy:dev --workspace=@nagiyu/infra-auth
 
 # Deploy all stacks to prod
-npm run deploy:prod
+npm run deploy:prod --workspace=@nagiyu/infra-auth
 
 # Deploy specific stack
-npx cdk deploy Auth-DynamoDB-dev --context env=dev
-npx cdk deploy Auth-Secrets-dev --context env=dev
-npx cdk deploy Auth-ECR-dev --context env=dev
+npm run cdk --workspace=@nagiyu/infra-auth -- deploy Auth-DynamoDB-dev --context env=dev
+npm run cdk --workspace=@nagiyu/infra-auth -- deploy Auth-Secrets-dev --context env=dev
+npm run cdk --workspace=@nagiyu/infra-auth -- deploy Auth-ECR-dev --context env=dev
 ```
 
 ### View differences
 
 ```bash
 # Dev environment
-npm run diff:dev
+npm run diff:dev --workspace=@nagiyu/infra-auth
 
 # Prod environment
-npm run diff:prod
+npm run diff:prod --workspace=@nagiyu/infra-auth
 ```
 
 ### List all stacks
 
 ```bash
-npx cdk list --context env=dev
+npm run cdk --workspace=@nagiyu/infra-auth -- list --context env=dev
 ```
 
 ## Post-Deployment Configuration
@@ -209,20 +206,23 @@ Each stack exports values that can be referenced by other stacks:
 **Warning**: Be careful when deleting production stacks. Resources in production have `RETAIN` removal policy.
 
 ```bash
-# Destroy dev stacks
-npx cdk destroy Auth-ECR-dev --context env=dev
-npx cdk destroy Auth-Secrets-dev --context env=dev
-npx cdk destroy Auth-DynamoDB-dev --context env=dev
+# Destroy dev stacks (from repository root)
+npm run cdk --workspace=@nagiyu/infra-auth -- destroy Auth-ECR-dev --context env=dev
+npm run cdk --workspace=@nagiyu/infra-auth -- destroy Auth-Secrets-dev --context env=dev
+npm run cdk --workspace=@nagiyu/infra-auth -- destroy Auth-DynamoDB-dev --context env=dev
 
 # Destroy all dev stacks
-npx cdk destroy --context env=dev --all
+npm run cdk --workspace=@nagiyu/infra-auth -- destroy --context env=dev --all
 ```
 
 ## Troubleshooting
 
 ### Issue: CDK synth fails with TypeScript errors
 
-**Solution**: Run `npm run build` to compile TypeScript files first.
+**Solution**: Run build first from the repository root:
+```bash
+npm run build --workspace=@nagiyu/infra-auth
+```
 
 ### Issue: Stack deployment fails with permission error
 

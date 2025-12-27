@@ -1,19 +1,19 @@
 {
-  "name": "auth-infrastructure",
+  "name": "@nagiyu/infra-auth",
   "version": "1.0.0",
   "description": "Auth Service AWS CDK Infrastructure",
   "main": "lib/auth-stack.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "cdk": "cdk",
-    "synth": "cdk synth",
-    "deploy": "cdk deploy",
-    "deploy:dev": "cdk deploy --context env=dev --all",
-    "deploy:prod": "cdk deploy --context env=prod --all",
-    "diff": "cdk diff",
-    "diff:dev": "cdk diff --context env=dev",
-    "diff:prod": "cdk diff --context env=prod"
+    "cdk": "npx cdk",
+    "synth": "npx cdk synth",
+    "deploy": "npx cdk deploy",
+    "deploy:dev": "npx cdk deploy --context env=dev --all",
+    "deploy:prod": "npx cdk deploy --context env=prod --all",
+    "diff": "npx cdk diff",
+    "diff:dev": "npx cdk diff --context env=dev",
+    "diff:prod": "npx cdk diff --context env=prod"
   },
   "keywords": ["aws", "cdk", "auth", "infrastructure"],
   "author": "",

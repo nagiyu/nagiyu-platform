@@ -31,37 +31,33 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: infra/auth/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: infra/auth
         run: npm ci
 
       - name: Build TypeScript
-        working-directory: infra/auth
-        run: npm run build
+        run: npm run build --workspace=@nagiyu/infra-auth
 
       - name: Synthesize CDK stacks (${{ matrix.environment }})
-        working-directory: infra/auth
-        run: npx cdk synth --context env=${{ matrix.environment }}
+        run: npm run synth --workspace=@nagiyu/infra-auth -- --context env=${{ matrix.environment }}
 
       - name: Validate generated CloudFormation templates
-        working-directory: infra/auth
         run: |
           echo "Validating CloudFormation templates for ${{ matrix.environment }} environment..."
           
           # Check if templates were generated
-          if [ ! -d "cdk.out" ]; then
+          if [ ! -d "infra/auth/cdk.out" ]; then
             echo "Error: cdk.out directory not found"
             exit 1
           fi
           
           # List generated templates
           echo "Generated templates:"
-          ls -la cdk.out/*.template.json 2>/dev/null || echo "No templates found"
+          ls -la infra/auth/cdk.out/*.template.json 2>/dev/null || echo "No templates found"
           
           # Count templates
-          template_count=$(ls cdk.out/*.template.json 2>/dev/null | wc -l)
+          template_count=$(ls infra/auth/cdk.out/*.template.json 2>/dev/null | wc -l)
           echo "Total templates: $template_count"
           
           if [ "$template_count" -eq 0 ]; then

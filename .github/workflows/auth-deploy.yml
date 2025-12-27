@@ -42,15 +42,13 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: infra/auth/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: infra/auth
         run: npm ci
 
       - name: Build TypeScript
-        working-directory: infra/auth
-        run: npm run build
+        run: npm run build --workspace=@nagiyu/infra-auth
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -60,16 +58,14 @@ jobs:
           aws-region: us-east-1
 
       - name: CDK Bootstrap (if needed)
-        working-directory: infra/auth
         run: |
           echo "Checking if CDK bootstrap is needed..."
-          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/us-east-1 --context env=${{ steps.env.outputs.environment }} || echo "Bootstrap already exists"
+          npm run cdk --workspace=@nagiyu/infra-auth -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/us-east-1 --context env=${{ steps.env.outputs.environment }} || echo "Bootstrap already exists"
 
       - name: Deploy Auth Infrastructure
-        working-directory: infra/auth
         run: |
           echo "Deploying Auth infrastructure to ${{ steps.env.outputs.environment }} environment..."
-          npx cdk deploy --context env=${{ steps.env.outputs.environment }} --all --require-approval never
+          npm run deploy --workspace=@nagiyu/infra-auth -- --context env=${{ steps.env.outputs.environment }} --all --require-approval never
 
       - name: Display Stack Outputs
         run: |
