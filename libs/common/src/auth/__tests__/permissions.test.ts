@@ -88,9 +88,7 @@ describe('Permission Functions', () => {
     });
 
     it('should return true when user has all of the permissions', () => {
-      expect(hasAnyPermission(['admin'], ['users:read', 'users:write', 'roles:assign'])).toBe(
-        true
-      );
+      expect(hasAnyPermission(['admin'], ['users:read', 'users:write', 'roles:assign'])).toBe(true);
     });
 
     it('should return false when user has none of the permissions', () => {
@@ -106,9 +104,7 @@ describe('Permission Functions', () => {
     });
 
     it('should handle multiple roles correctly', () => {
-      expect(
-        hasAnyPermission(['user-manager', 'admin'], ['logs:read', 'roles:assign'])
-      ).toBe(true);
+      expect(hasAnyPermission(['user-manager', 'admin'], ['logs:read', 'roles:assign'])).toBe(true);
     });
   });
 
