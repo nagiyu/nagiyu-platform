@@ -17,8 +17,8 @@ RUN npm ci
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build --workspace=services/codec-converter-common
-RUN npm run build --workspace=codec-converter
+RUN npm run build --workspace=@nagiyu-platform/codec-converter-common
+RUN npm run build --workspace=codec-converter-app
 
 # 本番ステージ
 FROM base AS runner
