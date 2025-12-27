@@ -156,6 +156,9 @@ export class EcsServiceStack extends cdk.Stack {
       `${ecrStackName}-RepositoryUri`
     );
 
+    // Get image tag from environment variable, default to 'latest'
+    const imageTag = process.env.IMAGE_TAG || 'latest';
+
     // Create Task Definition
     this.taskDefinition = new ecs.FargateTaskDefinition(
       this,
@@ -172,7 +175,7 @@ export class EcsServiceStack extends cdk.Stack {
     // Add container to Task Definition
     const container = this.taskDefinition.addContainer('tools-app', {
       containerName: 'tools-app',
-      image: ecs.ContainerImage.fromRegistry(`${ecrRepositoryUri}:latest`),
+      image: ecs.ContainerImage.fromRegistry(`${ecrRepositoryUri}:${imageTag}`),
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'ecs',
         logGroup: logGroup,

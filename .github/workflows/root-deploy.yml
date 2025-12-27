@@ -97,9 +97,41 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get latest ECR image tag
+        id: get-image-tag
+        run: |
+          # Get ECR repository name from CloudFormation stack
+          REPOSITORY_NAME=$(aws cloudformation describe-stacks \
+            --stack-name nagiyu-tools-ecr-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryName'].OutputValue" \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+
+          if [ -z "$REPOSITORY_NAME" ]; then
+            echo "Warning: Could not find ECR repository, using 'latest' as fallback"
+            echo "image-tag=latest" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get the most recent image tag (sorted by push date)
+          IMAGE_TAG=$(aws ecr describe-images \
+            --repository-name "$REPOSITORY_NAME" \
+            --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
+            --output text \
+            --region ${{ env.AWS_REGION }})
+
+          if [ -z "$IMAGE_TAG" ] || [ "$IMAGE_TAG" = "None" ]; then
+            echo "Warning: No images found in ECR repository, using 'latest' as fallback"
+            echo "image-tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found latest image tag: $IMAGE_TAG"
+            echo "image-tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: CDK Deploy
         env:
           ENVIRONMENT: prod
+          IMAGE_TAG: ${{ steps.get-image-tag.outputs.image-tag }}
         run: npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
 
       - name: Display deployment summary
