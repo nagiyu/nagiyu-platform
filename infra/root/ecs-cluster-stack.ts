@@ -15,9 +15,12 @@ export class EcsClusterStack extends cdk.Stack {
 
     const { environment } = props;
 
+    // Define cluster name as a constant for consistency
+    const clusterName = `nagiyu-root-cluster-${environment}`;
+
     // Create ECS Cluster (using CfnCluster to avoid automatic VPC creation)
     const cfnCluster = new ecs.CfnCluster(this, 'RootCluster', {
-      clusterName: `nagiyu-root-cluster-${environment}`,
+      clusterName: clusterName,
       clusterSettings: [
         {
           name: 'containerInsights',
@@ -38,7 +41,7 @@ export class EcsClusterStack extends cdk.Stack {
     );
 
     // Store cluster details (use explicit values to avoid undefined issues)
-    this.clusterName = `nagiyu-root-cluster-${environment}`;
+    this.clusterName = clusterName;
     this.clusterArn = cfnCluster.attrArn;
 
     // Add tags
