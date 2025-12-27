@@ -114,6 +114,9 @@ aws cloudformation deploy \
 
 ## CDK を使用したデプロイ
 
+CDK (AWS Cloud Development Kit) を使用して、TypeScript でインフラストラクチャを定義・デプロイします。
+詳細な移行戦略とガイドラインは [CDK 移行ガイド](./cdk-migration.md) を参照してください。
+
 ### CDK の初回セットアップ
 
 CDK を使用する場合、まず依存関係をインストールします。
