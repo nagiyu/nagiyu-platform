@@ -25,6 +25,9 @@ RUN npm run build --workspace=tools
 FROM base AS runner
 WORKDIR /app
 
+# Install curl for health checks
+RUN apk add --no-cache curl
+
 # Lambda Web Adapter のバイナリをコピー
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
 
