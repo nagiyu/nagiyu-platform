@@ -7,6 +7,8 @@ name: Root Domain - CDK Deploy
 on:
   push:
     branches:
+      - develop
+      - integration/**
       - master
     paths:
       - 'infra/bin/**'
