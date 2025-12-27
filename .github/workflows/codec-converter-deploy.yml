@@ -1,0 +1,99 @@
+name: Codec Converter - Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - "infra/codec-converter/**"
+      - ".github/workflows/codec-converter-deploy.yml"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    name: Deploy CDK Infrastructure
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      stack-name: ${{ steps.set-env.outputs.stack-name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "stack-name=CodecConverterStack-prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "stack-name=CodecConverterStack-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CDK project
+        run: npm run build --workspace codec-converter
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> "$GITHUB_OUTPUT"
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: CDK Bootstrap (if needed)
+        working-directory: ./infra/codec-converter
+        env:
+          ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
+        run: |
+          # Bootstrap is idempotent - safe to run on every deployment
+          npx cdk bootstrap aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
+            --context env=${{ steps.set-env.outputs.environment }}
+
+      - name: CDK Deploy
+        working-directory: ./infra/codec-converter
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          npx cdk deploy ${{ steps.set-env.outputs.stack-name }} \
+            --context env=$ENVIRONMENT \
+            --require-approval never \
+            --verbose
+
+      - name: Display stack outputs
+        env:
+          STACK_NAME: ${{ steps.set-env.outputs.stack-name }}
+        run: |
+          echo "=== CDK Stack Outputs ==="
+          aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs" \
+            --region ${{ env.AWS_REGION }} \
+            --output table
