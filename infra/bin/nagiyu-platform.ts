@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { EcsClusterStack } from '../root/ecs-cluster-stack';
+import { AlbStack } from '../root/alb-stack';
 
 const app = new cdk.App();
 
@@ -16,6 +17,13 @@ new EcsClusterStack(app, `nagiyu-root-ecs-cluster-${environment}`, {
   env: { account, region },
   environment,
   description: `ECS Cluster for nagiyu root domain (${environment})`,
+});
+
+// ALB Stack for root domain
+new AlbStack(app, `nagiyu-root-alb-${environment}`, {
+  env: { account, region },
+  environment,
+  description: `Application Load Balancer for nagiyu root domain (${environment})`,
 });
 
 app.synth();
