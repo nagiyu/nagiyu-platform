@@ -6,5 +6,5 @@
  * across all services without any framework dependencies.
  */
 
-// Currently empty - utilities will be added in future phases
-export {};
+// Auth module - Authentication and Authorization utilities
+export * from './auth/index.js';
