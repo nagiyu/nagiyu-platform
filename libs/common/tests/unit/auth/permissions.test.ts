@@ -7,7 +7,7 @@ import {
   requirePermission,
   hasAnyPermission,
   hasAllPermissions,
-} from '../permissions';
+} from '../../../src/auth/permissions';
 
 describe('Permission Functions', () => {
   describe('hasPermission', () => {

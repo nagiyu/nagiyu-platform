@@ -3,7 +3,7 @@ import type { Config } from '@jest/types';
 const config: Config.InitialOptions = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/tests', '<rootDir>/src'],
+  roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   // Exclude monorepo root from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
