@@ -16,6 +16,43 @@ Codec Converterは、サーバーレスアーキテクチャを採用した動�
 | **Batch** | 動画変換処理 | AWS Batch (Fargate) + FFmpeg |
 | **ECR** | コンテナイメージレジストリ | Amazon ECR |
 
+### 共有パッケージ: `@nagiyu-platform/codec-converter-common`
+
+Next.js Lambda と Batch Worker で共通して使用する TypeScript パッケージ。
+
+**配置場所**: `services/codec-converter-common/`
+
+**提供機能**:
+- **型定義**: `Job`, `JobStatus`, `CodecType`
+- **定数**: `MAX_FILE_SIZE` (500MB), `CONVERSION_TIMEOUT_SECONDS` (7200秒), `JOB_EXPIRATION_SECONDS` (86400秒), `ALLOWED_MIME_TYPES`, `ALLOWED_FILE_EXTENSIONS`, `CODEC_FILE_EXTENSIONS`
+- **バリデーション関数**: `validateFileSize()`, `validateMimeType()`, `validateFileExtension()`, `validateFile()`
+
+**使用例**:
+```typescript
+import {
+  Job,
+  JobStatus,
+  MAX_FILE_SIZE,
+  validateFile,
+} from '@nagiyu-platform/codec-converter-common';
+
+// バリデーション
+const result = validateFile('video.mp4', 100 * 1024 * 1024, 'video/mp4');
+if (!result.isValid) {
+  return { error: result.errorMessage };
+}
+
+// 型安全なジョブ作成
+const job: Job = {
+  jobId: uuid(),
+  status: 'PENDING',
+  outputCodec: 'h264',
+  // ...
+};
+```
+
+**注**: このパッケージは `services/` 配下に配置されており、Codec Converter サービス専用です。プラットフォーム全体で共有するライブラリは `libs/` 配下に配置します。
+
 ---
 
 ## システム構成図
