@@ -16,9 +16,9 @@ RUN npm ci
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build --workspace=libs/common
-RUN npm run build --workspace=libs/browser
-RUN npm run build --workspace=libs/ui
+RUN npm run build --workspace=@nagiyu/common
+RUN npm run build --workspace=@nagiyu/browser
+RUN npm run build --workspace=@nagiyu/ui
 RUN npm run build --workspace=@nagiyu/auth
 
 # 本番ステージ
