@@ -54,6 +54,8 @@ jobs:
         run: npm run build --workspace=@nagiyu/infra
 
       - name: CDK Synth
+        env:
+          ENVIRONMENT: prod
         run: npm run synth --workspace=@nagiyu/infra
 
       - name: Upload CloudFormation templates
@@ -96,6 +98,8 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: CDK Deploy
+        env:
+          ENVIRONMENT: prod
         run: npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
 
       - name: Display deployment summary
