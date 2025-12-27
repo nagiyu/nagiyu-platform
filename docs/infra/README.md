@@ -41,12 +41,17 @@ infra/
 │   ├── vpc/         # VPC 関連
 │   └── acm/         # ACM 証明書
 ├── root/             # ルートドメインリソース (CDK)
+├── app-A/            # アプリケーション固有のリソース (将来)
+│   ├── lambda/      # Lambda 関数
+│   ├── dynamodb/    # DynamoDB テーブル
+│   ├── api-gateway/ # API Gateway
+│   └── cloudfront/  # CloudFront ディストリビューション
 ├── cdk.json          # CDK 設定
 ├── tsconfig.json     # TypeScript 設定
 └── package.json      # 依存関係
 ```
 
-**注:** 既存リソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。
+**注:** 現時点で作成済みのリソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。将来的には全リソースを CDK に移行する予定です。
 
 ---
 

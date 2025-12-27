@@ -71,12 +71,17 @@ infra/
 │
 ├── root/               # ルートドメインリソース (CDK)
 │   └── (将来の CDK スタック実装)
+├── app-A/              # アプリケーション固有のリソース (将来)
+│   ├── lambda/         # Lambda 関数
+│   ├── dynamodb/       # DynamoDB テーブル
+│   ├── api-gateway/    # API Gateway
+│   └── cloudfront/     # CloudFront ディストリビューション
 ├── cdk.json            # CDK 設定
 ├── tsconfig.json       # TypeScript 設定
 └── package.json        # 依存関係
 ```
 
-**注:** 既存リソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。詳細は [CDK 移行ガイド](./cdk-migration.md) を参照。
+**注:** 現時点で作成済みのリソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。将来的には全リソースを CDK に移行する予定です。詳細は [CDK 移行ガイド](./cdk-migration.md) を参照。
 
 ---
 
@@ -135,10 +140,16 @@ infra/
 
 #### その他のアプリケーション (将来実装予定)
 
+各アプリケーション専用のリソース。
+
 - **Lambda 関数**: サーバーレスアプリケーションロジック
 - **DynamoDB テーブル**: NoSQL データベース
 - **API Gateway**: REST API / HTTP API エンドポイント
 - **S3 バケット**: 静的コンテンツ (HTML, CSS, JS, 画像)
+- **CloudFront ディストリビューション**: カスタムドメインでの配信
+  - オリジン: S3, API Gateway, ALB, Lambda Function URL
+  - ACM 証明書を使用した HTTPS 配信
+  - 外部 DNS サービスから CNAME で参照
 
 ---
 
