@@ -7,9 +7,13 @@ const config: Config.InitialOptions = {
   testMatch: ['**/*.test.ts'],
   // Exclude monorepo root from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
+  // Support .js extensions in imports (ES modules)
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   // Common coverage settings
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/**/index.ts'],
   coverageThreshold: {
     global: {
       branches: 80,
