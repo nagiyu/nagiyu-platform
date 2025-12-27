@@ -23,13 +23,7 @@ export default function HomePage() {
           サインインするには、以下のボタンをクリックしてください。
         </Typography>
 
-        <Button
-          variant="contained"
-          size="large"
-          startIcon={<LoginIcon />}
-          disabled
-          sx={{ mt: 2 }}
-        >
+        <Button variant="contained" size="large" startIcon={<LoginIcon />} disabled sx={{ mt: 2 }}>
           Google でサインイン
         </Button>
 
