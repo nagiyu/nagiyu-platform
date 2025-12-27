@@ -6,7 +6,8 @@ import { EcsClusterStack } from '../root/ecs-cluster-stack';
 const app = new cdk.App();
 
 // Environment configuration
-const environment = process.env.ENVIRONMENT || 'prod';
+// Default to 'dev' to prevent accidental production deployments
+const environment = process.env.ENVIRONMENT || 'dev';
 const account = process.env.CDK_DEFAULT_ACCOUNT;
 const region = 'us-east-1';
 

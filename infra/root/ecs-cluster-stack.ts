@@ -37,8 +37,8 @@ export class EcsClusterStack extends cdk.Stack {
       }
     );
 
-    // Store cluster details
-    this.clusterName = cfnCluster.clusterName!;
+    // Store cluster details (use explicit values to avoid undefined issues)
+    this.clusterName = `nagiyu-root-cluster-${environment}`;
     this.clusterArn = cfnCluster.attrArn;
 
     // Add tags
