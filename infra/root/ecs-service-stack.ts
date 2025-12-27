@@ -116,16 +116,30 @@ export class EcsServiceStack extends cdk.Stack {
       ],
     });
 
-    // Add ECR permissions to Task Execution Role
+    // Get ECR repository ARN for scoped permissions
+    const ecrStackName = `nagiyu-tools-ecr-${environment}`;
+    const ecrRepositoryArn = cdk.Fn.importValue(
+      `${ecrStackName}-RepositoryArn`
+    );
+
+    // Add ECR permissions to Task Execution Role (scoped to specific repository)
     taskExecutionRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
-          'ecr:GetAuthorizationToken',
           'ecr:BatchCheckLayerAvailability',
           'ecr:GetDownloadUrlForLayer',
           'ecr:BatchGetImage',
         ],
+        resources: [ecrRepositoryArn],
+      })
+    );
+
+    // ECR GetAuthorizationToken requires * resource (AWS requirement)
+    taskExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['ecr:GetAuthorizationToken'],
         resources: ['*'],
       })
     );
@@ -138,7 +152,6 @@ export class EcsServiceStack extends cdk.Stack {
 
     // Get ECR repository URI from CloudFormation export
     // The tools-deploy.yml creates nagiyu-tools-ecr-prod stack
-    const ecrStackName = `nagiyu-tools-ecr-${environment}`;
     const ecrRepositoryUri = cdk.Fn.importValue(
       `${ecrStackName}-RepositoryUri`
     );
@@ -165,7 +178,7 @@ export class EcsServiceStack extends cdk.Stack {
         logGroup: logGroup,
       }),
       environment: {
-        NODE_ENV: 'production',
+        NODE_ENV: environment === 'prod' ? 'production' : 'development',
         PORT: '3000',
       },
       portMappings: [
@@ -177,7 +190,7 @@ export class EcsServiceStack extends cdk.Stack {
       healthCheck: {
         command: [
           'CMD-SHELL',
-          'curl -f http://localhost:3000/api/health || exit 1',
+          'wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1',
         ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
