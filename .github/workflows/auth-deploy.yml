@@ -1,0 +1,112 @@
+name: Auth Infrastructure - Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'infra/auth/**'
+      - '.github/workflows/auth-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine environment from branch
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: infra/auth/package-lock.json
+
+      - name: Install dependencies
+        working-directory: infra/auth
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: infra/auth
+        run: npm run build
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: CDK Bootstrap (if needed)
+        working-directory: infra/auth
+        run: |
+          echo "Checking if CDK bootstrap is needed..."
+          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/us-east-1 --context env=${{ steps.env.outputs.environment }} || echo "Bootstrap already exists"
+
+      - name: Deploy Auth Infrastructure
+        working-directory: infra/auth
+        run: |
+          echo "Deploying Auth infrastructure to ${{ steps.env.outputs.environment }} environment..."
+          npx cdk deploy --context env=${{ steps.env.outputs.environment }} --all --require-approval never
+
+      - name: Display Stack Outputs
+        run: |
+          echo "## Auth Infrastructure Deployment - ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # DynamoDB Stack
+          echo "### DynamoDB Stack" >> $GITHUB_STEP_SUMMARY
+          aws cloudformation describe-stacks \
+            --stack-name Auth-DynamoDB-${{ steps.env.outputs.environment }} \
+            --query "Stacks[0].Outputs" \
+            --region us-east-1 \
+            --output table >> $GITHUB_STEP_SUMMARY || echo "Stack not found" >> $GITHUB_STEP_SUMMARY
+          
+          # Secrets Stack
+          echo "### Secrets Manager Stack" >> $GITHUB_STEP_SUMMARY
+          aws cloudformation describe-stacks \
+            --stack-name Auth-Secrets-${{ steps.env.outputs.environment }} \
+            --query "Stacks[0].Outputs" \
+            --region us-east-1 \
+            --output table >> $GITHUB_STEP_SUMMARY || echo "Stack not found" >> $GITHUB_STEP_SUMMARY
+          
+          # ECR Stack
+          echo "### ECR Stack" >> $GITHUB_STEP_SUMMARY
+          aws cloudformation describe-stacks \
+            --stack-name Auth-ECR-${{ steps.env.outputs.environment }} \
+            --query "Stacks[0].Outputs" \
+            --region us-east-1 \
+            --output table >> $GITHUB_STEP_SUMMARY || echo "Stack not found" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post-deployment reminder
+        run: |
+          echo "## ⚠️ Post-Deployment Actions Required" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Don't forget to update Google OAuth credentials:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "aws secretsmanager put-secret-value \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --secret-id nagiyu-auth-google-oauth-${{ steps.env.outputs.environment }} \\" >> $GITHUB_STEP_SUMMARY
+          echo '  --secret-string '"'"'{"clientId":"YOUR_ID","clientSecret":"YOUR_SECRET"}'"'"'' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY

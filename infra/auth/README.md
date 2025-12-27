@@ -1,10 +1,26 @@
-# Auth Service Infrastructure
+# Auth Service Infrastructure (AWS CDK)
 
-AWS infrastructure for the Auth service, including DynamoDB user table, Secrets Manager for OAuth credentials, and ECR repository.
+AWS CDK infrastructure for the Auth service, including DynamoDB user table, Secrets Manager for OAuth credentials, and ECR repository.
+
+## Project Structure
+
+```
+infra/auth/
+├── bin/
+│   └── auth.ts                 # CDK アプリエントリーポイント
+├── lib/
+│   ├── auth-stack.ts           # メインスタック
+│   ├── dynamodb-stack.ts       # DynamoDB テーブル
+│   ├── secrets-stack.ts        # Secrets Manager
+│   └── ecr-stack.ts            # ECR リポジトリ
+├── cdk.json                    # CDK 設定
+├── package.json                # 依存関係
+└── tsconfig.json               # TypeScript 設定
+```
 
 ## Resources
 
-### 1. DynamoDB User Table (`dynamodb.yaml`)
+### 1. DynamoDB User Table
 
 **Table Name**: `nagiyu-auth-users-{env}`
 
@@ -16,19 +32,19 @@ AWS infrastructure for the Auth service, including DynamoDB user table, Secrets 
 - Billing Mode: `PAY_PER_REQUEST` (auto-scaling)
 - Point-in-time recovery: Enabled
 - Encryption: AWS managed key (default)
-- DeletionPolicy: `RETAIN` (prod), `DELETE` (dev)
+- RemovalPolicy: `RETAIN` (prod), `DESTROY` (dev)
 
-**Attributes** (application-defined, not in schema):
+**Attributes** (application-defined):
 - `userId`: Platform user ID (UUID v4)
 - `googleId`: Google OAuth ID
 - `email`: Email address
 - `name`: Display name
+- `picture`: Profile picture URL (optional)
 - `roles`: Array of role IDs (e.g., `["admin", "user-manager"]`)
 - `createdAt`: Creation timestamp (ISO 8601)
 - `updatedAt`: Update timestamp (ISO 8601)
-- `lastLoginAt`: Last login timestamp (ISO 8601)
 
-### 2. Secrets Manager (`secrets.yaml`)
+### 2. Secrets Manager
 
 **Secrets**:
 
@@ -41,7 +57,7 @@ AWS infrastructure for the Auth service, including DynamoDB user table, Secrets 
    - Automatically generated 32-character random string
    - Used for JWT signing
 
-### 3. ECR Repository (`ecr.yaml`)
+### 3. ECR Repository
 
 **Repository Name**: `nagiyu-auth-{env}`
 
@@ -49,50 +65,77 @@ AWS infrastructure for the Auth service, including DynamoDB user table, Secrets 
 - Image scanning: Enabled on push
 - Tag mutability: `MUTABLE`
 - Lifecycle policy: Keep latest 10 images only
+- RemovalPolicy: `RETAIN` (prod), `DESTROY` (dev)
 
-## Deployment
+## Prerequisites
 
-### Prerequisites
-
+- Node.js 18.x or later
 - AWS CLI configured with appropriate credentials
-- Deployment permissions (IAM policies from `infra/shared/iam/`)
+- AWS CDK CLI: `npm install -g aws-cdk`
 
-### Deploy to Dev Environment
+## Installation
 
 ```bash
-# 1. Deploy DynamoDB table
-aws cloudformation deploy \
-  --template-file infra/auth/dynamodb.yaml \
-  --stack-name nagiyu-auth-dynamodb-dev \
-  --parameter-overrides Environment=dev \
-  --tags Application=nagiyu Service=auth Environment=dev
-
-# 2. Deploy Secrets Manager
-aws cloudformation deploy \
-  --template-file infra/auth/secrets.yaml \
-  --stack-name nagiyu-auth-secrets-dev \
-  --parameter-overrides Environment=dev \
-  --tags Application=nagiyu Service=auth Environment=dev
-
-# 3. Deploy ECR repository
-aws cloudformation deploy \
-  --template-file infra/auth/ecr.yaml \
-  --stack-name nagiyu-auth-ecr-dev \
-  --parameter-overrides Environment=dev \
-  --tags Application=nagiyu Service=auth Environment=dev
+cd infra/auth
+npm install
 ```
 
-### Deploy to Production Environment
+## Build
 
 ```bash
-# Replace 'dev' with 'prod' in all commands above
-aws cloudformation deploy \
-  --template-file infra/auth/dynamodb.yaml \
-  --stack-name nagiyu-auth-dynamodb-prod \
-  --parameter-overrides Environment=prod \
-  --tags Application=nagiyu Service=auth Environment=prod
+npm run build
+```
 
-# ... repeat for secrets and ecr
+## CDK Commands
+
+### Synthesize CloudFormation template
+
+```bash
+# Dev environment
+npm run synth -- --context env=dev
+
+# Prod environment
+npm run synth -- --context env=prod
+```
+
+Or use the CDK CLI directly:
+
+```bash
+npx cdk synth --context env=dev
+```
+
+### Deploy
+
+```bash
+# Bootstrap (first time only)
+npx cdk bootstrap aws://{account-id}/{region}
+
+# Deploy all stacks to dev
+npm run deploy:dev
+
+# Deploy all stacks to prod
+npm run deploy:prod
+
+# Deploy specific stack
+npx cdk deploy Auth-DynamoDB-dev --context env=dev
+npx cdk deploy Auth-Secrets-dev --context env=dev
+npx cdk deploy Auth-ECR-dev --context env=dev
+```
+
+### View differences
+
+```bash
+# Dev environment
+npm run diff:dev
+
+# Prod environment
+npm run diff:prod
+```
+
+### List all stacks
+
+```bash
+npx cdk list --context env=dev
 ```
 
 ## Post-Deployment Configuration
@@ -161,41 +204,25 @@ Each stack exports values that can be referenced by other stacks:
 - `{StackName}-RepositoryArn`: ECR repository ARN
 - `{StackName}-RepositoryName`: ECR repository name
 
-## Update Stack
+## Destroy Stack
 
-To update an existing stack:
-
-```bash
-aws cloudformation update-stack \
-  --stack-name nagiyu-auth-dynamodb-dev \
-  --template-body file://infra/auth/dynamodb.yaml \
-  --parameters ParameterKey=Environment,ParameterValue=dev
-```
-
-Or use `deploy` command which handles both create and update:
+**Warning**: Be careful when deleting production stacks. Resources in production have `RETAIN` removal policy.
 
 ```bash
-aws cloudformation deploy \
-  --template-file infra/auth/dynamodb.yaml \
-  --stack-name nagiyu-auth-dynamodb-dev \
-  --parameter-overrides Environment=dev
-```
+# Destroy dev stacks
+npx cdk destroy Auth-ECR-dev --context env=dev
+npx cdk destroy Auth-Secrets-dev --context env=dev
+npx cdk destroy Auth-DynamoDB-dev --context env=dev
 
-## Delete Stack
-
-**Warning**: Be careful when deleting production stacks. DynamoDB table in production has `RETAIN` deletion policy.
-
-```bash
-# Delete dev stacks
-aws cloudformation delete-stack --stack-name nagiyu-auth-ecr-dev
-aws cloudformation delete-stack --stack-name nagiyu-auth-secrets-dev
-aws cloudformation delete-stack --stack-name nagiyu-auth-dynamodb-dev
-
-# For production, DynamoDB table will be retained even after stack deletion
-aws cloudformation delete-stack --stack-name nagiyu-auth-dynamodb-prod
+# Destroy all dev stacks
+npx cdk destroy --context env=dev --all
 ```
 
 ## Troubleshooting
+
+### Issue: CDK synth fails with TypeScript errors
+
+**Solution**: Run `npm run build` to compile TypeScript files first.
 
 ### Issue: Stack deployment fails with permission error
 
@@ -205,12 +232,8 @@ aws cloudformation delete-stack --stack-name nagiyu-auth-dynamodb-prod
 
 **Solution**: Ensure your Lambda execution role has `secretsmanager:GetSecretValue` permission for the secret ARN.
 
-### Issue: DynamoDB table already exists
-
-**Solution**: Use a different stack name or delete the existing stack first.
-
 ## Related Documentation
 
 - [Auth Service Architecture](../../docs/services/auth/architecture.md)
 - [Infrastructure Architecture](../../docs/infra/architecture.md)
-- [Deployment Guide](../../docs/infra/deploy.md)
+- [AWS CDK Documentation](https://docs.aws.amazon.com/cdk/v2/guide/home.html)

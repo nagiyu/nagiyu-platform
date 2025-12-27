@@ -1,0 +1,31 @@
+{
+  "name": "auth-infrastructure",
+  "version": "1.0.0",
+  "description": "Auth Service AWS CDK Infrastructure",
+  "main": "lib/auth-stack.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "deploy:dev": "cdk deploy --context env=dev --all",
+    "deploy:prod": "cdk deploy --context env=prod --all",
+    "diff": "cdk diff",
+    "diff:dev": "cdk diff --context env=dev",
+    "diff:prod": "cdk diff --context env=prod"
+  },
+  "keywords": ["aws", "cdk", "auth", "infrastructure"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "aws-cdk-lib": "^2.233.0",
+    "constructs": "^10.4.4",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
