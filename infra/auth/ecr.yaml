@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECR Repository for Auth Service'
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: [dev, staging, prod]
+    Default: dev
+    Description: Environment name (dev/staging/prod)
+
+  RepositoryName:
+    Type: String
+    Default: nagiyu-auth
+    Description: Base name for ECR repository
+
+Resources:
+  AuthECRRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${RepositoryName}-${Environment}'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      ImageTagMutability: MUTABLE
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": {
+                  "type": "expire"
+                }
+              }
+            ]
+          }
+      Tags:
+        - Key: Application
+          Value: nagiyu
+        - Key: Service
+          Value: auth
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: Container image storage for Auth service
+
+Outputs:
+  RepositoryUri:
+    Description: ECR Repository URI
+    Value: !GetAtt AuthECRRepository.RepositoryUri
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryUri'
+
+  RepositoryArn:
+    Description: ECR Repository ARN
+    Value: !GetAtt AuthECRRepository.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryArn'
+
+  RepositoryName:
+    Description: ECR Repository Name
+    Value: !Sub '${RepositoryName}-${Environment}'
+    Export:
+      Name: !Sub '${AWS::StackName}-RepositoryName'
