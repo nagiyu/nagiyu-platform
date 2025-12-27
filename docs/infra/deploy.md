@@ -118,17 +118,8 @@ aws cloudformation deploy \
 
 CDK を使用する場合、まず依存関係をインストールします。
 
-**モノレポルートから実行（推奨）:**
-
 ```bash
 # モノレポ全体の依存関係をインストール（infra を含む）
-npm ci
-```
-
-**または、infra ディレクトリで実行:**
-
-```bash
-cd infra
 npm ci
 ```
 
@@ -136,24 +127,13 @@ npm ci
 
 利用可能なスタックを確認:
 
-**ルートから実行（推奨）:**
-
 ```bash
 npm run synth --workspace=@nagiyu/infra
-```
-
-**または、infra ディレクトリで実行:**
-
-```bash
-cd infra
-npm run synth
 ```
 
 ### CDK スタックのデプロイ
 
 #### ローカル環境からのデプロイ
-
-**ルートから実行（推奨）:**
 
 ```bash
 # すべてのスタックをデプロイ
@@ -161,33 +141,15 @@ npm run deploy --workspace=@nagiyu/infra -- --all
 
 # 差分を確認
 npm run diff --workspace=@nagiyu/infra
-```
-
-**または、infra ディレクトリで実行:**
-
-```bash
-cd infra
-
-# すべてのスタックをデプロイ
-npm run deploy -- --all
 
 # 特定のスタックをデプロイ
-npm run deploy -- <スタック名>
-
-# 差分を確認してからデプロイ
-npm run diff
-npm run deploy -- --all
+npm run deploy --workspace=@nagiyu/infra -- <スタック名>
 ```
 
 #### 承認なしデプロイ（CI/CD用）
 
 ```bash
-# ルートから
 npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
-
-# または infra ディレクトリから
-cd infra
-npx cdk deploy --all --require-approval never
 ```
 
 ### GitHub Actions による CDK デプロイ
