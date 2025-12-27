@@ -14,16 +14,25 @@ import {
 // Presigned URLの有効期限（1時間 = 3600秒）
 const PRESIGNED_URL_EXPIRES_IN = 3600;
 
+// 有効なコーデックのリスト
+const VALID_CODECS: CodecType[] = ['h264', 'vp9', 'av1'];
+
+// AWS クライアントのシングルトン
+let cachedDocClient: DynamoDBDocumentClient | null = null;
+let cachedS3Client: S3Client | null = null;
+
 /**
- * AWS クライアントを取得（遅延初期化）
+ * AWS クライアントを取得（シングルトンパターン）
  */
 function getAwsClients() {
-  const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-  const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
-  const docClient = DynamoDBDocumentClient.from(dynamoClient);
-  const s3Client = new S3Client({ region: AWS_REGION });
+  if (!cachedDocClient || !cachedS3Client) {
+    const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
+    const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
+    cachedDocClient = DynamoDBDocumentClient.from(dynamoClient);
+    cachedS3Client = new S3Client({ region: AWS_REGION });
+  }
 
-  return { docClient, s3Client };
+  return { docClient: cachedDocClient, s3Client: cachedS3Client };
 }
 
 /**
@@ -80,7 +89,7 @@ export async function POST(
     const { fileName, fileSize, contentType, outputCodec } = body;
 
     // 必須フィールドのチェック
-    if (!fileName || fileSize === undefined || !contentType || !outputCodec) {
+    if (!fileName || typeof fileSize !== 'number' || !contentType || !outputCodec) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -104,8 +113,7 @@ export async function POST(
     }
 
     // outputCodecのバリデーション
-    const validCodecs: CodecType[] = ['h264', 'vp9', 'av1'];
-    if (!validCodecs.includes(outputCodec)) {
+    if (!VALID_CODECS.includes(outputCodec)) {
       return NextResponse.json(
         {
           error: 'INVALID_CODEC',
