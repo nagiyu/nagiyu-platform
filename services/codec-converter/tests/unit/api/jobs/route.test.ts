@@ -8,7 +8,7 @@ process.env.AWS_REGION = 'us-east-1';
 process.env.DYNAMODB_TABLE = 'test-table';
 process.env.S3_BUCKET = 'test-bucket';
 
-import { POST } from './route';
+import { POST } from '../../../../src/app/api/jobs/route';
 
 // AWS SDK のモック
 const dynamoMock = mockClient(DynamoDBDocumentClient);
