@@ -24,12 +24,6 @@ export class EcsClusterStack extends cdk.Stack {
           value: 'enabled',
         },
       ],
-      tags: [
-        { key: 'Application', value: 'nagiyu' },
-        { key: 'Environment', value: environment },
-        { key: 'ManagedBy', value: 'CDK' },
-        { key: 'Component', value: 'root-domain' },
-      ],
     });
 
     // Create capacity provider associations for Fargate
