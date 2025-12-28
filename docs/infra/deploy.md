@@ -112,6 +112,80 @@ aws cloudformation deploy \
 
 ---
 
+## CDK を使用したデプロイ
+
+CDK (AWS Cloud Development Kit) を使用して、TypeScript でインフラストラクチャを定義・デプロイします。
+詳細な移行戦略とガイドラインは [CDK 移行ガイド](./cdk-migration.md) を参照してください。
+
+### CDK の初回セットアップ
+
+CDK を使用する場合、まず依存関係をインストールします。
+
+```bash
+# モノレポ全体の依存関係をインストール（infra を含む）
+npm ci
+```
+
+### CDK スタックの確認
+
+利用可能なスタックを確認:
+
+```bash
+npm run synth --workspace=@nagiyu/infra
+```
+
+### CDK スタックのデプロイ
+
+#### ローカル環境からのデプロイ
+
+```bash
+# すべてのスタックをデプロイ
+npm run deploy --workspace=@nagiyu/infra -- --all
+
+# 差分を確認
+npm run diff --workspace=@nagiyu/infra
+
+# 特定のスタックをデプロイ
+npm run deploy --workspace=@nagiyu/infra -- <スタック名>
+```
+
+#### 承認なしデプロイ（CI/CD用）
+
+```bash
+npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
+```
+
+### GitHub Actions による CDK デプロイ
+
+ルートドメイン用の CDK スタックは `.github/workflows/root-deploy.yml` で自動デプロイされます。
+
+**ワークフローの特徴:**
+- モノレポルートから全コマンドを実行
+- `npm run build --workspace=@nagiyu/infra`, `npm run synth --workspace=@nagiyu/infra`, `npm run deploy --workspace=@nagiyu/infra` を使用
+- 依存関係は `npm ci` で monorepo 全体をインストール（infra を含む）
+
+**注記**: `infra/root/**` ディレクトリは今後のイシューで作成されます。現時点ではワークフローが正常に動作し、CDK Synth が成功することを確認します。
+
+- **トリガー条件**: master ブランチへの push で、以下のパスが変更された場合
+  - `infra/bin/**`
+  - `infra/shared/vpc/**`
+  - `infra/root/**` (将来作成予定)
+  - `infra/package.json`
+  - `infra/cdk.json`
+  - `infra/tsconfig.json`
+
+- **デプロイフロー**:
+  1. CDK Synth で構文検証と CloudFormation テンプレート生成
+  2. CDK Deploy ですべてのスタックをデプロイ
+
+ワークフローは手動でも実行可能:
+
+```
+GitHub Actions → root-deploy.yml → Run workflow
+```
+
+---
+
 ## GitHub Actions による自動デプロイ
 
 ### ワークフロー設定例

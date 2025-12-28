@@ -34,6 +34,17 @@ Resources:
               - cloudformation:ListExports
             Resource: '*'
 
+          # CDK Bootstrap role assumption
+          - Sid: CDKBootstrapRoleAssumption
+            Effect: Allow
+            Action:
+              - sts:AssumeRole
+            Resource:
+              - arn:aws:iam::*:role/cdk-hnb659fds-*
+            Condition:
+              StringEquals:
+                aws:PrincipalAccount: !Ref AWS::AccountId
+
           # ==========================================
           # IAM - ロール・ポリシー管理
           # ==========================================
@@ -98,6 +109,7 @@ Resources:
                   - ecs-tasks.amazonaws.com
                   - events.amazonaws.com
                   - application-autoscaling.amazonaws.com
+                  - cloudformation.amazonaws.com
 
           # ==========================================
           # Network - VPC, EC2
