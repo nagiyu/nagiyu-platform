@@ -136,7 +136,7 @@ export class CodecConverterStack extends cdk.Stack {
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy:
             cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          compress: false,
+          compress: true,
         },
         '/_next/static/*': {
           origin: new origins.FunctionUrlOrigin(functionUrl),
