@@ -193,7 +193,7 @@ export class EcsServiceStack extends cdk.Stack {
       healthCheck: {
         command: [
           'CMD-SHELL',
-          'curl -f http://localhost:3000/api/health || exit 1',
+          'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health | grep -q 200',
         ],
         interval: cdk.Duration.seconds(30),
         timeout: cdk.Duration.seconds(5),
