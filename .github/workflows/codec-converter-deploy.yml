@@ -7,7 +7,12 @@ on:
       - integration/**
       - master
     paths:
+      - "services/codec-converter/**"
+      - "services/codec-converter-common/**"
       - "infra/codec-converter/**"
+      - "libs/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/codec-converter-deploy.yml"
   workflow_dispatch:
 
@@ -15,6 +20,40 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
+  build-nextjs:
+    name: Build Next.js Application
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-common library
+        run: npm run build --workspace=@nagiyu-platform/codec-converter-common
+
+      - name: Build Next.js application
+        run: npm run build --workspace=@nagiyu/codec-converter
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: codec-converter-build
+          path: services/codec-converter/.next
+          retention-days: 7
+
   deploy:
     name: Deploy CDK Infrastructure
     runs-on: ubuntu-latest

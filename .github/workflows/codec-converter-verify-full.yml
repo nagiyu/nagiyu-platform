@@ -6,10 +6,107 @@ on:
       - develop
       - master
     paths:
+      - "services/codec-converter/**"
+      - "services/codec-converter-common/**"
       - "infra/codec-converter/**"
+      - "libs/**"
+      - "package.json"
+      - "package-lock.json"
       - ".github/workflows/codec-converter-verify-full.yml"
 
 jobs:
+  nextjs-build:
+    name: Next.js Build Verification
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-common library
+        run: npm run build --workspace=@nagiyu-platform/codec-converter-common
+
+      - name: Build Next.js application
+        run: npm run build --workspace=@nagiyu/codec-converter
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t codec-converter-verify-full-test -f services/codec-converter/Dockerfile .
+
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-common library
+        run: npm run build --workspace=@nagiyu-platform/codec-converter-common
+
+      - name: Run tests
+        run: npm run test --workspace=@nagiyu/codec-converter
+
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint --workspace=@nagiyu/codec-converter
+
   format-check:
     name: Format Check
     runs-on: ubuntu-latest
@@ -32,10 +129,34 @@ jobs:
         run: npm ci
 
       - name: Check formatting
+        run: npm run format:check --workspace=@nagiyu/codec-converter
+
+  infra-format-check:
+    name: Infrastructure Format Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
         run: npx prettier --check "infra/codec-converter/**/*.{ts,js,json}"
 
-  type-check:
-    name: Type Check (Build)
+  infra-type-check:
+    name: Infrastructure Type Check (Build)
     runs-on: ubuntu-latest
 
     permissions:
@@ -58,8 +179,8 @@ jobs:
       - name: Build CDK project
         run: npm run build --workspace codec-converter
 
-  test:
-    name: Run Unit Tests
+  infra-test:
+    name: Infrastructure Unit Tests
     runs-on: ubuntu-latest
 
     permissions:
@@ -86,7 +207,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [format-check, type-check, test]
+    needs: [nextjs-build, docker-build, test, lint, format-check, infra-format-check, infra-type-check, infra-test]
 
     permissions:
       contents: read
@@ -99,9 +220,14 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const results = {
+              'Next.js Build': '${{ needs.nextjs-build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}',
+              'Unit Tests': '${{ needs.test.result }}',
+              'Lint Check': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
-              'Type Check': '${{ needs.type-check.result }}',
-              'Unit Tests': '${{ needs.test.result }}'
+              'Infra Format Check': '${{ needs.infra-format-check.result }}',
+              'Infra Type Check': '${{ needs.infra-type-check.result }}',
+              'Infra Tests': '${{ needs.infra-test.result }}'
             };
 
             const statusEmoji = {
@@ -117,7 +243,7 @@ jobs:
               : '## ❌ Some Full Checks Failed';
 
             let body = `${header}\n\n`;
-            body += '**Codec Converter Infrastructure - Full Verification**\n\n';
+            body += '**Codec Converter - Full Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 
