@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { EcsClusterStack } from '../root/ecs-cluster-stack';
 import { AlbStack } from '../root/alb-stack';
 import { EcsServiceStack } from '../root/ecs-service-stack';
+import { CloudFrontStack } from '../root/cloudfront-stack';
 
 const app = new cdk.App();
 
@@ -45,5 +46,19 @@ const ecsServiceStack = new EcsServiceStack(
 // Set up dependencies
 ecsServiceStack.addDependency(ecsClusterStack);
 ecsServiceStack.addDependency(albStack);
+
+// CloudFront Stack for root domain
+const cloudFrontStack = new CloudFrontStack(
+  app,
+  `nagiyu-root-cloudfront-${environment}`,
+  {
+    env: { account, region },
+    environment,
+    description: `CloudFront Distribution for nagiyu root domain (${environment})`,
+  }
+);
+
+// CloudFront depends on ALB
+cloudFrontStack.addDependency(albStack);
 
 app.synth();
