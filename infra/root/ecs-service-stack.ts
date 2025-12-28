@@ -190,16 +190,12 @@ export class EcsServiceStack extends cdk.Stack {
           protocol: ecs.Protocol.TCP,
         },
       ],
-      healthCheck: {
-        command: [
-          'CMD-SHELL',
-          'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/api/health | grep -q 200',
-        ],
-        interval: cdk.Duration.seconds(30),
-        timeout: cdk.Duration.seconds(5),
-        retries: 3,
-        startPeriod: cdk.Duration.seconds(60),
-      },
+      // TODO: Re-enable container health check once curl localhost issue is resolved
+      // Container health check is currently disabled because curl commands inside the container
+      // are failing despite the application responding correctly to ALB health checks.
+      // The ALB target group health check is working properly and monitoring the service.
+      // Investigation needed: why localhost/127.0.0.1 requests fail inside the container
+      // while external requests via ALB succeed.
     });
 
     // Create Fargate Service
