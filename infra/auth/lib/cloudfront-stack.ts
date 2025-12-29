@@ -21,7 +21,7 @@ export class CloudFrontStack extends cdk.Stack {
     const domainName =
       environment === 'prod'
         ? 'auth.nagiyu.com'
-        : `${environment}.auth.nagiyu.com`;
+        : `${environment}-auth.nagiyu.com`;
 
     // Lambda 関数 URL から https:// を除去してドメイン名を取得
     // CDK Token の場合は Fn::Select を使用
@@ -94,7 +94,8 @@ export class CloudFrontStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // 認証サービスのためキャッシュ無効
-        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+        originRequestPolicy:
+          cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         responseHeadersPolicy: responseHeadersPolicy,
         compress: true,
       },

@@ -65,7 +65,7 @@ export class LambdaStack extends cdk.Stack {
     const nextAuthUrl =
       environment === 'prod'
         ? 'https://auth.nagiyu.com'
-        : `https://${environment}.auth.nagiyu.com`;
+        : `https://${environment}-auth.nagiyu.com`;
 
     // ECR リポジトリの参照
     const repository = ecr.Repository.fromRepositoryName(
@@ -84,7 +84,7 @@ export class LambdaStack extends cdk.Stack {
       }),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       role: lambdaRole,
       environment: {
         NODE_ENV: environment,
@@ -99,12 +99,19 @@ export class LambdaStack extends cdk.Stack {
 
     // Lambda 関数 URL の作成
     this.functionUrl = this.lambdaFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE, // CloudFront が認証を処理
+      authType: lambda.FunctionUrlAuthType.NONE,
       cors: {
         allowedOrigins: ['*'],
         allowedMethods: [lambda.HttpMethod.ALL],
         allowedHeaders: ['*'],
       },
+    });
+
+    // Lambda Function URL への公開アクセスを許可
+    this.lambdaFunction.addPermission('AllowPublicAccess', {
+      principal: new iam.ServicePrincipal('*'),
+      action: 'lambda:InvokeFunctionUrl',
+      functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
     });
 
     // タグの追加

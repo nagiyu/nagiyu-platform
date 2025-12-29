@@ -65,9 +65,8 @@ jobs:
 
       - name: Deploy Infrastructure (ECR and Dependencies)
         run: |
-          echo "Deploying ECR and dependency stacks to ${{ steps.env.outputs.environment }} environment..."
-          npm run deploy --workspace=@nagiyu/infra-auth -- --context env=${{ steps.env.outputs.environment }} Auth-*-${{ steps.env.outputs.environment }} --exclusively --require-approval never
-          echo "Excluding Lambda stack to build Docker image first"
+          npm run deploy --workspace=@nagiyu/infra-auth -- --context env=${{ steps.env.outputs.environment }} Auth-${{ steps.env.outputs.environment }} --require-approval never
+          echo "This deploys DynamoDB, Secrets, and ECR stacks (excluding Lambda and CloudFront)"
 
       - name: Login to Amazon ECR
         id: login-ecr
