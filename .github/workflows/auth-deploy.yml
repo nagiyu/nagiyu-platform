@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - develop
-      - integration/auth/**
+      - integration/**
       - master
     paths:
       - 'services/auth/**'

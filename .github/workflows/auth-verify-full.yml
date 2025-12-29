@@ -84,7 +84,7 @@ jobs:
         working-directory: ./services/auth
 
   unit-test:
-    name: Run Unit Tests (All Browsers)
+    name: Run Unit Tests
     runs-on: ubuntu-latest
 
     steps:
