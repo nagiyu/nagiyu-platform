@@ -72,17 +72,26 @@ export class CodecConverterStack extends cdk.Stack {
     jobsTable.grantReadWriteData(lambdaExecutionRole);
 
     // ECR repository for Lambda container image
-    // The image will be built and pushed separately
     const ecrRepositoryName =
       this.node.tryGetContext('ecrRepositoryName') || `codec-converter-${envName}`;
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
+    const useExistingEcrRepository = this.node.tryGetContext('useExistingEcrRepository') === 'true';
 
-    // Reference existing ECR repository (created separately)
-    const ecrRepository = ecr.Repository.fromRepositoryName(
-      this,
-      'EcrRepository',
-      ecrRepositoryName
-    );
+    // Create or reference ECR repository based on context
+    const ecrRepository = useExistingEcrRepository
+      ? ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName)
+      : new ecr.Repository(this, 'EcrRepository', {
+          repositoryName: ecrRepositoryName,
+          imageScanOnPush: true,
+          lifecycleRules: [
+            {
+              description: 'Keep last 10 images',
+              maxImageCount: 10,
+              rulePriority: 1,
+            },
+          ],
+          removalPolicy: cdk.RemovalPolicy.RETAIN,
+        });
 
     // Lambda Function for Next.js application
     const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {

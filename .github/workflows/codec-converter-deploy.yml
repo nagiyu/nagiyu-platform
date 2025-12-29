@@ -108,22 +108,56 @@ jobs:
           echo "AWS Account ID: $ACCOUNT_ID"
 
       - name: CDK Bootstrap (if needed)
-        working-directory: ./infra/codec-converter
         env:
           ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
         run: |
           # Bootstrap is idempotent - safe to run on every deployment
-          npx cdk bootstrap aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
+          npm run bootstrap --workspace=codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.set-env.outputs.environment }}
 
-      - name: CDK Deploy
-        working-directory: ./infra/codec-converter
+      - name: Check if ECR repository exists
+        id: check-ecr
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
         run: |
-          npx cdk deploy ${{ steps.set-env.outputs.stack-name }} \
+          if aws ecr describe-repositories --repository-names codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: CDK Deploy (Create ECR Repository)
+        if: steps.check-ecr.outputs.exists == 'false'
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          echo "Creating ECR repository..."
+          npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
             --context env=$ENVIRONMENT \
-            --require-approval never \
+            --context useExistingEcrRepository=false \
+            --verbose
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codec-converter-${{ steps.set-env.outputs.environment }}
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: CDK Deploy (Full Stack)
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          echo "Deploying full stack..."
+          npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
+            --context env=$ENVIRONMENT \
+            --context useExistingEcrRepository=true \
             --verbose
 
       - name: Display stack outputs
