@@ -84,7 +84,7 @@ export class LambdaStack extends cdk.Stack {
       }),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       role: lambdaRole,
       environment: {
         NODE_ENV: environment,
