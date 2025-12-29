@@ -22,5 +22,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "e2e"]
+  "exclude": ["node_modules", "e2e", "jest.config.ts", "jest.setup.ts", "playwright.config.ts"]
 }
