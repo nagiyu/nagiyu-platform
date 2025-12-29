@@ -6,13 +6,11 @@ const createJestConfig = nextJest({
 });
 
 const config: Config = {
-  testEnvironment: 'node',
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
     '!src/app/layout.tsx',
-    '!src/app/page.tsx',
     '!src/app/api/health/**',
   ],
   coverageThreshold: {
@@ -27,6 +25,10 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@nagiyu-platform/codec-converter-common$':
       '<rootDir>/../codec-converter-common/dist/src/index.js',
+  },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  testEnvironmentOptions: {
+    customExportConditions: [''],
   },
 };
 
