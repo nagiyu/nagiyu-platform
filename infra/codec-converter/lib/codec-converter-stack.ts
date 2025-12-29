@@ -6,6 +6,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 
 export class CodecConverterStack extends cdk.Stack {
@@ -16,8 +17,11 @@ export class CodecConverterStack extends cdk.Stack {
     const envName = this.node.tryGetContext('env') || 'dev';
 
     // CORS allowed origin (configurable per environment)
-    const allowedOrigin =
-      this.node.tryGetContext('allowedOrigin') || 'https://codec-converter.nagiyu.com';
+    const defaultOrigin =
+      envName === 'prod'
+        ? 'https://codec-converter.nagiyu.com'
+        : 'https://dev-codec-converter.nagiyu.com';
+    const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
     const storageBucket = new s3.Bucket(this, 'StorageBucket', {
@@ -71,71 +75,83 @@ export class CodecConverterStack extends cdk.Stack {
     // Grant Lambda permissions to DynamoDB
     jobsTable.grantReadWriteData(lambdaExecutionRole);
 
+    // Deployment phase control
+    const deploymentPhase = this.node.tryGetContext('deploymentPhase') || 'full';
+
     // ECR repository for Lambda container image
     const ecrRepositoryName =
       this.node.tryGetContext('ecrRepositoryName') || `codec-converter-${envName}`;
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
-    const useExistingEcrRepository = this.node.tryGetContext('useExistingEcrRepository') === 'true';
 
-    // Create or reference ECR repository based on context
-    const ecrRepository = useExistingEcrRepository
-      ? ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName)
-      : new ecr.Repository(this, 'EcrRepository', {
-          repositoryName: ecrRepositoryName,
-          imageScanOnPush: true,
-          lifecycleRules: [
-            {
-              description: 'Keep last 10 images',
-              maxImageCount: 10,
-              rulePriority: 1,
-            },
-          ],
-          removalPolicy: cdk.RemovalPolicy.RETAIN,
-        });
+    // Create or reference ECR repository based on deployment phase
+    const ecrRepository =
+      deploymentPhase === 'ecr-only'
+        ? new ecr.Repository(this, 'EcrRepository', {
+            repositoryName: ecrRepositoryName,
+            imageScanOnPush: true,
+            lifecycleRules: [
+              {
+                description: 'Keep last 10 images',
+                maxImageCount: 10,
+                rulePriority: 1,
+              },
+            ],
+            removalPolicy: cdk.RemovalPolicy.RETAIN,
+          })
+        : ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
 
-    // Lambda Function for Next.js application
-    const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
-      functionName: `codec-converter-${envName}`,
-      code: lambda.DockerImageCode.fromEcr(ecrRepository, {
-        tagOrDigest: imageTag,
-      }),
-      memorySize: 1024,
-      timeout: cdk.Duration.seconds(30),
-      role: lambdaExecutionRole,
-      environment: {
-        DYNAMODB_TABLE: jobsTable.tableName,
-        S3_BUCKET: storageBucket.bucketName,
-        // AWS_REGION is automatically provided by Lambda runtime
-        // BATCH_JOB_QUEUE and BATCH_JOB_DEFINITION will be added when Batch resources are created
-      },
-      // Note: Lambda Web Adapter must be included in the Docker image itself
-      // Layers are not supported for container image functions
-    });
+    // Only create Lambda and other resources in 'full' deployment phase
+    if (deploymentPhase === 'full') {
+      // Lambda Function for Next.js application
+      const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
+        functionName: `codec-converter-${envName}`,
+        code: lambda.DockerImageCode.fromEcr(ecrRepository, {
+          tagOrDigest: imageTag,
+        }),
+        memorySize: 1024,
+        timeout: cdk.Duration.seconds(30),
+        role: lambdaExecutionRole,
+        environment: {
+          DYNAMODB_TABLE: jobsTable.tableName,
+          S3_BUCKET: storageBucket.bucketName,
+          // AWS_REGION is automatically provided by Lambda runtime
+          // BATCH_JOB_QUEUE and BATCH_JOB_DEFINITION will be added when Batch resources are created
+        },
+        // Note: Lambda Web Adapter must be included in the Docker image itself
+        // Layers are not supported for container image functions
+      });
 
-    // Function URL for Lambda
-    const functionUrl = nextjsFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
-      cors: {
-        allowedOrigins: ['*'],
-        allowedMethods: [lambda.HttpMethod.ALL],
-        allowedHeaders: ['*'],
-        maxAge: cdk.Duration.hours(1),
-      },
-    });
+      // Function URL for Lambda
+      const functionUrl = nextjsFunction.addFunctionUrl({
+        authType: lambda.FunctionUrlAuthType.NONE,
+        cors: {
+          allowedOrigins: ['*'],
+          allowedMethods: [lambda.HttpMethod.ALL],
+          allowedHeaders: ['*'],
+          maxAge: cdk.Duration.hours(1),
+        },
+      });
 
-    // CloudFront Distribution
-    const distribution = new cloudfront.Distribution(this, 'Distribution', {
-      comment: `Codec Converter distribution for ${envName}`,
-      defaultBehavior: {
-        origin: new origins.FunctionUrlOrigin(functionUrl),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-        compress: true,
-      },
-      additionalBehaviors: {
-        '/api/*': {
+      // Import ACM certificate from CloudFormation export
+      const certificate = acm.Certificate.fromCertificateArn(
+        this,
+        'Certificate',
+        cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn')
+      );
+
+      // Construct domain name based on environment
+      const baseDomain = cdk.Fn.importValue('nagiyu-shared-acm-domain-name');
+      const domainName =
+        envName === 'prod'
+          ? `codec-converter.${baseDomain}`
+          : `${envName}-codec-converter.${baseDomain}`;
+
+      // CloudFront Distribution
+      const distribution = new cloudfront.Distribution(this, 'Distribution', {
+        comment: `Codec Converter distribution for ${envName}`,
+        domainNames: [domainName],
+        certificate: certificate,
+        defaultBehavior: {
           origin: new origins.FunctionUrlOrigin(functionUrl),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
@@ -143,66 +159,76 @@ export class CodecConverterStack extends cdk.Stack {
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           compress: true,
         },
-        '/_next/static/*': {
-          origin: new origins.FunctionUrlOrigin(functionUrl),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-          cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
-            cachePolicyName: `codec-converter-next-static-${envName}`,
-            defaultTtl: cdk.Duration.days(365),
-            maxTtl: cdk.Duration.days(365),
-            minTtl: cdk.Duration.days(365),
-          }),
-          compress: true,
+        additionalBehaviors: {
+          '/api/*': {
+            origin: new origins.FunctionUrlOrigin(functionUrl),
+            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+            originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            compress: true,
+          },
+          '/_next/static/*': {
+            origin: new origins.FunctionUrlOrigin(functionUrl),
+            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
+              cachePolicyName: `codec-converter-next-static-${envName}`,
+              defaultTtl: cdk.Duration.days(365),
+              maxTtl: cdk.Duration.days(365),
+              minTtl: cdk.Duration.days(365),
+            }),
+            compress: true,
+          },
+          '/favicon.ico': {
+            origin: new origins.FunctionUrlOrigin(functionUrl),
+            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
+              cachePolicyName: `codec-converter-favicon-${envName}`,
+              defaultTtl: cdk.Duration.days(1),
+              maxTtl: cdk.Duration.days(1),
+              minTtl: cdk.Duration.days(1),
+            }),
+            compress: true,
+          },
         },
-        '/favicon.ico': {
-          origin: new origins.FunctionUrlOrigin(functionUrl),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-          cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
-            cachePolicyName: `codec-converter-favicon-${envName}`,
-            defaultTtl: cdk.Duration.days(1),
-            maxTtl: cdk.Duration.days(1),
-            minTtl: cdk.Duration.days(1),
-          }),
-          compress: true,
-        },
-      },
-    });
+      });
 
-    // Outputs
-    new cdk.CfnOutput(this, 'StorageBucketName', {
-      value: storageBucket.bucketName,
-      description: 'S3 bucket name for codec converter storage',
-      exportName: `CodecConverterStorageBucket-${envName}`,
-    });
+      // Outputs
+      new cdk.CfnOutput(this, 'StorageBucketName', {
+        value: storageBucket.bucketName,
+        description: 'S3 bucket name for codec converter storage',
+        exportName: `CodecConverterStorageBucket-${envName}`,
+      });
 
-    new cdk.CfnOutput(this, 'JobsTableName', {
-      value: jobsTable.tableName,
-      description: 'DynamoDB table name for codec converter jobs',
-      exportName: `CodecConverterJobsTable-${envName}`,
-    });
+      new cdk.CfnOutput(this, 'JobsTableName', {
+        value: jobsTable.tableName,
+        description: 'DynamoDB table name for codec converter jobs',
+        exportName: `CodecConverterJobsTable-${envName}`,
+      });
 
-    new cdk.CfnOutput(this, 'LambdaFunctionArn', {
-      value: nextjsFunction.functionArn,
-      description: 'Lambda function ARN for Next.js application',
-      exportName: `CodecConverterLambdaFunctionArn-${envName}`,
-    });
+      new cdk.CfnOutput(this, 'LambdaFunctionArn', {
+        value: nextjsFunction.functionArn,
+        description: 'Lambda function ARN for Next.js application',
+        exportName: `CodecConverterLambdaFunctionArn-${envName}`,
+      });
 
-    new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
-      value: functionUrl.url,
-      description: 'Lambda Function URL',
-      exportName: `CodecConverterLambdaFunctionUrl-${envName}`,
-    });
+      new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
+        value: functionUrl.url,
+        description: 'Lambda Function URL',
+        exportName: `CodecConverterLambdaFunctionUrl-${envName}`,
+      });
 
-    new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
-      value: distribution.distributionId,
-      description: 'CloudFront distribution ID',
-      exportName: `CodecConverterCloudFrontDistributionId-${envName}`,
-    });
+      new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
+        value: distribution.distributionId,
+        description: 'CloudFront distribution ID',
+        exportName: `CodecConverterCloudFrontDistributionId-${envName}`,
+      });
 
-    new cdk.CfnOutput(this, 'CloudFrontDomainName', {
-      value: distribution.distributionDomainName,
-      description: 'CloudFront distribution domain name',
-      exportName: `CodecConverterCloudFrontDomainName-${envName}`,
-    });
+      new cdk.CfnOutput(this, 'CloudFrontDomainName', {
+        value: distribution.distributionDomainName,
+        description: 'CloudFront distribution domain name',
+        exportName: `CodecConverterCloudFrontDomainName-${envName}`,
+      });
+    }
   }
 }
