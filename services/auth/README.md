@@ -45,6 +45,9 @@ GOOGLE_CLIENT_SECRET=GOCSPX-your-google-client-secret
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-random-secret-here-min-32-characters
 
+# Cookie ドメイン (SSO 対応)
+COOKIE_DOMAIN=localhost  # ローカル開発時は localhost、本番環境では .nagiyu.com
+
 # DynamoDB 設定
 DYNAMODB_TABLE_NAME=nagiyu-auth-users-dev
 AWS_REGION=ap-northeast-1
