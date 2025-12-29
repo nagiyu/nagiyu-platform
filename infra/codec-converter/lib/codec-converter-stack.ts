@@ -16,8 +16,10 @@ export class CodecConverterStack extends cdk.Stack {
     const envName = this.node.tryGetContext('env') || 'dev';
 
     // CORS allowed origin (configurable per environment)
-    const allowedOrigin =
-      this.node.tryGetContext('allowedOrigin') || 'https://codec-converter.nagiyu.com';
+    const defaultOrigin = envName === 'prod'
+      ? 'https://codec-converter.nagiyu.com'
+      : 'https://dev-codec-converter.nagiyu.com';
+    const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
     const storageBucket = new s3.Bucket(this, 'StorageBucket', {
