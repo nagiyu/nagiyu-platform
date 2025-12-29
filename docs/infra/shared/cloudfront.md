@@ -314,6 +314,30 @@ aws cloudfront create-invalidation \
 - S3 バケットポリシーで CloudFront からのアクセスを許可
 - OAC を使用する場合、正しく設定されているか確認
 
+#### Lambda Function URL をオリジンとする場合の 403 エラー
+
+**症状:**
+- Lambda Function URL に直接アクセスすると 200 OK が返るが、CloudFront 経由だと 403 AccessDeniedException が返る
+- CloudWatch Logs に CloudFront からのリクエストが記録されない
+
+**原因:**
+`OriginRequestPolicy` で `ALL_VIEWER` を使用すると、CloudFront が Host ヘッダーをそのままオリジンに転送します。Lambda Function URL は自身のドメイン以外の Host ヘッダーを受け付けないため、アクセスが拒否されます。
+
+**解決策:**
+`ALL_VIEWER_EXCEPT_HOST_HEADER` を使用します：
+
+```typescript
+// CDK の場合
+originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+```
+
+```yaml
+# CloudFormation の場合
+OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # AWS Managed - AllViewerExceptHostHeader
+```
+
+これにより、CloudFront が正しい Host ヘッダー（Lambda Function URL のドメイン）をオリジンに送信します。
+
 ### CloudFront で 504 エラーが発生する
 
 **原因:**
@@ -324,6 +348,42 @@ aws cloudfront create-invalidation \
 - オリジンのタイムアウト設定を確認
 - オリジンのヘルスチェック
 - CloudWatch Logs でオリジンのエラーを確認
+
+### Lambda で 502 Bad Gateway が発生する (Lambda Web Adapter 使用時)
+
+**症状:**
+- Lambda 関数が 502 Bad Gateway を返す
+- CloudWatch Logs に `fork/exec /opt/extensions/lambda-adapter: exec format error` が記録される
+- Lambda Extension の起動に失敗する
+
+**原因:**
+Lambda のアーキテクチャ（ARM64 vs x86_64）と Lambda Web Adapter のバイナリアーキテクチャが一致していません。`public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1` などの標準イメージは x86_64 バイナリを含んでいます。
+
+**解決策:**
+Lambda のアーキテクチャを x86_64 に統一します（推奨）：
+
+```typescript
+// CDK の場合
+const lambdaFunction = new lambda.Function(this, 'Function', {
+    // ...
+    architecture: lambda.Architecture.X86_64,  // ARM64 ではなく X86_64 を指定
+    // ...
+});
+```
+
+```yaml
+# CloudFormation の場合
+LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+        # Architectures プロパティを指定しない（デフォルトで x86_64）
+        # または明示的に指定
+        Architectures:
+        - x86_64
+```
+
+**代替案（非推奨）:**
+ARM64 を使用したい場合は、ARM64 対応の Lambda Web Adapter イメージを使用する必要がありますが、公式イメージのサポート状況を確認してください。
 
 ### カスタムドメインでアクセスできない
 

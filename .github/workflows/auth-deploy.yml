@@ -2,10 +2,10 @@ name: Auth Infrastructure - Deploy
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
+    branches:
+      - develop
+      - integration/**
+      - master
     paths:
       - 'infra/auth/**'
       - '.github/workflows/auth-deploy.yml'
