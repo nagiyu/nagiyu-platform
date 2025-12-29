@@ -61,9 +61,7 @@ export class CodecConverterStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       description: 'Execution role for Codec Converter Lambda function',
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole',
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
     });
 
@@ -75,10 +73,10 @@ export class CodecConverterStack extends cdk.Stack {
 
     // ECR repository for Lambda container image
     // The image will be built and pushed separately
-    const ecrRepositoryName = this.node.tryGetContext('ecrRepositoryName') || 
-      `codec-converter-${envName}`;
+    const ecrRepositoryName =
+      this.node.tryGetContext('ecrRepositoryName') || `codec-converter-${envName}`;
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
-    
+
     // Reference existing ECR repository (created separately)
     const ecrRepository = ecr.Repository.fromRepositoryName(
       this,
@@ -130,18 +128,15 @@ export class CodecConverterStack extends cdk.Stack {
       additionalBehaviors: {
         '/api/*': {
           origin: new origins.FunctionUrlOrigin(functionUrl),
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          originRequestPolicy:
-            cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           compress: true,
         },
         '/_next/static/*': {
           origin: new origins.FunctionUrlOrigin(functionUrl),
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
             cachePolicyName: `codec-converter-next-static-${envName}`,
             defaultTtl: cdk.Duration.days(365),
@@ -152,8 +147,7 @@ export class CodecConverterStack extends cdk.Stack {
         },
         '/favicon.ico': {
           origin: new origins.FunctionUrlOrigin(functionUrl),
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
             cachePolicyName: `codec-converter-favicon-${envName}`,
             defaultTtl: cdk.Duration.days(1),
