@@ -193,5 +193,6 @@ E2Eテストで以下を確認：
 
 ## 参考
 
+- [rules.md](./rules.md): コーディング規約・べからず集
 - [service-template.md](./service-template.md): サービステンプレート
 - [testing.md](./testing.md): テスト戦略
