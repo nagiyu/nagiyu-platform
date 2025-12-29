@@ -17,9 +17,10 @@ export class CodecConverterStack extends cdk.Stack {
     const envName = this.node.tryGetContext('env') || 'dev';
 
     // CORS allowed origin (configurable per environment)
-    const defaultOrigin = envName === 'prod'
-      ? 'https://codec-converter.nagiyu.com'
-      : 'https://dev-codec-converter.nagiyu.com';
+    const defaultOrigin =
+      envName === 'prod'
+        ? 'https://codec-converter.nagiyu.com'
+        : 'https://dev-codec-converter.nagiyu.com';
     const allowedOrigin = this.node.tryGetContext('allowedOrigin') || defaultOrigin;
 
     // S3 Bucket for input/output files
@@ -83,20 +84,21 @@ export class CodecConverterStack extends cdk.Stack {
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
 
     // Create or reference ECR repository based on deployment phase
-    const ecrRepository = deploymentPhase === 'ecr-only'
-      ? new ecr.Repository(this, 'EcrRepository', {
-          repositoryName: ecrRepositoryName,
-          imageScanOnPush: true,
-          lifecycleRules: [
-            {
-              description: 'Keep last 10 images',
-              maxImageCount: 10,
-              rulePriority: 1,
-            },
-          ],
-          removalPolicy: cdk.RemovalPolicy.RETAIN,
-        })
-      : ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
+    const ecrRepository =
+      deploymentPhase === 'ecr-only'
+        ? new ecr.Repository(this, 'EcrRepository', {
+            repositoryName: ecrRepositoryName,
+            imageScanOnPush: true,
+            lifecycleRules: [
+              {
+                description: 'Keep last 10 images',
+                maxImageCount: 10,
+                rulePriority: 1,
+              },
+            ],
+            removalPolicy: cdk.RemovalPolicy.RETAIN,
+          })
+        : ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
 
     // Only create Lambda and other resources in 'full' deployment phase
     if (deploymentPhase === 'full') {
@@ -139,9 +141,10 @@ export class CodecConverterStack extends cdk.Stack {
 
       // Construct domain name based on environment
       const baseDomain = cdk.Fn.importValue('nagiyu-shared-acm-domain-name');
-      const domainName = envName === 'prod'
-        ? `codec-converter.${baseDomain}`
-        : `${envName}-codec-converter.${baseDomain}`;
+      const domainName =
+        envName === 'prod'
+          ? `codec-converter.${baseDomain}`
+          : `${envName}-codec-converter.${baseDomain}`;
 
       // CloudFront Distribution
       const distribution = new cloudfront.Distribution(this, 'Distribution', {
