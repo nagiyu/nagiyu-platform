@@ -65,7 +65,7 @@ export class LambdaStack extends cdk.Stack {
     const nextAuthUrl =
       environment === 'prod'
         ? 'https://auth.nagiyu.com'
-        : `https://${environment}.auth.nagiyu.com`;
+        : `https://${environment}-auth.nagiyu.com`;
 
     // ECR リポジトリの参照
     const repository = ecr.Repository.fromRepositoryName(
