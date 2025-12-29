@@ -1,0 +1,76 @@
+name: 新規機能実装
+description: 新しい機能やサービスの実装タスク
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 実装時の注意事項
+
+        実装前に必ず以下のドキュメントを確認してください:
+        - [コーディング規約・べからず集](../../docs/development/rules.md)
+        - [アーキテクチャガイドライン](../../docs/development/architecture.md)
+        - [開発方針](../../docs/README.md)
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 機能の概要
+      description: 実装する機能の概要を記述してください
+      placeholder: この機能は...
+    validations:
+      required: true
+
+  - type: textarea
+    id: requirements
+    attributes:
+      label: 要件
+      description: 機能要件と非機能要件を記述してください
+      placeholder: |
+        ### 機能要件
+        - 要件1
+        - 要件2
+
+        ### 非機能要件
+        - パフォーマンス要件
+        - セキュリティ要件
+    validations:
+      required: true
+
+  - type: textarea
+    id: related-docs
+    attributes:
+      label: 関連ドキュメント
+      description: 関連する設計書や仕様書へのパスを記載してください
+      placeholder: |
+        - docs/services/example/requirements.md
+        - docs/services/example/basic-design.md
+
+  - type: checkboxes
+    id: document-rules
+    attributes:
+      label: ドキュメント作成ルール
+      description: ドキュメントを作成する場合は以下を確認してください
+      options:
+        - label: ドキュメントは `docs/` 配下に配置
+        - label: 最小限のルール原則を遵守（必須事項のみ記載）
+        - label: .vscode/settings.json の設定に従う（Markdown インデント 4スペース）
+
+  - type: checkboxes
+    id: implementation-checklist
+    attributes:
+      label: 実装チェックリスト
+      description: 実装時に確認すべき項目
+      options:
+        - label: ルールドキュメントを確認した
+          required: true
+        - label: テストカバレッジ80%以上を確保した
+        - label: ドキュメントを更新した
+        - label: CI/CD 設定を追加/更新した（新規サービス・ライブラリの場合）
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 追加情報
+      description: その他の補足情報があれば記載してください
