@@ -2,10 +2,10 @@ name: Codec Converter - Deploy Infrastructure
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
     paths:
       - "services/codec-converter/**"
       - "services/codec-converter-common/**"
@@ -134,7 +134,7 @@ jobs:
           echo "Creating ECR repository..."
           npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
             --context env=$ENVIRONMENT \
-            --context useExistingEcrRepository=false \
+            --context deploymentPhase=ecr-only \
             --verbose
 
       - name: Login to Amazon ECR
@@ -157,7 +157,7 @@ jobs:
           echo "Deploying full stack..."
           npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
             --context env=$ENVIRONMENT \
-            --context useExistingEcrRepository=true \
+            --context deploymentPhase=full \
             --verbose
 
       - name: Display stack outputs
