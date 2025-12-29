@@ -6,6 +6,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 
 export class CodecConverterStack extends cdk.Stack {
@@ -129,9 +130,24 @@ export class CodecConverterStack extends cdk.Stack {
         },
       });
 
+      // Import ACM certificate from CloudFormation export
+      const certificate = acm.Certificate.fromCertificateArn(
+        this,
+        'Certificate',
+        cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn')
+      );
+
+      // Construct domain name based on environment
+      const baseDomain = cdk.Fn.importValue('nagiyu-shared-acm-domain-name');
+      const domainName = envName === 'prod'
+        ? `codec-converter.${baseDomain}`
+        : `${envName}-codec-converter.${baseDomain}`;
+
       // CloudFront Distribution
       const distribution = new cloudfront.Distribution(this, 'Distribution', {
         comment: `Codec Converter distribution for ${envName}`,
+        domainNames: [domainName],
+        certificate: certificate,
         defaultBehavior: {
           origin: new origins.FunctionUrlOrigin(functionUrl),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
