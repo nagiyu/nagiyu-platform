@@ -103,7 +103,11 @@ export class CloudFrontStack extends cdk.Stack {
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       enableIpv6: true,
-      priceClass: cloudfront.PriceClass.PRICE_CLASS_ALL,
+      // dev 環境ではコスト削減のため PRICE_CLASS_100 を使用
+      priceClass:
+        environment === 'prod'
+          ? cloudfront.PriceClass.PRICE_CLASS_ALL
+          : cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
     // タグの追加

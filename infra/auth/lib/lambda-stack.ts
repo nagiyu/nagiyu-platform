@@ -90,7 +90,9 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: `nagiyu-auth-users-${environment}`,
         NEXTAUTH_URL: nextAuthUrl,
-        NEXTAUTH_SECRET: 'secret-from-secrets-manager',
+        // Next.js アプリケーションが起動時に Secrets Manager から取得するための ARN
+        NEXTAUTH_SECRET_ARN: `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-nextauth-secret-${environment}`,
+        GOOGLE_OAUTH_SECRET_ARN: `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-google-oauth-${environment}`,
       },
       description: `Auth Service Lambda function for ${environment} environment`,
     });
