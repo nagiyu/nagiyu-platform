@@ -28,7 +28,7 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        domain: '.nagiyu.com', // SSO: すべてのサブドメインで有効
+        domain: process.env.COOKIE_DOMAIN || '.nagiyu.com', // SSO: すべてのサブドメインで有効
         secure: true,
       },
     },
@@ -75,11 +75,11 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
     async session({ session, token }) {
-      session.user.id = token.userId as string;
-      session.user.email = token.email as string;
-      session.user.name = token.name as string;
-      session.user.image = token.picture as string;
-      session.user.roles = token.roles as string[];
+      session.user.id = (token.userId as string) || '';
+      session.user.email = (token.email as string) || '';
+      session.user.name = (token.name as string) || '';
+      session.user.image = (token.picture as string) || undefined;
+      session.user.roles = (token.roles as string[]) || [];
       return session;
     },
   },

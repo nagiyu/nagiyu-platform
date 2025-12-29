@@ -34,15 +34,25 @@ export interface UpdateUserInput {
   roles?: string[];
 }
 
+// Singleton DynamoDB client
+let dynamoDBClient: DynamoDBDocumentClient | null = null;
+
+function getDynamoDBClient(): DynamoDBDocumentClient {
+  if (!dynamoDBClient) {
+    const client = new DynamoDBClient({
+      region: process.env.AWS_REGION || 'ap-northeast-1',
+    });
+    dynamoDBClient = DynamoDBDocumentClient.from(client);
+  }
+  return dynamoDBClient;
+}
+
 export class UserRepository {
   private client: DynamoDBDocumentClient;
   private tableName: string;
 
   constructor() {
-    const dynamoClient = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'ap-northeast-1',
-    });
-    this.client = DynamoDBDocumentClient.from(dynamoClient);
+    this.client = getDynamoDBClient();
     this.tableName = process.env.DYNAMODB_TABLE_NAME || 'nagiyu-auth-users-dev';
   }
 
@@ -120,7 +130,7 @@ export class UserRepository {
       } else {
         // Create new user
         const newUser: User = {
-          userId: `user_${uuidv4().replace(/-/g, '')}`,
+          userId: `user_${uuidv4()}`,
           googleId: input.googleId,
           email: input.email,
           name: input.name,
@@ -205,6 +215,9 @@ export class UserRepository {
 
   /**
    * List all users
+   * Note: This uses DynamoDB Scan which reads the entire table.
+   * For production use with large user bases, consider implementing pagination
+   * or restricting this to admin-only operations.
    */
   async listUsers(): Promise<User[]> {
     try {
