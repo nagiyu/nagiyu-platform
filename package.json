@@ -5,7 +5,8 @@
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [
     "services/*",
-    "libs/*"
+    "libs/*",
+    "infra/*"
   ],
   "scripts": {
     "dev:tools": "npm run dev --workspace=services/tools",

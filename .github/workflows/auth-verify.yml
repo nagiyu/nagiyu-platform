@@ -1,0 +1,152 @@
+name: Auth Infrastructure - Verify
+
+on:
+  pull_request:
+    branches:
+      - integration/**
+    paths:
+      - 'infra/auth/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/auth-verify.yml'
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'infra/auth/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/auth-verify.yml'
+
+jobs:
+  build:
+    name: Build CDK TypeScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build --workspace=@nagiyu/infra-auth
+
+  synth:
+    name: CDK Synth Verification
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build --workspace=@nagiyu/infra-auth
+
+      - name: Synthesize CDK stacks
+        run: npm run synth --workspace=@nagiyu/infra-auth -- --context env=dev
+
+      - name: Validate generated CloudFormation templates
+        run: |
+          echo "Validating CloudFormation templates..."
+          
+          # Check if templates were generated
+          if [ ! -d "infra/auth/cdk.out" ]; then
+            echo "Error: cdk.out directory not found"
+            exit 1
+          fi
+          
+          # List generated templates
+          echo "Generated templates:"
+          ls -la infra/auth/cdk.out/*.template.json 2>/dev/null || echo "No templates found"
+          
+          # Count templates
+          template_count=$(ls infra/auth/cdk.out/*.template.json 2>/dev/null | wc -l)
+          echo "Total templates: $template_count"
+          
+          if [ "$template_count" -eq 0 ]; then
+            echo "Error: No CloudFormation templates generated"
+            exit 1
+          fi
+          
+          echo "✅ CDK synthesis successful"
+
+      - name: Upload CDK outputs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-out
+          path: infra/auth/cdk.out/
+          retention-days: 7
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [build, synth]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Build': '${{ needs.build.result }}',
+              'CDK Synth': '${{ needs.synth.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ Auth Infrastructure Verification Passed'
+              : '## ❌ Auth Infrastructure Verification Failed';
+
+            let body = `${header}\n\n`;
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
