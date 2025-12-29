@@ -38,10 +38,12 @@ export class CloudFrontStack extends cdk.Stack {
 
     // ACM 証明書の参照 (us-east-1 リージョン)
     // 注: CloudFront用の証明書は us-east-1 に存在する必要がある
+    // 共有インフラスタック (infra/shared/acm) からエクスポートされた証明書を使用
+    const certificateArn = cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn');
     const certificate = acm.Certificate.fromCertificateArn(
       this,
       'Certificate',
-      `arn:aws:acm:us-east-1:${this.account}:certificate/CERTIFICATE_ID`
+      certificateArn
     );
 
     // Response Headers Policy の作成 (セキュリティヘッダー)
