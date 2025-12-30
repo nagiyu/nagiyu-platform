@@ -52,16 +52,16 @@ http://localhost:3000 にアクセス
 
 ## スクリプト
 
-| コマンド | 説明 |
-|---------|------|
-| `npm run dev` | 開発サーバー起動 |
-| `npm run build` | プロダクションビルド |
-| `npm start` | プロダクションサーバー起動 |
-| `npm run lint` | ESLint 実行 |
-| `npm run format` | Prettier でコード整形 |
-| `npm run format:check` | フォーマットチェック |
-| `npm test` | ユニットテスト実行 |
-| `npm run test:e2e` | E2E テスト実行 |
+| コマンド               | 説明                       |
+| ---------------------- | -------------------------- |
+| `npm run dev`          | 開発サーバー起動           |
+| `npm run build`        | プロダクションビルド       |
+| `npm start`            | プロダクションサーバー起動 |
+| `npm run lint`         | ESLint 実行                |
+| `npm run format`       | Prettier でコード整形      |
+| `npm run format:check` | フォーマットチェック       |
+| `npm test`             | ユニットテスト実行         |
+| `npm run test:e2e`     | E2E テスト実行             |
 
 ## 主要な画面
 
