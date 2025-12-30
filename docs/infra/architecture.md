@@ -16,7 +16,8 @@
 
 ### インフラストラクチャ・アズ・コード (IaC)
 
-- **CloudFormation**: すべての AWS リソースを YAML テンプレートで定義
+- **CloudFormation と CDK の併用**: 既存リソースは CloudFormation、新規リソースは CDK で管理
+- **段階的移行**: CloudFormation から CDK への段階的な移行を実施
 - **バージョン管理**: インフラ定義を Git で管理し、変更履歴を追跡
 - **再現性**: 環境の再構築が容易で、開発・本番環境の一貫性を保証
 
@@ -51,7 +52,10 @@ AWS リソース
 
 ```
 infra/
-├── shared/              # 全サービスで共有するリソース
+├── bin/                 # CDK App エントリーポイント
+│   └── nagiyu-platform.ts
+├── lib/                 # CDK Constructs とスタック (将来)
+├── shared/              # 全サービスで共有するリソース (CloudFormation)
 │   ├── iam/            # IAM ユーザー、ポリシー
 │   │   ├── policies/
 │   │   │   ├── deploy-policy-core.yaml
@@ -65,12 +69,19 @@ infra/
 │   └── acm/            # ACM 証明書
 │       └── certificate.yaml
 │
-└── app-A/              # アプリケーション固有のリソース（将来）
-    ├── lambda/         # Lambda 関数
-    ├── dynamodb/       # DynamoDB テーブル
-    ├── api-gateway/    # API Gateway
-    └── cloudfront/     # CloudFront ディストリビューション
+├── root/               # ルートドメインリソース (CDK)
+│   └── (将来の CDK スタック実装)
+├── app-A/              # アプリケーション固有のリソース (将来)
+│   ├── lambda/         # Lambda 関数
+│   ├── dynamodb/       # DynamoDB テーブル
+│   ├── api-gateway/    # API Gateway
+│   └── cloudfront/     # CloudFront ディストリビューション
+├── cdk.json            # CDK 設定
+├── tsconfig.json       # TypeScript 設定
+└── package.json        # 依存関係
 ```
+
+**注:** 現時点で作成済みのリソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。将来的には全リソースを CDK に移行する予定です。詳細は [CDK 移行ガイド](./cdk-migration.md) を参照。
 
 ---
 
@@ -112,9 +123,24 @@ infra/
 
 詳細は [ACM 詳細ドキュメント](./shared/acm.md) を参照。
 
-### アプリケーション固有インフラ (app-X/)
+### アプリケーション固有インフラ
 
-各アプリケーション専用のリソース（将来実装予定）。
+#### ルートドメイン (root/)
+
+ルートドメイン (example.com) で公開される Web アプリケーション。CDK で構築。
+
+- **ECS Cluster**: Fargate でコンテナオーケストレーション
+- **Application Load Balancer**: ECS タスクへの負荷分散
+- **CloudFront Distribution**: グローバル CDN
+- **ECR Repository**: コンテナイメージ管理
+- **Security Groups**: ネットワークセキュリティ
+- **IAM Roles**: ECS タスク実行権限
+
+詳細は [ルートドメインアーキテクチャ](./root/architecture.md) を参照。
+
+#### その他のアプリケーション (将来実装予定)
+
+各アプリケーション専用のリソース。
 
 - **Lambda 関数**: サーバーレスアプリケーションロジック
 - **DynamoDB テーブル**: NoSQL データベース
@@ -210,7 +236,9 @@ nagiyu-{category}-{resource}
 
 - [初回セットアップ](./setup.md) - インフラの初期構築手順
 - [デプロイ手順](./deploy.md) - 日常的なデプロイ操作
+- [CDK 移行ガイド](./cdk-migration.md) - CloudFormation から CDK への移行戦略
 - [IAM 詳細](./shared/iam.md) - IAM リソースの詳細設計
 - [VPC 詳細](./shared/vpc.md) - VPC リソースの詳細設計
 - [ACM 詳細](./shared/acm.md) - SSL/TLS 証明書の管理
 - [CloudFront 詳細](./shared/cloudfront.md) - CloudFront の設計と運用
+- [ルートドメインアーキテクチャ](./root/architecture.md) - ルートドメインの詳細設計

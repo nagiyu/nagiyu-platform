@@ -1,0 +1,92 @@
+name: バグ修正
+description: バグや不具合の修正タスク
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 実装時の注意事項
+
+        実装前に必ず以下のドキュメントを確認してください:
+        - [コーディング規約・べからず集](../../docs/development/rules.md)
+        - [アーキテクチャガイドライン](../../docs/development/architecture.md)
+        - [開発方針](../../docs/README.md)
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: バグの内容
+      description: 発生しているバグの詳細を記述してください
+      placeholder: XXXの機能でYYYを実行すると、ZZZのエラーが発生する
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: 再現手順
+      description: バグを再現するための手順を記述してください
+      placeholder: |
+        1. XXXページにアクセス
+        2. YYYボタンをクリック
+        3. ZZZが表示される
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: 期待される動作
+      description: 本来どのように動作すべきかを記述してください
+      placeholder: XXXが表示されるべき
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: 実際の動作
+      description: 現在の動作を記述してください
+      placeholder: YYYが表示される
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境情報
+      description: バグが発生する環境を記述してください
+      placeholder: |
+        - OS: Ubuntu 22.04
+        - ブラウザ: Chrome 120
+        - Node.js: v22.0.0
+    validations:
+      required: false
+
+  - type: textarea
+    id: related-docs
+    attributes:
+      label: 関連ドキュメント
+      description: 関連する設計書や仕様書へのパスを記載してください
+      placeholder: |
+        - docs/services/example/requirements.md
+        - docs/services/example/basic-design.md
+
+  - type: checkboxes
+    id: implementation-checklist
+    attributes:
+      label: 実装チェックリスト
+      description: 実装時に確認すべき項目
+      options:
+        - label: ルールドキュメントを確認した
+          required: true
+        - label: バグの原因を特定した
+        - label: 修正内容のテストを追加した
+        - label: ドキュメントを更新した（必要な場合）
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 追加情報
+      description: その他の補足情報があれば記載してください

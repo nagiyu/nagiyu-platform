@@ -36,6 +36,7 @@ Resources:
               - ecr:UploadLayerPart
               - ecr:CompleteLayerUpload
               - ecr:ListImages
+              - ecr:DescribeImages
               # Repository policy
               - ecr:GetRepositoryPolicy
               - ecr:SetRepositoryPolicy

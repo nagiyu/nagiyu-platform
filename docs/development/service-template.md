@@ -129,6 +129,7 @@ export async function GET() {
 
 ## 参考
 
+- [rules.md](./rules.md): コーディング規約・べからず集
 - [architecture.md](./architecture.md): アーキテクチャ方針
 - [testing.md](./testing.md): テスト戦略
 - [shared-libraries.md](./shared-libraries.md): 共通ライブラリ設計

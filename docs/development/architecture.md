@@ -131,6 +131,7 @@
 
 ## 参考
 
+- [rules.md](./rules.md): コーディング規約・べからず集
 - [service-template.md](./service-template.md): サービステンプレート
 - [testing.md](./testing.md): テスト戦略
 - [shared-libraries.md](./shared-libraries.md): 共通ライブラリ設計

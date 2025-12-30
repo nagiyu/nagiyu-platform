@@ -222,5 +222,6 @@ import { something } from '../components/Button';
 
 ## 参考
 
+- [rules.md](./rules.md): コーディング規約・べからず集
 - [service-template.md](./service-template.md): サービステンプレート
 - [architecture.md](./architecture.md): アーキテクチャ方針
