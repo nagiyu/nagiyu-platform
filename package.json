@@ -6,7 +6,7 @@
   "workspaces": [
     "services/*",
     "libs/*",
-    "infra"
+    "infra/*"
   ],
   "scripts": {
     "dev:tools": "npm run dev --workspace=services/tools",
