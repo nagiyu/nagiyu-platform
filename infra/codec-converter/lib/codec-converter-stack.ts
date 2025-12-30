@@ -65,7 +65,7 @@ export class CodecConverterStack extends cdk.Stack {
 
     // ECR Repository for Batch worker image
     const workerEcrRepository = new ecr.Repository(this, 'WorkerEcrRepository', {
-      repositoryName: `nagiyu-codec-converter-worker`,
+      repositoryName: `codec-converter-ffmpeg-${envName}`,
       imageScanOnPush: true,
       lifecycleRules: [
         {
@@ -108,7 +108,7 @@ export class CodecConverterStack extends cdk.Stack {
     const computeEnvironment = new batch.FargateComputeEnvironment(this, 'ComputeEnvironment', {
       computeEnvironmentName: `codec-converter-${envName}`,
       vpc: vpc,
-      maxvCpus: 3,
+      maxvCpus: 6, // 3 jobs × 2 vCPU each
     });
 
     // Batch Job Queue (FIFO)
@@ -128,8 +128,8 @@ export class CodecConverterStack extends cdk.Stack {
       jobDefinitionName: `codec-converter-${envName}`,
       container: new batch.EcsFargateContainerDefinition(this, 'JobContainer', {
         image: ecs.ContainerImage.fromEcrRepository(workerEcrRepository, 'latest'),
-        cpu: 4,
-        memory: cdk.Size.gibibytes(8),
+        cpu: 2,
+        memory: cdk.Size.mebibytes(4096),
         executionRole: batchJobExecutionRole,
         jobRole: batchJobRole,
         environment: {
@@ -139,7 +139,7 @@ export class CodecConverterStack extends cdk.Stack {
         },
       }),
       timeout: cdk.Duration.hours(2),
-      retryAttempts: 2,
+      retryAttempts: 1, // 1 retry as per architecture.md:404
       retryStrategies: [
         batch.RetryStrategy.of(batch.Action.RETRY, batch.Reason.NON_ZERO_EXIT_CODE),
       ],
