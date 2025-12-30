@@ -390,10 +390,10 @@ codec-converter-storage-{env}/
 **Compute Environment**:
 - タイプ: Fargate
 - 最大vCPU: 6（3ジョブ × 2vCPU）
-- サブネット: プライベートサブネット（NAT Gateway経由でインターネットアクセス）
+- サブネット: パブリックサブネット（プラットフォーム共通VPC: `nagiyu-{env}-vpc`）
 
 **Job Queue**:
-- タイプ: FIFO
+- スケジューリング: 優先度ベース（デフォルト動作、投入順に処理）
 - 優先度: 1
 
 **Job Definition**:

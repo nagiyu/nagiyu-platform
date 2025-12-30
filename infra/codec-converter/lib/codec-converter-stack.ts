@@ -99,10 +99,17 @@ export class CodecConverterStack extends cdk.Stack {
     storageBucket.grantReadWrite(batchJobRole);
     jobsTable.grantReadWriteData(batchJobRole);
 
-    // Import default VPC for Batch compute environment
-    const vpc = ec2.Vpc.fromLookup(this, 'DefaultVpc', {
-      isDefault: true,
-    });
+    // Import shared VPC from platform infrastructure
+    // For deployment: uses CloudFormation import from shared VPC stack
+    // For testing: uses VPC lookup with explicit vpcId from context
+    const vpcId = this.node.tryGetContext('vpcId');
+    const vpc = vpcId
+      ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
+      : ec2.Vpc.fromLookup(this, 'SharedVpc', {
+          tags: {
+            Name: `nagiyu-${envName}-vpc`,
+          },
+        });
 
     // Batch Compute Environment (Fargate)
     const computeEnvironment = new batch.FargateComputeEnvironment(this, 'ComputeEnvironment', {
@@ -111,7 +118,7 @@ export class CodecConverterStack extends cdk.Stack {
       maxvCpus: 6, // 3 jobs × 2 vCPU each
     });
 
-    // Batch Job Queue (FIFO)
+    // Batch Job Queue
     const jobQueue = new batch.JobQueue(this, 'JobQueue', {
       jobQueueName: `codec-converter-${envName}`,
       priority: 1,

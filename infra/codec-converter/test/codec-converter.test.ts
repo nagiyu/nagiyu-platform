@@ -4,7 +4,11 @@ import * as CodecConverter from '../lib/codec-converter-stack';
 
 // Helper function to create a test stack with required environment
 function createTestStack(): { app: cdk.App; stack: cdk.Stack } {
-  const app = new cdk.App();
+  const app = new cdk.App({
+    context: {
+      vpcId: 'vpc-12345678', // Mock VPC ID for testing
+    },
+  });
   const stack = new CodecConverter.CodecConverterStack(app, 'TestStack', {
     env: {
       account: '123456789012',
