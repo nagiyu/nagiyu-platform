@@ -47,23 +47,25 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Paper sx={{ mt: 3, p: 2, bgcolor: 'grey.100' }}>
-          <Typography variant="h6" gutterBottom>
-            セッション情報 (デバッグ用)
-          </Typography>
-          <Box
-            component="pre"
-            sx={{
-              overflow: 'auto',
-              fontSize: '0.875rem',
-              bgcolor: 'background.paper',
-              p: 2,
-              borderRadius: 1,
-            }}
-          >
-            {JSON.stringify(session, null, 2)}
-          </Box>
-        </Paper>
+        {process.env.NODE_ENV === 'development' && (
+          <Paper sx={{ mt: 3, p: 2, bgcolor: 'grey.100' }}>
+            <Typography variant="h6" gutterBottom>
+              セッション情報 (デバッグ用)
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                overflow: 'auto',
+                fontSize: '0.875rem',
+                bgcolor: 'background.paper',
+                p: 2,
+                borderRadius: 1,
+              }}
+            >
+              {JSON.stringify(session, null, 2)}
+            </Box>
+          </Paper>
+        )}
       </Box>
     </Container>
   );
