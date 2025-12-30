@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as CodecConverter from '../lib/codec-converter-stack';
 
 // Helper function to create a test stack with required environment
@@ -91,6 +91,95 @@ test('Lambda has correct IAM permissions', () => {
           },
         },
       ],
+    },
+  });
+});
+
+test('Batch Worker ECR Repository Created with image scanning', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::ECR::Repository', {
+    ImageScanningConfiguration: {
+      ScanOnPush: true,
+    },
+    LifecyclePolicy: {
+      LifecyclePolicyText: Match.stringLikeRegexp('.*countNumber.*10.*'),
+    },
+  });
+});
+
+test('Batch Compute Environment Created with correct configuration', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::Batch::ComputeEnvironment', {
+    Type: 'managed',
+    ComputeResources: {
+      MaxvCpus: 6,
+      Type: 'FARGATE',
+    },
+  });
+});
+
+test('Batch Job Queue Created', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  template.hasResourceProperties('AWS::Batch::JobQueue', {
+    Priority: 1,
+  });
+});
+
+test('Batch Job Definition Created with correct resources', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  // Just verify the resource exists and has basic properties
+  template.resourceCountIs('AWS::Batch::JobDefinition', 1);
+  
+  const jobDefResource = template.findResources('AWS::Batch::JobDefinition');
+  const jobDef = Object.values(jobDefResource)[0];
+  
+  expect(jobDef.Properties.Type).toBe('container');
+  expect(jobDef.Properties.PlatformCapabilities).toContain('FARGATE');
+  expect(jobDef.Properties.Timeout.AttemptDurationSeconds).toBe(7200);
+  
+  // Check resource requirements contain both VCPU and MEMORY
+  const resourceReqs = jobDef.Properties.ContainerProperties.ResourceRequirements;
+  const vcpuReq = resourceReqs.find((r: any) => r.Type === 'VCPU');
+  const memoryReq = resourceReqs.find((r: any) => r.Type === 'MEMORY');
+  
+  expect(vcpuReq.Value).toBe('2');
+  expect(memoryReq.Value).toBe('4096');
+});
+
+test('Lambda has Batch permissions', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  // Check for Batch SubmitJob permission
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: 'batch:SubmitJob',
+          Effect: 'Allow',
+        }),
+      ]),
+    },
+  });
+
+  // Check for Batch DescribeJobs and TerminateJob permissions
+  template.hasResourceProperties('AWS::IAM::Policy', {
+    PolicyDocument: {
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: ['batch:DescribeJobs', 'batch:TerminateJob'],
+          Effect: 'Allow',
+          Resource: '*',
+        }),
+      ]),
     },
   });
 });
