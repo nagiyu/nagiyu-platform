@@ -68,9 +68,9 @@ export const authConfig: NextAuthConfig = {
       return token;
     },
     async session({ session, token }) {
-      session.user.id = (token.userId as string) || "";
-      session.user.email = (token.email as string) || "";
-      session.user.name = (token.name as string) || "";
+      session.user.id = (token.userId as string) || '';
+      session.user.email = (token.email as string) || '';
+      session.user.name = (token.name as string) || '';
       session.user.image = (token.picture as string) || undefined;
       session.user.roles = (token.roles as string[]) || [];
       return session;
