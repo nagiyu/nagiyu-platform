@@ -24,6 +24,16 @@
 
 - [ブランチ戦略](./branching.md)
 
+### 開発ガイドライン
+
+- [コーディング規約・べからず集](./development/rules.md)
+- [アーキテクチャ方針](./development/architecture.md)
+- [共通設定ファイル](./development/configs.md)
+- [テスト戦略](./development/testing.md)
+- [共通ライブラリ設計](./development/shared-libraries.md)
+- [サービステンプレート](./development/service-template.md)
+- [PWA設定ガイド](./development/pwa.md)
+
 ## サービス
 
 - [Tools アプリ](./services/tools/README.md)

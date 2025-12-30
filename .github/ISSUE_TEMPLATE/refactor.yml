@@ -1,0 +1,90 @@
+name: リファクタリング
+description: コードのリファクタリングや改善タスク
+title: "[Refactor] "
+labels: ["refactor"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 実装時の注意事項
+
+        実装前に必ず以下のドキュメントを確認してください:
+        - [コーディング規約・べからず集](../../docs/development/rules.md)
+        - [アーキテクチャガイドライン](../../docs/development/architecture.md)
+        - [開発方針](../../docs/README.md)
+
+  - type: textarea
+    id: refactor-target
+    attributes:
+      label: リファクタリング対象
+      description: リファクタリングする対象のコードやモジュールを記述してください
+      placeholder: services/tools/src/components/XXX.tsx
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-issues
+    attributes:
+      label: 現状の問題点
+      description: 現在のコードの問題点や改善すべき点を記述してください
+      placeholder: |
+        - コードの可読性が低い
+        - テストが困難
+        - パフォーマンスに問題がある
+    validations:
+      required: true
+
+  - type: textarea
+    id: refactor-goal
+    attributes:
+      label: リファクタリング後の目標
+      description: リファクタリング後にどのような状態になるべきかを記述してください
+      placeholder: |
+        - コンポーネントを小さく分割し、再利用性を向上
+        - テストカバレッジを80%以上に向上
+        - レンダリングパフォーマンスを50%改善
+    validations:
+      required: true
+
+  - type: dropdown
+    id: refactor-type
+    attributes:
+      label: リファクタリングの種類
+      description: リファクタリングの主な種類を選択してください
+      options:
+        - コード可読性の改善
+        - アーキテクチャの改善
+        - パフォーマンスの改善
+        - テスタビリティの改善
+        - セキュリティの改善
+        - その他
+    validations:
+      required: true
+
+  - type: textarea
+    id: related-docs
+    attributes:
+      label: 関連ドキュメント
+      description: 関連する設計書や仕様書へのパスを記載してください
+      placeholder: |
+        - docs/services/example/basic-design.md
+        - docs/services/example/detailed-design.md
+
+  - type: checkboxes
+    id: implementation-checklist
+    attributes:
+      label: 実装チェックリスト
+      description: 実装時に確認すべき項目
+      options:
+        - label: ルールドキュメントを確認した
+          required: true
+        - label: 既存の機能に影響がないことを確認した
+        - label: テストカバレッジ80%以上を確保した
+        - label: パフォーマンス測定を実施した（該当する場合）
+        - label: ドキュメントを更新した
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 追加情報
+      description: その他の補足情報があれば記載してください
