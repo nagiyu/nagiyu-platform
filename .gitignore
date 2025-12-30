@@ -70,3 +70,9 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+
+# AWS CDK
+cdk.out/
+infra/**/*.js
+infra/**/*.d.ts
+!infra/**/jest.config.js
