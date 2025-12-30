@@ -100,8 +100,9 @@ export class CodecConverterStack extends cdk.Stack {
     jobsTable.grantReadWriteData(batchJobRole);
 
     // Import shared VPC from platform infrastructure
-    // For deployment: uses CloudFormation import from shared VPC stack
-    // For testing: uses VPC lookup with explicit vpcId from context
+    // Uses Vpc.fromLookup which queries AWS API via CDK context cache
+    // For testing: if vpcId is provided in context, lookup by explicit vpcId
+    // For deployment: lookup by Name tag to find nagiyu-{env}-vpc
     const vpcId = this.node.tryGetContext('vpcId');
     const vpc = vpcId
       ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
@@ -115,6 +116,9 @@ export class CodecConverterStack extends cdk.Stack {
     const computeEnvironment = new batch.FargateComputeEnvironment(this, 'ComputeEnvironment', {
       computeEnvironmentName: `codec-converter-${envName}`,
       vpc: vpc,
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC,
+      },
       maxvCpus: 6, // 3 jobs × 2 vCPU each
     });
 
@@ -131,10 +135,11 @@ export class CodecConverterStack extends cdk.Stack {
     });
 
     // Batch Job Definition
+    const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
     const jobDefinition = new batch.EcsJobDefinition(this, 'JobDefinition', {
       jobDefinitionName: `codec-converter-${envName}`,
       container: new batch.EcsFargateContainerDefinition(this, 'JobContainer', {
-        image: ecs.ContainerImage.fromEcrRepository(workerEcrRepository, 'latest'),
+        image: ecs.ContainerImage.fromEcrRepository(workerEcrRepository, workerImageTag),
         cpu: 2,
         memory: cdk.Size.mebibytes(4096),
         executionRole: batchJobExecutionRole,
@@ -170,8 +175,17 @@ export class CodecConverterStack extends cdk.Stack {
     // Grant Lambda permissions to submit Batch jobs
     lambdaExecutionRole.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['batch:SubmitJob', 'batch:DescribeJobs'],
+        actions: ['batch:SubmitJob'],
         resources: [jobQueue.jobQueueArn, jobDefinition.jobDefinitionArn],
+      })
+    );
+
+    // Grant Lambda permissions to describe and manage Batch jobs
+    // Job ARNs cannot be known in advance, so use wildcard
+    lambdaExecutionRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['batch:DescribeJobs', 'batch:TerminateJob'],
+        resources: ['*'],
       })
     );
 
