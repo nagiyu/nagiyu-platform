@@ -393,7 +393,7 @@ codec-converter-storage-{env}/
 - サブネット: パブリックサブネット（プラットフォーム共通VPC: `nagiyu-{env}-vpc`）
 
 **Job Queue**:
-- スケジューリング: 優先度ベース（デフォルト動作、投入順に処理）
+- スケジューリング: デフォルト（投入順に処理）
 - 優先度: 1
 
 **Job Definition**:
