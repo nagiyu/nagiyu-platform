@@ -40,7 +40,7 @@ let dynamoDBClient: DynamoDBDocumentClient | null = null;
 function getDynamoDBClient(): DynamoDBDocumentClient {
   if (!dynamoDBClient) {
     const client = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'ap-northeast-1',
+      region: process.env.AWS_REGION || 'us-east-1',
     });
     dynamoDBClient = DynamoDBDocumentClient.from(client);
   }

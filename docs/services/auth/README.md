@@ -50,7 +50,7 @@ COOKIE_DOMAIN=localhost  # ローカル開発時は localhost、本番環境で�
 
 # DynamoDB 設定
 DYNAMODB_TABLE_NAME=nagiyu-auth-users-dev
-AWS_REGION=ap-northeast-1
+AWS_REGION=us-east-1  # CloudFront をベースとするため us-east-1 を使用
 ```
 
 ### 3. Google OAuth の設定
