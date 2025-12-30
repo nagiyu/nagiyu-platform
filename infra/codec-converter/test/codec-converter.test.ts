@@ -2,9 +2,20 @@ import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import * as CodecConverter from '../lib/codec-converter-stack';
 
-test('S3 Bucket Created', () => {
+// Helper function to create a test stack with required environment
+function createTestStack(): { app: cdk.App; stack: cdk.Stack } {
   const app = new cdk.App();
-  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack');
+  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack', {
+    env: {
+      account: '123456789012',
+      region: 'us-east-1',
+    },
+  });
+  return { app, stack };
+}
+
+test('S3 Bucket Created', () => {
+  const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::S3::Bucket', {
@@ -21,8 +32,7 @@ test('S3 Bucket Created', () => {
 });
 
 test('DynamoDB Table Created', () => {
-  const app = new cdk.App();
-  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack');
+  const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::DynamoDB::Table', {
@@ -35,8 +45,7 @@ test('DynamoDB Table Created', () => {
 });
 
 test('Lambda Function Created with correct configuration', () => {
-  const app = new cdk.App();
-  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack');
+  const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::Lambda::Function', {
@@ -47,8 +56,7 @@ test('Lambda Function Created with correct configuration', () => {
 });
 
 test('Lambda Function URL Created', () => {
-  const app = new cdk.App();
-  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack');
+  const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::Lambda::Url', {
@@ -57,16 +65,14 @@ test('Lambda Function URL Created', () => {
 });
 
 test('CloudFront Distribution Created', () => {
-  const app = new cdk.App();
-  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack');
+  const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   template.resourceCountIs('AWS::CloudFront::Distribution', 1);
 });
 
 test('Lambda has correct IAM permissions', () => {
-  const app = new cdk.App();
-  const stack = new CodecConverter.CodecConverterStack(app, 'TestStack');
+  const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
   // Check that Lambda execution role exists
