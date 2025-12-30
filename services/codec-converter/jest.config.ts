@@ -6,7 +6,6 @@ const createJestConfig = nextJest({
 });
 
 const config: Config = {
-  testEnvironment: 'node',
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -27,6 +26,10 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@nagiyu-platform/codec-converter-common$':
       '<rootDir>/../codec-converter-common/dist/src/index.js',
+  },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+  testEnvironmentOptions: {
+    customExportConditions: [''],
   },
 };
 
