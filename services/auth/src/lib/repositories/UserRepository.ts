@@ -34,26 +34,36 @@ export interface UpdateUserInput {
   roles?: string[];
 }
 
-// Singleton DynamoDB client
-let dynamoDBClient: DynamoDBDocumentClient | null = null;
+// DynamoDB client factory interface for dependency injection
+export interface IDynamoDBClientFactory {
+  createClient(): DynamoDBDocumentClient;
+}
 
-function getDynamoDBClient(): DynamoDBDocumentClient {
-  if (!dynamoDBClient) {
-    const client = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-    });
-    dynamoDBClient = DynamoDBDocumentClient.from(client);
+// Production DynamoDB client factory with singleton pattern
+export class ProductionDynamoDBClientFactory implements IDynamoDBClientFactory {
+  private static instance: DynamoDBDocumentClient | null = null;
+
+  createClient(): DynamoDBDocumentClient {
+    if (!ProductionDynamoDBClientFactory.instance) {
+      const client = new DynamoDBClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+      });
+      ProductionDynamoDBClientFactory.instance = DynamoDBDocumentClient.from(client);
+    }
+    return ProductionDynamoDBClientFactory.instance;
   }
-  return dynamoDBClient;
 }
 
 export class UserRepository {
   private client: DynamoDBDocumentClient;
   private tableName: string;
 
-  constructor() {
-    this.client = getDynamoDBClient();
-    this.tableName = process.env.DYNAMODB_TABLE_NAME || 'nagiyu-auth-users-dev';
+  constructor(
+    clientFactory: IDynamoDBClientFactory = new ProductionDynamoDBClientFactory(),
+    tableName?: string
+  ) {
+    this.client = clientFactory.createClient();
+    this.tableName = tableName || process.env.DYNAMODB_TABLE_NAME || 'nagiyu-auth-users-dev';
   }
 
   /**

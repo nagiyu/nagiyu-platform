@@ -87,9 +87,12 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev',
+    command: process.env.CI ? 'npm run dev:mock' : 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 2 * 60 * 1000, // 2 minutes
+    env: {
+      AUTH_PROVIDER: process.env.CI ? 'mock' : process.env.AUTH_PROVIDER || '',
+    },
   },
 });
