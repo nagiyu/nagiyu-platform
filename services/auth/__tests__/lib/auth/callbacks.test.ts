@@ -54,20 +54,21 @@ describe('Auth Callbacks', () => {
           name: '',
           image: undefined,
           roles: [],
+          emailVerified: null,
         },
         expires: '2024-12-31',
       };
 
-      const result = await authConfig.callbacks.session({
+      const result = await (authConfig.callbacks.session as any)({
         session: mockSession,
         token: mockToken,
       });
 
-      expect(result.user.id).toBe('user_123');
-      expect(result.user.email).toBe('test@example.com');
-      expect(result.user.name).toBe('Test User');
-      expect(result.user.image).toBe('https://example.com/avatar.jpg');
-      expect(result.user.roles).toEqual(['admin']);
+      expect(result?.user?.id).toBe('user_123');
+      expect(result?.user?.email).toBe('test@example.com');
+      expect(result?.user?.name).toBe('Test User');
+      expect(result?.user?.image).toBe('https://example.com/avatar.jpg');
+      expect((result?.user as any)?.roles).toEqual(['admin']);
     });
 
     test('should handle missing token properties with defaults', async () => {
@@ -84,20 +85,21 @@ describe('Auth Callbacks', () => {
           name: '',
           image: undefined,
           roles: [],
+          emailVerified: null,
         },
         expires: '2024-12-31',
       };
 
-      const result = await authConfig.callbacks.session({
+      const result = await (authConfig.callbacks.session as any)({
         session: mockSession,
         token: mockToken,
       });
 
-      expect(result.user.id).toBe('');
-      expect(result.user.email).toBe('');
-      expect(result.user.name).toBe('');
-      expect(result.user.image).toBeUndefined();
-      expect(result.user.roles).toEqual([]);
+      expect(result?.user?.id).toBe('');
+      expect(result?.user?.email).toBe('');
+      expect(result?.user?.name).toBe('');
+      expect(result?.user?.image).toBeUndefined();
+      expect((result?.user as any)?.roles).toEqual([]);
     });
   });
 });
