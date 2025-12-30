@@ -303,6 +303,7 @@ GitHub Actionsで自動実行。
 
 ## 参考
 
+- [rules.md](./rules.md): コーディング規約・べからず集
 - [service-template.md](./service-template.md): サービステンプレート
 - [architecture.md](./architecture.md): アーキテクチャ方針
 - [configs.md](./configs.md): 共通設定ファイル
