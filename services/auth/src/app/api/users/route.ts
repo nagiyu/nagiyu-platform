@@ -47,9 +47,15 @@ export async function GET(req: NextRequest) {
   }
 
   // lastEvaluatedKey のデコード
-  const lastEvaluatedKey = nextToken
-    ? JSON.parse(Buffer.from(nextToken, 'base64').toString())
-    : undefined;
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+  if (nextToken) {
+    try {
+      const decoded = Buffer.from(nextToken, 'base64').toString();
+      lastEvaluatedKey = JSON.parse(decoded);
+    } catch {
+      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_LIMIT }, { status: 400 });
+    }
+  }
 
   // ユーザー一覧取得
   const repo = new DynamoDBUserRepository();

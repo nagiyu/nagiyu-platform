@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/auth';
-import { DynamoDBUserRepository } from '@/lib/db/repositories/dynamodb-user-repository';
+import {
+  DynamoDBUserRepository,
+  UserNotFoundError,
+} from '@/lib/db/repositories/dynamodb-user-repository';
 import { hasPermission } from '@nagiyu/common/auth';
 import type { UpdateUserInput } from '@/lib/db/types';
 
@@ -120,10 +123,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     const updatedUser = await repo.updateUser(userId, body);
     return NextResponse.json(updatedUser);
   } catch (error) {
-    if (error instanceof Error && error.message.includes('見つかりません')) {
+    if (error instanceof UserNotFoundError) {
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
-    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    // その他のエラーはサーバーエラーとして扱う
+    console.error('User update error:', error);
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST }, { status: 500 });
   }
 }
 
@@ -171,6 +176,8 @@ export async function DELETE(
       deletedUserId: userId,
     });
   } catch (error) {
-    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
+    // データベースエラーはサーバーエラーとして扱う
+    console.error('User delete error:', error);
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST }, { status: 500 });
   }
 }
