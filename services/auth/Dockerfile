@@ -5,6 +5,9 @@ FROM node:22-alpine AS base
 FROM base AS builder
 WORKDIR /app
 
+# Next.jsのSWCバイナリに必要なライブラリをインストール
+RUN apk add --no-cache libc6-compat
+
 # モノレポ全体のファイルをコピー
 COPY package*.json ./
 COPY configs ./configs/
@@ -13,6 +16,9 @@ COPY services/auth ./services/auth/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
+
+# Alpine用のSWCバイナリを明示的にインストール
+RUN npm install --save-optional @next/swc-linux-x64-musl
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
