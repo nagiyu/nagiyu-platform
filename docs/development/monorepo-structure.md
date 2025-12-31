@@ -99,47 +99,41 @@ libs/
 
 ### 依存方向の図
 
-```
-┌─────────────────────────────────────────────────────┐
-│ services/{service}/web                              │
-│ - Next.js UI                                        │
-│ - E2E Test 主体                                     │
-└────┬────────────────────────────────┬───────────────┘
-     │                                │
-     ↓                                ↓
-┌────────────────────┐        ┌──────────────┐
-│ services/          │        │ libs/ui/     │
-│ {service}/core     │        │ - React UI   │
-│ - ビジネスロジック │        └──────┬───────┘
-│ - Unit Test 必須   │               │
-└─────────┬──────────┘               ↓
-          │                  ┌──────────────┐
-          │                  │ libs/browser/│
-          │                  │ - Browser API│
-          │                  └──────┬───────┘
-          │                         │
-          └─────────┬───────────────┘
-                    ↓
-            ┌───────────────┐
-            │ libs/common/  │
-            │ - 完全非依存  │
-            └───────────────┘
+```mermaid
+flowchart TB
+    subgraph web["services/{service}/web"]
+        web_label["Next.js UI<br/>E2E Test 主体"]
+    end
 
-┌─────────────────────────────────────┐
-│ services/{service}/batch            │
-│ - バッチ処理                        │
-│ - Integration Test                  │
-└────┬────────────────────────────────┘
-     │
-     ↓
-┌────────────────────┐
-│ services/          │
-│ {service}/core     │◄────┐
-└────────────────────┘     │
-                            │
-                    ┌───────┴───────┐
-                    │ libs/common/  │
-                    └───────────────┘
+    subgraph core["services/{service}/core"]
+        core_label["ビジネスロジック<br/>Unit Test 必須"]
+    end
+
+    subgraph ui["libs/ui/"]
+        ui_label["React UI"]
+    end
+
+    subgraph browser["libs/browser/"]
+        browser_label["Browser API"]
+    end
+
+    subgraph common["libs/common/"]
+        common_label["完全非依存"]
+    end
+
+    web --> core
+    web --> ui
+    web --> browser
+    ui --> browser
+    browser --> common
+    core --> common
+
+    subgraph batch["services/{service}/batch"]
+        batch_label["バッチ処理<br/>Integration Test"]
+    end
+
+    batch --> core
+    batch --> common
 ```
 
 ### 依存関係の原則
