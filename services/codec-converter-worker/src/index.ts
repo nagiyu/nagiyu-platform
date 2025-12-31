@@ -203,6 +203,7 @@ export async function convertWithFFmpeg(
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn('ffmpeg', args);
     let stderr = '';
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     let stdout = '';
 
     ffmpeg.stdout.on('data', (data) => {
