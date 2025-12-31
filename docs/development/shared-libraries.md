@@ -255,10 +255,10 @@ Next.jsサービス（`services/{service}/web`）の package.json で必要な�
 
 ```json
 {
-  "name": "tools-core",
-  "dependencies": {
-    "@nagiyu/common": "workspace:*"
-  }
+    "name": "tools-core",
+    "dependencies": {
+        "@nagiyu/common": "workspace:*"
+    }
 }
 ```
 
@@ -267,7 +267,7 @@ Next.jsサービス（`services/{service}/web`）の package.json で必要な�
 import { someUtil } from '@nagiyu/common';
 
 export function processData(input: string): string {
-  return someUtil(input);
+    return someUtil(input);
 }
 ```
 
@@ -277,13 +277,13 @@ Web UIパッケージでは、core パッケージと共通ライブラリを使
 
 ```json
 {
-  "name": "tools-web",
-  "dependencies": {
-    "tools-core": "workspace:*",
-    "@nagiyu/ui": "workspace:*",
-    "@nagiyu/browser": "workspace:*",
-    "@nagiyu/common": "workspace:*"
-  }
+    "name": "tools-web",
+    "dependencies": {
+        "tools-core": "workspace:*",
+        "@nagiyu/ui": "workspace:*",
+        "@nagiyu/browser": "workspace:*",
+        "@nagiyu/common": "workspace:*"
+    }
 }
 ```
 
@@ -315,11 +315,11 @@ export default function ToolsPage() {
 
 ```json
 {
-  "name": "tools-batch",
-  "dependencies": {
-    "tools-core": "workspace:*",
-    "@nagiyu/common": "workspace:*"
-  }
+    "name": "tools-batch",
+    "dependencies": {
+        "tools-core": "workspace:*",
+        "@nagiyu/common": "workspace:*"
+    }
 }
 ```
 
@@ -329,9 +329,9 @@ import { processData } from 'tools-core';
 import { someUtil } from '@nagiyu/common';
 
 export async function dailyBatch() {
-  const data = await fetchData();
-  const processed = processData(data);
-  await saveResult(processed);
+    const data = await fetchData();
+    const processed = processData(data);
+    await saveResult(processed);
 }
 ```
 
