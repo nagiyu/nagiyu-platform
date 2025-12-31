@@ -257,11 +257,12 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegでH.264変換が成功する', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: {
         on: jest.fn((event, callback) => {
           if (event === 'data') {
-            // FFmpegのstderrをシミュレート
-            callback(Buffer.from('ffmpeg output'));
+            // FFmpegの進捗情報をstderrでシミュレート
+            callback(Buffer.from('time=00:01:23.45'));
           }
         }),
       },
@@ -284,6 +285,7 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegでVP9変換が成功する', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
@@ -302,6 +304,7 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegでAV1変換が成功する', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
@@ -320,6 +323,7 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegが失敗した場合はエラー', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: {
         on: jest.fn((event, callback) => {
           if (event === 'data') callback(Buffer.from('error output'));

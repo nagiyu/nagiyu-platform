@@ -207,17 +207,18 @@ export async function convertWithFFmpeg(
 
     ffmpeg.stdout.on('data', (data) => {
       stdout += data.toString();
-      // Log progress information from FFmpeg
-      if (stdout.includes('time=')) {
-        const timeMatch = stdout.match(/time=(\S+)/);
+    });
+
+    ffmpeg.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      stderr += chunk;
+      // FFmpeg の進捗情報は stderr に出力されるため、ここから time= を解析する
+      if (chunk.includes('time=')) {
+        const timeMatch = chunk.match(/time=(\S+)/);
         if (timeMatch) {
           console.log(`FFmpeg progress: ${timeMatch[1]}`);
         }
       }
-    });
-
-    ffmpeg.stderr.on('data', (data) => {
-      stderr += data.toString();
     });
 
     ffmpeg.on('close', (code) => {
@@ -337,8 +338,8 @@ export async function main(): Promise<void> {
 }
 
 // スクリプトとして実行された場合のみmain()を呼び出す
-// テスト環境では process.argv[1] に 'jest' が含まれるため実行しない
-const isMainModule = process.argv[1] && !process.argv[1].includes('jest');
+// テスト環境（NODE_ENV === 'test'）では実行しない
+const isMainModule = process.env.NODE_ENV !== 'test';
 if (isMainModule) {
   main().catch((error) => {
     console.error('Fatal error:', error);

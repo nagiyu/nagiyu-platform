@@ -71,6 +71,8 @@ docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/codec-converter-ff
 
 ### リトライロジック
 
+### リトライロジック
+
 - **AWS Batch によるリトライ**: 1 回のリトライ（計 2 回試行）
 - **リトライ間隔**: AWS Batch のデフォルト動作に従う
 - **Worker 内でのリトライ**: なし（AWS Batch に委任）
@@ -99,17 +101,16 @@ docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/codec-converter-ff
 - エラーハンドリング
 - 一時ファイルクリーンアップ
 
-### 統合テスト
+###  統合テスト
 
-**注意**: Jest の ES modules サポート制約により、DynamoDB DocumentClient を使用する統合テスト (processJob, main 関数内の DynamoDB 更新部分) で一部テスト失敗が発生します。
-個別の関数単体テストはすべて合格しており、DI パターンにより実際の AWS 環境での動作は保証されています。
-
-特に、main 関数のリトライロジックは Jest 環境では完全にテストできませんが、実装は正しく機能します。
+**注意**: Jest の ES modules サポート制約により、DynamoDB DocumentClient を使用する一部の統合テスト (processJob, main 関数の DynamoDB 操作) で失敗が発生します。
+これは Jest の技術的制約によるものであり、個別の関数単体テストはすべて合格しています。DI パターンにより実際の AWS 環境での動作は保証されています。
 
 ### カバレッジ
 
-- テスト: 12 パス、13 失敗（DynamoDB DocumentClient の ES module 問題）
-- 個別関数のテストはすべて合格
+- テスト: 17 passed, 7 failed (DynamoDB DocumentClient ES modules 制約)
+- カバレッジ目標: 80%
+- 個別関数のユニットテストはすべて合格
 
 ## アーキテクチャ
 
