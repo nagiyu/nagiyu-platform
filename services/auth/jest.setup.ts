@@ -50,8 +50,7 @@ class MockRequest {
   url: string;
   method: string;
   headers: MockHeaders;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  body: any;
+  body: BodyInit | null;
 
   constructor(input: string | URL, init?: RequestInit) {
     this.url = typeof input === 'string' ? input : input.toString();
@@ -88,8 +87,7 @@ class MockRequest {
 }
 
 class MockResponse {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  body: any;
+  body: BodyInit | null | unknown;
   status: number;
   headers: MockHeaders;
 
@@ -113,7 +111,7 @@ class MockResponse {
     return this.body;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Static factory method needs flexible input
   static json(data: any, init?: ResponseInit) {
     const response = new MockResponse(JSON.stringify(data), init);
     response.body = data; // Store the actual data for easy access

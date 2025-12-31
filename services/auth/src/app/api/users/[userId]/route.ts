@@ -16,6 +16,13 @@ const ERROR_MESSAGES = {
   INVALID_REQUEST: 'リクエストが不正です',
   CANNOT_DELETE_SELF: '自分自身を削除することはできません',
   INVALID_NAME_LENGTH: '名前は1文字以上100文字以内で入力してください',
+  INTERNAL_ERROR: '内部エラーが発生しました',
+} as const;
+
+// バリデーション定数
+const VALIDATION = {
+  NAME_MIN_LENGTH: 1,
+  NAME_MAX_LENGTH: 100,
 } as const;
 
 /**
@@ -106,7 +113,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
 
   // バリデーション
   if (body.name !== undefined) {
-    if (typeof body.name !== 'string' || body.name.length < 1 || body.name.length > 100) {
+    if (
+      typeof body.name !== 'string' ||
+      body.name.length < VALIDATION.NAME_MIN_LENGTH ||
+      body.name.length > VALIDATION.NAME_MAX_LENGTH
+    ) {
       return NextResponse.json(
         {
           error: ERROR_MESSAGES.INVALID_REQUEST,
@@ -128,7 +139,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     }
     // その他のエラーはサーバーエラーとして扱う
     console.error('User update error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST }, { status: 500 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_ERROR }, { status: 500 });
   }
 }
 
@@ -178,6 +189,6 @@ export async function DELETE(
   } catch (error) {
     // データベースエラーはサーバーエラーとして扱う
     console.error('User delete error:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST }, { status: 500 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_ERROR }, { status: 500 });
   }
 }

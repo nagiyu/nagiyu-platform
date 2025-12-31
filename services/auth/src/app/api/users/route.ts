@@ -8,6 +8,7 @@ const ERROR_MESSAGES = {
   UNAUTHORIZED: '認証が必要です',
   FORBIDDEN: 'この操作を実行する権限がありません',
   INVALID_LIMIT: '取得件数は1から100の範囲で指定してください',
+  INVALID_NEXT_TOKEN: 'nextToken の形式が不正です',
 } as const;
 
 /**
@@ -53,7 +54,7 @@ export async function GET(req: NextRequest) {
       const decoded = Buffer.from(nextToken, 'base64').toString();
       lastEvaluatedKey = JSON.parse(decoded);
     } catch {
-      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_LIMIT }, { status: 400 });
+      return NextResponse.json({ error: ERROR_MESSAGES.INVALID_NEXT_TOKEN }, { status: 400 });
     }
   }
 
