@@ -62,7 +62,6 @@ RUN npm ci --workspace=@nagiyu-platform/codec-converter-worker \
 
 # ビルド成果物をコピー
 COPY --from=builder /app/services/codec-converter-common/dist ./services/codec-converter-common/dist
-COPY --from=builder /app/services/codec-converter-common/src ./services/codec-converter-common/src
 COPY --from=builder /app/services/codec-converter-worker/dist ./services/codec-converter-worker/dist
 
 # 一時ファイル用ディレクトリを作成
