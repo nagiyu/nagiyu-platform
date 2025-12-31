@@ -71,9 +71,10 @@ docker push <account-id>.dkr.ecr.ap-northeast-1.amazonaws.com/codec-converter-ff
 
 ### リトライロジック
 
-- 最大 2 回リトライ（計 3 回試行）
-- 指数バックオフ: 1 秒、2 秒
-- AWS Batch のジョブ定義でも 1 回のリトライを設定（合計最大 6 回試行）
+- **AWS Batch によるリトライ**: 1 回のリトライ（計 2 回試行）
+- **リトライ間隔**: AWS Batch のデフォルト動作に従う
+- **Worker 内でのリトライ**: なし（AWS Batch に委任）
+- **対象エラー**: 非ゼロ終了コード（FFmpeg エラー、S3 エラー、DynamoDB エラーなど）
 
 ### エラータイプ
 

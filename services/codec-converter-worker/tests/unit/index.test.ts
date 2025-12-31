@@ -510,54 +510,7 @@ describe('main', () => {
     await expect(main()).resolves.not.toThrow();
   });
 
-  it('リトライ後に成功する', async () => {
-    process.env.S3_BUCKET = 'test-bucket';
-    process.env.DYNAMODB_TABLE = 'test-table';
-    process.env.AWS_REGION = 'ap-northeast-1';
-    process.env.JOB_ID = 'test-job-id';
-    process.env.OUTPUT_CODEC = 'h264';
-
-    // 最初の2回は失敗、3回目は成功
-    let attempt = 0;
-    s3Mock.on(GetObjectCommand).callsFake(() => {
-      attempt++;
-      if (attempt < 3) {
-        return Promise.reject(new Error('S3 Error'));
-      }
-      return Promise.resolve({ Body: Readable.from(['test content']) as any });
-    });
-
-    s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
-
-    const mockWriteStream = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
-    const createWriteStreamMock = fs.createWriteStream as jest.MockedFunction<
-      typeof fs.createWriteStream
-    >;
-    createWriteStreamMock.mockReturnValue(mockWriteStream as any);
-
-    const mockReadStream = new Readable();
-    mockReadStream.push('test data');
-    mockReadStream.push(null);
-    const createReadStreamMock = fs.createReadStream as jest.MockedFunction<
-      typeof fs.createReadStream
-    >;
-    createReadStreamMock.mockReturnValue(mockReadStream as any);
-
-    const mockFFmpeg = {
-      stderr: { on: jest.fn() },
-      stdout: { on: jest.fn() },
-      on: jest.fn((event, callback) => {
-        if (event === 'close') callback(0);
-      }),
-    } as any;
-    spawnMock.mockReturnValue(mockFFmpeg);
-
-    await expect(main()).resolves.not.toThrow();
-    expect(attempt).toBe(3); // 3回試行されたことを確認
-  });
-
-  it('最大リトライ回数後も失敗した場合はエラー', async () => {
+  it('エラーが発生した場合は例外をスローする', async () => {
     process.env.S3_BUCKET = 'test-bucket';
     process.env.DYNAMODB_TABLE = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';

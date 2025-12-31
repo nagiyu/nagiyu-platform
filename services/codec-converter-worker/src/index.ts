@@ -295,41 +295,18 @@ export async function processJob(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
 
-    // ステータスをFAILEDに更新（リトライ付き）
-    const maxStatusUpdateAttempts = 3;
-    let lastStatusUpdateError: unknown;
-
-    for (let attempt = 1; attempt <= maxStatusUpdateAttempts; attempt++) {
-      try {
-        await updateJobStatus(
-          dynamodbClient,
-          env.DYNAMODB_TABLE,
-          env.JOB_ID,
-          'FAILED',
-          undefined,
-          errorMessage
-        );
-        lastStatusUpdateError = undefined;
-        break;
-      } catch (updateError) {
-        lastStatusUpdateError = updateError;
-        console.error(
-          `Attempt ${attempt}/${maxStatusUpdateAttempts}: Failed to update job status to FAILED:`,
-          updateError
-        );
-
-        // 次回リトライまで簡易バックオフ
-        if (attempt < maxStatusUpdateAttempts) {
-          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-        }
-      }
-    }
-
-    if (lastStatusUpdateError) {
-      console.error(
-        'Failed to update job status to FAILED after multiple attempts. Final error:',
-        lastStatusUpdateError
+    // ステータスをFAILEDに更新
+    try {
+      await updateJobStatus(
+        dynamodbClient,
+        env.DYNAMODB_TABLE,
+        env.JOB_ID,
+        'FAILED',
+        undefined,
+        errorMessage
       );
+    } catch (updateError) {
+      console.error('Failed to update job status to FAILED:', updateError);
     }
 
     // クリーンアップを試みる（エラーは無視）
@@ -344,7 +321,8 @@ export async function processJob(
 }
 
 /**
- * リトライロジック付きメイン実行
+ * メイン実行関数
+ * AWS Batch がリトライを管理するため、この関数ではリトライを行わない
  */
 export async function main(): Promise<void> {
   const env = validateEnvironment();
@@ -354,27 +332,8 @@ export async function main(): Promise<void> {
     new DynamoDBClient({ region: env.AWS_REGION })
   );
 
-  const maxRetries = 2;
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      await processJob(env, s3Client, dynamodbClient);
-      console.log(`Job ${env.JOB_ID} completed successfully`);
-      return;
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-      console.error(`Attempt ${attempt + 1}/${maxRetries + 1} failed:`, lastError.message);
-
-      if (attempt < maxRetries) {
-        const backoffMs = Math.pow(2, attempt) * 1000; // 指数バックオフ: 1秒, 2秒
-        console.log(`Retrying in ${backoffMs}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-      }
-    }
-  }
-
-  throw lastError;
+  await processJob(env, s3Client, dynamodbClient);
+  console.log(`Job ${env.JOB_ID} completed successfully`);
 }
 
 // スクリプトとして実行された場合のみmain()を呼び出す
