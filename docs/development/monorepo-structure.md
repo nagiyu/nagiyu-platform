@@ -700,21 +700,18 @@ export default [
 ```yaml
 - name: Build shared libraries
   run: |
-      npm run build --workspace @nagiyu/common
-      npm run build --workspace @nagiyu/browser
+      npm run build --workspace @nagiyu/common && \
+      npm run build --workspace @nagiyu/browser && \
       npm run build --workspace @nagiyu/ui
 
 - name: Build service core
-  run: |
-      npm run build --workspace tools-core
+  run: npm run build --workspace tools-core
 
 - name: Build service batch
-  run: |
-      npm run build --workspace tools-batch
+  run: npm run build --workspace tools-batch
 
 - name: Build Next.js (optional)
-  run: |
-      npm run build --workspace tools-web
+  run: npm run build --workspace tools-web
 ```
 
 ### 重要な注意点
