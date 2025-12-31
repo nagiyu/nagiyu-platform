@@ -137,19 +137,19 @@ test('Batch Job Definition Created with correct resources', () => {
 
   // Just verify the resource exists and has basic properties
   template.resourceCountIs('AWS::Batch::JobDefinition', 1);
-  
+
   const jobDefResource = template.findResources('AWS::Batch::JobDefinition');
   const jobDef = Object.values(jobDefResource)[0];
-  
+
   expect(jobDef.Properties.Type).toBe('container');
   expect(jobDef.Properties.PlatformCapabilities).toContain('FARGATE');
   expect(jobDef.Properties.Timeout.AttemptDurationSeconds).toBe(7200);
-  
+
   // Check resource requirements contain both VCPU and MEMORY
   const resourceReqs = jobDef.Properties.ContainerProperties.ResourceRequirements;
   const vcpuReq = resourceReqs.find((r: any) => r.Type === 'VCPU');
   const memoryReq = resourceReqs.find((r: any) => r.Type === 'MEMORY');
-  
+
   expect(vcpuReq.Value).toBe('2');
   expect(memoryReq.Value).toBe('4096');
 });

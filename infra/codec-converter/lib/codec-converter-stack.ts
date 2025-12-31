@@ -109,7 +109,9 @@ export class CodecConverterStack extends cdk.Stack {
         assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
         description: 'Execution role for Batch job tasks',
         managedPolicies: [
-          iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            'service-role/AmazonECSTaskExecutionRolePolicy'
+          ),
         ],
       });
 
