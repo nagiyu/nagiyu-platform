@@ -2,6 +2,8 @@
 
 このディレクトリには、新しいサービスを作成する際のテンプレートとなる TypeScript 設定ファイルが含まれています。
 
+**重要**: これらのファイルに含まれる相対パスは、`services/{service}/core`、`services/{service}/web`、`services/{service}/batch` に配置されることを前提としています。
+
 ## ファイル一覧
 
 ### tsconfig.core.json
