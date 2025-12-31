@@ -17,11 +17,18 @@ const config: Config = {
     '^@nagiyu/ui$': '<rootDir>/../../libs/ui/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../libs/browser/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
+    '^@nagiyu/common/(.*)$': '<rootDir>/../../libs/common/src/$1',
+    '^next-auth$': '<rootDir>/tests/__mocks__/next-auth.ts',
+    '^next-auth/(.*)$': '<rootDir>/tests/__mocks__/next-auth.ts',
+    '^next/server$': '<rootDir>/tests/__mocks__/next-server.ts',
+    '^(\\..+)\\.js$': '$1',
   },
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   // Exclude monorepo root and build artifacts from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
+  // Transform ESM modules
+  transformIgnorePatterns: ['node_modules/(?!(next-auth|@auth)/)'],
   // Common coverage settings
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', 'src/types/**/*.{ts,tsx}', '!src/**/*.d.ts'],
