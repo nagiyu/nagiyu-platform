@@ -13,12 +13,19 @@ const ERROR_MESSAGES = {
   MISSING_USER_NAME: 'Google OAuth ユーザー情報に name が含まれていません。',
 } as const;
 
-// 環境変数の検証
-if (!process.env.GOOGLE_CLIENT_ID) {
-  throw new Error(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_ID);
-}
-if (!process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_SECRET);
+// 環境変数の検証（ビルド時以外のみ）
+// Next.js のビルド時は環境変数が未設定でも許容する
+if (
+  process.env.NODE_ENV !== 'test' &&
+  typeof window === 'undefined' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    console.warn(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_ID);
+  }
+  if (!process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_SECRET);
+  }
 }
 
 // NOTE: InMemoryUserRepository は開発・テスト専用のユーザーリポジトリです。
@@ -34,8 +41,8 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 export const authConfig: NextAuthConfig = {
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
       authorization: {
         params: {
           prompt: 'consent',
