@@ -17,9 +17,7 @@ jest.mock('crypto', () => ({
 
 describe('DynamoDBUserRepository', () => {
   let repository: DynamoDBUserRepository;
-  const mockSend = dynamoDb.send as jest.MockedFunction<
-    (command: unknown) => Promise<unknown>
-  >;
+  const mockSend = dynamoDb.send as jest.MockedFunction<(command: unknown) => Promise<unknown>>;
 
   beforeEach(() => {
     repository = new DynamoDBUserRepository();
