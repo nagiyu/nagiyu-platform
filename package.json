@@ -4,9 +4,13 @@
   "private": true,
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [
-    "services/*",
-    "libs/*",
-    "infra"
+    "services/*/core",
+    "services/*/web",
+    "services/*/web-*",
+    "services/*/batch",
+    "services/*/batch-*",
+    "services/*/api",
+    "libs/*"
   ],
   "scripts": {
     "dev:tools": "npm run dev --workspace=services/tools",
