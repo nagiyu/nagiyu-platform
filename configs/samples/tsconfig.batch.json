@@ -4,6 +4,8 @@
     "lib": ["ES2020"],
     "composite": true,
     "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "outDir": "./dist",
     "types": ["jest"]
   },
