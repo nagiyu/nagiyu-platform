@@ -16,10 +16,17 @@ const config: Config = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@nagiyu/ui$': '<rootDir>/../../libs/ui/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../libs/browser/src/index.ts',
+    '^@nagiyu/common/(.*)$': '<rootDir>/../../libs/common/src/$1',
     '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
+    // Handle .js extensions in TypeScript source files
+    '(.*)\\.js$': '$1',
   },
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
+  // Transform ESM modules from next-auth and @auth
+  transformIgnorePatterns: [
+    'node_modules/(?!(next-auth|@auth|@panva)/)',
+  ],
   // Exclude monorepo root and build artifacts from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
   // Common coverage settings
