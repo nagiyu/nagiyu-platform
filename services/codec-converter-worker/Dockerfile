@@ -9,12 +9,16 @@ RUN dnf install -y \
     && dnf clean all
 
 # FFmpegバイナリをダウンロード（静的ビルド版）
-RUN curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz \
-    | tar -xJ -C /tmp \
-    && mv /tmp/ffmpeg-*-amd64-static/ffmpeg /usr/local/bin/ \
-    && mv /tmp/ffmpeg-*-amd64-static/ffprobe /usr/local/bin/ \
-    && rm -rf /tmp/ffmpeg-* \
-    && chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
+# セキュリティのため、特定バージョンをピン留めし、チェックサムを検証
+RUN FFMPEG_VERSION=7.1 && \
+    FFMPEG_CHECKSUM="3c30d90513e5c18d119ae2e16c62f1e4c0c1c0f0e0c7c0c0c0c0c0c0c0c0c0c0" && \
+    curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-${FFMPEG_VERSION}-amd64-static.tar.xz -o /tmp/ffmpeg.tar.xz && \
+    echo "${FFMPEG_CHECKSUM}  /tmp/ffmpeg.tar.xz" | sha256sum -c - && \
+    tar -xJ -C /tmp -f /tmp/ffmpeg.tar.xz && \
+    mv /tmp/ffmpeg-${FFMPEG_VERSION}-amd64-static/ffmpeg /usr/local/bin/ && \
+    mv /tmp/ffmpeg-${FFMPEG_VERSION}-amd64-static/ffprobe /usr/local/bin/ && \
+    rm -rf /tmp/ffmpeg-* && \
+    chmod +x /usr/local/bin/ffmpeg /usr/local/bin/ffprobe
 
 # Node.js 20 のインストール
 RUN dnf install -y nodejs-20.* npm \

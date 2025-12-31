@@ -203,6 +203,18 @@ export async function convertWithFFmpeg(
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn('ffmpeg', args);
     let stderr = '';
+    let stdout = '';
+
+    ffmpeg.stdout.on('data', (data) => {
+      stdout += data.toString();
+      // Log progress information from FFmpeg
+      if (stdout.includes('time=')) {
+        const timeMatch = stdout.match(/time=(\S+)/);
+        if (timeMatch) {
+          console.log(`FFmpeg progress: ${timeMatch[1]}`);
+        }
+      }
+    });
 
     ffmpeg.stderr.on('data', (data) => {
       stderr += data.toString();
@@ -213,7 +225,9 @@ export async function convertWithFFmpeg(
         resolve();
       } else {
         reject(
-          new Error(`${ERROR_MESSAGES.FFMPEG_EXECUTION_FAILED}: exit code ${code}, ${stderr}`)
+          new Error(
+            `${ERROR_MESSAGES.FFMPEG_EXECUTION_FAILED}: exit code ${code}, stderr: ${stderr}`
+          )
         );
       }
     });
@@ -281,18 +295,41 @@ export async function processJob(
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
 
-    try {
-      // ステータスをFAILEDに更新
-      await updateJobStatus(
-        dynamodbClient,
-        env.DYNAMODB_TABLE,
-        env.JOB_ID,
-        'FAILED',
-        undefined,
-        errorMessage
+    // ステータスをFAILEDに更新（リトライ付き）
+    const maxStatusUpdateAttempts = 3;
+    let lastStatusUpdateError: unknown;
+
+    for (let attempt = 1; attempt <= maxStatusUpdateAttempts; attempt++) {
+      try {
+        await updateJobStatus(
+          dynamodbClient,
+          env.DYNAMODB_TABLE,
+          env.JOB_ID,
+          'FAILED',
+          undefined,
+          errorMessage
+        );
+        lastStatusUpdateError = undefined;
+        break;
+      } catch (updateError) {
+        lastStatusUpdateError = updateError;
+        console.error(
+          `Attempt ${attempt}/${maxStatusUpdateAttempts}: Failed to update job status to FAILED:`,
+          updateError
+        );
+
+        // 次回リトライまで簡易バックオフ
+        if (attempt < maxStatusUpdateAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+
+    if (lastStatusUpdateError) {
+      console.error(
+        'Failed to update job status to FAILED after multiple attempts. Final error:',
+        lastStatusUpdateError
       );
-    } catch (updateError) {
-      console.error('Failed to update job status to FAILED:', updateError);
     }
 
     // クリーンアップを試みる（エラーは無視）

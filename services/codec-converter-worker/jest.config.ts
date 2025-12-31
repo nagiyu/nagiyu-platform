@@ -23,14 +23,12 @@ const config: Config.InitialOptions = {
   // Common coverage settings
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
-  // Note: Coverage threshold is lower due to Jest module loading issues with DynamoDB DocumentClient
-  // The integration tests (processJob, main) that cover those lines are skipped due to ES module issues
   coverageThreshold: {
     global: {
-      branches: 70,
-      functions: 65,
-      lines: 65,
-      statements: 64,
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
 };

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   validateEnvironment,
   downloadFromS3,
@@ -13,7 +14,8 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { Readable } from 'stream';
-import { promises as fs } from 'fs';
+import { promises as fsPromises } from 'fs';
+import * as fs from 'fs';
 import * as child_process from 'child_process';
 import type { CodecType } from '@nagiyu-platform/codec-converter-common';
 
@@ -30,12 +32,15 @@ const createMockDynamoDBClient = () => {
 jest.mock('child_process');
 const spawnMock = child_process.spawn as jest.MockedFunction<typeof child_process.spawn>;
 
-// fs.unlink のモック
+// fs のモック
 jest.mock('fs', () => ({
   ...jest.requireActual('fs'),
+  createReadStream: jest.fn(),
+  createWriteStream: jest.fn(),
   promises: {
     ...jest.requireActual('fs').promises,
     unlink: jest.fn(),
+    writeFile: jest.fn(),
   },
 }));
 
@@ -147,15 +152,23 @@ describe('uploadToS3', () => {
     s3Mock.reset();
   });
 
-  it.skip('S3にファイルをアップロードできる', async () => {
+  it('S3にファイルをアップロードできる', async () => {
+    const mockReadStream = new Readable();
+    mockReadStream.push('test data');
+    mockReadStream.push(null);
+
+    const createReadStreamMock = fs.createReadStream as jest.MockedFunction<
+      typeof fs.createReadStream
+    >;
+    createReadStreamMock.mockReturnValue(mockReadStream as any);
+
     s3Mock.on(PutObjectCommand).resolves({});
 
     const s3Client = new S3Client({ region: 'us-east-1' });
-    // Note: ファイルが存在しないため、実際のファイル読み込みは失敗する
-    // モックはファイルシステムをバイパスしないため、このテストではエラーを期待する
-    await expect(
-      uploadToS3(s3Client, 'test-bucket', 'test-key', '/nonexistent/file')
-    ).rejects.toThrow('S3へのアップロードに失敗しました');
+    await uploadToS3(s3Client, 'test-bucket', 'test-key', '/tmp/test-file');
+
+    expect(s3Mock.calls()).toHaveLength(1);
+    expect(createReadStreamMock).toHaveBeenCalledWith('/tmp/test-file');
   });
 
   it('S3エラーが発生した場合はエラー', async () => {
@@ -326,7 +339,7 @@ describe('convertWithFFmpeg', () => {
 });
 
 describe('cleanup', () => {
-  const unlinkMock = fs.unlink as jest.MockedFunction<typeof fs.unlink>;
+  const unlinkMock = fsPromises.unlink as jest.MockedFunction<typeof fsPromises.unlink>;
 
   beforeEach(() => {
     unlinkMock.mockClear();
@@ -358,7 +371,7 @@ describe('cleanup', () => {
 });
 
 describe('processJob', () => {
-  const unlinkMock = fs.unlink as jest.MockedFunction<typeof fs.unlink>;
+  const unlinkMock = fsPromises.unlink as jest.MockedFunction<typeof fsPromises.unlink>;
 
   beforeEach(() => {
     s3Mock.reset();
@@ -368,7 +381,7 @@ describe('processJob', () => {
     unlinkMock.mockResolvedValue(undefined);
   });
 
-  it.skip('ジョブ処理が成功する', async () => {
+  it('ジョブ処理が成功する', async () => {
     // S3ダウンロードをモック
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as any });
@@ -377,9 +390,25 @@ describe('processJob', () => {
     // DynamoDB更新をモック
     dynamodbBaseMock.on(UpdateCommand).resolves({});
 
+    // ファイルシステムをモック
+    const mockWriteStream = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
+    const createWriteStreamMock = fs.createWriteStream as jest.MockedFunction<
+      typeof fs.createWriteStream
+    >;
+    createWriteStreamMock.mockReturnValue(mockWriteStream as any);
+
+    const mockReadStream = new Readable();
+    mockReadStream.push('test data');
+    mockReadStream.push(null);
+    const createReadStreamMock = fs.createReadStream as jest.MockedFunction<
+      typeof fs.createReadStream
+    >;
+    createReadStreamMock.mockReturnValue(mockReadStream as any);
+
     // FFmpegをモック
     const mockFFmpeg = {
       stderr: { on: jest.fn() },
+      stdout: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
@@ -403,7 +432,7 @@ describe('processJob', () => {
     expect(dynamodbBaseMock.calls()).toHaveLength(2);
   });
 
-  it.skip('エラーが発生した場合はステータスをFAILEDに更新', async () => {
+  it('エラーが発生した場合はステータスをFAILEDに更新', async () => {
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 Error'));
     dynamodbBaseMock.on(UpdateCommand).resolves({});
 
@@ -427,7 +456,7 @@ describe('processJob', () => {
 
 describe('main', () => {
   const originalEnv = process.env;
-  const unlinkMock = fs.unlink as jest.MockedFunction<typeof fs.unlink>;
+  const unlinkMock = fsPromises.unlink as jest.MockedFunction<typeof fsPromises.unlink>;
 
   beforeEach(() => {
     jest.resetModules();
@@ -443,7 +472,7 @@ describe('main', () => {
     process.env = originalEnv;
   });
 
-  it.skip('メイン処理が成功する', async () => {
+  it('メイン処理が成功する', async () => {
     process.env.S3_BUCKET = 'test-bucket';
     process.env.DYNAMODB_TABLE = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
@@ -455,8 +484,23 @@ describe('main', () => {
     s3Mock.on(PutObjectCommand).resolves({});
     dynamodbBaseMock.on(UpdateCommand).resolves({});
 
+    const mockWriteStream = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
+    const createWriteStreamMock = fs.createWriteStream as jest.MockedFunction<
+      typeof fs.createWriteStream
+    >;
+    createWriteStreamMock.mockReturnValue(mockWriteStream as any);
+
+    const mockReadStream = new Readable();
+    mockReadStream.push('test data');
+    mockReadStream.push(null);
+    const createReadStreamMock = fs.createReadStream as jest.MockedFunction<
+      typeof fs.createReadStream
+    >;
+    createReadStreamMock.mockReturnValue(mockReadStream as any);
+
     const mockFFmpeg = {
       stderr: { on: jest.fn() },
+      stdout: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
@@ -466,7 +510,7 @@ describe('main', () => {
     await expect(main()).resolves.not.toThrow();
   });
 
-  it.skip('リトライ後に成功する', async () => {
+  it('リトライ後に成功する', async () => {
     process.env.S3_BUCKET = 'test-bucket';
     process.env.DYNAMODB_TABLE = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
@@ -486,8 +530,23 @@ describe('main', () => {
     s3Mock.on(PutObjectCommand).resolves({});
     dynamodbBaseMock.on(UpdateCommand).resolves({});
 
+    const mockWriteStream = { on: jest.fn(), write: jest.fn(), end: jest.fn() };
+    const createWriteStreamMock = fs.createWriteStream as jest.MockedFunction<
+      typeof fs.createWriteStream
+    >;
+    createWriteStreamMock.mockReturnValue(mockWriteStream as any);
+
+    const mockReadStream = new Readable();
+    mockReadStream.push('test data');
+    mockReadStream.push(null);
+    const createReadStreamMock = fs.createReadStream as jest.MockedFunction<
+      typeof fs.createReadStream
+    >;
+    createReadStreamMock.mockReturnValue(mockReadStream as any);
+
     const mockFFmpeg = {
       stderr: { on: jest.fn() },
+      stdout: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
@@ -498,7 +557,7 @@ describe('main', () => {
     expect(attempt).toBe(3); // 3回試行されたことを確認
   });
 
-  it.skip('最大リトライ回数後も失敗した場合はエラー', async () => {
+  it('最大リトライ回数後も失敗した場合はエラー', async () => {
     process.env.S3_BUCKET = 'test-bucket';
     process.env.DYNAMODB_TABLE = 'test-table';
     process.env.AWS_REGION = 'ap-northeast-1';
