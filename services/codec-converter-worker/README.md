@@ -21,13 +21,13 @@ AWS Batch ワーカーサービス。FFmpeg を使用して動画のコーデッ
 
 以下の環境変数が必要です（AWS Batch ジョブ定義で設定）:
 
-| 変数名 | 説明 | 例 |
-|--------|------|-----|
-| `S3_BUCKET` | S3 バケット名 | `codec-converter-storage-dev` |
-| `DYNAMODB_TABLE` | DynamoDB テーブル名 | `codec-converter-jobs-dev` |
-| `AWS_REGION` | AWS リージョン | `ap-northeast-1` |
-| `JOB_ID` | ジョブ ID (UUID) | `123e4567-e89b-12d3-a456-426614174000` |
-| `OUTPUT_CODEC` | 出力コーデック | `h264` / `vp9` / `av1` |
+| 変数名           | 説明                | 例                                     |
+| ---------------- | ------------------- | -------------------------------------- |
+| `S3_BUCKET`      | S3 バケット名       | `codec-converter-storage-dev`          |
+| `DYNAMODB_TABLE` | DynamoDB テーブル名 | `codec-converter-jobs-dev`             |
+| `AWS_REGION`     | AWS リージョン      | `ap-northeast-1`                       |
+| `JOB_ID`         | ジョブ ID (UUID)    | `123e4567-e89b-12d3-a456-426614174000` |
+| `OUTPUT_CODEC`   | 出力コーデック      | `h264` / `vp9` / `av1`                 |
 
 ## ビルド
 
