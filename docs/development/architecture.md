@@ -11,18 +11,18 @@
 サービスは以下のパッケージに分離することで、責務を明確化する：
 
 - **core**: ビジネスロジック層
-  - フレームワーク非依存のビジネスロジック
-  - 純粋関数として実装
-  - Unit Test 必須
-  - 相対パスで import（path alias 使用不可）
+    - フレームワーク非依存のビジネスロジック
+    - 純粋関数として実装
+    - Unit Test 必須
+    - 相対パスで import（path alias 使用不可）
 - **web**: プレゼンテーション層
-  - Next.js + React による UI 実装
-  - E2E Test 主体
-  - path alias（`@/`）使用可能
+    - Next.js + React による UI 実装
+    - E2E Test 主体
+    - path alias（`@/`）使用可能
 - **batch**: バッチ処理層
-  - 定期実行やイベント駆動の処理
-  - Lambda などでの実行を想定
-  - Unit Test 必須
+    - 定期実行やイベント駆動の処理
+    - Lambda などでの実行を想定
+    - Unit Test 必須
 
 ### 基本方針
 
