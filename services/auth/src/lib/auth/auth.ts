@@ -3,6 +3,24 @@ import Google from 'next-auth/providers/google';
 import type { NextAuthConfig } from 'next-auth';
 import { InMemoryUserRepository } from '../repositories/in-memory-user-repository';
 
+// エラーメッセージ定数
+const ERROR_MESSAGES = {
+  MISSING_GOOGLE_CLIENT_ID:
+    'Google OAuth クライアント ID が設定されていません。環境変数 GOOGLE_CLIENT_ID を設定してください。',
+  MISSING_GOOGLE_CLIENT_SECRET:
+    'Google OAuth クライアントシークレットが設定されていません。環境変数 GOOGLE_CLIENT_SECRET を設定してください。',
+  MISSING_USER_EMAIL: 'Google OAuth ユーザー情報に email が含まれていません。',
+  MISSING_USER_NAME: 'Google OAuth ユーザー情報に name が含まれていません。',
+} as const;
+
+// 環境変数の検証
+if (!process.env.GOOGLE_CLIENT_ID) {
+  throw new Error(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_ID);
+}
+if (!process.env.GOOGLE_CLIENT_SECRET) {
+  throw new Error(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_SECRET);
+}
+
 // NOTE: InMemoryUserRepository は開発・テスト専用のユーザーリポジトリです。
 // - メモリ内にのみデータを保持し、プロセス終了時にデータは失われます。
 // - 開発環境のホットリロード時にはメモリ上のデータが蓄積し続ける可能性があります。
@@ -10,11 +28,14 @@ import { InMemoryUserRepository } from '../repositories/in-memory-user-repositor
 // 本番環境では永続化されたユーザーデータストアを利用するように実装を切り替えてください。
 const userRepository = new InMemoryUserRepository();
 
+// 開発環境判定
+const isDevelopment = process.env.NODE_ENV === 'development';
+
 export const authConfig: NextAuthConfig = {
   providers: [
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
           prompt: 'consent',
@@ -35,8 +56,10 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        domain: '.nagiyu.com',
-        secure: true,
+        // ローカル開発環境では domain を設定しない
+        domain: isDevelopment ? undefined : '.nagiyu.com',
+        // ローカル開発環境では secure を false にする
+        secure: !isDevelopment,
       },
     },
   },
@@ -46,10 +69,20 @@ export const authConfig: NextAuthConfig = {
         return false;
       }
 
+      // email と name の null チェック
+      if (!user.email) {
+        console.error(ERROR_MESSAGES.MISSING_USER_EMAIL);
+        return false;
+      }
+      if (!user.name) {
+        console.error(ERROR_MESSAGES.MISSING_USER_NAME);
+        return false;
+      }
+
       await userRepository.upsertUser({
         googleId: account.providerAccountId,
-        email: user.email!,
-        name: user.name!,
+        email: user.email,
+        name: user.name,
         picture: user.image,
       });
 
