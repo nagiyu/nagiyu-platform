@@ -1,16 +1,16 @@
 {
-  "extends": "../../configs/tsconfig.base.json",
+  "extends": "../../../configs/tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2020", "DOM"],
-    "jsx": "preserve",
+    "lib": ["ES2020"],
     "composite": true,
     "declaration": true,
     "outDir": "./dist",
-    "types": ["jest", "@testing-library/jest-dom"]
+    "types": ["jest"]
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"],
   "references": [
-    { "path": "../browser" }
+    { "path": "../core" },
+    { "path": "../../../libs/common" }
   ]
 }

@@ -8,6 +8,10 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "module": "esnext"
+    "module": "esnext",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
   }
 }
+
