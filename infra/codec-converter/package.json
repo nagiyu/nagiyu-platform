@@ -10,7 +10,9 @@
     "test": "jest",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap --require-approval never",
-    "deploy": "cdk deploy --require-approval never"
+    "deploy": "cdk deploy --require-approval never",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "aws-cdk": "2.1100.1"

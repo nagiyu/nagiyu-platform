@@ -7,6 +7,9 @@ import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as batch from 'aws-cdk-lib/aws-batch';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
 
 export class CodecConverterStack extends cdk.Stack {
@@ -60,21 +63,6 @@ export class CodecConverterStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // Lambda Execution Role
-    const lambdaExecutionRole = new iam.Role(this, 'LambdaExecutionRole', {
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: 'Execution role for Codec Converter Lambda function',
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-      ],
-    });
-
-    // Grant Lambda permissions to S3 (for Presigned URLs)
-    storageBucket.grantReadWrite(lambdaExecutionRole);
-
-    // Grant Lambda permissions to DynamoDB
-    jobsTable.grantReadWriteData(lambdaExecutionRole);
-
     // Deployment phase control
     const deploymentPhase = this.node.tryGetContext('deploymentPhase') || 'full';
 
@@ -100,8 +88,135 @@ export class CodecConverterStack extends cdk.Stack {
           })
         : ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
 
-    // Only create Lambda and other resources in 'full' deployment phase
+    // Only create Lambda, Batch, and other resources in 'full' deployment phase
     if (deploymentPhase === 'full') {
+      // ECR Repository for Batch worker image
+      const workerEcrRepository = new ecr.Repository(this, 'WorkerEcrRepository', {
+        repositoryName: `codec-converter-ffmpeg-${envName}`,
+        imageScanOnPush: true,
+        lifecycleRules: [
+          {
+            description: 'Keep last 10 images',
+            maxImageCount: 10,
+            rulePriority: 1,
+          },
+        ],
+        removalPolicy: cdk.RemovalPolicy.RETAIN,
+      });
+
+      // IAM Role for Batch Job Execution
+      const batchJobExecutionRole = new iam.Role(this, 'BatchJobExecutionRole', {
+        assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+        description: 'Execution role for Batch job tasks',
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName(
+            'service-role/AmazonECSTaskExecutionRolePolicy'
+          ),
+        ],
+      });
+
+      // Grant Batch job access to ECR
+      workerEcrRepository.grantPull(batchJobExecutionRole);
+
+      // IAM Role for Batch Job (container runtime)
+      const batchJobRole = new iam.Role(this, 'BatchJobRole', {
+        assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+        description: 'Role for Batch job container runtime',
+      });
+
+      // Grant Batch job permissions to S3 and DynamoDB
+      storageBucket.grantReadWrite(batchJobRole);
+      jobsTable.grantReadWriteData(batchJobRole);
+
+      // Import shared VPC from platform infrastructure
+      // Uses Vpc.fromLookup which queries AWS API via CDK context cache
+      // For testing: if vpcId is provided in context, lookup by explicit vpcId
+      // For deployment: lookup by Name tag to find nagiyu-{env}-vpc
+      const vpcId = this.node.tryGetContext('vpcId');
+      const vpc = vpcId
+        ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
+        : ec2.Vpc.fromLookup(this, 'SharedVpc', {
+            tags: {
+              Name: `nagiyu-${envName}-vpc`,
+            },
+          });
+
+      // Batch Compute Environment (Fargate)
+      const computeEnvironment = new batch.FargateComputeEnvironment(this, 'ComputeEnvironment', {
+        computeEnvironmentName: `codec-converter-${envName}`,
+        vpc: vpc,
+        vpcSubnets: {
+          subnetType: ec2.SubnetType.PUBLIC,
+        },
+        maxvCpus: 6, // 3 jobs × 2 vCPU each
+      });
+
+      // Batch Job Queue
+      const jobQueue = new batch.JobQueue(this, 'JobQueue', {
+        jobQueueName: `codec-converter-${envName}`,
+        priority: 1,
+        computeEnvironments: [
+          {
+            computeEnvironment: computeEnvironment,
+            order: 1,
+          },
+        ],
+      });
+
+      // Batch Job Definition
+      const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
+      const jobDefinition = new batch.EcsJobDefinition(this, 'JobDefinition', {
+        jobDefinitionName: `codec-converter-${envName}`,
+        container: new batch.EcsFargateContainerDefinition(this, 'JobContainer', {
+          image: ecs.ContainerImage.fromEcrRepository(workerEcrRepository, workerImageTag),
+          cpu: 2,
+          memory: cdk.Size.mebibytes(4096),
+          executionRole: batchJobExecutionRole,
+          jobRole: batchJobRole,
+          environment: {
+            DYNAMODB_TABLE: jobsTable.tableName,
+            S3_BUCKET: storageBucket.bucketName,
+            AWS_REGION: this.region,
+          },
+        }),
+        timeout: cdk.Duration.hours(2),
+        retryAttempts: 1, // 1 retry as per architecture.md:404
+        retryStrategies: [
+          batch.RetryStrategy.of(batch.Action.RETRY, batch.Reason.NON_ZERO_EXIT_CODE),
+        ],
+      });
+
+      // Lambda Execution Role
+      const lambdaExecutionRole = new iam.Role(this, 'LambdaExecutionRole', {
+        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+        description: 'Execution role for Codec Converter Lambda function',
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+        ],
+      });
+
+      // Grant Lambda permissions to S3 (for Presigned URLs)
+      storageBucket.grantReadWrite(lambdaExecutionRole);
+
+      // Grant Lambda permissions to DynamoDB
+      jobsTable.grantReadWriteData(lambdaExecutionRole);
+
+      // Grant Lambda permissions to submit Batch jobs
+      lambdaExecutionRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['batch:SubmitJob'],
+          resources: [jobQueue.jobQueueArn, jobDefinition.jobDefinitionArn],
+        })
+      );
+
+      // Grant Lambda permissions to describe and manage Batch jobs
+      // Job ARNs cannot be known in advance, so use wildcard
+      lambdaExecutionRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['batch:DescribeJobs', 'batch:TerminateJob'],
+          resources: ['*'],
+        })
+      );
       // Lambda Function for Next.js application
       const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
         functionName: `codec-converter-${envName}`,
@@ -114,8 +229,9 @@ export class CodecConverterStack extends cdk.Stack {
         environment: {
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
+          BATCH_JOB_QUEUE: jobQueue.jobQueueName,
+          BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName,
           // AWS_REGION is automatically provided by Lambda runtime
-          // BATCH_JOB_QUEUE and BATCH_JOB_DEFINITION will be added when Batch resources are created
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself
         // Layers are not supported for container image functions
@@ -228,6 +344,24 @@ export class CodecConverterStack extends cdk.Stack {
         value: distribution.distributionDomainName,
         description: 'CloudFront distribution domain name',
         exportName: `CodecConverterCloudFrontDomainName-${envName}`,
+      });
+
+      new cdk.CfnOutput(this, 'WorkerEcrRepositoryUri', {
+        value: workerEcrRepository.repositoryUri,
+        description: 'ECR repository URI for Batch worker',
+        exportName: `CodecConverterWorkerEcrRepositoryUri-${envName}`,
+      });
+
+      new cdk.CfnOutput(this, 'BatchJobQueueArn', {
+        value: jobQueue.jobQueueArn,
+        description: 'Batch job queue ARN',
+        exportName: `CodecConverterBatchJobQueueArn-${envName}`,
+      });
+
+      new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
+        value: jobDefinition.jobDefinitionArn,
+        description: 'Batch job definition ARN',
+        exportName: `CodecConverterBatchJobDefinitionArn-${envName}`,
       });
     }
   }
