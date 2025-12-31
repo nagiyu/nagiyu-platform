@@ -411,6 +411,43 @@ codec-converter-storage-{env}/
     - `JOB_ID`: ジョブID
     - `OUTPUT_CODEC`: 出力コーデック
 
+#### Batch Worker 実装詳細
+
+**ベースイメージ**: `node:20-alpine`
+
+**インストールパッケージ**:
+- FFmpeg（apk経由）
+- Node.js依存関係（`@nagiyu-platform/codec-converter-common`, AWS SDK v3）
+
+**処理フロー**:
+1. **環境変数検証**: 必須変数（`S3_BUCKET`, `DYNAMODB_TABLE`, `JOB_ID`, `OUTPUT_CODEC`）の存在確認
+2. **DynamoDBステータス更新**: `PROCESSING` に変更
+3. **S3ダウンロード**: `uploads/{JOB_ID}/input.mp4` → `/tmp/input-{JOB_ID}.mp4`
+4. **FFmpeg変換**: 指定コーデックで変換、進捗情報をログ出力（stderr）
+5. **S3アップロード**: `/tmp/output-{JOB_ID}.{ext}` → `outputs/{JOB_ID}/output.{ext}`
+6. **DynamoDBステータス更新**: `COMPLETED` に変更、`outputFile` を設定
+7. **クリーンアップ**: 一時ファイル削除
+
+**エラー処理**:
+- すべてのエラーをキャッチし、DynamoDBステータスを `FAILED` に更新
+- エラーメッセージを `errorMessage` フィールドに保存
+- 一時ファイルを確実にクリーンアップ（finally句）
+
+**リトライ戦略**:
+- AWS Batchが自動リトライ（1回リトライ = 計2回試行）
+- 対象: 非ゼロ終了コード
+- Worker内部ではリトライロジックを実装しない
+
+**FFmpeg設定**:
+- **H.264**: CRF 23, AAC音声（128kbps）, MP4コンテナ
+- **VP9**: CRF 30, Opus音声（128kbps）, WebMコンテナ
+- **AV1**: CRF 30, cpu-used 4, Opus音声（128kbps）, WebMコンテナ
+
+**ログ出力**:
+- FFmpeg進捗情報（stderr の `time=` をパース）
+- 各処理ステップの開始/完了ログ
+- エラー詳細（スタックトレース含む）
+
 ### Lambda
 
 **設定**:
