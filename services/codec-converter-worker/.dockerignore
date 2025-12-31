@@ -1,0 +1,9 @@
+node_modules
+coverage
+tests
+*.test.ts
+jest.config.ts
+eslint.config.mjs
+.prettierrc
+.gitignore
+*.md
