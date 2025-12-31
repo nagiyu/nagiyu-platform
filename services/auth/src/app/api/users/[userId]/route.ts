@@ -21,20 +21,14 @@ const ERROR_MESSAGES = {
  * 特定ユーザーの詳細情報を取得します。
  * 必要な権限: users:read
  */
-export async function GET(
-  req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
 
   // 認証チェック
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
 
   // 権限チェック
@@ -53,10 +47,7 @@ export async function GET(
   const user = await repo.getUserById(userId);
 
   if (!user) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.USER_NOT_FOUND },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
   }
 
   return NextResponse.json(user);
@@ -70,20 +61,14 @@ export async function GET(
  * - users:write (名前更新)
  * - roles:assign (ロール変更)
  */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   const { userId } = await params;
 
   // 認証チェック
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
 
   // 基本的な書き込み権限チェック
@@ -102,10 +87,7 @@ export async function PATCH(
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.INVALID_REQUEST },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_REQUEST }, { status: 400 });
   }
 
   // ロール変更権限チェック
@@ -139,15 +121,9 @@ export async function PATCH(
     return NextResponse.json(updatedUser);
   } catch (error) {
     if (error instanceof Error && error.message.includes('見つかりません')) {
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.USER_NOT_FOUND },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }
 
@@ -167,10 +143,7 @@ export async function DELETE(
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
 
   // 権限チェック
@@ -186,10 +159,7 @@ export async function DELETE(
 
   // 自分自身を削除しようとしていないかチェック
   if (session.user.id === userId) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.CANNOT_DELETE_SELF },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.CANNOT_DELETE_SELF }, { status: 400 });
   }
 
   // ユーザー削除
@@ -201,9 +171,6 @@ export async function DELETE(
       deletedUserId: userId,
     });
   } catch (error) {
-    return NextResponse.json(
-      { error: (error as Error).message },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }

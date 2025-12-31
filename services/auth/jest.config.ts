@@ -24,9 +24,7 @@ const config: Config = {
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   // Transform ESM modules from next-auth and @auth
-  transformIgnorePatterns: [
-    'node_modules/(?!(next-auth|@auth|@panva)/)',
-  ],
+  transformIgnorePatterns: ['node_modules/(?!(next-auth|@auth|@panva)/)'],
   // Exclude monorepo root and build artifacts from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
   // Common coverage settings

@@ -21,10 +21,7 @@ export async function GET(req: NextRequest) {
   const session = await auth();
 
   if (!session) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.UNAUTHORIZED },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
   }
 
   // 権限チェック
@@ -46,10 +43,7 @@ export async function GET(req: NextRequest) {
   // limit のバリデーション
   const limit = limitParam ? parseInt(limitParam, 10) : 50;
   if (isNaN(limit) || limit < 1 || limit > 100) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.INVALID_LIMIT },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.INVALID_LIMIT }, { status: 400 });
   }
 
   // lastEvaluatedKey のデコード

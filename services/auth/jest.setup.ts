@@ -50,6 +50,7 @@ class MockRequest {
   url: string;
   method: string;
   headers: MockHeaders;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any;
 
   constructor(input: string | URL, init?: RequestInit) {
@@ -87,6 +88,7 @@ class MockRequest {
 }
 
 class MockResponse {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any;
   status: number;
   headers: MockHeaders;
@@ -111,6 +113,7 @@ class MockResponse {
     return this.body;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static json(data: any, init?: ResponseInit) {
     const response = new MockResponse(JSON.stringify(data), init);
     response.body = data; // Store the actual data for easy access
@@ -118,8 +121,11 @@ class MockResponse {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 global.Request = MockRequest as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 global.Response = MockResponse as any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 global.Headers = MockHeaders as any;
 
 // Mock next-auth module to avoid ESM issues
