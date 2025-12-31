@@ -415,7 +415,7 @@ libs/{library}/
 ### workspaces の利点
 
 - **依存関係の自動解決**: ローカルパッケージ間の参照を自動的にシンボリックリンク
-- **一括コマンド実行**: `npm run build --workspaces` で全パッケージを一括処理
+- **一括コマンド実行**: `npm run test --workspaces` 等でテストやリントを一括実行可能（注: ビルドは依存順序に従って順次実行が必要）
 - **効率的な開発**: ローカル変更が即座に反映される
 
 ## 7. TypeScript Project References
