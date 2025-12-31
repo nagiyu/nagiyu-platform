@@ -1114,10 +1114,10 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 import nextTs from 'eslint-config-next/typescript';
 
 export default [
-  ...baseConfig,
-  ...nextVitals,
-  ...nextTs,
-  // UI/Browser ライブラリのインポート制限なし
+    ...baseConfig,
+    ...nextVitals,
+    ...nextTs,
+    // UI/Browser ライブラリのインポート制限なし
 ];
 ```
 
