@@ -106,20 +106,20 @@ services/{service-name}/
 
 ```json
 {
-  "name": "{service-name}-core",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "dist/src/index.js",
-  "types": "dist/src/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts tests/**/*.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  }
+    "name": "{service-name}-core",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "dist/src/index.js",
+    "types": "dist/src/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
+        "lint": "eslint src/**/*.ts tests/**/*.ts",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    }
 }
 ```
 
@@ -127,19 +127,19 @@ services/{service-name}/
 
 ```json
 {
-  "name": "{service-name}-web",
-  "version": "1.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build --webpack",
-    "start": "next start",
-    "lint": "eslint",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
-  }
+    "name": "{service-name}-web",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev",
+        "build": "next build --webpack",
+        "start": "next start",
+        "lint": "eslint",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui"
+    }
 }
 ```
 
@@ -147,19 +147,19 @@ services/{service-name}/
 
 ```json
 {
-  "name": "{service-name}-batch",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "dist/src/index.js",
-  "scripts": {
-    "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts tests/**/*.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  }
+    "name": "{service-name}-batch",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "dist/src/index.js",
+    "scripts": {
+        "build": "tsc",
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage",
+        "lint": "eslint src/**/*.ts tests/**/*.ts",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    }
 }
 ```
 
@@ -169,16 +169,16 @@ services/{service-name}/
 
 ```json
 {
-  "extends": "../../../configs/tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["ES2020"],
-    "composite": true,
-    "declaration": true,
-    "outDir": "./dist"
-  },
-  "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../../../libs/common" }]
+    "extends": "../../../configs/tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["ES2020"],
+        "composite": true,
+        "declaration": true,
+        "outDir": "./dist"
+    },
+    "include": ["src/**/*", "tests/**/*"],
+    "exclude": ["node_modules", "dist"],
+    "references": [{ "path": "../../../libs/common" }]
 }
 ```
 
@@ -193,22 +193,22 @@ services/{service-name}/
 
 ```json
 {
-  "extends": "../../../configs/tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["DOM", "DOM.Iterable", "ES2020"],
-    "jsx": "preserve",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"],
-  "references": [
-    { "path": "../core" },
-    { "path": "../../../libs/ui" },
-    { "path": "../../../libs/browser" },
-    { "path": "../../../libs/common" }
-  ]
+    "extends": "../../../configs/tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["DOM", "DOM.Iterable", "ES2020"],
+        "jsx": "preserve",
+        "paths": {
+        "@/*": ["./src/*"]
+        }
+    },
+    "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+    "exclude": ["node_modules"],
+    "references": [
+        { "path": "../core" },
+        { "path": "../../../libs/ui" },
+        { "path": "../../../libs/browser" },
+        { "path": "../../../libs/common" }
+    ]
 }
 ```
 
@@ -222,16 +222,16 @@ services/{service-name}/
 
 ```json
 {
-  "extends": "../../../configs/tsconfig.base.json",
-  "compilerOptions": {
-    "lib": ["ES2020"],
-    "composite": true,
-    "declaration": true,
-    "outDir": "./dist"
-  },
-  "include": ["src/**/*", "tests/**/*"],
-  "exclude": ["node_modules", "dist"],
-  "references": [{ "path": "../core" }, { "path": "../../../libs/common" }]
+    "extends": "../../../configs/tsconfig.base.json",
+    "compilerOptions": {
+        "lib": ["ES2020"],
+        "composite": true,
+        "declaration": true,
+        "outDir": "./dist"
+    },
+    "include": ["src/**/*", "tests/**/*"],
+    "exclude": ["node_modules", "dist"],
+    "references": [{ "path": "../core" }, { "path": "../../../libs/common" }]
 }
 ```
 
@@ -257,27 +257,27 @@ services/{service-name}/
 import baseConfig from '../../../configs/eslint.config.base.mjs';
 
 export default [
-  ...baseConfig,
-  {
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
+    ...baseConfig,
+    {
+        rules: {
+        'no-restricted-imports': [
+            'error',
             {
-              group: ['react', 'react-dom', 'next', 'next/*'],
-              message:
-                'core パッケージでは UI フレームワークを使用できません。ビジネスロジックのみを実装してください。',
+            patterns: [
+                {
+                    group: ['react', 'react-dom', 'next', 'next/*'],
+                    message:
+                        'core パッケージでは UI フレームワークを使用できません。ビジネスロジックのみを実装してください。',
+                },
+                {
+                    group: ['@mui/*'],
+                    message: 'core パッケージでは Material-UI を使用できません。',
+                },
+            ],
             },
-            {
-              group: ['@mui/*'],
-              message: 'core パッケージでは Material-UI を使用できません。',
-            },
-          ],
+        ],
         },
-      ],
     },
-  },
 ];
 ```
 
@@ -385,38 +385,38 @@ services/{service}/batch/
 
 1. **共通ライブラリ（依存なし）**
 
-   ```bash
-   npm run build --workspace @nagiyu/common
-   ```
+    ```bash
+    npm run build --workspace @nagiyu/common
+    ```
 
 2. **ブラウザライブラリ（common に依存）**
 
-   ```bash
-   npm run build --workspace @nagiyu/browser
-   ```
+    ```bash
+    npm run build --workspace @nagiyu/browser
+    ```
 
 3. **UI ライブラリ（browser に依存）**
 
-   ```bash
-   npm run build --workspace @nagiyu/ui
-   ```
+    ```bash
+    npm run build --workspace @nagiyu/ui
+    ```
 
 4. **サービス core（common に依存）**
 
-   ```bash
-   npm run build --workspace {service-name}-core
-   ```
+    ```bash
+    npm run build --workspace {service-name}-core
+    ```
 
 5. **サービス batch（core に依存）**
 
-   ```bash
-   npm run build --workspace {service-name}-batch
-   ```
+    ```bash
+    npm run build --workspace {service-name}-batch
+    ```
 
 6. **サービス web（Next.js ビルド、任意）**
-   ```bash
-   npm run build --workspace {service-name}-web
-   ```
+    ```bash
+    npm run build --workspace {service-name}-web
+    ```
 
 **重要な注意点**:
 
@@ -454,10 +454,10 @@ services/{service}/batch/
 
 ```typescript
 export async function GET() {
-  return Response.json({
-    status: 'ok',
-    version: process.env.APP_VERSION || 'unknown',
-  });
+    return Response.json({
+        status: 'ok',
+        version: process.env.APP_VERSION || 'unknown',
+    });
 }
 ```
 
@@ -531,50 +531,50 @@ services/{service}/
 ### Phase 1: ディレクトリ構造の作成
 
 - [ ] `services/{service-name}/core/` ディレクトリ作成
-  - [ ] `src/index.ts` 作成（エクスポート定義）
-  - [ ] `tests/unit/` ディレクトリ作成
-  - [ ] `package.json` 作成（`{service-name}-core`）
-  - [ ] `tsconfig.json` 作成（`composite: true`）
-  - [ ] `eslint.config.mjs` 作成（境界保護設定）
-  - [ ] `jest.config.ts` 作成
+    - [ ] `src/index.ts` 作成（エクスポート定義）
+    - [ ] `tests/unit/` ディレクトリ作成
+    - [ ] `package.json` 作成（`{service-name}-core`）
+    - [ ] `tsconfig.json` 作成（`composite: true`）
+    - [ ] `eslint.config.mjs` 作成（境界保護設定）
+    - [ ] `jest.config.ts` 作成
 
 - [ ] `services/{service-name}/web/` ディレクトリ作成
-  - [ ] `src/app/` ディレクトリ作成
-  - [ ] `src/app/api/health/route.ts` 実装
-  - [ ] `src/app/layout.tsx` 作成
-  - [ ] `src/app/page.tsx` 作成
-  - [ ] `e2e/` ディレクトリ作成
-  - [ ] `public/` ディレクトリ作成
-  - [ ] `package.json` 作成（`{service-name}-web`）
-  - [ ] `tsconfig.json` 作成（references 設定）
-  - [ ] `next.config.ts` 作成
-  - [ ] `playwright.config.ts` 作成
-  - [ ] `eslint.config.mjs` 作成
+    - [ ] `src/app/` ディレクトリ作成
+    - [ ] `src/app/api/health/route.ts` 実装
+    - [ ] `src/app/layout.tsx` 作成
+    - [ ] `src/app/page.tsx` 作成
+    - [ ] `e2e/` ディレクトリ作成
+    - [ ] `public/` ディレクトリ作成
+    - [ ] `package.json` 作成（`{service-name}-web`）
+    - [ ] `tsconfig.json` 作成（references 設定）
+    - [ ] `next.config.ts` 作成
+    - [ ] `playwright.config.ts` 作成
+    - [ ] `eslint.config.mjs` 作成
 
 - [ ] `services/{service-name}/batch/` ディレクトリ作成（必要に応じて）
-  - [ ] `src/index.ts` 作成（エントリーポイント）
-  - [ ] `tests/integration/` ディレクトリ作成
-  - [ ] `package.json` 作成（`{service-name}-batch`）
-  - [ ] `tsconfig.json` 作成（`composite: true`, references 設定）
-  - [ ] `eslint.config.mjs` 作成
-  - [ ] `jest.config.ts` 作成
+    - [ ] `src/index.ts` 作成（エントリーポイント）
+    - [ ] `tests/integration/` ディレクトリ作成
+    - [ ] `package.json` 作成（`{service-name}-batch`）
+    - [ ] `tsconfig.json` 作成（`composite: true`, references 設定）
+    - [ ] `eslint.config.mjs` 作成
+    - [ ] `jest.config.ts` 作成
 
 ### Phase 2: 設定ファイルの整備
 
 - [ ] `configs/` の共通設定を extends
-  - [ ] `tsconfig.base.json` を extends
-  - [ ] `eslint.config.base.mjs` を extends
-  - [ ] `.prettierrc` を継承
+    - [ ] `tsconfig.base.json` を extends
+    - [ ] `eslint.config.base.mjs` を extends
+    - [ ] `.prettierrc` を継承
 
 - [ ] TypeScript Project References を設定
-  - [ ] core: `libs/common` への参照
-  - [ ] web: `core`, `libs/ui`, `libs/browser`, `libs/common` への参照
-  - [ ] batch: `core`, `libs/common` への参照
+    - [ ] core: `libs/common` への参照
+    - [ ] web: `core`, `libs/ui`, `libs/browser`, `libs/common` への参照
+    - [ ] batch: `core`, `libs/common` への参照
 
 - [ ] 依存関係のインストール
-  - [ ] core: `npm install @nagiyu/common`
-  - [ ] web: `npm install ../core @nagiyu/ui @nagiyu/browser @nagiyu/common`
-  - [ ] batch: `npm install ../core @nagiyu/common`
+    - [ ] core: `npm install @nagiyu/common`
+    - [ ] web: `npm install ../core @nagiyu/ui @nagiyu/browser @nagiyu/common`
+    - [ ] batch: `npm install ../core @nagiyu/common`
 
 ### Phase 3: 実装と検証
 
@@ -589,33 +589,33 @@ services/{service}/
 
 - [ ] core パッケージのビルドが成功すること
 
-  ```bash
-  npm run build --workspace {service-name}-core
-  ```
+    ```bash
+    npm run build --workspace {service-name}-core
+    ```
 
 - [ ] batch パッケージのビルドが成功すること（存在する場合）
 
-  ```bash
-  npm run build --workspace {service-name}-batch
-  ```
+    ```bash
+    npm run build --workspace {service-name}-batch
+    ```
 
 - [ ] ユニットテストがパスすること
 
-  ```bash
-  npm run test --workspace {service-name}-core
-  npm run test --workspace {service-name}-batch  # 存在する場合
-  ```
+    ```bash
+    npm run test --workspace {service-name}-core
+    npm run test --workspace {service-name}-batch  # 存在する場合
+    ```
 
 - [ ] E2Eテストがパスすること
 
-  ```bash
-  npm run test:e2e --workspace {service-name}-web
-  ```
+    ```bash
+    npm run test:e2e --workspace {service-name}-web
+    ```
 
 - [ ] リントエラーがないこと
-  ```bash
-  npm run lint --workspaces --if-present
-  ```
+    ```bash
+    npm run lint --workspaces --if-present
+    ```
 
 ## 参考
 
