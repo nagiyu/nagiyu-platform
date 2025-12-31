@@ -660,34 +660,34 @@ export default [
 **順序**:
 
 1. **共通ライブラリ（依存なし）**
-   ```bash
-   npm run build --workspace @nagiyu/common
-   ```
+    ```bash
+    npm run build --workspace @nagiyu/common
+    ```
 
 2. **ブラウザライブラリ（common に依存）**
-   ```bash
-   npm run build --workspace @nagiyu/browser
-   ```
+    ```bash
+    npm run build --workspace @nagiyu/browser
+    ```
 
 3. **UI ライブラリ（browser に依存）**
-   ```bash
-   npm run build --workspace @nagiyu/ui
-   ```
+    ```bash
+    npm run build --workspace @nagiyu/ui
+    ```
 
 4. **サービス core（common に依存）**
-   ```bash
-   npm run build --workspace tools-core
-   ```
+    ```bash
+    npm run build --workspace tools-core
+    ```
 
 5. **サービス batch（core に依存）**
-   ```bash
-   npm run build --workspace tools-batch
-   ```
+    ```bash
+    npm run build --workspace tools-batch
+    ```
 
 6. **サービス web（Next.js ビルド、任意）**
-   ```bash
-   npm run build --workspace tools-web
-   ```
+    ```bash
+    npm run build --workspace tools-web
+    ```
 
 ### GitHub Actions での実装例
 
