@@ -261,7 +261,7 @@ export async function cleanup(paths: string[]): Promise<void> {
 }
 
 /**
- * メイン処理（リトライ付き）
+ * ジョブ処理のメイン関数
  */
 export async function processJob(
   env: EnvironmentVariables,
