@@ -5,12 +5,12 @@ FROM node:22-alpine AS base
 FROM base AS builder
 WORKDIR /app
 
-# モノレポ全体のファイルをコピー
+# モノレポ全体のpackage.jsonとソースをコピー
 COPY package*.json ./
 COPY configs ./configs/
 COPY libs ./libs/
-COPY services/codec-converter/core ./services/codec-converter/core/
-COPY services/codec-converter/web ./services/codec-converter/web/
+COPY services/tools/package*.json ./services/tools/
+COPY services/codec-converter ./services/codec-converter/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
