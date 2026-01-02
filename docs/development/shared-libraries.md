@@ -10,6 +10,42 @@
 - **責務の分離**: フレームワーク依存度によって分割
 - **再利用性**: サービス間で共通コードを共有
 
+## 共通パッケージと固有パッケージの関係
+
+### パッケージの分類
+
+本プラットフォームでは、以下の2種類のパッケージを使い分ける。
+
+#### 共通パッケージ (libs/\*)
+
+全サービスで共有可能なライブラリパッケージ。
+
+- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`
+- **責務**: フレームワーク・ブラウザAPIに依存した汎用機能の提供
+- **バージョン管理**: 各ライブラリで独立したバージョン管理
+- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`
+
+#### 固有パッケージ (services/\*/xxx)
+
+特定サービス専用のパッケージ。
+
+- **対象**: `services/{service}/core`, `services/{service}/web`, `services/{service}/batch` など
+- **責務**: サービス固有のビジネスロジック、UI、バッチ処理
+- **バージョン管理**: 各パッケージで独立したバージョン管理
+- **パッケージ名**: `{service}-core`, `{service}-web`, `{service}-batch` など
+
+### パッケージ間の依存関係
+
+固有パッケージは共通パッケージに依存することができるが、共通パッケージは固有パッケージに依存してはならない。
+
+```
+services/{service}/web   → libs/ui, libs/browser, libs/common
+services/{service}/core  → libs/common のみ
+services/{service}/batch → libs/common のみ
+```
+
+詳細は「依存関係ルール」セクションを参照。
+
 ## ライブラリ構成
 
 ### 3分割の設計
@@ -23,6 +59,8 @@ libs/
 
 ### 依存関係ルール
 
+#### 共通ライブラリ (libs/\*) 間の依存
+
 ```
 ui → browser → common
 ```
@@ -30,6 +68,55 @@ ui → browser → common
 - **一方向のみ**: 上位から下位への依存のみ許可
 - **循環依存禁止**: 下位ライブラリは上位を参照しない
 - **独立性**: common は外部依存なし
+
+#### 固有パッケージから共通ライブラリへの依存
+
+固有パッケージは、その責務に応じて特定の共通ライブラリのみに依存可能。
+
+| 固有パッケージ     | 依存可能な共通ライブラリ                 | 理由                                   |
+| ------------------ | ---------------------------------------- | -------------------------------------- |
+| `services/*/core`  | `libs/common` のみ                       | ビジネスロジックはフレームワーク非依存 |
+| `services/*/web`   | `libs/common`, `libs/browser`, `libs/ui` | UI実装にフレームワーク機能が必要       |
+| `services/*/batch` | `libs/common` のみ                       | バッチ処理はフレームワーク非依存       |
+
+#### 依存関係の図
+
+```mermaid
+flowchart TB
+    subgraph services["サービス固有パッケージ (services/tools/)"]
+        web["web<br/>(Next.js UI)"]
+        core["core<br/>(ビジネスロジック)"]
+        batch["batch<br/>(バッチ処理)"]
+    end
+
+    subgraph libs["共通パッケージ (libs/)"]
+        ui["ui<br/>(React UI)"]
+        browser["browser<br/>(Browser API)"]
+        common["common<br/>(完全非依存)"]
+    end
+
+    web --> core
+    web --> ui
+    web --> browser
+    web --> common
+
+    batch --> core
+    batch --> common
+
+    core --> common
+
+    ui --> browser
+    browser --> common
+```
+
+#### 禁止パターン
+
+```
+❌ libs/common → services/*/core          # 共通から固有への依存
+❌ services/*/core → libs/ui              # core から UI ライブラリへの依存
+❌ services/*/batch → libs/ui             # batch から UI ライブラリへの依存
+❌ services/{serviceA}/* → services/{serviceB}/*  # サービス間の直接依存
+```
 
 ## libs/ui/
 
@@ -146,13 +233,53 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
 
 ## 利用ガイド
 
-### Next.jsサービスでの使用
+### 共通ライブラリの使用 (Next.jsサービス)
 
-package.json で必要なライブラリを指定。
+Next.jsサービス（`services/{service}/web`）の package.json で必要なライブラリを指定。
 
 ```json
 {
+  "dependencies": {
+    "@nagiyu/ui": "workspace:*",
+    "@nagiyu/browser": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
+}
+```
+
+### 固有パッケージでの使用
+
+#### services/{service}/core の例
+
+ビジネスロジックパッケージでは `@nagiyu/common` のみ使用。
+
+```json
+{
+    "name": "tools-core",
     "dependencies": {
+        "@nagiyu/common": "workspace:*"
+    }
+}
+```
+
+```typescript
+// ビジネスロジックの実装
+import { someUtil } from '@nagiyu/common';
+
+export function processData(input: string): string {
+    return someUtil(input);
+}
+```
+
+#### services/{service}/web の例
+
+Web UIパッケージでは、core パッケージと共通ライブラリを使用。
+
+```json
+{
+    "name": "tools-web",
+    "dependencies": {
+        "tools-core": "workspace:*",
         "@nagiyu/ui": "workspace:*",
         "@nagiyu/browser": "workspace:*",
         "@nagiyu/common": "workspace:*"
@@ -160,12 +287,64 @@ package.json で必要なライブラリを指定。
 }
 ```
 
+```typescript
+// UIコンポーネントの実装
+import { Header, Footer } from '@nagiyu/ui';
+import { clipboard } from '@nagiyu/browser';
+import { processData } from 'tools-core';
+
+export default function ToolsPage() {
+    const handleClick = async () => {
+        const result = processData('input');
+        await clipboard.writeText(result);
+    };
+
+    return (
+        <>
+            <Header />
+            <button onClick={handleClick}>処理して貼り付け</button>
+            <Footer />
+        </>
+    );
+}
+```
+
+#### services/{service}/batch の例
+
+バッチ処理パッケージでは、core パッケージと `@nagiyu/common` のみ使用。
+
+```json
+{
+    "name": "tools-batch",
+    "dependencies": {
+        "tools-core": "workspace:*",
+        "@nagiyu/common": "workspace:*"
+    }
+}
+```
+
+```typescript
+// バッチ処理の実装
+import { processData } from 'tools-core';
+import { someUtil } from '@nagiyu/common';
+
+export async function dailyBatch() {
+    const data = await fetchData();
+    const processed = processData(data);
+    await saveResult(processed);
+}
+```
+
 ### インポート方法
 
 ```typescript
+// 共通ライブラリのインポート
 import { Header, Footer } from '@nagiyu/ui';
 import { clipboard } from '@nagiyu/browser';
 import { someUtil } from '@nagiyu/common';
+
+// 固有パッケージのインポート (coreからの機能)
+import { processData } from 'tools-core';
 ```
 
 ## ライブラリ内部の実装ルール
