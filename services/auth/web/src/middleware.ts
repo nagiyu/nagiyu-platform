@@ -1,7 +1,8 @@
 import { auth } from '@nagiyu/auth-core';
+import type { NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
 
-export default auth((req: any) => {
+export default auth((req: NextAuthRequest) => {
   const isAuthenticated = !!req.auth;
   const isAuthPage = req.nextUrl.pathname.startsWith('/signin');
 
