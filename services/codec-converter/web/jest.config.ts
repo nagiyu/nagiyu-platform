@@ -24,8 +24,7 @@ const config: Config = {
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@nagiyu-platform/codec-converter-common$':
-      '<rootDir>/../codec-converter-common/dist/src/index.js',
+    '^codec-converter-core$': '<rootDir>/../core/src/index.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   testEnvironmentOptions: {

@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Silence Turbopack warning when using webpack config
   turbopack: {},
   // Transpile workspace packages
-  transpilePackages: ['@nagiyu-platform/codec-converter-common'],
+  transpilePackages: ['codec-converter-core'],
 };
 
 export default nextConfig;
