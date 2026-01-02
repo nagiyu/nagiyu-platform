@@ -6,7 +6,6 @@ on:
       - integration/**
     paths:
       - "services/codec-converter/**"
-      - "services/codec-converter-common/**"
       - "infra/codec-converter/**"
       - "libs/**"
       - "package.json"
@@ -35,11 +34,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build codec-converter-common library
-        run: npm run build --workspace=@nagiyu-platform/codec-converter-common
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
 
       - name: Build Next.js application
-        run: npm run build --workspace=@nagiyu/codec-converter
+        run: npm run build --workspace=codec-converter-web
 
   docker-build:
     name: Docker Build Verification
@@ -52,8 +51,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t codec-converter-verify-fast-test -f services/codec-converter/Dockerfile .
+      - name: Build Web Docker image
+        run: docker build -t codec-converter-web-verify-fast-test -f services/codec-converter/web/Dockerfile .
+
+      - name: Build Batch Docker image
+        run: docker build -t codec-converter-batch-verify-fast-test -f services/codec-converter/batch/Dockerfile .
 
   test:
     name: Run Unit Tests
@@ -76,11 +78,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build codec-converter-common library
-        run: npm run build --workspace=@nagiyu-platform/codec-converter-common
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
 
-      - name: Run tests
-        run: npm run test --workspace=@nagiyu/codec-converter
+      - name: Run core tests
+        run: npm run test --workspace=codec-converter-core
+
+      - name: Run batch tests
+        run: npm run test --workspace=codec-converter-batch
 
   lint:
     name: Lint Check
@@ -103,8 +108,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint --workspace=@nagiyu/codec-converter
+      - name: Run ESLint on core
+        run: npm run lint --workspace=codec-converter-core
+
+      - name: Run ESLint on web
+        run: npm run lint --workspace=codec-converter-web
+
+      - name: Run ESLint on batch
+        run: npm run lint --workspace=codec-converter-batch
 
   format-check:
     name: Format Check
@@ -127,8 +138,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check formatting
-        run: npm run format:check --workspace=@nagiyu/codec-converter
+      - name: Check core formatting
+        run: npm run format:check --workspace=codec-converter-core
+
+      - name: Check web formatting
+        run: npm run format:check --workspace=codec-converter-web
+
+      - name: Check batch formatting
+        run: npm run format:check --workspace=codec-converter-batch
 
   infra-format-check:
     name: Infrastructure Format Check
