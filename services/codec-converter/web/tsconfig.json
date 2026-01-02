@@ -1,0 +1,21 @@
+{
+  "extends": "../../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./src/*"],
+      "codec-converter-core": ["../core/src"]
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"],
+  "references": [
+    { "path": "../core" }
+  ]
+}

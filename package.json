@@ -5,9 +5,6 @@
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [
     "services/tools",
-    "services/codec-converter",
-    "services/codec-converter-common",
-    "services/codec-converter-worker",
     "services/*/core",
     "services/*/web",
     "services/*/web-*",
