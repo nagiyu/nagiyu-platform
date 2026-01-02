@@ -193,6 +193,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install infra dependencies
+        working-directory: ./infra/codec-converter
+        run: npm install
+
       - name: Build CDK project
         working-directory: ./infra/codec-converter
         run: npm run build
@@ -217,6 +221,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install infra dependencies
+        working-directory: ./infra/codec-converter
+        run: npm install
 
       - name: Run tests
         working-directory: ./infra/codec-converter

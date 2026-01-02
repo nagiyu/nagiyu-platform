@@ -1,8 +1,8 @@
 # ベースイメージ: Node.js 20 Alpine (FFmpeg含む)
 FROM node:20-alpine AS base
 
-# FFmpegのインストール
-RUN apk add --no-cache ffmpeg
+# FFmpegのインストール (edge/community リポジトリから)
+RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community ffmpeg
 
 # 作業ディレクトリの作成
 WORKDIR /app
