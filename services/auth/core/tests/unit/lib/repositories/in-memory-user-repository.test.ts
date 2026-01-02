@@ -1,5 +1,5 @@
-import { InMemoryUserRepository } from '@/lib/repositories/in-memory-user-repository';
-import type { UpsertUserInput } from '@/lib/repositories/user-repository';
+import { InMemoryUserRepository } from '../../../../src/repositories/in-memory-user-repository';
+import type { UpsertUserInput } from '../../../../src/repositories/user-repository';
 
 describe('InMemoryUserRepository', () => {
   let repository: InMemoryUserRepository;

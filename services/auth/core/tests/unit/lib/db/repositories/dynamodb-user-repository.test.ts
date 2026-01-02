@@ -1,9 +1,9 @@
-import { DynamoDBUserRepository } from '@/lib/db/repositories/dynamodb-user-repository';
-import { dynamoDb, USERS_TABLE_NAME } from '@/lib/db/dynamodb-client';
-import type { User } from '@/lib/db/types';
+import { DynamoDBUserRepository } from '../../../../src/db/repositories/dynamodb-user-repository';
+import { dynamoDb, USERS_TABLE_NAME } from '../../../../src/db/dynamodb-client';
+import type { User } from '../../../../src/db/types';
 
 // Mock AWS SDK
-jest.mock('@/lib/db/dynamodb-client', () => ({
+jest.mock('../../../../src/db/dynamodb-client', () => ({
   dynamoDb: {
     send: jest.fn(),
   },

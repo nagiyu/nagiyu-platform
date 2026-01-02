@@ -1,6 +1,5 @@
-import NextAuth from 'next-auth';
+import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
-import type { NextAuthConfig } from 'next-auth';
 import { InMemoryUserRepository } from '../repositories/in-memory-user-repository';
 
 // エラーメッセージ定数
@@ -90,7 +89,7 @@ export const authConfig: NextAuthConfig = {
         googleId: account.providerAccountId,
         email: user.email,
         name: user.name,
-        picture: user.image,
+        picture: user.image || undefined,
       });
 
       return true;
@@ -127,4 +126,9 @@ export const authConfig: NextAuthConfig = {
   },
 };
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+const nextAuth = NextAuth(authConfig);
+
+export const handlers = nextAuth.handlers;
+export const auth = nextAuth.auth;
+export const signIn = nextAuth.signIn;
+export const signOut = nextAuth.signOut;
