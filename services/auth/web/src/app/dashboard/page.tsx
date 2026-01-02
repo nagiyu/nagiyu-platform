@@ -36,7 +36,7 @@ export default async function DashboardPage() {
                   <strong>ロール:</strong>
                 </Typography>
                 {session.user.roles.length > 0 ? (
-                  session.user.roles.map((role) => (
+                  session.user.roles.map((role: string) => (
                     <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />
                   ))
                 ) : (
