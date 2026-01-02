@@ -8,8 +8,5 @@
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "../../../libs/common" },
-    { "path": "../core" }
-  ]
+  "references": [{ "path": "../../../libs/common" }, { "path": "../core" }]
 }

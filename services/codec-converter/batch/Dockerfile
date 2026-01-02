@@ -12,23 +12,23 @@ FROM base AS builder
 
 # モノレポのパッケージファイルをコピー
 COPY package*.json ./
-COPY services/codec-converter-worker/package*.json ./services/codec-converter-worker/
-COPY services/codec-converter-common/package*.json ./services/codec-converter-common/
+COPY services/codec-converter/batch/package*.json ./services/codec-converter/batch/
+COPY services/codec-converter/core/package*.json ./services/codec-converter/core/
 
 # 依存関係をインストール
-RUN npm ci --workspace=@nagiyu-platform/codec-converter-worker \
-    --workspace=@nagiyu-platform/codec-converter-common
+RUN npm ci --workspace=codec-converter-batch \
+    --workspace=codec-converter-core
 
 # ソースコードをコピー
-COPY services/codec-converter-common ./services/codec-converter-common/
-COPY services/codec-converter-worker ./services/codec-converter-worker/
+COPY services/codec-converter/core ./services/codec-converter/core/
+COPY services/codec-converter/batch ./services/codec-converter/batch/
 COPY configs ./configs/
 
 # 共通パッケージをビルド
-RUN npm run build --workspace=@nagiyu-platform/codec-converter-common
+RUN npm run build --workspace=codec-converter-core
 
 # ワーカーをビルド
-RUN npm run build --workspace=@nagiyu-platform/codec-converter-worker
+RUN npm run build --workspace=codec-converter-batch
 
 # 実行ステージ
 FROM base AS runner
@@ -37,16 +37,16 @@ WORKDIR /app
 
 # Node.js production dependencies のみをインストール
 COPY package*.json ./
-COPY services/codec-converter-worker/package*.json ./services/codec-converter-worker/
-COPY services/codec-converter-common/package*.json ./services/codec-converter-common/
+COPY services/codec-converter/batch/package*.json ./services/codec-converter/batch/
+COPY services/codec-converter/core/package*.json ./services/codec-converter/core/
 
-RUN npm ci --workspace=@nagiyu-platform/codec-converter-worker \
-    --workspace=@nagiyu-platform/codec-converter-common \
+RUN npm ci --workspace=codec-converter-batch \
+    --workspace=codec-converter-core \
     --omit=dev
 
 # ビルド成果物をコピー
-COPY --from=builder /app/services/codec-converter-common/dist ./services/codec-converter-common/dist
-COPY --from=builder /app/services/codec-converter-worker/dist ./services/codec-converter-worker/dist
+COPY --from=builder /app/services/codec-converter/core/dist ./services/codec-converter/core/dist
+COPY --from=builder /app/services/codec-converter/batch/dist ./services/codec-converter/batch/dist
 
 # 一時ファイル用ディレクトリを作成
 RUN mkdir -p /tmp && chmod 1777 /tmp
@@ -55,4 +55,4 @@ RUN mkdir -p /tmp && chmod 1777 /tmp
 ENV NODE_ENV=production
 
 # ワーカースクリプトを実行
-CMD ["node", "services/codec-converter-worker/dist/src/index.js"]
+CMD ["node", "services/codec-converter/batch/dist/src/index.js"]
