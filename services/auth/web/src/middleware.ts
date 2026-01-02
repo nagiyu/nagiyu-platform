@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth/auth';
+import { auth } from '@nagiyu/auth-core';
 import { NextResponse } from 'next/server';
 
 export default auth((req) => {

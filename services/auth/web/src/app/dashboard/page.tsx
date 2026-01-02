@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth/auth';
+import { auth } from '@nagiyu/auth-core';
 import { redirect } from 'next/navigation';
 import { Box, Container, Paper, Typography, Card, CardContent, Chip } from '@mui/material';
 

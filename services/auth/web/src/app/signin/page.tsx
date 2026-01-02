@@ -1,4 +1,4 @@
-import { signIn } from '@/lib/auth/auth';
+import { signIn } from '@nagiyu/auth-core';
 import { Box, Button, Container, Paper, Typography } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 
