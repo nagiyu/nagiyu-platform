@@ -1,0 +1,14 @@
+{
+  "extends": "../../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    // Type declaration generation disabled due to next-auth type inference issues
+    // (TS2742: The inferred type of 'auth' cannot be named without a reference)
+    // Web package uses TypeScript paths to directly reference core source files
+    "declaration": false,
+    "skipLibCheck": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

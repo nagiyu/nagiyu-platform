@@ -1,0 +1,6 @@
+# モジュール
+node_modules
+dist
+
+# ビルド成果物
+*.tsbuildinfo

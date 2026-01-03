@@ -32,7 +32,9 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint --workspace @nagiyu/auth
+        run: |
+          npm run lint --workspace @nagiyu/auth-core
+          npm run lint --workspace @nagiyu/auth-web
 
   format-check:
     name: Format Check
@@ -53,7 +55,9 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check --workspace @nagiyu/auth
+        run: |
+          npm run format:check --workspace @nagiyu/auth-core
+          npm run format:check --workspace @nagiyu/auth-web
 
   type-check:
     name: TypeScript Type Check
@@ -80,8 +84,9 @@ jobs:
           npm run build --workspace @nagiyu/ui
 
       - name: Type check
-        run: npx tsc --noEmit
-        working-directory: ./services/auth
+        run: |
+          npx tsc --noEmit --project ./services/auth/core
+          npx tsc --noEmit --project ./services/auth/web
 
   # TODO: Uncomment when unit tests are implemented
   # unit-test:
@@ -194,7 +199,9 @@ jobs:
           npm run build --workspace @nagiyu/ui
 
       - name: Build Next.js application
-        run: npm run build --workspace @nagiyu/auth
+        run: |
+          npm run build --workspace @nagiyu/auth-core
+          npm run build --workspace @nagiyu/auth-web
 
   report:
     name: Report Results to PR
