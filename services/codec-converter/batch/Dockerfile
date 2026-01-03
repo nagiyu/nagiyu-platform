@@ -18,7 +18,9 @@ COPY services/tools ./services/tools/
 COPY services/codec-converter ./services/codec-converter/
 
 # 依存関係をインストール（ソースコード存在下で実行）
-RUN npm ci
+# npm ci fails with "Exit handler never called" in Docker build environment
+# Using npm install as workaround - still respects package-lock.json
+RUN npm install --prefer-offline --no-audit
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=codec-converter-core
