@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { jest, describe, beforeEach, afterAll, it, expect } from '@jest/globals';
 import {
   validateEnvironment,
   downloadFromS3,
@@ -8,7 +9,7 @@ import {
   cleanup,
   processJob,
   main,
-} from '../../src/index';
+} from '../../src/index.js';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
@@ -29,20 +30,12 @@ const createMockDynamoDBClient = () => {
 };
 
 // child_process.spawn のモック
-jest.mock('child_process');
-const spawnMock = child_process.spawn as jest.MockedFunction<typeof child_process.spawn>;
+const spawnMock = jest.spyOn(child_process, 'spawn') as jest.MockedFunction<typeof child_process.spawn>;
 
 // fs のモック
-jest.mock('fs', () => ({
-  ...jest.requireActual('fs'),
-  createReadStream: jest.fn(),
-  createWriteStream: jest.fn(),
-  promises: {
-    ...jest.requireActual('fs').promises,
-    unlink: jest.fn(),
-    writeFile: jest.fn(),
-  },
-}));
+const createReadStreamMock = jest.spyOn(fs, 'createReadStream') as jest.MockedFunction<typeof fs.createReadStream>;
+const createWriteStreamMock = jest.spyOn(fs, 'createWriteStream') as jest.MockedFunction<typeof fs.createWriteStream>;
+const unlinkMock = jest.spyOn(fsPromises, 'unlink') as jest.MockedFunction<typeof fsPromises.unlink>;
 
 describe('validateEnvironment', () => {
   const originalEnv = process.env;
@@ -157,9 +150,6 @@ describe('uploadToS3', () => {
     mockReadStream.push('test data');
     mockReadStream.push(null);
 
-    const createReadStreamMock = fs.createReadStream as jest.MockedFunction<
-      typeof fs.createReadStream
-    >;
     createReadStreamMock.mockReturnValue(mockReadStream as any);
 
     s3Mock.on(PutObjectCommand).resolves({});
@@ -343,8 +333,6 @@ describe('convertWithFFmpeg', () => {
 });
 
 describe('cleanup', () => {
-  const unlinkMock = fsPromises.unlink as jest.MockedFunction<typeof fsPromises.unlink>;
-
   beforeEach(() => {
     unlinkMock.mockClear();
   });
@@ -375,8 +363,6 @@ describe('cleanup', () => {
 });
 
 describe('processJob', () => {
-  const unlinkMock = fsPromises.unlink as jest.MockedFunction<typeof fsPromises.unlink>;
-
   beforeEach(() => {
     s3Mock.reset();
     dynamodbBaseMock.reset();
@@ -460,7 +446,6 @@ describe('processJob', () => {
 
 describe('main', () => {
   const originalEnv = process.env;
-  const unlinkMock = fsPromises.unlink as jest.MockedFunction<typeof fsPromises.unlink>;
 
   beforeEach(() => {
     jest.resetModules();
