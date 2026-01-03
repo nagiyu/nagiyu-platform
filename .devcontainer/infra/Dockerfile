@@ -5,6 +5,5 @@ USER node
 # Install Playwright browsers
 RUN npm exec --workspace tools -- playwright install --with-deps chromium webkit
 
-# Note: Claude CLI installation removed due to security concerns with curl | bash pattern.
-# If Claude CLI is required, please install it manually or use a verified package manager.
-# See: https://docs.anthropic.com/claude/docs/cli for alternative installation methods.
+# Install Claude CLI
+RUN curl -fsSL https://claude.ai/install.sh | bash
