@@ -4,11 +4,7 @@ import { hasPermission } from '@nagiyu/common';
 import { Container } from '@mui/material';
 import { UserEditForm } from './user-edit-form';
 
-export default async function UserEditPage({
-  params,
-}: {
-  params: Promise<{ userId: string }>;
-}) {
+export default async function UserEditPage({ params }: { params: Promise<{ userId: string }> }) {
   const session = await auth();
 
   if (!session) {

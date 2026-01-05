@@ -26,10 +26,7 @@ const AssignRolesSchema = z.object({
  *
  * 必要な権限: roles:assign
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ userId: string }> }
-) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   // 認証チェック
   const session = await auth();
 
