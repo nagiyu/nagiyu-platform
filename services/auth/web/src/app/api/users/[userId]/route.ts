@@ -178,7 +178,7 @@ export async function DELETE(
     // ユーザーを削除
     await repo.deleteUser(userId);
 
-    return NextResponse.json({ message: 'User deleted successfully' });
+    return NextResponse.json({ message: 'ユーザーが正常に削除されました' });
   } catch (error) {
     console.error('Error deleting user:', error);
     return NextResponse.json({ error: 'ユーザーの削除に失敗しました' }, { status: 500 });
