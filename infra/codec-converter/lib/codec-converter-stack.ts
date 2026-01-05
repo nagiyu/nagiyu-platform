@@ -11,6 +11,10 @@ import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
+import { AppRuntimePolicy } from './policies/app-runtime-policy';
+import { LambdaExecutionRole } from './roles/lambda-execution-role';
+import { BatchJobRole } from './roles/batch-job-role';
+import { DevUser } from './users/dev-user';
 
 export class CodecConverterStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -119,14 +123,10 @@ export class CodecConverterStack extends cdk.Stack {
       workerEcrRepository.grantPull(batchJobExecutionRole);
 
       // IAM Role for Batch Job (container runtime)
-      const batchJobRole = new iam.Role(this, 'BatchJobRole', {
-        assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
-        description: 'Role for Batch job container runtime',
+      const batchJobRole = new BatchJobRole(this, 'BatchJobRole', {
+        storageBucket,
+        jobsTable,
       });
-
-      // Grant Batch job permissions to S3 and DynamoDB
-      storageBucket.grantReadWrite(batchJobRole);
-      jobsTable.grantReadWriteData(batchJobRole);
 
       // Import shared VPC from platform infrastructure
       // Uses Vpc.fromLookup which queries AWS API via CDK context cache
@@ -186,37 +186,25 @@ export class CodecConverterStack extends cdk.Stack {
         ],
       });
 
-      // Lambda Execution Role
-      const lambdaExecutionRole = new iam.Role(this, 'LambdaExecutionRole', {
-        assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-        description: 'Execution role for Codec Converter Lambda function',
-        managedPolicies: [
-          iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-        ],
+      // Application Runtime Policy (shared by Lambda and developers)
+      const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
+        storageBucket,
+        jobsTable,
+        jobQueue,
+        jobDefinition,
+        envName,
       });
 
-      // Grant Lambda permissions to S3 (for Presigned URLs)
-      storageBucket.grantReadWrite(lambdaExecutionRole);
+      // Lambda Execution Role
+      const lambdaExecutionRole = new LambdaExecutionRole(this, 'LambdaExecutionRole', {
+        appRuntimePolicy,
+      });
 
-      // Grant Lambda permissions to DynamoDB
-      jobsTable.grantReadWriteData(lambdaExecutionRole);
-
-      // Grant Lambda permissions to submit Batch jobs
-      lambdaExecutionRole.addToPolicy(
-        new iam.PolicyStatement({
-          actions: ['batch:SubmitJob'],
-          resources: [jobQueue.jobQueueArn, jobDefinition.jobDefinitionArn],
-        })
-      );
-
-      // Grant Lambda permissions to describe and manage Batch jobs
-      // Job ARNs cannot be known in advance, so use wildcard
-      lambdaExecutionRole.addToPolicy(
-        new iam.PolicyStatement({
-          actions: ['batch:DescribeJobs', 'batch:TerminateJob'],
-          resources: ['*'],
-        })
-      );
+      // Development IAM User (shares the same runtime policy as Lambda)
+      new DevUser(this, 'DevUser', {
+        appRuntimePolicy,
+        envName,
+      });
       // Lambda Function for Next.js application
       const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
         functionName: `codec-converter-${envName}`,

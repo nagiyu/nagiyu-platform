@@ -513,15 +513,30 @@ codec-converter-storage-{env}/
     - Batch実行ロール: GetItem, UpdateItem
 
 **IAMロール設計**:
-- Lambda実行ロール:
-    - S3: GetObject, PutObject（Presigned URL生成のみ、実際のアクセスはユーザーから）
-    - DynamoDB: GetItem, PutItem, UpdateItem, DeleteItem
-    - Batch: SubmitJob
-    - CloudWatch Logs: CreateLogGroup, CreateLogStream, PutLogEvents
-- Batch Job実行ロール:
-    - S3: GetObject, PutObject（実際のファイル操作）
-    - DynamoDB: GetItem, UpdateItem
-    - CloudWatch Logs: CreateLogGroup, CreateLogStream, PutLogEvents
+
+CDK スタック内で責務ごとに分離された構成:
+- `lib/policies/app-runtime-policy.ts`: アプリケーション実行権限（Lambda と開発者で共有）
+- `lib/roles/lambda-execution-role.ts`: Lambda 実行ロール
+- `lib/roles/batch-job-role.ts`: Batch Job 実行ロール
+- `lib/users/dev-user.ts`: 開発用 IAM ユーザー
+
+**AppRuntimePolicy** (Lambda と開発用ユーザーで共有):
+- S3: GetObject, PutObject, DeleteObject, ListBucket（Presigned URL 生成用）
+- DynamoDB: GetItem, PutItem, UpdateItem, DeleteItem, Query, Scan
+- Batch: SubmitJob, DescribeJobs, TerminateJob
+- 開発者が Lambda と同じ権限でローカルテストできるため、権限ミスを事前に防げる
+
+**LambdaExecutionRole**:
+- AWSLambdaBasicExecutionRole（CloudWatch Logs への書き込み）
+- AppRuntimePolicy（上記の共有ポリシー）
+
+**BatchJobRole** (コンテナランタイム用):
+- S3: GetObject, PutObject（実際のファイル操作）
+- DynamoDB: GetItem, UpdateItem（ステータス更新）
+
+**DevUser** (ローカル開発用):
+- AppRuntimePolicy（Lambda と同じ権限）
+- アクセスキーは AWS コンソールで手動発行（セキュリティ上の理由）
 
 ### セキュリティヘッダー
 
@@ -654,6 +669,43 @@ Codec Converterは**PCターゲット**のため、以下のデバイス構成�
 **注**: Codec Converter と Codec Converter Worker の共通処理（AWS SDKラッパーなど）は `services/codec-converter/src/lib/shared/` のようにサービス内に配置し、Dockerfileで両方のコンテナに含める。`libs/` 配下には配置しない。
 
 ### 開発環境セットアップ
+
+#### ローカル開発用 IAM ユーザーのセットアップ
+
+Codec Converter には開発用 IAM ユーザー (`codec-converter-dev-{env}`) が用意されており、Lambda 実行ロールと同じ権限でローカル開発ができます。
+
+**セットアップ手順**:
+
+1. **インフラのデプロイ**（初回のみ）:
+    ```bash
+    # dev 環境にデプロイ（DevUser も作成される）
+    npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase=full
+    ```
+
+2. **アクセスキーの発行**（AWS コンソールで手動実施）:
+    - IAM コンソールで `codec-converter-dev-dev` ユーザーを開く
+    - "Security credentials" タブ → "Create access key"
+    - アクセスキー ID とシークレットアクセスキーを安全に保存
+
+3. **AWS CLI プロファイルの設定**:
+    ```bash
+    aws configure --profile codec-converter-dev
+    # AWS Access Key ID: (発行したアクセスキー ID)
+    # AWS Secret Access Key: (発行したシークレットアクセスキー)
+    # Default region name: us-east-1
+    # Default output format: json
+    ```
+
+4. **ローカル開発での使用**:
+    ```bash
+    export AWS_PROFILE=codec-converter-dev
+    npm run dev -w services/codec-converter
+    ```
+
+**重要な注意事項**:
+- アクセスキーは定期的にローテーションすること（推奨: 90日ごと）
+- アクセスキーは GitHub などに公開しないこと
+- 本番環境 (`prod`) では別の IAM ユーザーを使用すること
 
 #### AWS SDK の依存注入 (DI)
 
