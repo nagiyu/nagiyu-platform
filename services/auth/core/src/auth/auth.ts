@@ -1,0 +1,134 @@
+import NextAuth, { type NextAuthConfig } from 'next-auth';
+import Google from 'next-auth/providers/google';
+import { InMemoryUserRepository } from '../repositories/in-memory-user-repository';
+
+// エラーメッセージ定数
+const ERROR_MESSAGES = {
+  MISSING_GOOGLE_CLIENT_ID:
+    'Google OAuth クライアント ID が設定されていません。環境変数 GOOGLE_CLIENT_ID を設定してください。',
+  MISSING_GOOGLE_CLIENT_SECRET:
+    'Google OAuth クライアントシークレットが設定されていません。環境変数 GOOGLE_CLIENT_SECRET を設定してください。',
+  MISSING_USER_EMAIL: 'Google OAuth ユーザー情報に email が含まれていません。',
+  MISSING_USER_NAME: 'Google OAuth ユーザー情報に name が含まれていません。',
+} as const;
+
+// 環境変数の検証（ビルド時以外のみ）
+// Next.js のビルド時は環境変数が未設定でも許容する
+if (
+  process.env.NODE_ENV !== 'test' &&
+  typeof window === 'undefined' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    console.warn(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_ID);
+  }
+  if (!process.env.GOOGLE_CLIENT_SECRET) {
+    console.warn(ERROR_MESSAGES.MISSING_GOOGLE_CLIENT_SECRET);
+  }
+}
+
+// NOTE: InMemoryUserRepository は開発・テスト専用のユーザーリポジトリです。
+// - メモリ内にのみデータを保持し、プロセス終了時にデータは失われます。
+// - 開発環境のホットリロード時にはメモリ上のデータが蓄積し続ける可能性があります。
+// - 複数のサーバーレス関数インスタンス間でデータは共有されません。
+// 本番環境では永続化されたユーザーデータストアを利用するように実装を切り替えてください。
+const userRepository = new InMemoryUserRepository();
+
+// 開発環境判定
+const isDevelopment = process.env.NODE_ENV === 'development';
+
+export const authConfig: NextAuthConfig = {
+  providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID || '',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+      authorization: {
+        params: {
+          prompt: 'consent',
+          access_type: 'offline',
+          response_type: 'code',
+        },
+      },
+    }),
+  ],
+  session: {
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: `__Secure-next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        // ローカル開発環境では domain を設定しない
+        domain: isDevelopment ? undefined : '.nagiyu.com',
+        // ローカル開発環境では secure を false にする
+        secure: !isDevelopment,
+      },
+    },
+  },
+  callbacks: {
+    async signIn({ user, account }) {
+      if (!account) {
+        return false;
+      }
+
+      // email と name の null チェック
+      if (!user.email) {
+        console.error(ERROR_MESSAGES.MISSING_USER_EMAIL);
+        return false;
+      }
+      if (!user.name) {
+        console.error(ERROR_MESSAGES.MISSING_USER_NAME);
+        return false;
+      }
+
+      await userRepository.upsertUser({
+        googleId: account.providerAccountId,
+        email: user.email,
+        name: user.name,
+        picture: user.image || undefined,
+      });
+
+      return true;
+    },
+    async jwt({ token, user, account }) {
+      if (account && user) {
+        token.googleId = account.providerAccountId;
+        token.email = user.email;
+        token.name = user.name;
+        token.picture = user.image;
+
+        const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
+        token.userId = dbUser?.userId;
+        token.roles = dbUser?.roles || [];
+
+        if (dbUser) {
+          await userRepository.updateLastLogin(dbUser.userId);
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      session.user.id = (token.userId as string) || '';
+      session.user.email = (token.email as string) || '';
+      session.user.name = (token.name as string) || '';
+      session.user.image = (token.picture as string) || undefined;
+      session.user.roles = (token.roles as string[]) || [];
+      return session;
+    },
+  },
+  pages: {
+    signIn: '/signin',
+    error: '/auth/error',
+  },
+};
+
+const nextAuth = NextAuth(authConfig);
+
+export const handlers = nextAuth.handlers;
+export const auth = nextAuth.auth;
+export const signIn = nextAuth.signIn;
+export const signOut = nextAuth.signOut;
