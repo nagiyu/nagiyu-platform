@@ -41,11 +41,11 @@ ENV PORT=3000
 
 # Next.js が生成した standalone ビルドをコピー
 # standaloneには必要な依存関係とserver.jsが全て含まれている
-COPY --from=builder /app/services/auth/.next/standalone ./
+COPY --from=builder /app/services/auth/web/.next/standalone ./
 
 # publicとstaticは別途コピーが必要
-COPY --from=builder /app/services/auth/public ./services/auth/public
-COPY --from=builder /app/services/auth/.next/static ./services/auth/.next/static
+COPY --from=builder /app/services/auth/web/public ./services/auth/web/public
+COPY --from=builder /app/services/auth/web/.next/static ./services/auth/web/.next/static
 
 # アプリケーションを起動
-CMD ["node", "services/auth/server.js"]
+CMD ["node", "services/auth/web/server.js"]
