@@ -26,7 +26,8 @@
     "next": "^16.0.10",
     "next-auth": "^5.0.0-beta.30",
     "react": "^19.2.1",
-    "react-dom": "^19.2.1"
+    "react-dom": "^19.2.1",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
