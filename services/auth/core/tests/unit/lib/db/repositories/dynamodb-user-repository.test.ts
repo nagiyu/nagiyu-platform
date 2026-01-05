@@ -1,9 +1,12 @@
-import { DynamoDBUserRepository } from '../../../../src/db/repositories/dynamodb-user-repository';
-import { dynamoDb, USERS_TABLE_NAME } from '../../../../src/db/dynamodb-client';
-import type { User } from '../../../../src/db/types';
+import {
+  DynamoDBUserRepository,
+  UserNotFoundError,
+} from '../../../../../src/db/repositories/dynamodb-user-repository';
+import { dynamoDb, USERS_TABLE_NAME } from '../../../../../src/db/dynamodb-client';
+import type { User } from '../../../../../src/db/types';
 
 // Mock AWS SDK
-jest.mock('../../../../src/db/dynamodb-client', () => ({
+jest.mock('../../../../../src/db/dynamodb-client', () => ({
   dynamoDb: {
     send: jest.fn(),
   },
@@ -353,7 +356,7 @@ describe('DynamoDBUserRepository', () => {
       });
 
       await expect(repository.updateUser('nonexistent', { name: '新しい名前' })).rejects.toThrow(
-        'ユーザーが見つかりません: nonexistent'
+        UserNotFoundError
       );
 
       expect(mockSend).toHaveBeenCalledTimes(1);
@@ -470,9 +473,7 @@ describe('DynamoDBUserRepository', () => {
         $metadata: {},
       });
 
-      await expect(repository.updateLastLogin('nonexistent')).rejects.toThrow(
-        'ユーザーが見つかりません: nonexistent'
-      );
+      await expect(repository.updateLastLogin('nonexistent')).rejects.toThrow(UserNotFoundError);
 
       expect(mockSend).toHaveBeenCalledTimes(1);
     });

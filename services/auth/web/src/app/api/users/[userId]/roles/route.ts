@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, DynamoDBUserRepository } from '@nagiyu/auth-core';
+import { auth, DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { hasPermission, VALID_ROLES } from '@nagiyu/common';
 import { z } from 'zod';
 
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
     }
 
     // リポジトリ層からのユーザー不存在エラー
-    if (error instanceof Error && error.message.includes('ユーザーが見つかりません')) {
+    if (error instanceof UserNotFoundError) {
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 

@@ -34,7 +34,11 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
           throw new Error('ユーザー一覧の取得に失敗しました');
         }
         const data = await response.json();
-        setUsers(data.users || []);
+        // Validate response structure
+        if (!data || typeof data !== 'object') {
+          throw new Error('不正なレスポンス形式です');
+        }
+        setUsers(Array.isArray(data.users) ? data.users : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'エラーが発生しました');
       } finally {

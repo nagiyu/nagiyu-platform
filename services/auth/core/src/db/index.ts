@@ -5,4 +5,4 @@ export type { User, CreateUserInput, UpdateUserInput } from './types';
 export { dynamoDb, USERS_TABLE_NAME } from './dynamodb-client';
 
 // Export DynamoDB repository
-export { DynamoDBUserRepository } from './repositories/dynamodb-user-repository';
+export { DynamoDBUserRepository, UserNotFoundError } from './repositories/dynamodb-user-repository';

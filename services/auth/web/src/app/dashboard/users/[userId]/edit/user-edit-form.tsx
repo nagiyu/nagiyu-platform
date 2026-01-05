@@ -35,9 +35,13 @@ export function UserEditForm({ userId }: UserEditFormProps) {
         if (!response.ok) {
           throw new Error('ユーザー情報の取得に失敗しました');
         }
-        const data: User = await response.json();
-        setUser(data);
-        setSelectedRoles(data.roles || []);
+        const data = await response.json();
+        // Validate response structure
+        if (!data || typeof data !== 'object' || !data.userId) {
+          throw new Error('不正なレスポンス形式です');
+        }
+        setUser(data as User);
+        setSelectedRoles(Array.isArray(data.roles) ? data.roles : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'エラーが発生しました');
       } finally {
