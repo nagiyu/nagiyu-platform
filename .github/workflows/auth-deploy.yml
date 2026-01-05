@@ -198,6 +198,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            GOOGLE_OAUTH,nagiyu-auth-google-oauth-${{ needs.build.outputs.environment }}
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+          parse-json-secrets: true
+
       - name: Deploy Lambda and CloudFront (Full Stack)
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
@@ -205,7 +214,13 @@ jobs:
         run: |
           echo "Deploying full Auth infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
-          npm run deploy --workspace=@nagiyu/infra-auth -- --context env=$ENVIRONMENT --all --require-approval never
+          npm run deploy --workspace=@nagiyu/infra-auth -- \
+            --context env=$ENVIRONMENT \
+            --context googleClientId="${{ env.GOOGLE_OAUTH_CLIENTID }}" \
+            --context googleClientSecret="${{ env.GOOGLE_OAUTH_CLIENTSECRET }}" \
+            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
+            --all \
+            --require-approval never
 
       - name: Get Lambda function details
         id: get-lambda

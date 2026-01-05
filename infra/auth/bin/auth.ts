@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { AuthStack } from '../lib/auth-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
@@ -31,24 +30,9 @@ new AuthStack(app, `Auth-${env}`, {
   description: `Auth Service Infrastructure - ${env} environment`,
 });
 
-// Secrets Manager から既存のシークレットを参照
-const googleOAuthSecret = secretsmanager.Secret.fromSecretNameV2(
-  app,
-  `GoogleOAuthSecret-${env}`,
-  `nagiyu-auth-google-oauth-${env}`
-);
-
-const nextAuthSecret = secretsmanager.Secret.fromSecretNameV2(
-  app,
-  `NextAuthSecret-${env}`,
-  `nagiyu-auth-nextauth-secret-${env}`
-);
-
 // Lambda スタックを作成
 const lambdaStack = new LambdaStack(app, `Auth-Lambda-${env}`, {
   environment: env,
-  googleOAuthSecret,
-  nextAuthSecret,
   env: stackEnv,
   description: `Auth Service Lambda - ${env} environment`,
 });

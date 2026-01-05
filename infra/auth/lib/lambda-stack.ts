@@ -7,8 +7,6 @@ import { Construct } from 'constructs';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
-  googleOAuthSecret: secretsmanager.ISecret;
-  nextAuthSecret: secretsmanager.ISecret;
 }
 
 export class LambdaStack extends cdk.Stack {
@@ -18,9 +16,22 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment, googleOAuthSecret, nextAuthSecret } = props;
+    const { environment } = props;
     const region = this.region;
     const account = this.account;
+
+    // CDK context から secrets を取得
+    const googleClientId = scope.node.tryGetContext('googleClientId');
+    const googleClientSecret = scope.node.tryGetContext('googleClientSecret');
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret');
+
+    // secrets が未指定の場合はエラー
+    if (!googleClientId || !googleClientSecret || !nextAuthSecret) {
+      throw new Error(
+        'Missing required context: googleClientId, googleClientSecret, or nextAuthSecret. ' +
+          'Please provide them via --context flags or cdk.json'
+      );
+    }
 
     // Lambda 実行ロールの作成
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
@@ -81,14 +92,10 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: `nagiyu-auth-users-${environment}`,
         NEXTAUTH_URL: nextAuthUrl,
-        // Secrets Manager から値を直接環境変数に注入
-        NEXTAUTH_SECRET: nextAuthSecret.secretValue.unsafeUnwrap(),
-        GOOGLE_CLIENT_ID: googleOAuthSecret
-          .secretValueFromJson('clientId')
-          .unsafeUnwrap(),
-        GOOGLE_CLIENT_SECRET: googleOAuthSecret
-          .secretValueFromJson('clientSecret')
-          .unsafeUnwrap(),
+        // CDK context から取得した値を環境変数に設定
+        NEXTAUTH_SECRET: nextAuthSecret,
+        GOOGLE_CLIENT_ID: googleClientId,
+        GOOGLE_CLIENT_SECRET: googleClientSecret,
       },
       description: `Auth Service Lambda function for ${environment} environment`,
     });
