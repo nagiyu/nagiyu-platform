@@ -12,7 +12,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { Readable } from 'stream';
-import { promises as fs } from 'fs';
+import { promises as fs, createReadStream } from 'fs';
 import * as child_process from 'child_process';
 import type { ChildProcess } from 'child_process';
 import type { CodecType } from 'codec-converter-core';
@@ -32,14 +32,17 @@ const createMockDynamoDBClient = () => {
 jest.mock('child_process');
 const spawnMock = child_process.spawn as jest.MockedFunction<typeof child_process.spawn>;
 
-// fs.unlink のモック
+// fs.unlink と createReadStream のモック
 jest.mock('fs', () => ({
   ...jest.requireActual('fs'),
+  createReadStream: jest.fn(),
   promises: {
     ...jest.requireActual('fs').promises,
     unlink: jest.fn(),
   },
 }));
+
+const createReadStreamMock = createReadStream as jest.MockedFunction<typeof createReadStream>;
 
 describe('validateEnvironment', () => {
   const originalEnv = process.env;
@@ -147,6 +150,7 @@ describe('downloadFromS3', () => {
 describe('uploadToS3', () => {
   beforeEach(() => {
     s3Mock.reset();
+    createReadStreamMock.mockClear();
   });
 
   it.skip('S3にファイルをアップロードできる', async () => {
@@ -161,6 +165,12 @@ describe('uploadToS3', () => {
   });
 
   it('S3エラーが発生した場合はエラー', async () => {
+    // createReadStreamをモックして、実際のファイルシステムアクセスを防ぐ
+    const mockStream = new Readable();
+    mockStream.push('test content');
+    mockStream.push(null);
+    createReadStreamMock.mockReturnValue(mockStream as any);
+
     s3Mock.on(PutObjectCommand).rejects(new Error('S3 Error'));
 
     const s3Client = new S3Client({});
