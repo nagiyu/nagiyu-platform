@@ -11,7 +11,8 @@
     "services/*/batch",
     "services/*/batch-*",
     "services/*/api",
-    "libs/*"
+    "libs/*",
+    "infra/*"
   ],
   "scripts": {
     "dev:tools": "npm run dev --workspace=services/tools",

@@ -90,10 +90,7 @@ jobs:
         run: npm ci
 
       - name: Build CDK project
-        working-directory: ./infra/codec-converter
-        run: |
-          npm ci
-          npm run build
+        run: npm run build --workspace=codec-converter
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

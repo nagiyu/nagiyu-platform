@@ -193,10 +193,7 @@ jobs:
         run: npm ci
 
       - name: Build CDK project
-        working-directory: ./infra/codec-converter
-        run: |
-          npm ci
-          npm run build
+        run: npm run build --workspace=codec-converter
 
   infra-test:
     name: Infrastructure Unit Tests
@@ -220,10 +217,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        working-directory: ./infra/codec-converter
-        run: |
-          npm ci
-          npm run test
+        run: npm run test --workspace=codec-converter
 
   report:
     name: Report Results to PR
