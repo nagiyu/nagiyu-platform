@@ -51,7 +51,7 @@ export const ROLES = {
  */
 
 /**
- * Array of all valid role IDs
- * Used for validation in API endpoints
+ * すべての有効なロールIDの配列
+ * APIエンドポイントでのバリデーションに使用
  */
 export const VALID_ROLES = Object.keys(ROLES) as string[];

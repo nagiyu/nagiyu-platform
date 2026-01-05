@@ -9,8 +9,6 @@ const ERROR_MESSAGES = {
   FORBIDDEN: 'この操作を実行する権限がありません',
   USER_NOT_FOUND: 'ユーザーが見つかりません',
   INVALID_ROLES: '無効なロールが含まれています',
-  ROLES_REQUIRED: 'roles フィールドは必須です',
-  ROLES_MUST_BE_ARRAY: 'roles は配列である必要があります',
 } as const;
 
 // ロール割り当てリクエストのバリデーションスキーマ
