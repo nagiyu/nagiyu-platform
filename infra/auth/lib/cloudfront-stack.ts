@@ -88,7 +88,19 @@ export class CloudFrontStack extends cdk.Stack {
       {
         originRequestPolicyName: `nagiyu-auth-origin-policy-${environment}`,
         comment: `Origin request policy for Auth service (${environment})`,
-        headerBehavior: cloudfront.OriginRequestHeaderBehavior.all(),
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
+          'Accept',
+          'Accept-Language',
+          'Content-Type',
+          'Origin',
+          'Referer',
+          'User-Agent',
+          'x-forwarded-host',
+          'CloudFront-Forwarded-Proto',
+          'CloudFront-Is-Desktop-Viewer',
+          'CloudFront-Is-Mobile-Viewer',
+          'CloudFront-Is-Tablet-Viewer'
+        ),
         cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
         queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
       }
