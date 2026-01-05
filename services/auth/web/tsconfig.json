@@ -27,5 +27,5 @@
     ".next/dev/types/**/*.ts",
     "../core/src/types/**/*.d.ts"
   ],
-  "exclude": ["node_modules", "e2e"]
+  "exclude": ["node_modules", "e2e", "tests"]
 }
