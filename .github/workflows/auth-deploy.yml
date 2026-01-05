@@ -2,10 +2,10 @@ name: Auth App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
     paths:
       - 'services/auth/**'
       - 'libs/common/**'
@@ -156,7 +156,7 @@ jobs:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/Dockerfile .
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           
           # Also tag as latest
