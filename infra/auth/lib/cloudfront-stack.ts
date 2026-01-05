@@ -81,6 +81,19 @@ export class CloudFrontStack extends cdk.Stack {
       }
     );
 
+    // Custom Origin Request Policy for Server Actions
+    const originRequestPolicy = new cloudfront.OriginRequestPolicy(
+      this,
+      'OriginRequestPolicy',
+      {
+        originRequestPolicyName: `nagiyu-auth-origin-policy-${environment}`,
+        comment: `Origin request policy for Auth service (${environment})`,
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.all(),
+        cookieBehavior: cloudfront.OriginRequestCookieBehavior.all(),
+        queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+      }
+    );
+
     // CloudFront ディストリビューション
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `Auth Service Distribution (${environment})`,
@@ -94,8 +107,7 @@ export class CloudFrontStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED, // 認証サービスのためキャッシュ無効
-        originRequestPolicy:
-          cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        originRequestPolicy: originRequestPolicy,
         responseHeadersPolicy: responseHeadersPolicy,
         compress: true,
       },
