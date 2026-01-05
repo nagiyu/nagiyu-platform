@@ -15,7 +15,9 @@ import { mockClient } from 'aws-sdk-client-mock';
 import { Readable } from 'stream';
 import { promises as fs } from 'fs';
 import * as child_process from 'child_process';
+import type { ChildProcess } from 'child_process';
 import type { CodecType } from 'codec-converter-core';
+import type { SdkStream } from '@smithy/types';
 
 // AWS SDK モック
 const s3Mock = mockClient(S3Client);
@@ -110,7 +112,7 @@ describe('downloadFromS3', () => {
   it('S3からファイルをダウンロードできる', async () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({
-      Body: mockBody as any,
+      Body: mockBody as SdkStream<Readable>,
     });
 
     const s3Client = new S3Client({});
@@ -204,7 +206,9 @@ describe('updateJobStatus', () => {
 
     expect(dynamodbBaseMock.calls()).toHaveLength(1);
     const call = dynamodbBaseMock.call(0);
-    expect((call.args[0].input as any).ExpressionAttributeValues).toHaveProperty(':outputFile');
+    expect(
+      (call.args[0].input as Record<string, unknown>).ExpressionAttributeValues
+    ).toHaveProperty(':outputFile');
   });
 
   it('ステータスをFAILEDに更新し、errorMessageを設定できる', async () => {
@@ -223,7 +227,9 @@ describe('updateJobStatus', () => {
 
     expect(dynamodbBaseMock.calls()).toHaveLength(1);
     const call = dynamodbBaseMock.call(0);
-    expect((call.args[0].input as any).ExpressionAttributeValues).toHaveProperty(':errorMessage');
+    expect(
+      (call.args[0].input as Record<string, unknown>).ExpressionAttributeValues
+    ).toHaveProperty(':errorMessage');
   });
 
   it('DynamoDBエラーが発生した場合はエラー', async () => {
@@ -244,6 +250,7 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegでH.264変換が成功する', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: {
         on: jest.fn((event, callback) => {
           if (event === 'data') {
@@ -257,7 +264,7 @@ describe('convertWithFFmpeg', () => {
           callback(0); // 正常終了
         }
       }),
-    } as any;
+    } as unknown as ChildProcess;
 
     spawnMock.mockReturnValue(mockFFmpeg);
 
@@ -271,11 +278,12 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegでVP9変換が成功する', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
-    } as any;
+    } as unknown as ChildProcess;
 
     spawnMock.mockReturnValue(mockFFmpeg);
 
@@ -289,11 +297,12 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegでAV1変換が成功する', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
-    } as any;
+    } as unknown as ChildProcess;
 
     spawnMock.mockReturnValue(mockFFmpeg);
 
@@ -307,6 +316,7 @@ describe('convertWithFFmpeg', () => {
 
   it('FFmpegが失敗した場合はエラー', async () => {
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: {
         on: jest.fn((event, callback) => {
           if (event === 'data') callback(Buffer.from('error output'));
@@ -315,7 +325,7 @@ describe('convertWithFFmpeg', () => {
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(1); // エラー終了
       }),
-    } as any;
+    } as unknown as ChildProcess;
 
     spawnMock.mockReturnValue(mockFFmpeg);
 
@@ -371,7 +381,7 @@ describe('processJob', () => {
   it.skip('ジョブ処理が成功する', async () => {
     // S3ダウンロードをモック
     const mockBody = Readable.from(['test content']);
-    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as any });
+    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
 
     // DynamoDB更新をモック
@@ -379,11 +389,12 @@ describe('processJob', () => {
 
     // FFmpegをモック
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
-    } as any;
+    } as unknown as ChildProcess;
     spawnMock.mockReturnValue(mockFFmpeg);
 
     const env = {
@@ -451,16 +462,17 @@ describe('main', () => {
     process.env.OUTPUT_CODEC = 'h264';
 
     const mockBody = Readable.from(['test content']);
-    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as any });
+    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
     dynamodbBaseMock.on(UpdateCommand).resolves({});
 
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
-    } as any;
+    } as unknown as ChildProcess;
     spawnMock.mockReturnValue(mockFFmpeg);
 
     await expect(main()).resolves.not.toThrow();
@@ -480,18 +492,19 @@ describe('main', () => {
       if (attempt < 3) {
         return Promise.reject(new Error('S3 Error'));
       }
-      return Promise.resolve({ Body: Readable.from(['test content']) as any });
+      return Promise.resolve({ Body: Readable.from(['test content']) as SdkStream<Readable> });
     });
 
     s3Mock.on(PutObjectCommand).resolves({});
     dynamodbBaseMock.on(UpdateCommand).resolves({});
 
     const mockFFmpeg = {
+      stdout: { on: jest.fn() },
       stderr: { on: jest.fn() },
       on: jest.fn((event, callback) => {
         if (event === 'close') callback(0);
       }),
-    } as any;
+    } as unknown as ChildProcess;
     spawnMock.mockReturnValue(mockFFmpeg);
 
     await expect(main()).resolves.not.toThrow();
