@@ -8,7 +8,6 @@ on:
       - master
     paths:
       - "services/codec-converter/**"
-      - "services/codec-converter-common/**"
       - "infra/codec-converter/**"
       - "libs/**"
       - "package.json"
@@ -41,17 +40,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build codec-converter-common library
-        run: npm run build --workspace=@nagiyu-platform/codec-converter-common
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
 
       - name: Build Next.js application
-        run: npm run build --workspace=@nagiyu/codec-converter
+        run: npm run build --workspace=codec-converter-web
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: codec-converter-build
-          path: services/codec-converter/.next
+          path: services/codec-converter/web/.next
           retention-days: 7
 
   deploy:
@@ -91,7 +90,7 @@ jobs:
         run: npm ci
 
       - name: Build CDK project
-        run: npm run build --workspace codec-converter
+        run: npm run build --workspace=codec-converter
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
