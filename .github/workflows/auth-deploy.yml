@@ -79,6 +79,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            GOOGLE_OAUTH,nagiyu-auth-google-oauth-${{ steps.set-env.outputs.environment }}
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ steps.set-env.outputs.environment }}
+          parse-json-secrets: true
+
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
@@ -87,7 +96,13 @@ jobs:
       - name: Deploy Infrastructure (DynamoDB, Secrets, ECR)
         run: |
           echo "Deploying DynamoDB, Secrets Manager, and ECR stacks..."
-          npm run deploy --workspace=@nagiyu/infra-auth -- --context env=${{ steps.set-env.outputs.environment }} ${{ steps.set-env.outputs.cdk-stack-name }} --require-approval never
+          npm run deploy --workspace=@nagiyu/infra-auth -- \
+            --context env=${{ steps.set-env.outputs.environment }} \
+            --context googleClientId="${{ env.GOOGLE_OAUTH_CLIENTID }}" \
+            --context googleClientSecret="${{ env.GOOGLE_OAUTH_CLIENTSECRET }}" \
+            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
+            ${{ steps.set-env.outputs.cdk-stack-name }} \
+            --require-approval never
 
   build:
     name: Build and Push Docker Image
