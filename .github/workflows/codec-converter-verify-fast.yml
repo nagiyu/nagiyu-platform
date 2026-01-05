@@ -1,6 +1,7 @@
 name: Codec Converter - Fast Verification
 
 on:
+  push:
   pull_request:
     branches:
       - integration/**
