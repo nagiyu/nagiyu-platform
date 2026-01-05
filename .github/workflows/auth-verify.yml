@@ -65,7 +65,12 @@ jobs:
         run: npm run build --workspace=@nagiyu/infra-auth
 
       - name: Synthesize CDK stacks
-        run: npm run synth --workspace=@nagiyu/infra-auth -- --context env=dev
+        run: |
+          npm run synth --workspace=@nagiyu/infra-auth -- \
+            --context env=dev \
+            --context googleClientId=dummy-client-id-for-verification \
+            --context googleClientSecret=dummy-secret-for-verification \
+            --context nextAuthSecret=dummy-auth-secret-for-verification
 
       - name: Validate generated CloudFormation templates
         run: |

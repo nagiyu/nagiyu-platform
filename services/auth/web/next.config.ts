@@ -7,11 +7,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@nagiyu/ui', '@nagiyu/browser', '@nagiyu/common'],
   experimental: {
     serverActions: {
-      allowedOrigins: [
-        'dev-auth.nagiyu.com',
-        'auth.nagiyu.com',
-        '*.lambda-url.us-east-1.on.aws',
-      ],
+      allowedOrigins: ['dev-auth.nagiyu.com', 'auth.nagiyu.com', '*.lambda-url.us-east-1.on.aws'],
     },
   },
 };
