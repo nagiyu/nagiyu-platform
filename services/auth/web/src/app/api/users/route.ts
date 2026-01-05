@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, DynamoDBUserRepository } from '@nagiyu/auth-core';
 import { hasPermission } from '@nagiyu/common';
+import { ListUsersQuerySchema } from './schemas';
+import { ZodError } from 'zod';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -40,17 +42,19 @@ export async function GET(req: NextRequest) {
     const repo = new DynamoDBUserRepository();
     const searchParams = req.nextUrl.searchParams;
 
-    // クエリパラメータの取得
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100', 10), 100);
-    const nextToken = searchParams.get('nextToken');
+    // クエリパラメータのバリデーション
+    const validatedQuery = ListUsersQuerySchema.parse({
+      limit: searchParams.get('limit'),
+      nextToken: searchParams.get('nextToken'),
+    });
 
     // nextToken をデコード
-    const lastEvaluatedKey = nextToken
-      ? JSON.parse(Buffer.from(nextToken, 'base64').toString())
+    const lastEvaluatedKey = validatedQuery.nextToken
+      ? JSON.parse(Buffer.from(validatedQuery.nextToken, 'base64').toString())
       : undefined;
 
     // ユーザー一覧を取得
-    const result = await repo.listUsers(limit, lastEvaluatedKey);
+    const result = await repo.listUsers(validatedQuery.limit, lastEvaluatedKey);
 
     // レスポンスを返す
     return NextResponse.json({
@@ -60,6 +64,19 @@ export async function GET(req: NextRequest) {
         : undefined,
     });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error: 'リクエストパラメータが不正です',
+          details: error.issues.map((e) => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'ユーザー一覧の取得に失敗しました' }, { status: 500 });
   }

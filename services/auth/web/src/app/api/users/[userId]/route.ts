@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, DynamoDBUserRepository } from '@nagiyu/auth-core';
 import { hasPermission } from '@nagiyu/common';
+import { UpdateUserSchema } from '../schemas';
+import { ZodError } from 'zod';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -85,8 +87,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     const { userId } = await params;
     const body = await req.json();
 
+    // リクエストボディのバリデーション
+    const validatedData = UpdateUserSchema.parse(body);
+
     // ロール変更の権限チェック
-    if (body.roles && !hasPermission(session.user.roles, 'roles:assign')) {
+    if (validatedData.roles && !hasPermission(session.user.roles, 'roles:assign')) {
       return NextResponse.json(
         {
           error: ERROR_MESSAGES.FORBIDDEN,
@@ -105,10 +110,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     }
 
     // ユーザー情報を更新
-    const updatedUser = await repo.updateUser(userId, body);
+    const updatedUser = await repo.updateUser(userId, validatedData);
 
     return NextResponse.json(updatedUser);
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        {
+          error: 'リクエストボディが不正です',
+          details: error.issues.map((e) => ({
+            field: e.path.join('.'),
+            message: e.message,
+          })),
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('Error updating user:', error);
     return NextResponse.json({ error: 'ユーザー情報の更新に失敗しました' }, { status: 500 });
   }
