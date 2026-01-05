@@ -2,10 +2,13 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  googleOAuthSecret: secretsmanager.ISecret;
+  nextAuthSecret: secretsmanager.ISecret;
 }
 
 export class LambdaStack extends cdk.Stack {
@@ -15,7 +18,7 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment } = props;
+    const { environment, googleOAuthSecret, nextAuthSecret } = props;
     const region = this.region;
     const account = this.account;
 
@@ -49,18 +52,6 @@ export class LambdaStack extends cdk.Stack {
       })
     );
 
-    // Secrets Manager アクセス権限
-    lambdaRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-google-oauth-${environment}-*`,
-          `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-nextauth-secret-${environment}-*`,
-        ],
-      })
-    );
-
     // NEXTAUTH_URL の構築
     const nextAuthUrl =
       environment === 'prod'
@@ -90,9 +81,14 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: `nagiyu-auth-users-${environment}`,
         NEXTAUTH_URL: nextAuthUrl,
-        // Next.js アプリケーションが起動時に Secrets Manager から取得するための ARN
-        NEXTAUTH_SECRET_ARN: `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-nextauth-secret-${environment}`,
-        GOOGLE_OAUTH_SECRET_ARN: `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-google-oauth-${environment}`,
+        // Secrets Manager から値を直接環境変数に注入
+        NEXTAUTH_SECRET: nextAuthSecret.secretValue.unsafeUnwrap(),
+        GOOGLE_CLIENT_ID: googleOAuthSecret
+          .secretValueFromJson('clientId')
+          .unsafeUnwrap(),
+        GOOGLE_CLIENT_SECRET: googleOAuthSecret
+          .secretValueFromJson('clientSecret')
+          .unsafeUnwrap(),
       },
       description: `Auth Service Lambda function for ${environment} environment`,
     });
