@@ -1069,14 +1069,66 @@ libs/
 }
 ```
 
-### 9.2 パスエイリアス
+### 9.2 境界保護 (ESLint)
+
+#### MUST: core パッケージは UI/Browser ライブラリに依存しない
+
+core パッケージ（ビジネスロジック層）は、UI やブラウザ API に依存してはいけません。
+
+```javascript
+// services/{service}/core/eslint.config.mjs
+import coreConfig from '../../../configs/eslint.config.core.mjs';
+
+export default coreConfig;
+```
+
+**禁止されるインポート**:
+- `@nagiyu/ui`
+- `@nagiyu/browser`
+- `react`
+- `next`
+- `next/*`
+
+```typescript
+// ❌ NG: core パッケージで UI ライブラリを使用
+import { Button } from '@nagiyu/ui';
+import { clipboard } from '@nagiyu/browser';
+import React from 'react';
+
+// ✅ OK: 共通ライブラリのみ使用
+import { formatDate } from '@nagiyu/common';
+```
+
+**理由**: レイヤー分離を強制し、ビジネスロジックの再利用性とテスト容易性を確保
+
+**違反時の影響**: ESLint エラーによりビルド失敗
+
+#### MUST: web/batch パッケージでは境界保護を適用しない
+
+web (フロントエンド) や batch (バッチ処理) パッケージは、UI/Browser ライブラリへのアクセスが許可されます。
+
+```javascript
+// services/{service}/web/eslint.config.mjs
+import baseConfig from '../../../configs/eslint.config.base.mjs';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
+
+export default [
+    ...baseConfig,
+    ...nextVitals,
+    ...nextTs,
+    // UI/Browser ライブラリのインポート制限なし
+];
+```
+
+### 9.3 パスエイリアス
 
 #### MUST NOT: ライブラリ内部でパスエイリアス (@/*) を使用しない
 (「1.3 サービス vs ライブラリ」を参照)
 
 #### MUST: ライブラリ内部では相対パスのみ使用
 
-### 9.3 TypeScript 設定
+### 9.4 TypeScript 設定
 
 #### MUST: ライブラリの tsconfig.json で tests/ を型チェック対象に含める
 ```json
@@ -1097,7 +1149,7 @@ libs/
 }
 ```
 
-### 9.4 設計
+### 9.5 設計
 
 #### MUST: common は純粋関数として実装
 #### MUST: common は高いテストカバレッジを維持
@@ -1115,7 +1167,7 @@ export function clipboard() {
 
 #### MUST: browser はテスト容易性 (モック化しやすい設計)
 
-### 9.5 バージョン管理
+### 9.6 バージョン管理
 
 #### MUST: 各ライブラリで独立管理
 #### MUST: セマンティックバージョニングに従う
