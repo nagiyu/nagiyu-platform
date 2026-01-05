@@ -1,6 +1,8 @@
 import { auth } from '@nagiyu/auth-core';
 import { redirect } from 'next/navigation';
-import { Box, Container, Paper, Typography, Card, CardContent, Chip } from '@mui/material';
+import { hasPermission } from '@nagiyu/common';
+import { Box, Container, Paper, Typography, Card, CardContent, Chip, Button } from '@mui/material';
+import Link from 'next/link';
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -46,6 +48,21 @@ export default async function DashboardPage() {
             </Box>
           </CardContent>
         </Card>
+
+        {hasPermission(session.user.roles, 'users:read') && (
+          <Card sx={{ mt: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                管理機能
+              </Typography>
+              <Box sx={{ mt: 2 }}>
+                <Button component={Link} href="/dashboard/users" variant="contained">
+                  ユーザー管理
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        )}
 
         {process.env.NODE_ENV === 'development' && (
           <Paper sx={{ mt: 3, p: 2, bgcolor: 'grey.100' }}>
