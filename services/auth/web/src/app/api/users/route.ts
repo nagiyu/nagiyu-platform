@@ -49,9 +49,15 @@ export async function GET(req: NextRequest) {
     });
 
     // nextToken をデコード
-    const lastEvaluatedKey = validatedQuery.nextToken
-      ? JSON.parse(Buffer.from(validatedQuery.nextToken, 'base64').toString())
-      : undefined;
+    let lastEvaluatedKey: Record<string, unknown> | undefined;
+    if (validatedQuery.nextToken) {
+      try {
+        const decoded = Buffer.from(validatedQuery.nextToken, 'base64').toString();
+        lastEvaluatedKey = JSON.parse(decoded);
+      } catch {
+        return NextResponse.json({ error: 'nextToken の形式が不正です' }, { status: 400 });
+      }
+    }
 
     // ユーザー一覧を取得
     const result = await repo.listUsers(validatedQuery.limit, lastEvaluatedKey);

@@ -10,7 +10,6 @@ const ERROR_MESSAGES = {
   FORBIDDEN: 'この操作を実行する権限がありません',
   USER_NOT_FOUND: 'ユーザーが見つかりません',
   CANNOT_DELETE_SELF: '自分自身を削除することはできません',
-  INVALID_REQUEST: 'リクエストが不正です',
 } as const;
 
 /**
@@ -103,13 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
 
     const repo = new DynamoDBUserRepository();
 
-    // ユーザーが存在するか確認
-    const existingUser = await repo.getUserById(userId);
-    if (!existingUser) {
-      return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
-    }
-
-    // ユーザー情報を更新
+    // ユーザー情報を更新（リポジトリ層で存在チェックを実施）
     const updatedUser = await repo.updateUser(userId, validatedData);
 
     return NextResponse.json(updatedUser);
@@ -125,6 +118,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
         },
         { status: 400 }
       );
+    }
+
+    // リポジトリ層からのユーザー不存在エラー
+    if (error instanceof Error && error.message.includes('ユーザーが見つかりません')) {
+      return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
     console.error('Error updating user:', error);
@@ -169,13 +167,7 @@ export async function DELETE(
 
     const repo = new DynamoDBUserRepository();
 
-    // ユーザーが存在するか確認
-    const existingUser = await repo.getUserById(userId);
-    if (!existingUser) {
-      return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
-    }
-
-    // ユーザーを削除
+    // ユーザーを削除（DynamoDB の DeleteCommand は存在しない場合でも成功するため、事前の存在チェックは不要）
     await repo.deleteUser(userId);
 
     return NextResponse.json({ message: 'ユーザーが正常に削除されました' });

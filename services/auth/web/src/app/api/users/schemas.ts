@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import { ROLES } from '@nagiyu/common';
+
+// 有効なロールIDの配列を動的に生成
+const validRoleIds = Object.keys(ROLES) as [string, ...string[]];
 
 /**
  * ユーザー更新リクエストのバリデーションスキーマ
@@ -10,7 +14,7 @@ export const UpdateUserSchema = z
       .min(1, '名前は1文字以上で入力してください')
       .max(100, '名前は100文字以内で入力してください')
       .optional(),
-    roles: z.array(z.string()).optional(),
+    roles: z.array(z.enum(validRoleIds)).optional(),
   })
   .strict(); // 定義外のフィールドを許可しない
 
