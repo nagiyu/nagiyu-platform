@@ -2,7 +2,6 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -91,9 +90,11 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: `nagiyu-auth-users-${environment}`,
-        NEXTAUTH_URL: nextAuthUrl,
-        // CDK context から取得した値を環境変数に設定
-        NEXTAUTH_SECRET: nextAuthSecret,
+        // NextAuth v5 環境変数
+        AUTH_URL: nextAuthUrl,
+        AUTH_SECRET: nextAuthSecret,
+        AUTH_TRUST_HOST: 'true',
+        // Google OAuth
         GOOGLE_CLIENT_ID: googleClientId,
         GOOGLE_CLIENT_SECRET: googleClientSecret,
       },
