@@ -25,7 +25,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace=@nagiyu/common
 RUN npm run build --workspace=@nagiyu/browser
 RUN npm run build --workspace=@nagiyu/ui
-RUN npm run build --workspace=@nagiyu/auth
+RUN npm run build --workspace=@nagiyu/auth-core
+RUN npm run build --workspace=@nagiyu/auth-web
 
 # 本番ステージ
 FROM base AS runner
@@ -40,11 +41,11 @@ ENV PORT=3000
 
 # Next.js が生成した standalone ビルドをコピー
 # standaloneには必要な依存関係とserver.jsが全て含まれている
-COPY --from=builder /app/services/auth/.next/standalone ./
+COPY --from=builder /app/services/auth/web/.next/standalone ./
 
 # publicとstaticは別途コピーが必要
-COPY --from=builder /app/services/auth/public ./services/auth/public
-COPY --from=builder /app/services/auth/.next/static ./services/auth/.next/static
+COPY --from=builder /app/services/auth/web/public ./services/auth/web/public
+COPY --from=builder /app/services/auth/web/.next/static ./services/auth/web/.next/static
 
 # アプリケーションを起動
-CMD ["node", "services/auth/server.js"]
+CMD ["node", "services/auth/web/server.js"]

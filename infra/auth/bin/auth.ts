@@ -18,23 +18,22 @@ if (!allowedEnvironments.includes(env)) {
   );
 }
 
+const stackEnv = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+};
+
 // Auth スタック (DynamoDB, Secrets, ECR) を作成
 new AuthStack(app, `Auth-${env}`, {
   environment: env,
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
-  },
+  env: stackEnv,
   description: `Auth Service Infrastructure - ${env} environment`,
 });
 
 // Lambda スタックを作成
 const lambdaStack = new LambdaStack(app, `Auth-Lambda-${env}`, {
   environment: env,
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
-  },
+  env: stackEnv,
   description: `Auth Service Lambda - ${env} environment`,
 });
 

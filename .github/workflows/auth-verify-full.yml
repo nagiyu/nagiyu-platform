@@ -230,16 +230,30 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
+      - name: Build auth core
+        run: npm run build --workspace @nagiyu/auth-core
+
       - name: Build Next.js application
-        run: npm run build --workspace @nagiyu/auth
+        run: npm run build --workspace @nagiyu/auth-web
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t auth-verify-full-test -f services/auth/web/Dockerfile .
 
   report:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, format-check, type-check, build]
+    needs: [lint, format-check, type-check, build, docker-build]
     # TODO: Add unit-test, coverage, and e2e-test to needs when they are implemented
-    # needs: [lint, format-check, type-check, unit-test, coverage, e2e-test, build]
+    # needs: [lint, format-check, type-check, unit-test, coverage, e2e-test, build, docker-build]
 
     permissions:
       contents: read
@@ -259,7 +273,8 @@ jobs:
               // 'Unit Tests': '${{ needs.unit-test.result }}',
               // 'Coverage Check': '${{ needs.coverage.result }}',
               // 'E2E Tests (Full)': '${{ needs.e2e-test.result }}',
-              'Next.js Build': '${{ needs.build.result }}'
+              'Next.js Build': '${{ needs.build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}'
             };
 
             const statusEmoji = {

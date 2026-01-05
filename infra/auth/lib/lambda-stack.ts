@@ -19,6 +19,19 @@ export class LambdaStack extends cdk.Stack {
     const region = this.region;
     const account = this.account;
 
+    // CDK context から secrets を取得
+    const googleClientId = scope.node.tryGetContext('googleClientId');
+    const googleClientSecret = scope.node.tryGetContext('googleClientSecret');
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret');
+
+    // secrets が未指定の場合はエラー
+    if (!googleClientId || !googleClientSecret || !nextAuthSecret) {
+      throw new Error(
+        'Missing required context: googleClientId, googleClientSecret, or nextAuthSecret. ' +
+          'Please provide them via --context flags or cdk.json'
+      );
+    }
+
     // Lambda 実行ロールの作成
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -45,18 +58,6 @@ export class LambdaStack extends cdk.Stack {
         resources: [
           `arn:aws:dynamodb:${region}:${account}:table/nagiyu-auth-users-${environment}`,
           `arn:aws:dynamodb:${region}:${account}:table/nagiyu-auth-users-${environment}/index/*`,
-        ],
-      })
-    );
-
-    // Secrets Manager アクセス権限
-    lambdaRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-google-oauth-${environment}-*`,
-          `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-nextauth-secret-${environment}-*`,
         ],
       })
     );
@@ -89,10 +90,13 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: `nagiyu-auth-users-${environment}`,
-        NEXTAUTH_URL: nextAuthUrl,
-        // Next.js アプリケーションが起動時に Secrets Manager から取得するための ARN
-        NEXTAUTH_SECRET_ARN: `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-nextauth-secret-${environment}`,
-        GOOGLE_OAUTH_SECRET_ARN: `arn:aws:secretsmanager:${region}:${account}:secret:nagiyu-auth-google-oauth-${environment}`,
+        // NextAuth v5 環境変数
+        AUTH_URL: nextAuthUrl,
+        AUTH_SECRET: nextAuthSecret,
+        AUTH_TRUST_HOST: 'true',
+        // Google OAuth
+        GOOGLE_CLIENT_ID: googleClientId,
+        GOOGLE_CLIENT_SECRET: googleClientSecret,
       },
       description: `Auth Service Lambda function for ${environment} environment`,
     });
