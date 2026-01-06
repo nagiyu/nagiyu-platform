@@ -1,17 +1,70 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material';
+import { getSession } from '@/lib/auth/session';
+import { redirect } from 'next/navigation';
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getSession();
+
+  if (!session) {
+    redirect('/');
+  }
+
+  const { user } = session;
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
       <Typography variant="h4" component="h1" gutterBottom>
         ダッシュボード
       </Typography>
-      <Typography variant="body1" sx={{ mt: 2 }}>
-        Admin サービスが正常に動作しています。
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-        JWT 検証機能は次のタスクで実装されます。
-      </Typography>
+
+      {/* ユーザー情報カード */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            ユーザー情報
+          </Typography>
+          <Typography variant="body1">
+            <strong>メールアドレス:</strong> {user.email}
+          </Typography>
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            <strong>ロール:</strong>
+          </Typography>
+          <Box sx={{ mt: 1 }}>
+            {user.roles.length > 0 ? (
+              user.roles.map((role) => <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />)
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                ロールが割り当てられていません
+              </Typography>
+            )}
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* 認証ステータスカード */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            認証ステータス
+          </Typography>
+          <Typography variant="body1" color="success.main">
+            ✓ Auth サービスとの SSO 連携が正常に動作しています
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            JWT トークンによる認証が有効です
+          </Typography>
+        </CardContent>
+      </Card>
+
+      {/* ログアウトボタン */}
+      <Button
+        variant="outlined"
+        color="primary"
+        href={`${process.env.NEXT_PUBLIC_AUTH_URL}/api/auth/signout`}
+        sx={{ mt: 2 }}
+      >
+        ログアウト
+      </Button>
     </Box>
   );
 }

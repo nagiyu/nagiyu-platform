@@ -19,7 +19,7 @@ const config: Config = {
     '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
   },
   // Exclude E2E tests from Jest (they use Playwright)
-  testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
+  testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
   // Exclude monorepo root and build artifacts from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
   // Common coverage settings

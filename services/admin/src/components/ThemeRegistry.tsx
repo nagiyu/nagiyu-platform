@@ -12,17 +12,12 @@ interface ThemeRegistryProps {
   version?: string;
 }
 
-export default function ThemeRegistry({
-  children,
-  version = '1.0.0',
-}: ThemeRegistryProps) {
+export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
   return (
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <Box
-          sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}
-        >
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
           <Header title="Admin" ariaLabel="Admin ホームページに戻る" />
           <Box component="main" sx={{ flexGrow: 1 }}>
             {children}
