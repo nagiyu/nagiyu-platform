@@ -2,7 +2,6 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as batch from 'aws-cdk-lib/aws-batch';
 import { Construct } from 'constructs';
 
 /**
@@ -20,14 +19,14 @@ export interface AppRuntimePolicyProps {
   jobsTable: dynamodb.ITable;
 
   /**
-   * AWS Batch ジョブキュー
+   * AWS Batch ジョブキュー ARN
    */
-  jobQueue: batch.IJobQueue;
+  jobQueueArn: string;
 
   /**
-   * AWS Batch ジョブ定義
+   * AWS Batch ジョブ定義名
    */
-  jobDefinition: batch.IJobDefinition;
+  jobDefinitionName: string;
 
   /**
    * 環境名 (例: 'dev', 'prod')
@@ -87,14 +86,14 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
 
     // AWS Batch 権限: ジョブ投入
     // Note: job definition ARN は名前のみ、または名前:バージョンの形式の両方をサポート
-    const jobDefinitionArnBase = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinition.jobDefinitionName}`;
+    const jobDefinitionArnBase = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinitionName}`;
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'BatchSubmitJob',
         effect: iam.Effect.ALLOW,
         actions: ['batch:SubmitJob'],
         resources: [
-          props.jobQueue.jobQueueArn,
+          props.jobQueueArn,
           jobDefinitionArnBase, // バージョン番号なし
           `${jobDefinitionArnBase}:*`, // バージョン番号あり
         ],

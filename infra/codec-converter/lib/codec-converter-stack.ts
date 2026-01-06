@@ -148,23 +148,39 @@ export class CodecConverterStack extends cdk.Stack {
             },
           });
 
-      // Batch Compute Environment (Fargate)
-      const computeEnvironment = new batch.FargateComputeEnvironment(this, 'ComputeEnvironment', {
-        computeEnvironmentName: `codec-converter-${envName}`,
-        vpc: vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-        maxvCpus: 6, // 3 jobs × 2 vCPU each
+      // Get public subnets from VPC
+      const publicSubnets = vpc.selectSubnets({
+        subnetType: ec2.SubnetType.PUBLIC,
       });
 
-      // Batch Job Queue
-      const jobQueue = new batch.JobQueue(this, 'JobQueue', {
+      // Create security group for Batch compute environment
+      const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
+        vpc: vpc,
+        description: 'Security group for Batch Fargate tasks',
+        allowAllOutbound: true,
+      });
+
+      // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
+      const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
+        computeEnvironmentName: `codec-converter-${envName}`,
+        type: 'MANAGED',
+        state: 'ENABLED',
+        computeResources: {
+          type: 'FARGATE',
+          maxvCpus: 6, // 3 jobs × 2 vCPU each
+          subnets: publicSubnets.subnetIds,
+          securityGroupIds: [batchSecurityGroup.securityGroupId],
+        },
+      });
+
+      // Batch Job Queue - L1 construct
+      const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
         jobQueueName: `codec-converter-${envName}`,
         priority: 1,
-        computeEnvironments: [
+        state: 'ENABLED',
+        computeEnvironmentOrder: [
           {
-            computeEnvironment: computeEnvironment,
+            computeEnvironment: computeEnvironment.attrComputeEnvironmentArn,
             order: 1,
           },
         ],
@@ -197,8 +213,8 @@ export class CodecConverterStack extends cdk.Stack {
       const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
         storageBucket,
         jobsTable,
-        jobQueue,
-        jobDefinition,
+        jobQueueArn: jobQueue.attrJobQueueArn,
+        jobDefinitionName: jobDefinition.jobDefinitionName,
         envName,
       });
 
@@ -224,7 +240,7 @@ export class CodecConverterStack extends cdk.Stack {
         environment: {
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
-          BATCH_JOB_QUEUE: jobQueue.jobQueueName,
+          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
           BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName,
           // AWS_REGION is automatically provided by Lambda runtime
         },
@@ -348,7 +364,7 @@ export class CodecConverterStack extends cdk.Stack {
       });
 
       new cdk.CfnOutput(this, 'BatchJobQueueArn', {
-        value: jobQueue.jobQueueArn,
+        value: jobQueue.attrJobQueueArn,
         description: 'Batch job queue ARN',
         exportName: `CodecConverterBatchJobQueueArn-${envName}`,
       });
