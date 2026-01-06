@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { type Job, type JobStatus } from 'codec-converter-core';
+import { type Job, type JobStatus, type CodecType } from 'codec-converter-core';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -62,7 +62,7 @@ function formatDateTime(timestamp: number): string {
 /**
  * コーデック名の表示テキスト
  */
-const CODEC_DISPLAY_NAME: Record<string, string> = {
+const CODEC_DISPLAY_NAME: Record<CodecType, string> = {
   h264: 'H.264',
   vp9: 'VP9',
   av1: 'AV1',
@@ -76,6 +76,13 @@ function formatJobId(jobId: string): string {
     return jobId;
   }
   return `${jobId.substring(0, 8)}...${jobId.substring(jobId.length - 4)}`;
+}
+
+/**
+ * API response type with optional downloadUrl
+ */
+interface GetJobResponse extends Job {
+  downloadUrl?: string;
 }
 
 interface JobDetailsPageProps {
@@ -120,7 +127,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
           return;
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as GetJobResponse;
         setJob(data);
         setDownloadUrl(data.downloadUrl || null);
       } catch (err) {
@@ -257,7 +264,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           <div>
             <span style={{ fontWeight: 'bold', marginRight: '0.5rem' }}>出力コーデック:</span>
-            <span>{CODEC_DISPLAY_NAME[job.outputCodec] || job.outputCodec}</span>
+            <span>{CODEC_DISPLAY_NAME[job.outputCodec]}</span>
           </div>
 
           <div>
