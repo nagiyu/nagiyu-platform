@@ -24,7 +24,7 @@ const config: Config = {
   modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
   // Common coverage settings
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', 'src/types/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/types/**/*'],
   // Coverage thresholds (fail if below 80%)
   coverageThreshold: {
     global: {
