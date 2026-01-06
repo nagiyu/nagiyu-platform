@@ -88,7 +88,10 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
               </TableCell>
               <TableCell align="right">
                 {canAssignRoles && (
-                  <Link href={`/dashboard/users/${user.userId}/edit`} style={{ textDecoration: 'none' }}>
+                  <Link
+                    href={`/dashboard/users/${user.userId}/edit`}
+                    style={{ textDecoration: 'none' }}
+                  >
                     <Button variant="outlined" size="small">
                       編集
                     </Button>
