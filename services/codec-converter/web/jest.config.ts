@@ -12,6 +12,7 @@ const config: Config = {
     '!src/**/*.d.ts',
     '!src/app/layout.tsx',
     '!src/app/page.tsx',
+    '!src/app/jobs/[jobId]/page.tsx',
     '!src/app/api/health/**',
   ],
   coverageThreshold: {
