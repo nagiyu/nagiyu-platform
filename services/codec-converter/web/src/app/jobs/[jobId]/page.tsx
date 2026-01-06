@@ -2,7 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { type Job, type JobStatus, type CodecType } from 'codec-converter-core';
+import {
+  type Job,
+  type JobStatus,
+  type CodecType,
+  formatFileSize,
+  formatDateTime,
+  formatJobId,
+} from 'codec-converter-core';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -10,11 +17,11 @@ const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
 } as const;
 
-// ステータスバッジの色設定
+// ステータスバッジの色設定（WCAG AA準拠）
 const STATUS_COLORS: Record<JobStatus, string> = {
-  PENDING: '#FFA500',
+  PENDING: '#FF8C00', // ダークオレンジ（コントラスト改善）
   PROCESSING: '#1E90FF',
-  COMPLETED: '#32CD32',
+  COMPLETED: '#228B22', // フォレストグリーン（コントラスト改善）
   FAILED: '#FF4500',
 };
 
@@ -35,31 +42,6 @@ const STATUS_DESCRIPTION: Record<JobStatus, string> = {
 };
 
 /**
- * ファイルサイズを人間が読める形式にフォーマット
- */
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(1)} KB`;
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/**
- * Unix timestampを日時文字列にフォーマット
- */
-function formatDateTime(timestamp: number): string {
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
-
-/**
  * コーデック名の表示テキスト
  */
 const CODEC_DISPLAY_NAME: Record<CodecType, string> = {
@@ -69,22 +51,20 @@ const CODEC_DISPLAY_NAME: Record<CodecType, string> = {
 };
 
 /**
- * ジョブIDを短縮表示（先頭8文字 + ... + 最後4文字）
- */
-function formatJobId(jobId: string): string {
-  const JOB_ID_DISPLAY_THRESHOLD = 12;
-  if (jobId.length <= JOB_ID_DISPLAY_THRESHOLD) {
-    return jobId;
-  }
-  return `${jobId.substring(0, 8)}...${jobId.substring(jobId.length - 4)}`;
-}
-
-/**
  * API response type with optional downloadUrl
  */
 interface GetJobResponse extends Job {
   downloadUrl?: string;
 }
+
+// Valid values for validation
+const VALID_JOB_STATUSES: ReadonlyArray<JobStatus> = [
+  'PENDING',
+  'PROCESSING',
+  'COMPLETED',
+  'FAILED',
+];
+const VALID_CODEC_TYPES: ReadonlyArray<CodecType> = ['h264', 'vp9', 'av1'];
 
 /**
  * Type guard to validate GetJobResponse
@@ -99,8 +79,10 @@ function isGetJobResponse(data: unknown): data is GetJobResponse {
   return (
     typeof job.jobId === 'string' &&
     typeof job.status === 'string' &&
+    VALID_JOB_STATUSES.includes(job.status as JobStatus) &&
     typeof job.inputFile === 'string' &&
     typeof job.outputCodec === 'string' &&
+    VALID_CODEC_TYPES.includes(job.outputCodec as CodecType) &&
     typeof job.fileName === 'string' &&
     typeof job.fileSize === 'number' &&
     typeof job.createdAt === 'number' &&

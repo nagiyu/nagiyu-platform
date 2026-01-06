@@ -19,3 +19,6 @@ export {
   validateFileExtension,
   validateFile,
 } from './validation';
+
+// Format utilities
+export { formatFileSize, formatDateTime, formatJobId } from './format';
