@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
@@ -85,17 +86,15 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
     );
 
     // AWS Batch 権限: ジョブ投入
-    // Note: job definition ARN にはバージョン番号が含まれる場合があるため、
-    // ワイルドカードを使用してすべてのバージョンを許可
+    // Note: job definition ARN にはバージョン番号が含まれる可能性があるため、
+    // job-definition/* パターンですべてのバージョンを許可
+    const jobDefinitionArnPattern = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinition.jobDefinitionName}:*`;
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'BatchSubmitJob',
         effect: iam.Effect.ALLOW,
         actions: ['batch:SubmitJob'],
-        resources: [
-          props.jobQueue.jobQueueArn,
-          `${props.jobDefinition.jobDefinitionArn.split(':').slice(0, -1).join(':')}:*`,
-        ],
+        resources: [props.jobQueue.jobQueueArn, jobDefinitionArnPattern],
       })
     );
 
