@@ -11,7 +11,10 @@ process.env.S3_BUCKET = 'test-bucket';
 process.env.BATCH_JOB_QUEUE = 'test-queue';
 process.env.BATCH_JOB_DEFINITION = 'test-job-definition';
 
-import { POST } from '../../../../../../src/app/api/jobs/[jobId]/submit/route';
+import {
+  POST,
+  clearAwsClientsCache,
+} from '../../../../../../src/app/api/jobs/[jobId]/submit/route';
 
 // AWS SDK のモック
 const dynamoMock = mockClient(DynamoDBDocumentClient);
@@ -25,6 +28,8 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     s3Mock.reset();
     batchMock.reset();
     jest.clearAllMocks();
+    // AWSクライアントキャッシュのクリア
+    clearAwsClientsCache();
   });
 
   it('正常系: Batchジョブを投入し、ステータスをPROCESSINGに更新する', async () => {

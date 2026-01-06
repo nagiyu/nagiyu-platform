@@ -5,10 +5,27 @@ import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { BatchClient, SubmitJobCommand } from '@aws-sdk/client-batch';
 import { type Job, type JobStatus } from 'codec-converter-core';
 
+// エラーメッセージ定数
+const ERROR_MESSAGES = {
+  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  INVALID_STATUS: 'ジョブは既に実行中または完了しています',
+  FILE_NOT_FOUND: '入力ファイルが見つかりません',
+  INTERNAL_SERVER_ERROR: 'ジョブの投入に失敗しました',
+} as const;
+
 // AWS クライアントのシングルトン
 let cachedDocClient: DynamoDBDocumentClient | null = null;
 let cachedS3Client: S3Client | null = null;
 let cachedBatchClient: BatchClient | null = null;
+
+/**
+ * AWS クライアントのキャッシュをクリア（主にテスト用）
+ */
+export function clearAwsClientsCache(): void {
+  cachedDocClient = null;
+  cachedS3Client = null;
+  cachedBatchClient = null;
+}
 
 /**
  * AWS クライアントを取得（シングルトンパターン）
@@ -87,7 +104,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'JOB_NOT_FOUND',
-          message: '指定されたジョブが見つかりません',
+          message: ERROR_MESSAGES.JOB_NOT_FOUND,
         },
         { status: 404 }
       );
@@ -100,7 +117,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'INVALID_STATUS',
-          message: 'ジョブは既に実行中または完了しています',
+          message: ERROR_MESSAGES.INVALID_STATUS,
         },
         { status: 409 }
       );
@@ -119,7 +136,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'FILE_NOT_FOUND',
-          message: '入力ファイルが見つかりません',
+          message: ERROR_MESSAGES.FILE_NOT_FOUND,
         },
         { status: 404 }
       );
@@ -175,7 +192,7 @@ export async function POST(
     return NextResponse.json(
       {
         error: 'INTERNAL_SERVER_ERROR',
-        message: 'ジョブの投入に失敗しました',
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
       },
       { status: 500 }
     );
