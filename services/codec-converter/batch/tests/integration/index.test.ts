@@ -9,11 +9,10 @@ import {
   main,
 } from '../../src/index.js';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { Readable } from 'stream';
-import { promises as fs } from 'fs';
+import { promises as fs, createReadStream, ReadStream } from 'fs';
 import * as child_process from 'child_process';
 import type { ChildProcess } from 'child_process';
 import type { CodecType } from 'codec-converter-core';
@@ -21,25 +20,29 @@ import type { SdkStream } from '@smithy/types';
 
 // AWS SDK モック
 const s3Mock = mockClient(S3Client);
-const dynamodbBaseMock = mockClient(DynamoDBClient);
+const dynamodbMock = mockClient(DynamoDBDocumentClient);
 
 // DynamoDBDocumentClient のモック用のヘルパー
 const createMockDynamoDBClient = () => {
-  return DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
+  // DynamoDBDocumentClient.from() を使わず、直接モックを返す
+  return dynamodbMock as unknown as DynamoDBDocumentClient;
 };
 
 // child_process.spawn のモック
 jest.mock('child_process');
 const spawnMock = child_process.spawn as jest.MockedFunction<typeof child_process.spawn>;
 
-// fs.unlink のモック
+// fs.unlink と createReadStream のモック
 jest.mock('fs', () => ({
   ...jest.requireActual('fs'),
+  createReadStream: jest.fn(),
   promises: {
     ...jest.requireActual('fs').promises,
     unlink: jest.fn(),
   },
 }));
+
+const createReadStreamMock = createReadStream as jest.MockedFunction<typeof createReadStream>;
 
 describe('validateEnvironment', () => {
   const originalEnv = process.env;
@@ -147,6 +150,7 @@ describe('downloadFromS3', () => {
 describe('uploadToS3', () => {
   beforeEach(() => {
     s3Mock.reset();
+    createReadStreamMock.mockClear();
   });
 
   it.skip('S3にファイルをアップロードできる', async () => {
@@ -161,6 +165,13 @@ describe('uploadToS3', () => {
   });
 
   it('S3エラーが発生した場合はエラー', async () => {
+    // createReadStreamをモックして、実際のファイルシステムアクセスを防ぐ
+    const mockStream = new Readable();
+    mockStream.push('test content');
+    mockStream.push(null);
+
+    createReadStreamMock.mockReturnValue(mockStream as ReadStream);
+
     s3Mock.on(PutObjectCommand).rejects(new Error('S3 Error'));
 
     const s3Client = new S3Client({});
@@ -173,18 +184,18 @@ describe('uploadToS3', () => {
 
 describe('updateJobStatus', () => {
   beforeEach(() => {
-    dynamodbBaseMock.reset();
+    dynamodbMock.reset();
   });
 
   it('ステータスをPROCESSINGに更新できる', async () => {
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     const dynamodbClient = createMockDynamoDBClient();
 
     await updateJobStatus(dynamodbClient, 'test-table', 'test-job-id', 'PROCESSING');
 
-    expect(dynamodbBaseMock.calls()).toHaveLength(1);
-    const call = dynamodbBaseMock.call(0);
+    expect(dynamodbMock.calls()).toHaveLength(1);
+    const call = dynamodbMock.call(0);
     expect(call.args[0].input).toMatchObject({
       TableName: 'test-table',
       Key: { jobId: 'test-job-id' },
@@ -192,7 +203,7 @@ describe('updateJobStatus', () => {
   });
 
   it('ステータスをCOMPLETEDに更新し、outputFileを設定できる', async () => {
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     const dynamodbClient = createMockDynamoDBClient();
 
@@ -204,15 +215,15 @@ describe('updateJobStatus', () => {
       'outputs/test-job-id/output.mp4'
     );
 
-    expect(dynamodbBaseMock.calls()).toHaveLength(1);
-    const call = dynamodbBaseMock.call(0);
+    expect(dynamodbMock.calls()).toHaveLength(1);
+    const call = dynamodbMock.call(0);
     expect(
       (call.args[0].input as Record<string, unknown>).ExpressionAttributeValues
     ).toHaveProperty(':outputFile');
   });
 
   it('ステータスをFAILEDに更新し、errorMessageを設定できる', async () => {
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     const dynamodbClient = createMockDynamoDBClient();
 
@@ -225,15 +236,15 @@ describe('updateJobStatus', () => {
       'Test error'
     );
 
-    expect(dynamodbBaseMock.calls()).toHaveLength(1);
-    const call = dynamodbBaseMock.call(0);
+    expect(dynamodbMock.calls()).toHaveLength(1);
+    const call = dynamodbMock.call(0);
     expect(
       (call.args[0].input as Record<string, unknown>).ExpressionAttributeValues
     ).toHaveProperty(':errorMessage');
   });
 
   it('DynamoDBエラーが発生した場合はエラー', async () => {
-    dynamodbBaseMock.on(UpdateCommand).rejects(new Error('DynamoDB Error'));
+    dynamodbMock.on(UpdateCommand).rejects(new Error('DynamoDB Error'));
 
     const dynamodbClient = createMockDynamoDBClient();
 
@@ -372,7 +383,7 @@ describe('processJob', () => {
 
   beforeEach(() => {
     s3Mock.reset();
-    dynamodbBaseMock.reset();
+    dynamodbMock.reset();
     spawnMock.mockClear();
     unlinkMock.mockClear();
     unlinkMock.mockResolvedValue(undefined);
@@ -385,7 +396,7 @@ describe('processJob', () => {
     s3Mock.on(PutObjectCommand).resolves({});
 
     // DynamoDB更新をモック
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     // FFmpegをモック
     const mockFFmpeg = {
@@ -411,12 +422,12 @@ describe('processJob', () => {
     await processJob(env, s3Client, dynamodbClient);
 
     // DynamoDBが2回呼ばれる（PROCESSING, COMPLETED）
-    expect(dynamodbBaseMock.calls()).toHaveLength(2);
+    expect(dynamodbMock.calls()).toHaveLength(2);
   });
 
   it.skip('エラーが発生した場合はステータスをFAILEDに更新', async () => {
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 Error'));
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     const env = {
       S3_BUCKET: 'test-bucket',
@@ -432,7 +443,7 @@ describe('processJob', () => {
     await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
 
     // DynamoDBが2回呼ばれる（PROCESSING, FAILED）
-    expect(dynamodbBaseMock.calls()).toHaveLength(2);
+    expect(dynamodbMock.calls()).toHaveLength(2);
   });
 });
 
@@ -444,7 +455,7 @@ describe('main', () => {
     jest.resetModules();
     process.env = { ...originalEnv };
     s3Mock.reset();
-    dynamodbBaseMock.reset();
+    dynamodbMock.reset();
     spawnMock.mockClear();
     unlinkMock.mockClear();
     unlinkMock.mockResolvedValue(undefined);
@@ -464,7 +475,7 @@ describe('main', () => {
     const mockBody = Readable.from(['test content']);
     s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -496,7 +507,7 @@ describe('main', () => {
     });
 
     s3Mock.on(PutObjectCommand).resolves({});
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -519,7 +530,7 @@ describe('main', () => {
     process.env.OUTPUT_CODEC = 'h264';
 
     s3Mock.on(GetObjectCommand).rejects(new Error('S3 Error'));
-    dynamodbBaseMock.on(UpdateCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
 
     await expect(main()).rejects.toThrow();
   });
