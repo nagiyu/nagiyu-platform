@@ -115,7 +115,6 @@ export class CodecConverterStack extends cdk.Stack {
 
     // Only create Lambda, Batch, and other resources in 'full' deployment phase
     if (deploymentPhase === 'full') {
-
       // IAM Role for Batch Job Execution
       const batchJobExecutionRole = new iam.Role(this, 'BatchJobExecutionRole', {
         assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
