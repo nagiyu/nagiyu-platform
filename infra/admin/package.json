@@ -1,0 +1,15 @@
+{
+  "name": "@nagiyu/infra-admin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS CDK Infrastructure for Admin Service",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "diff": "cdk diff",
+    "destroy": "cdk destroy"
+  }
+}
