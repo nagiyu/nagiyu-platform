@@ -25,7 +25,7 @@ RUN npm run build --workspace=@nagiyu/admin
 FROM base AS runner
 WORKDIR /app
 
-# Install curl for health checks
+# ヘルスチェック用に curl をインストール
 RUN apk add --no-cache curl
 
 # Lambda Web Adapter のバイナリをコピー

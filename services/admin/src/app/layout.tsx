@@ -3,8 +3,8 @@ import ThemeRegistry from '@/components/ThemeRegistry';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Admin',
-  description: 'nagiyu プラットフォーム管理画面',
+  title: 'nagiyu Admin - 管理画面',
+  description: 'nagiyu プラットフォームの管理者向けダッシュボード',
   icons: {
     icon: '/favicon.ico',
   },
