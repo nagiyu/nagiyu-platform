@@ -53,7 +53,8 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: AppRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `codec-converter-app-runtime-${props.envName}`,
-      description: 'Codec Converter application runtime permissions (shared by Lambda and developers)',
+      description:
+        'Codec Converter application runtime permissions (shared by Lambda and developers)',
     });
 
     // S3 権限: Presigned URL 生成とファイル操作
@@ -61,12 +62,7 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
       new iam.PolicyStatement({
         sid: 'S3BucketAccess',
         effect: iam.Effect.ALLOW,
-        actions: [
-          's3:GetObject',
-          's3:PutObject',
-          's3:DeleteObject',
-          's3:ListBucket',
-        ],
+        actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
         resources: [props.storageBucket.bucketArn, `${props.storageBucket.bucketArn}/*`],
       })
     );
