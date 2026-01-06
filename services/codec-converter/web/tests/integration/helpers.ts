@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, Page } from '@playwright/test';
 
 /**
  * Extend Playwright test with custom fixtures and helpers
@@ -10,33 +10,47 @@ export const test = base.extend({
 export { expect };
 
 /**
+ * Constants for test configuration
+ */
+export const TEST_CONFIG = {
+  /** Maximum number of polling attempts for status checks */
+  MAX_STATUS_POLL_ATTEMPTS: 30,
+  /** Maximum number of polling attempts for completion checks */
+  MAX_COMPLETION_POLL_ATTEMPTS: 60,
+  /** Polling interval in milliseconds */
+  POLL_INTERVAL_MS: 2000,
+  /** Timeout for job status changes in milliseconds (2 minutes) */
+  JOB_STATUS_TIMEOUT_MS: 120000,
+} as const;
+
+/**
  * Helper function to wait for job status to change
  * @param page - Playwright page object
  * @param expectedStatus - The status to wait for (e.g., 'COMPLETED', 'FAILED')
  * @param timeout - Maximum time to wait in milliseconds (default: 120000ms = 2 minutes)
  */
 export async function waitForJobStatus(
-  page: any,
+  page: Page,
   expectedStatus: string,
-  timeout = 120000
+  timeout = TEST_CONFIG.JOB_STATUS_TIMEOUT_MS
 ): Promise<void> {
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
     // Look for status text on the page
     const statusElement = page.locator(`text=${expectedStatus}`);
     const isVisible = await statusElement.isVisible().catch(() => false);
-    
+
     if (isVisible) {
       return;
     }
-    
+
     // Wait a bit before checking again
-    await page.waitForTimeout(2000);
-    
+    await page.waitForTimeout(TEST_CONFIG.POLL_INTERVAL_MS);
+
     // Optionally reload the page to get updated status
     // (depends on implementation - some might use polling)
   }
-  
+
   throw new Error(`Timeout waiting for job status: ${expectedStatus}`);
 }
 
@@ -49,14 +63,38 @@ export function createTestVideoFile(sizeInMB: number): Buffer {
   // Minimal valid MP4 file header (ftyp + mdat boxes)
   // This is a simplified MP4 that most parsers will accept
   const ftypBox = Buffer.from([
-    0x00, 0x00, 0x00, 0x20, // box size (32 bytes)
-    0x66, 0x74, 0x79, 0x70, // 'ftyp'
-    0x69, 0x73, 0x6f, 0x6d, // major brand 'isom'
-    0x00, 0x00, 0x02, 0x00, // minor version
-    0x69, 0x73, 0x6f, 0x6d, // compatible brand 'isom'
-    0x69, 0x73, 0x6f, 0x32, // compatible brand 'iso2'
-    0x61, 0x76, 0x63, 0x31, // compatible brand 'avc1'
-    0x6d, 0x70, 0x34, 0x31, // compatible brand 'mp41'
+    0x00,
+    0x00,
+    0x00,
+    0x20, // box size (32 bytes)
+    0x66,
+    0x74,
+    0x79,
+    0x70, // 'ftyp'
+    0x69,
+    0x73,
+    0x6f,
+    0x6d, // major brand 'isom'
+    0x00,
+    0x00,
+    0x02,
+    0x00, // minor version
+    0x69,
+    0x73,
+    0x6f,
+    0x6d, // compatible brand 'isom'
+    0x69,
+    0x73,
+    0x6f,
+    0x32, // compatible brand 'iso2'
+    0x61,
+    0x76,
+    0x63,
+    0x31, // compatible brand 'avc1'
+    0x6d,
+    0x70,
+    0x34,
+    0x31, // compatible brand 'mp41'
   ]);
 
   const mdatHeaderSize = 8;

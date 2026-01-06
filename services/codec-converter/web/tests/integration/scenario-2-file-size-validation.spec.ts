@@ -1,6 +1,6 @@
 /**
  * Codec Converter - E2E Test: Scenario 2 (File Size Validation)
- * 
+ *
  * シナリオ2: エラーハンドリング（ファイルサイズ超過）
  * 1. 600MBのMP4ファイルを選択
  * 2. エラーメッセージ「ファイルサイズは500MB以下である必要があります」が表示される
@@ -29,7 +29,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
     try {
       // ファイルアップロード領域を見つける
       const fileInput = page.locator('input[type="file"]');
-      
+
       // ファイルを選択
       await fileInput.setInputFiles(testFilePath);
 
@@ -65,7 +65,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
     try {
       // ファイルアップロード領域を見つける
       const fileInput = page.locator('input[type="file"]');
-      
+
       // ファイルを選択
       await fileInput.setInputFiles(testFilePath);
 

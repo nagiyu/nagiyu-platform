@@ -1,16 +1,16 @@
 /**
  * Codec Converter - E2E Test: Scenario 3 (FFmpeg Failure)
- * 
+ *
  * シナリオ3: エラーハンドリング（FFmpeg失敗）
  * 1. FFmpegで処理できないコーデックのMP4をアップロード
  * 2. ジョブステータスが `FAILED` になる
  * 3. エラーメッセージが記録される
- * 
+ *
  * Note: このテストは実際のAWS環境またはLocalStackが必要です
  * CI環境で実行する場合は、適切な環境変数を設定してください
  */
 
-import { test, expect, createTestVideoFile, generateTestFileName } from './helpers';
+import { test, expect, createTestVideoFile, generateTestFileName, TEST_CONFIG } from './helpers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -31,7 +31,7 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
     const tmpDir = os.tmpdir();
     const testFileName = generateTestFileName();
     const testFilePath = path.join(tmpDir, testFileName);
-    
+
     // 最小限のMP4ファイル（実際の動画ストリームがないため、FFmpegは失敗する）
     const invalidFileBuffer = createTestVideoFile(1); // 1MB (minimal invalid MP4)
     fs.writeFileSync(testFilePath, invalidFileBuffer);
@@ -60,15 +60,14 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
 
       const refreshButton = page.getByRole('button', { name: 'ステータス確認' });
       let attemptCount = 0;
-      const maxAttempts = 60; // 最大60回試行（約2分）
 
-      while (attemptCount < maxAttempts) {
+      while (attemptCount < TEST_CONFIG.MAX_COMPLETION_POLL_ATTEMPTS) {
         // ステータス確認ボタンが表示されているか確認
         const isRefreshVisible = await refreshButton.isVisible().catch(() => false);
-        
+
         if (isRefreshVisible) {
           await refreshButton.click();
-          await page.waitForTimeout(2000);
+          await page.waitForTimeout(TEST_CONFIG.POLL_INTERVAL_MS);
         } else {
           // ステータス確認ボタンが表示されない = FAILED or COMPLETED になった
           break;
@@ -155,7 +154,7 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
       // エラーメッセージが表示されることを確認
       const errorAlert = page.locator('role=alert');
       await expect(errorAlert).toBeVisible({ timeout: 10000 });
-      
+
       // エラーメッセージに内容が含まれることを確認
       const errorText = await errorAlert.textContent();
       expect(errorText).toBeTruthy();

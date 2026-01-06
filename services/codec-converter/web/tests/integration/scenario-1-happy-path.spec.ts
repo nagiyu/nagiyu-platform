@@ -1,6 +1,6 @@
 /**
  * Codec Converter - E2E Test: Scenario 1 (Happy Path)
- * 
+ *
  * シナリオ1: 正常系（H.264変換）
  * 1. 50MBのMP4ファイルをアップロード
  * 2. 出力コーデック「H.264」を選択
@@ -8,7 +8,7 @@
  * 4. ステータスが `PENDING` → `PROCESSING` → `COMPLETED` と遷移
  * 5. ダウンロードリンクが表示される
  * 6. ファイルをダウンロードして再生できる
- * 
+ *
  * Note: このテストは実際のAWS環境またはLocalStackが必要です
  * CI環境で実行する場合は、適切な環境変数を設定してください
  */
@@ -19,6 +19,7 @@ import {
   waitForJobStatus,
   createTestVideoFile,
   generateTestFileName,
+  TEST_CONFIG,
 } from './helpers';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -68,7 +69,7 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
 
       // Step 4: ジョブ詳細ページにリダイレクトされることを確認
       await page.waitForURL(/\/jobs\/[a-f0-9-]+/, { timeout: 30000 });
-      
+
       // URLからジョブIDを取得
       const url = page.url();
       const jobIdMatch = url.match(/\/jobs\/([a-f0-9-]+)/);
@@ -96,9 +97,8 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
       // Step 6: ステータスが PROCESSING に遷移するまで待機
       // Note: 実際の環境では、Batchジョブが開始されるまで時間がかかる可能性があります
       let attemptCount = 0;
-      const maxAttempts = 30; // 最大30回試行（約60秒）
 
-      while (attemptCount < maxAttempts) {
+      while (attemptCount < TEST_CONFIG.MAX_STATUS_POLL_ATTEMPTS) {
         await refreshButton.click();
         await page.waitForTimeout(2000);
 
@@ -125,9 +125,8 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
       test.setTimeout(300000); // 5分のタイムアウト
 
       attemptCount = 0;
-      const maxCompletionAttempts = 60; // 最大60回試行（約2分）
 
-      while (attemptCount < maxCompletionAttempts) {
+      while (attemptCount < TEST_CONFIG.MAX_COMPLETION_POLL_ATTEMPTS) {
         const completedStatus = page.locator('text=🟢 完了');
         const isCompleted = await completedStatus.isVisible().catch(() => false);
 
@@ -138,7 +137,7 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
         // ステータス確認ボタンをクリック
         const currentRefreshButton = page.getByRole('button', { name: 'ステータス確認' });
         const isRefreshVisible = await currentRefreshButton.isVisible().catch(() => false);
-        
+
         if (isRefreshVisible) {
           await currentRefreshButton.click();
         }
