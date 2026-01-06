@@ -27,13 +27,13 @@ export const TEST_CONFIG = {
 
 /**
  * Helper function to wait for job status to change
- * 
+ *
  * Note: This is a simplified helper for basic status polling.
  * The actual tests use more specific polling logic with custom conditions
  * (e.g., checking for button visibility, handling multiple states).
  * This helper can be used for simple cases where you just need to wait
  * for a specific status text to appear on the page.
- * 
+ *
  * @param page - Playwright page object
  * @param expectedStatus - The status to wait for (e.g., 'COMPLETED', 'FAILED')
  * @param timeout - Maximum time to wait in milliseconds (default: 120000ms = 2 minutes)
