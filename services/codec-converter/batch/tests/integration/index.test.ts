@@ -12,7 +12,7 @@ import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { Readable } from 'stream';
-import { promises as fs, createReadStream } from 'fs';
+import { promises as fs, createReadStream, ReadStream } from 'fs';
 import * as child_process from 'child_process';
 import type { ChildProcess } from 'child_process';
 import type { CodecType } from 'codec-converter-core';
@@ -169,7 +169,8 @@ describe('uploadToS3', () => {
     const mockStream = new Readable();
     mockStream.push('test content');
     mockStream.push(null);
-    createReadStreamMock.mockReturnValue(mockStream as any);
+
+    createReadStreamMock.mockReturnValue(mockStream as ReadStream);
 
     s3Mock.on(PutObjectCommand).rejects(new Error('S3 Error'));
 
