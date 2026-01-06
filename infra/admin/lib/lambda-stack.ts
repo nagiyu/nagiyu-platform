@@ -31,7 +31,8 @@ export class LambdaStack extends cdk.Stack {
     });
 
     // Secrets Manager アクセス権限
-    // Auth サービスの NEXTAUTH_SECRET にアクセス
+    // Admin サービスが Auth サービスの NEXTAUTH_SECRET にアクセス
+    // （Admin と Auth で同じ NextAuth シークレットを共有）
     lambdaRole.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -73,7 +74,8 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         NODE_ENV: environment,
         NEXTAUTH_URL: nextAuthUrl,
-        NEXTAUTH_SECRET: 'secret-from-secrets-manager', // プレースホルダー（実際は Secrets Manager から取得）
+        // NEXTAUTH_SECRET は GitHub Actions でデプロイ時に Secrets Manager から取得して設定
+        NEXTAUTH_SECRET: 'placeholder-will-be-set-by-github-actions',
         NEXT_PUBLIC_AUTH_URL: nextPublicAuthUrl,
       },
       description: `Admin Service Lambda function for ${environment} environment`,
