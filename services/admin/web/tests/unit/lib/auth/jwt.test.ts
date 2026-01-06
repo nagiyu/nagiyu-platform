@@ -54,7 +54,7 @@ describe('verifyJWT', () => {
     const result = await verifyJWT('expired-token');
 
     expect(result).toBeNull();
-    expect(consoleErrorSpy).toHaveBeenCalledWith('JWT verification failed:', expect.any(Error));
+    expect(consoleErrorSpy).toHaveBeenCalledWith('JWT検証に失敗しました', expect.any(Error));
 
     consoleErrorSpy.mockRestore();
   });
@@ -67,7 +67,7 @@ describe('verifyJWT', () => {
     const result = await verifyJWT('invalid-signature-token');
 
     expect(result).toBeNull();
-    expect(consoleErrorSpy).toHaveBeenCalledWith('JWT verification failed:', expect.any(Error));
+    expect(consoleErrorSpy).toHaveBeenCalledWith('JWT検証に失敗しました', expect.any(Error));
 
     consoleErrorSpy.mockRestore();
   });
@@ -80,7 +80,36 @@ describe('verifyJWT', () => {
     const result = await verifyJWT('');
 
     expect(result).toBeNull();
-    expect(consoleErrorSpy).toHaveBeenCalled();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'JWT検証に失敗しました',
+      expect.any(Error)
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('NEXTAUTH_SECRET が未設定の場合は null を返す', async () => {
+    delete process.env.NEXTAUTH_SECRET;
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    const result = await verifyJWT('some-token');
+
+    expect(result).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalledWith('NEXTAUTH_SECRET 環境変数が設定されていません');
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('NEXTAUTH_URL が未設定の場合は null を返す', async () => {
+    delete process.env.NEXTAUTH_URL;
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    const result = await verifyJWT('some-token');
+
+    expect(result).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalledWith('NEXTAUTH_URL 環境変数が設定されていません');
 
     consoleErrorSpy.mockRestore();
   });

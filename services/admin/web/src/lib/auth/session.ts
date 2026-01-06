@@ -8,6 +8,10 @@ export interface Session {
   };
 }
 
+const ERROR_MESSAGES = {
+  INVALID_ROLES_JSON: 'x-user-roles ヘッダーのJSONパースに失敗しました',
+} as const;
+
 /**
  * Server Component でセッション情報を取得
  */
@@ -21,11 +25,19 @@ export async function getSession(): Promise<Session | null> {
     return null;
   }
 
+  let roles: string[];
+  try {
+    roles = JSON.parse(userRoles);
+  } catch (error) {
+    console.error(ERROR_MESSAGES.INVALID_ROLES_JSON, error);
+    return null;
+  }
+
   return {
     user: {
       id: userId,
       email: userEmail,
-      roles: JSON.parse(userRoles),
+      roles,
     },
   };
 }

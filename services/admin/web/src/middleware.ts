@@ -3,16 +3,8 @@ import type { NextRequest } from 'next/server';
 import { verifyJWT } from '@/lib/auth/jwt';
 
 const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'https://auth.nagiyu.com';
-const PUBLIC_ROUTES = ['/api/health'];
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // 公開ルートはスキップ
-  if (PUBLIC_ROUTES.includes(pathname)) {
-    return NextResponse.next();
-  }
-
   // JWT クッキーを取得
   const token = request.cookies.get('__Secure-next-auth.session-token')?.value;
 

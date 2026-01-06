@@ -113,4 +113,28 @@ describe('getSession', () => {
       },
     });
   });
+
+  it('不正な JSON の場合は null を返す', async () => {
+    const mockHeadersMap = new Map([
+      ['x-user-id', 'user-123'],
+      ['x-user-email', 'test@example.com'],
+      ['x-user-roles', 'invalid-json'],
+    ]);
+
+    mockHeaders.mockResolvedValue({
+      get: (key: string) => mockHeadersMap.get(key) || null,
+    } as ReturnType<typeof headers>);
+
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+
+    const session = await getSession();
+
+    expect(session).toBeNull();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'x-user-roles ヘッダーのJSONパースに失敗しました',
+      expect.any(Error)
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
 });
