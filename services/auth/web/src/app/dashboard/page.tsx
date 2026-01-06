@@ -56,9 +56,9 @@ export default async function DashboardPage() {
                 管理機能
               </Typography>
               <Box sx={{ mt: 2 }}>
-                <Button component={Link} href="/dashboard/users" variant="contained">
-                  ユーザー管理
-                </Button>
+                <Link href="/dashboard/users" style={{ textDecoration: 'none' }}>
+                  <Button variant="contained">ユーザー管理</Button>
+                </Link>
               </Box>
             </CardContent>
           </Card>
