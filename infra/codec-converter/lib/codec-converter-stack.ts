@@ -75,7 +75,7 @@ export class CodecConverterStack extends cdk.Stack {
       this.node.tryGetContext('ecrRepositoryName') || `codec-converter-${envName}`;
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
 
-    // Create or reference ECR repository based on deployment phase
+    // Create or reference Web ECR repository based on deployment phase
     const ecrRepository =
       deploymentPhase === 'ecr-only'
         ? new ecr.Repository(this, 'EcrRepository', {
@@ -92,21 +92,29 @@ export class CodecConverterStack extends cdk.Stack {
           })
         : ecr.Repository.fromRepositoryName(this, 'EcrRepository', ecrRepositoryName);
 
+    // Create or reference Batch worker ECR repository based on deployment phase
+    const workerEcrRepository =
+      deploymentPhase === 'ecr-only'
+        ? new ecr.Repository(this, 'WorkerEcrRepository', {
+            repositoryName: `codec-converter-ffmpeg-${envName}`,
+            imageScanOnPush: true,
+            lifecycleRules: [
+              {
+                description: 'Keep last 10 images',
+                maxImageCount: 10,
+                rulePriority: 1,
+              },
+            ],
+            removalPolicy: cdk.RemovalPolicy.RETAIN,
+          })
+        : ecr.Repository.fromRepositoryName(
+            this,
+            'WorkerEcrRepository',
+            `codec-converter-ffmpeg-${envName}`
+          );
+
     // Only create Lambda, Batch, and other resources in 'full' deployment phase
     if (deploymentPhase === 'full') {
-      // ECR Repository for Batch worker image
-      const workerEcrRepository = new ecr.Repository(this, 'WorkerEcrRepository', {
-        repositoryName: `codec-converter-ffmpeg-${envName}`,
-        imageScanOnPush: true,
-        lifecycleRules: [
-          {
-            description: 'Keep last 10 images',
-            maxImageCount: 10,
-            rulePriority: 1,
-          },
-        ],
-        removalPolicy: cdk.RemovalPolicy.RETAIN,
-      });
 
       // IAM Role for Batch Job Execution
       const batchJobExecutionRole = new iam.Role(this, 'BatchJobExecutionRole', {
