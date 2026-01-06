@@ -13,8 +13,13 @@
  * CI環境で実行する場合は、適切な環境変数を設定してください
  */
 
-import { test, expect, waitForJobStatus } from './helpers';
-import { createTestVideoFile, generateTestFileName } from './helpers';
+import {
+  test,
+  expect,
+  waitForJobStatus,
+  createTestVideoFile,
+  generateTestFileName,
+} from './helpers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -108,7 +113,9 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
       }
 
       // PROCESSINGステータスが表示されることを確認（またはすでにCOMPLETEDになっている可能性も）
-      const processingOrCompleted = page.locator('text=🔵 処理中, text=🟢 完了').first();
+      const processingStatus = page.locator('text=🔵 処理中');
+      const completedStatus = page.locator('text=🟢 完了');
+      const processingOrCompleted = processingStatus.or(completedStatus);
       await expect(processingOrCompleted).toBeVisible({ timeout: 5000 });
 
       // Step 7: ステータスが COMPLETED に遷移するまで待機

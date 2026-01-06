@@ -7,8 +7,7 @@
  * 3. アップロードが実行されない
  */
 
-import { test, expect } from './helpers';
-import { createTestVideoFile } from './helpers';
+import { test, expect, createTestVideoFile } from './helpers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';

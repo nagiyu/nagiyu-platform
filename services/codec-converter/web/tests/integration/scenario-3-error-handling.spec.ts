@@ -10,8 +10,7 @@
  * CI環境で実行する場合は、適切な環境変数を設定してください
  */
 
-import { test, expect } from './helpers';
-import { createTestVideoFile, generateTestFileName } from './helpers';
+import { test, expect, createTestVideoFile, generateTestFileName } from './helpers';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
