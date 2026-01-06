@@ -37,9 +37,12 @@ ENV PORT=3000
 # standaloneには必要な依存関係とserver.jsが全て含まれている
 COPY --from=builder /app/services/codec-converter/web/.next/standalone ./
 
+# モノレポルートのnode_modulesもコピー（standaloneが完全でない場合に必要）
+COPY --from=builder /app/node_modules ./node_modules
+
 # publicとstaticは別途コピーが必要
-COPY --from=builder /app/services/codec-converter/web/public ./services/codec-converter/web/public
-COPY --from=builder /app/services/codec-converter/web/.next/static ./services/codec-converter/web/.next/static
+COPY --from=builder /app/services/codec-converter/web/public ./codec-converter/web/public
+COPY --from=builder /app/services/codec-converter/web/.next/static ./codec-converter/web/.next/static
 
 # アプリケーションを起動
-CMD ["node", "services/codec-converter/web/server.js"]
+CMD ["node", "codec-converter/web/server.js"]
