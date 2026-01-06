@@ -86,15 +86,18 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
     );
 
     // AWS Batch 権限: ジョブ投入
-    // Note: job definition ARN にはバージョン番号が含まれる可能性があるため、
-    // job-definition/* パターンですべてのバージョンを許可
-    const jobDefinitionArnPattern = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinition.jobDefinitionName}:*`;
+    // Note: job definition ARN は名前のみ、または名前:バージョンの形式の両方をサポート
+    const jobDefinitionArnBase = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinition.jobDefinitionName}`;
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'BatchSubmitJob',
         effect: iam.Effect.ALLOW,
         actions: ['batch:SubmitJob'],
-        resources: [props.jobQueue.jobQueueArn, jobDefinitionArnPattern],
+        resources: [
+          props.jobQueue.jobQueueArn,
+          jobDefinitionArnBase, // バージョン番号なし
+          `${jobDefinitionArnBase}:*`, // バージョン番号あり
+        ],
       })
     );
 
