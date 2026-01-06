@@ -34,7 +34,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       await fileInput.setInputFiles(testFilePath);
 
       // エラーメッセージが表示されることを確認
-      const errorAlert = page.locator('role=alert');
+      const errorAlert = page.getByRole('alert');
       await expect(errorAlert).toBeVisible({ timeout: 5000 });
       await expect(errorAlert).toContainText('ファイルサイズは500MB以下である必要があります');
 
@@ -70,7 +70,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       await fileInput.setInputFiles(testFilePath);
 
       // エラーメッセージが表示されないことを確認
-      const errorAlert = page.locator('role=alert');
+      const errorAlert = page.getByRole('alert');
       await expect(errorAlert).not.toBeVisible();
 
       // 選択されたファイル情報が表示されることを確認
@@ -100,7 +100,9 @@ test.describe('Scenario 2: File Size Validation Error', () => {
 
     try {
       // ドラッグ&ドロップ領域を見つける
-      const dropZone = page.locator('role=button[aria-label*="ファイルをドラッグ&ドロップ"]');
+      const dropZone = page.getByRole('button', {
+        name: /ファイルをドラッグ&ドロップ/,
+      });
       await expect(dropZone).toBeVisible();
 
       // ファイルをドラッグ&ドロップ
@@ -110,7 +112,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       await fileInput.setInputFiles(testFilePath);
 
       // エラーメッセージが表示されることを確認
-      const errorAlert = page.locator('role=alert');
+      const errorAlert = page.getByRole('alert');
       await expect(errorAlert).toBeVisible({ timeout: 5000 });
       await expect(errorAlert).toContainText('ファイルサイズは500MB以下である必要があります');
     } finally {

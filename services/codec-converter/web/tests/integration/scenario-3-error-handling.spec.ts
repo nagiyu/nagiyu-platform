@@ -92,7 +92,7 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
       await expect(page.locator('text=変換処理に失敗しました')).toBeVisible();
 
       // Step 6: エラーメッセージが表示されることを確認
-      const errorSection = page.locator('role=alert').filter({ hasText: 'エラー詳細' });
+      const errorSection = page.getByRole('alert').filter({ hasText: 'エラー詳細' });
       await expect(errorSection).toBeVisible();
 
       // エラーメッセージに何らかのテキストが含まれていることを確認
@@ -152,7 +152,7 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
       await submitButton.click();
 
       // エラーメッセージが表示されることを確認
-      const errorAlert = page.locator('role=alert');
+      const errorAlert = page.getByRole('alert');
       await expect(errorAlert).toBeVisible({ timeout: 10000 });
 
       // エラーメッセージに内容が含まれることを確認
@@ -178,7 +178,7 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
     await page.goto(`/jobs/${nonExistentJobId}`);
 
     // エラーメッセージが表示されることを確認
-    const errorAlert = page.locator('role=alert');
+    const errorAlert = page.getByRole('alert');
     await expect(errorAlert).toBeVisible({ timeout: 10000 });
     await expect(errorAlert).toContainText('指定されたジョブが見つかりません');
 
