@@ -11,10 +11,8 @@ process.env.S3_BUCKET = 'test-bucket';
 process.env.BATCH_JOB_QUEUE = 'test-queue';
 process.env.BATCH_JOB_DEFINITION = 'test-job-definition';
 
-import {
-  POST,
-  clearAwsClientsCache,
-} from '../../../../../../src/app/api/jobs/[jobId]/submit/route';
+import { POST } from '../../../../../../src/app/api/jobs/[jobId]/submit/route';
+import { clearAwsClientsCache } from '../../../../../../src/lib/aws-clients';
 
 // AWS SDK のモック
 const dynamoMock = mockClient(DynamoDBDocumentClient);

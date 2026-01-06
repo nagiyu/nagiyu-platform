@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { BatchClient, SubmitJobCommand } from '@aws-sdk/client-batch';
+import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
+import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { type Job, type JobStatus } from 'codec-converter-core';
+import { getAwsClients } from '@/lib/aws-clients';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -12,39 +12,6 @@ const ERROR_MESSAGES = {
   FILE_NOT_FOUND: '入力ファイルが見つかりません',
   INTERNAL_SERVER_ERROR: 'ジョブの投入に失敗しました',
 } as const;
-
-// AWS クライアントのシングルトン
-let cachedDocClient: DynamoDBDocumentClient | null = null;
-let cachedS3Client: S3Client | null = null;
-let cachedBatchClient: BatchClient | null = null;
-
-/**
- * AWS クライアントのキャッシュをクリア（主にテスト用）
- */
-export function clearAwsClientsCache(): void {
-  cachedDocClient = null;
-  cachedS3Client = null;
-  cachedBatchClient = null;
-}
-
-/**
- * AWS クライアントを取得（シングルトンパターン）
- */
-function getAwsClients() {
-  if (!cachedDocClient || !cachedS3Client || !cachedBatchClient) {
-    const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-    const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
-    cachedDocClient = DynamoDBDocumentClient.from(dynamoClient);
-    cachedS3Client = new S3Client({ region: AWS_REGION });
-    cachedBatchClient = new BatchClient({ region: AWS_REGION });
-  }
-
-  return {
-    docClient: cachedDocClient,
-    s3Client: cachedS3Client,
-    batchClient: cachedBatchClient,
-  };
-}
 
 /**
  * 環境変数を取得
