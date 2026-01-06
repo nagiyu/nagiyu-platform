@@ -49,3 +49,9 @@ export const ROLES = {
  *
  * Phase 2 では admin ロールに logs:read, logs:write 権限も追加予定
  */
+
+/**
+ * すべての有効なロールIDの配列
+ * APIエンドポイントでのバリデーションに使用
+ */
+export const VALID_ROLES = Object.keys(ROLES) as string[];

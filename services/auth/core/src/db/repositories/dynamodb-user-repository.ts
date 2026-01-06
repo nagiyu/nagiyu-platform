@@ -13,6 +13,14 @@ const ERROR_MESSAGES = {
   USER_NOT_FOUND: 'ユーザーが見つかりません',
 } as const;
 
+// カスタムエラークラス
+export class UserNotFoundError extends Error {
+  constructor(userId: string) {
+    super(`${ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
+    this.name = 'UserNotFoundError';
+  }
+}
+
 export class DynamoDBUserRepository {
   /**
    * Google ID でユーザーを取得 (GSI 使用)
@@ -120,7 +128,7 @@ export class DynamoDBUserRepository {
   async updateUser(userId: string, input: UpdateUserInput): Promise<User> {
     const existingUser = await this.getUserById(userId);
     if (!existingUser) {
-      throw new Error(`${ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
+      throw new UserNotFoundError(userId);
     }
 
     const updatedUser: User = {
@@ -164,7 +172,7 @@ export class DynamoDBUserRepository {
   async updateLastLogin(userId: string): Promise<void> {
     const existingUser = await this.getUserById(userId);
     if (!existingUser) {
-      throw new Error(`${ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
+      throw new UserNotFoundError(userId);
     }
 
     const updatedUser: User = {
