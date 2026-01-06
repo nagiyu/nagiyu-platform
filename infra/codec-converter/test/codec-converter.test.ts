@@ -158,8 +158,9 @@ test('Lambda has Batch permissions', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
-  // Check for Batch SubmitJob permission
-  template.hasResourceProperties('AWS::IAM::Policy', {
+  // Check for Batch SubmitJob permission in ManagedPolicy
+  // Note: CDK may serialize single-item action arrays as strings
+  template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
     PolicyDocument: {
       Statement: Match.arrayWith([
         Match.objectLike({
@@ -170,8 +171,8 @@ test('Lambda has Batch permissions', () => {
     },
   });
 
-  // Check for Batch DescribeJobs and TerminateJob permissions
-  template.hasResourceProperties('AWS::IAM::Policy', {
+  // Check for Batch DescribeJobs and TerminateJob permissions in ManagedPolicy
+  template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
     PolicyDocument: {
       Statement: Match.arrayWith([
         Match.objectLike({
