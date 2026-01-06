@@ -225,6 +225,33 @@ jobs:
             --context deploymentPhase=full \
             --verbose
 
+      - name: Update Lambda function code
+        env:
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+        run: |
+          # Get ECR repository URI
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="$ECR_REGISTRY/codec-converter-$ENVIRONMENT:latest"
+
+          # Update Lambda function code
+          aws lambda update-function-code \
+            --function-name "codec-converter-$ENVIRONMENT" \
+            --image-uri "$IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Lambda function code updated with image: $IMAGE_URI"
+
+      - name: Wait for Lambda update to complete
+        env:
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+        run: |
+          aws lambda wait function-updated \
+            --function-name "codec-converter-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Lambda function update completed"
+
       - name: Display stack outputs
         env:
           STACK_NAME: ${{ needs.prepare-infrastructure.outputs.stack-name }}
