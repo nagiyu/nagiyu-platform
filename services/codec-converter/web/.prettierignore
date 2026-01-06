@@ -1,0 +1,17 @@
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Dependencies
+node_modules/
+
+# Testing
+coverage/
+
+# Build outputs
+dist/
+build/
+
+# Environment files
+.env*.local
