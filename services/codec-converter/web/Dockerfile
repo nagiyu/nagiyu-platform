@@ -38,8 +38,8 @@ ENV PORT=3000
 COPY --from=builder /app/services/codec-converter/web/.next/standalone ./
 
 # publicとstaticは別途コピーが必要
-COPY --from=builder /app/services/codec-converter/web/public ./services/codec-converter/web/public
-COPY --from=builder /app/services/codec-converter/web/.next/static ./services/codec-converter/web/.next/static
+COPY --from=builder /app/services/codec-converter/web/public ./codec-converter/web/public
+COPY --from=builder /app/services/codec-converter/web/.next/static ./codec-converter/web/.next/static
 
 # アプリケーションを起動
-CMD ["node", "services/codec-converter/web/server.js"]
+CMD ["node", "codec-converter/web/server.js"]
