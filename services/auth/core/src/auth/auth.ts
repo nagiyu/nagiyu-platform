@@ -1,6 +1,6 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
-import { InMemoryUserRepository } from '../repositories/in-memory-user-repository';
+import { DynamoDBUserRepository } from '../db/repositories/dynamodb-user-repository';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -27,12 +27,8 @@ if (
   }
 }
 
-// NOTE: InMemoryUserRepository は開発・テスト専用のユーザーリポジトリです。
-// - メモリ内にのみデータを保持し、プロセス終了時にデータは失われます。
-// - 開発環境のホットリロード時にはメモリ上のデータが蓄積し続ける可能性があります。
-// - 複数のサーバーレス関数インスタンス間でデータは共有されません。
-// 本番環境では永続化されたユーザーデータストアを利用するように実装を切り替えてください。
-const userRepository = new InMemoryUserRepository();
+// DynamoDB を使用してユーザー情報を永続化
+const userRepository = new DynamoDBUserRepository();
 
 // 開発環境判定
 const isDevelopment = process.env.NODE_ENV === 'development';

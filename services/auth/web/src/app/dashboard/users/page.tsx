@@ -24,9 +24,9 @@ export default async function UsersListPage() {
           <Typography variant="h4" component="h1">
             ユーザー管理
           </Typography>
-          <Button component={Link} href="/dashboard" variant="outlined">
-            ダッシュボードに戻る
-          </Button>
+          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <Button variant="outlined">ダッシュボードに戻る</Button>
+          </Link>
         </Box>
 
         <Paper sx={{ p: 3 }}>

@@ -44,8 +44,8 @@ export async function GET(req: NextRequest) {
 
     // クエリパラメータのバリデーション
     const validatedQuery = ListUsersQuerySchema.parse({
-      limit: searchParams.get('limit'),
-      nextToken: searchParams.get('nextToken'),
+      limit: searchParams.get('limit') || undefined,
+      nextToken: searchParams.get('nextToken') || undefined,
     });
 
     // nextToken をデコード
