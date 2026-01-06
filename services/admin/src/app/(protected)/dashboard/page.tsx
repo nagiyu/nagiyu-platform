@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 export default async function DashboardPage() {
   const session = await getSession();
 
+  // Phase 2: JWT 検証実装後、session が null の場合にリダイレクト
   if (!session) {
     redirect('/');
   }
@@ -30,13 +31,9 @@ export default async function DashboardPage() {
             <strong>ロール:</strong>
           </Typography>
           <Box sx={{ mt: 1 }}>
-            {user.roles.length > 0 ? (
-              user.roles.map((role) => <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />)
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                ロールが割り当てられていません
-              </Typography>
-            )}
+            {user.roles.map((role) => (
+              <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />
+            ))}
           </Box>
         </CardContent>
       </Card>
@@ -60,7 +57,7 @@ export default async function DashboardPage() {
       <Button
         variant="outlined"
         color="primary"
-        href={`${process.env.NEXT_PUBLIC_AUTH_URL}/api/auth/signout`}
+        href={`${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`}
         sx={{ mt: 2 }}
       >
         ログアウト

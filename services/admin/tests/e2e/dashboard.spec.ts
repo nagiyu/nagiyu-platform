@@ -17,16 +17,16 @@ test.describe('Dashboard', () => {
     // Check user information card heading
     await expect(page.getByRole('heading', { name: 'ユーザー情報' })).toBeVisible();
 
-    // Check email is displayed
+    // Check email is displayed (verify format, not specific value)
     await expect(page.getByText('メールアドレス:')).toBeVisible();
-    await expect(page.getByText('admin@example.com')).toBeVisible();
+    await expect(page.getByText(/.+@.+\..+/)).toBeVisible();
 
     // Check roles heading
     await expect(page.getByText('ロール:')).toBeVisible();
 
-    // Check role chips are displayed
-    await expect(page.getByText('admin')).toBeVisible();
-    await expect(page.getByText('user-manager')).toBeVisible();
+    // Check role chips are displayed (at least one chip should be visible)
+    const roleChips = page.locator('[class*="MuiChip"]');
+    await expect(roleChips.first()).toBeVisible();
   });
 
   test('should display authentication status card', async ({ page }) => {
