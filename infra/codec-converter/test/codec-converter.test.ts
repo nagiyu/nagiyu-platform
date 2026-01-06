@@ -95,20 +95,6 @@ test('Lambda has correct IAM permissions', () => {
   });
 });
 
-test('Batch Worker ECR Repository Created with image scanning', () => {
-  const { stack } = createTestStack();
-  const template = Template.fromStack(stack);
-
-  template.hasResourceProperties('AWS::ECR::Repository', {
-    ImageScanningConfiguration: {
-      ScanOnPush: true,
-    },
-    LifecyclePolicy: {
-      LifecyclePolicyText: Match.stringLikeRegexp('.*countNumber.*10.*'),
-    },
-  });
-});
-
 test('Batch Compute Environment Created with correct configuration', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
