@@ -85,12 +85,17 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
     );
 
     // AWS Batch 権限: ジョブ投入
+    // Note: job definition ARN にはバージョン番号が含まれる場合があるため、
+    // ワイルドカードを使用してすべてのバージョンを許可
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'BatchSubmitJob',
         effect: iam.Effect.ALLOW,
         actions: ['batch:SubmitJob'],
-        resources: [props.jobQueue.jobQueueArn, props.jobDefinition.jobDefinitionArn],
+        resources: [
+          props.jobQueue.jobQueueArn,
+          `${props.jobDefinition.jobDefinitionArn.split(':').slice(0, -1).join(':')}:*`,
+        ],
       })
     );
 
