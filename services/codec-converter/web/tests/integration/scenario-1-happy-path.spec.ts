@@ -16,7 +16,6 @@
 import {
   test,
   expect,
-  waitForJobStatus,
   createTestVideoFile,
   generateTestFileName,
   TEST_CONFIG,

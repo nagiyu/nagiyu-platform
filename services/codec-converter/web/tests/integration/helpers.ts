@@ -21,10 +21,19 @@ export const TEST_CONFIG = {
   POLL_INTERVAL_MS: 2000,
   /** Timeout for job status changes in milliseconds (2 minutes) */
   JOB_STATUS_TIMEOUT_MS: 120000,
+  /** Non-existent UUID for testing error cases */
+  NON_EXISTENT_JOB_ID: '00000000-0000-0000-0000-000000000000',
 } as const;
 
 /**
  * Helper function to wait for job status to change
+ * 
+ * Note: This is a simplified helper for basic status polling.
+ * The actual tests use more specific polling logic with custom conditions
+ * (e.g., checking for button visibility, handling multiple states).
+ * This helper can be used for simple cases where you just need to wait
+ * for a specific status text to appear on the page.
+ * 
  * @param page - Playwright page object
  * @param expectedStatus - The status to wait for (e.g., 'COMPLETED', 'FAILED')
  * @param timeout - Maximum time to wait in milliseconds (default: 120000ms = 2 minutes)

@@ -174,8 +174,7 @@ test.describe('Scenario 3: FFmpeg Failure Handling', () => {
 
   test('should handle job not found error', async ({ page }) => {
     // 存在しないジョブIDでジョブ詳細ページにアクセス
-    const nonExistentJobId = '00000000-0000-0000-0000-000000000000';
-    await page.goto(`/jobs/${nonExistentJobId}`);
+    await page.goto(`/jobs/${TEST_CONFIG.NON_EXISTENT_JOB_ID}`);
 
     // エラーメッセージが表示されることを確認
     const errorAlert = page.getByRole('alert');
