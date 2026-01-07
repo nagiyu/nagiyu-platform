@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { type Job, type JobStatus } from 'codec-converter-core';
@@ -128,29 +128,12 @@ export async function POST(
       })
     );
 
-    // 5. DynamoDBステータスをPROCESSINGに更新
-    const now = Math.floor(Date.now() / 1000);
-    await docClient.send(
-      new UpdateCommand({
-        TableName: DYNAMODB_TABLE,
-        Key: { jobId },
-        UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-        ExpressionAttributeNames: {
-          '#status': 'status',
-          '#updatedAt': 'updatedAt',
-        },
-        ExpressionAttributeValues: {
-          ':status': 'PROCESSING',
-          ':updatedAt': now,
-        },
-      })
-    );
-
     // レスポンスを返却
+    // 注: ステータスはPENDINGのまま。Batch Workerが起動時にPROCESSINGに更新する
     return NextResponse.json(
       {
         jobId,
-        status: 'PROCESSING' as JobStatus,
+        status: 'PENDING' as JobStatus,
       },
       { status: 200 }
     );

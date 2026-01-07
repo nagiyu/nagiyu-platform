@@ -83,9 +83,8 @@ sequenceDiagram
     S3-->>Browser: 6. アップロード完了
     Browser->>Next: 7. POST /api/jobs/{jobId}/submit
     Next->>DB: 8. ジョブ情報取得
-    Next->>DB: 9. ステータス更新 (PENDING→PROCESSING)
-    Next->>Batch: 10. Batchジョブ投入
-    Note right of Next: containerOverrides: JOB_ID, OUTPUT_CODEC
+    Next->>Batch: 9. Batchジョブ投入
+    Note right of Next: containerOverrides: JOB_ID, OUTPUT_CODEC<br/>ステータスはPENDINGのまま
 ```
 
 **ステップ**:
@@ -102,9 +101,9 @@ sequenceDiagram
 5. アップロード完了後、ブラウザ → Next.js API: `POST /api/jobs/{jobId}/submit`
 6. Next.js API (Lambda上で実行):
     - DynamoDBからジョブ情報取得
-    - ジョブステータスをPENDING → PROCESSINGに更新（条件付き更新で競合防止）
-    - Batchジョブ投入
+    - Batchジョブ投入（ステータスはPENDINGのまま）
         - containerOverrides.environment: JOB_ID, OUTPUT_CODEC
+    - 注: ステータスのPROCESSING更新はBatch Worker側で実施
 
 ### 2. 変換処理フロー
 
@@ -134,7 +133,8 @@ sequenceDiagram
 
 1. Batch Worker起動
 2. 環境変数から取得: JOB_ID, OUTPUT_CODEC, S3_BUCKET, DYNAMODB_TABLE
-3. DynamoDBのステータスを PROCESSING に更新
+3. DynamoDBのステータスをPENDING → PROCESSINGに更新
+    - Batch Workerが実際に処理を開始したことを保証
 4. S3から入力ファイルダウンロード (`uploads/{jobId}/input.mp4`)
 5. FFmpegで変換実行
     - H.264: libx264, CRF 23, AAC 128k
@@ -421,7 +421,7 @@ codec-converter-storage-{env}/
 
 **処理フロー**:
 1. **環境変数検証**: 必須変数（`S3_BUCKET`, `DYNAMODB_TABLE`, `JOB_ID`, `OUTPUT_CODEC`）の存在確認
-2. **DynamoDBステータス更新**: `PROCESSING` に変更
+2. **DynamoDBステータス更新**: PENDING → `PROCESSING` に変更
 3. **S3ダウンロード**: `uploads/{JOB_ID}/input.mp4` → `/tmp/input-{JOB_ID}.mp4`
 4. **FFmpeg変換**: 指定コーデックで変換、進捗情報をログ出力（stderr）
 5. **S3アップロード**: `/tmp/output-{JOB_ID}.{ext}` → `outputs/{JOB_ID}/output.{ext}`
@@ -630,7 +630,7 @@ Codec Converterは**PCターゲット**のため、以下のデバイス構成�
 5. ジョブ詳細画面に遷移し、ジョブIDが表示される
 6. ステータスが「PENDING」と表示される
 7. 「ステータス確認」ボタンをクリック
-8. ステータスが「PROCESSING」に変わる（モック環境では即座に「COMPLETED」に変更）
+8. Batch Workerが起動後、ステータスが「PROCESSING」に変わる（モック環境では即座に「COMPLETED」に変更）
 9. 「ダウンロード」ボタンが表示される
 10. ダウンロードボタンをクリックし、ファイルがダウンロードされる
 

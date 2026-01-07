@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { mockClient } from 'aws-sdk-client-mock';
-import { DynamoDBDocumentClient, GetCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { BatchClient, SubmitJobCommand } from '@aws-sdk/client-batch';
 
@@ -30,7 +30,7 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     clearAwsClientsCache();
   });
 
-  it('正常系: Batchジョブを投入し、ステータスをPROCESSINGに更新する', async () => {
+  it('正常系: Batchジョブを投入する（ステータスはPENDINGのまま）', async () => {
     const jobId = '550e8400-e29b-41d4-a716-446655440000';
 
     // DynamoDB GetCommand のモック（PENDING状態のジョブ）
@@ -57,9 +57,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
       jobName: `codec-converter-${jobId}`,
     });
 
-    // DynamoDB UpdateCommand のモック
-    dynamoMock.on(UpdateCommand).resolves({});
-
     // リクエストの作成
     const request = new NextRequest(`http://localhost:3000/api/jobs/${jobId}/submit`, {
       method: 'POST',
@@ -74,7 +71,7 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     expect(response.status).toBe(200);
     expect(data).toEqual({
       jobId,
-      status: 'PROCESSING',
+      status: 'PENDING',
     });
 
     // DynamoDBへのGetCommand呼び出しを検証
@@ -110,23 +107,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
         ],
       },
     });
-
-    // DynamoDBへのUpdateCommand呼び出しを検証
-    expect(dynamoMock.commandCalls(UpdateCommand)).toHaveLength(1);
-    const updateCall = dynamoMock.call(1);
-    expect(updateCall.args[0].input).toMatchObject({
-      TableName: 'test-table',
-      Key: { jobId },
-      UpdateExpression: 'SET #status = :status, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#status': 'status',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':status': 'PROCESSING',
-        ':updatedAt': expect.any(Number),
-      },
-    });
   });
 
   it('異常系: ジョブが存在しない場合、404エラーを返す', async () => {
@@ -152,7 +132,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     // S3、Batchへのリクエストが行われていないことを確認
     expect(s3Mock.calls()).toHaveLength(0);
     expect(batchMock.calls()).toHaveLength(0);
-    expect(dynamoMock.commandCalls(UpdateCommand)).toHaveLength(0);
   });
 
   it('異常系: ジョブステータスがPROCESSINGの場合、409エラーを返す', async () => {
@@ -189,7 +168,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
 
     expect(s3Mock.calls()).toHaveLength(0);
     expect(batchMock.calls()).toHaveLength(0);
-    expect(dynamoMock.commandCalls(UpdateCommand)).toHaveLength(0);
   });
 
   it('異常系: ジョブステータスがCOMPLETEDの場合、409エラーを返す', async () => {
@@ -292,47 +270,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
 
     expect(s3Mock.commandCalls(HeadObjectCommand)).toHaveLength(1);
     expect(batchMock.calls()).toHaveLength(0);
-    expect(dynamoMock.commandCalls(UpdateCommand)).toHaveLength(0);
-  });
-
-  it('異常系: DynamoDB更新エラー時、500エラーを返す', async () => {
-    const jobId = '550e8400-e29b-41d4-a716-446655440000';
-
-    dynamoMock.on(GetCommand).resolves({
-      Item: {
-        jobId,
-        status: 'PENDING',
-        inputFile: `uploads/${jobId}/input.mp4`,
-        outputCodec: 'h264',
-        fileName: 'test-video.mp4',
-        fileSize: 100 * 1024 * 1024,
-        createdAt: 1704067200,
-        updatedAt: 1704067200,
-        expiresAt: 1704153600,
-      },
-    });
-
-    s3Mock.on(HeadObjectCommand).resolves({});
-    batchMock.on(SubmitJobCommand).resolves({
-      jobId: 'batch-job-id',
-    });
-
-    // DynamoDB UpdateCommand のモック（エラー）
-    dynamoMock.on(UpdateCommand).rejects(new Error('DynamoDB Error'));
-
-    const request = new NextRequest(`http://localhost:3000/api/jobs/${jobId}/submit`, {
-      method: 'POST',
-    });
-    const params = Promise.resolve({ jobId });
-
-    const response = await POST(request, { params });
-    const data = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(data).toEqual({
-      error: 'INTERNAL_SERVER_ERROR',
-      message: 'ジョブの投入に失敗しました',
-    });
   });
 
   it('異常系: Batchジョブ投入エラー時、500エラーを返す', async () => {
@@ -370,8 +307,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'ジョブの投入に失敗しました',
     });
-
-    expect(dynamoMock.commandCalls(UpdateCommand)).toHaveLength(0);
   });
 
   it('正常系: vp9コーデックでBatchジョブを投入できる', async () => {
@@ -393,7 +328,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
 
     s3Mock.on(HeadObjectCommand).resolves({});
     batchMock.on(SubmitJobCommand).resolves({ jobId: 'batch-job-id' });
-    dynamoMock.on(UpdateCommand).resolves({});
 
     const request = new NextRequest(`http://localhost:3000/api/jobs/${jobId}/submit`, {
       method: 'POST',
@@ -404,10 +338,10 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('PROCESSING');
+    expect(data.status).toBe('PENDING');
 
     const submitCall = batchMock.call(0);
-    const environment = submitCall.args[0].input.containerOverrides?.environment;
+    const environment = (submitCall.args[0].input as any).containerOverrides?.environment;
     expect(environment).toContainEqual({
       name: 'OUTPUT_CODEC',
       value: 'vp9',
@@ -433,7 +367,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
 
     s3Mock.on(HeadObjectCommand).resolves({});
     batchMock.on(SubmitJobCommand).resolves({ jobId: 'batch-job-id' });
-    dynamoMock.on(UpdateCommand).resolves({});
 
     const request = new NextRequest(`http://localhost:3000/api/jobs/${jobId}/submit`, {
       method: 'POST',
@@ -444,10 +377,10 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('PROCESSING');
+    expect(data.status).toBe('PENDING');
 
     const submitCall = batchMock.call(0);
-    const environment = submitCall.args[0].input.containerOverrides?.environment;
+    const environment = (submitCall.args[0].input as any).containerOverrides?.environment;
     expect(environment).toContainEqual({
       name: 'OUTPUT_CODEC',
       value: 'av1',
@@ -456,19 +389,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
 
   it('正常系: 環境変数がデフォルト値で動作する', async () => {
     const jobId = '550e8400-e29b-41d4-a716-446655440000';
-
-    // 環境変数を一時的に削除
-    const originalRegion = process.env.AWS_REGION;
-    const originalTable = process.env.DYNAMODB_TABLE;
-    const originalBucket = process.env.S3_BUCKET;
-    const originalQueue = process.env.BATCH_JOB_QUEUE;
-    const originalDefinition = process.env.BATCH_JOB_DEFINITION;
-
-    delete process.env.AWS_REGION;
-    delete process.env.DYNAMODB_TABLE;
-    delete process.env.S3_BUCKET;
-    delete process.env.BATCH_JOB_QUEUE;
-    delete process.env.BATCH_JOB_DEFINITION;
 
     dynamoMock.on(GetCommand).resolves({
       Item: {
@@ -486,7 +406,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
 
     s3Mock.on(HeadObjectCommand).resolves({});
     batchMock.on(SubmitJobCommand).resolves({ jobId: 'batch-job-id' });
-    dynamoMock.on(UpdateCommand).resolves({});
 
     const request = new NextRequest(`http://localhost:3000/api/jobs/${jobId}/submit`, {
       method: 'POST',
@@ -497,13 +416,6 @@ describe('POST /api/jobs/{jobId}/submit', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.status).toBe('PROCESSING');
-
-    // 環境変数を復元
-    process.env.AWS_REGION = originalRegion;
-    process.env.DYNAMODB_TABLE = originalTable;
-    process.env.S3_BUCKET = originalBucket;
-    process.env.BATCH_JOB_QUEUE = originalQueue;
-    process.env.BATCH_JOB_DEFINITION = originalDefinition;
+    expect(data.status).toBe('PENDING');
   });
 });
