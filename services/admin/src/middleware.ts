@@ -22,7 +22,16 @@ export default auth((req: NextAuthRequest) => {
     // Auth サービスのサインインページにリダイレクト
     // リダイレクト後に元のページに戻れるように callbackUrl を設定
     const signInUrl = new URL(`${authUrl}/signin`);
-    signInUrl.searchParams.set('callbackUrl', req.url);
+
+    // callbackUrl を構築
+    // CloudFront 経由のリクエストでは req.url が内部 URL になるため、
+    // 環境変数 APP_URL をベースに正しい URL を構築する
+    const appUrl = process.env.APP_URL;
+    const callbackUrl = appUrl
+      ? `${appUrl}${req.nextUrl.pathname}${req.nextUrl.search}`
+      : req.nextUrl.pathname;
+
+    signInUrl.searchParams.set('callbackUrl', callbackUrl);
     return NextResponse.redirect(signInUrl);
   }
 

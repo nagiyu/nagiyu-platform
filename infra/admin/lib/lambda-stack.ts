@@ -47,14 +47,17 @@ export class LambdaStack extends cdk.Stack {
       })
     );
 
-    // NEXTAUTH_URL の構築
-    const nextAuthUrl =
+    // Auth サービスの URL
+    const authUrl =
       environment === 'prod'
         ? 'https://auth.nagiyu.com'
         : `https://${environment}-auth.nagiyu.com`;
 
-    // NEXT_PUBLIC_AUTH_URL の構築
-    const nextPublicAuthUrl = nextAuthUrl;
+    // Admin サービスの URL (自分自身)
+    const adminUrl =
+      environment === 'prod'
+        ? 'https://admin.nagiyu.com'
+        : `https://${environment}-admin.nagiyu.com`;
 
     // ECR リポジトリの参照
     const repository = ecr.Repository.fromRepositoryName(
@@ -77,9 +80,12 @@ export class LambdaStack extends cdk.Stack {
       role: lambdaRole,
       environment: {
         NODE_ENV: environment,
-        // NextAuth v5 では AUTH_SECRET が必要
+        // NextAuth v5 で使用される環境変数
         AUTH_SECRET: nextAuthSecret,
-        NEXT_PUBLIC_AUTH_URL: nextPublicAuthUrl,
+        // 自サービスのベース URL（callbackUrl 生成などに使用）
+        APP_URL: adminUrl,
+        // Auth サービスの URL（OAuth 認証のリダイレクト先）
+        NEXT_PUBLIC_AUTH_URL: authUrl,
       },
       description: `Admin Service Lambda function for ${environment} environment`,
     });
