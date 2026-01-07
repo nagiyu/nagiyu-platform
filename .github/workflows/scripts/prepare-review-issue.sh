@@ -3,18 +3,19 @@ set -euo pipefail
 
 # 週次ドキュメントレビュー Issue の本文を生成するスクリプト
 #
-# 引数:
-#   $1: UPDATED_DOCS - 過去1週間で更新されたドキュメント数
-#   $2: PREV_ISSUE - 前回のレビュー Issue 番号
-#   $3: NEXT_DATE - 次回レビュー予定日
-#   $4: HAS_POLICY_CHANGES - 方針変更の有無 (true/false)
-#   $5: POLICY_CHANGES - 方針変更の内容（複数行）
+# 環境変数:
+#   UPDATED_DOCS - 過去1週間で更新されたドキュメント数
+#   PREV_ISSUE - 前回のレビュー Issue 番号
+#   NEXT_DATE - 次回レビュー予定日
+#   HAS_POLICY_CHANGES - 方針変更の有無 (true/false)
+#   POLICY_CHANGES - 方針変更の内容（複数行）
 
-UPDATED_DOCS="$1"
-PREV_ISSUE="$2"
-NEXT_DATE="$3"
-HAS_POLICY_CHANGES="$4"
-POLICY_CHANGES="$5"
+# 環境変数から読み込み（未設定の場合はデフォルト値）
+UPDATED_DOCS="${UPDATED_DOCS:-0}"
+PREV_ISSUE="${PREV_ISSUE:-なし}"
+NEXT_DATE="${NEXT_DATE:-未定}"
+HAS_POLICY_CHANGES="${HAS_POLICY_CHANGES:-false}"
+POLICY_CHANGES="${POLICY_CHANGES:-}"
 
 # テンプレートを読み込み
 TEMPLATE=$(cat .github/workflows/templates/weekly-review-body.md)

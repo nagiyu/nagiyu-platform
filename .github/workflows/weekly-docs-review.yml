@@ -83,14 +83,15 @@ jobs:
 
       - name: Prepare issue body from template
         id: issue_body
+        env:
+          UPDATED_DOCS: ${{ steps.metrics.outputs.updated_docs }}
+          PREV_ISSUE: ${{ steps.prev_issue.outputs.prev_issue_number }}
+          NEXT_DATE: ${{ steps.next_review.outputs.next_date }}
+          HAS_POLICY_CHANGES: ${{ steps.policy_changes.outputs.has_changes }}
+          POLICY_CHANGES: ${{ steps.policy_changes.outputs.policy_changes }}
         run: |
           # スクリプトを実行して Issue 本文を生成
-          BODY=$(.github/workflows/scripts/prepare-review-issue.sh \
-            "${{ steps.metrics.outputs.updated_docs }}" \
-            "${{ steps.prev_issue.outputs.prev_issue_number }}" \
-            "${{ steps.next_review.outputs.next_date }}" \
-            "${{ steps.policy_changes.outputs.has_changes }}" \
-            "${{ steps.policy_changes.outputs.policy_changes }}")
+          BODY=$(.github/workflows/scripts/prepare-review-issue.sh)
 
           # 出力を保存
           {
