@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { setMockJWT, mockGoogleOAuthLogin, DEFAULT_TEST_USER } from './helpers/mock-auth';
-import { MULTI_ROLE_TEST_USER } from './helpers/jwt-utils';
+import {
+  setMockJWT,
+  mockGoogleOAuthLogin,
+  DEFAULT_TEST_USER,
+  MULTI_ROLE_TEST_USER,
+} from './helpers/mock-auth';
 
 /**
  * SSO ログインテスト

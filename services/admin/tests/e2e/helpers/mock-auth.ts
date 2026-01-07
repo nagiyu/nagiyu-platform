@@ -108,3 +108,9 @@ export async function clearAuthCookies(page: Page): Promise<void> {
     });
   }
 }
+
+/**
+ * テストユーザー定数を再エクスポート
+ * テストファイルでのインポートを統一するため
+ */
+export { DEFAULT_TEST_USER, USER_MANAGER_TEST_USER, MULTI_ROLE_TEST_USER } from './jwt-utils';

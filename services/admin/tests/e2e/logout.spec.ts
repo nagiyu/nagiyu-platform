@@ -49,19 +49,6 @@ test.describe('Logout', () => {
     expect(url).toMatch(/signin/);
   });
 
-  test('should not allow access to protected routes after logout', async ({ page }) => {
-    // 認証クッキーをクリア（ログアウト状態をシミュレート）
-    await clearAuthCookies(page);
-
-    // ダッシュボードにアクセスを試みる
-    await page.goto('/dashboard');
-
-    // サインインページにリダイレクトされることを確認
-    await page.waitForLoadState('networkidle');
-    const url = page.url();
-    expect(url).toMatch(/signin/);
-  });
-
   test('should require re-authentication after logout', async ({ page }) => {
     // ログアウト（クッキーをクリア）
     await clearAuthCookies(page);
