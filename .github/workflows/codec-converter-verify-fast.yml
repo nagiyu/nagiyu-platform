@@ -5,12 +5,12 @@ on:
     branches:
       - integration/**
     paths:
-      - "services/codec-converter/**"
-      - "infra/codec-converter/**"
-      - "libs/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/codec-converter-verify-fast.yml"
+      - 'services/codec-converter/**'
+      - 'infra/codec-converter/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/codec-converter-verify-fast.yml'
 
 jobs:
   nextjs-build:
@@ -27,9 +27,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -57,8 +57,8 @@ jobs:
       - name: Build Batch Docker image
         run: docker build -t codec-converter-batch-verify-fast-test -f services/codec-converter/batch/Dockerfile .
 
-  test:
-    name: Run Unit Tests
+  test-core:
+    name: Run Core Unit Tests
     runs-on: ubuntu-latest
 
     permissions:
@@ -71,9 +71,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -84,8 +84,114 @@ jobs:
       - name: Run core tests
         run: npm run test --workspace=codec-converter-core
 
+  test-web:
+    name: Run Web Unit Tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
+      - name: Run web tests
+        run: npm run test --workspace=codec-converter-web
+
+  test-batch:
+    name: Run Batch Unit Tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
       - name: Run batch tests
         run: npm run test --workspace=codec-converter-batch
+
+  e2e-test:
+    name: Run E2E Tests (chromium-desktop only)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/codec-converter/web
+
+      - name: Run Playwright tests (chromium-desktop only)
+        env:
+          CI: true
+          PROJECT: chromium-desktop
+        run: |
+          npm run test:e2e --workspace=codec-converter-web
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-fast
+          path: services/codec-converter/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-fast
+          path: services/codec-converter/web/test-results/
+          retention-days: 30
 
   lint:
     name: Lint Check
@@ -101,9 +207,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -131,9 +237,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -161,9 +267,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -185,9 +291,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -209,9 +315,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -223,7 +329,20 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, lint, format-check, infra-format-check, infra-type-check, infra-test]
+    needs:
+      [
+        nextjs-build,
+        docker-build,
+        test-core,
+        test-web,
+        test-batch,
+        e2e-test,
+        lint,
+        format-check,
+        infra-format-check,
+        infra-type-check,
+        infra-test,
+      ]
 
     permissions:
       contents: read
@@ -238,7 +357,10 @@ jobs:
             const results = {
               'Next.js Build': '${{ needs.nextjs-build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}',
-              'Unit Tests': '${{ needs.test.result }}',
+              'Core Unit Tests': '${{ needs.test-core.result }}',
+              'Web Unit Tests': '${{ needs.test-web.result }}',
+              'Batch Unit Tests': '${{ needs.test-batch.result }}',
+              'E2E Tests (Fast)': '${{ needs.e2e-test.result }}',
               'Lint Check': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Infra Format Check': '${{ needs.infra-format-check.result }}',
