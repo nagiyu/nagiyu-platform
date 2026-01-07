@@ -100,7 +100,7 @@ test('Batch Compute Environment Created with correct configuration', () => {
   const template = Template.fromStack(stack);
 
   template.hasResourceProperties('AWS::Batch::ComputeEnvironment', {
-    Type: 'managed',
+    Type: 'MANAGED',
     ComputeResources: {
       MaxvCpus: 6,
       Type: 'FARGATE',
