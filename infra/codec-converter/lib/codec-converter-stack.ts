@@ -9,7 +9,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as ecs from 'aws-cdk-lib/aws-ecs';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
@@ -148,57 +148,111 @@ export class CodecConverterStack extends cdk.Stack {
             },
           });
 
-      // Batch Compute Environment (Fargate)
-      const computeEnvironment = new batch.FargateComputeEnvironment(this, 'ComputeEnvironment', {
-        computeEnvironmentName: `codec-converter-${envName}`,
-        vpc: vpc,
-        vpcSubnets: {
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-        maxvCpus: 6, // 3 jobs × 2 vCPU each
+      // Get public subnets from VPC
+      const publicSubnets = vpc.selectSubnets({
+        subnetType: ec2.SubnetType.PUBLIC,
       });
 
-      // Batch Job Queue
-      const jobQueue = new batch.JobQueue(this, 'JobQueue', {
+      // Create security group for Batch compute environment
+      const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
+        vpc: vpc,
+        description: 'Security group for Batch Fargate tasks',
+        allowAllOutbound: true,
+      });
+
+      // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
+      const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
+        computeEnvironmentName: `codec-converter-${envName}`,
+        type: 'MANAGED',
+        state: 'ENABLED',
+        computeResources: {
+          type: 'FARGATE',
+          maxvCpus: 6, // 3 jobs × 2 vCPU each
+          subnets: publicSubnets.subnetIds,
+          securityGroupIds: [batchSecurityGroup.securityGroupId],
+        },
+      });
+
+      // Batch Job Queue - L1 construct
+      const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
         jobQueueName: `codec-converter-${envName}`,
         priority: 1,
-        computeEnvironments: [
+        state: 'ENABLED',
+        computeEnvironmentOrder: [
           {
-            computeEnvironment: computeEnvironment,
+            computeEnvironment: computeEnvironment.attrComputeEnvironmentArn,
             order: 1,
           },
         ],
       });
 
-      // Batch Job Definition
+      // CloudWatch Log Group for Batch (created explicitly to avoid conflicts)
+      const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
+        logGroupName: `/aws/batch/codec-converter-${envName}`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+
+      // Batch Job Definition - L1 construct for AssignPublicIp support
       const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
-      const jobDefinition = new batch.EcsJobDefinition(this, 'JobDefinition', {
+      const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
         jobDefinitionName: `codec-converter-${envName}`,
-        container: new batch.EcsFargateContainerDefinition(this, 'JobContainer', {
-          image: ecs.ContainerImage.fromEcrRepository(workerEcrRepository, workerImageTag),
-          cpu: 2,
-          memory: cdk.Size.mebibytes(4096),
-          executionRole: batchJobExecutionRole,
-          jobRole: batchJobRole,
-          environment: {
-            DYNAMODB_TABLE: jobsTable.tableName,
-            S3_BUCKET: storageBucket.bucketName,
-            AWS_REGION: this.region,
+        type: 'container',
+        platformCapabilities: ['FARGATE'],
+        containerProperties: {
+          image: `${workerEcrRepository.repositoryUri}:${workerImageTag}`,
+          resourceRequirements: [
+            {
+              type: 'VCPU',
+              value: '2',
+            },
+            {
+              type: 'MEMORY',
+              value: '4096',
+            },
+          ],
+          executionRoleArn: batchJobExecutionRole.roleArn,
+          jobRoleArn: batchJobRole.roleArn,
+          networkConfiguration: {
+            assignPublicIp: 'ENABLED',
           },
-        }),
-        timeout: cdk.Duration.hours(2),
-        retryAttempts: 1, // 1 retry as per architecture.md:404
-        retryStrategies: [
-          batch.RetryStrategy.of(batch.Action.RETRY, batch.Reason.NON_ZERO_EXIT_CODE),
-        ],
+          logConfiguration: {
+            logDriver: 'awslogs',
+            options: {
+              'awslogs-group': batchLogGroup.logGroupName,
+              'awslogs-region': this.region,
+              'awslogs-stream-prefix': 'batch',
+            },
+          },
+          environment: [
+            {
+              name: 'DYNAMODB_TABLE',
+              value: jobsTable.tableName,
+            },
+            {
+              name: 'S3_BUCKET',
+              value: storageBucket.bucketName,
+            },
+            {
+              name: 'AWS_REGION',
+              value: this.region,
+            },
+          ],
+        },
+        retryStrategy: {
+          attempts: 2, // 1 retry = 2 attempts total
+        },
+        timeout: {
+          attemptDurationSeconds: 7200, // 2 hours
+        },
       });
 
       // Application Runtime Policy (shared by Lambda and developers)
       const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
         storageBucket,
         jobsTable,
-        jobQueue,
-        jobDefinition,
+        jobQueueArn: jobQueue.attrJobQueueArn,
+        jobDefinitionName: jobDefinition.jobDefinitionName!,
         envName,
       });
 
@@ -212,6 +266,14 @@ export class CodecConverterStack extends cdk.Stack {
         appRuntimePolicy,
         envName,
       });
+
+      // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
+      const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
+        logGroupName: `/aws/lambda/codec-converter-${envName}`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+
       // Lambda Function for Next.js application
       const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
         functionName: `codec-converter-${envName}`,
@@ -221,11 +283,12 @@ export class CodecConverterStack extends cdk.Stack {
         memorySize: 1024,
         timeout: cdk.Duration.seconds(30),
         role: lambdaExecutionRole,
+        logGroup: lambdaLogGroup,
         environment: {
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
-          BATCH_JOB_QUEUE: jobQueue.jobQueueName,
-          BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName,
+          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
+          BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName || `codec-converter-${envName}`,
           // AWS_REGION is automatically provided by Lambda runtime
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself
@@ -348,13 +411,13 @@ export class CodecConverterStack extends cdk.Stack {
       });
 
       new cdk.CfnOutput(this, 'BatchJobQueueArn', {
-        value: jobQueue.jobQueueArn,
+        value: jobQueue.attrJobQueueArn,
         description: 'Batch job queue ARN',
         exportName: `CodecConverterBatchJobQueueArn-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
-        value: jobDefinition.jobDefinitionArn,
+        value: jobDefinition.attrJobDefinitionArn,
         description: 'Batch job definition ARN',
         exportName: `CodecConverterBatchJobDefinitionArn-${envName}`,
       });
