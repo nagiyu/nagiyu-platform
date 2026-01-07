@@ -9,7 +9,6 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as ecs from 'aws-cdk-lib/aws-ecs';
 import { Construct } from 'constructs';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
@@ -186,27 +185,50 @@ export class CodecConverterStack extends cdk.Stack {
         ],
       });
 
-      // Batch Job Definition
+      // Batch Job Definition - L1 construct for AssignPublicIp support
       const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
-      const jobDefinition = new batch.EcsJobDefinition(this, 'JobDefinition', {
+      const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
         jobDefinitionName: `codec-converter-${envName}`,
-        container: new batch.EcsFargateContainerDefinition(this, 'JobContainer', {
-          image: ecs.ContainerImage.fromEcrRepository(workerEcrRepository, workerImageTag),
-          cpu: 2,
-          memory: cdk.Size.mebibytes(4096),
-          executionRole: batchJobExecutionRole,
-          jobRole: batchJobRole,
-          environment: {
-            DYNAMODB_TABLE: jobsTable.tableName,
-            S3_BUCKET: storageBucket.bucketName,
-            AWS_REGION: this.region,
+        type: 'container',
+        platformCapabilities: ['FARGATE'],
+        containerProperties: {
+          image: `${workerEcrRepository.repositoryUri}:${workerImageTag}`,
+          resourceRequirements: [
+            {
+              type: 'VCPU',
+              value: '2',
+            },
+            {
+              type: 'MEMORY',
+              value: '4096',
+            },
+          ],
+          executionRoleArn: batchJobExecutionRole.roleArn,
+          jobRoleArn: batchJobRole.roleArn,
+          networkConfiguration: {
+            assignPublicIp: 'ENABLED',
           },
-        }),
-        timeout: cdk.Duration.hours(2),
-        retryAttempts: 1, // 1 retry as per architecture.md:404
-        retryStrategies: [
-          batch.RetryStrategy.of(batch.Action.RETRY, batch.Reason.NON_ZERO_EXIT_CODE),
-        ],
+          environment: [
+            {
+              name: 'DYNAMODB_TABLE',
+              value: jobsTable.tableName,
+            },
+            {
+              name: 'S3_BUCKET',
+              value: storageBucket.bucketName,
+            },
+            {
+              name: 'AWS_REGION',
+              value: this.region,
+            },
+          ],
+        },
+        retryStrategy: {
+          attempts: 2, // 1 retry = 2 attempts total
+        },
+        timeout: {
+          attemptDurationSeconds: 7200, // 2 hours
+        },
       });
 
       // Application Runtime Policy (shared by Lambda and developers)
@@ -214,7 +236,7 @@ export class CodecConverterStack extends cdk.Stack {
         storageBucket,
         jobsTable,
         jobQueueArn: jobQueue.attrJobQueueArn,
-        jobDefinitionName: jobDefinition.jobDefinitionName,
+        jobDefinitionName: jobDefinition.jobDefinitionName!,
         envName,
       });
 
@@ -241,7 +263,7 @@ export class CodecConverterStack extends cdk.Stack {
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
           BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
-          BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName,
+          BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName || `codec-converter-${envName}`,
           // AWS_REGION is automatically provided by Lambda runtime
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself
@@ -370,7 +392,7 @@ export class CodecConverterStack extends cdk.Stack {
       });
 
       new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
-        value: jobDefinition.jobDefinitionArn,
+        value: jobDefinition.attrJobDefinitionArn,
         description: 'Batch job definition ARN',
         exportName: `CodecConverterBatchJobDefinitionArn-${envName}`,
       });
