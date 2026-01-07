@@ -89,7 +89,8 @@ jobs:
           echo "Deploying Secrets Manager and ECR stacks..."
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=${{ steps.set-env.outputs.environment }} \
-            ${{ steps.set-env.outputs.cdk-stack-name }} \
+            Admin-Secrets-${{ steps.set-env.outputs.environment }} \
+            Admin-ECR-${{ steps.set-env.outputs.environment }} \
             --require-approval never
 
   build:
