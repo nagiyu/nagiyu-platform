@@ -119,12 +119,7 @@ jobs:
       - name: Run Integration tests (All Devices)
         env:
           CI: true
-        run: |
-          npm run test:e2e --workspace=codec-converter-web
-          if [ $? -ne 0 ]; then
-            echo "Integration tests failed"
-            exit 1
-          fi
+        run: npm run test:e2e --workspace=codec-converter-web
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
