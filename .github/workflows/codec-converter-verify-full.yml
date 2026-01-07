@@ -6,12 +6,12 @@ on:
       - develop
       - master
     paths:
-      - "services/codec-converter/**"
-      - "infra/codec-converter/**"
-      - "libs/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/codec-converter-verify-full.yml"
+      - 'services/codec-converter/**'
+      - 'infra/codec-converter/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/codec-converter-verify-full.yml'
 
 jobs:
   nextjs-build:
@@ -28,9 +28,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -72,9 +72,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -87,6 +87,60 @@ jobs:
 
       - name: Run batch tests
         run: npm run test --workspace=codec-converter-batch
+
+  integration-test:
+    name: Run Integration Tests (All Devices)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium webkit
+        working-directory: ./services/codec-converter/web
+
+      - name: Run Integration tests (All Devices)
+        env:
+          CI: true
+        run: |
+          npm run test:e2e --workspace=codec-converter-web
+          if [ $? -ne 0 ]; then
+            echo "Integration tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full
+          path: services/codec-converter/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full
+          path: services/codec-converter/web/test-results/
+          retention-days: 30
 
   lint:
     name: Lint Check
@@ -102,9 +156,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -132,9 +186,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -162,9 +216,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -186,9 +240,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -210,9 +264,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -224,7 +278,18 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, lint, format-check, infra-format-check, infra-type-check, infra-test]
+    needs:
+      [
+        nextjs-build,
+        docker-build,
+        test,
+        integration-test,
+        lint,
+        format-check,
+        infra-format-check,
+        infra-type-check,
+        infra-test,
+      ]
 
     permissions:
       contents: read
@@ -240,6 +305,7 @@ jobs:
               'Next.js Build': '${{ needs.nextjs-build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
+              'Integration Tests (Full)': '${{ needs.integration-test.result }}',
               'Lint Check': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Infra Format Check': '${{ needs.infra-format-check.result }}',
