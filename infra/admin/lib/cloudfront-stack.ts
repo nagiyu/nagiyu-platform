@@ -21,7 +21,7 @@ export class CloudFrontStack extends cdk.Stack {
     const domainName =
       environment === 'prod'
         ? 'admin.nagiyu.com'
-        : `admin-${environment}.nagiyu.com`;
+        : `${environment}-admin.nagiyu.com`;
 
     // Lambda 関数 URL から https:// を除去してドメイン名を取得
     // CDK Token の場合は Fn::Select を使用
