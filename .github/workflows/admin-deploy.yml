@@ -79,14 +79,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch secrets from Secrets Manager
-        id: fetch-secrets
-        uses: aws-actions/aws-secretsmanager-get-secrets@v2
-        with:
-          secret-ids: |
-            NEXTAUTH_SECRET,nagiyu-admin-nextauth-secret-${{ steps.set-env.outputs.environment }}
-          parse-json-secrets: true
-
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
@@ -97,7 +89,6 @@ jobs:
           echo "Deploying Secrets Manager and ECR stacks..."
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=${{ steps.set-env.outputs.environment }} \
-            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
             ${{ steps.set-env.outputs.cdk-stack-name }} \
             --require-approval never
 
@@ -222,12 +213,13 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           echo "Deploying full Admin infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=$ENVIRONMENT \
-            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
+            --context nextAuthSecret="$SECRET_VALUE" \
             --all \
             --require-approval never
 

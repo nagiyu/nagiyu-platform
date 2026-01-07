@@ -19,6 +19,17 @@ export class LambdaStack extends cdk.Stack {
     const region = this.region;
     const account = this.account;
 
+    // CDK context から secrets を取得
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret');
+
+    // secrets が未指定の場合はエラー
+    if (!nextAuthSecret) {
+      throw new Error(
+        'Missing required context: nextAuthSecret. ' +
+          'Please provide it via --context flag or cdk.json'
+      );
+    }
+
     // Lambda 実行ロールの作成
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -74,8 +85,7 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         NODE_ENV: environment,
         NEXTAUTH_URL: nextAuthUrl,
-        // NEXTAUTH_SECRET は GitHub Actions でデプロイ時に Secrets Manager から取得して設定
-        NEXTAUTH_SECRET: 'placeholder-will-be-set-by-github-actions',
+        NEXTAUTH_SECRET: nextAuthSecret,
         NEXT_PUBLIC_AUTH_URL: nextPublicAuthUrl,
       },
       description: `Admin Service Lambda function for ${environment} environment`,
