@@ -66,6 +66,19 @@ export const authConfig: NextAuthConfig = {
     },
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // callbackUrl パラメータが nagiyu.com のサブドメインであれば許可
+      // 例: https://dev-admin.nagiyu.com/dashboard
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // プラットフォーム内の他のサービスへのリダイレクトを許可
+      if (url.match(/^https?:\/\/[^/]*\.nagiyu\.com/)) {
+        return url;
+      }
+      // それ以外は baseUrl にリダイレクト
+      return baseUrl;
+    },
     async signIn({ user, account }) {
       if (!account) {
         return false;
