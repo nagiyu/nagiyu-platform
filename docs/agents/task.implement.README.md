@@ -29,9 +29,8 @@
    ## 関連ドキュメント
    - docs/services/tools/README.md
    - docs/services/tools/requirements.md
-   - docs/services/tools/basic-design.md
-   - docs/services/tools/detailed-design.md
-   - docs/services/tools/implementation.md
+   - docs/services/tools/architecture.md
+   - docs/services/tools/deployment.md
    ```
 
 2. **エージェントをIssueに割り当て**:
@@ -106,15 +105,14 @@ docs/
 │   └── {サービス名}/               # 例: tools
 │       ├── README.md                # 概要とドキュメント一覧
 │       ├── requirements.md          # 要件定義書
-│       ├── basic-design.md          # 基本設計書
-│       ├── detailed-design.md       # 詳細設計書
-│       ├── implementation.md        # 実装ガイドとタスク追跡
-│       ├── testing.md               # テスト仕様書
+│       ├── architecture.md          # アーキテクチャ設計書（基本設計・詳細設計を含む）
 │       ├── deployment.md            # デプロイ手順書
-│       └── appendix/                # 補足資料
+│       └── appendix/                # 補足資料（任意）
 │           ├── glossary.md          # 用語集
 │           ├── decision-log.md      # 意思決定ログ
 │           └── ...
+│
+│   注: 標準構造はガイドラインであり、サービスごとに適切な構成を選択可能
 └── infra/                           # インフラストラクチャドキュメント
     ├── README.md                    # インフラドキュメント目次
     ├── architecture.md              # 全体設計と構成
@@ -152,9 +150,8 @@ docs/
    ### 読み込んだドキュメント
    - ✅ docs/services/tools/README.md
    - ✅ docs/services/tools/requirements.md
-   - ✅ docs/services/tools/basic-design.md
-   - ✅ docs/services/tools/detailed-design.md
-   - ✅ docs/services/tools/implementation.md
+   - ✅ docs/services/tools/architecture.md
+   - ✅ docs/services/tools/deployment.md
 
    ### 実装スコープ
    Phase 3.1: 環境セットアップ
@@ -182,7 +179,7 @@ docs/
 
 ### 実装内容
 - package.json, tsconfig.json, eslint.config.js を作成
-- Material UIのテーマ設定を basic-design.md に従って実装
+- Material UIのテーマ設定を architecture.md に従って実装
 
 ### 次のステップ
 Phase 3.2: 最小限のページ実装に進みます
@@ -198,15 +195,15 @@ Phase 3.2: 最小限のページ実装に進みます
 実装を一時停止しました。
 
 ### 問題箇所
-`docs/services/tools/detailed-design.md` の乗り換えパーサー仕様
+`docs/services/tools/architecture.md` の乗り換えパーサー仕様
 
 ### 詳細
 入力フォーマットの詳細が requirements.md と矛盾しています:
 - requirements.md: "テキストエリアまたはクリップボードから入力"
-- detailed-design.md: "テキストエリアのみ対応"と記載
+- architecture.md: "テキストエリアのみ対応"と記載
 
 ### 提案
-detailed-design.md を以下のように更新することを提案します:
+architecture.md を以下のように更新することを提案します:
 
 \`\`\`markdown
 #### 入力方法
@@ -276,9 +273,8 @@ Toolsアプリの開発環境をセットアップする
 ## 関連ドキュメント
 - docs/services/tools/README.md
 - docs/services/tools/requirements.md
-- docs/services/tools/basic-design.md
-- docs/services/tools/detailed-design.md
-- docs/services/tools/implementation.md
+- docs/services/tools/architecture.md
+- docs/services/tools/deployment.md
 ```
 
 エージェントを割り当てると:
@@ -298,11 +294,11 @@ Toolsアプリの開発環境をセットアップする
 ログイン成功後、ダッシュボードにリダイレクトされるべきだが、ログイン画面のまま
 
 ## 関連ドキュメント
-- docs/services/auth/detailed-design.md
-- docs/services/auth/implementation.md
+- docs/services/auth/requirements.md
+- docs/services/auth/architecture.md
 
 ## 期待される修正
-detailed-design.md の認証フロー仕様に従って実装を修正
+architecture.md の認証フロー仕様に従って実装を修正
 ```
 
 エージェントがドキュメントと実装を照らし合わせて修正します。
@@ -376,9 +372,10 @@ assignees: task.implement
 ## 関連ドキュメント
 - docs/{プロジェクト}/README.md
 - docs/{プロジェクト}/requirements.md
-- docs/{プロジェクト}/basic-design.md
-- docs/{プロジェクト}/detailed-design.md
-- docs/{プロジェクト}/implementation.md
+- docs/{プロジェクト}/architecture.md
+- docs/{プロジェクト}/deployment.md
+
+注: サービスごとに必要なドキュメントは異なります。存在するドキュメントのみを列挙してください。
 
 ## 備考
 {追加情報}
@@ -392,9 +389,8 @@ assignees: task.implement
 ## 関連ドキュメント
 
 - [要件定義書](../docs/services/tools/requirements.md)
-- [基本設計書](../docs/services/tools/basic-design.md)
-- [詳細設計書](../docs/services/tools/detailed-design.md)
-- [実装ガイド](../docs/services/tools/implementation.md)
+- [アーキテクチャ設計書](../docs/services/tools/architecture.md)
+- [デプロイ手順書](../docs/services/tools/deployment.md)
 ```
 
 ### 3. 進捗確認
