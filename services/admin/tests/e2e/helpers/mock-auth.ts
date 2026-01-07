@@ -24,9 +24,10 @@ export async function setMockJWT(
   const jwt = await generateMockJWT(payload, options);
 
   // NextAuth v5 のセッショントークンクッキー名
-  // 本番環境: __Secure-next-auth.session-token
-  // 開発環境: next-auth.session-token
-  const cookieName = '__Secure-next-auth.session-token';
+  // 本番環境 (HTTPS): __Secure-next-auth.session-token
+  // 開発環境 (HTTP): next-auth.session-token
+  const isSecure = process.env.NODE_ENV === 'production' || process.env.CI === 'true';
+  const cookieName = isSecure ? '__Secure-next-auth.session-token' : 'next-auth.session-token';
 
   await page.context().addCookies([
     {
@@ -35,7 +36,7 @@ export async function setMockJWT(
       domain: 'localhost', // ローカルテストでは localhost
       path: '/',
       httpOnly: true,
-      secure: false, // ローカルは HTTP のため false
+      secure: isSecure,
       sameSite: 'Lax',
     },
   ]);
@@ -65,8 +66,11 @@ export async function setExpiredJWT(
  * 実際の OAuth フローをモックする必要がある場合は、
  * MSW (Mock Service Worker) などを使用して拡張できます。
  *
+ * context パラメータは将来の拡張のために保持されています。
+ * MSW やその他のブラウザコンテキストレベルのモックを実装する際に使用します。
+ *
  * @param page - Playwright Page オブジェクト
- * @param context - Playwright BrowserContext オブジェクト
+ * @param context - Playwright BrowserContext オブジェクト (将来の拡張用)
  * @param payload - JWT ペイロード（省略時はデフォルトユーザー）
  */
 export async function mockGoogleOAuthLogin(

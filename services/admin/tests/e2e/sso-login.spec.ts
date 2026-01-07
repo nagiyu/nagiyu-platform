@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { setMockJWT, mockGoogleOAuthLogin, DEFAULT_TEST_USER } from './helpers/mock-auth';
+import {
+  setMockJWT,
+  mockGoogleOAuthLogin,
+  DEFAULT_TEST_USER,
+} from './helpers/mock-auth';
+import { MULTI_ROLE_TEST_USER } from './helpers/jwt-utils';
 
 /**
  * SSO ログインテスト
@@ -57,21 +62,15 @@ test.describe('SSO Login', () => {
 
   test('should preserve user roles after login', async ({ page }) => {
     // 複数ロールを持つユーザーでログイン
-    const multiRoleUser = {
-      userId: 'multi-role-user',
-      email: 'multi@example.com',
-      name: 'Multi Role User',
-      roles: ['admin', 'user-manager'],
-    };
-
-    await setMockJWT(page, multiRoleUser);
+    await setMockJWT(page, MULTI_ROLE_TEST_USER);
     await page.goto('/dashboard');
 
     // ダッシュボードが表示されることを確認
     await expect(page.getByRole('heading', { name: 'ダッシュボード', level: 1 })).toBeVisible();
 
     // 両方のロールが表示されることを確認
-    await expect(page.getByText('admin')).toBeVisible();
-    await expect(page.getByText('user-manager')).toBeVisible();
+    for (const role of MULTI_ROLE_TEST_USER.roles) {
+      await expect(page.getByText(role)).toBeVisible();
+    }
   });
 });
