@@ -3,7 +3,7 @@ name: Admin App - Fast Verification
 on:
   pull_request:
     branches:
-      - 'integration/admin/**'
+      - 'integration/**'
     paths:
       - 'services/admin/**'
       - 'libs/common/**'
