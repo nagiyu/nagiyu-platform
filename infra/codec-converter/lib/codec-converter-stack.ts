@@ -9,6 +9,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
@@ -185,6 +186,13 @@ export class CodecConverterStack extends cdk.Stack {
         ],
       });
 
+      // CloudWatch Log Group for Batch (created explicitly to avoid conflicts)
+      const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
+        logGroupName: `/aws/batch/codec-converter-${envName}`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+
       // Batch Job Definition - L1 construct for AssignPublicIp support
       const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
       const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
@@ -207,6 +215,14 @@ export class CodecConverterStack extends cdk.Stack {
           jobRoleArn: batchJobRole.roleArn,
           networkConfiguration: {
             assignPublicIp: 'ENABLED',
+          },
+          logConfiguration: {
+            logDriver: 'awslogs',
+            options: {
+              'awslogs-group': batchLogGroup.logGroupName,
+              'awslogs-region': this.region,
+              'awslogs-stream-prefix': 'batch',
+            },
           },
           environment: [
             {
@@ -250,6 +266,14 @@ export class CodecConverterStack extends cdk.Stack {
         appRuntimePolicy,
         envName,
       });
+
+      // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
+      const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
+        logGroupName: `/aws/lambda/codec-converter-${envName}`,
+        retention: logs.RetentionDays.ONE_WEEK,
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+      });
+
       // Lambda Function for Next.js application
       const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
         functionName: `codec-converter-${envName}`,
@@ -259,6 +283,7 @@ export class CodecConverterStack extends cdk.Stack {
         memorySize: 1024,
         timeout: cdk.Duration.seconds(30),
         role: lambdaExecutionRole,
+        logGroup: lambdaLogGroup,
         environment: {
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
