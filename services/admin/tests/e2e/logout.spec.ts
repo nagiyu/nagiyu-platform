@@ -14,7 +14,9 @@ test.describe('Logout', () => {
     await page.goto('/dashboard');
   });
 
-  test('should redirect to Auth signout endpoint when logout button is clicked', async ({ page }) => {
+  test('should redirect to Auth signout endpoint when logout button is clicked', async ({
+    page,
+  }) => {
     // ログアウトボタンを取得
     const logoutButton = page.getByRole('link', { name: 'ログアウト' });
     await expect(logoutButton).toBeVisible();

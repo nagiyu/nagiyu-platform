@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { setMockJWT, DEFAULT_TEST_USER, USER_MANAGER_TEST_USER, MULTI_ROLE_TEST_USER } from './helpers/mock-auth';
+import {
+  setMockJWT,
+  DEFAULT_TEST_USER,
+  USER_MANAGER_TEST_USER,
+  MULTI_ROLE_TEST_USER,
+} from './helpers/mock-auth';
 
 /**
  * ダッシュボード表示テスト

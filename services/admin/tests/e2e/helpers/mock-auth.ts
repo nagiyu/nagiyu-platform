@@ -1,5 +1,10 @@
 import { Page, BrowserContext } from '@playwright/test';
-import { generateMockJWT, DEFAULT_TEST_USER, type JWTPayload, type MockJWTOptions } from './jwt-utils';
+import {
+  generateMockJWT,
+  DEFAULT_TEST_USER,
+  type JWTPayload,
+  type MockJWTOptions,
+} from './jwt-utils';
 
 /**
  * モック JWT をクッキーにセットする
