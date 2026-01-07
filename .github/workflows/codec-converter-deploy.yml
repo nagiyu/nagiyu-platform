@@ -2,10 +2,10 @@ name: Codec Converter - Deploy Infrastructure
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
+    branches:
+      - develop
+      - integration/**
+      - master
     paths:
       - "services/codec-converter/**"
       - "infra/codec-converter/**"
