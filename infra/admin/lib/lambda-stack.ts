@@ -20,15 +20,8 @@ export class LambdaStack extends cdk.Stack {
     const account = this.account;
 
     // CDK context から secrets を取得
-    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret');
-
-    // secrets が未指定の場合はエラー
-    if (!nextAuthSecret) {
-      throw new Error(
-        'Missing required context: nextAuthSecret. ' +
-          'Please provide it via --context flag or cdk.json'
-      );
-    }
+    // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
 
     // Lambda 実行ロールの作成
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
