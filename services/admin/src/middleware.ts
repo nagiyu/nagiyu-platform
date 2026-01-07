@@ -1,9 +1,36 @@
+import { auth } from './auth';
+import type { NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
 
-export function middleware() {
-  // Phase 1: パススルー (JWT 検証は次のタスクで実装)
+/**
+ * Admin サービスのミドルウェア
+ *
+ * Auth サービスから発行された JWT を検証し、未認証ユーザーを
+ * Auth サービスのサインインページにリダイレクトする。
+ */
+export default auth((req: NextAuthRequest) => {
+  const isAuthenticated = !!req.auth;
+
+  if (!isAuthenticated) {
+    const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL;
+    if (!authUrl) {
+      console.error('NEXT_PUBLIC_AUTH_URL or NEXTAUTH_URL is not set');
+      return NextResponse.json({ error: 'Authentication configuration error' }, { status: 500 });
+    }
+
+    // CloudFront 経由では内部 URL になるため、APP_URL から正しい URL を構築
+    const appUrl = process.env.APP_URL;
+    const callbackUrl = appUrl
+      ? `${appUrl}${req.nextUrl.pathname}${req.nextUrl.search}`
+      : req.nextUrl.pathname;
+
+    const signInUrl = new URL(`${authUrl}/signin`);
+    signInUrl.searchParams.set('callbackUrl', callbackUrl);
+    return NextResponse.redirect(signInUrl);
+  }
+
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],

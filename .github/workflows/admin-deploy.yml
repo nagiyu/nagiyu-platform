@@ -1,0 +1,502 @@
+name: Admin App - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - 'integration/**'
+      - master
+    paths:
+      - 'services/admin/**'
+      - 'libs/common/**'
+      - 'infra/admin/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/admin-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      cdk-stack-name: ${{ steps.set-env.outputs.cdk-stack-name }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_REF" =~ ^refs/heads/integration/admin/ ]]; then
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Set CDK stack name based on environment
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "cdk-stack-name=Admin-prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "cdk-stack-name=Admin-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-admin
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK Bootstrap (if needed)
+        run: |
+          echo "Checking if CDK bootstrap is needed..."
+          npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
+
+      - name: Deploy Infrastructure (ECR)
+        run: |
+          echo "Deploying ECR stack..."
+          npm run deploy --workspace=@nagiyu/infra-admin -- \
+            --context env=${{ steps.set-env.outputs.environment }} \
+            Admin-ECR-${{ steps.set-env.outputs.environment }} \
+            --require-approval never
+
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ needs.infrastructure.outputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK outputs
+        id: get-ecr
+        env:
+          CDK_STACK_NAME: ${{ needs.infrastructure.outputs.cdk-stack-name }}
+        run: |
+          # Try to get from CloudFormation stack
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "Admin-ECR-${{ needs.infrastructure.outputs.environment }}" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Warning: Could not find ECR repository URI from stack, using default naming"
+            ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-admin-${{ needs.infrastructure.outputs.environment }}"
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/admin/Dockerfile .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          # Also tag as latest
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy to AWS Lambda
+    runs-on: ubuntu-latest
+    needs: [infrastructure, build]
+
+    outputs:
+      lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
+      cloudfront-domain: ${{ steps.get-cloudfront.outputs.cloudfront-domain }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-admin
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+          parse-json-secrets: true
+
+      - name: Deploy Lambda and CloudFront (Full Stack)
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
+        run: |
+          echo "Deploying full Admin infrastructure to $ENVIRONMENT environment..."
+          echo "Using Docker image: $IMAGE_URI"
+          npm run deploy --workspace=@nagiyu/infra-admin -- \
+            --context env=$ENVIRONMENT \
+            --context nextAuthSecret="$SECRET_VALUE" \
+            --all \
+            --require-approval never
+
+      - name: Get Lambda function details
+        id: get-lambda
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Get Lambda function ARN from CloudFormation
+          FUNCTION_ARN=$(aws cloudformation describe-stacks \
+            --stack-name "Admin-Lambda-$ENVIRONMENT" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          if [ -z "$FUNCTION_ARN" ]; then
+            echo "Warning: Could not find Lambda function ARN from stack"
+            FUNCTION_NAME="nagiyu-admin-$ENVIRONMENT"
+          else
+            # Extract function name from ARN
+            FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')
+          fi
+
+          echo "function-name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
+          echo "Lambda Function: $FUNCTION_NAME"
+
+      - name: Update Lambda function code
+        env:
+          IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
+        run: |
+          echo "Updating Lambda function with new image: $IMAGE_URI"
+          aws lambda update-function-code \
+            --function-name "$FUNCTION_NAME" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Wait for Lambda update to complete
+        env:
+          FUNCTION_NAME: ${{ steps.get-lambda.outputs.function-name }}
+        run: |
+          echo "Waiting for Lambda update to complete..."
+          aws lambda wait function-updated \
+            --function-name "$FUNCTION_NAME" \
+            --region "${{ env.AWS_REGION }}"
+          echo "Lambda update completed successfully"
+
+      - name: Get Lambda Function URL
+        id: get-lambda-url
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "Admin-Lambda-$ENVIRONMENT" \
+            --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
+          echo "Lambda Function URL: $FUNCTION_URL"
+
+      - name: Invoke Lambda health check
+        env:
+          FUNCTION_URL: ${{ steps.get-lambda-url.outputs.function-url }}
+        run: |
+          if [ -n "$FUNCTION_URL" ]; then
+            echo "Invoking Lambda health check..."
+            HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" || echo "000")
+            echo "Health check response: $HTTP_CODE"
+
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "Warning: Health check returned $HTTP_CODE (Lambda may be cold starting)"
+            else
+              echo "Health check passed successfully!"
+            fi
+          else
+            echo "Skipping health check: Function URL not available"
+          fi
+
+  cloudfront-invalidation:
+    name: CloudFront Invalidation
+    runs-on: ubuntu-latest
+    needs: [deploy, build]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get CloudFront distribution ID
+        id: get-cloudfront
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          if [ -z "$DISTRIBUTION_ID" ]; then
+            echo "Warning: Could not find CloudFront distribution ID"
+            echo "distribution-id=" >> "$GITHUB_OUTPUT"
+          else
+            echo "distribution-id=$DISTRIBUTION_ID" >> "$GITHUB_OUTPUT"
+            echo "CloudFront Distribution ID: $DISTRIBUTION_ID"
+          fi
+
+      - name: Create CloudFront invalidation
+        if: steps.get-cloudfront.outputs.distribution-id != ''
+        env:
+          DISTRIBUTION_ID: ${{ steps.get-cloudfront.outputs.distribution-id }}
+        run: |
+          echo "Creating CloudFront invalidation for distribution: $DISTRIBUTION_ID"
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*" \
+            --query "Invalidation.Id" \
+            --output text)
+
+          echo "Invalidation created: $INVALIDATION_ID"
+          echo "INVALIDATION_ID=$INVALIDATION_ID" >> $GITHUB_ENV
+
+      - name: Wait for CloudFront invalidation to complete
+        if: steps.get-cloudfront.outputs.distribution-id != ''
+        env:
+          DISTRIBUTION_ID: ${{ steps.get-cloudfront.outputs.distribution-id }}
+        run: |
+          echo "Waiting for CloudFront invalidation to complete..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --id "$INVALIDATION_ID"
+          echo "CloudFront invalidation completed successfully"
+
+  # TODO: Uncomment when E2E tests are implemented and Auth service is deployed
+  # post-deploy-e2e:
+  #   name: Post-Deploy E2E Tests
+  #   runs-on: ubuntu-latest
+  #   needs: [cloudfront-invalidation, build, deploy]
+  #
+  #   permissions:
+  #     contents: read
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'npm'
+  #         cache-dependency-path: './package-lock.json'
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Build shared libraries
+  #       run: |
+  #         npm run build --workspace @nagiyu/common
+  #         npm run build --workspace @nagiyu/browser
+  #         npm run build --workspace @nagiyu/ui
+  #
+  #     - name: Install Playwright Browsers
+  #       run: npx playwright install --with-deps chromium
+  #       working-directory: ./services/admin
+  #
+  #     - name: Get CloudFront domain
+  #       env:
+  #         ENVIRONMENT: ${{ needs.build.outputs.environment }}
+  #       run: |
+  #         CF_DOMAIN=$(aws cloudformation describe-stacks \
+  #           --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+  #           --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+  #           --output text \
+  #           --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+  #
+  #         if [ -n "$CF_DOMAIN" ]; then
+  #           echo "ADMIN_URL=https://$CF_DOMAIN" >> $GITHUB_ENV
+  #         else
+  #           # Fallback to Lambda Function URL
+  #           echo "ADMIN_URL=${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_ENV
+  #         fi
+  #
+  #     - name: Run E2E tests against deployed environment
+  #       env:
+  #         CI: true
+  #         BASE_URL: ${{ env.ADMIN_URL }}
+  #       run: |
+  #         echo "Running E2E tests against: $BASE_URL"
+  #         npm run test:e2e --workspace @nagiyu/admin -- --project=chromium-mobile
+  #         if [ $? -ne 0 ]; then
+  #           echo "Post-deploy E2E tests failed"
+  #           exit 1
+  #         fi
+  #
+  #     - name: Upload test results
+  #       uses: actions/upload-artifact@v4
+  #       if: always()
+  #       with:
+  #         name: playwright-report-post-deploy
+  #         path: services/admin/playwright-report/
+  #         retention-days: 30
+
+  summary:
+    name: Deployment Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [infrastructure, build, deploy, cloudfront-invalidation]
+    # TODO: Add post-deploy-e2e to needs when it is implemented
+    # needs: [infrastructure, build, deploy, cloudfront-invalidation, post-deploy-e2e]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Display deployment summary
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          echo "## 🚀 Admin App Deployment Summary - $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Infrastructure | ${{ needs.infrastructure.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Push | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Lambda Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CloudFront Invalidation | ${{ needs.cloudfront-invalidation.result }} |" >> $GITHUB_STEP_SUMMARY
+          # TODO: Uncomment when post-deploy E2E is implemented
+          # echo "| Post-Deploy E2E | ${{ needs.post-deploy-e2e.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Lambda Function URL
+          if [ -n "${{ needs.deploy.outputs.lambda-function-url }}" ]; then
+            echo "### Lambda Function URL" >> $GITHUB_STEP_SUMMARY
+            echo "${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # CloudFront Domain
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          if [ -n "$CF_DOMAIN" ]; then
+            echo "### CloudFront Distribution" >> $GITHUB_STEP_SUMMARY
+            echo "Domain: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Custom Domain (if configured)
+          CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+            --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            echo "### Custom Domain" >> $GITHUB_STEP_SUMMARY
+            echo "https://$CUSTOM_DOMAIN" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "### ⚠️ Post-Deployment Actions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Auth Service Dependency:** Ensure Auth service is deployed and accessible." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Authentication:** This service uses the Auth service's NEXTAUTH_SECRET for JWT validation." >> $GITHUB_STEP_SUMMARY
+          echo "The secret is automatically fetched from \`nagiyu-auth-nextauth-secret-$ENVIRONMENT\`." >> $GITHUB_STEP_SUMMARY

@@ -19,6 +19,10 @@ export class LambdaStack extends cdk.Stack {
     const region = this.region;
     const account = this.account;
 
+    // CDK context から secrets を取得
+    // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
+
     // Lambda 実行ロールの作成
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
@@ -43,14 +47,17 @@ export class LambdaStack extends cdk.Stack {
       })
     );
 
-    // NEXTAUTH_URL の構築
-    const nextAuthUrl =
+    // Auth サービスの URL
+    const authUrl =
       environment === 'prod'
         ? 'https://auth.nagiyu.com'
         : `https://${environment}-auth.nagiyu.com`;
 
-    // NEXT_PUBLIC_AUTH_URL の構築
-    const nextPublicAuthUrl = nextAuthUrl;
+    // Admin サービスの URL (自分自身)
+    const adminUrl =
+      environment === 'prod'
+        ? 'https://admin.nagiyu.com'
+        : `https://${environment}-admin.nagiyu.com`;
 
     // ECR リポジトリの参照
     const repository = ecr.Repository.fromRepositoryName(
@@ -69,14 +76,16 @@ export class LambdaStack extends cdk.Stack {
       }),
       memorySize: 512,
       timeout: cdk.Duration.seconds(30),
-      architecture: lambda.Architecture.ARM_64,
+      architecture: lambda.Architecture.X86_64,
       role: lambdaRole,
       environment: {
         NODE_ENV: environment,
-        NEXTAUTH_URL: nextAuthUrl,
-        // NEXTAUTH_SECRET は GitHub Actions でデプロイ時に Secrets Manager から取得して設定
-        NEXTAUTH_SECRET: 'placeholder-will-be-set-by-github-actions',
-        NEXT_PUBLIC_AUTH_URL: nextPublicAuthUrl,
+        // NextAuth v5 で使用される環境変数
+        AUTH_SECRET: nextAuthSecret,
+        // 自サービスのベース URL（callbackUrl 生成などに使用）
+        APP_URL: adminUrl,
+        // Auth サービスの URL（OAuth 認証のリダイレクト先）
+        NEXT_PUBLIC_AUTH_URL: authUrl,
       },
       description: `Admin Service Lambda function for ${environment} environment`,
     });

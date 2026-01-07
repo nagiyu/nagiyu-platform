@@ -66,6 +66,18 @@ export const authConfig: NextAuthConfig = {
     },
   },
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      // 同じドメインへのリダイレクトを許可
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // プラットフォーム内のサービス (*.nagiyu.com) へのリダイレクトを許可
+      if (url.match(/^https?:\/\/[^/]*\.nagiyu\.com/)) {
+        return url;
+      }
+      // 外部 URL は拒否して baseUrl にフォールバック
+      return baseUrl;
+    },
     async signIn({ user, account }) {
       if (!account) {
         return false;
