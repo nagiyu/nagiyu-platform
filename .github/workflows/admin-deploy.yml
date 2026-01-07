@@ -3,9 +3,9 @@ name: Admin App - Build and Deploy
 on:
   push:
     branches:
-      - develop
-      - 'integration/admin/**'
-      - master
+      # - develop
+      # - 'integration/admin/**'
+      # - master
     paths:
       - 'services/admin/**'
       - 'libs/common/**'
