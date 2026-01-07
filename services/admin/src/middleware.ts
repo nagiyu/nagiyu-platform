@@ -1,4 +1,5 @@
 import { auth } from './auth';
+import type { NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
 
 /**
@@ -7,11 +8,11 @@ import { NextResponse } from 'next/server';
  * Auth サービスから発行された JWT を検証し、未認証ユーザーを
  * Auth サービスのサインインページにリダイレクトする。
  */
-export default auth((req) => {
-  const { auth: session } = req;
+export default auth((req: NextAuthRequest) => {
+  const isAuthenticated = !!req.auth;
 
-  // 認証が必要なパスの場合
-  if (!session) {
+  // 未認証の場合、Auth サービスのサインインページにリダイレクト
+  if (!isAuthenticated) {
     const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL;
     if (!authUrl) {
       console.error('NEXT_PUBLIC_AUTH_URL or NEXTAUTH_URL is not set');
