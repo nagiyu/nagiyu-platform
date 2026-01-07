@@ -2,7 +2,14 @@ import { signIn } from '@nagiyu/auth-core';
 import { Box, Button, Container, Paper, Typography } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 
-export default function SignInPage() {
+interface SignInPageProps {
+  searchParams: Promise<{ callbackUrl?: string }>;
+}
+
+export default async function SignInPage({ searchParams }: SignInPageProps) {
+  const params = await searchParams;
+  const callbackUrl = params.callbackUrl || '/dashboard';
+
   return (
     <Container maxWidth="sm">
       <Box
@@ -31,7 +38,7 @@ export default function SignInPage() {
             action={async () => {
               'use server';
               await signIn('google', {
-                redirectTo: '/dashboard',
+                redirectTo: callbackUrl,
               });
             }}
           >
