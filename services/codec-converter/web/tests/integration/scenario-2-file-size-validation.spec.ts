@@ -52,7 +52,9 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       await fileInput.setInputFiles(testFilePath);
 
       // エラーメッセージが表示されることを確認
-      const errorAlert = page.getByRole('alert').filter({ hasText: 'ファイルサイズは500MB以下である必要があります' });
+      const errorAlert = page
+        .getByRole('alert')
+        .filter({ hasText: 'ファイルサイズは500MB以下である必要があります' });
       await expect(errorAlert).toBeVisible({ timeout: 5000 });
 
       // 選択されたファイル情報が表示されないことを確認
@@ -130,7 +132,9 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       await fileInput.setInputFiles(testFilePath);
 
       // エラーメッセージが表示されることを確認
-      const errorAlert = page.getByRole('alert').filter({ hasText: 'ファイルサイズは500MB以下である必要があります' });
+      const errorAlert = page
+        .getByRole('alert')
+        .filter({ hasText: 'ファイルサイズは500MB以下である必要があります' });
       await expect(errorAlert).toBeVisible({ timeout: 5000 });
     } finally {
       // テストファイルをクリーンアップ（afterEachでも実行されるが念のため）
