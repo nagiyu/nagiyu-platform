@@ -93,7 +93,7 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
 
       while (attemptCount < TEST_CONFIG.MAX_STATUS_POLL_ATTEMPTS) {
         await refreshButton.click();
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(TEST_CONFIG.POLL_INTERVAL_MS);
 
         const processingStatus = page.locator('text=🔵 処理中');
         const isProcessing = await processingStatus.isVisible().catch(() => false);
@@ -135,7 +135,7 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
           await currentRefreshButton.click();
         }
 
-        await page.waitForTimeout(2000);
+        await page.waitForTimeout(TEST_CONFIG.POLL_INTERVAL_MS);
         attemptCount++;
       }
 
