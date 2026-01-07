@@ -13,7 +13,10 @@ export default auth((req: NextAuthRequest) => {
   }
 
   if (isAuthenticated && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    // callbackUrl が指定されている場合はそちらにリダイレクト
+    const callbackUrl = req.nextUrl.searchParams.get('callbackUrl');
+    const redirectUrl = callbackUrl || '/dashboard';
+    return NextResponse.redirect(new URL(redirectUrl, req.url));
   }
 
   return NextResponse.next();
