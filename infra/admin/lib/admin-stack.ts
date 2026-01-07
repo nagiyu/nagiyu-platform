@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { SecretsStack } from './secrets-stack';
 import { ECRStack } from './ecr-stack';
 
 export interface AdminStackProps extends cdk.StackProps {
@@ -13,13 +12,8 @@ export class AdminStack extends cdk.Stack {
 
     const { environment } = props;
 
-    // Secrets スタックを作成
-    const secretsStack = new SecretsStack(scope, `Admin-Secrets-${environment}`, {
-      ...props,
-      environment,
-    });
-
     // ECR スタックを作成
+    // Note: Secrets Manager は Auth サービスで管理される nagiyu-auth-nextauth-secret を使用
     const ecrStack = new ECRStack(
       scope,
       `Admin-ECR-${environment}`,

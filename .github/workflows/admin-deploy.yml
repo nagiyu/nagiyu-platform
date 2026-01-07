@@ -84,12 +84,11 @@ jobs:
           echo "Checking if CDK bootstrap is needed..."
           npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
 
-      - name: Deploy Infrastructure (Secrets, ECR)
+      - name: Deploy Infrastructure (ECR)
         run: |
-          echo "Deploying Secrets Manager and ECR stacks..."
+          echo "Deploying ECR stack..."
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=${{ steps.set-env.outputs.environment }} \
-            Admin-Secrets-${{ steps.set-env.outputs.environment }} \
             Admin-ECR-${{ steps.set-env.outputs.environment }} \
             --require-approval never
 
@@ -207,7 +206,7 @@ jobs:
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         with:
           secret-ids: |
-            NEXTAUTH_SECRET,nagiyu-admin-nextauth-secret-${{ needs.build.outputs.environment }}
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Lambda and CloudFront (Full Stack)
@@ -499,11 +498,5 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Auth Service Dependency:** Ensure Auth service is deployed and accessible." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Initial Setup Only:** Update NEXTAUTH_SECRET in Secrets Manager if needed:" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "aws secretsmanager put-secret-value \\" >> $GITHUB_STEP_SUMMARY
-          echo "  --secret-id nagiyu-admin-nextauth-secret-$ENVIRONMENT \\" >> $GITHUB_STEP_SUMMARY
-          echo '  --secret-string '"'"'YOUR_SECRET_VALUE'"'"'' >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** NEXTAUTH_SECRET should match the value used in Auth service." >> $GITHUB_STEP_SUMMARY
+          echo "**Authentication:** This service uses the Auth service's NEXTAUTH_SECRET for JWT validation." >> $GITHUB_STEP_SUMMARY
+          echo "The secret is automatically fetched from \`nagiyu-auth-nextauth-secret-$ENVIRONMENT\`." >> $GITHUB_STEP_SUMMARY
