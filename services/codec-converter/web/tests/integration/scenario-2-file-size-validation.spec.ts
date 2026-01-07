@@ -13,6 +13,23 @@ import * as path from 'path';
 import * as os from 'os';
 
 test.describe('Scenario 2: File Size Validation Error', () => {
+  let testFilePaths: string[] = [];
+
+  // クリーンアップ用のフック
+  test.afterEach(async () => {
+    // テスト終了後に作成したファイルをクリーンアップ
+    for (const filePath of testFilePaths) {
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch (error) {
+          console.warn(`Failed to cleanup test file: ${filePath}`, error);
+        }
+      }
+    }
+    testFilePaths = [];
+  });
+
   test('should show error message for files exceeding 500MB', async ({ page }) => {
     // ホームページに移動
     await page.goto('/');
@@ -25,6 +42,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
     const testFilePath = path.join(tmpDir, 'large-test-video-600mb.mp4');
     const largeFileBuffer = createTestVideoFile(600); // 600MB
     fs.writeFileSync(testFilePath, largeFileBuffer);
+    testFilePaths.push(testFilePath); // クリーンアップリストに追加
 
     try {
       // ファイルアップロード領域を見つける
@@ -45,7 +63,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       const submitButton = page.getByRole('button', { name: '変換開始' });
       await expect(submitButton).toBeDisabled();
     } finally {
-      // テストファイルをクリーンアップ
+      // テストファイルをクリーンアップ（afterEachでも実行されるが念のため）
       if (fs.existsSync(testFilePath)) {
         fs.unlinkSync(testFilePath);
       }
@@ -61,6 +79,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
     const testFilePath = path.join(tmpDir, 'valid-test-video-50mb.mp4');
     const validFileBuffer = createTestVideoFile(50); // 50MB
     fs.writeFileSync(testFilePath, validFileBuffer);
+    testFilePaths.push(testFilePath); // クリーンアップリストに追加
 
     try {
       // ファイルアップロード領域を見つける
@@ -81,7 +100,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       const submitButton = page.getByRole('button', { name: '変換開始' });
       await expect(submitButton).toBeEnabled();
     } finally {
-      // テストファイルをクリーンアップ
+      // テストファイルをクリーンアップ（afterEachでも実行されるが念のため）
       if (fs.existsSync(testFilePath)) {
         fs.unlinkSync(testFilePath);
       }
@@ -97,6 +116,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
     const testFilePath = path.join(tmpDir, 'drag-drop-test-video-600mb.mp4');
     const largeFileBuffer = createTestVideoFile(600); // 600MB
     fs.writeFileSync(testFilePath, largeFileBuffer);
+    testFilePaths.push(testFilePath); // クリーンアップリストに追加
 
     try {
       // ドラッグ&ドロップ領域を見つける
@@ -116,7 +136,7 @@ test.describe('Scenario 2: File Size Validation Error', () => {
       await expect(errorAlert).toBeVisible({ timeout: 5000 });
       await expect(errorAlert).toContainText('ファイルサイズは500MB以下である必要があります');
     } finally {
-      // テストファイルをクリーンアップ
+      // テストファイルをクリーンアップ（afterEachでも実行されるが念のため）
       if (fs.existsSync(testFilePath)) {
         fs.unlinkSync(testFilePath);
       }

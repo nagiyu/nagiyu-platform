@@ -26,44 +26,6 @@ export const TEST_CONFIG = {
 } as const;
 
 /**
- * Helper function to wait for job status to change
- *
- * Note: This is a simplified helper for basic status polling.
- * The actual tests use more specific polling logic with custom conditions
- * (e.g., checking for button visibility, handling multiple states).
- * This helper can be used for simple cases where you just need to wait
- * for a specific status text to appear on the page.
- *
- * @param page - Playwright page object
- * @param expectedStatus - The status to wait for (e.g., 'COMPLETED', 'FAILED')
- * @param timeout - Maximum time to wait in milliseconds (default: 120000ms = 2 minutes)
- */
-export async function waitForJobStatus(
-  page: Page,
-  expectedStatus: string,
-  timeout = TEST_CONFIG.JOB_STATUS_TIMEOUT_MS
-): Promise<void> {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeout) {
-    // Look for status text on the page
-    const statusElement = page.locator(`text=${expectedStatus}`);
-    const isVisible = await statusElement.isVisible().catch(() => false);
-
-    if (isVisible) {
-      return;
-    }
-
-    // Wait a bit before checking again
-    await page.waitForTimeout(TEST_CONFIG.POLL_INTERVAL_MS);
-
-    // Optionally reload the page to get updated status
-    // (depends on implementation - some might use polling)
-  }
-
-  throw new Error(`Timeout waiting for job status: ${expectedStatus}`);
-}
-
-/**
  * Helper function to create a test video file blob
  * @param sizeInMB - Size of the file in megabytes
  * @returns Buffer containing a minimal valid MP4 file

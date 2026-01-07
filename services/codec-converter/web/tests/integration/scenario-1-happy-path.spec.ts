@@ -107,8 +107,8 @@ test.describe('Scenario 1: Happy Path - H.264 Conversion', () => {
 
       // PROCESSINGステータスが表示されることを確認（またはすでにCOMPLETEDになっている可能性も）
       const processingStatus = page.locator('text=🔵 処理中');
-      const completedStatus = page.locator('text=🟢 完了');
-      const processingOrCompleted = processingStatus.or(completedStatus);
+      const completedStatusCheck = page.locator('text=🟢 完了');
+      const processingOrCompleted = processingStatus.or(completedStatusCheck);
       await expect(processingOrCompleted).toBeVisible({ timeout: 5000 });
 
       // Step 7: ステータスが COMPLETED に遷移するまで待機
