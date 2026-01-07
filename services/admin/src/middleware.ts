@@ -11,7 +11,6 @@ import { NextResponse } from 'next/server';
 export default auth((req: NextAuthRequest) => {
   const isAuthenticated = !!req.auth;
 
-  // 未認証の場合、Auth サービスのサインインページにリダイレクト
   if (!isAuthenticated) {
     const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL;
     if (!authUrl) {
@@ -19,18 +18,13 @@ export default auth((req: NextAuthRequest) => {
       return NextResponse.json({ error: 'Authentication configuration error' }, { status: 500 });
     }
 
-    // Auth サービスのサインインページにリダイレクト
-    // リダイレクト後に元のページに戻れるように callbackUrl を設定
-    const signInUrl = new URL(`${authUrl}/signin`);
-
-    // callbackUrl を構築
-    // CloudFront 経由のリクエストでは req.url が内部 URL になるため、
-    // 環境変数 APP_URL をベースに正しい URL を構築する
+    // CloudFront 経由では内部 URL になるため、APP_URL から正しい URL を構築
     const appUrl = process.env.APP_URL;
     const callbackUrl = appUrl
       ? `${appUrl}${req.nextUrl.pathname}${req.nextUrl.search}`
       : req.nextUrl.pathname;
 
+    const signInUrl = new URL(`${authUrl}/signin`);
     signInUrl.searchParams.set('callbackUrl', callbackUrl);
     return NextResponse.redirect(signInUrl);
   }
@@ -39,6 +33,5 @@ export default auth((req: NextAuthRequest) => {
 });
 
 export const config = {
-  // API routes, static files, images を除外
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
 };

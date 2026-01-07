@@ -6,15 +6,12 @@ export default auth((req: NextAuthRequest) => {
   const isAuthenticated = !!req.auth;
   const isAuthPage = req.nextUrl.pathname.startsWith('/signin');
 
-  // 未認証ユーザーが保護されたページにアクセスした場合、サインインページにリダイレクト
+  // 未認証ユーザーを保護されたページからサインインページにリダイレクト
   if (!isAuthenticated && !isAuthPage) {
     const signInUrl = new URL('/signin', req.url);
     signInUrl.searchParams.set('callbackUrl', req.nextUrl.pathname);
     return NextResponse.redirect(signInUrl);
   }
-
-  // 認証済みユーザーがサインインページにアクセスした場合の処理は
-  // NextAuth の signIn() 関数の redirectTo で処理されるため、ここでは何もしない
 
   return NextResponse.next();
 });
