@@ -1,7 +1,5 @@
 name: Admin App - Build and Deploy
 
-
-
 on:
   push:
     branches:
@@ -94,13 +92,13 @@ jobs:
           echo "Checking if CDK bootstrap is needed..."
           npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
 
-      - name: Deploy Infrastructure (ECR)
+      - name: Deploy Infrastructure (Secrets, ECR)
         run: |
-          echo "Deploying ECR stack..."
+          echo "Deploying Secrets Manager and ECR stacks..."
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=${{ steps.set-env.outputs.environment }} \
             --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
-            Admin-ECR-${{ steps.set-env.outputs.environment }} \
+            ${{ steps.set-env.outputs.cdk-stack-name }} \
             --require-approval never
 
   build:
