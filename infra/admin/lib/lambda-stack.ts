@@ -77,8 +77,8 @@ export class LambdaStack extends cdk.Stack {
       role: lambdaRole,
       environment: {
         NODE_ENV: environment,
-        NEXTAUTH_URL: nextAuthUrl,
-        NEXTAUTH_SECRET: nextAuthSecret,
+        // NextAuth v5 では AUTH_SECRET が必要
+        AUTH_SECRET: nextAuthSecret,
         NEXT_PUBLIC_AUTH_URL: nextPublicAuthUrl,
       },
       description: `Admin Service Lambda function for ${environment} environment`,

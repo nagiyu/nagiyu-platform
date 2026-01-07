@@ -11,6 +11,8 @@ const isDevelopment = process.env.NODE_ENV === 'development';
  */
 export const authConfig: NextAuthConfig = {
   providers: [],
+  // Lambda + CloudFront で動作するため trustHost を有効化
+  trustHost: true,
   session: {
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 days (Auth サービスと同じ)
