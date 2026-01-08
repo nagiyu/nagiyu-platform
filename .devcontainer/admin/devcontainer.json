@@ -16,7 +16,7 @@
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "yarn install",
+	"postCreateCommand": "npm ci && claude mcp add --transport http github https://api.githubcopilot.com/mcp/ --header \"Authorization: Bearer ${GITHUB_TOKEN}\"",
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
