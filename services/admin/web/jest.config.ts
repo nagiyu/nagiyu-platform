@@ -14,14 +14,14 @@ const config: Config = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@nagiyu/ui$': '<rootDir>/../../libs/ui/src/index.ts',
-    '^@nagiyu/browser$': '<rootDir>/../../libs/browser/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
+    '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
+    '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
   // Exclude monorepo root and build artifacts from module scanning
-  modulePathIgnorePatterns: ['<rootDir>/../../package.json', '<rootDir>/.next/'],
+  modulePathIgnorePatterns: ['<rootDir>/../../../package.json', '<rootDir>/.next/'],
   // Common coverage settings
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/lib/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/types/**/*'],
