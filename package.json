@@ -16,9 +16,6 @@
     "infra/*"
   ],
   "scripts": {
-    "dev:tools": "npm run dev --workspace=services/tools",
-    "dev:admin": "npm run dev --workspace=services/admin",
-    "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
