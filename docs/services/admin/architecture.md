@@ -128,7 +128,7 @@ sequenceDiagram
 
 Admin サービスは Next.js Middleware で全リクエストの JWT を検証します：
 
-**実装場所:** `services/admin/src/middleware.ts`
+**実装場所:** `services/admin/web/src/middleware.ts`
 
 **処理フロー:**
 1. リクエストから JWT クッキー (`nagiyu-session`) を取得
@@ -142,7 +142,7 @@ Admin サービスは Next.js Middleware で全リクエストの JWT を検証�
 
 #### ロールベースアクセス制御 (RBAC)
 
-**実装場所:** `services/admin/src/lib/auth/permissions.ts`
+**実装場所:** `services/admin/web/src/lib/auth/permissions.ts`
 
 **ロール・権限定義:**
 - Auth サービスの `libs/common/src/auth/roles.ts` と同じ定義を使用
@@ -157,7 +157,7 @@ Admin サービスは Next.js Middleware で全リクエストの JWT を検証�
 ## ディレクトリ構成
 
 ```
-services/admin/
+services/admin/web/
 ├── src/
 │   ├── app/                          # Next.js App Router
 │   │   ├── api/                      # API Routes

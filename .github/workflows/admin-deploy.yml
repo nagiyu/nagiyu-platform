@@ -159,7 +159,7 @@ jobs:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/admin/Dockerfile .
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/admin/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           # Also tag as latest
@@ -388,7 +388,7 @@ jobs:
   #
   #     - name: Install Playwright Browsers
   #       run: npx playwright install --with-deps chromium
-  #       working-directory: ./services/admin
+  #       working-directory: ./services/admin/web
   #
   #     - name: Get CloudFront domain
   #       env:

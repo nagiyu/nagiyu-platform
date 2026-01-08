@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY configs ./configs/
 COPY libs ./libs/
-COPY services/admin ./services/admin/
+COPY services/admin/web ./services/admin/web/
 
 # 依存関係をインストール（ソースコード存在下で実行）
 RUN npm ci
@@ -37,11 +37,11 @@ ENV PORT=3000
 
 # Next.js が生成した standalone ビルドをコピー
 # standaloneには必要な依存関係とserver.jsが全て含まれている
-COPY --from=builder /app/services/admin/.next/standalone ./
+COPY --from=builder /app/services/admin/web/.next/standalone ./
 
 # publicとstaticは別途コピーが必要
-COPY --from=builder /app/services/admin/public ./services/admin/public
-COPY --from=builder /app/services/admin/.next/static ./services/admin/.next/static
+COPY --from=builder /app/services/admin/web/public ./services/admin/web/public
+COPY --from=builder /app/services/admin/web/.next/static ./services/admin/web/.next/static
 
 # アプリケーションを起動
-CMD ["node", "services/admin/server.js"]
+CMD ["node", "services/admin/web/server.js"]
