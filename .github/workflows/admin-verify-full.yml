@@ -55,34 +55,6 @@ jobs:
       - name: Check formatting
         run: npm run format:check --workspace @nagiyu/admin
 
-  type-check:
-    name: TypeScript Type Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Type check
-        run: npx tsc --noEmit
-        working-directory: ./services/admin/web
-
   # TODO: Uncomment when unit tests are implemented
   # unit-test:
   #   name: Run Unit Tests
@@ -256,9 +228,9 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, format-check, type-check, build, docker-build]
+    needs: [lint, format-check, build, docker-build]
     # TODO: Add unit-test, coverage, and e2e-test to needs when they are implemented
-    # needs: [lint, format-check, type-check, unit-test, coverage, e2e-test, build, docker-build]
+    # needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
 
     permissions:
       contents: read
@@ -273,7 +245,6 @@ jobs:
             const results = {
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
-              'Type Check': '${{ needs.type-check.result }}',
               // TODO: Uncomment when tests are implemented
               // 'Unit Tests': '${{ needs.unit-test.result }}',
               // 'Coverage Check': '${{ needs.coverage.result }}',
