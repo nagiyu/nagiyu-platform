@@ -4,7 +4,7 @@
 
 ## 概要
 
-`infra/shared/lib/utils` ディレクトリには、CDK スタック開発を支援するユーティリティファイルが含まれています。
+`infra/shared/libs/utils` ディレクトリには、CDK スタック開発を支援するユーティリティファイルが含まれています。
 
 ## ファイル一覧
 
@@ -12,7 +12,7 @@
 
 CloudFormation の Export 名を一元管理するための定数定義ファイルです。
 
-**配置**: `infra/shared/lib/utils/exports.ts`
+**配置**: `infra/shared/libs/utils/exports.ts`
 
 **目的**:
 - typo を防ぐ
@@ -23,7 +23,7 @@ CloudFormation の Export 名を一元管理するための定数定義ファイ
 
 ```typescript
 import * as cdk from 'aws-cdk-lib';
-import { EXPORTS } from './shared/lib/utils/exports';
+import { EXPORTS } from './shared/libs/utils/exports';
 
 // 環境依存の Export を参照
 const vpcId = cdk.Fn.importValue(EXPORTS.VPC_ID('dev'));
@@ -66,12 +66,12 @@ const certArn = cdk.Fn.importValue(EXPORTS.ACM_CERTIFICATE_ARN);
 
 環境別の設定を管理するための型定義と関数です。
 
-**配置**: `infra/shared/lib/utils/env-config.ts`
+**配置**: `infra/shared/libs/utils/env-config.ts`
 
 **使用例**:
 
 ```typescript
-import { getEnvConfig } from './shared/lib/utils/env-config';
+import { getEnvConfig } from './shared/libs/utils/env-config';
 
 const devConfig = getEnvConfig('dev');
 console.log(devConfig);
@@ -132,7 +132,7 @@ export class MyStack extends cdk.Stack {
 ```typescript
 import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
-import { EXPORTS } from '../shared/lib/utils/exports';
+import { EXPORTS } from '../shared/libs/utils/exports';
 
 export class MyStack extends cdk.Stack {
     constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
@@ -157,7 +157,7 @@ export class MyStack extends cdk.Stack {
 
 ```typescript
 import * as cdk from 'aws-cdk-lib';
-import { getEnvConfig } from '../shared/lib/utils/env-config';
+import { getEnvConfig } from '../shared/libs/utils/env-config';
 
 export class MyStack extends cdk.Stack {
     constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
@@ -182,7 +182,7 @@ export class MyStack extends cdk.Stack {
 
 新しい CloudFormation Export を追加する場合:
 
-1. `infra/shared/lib/utils/exports.ts` に定数を追加
+1. `infra/shared/libs/utils/exports.ts` に定数を追加
 2. コメントで説明を記載
 3. 環境依存の場合は関数形式 `(env: string) => string` を使用
 4. 固定の場合は文字列定数を使用
@@ -190,7 +190,7 @@ export class MyStack extends cdk.Stack {
 
 ### 環境設定の変更
 
-`infra/shared/lib/utils/env-config.ts` で環境ごとの設定を変更できます:
+`infra/shared/libs/utils/env-config.ts` で環境ごとの設定を変更できます:
 
 ```typescript
 export function getEnvConfig(env: Environment): EnvConfig {
