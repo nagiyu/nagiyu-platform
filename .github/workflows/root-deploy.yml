@@ -6,18 +6,18 @@ name: Root Domain - CDK Deploy
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
-    # paths:
-    #   - 'infra/bin/**'
-    #   - 'infra/shared/vpc/**'
-    #   - 'infra/root/**'
-    #   - 'infra/package.json'
-    #   - 'infra/cdk.json'
-    #   - 'infra/tsconfig.json'
-    #   - '.github/workflows/root-deploy.yml'
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'infra/bin/**'
+      - 'infra/shared/vpc/**'
+      - 'infra/root/**'
+      - 'infra/package.json'
+      - 'infra/cdk.json'
+      - 'infra/tsconfig.json'
+      - '.github/workflows/root-deploy.yml'
   workflow_dispatch:
 
 env:
