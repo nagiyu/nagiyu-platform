@@ -55,78 +55,76 @@ jobs:
       - name: Check formatting
         run: npm run format:check --workspace @nagiyu/admin
 
-  # TODO: Uncomment when unit tests are implemented
-  # unit-test:
-  #   name: Run Unit Tests
-  #   runs-on: ubuntu-latest
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #         cache: 'npm'
-  #         cache-dependency-path: './package-lock.json'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Build shared libraries
-  #       run: |
-  #         npm run build --workspace @nagiyu/common
-  #         npm run build --workspace @nagiyu/browser
-  #         npm run build --workspace @nagiyu/ui
-  #
-  #     - name: Run unit tests
-  #       run: npm run test --workspace @nagiyu/admin
+  unit-test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
 
-  # TODO: Uncomment when unit tests are implemented
-  # coverage:
-  #   name: Test Coverage Check
-  #   runs-on: ubuntu-latest
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #         cache: 'npm'
-  #         cache-dependency-path: './package-lock.json'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Build shared libraries
-  #       run: |
-  #         npm run build --workspace @nagiyu/common
-  #         npm run build --workspace @nagiyu/browser
-  #         npm run build --workspace @nagiyu/ui
-  #
-  #     - name: Run tests with coverage
-  #       run: npm run test:coverage --workspace @nagiyu/admin
-  #
-  #     - name: Check coverage threshold
-  #       run: |
-  #         COVERAGE=$(cat services/admin/web/coverage/coverage-summary.json | jq '.total.lines.pct')
-  #         echo "Coverage: $COVERAGE%"
-  #         if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-  #           echo "Error: Coverage is below 80%"
-  #           exit 1
-  #         fi
-  #
-  #     - name: Upload coverage report
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: coverage-report
-  #         path: services/admin/web/coverage/
-  #         retention-days: 30
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Run unit tests
+        run: npm run test --workspace @nagiyu/admin
+
+  coverage:
+    name: Test Coverage Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace @nagiyu/admin
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(cat services/admin/web/coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "Error: Coverage is below 80%"
+            exit 1
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: services/admin/web/coverage/
+          retention-days: 30
 
   e2e-test:
     name: Run E2E Tests (All Browsers)
@@ -227,9 +225,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, format-check, e2e-test, build, docker-build]
-    # TODO: Add unit-test and coverage to needs when they are implemented
-    # needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
+    needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
 
     permissions:
       contents: read
@@ -244,9 +240,8 @@ jobs:
             const results = {
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
-              // TODO: Uncomment when tests are implemented
-              // 'Unit Tests': '${{ needs.unit-test.result }}',
-              // 'Coverage Check': '${{ needs.coverage.result }}',
+              'Unit Tests': '${{ needs.unit-test.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
               'E2E Tests (Full)': '${{ needs.e2e-test.result }}',
               'Next.js Build': '${{ needs.build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}'
