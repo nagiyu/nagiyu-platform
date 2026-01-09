@@ -105,7 +105,7 @@ console.log(prodConfig);
 ```typescript
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import { EXPORTS } from '../shared/lib/utils/exports';
+import { EXPORTS } from '../shared/libs/utils/exports';
 
 export class MyStack extends cdk.Stack {
     constructor(scope: cdk.App, id: string, props?: cdk.StackProps) {
