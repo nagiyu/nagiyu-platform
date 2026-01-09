@@ -1,0 +1,52 @@
+#!/usr/bin/env node
+import 'source-map-support/register';
+import * as cdk from 'aws-cdk-lib';
+import { AdminStack } from '../lib/admin-stack';
+import { LambdaStack } from '../lib/lambda-stack';
+import { CloudFrontStack } from '../lib/cloudfront-stack';
+
+const app = new cdk.App();
+
+// 環境パラメータを取得
+const env = app.node.tryGetContext('env') || 'dev';
+
+// 許可された環境値のチェック
+const allowedEnvironments = ['dev', 'prod'];
+if (!allowedEnvironments.includes(env)) {
+  throw new Error(
+    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
+  );
+}
+
+const stackEnv = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+};
+
+// Admin スタック (ECR) を作成
+new AdminStack(app, `Admin-${env}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Service Infrastructure - ${env} environment`,
+});
+
+// Lambda スタックを作成
+const lambdaStack = new LambdaStack(app, `Admin-Lambda-${env}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Service Lambda - ${env} environment`,
+});
+
+// CloudFront スタックを作成
+new CloudFrontStack(app, `Admin-CloudFront-${env}`, {
+  environment: env,
+  functionUrl: lambdaStack.functionUrl.url,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: 'us-east-1', // CloudFront は us-east-1 必須
+  },
+  crossRegionReferences: true,
+  description: `Admin Service CloudFront - ${env} environment`,
+});
+
+app.synth();
