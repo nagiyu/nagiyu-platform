@@ -80,10 +80,7 @@ describe('verifyJWT', () => {
     const result = await verifyJWT('');
 
     expect(result).toBeNull();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'JWT検証に失敗しました',
-      expect.any(Error)
-    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith('JWT検証に失敗しました', expect.any(Error));
 
     consoleErrorSpy.mockRestore();
   });
