@@ -41,10 +41,14 @@ export class VpcStack extends cdk.Stack {
     );
 
     // Attach Internet Gateway to VPC
-    new ec2.CfnVPCGatewayAttachment(this, 'NagiyuVPCGatewayAttachment', {
-      vpcId: this.vpc.ref,
-      internetGatewayId: internetGateway.ref,
-    });
+    const vpcGatewayAttachment = new ec2.CfnVPCGatewayAttachment(
+      this,
+      'NagiyuVPCGatewayAttachment',
+      {
+        vpcId: this.vpc.ref,
+        internetGatewayId: internetGateway.ref,
+      }
+    );
 
     // Public Subnet 1a (both dev and prod)
     const publicSubnet1a = new ec2.CfnSubnet(this, 'NagiyuPublicSubnet1a', {
@@ -103,9 +107,7 @@ export class VpcStack extends cdk.Stack {
       destinationCidrBlock: '0.0.0.0/0',
       gatewayId: internetGateway.ref,
     });
-    publicRoute.addDependency(
-      this.node.findChild('NagiyuVPCGatewayAttachment') as ec2.CfnVPCGatewayAttachment
-    );
+    publicRoute.addDependency(vpcGatewayAttachment);
 
     // Associate Route Table with Public Subnet 1a
     new ec2.CfnSubnetRouteTableAssociation(
@@ -136,8 +138,8 @@ export class VpcStack extends cdk.Stack {
       description: 'VPC ID',
     });
 
-    const subnetIds = isProd
-      ? `${publicSubnet1a.ref},${publicSubnet1b!.ref}`
+    const subnetIds = isProd && publicSubnet1b
+      ? `${publicSubnet1a.ref},${publicSubnet1b.ref}`
       : publicSubnet1a.ref;
     new cdk.CfnOutput(this, 'PublicSubnetIds', {
       value: subnetIds,
