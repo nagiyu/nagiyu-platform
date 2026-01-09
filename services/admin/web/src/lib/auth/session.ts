@@ -1,43 +1,36 @@
-import { headers } from 'next/headers';
-
-export interface Session {
-  user: {
-    id: string;
-    email: string;
-    roles: string[];
-  };
-}
-
-const ERROR_MESSAGES = {
-  INVALID_ROLES_JSON: 'x-user-roles ヘッダーのJSONパースに失敗しました',
-} as const;
+import { auth } from '../../auth';
+import type { Session } from '../../types/auth';
 
 /**
- * Server Component でセッション情報を取得
+ * セッション情報を取得する
+ *
+ * Auth サービスから発行された JWT を検証し、セッション情報を返す。
+ *
+ * テスト環境で SKIP_AUTH_CHECK=true の場合、モックセッションを返します。
+ *
+ * @returns セッション情報、未認証の場合は null
  */
 export async function getSession(): Promise<Session | null> {
-  const headersList = await headers();
-  const userId = headersList.get('x-user-id');
-  const userEmail = headersList.get('x-user-email');
-  const userRoles = headersList.get('x-user-roles');
-
-  if (!userId || !userEmail || !userRoles) {
-    return null;
+  // テスト環境で認証をスキップする場合、モックセッションを返す
+  if (process.env.SKIP_AUTH_CHECK === 'true') {
+    return {
+      user: {
+        email: process.env.TEST_USER_EMAIL || 'test@example.com',
+        roles: process.env.TEST_USER_ROLES?.split(',') || ['admin'],
+      },
+    };
   }
 
-  let roles: string[];
-  try {
-    roles = JSON.parse(userRoles);
-  } catch (error) {
-    console.error(ERROR_MESSAGES.INVALID_ROLES_JSON, error);
+  const session = await auth();
+
+  if (!session?.user) {
     return null;
   }
 
   return {
     user: {
-      id: userId,
-      email: userEmail,
-      roles,
+      email: session.user.email || '',
+      roles: session.user.roles || [],
     },
   };
 }

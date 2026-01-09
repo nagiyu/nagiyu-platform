@@ -1,0 +1,244 @@
+name: Auth App - Fast Verification
+
+on:
+  pull_request:
+    branches:
+      - 'integration/**'
+    paths:
+      - 'services/auth/**'
+      - 'libs/common/**'
+      - 'infra/auth/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/auth-verify-fast.yml'
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: |
+          npm run lint --workspace @nagiyu/auth-core
+          npm run lint --workspace @nagiyu/auth-web
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: |
+          npm run format:check --workspace @nagiyu/auth-core
+          npm run format:check --workspace @nagiyu/auth-web
+
+  unit-test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Run unit tests (auth-core)
+        run: npm run test --workspace @nagiyu/auth-core
+
+      - name: Run unit tests (auth-web)
+        run: npm run test --workspace @nagiyu/auth-web
+
+  e2e-test:
+    name: Run E2E Tests (chromium-mobile)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/auth/web
+
+      - name: Run Playwright tests (chromium-mobile only)
+        env:
+          CI: true
+        run: |
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-mobile
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-fast
+          path: services/auth/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-fast
+          path: services/auth/web/test-results/
+          retention-days: 30
+
+  build:
+    name: Next.js Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build auth core
+        run: npm run build --workspace @nagiyu/auth-core
+
+      - name: Build Next.js application
+        run: npm run build --workspace @nagiyu/auth-web
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t auth-verify-fast-test -f services/auth/web/Dockerfile .
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint, format-check, unit-test, e2e-test, build, docker-build]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Unit Tests': '${{ needs.unit-test.result }}',
+              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test.result }}',
+              'Next.js Build': '${{ needs.build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ All Fast Checks Passed'
+              : '## ❌ Some Fast Checks Failed';
+
+            let body = `${header}\n\n`;
+            body += '**Fast Verification (E2E: chromium-mobile only)**\n\n';
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

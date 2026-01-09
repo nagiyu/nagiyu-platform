@@ -1,140 +1,142 @@
-import { getSession } from '@/lib/auth/session';
-import { headers } from 'next/headers';
+import { getSession } from '../../../../src/lib/auth/session';
+import { auth } from '../../../../src/auth';
+import type { Session as NextAuthSession } from 'next-auth';
 
-// Mock next/headers
-jest.mock('next/headers', () => ({
-  headers: jest.fn(),
+// Mock the auth module
+jest.mock('../../../../src/auth', () => ({
+  auth: jest.fn(),
 }));
 
-describe('getSession', () => {
-  const mockHeaders = headers as jest.MockedFunction<typeof headers>;
+const mockAuth = auth as unknown as jest.MockedFunction<() => Promise<NextAuthSession | null>>;
 
+describe('getSession', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.SKIP_AUTH_CHECK;
+    delete process.env.TEST_USER_EMAIL;
+    delete process.env.TEST_USER_ROLES;
   });
 
-  it('ヘッダーからセッション情報を取得できる', async () => {
-    const mockHeadersMap = new Map([
-      ['x-user-id', 'user-123'],
-      ['x-user-email', 'test@example.com'],
-      ['x-user-roles', '["admin","user"]'],
-    ]);
+  describe('when SKIP_AUTH_CHECK is true', () => {
+    beforeEach(() => {
+      process.env.SKIP_AUTH_CHECK = 'true';
+    });
 
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
+    it('should return mock session data in Phase 1', async () => {
+      const session = await getSession();
 
-    const session = await getSession();
+      expect(session).not.toBeNull();
+      expect(session?.user).toBeDefined();
+      expect(session?.user.email).toBe('test@example.com');
+      expect(session?.user.roles).toEqual(['admin']);
+    });
 
-    expect(session).toEqual({
-      user: {
-        id: 'user-123',
-        email: 'test@example.com',
-        roles: ['admin', 'user'],
-      },
+    it('should return user with email', async () => {
+      const session = await getSession();
+
+      expect(session?.user.email).toMatch(/@/);
+    });
+
+    it('should return user with at least one role', async () => {
+      const session = await getSession();
+
+      expect(session?.user.roles.length).toBeGreaterThan(0);
+    });
+
+    it('should use TEST_USER_EMAIL when provided', async () => {
+      process.env.TEST_USER_EMAIL = 'custom@example.com';
+
+      const session = await getSession();
+
+      expect(session?.user.email).toBe('custom@example.com');
+    });
+
+    it('should use TEST_USER_ROLES when provided', async () => {
+      process.env.TEST_USER_ROLES = 'admin,editor';
+
+      const session = await getSession();
+
+      expect(session?.user.roles).toEqual(['admin', 'editor']);
     });
   });
 
-  it('ユーザー ID がない場合は null を返す', async () => {
-    const mockHeadersMap = new Map([
-      ['x-user-email', 'test@example.com'],
-      ['x-user-roles', '["admin"]'],
-    ]);
+  describe('when SKIP_AUTH_CHECK is false or not set', () => {
+    it('should return session from auth() when user exists', async () => {
+      const mockSession: NextAuthSession = {
+        user: {
+          id: 'user-123',
+          email: 'real@example.com',
+          name: 'Test User',
+          roles: ['admin', 'user'],
+        },
+        expires: new Date().toISOString(),
+      };
+      mockAuth.mockResolvedValue(mockSession);
 
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
+      const session = await getSession();
 
-    const session = await getSession();
-
-    expect(session).toBeNull();
-  });
-
-  it('ユーザーメールがない場合は null を返す', async () => {
-    const mockHeadersMap = new Map([
-      ['x-user-id', 'user-123'],
-      ['x-user-roles', '["admin"]'],
-    ]);
-
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
-
-    const session = await getSession();
-
-    expect(session).toBeNull();
-  });
-
-  it('ユーザーロールがない場合は null を返す', async () => {
-    const mockHeadersMap = new Map([
-      ['x-user-id', 'user-123'],
-      ['x-user-email', 'test@example.com'],
-    ]);
-
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
-
-    const session = await getSession();
-
-    expect(session).toBeNull();
-  });
-
-  it('すべてのヘッダーがない場合は null を返す', async () => {
-    const mockHeadersMap = new Map();
-
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
-
-    const session = await getSession();
-
-    expect(session).toBeNull();
-  });
-
-  it('ロールの JSON パースが正しく動作する', async () => {
-    const mockHeadersMap = new Map([
-      ['x-user-id', 'user-456'],
-      ['x-user-email', 'admin@example.com'],
-      ['x-user-roles', '["super-admin","moderator","viewer"]'],
-    ]);
-
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
-
-    const session = await getSession();
-
-    expect(session).toEqual({
-      user: {
-        id: 'user-456',
-        email: 'admin@example.com',
-        roles: ['super-admin', 'moderator', 'viewer'],
-      },
+      expect(session).not.toBeNull();
+      expect(session?.user.email).toBe('real@example.com');
+      expect(session?.user.roles).toEqual(['admin', 'user']);
+      expect(mockAuth).toHaveBeenCalledTimes(1);
     });
-  });
 
-  it('不正な JSON の場合は null を返す', async () => {
-    const mockHeadersMap = new Map([
-      ['x-user-id', 'user-123'],
-      ['x-user-email', 'test@example.com'],
-      ['x-user-roles', 'invalid-json'],
-    ]);
+    it('should return null when auth() returns null', async () => {
+      mockAuth.mockResolvedValue(null);
 
-    mockHeaders.mockResolvedValue({
-      get: (key: string) => mockHeadersMap.get(key) || null,
-    } as ReturnType<typeof headers>);
+      const session = await getSession();
 
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      expect(session).toBeNull();
+      expect(mockAuth).toHaveBeenCalledTimes(1);
+    });
 
-    const session = await getSession();
+    it('should return null when auth() returns session without user', async () => {
+      mockAuth.mockResolvedValue({
+        expires: new Date().toISOString(),
+      } as NextAuthSession);
 
-    expect(session).toBeNull();
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      'x-user-roles ヘッダーのJSONパースに失敗しました',
-      expect.any(Error)
-    );
+      const session = await getSession();
 
-    consoleErrorSpy.mockRestore();
+      expect(session).toBeNull();
+      expect(mockAuth).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle missing email gracefully', async () => {
+      const mockSession = {
+        user: {
+          id: 'user-123',
+          name: 'Test User',
+          email: undefined as unknown as string,
+          roles: ['admin'],
+        },
+        expires: new Date().toISOString(),
+      } as NextAuthSession;
+      mockAuth.mockResolvedValue(mockSession);
+
+      const session = await getSession();
+
+      expect(session).not.toBeNull();
+      expect(session?.user.email).toBe('');
+      expect(session?.user.roles).toEqual(['admin']);
+    });
+
+    it('should handle missing roles gracefully', async () => {
+      const mockSession = {
+        user: {
+          id: 'user-123',
+          email: 'user@example.com',
+          name: 'Test User',
+          roles: undefined as unknown as string[],
+        },
+        expires: new Date().toISOString(),
+      } as NextAuthSession;
+      mockAuth.mockResolvedValue(mockSession);
+
+      const session = await getSession();
+
+      expect(session).not.toBeNull();
+      expect(session?.user.email).toBe('user@example.com');
+      expect(session?.user.roles).toEqual([]);
+    });
   });
 });

@@ -1,38 +1,45 @@
+import { auth } from './auth';
+import type { NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { verifyJWT } from '@/lib/auth/jwt';
 
-const AUTH_SERVICE_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'https://auth.nagiyu.com';
+/**
+ * Admin サービスのミドルウェア
+ *
+ * Auth サービスから発行された JWT を検証し、未認証ユーザーを
+ * Auth サービスのサインインページにリダイレクトする。
+ *
+ * 開発・テスト環境では、SKIP_AUTH_CHECK=true を設定することで
+ * 認証チェックをスキップできます。
+ */
+export default auth((req: NextAuthRequest) => {
+  // 開発・テスト環境で認証をスキップ
+  const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
+  if (skipAuthCheck) {
+    return NextResponse.next();
+  }
 
-export async function middleware(request: NextRequest) {
-  // JWT クッキーを取得
-  const token = request.cookies.get('__Secure-next-auth.session-token')?.value;
+  const isAuthenticated = !!req.auth;
 
-  if (!token) {
-    // トークンがない場合は Auth サービスへリダイレクト
-    const signInUrl = new URL(`${AUTH_SERVICE_URL}/signin`);
-    signInUrl.searchParams.set('callbackUrl', request.url);
+  if (!isAuthenticated) {
+    const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL;
+    if (!authUrl) {
+      console.error('NEXT_PUBLIC_AUTH_URL or NEXTAUTH_URL is not set');
+      return NextResponse.json({ error: 'Authentication configuration error' }, { status: 500 });
+    }
+
+    // CloudFront 経由では内部 URL になるため、APP_URL から正しい URL を構築
+    const appUrl = process.env.APP_URL;
+    const callbackUrl = appUrl
+      ? `${appUrl}${req.nextUrl.pathname}${req.nextUrl.search}`
+      : req.nextUrl.pathname;
+
+    const signInUrl = new URL(`${authUrl}/signin`);
+    signInUrl.searchParams.set('callbackUrl', callbackUrl);
     return NextResponse.redirect(signInUrl);
   }
 
-  // JWT を検証
-  const payload = await verifyJWT(token);
-
-  if (!payload) {
-    // 検証失敗の場合も Auth サービスへリダイレクト
-    const signInUrl = new URL(`${AUTH_SERVICE_URL}/signin`);
-    signInUrl.searchParams.set('callbackUrl', request.url);
-    return NextResponse.redirect(signInUrl);
-  }
-
-  // 検証成功: ユーザー情報をヘッダーに追加
-  const response = NextResponse.next();
-  response.headers.set('x-user-id', payload.userId);
-  response.headers.set('x-user-email', payload.email);
-  response.headers.set('x-user-roles', JSON.stringify(payload.roles));
-
-  return response;
-}
+  return NextResponse.next();
+});
 
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
