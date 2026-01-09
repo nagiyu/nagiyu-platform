@@ -1,0 +1,340 @@
+name: Codec Converter - Full Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+    paths:
+      - 'services/codec-converter/**'
+      - 'infra/codec-converter/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/codec-converter-verify-full.yml'
+
+jobs:
+  nextjs-build:
+    name: Next.js Build Verification
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
+      - name: Build Next.js application
+        run: npm run build --workspace=codec-converter-web
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Web Docker image
+        run: docker build -t codec-converter-web-verify-full-test -f services/codec-converter/web/Dockerfile .
+
+      - name: Build Batch Docker image
+        run: docker build -t codec-converter-batch-verify-full-test -f services/codec-converter/batch/Dockerfile .
+
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
+      - name: Run core tests
+        run: npm run test --workspace=codec-converter-core
+
+      - name: Run batch tests
+        run: npm run test --workspace=codec-converter-batch
+
+  integration-test:
+    name: Run Integration Tests (All Devices)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build codec-converter-core library
+        run: npm run build --workspace=codec-converter-core
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium webkit
+        working-directory: ./services/codec-converter/web
+
+      - name: Run Integration tests (All Devices)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace=codec-converter-web
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full
+          path: services/codec-converter/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full
+          path: services/codec-converter/web/test-results/
+          retention-days: 30
+
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint on core
+        run: npm run lint --workspace=codec-converter-core
+
+      - name: Run ESLint on web
+        run: npm run lint --workspace=codec-converter-web
+
+      - name: Run ESLint on batch
+        run: npm run lint --workspace=codec-converter-batch
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check core formatting
+        run: npm run format:check --workspace=codec-converter-core
+
+      - name: Check web formatting
+        run: npm run format:check --workspace=codec-converter-web
+
+      - name: Check batch formatting
+        run: npm run format:check --workspace=codec-converter-batch
+
+  infra-format-check:
+    name: Infrastructure Format Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npx prettier --check "infra/codec-converter/**/*.{ts,js,json}"
+
+  infra-type-check:
+    name: Infrastructure Type Check (Build)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CDK project
+        run: npm run build --workspace=codec-converter
+
+  infra-test:
+    name: Infrastructure Unit Tests
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test --workspace=codec-converter
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      [
+        nextjs-build,
+        docker-build,
+        test,
+        integration-test,
+        lint,
+        format-check,
+        infra-format-check,
+        infra-type-check,
+        infra-test,
+      ]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Next.js Build': '${{ needs.nextjs-build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}',
+              'Unit Tests': '${{ needs.test.result }}',
+              'Integration Tests (Full)': '${{ needs.integration-test.result }}',
+              'Lint Check': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Infra Format Check': '${{ needs.infra-format-check.result }}',
+              'Infra Type Check': '${{ needs.infra-type-check.result }}',
+              'Infra Tests': '${{ needs.infra-test.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ All Full Checks Passed'
+              : '## ❌ Some Full Checks Failed';
+
+            let body = `${header}\n\n`;
+            body += '**Codec Converter - Full Verification**\n\n';
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

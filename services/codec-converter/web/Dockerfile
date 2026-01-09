@@ -1,0 +1,48 @@
+# ベースイメージ
+FROM node:22-alpine AS base
+
+# ビルドステージ
+FROM base AS builder
+WORKDIR /app
+
+# モノレポ全体のpackage.jsonとソースをコピー
+COPY package*.json ./
+COPY configs ./configs/
+COPY libs ./libs/
+COPY services/tools/package*.json ./services/tools/
+COPY services/codec-converter ./services/codec-converter/
+
+# 依存関係をインストール（ソースコード存在下で実行）
+# npm ci fails with "Exit handler never called" in Docker build environment
+# Using npm install as workaround - still respects package-lock.json
+RUN npm install --prefer-offline --no-audit
+
+# モノレポのルートからビルド（共通ライブラリも含めて）
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build --workspace=codec-converter-core
+RUN npm run build --workspace=codec-converter-web
+
+# 本番ステージ
+FROM base AS runner
+WORKDIR /app
+
+# Lambda Web Adapter のバイナリをコピー
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+
+# Next.js が生成した standalone ビルドをコピー
+# standaloneには必要な依存関係とserver.jsが全て含まれている
+COPY --from=builder /app/services/codec-converter/web/.next/standalone ./
+
+# モノレポルートのnode_modulesもコピー（standaloneが完全でない場合に必要）
+COPY --from=builder /app/node_modules ./node_modules
+
+# publicとstaticは別途コピーが必要
+COPY --from=builder /app/services/codec-converter/web/public ./codec-converter/web/public
+COPY --from=builder /app/services/codec-converter/web/.next/static ./codec-converter/web/.next/static
+
+# アプリケーションを起動
+CMD ["node", "codec-converter/web/server.js"]

@@ -1,0 +1,264 @@
+name: Codec Converter - Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - "services/codec-converter/**"
+      - "infra/codec-converter/**"
+      - "libs/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/codec-converter-deploy.yml"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  prepare-infrastructure:
+    name: Prepare Infrastructure
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      stack-name: ${{ steps.set-env.outputs.stack-name }}
+      ecr-registry: ${{ steps.login-ecr.outputs.registry }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "stack-name=CodecConverterStack-prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "stack-name=CodecConverterStack-dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CDK project
+        run: npm run build --workspace=codec-converter
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> "$GITHUB_OUTPUT"
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: CDK Bootstrap (if needed)
+        env:
+          ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
+        run: |
+          # Bootstrap is idempotent - safe to run on every deployment
+          npm run bootstrap --workspace=codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
+            --context env=${{ steps.set-env.outputs.environment }}
+
+      - name: Check if Web ECR repository exists
+        id: check-web-ecr
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          if aws ecr describe-repositories --repository-names codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check if Batch ECR repository exists
+        id: check-batch-ecr
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          if aws ecr describe-repositories --repository-names codec-converter-ffmpeg-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: CDK Deploy (Create ECR Repositories)
+        if: steps.check-web-ecr.outputs.exists == 'false' || steps.check-batch-ecr.outputs.exists == 'false'
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+        run: |
+          echo "Creating ECR repositories..."
+          npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
+            --context env=$ENVIRONMENT \
+            --context deploymentPhase=ecr-only \
+            --verbose
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+  build-web:
+    name: Build and Push Web Image
+    runs-on: ubuntu-latest
+    needs: prepare-infrastructure
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Web Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/web/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  build-batch:
+    name: Build and Push Batch Worker Image
+    runs-on: ubuntu-latest
+    needs: prepare-infrastructure
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push Batch worker Docker image to ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}
+          IMAGE_TAG: latest
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/batch/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+  deploy:
+    name: Deploy Full Stack
+    runs-on: ubuntu-latest
+    needs: [prepare-infrastructure, build-web, build-batch]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: "./package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build CDK project
+        run: npm run build --workspace=codec-converter
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: CDK Deploy (Full Stack)
+        env:
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_NAME: ${{ needs.prepare-infrastructure.outputs.stack-name }}
+        run: |
+          echo "Deploying full stack..."
+          npm run deploy --workspace=codec-converter -- $STACK_NAME \
+            --context env=$ENVIRONMENT \
+            --context deploymentPhase=full \
+            --verbose
+
+      - name: Update Lambda function code
+        env:
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+        run: |
+          # Get ECR repository URI
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="$ECR_REGISTRY/codec-converter-$ENVIRONMENT:latest"
+
+          # Update Lambda function code
+          aws lambda update-function-code \
+            --function-name "codec-converter-$ENVIRONMENT" \
+            --image-uri "$IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Lambda function code updated with image: $IMAGE_URI"
+
+      - name: Wait for Lambda update to complete
+        env:
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+        run: |
+          aws lambda wait function-updated \
+            --function-name "codec-converter-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Lambda function update completed"
+
+      - name: Display stack outputs
+        env:
+          STACK_NAME: ${{ needs.prepare-infrastructure.outputs.stack-name }}
+        run: |
+          echo "=== CDK Stack Outputs ==="
+          aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs" \
+            --region ${{ env.AWS_REGION }} \
+            --output table
