@@ -93,7 +93,7 @@ describe('getSession', () => {
     it('should return null when auth() returns session without user', async () => {
       mockAuth.mockResolvedValue({
         expires: new Date().toISOString(),
-      } as any);
+      } as NextAuthSession);
 
       const session = await getSession();
 
@@ -102,15 +102,16 @@ describe('getSession', () => {
     });
 
     it('should handle missing email gracefully', async () => {
-      const mockSession: Partial<NextAuthSession> = {
+      const mockSession = {
         user: {
           id: 'user-123',
           name: 'Test User',
+          email: undefined as unknown as string,
           roles: ['admin'],
-        } as any,
+        },
         expires: new Date().toISOString(),
-      };
-      mockAuth.mockResolvedValue(mockSession as NextAuthSession);
+      } as NextAuthSession;
+      mockAuth.mockResolvedValue(mockSession);
 
       const session = await getSession();
 
@@ -120,15 +121,16 @@ describe('getSession', () => {
     });
 
     it('should handle missing roles gracefully', async () => {
-      const mockSession: Partial<NextAuthSession> = {
+      const mockSession = {
         user: {
           id: 'user-123',
           email: 'user@example.com',
           name: 'Test User',
-        } as any,
+          roles: undefined as unknown as string[],
+        },
         expires: new Date().toISOString(),
-      };
-      mockAuth.mockResolvedValue(mockSession as NextAuthSession);
+      } as NextAuthSession;
+      mockAuth.mockResolvedValue(mockSession);
 
       const session = await getSession();
 
