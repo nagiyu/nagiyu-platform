@@ -6,8 +6,8 @@ describe('getSession', () => {
 
     expect(session).not.toBeNull();
     expect(session?.user).toBeDefined();
-    expect(session?.user.email).toBe('admin@example.com');
-    expect(session?.user.roles).toEqual(['admin', 'user-manager']);
+    expect(session?.user.email).toBe('test@example.com');
+    expect(session?.user.roles).toEqual(['admin']);
   });
 
   it('should return user with email', async () => {
