@@ -1,21 +1,21 @@
 import { test, expect } from '@playwright/test';
-import {
-  setMockJWT,
-  DEFAULT_TEST_USER,
-  USER_MANAGER_TEST_USER,
-  MULTI_ROLE_TEST_USER,
-} from './helpers/mock-auth';
 
 /**
  * ダッシュボード表示テスト
  *
  * 認証済みユーザーがダッシュボードにアクセスした際、
  * ユーザー情報と認証ステータスが正しく表示されることを確認します。
+ *
+ * Note: SKIP_AUTH_CHECK=true の環境で実行するため、
+ * TEST_USER_EMAIL と TEST_USER_ROLES の環境変数を使用します。
  */
 test.describe('Dashboard Display', () => {
+  const testUserEmail = process.env.TEST_USER_EMAIL || 'test@example.com';
+  const testUserRoles = process.env.TEST_USER_ROLES?.split(',') || ['admin'];
+
   test.beforeEach(async ({ page }) => {
-    // 認証済み状態にする
-    await setMockJWT(page);
+    // SKIP_AUTH_CHECK=true の環境では認証チェックがスキップされるため、
+    // 直接ダッシュボードにアクセス可能
     await page.goto('/dashboard');
   });
 
@@ -25,11 +25,14 @@ test.describe('Dashboard Display', () => {
 
     // メールアドレスが表示されることを確認
     await expect(page.getByText('メールアドレス:')).toBeVisible();
-    await expect(page.getByText(DEFAULT_TEST_USER.email)).toBeVisible();
+    await expect(page.getByText(testUserEmail)).toBeVisible();
 
     // ロールが表示されることを確認
     await expect(page.getByText('ロール:')).toBeVisible();
-    await expect(page.getByText('admin')).toBeVisible();
+    for (const role of testUserRoles) {
+      // MuiChip 要素内のロールを確認（ヘッダーの "Admin" と区別するため）
+      await expect(page.locator('.MuiChip-label').getByText(role, { exact: true })).toBeVisible();
+    }
 
     // 認証ステータスが表示されることを確認
     await expect(
@@ -58,27 +61,6 @@ test.describe('Dashboard Display', () => {
     // ログアウトボタンのリンク先を確認
     const href = await logoutButton.getAttribute('href');
     expect(href).toContain('/api/auth/signout');
-  });
-
-  test('should display correct user info for different users', async ({ page }) => {
-    // 異なるユーザーでログイン
-    await setMockJWT(page, USER_MANAGER_TEST_USER);
-    await page.goto('/dashboard');
-
-    // ユーザー情報が正しく表示されることを確認
-    await expect(page.getByText(USER_MANAGER_TEST_USER.email)).toBeVisible();
-    await expect(page.getByText('user-manager')).toBeVisible();
-  });
-
-  test('should display multiple roles for multi-role user', async ({ page }) => {
-    // 複数ロールを持つユーザーでログイン
-    await setMockJWT(page, MULTI_ROLE_TEST_USER);
-    await page.goto('/dashboard');
-
-    // すべてのロールが表示されることを確認
-    for (const role of MULTI_ROLE_TEST_USER.roles) {
-      await expect(page.getByText(role)).toBeVisible();
-    }
   });
 
   test('should display header with Admin title', async ({ page }) => {

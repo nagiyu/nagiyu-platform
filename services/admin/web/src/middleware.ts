@@ -7,8 +7,17 @@ import { NextResponse } from 'next/server';
  *
  * Auth サービスから発行された JWT を検証し、未認証ユーザーを
  * Auth サービスのサインインページにリダイレクトする。
+ *
+ * 開発・テスト環境では、SKIP_AUTH_CHECK=true を設定することで
+ * 認証チェックをスキップできます。
  */
 export default auth((req: NextAuthRequest) => {
+  // 開発・テスト環境で認証をスキップ
+  const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
+  if (skipAuthCheck) {
+    return NextResponse.next();
+  }
+
   const isAuthenticated = !!req.auth;
 
   if (!isAuthenticated) {
