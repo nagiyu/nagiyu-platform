@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, DynamoDBUserRepository } from '@nagiyu/auth-core';
+import { DynamoDBUserRepository } from '@nagiyu/auth-core';
 import { hasPermission } from '@nagiyu/common';
 import { ListUsersQuerySchema } from './schemas';
 import { ZodError } from 'zod';
+import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -21,7 +22,7 @@ const ERROR_MESSAGES = {
  */
 export async function GET(req: NextRequest) {
   // 認証チェック
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });

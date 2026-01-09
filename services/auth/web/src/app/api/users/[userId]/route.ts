@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@nagiyu/common';
 import { UpdateUserSchema } from '../schemas';
 import { ZodError } from 'zod';
@@ -19,7 +20,7 @@ const ERROR_MESSAGES = {
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   // 認証チェック
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   // 認証チェック
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
@@ -140,7 +141,7 @@ export async function DELETE(
   { params }: { params: Promise<{ userId: string }> }
 ) {
   // 認証チェック
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });

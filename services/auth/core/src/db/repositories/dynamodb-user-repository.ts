@@ -7,7 +7,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { dynamoDb, USERS_TABLE_NAME } from '../dynamodb-client';
 import type { User, CreateUserInput, UpdateUserInput } from '../types';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 
 const ERROR_MESSAGES = {
   USER_NOT_FOUND: 'ユーザーが見つかりません',

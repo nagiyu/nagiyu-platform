@@ -1,12 +1,12 @@
-import { auth } from '@nagiyu/auth-core';
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
 import { Box, Container, Typography, Paper, Button } from '@mui/material';
 import Link from 'next/link';
 import { UsersTable } from './users-table';
+import { getSession } from '@/lib/auth/session';
 
 export default async function UsersListPage() {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     redirect('/signin');

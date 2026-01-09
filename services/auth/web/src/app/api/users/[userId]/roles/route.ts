@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { hasPermission, VALID_ROLES } from '@nagiyu/common';
 import { z } from 'zod';
+import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -26,7 +27,7 @@ const AssignRolesSchema = z.object({
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   // 認証チェック
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });

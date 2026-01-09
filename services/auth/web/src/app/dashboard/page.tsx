@@ -1,11 +1,11 @@
-import { auth } from '@nagiyu/auth-core';
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
 import { Box, Container, Paper, Typography, Card, CardContent, Chip, Button } from '@mui/material';
 import Link from 'next/link';
+import { getSession } from '@/lib/auth/session';
 
 export default async function DashboardPage() {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     redirect('/signin');

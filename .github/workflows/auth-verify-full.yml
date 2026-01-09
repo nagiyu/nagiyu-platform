@@ -59,35 +59,37 @@ jobs:
           npm run format:check --workspace @nagiyu/auth-core
           npm run format:check --workspace @nagiyu/auth-web
 
-  # TODO: Uncomment when unit tests are implemented
-  # unit-test:
-  #   name: Run Unit Tests
-  #   runs-on: ubuntu-latest
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #         cache: 'npm'
-  #         cache-dependency-path: './package-lock.json'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Build shared libraries
-  #       run: |
-  #         npm run build --workspace @nagiyu/common
-  #         npm run build --workspace @nagiyu/browser
-  #         npm run build --workspace @nagiyu/ui
-  #
-  #     - name: Run unit tests
-  #       run: npm run test --workspace @nagiyu/auth
+  unit-test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
 
-  # TODO: Uncomment when unit tests are implemented
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Run unit tests (auth-core)
+        run: npm run test --workspace @nagiyu/auth-core
+
+      - name: Run unit tests (auth-web)
+        run: npm run test --workspace @nagiyu/auth-web
+
+  # TODO: Uncomment when coverage check is implemented
   # coverage:
   #   name: Test Coverage Check
   #   runs-on: ubuntu-latest
@@ -124,63 +126,62 @@ jobs:
   #         path: services/auth/coverage/
   #         retention-days: 30
 
-  # TODO: Uncomment when E2E tests are implemented
-  # e2e-test:
-  #   name: Run E2E Tests (All Browsers)
-  #   runs-on: ubuntu-latest
-  #
-  #   permissions:
-  #     contents: read
-  #
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #         cache: 'npm'
-  #         cache-dependency-path: './package-lock.json'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Build shared libraries
-  #       run: |
-  #         npm run build --workspace @nagiyu/common
-  #         npm run build --workspace @nagiyu/browser
-  #         npm run build --workspace @nagiyu/ui
-  #
-  #     - name: Install Playwright Browsers
-  #       run: npx playwright install --with-deps chromium webkit
-  #       working-directory: ./services/auth
-  #
-  #     - name: Run Playwright tests (All browsers)
-  #       env:
-  #         CI: true
-  #       run: |
-  #         npm run test:e2e --workspace @nagiyu/auth
-  #         if [ $? -ne 0 ]; then
-  #           echo "E2E tests failed"
-  #           exit 1
-  #         fi
-  #
-  #     - name: Upload test results
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: playwright-report-full
-  #         path: services/auth/playwright-report/
-  #         retention-days: 30
-  #
-  #     - name: Upload test artifacts
-  #       uses: actions/upload-artifact@v4
-  #       if: always()
-  #       with:
-  #         name: test-results-full
-  #         path: services/auth/test-results/
-  #         retention-days: 30
+  e2e-test:
+    name: Run E2E Tests (All Browsers)
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium webkit
+        working-directory: ./services/auth/web
+
+      - name: Run Playwright tests (All browsers)
+        env:
+          CI: true
+        run: |
+          npm run test:e2e --workspace @nagiyu/auth-web
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full
+          path: services/auth/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full
+          path: services/auth/web/test-results/
+          retention-days: 30
 
   build:
     name: Next.js Build Verification
@@ -227,8 +228,8 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, format-check, build, docker-build]
-    # TODO: Add unit-test, coverage, and e2e-test to needs when they are implemented
+    needs: [lint, format-check, unit-test, e2e-test, build, docker-build]
+    # TODO: Add coverage to needs when implemented
     # needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
 
     permissions:
@@ -244,10 +245,10 @@ jobs:
             const results = {
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
-              // TODO: Uncomment when tests are implemented
-              // 'Unit Tests': '${{ needs.unit-test.result }}',
+              'Unit Tests': '${{ needs.unit-test.result }}',
+              // TODO: Uncomment when coverage check is implemented
               // 'Coverage Check': '${{ needs.coverage.result }}',
-              // 'E2E Tests (Full)': '${{ needs.e2e-test.result }}',
+              'E2E Tests (Full)': '${{ needs.e2e-test.result }}',
               'Next.js Build': '${{ needs.build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}'
             };

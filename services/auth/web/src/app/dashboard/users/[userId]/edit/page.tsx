@@ -1,11 +1,11 @@
-import { auth } from '@nagiyu/auth-core';
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
 import { Container } from '@mui/material';
 import { UserEditForm } from './user-edit-form';
+import { getSession } from '@/lib/auth/session';
 
 export default async function UserEditPage({ params }: { params: Promise<{ userId: string }> }) {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session) {
     redirect('/signin');
