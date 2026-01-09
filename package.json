@@ -12,6 +12,7 @@
     "services/*/batch-*",
     "services/*/api",
     "libs/*",
+    "infra",
     "infra/*"
   ],
   "scripts": {
