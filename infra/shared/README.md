@@ -59,31 +59,31 @@ npm run synth -- --context env=prod
 
 ```bash
 # dev 環境
-npm run diff -- SharedVpc-dev --context env=dev
+npm run diff -- nagiyu-shared-vpc-dev --context env=dev
 
 # prod 環境
-npm run diff -- SharedVpc-prod --context env=prod
+npm run diff -- nagiyu-shared-vpc-prod --context env=prod
 ```
 
 ### 3. デプロイ
 
 ```bash
 # dev 環境
-npm run deploy -- SharedVpc-dev --context env=dev
+npm run deploy -- nagiyu-shared-vpc-dev --context env=dev
 
 # prod 環境
-npm run deploy -- SharedVpc-prod --context env=prod
+npm run deploy -- nagiyu-shared-vpc-prod --context env=prod
 ```
 
 ### 4. 承認なしデプロイ（CI/CD 用）
 
 ```bash
-npm run deploy -- SharedVpc-dev --context env=dev --require-approval never
+npm run deploy -- nagiyu-shared-vpc-dev --context env=dev --require-approval never
 ```
 
 ## スタック一覧
 
-### SharedVpc-{env}
+### nagiyu-shared-vpc-{env}
 
 VPC とネットワークリソースを管理します。
 
@@ -124,13 +124,13 @@ npm run cdk -- list --context env=dev
 ### 特定のスタックを Synth
 
 ```bash
-npm run cdk -- synth SharedVpc-dev --context env=dev
+npm run cdk -- synth nagiyu-shared-vpc-dev --context env=dev
 ```
 
 ### CloudFormation テンプレートの確認
 
 ```bash
-npm run cdk -- synth SharedVpc-dev --context env=dev --path-metadata false --version-reporting false
+npm run cdk -- synth nagiyu-shared-vpc-dev --context env=dev --path-metadata false --version-reporting false
 ```
 
 ## トラブルシューティング
@@ -164,7 +164,7 @@ npm run cdk -- synth --context env=dev --verbose
 aws sts get-caller-identity
 
 # CloudFormation スタックの状態を確認
-aws cloudformation describe-stacks --stack-name SharedVpc-dev --region us-east-1
+aws cloudformation describe-stacks --stack-name nagiyu-shared-vpc-dev --region us-east-1
 ```
 
 ## 関連ドキュメント

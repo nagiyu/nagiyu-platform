@@ -17,8 +17,8 @@ const stackEnv = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// VPC スタックを作成
-new VpcStack(app, `SharedVpc-${env}`, {
+// VPC スタックを作成（既存のスタック名に合わせる）
+new VpcStack(app, `nagiyu-shared-vpc-${env}`, {
   environment: env as 'dev' | 'prod',
   env: stackEnv,
   description: `Shared VPC Infrastructure - ${env} environment`,
