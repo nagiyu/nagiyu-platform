@@ -6,6 +6,8 @@ const createJestConfig = nextJest({
 });
 
 const config: Config = {
+  coverageProvider: 'v8',
+  testEnvironment: 'jsdom',
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
@@ -28,9 +30,6 @@ const config: Config = {
     '^codec-converter-core$': '<rootDir>/../core/src/index.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testEnvironmentOptions: {
-    customExportConditions: [''],
-  },
 };
 
 export default createJestConfig(config);
