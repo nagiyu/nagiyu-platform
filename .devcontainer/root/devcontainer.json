@@ -16,6 +16,7 @@
 	},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
+	"postCreateCommand": "npm ci && claude mcp add-json github '{\"type\":\"http\",\"url\":\"https://api.githubcopilot.com/mcp\",\"headers\":{\"Authorization\":\"Bearer ${GITHUB_TOKEN}\"}}'",
 	// Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
