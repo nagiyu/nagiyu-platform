@@ -201,9 +201,9 @@ nagiyu-{category}-{resource}
 - `nagiyu-shared-deploy-policy-integration` - 共通デプロイポリシー (Integration)
 - `nagiyu-shared-github-actions-user` - GitHub Actions ユーザー
 - `nagiyu-shared-local-dev-user` - ローカル開発ユーザー
-- `nagiyu-shared-acm-certificate` - ACM 証明書
-- `nagiyu-dev-vpc` - dev 環境 VPC
-- `nagiyu-prod-vpc` - prod 環境 VPC
+- `SharedAcm` - ACM 証明書 (CDK)
+- `nagiyu-shared-vpc-dev` - dev 環境 VPC (CDK)
+- `nagiyu-shared-vpc-prod` - prod 環境 VPC (CDK)
 - `nagiyu-dev-cloudfront-app-A` - app-A の CloudFront (dev 環境、将来)
 - `nagiyu-prod-cloudfront-app-A` - app-A の CloudFront (prod 環境、将来)
 - `nagiyu-app-A-lambda` - app-A の Lambda リソース（将来）
