@@ -25,10 +25,7 @@ export class EcrStack extends cdk.Stack {
           maxImageCount: 10,
         },
       ],
-      removalPolicy:
-        environment === 'prod'
-          ? cdk.RemovalPolicy.RETAIN
-          : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
     // タグ

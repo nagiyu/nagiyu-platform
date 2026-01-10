@@ -13,11 +13,13 @@
 ### リソース
 
 #### ECR Repository
+
 - リポジトリ名: `tools-app-{env}`
 - イメージスキャン: 有効
 - ライフサイクルポリシー: 最新10イメージを保持
 
 #### Lambda Function
+
 - 関数名: `tools-app-{env}`
 - ランタイム: FROM_IMAGE (ECR)
 - メモリ: 1024MB
@@ -25,6 +27,7 @@
 - Function URL: 有効 (認証なし)
 
 #### CloudFront Distribution
+
 - オリジン: Lambda Function URL
 - カスタムドメイン: `{env}-tools.nagiyu.com` (prod: `tools.nagiyu.com`)
 - セキュリティヘッダー: HSTS, X-Content-Type-Options, X-Frame-Options など
@@ -102,26 +105,29 @@ npx cdk destroy Tools-Ecr-dev --context env=dev
 ### 初回デプロイ
 
 1. **ECR スタックのデプロイ**
+
    ```bash
    npx cdk deploy Tools-Ecr-dev --context env=dev
    ```
 
 2. **コンテナイメージのビルドとプッシュ**
+
    ```bash
    cd ../../services/tools
    # ECR ログイン
    aws ecr get-login-password --region us-east-1 | \
      docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
-   
+
    # イメージビルド
    docker build -t tools-app-dev .
    docker tag tools-app-dev:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
-   
+
    # プッシュ
    docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
    ```
 
 3. **Lambda スタックのデプロイ**
+
    ```bash
    npx cdk deploy Tools-Lambda-dev --context env=dev
    ```

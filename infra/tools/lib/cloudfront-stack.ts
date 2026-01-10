@@ -20,34 +20,21 @@ export class CloudFrontStack extends cdk.Stack {
 
     // ドメイン名の構築
     const domainName =
-      environment === 'prod'
-        ? 'tools.nagiyu.com'
-        : `${environment}-tools.nagiyu.com`;
+      environment === 'prod' ? 'tools.nagiyu.com' : `${environment}-tools.nagiyu.com`;
 
     // Lambda 関数 URL から https:// を除去してドメイン名を取得
     // CDK Token の場合は Fn::Select を使用
-    const functionUrlDomain = cdk.Fn.select(
-      1,
-      cdk.Fn.split('//', functionUrl)
-    );
+    const functionUrlDomain = cdk.Fn.select(1, cdk.Fn.split('//', functionUrl));
 
     // さらに末尾のスラッシュを除去
-    const cleanFunctionUrlDomain = cdk.Fn.select(
-      0,
-      cdk.Fn.split('/', functionUrlDomain)
-    );
+    const cleanFunctionUrlDomain = cdk.Fn.select(0, cdk.Fn.split('/', functionUrlDomain));
 
     // ACM 証明書の参照 (us-east-1 リージョン)
     // 注: CloudFront用の証明書は us-east-1 に存在する必要がある
     // 共有インフラスタック (infra/shared/acm) からエクスポートされた証明書を使用
-    const certExportName =
-      certificateExportName || 'nagiyu-shared-acm-certificate-arn';
+    const certExportName = certificateExportName || 'nagiyu-shared-acm-certificate-arn';
     const certificateArn = cdk.Fn.importValue(certExportName);
-    const certificate = acm.Certificate.fromCertificateArn(
-      this,
-      'Certificate',
-      certificateArn
-    );
+    const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certificateArn);
 
     // Response Headers Policy の作成 (セキュリティヘッダー)
     const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
@@ -76,8 +63,7 @@ export class CloudFrontStack extends cdk.Stack {
             override: true,
           },
           referrerPolicy: {
-            referrerPolicy:
-              cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+            referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
             override: true,
           },
         },
@@ -97,8 +83,7 @@ export class CloudFrontStack extends cdk.Stack {
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy:
-          cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
         responseHeadersPolicy: responseHeadersPolicy,
         compress: true,
       },

@@ -13,9 +13,7 @@ const env = app.node.tryGetContext('env') || 'dev';
 // 許可された環境値のチェック
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
-  throw new Error(
-    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
-  );
+  throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
 
 const stackEnv = {
