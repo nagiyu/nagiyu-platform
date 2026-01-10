@@ -72,7 +72,7 @@ export class VpcStack extends cdk.Stack {
     if (isProd) {
       publicSubnet1b = new ec2.CfnSubnet(this, 'NagiyuPublicSubnet1b', {
         vpcId: this.vpc.ref,
-        cidrBlock: '10.1.128.0/25',
+        cidrBlock: '10.1.0.128/25',
         availabilityZone: `${this.region}b`,
         mapPublicIpOnLaunch: true,
         tags: [
