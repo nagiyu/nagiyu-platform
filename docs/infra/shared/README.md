@@ -60,7 +60,7 @@ SSL/TLS 証明書管理。
 
 - [ACM 詳細ドキュメント](./acm.md)
 
-**配置場所:** `infra/shared/acm/`
+**配置場所:** `infra/shared/lib/acm-stack.ts` (CDK)
 
 **主なリソース:**
 - ワイルドカード証明書 (`*.example.com` と `example.com`)
@@ -68,6 +68,8 @@ SSL/TLS 証明書管理。
 **用途:**
 - CloudFront でのカスタムドメイン HTTPS 配信
 - dev/prod 環境共通で使用
+
+**注意:** ACM は CDK に移行済みです。詳細は [ACM 詳細ドキュメント](./acm.md) を参照してください。
 
 ### CloudFront
 
@@ -125,17 +127,17 @@ nagiyu-shared-{resource-type}
 - `nagiyu-shared-deploy-policy-application`
 - `nagiyu-shared-deploy-policy-integration`
 - `nagiyu-shared-github-actions-user`
-- `nagiyu-shared-acm-certificate`
+- `SharedAcm` (CDK スタック - 旧: `nagiyu-shared-acm-certificate`)
 
 **注意:** VPC スタックは環境ごとに分かれるため、以下の命名規則を使用します。
 
 ```
-nagiyu-{env}-vpc
+nagiyu-shared-vpc-{env}
 ```
 
 **例:**
-- `nagiyu-dev-vpc`
-- `nagiyu-prod-vpc`
+- `nagiyu-shared-vpc-dev` (CDK スタック)
+- `nagiyu-shared-vpc-prod` (CDK スタック)
 
 ---
 
@@ -169,7 +171,9 @@ nagiyu-{env}-vpc
 
 | Export 名 | 説明 | 提供元スタック |
 |----------|------|-------------|
-| `nagiyu-shared-acm-certificate-arn` | SSL/TLS 証明書の ARN | `nagiyu-shared-acm-certificate` |
+| `nagiyu-shared-acm-certificate-arn` | SSL/TLS 証明書の ARN | `SharedAcm` (CDK) |
+| `nagiyu-shared-acm-domain-name` | プライマリドメイン名 | `SharedAcm` (CDK) |
+| `nagiyu-shared-acm-wildcard-domain` | ワイルドカードドメイン名 | `SharedAcm` (CDK) |
 
 ### 将来提供予定の Export (例)
 
