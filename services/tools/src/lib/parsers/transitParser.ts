@@ -93,7 +93,7 @@ export function parseTransitText(input: string): TransitRoute | null {
     }
 
     // 時刻範囲
-    const timeRangeMatch = line.match(/^↓\s+(\d{1,2}:\d{2}〜\d{1,2}:\d{2})$/);
+    const timeRangeMatch = line.match(/^↓\s+(\d{1,2}:\d{2}[〜～]\d{1,2}:\d{2})$/);
     if (timeRangeMatch) {
       currentTimeRange = timeRangeMatch[1];
       continue;
