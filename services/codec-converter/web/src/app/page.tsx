@@ -3,6 +3,20 @@
 import { useState, useRef, FormEvent, DragEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { validateFile, type CodecType } from 'codec-converter-core';
+import {
+  Container,
+  Typography,
+  Paper,
+  Button,
+  Alert,
+  FormControl,
+  FormLabel,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Box,
+} from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 type UploadError = {
   message: string;
@@ -133,13 +147,17 @@ export default function Home() {
   };
 
   return (
-    <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-      <h1>Codec Converter</h1>
-      <p>動画ファイルのコーデックを変換します</p>
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Codec Converter
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+        動画ファイルのコーデックを変換します
+      </Typography>
 
       <form onSubmit={handleSubmit}>
         {/* File Upload Area */}
-        <div
+        <Paper
           onClick={handleUploadClick}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
@@ -147,19 +165,25 @@ export default function Home() {
           role="button"
           tabIndex={0}
           aria-label="ファイルをドラッグ&ドロップ または クリックして選択"
-          style={{
-            border: `2px dashed ${isDragging ? '#0070f3' : '#ccc'}`,
-            borderRadius: '8px',
-            padding: '3rem 2rem',
+          elevation={isDragging ? 8 : 2}
+          sx={{
+            border: (theme) =>
+              `2px dashed ${isDragging ? theme.palette.primary.main : theme.palette.divider}`,
+            borderRadius: 2,
+            p: 6,
             textAlign: 'center',
             cursor: 'pointer',
-            backgroundColor: isDragging ? '#f0f8ff' : '#fafafa',
-            marginBottom: '2rem',
-            minHeight: '200px',
+            backgroundColor: isDragging ? 'action.hover' : 'background.default',
+            mb: 3,
+            minHeight: 200,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',
             alignItems: 'center',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              backgroundColor: 'action.hover',
+            },
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -168,13 +192,13 @@ export default function Home() {
             }
           }}
         >
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
-          <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>
+          <CloudUploadIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+          <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
             ファイルをドラッグ&ドロップ または クリックして選択
-          </p>
-          <p style={{ margin: 0, color: '#666', fontSize: '0.875rem' }}>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
             MP4ファイルのみ、最大500MB
-          </p>
+          </Typography>
           <input
             ref={fileInputRef}
             type="file"
@@ -183,119 +207,94 @@ export default function Home() {
             style={{ display: 'none' }}
             aria-label="ファイル選択"
           />
-        </div>
+        </Paper>
 
         {/* Selected File Info */}
         {file && (
-          <div
-            style={{
-              padding: '1rem',
-              backgroundColor: '#f0f0f0',
-              borderRadius: '4px',
-              marginBottom: '2rem',
-            }}
-          >
-            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>選択されたファイル:</p>
-            <p style={{ margin: 0 }}>
+          <Paper sx={{ p: 2, mb: 3, backgroundColor: 'grey.100' }}>
+            <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              選択されたファイル:
+            </Typography>
+            <Typography variant="body2">
               {file.name} ({formatFileSize(file.size)})
-            </p>
-          </div>
+            </Typography>
+          </Paper>
         )}
 
         {/* Error Message */}
         {error && (
-          <div
-            role="alert"
-            style={{
-              padding: '1rem',
-              backgroundColor: '#fee',
-              color: '#c00',
-              borderRadius: '4px',
-              marginBottom: '2rem',
-              border: '1px solid #fcc',
-            }}
-          >
+          <Alert severity="error" sx={{ mb: 3 }}>
             {error}
-          </div>
+          </Alert>
         )}
 
         {/* Codec Selection */}
-        <fieldset
-          style={{
-            border: 'none',
-            padding: 0,
-            marginBottom: '2rem',
-          }}
-        >
-          <legend style={{ fontWeight: 'bold', marginBottom: '1rem' }}>出力コーデック選択</legend>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="codec"
-                value="h264"
-                checked={codec === 'h264'}
-                onChange={(e) => setCodec(e.target.value as CodecType)}
-                style={{ marginRight: '0.5rem' }}
-              />
-              <div>
-                <strong>H.264</strong>
-                <span style={{ color: '#666', marginLeft: '0.5rem' }}>- 互換性重視（MP4）</span>
-              </div>
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="codec"
-                value="vp9"
-                checked={codec === 'vp9'}
-                onChange={(e) => setCodec(e.target.value as CodecType)}
-                style={{ marginRight: '0.5rem' }}
-              />
-              <div>
-                <strong>VP9</strong>
-                <span style={{ color: '#666', marginLeft: '0.5rem' }}>- バランス型（WebM）</span>
-              </div>
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <input
-                type="radio"
-                name="codec"
-                value="av1"
-                checked={codec === 'av1'}
-                onChange={(e) => setCodec(e.target.value as CodecType)}
-                style={{ marginRight: '0.5rem' }}
-              />
-              <div>
-                <strong>AV1</strong>
-                <span style={{ color: '#666', marginLeft: '0.5rem' }}>- 高圧縮率（WebM）</span>
-              </div>
-            </label>
-          </div>
-        </fieldset>
+        <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>
+          <FormLabel component="legend" sx={{ mb: 2, fontWeight: 'bold' }}>
+            出力コーデック選択
+          </FormLabel>
+          <RadioGroup
+            value={codec}
+            onChange={(e) => setCodec(e.target.value as CodecType)}
+            aria-label="出力コーデック"
+          >
+            <FormControlLabel
+              value="h264"
+              control={<Radio />}
+              label={
+                <Box>
+                  <Typography component="span" fontWeight="bold">
+                    H.264
+                  </Typography>
+                  <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>
+                    - 互換性重視（MP4）
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              value="vp9"
+              control={<Radio />}
+              label={
+                <Box>
+                  <Typography component="span" fontWeight="bold">
+                    VP9
+                  </Typography>
+                  <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>
+                    - バランス型（WebM）
+                  </Typography>
+                </Box>
+              }
+            />
+            <FormControlLabel
+              value="av1"
+              control={<Radio />}
+              label={
+                <Box>
+                  <Typography component="span" fontWeight="bold">
+                    AV1
+                  </Typography>
+                  <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>
+                    - 高圧縮率（WebM）
+                  </Typography>
+                </Box>
+              }
+            />
+          </RadioGroup>
+        </FormControl>
 
         {/* Submit Button */}
-        <button
+        <Button
           type="submit"
+          variant="contained"
+          size="large"
           disabled={!file || isUploading}
-          style={{
-            width: '100%',
-            padding: '1rem',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            color: '#fff',
-            backgroundColor: !file || isUploading ? '#ccc' : '#0070f3',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: !file || isUploading ? 'not-allowed' : 'pointer',
-          }}
+          fullWidth
+          sx={{ py: 1.5 }}
         >
           {isUploading ? 'アップロード中...' : '変換開始'}
-        </button>
+        </Button>
       </form>
-    </main>
+    </Container>
   );
 }
