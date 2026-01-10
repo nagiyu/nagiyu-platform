@@ -1,0 +1,27 @@
+{
+  "name": "@nagiyu/infra-tools",
+  "version": "1.0.0",
+  "description": "Tools Service AWS CDK Infrastructure",
+  "main": "lib/ecr-stack.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "npx cdk",
+    "synth": "npx cdk synth",
+    "deploy": "npx cdk deploy",
+    "deploy:dev": "npx cdk deploy --context env=dev --all",
+    "deploy:prod": "npx cdk deploy --context env=prod --all",
+    "diff": "npx cdk diff",
+    "diff:dev": "npx cdk diff --context env=dev",
+    "diff:prod": "npx cdk diff --context env=prod"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.233.0",
+    "constructs": "^10.4.4",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
