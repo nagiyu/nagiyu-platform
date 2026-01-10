@@ -1,6 +1,6 @@
-# Shared Infrastructure (CDK)
+# Shared Infrastructure (CDK) - 使用ガイド
 
-このディレクトリは、nagiyu プラットフォームの共有インフラストラクチャを AWS CDK で管理します。
+このドキュメントは、nagiyu プラットフォームの共有インフラストラクチャ（`infra/shared/`）を AWS CDK で管理するための使用ガイドです。
 
 ## 概要
 
@@ -24,16 +24,19 @@ infra/shared/
 │       └── env-config.ts      # 環境設定
 ├── cdk.json                   # CDK 設定ファイル
 ├── tsconfig.json              # TypeScript 設定
-├── package.json               # NPM 依存関係
-└── README.md                  # このファイル
+└── package.json               # NPM スクリプト定義
 ```
+
+**注**: 依存関係はモノレポのルートで管理されています。
 
 ## セットアップ
 
 ### 依存関係のインストール
 
+モノレポのルートで依存関係をインストールします:
+
 ```bash
-cd infra/shared
+# モノレポルートから
 npm install
 ```
 
