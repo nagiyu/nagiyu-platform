@@ -33,7 +33,7 @@ if (!domainName) {
 }
 
 new AcmStack(app, 'SharedAcm', {
-  domainName: domainName,
+  domainName,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1', // CloudFront 用証明書は us-east-1 必須
