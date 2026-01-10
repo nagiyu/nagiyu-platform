@@ -127,10 +127,12 @@ test.describe('Common Components - Header and Footer', () => {
     await expect(footer).toBeVisible();
 
     // Verify version text follows semantic versioning pattern
+    // Note: Footer displays "v1.0.0 | プライバシーポリシー | 利用規約" in a single Typography component
     const version = footer.getByText(/v\d+\.\d+\.\d+/);
     await expect(version).toBeVisible();
 
     const versionText = await version.textContent();
-    expect(versionText).toMatch(/^v\d+\.\d+\.\d+$/);
+    // Check that version text contains the semantic versioning pattern
+    expect(versionText).toMatch(/v\d+\.\d+\.\d+/);
   });
 });
