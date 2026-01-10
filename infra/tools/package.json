@@ -2,7 +2,7 @@
   "name": "@nagiyu/infra-tools",
   "version": "1.0.0",
   "description": "Tools Service AWS CDK Infrastructure",
-  "main": "lib/ecr-stack.js",
+  "main": "bin/tools.js",
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",

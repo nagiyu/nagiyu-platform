@@ -7,6 +7,7 @@ import { Construct } from 'constructs';
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;
   functionUrl: string;
+  certificateExportName?: string;
 }
 
 export class CloudFrontStack extends cdk.Stack {
@@ -15,7 +16,7 @@ export class CloudFrontStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CloudFrontStackProps) {
     super(scope, id, props);
 
-    const { environment, functionUrl } = props;
+    const { environment, functionUrl, certificateExportName } = props;
 
     // ドメイン名の構築
     const domainName =
@@ -39,9 +40,9 @@ export class CloudFrontStack extends cdk.Stack {
     // ACM 証明書の参照 (us-east-1 リージョン)
     // 注: CloudFront用の証明書は us-east-1 に存在する必要がある
     // 共有インフラスタック (infra/shared/acm) からエクスポートされた証明書を使用
-    const certificateArn = cdk.Fn.importValue(
-      'nagiyu-shared-acm-certificate-arn'
-    );
+    const certExportName =
+      certificateExportName || 'nagiyu-shared-acm-certificate-arn';
+    const certificateArn = cdk.Fn.importValue(certExportName);
     const certificate = acm.Certificate.fromCertificateArn(
       this,
       'Certificate',
