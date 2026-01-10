@@ -22,6 +22,7 @@ test.describe('Common Components - Header and Footer', () => {
     await expect(header).toBeVisible();
 
     // Verify app name "Codec Converter" is displayed in header
+    // Note: .first() is used because the app name might appear in multiple locations (e.g., header and mobile menu)
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toBeVisible();
     await expect(appName).toHaveAttribute('href', '/');
@@ -45,15 +46,19 @@ test.describe('Common Components - Header and Footer', () => {
     let header = page.locator('header');
     await expect(header).toBeVisible();
 
+    // Note: .first() is used because the app name might appear in multiple locations
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toBeVisible();
 
-    // Test on job details page (with non-existent job ID for quick test)
-    // Note: This will show an error, but we're only testing that header is visible
+    // Test on job details page
+    // Note: Using a test UUID that will trigger the error state, allowing us to verify
+    // that header is still rendered even when the page content shows an error.
+    // This is a valid test scenario as we want header/footer to be present on all pages.
     await page.goto('/jobs/00000000-0000-0000-0000-000000000000');
     header = page.locator('header');
     await expect(header).toBeVisible();
 
+    // Note: .first() is used because the app name might appear in multiple locations
     const appNameOnJobPage = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appNameOnJobPage).toBeVisible();
   });
@@ -67,7 +72,8 @@ test.describe('Common Components - Header and Footer', () => {
     let version = footer.getByText(/v\d+\.\d+\.\d+/);
     await expect(version).toBeVisible();
 
-    // Test on job details page (with non-existent job ID for quick test)
+    // Test on job details page
+    // Note: Using a test UUID to verify footer is present even on error pages
     await page.goto('/jobs/00000000-0000-0000-0000-000000000000');
     footer = page.locator('footer');
     await expect(footer).toBeVisible();
@@ -77,13 +83,14 @@ test.describe('Common Components - Header and Footer', () => {
   });
 
   test('should navigate to homepage when clicking header title', async ({ page }) => {
-    // Start on a job details page
+    // Start on a job details page (using test UUID)
     await page.goto('/jobs/00000000-0000-0000-0000-000000000000');
 
     // Verify we're on the job details page
     await expect(page).toHaveURL(/\/jobs\//);
 
     // Click on the app name in the header
+    // Note: .first() is used because the app name might appear in multiple locations
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toBeVisible();
     await appName.click();
@@ -103,6 +110,7 @@ test.describe('Common Components - Header and Footer', () => {
     await expect(header).toBeVisible();
 
     // Verify the app name is a link with accessible attributes
+    // Note: .first() is used because the app name might appear in multiple locations
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toHaveAttribute('href', '/');
 
