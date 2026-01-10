@@ -1,6 +1,10 @@
 # Tools Service CDK Infrastructure
 
-このディレクトリには、Tools サービスの AWS インフラストラクチャを定義した CDK コードが含まれています。
+Tools サービスの AWS インフラストラクチャの CDK 実装に関するドキュメントです。
+
+## 参照
+
+CDK コードの実装は `infra/tools/` ディレクトリにあります。
 
 ## 構成
 
@@ -46,6 +50,8 @@
 Lambda デプロイ前に、ECR リポジトリにコンテナイメージがプッシュされている必要があります。
 
 ## コマンド
+
+すべてのコマンドは `infra/tools/` ディレクトリで実行します。
 
 ### ビルド
 
@@ -106,40 +112,44 @@ npx cdk destroy Tools-Ecr-dev --context env=dev
 
 1. **ECR スタックのデプロイ**
 
-   ```bash
-   npx cdk deploy Tools-Ecr-dev --context env=dev
-   ```
+    ```bash
+    cd infra/tools
+    npx cdk deploy Tools-Ecr-dev --context env=dev
+    ```
 
 2. **コンテナイメージのビルドとプッシュ**
 
-   ```bash
-   cd ../../services/tools
-   # ECR ログイン
-   aws ecr get-login-password --region us-east-1 | \
-     docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
+    ```bash
+    cd ../../services/tools
+    # ECR ログイン
+    aws ecr get-login-password --region us-east-1 | \
+      docker login --username AWS --password-stdin <account-id>.dkr.ecr.us-east-1.amazonaws.com
 
-   # イメージビルド
-   docker build -t tools-app-dev .
-   docker tag tools-app-dev:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
+    # イメージビルド
+    docker build -t tools-app-dev .
+    docker tag tools-app-dev:latest <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
 
-   # プッシュ
-   docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
-   ```
+    # プッシュ
+    docker push <account-id>.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest
+    ```
 
 3. **Lambda スタックのデプロイ**
 
-   ```bash
-   npx cdk deploy Tools-Lambda-dev --context env=dev
-   ```
+    ```bash
+    cd ../../infra/tools
+    npx cdk deploy Tools-Lambda-dev --context env=dev
+    ```
 
 4. **CloudFront スタックのデプロイ**
-   ```bash
-   npx cdk deploy Tools-CloudFront-dev --context env=dev
-   ```
+
+    ```bash
+    npx cdk deploy Tools-CloudFront-dev --context env=dev
+    ```
 
 ### 更新デプロイ
 
 ```bash
+cd infra/tools
 # 全スタックを一括デプロイ
 npm run deploy:dev
 ```
@@ -149,6 +159,7 @@ npm run deploy:dev
 ### CDK スタックの削除
 
 ```bash
+cd infra/tools
 # 逆順で削除
 npx cdk destroy Tools-CloudFront-dev --context env=dev
 npx cdk destroy Tools-Lambda-dev --context env=dev
@@ -160,7 +171,7 @@ npx cdk destroy Tools-Ecr-dev --context env=dev
 元の CloudFormation テンプレートを再デプロイ:
 
 ```bash
-cd ../tools
+cd infra/tools
 
 # ECR
 aws cloudformation deploy \
@@ -196,6 +207,7 @@ aws cloudformation deploy \
 ### ビルドエラー
 
 ```bash
+cd infra/tools
 # 依存関係の再インストール
 npm install
 
@@ -225,6 +237,6 @@ aws ecr describe-images \
 
 ## 参考資料
 
-- [CDK 移行ガイド](../../docs/infra/cdk-migration.md)
-- [Tools サービスドキュメント](../../docs/services/tools/)
+- [CDK 移行ガイド](../cdk-migration.md)
+- [Tools サービスドキュメント](../../services/tools/)
 - [AWS CDK Developer Guide](https://docs.aws.amazon.com/cdk/v2/guide/home.html)
