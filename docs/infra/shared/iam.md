@@ -118,7 +118,6 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 
 **Export 値:**
 - `nagiyu-deploy-policy-integration-arn`: ポリシーの ARN
-- `nagiyu-deploy-policy-integration-arn`: ポリシーの ARN
 
 **デプロイコマンド:**
 ```bash
