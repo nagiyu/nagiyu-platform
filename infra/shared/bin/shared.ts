@@ -2,6 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { VpcStack } from '../lib/vpc-stack';
+import { AcmStack } from '../lib/acm-stack';
 
 const app = new cdk.App();
 
@@ -22,6 +23,22 @@ new VpcStack(app, `nagiyu-shared-vpc-${env}`, {
   environment: env as 'dev' | 'prod',
   env: stackEnv,
   description: `Shared VPC Infrastructure - ${env} environment`,
+});
+
+// ACM スタックを作成（環境非依存）
+// CloudFront 用の証明書は us-east-1 リージョン必須
+const domainName = process.env.DOMAIN_NAME || app.node.tryGetContext('domainName');
+if (!domainName) {
+  throw new Error('DOMAIN_NAME environment variable or domainName context is required');
+}
+
+new AcmStack(app, 'SharedAcm', {
+  domainName: domainName,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: 'us-east-1', // CloudFront 用証明書は us-east-1 必須
+  },
+  description: 'Shared ACM Certificate for CloudFront',
 });
 
 app.synth();
