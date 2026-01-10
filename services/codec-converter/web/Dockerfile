@@ -19,6 +19,9 @@ RUN npm install --prefer-offline --no-audit
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build --workspace @nagiyu/common
+RUN npm run build --workspace @nagiyu/browser
+RUN npm run build --workspace @nagiyu/ui
 RUN npm run build --workspace=codec-converter-core
 RUN npm run build --workspace=codec-converter-web
 
