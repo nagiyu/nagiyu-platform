@@ -162,5 +162,44 @@ describe('transitParser', () => {
       expect(result?.transferCount).toBeUndefined();
       expect(result?.distance).toBeUndefined();
     });
+
+    it('正常系: Android フォーマット（波ダッシュ）でもパースできる', () => {
+      /* eslint-disable no-irregular-whitespace */
+      const input = `A駅 ⇒ B駅
+2026年01月10日
+08:51 ⇒ 09:53
+------------------------------
+所要時間　1時間2分
+運賃[IC優先] 980円
+乗換　1回
+距離　44.2km
+------------------------------
+
+■A駅
+↓ 08:51～09:26
+↓ XX線特急  C駅行
+↓ 3番線発 → 4番線着
+■C駅
+↓ 09:28～09:36
+↓ 徒歩
+■D駅
+↓ 09:45～09:53
+↓ YY線  B駅行
+↓ 1番線発 → 2番線着
+■B駅`;
+      /* eslint-enable no-irregular-whitespace */
+
+      const result = parseTransitText(input);
+
+      expect(result).not.toBeNull();
+      expect(result?.departure).toBe('A駅');
+      expect(result?.arrival).toBe('B駅');
+      expect(result?.routeSteps).toHaveLength(4);
+
+      // 時刻範囲が正しく抽出されることを確認
+      expect(result?.routeSteps[0].timeRange).toBe('08:51～09:26');
+      expect(result?.routeSteps[1].timeRange).toBe('09:28～09:36');
+      expect(result?.routeSteps[2].timeRange).toBe('09:45～09:53');
+    });
   });
 });
