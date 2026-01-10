@@ -13,7 +13,11 @@ export const viewport: Viewport = {
   themeColor: '#1976d2',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   const version = process.env.APP_VERSION || '1.0.0';
 
   return (
