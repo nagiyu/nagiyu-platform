@@ -3,6 +3,8 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { VpcStack } from '../lib/vpc-stack';
 import { AcmStack } from '../lib/acm-stack';
+import { IamPoliciesStack } from '../lib/iam/iam-policies-stack';
+import { IamUsersStack } from '../lib/iam/iam-users-stack';
 
 const app = new cdk.App();
 
@@ -40,5 +42,26 @@ new AcmStack(app, 'SharedAcm', {
   },
   description: 'Shared ACM Certificate for CloudFront',
 });
+
+// IAM Policies スタックを作成（環境非依存）
+const policiesStack = new IamPoliciesStack(app, 'SharedIamPolicies', {
+  env: stackEnv,
+  description: 'Shared IAM Managed Policies for Deployment',
+});
+
+// IAM Users スタックを作成（ポリシーに依存）
+const usersStack = new IamUsersStack(app, 'SharedIamUsers', {
+  policies: {
+    core: policiesStack.corePolicy,
+    application: policiesStack.applicationPolicy,
+    container: policiesStack.containerPolicy,
+    integration: policiesStack.integrationPolicy,
+  },
+  env: stackEnv,
+  description: 'Shared IAM Users for GitHub Actions and Local Development',
+});
+
+// スタック間の依存関係を明示
+usersStack.addDependency(policiesStack);
 
 app.synth();

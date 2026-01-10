@@ -10,22 +10,36 @@ IAM リソースは以下の方針で管理されます。
 
 - **最小権限の原則**: 必要最小限の権限のみを付与
 - **ポリシーとユーザーの分離**: 再利用可能なポリシーを定義し、複数のユーザーで共有
-- **認証情報の安全管理**: アクセスキーは手動発行し、CloudFormation で自動生成しない
+- **認証情報の安全管理**: アクセスキーは手動発行し、CloudFormation/CDK で自動生成しない
+- **IaC による管理**: AWS CDK で IAM リソースを管理（2026年1月移行完了）
 
 ---
 
-## ディレクトリ構造
+## 管理方式
+
+**現在の管理方式**: AWS CDK
+
+IAM ポリシーと IAM ユーザーは AWS CDK で管理されています。
+
+### ディレクトリ構造
 
 ```
-infra/shared/iam/
-├── policies/
-│   ├── deploy-policy-core.yaml        # コア権限（CloudFormation, IAM, Network）
-│   ├── deploy-policy-container.yaml   # コンテナ権限（ECR, ECS, Batch）
-│   ├── deploy-policy-application.yaml # アプリ権限（Lambda, API Gateway, S3, DynamoDB, CloudFront）
-│   └── deploy-policy-integration.yaml # 統合権限（KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling）
-└── users/
-    ├── github-actions-user.yaml       # GitHub Actions 用 IAM ユーザー
-    └── local-dev-user.yaml            # ローカル開発用 IAM ユーザー
+infra/shared/
+├── lib/iam/
+│   ├── iam-policies-stack.ts    # IAM マネージドポリシー（4つ）
+│   └── iam-users-stack.ts       # IAM ユーザー（2つ）
+├── iam/                         # 旧 CloudFormation テンプレート（バックアップ）
+│   ├── policies/
+│   │   ├── backup/              # YAML ファイルのバックアップ
+│   │   ├── deploy-policy-core.yaml
+│   │   ├── deploy-policy-container.yaml
+│   │   ├── deploy-policy-application.yaml
+│   │   └── deploy-policy-integration.yaml
+│   └── users/
+│       ├── backup/              # YAML ファイルのバックアップ
+│       ├── github-actions-user.yaml
+│       └── local-dev-user.yaml
+└── bin/shared.ts                # CDK エントリーポイント
 ```
 
 ---
@@ -36,15 +50,16 @@ infra/shared/iam/
 
 IAM マネージドポリシーのサイズ制限（6144文字）により、デプロイポリシーを4つに分割しています。
 
-#### 1.1. Core Policy (`deploy-policy-core.yaml`)
+#### 1.1. Core Policy
 
-**スタック名:** `nagiyu-shared-deploy-policy-core`
+**CDK スタック名:** `SharedIamPolicies`（NagiyuDeployPolicyCore リソース）
 
 **概要:**
 デプロイの中核となる権限を定義。必須のポリシー。
 
 **主な権限:**
 - **CloudFormation**: スタックの作成、更新、削除、ChangeSet 管理
+- **CDK Bootstrap**: CDK デプロイロールの Assume
 - **IAM**: ロール・ポリシー管理、PassRole、Service-linked role 作成
 - **Network (VPC/EC2)**: VPC、Subnet、Internet Gateway、NAT Gateway、Route Table、Security Group、Network Interface の管理
 - **CloudWatch Logs**: Log Group/Stream の作成、管理
@@ -52,20 +67,27 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 **Export 値:**
 - `nagiyu-deploy-policy-core-arn`: ポリシーの ARN
 
-**デプロイコマンド:**
-```bash
-cd infra/shared/iam/policies
+#### 1.2. Application Policy
 
-aws cloudformation deploy \
-  --template-file deploy-policy-core.yaml \
-  --stack-name nagiyu-shared-deploy-policy-core \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
+**CDK スタック名:** `SharedIamPolicies`（NagiyuDeployPolicyApplication リソース）
 
-#### 1.2. Container Policy (`deploy-policy-container.yaml`)
+**概要:**
+アプリケーション層のサービス権限を定義。
 
-**スタック名:** `nagiyu-shared-deploy-policy-container`
+**主な権限:**
+- **Lambda**: 関数管理、バージョニング、エイリアス、Function URL
+- **S3**: バケット管理、オブジェクト操作、暗号化、ライフサイクル
+- **DynamoDB**: テーブル管理、TTL、継続的バックアップ
+- **API Gateway**: HTTP API/WebSocket API の管理
+- **CloudFront**: ディストリビューション管理、キャッシュ無効化
+- **ACM**: 証明書管理
+
+**Export 値:**
+- `nagiyu-deploy-policy-application-arn`: ポリシーの ARN
+
+#### 1.3. Container Policy
+
+**CDK スタック名:** `SharedIamPolicies`（NagiyuDeployPolicyContainer リソース）
 
 **概要:**
 コンテナ関連サービスの権限を定義。
@@ -78,48 +100,9 @@ aws cloudformation deploy \
 **Export 値:**
 - `nagiyu-deploy-policy-container-arn`: ポリシーの ARN
 
-**デプロイコマンド:**
-```bash
-cd infra/shared/iam/policies
+#### 1.4. Integration Policy
 
-aws cloudformation deploy \
-  --template-file deploy-policy-container.yaml \
-  --stack-name nagiyu-shared-deploy-policy-container \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
-
-#### 1.3. Application Policy (`deploy-policy-application.yaml`)
-
-**スタック名:** `nagiyu-shared-deploy-policy-application`
-
-**概要:**
-アプリケーション層のサービス権限を定義。
-
-**主な権限:**
-- **Lambda**: 関数管理、バージョニング、エイリアス、Function URL
-- **S3**: バケット管理、オブジェクト操作、暗号化、ライフサイクル
-- **DynamoDB**: テーブル管理、TTL、継続的バックアップ
-- **API Gateway**: HTTP API/WebSocket API の管理
-- **CloudFront**: ディストリビューション管理、キャッシュ無効化
-
-**Export 値:**
-- `nagiyu-deploy-policy-application-arn`: ポリシーの ARN
-
-**デプロイコマンド:**
-```bash
-cd infra/shared/iam/policies
-
-aws cloudformation deploy \
-  --template-file deploy-policy-application.yaml \
-  --stack-name nagiyu-shared-deploy-policy-application \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
-
-#### 1.4. Integration Policy (`deploy-policy-integration.yaml`)
-
-**スタック名:** `nagiyu-shared-deploy-policy-integration`
+**CDK スタック名:** `SharedIamPolicies`（NagiyuDeployPolicyIntegration リソース）
 
 **概要:**
 システム統合・セキュリティ関連サービスの権限を定義。
@@ -147,9 +130,9 @@ aws cloudformation deploy \
   --region us-east-1
 ```
 
-### 2. GitHub Actions ユーザー (`users/github-actions-user.yaml`)
+### 2. GitHub Actions ユーザー
 
-**スタック名:** `nagiyu-shared-github-actions-user`
+**CDK スタック名:** `SharedIamUsers`（NagiyuGitHubActionsUser リソース）
 
 **概要:**
 CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
@@ -157,25 +140,18 @@ CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
 **ユーザー名:** `nagiyu-github-actions`
 
 **アタッチされるポリシー:**
-- `nagiyu-deploy-policy-core` (ImportValue で参照)
-- `nagiyu-deploy-policy-container` (ImportValue で参照)
-- `nagiyu-deploy-policy-application` (ImportValue で参照)
-- `nagiyu-deploy-policy-integration` (ImportValue で参照)
+- `nagiyu-deploy-policy-core`
+- `nagiyu-deploy-policy-container`
+- `nagiyu-deploy-policy-application`
+- `nagiyu-deploy-policy-integration`
 
 **タグ:**
 - `Application: nagiyu`
 - `Purpose: GitHub Actions CI/CD`
 
-**デプロイコマンド:**
-```bash
-cd infra/shared/iam/users
-
-aws cloudformation deploy \
-  --template-file github-actions-user.yaml \
-  --stack-name nagiyu-shared-github-actions-user \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
+**Export 値:**
+- `nagiyu-shared-github-actions-user-NagiyuGitHubActionsUserArn`: ユーザー ARN
+- `nagiyu-shared-github-actions-user-NagiyuGitHubActionsUserName`: ユーザー名
 
 **アクセスキー発行手順:**
 1. AWS マネジメントコンソールにログイン
@@ -188,9 +164,9 @@ aws cloudformation deploy \
 - `AWS_SECRET_ACCESS_KEY`: 発行したシークレットアクセスキー
 - `AWS_REGION`: `us-east-1`
 
-### 3. ローカル開発ユーザー (`users/local-dev-user.yaml`)
+### 3. ローカル開発ユーザー
 
-**スタック名:** `nagiyu-shared-local-dev-user`
+**CDK スタック名:** `SharedIamUsers`（NagiyuLocalDevUser リソース）
 
 **概要:**
 開発者がローカル環境から手動デプロイする際に使用する IAM ユーザー。
@@ -198,25 +174,18 @@ aws cloudformation deploy \
 **ユーザー名:** `nagiyu-local-dev`
 
 **アタッチされるポリシー:**
-- `nagiyu-deploy-policy-core` (ImportValue で参照)
-- `nagiyu-deploy-policy-container` (ImportValue で参照)
-- `nagiyu-deploy-policy-application` (ImportValue で参照)
-- `nagiyu-deploy-policy-integration` (ImportValue で参照)
+- `nagiyu-deploy-policy-core`
+- `nagiyu-deploy-policy-container`
+- `nagiyu-deploy-policy-application`
+- `nagiyu-deploy-policy-integration`
 
 **タグ:**
 - `Application: nagiyu`
-- `Purpose: Local developer (manual deploy)`
+- `Purpose: Local developer`
 
-**デプロイコマンド:**
-```bash
-cd infra/shared/iam/users
-
-aws cloudformation deploy \
-  --template-file local-dev-user.yaml \
-  --stack-name nagiyu-shared-local-dev-user \
-  --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
-```
+**Export 値:**
+- `nagiyu-shared-local-dev-user-NagiyuLocalDevUserArn`: ユーザー ARN
+- `nagiyu-shared-local-dev-user-NagiyuLocalDevUserName`: ユーザー名
 
 **アクセスキー発行手順:**
 1. AWS マネジメントコンソールにログイン
@@ -236,7 +205,184 @@ export AWS_PROFILE=nagiyu-local-dev
 
 ---
 
-## デプロイ順序
+## デプロイ手順（CDK）
+
+IAM リソースは依存関係があるため、以下の順序でデプロイしてください。
+
+### 前提条件
+
+- AWS CLI がインストールされている
+- AWS 認証情報が設定されている（初回デプロイ時は管理者権限が必要）
+- Node.js がインストールされている
+- monorepo のルートで `npm ci` を実行済み
+
+### ステップ1: ビルド
+
+```bash
+cd infra/shared
+npm run build
+```
+
+### ステップ2: デプロイポリシーのデプロイ
+
+```bash
+cd infra/shared
+
+# 差分確認
+npx cdk diff SharedIamPolicies
+
+# デプロイ
+npx cdk deploy SharedIamPolicies --require-approval never
+```
+
+このコマンドで4つのポリシーが一度にデプロイされます:
+- nagiyu-deploy-policy-core
+- nagiyu-deploy-policy-application
+- nagiyu-deploy-policy-container
+- nagiyu-deploy-policy-integration
+
+### ステップ3: IAM ユーザーのデプロイ
+
+ポリシーのデプロイ完了後、IAM ユーザーをデプロイします。
+
+```bash
+cd infra/shared
+
+# 差分確認
+npx cdk diff SharedIamUsers
+
+# デプロイ
+npx cdk deploy SharedIamUsers --require-approval never
+```
+
+このコマンドで2つのユーザーが一度にデプロイされます:
+- nagiyu-github-actions
+- nagiyu-local-dev
+
+### ステップ4: 動作確認
+
+```bash
+# Export 確認
+aws cloudformation list-exports \
+  --query "Exports[?contains(Name, 'iam') || contains(Name, 'policy') || contains(Name, 'user')].{Name:Name,Value:Value}" \
+  --output table \
+  --region us-east-1
+```
+
+---
+
+## 旧 CloudFormation からの移行手順
+
+### 移行の概要
+
+CloudFormation で管理されていた IAM リソースを CDK に移行します。既存のアクセスキーは変更されません。
+
+### 重要な注意事項
+
+⚠️ **アクセスキーは変更されません**
+
+- CDK は既存のアクセスキーを管理しません
+- GitHub Actions Secrets の更新は不要
+- ローカル環境の `~/.aws/credentials` も変更不要
+
+### 移行手順
+
+#### 1. 既存スタックのバックアップ
+
+```bash
+cd infra/shared/iam/policies
+mkdir -p backup
+cp *.yaml backup/
+
+cd ../users
+mkdir -p backup
+cp *.yaml backup/
+```
+
+#### 2. ポリシーの移行
+
+```bash
+cd infra/shared
+
+# 差分確認（リソースの削除がないことを確認）
+npx cdk diff SharedIamPolicies
+
+# デプロイ
+npx cdk deploy SharedIamPolicies
+```
+
+**確認ポイント:**
+- `cdk diff` でリソースの削除がないこと
+- Export 名が既存と完全一致していること
+
+#### 3. 旧ポリシースタックの削除
+
+⚠️ **重要**: ユーザースタックから参照されているため、順序を守ってください。
+
+```bash
+# 旧スタックを削除
+aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-core --region us-east-1
+aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-container --region us-east-1
+aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-application --region us-east-1
+aws cloudformation delete-stack --stack-name nagiyu-shared-deploy-policy-integration --region us-east-1
+```
+
+#### 4. ユーザーの移行
+
+```bash
+cd infra/shared
+
+# 差分確認
+npx cdk diff SharedIamUsers
+
+# デプロイ
+npx cdk deploy SharedIamUsers
+```
+
+#### 5. 旧ユーザースタックの削除
+
+```bash
+aws cloudformation delete-stack --stack-name nagiyu-shared-github-actions-user --region us-east-1
+aws cloudformation delete-stack --stack-name nagiyu-shared-local-dev-user --region us-east-1
+```
+
+#### 6. 動作確認
+
+```bash
+# GitHub Actions テスト（手動トリガー）
+gh workflow run root-deploy.yml
+```
+
+### ロールバック手順
+
+万が一問題が発生した場合:
+
+```bash
+# CDK スタックを削除（逆順）
+cd infra/shared
+npx cdk destroy SharedIamUsers
+npx cdk destroy SharedIamPolicies
+
+# 元の CloudFormation スタックを再デプロイ
+cd iam/policies/backup
+aws cloudformation deploy --template-file deploy-policy-core.yaml --stack-name nagiyu-shared-deploy-policy-core --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+aws cloudformation deploy --template-file deploy-policy-container.yaml --stack-name nagiyu-shared-deploy-policy-container --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+aws cloudformation deploy --template-file deploy-policy-application.yaml --stack-name nagiyu-shared-deploy-policy-application --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+aws cloudformation deploy --template-file deploy-policy-integration.yaml --stack-name nagiyu-shared-deploy-policy-integration --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+
+cd ../users/backup
+aws cloudformation deploy --template-file github-actions-user.yaml --stack-name nagiyu-shared-github-actions-user --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+aws cloudformation deploy --template-file local-dev-user.yaml --stack-name nagiyu-shared-local-dev-user --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+```
+
+---
+
+## デプロイ手順（旧 CloudFormation - 廃止予定）
+
+⚠️ **注意**: この方法は廃止されました。CDK を使用してください。
+
+<details>
+<summary>旧手順（参考用）</summary>
 
 IAM リソースは依存関係があるため、以下の順序でデプロイしてください。
 
