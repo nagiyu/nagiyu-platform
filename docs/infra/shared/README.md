@@ -38,8 +38,9 @@
 ネットワーク基盤。
 
 - [VPC 詳細ドキュメント](./vpc.md)
+- [VPC CDK 使用ガイド](./shared-cdk-usage.md)
 
-**配置場所:** `infra/shared/vpc/`
+**配置場所:** `infra/shared/vpc/` (CloudFormation)、`infra/shared/` (CDK)
 
 **主なリソース:**
 - VPC (dev/prod 環境ごと)
@@ -50,6 +51,8 @@
 **用途:**
 - ECS/Batch 用のネットワーク提供
 - インターネットへのアクセス制御
+
+**注意:** VPC は CDK に移行中です。詳細は [VPC CDK 使用ガイド](./shared-cdk-usage.md) を参照してください。
 
 ### ACM (AWS Certificate Manager)
 
