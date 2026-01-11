@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - develop
-      - main
+      - master
     paths:
       - 'infra/shared/**'
       - '.github/workflows/shared-deploy.yml'
@@ -25,7 +25,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    environment: ${{ github.ref == 'refs/heads/master' && 'prod' || 'dev' }}
     
     steps:
       - name: Checkout code
@@ -54,7 +54,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          elif [ "${{ github.ref }}" = "refs/heads/master" ]; then
             echo "environment=prod" >> $GITHUB_OUTPUT
           else
             echo "environment=dev" >> $GITHUB_OUTPUT

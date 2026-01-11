@@ -195,7 +195,7 @@ GitHub Actions → root-deploy.yml → Run workflow
 Shared インフラ (VPC, ACM, IAM) を CDK で自動デプロイします。
 
 #### トリガー条件
-- **自動実行**: `develop` または `main` ブランチへのプッシュで、以下のパスが変更された場合
+- **自動実行**: `develop` または `master` ブランチへのプッシュで、以下のパスが変更された場合
   - `infra/shared/**`
   - `.github/workflows/shared-deploy.yml`
 - **手動実行**: GitHub Actions から環境 (dev/prod) を選択して実行可能
@@ -203,7 +203,7 @@ Shared インフラ (VPC, ACM, IAM) を CDK で自動デプロイします。
 #### デプロイフロー
 1. Node.js 22 セットアップと依存関係インストール
 2. AWS 認証情報設定
-3. 環境判定 (develop → dev, main → prod)
+3. 環境判定 (develop → dev, master → prod)
 4. CDK Bootstrap (初回のみ)
 5. CDK Synth (CloudFormation テンプレート生成)
 6. CDK Deploy (全スタックを一括デプロイ)
