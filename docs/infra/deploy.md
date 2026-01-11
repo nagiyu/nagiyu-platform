@@ -186,7 +186,71 @@ GitHub Actions → root-deploy.yml → Run workflow
 
 ---
 
-## GitHub Actions による自動デプロイ
+## GitHub Actions による CDK 自動デプロイ
+
+### Shared インフラストラクチャ
+
+**ワークフロー**: `.github/workflows/shared-deploy.yml`
+
+Shared インフラ (VPC, ACM, IAM) を CDK で自動デプロイします。
+
+#### トリガー条件
+- **自動実行**: `develop` または `main` ブランチへのプッシュで、以下のパスが変更された場合
+  - `infra/shared/**`
+  - `.github/workflows/shared-deploy.yml`
+- **手動実行**: GitHub Actions から環境 (dev/prod) を選択して実行可能
+
+#### デプロイフロー
+1. Node.js 22 セットアップと依存関係インストール
+2. AWS 認証情報設定
+3. 環境判定 (develop → dev, main → prod)
+4. CDK Bootstrap (初回のみ)
+5. CDK Synth (CloudFormation テンプレート生成)
+6. CDK Deploy (全スタックを一括デプロイ)
+
+#### 手動実行方法
+
+```bash
+# GitHub CLI を使用
+gh workflow run shared-deploy.yml -f environment=dev
+
+# または GitHub Web UI から
+# Actions → Deploy Shared Infrastructure → Run workflow
+```
+
+### Tools サービス
+
+**ワークフロー**: `.github/workflows/tools-deploy.yml`
+
+Tools サービスのインフラとアプリケーションを CDK + Docker でデプロイします。
+
+#### トリガー条件
+- **自動実行**: `develop`、`integration/**`、または `master` ブランチへのプッシュで、以下のパスが変更された場合
+  - `services/tools/**`
+  - `infra/tools/**`
+  - `package.json`
+  - `package-lock.json`
+  - `.github/workflows/tools-deploy.yml`
+- **手動実行**: GitHub Actions から実行可能
+
+#### デプロイフロー
+1. **Infrastructure ジョブ**: CDK で ECR、Lambda、CloudFront を一括デプロイ
+2. **Build ジョブ**: Docker イメージをビルドして ECR にプッシュ
+3. **Deploy ジョブ**: Lambda 関数のイメージを更新してヘルスチェック実行
+
+#### 手動実行方法
+
+```bash
+# GitHub CLI を使用
+gh workflow run tools-deploy.yml
+
+# または GitHub Web UI から
+# Actions → Tools App - Build and Deploy → Run workflow
+```
+
+---
+
+## GitHub Actions による自動デプロイ (レガシー)
 
 ### ワークフロー設定例
 
@@ -375,6 +439,103 @@ aws cloudformation deploy \
 aws cloudformation delete-stack --stack-name <スタック名> --region us-east-1
 aws cloudformation wait stack-delete-complete --stack-name <スタック名> --region us-east-1
 aws cloudformation deploy --template-file <テンプレート> --stack-name <スタック名> --capabilities CAPABILITY_NAMED_IAM --region us-east-1
+```
+
+### CDK デプロイのトラブルシューティング
+
+#### GitHub Actions ワークフローが失敗する
+
+**原因:**
+- IAM 権限が不足している
+- AWS_ACCOUNT_ID シークレットが未設定
+- CDK Bootstrap が未実行
+
+**対処法:**
+
+```bash
+# IAM 権限の確認
+aws iam list-attached-user-policies --user-name nagiyu-github-actions
+
+# 必要なシークレットの確認
+# GitHub Settings → Secrets → Actions で以下を確認:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - AWS_ACCOUNT_ID
+
+# CDK Bootstrap の手動実行
+cd infra/shared
+npx cdk bootstrap aws://<ACCOUNT_ID>/us-east-1
+```
+
+#### CDK Deploy がスタック名を見つけられない
+
+**エラー例:**
+```
+Error: Could not find ECR repository URI from CDK stack Tools-Ecr-dev
+```
+
+**原因:**
+- CDK スタックがまだデプロイされていない
+- 環境名が一致していない (dev/prod)
+
+**対処法:**
+
+```bash
+# スタック一覧を確認
+aws cloudformation list-stacks \
+  --query "StackSummaries[?StackStatus!='DELETE_COMPLETE'].StackName" \
+  --output table
+
+# 手動で CDK スタックをデプロイ
+cd infra/tools
+npx cdk deploy --all --context env=dev --require-approval never
+```
+
+#### Lambda 関数の更新が失敗する
+
+**エラー例:**
+```
+Error: ResourceConflictException: The operation cannot be performed at this time
+```
+
+**原因:**
+- Lambda 関数が前回の更新処理中
+- イメージの取得に時間がかかっている
+
+**対処法:**
+
+```bash
+# Lambda 関数の状態を確認
+aws lambda get-function \
+  --function-name tools-app-dev \
+  --query 'Configuration.State' \
+  --output text
+
+# Active になるまで待機してから再試行
+```
+
+#### Docker イメージのプッシュが失敗する
+
+**エラー例:**
+```
+Error: denied: User is not authorized to perform: ecr:InitiateLayerUpload
+```
+
+**原因:**
+- ECR への push 権限が不足
+- ECR リポジトリが存在しない
+
+**対処法:**
+
+```bash
+# ECR リポジトリの存在確認
+aws ecr describe-repositories \
+  --repository-names tools-app-dev \
+  --region us-east-1
+
+# リポジトリが存在しない場合は CDK で作成
+cd infra/tools
+npx cdk deploy Tools-Ecr-dev --context env=dev
 ```
 
 ---
