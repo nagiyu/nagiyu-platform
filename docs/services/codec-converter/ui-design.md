@@ -126,7 +126,7 @@ graph LR
 - **コンポーネント**: Material-UI Chip（ステータスバッジ）、Alert（説明文）
 - **表示内容**:
     - **PENDING**: 🟡 待機中 - 「変換処理を待っています」（Chip color="warning"）
-    - **PROCESSING**: 🔵 処理中 - 「動画を変換しています...」（Chip color="primary"）
+    - **PROCESSING**: 🔵 処理中 - 「動画を変換しています...」（Chip color="info"）
     - **COMPLETED**: 🟢 完了 - 「変換が完了しました」（Chip color="success"）
     - **FAILED**: 🔴 失敗 - エラーメッセージを表示（Chip color="error"、Alert severity="error"）
 
@@ -170,7 +170,7 @@ graph LR
 - **プライマリカラー**: Material-UI テーマのプライマリカラー（`@nagiyu/ui` のテーマ定義に従う）
 - **ステータスカラー**（Material-UI Chip の標準色を使用）:
     - PENDING: `warning`（オレンジ）
-    - PROCESSING: `primary`（青）
+    - PROCESSING: `info`（青）
     - COMPLETED: `success`（緑）
     - FAILED: `error`（赤）
 
