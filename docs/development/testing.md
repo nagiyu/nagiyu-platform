@@ -301,6 +301,65 @@ npm run test:e2e:headed   # ブラウザ表示モード
 
 GitHub Actionsで自動実行。
 
+## 既知の制約・技術的問題
+
+### React 19 + Next.js 16 + Jest の互換性問題
+
+#### 問題概要
+
+React 19 の新しいアーキテクチャと Jest の組み合わせにおいて、Next.js App Router の page コンポーネントを直接ユニットテストすることができない互換性問題が確認されています。
+
+**エラー内容**:
+```
+Invalid hook call. Hooks can only be called inside of the body of a function component.
+TypeError: Cannot read properties of null (reading 'useState')
+```
+
+#### 影響範囲
+
+- **影響あり**: Next.js App Router の page コンポーネント（`app/**/page.tsx`）
+- **影響なし**: 
+  - 個別の React コンポーネント（Material-UI コンポーネント含む）
+  - Next.js API routes
+  - ブラウザAPI以外のビジネスロジック
+
+#### 検証結果
+
+以下のテストパターンで動作確認済み:
+
+| テスト対象 | 結果 | 備考 |
+|-----------|------|------|
+| Material-UI コンポーネント単体 | ✅ 動作 | ThemeProvider でラップして正常動作 |
+| `useRouter` モック | ✅ 動作 | Next.js routing のモックは正常動作 |
+| `useState` 等の React hooks | ❌ エラー | page コンポーネント内で使用時にエラー |
+| Page コンポーネント全体 | ❌ エラー | App Router page は直接テスト不可 |
+| API routes | ✅ 動作 | React 不使用のため影響なし |
+
+#### 回避策
+
+1. **E2E テストでカバー**（推奨）
+   - Playwright による E2E テストで page の機能をテスト
+   - 実際のユーザーフローを網羅的に検証
+   - page コンポーネントはカバレッジ対象外に設定（`jest.config.ts` で除外）
+
+2. **コンポーネント分割**
+   - Page コンポーネントから小さな React コンポーネントを抽出
+   - 抽出したコンポーネントを個別にユニットテスト
+   - Page コンポーネント自体は最小限の構成とする
+
+#### 将来の対応
+
+React 19 の testing ecosystem が成熟し、以下のいずれかが対応された時点で再評価:
+- Testing Library の React 19 完全対応
+- Next.js の Jest 統合改善
+- React Testing Tools の更新
+
+#### 関連情報
+
+- 発見時期: 2026年1月（Phase 5: codec-converter UI migration）
+- 対象サービス: codec-converter-web（他サービスでも同様の制約あり）
+- 参考 Issue: #415
+
 ## 参考
 
 - [rules.md](./rules.md): コーディング規約・べからず集

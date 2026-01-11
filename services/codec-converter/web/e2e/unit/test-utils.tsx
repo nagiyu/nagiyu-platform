@@ -1,9 +1,8 @@
 import { render, RenderOptions } from '@testing-library/react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ReactElement, ReactNode } from 'react';
-
-const theme = createTheme();
+import { theme } from '@nagiyu/ui';
 
 function AllTheProviders({ children }: { children: ReactNode }) {
   return (

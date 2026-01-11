@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom';
+import { TextEncoder, TextDecoder } from 'util';
 
 // Mock TextEncoder/TextDecoder for jsdom
-if (typeof TextEncoder === 'undefined') {
-  global.TextEncoder = require('util').TextEncoder;
-  global.TextDecoder = require('util').TextDecoder;
+if (typeof global.TextEncoder === 'undefined') {
+  global.TextEncoder = TextEncoder;
+  global.TextDecoder = TextDecoder as typeof global.TextDecoder;
 }
