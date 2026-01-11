@@ -1,0 +1,86 @@
+name: Deploy Shared Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - 'infra/shared/**'
+      - '.github/workflows/shared-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: infra
+        run: npm ci
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: CDK Bootstrap (if needed)
+        working-directory: infra/shared
+        run: |
+          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/us-east-1
+      
+      - name: CDK Synth
+        working-directory: infra/shared
+        run: |
+          npx cdk synth --all --context env=${{ steps.env.outputs.environment }}
+      
+      - name: CDK Deploy
+        working-directory: infra/shared
+        run: |
+          npx cdk deploy --all \
+            --context env=${{ steps.env.outputs.environment }} \
+            --require-approval never
+      
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: us-east-1" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stacks**: VPC, ACM, IAM Policies, IAM Users" >> $GITHUB_STEP_SUMMARY
