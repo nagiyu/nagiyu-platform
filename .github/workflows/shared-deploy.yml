@@ -2,12 +2,13 @@ name: Deploy Shared Infrastructure
 
 on:
   push:
-    branches:
-      - develop
-      - master
-    paths:
-      - 'infra/shared/**'
-      - '.github/workflows/shared-deploy.yml'
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    # paths:
+    #   - 'infra/shared/**'
+    #   - '.github/workflows/shared-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -59,21 +60,25 @@ jobs:
           else
             echo "environment=dev" >> $GITHUB_OUTPUT
           fi
-      
+
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+
       - name: CDK Bootstrap (if needed)
-        working-directory: infra/shared
         run: |
-          npx cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/us-east-1
-      
+          npm run bootstrap --workspace=@nagiyu/shared-infra -- aws://${{ steps.get-account-id.outputs.account-id }}/us-east-1
+
       - name: CDK Synth
-        working-directory: infra/shared
         run: |
-          npx cdk synth --all --context env=${{ steps.env.outputs.environment }}
-      
+          npm run synth --workspace=@nagiyu/shared-infra -- --all --context env=${{ steps.env.outputs.environment }}
+
       - name: CDK Deploy
-        working-directory: infra/shared
         run: |
-          npx cdk deploy --all \
+          npm run deploy --workspace=@nagiyu/shared-infra -- --all \
             --context env=${{ steps.env.outputs.environment }} \
             --require-approval never
       
