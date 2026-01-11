@@ -90,6 +90,9 @@ export class CloudFrontStack extends cdk.Stack {
       domainNames: [domainName],
       certificate: certificate,
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
+      // NOTE: 元の CloudFormation テンプレートには httpVersion / enableIpv6 の指定はなかったが、
+      //       CDK への移行時に意図的に HTTP/3 対応と IPv6 を有効化している。
+      //       もし挙動変更の疑いがある場合は、元テンプレートとこの設定の差分を再確認すること。
       httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
       enableIpv6: true,
       // dev 環境ではコスト削減のため PRICE_CLASS_100 を使用
