@@ -69,14 +69,20 @@ jobs:
           echo "AWS Account ID: $ACCOUNT_ID"
 
       - name: CDK Bootstrap (if needed)
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
         run: |
           npm run bootstrap --workspace=@nagiyu/shared-infra -- aws://${{ steps.get-account-id.outputs.account-id }}/us-east-1
 
       - name: CDK Synth
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
         run: |
           npm run synth --workspace=@nagiyu/shared-infra -- --all --context env=${{ steps.env.outputs.environment }}
 
       - name: CDK Deploy
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
         run: |
           npm run deploy --workspace=@nagiyu/shared-infra -- --all \
             --context env=${{ steps.env.outputs.environment }} \
