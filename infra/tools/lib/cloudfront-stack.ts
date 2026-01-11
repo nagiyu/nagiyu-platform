@@ -36,40 +36,6 @@ export class CloudFrontStack extends cdk.Stack {
     const certificateArn = cdk.Fn.importValue(certExportName);
     const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certificateArn);
 
-    // Response Headers Policy の作成 (セキュリティヘッダー)
-    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
-      this,
-      'SecurityHeadersPolicy',
-      {
-        responseHeadersPolicyName: `nagiyu-tools-security-headers-${environment}`,
-        comment: `Security headers for Tools service (${environment})`,
-        securityHeadersBehavior: {
-          strictTransportSecurity: {
-            accessControlMaxAge: cdk.Duration.seconds(63072000),
-            includeSubdomains: true,
-            preload: true,
-            override: true,
-          },
-          contentTypeOptions: {
-            override: true,
-          },
-          frameOptions: {
-            frameOption: cloudfront.HeadersFrameOption.DENY,
-            override: true,
-          },
-          xssProtection: {
-            protection: true,
-            modeBlock: true,
-            override: true,
-          },
-          referrerPolicy: {
-            referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
-            override: true,
-          },
-        },
-      }
-    );
-
     // CloudFront ディストリビューション
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `Tools Service Distribution (${environment})`,
@@ -82,24 +48,22 @@ export class CloudFrontStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-        originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-        responseHeadersPolicy: responseHeadersPolicy,
+        // 元の CloudFormation テンプレートと同じ AWS マネージドポリシー ID を使用
+        cachePolicy: cloudfront.CachePolicy.fromCachePolicyId(
+          this,
+          'CachingDisabledPolicy',
+          '4135ea2d-6df8-44a3-9df3-4b5a84be39ad'
+        ),
+        originRequestPolicy: cloudfront.OriginRequestPolicy.fromOriginRequestPolicyId(
+          this,
+          'AllViewerExceptHostHeaderPolicy',
+          'b689b0a8-53d0-40ab-baf2-68738e2966ac'
+        ),
         compress: true,
       },
       domainNames: [domainName],
       certificate: certificate,
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
-      // NOTE: 元の CloudFormation テンプレートには httpVersion / enableIpv6 の指定はなかったが、
-      //       CDK への移行時に意図的に HTTP/3 対応と IPv6 を有効化している。
-      //       もし挙動変更の疑いがある場合は、元テンプレートとこの設定の差分を再確認すること。
-      httpVersion: cloudfront.HttpVersion.HTTP2_AND_3,
-      enableIpv6: true,
-      // dev 環境ではコスト削減のため PRICE_CLASS_100 を使用
-      priceClass:
-        environment === 'prod'
-          ? cloudfront.PriceClass.PRICE_CLASS_ALL
-          : cloudfront.PriceClass.PRICE_CLASS_100,
     });
 
     // タグの追加

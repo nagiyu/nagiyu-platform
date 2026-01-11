@@ -47,8 +47,8 @@ export class LambdaStack extends cdk.Stack {
       architecture: lambda.Architecture.X86_64,
       role: lambdaRole,
       environment: {
-        NODE_ENV: environment === 'prod' ? 'production' : 'development',
-        ENVIRONMENT: environment,
+        NODE_ENV: 'production',
+        APP_VERSION: '1.0.0',
       },
       description: `Tools Service Lambda function for ${environment} environment`,
     });
@@ -64,8 +64,11 @@ export class LambdaStack extends cdk.Stack {
     });
 
     // Lambda Function URL への公開アクセスを許可
-    // Function URL with NONE auth type は自動的に公開アクセスを許可するため、
-    // 追加の Permission は不要（CDK が自動的に設定）
+    this.lambdaFunction.addPermission('AllowPublicAccess', {
+      principal: new iam.AnyPrincipal(),
+      action: 'lambda:InvokeFunctionUrl',
+      functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
+    });
 
     // タグの追加
     cdk.Tags.of(this.lambdaFunction).add('Application', 'nagiyu');
