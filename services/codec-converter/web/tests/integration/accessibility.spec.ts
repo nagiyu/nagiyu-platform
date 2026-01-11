@@ -67,10 +67,10 @@ test.describe('Accessibility Tests', () => {
         })
         .first();
       await uploadButton.focus();
-      
+
       // フォーカスインジケータが表示されていることを確認
       await expect(uploadButton).toBeFocused();
-      
+
       // フォーカスされた要素が存在することを確認
       const focusedElement = await page.evaluateHandle(() => document.activeElement);
       await expect(focusedElement).toBeTruthy();

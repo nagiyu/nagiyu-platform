@@ -28,6 +28,9 @@ const config: Config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^codec-converter-core$': '<rootDir>/../core/src/index.ts',
+    '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
+    '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 };
