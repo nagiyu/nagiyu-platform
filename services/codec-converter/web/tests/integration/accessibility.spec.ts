@@ -185,11 +185,12 @@ test.describe('Accessibility Tests', () => {
 
       // ヘッダー内のナビゲーションリンクが適切に設定されていることを確認
       // @nagiyu/uiのHeaderコンポーネントの実装による
+      // リンクが存在する場合は適切にラベル付けされていることを期待
       const links = banner.getByRole('link');
       const linkCount = await links.count();
 
-      // 少なくとも1つのリンクが存在することを確認
-      expect(linkCount).toBeGreaterThanOrEqual(0);
+      // ヘッダーにはホームへのリンクが最低1つ存在する
+      expect(linkCount).toBeGreaterThan(0);
     });
 
     test('should have accessible Footer component', async ({ page }) => {
@@ -200,13 +201,9 @@ test.describe('Accessibility Tests', () => {
       const contentinfo = page.getByRole('contentinfo');
       await expect(contentinfo).toBeVisible();
 
-      // Footerが画面の下部に配置されていることを確認
+      // Footerが適切に配置されていることを確認
       const footerBox = await contentinfo.boundingBox();
       expect(footerBox).toBeTruthy();
-      if (footerBox) {
-        const viewportSize = page.viewportSize();
-        expect(viewportSize).toBeTruthy();
-      }
     });
 
     test('should maintain focus order through Header, main content, and Footer', async ({
