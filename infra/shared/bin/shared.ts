@@ -21,7 +21,7 @@ const stackEnv = {
 };
 
 // VPC スタックを作成（既存のスタック名に合わせる）
-new VpcStack(app, `nagiyu-shared-vpc-${env}`, {
+new VpcStack(app, `nagiyu-${env}-vpc`, {
   environment: env as 'dev' | 'prod',
   env: stackEnv,
   description: `Shared VPC Infrastructure - ${env} environment`,
