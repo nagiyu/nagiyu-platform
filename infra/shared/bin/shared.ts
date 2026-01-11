@@ -34,7 +34,7 @@ if (!domainName) {
   throw new Error('DOMAIN_NAME environment variable or domainName context is required');
 }
 
-new AcmStack(app, 'SharedAcm', {
+new AcmStack(app, 'nagiyu-shared-acm-certificate', {
   domainName,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
