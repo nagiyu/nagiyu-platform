@@ -211,7 +211,11 @@ Material-UI のスペーシングシステム（8px基準）を使用:
 // src/app/layout.tsx
 import ThemeRegistry from '@/components/ThemeRegistry';
 
-export default function RootLayout({ children }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="ja">
       <body>
