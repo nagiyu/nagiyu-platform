@@ -14,34 +14,8 @@
 import { test, expect } from './helpers';
 
 test.describe('Common Components - Header and Footer', () => {
-  test('should display header on homepage', async ({ page }) => {
-    await page.goto('/');
-
-    // Verify header is visible
-    const header = page.locator('header');
-    await expect(header).toBeVisible();
-
-    // Verify app name "Codec Converter" is displayed in header
-    // Note: .first() is used because the app name might appear in multiple locations (e.g., header and mobile menu)
-    const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
-    await expect(appName).toBeVisible();
-    await expect(appName).toHaveAttribute('href', '/');
-  });
-
-  test('should display footer on homepage', async ({ page }) => {
-    await page.goto('/');
-
-    // Verify footer is visible
-    const footer = page.locator('footer');
-    await expect(footer).toBeVisible();
-
-    // Verify version information is displayed
-    const version = footer.getByText(/v\d+\.\d+\.\d+/);
-    await expect(version).toBeVisible();
-  });
-
   test('should display header on all pages', async ({ page }) => {
-    // Test on homepage
+    // ホームページでテスト
     await page.goto('/');
     let header = page.locator('header');
     await expect(header).toBeVisible();
@@ -50,7 +24,7 @@ test.describe('Common Components - Header and Footer', () => {
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toBeVisible();
 
-    // Test on job details page
+    // ジョブ詳細ページでテスト
     // Note: Using a test UUID that will trigger the error state, allowing us to verify
     // that header is still rendered even when the page content shows an error.
     // This is a valid test scenario as we want header/footer to be present on all pages.
@@ -64,7 +38,7 @@ test.describe('Common Components - Header and Footer', () => {
   });
 
   test('should display footer on all pages', async ({ page }) => {
-    // Test on homepage
+    // ホームページでテスト
     await page.goto('/');
     let footer = page.locator('footer');
     await expect(footer).toBeVisible();
@@ -72,7 +46,7 @@ test.describe('Common Components - Header and Footer', () => {
     let version = footer.getByText(/v\d+\.\d+\.\d+/);
     await expect(version).toBeVisible();
 
-    // Test on job details page
+    // ジョブ詳細ページでテスト
     // Note: Using a test UUID to verify footer is present even on error pages
     await page.goto('/jobs/00000000-0000-0000-0000-000000000000');
     footer = page.locator('footer');
@@ -83,38 +57,38 @@ test.describe('Common Components - Header and Footer', () => {
   });
 
   test('should navigate to homepage when clicking header title', async ({ page }) => {
-    // Start on a job details page (using test UUID)
+    // ジョブ詳細ページから開始（テストUUIDを使用）
     await page.goto('/jobs/00000000-0000-0000-0000-000000000000');
 
-    // Verify we're on the job details page
+    // ジョブ詳細ページにいることを確認
     await expect(page).toHaveURL(/\/jobs\//);
 
-    // Click on the app name in the header
+    // Headerのアプリ名をクリック
     // Note: .first() is used because the app name might appear in multiple locations
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toBeVisible();
     await appName.click();
 
-    // Verify we're redirected to the homepage
+    // ホームページにリダイレクトされることを確認
     await expect(page).toHaveURL('/');
 
-    // Verify the main heading is visible
+    // メイン見出しが表示されることを確認
     await expect(page.getByRole('heading', { name: 'Codec Converter' })).toBeVisible();
   });
 
   test('should display header with accessible navigation', async ({ page }) => {
     await page.goto('/');
 
-    // Verify header has proper semantic HTML
+    // HeaderがセマンティックHTMLを使用していることを確認
     const header = page.locator('header');
     await expect(header).toBeVisible();
 
-    // Verify the app name is a link with accessible attributes
+    // アプリ名がアクセシブルな属性を持つリンクであることを確認
     // Note: .first() is used because the app name might appear in multiple locations
     const appName = page.getByRole('link', { name: /Codec Converter/i }).first();
     await expect(appName).toHaveAttribute('href', '/');
 
-    // Verify the link is keyboard accessible (can be focused)
+    // リンクがキーボードアクセス可能であることを確認（フォーカス可能）
     await appName.focus();
     await expect(appName).toBeFocused();
   });
@@ -122,17 +96,17 @@ test.describe('Common Components - Header and Footer', () => {
   test('should display footer with version and accessibility', async ({ page }) => {
     await page.goto('/');
 
-    // Verify footer has proper semantic HTML
+    // FooterがセマンティックHTMLを使用していることを確認
     const footer = page.locator('footer');
     await expect(footer).toBeVisible();
 
-    // Verify version text follows semantic versioning pattern
+    // バージョンテキストがセマンティックバージョニングのパターンに従っていることを確認
     // Note: Footer displays "v1.0.0 | プライバシーポリシー | 利用規約" in a single Typography component
     const version = footer.getByText(/v\d+\.\d+\.\d+/);
     await expect(version).toBeVisible();
 
     const versionText = await version.textContent();
-    // Check that version text contains the semantic versioning pattern
+    // バージョンテキストにセマンティックバージョニングのパターンが含まれることを確認
     expect(versionText).toMatch(/v\d+\.\d+\.\d+/);
   });
 });
