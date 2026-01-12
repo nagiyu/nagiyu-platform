@@ -70,9 +70,9 @@ infra/
 │   ├── tsconfig.json
 │   └── cdk.json
 │
-├── tools/              # Tools サービスのインフラ (CDK)
+├── app-A/
 │   ├── bin/
-│   │   └── tools.ts
+│   │   └── app-A.ts
 │   ├── lib/
 │   │   ├── ecr-stack.ts
 │   │   ├── lambda-stack.ts
@@ -80,17 +80,10 @@ infra/
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── cdk.json
-│
-├── root/               # ルートドメインリソース (CDK)
-├── auth/               # Auth サービスのインフラ (CDK)
-├── admin/              # Admin サービスのインフラ (CDK)
-├── codec-converter/    # Codec Converter サービスのインフラ (CDK)
 ├── cdk.json            # CDK 設定 (ルート)
 ├── tsconfig.json       # TypeScript 設定 (ルート)
 └── package.json        # 依存関係 (ルート)
 ```
-
-**注:** 2026年1月の CDK 移行により、全リソースが CDK (TypeScript) で管理されています。詳細は [CDK 移行ガイド](./cdk-migration.md) を参照。
 
 ---
 

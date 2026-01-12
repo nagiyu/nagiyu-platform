@@ -10,7 +10,6 @@ AWS CDK (TypeScript) を用いて、共通基盤と各アプリケーション�
 ### 概要・設計
 
 - [アーキテクチャ](./architecture.md) - インフラ全体の設計思想と構成
-- [CDK 移行ガイド](./cdk-migration.md) - CloudFormation から CDK への移行戦略 (完了)
 
 ### 運用手順
 
