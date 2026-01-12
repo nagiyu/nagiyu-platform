@@ -343,8 +343,8 @@ nagiyu-platform のルートドメインインフラは、以下の CDK スタ�
 ### 前提条件
 
 1. **共通リソースが存在する**:
-   - VPC (CloudFormation): `nagiyu-{env}-vpc`
-   - ACM 証明書 (CloudFormation): `nagiyu-shared-acm-certificate`
+   - VPC (CDK): `nagiyu-shared-vpc-{env}`
+   - ACM 証明書 (CDK): `SharedAcm`
    - IAM ユーザー (CloudFormation): `nagiyu-shared-github-actions-user`
 
 2. **ECR リポジトリが存在する**:

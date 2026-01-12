@@ -40,10 +40,10 @@ jobs:
         run: |
           if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "stack-name=CodecConverterStack-prod" >> "$GITHUB_OUTPUT"
+            echo "stack-name=NagiyuCodecConverterProd" >> "$GITHUB_OUTPUT"
           else
             echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "stack-name=CodecConverterStack-dev" >> "$GITHUB_OUTPUT"
+            echo "stack-name=NagiyuCodecConverterDev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Node.js

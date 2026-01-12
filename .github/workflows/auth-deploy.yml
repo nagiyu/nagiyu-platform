@@ -33,7 +33,6 @@ jobs:
     
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
-      cdk-stack-name: ${{ steps.set-env.outputs.cdk-stack-name }}
     
     steps:
       - name: Checkout code
@@ -50,13 +49,6 @@ jobs:
             echo "environment=dev" >> "$GITHUB_OUTPUT"
           else
             echo "environment=dev" >> "$GITHUB_OUTPUT"
-          fi
-          
-          # Set CDK stack name based on environment
-          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "cdk-stack-name=Auth-prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "cdk-stack-name=Auth-dev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Node.js
@@ -79,29 +71,32 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch secrets from Secrets Manager
-        id: fetch-secrets
-        uses: aws-actions/aws-secretsmanager-get-secrets@v2
-        with:
-          secret-ids: |
-            GOOGLE_OAUTH,nagiyu-auth-google-oauth-${{ steps.set-env.outputs.environment }}
-            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ steps.set-env.outputs.environment }}
-          parse-json-secrets: true
-
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
           npm run cdk --workspace=@nagiyu/infra-auth -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
 
       - name: Deploy Infrastructure (DynamoDB, Secrets, ECR)
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
         run: |
           echo "Deploying DynamoDB, Secrets Manager, and ECR stacks..."
+
+          # Set stack names based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            DYNAMODB_STACK="NagiyuAuthDynamoDBProd"
+            SECRETS_STACK="NagiyuAuthSecretsProd"
+            ECR_STACK="NagiyuAuthECRProd"
+          else
+            DYNAMODB_STACK="NagiyuAuthDynamoDBDev"
+            SECRETS_STACK="NagiyuAuthSecretsDev"
+            ECR_STACK="NagiyuAuthECRDev"
+          fi
+
+          # Deploy infrastructure stacks
           npm run deploy --workspace=@nagiyu/infra-auth -- \
-            --context env=${{ steps.set-env.outputs.environment }} \
-            --context googleClientId="${{ env.GOOGLE_OAUTH_CLIENTID }}" \
-            --context googleClientSecret="${{ env.GOOGLE_OAUTH_CLIENTSECRET }}" \
-            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
-            ${{ steps.set-env.outputs.cdk-stack-name }} \
+            --context env=$ENVIRONMENT \
+            "$DYNAMODB_STACK" "$SECRETS_STACK" "$ECR_STACK" \
             --require-approval never
 
   build:
@@ -143,21 +138,28 @@ jobs:
       - name: Get ECR repository from CDK outputs
         id: get-ecr
         env:
-          CDK_STACK_NAME: ${{ needs.infrastructure.outputs.cdk-stack-name }}
+          ENVIRONMENT: ${{ needs.infrastructure.outputs.environment }}
         run: |
+          # Set ECR stack name based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            ECR_STACK_NAME="NagiyuAuthECRProd"
+          else
+            ECR_STACK_NAME="NagiyuAuthECRDev"
+          fi
+
           # Try to get from CloudFormation stack
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-ECR-${{ needs.infrastructure.outputs.environment }}" \
+            --stack-name "$ECR_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-          
+
           if [ -z "$REPOSITORY_URI" ]; then
             echo "Warning: Could not find ECR repository URI from stack, using default naming"
             ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-auth-${{ needs.infrastructure.outputs.environment }}"
+            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-auth-$ENVIRONMENT"
           fi
-          
+
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
           echo "ECR Repository: $REPOSITORY_URI"
 
@@ -244,7 +246,7 @@ jobs:
         run: |
           # Get Lambda function ARN from CloudFormation
           FUNCTION_ARN=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-Lambda-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -287,7 +289,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-Lambda-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -332,7 +334,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -410,7 +412,7 @@ jobs:
           
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -423,7 +425,7 @@ jobs:
           
           # Custom Domain (if configured)
           CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")

@@ -100,9 +100,9 @@ jobs:
       - name: Get latest ECR image tag
         id: get-image-tag
         run: |
-          # Get ECR repository URI from CloudFormation stack
+          # Get ECR repository URI from CloudFormation stack (fixed to dev environment)
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name nagiyu-tools-ecr-prod \
+            --stack-name NagiyuToolsEcrDev \
             --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region ${{ env.AWS_REGION }})

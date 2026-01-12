@@ -1,7 +1,7 @@
 # インフラストラクチャドキュメント
 
 本ディレクトリは nagiyu-platform のインフラストラクチャ関連ドキュメントを格納します。
-AWS CloudFormation と AWS CDK を用いて、共通基盤と各アプリケーション固有のリソースを管理します。
+AWS CDK (TypeScript) を用いて、共通基盤と各アプリケーション固有のリソースを管理します。
 
 ---
 
@@ -10,7 +10,6 @@ AWS CloudFormation と AWS CDK を用いて、共通基盤と各アプリケー�
 ### 概要・設計
 
 - [アーキテクチャ](./architecture.md) - インフラ全体の設計思想と構成
-- [CDK 移行ガイド](./cdk-migration.md) - CloudFormation から CDK への移行戦略
 
 ### 運用手順
 
@@ -25,6 +24,7 @@ AWS CloudFormation と AWS CDK を用いて、共通基盤と各アプリケー�
     - [ACM](./shared/acm.md) - SSL/TLS 証明書の管理
     - [CloudFront](./shared/cloudfront.md) - CloudFront の設計と運用
 
+- [ツールサービス](./tools/README.md) - Tools サービスのインフラストラクチャ
 - [ルートドメインインフラ](./root/architecture.md) - ルートドメイン (example.com) のアーキテクチャと設計
 
 ---
@@ -33,25 +33,40 @@ AWS CloudFormation と AWS CDK を用いて、共通基盤と各アプリケー�
 
 ```
 infra/
-├── bin/              # CDK App エントリーポイント
-│   └── nagiyu-platform.ts
-├── lib/              # CDK Constructs とスタック (将来)
-├── shared/           # 全サービスで共有するリソース (CloudFormation)
-│   ├── iam/         # IAM ユーザー、ポリシー
-│   ├── vpc/         # VPC 関連
-│   └── acm/         # ACM 証明書
+├── shared/           # 全サービスで共有するリソース (CDK)
+│   ├── bin/
+│   │   └── shared.ts
+│   ├── lib/
+│   │   ├── vpc-stack.ts
+│   │   ├── acm-stack.ts
+│   │   ├── iam/
+│   │   │   ├── iam-policies-stack.ts
+│   │   │   └── iam-users-stack.ts
+│   │   └── utils/
+│   │       └── exports.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── cdk.json
+│   └── README.md
+├── tools/            # Tools サービスのインフラ (CDK)
+│   ├── bin/
+│   │   └── tools.ts
+│   ├── lib/
+│   │   ├── ecr-stack.ts
+│   │   ├── lambda-stack.ts
+│   │   └── cloudfront-stack.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── cdk.json
+│   └── README.md
 ├── root/             # ルートドメインリソース (CDK)
-├── app-A/            # アプリケーション固有のリソース (将来)
-│   ├── lambda/      # Lambda 関数
-│   ├── dynamodb/    # DynamoDB テーブル
-│   ├── api-gateway/ # API Gateway
-│   └── cloudfront/  # CloudFront ディストリビューション
-├── cdk.json          # CDK 設定
-├── tsconfig.json     # TypeScript 設定
-└── package.json      # 依存関係
+├── auth/             # Auth サービスのインフラ (CDK)
+├── admin/            # Admin サービスのインフラ (CDK)
+├── codec-converter/  # Codec Converter サービスのインフラ (CDK)
+└── README.md         # 本ドキュメント
 ```
 
-**注:** 現時点で作成済みのリソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。将来的には全リソースを CDK に移行する予定です。
+**注:** 2026年1月の CDK 移行により、全リソースが CDK (TypeScript) で管理されています。
 
 ---
 

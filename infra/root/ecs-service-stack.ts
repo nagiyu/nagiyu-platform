@@ -117,7 +117,8 @@ export class EcsServiceStack extends cdk.Stack {
     });
 
     // Get ECR repository ARN for scoped permissions
-    const ecrStackName = `nagiyu-tools-ecr-${environment}`;
+    // Fixed to dev environment ECR repository
+    const ecrStackName = 'NagiyuToolsEcrDev';
     const ecrRepositoryArn = cdk.Fn.importValue(
       `${ecrStackName}-RepositoryArn`
     );
@@ -151,7 +152,7 @@ export class EcsServiceStack extends cdk.Stack {
     });
 
     // Get ECR repository URI from CloudFormation export
-    // The tools-deploy.yml creates nagiyu-tools-ecr-prod stack
+    // Fixed to dev environment ECR repository
     const ecrRepositoryUri = cdk.Fn.importValue(
       `${ecrStackName}-RepositoryUri`
     );
