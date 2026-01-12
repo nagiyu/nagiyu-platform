@@ -210,7 +210,7 @@ Cookie: {auth-cookie}={token}
 Content-Type: application/json
 
 {
-  "{field}": "{value}"
+    "{field}": "{value}"
 }
 ```
 
@@ -218,11 +218,11 @@ Content-Type: application/json
 
 ```bash
 curl -X {METHOD} https://{service}.nagiyu.com/api/{path} \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {token}" \
-  -d '{
-    "{field}": "{value}"
-  }'
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer {token}" \
+    -d '{
+        "{field}": "{value}"
+    }'
 ```
 
 ##### レスポンス (200 OK)
