@@ -1,0 +1,97 @@
+name: Deploy Shared Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'infra/shared/**'
+      - '.github/workflows/shared-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/master' && 'prod' || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: infra/package-lock.json
+      
+      - name: Install dependencies
+        working-directory: infra
+        run: npm ci
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Determine environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" = "refs/heads/master" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account-id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: CDK Bootstrap (if needed)
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: |
+          npm run bootstrap --workspace=@nagiyu/shared-infra -- aws://${{ steps.get-account-id.outputs.account-id }}/us-east-1
+
+      - name: CDK Synth
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: |
+          npm run synth --workspace=@nagiyu/shared-infra -- --all --context env=${{ steps.env.outputs.environment }}
+
+      - name: CDK Deploy
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
+        run: |
+          npm run deploy --workspace=@nagiyu/shared-infra -- --all \
+            --context env=${{ steps.env.outputs.environment }} \
+            --require-approval never
+      
+      - name: Summary
+        run: |
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: ${{ steps.env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: us-east-1" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stacks**: VPC, ACM, IAM Policies, IAM Users" >> $GITHUB_STEP_SUMMARY

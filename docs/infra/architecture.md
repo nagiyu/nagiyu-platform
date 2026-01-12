@@ -188,25 +188,37 @@ infra/app-A/ (将来)
 
 ## スタック命名規則
 
-CloudFormation スタック名は以下の規則に従います。
+CDK スタック名は以下の規則に従います（2026年1月再構築により統一）。
+
+### 共有リソース（CDK標準命名）
 
 ```
-nagiyu-{category}-{resource}
+NagiyuShared{ResourceType}[{Env}]
 ```
 
 **例:**
-- `nagiyu-shared-deploy-policy-core` - 共通デプロイポリシー (Core)
-- `nagiyu-shared-deploy-policy-container` - 共通デプロイポリシー (Container)
-- `nagiyu-shared-deploy-policy-application` - 共通デプロイポリシー (Application)
-- `nagiyu-shared-deploy-policy-integration` - 共通デプロイポリシー (Integration)
-- `nagiyu-shared-github-actions-user` - GitHub Actions ユーザー
-- `nagiyu-shared-local-dev-user` - ローカル開発ユーザー
-- `SharedAcm` - ACM 証明書 (CDK)
-- `nagiyu-shared-vpc-dev` - dev 環境 VPC (CDK)
-- `nagiyu-shared-vpc-prod` - prod 環境 VPC (CDK)
-- `nagiyu-dev-cloudfront-app-A` - app-A の CloudFront (dev 環境、将来)
-- `nagiyu-prod-cloudfront-app-A` - app-A の CloudFront (prod 環境、将来)
-- `nagiyu-app-A-lambda` - app-A の Lambda リソース（将来）
+- `NagiyuSharedIamCore` - 共有IAM Coreポリシー
+- `NagiyuSharedIamApplication` - 共有IAM Applicationポリシー
+- `NagiyuSharedIamContainer` - 共有IAM Containerポリシー
+- `NagiyuSharedIamIntegration` - 共有IAM Integrationポリシー
+- `NagiyuSharedIamUsers` - 共有IAMユーザー (GitHub Actions, Local Dev)
+- `NagiyuSharedAcm` - ACM証明書 (環境共通)
+- `NagiyuSharedVpcDev` - dev環境VPC
+- `NagiyuSharedVpcProd` - prod環境VPC
+
+### アプリケーションリソース
+
+```
+Nagiyu{Service}{ResourceType}{Env}
+```
+
+**例:**
+- `NagiyuAuthInfraDev` - Auth の基盤リソース (dev環境)
+- `NagiyuAuthLambdaDev` - Auth の Lambda (dev環境)
+- `NagiyuAuthCloudFrontDev` - Auth の CloudFront (dev環境)
+- `NagiyuAdminInfraProd` - Admin の基盤リソース (prod環境)
+- `NagiyuCodecConverterDev` - Codec Converter (dev環境、統合スタック)
+- `NagiyuToolsEcrProd` - Tools の ECR (prod環境)
 
 ---
 
@@ -237,6 +249,7 @@ nagiyu-{category}-{resource}
 - [初回セットアップ](./setup.md) - インフラの初期構築手順
 - [デプロイ手順](./deploy.md) - 日常的なデプロイ操作
 - [CDK 移行ガイド](./cdk-migration.md) - CloudFormation から CDK への移行戦略
+- [共有インフラ](./shared/README.md) - 共有リソースの概要とサービスパターン
 - [IAM 詳細](./shared/iam.md) - IAM リソースの詳細設計
 - [VPC 詳細](./shared/vpc.md) - VPC リソースの詳細設計
 - [ACM 詳細](./shared/acm.md) - SSL/TLS 証明書の管理

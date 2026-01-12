@@ -22,14 +22,15 @@ const stackEnv = {
 };
 
 // ECR スタックを作成
-const ecrStack = new EcrStack(app, `Tools-Ecr-${env}`, {
+const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
+const ecrStack = new EcrStack(app, `NagiyuToolsEcr${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Tools Service ECR Repository - ${env} environment`,
 });
 
 // Lambda スタックを作成
-const lambdaStack = new LambdaStack(app, `Tools-Lambda-${env}`, {
+const lambdaStack = new LambdaStack(app, `NagiyuToolsLambda${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Tools Service Lambda - ${env} environment`,
@@ -39,7 +40,7 @@ const lambdaStack = new LambdaStack(app, `Tools-Lambda-${env}`, {
 lambdaStack.addDependency(ecrStack);
 
 // CloudFront スタックを作成
-const cloudFrontStack = new CloudFrontStack(app, `Tools-CloudFront-${env}`, {
+const cloudFrontStack = new CloudFrontStack(app, `NagiyuToolsCloudFront${envSuffix}`, {
   environment: env,
   functionUrl: lambdaStack.functionUrl.url,
   env: {

@@ -38,9 +38,6 @@ export class IamUsersStack extends cdk.Stack {
       ],
     });
 
-    // タグの追加
-    cdk.Tags.of(this.githubActionsUser).add('Application', 'nagiyu');
-    cdk.Tags.of(this.githubActionsUser).add('Purpose', 'GitHub Actions CI/CD');
 
     // ==========================================
     // Local Dev User
@@ -55,9 +52,6 @@ export class IamUsersStack extends cdk.Stack {
       ],
     });
 
-    // タグの追加
-    cdk.Tags.of(this.localDevUser).add('Application', 'nagiyu');
-    cdk.Tags.of(this.localDevUser).add('Purpose', 'Local developer');
 
     // ==========================================
     // Exports

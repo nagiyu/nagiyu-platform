@@ -115,29 +115,23 @@ Web アプリケーション配信 (CDN)。
 
 ## スタック命名規則
 
-共通インフラのスタック名は以下の形式を使用します。
+共通インフラのスタック名は以下の形式を使用します（CDK標準命名）。
 
 ```
-nagiyu-shared-{resource-type}
-```
-
-**例:**
-- `nagiyu-shared-deploy-policy-core`
-- `nagiyu-shared-deploy-policy-container`
-- `nagiyu-shared-deploy-policy-application`
-- `nagiyu-shared-deploy-policy-integration`
-- `nagiyu-shared-github-actions-user`
-- `SharedAcm` (CDK スタック - 旧: `nagiyu-shared-acm-certificate`)
-
-**注意:** VPC スタックは環境ごとに分かれるため、以下の命名規則を使用します。
-
-```
-nagiyu-shared-vpc-{env}
+NagiyuShared{ResourceType}
 ```
 
 **例:**
-- `nagiyu-shared-vpc-dev` (CDK スタック)
-- `nagiyu-shared-vpc-prod` (CDK スタック)
+- `NagiyuSharedIamCore` - IAM Core Policy
+- `NagiyuSharedIamApplication` - IAM Application Policy
+- `NagiyuSharedIamContainer` - IAM Container Policy
+- `NagiyuSharedIamIntegration` - IAM Integration Policy
+- `NagiyuSharedIamUsers` - IAM Users (GitHub Actions, Local Dev)
+- `NagiyuSharedAcm` - ACM Certificate
+- `NagiyuSharedVpcDev` - Dev VPC
+- `NagiyuSharedVpcProd` - Prod VPC
+
+**注意:** 2026年1月の再構築により、すべてのスタック名がCDK標準命名規則に統一されました。
 
 ---
 
@@ -202,6 +196,68 @@ Export 値を参照しているスタックが存在する場合、削除は失�
 1. 変更によって既存のアプリケーションが影響を受けないか
 2. ダウンタイムが発生しないか
 3. ロールバック手順が確立されているか
+
+---
+
+## 共有リソースの利用方法
+
+アプリケーション固有リソースから共有インフラリソースを参照する方法を説明します。
+
+### VPC の利用
+
+VPC を必要とするサービス（ECS、AWS Batch など）は、以下の Export 値を参照します。
+
+```typescript
+const vpcId = cdk.Fn.importValue(`nagiyu-${env}-vpc-id`);
+const subnetIds = cdk.Fn.importValue(`nagiyu-${env}-public-subnet-ids`).split(',');
+```
+
+**利用例:**
+- ECS Fargate タスク配置
+- AWS Batch コンピュート環境
+- ALB (Application Load Balancer) 配置
+
+### ACM 証明書の利用
+
+CloudFront でカスタムドメインを使用する場合は、ACM 証明書を参照します。
+
+```typescript
+const certificateArn = cdk.Fn.importValue(EXPORTS.ACM_CERTIFICATE_ARN);
+```
+
+**利用例:**
+- CloudFront Distribution の HTTPS 配信
+- カスタムドメイン設定
+
+### IAM ポリシーの利用
+
+デプロイ用の IAM ポリシーは、以下の4つに分割されています。各アプリケーションは必要なポリシーのみを参照してください。
+
+| ポリシー名 | Export 名 | 用途 |
+|----------|----------|------|
+| Core | `nagiyu-deploy-policy-core-arn` | CloudFormation、IAM、ネットワーク、Logs |
+| Application | `nagiyu-deploy-policy-application-arn` | Lambda、S3、DynamoDB、API Gateway、CloudFront、ACM |
+| Container | `nagiyu-deploy-policy-container-arn` | ECR、ECS、AWS Batch |
+| Integration | `nagiyu-deploy-policy-integration-arn` | KMS、Secrets Manager、SSM、SNS、SQS、EventBridge |
+
+```typescript
+const corePolicy = iam.ManagedPolicy.fromManagedPolicyArn(
+  this,
+  'CorePolicy',
+  cdk.Fn.importValue('nagiyu-deploy-policy-core-arn')
+);
+```
+
+**ポリシー選択の指針:**
+- **VPC不要のサーバーレスサービス**: Core + Application + Container + Integration
+- **VPC使用のコンテナサービス**: すべてのポリシーが必要
+- **バッチ処理サービス**: すべてのポリシーが必要
+
+### リソース依存関係図
+
+共有リソースとアプリケーションリソースの関係は、以下の図を参照してください。
+
+![共有リソース依存関係図](../../images/infra/shared-resources-dependencies.drawio.svg)
 
 ---
 
