@@ -14,18 +14,19 @@ export class AcmStack extends cdk.Stack {
     super(scope, id, props);
 
     // ACM 証明書作成
-    // ワイルドカードドメイン (*.example.com) をプライマリに設定
-    // プライマリドメイン (example.com) を SANs に追加
-    // 
-    // 注: CloudFormation テンプレートでは example.com がプライマリで *.example.com が SANs でしたが、
-    // CDK ではワイルドカードをプライマリに設定する方が推奨されています。
-    // これは ACM のベストプラクティスに従っており、証明書の管理が容易になります。
-    // どちらの設定でも同じ DNS 検証レコードが使用され、既存サービスへの影響はありません。
+    // 既存の CloudFormation テンプレートと同じ順序を維持
+    // プライマリドメイン: example.com
+    // SANs: *.example.com
     this.certificate = new acm.Certificate(this, 'Certificate', {
-      domainName: `*.${props.domainName}`,
-      subjectAlternativeNames: [props.domainName],
+      domainName: props.domainName,
+      subjectAlternativeNames: [`*.${props.domainName}`],
       validation: acm.CertificateValidation.fromDns(),
     });
+
+    // 既存テンプレートと同じタグを追加
+    cdk.Tags.of(this.certificate).add('Application', 'nagiyu');
+    cdk.Tags.of(this.certificate).add('Purpose', 'SSL/TLS certificate for CloudFront');
+    cdk.Tags.of(this.certificate).add('ManagedBy', 'CloudFormation');
 
     // Export（既存の名前を維持）
     new cdk.CfnOutput(this, 'CertificateArnExport', {
