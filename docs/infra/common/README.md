@@ -273,6 +273,5 @@ npm run format --workspace @nagiyu/infra-common
 
 ## 関連ドキュメント
 
-- [Phase 1: 基盤構築](../../tasks/infra-common-package/overview.md)
 - [インフラストラクチャドキュメント](../../docs/infra/)
 - [開発ガイドライン](../../docs/development/)
