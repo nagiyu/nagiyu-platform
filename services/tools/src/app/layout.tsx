@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import './globals.css';
 
@@ -23,9 +24,20 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const version = process.env.APP_VERSION || '1.0.0';
+  const isProduction = process.env.NODE_ENV === 'production';
 
   return (
     <html lang="ja">
+      <head>
+        {isProduction && (
+          <Script
+            async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6784165593921713"
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
+      </head>
       <body>
         <ThemeRegistry version={version}>{children}</ThemeRegistry>
       </body>

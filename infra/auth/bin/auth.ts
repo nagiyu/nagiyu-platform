@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { AuthStack } from '../lib/auth-stack';
+import { DynamoDBStack } from '../lib/dynamodb-stack';
+import { SecretsStack } from '../lib/secrets-stack';
+import { ECRStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 
@@ -23,22 +25,38 @@ const stackEnv = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// Auth スタック (DynamoDB, Secrets, ECR) を作成
-new AuthStack(app, `Auth-${env}`, {
+const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
+
+// DynamoDB スタックを作成
+new DynamoDBStack(app, `NagiyuAuthDynamoDB${envSuffix}`, {
   environment: env,
   env: stackEnv,
-  description: `Auth Service Infrastructure - ${env} environment`,
+  description: `Auth Service DynamoDB - ${env} environment`,
+});
+
+// Secrets スタックを作成
+new SecretsStack(app, `NagiyuAuthSecrets${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Auth Service Secrets Manager - ${env} environment`,
+});
+
+// ECR スタックを作成
+const ecrStack = new ECRStack(app, `NagiyuAuthECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Auth Service ECR - ${env} environment`,
 });
 
 // Lambda スタックを作成
-const lambdaStack = new LambdaStack(app, `Auth-Lambda-${env}`, {
+const lambdaStack = new LambdaStack(app, `NagiyuAuthLambda${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Auth Service Lambda - ${env} environment`,
 });
 
 // CloudFront スタックを作成
-new CloudFrontStack(app, `Auth-CloudFront-${env}`, {
+new CloudFrontStack(app, `NagiyuAuthCloudFront${envSuffix}`, {
   environment: env,
   functionUrl: lambdaStack.functionUrl.url,
   env: {
