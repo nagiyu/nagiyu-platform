@@ -1,12 +1,35 @@
-# Tools Service CDK Infrastructure
+# Tools Infrastructure (CDK)
 
 Tools サービスの AWS インフラストラクチャの CDK 実装に関するドキュメントです。
 
-## 参照
-
-CDK コードの実装は `infra/tools/` ディレクトリにあります。
-
 ## 構成
+
+- **ECR Repository**: Docker イメージ管理
+- **Lambda Function**: ツールアプリケーション実行
+- **CloudFront Distribution**: CDN 配信
+
+## デプロイ
+
+### 開発環境
+```bash
+cd infra/tools
+npm ci
+npm run build
+npx cdk deploy --all --context env=dev
+```
+
+### 本番環境
+```bash
+npx cdk deploy --all --context env=prod
+```
+
+## GitHub Actions
+
+ワークフロー: `.github/workflows/tools-deploy.yml`
+
+---
+
+## 詳細構成 (参考)
 
 ### スタック構成
 
@@ -14,7 +37,7 @@ CDK コードの実装は `infra/tools/` ディレクトリにあります。
 - **Tools-Lambda-{env}**: Lambda 関数と実行ロール
 - **Tools-CloudFront-{env}**: CloudFront ディストリビューション
 
-### リソース
+### リソース詳細
 
 #### ECR Repository
 
@@ -37,29 +60,29 @@ CDK コードの実装は `infra/tools/` ディレクトリにあります。
 - セキュリティヘッダー: HSTS, X-Content-Type-Options, X-Frame-Options など
 - キャッシュポリシー: 無効 (動的コンテンツのため)
 
-## 前提条件
+### 前提条件
 
-### 共有リソース
+#### 共有リソース
 
 以下の共有リソースが事前にデプロイされている必要があります:
 
 - ACM 証明書 (us-east-1): `nagiyu-shared-acm-certificate-arn` export
 
-### ECR イメージ
+#### ECR イメージ
 
 Lambda デプロイ前に、ECR リポジトリにコンテナイメージがプッシュされている必要があります。
 
-## コマンド
+### コマンド
 
 すべてのコマンドは `infra/tools/` ディレクトリで実行します。
 
-### ビルド
+#### ビルド
 
 ```bash
 npm run build
 ```
 
-### CDK Synth (テンプレート生成)
+#### CDK Synth (テンプレート生成)
 
 ```bash
 # dev 環境
@@ -69,7 +92,7 @@ npm run synth -- --context env=dev
 npm run synth -- --context env=prod
 ```
 
-### 差分確認
+#### 差分確認
 
 ```bash
 # dev 環境
@@ -82,7 +105,7 @@ npm run diff:prod
 npx cdk diff Tools-Ecr-dev --context env=dev
 ```
 
-### デプロイ
+#### デプロイ
 
 ```bash
 # dev 環境 (全スタック)
@@ -97,7 +120,7 @@ npx cdk deploy Tools-Lambda-dev --context env=dev
 npx cdk deploy Tools-CloudFront-dev --context env=dev
 ```
 
-### 削除
+#### 削除
 
 ```bash
 # dev 環境 (逆順)
@@ -106,9 +129,7 @@ npx cdk destroy Tools-Lambda-dev --context env=dev
 npx cdk destroy Tools-Ecr-dev --context env=dev
 ```
 
-## デプロイ手順
-
-### 初回デプロイ
+### 初回デプロイ手順
 
 1. **ECR スタックのデプロイ**
 
@@ -146,65 +167,9 @@ npx cdk destroy Tools-Ecr-dev --context env=dev
     npx cdk deploy Tools-CloudFront-dev --context env=dev
     ```
 
-### 更新デプロイ
+### トラブルシューティング
 
-```bash
-cd infra/tools
-# 全スタックを一括デプロイ
-npm run deploy:dev
-```
-
-## ロールバック手順
-
-### CDK スタックの削除
-
-```bash
-cd infra/tools
-# 逆順で削除
-npx cdk destroy Tools-CloudFront-dev --context env=dev
-npx cdk destroy Tools-Lambda-dev --context env=dev
-npx cdk destroy Tools-Ecr-dev --context env=dev
-```
-
-### CloudFormation への戻し
-
-元の CloudFormation テンプレートを再デプロイ:
-
-```bash
-cd infra/tools
-
-# ECR
-aws cloudformation deploy \
-  --template-file ecr.yaml \
-  --stack-name nagiyu-tools-ecr \
-  --parameter-overrides Environment=dev
-
-# Lambda
-aws cloudformation deploy \
-  --template-file lambda.yaml \
-  --stack-name nagiyu-tools-lambda \
-  --parameter-overrides Environment=dev ImageUri=<ecr-uri>:latest
-
-# CloudFront
-aws cloudformation deploy \
-  --template-file cloudfront.yaml \
-  --stack-name nagiyu-tools-cloudfront \
-  --parameter-overrides Environment=dev LambdaStackName=nagiyu-tools-lambda \
-    CertificateArn=<cert-arn> DomainName=dev-tools.nagiyu.com
-```
-
-## 検証基準
-
-- ✅ `cdk diff` でリソースの削除がない
-- ✅ dev 環境でのデプロイ成功
-- ✅ Lambda Function URL が正常動作
-- ✅ CloudFront が正常配信
-- ✅ ECR にイメージをプッシュできる
-- ✅ prod 環境でのデプロイ成功
-
-## トラブルシューティング
-
-### ビルドエラー
+#### ビルドエラー
 
 ```bash
 cd infra/tools
@@ -215,7 +180,7 @@ npm install
 npm run build
 ```
 
-### デプロイエラー
+#### デプロイエラー
 
 ```bash
 # AWS 認証情報の確認
@@ -225,7 +190,7 @@ aws sts get-caller-identity
 aws cloudformation describe-stacks --stack-name Tools-Ecr-dev --region us-east-1
 ```
 
-### ECR イメージが見つからない
+#### ECR イメージが見つからない
 
 Lambda デプロイ前に ECR にイメージがプッシュされていることを確認:
 
@@ -235,7 +200,9 @@ aws ecr describe-images \
   --region us-east-1
 ```
 
-## 参考資料
+---
+
+## 関連ドキュメント
 
 - [CDK 移行ガイド](../cdk-migration.md)
 - [Tools サービスドキュメント](../../services/tools/)
