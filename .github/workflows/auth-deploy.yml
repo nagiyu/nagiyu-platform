@@ -79,6 +79,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            GOOGLE_OAUTH,nagiyu-auth-google-oauth-${{ steps.set-env.outputs.environment }}
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ steps.set-env.outputs.environment }}
+          parse-json-secrets: true
+
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
@@ -89,6 +98,9 @@ jobs:
           echo "Deploying DynamoDB, Secrets Manager, and ECR stacks..."
           npm run deploy --workspace=@nagiyu/infra-auth -- \
             --context env=${{ steps.set-env.outputs.environment }} \
+            --context googleClientId="${{ env.GOOGLE_OAUTH_CLIENTID }}" \
+            --context googleClientSecret="${{ env.GOOGLE_OAUTH_CLIENTSECRET }}" \
+            --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
             ${{ steps.set-env.outputs.cdk-stack-name }} \
             --require-approval never
 
@@ -210,38 +222,19 @@ jobs:
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
           parse-json-secrets: true
 
-      - name: Deploy Lambda and CloudFront
+      - name: Deploy Lambda and CloudFront (Full Stack)
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
         run: |
-          echo "Deploying Lambda and CloudFront to $ENVIRONMENT environment..."
+          echo "Deploying full Auth infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
-
-          # Set stack names based on environment
-          if [[ "$ENVIRONMENT" == "prod" ]]; then
-            LAMBDA_STACK_NAME="NagiyuAuthLambdaProd"
-            CLOUDFRONT_STACK_NAME="NagiyuAuthCloudFrontProd"
-          else
-            LAMBDA_STACK_NAME="NagiyuAuthLambdaDev"
-            CLOUDFRONT_STACK_NAME="NagiyuAuthCloudFrontDev"
-          fi
-
-          # Deploy Lambda stack
-          echo "Deploying Lambda stack: $LAMBDA_STACK_NAME"
           npm run deploy --workspace=@nagiyu/infra-auth -- \
             --context env=$ENVIRONMENT \
             --context googleClientId="${{ env.GOOGLE_OAUTH_CLIENTID }}" \
             --context googleClientSecret="${{ env.GOOGLE_OAUTH_CLIENTSECRET }}" \
             --context nextAuthSecret="${{ env.NEXTAUTH_SECRET }}" \
-            "$LAMBDA_STACK_NAME" \
-            --require-approval never
-
-          # Deploy CloudFront stack
-          echo "Deploying CloudFront stack: $CLOUDFRONT_STACK_NAME"
-          npm run deploy --workspace=@nagiyu/infra-auth -- \
-            --context env=$ENVIRONMENT \
-            "$CLOUDFRONT_STACK_NAME" \
+            --all \
             --require-approval never
 
       - name: Get Lambda function details
