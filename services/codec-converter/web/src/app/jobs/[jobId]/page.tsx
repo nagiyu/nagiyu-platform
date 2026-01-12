@@ -10,6 +10,20 @@ import {
   formatDateTime,
   formatJobId,
 } from 'codec-converter-core';
+import {
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Chip,
+  Button,
+  Alert,
+  Stack,
+  Box,
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DownloadIcon from '@mui/icons-material/Download';
+import AddIcon from '@mui/icons-material/Add';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -18,11 +32,11 @@ const ERROR_MESSAGES = {
 } as const;
 
 // ステータスバッジの色設定（WCAG AA準拠）
-const STATUS_COLORS: Record<JobStatus, string> = {
-  PENDING: '#FF8C00', // ダークオレンジ（コントラスト改善）
-  PROCESSING: '#1E90FF',
-  COMPLETED: '#228B22', // フォレストグリーン（コントラスト改善）
-  FAILED: '#FF4500',
+const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'> = {
+  PENDING: 'warning',
+  PROCESSING: 'info',
+  COMPLETED: 'success',
+  FAILED: 'error',
 };
 
 // ステータス表示テキスト
@@ -185,47 +199,31 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
   // ローディング中の表示
   if (isLoading) {
     return (
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-        <h1>変換ジョブ詳細</h1>
-        <div style={{ textAlign: 'center', padding: '2rem' }}>読み込み中...</div>
-      </main>
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          変換ジョブ詳細
+        </Typography>
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography>読み込み中...</Typography>
+        </Box>
+      </Container>
     );
   }
 
   // エラー時の表示
   if (error && !job) {
     return (
-      <main style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-        <h1>変換ジョブ詳細</h1>
-        <div
-          role="alert"
-          style={{
-            padding: '1rem',
-            backgroundColor: '#fee',
-            color: '#c00',
-            borderRadius: '4px',
-            marginBottom: '2rem',
-            border: '1px solid #fcc',
-          }}
-        >
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          変換ジョブ詳細
+        </Typography>
+        <Alert severity="error" sx={{ mb: 3 }}>
           {error}
-        </div>
-        <button
-          onClick={handleNewConversion}
-          style={{
-            padding: '0.75rem 1.5rem',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            color: '#fff',
-            backgroundColor: '#0070f3',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
+        </Alert>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewConversion}>
           新しい動画を変換
-        </button>
-      </main>
+        </Button>
+      </Container>
     );
   }
 
@@ -237,184 +235,144 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
   const showDownloadButton = job.status === 'COMPLETED';
 
   return (
-    <main
-      style={{
-        maxWidth: '800px',
-        margin: '0 auto',
-        padding: '2rem',
-      }}
-    >
-      <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '2rem' }}>変換ジョブ詳細</h1>
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 3 }}>
+        変換ジョブ詳細
+      </Typography>
 
       {/* ジョブ情報表示 */}
-      <section
-        style={{
-          backgroundColor: '#f9f9f9',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          marginBottom: '2rem',
-        }}
-        aria-labelledby="job-info-heading"
-      >
-        <h2
-          id="job-info-heading"
-          style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '1rem' }}
-        >
-          ジョブ情報
-        </h2>
+      <Card sx={{ mb: 3 }} aria-labelledby="job-info-heading">
+        <CardContent>
+          <Typography
+            id="job-info-heading"
+            variant="h6"
+            component="h2"
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
+          >
+            ジョブ情報
+          </Typography>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div>
-            <span style={{ fontWeight: 'bold', marginRight: '0.5rem' }}>ジョブID:</span>
-            <span style={{ fontFamily: 'monospace' }}>{formatJobId(job.jobId)}</span>
-          </div>
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                ジョブID:
+              </Typography>
+              <Typography component="span" sx={{ fontFamily: 'monospace' }}>
+                {formatJobId(job.jobId)}
+              </Typography>
+            </Box>
 
-          <div>
-            <span style={{ fontWeight: 'bold', marginRight: '0.5rem' }}>ファイル名:</span>
-            <span>{job.fileName}</span>
-          </div>
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                ファイル名:
+              </Typography>
+              <Typography component="span">{job.fileName}</Typography>
+            </Box>
 
-          <div>
-            <span style={{ fontWeight: 'bold', marginRight: '0.5rem' }}>ファイルサイズ:</span>
-            <span>{formatFileSize(job.fileSize)}</span>
-          </div>
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                ファイルサイズ:
+              </Typography>
+              <Typography component="span">{formatFileSize(job.fileSize)}</Typography>
+            </Box>
 
-          <div>
-            <span style={{ fontWeight: 'bold', marginRight: '0.5rem' }}>出力コーデック:</span>
-            <span>{CODEC_DISPLAY_NAME[job.outputCodec]}</span>
-          </div>
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                出力コーデック:
+              </Typography>
+              <Typography component="span">{CODEC_DISPLAY_NAME[job.outputCodec]}</Typography>
+            </Box>
 
-          <div>
-            <span style={{ fontWeight: 'bold', marginRight: '0.5rem' }}>作成日時:</span>
-            <span>{formatDateTime(job.createdAt)}</span>
-          </div>
-        </div>
-      </section>
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                作成日時:
+              </Typography>
+              <Typography component="span">{formatDateTime(job.createdAt)}</Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
 
       {/* ステータス表示 */}
-      <section
-        style={{
-          backgroundColor: '#f9f9f9',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          marginBottom: '2rem',
-        }}
-        aria-labelledby="status-heading"
-      >
-        <h2
-          id="status-heading"
-          style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '1rem' }}
-        >
-          ステータス
-        </h2>
-
-        <div
-          style={{
-            display: 'inline-block',
-            padding: '0.5rem 1rem',
-            backgroundColor: STATUS_COLORS[job.status],
-            color: '#fff',
-            borderRadius: '4px',
-            fontWeight: 'bold',
-            marginBottom: '0.75rem',
-          }}
-          role="status"
-          aria-label={`ジョブステータス: ${STATUS_TEXT[job.status]}`}
-        >
-          {STATUS_TEXT[job.status]}
-        </div>
-
-        <p style={{ margin: '0.5rem 0 0 0', color: '#666' }}>{STATUS_DESCRIPTION[job.status]}</p>
-
-        {/* エラーメッセージ表示（FAILED時） */}
-        {job.status === 'FAILED' && job.errorMessage && (
-          <div
-            role="alert"
-            style={{
-              marginTop: '1rem',
-              padding: '1rem',
-              backgroundColor: '#fee',
-              color: '#c00',
-              borderRadius: '4px',
-              border: '1px solid #fcc',
-            }}
+      <Card sx={{ mb: 3 }} aria-labelledby="status-heading">
+        <CardContent>
+          <Typography
+            id="status-heading"
+            variant="h6"
+            component="h2"
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
           >
-            <p style={{ margin: 0, fontWeight: 'bold' }}>エラー詳細:</p>
-            <p style={{ margin: '0.5rem 0 0 0' }}>{job.errorMessage}</p>
-          </div>
-        )}
-      </section>
+            ステータス
+          </Typography>
+
+          <Chip
+            label={STATUS_TEXT[job.status]}
+            color={STATUS_COLORS[job.status]}
+            sx={{ mb: 1, fontWeight: 'bold' }}
+          />
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {STATUS_DESCRIPTION[job.status]}
+          </Typography>
+
+          {/* エラーメッセージ表示（FAILED時） */}
+          {job.status === 'FAILED' && job.errorMessage && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              <Typography variant="body2" fontWeight="bold" gutterBottom>
+                エラー詳細:
+              </Typography>
+              <Typography variant="body2">{job.errorMessage}</Typography>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
 
       {/* アクションボタン */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1rem',
-        }}
-      >
+      <Stack spacing={2}>
         {/* ステータス確認ボタン */}
         {showRefreshButton && (
-          <button
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<RefreshIcon />}
             onClick={handleRefresh}
             disabled={isRefreshing}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: isRefreshing ? '#ccc' : '#0070f3',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isRefreshing ? 'not-allowed' : 'pointer',
-            }}
+            fullWidth
             aria-label="ジョブステータスを確認"
           >
             {isRefreshing ? '確認中...' : 'ステータス確認'}
-          </button>
+          </Button>
         )}
 
         {/* ダウンロードボタン */}
         {showDownloadButton && (
-          <button
+          <Button
+            variant="contained"
+            size="large"
+            color="success"
+            startIcon={<DownloadIcon />}
             onClick={handleDownload}
-            style={{
-              width: '100%',
-              padding: '1rem',
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              color: '#fff',
-              backgroundColor: '#32CD32',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
+            fullWidth
             aria-label="変換済みファイルをダウンロード"
           >
             ダウンロード
-          </button>
+          </Button>
         )}
 
         {/* 新規変換ボタン */}
-        <button
+        <Button
+          variant="outlined"
+          size="large"
+          startIcon={<AddIcon />}
           onClick={handleNewConversion}
-          style={{
-            width: '100%',
-            padding: '1rem',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            color: '#0070f3',
-            backgroundColor: '#fff',
-            border: '2px solid #0070f3',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
+          fullWidth
           aria-label="新しい動画を変換する"
         >
           新しい動画を変換
-        </button>
-      </div>
-    </main>
+        </Button>
+      </Stack>
+    </Container>
   );
 }

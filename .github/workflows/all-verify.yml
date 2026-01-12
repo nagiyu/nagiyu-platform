@@ -31,6 +31,11 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
+      - name: Build service core libraries
+        run: |
+          npm run build --workspace=codec-converter-core --if-present
+          npm run build --workspace=@nagiyu/auth-core --if-present
+
       - name: Run unit tests
         run: npm run test
 
