@@ -3,7 +3,10 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { VpcStack } from '../lib/vpc-stack';
 import { AcmStack } from '../lib/acm-stack';
-import { IamPoliciesStack } from '../lib/iam/iam-policies-stack';
+import { IamCorePolicyStack } from '../lib/iam/iam-core-policy-stack';
+import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-stack';
+import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
+import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
 
 const app = new cdk.App();
@@ -43,25 +46,43 @@ new AcmStack(app, 'nagiyu-shared-acm-certificate', {
   description: 'Shared ACM Certificate for CloudFront',
 });
 
-// IAM Policies スタックを作成（環境非依存）
-const policiesStack = new IamPoliciesStack(app, 'SharedIamPolicies', {
+// IAM Policies スタックを作成（環境非依存、既存CloudFormation名に合わせて分割）
+const corePolicyStack = new IamCorePolicyStack(app, 'nagiyu-shared-deploy-policy-core', {
   env: stackEnv,
-  description: 'Shared IAM Managed Policies for Deployment',
+  description: 'Shared IAM Core Deploy Policy (CloudFormation, IAM, Network, Logs)',
+});
+
+const applicationPolicyStack = new IamApplicationPolicyStack(app, 'nagiyu-shared-deploy-policy-application', {
+  env: stackEnv,
+  description: 'Shared IAM Application Deploy Policy (Lambda, S3, DynamoDB, API Gateway, CloudFront)',
+});
+
+const containerPolicyStack = new IamContainerPolicyStack(app, 'nagiyu-shared-deploy-policy-container', {
+  env: stackEnv,
+  description: 'Shared IAM Container Deploy Policy (ECR, ECS, Batch)',
+});
+
+const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'nagiyu-shared-deploy-policy-integration', {
+  env: stackEnv,
+  description: 'Shared IAM Integration and Security Deploy Policy (KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling)',
 });
 
 // IAM Users スタックを作成（ポリシーに依存）
 const usersStack = new IamUsersStack(app, 'SharedIamUsers', {
   policies: {
-    core: policiesStack.corePolicy,
-    application: policiesStack.applicationPolicy,
-    container: policiesStack.containerPolicy,
-    integration: policiesStack.integrationPolicy,
+    core: corePolicyStack.policy,
+    application: applicationPolicyStack.policy,
+    container: containerPolicyStack.policy,
+    integration: integrationPolicyStack.policy,
   },
   env: stackEnv,
   description: 'Shared IAM Users for GitHub Actions and Local Development',
 });
 
 // スタック間の依存関係を明示
-usersStack.addDependency(policiesStack);
+usersStack.addDependency(corePolicyStack);
+usersStack.addDependency(applicationPolicyStack);
+usersStack.addDependency(containerPolicyStack);
+usersStack.addDependency(integrationPolicyStack);
 
 app.synth();
