@@ -196,7 +196,7 @@ export class LambdaStackBase extends cdk.Stack {
 
       // Lambda Function URL への公開アクセスを許可
       this.lambdaFunction.addPermission('AllowPublicAccess', {
-        principal: new iam.ServicePrincipal('*'),
+        principal: new iam.AnyPrincipal(),
         action: 'lambda:InvokeFunctionUrl',
         functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
       });
