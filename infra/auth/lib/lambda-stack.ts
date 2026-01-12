@@ -19,18 +19,10 @@ export class LambdaStack extends cdk.Stack {
     const region = this.region;
     const account = this.account;
 
-    // CDK context から secrets を取得
-    const googleClientId = scope.node.tryGetContext('googleClientId');
-    const googleClientSecret = scope.node.tryGetContext('googleClientSecret');
-    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret');
-
-    // secrets が未指定の場合はエラー
-    if (!googleClientId || !googleClientSecret || !nextAuthSecret) {
-      throw new Error(
-        'Missing required context: googleClientId, googleClientSecret, or nextAuthSecret. ' +
-          'Please provide them via --context flags or cdk.json'
-      );
-    }
+    // CDK context から secrets を取得（未指定の場合はプレースホルダーを使用）
+    const googleClientId = scope.node.tryGetContext('googleClientId') || 'PLACEHOLDER_CLIENT_ID';
+    const googleClientSecret = scope.node.tryGetContext('googleClientSecret') || 'PLACEHOLDER_CLIENT_SECRET';
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER_NEXTAUTH_SECRET';
 
     // Lambda 実行ロールの作成
     const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
