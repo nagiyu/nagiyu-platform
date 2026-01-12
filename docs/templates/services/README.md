@@ -50,7 +50,7 @@
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/{service-name}/`
 - **インフラ定義**: `infra/{service-name}/`
-- **バージョン**: {version} <!-- 記入ガイド: package.json の version を記載 -->
+- **バージョン**: {version} <!-- 記入ガイド: サービスのバージョン番号を記載（例: package.json の version） -->
 
 ---
 
