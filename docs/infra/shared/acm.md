@@ -73,24 +73,38 @@ ACM 証明書には以下のドメインを含めます:
 
 ## リソース詳細
 
-### CloudFormation スタック
+### CDK スタック（現在の実装）
 
-**スタック名:** `nagiyu-shared-acm-certificate`
+**スタック名:** `SharedAcm`
 
-**配置場所:** `infra/shared/acm/certificate.yaml`
+**配置場所:** `infra/shared/lib/acm-stack.ts`
 
 **パラメータ:**
-- `DomainName`: プライマリドメイン名 (例: `example.com`)
-    - GitHub Actions の Secret から取得: `DOMAIN_NAME`
+- `domainName`: プライマリドメイン名 (例: `example.com`)
+    - 環境変数 `DOMAIN_NAME` または CDK Context から取得
 
 **出力値 (Outputs):**
 - `CertificateArn`: ACM 証明書の ARN
     - Export 名: `nagiyu-shared-acm-certificate-arn`
     - CloudFront スタックから参照
+- `DomainName`: プライマリドメイン名
+    - Export 名: `nagiyu-shared-acm-domain-name`
+- `WildcardDomain`: ワイルドカードドメイン名
+    - Export 名: `nagiyu-shared-acm-wildcard-domain`
 
-**タグ:**
-- `Application: nagiyu`
-- `Purpose: SSL/TLS certificate for CloudFront`
+**証明書の構成:**
+- プライマリドメイン: `*.example.com` (ワイルドカード)
+- サブジェクト代替名 (SANs): `example.com`
+- 検証方法: DNS 検証
+- リージョン: `us-east-1` (CloudFront 用証明書は us-east-1 必須)
+
+### ~~CloudFormation スタック（旧実装）~~
+
+~~**スタック名:** `nagiyu-shared-acm-certificate`~~
+
+~~**配置場所:** `infra/shared/acm/certificate.yaml`~~
+
+**注意:** CloudFormation テンプレートは CDK に移行済みです。`certificate.yaml` はバックアップとして保持されています。
 
 ---
 
@@ -100,39 +114,52 @@ ACM 証明書には以下のドメインを含めます:
 
 - ドメインが外部レンタルサーバーで取得済みであること
 - 外部 DNS サービスにアクセスできること
-- GitHub Secrets に `DOMAIN_NAME` が設定されていること
+- 環境変数 `DOMAIN_NAME` が設定されていること（またはデプロイ時に Context で指定）
 
-### ステップ1: GitHub Secrets の設定
-
-GitHub リポジトリの Settings → Secrets and variables → Actions で以下を登録:
-
-- `DOMAIN_NAME`: 取得したドメイン名 (例: `example.com`)
-
-### ステップ2: ACM 証明書スタックのデプロイ
+### ステップ1: 環境変数の設定
 
 ```bash
-cd infra/shared/acm
-
-aws cloudformation deploy \
-  --template-file certificate.yaml \
-  --stack-name nagiyu-shared-acm-certificate \
-  --parameter-overrides DomainName=example.com \
-  --region us-east-1
+export DOMAIN_NAME=example.com
 ```
 
-**注意:** CloudFront で使用する証明書は必ず `us-east-1` リージョンで作成してください。
+または、デプロイ時に Context で指定することも可能:
+
+```bash
+npx cdk deploy --context domainName=example.com
+```
+
+### ステップ2: ACM 証明書スタックのデプロイ（CDK）
+
+```bash
+cd infra/shared
+
+# ビルド
+npm run build
+
+# 差分確認（推奨）
+npx cdk diff SharedAcm
+
+# デプロイ
+npx cdk deploy SharedAcm
+```
+
+**注意:** CloudFront で使用する証明書は必ず `us-east-1` リージョンで作成してください（スタック定義で自動的に us-east-1 に設定されています）。
 
 ### ステップ3: DNS 検証レコードの取得
 
 スタックのデプロイ後、DNS 検証用の CNAME レコード情報を取得します。
 
 ```bash
+# CDK スタックから証明書 ARN を取得
+CERTIFICATE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name SharedAcm \
+  --query "Stacks[0].Outputs[?OutputKey=='CertificateArnExport'].OutputValue" \
+  --output text \
+  --region us-east-1)
+
+# DNS 検証レコードを取得
 aws acm describe-certificate \
-  --certificate-arn $(aws cloudformation describe-stacks \
-    --stack-name nagiyu-shared-acm-certificate \
-    --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
-    --output text \
-    --region us-east-1) \
+  --certificate-arn $CERTIFICATE_ARN \
   --query "Certificate.DomainValidationOptions[*].[ResourceRecord.Name,ResourceRecord.Value]" \
   --output table \
   --region us-east-1
@@ -168,24 +195,32 @@ aws acm describe-certificate \
 DNS レコードが伝播し、ACM が検証を完了するまで待ちます（通常5〜30分）。
 
 ```bash
+# 証明書 ARN を取得
+CERTIFICATE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name SharedAcm \
+  --query "Stacks[0].Outputs[?OutputKey=='CertificateArnExport'].OutputValue" \
+  --output text \
+  --region us-east-1)
+
+# 検証完了を待機
 aws acm wait certificate-validated \
-  --certificate-arn $(aws cloudformation describe-stacks \
-    --stack-name nagiyu-shared-acm-certificate \
-    --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
-    --output text \
-    --region us-east-1) \
+  --certificate-arn $CERTIFICATE_ARN \
   --region us-east-1
 ```
 
 検証完了を手動で確認:
 
 ```bash
+# 証明書 ARN を取得
+CERTIFICATE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name SharedAcm \
+  --query "Stacks[0].Outputs[?OutputKey=='CertificateArnExport'].OutputValue" \
+  --output text \
+  --region us-east-1)
+
+# ステータスを確認
 aws acm describe-certificate \
-  --certificate-arn $(aws cloudformation describe-stacks \
-    --stack-name nagiyu-shared-acm-certificate \
-    --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
-    --output text \
-    --region us-east-1) \
+  --certificate-arn $CERTIFICATE_ARN \
   --query "Certificate.Status" \
   --output text \
   --region us-east-1
@@ -199,17 +234,18 @@ aws acm describe-certificate \
 
 ### ワークフロー例
 
-`.github/workflows/deploy-acm.yml`:
+`.github/workflows/deploy-shared-acm.yml`:
 
 ```yaml
-name: Deploy ACM Certificate
+name: Deploy Shared ACM
 
 on:
   push:
     branches:
       - develop
     paths:
-      - 'infra/shared/acm/**'
+      - 'infra/shared/lib/acm-stack.ts'
+      - 'infra/shared/bin/shared.ts'
 
 jobs:
   deploy:
@@ -218,6 +254,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -225,13 +270,15 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Deploy ACM Certificate stack
-        run: |
-          aws cloudformation deploy \
-            --template-file infra/shared/acm/certificate.yaml \
-            --stack-name nagiyu-shared-acm-certificate \
-            --parameter-overrides DomainName=${{ secrets.DOMAIN_NAME }} \
-            --region us-east-1
+      - name: Build CDK
+        working-directory: infra/shared
+        run: npm run build
+
+      - name: Deploy ACM stack
+        working-directory: infra/shared
+        run: npx cdk deploy SharedAcm --require-approval never
+        env:
+          DOMAIN_NAME: ${{ secrets.DOMAIN_NAME }}
 ```
 
 **注意:** 初回デプロイ後は、DNS 検証レコードを手動で設定する必要があります。
@@ -252,12 +299,16 @@ ACM で管理される証明書は、有効期限前に自動的に更新され�
 ### 証明書の状態確認
 
 ```bash
+# 証明書 ARN を取得
+CERTIFICATE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name SharedAcm \
+  --query "Stacks[0].Outputs[?OutputKey=='CertificateArnExport'].OutputValue" \
+  --output text \
+  --region us-east-1)
+
+# 証明書の状態を確認
 aws acm describe-certificate \
-  --certificate-arn $(aws cloudformation describe-stacks \
-    --stack-name nagiyu-shared-acm-certificate \
-    --query "Stacks[0].Outputs[?OutputKey=='CertificateArn'].OutputValue" \
-    --output text \
-    --region us-east-1) \
+  --certificate-arn $CERTIFICATE_ARN \
   --query "Certificate.[DomainName,Status,NotAfter]" \
   --output table \
   --region us-east-1
@@ -267,9 +318,10 @@ aws acm describe-certificate \
 
 証明書に新しいドメインを追加する場合:
 
-1. CloudFormation テンプレートを編集（SANs に追加）
-2. スタックを更新
-3. 新しいドメインの DNS 検証レコードを外部 DNS サービスに追加
+1. CDK スタックファイル (`infra/shared/lib/acm-stack.ts`) を編集（SANs に追加）
+2. TypeScript をビルド: `npm run build`
+3. スタックを更新: `npx cdk deploy SharedAcm`
+4. 新しいドメインの DNS 検証レコードを外部 DNS サービスに追加
 
 ---
 
@@ -344,9 +396,40 @@ ACM 証明書自体は**無料**です。
 
 ---
 
+## CDK 移行について
+
+### 移行完了情報
+
+- **移行日**: 2026-01-10
+- **移行元**: CloudFormation テンプレート (`infra/shared/acm/certificate.yaml`)
+- **移行先**: CDK スタック (`infra/shared/lib/acm-stack.ts`)
+- **スタック名**: `nagiyu-shared-acm-certificate` → `SharedAcm`
+- **Export 名**: 変更なし（既存サービスとの互換性維持）
+
+### 移行による変更点
+
+**変更なし（既存サービスへの影響なし）:**
+- Export 名は完全に維持されています
+- 証明書のリソース自体は変更されていません（DNS 検証レコードも同じ）
+- CloudFront などの既存サービスは引き続き動作します
+
+**変更点:**
+- デプロイ方法が CloudFormation CLI から CDK CLI に変更
+- スタック名が `nagiyu-shared-acm-certificate` から `SharedAcm` に変更
+- ドメイン名の指定が環境変数 `DOMAIN_NAME` または Context から取得
+
+### 旧 CloudFormation テンプレートについて
+
+`infra/shared/acm/certificate.yaml` はバックアップとして保持されていますが、今後のデプロイには使用されません。
+
+**注意:** 旧 CloudFormation スタック (`nagiyu-shared-acm-certificate`) が存在する場合、CDK スタックへの移行前に削除が必要です。詳細は [CDK 移行ガイド](../cdk-migration.md) を参照してください。
+
+---
+
 ## 関連ドキュメント
 
 - [CloudFront 詳細](./cloudfront.md) - CloudFront との統合方法
 - [アーキテクチャ](../architecture.md) - インフラ全体の設計
 - [初回セットアップ](../setup.md) - ACM 証明書の初期構築手順
 - [デプロイ手順](../deploy.md) - 日常的なデプロイ操作
+- [CDK 移行ガイド](../cdk-migration.md) - CloudFormation から CDK への移行戦略

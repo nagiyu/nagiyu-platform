@@ -1,0 +1,11 @@
+.next/
+node_modules/
+coverage/
+out/
+dist/
+.env*.local
+
+# E2E test results
+test-results/
+playwright-report/
+playwright/.cache/

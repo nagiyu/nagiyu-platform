@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+import 'source-map-support/register';
+import * as cdk from 'aws-cdk-lib';
+import { ECRStack } from '../lib/ecr-stack';
+import { LambdaStack } from '../lib/lambda-stack';
+import { CloudFrontStack } from '../lib/cloudfront-stack';
+
+const app = new cdk.App();
+
+// 環境パラメータを取得
+const env = app.node.tryGetContext('env') || 'dev';
+
+// 許可された環境値のチェック
+const allowedEnvironments = ['dev', 'prod'];
+if (!allowedEnvironments.includes(env)) {
+  throw new Error(
+    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
+  );
+}
+
+const stackEnv = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+};
+
+const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
+
+// ECR スタックを作成
+// Note: Secrets Manager は Auth サービスで管理される nagiyu-auth-nextauth-secret を使用
+const ecrStack = new ECRStack(app, `NagiyuAdminECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Service ECR - ${env} environment`,
+});
+
+// Lambda スタックを作成
+const lambdaStack = new LambdaStack(app, `NagiyuAdminLambda${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Service Lambda - ${env} environment`,
+});
+
+// CloudFront スタックを作成
+new CloudFrontStack(app, `NagiyuAdminCloudFront${envSuffix}`, {
+  environment: env,
+  functionUrl: lambdaStack.functionUrl.url,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: 'us-east-1', // CloudFront は us-east-1 必須
+  },
+  crossRegionReferences: true,
+  description: `Admin Service CloudFront - ${env} environment`,
+});
+
+app.synth();

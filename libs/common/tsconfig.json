@@ -2,9 +2,13 @@
   "extends": "../../configs/tsconfig.base.json",
   "compilerOptions": {
     "lib": ["ES2020"],
+    "composite": true,
     "declaration": true,
-    "outDir": "./dist"
+    "declarationMap": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "types": ["jest"]
   },
-  "include": ["src/**/*", "tests/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

@@ -1,0 +1,378 @@
+'use client';
+
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  type Job,
+  type JobStatus,
+  type CodecType,
+  formatFileSize,
+  formatDateTime,
+  formatJobId,
+} from 'codec-converter-core';
+import {
+  Container,
+  Typography,
+  Card,
+  CardContent,
+  Chip,
+  Button,
+  Alert,
+  Stack,
+  Box,
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DownloadIcon from '@mui/icons-material/Download';
+import AddIcon from '@mui/icons-material/Add';
+
+// エラーメッセージ定数
+const ERROR_MESSAGES = {
+  FETCH_FAILED: 'ジョブ情報の取得に失敗しました',
+  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+} as const;
+
+// ステータスバッジの色設定（WCAG AA準拠）
+const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'> = {
+  PENDING: 'warning',
+  PROCESSING: 'info',
+  COMPLETED: 'success',
+  FAILED: 'error',
+};
+
+// ステータス表示テキスト
+const STATUS_TEXT: Record<JobStatus, string> = {
+  PENDING: '🟡 待機中',
+  PROCESSING: '🔵 処理中',
+  COMPLETED: '🟢 完了',
+  FAILED: '🔴 失敗',
+};
+
+// ステータス説明テキスト
+const STATUS_DESCRIPTION: Record<JobStatus, string> = {
+  PENDING: '変換処理を待っています',
+  PROCESSING: '動画を変換しています...',
+  COMPLETED: '変換が完了しました',
+  FAILED: '変換処理に失敗しました',
+};
+
+/**
+ * コーデック名の表示テキスト
+ */
+const CODEC_DISPLAY_NAME: Record<CodecType, string> = {
+  h264: 'H.264',
+  vp9: 'VP9',
+  av1: 'AV1',
+};
+
+/**
+ * API response type with optional downloadUrl
+ */
+interface GetJobResponse extends Job {
+  downloadUrl?: string;
+}
+
+// Valid values for validation
+const VALID_JOB_STATUSES: ReadonlyArray<JobStatus> = [
+  'PENDING',
+  'PROCESSING',
+  'COMPLETED',
+  'FAILED',
+];
+const VALID_CODEC_TYPES: ReadonlyArray<CodecType> = ['h264', 'vp9', 'av1'];
+
+/**
+ * Type guard to validate GetJobResponse
+ */
+function isGetJobResponse(data: unknown): data is GetJobResponse {
+  if (typeof data !== 'object' || data === null) {
+    return false;
+  }
+
+  const job = data as Record<string, unknown>;
+
+  return (
+    typeof job.jobId === 'string' &&
+    typeof job.status === 'string' &&
+    VALID_JOB_STATUSES.includes(job.status as JobStatus) &&
+    typeof job.inputFile === 'string' &&
+    typeof job.outputCodec === 'string' &&
+    VALID_CODEC_TYPES.includes(job.outputCodec as CodecType) &&
+    typeof job.fileName === 'string' &&
+    typeof job.fileSize === 'number' &&
+    typeof job.createdAt === 'number' &&
+    typeof job.updatedAt === 'number' &&
+    typeof job.expiresAt === 'number' &&
+    (job.downloadUrl === undefined || typeof job.downloadUrl === 'string')
+  );
+}
+
+interface JobDetailsPageProps {
+  params: Promise<{ jobId: string }>;
+}
+
+export default function JobDetailsPage({ params }: JobDetailsPageProps) {
+  const router = useRouter();
+  const [jobId, setJobId] = useState<string>('');
+  const [job, setJob] = useState<Job | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // paramsの非同期解決
+  useEffect(() => {
+    params.then((resolvedParams) => {
+      setJobId(resolvedParams.jobId);
+    });
+  }, [params]);
+
+  // ジョブ情報の取得
+  const fetchJobDetails = useCallback(
+    async (showRefreshingState = false) => {
+      if (!jobId) return;
+
+      if (showRefreshingState) {
+        setIsRefreshing(true);
+      }
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/jobs/${jobId}`);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError(ERROR_MESSAGES.JOB_NOT_FOUND);
+          } else {
+            setError(ERROR_MESSAGES.FETCH_FAILED);
+          }
+          return;
+        }
+
+        const data = await response.json();
+
+        // Validate response structure
+        if (!isGetJobResponse(data)) {
+          console.error('Invalid job response structure:', data);
+          setError(ERROR_MESSAGES.FETCH_FAILED);
+          return;
+        }
+
+        setJob(data);
+        setDownloadUrl(data.downloadUrl || null);
+      } catch (err) {
+        console.error('Failed to fetch job details:', err);
+        setError(ERROR_MESSAGES.FETCH_FAILED);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [jobId]
+  );
+
+  // 初回読み込み
+  useEffect(() => {
+    if (jobId) {
+      fetchJobDetails();
+    }
+  }, [jobId, fetchJobDetails]);
+
+  // ステータス確認ボタンのハンドラー
+  const handleRefresh = () => {
+    fetchJobDetails(true);
+  };
+
+  // ダウンロードボタンのハンドラー
+  const handleDownload = () => {
+    if (downloadUrl) {
+      // downloadUrl is a Presigned URL generated by our own API
+      // It's safe to open as it's server-controlled and time-limited
+      window.open(downloadUrl, '_blank');
+    }
+  };
+
+  // 新規変換ボタンのハンドラー
+  const handleNewConversion = () => {
+    router.push('/');
+  };
+
+  // ローディング中の表示
+  if (isLoading) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          変換ジョブ詳細
+        </Typography>
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Typography>読み込み中...</Typography>
+        </Box>
+      </Container>
+    );
+  }
+
+  // エラー時の表示
+  if (error && !job) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom>
+          変換ジョブ詳細
+        </Typography>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewConversion}>
+          新しい動画を変換
+        </Button>
+      </Container>
+    );
+  }
+
+  if (!job) {
+    return null;
+  }
+
+  const showRefreshButton = job.status === 'PENDING' || job.status === 'PROCESSING';
+  const showDownloadButton = job.status === 'COMPLETED';
+
+  return (
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <Typography variant="h4" component="h1" gutterBottom sx={{ mb: 3 }}>
+        変換ジョブ詳細
+      </Typography>
+
+      {/* ジョブ情報表示 */}
+      <Card sx={{ mb: 3 }} aria-labelledby="job-info-heading">
+        <CardContent>
+          <Typography
+            id="job-info-heading"
+            variant="h6"
+            component="h2"
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
+          >
+            ジョブ情報
+          </Typography>
+
+          <Stack spacing={1.5}>
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                ジョブID:
+              </Typography>
+              <Typography component="span" sx={{ fontFamily: 'monospace' }}>
+                {formatJobId(job.jobId)}
+              </Typography>
+            </Box>
+
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                ファイル名:
+              </Typography>
+              <Typography component="span">{job.fileName}</Typography>
+            </Box>
+
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                ファイルサイズ:
+              </Typography>
+              <Typography component="span">{formatFileSize(job.fileSize)}</Typography>
+            </Box>
+
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                出力コーデック:
+              </Typography>
+              <Typography component="span">{CODEC_DISPLAY_NAME[job.outputCodec]}</Typography>
+            </Box>
+
+            <Box>
+              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+                作成日時:
+              </Typography>
+              <Typography component="span">{formatDateTime(job.createdAt)}</Typography>
+            </Box>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* ステータス表示 */}
+      <Card sx={{ mb: 3 }} aria-labelledby="status-heading">
+        <CardContent>
+          <Typography
+            id="status-heading"
+            variant="h6"
+            component="h2"
+            gutterBottom
+            sx={{ fontWeight: 'bold' }}
+          >
+            ステータス
+          </Typography>
+
+          <Chip
+            label={STATUS_TEXT[job.status]}
+            color={STATUS_COLORS[job.status]}
+            sx={{ mb: 1, fontWeight: 'bold' }}
+          />
+
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {STATUS_DESCRIPTION[job.status]}
+          </Typography>
+
+          {/* エラーメッセージ表示（FAILED時） */}
+          {job.status === 'FAILED' && job.errorMessage && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              <Typography variant="body2" fontWeight="bold" gutterBottom>
+                エラー詳細:
+              </Typography>
+              <Typography variant="body2">{job.errorMessage}</Typography>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* アクションボタン */}
+      <Stack spacing={2}>
+        {/* ステータス確認ボタン */}
+        {showRefreshButton && (
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            fullWidth
+            aria-label="ジョブステータスを確認"
+          >
+            {isRefreshing ? '確認中...' : 'ステータス確認'}
+          </Button>
+        )}
+
+        {/* ダウンロードボタン */}
+        {showDownloadButton && (
+          <Button
+            variant="contained"
+            size="large"
+            color="success"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownload}
+            fullWidth
+            aria-label="変換済みファイルをダウンロード"
+          >
+            ダウンロード
+          </Button>
+        )}
+
+        {/* 新規変換ボタン */}
+        <Button
+          variant="outlined"
+          size="large"
+          startIcon={<AddIcon />}
+          onClick={handleNewConversion}
+          fullWidth
+          aria-label="新しい動画を変換する"
+        >
+          新しい動画を変換
+        </Button>
+      </Stack>
+    </Container>
+  );
+}

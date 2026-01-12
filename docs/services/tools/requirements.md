@@ -538,3 +538,190 @@ Toolsアプリは、日常的な作業やデータ処理で使用する小さな
 3. **ドメイン**
     - 外部DNSサービスでドメインが管理されている
     - CloudFrontへのCNAME設定が可能
+
+---
+
+## 7. 収益化機能
+
+### 7.1 Google AdSense 統合
+
+#### 概要
+
+Toolsアプリに Google AdSense を統合し、広告収益化を実現する。
+ルートドメイン (`nagiyu.com`) およびサブドメイン (`tools.nagiyu.com`) の両方で広告を表示する。
+
+#### 背景
+
+- 初期要件では収益化を考慮していなかったが、運用コストを賄うため広告収益化を導入
+- ルートドメインで ECS 展開されているため、AdSense の審査要件を満たしている
+- プライバシーポリシーと利用規約は既に実装済み
+
+#### 機能ID: F-007
+
+**機能名**: Google AdSense 広告表示
+
+**優先度**: 中
+
+**概要**:
+Google AdSense の自動広告をページ内に表示し、広告収益を得る。
+
+#### 要件詳細
+
+##### 7.1.1 ads.txt の配置
+
+**目的**:
+IAB Tech Lab の仕様に準拠し、広告在庫の透明性を確保する。
+
+**配置場所**:
+- ファイルパス: `services/tools/public/ads.txt`
+- アクセスURL: `https://nagiyu.com/ads.txt`
+
+**内容**:
+```plaintext
+google.com, pub-6784165593921713, DIRECT, f08c47fec0942fa0
+```
+
+**仕様**:
+- Content-Type: `text/plain`
+- ステータスコード: `200 OK`
+- ルートドメインの ads.txt がサブドメインにも自動適用される
+
+##### 7.1.2 AdSense スクリプトの統合
+
+**目的**:
+Google AdSense の広告スクリプトを読み込み、自動広告を表示する。
+
+**配置場所**:
+- ファイルパス: `services/tools/src/app/layout.tsx`
+- 配置箇所: `<head>` タグ内
+
+**スクリプト**:
+```tsx
+<Script
+    async
+    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6784165593921713"
+    crossOrigin="anonymous"
+    strategy="afterInteractive"
+/>
+```
+
+**表示条件**:
+- 本番環境のみ (`NODE_ENV === 'production'`)
+- dev 環境では広告を表示しない
+
+**対象ドメイン**:
+- ✅ ルートドメイン: `nagiyu.com` (ECS)
+- ✅ サブドメイン: `tools.nagiyu.com` (Lambda)
+
+##### 7.1.3 広告タイプ
+
+**採用する広告タイプ**: 自動広告
+
+**理由**:
+- 手動配置よりも最適化された広告配置
+- メンテナンスコストが低い
+- Google の機械学習による最適化
+
+**将来の拡張**:
+必要に応じて手動広告ユニットの追加を検討
+
+##### 7.1.4 審査要件
+
+**AdSense 審査申請**:
+- ルートドメイン (`nagiyu.com`) を AdSense に登録
+- サブドメインは個別登録不要（自動適用）
+
+**審査通過の条件**:
+- ads.txt が正しく配置されていること
+- AdSense スクリプトが正しく読み込まれていること
+- プライバシーポリシーが公開されていること（既に実装済み）
+- 利用規約が公開されていること（既に実装済み）
+- コンテンツがAdSense ポリシーに準拠していること
+
+**審査期間**:
+数日〜2週間程度
+
+##### 7.1.5 パフォーマンス要件
+
+**ページ読み込み速度**:
+- 広告スクリプトはページ読み込みをブロックしない (`strategy="afterInteractive"`)
+- Lighthouse パフォーマンススコアへの影響を最小限に抑える
+
+**広告表示の遅延読み込み**:
+- 必要に応じて遅延読み込みを実装
+
+##### 7.1.6 プライバシー要件
+
+**既存のプライバシーポリシー**:
+- ✅ プライバシーポリシーダイアログが実装済み (`libs/ui/src/components/dialogs/PrivacyPolicyDialog.tsx`)
+- ✅ Footer に「プライバシーポリシー」リンクが実装済み (`libs/ui/src/components/layout/Footer.tsx`)
+
+**AdSense に関する追記**:
+現時点では不要。必要に応じて将来追記を検討。
+
+##### 7.1.7 モニタリング要件
+
+**監視指標**:
+- インプレッション数
+- クリック数
+- クリック率 (CTR)
+- 推定収益
+- ページ RPM（1000 インプレッションあたりの収益）
+- ページ表示速度への影響
+
+**監視ツール**:
+- AdSense 管理画面のレポート
+- Google Analytics（オプション）
+- Lighthouse パフォーマンススコア
+
+#### 制約事項
+
+1. **広告ポリシー準拠**
+    - Google AdSense のポリシーに準拠する必要がある
+    - ポリシー違反によりアカウント停止のリスクがある
+
+2. **審査の不確実性**
+    - 審査に通過しない可能性がある
+    - コンテンツ量が不足している場合、審査が不承認になる可能性
+
+3. **パフォーマンス影響**
+    - 広告表示によりページ読み込み速度が低下する可能性
+    - ユーザー体験への影響を最小限に抑える必要がある
+
+4. **収益の不確実性**
+    - トラフィック量に依存するため、収益は保証されない
+    - 初期段階では収益は限定的
+
+#### 実装フェーズ
+
+**Phase 1: 基本実装**
+- ads.txt ファイルの作成
+- AdSense スクリプトの統合
+- ビルド & デプロイ
+
+**Phase 2: 検証 & 審査**
+- ads.txt のアクセス確認
+- AdSense サイト登録 & 審査申請
+- 審査通過待ち
+
+**Phase 3: 監視 & 最適化**（オプション）
+- 広告表示の確認
+- パフォーマンス監視
+- 収益レポートの確認
+
+#### 受入基準
+
+- [ ] `https://nagiyu.com/ads.txt` が正しくアクセスできること
+- [ ] `https://tools.nagiyu.com/ads.txt` が正しくアクセスできること
+- [ ] 本番環境でAdSense スクリプトが読み込まれていること
+- [ ] dev 環境ではスクリプトが読み込まれないこと
+- [ ] AdSense 審査に通過すること
+- [ ] 両方のドメインで広告が表示されること
+- [ ] ページの表示速度に大きな影響がないこと
+
+#### 参考資料
+
+- [IAB ads.txt Specification v1.1](https://iabtechlab.com/wp-content/uploads/2022/04/Ads.txt-1.1.pdf)
+- [Google AdSense Help: Ads.txt guide](https://support.google.com/adsense/answer/12171612)
+- [Ads.txt FAQs - Google AdSense Help](https://support.google.com/adsense/answer/9785052)
+- [Next.js Script Component](https://nextjs.org/docs/app/api-reference/components/script)

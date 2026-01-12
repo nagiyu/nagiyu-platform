@@ -4,12 +4,18 @@
   "private": true,
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [
-    "services/*",
-    "libs/*"
+    "services/tools",
+    "services/*/core",
+    "services/*/web",
+    "services/*/web-*",
+    "services/*/batch",
+    "services/*/batch-*",
+    "services/*/api",
+    "libs/*",
+    "infra",
+    "infra/*"
   ],
   "scripts": {
-    "dev:tools": "npm run dev --workspace=services/tools",
-    "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
@@ -25,6 +31,9 @@
     "@jest/types": "^30.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.2.3",
     "eslint": "^9",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
@@ -33,5 +42,15 @@
     "ts-node": "^10.9.2",
     "typescript": "^5",
     "typescript-eslint": "^8.21.0"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.7",
+    "@mui/material": "^7.3.7",
+    "@mui/material-nextjs": "^7.3.7",
+    "next": "^16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   }
 }

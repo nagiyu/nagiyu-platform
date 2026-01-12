@@ -17,7 +17,11 @@
 ```
 configs/
 ├── tsconfig.base.json      # TypeScript基本設定
-└── eslint.config.base.mjs  # ESLint基本設定
+├── eslint.config.base.mjs  # ESLint基本設定
+└── samples/                # サンプル設定ファイル
+    ├── tsconfig.core.json  # core パッケージ用サンプル
+    ├── tsconfig.web.json   # web パッケージ用サンプル
+    └── tsconfig.batch.json # batch パッケージ用サンプル
 ```
 
 ### モノレポルート
@@ -25,6 +29,24 @@ configs/
 ```
 .prettierrc                 # Prettier設定（全体で統一）
 ```
+
+### サンプル設定ファイル（configs/samples/）
+
+新しいサービスを作成する際のテンプレートとなる TypeScript 設定ファイルを提供。
+
+**使用方法**:
+```bash
+# Core パッケージ
+cp configs/samples/tsconfig.core.json services/myservice/core/tsconfig.json
+
+# Web パッケージ
+cp configs/samples/tsconfig.web.json services/myservice/web/tsconfig.json
+
+# Batch パッケージ
+cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
+```
+
+**注意**: サンプルファイルの相対パスは `services/{service}/core`, `services/{service}/web`, `services/{service}/batch` に配置されることを前提としている。
 
 ## TypeScript設定
 
@@ -236,6 +258,7 @@ const config = {
 
 ## 参考
 
+- [rules.md](./rules.md): コーディング規約・べからず集
 - [service-template.md](./service-template.md): サービステンプレート
 - [architecture.md](./architecture.md): アーキテクチャ方針
 - [testing.md](./testing.md): テスト戦略

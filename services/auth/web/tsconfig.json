@@ -1,0 +1,31 @@
+{
+  "extends": "../../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@nagiyu/auth-core": ["../core/src"],
+      "@nagiyu/ui": ["../../../libs/ui/src"],
+      "@nagiyu/browser": ["../../../libs/browser/src"],
+      "@nagiyu/common": ["../../../libs/common/src"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "../core/src/types/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "e2e", "tests"]
+}

@@ -16,7 +16,8 @@
 
 ### インフラストラクチャ・アズ・コード (IaC)
 
-- **CloudFormation**: すべての AWS リソースを YAML テンプレートで定義
+- **CloudFormation と CDK の併用**: 既存リソースは CloudFormation、新規リソースは CDK で管理
+- **段階的移行**: CloudFormation から CDK への段階的な移行を実施
 - **バージョン管理**: インフラ定義を Git で管理し、変更履歴を追跡
 - **再現性**: 環境の再構築が容易で、開発・本番環境の一貫性を保証
 
@@ -51,25 +52,37 @@ AWS リソース
 
 ```
 infra/
-├── shared/              # 全サービスで共有するリソース
-│   ├── iam/            # IAM ユーザー、ポリシー
-│   │   ├── policies/
-│   │   │   ├── deploy-policy-core.yaml
-│   │   │   ├── deploy-policy-container.yaml
-│   │   │   ├── deploy-policy-application.yaml
-│   │   │   └── deploy-policy-integration.yaml
-│   │   └── users/
-│   │       ├── github-actions-user.yaml
-│   │       └── local-dev-user.yaml
-│   ├── vpc/            # VPC 関連
-│   └── acm/            # ACM 証明書
-│       └── certificate.yaml
+├── bin/                 # CDK App エントリーポイント
+│   └── nagiyu-platform.ts
+├── lib/                 # CDK Constructs とスタック (将来)
+├── shared/              # 全サービスで共有するリソース (CDK)
+│   ├── bin/
+│   │   └── shared.ts
+│   ├── lib/
+│   │   ├── vpc-stack.ts
+│   │   ├── acm-stack.ts
+│   │   ├── iam/
+│   │   │   ├── iam-policies-stack.ts
+│   │   │   └── iam-users-stack.ts
+│   │   └── utils/
+│   │       └── exports.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── cdk.json
 │
-└── app-A/              # アプリケーション固有のリソース（将来）
-    ├── lambda/         # Lambda 関数
-    ├── dynamodb/       # DynamoDB テーブル
-    ├── api-gateway/    # API Gateway
-    └── cloudfront/     # CloudFront ディストリビューション
+├── app-A/
+│   ├── bin/
+│   │   └── app-A.ts
+│   ├── lib/
+│   │   ├── ecr-stack.ts
+│   │   ├── lambda-stack.ts
+│   │   └── cloudfront-stack.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── cdk.json
+├── cdk.json            # CDK 設定 (ルート)
+├── tsconfig.json       # TypeScript 設定 (ルート)
+└── package.json        # 依存関係 (ルート)
 ```
 
 ---
@@ -82,15 +95,16 @@ infra/
 
 #### IAM (Identity and Access Management)
 
-- **デプロイポリシー** (`deploy-policy.yaml`)
+- **デプロイポリシー** (CDK: `lib/iam/iam-policies-stack.ts`)
     - CloudFormation、ECR、Lambda など各種 AWS サービスへのデプロイ権限を定義
     - GitHub Actions および ローカル開発者が共通で使用
+    - 4つのポリシーに分割: Core, Application, Container, Integration
 
-- **GitHub Actions ユーザー** (`github-actions-user.yaml`)
+- **GitHub Actions ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
     - CI/CD パイプラインで使用する IAM ユーザー
     - デプロイポリシーをアタッチ
 
-- **ローカル開発ユーザー** (`local-dev-user.yaml`)
+- **ローカル開発ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
     - 開発者がローカル環境から手動デプロイする際に使用
     - デプロイポリシーをアタッチ
 
@@ -112,9 +126,24 @@ infra/
 
 詳細は [ACM 詳細ドキュメント](./shared/acm.md) を参照。
 
-### アプリケーション固有インフラ (app-X/)
+### アプリケーション固有インフラ
 
-各アプリケーション専用のリソース（将来実装予定）。
+#### ルートドメイン (root/)
+
+ルートドメイン (example.com) で公開される Web アプリケーション。CDK で構築。
+
+- **ECS Cluster**: Fargate でコンテナオーケストレーション
+- **Application Load Balancer**: ECS タスクへの負荷分散
+- **CloudFront Distribution**: グローバル CDN
+- **ECR Repository**: コンテナイメージ管理
+- **Security Groups**: ネットワークセキュリティ
+- **IAM Roles**: ECS タスク実行権限
+
+詳細は [ルートドメインアーキテクチャ](./root/architecture.md) を参照。
+
+#### その他のアプリケーション (将来実装予定)
+
+各アプリケーション専用のリソース。
 
 - **Lambda 関数**: サーバーレスアプリケーションロジック
 - **DynamoDB テーブル**: NoSQL データベース
@@ -132,19 +161,18 @@ infra/
 ### 1. IAM リソースのデプロイ（初回のみ）
 
 ```
-infra/shared/iam/policies/deploy-policy.yaml
+infra/shared/lib/iam/iam-policies-stack.ts (CDK)
     ↓
-infra/shared/iam/users/github-actions-user.yaml
-infra/shared/iam/users/local-dev-user.yaml
+infra/shared/lib/iam/iam-users-stack.ts (CDK)
 ```
 
-依存関係: `deploy-policy` → `github-actions-user`, `local-dev-user`
+依存関係: IAM Policies → IAM Users
 
 ### 2. 共通インフラのデプロイ（初回のみ）
 
 ```
-infra/shared/vpc/      # VPC (環境ごと: dev/prod)
-infra/shared/acm/      # ACM 証明書 (共通)
+infra/shared/lib/vpc-stack.ts     # VPC (環境ごと: dev/prod)
+infra/shared/lib/acm-stack.ts     # ACM 証明書 (共通)
 ```
 
 - VPC は環境ごとにデプロイ (dev/prod)
@@ -162,25 +190,37 @@ infra/app-A/ (将来)
 
 ## スタック命名規則
 
-CloudFormation スタック名は以下の規則に従います。
+CDK スタック名は以下の規則に従います（2026年1月再構築により統一）。
+
+### 共有リソース（CDK標準命名）
 
 ```
-nagiyu-{category}-{resource}
+NagiyuShared{ResourceType}[{Env}]
 ```
 
 **例:**
-- `nagiyu-shared-deploy-policy-core` - 共通デプロイポリシー (Core)
-- `nagiyu-shared-deploy-policy-container` - 共通デプロイポリシー (Container)
-- `nagiyu-shared-deploy-policy-application` - 共通デプロイポリシー (Application)
-- `nagiyu-shared-deploy-policy-integration` - 共通デプロイポリシー (Integration)
-- `nagiyu-shared-github-actions-user` - GitHub Actions ユーザー
-- `nagiyu-shared-local-dev-user` - ローカル開発ユーザー
-- `nagiyu-shared-acm-certificate` - ACM 証明書
-- `nagiyu-dev-vpc` - dev 環境 VPC
-- `nagiyu-prod-vpc` - prod 環境 VPC
-- `nagiyu-dev-cloudfront-app-A` - app-A の CloudFront (dev 環境、将来)
-- `nagiyu-prod-cloudfront-app-A` - app-A の CloudFront (prod 環境、将来)
-- `nagiyu-app-A-lambda` - app-A の Lambda リソース（将来）
+- `NagiyuSharedIamCore` - 共有IAM Coreポリシー
+- `NagiyuSharedIamApplication` - 共有IAM Applicationポリシー
+- `NagiyuSharedIamContainer` - 共有IAM Containerポリシー
+- `NagiyuSharedIamIntegration` - 共有IAM Integrationポリシー
+- `NagiyuSharedIamUsers` - 共有IAMユーザー (GitHub Actions, Local Dev)
+- `NagiyuSharedAcm` - ACM証明書 (環境共通)
+- `NagiyuSharedVpcDev` - dev環境VPC
+- `NagiyuSharedVpcProd` - prod環境VPC
+
+### アプリケーションリソース
+
+```
+Nagiyu{Service}{ResourceType}{Env}
+```
+
+**例:**
+- `NagiyuAuthInfraDev` - Auth の基盤リソース (dev環境)
+- `NagiyuAuthLambdaDev` - Auth の Lambda (dev環境)
+- `NagiyuAuthCloudFrontDev` - Auth の CloudFront (dev環境)
+- `NagiyuAdminInfraProd` - Admin の基盤リソース (prod環境)
+- `NagiyuCodecConverterDev` - Codec Converter (dev環境、統合スタック)
+- `NagiyuToolsEcrProd` - Tools の ECR (prod環境)
 
 ---
 
@@ -210,7 +250,10 @@ nagiyu-{category}-{resource}
 
 - [初回セットアップ](./setup.md) - インフラの初期構築手順
 - [デプロイ手順](./deploy.md) - 日常的なデプロイ操作
+- [CDK 移行ガイド](./cdk-migration.md) - CloudFormation から CDK への移行戦略
+- [共有インフラ](./shared/README.md) - 共有リソースの概要とサービスパターン
 - [IAM 詳細](./shared/iam.md) - IAM リソースの詳細設計
 - [VPC 詳細](./shared/vpc.md) - VPC リソースの詳細設計
 - [ACM 詳細](./shared/acm.md) - SSL/TLS 証明書の管理
 - [CloudFront 詳細](./shared/cloudfront.md) - CloudFront の設計と運用
+- [ルートドメインアーキテクチャ](./root/architecture.md) - ルートドメインの詳細設計

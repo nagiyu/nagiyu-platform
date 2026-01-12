@@ -1,7 +1,7 @@
 # インフラストラクチャドキュメント
 
 本ディレクトリは nagiyu-platform のインフラストラクチャ関連ドキュメントを格納します。
-AWS CloudFormation を用いて、共通基盤と各アプリケーション固有のリソースを管理します。
+AWS CDK (TypeScript) を用いて、共通基盤と各アプリケーション固有のリソースを管理します。
 
 ---
 
@@ -24,23 +24,49 @@ AWS CloudFormation を用いて、共通基盤と各アプリケーション固�
     - [ACM](./shared/acm.md) - SSL/TLS 証明書の管理
     - [CloudFront](./shared/cloudfront.md) - CloudFront の設計と運用
 
+- [ツールサービス](./tools/README.md) - Tools サービスのインフラストラクチャ
+- [ルートドメインインフラ](./root/architecture.md) - ルートドメイン (example.com) のアーキテクチャと設計
+
 ---
 
 ## インフラディレクトリ構造
 
 ```
 infra/
-├── shared/           # 全サービスで共有するリソース
-│   ├── iam/         # IAM ユーザー、ポリシー
-│   ├── vpc/         # VPC 関連
-│   └── acm/         # ACM 証明書
-│
-└── app-A/           # アプリケーション固有のリソース（将来）
-    ├── lambda/      # Lambda 関数
-    ├── dynamodb/    # DynamoDB テーブル
-    ├── api-gateway/ # API Gateway
-    └── cloudfront/  # CloudFront ディストリビューション
+├── shared/           # 全サービスで共有するリソース (CDK)
+│   ├── bin/
+│   │   └── shared.ts
+│   ├── lib/
+│   │   ├── vpc-stack.ts
+│   │   ├── acm-stack.ts
+│   │   ├── iam/
+│   │   │   ├── iam-policies-stack.ts
+│   │   │   └── iam-users-stack.ts
+│   │   └── utils/
+│   │       └── exports.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── cdk.json
+│   └── README.md
+├── tools/            # Tools サービスのインフラ (CDK)
+│   ├── bin/
+│   │   └── tools.ts
+│   ├── lib/
+│   │   ├── ecr-stack.ts
+│   │   ├── lambda-stack.ts
+│   │   └── cloudfront-stack.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── cdk.json
+│   └── README.md
+├── root/             # ルートドメインリソース (CDK)
+├── auth/             # Auth サービスのインフラ (CDK)
+├── admin/            # Admin サービスのインフラ (CDK)
+├── codec-converter/  # Codec Converter サービスのインフラ (CDK)
+└── README.md         # 本ドキュメント
 ```
+
+**注:** 2026年1月の CDK 移行により、全リソースが CDK (TypeScript) で管理されています。
 
 ---
 
