@@ -55,7 +55,7 @@ jobs:
 
       - name: CDK Synth
         env:
-          ENVIRONMENT: prod
+          ENVIRONMENT: dev
         run: npm run synth --workspace=@nagiyu/infra
 
       - name: Upload CloudFormation templates
@@ -134,7 +134,7 @@ jobs:
 
       - name: CDK Deploy
         env:
-          ENVIRONMENT: prod
+          ENVIRONMENT: dev
           IMAGE_TAG: ${{ steps.get-image-tag.outputs.image-tag }}
         run: npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
 
