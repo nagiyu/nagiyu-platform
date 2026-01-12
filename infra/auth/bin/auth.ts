@@ -24,21 +24,22 @@ const stackEnv = {
 };
 
 // Auth スタック (DynamoDB, Secrets, ECR) を作成
-new AuthStack(app, `Auth-${env}`, {
+const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
+new AuthStack(app, `NagiyuAuthInfra${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Auth Service Infrastructure - ${env} environment`,
 });
 
 // Lambda スタックを作成
-const lambdaStack = new LambdaStack(app, `Auth-Lambda-${env}`, {
+const lambdaStack = new LambdaStack(app, `NagiyuAuthLambda${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Auth Service Lambda - ${env} environment`,
 });
 
 // CloudFront スタックを作成
-new CloudFrontStack(app, `Auth-CloudFront-${env}`, {
+new CloudFrontStack(app, `NagiyuAuthCloudFront${envSuffix}`, {
   environment: env,
   functionUrl: lambdaStack.functionUrl.url,
   env: {

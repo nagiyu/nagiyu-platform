@@ -2,13 +2,13 @@ name: Deploy Shared Infrastructure
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
-    # paths:
-    #   - 'infra/shared/**'
-    #   - '.github/workflows/shared-deploy.yml'
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'infra/shared/**'
+      - '.github/workflows/shared-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:

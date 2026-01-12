@@ -24,21 +24,22 @@ const stackEnv = {
 };
 
 // Admin スタック (ECR) を作成
-new AdminStack(app, `Admin-${env}`, {
+const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
+new AdminStack(app, `NagiyuAdminInfra${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Admin Service Infrastructure - ${env} environment`,
 });
 
 // Lambda スタックを作成
-const lambdaStack = new LambdaStack(app, `Admin-Lambda-${env}`, {
+const lambdaStack = new LambdaStack(app, `NagiyuAdminLambda${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Admin Service Lambda - ${env} environment`,
 });
 
 // CloudFront スタックを作成
-new CloudFrontStack(app, `Admin-CloudFront-${env}`, {
+new CloudFrontStack(app, `NagiyuAdminCloudFront${envSuffix}`, {
   environment: env,
   functionUrl: lambdaStack.functionUrl.url,
   env: {
