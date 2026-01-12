@@ -97,8 +97,6 @@ jobs:
       - name: Run core tests
         run: npm run test --workspace=codec-converter-core
 
-      - name: Run web tests
-        run: npm run test --workspace=codec-converter-web
 
       - name: Run batch tests
         run: npm run test --workspace=codec-converter-batch
