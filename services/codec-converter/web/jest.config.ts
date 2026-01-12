@@ -9,6 +9,9 @@ const config: Config = {
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
+  transformIgnorePatterns: [
+    'node_modules/(?!(sinon|@sinonjs|aws-sdk-client-mock)/)',
+  ],
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',
