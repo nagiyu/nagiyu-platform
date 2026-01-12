@@ -1,14 +1,13 @@
 {
   "name": "@nagiyu/infra-common",
   "version": "1.0.0",
-  "type": "module",
   "description": "Common infrastructure utilities and base stacks for Nagiyu Platform",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
-      "import": "./dist/src/index.js"
+      "require": "./dist/src/index.js"
     }
   },
   "scripts": {
