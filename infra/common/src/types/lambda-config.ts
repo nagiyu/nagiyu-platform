@@ -23,7 +23,7 @@ export interface LambdaConfig {
    * アーキテクチャ
    * @default X86_64
    */
-  architecture?: "X86_64" | "ARM_64";
+  architecture?: 'X86_64' | 'ARM_64';
 
   /**
    * ランタイム

@@ -23,10 +23,10 @@ export interface EcrConfig {
    * イメージタグの可変性
    * @default MUTABLE
    */
-  imageTagMutability?: "MUTABLE" | "IMMUTABLE";
+  imageTagMutability?: 'MUTABLE' | 'IMMUTABLE';
 
   /**
    * リソース削除ポリシーを上書き（通常は environment に基づいて自動設定）
    */
-  removalPolicy?: "DESTROY" | "RETAIN";
+  removalPolicy?: 'DESTROY' | 'RETAIN';
 }

@@ -5,7 +5,7 @@ export type {
   LambdaConfig,
   CloudFrontConfig,
   ServiceConfig,
-} from "./types";
+} from './types';
 
 // Naming utilities
 export {
@@ -17,8 +17,8 @@ export {
   getDynamoDBTableName,
   getIamRoleName,
   getLogGroupName,
-} from "./utils/naming";
-export type { ResourceType } from "./utils/naming";
+} from './utils/naming';
+export type { ResourceType } from './utils/naming';
 
 // Default configurations
 export {
@@ -26,7 +26,7 @@ export {
   DEFAULT_ECR_CONFIG,
   DEFAULT_CLOUDFRONT_CONFIG,
   mergeConfig,
-} from "./constants/defaults";
+} from './constants/defaults';
 
 // Security headers
 export {
@@ -37,4 +37,4 @@ export {
   REFERRER_POLICY_HEADER,
   PERMISSIONS_POLICY_HEADER,
   SECURITY_HEADERS,
-} from "./constants/security-headers";
+} from './constants/security-headers';

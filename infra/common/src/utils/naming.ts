@@ -1,18 +1,18 @@
-import { Environment } from "../types/environment";
+import { Environment } from '../types/environment';
 
 /**
  * リソース種別
  */
 export type ResourceType =
-  | "ecr"
-  | "lambda"
-  | "cloudfront"
-  | "s3"
-  | "dynamodb"
-  | "iam-role"
-  | "iam-policy"
-  | "security-group"
-  | "log-group";
+  | 'ecr'
+  | 'lambda'
+  | 'cloudfront'
+  | 's3'
+  | 'dynamodb'
+  | 'iam-role'
+  | 'iam-policy'
+  | 'security-group'
+  | 'log-group';
 
 /**
  * リソース命名規則に従ったリソース名を生成
@@ -35,7 +35,7 @@ export type ResourceType =
 export function getResourceName(
   serviceName: string,
   resourceType: ResourceType,
-  environment: Environment,
+  environment: Environment
 ): string {
   return `nagiyu-${serviceName}-${resourceType}-${environment}`;
 }
@@ -53,11 +53,8 @@ export function getResourceName(
  * // => 'nagiyu-tools-ecr-dev'
  * ```
  */
-export function getEcrRepositoryName(
-  serviceName: string,
-  environment: Environment,
-): string {
-  return getResourceName(serviceName, "ecr", environment);
+export function getEcrRepositoryName(serviceName: string, environment: Environment): string {
+  return getResourceName(serviceName, 'ecr', environment);
 }
 
 /**
@@ -73,11 +70,8 @@ export function getEcrRepositoryName(
  * // => 'nagiyu-auth-lambda-prod'
  * ```
  */
-export function getLambdaFunctionName(
-  serviceName: string,
-  environment: Environment,
-): string {
-  return getResourceName(serviceName, "lambda", environment);
+export function getLambdaFunctionName(serviceName: string, environment: Environment): string {
+  return getResourceName(serviceName, 'lambda', environment);
 }
 
 /**
@@ -96,11 +90,8 @@ export function getLambdaFunctionName(
  * // => 'dev-auth.nagiyu.com'
  * ```
  */
-export function getCloudFrontDomainName(
-  serviceName: string,
-  environment: Environment,
-): string {
-  if (environment === "prod") {
+export function getCloudFrontDomainName(serviceName: string, environment: Environment): string {
+  if (environment === 'prod') {
     return `${serviceName}.nagiyu.com`;
   }
   return `${environment}-${serviceName}.nagiyu.com`;
@@ -119,11 +110,8 @@ export function getCloudFrontDomainName(
  * // => 'nagiyu-tools-s3-dev'
  * ```
  */
-export function getS3BucketName(
-  serviceName: string,
-  environment: Environment,
-): string {
-  return getResourceName(serviceName, "s3", environment);
+export function getS3BucketName(serviceName: string, environment: Environment): string {
+  return getResourceName(serviceName, 's3', environment);
 }
 
 /**
@@ -139,11 +127,8 @@ export function getS3BucketName(
  * // => 'nagiyu-auth-dynamodb-prod'
  * ```
  */
-export function getDynamoDBTableName(
-  serviceName: string,
-  environment: Environment,
-): string {
-  return getResourceName(serviceName, "dynamodb", environment);
+export function getDynamoDBTableName(serviceName: string, environment: Environment): string {
+  return getResourceName(serviceName, 'dynamodb', environment);
 }
 
 /**
@@ -159,11 +144,8 @@ export function getDynamoDBTableName(
  * // => 'nagiyu-tools-iam-role-dev'
  * ```
  */
-export function getIamRoleName(
-  serviceName: string,
-  environment: Environment,
-): string {
-  return getResourceName(serviceName, "iam-role", environment);
+export function getIamRoleName(serviceName: string, environment: Environment): string {
+  return getResourceName(serviceName, 'iam-role', environment);
 }
 
 /**
@@ -179,10 +161,7 @@ export function getIamRoleName(
  * // => '/aws/lambda/nagiyu-tools-lambda-dev'
  * ```
  */
-export function getLogGroupName(
-  serviceName: string,
-  environment: Environment,
-): string {
+export function getLogGroupName(serviceName: string, environment: Environment): string {
   const functionName = getLambdaFunctionName(serviceName, environment);
   return `/aws/lambda/${functionName}`;
 }

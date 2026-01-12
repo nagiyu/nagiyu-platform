@@ -1,7 +1,7 @@
-import { Environment } from "./environment";
-import { EcrConfig } from "./ecr-config";
-import { LambdaConfig } from "./lambda-config";
-import { CloudFrontConfig } from "./cloudfront-config";
+import { Environment } from './environment';
+import { EcrConfig } from './ecr-config';
+import { LambdaConfig } from './lambda-config';
+import { CloudFrontConfig } from './cloudfront-config';
 
 /**
  * サービス全体の設定

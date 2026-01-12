@@ -17,7 +17,7 @@ export interface CloudFrontConfig {
    * 最小 TLS バージョン
    * @default 1.2
    */
-  minimumTlsVersion?: "1.2" | "1.3";
+  minimumTlsVersion?: '1.2' | '1.3';
 
   /**
    * HTTP/2 を有効にするか

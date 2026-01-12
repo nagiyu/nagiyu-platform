@@ -37,7 +37,7 @@ export const FRAME_OPTIONS_HEADER = {
   /**
    * frameOption: DENY（フレーム内での表示を拒否）
    */
-  frameOption: "DENY",
+  frameOption: 'DENY',
   /**
    * override: 既存のヘッダーを上書き
    */
@@ -71,7 +71,7 @@ export const REFERRER_POLICY_HEADER = {
    * 同一オリジンへのリクエストには完全なリファラーを送信、
    * クロスオリジンへのリクエストにはオリジンのみを送信
    */
-  referrerPolicy: "strict-origin-when-cross-origin",
+  referrerPolicy: 'strict-origin-when-cross-origin',
   /**
    * override: 既存のヘッダーを上書き
    */
@@ -85,19 +85,19 @@ export const PERMISSIONS_POLICY_HEADER = {
   /**
    * カメラ: 無効
    */
-  camera: "none",
+  camera: 'none',
   /**
    * マイク: 無効
    */
-  microphone: "none",
+  microphone: 'none',
   /**
    * 位置情報: 無効
    */
-  geolocation: "none",
+  geolocation: 'none',
   /**
    * 支払いリクエスト: 無効
    */
-  payment: "none",
+  payment: 'none',
 } as const;
 
 /**
