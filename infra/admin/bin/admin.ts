@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { AdminStack } from '../lib/admin-stack';
+import { ECRStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 
@@ -23,12 +23,14 @@ const stackEnv = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// Admin スタック (ECR) を作成
 const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
-new AdminStack(app, `NagiyuAdminInfra${envSuffix}`, {
+
+// ECR スタックを作成
+// Note: Secrets Manager は Auth サービスで管理される nagiyu-auth-nextauth-secret を使用
+const ecrStack = new ECRStack(app, `NagiyuAdminECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
-  description: `Admin Service Infrastructure - ${env} environment`,
+  description: `Admin Service ECR - ${env} environment`,
 });
 
 // Lambda スタックを作成

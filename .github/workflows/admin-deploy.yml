@@ -2,17 +2,17 @@ name: Admin App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - 'integration/**'
-      - master
-    paths:
-      - 'services/admin/**'
-      - 'libs/common/**'
-      - 'infra/admin/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/admin-deploy.yml'
+    # branches:
+    #   - develop
+    #   - 'integration/**'
+    #   - master
+    # paths:
+    #   - 'services/admin/**'
+    #   - 'libs/common/**'
+    #   - 'infra/admin/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/admin-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -33,7 +33,6 @@ jobs:
 
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
-      cdk-stack-name: ${{ steps.set-env.outputs.cdk-stack-name }}
 
     steps:
       - name: Checkout code
@@ -50,13 +49,6 @@ jobs:
             echo "environment=dev" >> "$GITHUB_OUTPUT"
           else
             echo "environment=dev" >> "$GITHUB_OUTPUT"
-          fi
-
-          # Set CDK stack suffix based on environment
-          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "cdk-stack-name=NagiyuAdminInfraProd" >> "$GITHUB_OUTPUT"
-          else
-            echo "cdk-stack-name=NagiyuAdminInfraDev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Node.js
@@ -85,11 +77,22 @@ jobs:
           npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
 
       - name: Deploy Infrastructure (ECR)
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
         run: |
           echo "Deploying ECR stack..."
+
+          # Set stack name based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            ECR_STACK="NagiyuAdminECRProd"
+          else
+            ECR_STACK="NagiyuAdminECRDev"
+          fi
+
+          # Deploy ECR stack
           npm run deploy --workspace=@nagiyu/infra-admin -- \
-            ${{ steps.set-env.outputs.cdk-stack-name }} \
-            --context env=${{ steps.set-env.outputs.environment }} \
+            --context env=$ENVIRONMENT \
+            "$ECR_STACK" \
             --require-approval never
 
   build:
@@ -131,11 +134,18 @@ jobs:
       - name: Get ECR repository from CDK outputs
         id: get-ecr
         env:
-          CDK_STACK_NAME: ${{ needs.infrastructure.outputs.cdk-stack-name }}
+          ENVIRONMENT: ${{ needs.infrastructure.outputs.environment }}
         run: |
+          # Set ECR stack name based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            ECR_STACK_NAME="NagiyuAdminECRProd"
+          else
+            ECR_STACK_NAME="NagiyuAdminECRDev"
+          fi
+
           # Try to get from CloudFormation stack
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name "$CDK_STACK_NAME" \
+            --stack-name "$ECR_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -143,7 +153,7 @@ jobs:
           if [ -z "$REPOSITORY_URI" ]; then
             echo "Warning: Could not find ECR repository URI from stack, using default naming"
             ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-admin-${{ needs.infrastructure.outputs.environment }}"
+            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-admin-$ENVIRONMENT"
           fi
 
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
