@@ -2,16 +2,16 @@ name: Tools App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'services/tools/**'
-      - 'infra/tools/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/tools-deploy.yml'
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    # paths:
+    #   - 'services/tools/**'
+    #   - 'infra/tools/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/tools-deploy.yml'
   workflow_dispatch:
 
 env:
@@ -34,7 +34,6 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: infra/package-lock.json
 
       - name: Set environment
         id: set-env
@@ -46,7 +45,6 @@ jobs:
           fi
 
       - name: Install dependencies
-        working-directory: infra
         run: npm ci
 
       - name: Configure AWS credentials
@@ -57,14 +55,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: CDK Deploy Tools Infrastructure
-        working-directory: infra/tools
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
         run: |
-          npx cdk deploy --all \
+          npm run cdk --workspace=@nagiyu/infra-tools -- deploy --all \
             --context env="$ENVIRONMENT" \
             --require-approval never
-          
+
           echo "Tools infrastructure deployed via CDK (environment: $ENVIRONMENT)"
 
   build:
