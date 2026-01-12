@@ -2,17 +2,17 @@ name: Auth App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'services/auth/**'
-      - 'libs/common/**'
-      - 'infra/auth/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/auth-deploy.yml'
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    # paths:
+    #   - 'services/auth/**'
+    #   - 'libs/common/**'
+    #   - 'infra/auth/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/auth-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -54,9 +54,9 @@ jobs:
           
           # Set CDK stack name based on environment
           if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "cdk-stack-name=Auth-prod" >> "$GITHUB_OUTPUT"
+            echo "cdk-stack-name=NagiyuAuthInfraProd" >> "$GITHUB_OUTPUT"
           else
-            echo "cdk-stack-name=Auth-dev" >> "$GITHUB_OUTPUT"
+            echo "cdk-stack-name=NagiyuAuthInfraDev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Node.js
@@ -147,7 +147,7 @@ jobs:
         run: |
           # Try to get from CloudFormation stack
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-ECR-${{ needs.infrastructure.outputs.environment }}" \
+            --stack-name "${{ needs.infrastructure.outputs.cdk-stack-name }}" \
             --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -244,7 +244,7 @@ jobs:
         run: |
           # Get Lambda function ARN from CloudFormation
           FUNCTION_ARN=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-Lambda-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -287,7 +287,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-Lambda-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -332,7 +332,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -410,7 +410,7 @@ jobs:
           
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -423,7 +423,7 @@ jobs:
           
           # Custom Domain (if configured)
           CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "Auth-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
