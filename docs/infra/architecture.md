@@ -55,33 +55,42 @@ infra/
 ├── bin/                 # CDK App エントリーポイント
 │   └── nagiyu-platform.ts
 ├── lib/                 # CDK Constructs とスタック (将来)
-├── shared/              # 全サービスで共有するリソース (CloudFormation)
-│   ├── iam/            # IAM ユーザー、ポリシー
-│   │   ├── policies/
-│   │   │   ├── deploy-policy-core.yaml
-│   │   │   ├── deploy-policy-container.yaml
-│   │   │   ├── deploy-policy-application.yaml
-│   │   │   └── deploy-policy-integration.yaml
-│   │   └── users/
-│   │       ├── github-actions-user.yaml
-│   │       └── local-dev-user.yaml
-│   ├── vpc/            # VPC 関連
-│   └── acm/            # ACM 証明書
-│       └── certificate.yaml
+├── shared/              # 全サービスで共有するリソース (CDK)
+│   ├── bin/
+│   │   └── shared.ts
+│   ├── lib/
+│   │   ├── vpc-stack.ts
+│   │   ├── acm-stack.ts
+│   │   ├── iam/
+│   │   │   ├── iam-policies-stack.ts
+│   │   │   └── iam-users-stack.ts
+│   │   └── utils/
+│   │       └── exports.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── cdk.json
+│
+├── tools/              # Tools サービスのインフラ (CDK)
+│   ├── bin/
+│   │   └── tools.ts
+│   ├── lib/
+│   │   ├── ecr-stack.ts
+│   │   ├── lambda-stack.ts
+│   │   └── cloudfront-stack.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── cdk.json
 │
 ├── root/               # ルートドメインリソース (CDK)
-│   └── (将来の CDK スタック実装)
-├── app-A/              # アプリケーション固有のリソース (将来)
-│   ├── lambda/         # Lambda 関数
-│   ├── dynamodb/       # DynamoDB テーブル
-│   ├── api-gateway/    # API Gateway
-│   └── cloudfront/     # CloudFront ディストリビューション
-├── cdk.json            # CDK 設定
-├── tsconfig.json       # TypeScript 設定
-└── package.json        # 依存関係
+├── auth/               # Auth サービスのインフラ (CDK)
+├── admin/              # Admin サービスのインフラ (CDK)
+├── codec-converter/    # Codec Converter サービスのインフラ (CDK)
+├── cdk.json            # CDK 設定 (ルート)
+├── tsconfig.json       # TypeScript 設定 (ルート)
+└── package.json        # 依存関係 (ルート)
 ```
 
-**注:** 現時点で作成済みのリソース (shared/) は CloudFormation で管理し、新規リソース (root/) は CDK で構築します。将来的には全リソースを CDK に移行する予定です。詳細は [CDK 移行ガイド](./cdk-migration.md) を参照。
+**注:** 2026年1月の CDK 移行により、全リソースが CDK (TypeScript) で管理されています。詳細は [CDK 移行ガイド](./cdk-migration.md) を参照。
 
 ---
 
@@ -93,15 +102,16 @@ infra/
 
 #### IAM (Identity and Access Management)
 
-- **デプロイポリシー** (`deploy-policy.yaml`)
+- **デプロイポリシー** (CDK: `lib/iam/iam-policies-stack.ts`)
     - CloudFormation、ECR、Lambda など各種 AWS サービスへのデプロイ権限を定義
     - GitHub Actions および ローカル開発者が共通で使用
+    - 4つのポリシーに分割: Core, Application, Container, Integration
 
-- **GitHub Actions ユーザー** (`github-actions-user.yaml`)
+- **GitHub Actions ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
     - CI/CD パイプラインで使用する IAM ユーザー
     - デプロイポリシーをアタッチ
 
-- **ローカル開発ユーザー** (`local-dev-user.yaml`)
+- **ローカル開発ユーザー** (CDK: `lib/iam/iam-users-stack.ts`)
     - 開発者がローカル環境から手動デプロイする際に使用
     - デプロイポリシーをアタッチ
 
@@ -158,19 +168,18 @@ infra/
 ### 1. IAM リソースのデプロイ（初回のみ）
 
 ```
-infra/shared/iam/policies/deploy-policy.yaml
+infra/shared/lib/iam/iam-policies-stack.ts (CDK)
     ↓
-infra/shared/iam/users/github-actions-user.yaml
-infra/shared/iam/users/local-dev-user.yaml
+infra/shared/lib/iam/iam-users-stack.ts (CDK)
 ```
 
-依存関係: `deploy-policy` → `github-actions-user`, `local-dev-user`
+依存関係: IAM Policies → IAM Users
 
 ### 2. 共通インフラのデプロイ（初回のみ）
 
 ```
-infra/shared/vpc/      # VPC (環境ごと: dev/prod)
-infra/shared/acm/      # ACM 証明書 (共通)
+infra/shared/lib/vpc-stack.ts     # VPC (環境ごと: dev/prod)
+infra/shared/lib/acm-stack.ts     # ACM 証明書 (共通)
 ```
 
 - VPC は環境ごとにデプロイ (dev/prod)

@@ -2,11 +2,13 @@
 
 本ドキュメントでは、nagiyu-platform における CloudFormation から AWS CDK への移行戦略を説明します。
 
+**🎉 移行完了**: 2026年1月に全リソースの CDK 移行が完了しました。
+
 ---
 
 ## 概要
 
-nagiyu-platform は、従来 CloudFormation で管理していたインフラストラクチャを、段階的に AWS CDK (Cloud Development Kit) に移行します。この移行により、以下のメリットを得ることができます。
+nagiyu-platform は、従来 CloudFormation で管理していたインフラストラクチャを、段階的に AWS CDK (Cloud Development Kit) に移行しました。この移行により、以下のメリットを得ることができました。
 
 ### CDK 移行のメリット
 
@@ -16,17 +18,28 @@ nagiyu-platform は、従来 CloudFormation で管理していたインフラス
 - **開発体験の改善**: IDE のコード補完、型チェック、リファクタリング機能の活用
 - **テスト容易性**: ユニットテスト、スナップショットテストの実装が容易
 
-### 移行方針
+### 移行完了状況
 
-**段階的移行アプローチ**: 既存の CloudFormation スタックは維持しつつ、新規リソースは CDK で構築します。
+**完了日**: 2026年1月
 
-- **既存リソース**: CloudFormation で継続管理（VPC、IAM、ACM など）
-- **新規リソース**: CDK で構築（ルートドメインインフラなど）
-- **将来的な移行**: 必要に応じて既存リソースを CDK に移行
+全てのインフラストラクチャが CDK (TypeScript) で管理されています:
+
+- ✅ **共通インフラ (shared/)**: VPC、IAM、ACM
+- ✅ **Tools サービス**: ECR、Lambda、CloudFront
+- ✅ **Root ドメイン**: 静的サイトホスティング
+- ✅ **その他サービス**: Auth、Admin、Codec Converter
+
+### 旧移行方針 (参考)
+
+**段階的移行アプローチ**: 既存の CloudFormation スタックは維持しつつ、新規リソースは CDK で構築する方針でした。
+
+- **既存リソース**: CloudFormation で継続管理（VPC、IAM、ACM など）→ **完了**
+- **新規リソース**: CDK で構築（ルートドメインインフラなど）→ **完了**
+- **将来的な移行**: 必要に応じて既存リソースを CDK に移行 → **完了**
 
 ---
 
-## CDK と CloudFormation の共存
+## CDK と CloudFormation の共存 (参考)
 
 ### 基本原則
 
