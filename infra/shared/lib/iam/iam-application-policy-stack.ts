@@ -14,14 +14,10 @@ export class IamApplicationPolicyStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    this.policy = new iam.ManagedPolicy(
-      this,
-      'NagiyuDeployPolicyApplication',
-      {
-        managedPolicyName: 'nagiyu-deploy-policy-application',
-        description:
-          'nagiyu アプリケーションデプロイ権限（Lambda, S3, DynamoDB, API Gateway, CloudFront）',
-        statements: [
+    this.policy = new iam.ManagedPolicy(this, 'Policy', {
+      description:
+        'nagiyu アプリケーションデプロイ権限（Lambda, S3, DynamoDB, API Gateway, CloudFront）',
+      statements: [
           // S3 Operations
           new iam.PolicyStatement({
             sid: 'S3Operations',

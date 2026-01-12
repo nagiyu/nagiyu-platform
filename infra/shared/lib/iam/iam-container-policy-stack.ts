@@ -14,13 +14,9 @@ export class IamContainerPolicyStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    this.policy = new iam.ManagedPolicy(
-      this,
-      'NagiyuDeployPolicyContainer',
-      {
-        managedPolicyName: 'nagiyu-deploy-policy-container',
-        description: 'nagiyu コンテナデプロイ権限（ECR, ECS, Batch）',
-        statements: [
+    this.policy = new iam.ManagedPolicy(this, 'Policy', {
+      description: 'nagiyu コンテナデプロイ権限（ECR, ECS, Batch）',
+      statements: [
           // ECR Operations
           new iam.PolicyStatement({
             sid: 'ECROperations',

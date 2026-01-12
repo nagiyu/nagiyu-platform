@@ -14,21 +14,13 @@ export class AcmStack extends cdk.Stack {
     super(scope, id, props);
 
     // ACM 証明書作成
-    // 既存の CloudFormation テンプレートと同じ順序を維持
-    // プライマリドメイン: example.com
-    // SANs: *.example.com
     this.certificate = new acm.Certificate(this, 'Certificate', {
       domainName: props.domainName,
       subjectAlternativeNames: [`*.${props.domainName}`],
       validation: acm.CertificateValidation.fromDns(),
     });
 
-    // 既存テンプレートと同じタグを追加
-    cdk.Tags.of(this.certificate).add('Application', 'nagiyu');
-    cdk.Tags.of(this.certificate).add('Purpose', 'SSL/TLS certificate for CloudFront');
-    cdk.Tags.of(this.certificate).add('ManagedBy', 'CloudFormation');
-
-    // Export（既存の名前を維持）
+    // Export
     new cdk.CfnOutput(this, 'CertificateArnExport', {
       value: this.certificate.certificateArn,
       exportName: EXPORTS.ACM_CERTIFICATE_ARN,

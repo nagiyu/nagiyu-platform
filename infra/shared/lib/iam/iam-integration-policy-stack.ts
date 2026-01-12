@@ -14,14 +14,10 @@ export class IamIntegrationPolicyStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    this.policy = new iam.ManagedPolicy(
-      this,
-      'NagiyuDeployPolicyIntegration',
-      {
-        managedPolicyName: 'nagiyu-deploy-policy-integration',
-        description:
-          'nagiyu 統合・セキュリティデプロイ権限（KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling）',
-        statements: [
+    this.policy = new iam.ManagedPolicy(this, 'Policy', {
+      description:
+        'nagiyu 統合・セキュリティデプロイ権限（KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling）',
+      statements: [
           // KMS Operations
           new iam.PolicyStatement({
             sid: 'KMSOperations',

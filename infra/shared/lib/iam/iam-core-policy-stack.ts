@@ -14,8 +14,7 @@ export class IamCorePolicyStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    this.policy = new iam.ManagedPolicy(this, 'NagiyuDeployPolicyCore', {
-      managedPolicyName: 'nagiyu-deploy-policy-core',
+    this.policy = new iam.ManagedPolicy(this, 'Policy', {
       description:
         'nagiyu コアデプロイ権限（CloudFormation, IAM, Network, Logs）',
       statements: [

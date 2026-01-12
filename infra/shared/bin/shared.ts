@@ -23,8 +23,8 @@ const stackEnv = {
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
 
-// VPC スタックを作成（既存のスタック名に合わせる）
-new VpcStack(app, `nagiyu-${env}-vpc`, {
+// VPC スタックを作成
+new VpcStack(app, `NagiyuSharedVpc${env.charAt(0).toUpperCase() + env.slice(1)}`, {
   environment: env as 'dev' | 'prod',
   env: stackEnv,
   description: `Shared VPC Infrastructure - ${env} environment`,
@@ -37,7 +37,7 @@ if (!domainName) {
   throw new Error('DOMAIN_NAME environment variable or domainName context is required');
 }
 
-new AcmStack(app, 'nagiyu-shared-acm-certificate', {
+new AcmStack(app, 'NagiyuSharedAcm', {
   domainName,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -46,29 +46,30 @@ new AcmStack(app, 'nagiyu-shared-acm-certificate', {
   description: 'Shared ACM Certificate for CloudFront',
 });
 
-// IAM Policies スタックを作成（環境非依存、既存CloudFormation名に合わせて分割）
-const corePolicyStack = new IamCorePolicyStack(app, 'nagiyu-shared-deploy-policy-core', {
+// IAM Policies スタックを作成（環境非依存）
+// ポリシーサイズ制限対策のため4つに分割
+const corePolicyStack = new IamCorePolicyStack(app, 'NagiyuSharedIamCore', {
   env: stackEnv,
   description: 'Shared IAM Core Deploy Policy (CloudFormation, IAM, Network, Logs)',
 });
 
-const applicationPolicyStack = new IamApplicationPolicyStack(app, 'nagiyu-shared-deploy-policy-application', {
+const applicationPolicyStack = new IamApplicationPolicyStack(app, 'NagiyuSharedIamApplication', {
   env: stackEnv,
   description: 'Shared IAM Application Deploy Policy (Lambda, S3, DynamoDB, API Gateway, CloudFront)',
 });
 
-const containerPolicyStack = new IamContainerPolicyStack(app, 'nagiyu-shared-deploy-policy-container', {
+const containerPolicyStack = new IamContainerPolicyStack(app, 'NagiyuSharedIamContainer', {
   env: stackEnv,
   description: 'Shared IAM Container Deploy Policy (ECR, ECS, Batch)',
 });
 
-const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'nagiyu-shared-deploy-policy-integration', {
+const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'NagiyuSharedIamIntegration', {
   env: stackEnv,
   description: 'Shared IAM Integration and Security Deploy Policy (KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling)',
 });
 
 // IAM Users スタックを作成（ポリシーに依存）
-const usersStack = new IamUsersStack(app, 'SharedIamUsers', {
+const usersStack = new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
     core: corePolicyStack.policy,
     application: applicationPolicyStack.policy,
