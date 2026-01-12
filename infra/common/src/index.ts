@@ -38,3 +38,13 @@ export {
   PERMISSIONS_POLICY_HEADER,
   SECURITY_HEADERS,
 } from './constants/security-headers';
+
+// Stack base classes
+export { EcrStackBase } from './stacks/ecr-stack-base';
+export type { EcrStackBaseProps } from './stacks/ecr-stack-base';
+
+export { LambdaStackBase } from './stacks/lambda-stack-base';
+export type { LambdaStackBaseProps } from './stacks/lambda-stack-base';
+
+export { CloudFrontStackBase } from './stacks/cloudfront-stack-base';
+export type { CloudFrontStackBaseProps } from './stacks/cloudfront-stack-base';
