@@ -2,17 +2,17 @@ name: Admin App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - 'integration/**'
-      - master
-    paths:
-      - 'services/admin/**'
-      - 'libs/common/**'
-      - 'infra/admin/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/admin-deploy.yml'
+    # branches:
+    #   - develop
+    #   - 'integration/**'
+    #   - master
+    # paths:
+    #   - 'services/admin/**'
+    #   - 'libs/common/**'
+    #   - 'infra/admin/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/admin-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -52,11 +52,11 @@ jobs:
             echo "environment=dev" >> "$GITHUB_OUTPUT"
           fi
 
-          # Set CDK stack name based on environment
+          # Set CDK stack suffix based on environment
           if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "cdk-stack-name=Admin-prod" >> "$GITHUB_OUTPUT"
+            echo "cdk-stack-name=NagiyuAdminInfraProd" >> "$GITHUB_OUTPUT"
           else
-            echo "cdk-stack-name=Admin-dev" >> "$GITHUB_OUTPUT"
+            echo "cdk-stack-name=NagiyuAdminInfraDev" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Node.js
@@ -88,8 +88,8 @@ jobs:
         run: |
           echo "Deploying ECR stack..."
           npm run deploy --workspace=@nagiyu/infra-admin -- \
+            ${{ steps.set-env.outputs.cdk-stack-name }} \
             --context env=${{ steps.set-env.outputs.environment }} \
-            Admin-ECR-${{ steps.set-env.outputs.environment }} \
             --require-approval never
 
   build:
@@ -135,7 +135,7 @@ jobs:
         run: |
           # Try to get from CloudFormation stack
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
-            --stack-name "Admin-ECR-${{ needs.infrastructure.outputs.environment }}" \
+            --stack-name "$CDK_STACK_NAME" \
             --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -230,7 +230,7 @@ jobs:
         run: |
           # Get Lambda function ARN from CloudFormation
           FUNCTION_ARN=$(aws cloudformation describe-stacks \
-            --stack-name "Admin-Lambda-$ENVIRONMENT" \
+            --stack-name "NagiyuAdminLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -273,7 +273,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           FUNCTION_URL=$(aws cloudformation describe-stacks \
-            --stack-name "Admin-Lambda-$ENVIRONMENT" \
+            --stack-name "NagiyuAdminLambda$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -318,7 +318,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
-            --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -395,7 +395,7 @@ jobs:
   #         ENVIRONMENT: ${{ needs.build.outputs.environment }}
   #       run: |
   #         CF_DOMAIN=$(aws cloudformation describe-stacks \
-  #           --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+  #           --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
   #           --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
   #           --output text \
   #           --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -470,7 +470,7 @@ jobs:
 
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
@@ -483,7 +483,7 @@ jobs:
 
           # Custom Domain (if configured)
           CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
-            --stack-name "Admin-CloudFront-$ENVIRONMENT" \
+            --stack-name "NagiyuAdminCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
