@@ -6,18 +6,18 @@ name: Root Domain - CDK Deploy
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
-    # paths:
-    #   - 'infra/bin/**'
-    #   - 'infra/shared/vpc/**'
-    #   - 'infra/root/**'
-    #   - 'infra/package.json'
-    #   - 'infra/cdk.json'
-    #   - 'infra/tsconfig.json'
-    #   - '.github/workflows/root-deploy.yml'
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'infra/bin/**'
+      - 'infra/shared/vpc/**'
+      - 'infra/root/**'
+      - 'infra/package.json'
+      - 'infra/cdk.json'
+      - 'infra/tsconfig.json'
+      - '.github/workflows/root-deploy.yml'
   workflow_dispatch:
 
 env:
@@ -55,7 +55,7 @@ jobs:
 
       - name: CDK Synth
         env:
-          ENVIRONMENT: dev
+          ENVIRONMENT: prod
         run: npm run synth --workspace=@nagiyu/infra
 
       - name: Upload CloudFormation templates
@@ -134,7 +134,7 @@ jobs:
 
       - name: CDK Deploy
         env:
-          ENVIRONMENT: dev
+          ENVIRONMENT: prod
           IMAGE_TAG: ${{ steps.get-image-tag.outputs.image-tag }}
         run: npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
 
