@@ -51,10 +51,11 @@ jobs:
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-outdated.sh > "$OUTPUT_FILE"
+          EOF_MARKER=$(openssl rand -hex 16)
           {
-            echo 'outdated<<'\''EOF'\'''
+            echo "outdated<<$EOF_MARKER"
             cat "$OUTPUT_FILE"
-            echo 'EOF'
+            echo "$EOF_MARKER"
           } >> "$GITHUB_OUTPUT"
 
       - name: Check npm audit
@@ -62,10 +63,11 @@ jobs:
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-audit.sh > "$OUTPUT_FILE"
+          EOF_MARKER=$(openssl rand -hex 16)
           {
-            echo 'audit<<'\''EOF'\'''
+            echo "audit<<$EOF_MARKER"
             cat "$OUTPUT_FILE"
-            echo 'EOF'
+            echo "$EOF_MARKER"
           } >> "$GITHUB_OUTPUT"
 
       - name: Check duplicate packages
@@ -73,10 +75,11 @@ jobs:
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-duplicates.sh > "$OUTPUT_FILE"
+          EOF_MARKER=$(openssl rand -hex 16)
           {
-            echo 'duplicates<<'\''EOF'\'''
+            echo "duplicates<<$EOF_MARKER"
             cat "$OUTPUT_FILE"
-            echo 'EOF'
+            echo "$EOF_MARKER"
           } >> "$GITHUB_OUTPUT"
 
       - name: Check version inconsistency
@@ -84,10 +87,11 @@ jobs:
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-version-inconsistency.sh > "$OUTPUT_FILE"
+          EOF_MARKER=$(openssl rand -hex 16)
           {
-            echo 'inconsistency<<'\''EOF'\'''
+            echo "inconsistency<<$EOF_MARKER"
             cat "$OUTPUT_FILE"
-            echo 'EOF'
+            echo "$EOF_MARKER"
           } >> "$GITHUB_OUTPUT"
 
       - name: Prepare issue body
@@ -100,10 +104,11 @@ jobs:
           NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
         run: |
           BODY=$(.github/workflows/scripts/prepare-npm-issue.sh)
+          EOF_MARKER=$(openssl rand -hex 16)
           {
-            echo 'issue_body<<'\''EOF'\'''
+            echo "issue_body<<$EOF_MARKER"
             echo "$BODY"
-            echo 'EOF'
+            echo "$EOF_MARKER"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create npm management issue
