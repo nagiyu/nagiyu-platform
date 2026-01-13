@@ -8,12 +8,29 @@ echo ""
 echo "### ルート package.json"
 if npm outdated --json > /tmp/outdated-root.json 2>/dev/null || true; then
   if [ -s /tmp/outdated-root.json ]; then
-    # current フィールドが存在するエントリのみをフィルタ
-    FILTERED=$(jq 'to_entries | map(select(.value.current != null)) | from_entries' /tmp/outdated-root.json)
-    if [ "$FILTERED" != "{}" ]; then
-      echo "| パッケージ | 現在 | 必要 | 最新 | 場所 |"
-      echo "|----------|------|------|------|------|"
-      echo "$FILTERED" | jq -r 'to_entries[] | "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) | \(.value.location // "root") |"'
+    # JSONの型をチェック（オブジェクトか配列か）
+    JSON_TYPE=$(jq -r 'type' /tmp/outdated-root.json)
+
+    if [ "$JSON_TYPE" = "object" ]; then
+      # current フィールドが存在するエントリのみをフィルタ
+      FILTERED=$(jq 'to_entries | map(select(.value.current != null)) | from_entries' /tmp/outdated-root.json)
+      if [ "$FILTERED" != "{}" ]; then
+        echo "| パッケージ | 現在 | 必要 | 最新 | 場所 |"
+        echo "|----------|------|------|------|------|"
+        echo "$FILTERED" | jq -r 'to_entries[] | "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) | \(.value.location // "root") |"'
+      else
+        echo "更新可能なパッケージはありません。"
+      fi
+    elif [ "$JSON_TYPE" = "array" ]; then
+      # 配列形式の場合の処理
+      FILTERED=$(jq 'map(select(.current != null))' /tmp/outdated-root.json)
+      if [ "$FILTERED" != "[]" ]; then
+        echo "| パッケージ | 現在 | 必要 | 最新 | 場所 |"
+        echo "|----------|------|------|------|------|"
+        echo "$FILTERED" | jq -r '.[] | "| \(.name // .package) | \(.current) | \(.wanted) | \(.latest) | \(.location // "root") |"'
+      else
+        echo "更新可能なパッケージはありません。"
+      fi
     else
       echo "更新可能なパッケージはありません。"
     fi
@@ -47,12 +64,29 @@ else
     cd "$workspace_dir"
     if npm outdated --json > /tmp/outdated-workspace.json 2>/dev/null || true; then
       if [ -s /tmp/outdated-workspace.json ]; then
-        # current フィールドが存在するエントリのみをフィルタ
-        FILTERED=$(jq 'to_entries | map(select(.value.current != null)) | from_entries' /tmp/outdated-workspace.json)
-        if [ "$FILTERED" != "{}" ]; then
-          echo "| パッケージ | 現在 | 必要 | 最新 |"
-          echo "|----------|------|------|------|"
-          echo "$FILTERED" | jq -r 'to_entries[] | "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) |"'
+        # JSONの型をチェック（オブジェクトか配列か）
+        JSON_TYPE=$(jq -r 'type' /tmp/outdated-workspace.json)
+
+        if [ "$JSON_TYPE" = "object" ]; then
+          # current フィールドが存在するエントリのみをフィルタ
+          FILTERED=$(jq 'to_entries | map(select(.value.current != null)) | from_entries' /tmp/outdated-workspace.json)
+          if [ "$FILTERED" != "{}" ]; then
+            echo "| パッケージ | 現在 | 必要 | 最新 |"
+            echo "|----------|------|------|------|"
+            echo "$FILTERED" | jq -r 'to_entries[] | "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) |"'
+          else
+            echo "更新可能なパッケージはありません。"
+          fi
+        elif [ "$JSON_TYPE" = "array" ]; then
+          # 配列形式の場合の処理
+          FILTERED=$(jq 'map(select(.current != null))' /tmp/outdated-workspace.json)
+          if [ "$FILTERED" != "[]" ]; then
+            echo "| パッケージ | 現在 | 必要 | 最新 |"
+            echo "|----------|------|------|------|"
+            echo "$FILTERED" | jq -r '.[] | "| \(.name // .package) | \(.current) | \(.wanted) | \(.latest) |"'
+          else
+            echo "更新可能なパッケージはありません。"
+          fi
         else
           echo "更新可能なパッケージはありません。"
         fi
