@@ -6,11 +6,15 @@ set -euo pipefail
 # 環境変数:
 #   OUTDATED - npm outdated のチェック結果
 #   AUDIT - npm audit のチェック結果
+#   DUPLICATES - 重複パッケージのチェック結果
+#   INCONSISTENCY - バージョン不整合のチェック結果
 #   NEXT_DATE - 次回チェック予定日
 
 # 環境変数から読み込み（未設定の場合はデフォルト値）
 OUTDATED="${OUTDATED:-}"
 AUDIT="${AUDIT:-}"
+DUPLICATES="${DUPLICATES:-}"
+INCONSISTENCY="${INCONSISTENCY:-}"
 NEXT_DATE="${NEXT_DATE:-未定}"
 
 # テンプレートを読み込み
@@ -26,6 +30,8 @@ BODY=$(echo "$TEMPLATE" | \
 # 複数行のセクションを置換
 BODY=$(echo "$BODY" | awk -v audit="$AUDIT" '{gsub(/{{AUDIT}}/, audit)}1')
 BODY=$(echo "$BODY" | awk -v outdated="$OUTDATED" '{gsub(/{{OUTDATED}}/, outdated)}1')
+BODY=$(echo "$BODY" | awk -v duplicates="$DUPLICATES" '{gsub(/{{DUPLICATES}}/, duplicates)}1')
+BODY=$(echo "$BODY" | awk -v inconsistency="$INCONSISTENCY" '{gsub(/{{INCONSISTENCY}}/, inconsistency)}1')
 
 # 出力
 echo "$BODY"
