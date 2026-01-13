@@ -27,16 +27,16 @@
 Copilot Agentが以下の手順で作業を進めます：
 
 1. **Priority 1（セキュリティ脆弱性）の対応**
-   - Critical/High脆弱性を優先的に修正
-   - 該当パッケージのバージョンを更新
+    - Critical/High脆弱性を優先的に修正
+    - 該当パッケージのバージョンを更新
 
 2. **Priority 2-3（パッケージ更新）の検討**
-   - メジャーバージョン更新は破壊的変更の可能性を確認
-   - マイナー・パッチ更新は比較的安全に実行
+    - メジャーバージョン更新は破壊的変更の可能性を確認
+    - マイナー・パッチ更新は比較的安全に実行
 
 3. **PR作成**
-   - 変更内容をまとめたPRを作成
-   - テストが全てパスすることを確認
+    - 変更内容をまとめたPRを作成
+    - テストが全てパスすることを確認
 
 ### 受け入れ基準
 
@@ -44,28 +44,6 @@ Copilot Agentが以下の手順で作業を進めます：
 - [ ] 全てのテストがパスする
 - [ ] ビルドエラーがない
 - [ ] package-lock.json が更新されている
-
-### ワークスペース名の対応表
-
-各ワークスペースを更新する際は、ルートから `--workspace` オプションで指定してください。
-
-| ディレクトリパス | ワークスペース名 |
-|---------------|-----------------|
-| services/admin/web | @nagiyu/admin |
-| services/auth/core | @nagiyu/auth-core |
-| services/auth/web | @nagiyu/auth-web |
-| services/codec-converter/batch | codec-converter-batch |
-| services/codec-converter/core | codec-converter-core |
-| services/codec-converter/web | codec-converter-web |
-| services/tools | tools |
-| libs/browser | @nagiyu/browser |
-| libs/common | @nagiyu/common |
-| libs/ui | @nagiyu/ui |
-| infra/admin | @nagiyu/infra-admin |
-| infra/auth | @nagiyu/infra-auth |
-| infra/codec-converter | codec-converter |
-| infra/shared | @nagiyu/shared-infra |
-| infra/tools | @nagiyu/infra-tools |
 
 ### 更新コマンドの例
 
