@@ -183,9 +183,10 @@ on:
 
 1. **build**: アプリケーションのビルド検証
 2. **docker-build**: Docker イメージのビルド検証
-3. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
-4. **lint**: リントチェック
-5. **format-check**: フォーマットチェック
+3. **test**: 単体テストの実行（core プロジェクトのみ）
+4. **e2e-test**: E2Eテストの実行（web プロジェクトの場合、chromium-mobile のみ）
+5. **lint**: リントチェック
+6. **format-check**: フォーマットチェック
 
 #### 2. 完全検証ワークフロー (`.github/workflows/{service}-verify-full.yml`)
 
@@ -208,10 +209,11 @@ on:
 
 1. **build**: アプリケーションのビルド検証
 2. **docker-build**: Docker イメージのビルド検証
-3. **coverage**: テストカバレッジチェック（80%以上必須）
-4. **e2e-test**: E2Eテストの実行（全デバイス）
-5. **lint**: リントチェック
-6. **format-check**: フォーマットチェック
+3. **test**: 単体テストの実行（core プロジェクトのみ）
+4. **coverage**: テストカバレッジチェック（80%以上必須）
+5. **e2e-test**: E2Eテストの実行（web プロジェクトの場合、全デバイス）
+6. **lint**: リントチェック
+7. **format-check**: フォーマットチェック
 
 #### 3. デプロイワークフロー (`.github/workflows/{service}-deploy.yml`)
 
@@ -290,8 +292,20 @@ git push origin feature/new-feature
 # GitHub でプルリクエストを integration/feature-test ブランチに作成
 # → {service}-verify-fast.yml が自動実行される
 #   ✓ ビルド検証
-#   ✓ E2Eテスト実行（chromium-mobile のみ）
+#   ✓ 単体テスト実行（core プロジェクトの場合）
+#   ✓ E2Eテスト実行（web プロジェクトの場合、chromium-mobile のみ）
 #   ✓ リントチェック
+# → すべて成功でマージ可能
+
+# integration/** ブランチから develop へのプルリクエスト作成
+# → {service}-verify-full.yml が自動実行される
+#   ✓ ビルド検証
+#   ✓ Docker ビルド検証
+#   ✓ 単体テスト実行（core プロジェクトの場合）
+#   ✓ カバレッジチェック（80%以上）
+#   ✓ E2Eテスト実行（web プロジェクトの場合、全デバイス）
+#   ✓ リントチェック
+#   ✓ フォーマットチェック
 # → すべて成功でマージ可能
 ```
 
