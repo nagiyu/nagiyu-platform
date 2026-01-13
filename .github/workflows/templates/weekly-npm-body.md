@@ -45,21 +45,14 @@ Copilot Agentが以下の手順で作業を進めます：
 - [ ] ビルドエラーがない
 - [ ] package-lock.json が更新されている
 
-### 更新コマンドの例
+### 更新コマンドの参考例
 
-```bash
-# ルートのパッケージを更新
-npm update
+以下は参考用のコマンド例です。実際のパッケージ名とバージョンは上記の表を確認してください。
 
-# 特定ワークスペースのパッケージを更新（ルートから実行）
-npm install --workspace @nagiyu/auth-web PACKAGE_NAME@VERSION
-
-# セキュリティ脆弱性の自動修正
-npm audit fix
-
-# 複数ワークスペースで同じパッケージを更新
-npm install --workspace @nagiyu/auth-web --workspace @nagiyu/admin PACKAGE_NAME@VERSION
-```
+- ルートのパッケージを更新: `npm update`
+- セキュリティ脆弱性の自動修正: `npm audit fix`
+- 特定パッケージの更新: `npm install PACKAGE@VERSION`
+- ワークスペース内のパッケージ更新: `npm install --workspace WORKSPACE_NAME PACKAGE@VERSION`
 
 ### 関連ドキュメント
 
