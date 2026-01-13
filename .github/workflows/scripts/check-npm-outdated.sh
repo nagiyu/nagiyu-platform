@@ -12,12 +12,17 @@ if npm outdated --json > /tmp/outdated-root.json 2>/dev/null || true; then
     JSON_TYPE=$(jq -r 'type' /tmp/outdated-root.json)
 
     if [ "$JSON_TYPE" = "object" ]; then
-      # current フィールドが存在するエントリのみをフィルタ
-      FILTERED=$(jq 'to_entries | map(select(.value.current != null)) | from_entries' /tmp/outdated-root.json)
-      if [ "$FILTERED" != "{}" ]; then
+      # オブジェクトの値が配列またはオブジェクトの場合を処理
+      HAS_DATA=$(jq -r 'to_entries | length' /tmp/outdated-root.json)
+      if [ "$HAS_DATA" -gt 0 ]; then
         echo "| パッケージ | 現在 | 必要 | 最新 | 場所 |"
         echo "|----------|------|------|------|------|"
-        echo "$FILTERED" | jq -r 'to_entries[] | "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) | \(.value.location // "root") |"'
+        jq -r 'to_entries[] |
+          if (.value | type) == "array" then
+            (.key as $pkg | .value[] | "| \($pkg) | \(.current) | \(.wanted) | \(.latest) | \(.location // "root") |")
+          else
+            "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) | \(.value.location // "root") |"
+          end' /tmp/outdated-root.json
       else
         echo "更新可能なパッケージはありません。"
       fi
@@ -68,12 +73,17 @@ else
         JSON_TYPE=$(jq -r 'type' /tmp/outdated-workspace.json)
 
         if [ "$JSON_TYPE" = "object" ]; then
-          # current フィールドが存在するエントリのみをフィルタ
-          FILTERED=$(jq 'to_entries | map(select(.value.current != null)) | from_entries' /tmp/outdated-workspace.json)
-          if [ "$FILTERED" != "{}" ]; then
+          # オブジェクトの値が配列またはオブジェクトの場合を処理
+          HAS_DATA=$(jq -r 'to_entries | length' /tmp/outdated-workspace.json)
+          if [ "$HAS_DATA" -gt 0 ]; then
             echo "| パッケージ | 現在 | 必要 | 最新 |"
             echo "|----------|------|------|------|"
-            echo "$FILTERED" | jq -r 'to_entries[] | "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) |"'
+            jq -r 'to_entries[] |
+              if (.value | type) == "array" then
+                (.key as $pkg | .value[] | "| \($pkg) | \(.current) | \(.wanted) | \(.latest) |")
+              else
+                "| \(.key) | \(.value.current) | \(.value.wanted) | \(.value.latest) |"
+              end' /tmp/outdated-workspace.json
           else
             echo "更新可能なパッケージはありません。"
           fi
