@@ -29,7 +29,7 @@
     "@playwright/test": "^1.57.0",
     "@types/uuid": "^10.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.0.10",
+    "eslint-config-next": "^16.0.10",
     "prettier": "^3.7.4"
   }
 }
