@@ -1,6 +1,7 @@
 name: Weekly NPM Management Check
 
 on:
+  push:
   schedule:
     # 毎週月曜日 10:00 JST (1:00 UTC)
     - cron: '0 1 * * 1'
