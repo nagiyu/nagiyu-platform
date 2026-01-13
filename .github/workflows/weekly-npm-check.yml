@@ -1,6 +1,7 @@
 name: Weekly NPM Management Check
 
 on:
+  push:
   schedule:
     # 毎週月曜日 10:00 JST (1:00 UTC)
     - cron: '0 1 * * 1'
@@ -51,10 +52,10 @@ jobs:
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-outdated.sh > "$OUTPUT_FILE"
           {
-            echo 'outdated<<EOF'
+            echo 'outdated<<'\''EOF'\'''
             cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check npm audit
         id: audit
@@ -62,10 +63,10 @@ jobs:
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-audit.sh > "$OUTPUT_FILE"
           {
-            echo 'audit<<EOF'
+            echo 'audit<<'\''EOF'\'''
             cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check duplicate packages
         id: duplicates
@@ -73,10 +74,10 @@ jobs:
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-duplicates.sh > "$OUTPUT_FILE"
           {
-            echo 'duplicates<<EOF'
+            echo 'duplicates<<'\''EOF'\'''
             cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check version inconsistency
         id: inconsistency
@@ -84,10 +85,10 @@ jobs:
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-version-inconsistency.sh > "$OUTPUT_FILE"
           {
-            echo 'inconsistency<<EOF'
+            echo 'inconsistency<<'\''EOF'\'''
             cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Prepare issue body
         id: issue_body
@@ -100,10 +101,10 @@ jobs:
         run: |
           BODY=$(.github/workflows/scripts/prepare-npm-issue.sh)
           {
-            echo 'issue_body<<EOF'
+            echo 'issue_body<<'\''EOF'\'''
             echo "$BODY"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create npm management issue
         env:
