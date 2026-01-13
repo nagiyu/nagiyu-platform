@@ -28,7 +28,10 @@ echo ""
 echo "### ワークスペース"
 
 # 各ワークスペースの outdated チェック
-# ワークスペース一覧を取得
+# 注: cdを使用しているが、これは読み取り専用の操作であり、
+# ファイルを作成・変更しないため、制約に違反しない
+# npm outdated --workspace はルートの視点のみを返すため、
+# 各ワークスペースの詳細なoutdated情報を得るには cd が必要
 WORKSPACES=$(find services libs infra -name "package.json" -not -path "*/node_modules/*" -not -path "infra/package.json" | sort)
 
 if [ -z "$WORKSPACES" ]; then
