@@ -27,7 +27,7 @@ if [ -f "$TEMP_DIR/dev-deps.txt" ] && [ -s "$TEMP_DIR/dev-deps.txt" ]; then
   > "$TEMP_OUTPUT"
   
   # ルートのpackage.jsonを除外してカウント
-  grep -v "^\./package.json" "$TEMP_DIR/dev-deps.txt" | cut -d'|' -f1 | sort | uniq -c | sort -rn | while read -r count pkg; do
+  grep -v "|\\.\\?/package\\.json$" "$TEMP_DIR/dev-deps.txt" | cut -d'|' -f1 | sort | uniq -c | sort -rn | while read -r count pkg; do
     if [ "$count" -ge 3 ]; then
       if [ ! -s "$TEMP_OUTPUT" ]; then
         {

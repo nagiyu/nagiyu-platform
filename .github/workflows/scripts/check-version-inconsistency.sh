@@ -19,11 +19,11 @@ if [ -f "$TEMP_DIR/all-deps.txt" ] && [ -s "$TEMP_DIR/all-deps.txt" ]; then
   TEMP_OUTPUT="$TEMP_DIR/output.txt"
   > "$TEMP_OUTPUT"
   
-  INCONSISTENCY_FOUND=false
-  
   # パッケージごとにバージョンをグループ化
   cut -d'|' -f1 "$TEMP_DIR/all-deps.txt" | sort -u | while read -r pkg; do
-    VERSIONS=$(grep "^${pkg}|" "$TEMP_DIR/all-deps.txt" | cut -d'|' -f2 | sort -u)
+    # パッケージ名をエスケープしてgrepで使用
+    ESCAPED_PKG=$(printf '%s\n' "$pkg" | sed 's/[]\/$*.^[]/\\&/g')
+    VERSIONS=$(grep "^${ESCAPED_PKG}|" "$TEMP_DIR/all-deps.txt" | cut -d'|' -f2 | sort -u)
     VERSION_COUNT=$(echo "$VERSIONS" | wc -l)
 
     # 2つ以上のバージョンがある場合のみ表示
@@ -39,7 +39,7 @@ if [ -f "$TEMP_DIR/all-deps.txt" ] && [ -s "$TEMP_DIR/all-deps.txt" ]; then
       fi
       
       echo "| **$pkg** | | |" >> "$TEMP_OUTPUT"
-      grep "^${pkg}|" "$TEMP_DIR/all-deps.txt" | while IFS='|' read -r name ver loc; do
+      grep "^${ESCAPED_PKG}|" "$TEMP_DIR/all-deps.txt" | while IFS='|' read -r name ver loc; do
         echo "| | \`$ver\` | \`$loc\` |" >> "$TEMP_OUTPUT"
       done
     fi
