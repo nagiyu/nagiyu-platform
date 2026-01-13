@@ -67,11 +67,35 @@ jobs:
             echo EOF
           } >> $GITHUB_OUTPUT
 
+      - name: Check duplicate packages
+        id: duplicates
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-duplicates.sh > "$OUTPUT_FILE"
+          {
+            echo 'duplicates<<EOF'
+            cat "$OUTPUT_FILE"
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+      - name: Check version inconsistency
+        id: inconsistency
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-version-inconsistency.sh > "$OUTPUT_FILE"
+          {
+            echo 'inconsistency<<EOF'
+            cat "$OUTPUT_FILE"
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
       - name: Prepare issue body
         id: issue_body
         env:
           OUTDATED: ${{ steps.outdated.outputs.outdated }}
           AUDIT: ${{ steps.audit.outputs.audit }}
+          DUPLICATES: ${{ steps.duplicates.outputs.duplicates }}
+          INCONSISTENCY: ${{ steps.inconsistency.outputs.inconsistency }}
           NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
         run: |
           BODY=$(.github/workflows/scripts/prepare-npm-issue.sh)
