@@ -26,8 +26,8 @@ if [ -f "$TEMP_DIR/dev-deps.txt" ] && [ -s "$TEMP_DIR/dev-deps.txt" ]; then
   TEMP_OUTPUT="$TEMP_DIR/output.txt"
   > "$TEMP_OUTPUT"
   
-  # ルートのpackage.jsonを除外してカウント
-  grep -v "|\\.\\?/package\\.json$" "$TEMP_DIR/dev-deps.txt" | cut -d'|' -f1 | sort | uniq -c | sort -rn | while read -r count pkg; do
+  # ルートのpackage.jsonを除外してカウント（DIR が "." の行を除外）
+  grep -v "|\.$" "$TEMP_DIR/dev-deps.txt" | cut -d'|' -f1 | sort | uniq -c | sort -rn | while read -r count pkg; do
     if [ "$count" -ge 3 ]; then
       if [ ! -s "$TEMP_OUTPUT" ]; then
         {
@@ -39,8 +39,10 @@ if [ -f "$TEMP_DIR/dev-deps.txt" ] && [ -s "$TEMP_DIR/dev-deps.txt" ]; then
       
       echo "- **$pkg**: ${count}箇所で使用" >> "$TEMP_OUTPUT"
       
-      # 各使用箇所を表示
-      grep "^${pkg}|" "$TEMP_DIR/dev-deps.txt" | while IFS='|' read -r name version location; do
+      # 各使用箇所を表示（ルートを除外）
+      # パッケージ名をエスケープしてgrepで使用
+      ESCAPED_PKG=$(printf '%s\n' "$pkg" | sed 's/[]\/$*.^[]/\\&/g')
+      grep "^${ESCAPED_PKG}|" "$TEMP_DIR/dev-deps.txt" | grep -v "|\.$" | while IFS='|' read -r name version location; do
         echo "  - \`${version}\` in \`${location}\`" >> "$TEMP_OUTPUT"
       done
       echo "" >> "$TEMP_OUTPUT"
