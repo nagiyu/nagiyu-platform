@@ -33,7 +33,6 @@
 
 **インフラ定義の場所**:
 
-- CloudFormation テンプレート: `infra/{service-name}/*.yaml`
 - CDK スタック: `infra/{service-name}/lib/`
 
 ### 1.3 環境ごとのリソース名
@@ -64,9 +63,10 @@
 
 ### 2.2 必要なツール
 
-<!-- 記入ガイド: デプロイに必要なツールとバージョンを記述してください -->
+<!-- 記入ガイド: デプロイに必要なツールを記述してください -->
+<!-- 記入例: モノレポ管理のため、バージョンは package.json に記載し、ここでは記述しない -->
 
-- Node.js {version}+
+- Node.js
 - AWS CLI
 - Docker
 - {その他のツール}
@@ -94,22 +94,14 @@
 ### 3.2 ECR リポジトリの作成
 
 <!-- 記入ガイド: ECR リポジトリの作成手順を記述してください -->
-<!-- 記入例: CloudFormation または CDK を使った作成コマンド -->
+<!-- 記入例: CDK を使った作成コマンド -->
 
 ```bash
 # 開発環境
-aws cloudformation deploy \
-    --template-file infra/{service-name}/ecr.yaml \
-    --stack-name {service}-ecr-dev \
-    --parameter-overrides Environment=dev \
-    --region us-east-1
+npm run deploy -w {service-name} -- --context env=dev --context deploymentPhase=ecr-only
 
 # 本番環境
-aws cloudformation deploy \
-    --template-file infra/{service-name}/ecr.yaml \
-    --stack-name {service}-ecr-prod \
-    --parameter-overrides Environment=prod \
-    --region us-east-1
+npm run deploy -w {service-name} -- --context env=prod --context deploymentPhase=ecr-only
 ```
 
 ### 3.3 Docker イメージのビルドとプッシュ
@@ -137,21 +129,10 @@ docker push <ECR_REGISTRY>/{service}-dev:latest
 
 ```bash
 # 開発環境
-aws cloudformation deploy \
-    --template-file infra/{service-name}/lambda.yaml \
-    --stack-name {service}-lambda-dev \
-    --parameter-overrides Environment=dev ImageUri=<ECR_IMAGE_URI> \
-    --region us-east-1
+npm run deploy -w {service-name} -- --context env=dev --context deploymentPhase=full
 
-aws cloudformation deploy \
-    --template-file infra/{service-name}/cloudfront.yaml \
-    --stack-name {service}-cloudfront-dev \
-    --parameter-overrides \
-        Environment=dev \
-        LambdaStackName={service}-lambda-dev \
-        CertificateArn=<ACM_CERTIFICATE_ARN> \
-        DomainName=dev-{service}.example.com \
-    --region us-east-1
+# 本番環境
+npm run deploy -w {service-name} -- --context env=prod --context deploymentPhase=full
 ```
 
 ### 3.5 動作確認
@@ -202,10 +183,9 @@ on:
 
 1. **build**: アプリケーションのビルド検証
 2. **docker-build**: Docker イメージのビルド検証
-3. **test**: 単体テストの実行
-4. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
-5. **lint**: リントチェック
-6. **format-check**: フォーマットチェック
+3. **e2e-test**: E2Eテストの実行（chromium-mobile のみ）
+4. **lint**: リントチェック
+5. **format-check**: フォーマットチェック
 
 #### 2. 完全検証ワークフロー (`.github/workflows/{service}-verify-full.yml`)
 
@@ -228,11 +208,10 @@ on:
 
 1. **build**: アプリケーションのビルド検証
 2. **docker-build**: Docker イメージのビルド検証
-3. **test**: 単体テストの実行
-4. **coverage**: テストカバレッジチェック（80%以上必須）
-5. **e2e-test**: E2Eテストの実行（全デバイス）
-6. **lint**: リントチェック
-7. **format-check**: フォーマットチェック
+3. **coverage**: テストカバレッジチェック（80%以上必須）
+4. **e2e-test**: E2Eテストの実行（全デバイス）
+5. **lint**: リントチェック
+6. **format-check**: フォーマットチェック
 
 #### 3. デプロイワークフロー (`.github/workflows/{service}-deploy.yml`)
 
@@ -254,9 +233,9 @@ on:
 
 **ジョブ構成**:
 
-1. **infrastructure**: ECR リポジトリの CloudFormation スタックデプロイ
+1. **infrastructure**: ECR リポジトリの CDK スタックデプロイ
 2. **build**: Docker イメージのビルドと ECR へのプッシュ
-3. **deploy**: Lambda と CloudFront のデプロイ
+3. **deploy**: Lambda と CloudFront の CDK デプロイ
 4. **verify**: デプロイ後のヘルスチェック
 
 ### 4.2 ブランチ戦略とデプロイフロー
@@ -264,9 +243,18 @@ on:
 <!-- 記入ガイド: ブランチごとのデプロイ戦略を表形式で記述してください -->
 <!-- 参照: docs/branching.md のブランチ戦略に従ってください -->
 
-```
-feature/**  →  integration/**  →  develop  →  master
-           (Fast CI)      (Full CI)   (本番)
+```mermaid
+graph LR
+    A[feature/**] -->|PR| B[integration/**]
+    B -->|Fast CI| B
+    B -->|PR| C[develop]
+    C -->|Full CI| C
+    C -->|マージ| D[master]
+    D -->|本番デプロイ| D
+
+    style B fill:#e1f5ff
+    style C fill:#fff4e1
+    style D fill:#ffe1e1
 ```
 
 | ブランチ         | 環境 | PR検証     | 自動デプロイ |
@@ -302,7 +290,6 @@ git push origin feature/new-feature
 # GitHub でプルリクエストを integration/feature-test ブランチに作成
 # → {service}-verify-fast.yml が自動実行される
 #   ✓ ビルド検証
-#   ✓ 単体テスト実行
 #   ✓ E2Eテスト実行（chromium-mobile のみ）
 #   ✓ リントチェック
 # → すべて成功でマージ可能
@@ -314,10 +301,10 @@ git push origin feature/new-feature
 # プルリクエストをマージ
 # → develop ブランチに push される
 # → {service}-deploy.yml が自動実行される
-#   1. ECR スタックデプロイ
+#   1. ECR の CDK スタックデプロイ
 #   2. Docker イメージビルド & プッシュ
-#   3. Lambda デプロイ
-#   4. CloudFront デプロイ
+#   3. Lambda の CDK デプロイ
+#   4. CloudFront の CDK デプロイ
 #   5. ヘルスチェック
 # → 開発環境へデプロイ完了
 ```
@@ -376,17 +363,18 @@ aws lambda update-function-code \
 ### 6.2 環境変数の設定方法
 
 <!-- 記入ガイド: 環境変数の設定方法を記述してください -->
-<!-- 記入例: CloudFormation パラメータ、Lambda コンソール、Systems Manager Parameter Store など -->
+<!-- 記入例: CDK コンテキスト、Lambda コンソール、Systems Manager Parameter Store など -->
 
-**CloudFormation での設定**:
+**CDK での設定**:
 
-環境変数は CloudFormation テンプレートで自動的に設定されます:
+環境変数は CDK スタックで自動的に設定されます:
 
-```yaml
-Environment:
-  Variables:
-    { ENV_VAR_1 }: !Ref { Resource }
-    { ENV_VAR_2 }: !Sub '${StackName}'
+```typescript
+// lib/{service-name}-stack.ts
+environment: {
+  {ENV_VAR_1}: {resource}.{property},
+  {ENV_VAR_2}: `${stackName}`,
+}
 ```
 
 **手動設定（緊急時）**:
@@ -476,23 +464,20 @@ aws logs filter-log-events \
 
 #### 8.1.3 バージョン更新手順
 
-```bash
-cd services/{service}
+<!-- 記入ガイド: モノレポルートからワークスペース指定でバージョンアップする -->
 
+```bash
 # パッチバージョンアップ（例: 1.0.0 → 1.0.1）
-npm version patch
+npm version patch -w {service-name}
 
 # マイナーバージョンアップ（例: 1.0.0 → 1.1.0）
-npm version minor
+npm version minor -w {service-name}
 
 # メジャーバージョンアップ（例: 1.0.0 → 2.0.0）
-npm version major
-
-# コミット & プッシュ
-git add .
-git commit -m "chore: bump version to X.Y.Z"
-git push origin <branch-name>
+npm version major -w {service-name}
 ```
+
+**注**: `npm version` コマンドは自動的に Git タグとコミットを作成します。
 
 ### 8.2 スケーリング対応
 
@@ -584,19 +569,19 @@ aws lambda update-function-code \
 
 **デバッグ方法**:
 
+<!-- 記入ガイド: モノレポルートからワークスペース指定でコマンド実行する -->
+
 ```bash
 # ローカルで PR検証と同じステップを実行
-cd services/{service}
 
 # 1. ビルド検証
-npm ci
-npm run build
+npm run build -w {service-name}
 
 # 2. Docker ビルド検証
-docker build -t {service}-pr-test .
+docker build -t {service}-pr-test -f services/{service}/Dockerfile .
 
-# 3. テスト実行
-npm test
+# 3. E2Eテスト実行
+npm run test:e2e -w {service-name}
 ```
 
 ### 9.3 エスカレーションフロー
@@ -616,10 +601,8 @@ npm test
 **注意**: S3 バケットや DynamoDB テーブルなどは削除するとデータも失われます。
 
 ```bash
-# スタックの削除
-aws cloudformation delete-stack --stack-name {service}-cloudfront-{env}
-aws cloudformation delete-stack --stack-name {service}-lambda-{env}
-aws cloudformation delete-stack --stack-name {service}-ecr-{env}
+# CDK スタックの削除
+npm run cdk -w {service-name} -- destroy --context env={env}
 ```
 
 ---
