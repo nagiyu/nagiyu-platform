@@ -45,15 +45,6 @@ Copilot Agentが以下の手順で作業を進めます：
 - [ ] ビルドエラーがない
 - [ ] package-lock.json が更新されている
 
-### 更新コマンドの参考例
-
-以下は参考用のコマンド例です。実際のパッケージ名とバージョンは上記の表を確認してください。
-
-- ルートのパッケージを更新: `npm update`
-- セキュリティ脆弱性の自動修正: `npm audit fix`
-- 特定パッケージの更新: `npm install PACKAGE@VERSION`
-- ワークスペース内のパッケージ更新: `npm install --workspace WORKSPACE_NAME PACKAGE@VERSION`
-
 ### 関連ドキュメント
 
 - package.json - ルート依存関係
