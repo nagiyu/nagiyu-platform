@@ -19,9 +19,6 @@ AWS CDK (TypeScript) を用いて、共通基盤と各アプリケーション�
 ### リソース別ドキュメント
 
 - [共通インフラパッケージ](./common/README.md) - `@nagiyu/infra-common` パッケージ
-    - [使用ガイド](./common-package-guide.md) - 詳細な使用方法とサンプルコード
-    - [マイグレーションガイド](./migration-guide.md) - 既存サービスの移行手順
-    - [API リファレンス](./api-reference.md) - 型定義と関数の詳細
 
 - [共通インフラ](./shared/README.md) - VPC、IAM、ACM など全サービスで共有するリソース
     - [IAM](./shared/iam.md) - IAM ユーザー、ポリシーの設計と運用

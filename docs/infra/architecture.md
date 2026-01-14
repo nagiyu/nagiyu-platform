@@ -344,6 +344,3 @@ const cloudfrontStack = new CloudFrontStackBase(app, 'ToolsCloudFrontStack', {
 - [CloudFront 詳細](./shared/cloudfront.md) - CloudFront の設計と運用
 - [ルートドメインアーキテクチャ](./root/architecture.md) - ルートドメインの詳細設計
 - [@nagiyu/infra-common](./common/README.md) - 共通インフラパッケージ
-- [共通パッケージ使用ガイド](./common-package-guide.md) - 詳細な使用方法
-- [マイグレーションガイド](./migration-guide.md) - 既存サービスの移行手順
-- [API リファレンス](./api-reference.md) - 型定義と関数の詳細
