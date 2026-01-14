@@ -16,7 +16,8 @@ export default function HomePage() {
 
       <Box sx={{ mt: 4 }}>
         <Typography variant="body1" paragraph>
-          Stock Trackerは、リアルタイムな株価データの可視化と条件ベースのアラート通知を提供するサービスです。
+          Stock
+          Trackerは、リアルタイムな株価データの可視化と条件ベースのアラート通知を提供するサービスです。
         </Typography>
         <Typography variant="body1" paragraph>
           開発中...
