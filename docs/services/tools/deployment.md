@@ -419,21 +419,36 @@ aws logs filter-log-events \
     --filter-pattern "ERROR"
 ```
 
-### 7.2 メトリクスとアラート
+### 7.2 メトリクス
 
 **Lambda メトリクス**:
+
+CloudWatch で以下のメトリクスを確認できます:
 
 - 実行時間 (Duration)
 - エラー率 (Errors)
 - 同時実行数 (ConcurrentExecutions)
 - スロットル (Throttles)
 
-### 7.3 推奨アラート設定
+**メトリクスの確認方法**:
+
+```bash
+# CloudWatch コンソールで確認
+# Lambda > 関数 > tools-app-{env} > モニタリング
+```
+
+### 7.3 アラート設定（将来対応）
+
+**現在の状態**: CloudWatch Alarm は未設定
+
+**将来の推奨アラート設定**:
 
 | アラート項目    | 閾値  | アクション       |
 | --------------- | ----- | ---------------- |
 | Lambda エラー率 | > 5%  | CloudWatch Alarm |
 | Lambda 実行時間 | > 25s | CloudWatch Alarm |
+
+必要に応じて CDK スタックに CloudWatch Alarm を追加する予定。
 
 ---
 
