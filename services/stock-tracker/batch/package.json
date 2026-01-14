@@ -1,0 +1,22 @@
+{
+  "name": "@nagiyu/stock-tracker-batch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/src/minute.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.968.0",
+    "@aws-sdk/lib-dynamodb": "^3.968.0",
+    "@nagiyu/common": "*",
+    "@nagiyu/stock-tracker-core": "*"
+  }
+}
