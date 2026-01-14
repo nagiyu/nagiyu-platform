@@ -41,6 +41,24 @@ export const ROLES = {
     description: 'ユーザー管理のみ可能',
     permissions: ['users:read', 'users:write'],
   },
+  'stock-viewer': {
+    id: 'stock-viewer',
+    name: 'Stock 閲覧者',
+    description: 'Stock Tracker のチャート閲覧のみ可能',
+    permissions: ['stocks:read'],
+  },
+  'stock-user': {
+    id: 'stock-user',
+    name: 'Stock ユーザー',
+    description: 'Stock Tracker のアラート設定・Holding 管理が可能',
+    permissions: ['stocks:read', 'stocks:write-own'],
+  },
+  'stock-admin': {
+    id: 'stock-admin',
+    name: 'Stock 管理者',
+    description: 'Stock Tracker のマスタデータ管理が可能',
+    permissions: ['stocks:read', 'stocks:write-own', 'stocks:manage-data'],
+  },
 } as const satisfies Record<string, RoleDefinition>;
 
 /**
