@@ -190,4 +190,93 @@ describe('Permission Functions', () => {
       expect(hasPermission(mixedRoles, 'logs:read')).toBe(false);
     });
   });
+
+  describe('Stock Tracker Permissions', () => {
+    describe('stock-viewer role', () => {
+      it('should have stocks:read permission', () => {
+        expect(hasPermission(['stock-viewer'], 'stocks:read')).toBe(true);
+      });
+
+      it('should not have stocks:write-own permission', () => {
+        expect(hasPermission(['stock-viewer'], 'stocks:write-own')).toBe(false);
+      });
+
+      it('should not have stocks:manage-data permission', () => {
+        expect(hasPermission(['stock-viewer'], 'stocks:manage-data')).toBe(false);
+      });
+    });
+
+    describe('stock-user role', () => {
+      it('should have stocks:read permission', () => {
+        expect(hasPermission(['stock-user'], 'stocks:read')).toBe(true);
+      });
+
+      it('should have stocks:write-own permission', () => {
+        expect(hasPermission(['stock-user'], 'stocks:write-own')).toBe(true);
+      });
+
+      it('should not have stocks:manage-data permission', () => {
+        expect(hasPermission(['stock-user'], 'stocks:manage-data')).toBe(false);
+      });
+    });
+
+    describe('stock-admin role', () => {
+      it('should have stocks:read permission', () => {
+        expect(hasPermission(['stock-admin'], 'stocks:read')).toBe(true);
+      });
+
+      it('should have stocks:write-own permission', () => {
+        expect(hasPermission(['stock-admin'], 'stocks:write-own')).toBe(true);
+      });
+
+      it('should have stocks:manage-data permission', () => {
+        expect(hasPermission(['stock-admin'], 'stocks:manage-data')).toBe(true);
+      });
+    });
+
+    describe('Permission hierarchy validation', () => {
+      it('stock-viewer should only access read operations', () => {
+        expect(hasPermission(['stock-viewer'], 'stocks:read')).toBe(true);
+        expect(hasAnyPermission(['stock-viewer'], ['stocks:write-own', 'stocks:manage-data'])).toBe(
+          false
+        );
+      });
+
+      it('stock-user should access read and write-own but not manage-data', () => {
+        expect(hasAllPermissions(['stock-user'], ['stocks:read', 'stocks:write-own'])).toBe(true);
+        expect(hasPermission(['stock-user'], 'stocks:manage-data')).toBe(false);
+      });
+
+      it('stock-admin should have all Stock Tracker permissions', () => {
+        expect(
+          hasAllPermissions(
+            ['stock-admin'],
+            ['stocks:read', 'stocks:write-own', 'stocks:manage-data']
+          )
+        ).toBe(true);
+      });
+
+      it('admin role should not have Stock Tracker permissions', () => {
+        expect(hasPermission(['admin'], 'stocks:read')).toBe(false);
+        expect(hasPermission(['admin'], 'stocks:write-own')).toBe(false);
+        expect(hasPermission(['admin'], 'stocks:manage-data')).toBe(false);
+      });
+    });
+
+    describe('requirePermission with Stock Tracker roles', () => {
+      it('should not throw for stock-user with stocks:read', () => {
+        expect(() => requirePermission(['stock-user'], 'stocks:read')).not.toThrow();
+      });
+
+      it('should throw for stock-viewer with stocks:manage-data', () => {
+        expect(() => requirePermission(['stock-viewer'], 'stocks:manage-data')).toThrow(
+          'Permission denied: stocks:manage-data'
+        );
+      });
+
+      it('should not throw for stock-admin with stocks:manage-data', () => {
+        expect(() => requirePermission(['stock-admin'], 'stocks:manage-data')).not.toThrow();
+      });
+    });
+  });
 });

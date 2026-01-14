@@ -42,8 +42,19 @@ export interface Session {
 /**
  * Permission string in the format: {resource}:{action}
  * Examples: 'users:read', 'users:write', 'roles:assign'
+ *
+ * Stock Tracker permissions:
+ * - stocks:read - View charts, exchanges, and tickers
+ * - stocks:write-own - Manage own alerts and holdings
+ * - stocks:manage-data - Manage master data (exchanges and tickers)
  */
-export type Permission = string;
+export type Permission =
+  | 'users:read'
+  | 'users:write'
+  | 'roles:assign'
+  | 'stocks:read'
+  | 'stocks:write-own'
+  | 'stocks:manage-data';
 
 /**
  * Valid role IDs defined in ROLES constant
