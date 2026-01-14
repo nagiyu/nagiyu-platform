@@ -14,7 +14,7 @@
     "destroy": "cdk destroy"
   },
   "devDependencies": {
-    "@types/node": "^22.10.5",
+    "@types/node": "^22",
     "aws-cdk": "^2.233.0"
   },
   "dependencies": {
