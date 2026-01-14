@@ -16,6 +16,7 @@
     "diff:prod": "npx cdk diff --context env=prod"
   },
   "dependencies": {
+    "@nagiyu/infra-common": "file:../common",
     "aws-cdk-lib": "^2.233.0",
     "constructs": "^10.4.4",
     "source-map-support": "^0.5.21"
