@@ -28,7 +28,6 @@ export class EcrStack extends cdk.Stack {
       environment: environment as 'dev' | 'prod',
       ecrConfig: {
         repositoryName: `stock-tracker-web-${environment}`,
-        logicalId: 'WebRepository',
       },
     } as EcrStackBaseProps);
     this.webRepository = webEcrStack.repository;
@@ -39,7 +38,6 @@ export class EcrStack extends cdk.Stack {
       environment: environment as 'dev' | 'prod',
       ecrConfig: {
         repositoryName: `stock-tracker-batch-${environment}`,
-        logicalId: 'BatchRepository',
       },
     } as EcrStackBaseProps);
     this.batchRepository = batchEcrStack.repository;

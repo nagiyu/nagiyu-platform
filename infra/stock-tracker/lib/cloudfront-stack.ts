@@ -22,10 +22,6 @@ export class CloudFrontStack extends CloudFrontStackBase {
       serviceName: 'stock-tracker',
       environment: environment as 'dev' | 'prod',
       functionUrl,
-      cloudfrontConfig: {
-        // セキュリティヘッダーを有効化
-        enableSecurityHeaders: true,
-      },
       certificateArn: cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn'),
     };
 
