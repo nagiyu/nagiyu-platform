@@ -103,7 +103,9 @@ jobs:
           INCONSISTENCY: ${{ steps.inconsistency.outputs.inconsistency }}
           NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
         run: |
-          BODY=$(.github/workflows/scripts/prepare-npm-issue.sh)
+          CREATE_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          export CREATE_TIME
+          BODY=$(python3 .github/workflows/scripts/prepare-npm-issue.py)
           EOF_MARKER=$(openssl rand -hex 16)
           {
             echo "issue_body<<$EOF_MARKER"
