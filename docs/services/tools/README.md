@@ -41,7 +41,6 @@ JSONフォーマッター、Base64エンコーダー、乗り換え案内変換�
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/tools/`
 - **インフラ定義**: `infra/tools/`
-- **バージョン**: 1.0.0
 
 ---
 

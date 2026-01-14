@@ -25,81 +25,8 @@
 
 **インフラ定義の場所**:
 
-- CloudFormation テンプレート: `infra/tools/*.yaml`
-
-### 1.2 初回セットアップ
-
-**リージョン戦略:**
-- **すべてのリソース**: `us-east-1` (バージニア北部)
-    - CloudFront 用 ACM 証明書との統一
-    - シンプルなリソース管理
-    - クロスリージョン設定の複雑さを回避
-
-#### ECR リポジトリの作成
-
-```bash
-# 開発環境
-aws cloudformation deploy \
-    --template-file infra/tools/ecr.yaml \
-    --stack-name nagiyu-tools-ecr-dev \
-    --parameter-overrides Environment=dev \
-    --region us-east-1
-
-# 本番環境
-aws cloudformation deploy \
-    --template-file infra/tools/ecr.yaml \
-    --stack-name nagiyu-tools-ecr-prod \
-    --parameter-overrides Environment=prod \
-    --region us-east-1
-```
-
-#### Lambda 関数の作成
-
-```bash
-# 開発環境
-aws cloudformation deploy \
-    --template-file infra/tools/lambda.yaml \
-    --stack-name nagiyu-tools-lambda-dev \
-    --parameter-overrides Environment=dev ImageUri=<ECR_IMAGE_URI> \
-    --region us-east-1
-
-# 本番環境
-aws cloudformation deploy \
-    --template-file infra/tools/lambda.yaml \
-    --stack-name nagiyu-tools-lambda-prod \
-    --parameter-overrides Environment=prod ImageUri=<ECR_IMAGE_URI> \
-    --region us-east-1
-```
-
-#### CloudFront ディストリビューションの作成
-
-**前提条件**: ACM 証明書が `us-east-1` リージョンに作成済みであること ([共通インフラ - ACM](../../infra/shared/acm.md) 参照)
-
-```bash
-# 開発環境
-aws cloudformation deploy \
-    --template-file infra/tools/cloudfront.yaml \
-    --stack-name nagiyu-tools-cloudfront-dev \
-    --parameter-overrides \
-        Environment=dev \
-        LambdaStackName=nagiyu-tools-lambda-dev \
-        CertificateArn=<ACM_CERTIFICATE_ARN> \
-        DomainName=dev-tools.example.com \
-    --region us-east-1
-
-# 本番環境
-aws cloudformation deploy \
-    --template-file infra/tools/cloudfront.yaml \
-    --stack-name nagiyu-tools-cloudfront-prod \
-    --parameter-overrides \
-        Environment=prod \
-        LambdaStackName=nagiyu-tools-lambda-prod \
-        CertificateArn=<ACM_CERTIFICATE_ARN> \
-        DomainName=tools.example.com \
-    --region us-east-1
-```
-
-**注意**: すべてのリソースを `us-east-1` に配置することで、CloudFormation のクロスリージョンエクスポート/インポートの問題を回避し、管理を簡素化します。
+- CDK スタック: `infra/tools/lib/`
+- CDK 設定: `infra/tools/cdk.json`
 
 ### 1.3 環境ごとのリソース名
 
@@ -158,18 +85,10 @@ IAM ユーザーは `infra/shared/iam/users/github-actions-user.yaml` で定義�
 
 ```bash
 # 開発環境
-aws cloudformation deploy \
-    --template-file infra/tools/ecr.yaml \
-    --stack-name nagiyu-tools-ecr-dev \
-    --parameter-overrides Environment=dev \
-    --region us-east-1
+npm run deploy -w infra-tools -- --context env=dev --context deploymentPhase=ecr-only
 
 # 本番環境
-aws cloudformation deploy \
-    --template-file infra/tools/ecr.yaml \
-    --stack-name nagiyu-tools-ecr-prod \
-    --parameter-overrides Environment=prod \
-    --region us-east-1
+npm run deploy -w infra-tools -- --context env=prod --context deploymentPhase=ecr-only
 ```
 
 ### 3.3 Docker イメージのビルドとプッシュ
@@ -192,23 +111,8 @@ docker push <ECR_REGISTRY>/tools-dev:latest
 ### 3.4 アプリケーションリソースのデプロイ
 
 ```bash
-# Lambda 関数の作成
-aws cloudformation deploy \
-    --template-file infra/tools/lambda.yaml \
-    --stack-name nagiyu-tools-lambda-dev \
-    --parameter-overrides Environment=dev ImageUri=<ECR_IMAGE_URI> \
-    --region us-east-1
-
-# CloudFront ディストリビューションの作成
-aws cloudformation deploy \
-    --template-file infra/tools/cloudfront.yaml \
-    --stack-name nagiyu-tools-cloudfront-dev \
-    --parameter-overrides \
-        Environment=dev \
-        LambdaStackName=nagiyu-tools-lambda-dev \
-        CertificateArn=<ACM_CERTIFICATE_ARN> \
-        DomainName=dev-tools.nagiyu.com \
-    --region us-east-1
+# Lambda 関数と CloudFront の作成
+npm run deploy -w infra-tools -- --context env=dev --context deploymentPhase=full
 ```
 
 ### 3.5 動作確認
@@ -331,15 +235,15 @@ on:
 
 **ジョブ構成**:
 
-1. **infrastructure**: ECR リポジトリの CloudFormation スタックデプロイ
+1. **infrastructure**: ECR リポジトリの CDK スタックデプロイ
 2. **build**: Docker イメージのビルドと ECR へのプッシュ
 3. **deploy**: Lambda と CloudFront のデプロイ
 4. **verify**: デプロイ後のヘルスチェック
 
 **完全自動化**:
-- インフラ (ECR, Lambda, CloudFront) の CloudFormation スタックもワークフロー内で自動デプロイ
+- インフラ (ECR, Lambda, CloudFront) の CDK スタックもワークフロー内で自動デプロイ
 - 手動でのインフラセットアップは不要
-- CloudFormation テンプレートがリポジトリに含まれているため、変更があれば自動で反映
+- CDK コードがリポジトリに含まれているため、変更があれば自動で反映
 - ACM 証明書とドメイン名は既存の共通インフラから自動取得
 
 ### 4.2 ブランチ戦略とデプロイフロー
@@ -469,17 +373,17 @@ aws lambda update-function-code \
 
 ### 6.2 環境変数の設定方法
 
-**CloudFormation での設定**:
+**CDK での設定**:
 
-環境変数は CloudFormation スタックで自動的に設定されます:
+環境変数は CDK スタックで自動的に設定されます:
 
-```yaml
-# infra/tools/lambda.yaml
-Environment:
-  Variables:
-    NODE_ENV: production
-    PORT: 3000
-    APP_VERSION: !Ref AppVersion
+```typescript
+// lib/tools-stack.ts
+environment: {
+  NODE_ENV: 'production',
+  PORT: '3000',
+  APP_VERSION: packageJson.version,
+}
 ```
 
 **手動設定（緊急時）**:
@@ -549,7 +453,7 @@ aws logs filter-log-events \
 
 **`services/tools/package.json` の `version` フィールドがすべてのバージョン情報の唯一の真実の情報源です。**
 
-他の場所（CloudFormation パラメータ、環境変数、ドキュメント等）にバージョン番号を直接記載しないでください。
+**他の場所（CDK パラメータ、環境変数、ドキュメント等）にバージョン番号を直接記載しないでください。**
 
 #### 8.1.3 バージョン更新手順
 
@@ -584,7 +488,7 @@ git push origin <branch-name>
 GitHub Actions が自動的に以下を実行します:
 
 1. **`package.json` からバージョンを読み取り**
-2. **CloudFormation パラメータとして渡す**
+2. **CDK スタックにバージョン情報を渡す**
 3. **Lambda 環境変数 `APP_VERSION` に設定**
 
 #### 8.1.5 バージョン表示
@@ -746,9 +650,9 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 ワークフローファイル: `.github/workflows/tools-deploy.yml`
 
 **完全自動化:**
-- インフラ (ECR, Lambda, CloudFront) の CloudFormation スタックもワークフロー内で自動デプロイ
+- インフラ (ECR, Lambda, CloudFront) の CDK スタックもワークフロー内で自動デプロイ
 - 手動でのインフラセットアップは不要
-- CloudFormation テンプレートがリポジトリに含まれているため、変更があれば自動で反映
+- CDK コードがリポジトリに含まれているため、変更があれば自動で反映
 - ACM 証明書とドメイン名は既存の共通インフラから自動取得
 
 **トリガー条件:**
@@ -757,21 +661,20 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 - `master` ブランチ → 本番環境へデプロイ
 
 **実行内容:**
-1. **インフラデプロイ**: ECR リポジトリの CloudFormation スタックをデプロイ (`--no-fail-on-empty-changeset` で変更がなければスキップ)
+1. **インフラデプロイ**: ECR リポジトリの CDK スタックをデプロイ
 2. **ビルド**: ECR リポジトリ URI を取得し、Docker イメージをビルドして ECR にプッシュ
-3. **Lambda デプロイ**: Lambda 関数の CloudFormation スタックを新しいイメージでデプロイ
-4. **更新**: Lambda 関数コードを明示的に更新 (CloudFormation だけでは更新されない場合の保険)
+3. **Lambda デプロイ**: Lambda 関数の CDK スタックを新しいイメージでデプロイ
+4. **更新**: Lambda 関数コードを明示的に更新（CDK だけでは更新されない場合の保険）
 5. **検証**: Function URL を取得してヘルスチェック実行
-6. **CloudFront デプロイ**: CloudFront ディストリビューションの CloudFormation スタックをデプロイ
+6. **CloudFront デプロイ**: CloudFront ディストリビューションの CDK スタックをデプロイ
     - ACM 証明書 ARN を共有インフラスタックのエクスポートから自動取得
     - ドメイン名を共有インフラスタックのエクスポートから自動取得し、環境に応じたサブドメインを構成 (prod: `tools.example.com`, dev: `dev-tools.example.com`)
 
-**CloudFormation との統合:**
+**CDK との統合:**
 - インフラとアプリケーションを一つのワークフローで完全自動デプロイ
-- CloudFormation テンプレート (`infra/tools/*.yaml`) が単一の真実の情報源
-- `--no-fail-on-empty-changeset` により、変更がない場合はスタック操作をスキップ
+- CDK スタック (`infra/tools/lib/`) が単一の真実の情報源
 - インフラの変更 (リポジトリ名、関数名など) があってもワークフローの修正は不要
-- ACM 証明書とドメイン名は CloudFormation エクスポートから動的に取得 (共有インフラとの連携)
+- ACM 証明書とドメイン名は CDK の共有リソース参照から動的に取得 (共有インフラとの連携)
 
 ### 2.3 デプロイ後の確認
 
@@ -927,7 +830,7 @@ on:
 
 **ジョブ構成**:
 
-1. **infrastructure**: ECR リポジトリの CloudFormation スタックデプロイ
+1. **infrastructure**: ECR リポジトリの CDK スタックデプロイ
 2. **build**: Docker イメージのビルドと ECR へのプッシュ
 3. **deploy**: Lambda と CloudFront のデプロイ
 
@@ -1027,7 +930,7 @@ aws logs tail /aws/lambda/tools-app-dev --follow
 
 **`services/tools/package.json` の `version` フィールドがすべてのバージョン情報の唯一の真実の情報源です。**
 
-他の場所（CloudFormation パラメータ、環境変数、ドキュメント等）にバージョン番号を直接記載しないでください。
+**他の場所（CDK パラメータ、環境変数、ドキュメント等）にバージョン番号を直接記載しないでください。**
 
 #### 5.1.3 バージョン更新手順
 
@@ -1069,15 +972,12 @@ GitHub Actions が自動的に以下を実行します:
         echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
     ```
 
-2. **CloudFormation パラメータとして渡す**
-    ```yaml
-    aws cloudformation deploy \
-        --parameter-overrides AppVersion="$VERSION" \
-        ...
-    ```
+2. **CDK スタックにバージョン情報を渡す**
+    - CDK スタック内で `package.json` を直接読み込み
+    - Lambda 環境変数として設定
 
 3. **Lambda 環境変数 `APP_VERSION` に設定**
-    - CloudFormation が自動的に Lambda の環境変数として設定
+    - CDK が自動的に Lambda の環境変数として設定
     - アプリケーションは `process.env.APP_VERSION` から取得
 
 #### 5.1.5 バージョン表示

@@ -58,7 +58,7 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | CDN | Amazon CloudFront | コンテンツ配信、カスタムドメイン |
 | SSL/TLS | AWS ACM | HTTPS 証明書 (共通基盤) |
 | DNS | 外部DNSサービス | ドメイン管理 |
-| IaC | AWS CloudFormation | インフラ定義 |
+| IaC | AWS CDK (TypeScript) | インフラ定義 |
 | CI/CD | GitHub Actions | 自動ビルド・デプロイ |
 | シークレット管理 | AWS Secrets Manager | API キー等 (必要時) |
 
