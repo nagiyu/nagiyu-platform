@@ -1,73 +1,54 @@
 # Multi-stage build for Stock Tracker Batch Lambda
-# Node.js 20 Alpine base for minimal image size
+# Node.js 22 on Debian (matching codec-converter pattern)
 
-# Stage 1: Dependencies installation
-FROM node:20-alpine AS deps
+# ベースイメージ
+FROM node:22-slim AS base
 
+# ビルドステージ
+FROM base AS builder
 WORKDIR /app
 
-# Copy package files for dependency installation
-COPY package.json package-lock.json ./
+# モノレポ全体のpackage.jsonとソースをコピー
+COPY package*.json ./
+COPY configs ./configs/
+COPY libs ./libs/
+COPY services/stock-tracker ./services/stock-tracker/
 
-# Install production dependencies only
-RUN npm ci --omit=dev
+# 依存関係をインストール（ソースコード存在下で実行）
+# npm ci fails with "Exit handler never called" in Docker build environment
+# Using npm install as workaround - still respects package-lock.json
+RUN npm install --prefer-offline --no-audit
 
-# Stage 2: Build stage
-FROM node:20-alpine AS builder
+# モノレポのルートからビルド（共通ライブラリも含めて）
+RUN npm run build --workspace=@nagiyu/common
+RUN npm run build --workspace=@nagiyu/stock-tracker-core
+RUN npm run build --workspace=@nagiyu/stock-tracker-batch
 
+# 実行ステージ
+FROM base AS runner
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
-
-# Install all dependencies (including dev dependencies)
-RUN npm ci
-
-# Copy shared libraries
-COPY libs ./libs
-
-# Build shared libraries in order (common → browser → ui)
-RUN npm run build --workspace @nagiyu/common
-
-# Copy stock-tracker core package
-COPY services/stock-tracker/core ./services/stock-tracker/core
-
-# Build core package
-RUN npm run build --workspace @nagiyu/stock-tracker-core
-
-# Copy batch source code
-COPY services/stock-tracker/batch ./services/stock-tracker/batch
-
-# Build batch package
-RUN npm run build --workspace @nagiyu/stock-tracker-batch
-
-# Stage 3: Runtime stage
-FROM node:20-alpine AS runtime
-
-WORKDIR /app
-
-# Copy production dependencies from deps stage
-COPY --from=deps /app/node_modules ./node_modules
-
-# Copy built shared libraries
-COPY --from=builder /app/libs/common/dist ./libs/common/dist
-COPY --from=builder /app/libs/common/package.json ./libs/common/
-
-# Copy built core package
-COPY --from=builder /app/services/stock-tracker/core/dist ./services/stock-tracker/core/dist
-COPY --from=builder /app/services/stock-tracker/core/package.json ./services/stock-tracker/core/
-
-# Copy built batch package
-COPY --from=builder /app/services/stock-tracker/batch/dist ./services/stock-tracker/batch/dist
-COPY --from=builder /app/services/stock-tracker/batch/package.json ./services/stock-tracker/batch/
-
-# Copy root package.json for workspace resolution
-COPY --from=builder /app/package.json ./
-
-# Set environment to production
 ENV NODE_ENV=production
+
+# モノレポのルートnode_modulesをコピー（依存関係のホイスティングに対応）
+COPY --from=builder /app/node_modules ./node_modules
+
+# 必要なビルド成果物とpackage.jsonをコピー
+COPY --from=builder /app/package*.json ./
+
+# 共通ライブラリ
+COPY --from=builder /app/libs/common/package*.json ./libs/common/
+COPY --from=builder /app/libs/common/dist ./libs/common/dist
+
+# Core パッケージ
+COPY --from=builder /app/services/stock-tracker/core/package*.json ./services/stock-tracker/core/
+COPY --from=builder /app/services/stock-tracker/core/dist ./services/stock-tracker/core/dist
+
+# Batch パッケージ
+COPY --from=builder /app/services/stock-tracker/batch/package*.json ./services/stock-tracker/batch/
+COPY --from=builder /app/services/stock-tracker/batch/dist ./services/stock-tracker/batch/dist
 
 # Lambda handler entry point
 # Lambda will invoke the handler function from the specified module
 # Format: <file>.<function> (e.g., minute.handler)
-CMD ["node", "--experimental-specifier-resolution=node", "services/stock-tracker/batch/dist/src/minute.js"]
+CMD ["node", "services/stock-tracker/batch/dist/src/minute.js"]
