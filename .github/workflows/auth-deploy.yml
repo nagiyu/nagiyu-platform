@@ -2,17 +2,17 @@ name: Auth App - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'services/auth/**'
-      - 'libs/common/**'
-      - 'infra/auth/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/auth-deploy.yml'
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    # paths:
+    #   - 'services/auth/**'
+    #   - 'libs/common/**'
+    #   - 'infra/auth/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/auth-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
