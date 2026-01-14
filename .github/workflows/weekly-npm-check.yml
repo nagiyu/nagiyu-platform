@@ -1,0 +1,117 @@
+name: Weekly NPM Management Check
+
+on:
+  schedule:
+    # 毎週月曜日 10:00 JST (1:00 UTC)
+    - cron: '0 1 * * 1'
+  workflow_dispatch: # 手動実行も可能
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  npm-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Get current week info
+        id: week_info
+        run: |
+          YEAR=$(date +%Y)
+          WEEK=$(date +%U)
+          DATE=$(date +%Y-%m-%d)
+
+          echo "year=$YEAR" >> $GITHUB_OUTPUT
+          echo "week=$WEEK" >> $GITHUB_OUTPUT
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "title=[NPM管理] ${YEAR}年第${WEEK}週 パッケージ管理レポート (${DATE})" >> $GITHUB_OUTPUT
+
+      - name: Calculate next check date
+        id: next_check
+        run: |
+          NEXT_MONDAY=$(date -d "next monday" +%Y-%m-%d)
+          echo "next_date=$NEXT_MONDAY" >> $GITHUB_OUTPUT
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check npm outdated
+        id: outdated
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-npm-outdated.sh > "$OUTPUT_FILE"
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "outdated=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Check npm audit
+        id: audit
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-npm-audit.sh > "$OUTPUT_FILE"
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "audit=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Check duplicate packages
+        id: duplicates
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-duplicates.sh > "$OUTPUT_FILE"
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "duplicates=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Check version inconsistency
+        id: inconsistency
+        run: |
+          OUTPUT_FILE=$(mktemp)
+          .github/workflows/scripts/check-version-inconsistency.sh > "$OUTPUT_FILE"
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "inconsistency=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare issue body
+        id: issue_body
+        env:
+          OUTDATED: ${{ steps.outdated.outputs.outdated }}
+          AUDIT: ${{ steps.audit.outputs.audit }}
+          DUPLICATES: ${{ steps.duplicates.outputs.duplicates }}
+          INCONSISTENCY: ${{ steps.inconsistency.outputs.inconsistency }}
+          NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
+        run: |
+          CREATE_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          export CREATE_TIME
+          # Python スクリプトでBase64デコードして本文を生成
+          BODY=$(python3 .github/workflows/scripts/prepare-npm-issue.py)
+          # 生成した本文をBase64エンコードして保存
+          ENCODED=$(echo "$BODY" | base64 -w 0)
+          echo "issue_body=$ENCODED" >> "$GITHUB_OUTPUT"
+
+      - name: Create npm management issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Base64デコードしてIssue本文を取得
+          BODY=$(echo "${{ steps.issue_body.outputs.issue_body }}" | base64 -d)
+          gh issue create \
+            --title "${{ steps.week_info.outputs.title }}" \
+            --label "dependencies,weekly-check" \
+            --body "$BODY"
+
+      - name: Summary
+        run: |
+          echo "✅ 週次npm管理レポート Issue を作成しました" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**タイトル**: ${{ steps.week_info.outputs.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "**次回チェック予定**: ${{ steps.next_check.outputs.next_date }}" >> $GITHUB_STEP_SUMMARY
