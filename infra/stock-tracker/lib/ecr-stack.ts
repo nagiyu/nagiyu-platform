@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
+import { EcrStackBase, EcrStackBaseProps } from '@nagiyu/infra-common';
 
 export interface EcrStackProps extends cdk.StackProps {
   environment: string;
@@ -10,6 +11,7 @@ export interface EcrStackProps extends cdk.StackProps {
  * Stock Tracker ECR Stack
  *
  * Web Lambda と Batch Lambda 用の2つの ECR リポジトリを作成します。
+ * 共通基盤の EcrStackBase を使用してメンテナンス性を向上。
  */
 export class EcrStack extends cdk.Stack {
   public readonly webRepository: ecr.Repository;
@@ -20,44 +22,27 @@ export class EcrStack extends cdk.Stack {
 
     const { environment } = props;
 
-    // リソース削除ポリシー（prod は RETAIN、dev は DESTROY）
-    const removalPolicy =
-      environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY;
+    // Web Lambda 用 ECR リポジトリ (EcrStackBase を使用)
+    const webEcrStack = new EcrStackBase(this, 'WebEcrStack', {
+      serviceName: 'stock-tracker-web',
+      environment: environment as 'dev' | 'prod',
+      ecrConfig: {
+        repositoryName: `stock-tracker-web-${environment}`,
+        logicalId: 'WebRepository',
+      },
+    } as EcrStackBaseProps);
+    this.webRepository = webEcrStack.repository;
 
-    // Web Lambda 用 ECR リポジトリ
-    this.webRepository = new ecr.Repository(this, 'WebRepository', {
-      repositoryName: `stock-tracker-web-${environment}`,
-      imageScanOnPush: true,
-      imageTagMutability: ecr.TagMutability.MUTABLE,
-      lifecycleRules: [
-        {
-          description: 'Keep last 10 images',
-          maxImageCount: 10,
-        },
-      ],
-      removalPolicy,
-    });
-
-    // Batch Lambda 用 ECR リポジトリ
-    this.batchRepository = new ecr.Repository(this, 'BatchRepository', {
-      repositoryName: `stock-tracker-batch-${environment}`,
-      imageScanOnPush: true,
-      imageTagMutability: ecr.TagMutability.MUTABLE,
-      lifecycleRules: [
-        {
-          description: 'Keep last 10 images',
-          maxImageCount: 10,
-        },
-      ],
-      removalPolicy,
-    });
-
-    // タグの追加
-    [this.webRepository, this.batchRepository].forEach((repo) => {
-      cdk.Tags.of(repo).add('Application', 'nagiyu');
-      cdk.Tags.of(repo).add('Service', 'stock-tracker');
-      cdk.Tags.of(repo).add('Environment', environment);
-    });
+    // Batch Lambda 用 ECR リポジトリ (EcrStackBase を使用)
+    const batchEcrStack = new EcrStackBase(this, 'BatchEcrStack', {
+      serviceName: 'stock-tracker-batch',
+      environment: environment as 'dev' | 'prod',
+      ecrConfig: {
+        repositoryName: `stock-tracker-batch-${environment}`,
+        logicalId: 'BatchRepository',
+      },
+    } as EcrStackBaseProps);
+    this.batchRepository = batchEcrStack.repository;
 
     // CloudFormation Outputs
     new cdk.CfnOutput(this, 'WebRepositoryUri', {
