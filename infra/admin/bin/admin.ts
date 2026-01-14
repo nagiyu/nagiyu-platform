@@ -41,6 +41,10 @@ const lambdaStack = new LambdaStack(app, `NagiyuAdminLambda${envSuffix}`, {
 });
 
 // CloudFront スタックを作成
+if (!lambdaStack.functionUrl) {
+  throw new Error('Lambda function URL is not available');
+}
+
 new CloudFrontStack(app, `NagiyuAdminCloudFront${envSuffix}`, {
   environment: env,
   functionUrl: lambdaStack.functionUrl.url,
