@@ -50,44 +50,36 @@ jobs:
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-outdated.sh > "$OUTPUT_FILE"
-          {
-            echo 'outdated<<EOF'
-            cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "outdated=$ENCODED" >> "$GITHUB_OUTPUT"
 
       - name: Check npm audit
         id: audit
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-npm-audit.sh > "$OUTPUT_FILE"
-          {
-            echo 'audit<<EOF'
-            cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "audit=$ENCODED" >> "$GITHUB_OUTPUT"
 
       - name: Check duplicate packages
         id: duplicates
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-duplicates.sh > "$OUTPUT_FILE"
-          {
-            echo 'duplicates<<EOF'
-            cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "duplicates=$ENCODED" >> "$GITHUB_OUTPUT"
 
       - name: Check version inconsistency
         id: inconsistency
         run: |
           OUTPUT_FILE=$(mktemp)
           .github/workflows/scripts/check-version-inconsistency.sh > "$OUTPUT_FILE"
-          {
-            echo 'inconsistency<<EOF'
-            cat "$OUTPUT_FILE"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          # Base64エンコードして安全に保存
+          ENCODED=$(base64 -w 0 "$OUTPUT_FILE")
+          echo "inconsistency=$ENCODED" >> "$GITHUB_OUTPUT"
 
       - name: Prepare issue body
         id: issue_body
@@ -98,21 +90,24 @@ jobs:
           INCONSISTENCY: ${{ steps.inconsistency.outputs.inconsistency }}
           NEXT_DATE: ${{ steps.next_check.outputs.next_date }}
         run: |
-          BODY=$(.github/workflows/scripts/prepare-npm-issue.sh)
-          {
-            echo 'issue_body<<EOF'
-            echo "$BODY"
-            echo EOF
-          } >> $GITHUB_OUTPUT
+          CREATE_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          export CREATE_TIME
+          # Python スクリプトでBase64デコードして本文を生成
+          BODY=$(python3 .github/workflows/scripts/prepare-npm-issue.py)
+          # 生成した本文をBase64エンコードして保存
+          ENCODED=$(echo "$BODY" | base64 -w 0)
+          echo "issue_body=$ENCODED" >> "$GITHUB_OUTPUT"
 
       - name: Create npm management issue
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Base64デコードしてIssue本文を取得
+          BODY=$(echo "${{ steps.issue_body.outputs.issue_body }}" | base64 -d)
           gh issue create \
             --title "${{ steps.week_info.outputs.title }}" \
             --label "dependencies,weekly-check" \
-            --body "${{ steps.issue_body.outputs.issue_body }}"
+            --body "$BODY"
 
       - name: Summary
         run: |
