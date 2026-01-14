@@ -1,103 +1,51 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import * as ecr from 'aws-cdk-lib/aws-ecr';
 import { Construct } from 'constructs';
+import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
 }
 
-export class LambdaStack extends cdk.Stack {
-  public readonly lambdaFunction: lambda.Function;
-  public readonly functionUrl: lambda.FunctionUrl;
-
+/**
+ * Tools サービス用の Lambda スタック
+ *
+ * 既存の CloudFormation スタックとの互換性を保つため、
+ * 論理ID を 'ToolsFunction' に指定しています。
+ */
+export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    super(scope, id, props);
+    const { environment, ...stackProps } = props;
 
-    const { environment } = props;
-
-    // Lambda 実行ロールの作成
-    const lambdaRole = new iam.Role(this, 'LambdaExecutionRole', {
-      roleName: `tools-lambda-execution-role-${environment}`,
-      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
-      description: `Execution role for Tools Lambda function (${environment})`,
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
-      ],
-    });
-
-    // ECR リポジトリの参照
-    const repository = ecr.Repository.fromRepositoryName(
-      this,
-      'EcrRepository',
-      `tools-app-${environment}`
-    );
-
-    // Lambda 関数の作成
-    this.lambdaFunction = new lambda.Function(this, 'ToolsFunction', {
-      functionName: `tools-app-${environment}`,
-      runtime: lambda.Runtime.FROM_IMAGE,
-      handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(repository, {
-        tagOrDigest: 'latest',
-      }),
-      memorySize: 1024,
-      timeout: cdk.Duration.seconds(30),
-      architecture: lambda.Architecture.X86_64,
-      role: lambdaRole,
-      environment: {
-        NODE_ENV: 'production',
-        APP_VERSION: '1.0.0',
+    const baseProps: LambdaStackBaseProps = {
+      ...stackProps,
+      serviceName: 'tools',
+      environment: environment as 'dev' | 'prod',
+      ecrRepositoryName: `tools-app-${environment}`,
+      lambdaConfig: {
+        // リソース名を既存の `tools-app-{env}` から統一命名規則に移行
+        // 注意: これによりリソース名が変更されます
+        // tools-app-dev -> nagiyu-tools-lambda-dev
+        functionName: `tools-app-${environment}`,
+        // 既存の CloudFormation リソースとの互換性を保つため、論理IDと実行ロール名を指定
+        logicalId: 'ToolsFunction',
+        executionRoleName: `tools-lambda-execution-role-${environment}`,
+        memorySize: 1024,
+        timeout: 30,
+        environment: {
+          NODE_ENV: 'production',
+          APP_VERSION: '1.0.0',
+        },
       },
-      description: `Tools Service Lambda function for ${environment} environment`,
-    });
-
-    // Lambda 関数 URL の作成
-    this.functionUrl = this.lambdaFunction.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
-      cors: {
+      enableFunctionUrl: true,
+      functionUrlCorsConfig: {
         allowedOrigins: ['*'],
         allowedMethods: [lambda.HttpMethod.ALL],
         allowedHeaders: ['*'],
       },
-    });
+    };
 
-    // Lambda Function URL への公開アクセスを許可
-    this.lambdaFunction.addPermission('AllowPublicAccess', {
-      principal: new iam.AnyPrincipal(),
-      action: 'lambda:InvokeFunctionUrl',
-      functionUrlAuthType: lambda.FunctionUrlAuthType.NONE,
-    });
-
-    // タグの追加
-    cdk.Tags.of(this.lambdaFunction).add('Application', 'nagiyu');
-    cdk.Tags.of(this.lambdaFunction).add('Service', 'tools');
-    cdk.Tags.of(this.lambdaFunction).add('Environment', environment);
-
-    // Outputs
-    new cdk.CfnOutput(this, 'FunctionName', {
-      value: this.lambdaFunction.functionName,
-      description: 'Lambda Function Name',
-      exportName: `${this.stackName}-FunctionName`,
-    });
-
-    new cdk.CfnOutput(this, 'FunctionArn', {
-      value: this.lambdaFunction.functionArn,
-      description: 'Lambda Function ARN',
-      exportName: `${this.stackName}-FunctionArn`,
-    });
-
-    new cdk.CfnOutput(this, 'FunctionUrl', {
-      value: this.functionUrl.url,
-      description: 'Lambda Function URL',
-      exportName: `${this.stackName}-FunctionUrl`,
-    });
-
-    new cdk.CfnOutput(this, 'RoleArn', {
-      value: lambdaRole.roleArn,
-      description: 'Lambda Execution Role ARN',
-      exportName: `${this.stackName}-RoleArn`,
-    });
+    super(scope, id, baseProps);
   }
 }

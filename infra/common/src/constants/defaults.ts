@@ -6,7 +6,10 @@ import { CloudFrontConfig } from '../types/cloudfront-config';
  * Lambda のデフォルト設定
  */
 export const DEFAULT_LAMBDA_CONFIG: Required<
-  Omit<LambdaConfig, 'functionName' | 'environment' | 'reservedConcurrentExecutions'>
+  Omit<
+    LambdaConfig,
+    'functionName' | 'environment' | 'reservedConcurrentExecutions' | 'logicalId' | 'executionRoleName'
+  >
 > = {
   memorySize: 512,
   timeout: 30,
@@ -17,7 +20,9 @@ export const DEFAULT_LAMBDA_CONFIG: Required<
 /**
  * ECR のデフォルト設定
  */
-export const DEFAULT_ECR_CONFIG: Required<Omit<EcrConfig, 'repositoryName' | 'removalPolicy'>> = {
+export const DEFAULT_ECR_CONFIG: Required<
+  Omit<EcrConfig, 'repositoryName' | 'removalPolicy' | 'logicalId'>
+> = {
   imageScanOnPush: true,
   maxImageCount: 10,
   imageTagMutability: 'MUTABLE',
@@ -27,7 +32,7 @@ export const DEFAULT_ECR_CONFIG: Required<Omit<EcrConfig, 'repositoryName' | 're
  * CloudFront のデフォルト設定
  */
 export const DEFAULT_CLOUDFRONT_CONFIG: Required<
-  Omit<CloudFrontConfig, 'domainName' | 'additionalBehaviors'>
+  Omit<CloudFrontConfig, 'domainName' | 'additionalBehaviors' | 'logicalId'>
 > = {
   enableSecurityHeaders: true,
   minimumTlsVersion: '1.2',

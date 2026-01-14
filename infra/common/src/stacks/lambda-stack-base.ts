@@ -146,6 +146,7 @@ export class LambdaStackBase extends cdk.Stack {
 
     // Lambda 実行ロールの作成
     this.executionRole = new iam.Role(this, 'LambdaExecutionRole', {
+      roleName: lambdaConfig?.executionRoleName,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       description: `Execution role for ${serviceName} Lambda function (${environment})`,
       managedPolicies: [
@@ -164,8 +165,11 @@ export class LambdaStackBase extends cdk.Stack {
     const architecture =
       config.architecture === 'ARM_64' ? lambda.Architecture.ARM_64 : lambda.Architecture.X86_64;
 
+    // CloudFormation論理ID（既存スタックとの互換性を保つため、カスタマイズ可能）
+    const logicalId = lambdaConfig?.logicalId || 'Function';
+
     // Lambda 関数の作成
-    this.lambdaFunction = new lambda.Function(this, 'Function', {
+    this.lambdaFunction = new lambda.Function(this, logicalId, {
       functionName,
       runtime: lambda.Runtime.FROM_IMAGE,
       handler: lambda.Handler.FROM_IMAGE,

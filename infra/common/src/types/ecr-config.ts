@@ -8,6 +8,12 @@ export interface EcrConfig {
   repositoryName?: string;
 
   /**
+   * CloudFormation論理ID（既存スタックとの互換性を保つために指定）
+   * @default 'Repository'
+   */
+  logicalId?: string;
+
+  /**
    * イメージプッシュ時にスキャンを実行するか
    * @default true
    */

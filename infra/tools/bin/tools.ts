@@ -40,6 +40,10 @@ const lambdaStack = new LambdaStack(app, `NagiyuToolsLambda${envSuffix}`, {
 lambdaStack.addDependency(ecrStack);
 
 // CloudFront スタックを作成
+if (!lambdaStack.functionUrl) {
+  throw new Error('Lambda function URL is not available');
+}
+
 const cloudFrontStack = new CloudFrontStack(app, `NagiyuToolsCloudFront${envSuffix}`, {
   environment: env,
   functionUrl: lambdaStack.functionUrl.url,

@@ -197,8 +197,11 @@ export class CloudFrontStackBase extends cdk.Stack {
           ? cloudfront.PriceClass.PRICE_CLASS_200
           : cloudfront.PriceClass.PRICE_CLASS_100;
 
+    // CloudFormation論理ID（既存スタックとの互換性を保つため、カスタマイズ可能）
+    const logicalId = cloudfrontConfig?.logicalId || 'Distribution';
+
     // CloudFront ディストリビューション
-    this.distribution = new cloudfront.Distribution(this, 'Distribution', {
+    this.distribution = new cloudfront.Distribution(this, logicalId, {
       comment: `${serviceName} Service Distribution (${environment})`,
       defaultBehavior: {
         origin: new origins.HttpOrigin(cleanFunctionUrlDomain, {

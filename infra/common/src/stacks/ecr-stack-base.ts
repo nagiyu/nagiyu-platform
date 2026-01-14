@@ -98,8 +98,11 @@ export class EcrStackBase extends cdk.Stack {
         ? ecr.TagMutability.IMMUTABLE
         : ecr.TagMutability.MUTABLE;
 
+    // CloudFormation論理ID（既存スタックとの互換性を保つため、カスタマイズ可能）
+    const logicalId = ecrConfig?.logicalId || 'Repository';
+
     // ECR リポジトリの作成
-    this.repository = new ecr.Repository(this, 'Repository', {
+    this.repository = new ecr.Repository(this, logicalId, {
       repositoryName,
       imageScanOnPush: config.imageScanOnPush,
       imageTagMutability,
