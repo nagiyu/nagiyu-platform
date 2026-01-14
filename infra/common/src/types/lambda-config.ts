@@ -8,6 +8,17 @@ export interface LambdaConfig {
   functionName?: string;
 
   /**
+   * CloudFormation論理ID（既存スタックとの互換性を保つために指定）
+   * @default 'Function'
+   */
+  logicalId?: string;
+
+  /**
+   * 実行ロール名（指定しない場合は CloudFormation が自動生成）
+   */
+  executionRoleName?: string;
+
+  /**
    * メモリサイズ (MB)
    * @default 512
    */

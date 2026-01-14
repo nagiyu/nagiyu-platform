@@ -8,6 +8,12 @@ export interface CloudFrontConfig {
   domainName?: string;
 
   /**
+   * CloudFormation論理ID（既存スタックとの互換性を保つために指定）
+   * @default 'Distribution'
+   */
+  logicalId?: string;
+
+  /**
    * セキュリティヘッダーを有効にするか
    * @default true
    */

@@ -7,6 +7,12 @@ export interface ECRStackProps extends cdk.StackProps {
   environment: string;
 }
 
+/**
+ * Admin サービス用の ECR スタック
+ *
+ * 既存の CloudFormation スタックとの互換性を保つため、
+ * 論理ID を 'AdminRepository' に指定しています。
+ */
 export class ECRStack extends EcrStackBase {
   constructor(scope: Construct, id: string, props: ECRStackProps) {
     const { environment, ...stackProps } = props;
@@ -18,6 +24,8 @@ export class ECRStack extends EcrStackBase {
       ecrConfig: {
         // 既存のリソース名を維持: nagiyu-admin-{env}
         repositoryName: `nagiyu-admin-${environment}`,
+        // 既存の CloudFormation リソースとの互換性を保つため、論理IDを指定
+        logicalId: 'AdminRepository',
       },
     };
 
