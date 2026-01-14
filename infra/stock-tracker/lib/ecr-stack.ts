@@ -23,22 +23,18 @@ export class EcrStack extends cdk.Stack {
     const { environment } = props;
 
     // Web Lambda 用 ECR リポジトリ (EcrStackBase を使用)
+    // デフォルトの命名規則: nagiyu-stock-tracker-web-ecr-{env}
     const webEcrStack = new EcrStackBase(this, 'WebEcrStack', {
       serviceName: 'stock-tracker-web',
       environment: environment as 'dev' | 'prod',
-      ecrConfig: {
-        repositoryName: `stock-tracker-web-${environment}`,
-      },
     } as EcrStackBaseProps);
     this.webRepository = webEcrStack.repository;
 
     // Batch Lambda 用 ECR リポジトリ (EcrStackBase を使用)
+    // デフォルトの命名規則: nagiyu-stock-tracker-batch-ecr-{env}
     const batchEcrStack = new EcrStackBase(this, 'BatchEcrStack', {
       serviceName: 'stock-tracker-batch',
       environment: environment as 'dev' | 'prod',
-      ecrConfig: {
-        repositoryName: `stock-tracker-batch-${environment}`,
-      },
     } as EcrStackBaseProps);
     this.batchRepository = batchEcrStack.repository;
 

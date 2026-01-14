@@ -22,7 +22,6 @@ export class CloudFrontStack extends CloudFrontStackBase {
       serviceName: 'stock-tracker',
       environment: environment as 'dev' | 'prod',
       functionUrl,
-      certificateArn: cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn'),
     };
 
     super(scope, id, baseProps);
