@@ -8,7 +8,11 @@ import { CloudFrontConfig } from '../types/cloudfront-config';
 export const DEFAULT_LAMBDA_CONFIG: Required<
   Omit<
     LambdaConfig,
-    'functionName' | 'environment' | 'reservedConcurrentExecutions' | 'logicalId' | 'executionRoleName'
+    | 'functionName'
+    | 'environment'
+    | 'reservedConcurrentExecutions'
+    | 'logicalId'
+    | 'executionRoleName'
   >
 > = {
   memorySize: 512,
