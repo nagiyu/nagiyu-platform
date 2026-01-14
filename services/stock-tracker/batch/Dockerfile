@@ -15,9 +15,7 @@ COPY libs ./libs/
 COPY services/stock-tracker ./services/stock-tracker/
 
 # 依存関係をインストール（ソースコード存在下で実行）
-# npm ci fails with "Exit handler never called" in Docker build environment
-# Using npm install as workaround - still respects package-lock.json
-RUN npm install --prefer-offline --no-audit
+RUN npm ci
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=@nagiyu/common
