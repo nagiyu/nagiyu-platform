@@ -44,8 +44,8 @@
 | Lambda (Batch - Hourly)   | `stock-tracker-batch-hourly-dev`       | `stock-tracker-batch-hourly-prod`       |
 | Lambda (Batch - Daily)    | `stock-tracker-batch-daily-dev`        | `stock-tracker-batch-daily-prod`        |
 | DynamoDB テーブル         | `nagiyu-stock-tracker-main-dev`        | `nagiyu-stock-tracker-main-prod`        |
-| ECR (Web)                 | `stock-tracker-web-dev`                | `stock-tracker-web-prod`                |
-| ECR (Batch)               | `stock-tracker-batch-dev`              | `stock-tracker-batch-prod`              |
+| ECR (Web)                 | `nagiyu-stock-tracker-web-ecr-dev`     | `nagiyu-stock-tracker-web-ecr-prod`     |
+| ECR (Batch)               | `nagiyu-stock-tracker-batch-ecr-dev`   | `nagiyu-stock-tracker-batch-ecr-prod`   |
 | CloudFront Distribution   | `stock-tracker-dev`                    | `stock-tracker-prod`                    |
 | EventBridge Rule (Minute) | `stock-tracker-batch-minute-dev`       | `stock-tracker-batch-minute-prod`       |
 | EventBridge Rule (Hourly) | `stock-tracker-batch-hourly-dev`       | `stock-tracker-batch-hourly-prod`       |
@@ -172,8 +172,8 @@ npm run deploy -w @nagiyu/infra-stock-tracker -- NagiyuStockTrackerECRProd \
 ```
 
 このデプロイにより、以下の ECR リポジトリが作成されます：
-- `stock-tracker-web-{env}`: Web Lambda 用イメージ格納
-- `stock-tracker-batch-{env}`: Batch Lambda 用イメージ格納
+- `nagiyu-stock-tracker-web-ecr-{env}`: Web Lambda 用イメージ格納
+- `nagiyu-stock-tracker-batch-ecr-{env}`: Batch Lambda 用イメージ格納
 
 ### 3.5 Docker イメージのビルドとプッシュ
 
@@ -191,10 +191,10 @@ docker build -t stock-tracker-web:latest \
 
 # 3. タグ付け（開発環境）
 docker tag stock-tracker-web:latest \
-    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-web-dev:latest
+    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-web-ecr-dev:latest
 
 # 4. プッシュ
-docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-web-dev:latest
+docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-web-ecr-dev:latest
 ```
 
 #### Batch Lambda 用イメージ
@@ -206,10 +206,10 @@ docker build -t stock-tracker-batch:latest \
 
 # 2. タグ付け（開発環境）
 docker tag stock-tracker-batch:latest \
-    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-batch-dev:latest
+    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-batch-ecr-dev:latest
 
 # 3. プッシュ
-docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-batch-dev:latest
+docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-batch-ecr-dev:latest
 ```
 
 ### 3.6 アプリケーションリソースのデプロイ
@@ -448,8 +448,8 @@ docker build -t stock-tracker-web:latest \
 
 # 3. タグ付け & プッシュ（開発環境）
 docker tag stock-tracker-web:latest \
-    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-web-dev:latest
-docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-web-dev:latest
+    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-web-ecr-dev:latest
+docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-web-ecr-dev:latest
 ```
 
 #### Batch Lambda 用イメージ
@@ -461,8 +461,8 @@ docker build -t stock-tracker-batch:latest \
 
 # 2. タグ付け & プッシュ（開発環境）
 docker tag stock-tracker-batch:latest \
-    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-batch-dev:latest
-docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-batch-dev:latest
+    ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-batch-ecr-dev:latest
+docker push ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-batch-ecr-dev:latest
 ```
 
 ### 5.2 Lambda 関数の手動更新
@@ -475,7 +475,7 @@ ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com"
 
 aws lambda update-function-code \
     --function-name stock-tracker-web-dev \
-    --image-uri ${ECR_REGISTRY}/stock-tracker-web-dev:latest \
+    --image-uri ${ECR_REGISTRY}/nagiyu-stock-tracker-web-ecr-dev:latest \
     --region us-east-1
 
 # Lambda 更新完了を待機
@@ -493,19 +493,19 @@ ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com"
 # Minute バッチ
 aws lambda update-function-code \
     --function-name stock-tracker-batch-minute-dev \
-    --image-uri ${ECR_REGISTRY}/stock-tracker-batch-dev:latest \
+    --image-uri ${ECR_REGISTRY}/nagiyu-stock-tracker-batch-ecr-dev:latest \
     --region us-east-1
 
 # Hourly バッチ
 aws lambda update-function-code \
     --function-name stock-tracker-batch-hourly-dev \
-    --image-uri ${ECR_REGISTRY}/stock-tracker-batch-dev:latest \
+    --image-uri ${ECR_REGISTRY}/nagiyu-stock-tracker-batch-ecr-dev:latest \
     --region us-east-1
 
 # Daily バッチ
 aws lambda update-function-code \
     --function-name stock-tracker-batch-daily-dev \
-    --image-uri ${ECR_REGISTRY}/stock-tracker-batch-dev:latest \
+    --image-uri ${ECR_REGISTRY}/nagiyu-stock-tracker-batch-ecr-dev:latest \
     --region us-east-1
 ```
 
@@ -808,13 +808,13 @@ aws ecr describe-images \
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 aws lambda update-function-code \
     --function-name stock-tracker-web-dev \
-    --image-uri ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-web-dev:<PREVIOUS_TAG> \
+    --image-uri ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-web-ecr-dev:<PREVIOUS_TAG> \
     --region us-east-1
 
 # 前のイメージタグを指定してロールバック（Batch Lambda - Minute）
 aws lambda update-function-code \
     --function-name stock-tracker-batch-minute-dev \
-    --image-uri ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/stock-tracker-batch-dev:<PREVIOUS_TAG> \
+    --image-uri ${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com/nagiyu-stock-tracker-batch-ecr-dev:<PREVIOUS_TAG> \
     --region us-east-1
 
 # 同様に Hourly, Daily もロールバック
@@ -959,13 +959,13 @@ npm run cdk -w @nagiyu/infra-stock-tracker -- destroy \
 ```bash
 # Web リポジトリの削除
 aws ecr delete-repository \
-    --repository-name stock-tracker-web-dev \
+    --repository-name nagiyu-stock-tracker-web-ecr-dev \
     --force \
     --region us-east-1
 
 # Batch リポジトリの削除
 aws ecr delete-repository \
-    --repository-name stock-tracker-batch-dev \
+    --repository-name nagiyu-stock-tracker-batch-ecr-dev \
     --force \
     --region us-east-1
 ```

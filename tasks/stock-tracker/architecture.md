@@ -462,8 +462,8 @@ docClient.scan({
 
 | リソース名 | 説明 | 設定 |
 |---------|------|------|
-| stock-tracker-web-{env} | Web Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
-| stock-tracker-batch-{env} | Batch Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
+| nagiyu-stock-tracker-web-ecr-{env} | Web Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
+| nagiyu-stock-tracker-batch-ecr-{env} | Batch Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
 
 ### 5.3 ネットワーク設計
 
