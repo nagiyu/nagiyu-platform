@@ -1,12 +1,12 @@
 {
-  "name": "@nagiyu/stock-tracker-core",
+  "name": "stock-tracker-core",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "dist/src/index.js",
+  "main": "dist/index.js",
   "exports": {
     ".": {
-      "import": "./dist/src/index.js"
+      "import": "./dist/index.js"
     }
   },
   "scripts": {
