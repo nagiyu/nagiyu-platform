@@ -45,7 +45,6 @@ Codec Converterは、動画ファイルのコーデック変換を**ブラウザ
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/codec-converter/`
 - **インフラ定義**: `infra/codec-converter/`
-- **バージョン**: 1.0.0
 
 ---
 
