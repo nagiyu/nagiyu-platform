@@ -10,6 +10,7 @@ import {
   UpdateCommand,
   DeleteCommand,
   ScanCommand,
+  type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import type { Exchange, DynamoDBItem } from '../types.js';
 
@@ -42,7 +43,7 @@ export class InvalidExchangeDataError extends Error {
  */
 export class ExchangeRepository {
   constructor(
-    private readonly dynamoDb: any,
+    private readonly dynamoDb: DynamoDBDocumentClient,
     private readonly tableName: string
   ) {
     if (!tableName) {
@@ -70,6 +71,7 @@ export class ExchangeRepository {
     );
 
     return (result.Items || []).map((item: DynamoDBItem & Exchange) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { PK, SK, Type, GSI1PK, GSI1SK, GSI2PK, GSI2SK, GSI3PK, GSI3SK, ...exchange } = item;
       return exchange as Exchange;
     });
@@ -96,6 +98,7 @@ export class ExchangeRepository {
       return null;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { PK, SK, Type, GSI1PK, GSI1SK, GSI2PK, GSI2SK, GSI3PK, GSI3SK, ...exchange } =
       result.Item as DynamoDBItem & Exchange;
     return exchange as Exchange;
@@ -154,7 +157,7 @@ export class ExchangeRepository {
     // 更新可能なフィールドのみ抽出
     const updateExpressions: string[] = [];
     const expressionAttributeNames: Record<string, string> = {};
-    const expressionAttributeValues: Record<string, any> = {};
+    const expressionAttributeValues: Record<string, string | number> = {};
 
     if (updates.Name !== undefined) {
       updateExpressions.push('#name = :name');

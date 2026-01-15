@@ -9,14 +9,6 @@ import {
   ExchangeNotFoundError,
   InvalidExchangeDataError,
 } from '../../../src/repositories/exchange.js';
-import type { Exchange } from '../../../src/types.js';
-import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  DeleteCommand,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
 
 // モックDynamoDBクライアント
 const mockDynamoDb = {
