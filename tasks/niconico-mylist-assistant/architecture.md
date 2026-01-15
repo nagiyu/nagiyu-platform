@@ -83,7 +83,7 @@ graph TB
 
 | カテゴリ       | 技術       | 用途                       |
 | -------------- | ---------- | -------------------------- |
-| ランタイム     | Node.js 20 | JavaScript 実行環境        |
+| ランタイム     | Node.js 22 | JavaScript 実行環境        |
 | 言語           | TypeScript | 型安全なサーバーサイド開発 |
 | フレームワーク | Next.js 16 | API Routes による API 開発 |
 
