@@ -38,7 +38,7 @@ jobs:
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
-        run: npm run build --workspace @nagiyu/stock-tracker-core
+        run: npm run build --workspace stock-tracker-core
 
       - name: Build Web application
         run: npm run build --workspace stock-tracker-web
@@ -65,7 +65,7 @@ jobs:
         run: npm run build --workspace @nagiyu/common
 
       - name: Build Core package
-        run: npm run build --workspace @nagiyu/stock-tracker-core
+        run: npm run build --workspace stock-tracker-core
 
   build-batch:
     name: Batch Build Verification
@@ -89,10 +89,10 @@ jobs:
         run: npm run build --workspace @nagiyu/common
 
       - name: Build core package
-        run: npm run build --workspace @nagiyu/stock-tracker-core
+        run: npm run build --workspace stock-tracker-core
 
       - name: Build Batch application
-        run: npm run build --workspace @nagiyu/stock-tracker-batch
+        run: npm run build --workspace stock-tracker-batch
 
   build-infra:
     name: Infrastructure Build Verification
@@ -162,7 +162,7 @@ jobs:
         run: npm run build --workspace @nagiyu/common
 
       - name: Run Core tests
-        run: npm run test --workspace @nagiyu/stock-tracker-core
+        run: npm run test --workspace stock-tracker-core
 
   test-batch:
     name: Run Batch Unit Tests
@@ -186,10 +186,10 @@ jobs:
         run: npm run build --workspace @nagiyu/common
 
       - name: Build core package
-        run: npm run build --workspace @nagiyu/stock-tracker-core
+        run: npm run build --workspace stock-tracker-core
 
       - name: Run Batch tests
-        run: npm run test --workspace @nagiyu/stock-tracker-batch
+        run: npm run test --workspace stock-tracker-batch
 
   coverage:
     name: Test Coverage Check
@@ -213,7 +213,7 @@ jobs:
         run: npm run build --workspace @nagiyu/common
 
       - name: Run Core tests with coverage
-        run: npm run test:coverage --workspace @nagiyu/stock-tracker-core
+        run: npm run test:coverage --workspace stock-tracker-core
 
   e2e-test-web:
     name: Run E2E Tests Web (All Devices)
@@ -243,7 +243,7 @@ jobs:
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
-        run: npm run build --workspace @nagiyu/stock-tracker-core
+        run: npm run build --workspace stock-tracker-core
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium webkit
@@ -294,10 +294,10 @@ jobs:
         run: npm ci
 
       - name: Run lint on Core
-        run: npm run lint --workspace @nagiyu/stock-tracker-core
+        run: npm run lint --workspace stock-tracker-core
 
       - name: Run lint on Batch
-        run: npm run lint --workspace @nagiyu/stock-tracker-batch
+        run: npm run lint --workspace stock-tracker-batch
 
       - name: Run lint on Web
         run: npm run lint --workspace stock-tracker-web
@@ -321,10 +321,10 @@ jobs:
         run: npm ci
 
       - name: Check formatting on Core
-        run: npm run format:check --workspace @nagiyu/stock-tracker-core
+        run: npm run format:check --workspace stock-tracker-core
 
       - name: Check formatting on Batch
-        run: npm run format:check --workspace @nagiyu/stock-tracker-batch
+        run: npm run format:check --workspace stock-tracker-batch
 
       - name: Check formatting on Web
         run: npm run format:check --workspace stock-tracker-web
