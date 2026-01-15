@@ -68,9 +68,6 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error fetching exchanges:', error);
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.INTERNAL_ERROR },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_ERROR }, { status: 500 });
   }
 }
