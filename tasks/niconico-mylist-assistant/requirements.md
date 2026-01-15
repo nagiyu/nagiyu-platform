@@ -323,29 +323,37 @@
 
 ### 4.2 画面遷移図
 
+<!-- Draw.io での作成を推奨。後ほど手動で成形し .drawio.svg に変換するため、現時点では .drawio.svg のパスで記述 -->
+![画面遷移図](./images/screen-transition.drawio.svg)
+
+<!-- 参考用 Mermaid (Draw.io 未作成時の暫定版) -->
+<!--
 ```mermaid
-graph LR
-    Home[ホーム画面 /] -->|ログイン| Register[マイリスト登録画面 /register]
-    Home -->|ログイン| Import[一括インポート画面 /import]
-    Home -->|ログイン| Mylist[動画管理画面 /mylist]
+graph TB
+    subgraph メニュー
+        Menu[共通メニュー]
+    end
     
-    Register -->|メニュー| Import
-    Register -->|メニュー| Mylist
-    Register -->|登録実行| RegisterComplete[登録完了]
-    RegisterComplete -->|Web Push通知| Register
+    Home[ホーム画面 /] -->|Auth認証| Menu
     
-    Import -->|メニュー| Register
-    Import -->|メニュー| Mylist
-    Import -->|インポート完了| ImportComplete[インポート結果表示]
+    Menu -->|画面選択| Register[マイリスト登録画面 /register]
+    Menu -->|画面選択| Import[一括インポート画面 /import]
+    Menu -->|画面選択| Mylist[動画管理画面 /mylist]
+    
+    Register -->|登録実行| BatchJob[バッチ処理]
+    BatchJob -->|Web Push通知| RegisterResult[登録結果通知]
+    RegisterResult -.->|確認| Register
+    
+    Import -->|インポート実行| ImportProcess[インポート処理]
+    ImportProcess -->|完了| ImportComplete[インポート結果表示]
     ImportComplete -->|続けてインポート| Import
-    ImportComplete -->|動画管理| Mylist
+    ImportComplete -->|動画管理へ| Mylist
     
-    Mylist -->|メニュー| Register
-    Mylist -->|メニュー| Import
     Mylist -->|動画編集| Mylist
     
     Search[キーワード検索画面 /search] -.->|将来対応| Import
 ```
+-->
 
 ### 4.3 主要画面の UI 要件
 
@@ -367,7 +375,7 @@ graph LR
     - 「登録開始」ボタン（プライマリカラー、大きめサイズ）
 - **ステータス表示**:
     - バッチ処理の状態表示（待機中/実行中/完了/エラー）
-    - 進捗バー（処理中の場合）
+    - ステータス確認ボタン（処理中のみ表示、手動で状態更新）
 
 **インタラクション**:
 
@@ -442,14 +450,14 @@ graph LR
     - 主要機能の説明（一括登録、一括インポート、動画管理）
     - スクリーンショットまたはデモ動画（将来追加）
 - **ログインボタン**:
-    - 「Googleでログイン」ボタン（Auth プロジェクト連携）
+    - 「ログイン」ボタン（Auth プロジェクト連携、OAuth認証画面へ遷移）
 - **注意事項**:
     - 「非公式ツールです」という注意書き
     - 「ニコニコ動画のアカウントが必要です」という前提条件
 
 **インタラクション**:
 
-- 「Googleでログイン」クリックでAuth プロジェクトのOAuth画面へ遷移
+- 「ログイン」クリックでAuth プロジェクトのOAuth認証画面へ遷移
 - ログイン済みの場合は自動的にマイリスト登録画面へリダイレクト
 
 **表示条件**: 全ユーザーがアクセス可能
