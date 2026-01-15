@@ -136,7 +136,7 @@ export class LambdaStack extends cdk.Stack {
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/minute.handler'],
+        cmd: ['services/stock-tracker/batch/dist/minute.handler'],
       }),
       handler: lambda.Handler.FROM_IMAGE,
       role: batchExecutionRole,
@@ -159,7 +159,7 @@ export class LambdaStack extends cdk.Stack {
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/hourly.handler'],
+        cmd: ['services/stock-tracker/batch/dist/hourly.handler'],
       }),
       handler: lambda.Handler.FROM_IMAGE,
       role: batchExecutionRole,
@@ -182,7 +182,7 @@ export class LambdaStack extends cdk.Stack {
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
-        cmd: ['services/stock-tracker/batch/dist/src/daily.handler'],
+        cmd: ['services/stock-tracker/batch/dist/daily.handler'],
       }),
       handler: lambda.Handler.FROM_IMAGE,
       role: batchExecutionRole,

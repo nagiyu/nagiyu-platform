@@ -1,8 +1,8 @@
 # Multi-stage build for Stock Tracker Batch Lambda
-# Node.js 22 on Debian (matching codec-converter pattern)
+# AWS Lambda 公式 Node.js 22 ベースイメージを使用
 
 # ベースイメージ
-FROM node:22-slim AS base
+FROM public.ecr.aws/lambda/nodejs:22 AS base
 
 # ビルドステージ
 FROM base AS builder
@@ -46,7 +46,6 @@ COPY --from=builder /app/services/stock-tracker/core/dist ./services/stock-track
 COPY --from=builder /app/services/stock-tracker/batch/package*.json ./services/stock-tracker/batch/
 COPY --from=builder /app/services/stock-tracker/batch/dist ./services/stock-tracker/batch/dist
 
-# Lambda handler entry point
-# Lambda will invoke the handler function from the specified module
-# Format: <file>.<function> (e.g., minute.handler)
-CMD ["node", "services/stock-tracker/batch/dist/src/minute.js"]
+# Lambda ハンドラーを指定
+# CMD は CDK の cmd オプションで上書きされる (例: services/stock-tracker/batch/dist/minute.handler)
+CMD ["services/stock-tracker/batch/dist/minute.handler"]
