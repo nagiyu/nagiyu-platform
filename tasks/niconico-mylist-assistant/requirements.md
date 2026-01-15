@@ -323,11 +323,6 @@
 
 ### 4.2 画面遷移図
 
-<!-- Draw.io での作成を推奨。後ほど手動で成形し .drawio.svg に変換するため、現時点では .drawio.svg のパスで記述 -->
-![画面遷移図](./images/screen-transition.drawio.svg)
-
-<!-- 参考用 Mermaid (Draw.io 未作成時の暫定版) -->
-<!--
 ```mermaid
 graph TB
     subgraph メニュー
@@ -353,7 +348,6 @@ graph TB
     
     Search[キーワード検索画面 /search] -.->|将来対応| Import
 ```
--->
 
 ### 4.3 主要画面の UI 要件
 
