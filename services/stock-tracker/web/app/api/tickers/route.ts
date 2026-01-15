@@ -12,16 +12,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { TickerRepository } from '@nagiyu/stock-tracker-core';
+import { TickerRepository, getAuthError } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
-import { getSession, checkPermission, AUTH_ERROR_MESSAGES } from '../../../lib/auth';
+import { getSession } from '../../../lib/auth';
 
 /**
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: AUTH_ERROR_MESSAGES.UNAUTHORIZED,
-  FORBIDDEN: AUTH_ERROR_MESSAGES.FORBIDDEN,
   INVALID_LIMIT: 'limit は 1 から 100 の間で指定してください',
   INTERNAL_ERROR: 'ティッカー一覧の取得に失敗しました',
 } as const;
@@ -57,27 +55,17 @@ export async function GET(
   request: NextRequest
 ): Promise<NextResponse<TickersListResponse | ErrorResponse>> {
   try {
-    // 認証チェック
+    // 認証・権限チェック
     const session = await getSession();
+    const authError = getAuthError(session, 'stocks:read');
 
-    if (!session) {
+    if (authError) {
       return NextResponse.json(
         {
-          error: 'UNAUTHORIZED',
-          message: ERROR_MESSAGES.UNAUTHORIZED,
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
         },
-        { status: 401 }
-      );
-    }
-
-    // 権限チェック（stocks:read 必須）
-    if (!checkPermission(session, 'stocks:read')) {
-      return NextResponse.json(
-        {
-          error: 'FORBIDDEN',
-          message: ERROR_MESSAGES.FORBIDDEN,
-        },
-        { status: 403 }
+        { status: authError.statusCode }
       );
     }
 

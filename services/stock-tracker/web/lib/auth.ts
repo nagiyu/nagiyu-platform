@@ -1,32 +1,11 @@
 /**
- * Authentication and Authorization Utilities
+ * NextAuth.js Session Management
  *
- * NextAuth.js セッション取得と権限チェック
+ * Web層でのセッション取得を担当
+ * 認証・認可ロジックは core/services/auth.ts に実装
  */
 
-import { hasPermission } from '@nagiyu/common';
-import type { Permission } from '@nagiyu/common';
-
-/**
- * セッション情報の型定義
- */
-export interface Session {
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    roles: string[];
-  };
-  expires: string;
-}
-
-/**
- * エラーメッセージ定数
- */
-export const AUTH_ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
-} as const;
+import type { Session } from '@nagiyu/common';
 
 /**
  * セッション情報を取得する
@@ -42,10 +21,13 @@ export async function getSession(): Promise<Session | null> {
   if (process.env.SKIP_AUTH_CHECK === 'true' || process.env.NODE_ENV === 'development') {
     return {
       user: {
-        id: process.env.TEST_USER_ID || 'test-user-id',
+        userId: process.env.TEST_USER_ID || 'test-user-id',
+        googleId: 'test-google-id',
         email: process.env.TEST_USER_EMAIL || 'test@example.com',
         name: process.env.TEST_USER_NAME || 'Test User',
         roles: process.env.TEST_USER_ROLES?.split(',') || ['stock-user'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
       expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     };
@@ -61,13 +43,3 @@ export async function getSession(): Promise<Session | null> {
   return null;
 }
 
-/**
- * ユーザーが指定された権限を持っているかチェック
- *
- * @param session - セッション情報
- * @param permission - 必要な権限
- * @returns 権限がある場合は true
- */
-export function checkPermission(session: Session, permission: Permission): boolean {
-  return hasPermission(session.user.roles, permission);
-}
