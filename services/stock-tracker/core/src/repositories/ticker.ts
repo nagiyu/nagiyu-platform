@@ -41,10 +41,13 @@ const ERROR_MESSAGES = {
  * Ticker リポジトリ
  */
 export class TickerRepository {
-  constructor(
-    private readonly docClient: DynamoDBDocumentClient,
-    private readonly tableName: string
-  ) {}
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
+
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    this.docClient = docClient;
+    this.tableName = tableName;
+  }
 
   /**
    * 全ティッカー取得（オプショナルフィルタ）
@@ -298,7 +301,8 @@ export class TickerRepository {
    * DynamoDB Item を Ticker にマッピング
    */
   private mapDynamoDBItemToTicker(item: Record<string, unknown>): Ticker {
-    return {
+    // DynamoDBアイテムからTickerフィールドのみを抽出
+    const ticker: Ticker = {
       TickerID: item.TickerID as string,
       Symbol: item.Symbol as string,
       Name: item.Name as string,
@@ -306,13 +310,15 @@ export class TickerRepository {
       CreatedAt: item.CreatedAt as number,
       UpdatedAt: item.UpdatedAt as number,
     };
+    return ticker;
   }
 
   /**
    * Ticker を DynamoDB Item にマッピング
    */
   private mapTickerToDynamoDBItem(ticker: Ticker): DynamoDBItem & Ticker {
-    return {
+    // DynamoDBキーとメタデータを追加
+    const dynamoDBItem: DynamoDBItem & Ticker = {
       PK: `TICKER#${ticker.TickerID}`,
       SK: 'METADATA',
       Type: 'Ticker',
@@ -320,5 +326,6 @@ export class TickerRepository {
       GSI3SK: `TICKER#${ticker.TickerID}`,
       ...ticker,
     };
+    return dynamoDBItem;
   }
 }
