@@ -9,29 +9,24 @@ import {
   ExchangeNotFoundError,
   InvalidExchangeDataError,
 } from '../../../src/repositories/exchange.js';
-
-// モックDynamoDBクライアント
-const mockDynamoDb = {
-  send: jest.fn(),
-};
-
-const TABLE_NAME = 'test-stock-tracker-table';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 describe('ExchangeRepository', () => {
   let repository: ExchangeRepository;
+  let mockDocClient: jest.Mocked<DynamoDBDocumentClient>;
+  const TABLE_NAME = 'test-stock-tracker-table';
 
   beforeEach(() => {
-    repository = new ExchangeRepository(mockDynamoDb, TABLE_NAME);
-    mockDynamoDb.send.mockClear();
-    jest.clearAllMocks();
+    // DynamoDBDocumentClient のモック
+    mockDocClient = {
+      send: jest.fn(),
+    } as unknown as jest.Mocked<DynamoDBDocumentClient>;
+
+    repository = new ExchangeRepository(mockDocClient, TABLE_NAME);
   });
 
-  describe('constructor', () => {
-    it('テーブル名が空の場合はエラーをスロー', () => {
-      expect(() => new ExchangeRepository(mockDynamoDb, '')).toThrow(
-        'テーブル名が設定されていません'
-      );
-    });
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   describe('getAll', () => {
@@ -65,7 +60,7 @@ describe('ExchangeRepository', () => {
         },
       ];
 
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Items: mockExchanges,
         $metadata: {},
       });
@@ -94,7 +89,7 @@ describe('ExchangeRepository', () => {
         UpdatedAt: 1704067200000,
       });
 
-      expect(mockDynamoDb.send).toHaveBeenCalledWith(
+      expect(mockDocClient.send).toHaveBeenCalledWith(
         expect.objectContaining({
           input: expect.objectContaining({
             TableName: TABLE_NAME,
@@ -111,7 +106,7 @@ describe('ExchangeRepository', () => {
     });
 
     it('取引所が存在しない場合は空配列を返す', async () => {
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Items: [],
         $metadata: {},
       });
@@ -122,7 +117,7 @@ describe('ExchangeRepository', () => {
     });
 
     it('Items が undefined の場合は空配列を返す', async () => {
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
       });
 
@@ -148,7 +143,7 @@ describe('ExchangeRepository', () => {
         UpdatedAt: 1704067200000,
       };
 
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: mockExchange,
         $metadata: {},
       });
@@ -166,7 +161,7 @@ describe('ExchangeRepository', () => {
         UpdatedAt: 1704067200000,
       });
 
-      expect(mockDynamoDb.send).toHaveBeenCalledWith(
+      expect(mockDocClient.send).toHaveBeenCalledWith(
         expect.objectContaining({
           input: expect.objectContaining({
             TableName: TABLE_NAME,
@@ -180,7 +175,7 @@ describe('ExchangeRepository', () => {
     });
 
     it('存在しない取引所IDの場合はnullを返す', async () => {
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
       });
 
@@ -204,7 +199,7 @@ describe('ExchangeRepository', () => {
       const mockNow = 1704067200000;
       jest.spyOn(Date, 'now').mockReturnValue(mockNow);
 
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
       });
 
@@ -216,7 +211,7 @@ describe('ExchangeRepository', () => {
         UpdatedAt: mockNow,
       });
 
-      expect(mockDynamoDb.send).toHaveBeenCalledWith(
+      expect(mockDocClient.send).toHaveBeenCalledWith(
         expect.objectContaining({
           input: expect.objectContaining({
             TableName: TABLE_NAME,
@@ -251,7 +246,7 @@ describe('ExchangeRepository', () => {
 
       const conditionalCheckError = new Error('ConditionalCheckFailedException');
       conditionalCheckError.name = 'ConditionalCheckFailedException';
-      mockDynamoDb.send.mockRejectedValueOnce(conditionalCheckError);
+      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
       await expect(repository.create(exchangeData)).rejects.toThrow(
         'ConditionalCheckFailedException'
@@ -279,7 +274,7 @@ describe('ExchangeRepository', () => {
       };
 
       // getById (存在確認)
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -290,12 +285,12 @@ describe('ExchangeRepository', () => {
       });
 
       // update
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
       });
 
       // getById (更新後の取得)
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -313,7 +308,7 @@ describe('ExchangeRepository', () => {
       expect(result.Name).toBe('NASDAQ Updated');
       expect(result.UpdatedAt).toBe(mockNow);
 
-      expect(mockDynamoDb.send).toHaveBeenNthCalledWith(
+      expect(mockDocClient.send).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           input: expect.objectContaining({
@@ -359,7 +354,7 @@ describe('ExchangeRepository', () => {
       };
 
       // getById (存在確認)
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -370,12 +365,12 @@ describe('ExchangeRepository', () => {
       });
 
       // update
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
       });
 
       // getById (更新後の取得)
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -404,7 +399,7 @@ describe('ExchangeRepository', () => {
 
     it('存在しない取引所IDの場合はExchangeNotFoundErrorをスロー', async () => {
       // getById (存在確認) - Item がない場合
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: undefined,
         $metadata: {},
       });
@@ -427,7 +422,7 @@ describe('ExchangeRepository', () => {
       };
 
       // getById (存在確認) - 最初の呼び出し
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -438,7 +433,7 @@ describe('ExchangeRepository', () => {
       });
 
       // 2回目のテストのためのモック
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -466,7 +461,7 @@ describe('ExchangeRepository', () => {
       };
 
       // getById (存在確認)
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',
           SK: 'METADATA',
@@ -477,13 +472,13 @@ describe('ExchangeRepository', () => {
       });
 
       // delete
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
       });
 
       await repository.delete('NASDAQ');
 
-      expect(mockDynamoDb.send).toHaveBeenNthCalledWith(
+      expect(mockDocClient.send).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           input: expect.objectContaining({
@@ -500,7 +495,7 @@ describe('ExchangeRepository', () => {
 
     it('存在しない取引所IDの場合はExchangeNotFoundErrorをスロー', async () => {
       // getById (存在確認) - Item がない場合
-      mockDynamoDb.send.mockResolvedValueOnce({
+      mockDocClient.send.mockResolvedValueOnce({
         Item: undefined,
         $metadata: {},
       });

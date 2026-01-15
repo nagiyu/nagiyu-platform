@@ -42,13 +42,12 @@ export class InvalidExchangeDataError extends Error {
  * DynamoDB Single Table Design に基づく取引所データの CRUD 操作
  */
 export class ExchangeRepository {
-  constructor(
-    private readonly dynamoDb: DynamoDBDocumentClient,
-    private readonly tableName: string
-  ) {
-    if (!tableName) {
-      throw new Error(ERROR_MESSAGES.TABLE_NAME_NOT_SET);
-    }
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
+
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    this.docClient = docClient;
+    this.tableName = tableName;
   }
 
   /**
@@ -57,7 +56,7 @@ export class ExchangeRepository {
    * @returns 取引所の配列
    */
   async getAll(): Promise<Exchange[]> {
-    const result = await this.dynamoDb.send(
+    const result = await this.docClient.send(
       new ScanCommand({
         TableName: this.tableName,
         FilterExpression: '#type = :type',
@@ -85,7 +84,7 @@ export class ExchangeRepository {
    * @returns 取引所（存在しない場合はnull）
    */
   async getById(exchangeId: string): Promise<Exchange | null> {
-    const result = await this.dynamoDb.send(
+    const result = await this.docClient.send(
       new GetCommand({
         TableName: this.tableName,
         Key: {
@@ -126,7 +125,7 @@ export class ExchangeRepository {
       ...newExchange,
     };
 
-    await this.dynamoDb.send(
+    await this.docClient.send(
       new PutCommand({
         TableName: this.tableName,
         Item: item,
@@ -195,7 +194,7 @@ export class ExchangeRepository {
       throw new InvalidExchangeDataError('更新するフィールドが指定されていません');
     }
 
-    await this.dynamoDb.send(
+    await this.docClient.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: {
@@ -231,7 +230,7 @@ export class ExchangeRepository {
       throw new ExchangeNotFoundError(exchangeId);
     }
 
-    await this.dynamoDb.send(
+    await this.docClient.send(
       new DeleteCommand({
         TableName: this.tableName,
         Key: {
