@@ -92,7 +92,7 @@ jobs:
         run: npm run build --workspace stock-tracker-core
 
       - name: Build Batch application
-        run: npm run build --workspace stock-tracker-batch
+        run: npm run build --workspace @nagiyu/stock-tracker-batch
 
   build-infra:
     name: Infrastructure Build Verification
@@ -138,7 +138,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t stock-tracker-batch-verify-full-test -f services/stock-tracker/batch/Dockerfile .
+        run: docker build -t @nagiyu/stock-tracker-batch-verify-full-test -f services/stock-tracker/batch/Dockerfile .
 
   test-core:
     name: Run Core Unit Tests
@@ -189,7 +189,7 @@ jobs:
         run: npm run build --workspace stock-tracker-core
 
       - name: Run Batch tests
-        run: npm run test --workspace stock-tracker-batch
+        run: npm run test --workspace @nagiyu/stock-tracker-batch
 
   coverage:
     name: Test Coverage Check
@@ -297,7 +297,7 @@ jobs:
         run: npm run lint --workspace stock-tracker-core
 
       - name: Run lint on Batch
-        run: npm run lint --workspace stock-tracker-batch
+        run: npm run lint --workspace @nagiyu/stock-tracker-batch
 
       - name: Run lint on Web
         run: npm run lint --workspace stock-tracker-web
@@ -324,7 +324,7 @@ jobs:
         run: npm run format:check --workspace stock-tracker-core
 
       - name: Check formatting on Batch
-        run: npm run format:check --workspace stock-tracker-batch
+        run: npm run format:check --workspace @nagiyu/stock-tracker-batch
 
       - name: Check formatting on Web
         run: npm run format:check --workspace stock-tracker-web

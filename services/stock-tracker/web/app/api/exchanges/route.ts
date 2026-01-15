@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hasPermission } from '@nagiyu/common';
-import { ExchangeRepository } from 'stock-tracker-core';
+import { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBDocClient, getDynamoDBTableName } from '../../../lib/aws-clients';
 import { getSession } from '../../../lib/auth/session';
 

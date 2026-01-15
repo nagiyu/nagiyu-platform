@@ -1,5 +1,5 @@
 {
-  "name": "stock-tracker-core",
+  "name": "@nagiyu/stock-tracker-core",
   "version": "1.0.0",
   "private": true,
   "type": "module",

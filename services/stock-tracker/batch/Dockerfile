@@ -19,8 +19,8 @@ RUN npm ci
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=@nagiyu/common
-RUN npm run build --workspace=stock-tracker-core
-RUN npm run build --workspace=stock-tracker-batch
+RUN npm run build --workspace=@nagiyu/stock-tracker-core
+RUN npm run build --workspace=@nagiyu/stock-tracker-batch
 
 # 実行ステージ
 FROM base AS runner

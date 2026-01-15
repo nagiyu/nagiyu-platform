@@ -1,5 +1,5 @@
 {
-  "name": "stock-tracker-batch",
+  "name": "@nagiyu/stock-tracker-batch",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -17,6 +17,6 @@
     "@aws-sdk/client-dynamodb": "^3.968.0",
     "@aws-sdk/lib-dynamodb": "^3.968.0",
     "@nagiyu/common": "*",
-    "stock-tracker-core": "*"
+    "@nagiyu/stock-tracker-core": "*"
   }
 }

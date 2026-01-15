@@ -428,9 +428,9 @@ docClient.scan({
 | リソース名 | 説明 | 設定 |
 |---------|------|------|
 | stock-tracker-web-{env} | Next.js Web アプリケーション | Runtime: Node.js 20.x<br/>Timeout: 30秒<br/>Memory: 1024MB<br/>Architecture: x86_64 |
-| stock-tracker-batch-minute-{env} | 1分間隔バッチ (MINUTE_LEVEL アラート) | Runtime: Node.js 20.x<br/>Timeout: 50秒<br/>Memory: 512MB |
-| stock-tracker-batch-hourly-{env} | 1時間間隔バッチ (HOURLY_LEVEL アラート) | Runtime: Node.js 20.x<br/>Timeout: 5分<br/>Memory: 512MB |
-| stock-tracker-batch-daily-{env} | 日次バッチ (データクリーンアップ) | Runtime: Node.js 20.x<br/>Timeout: 10分<br/>Memory: 512MB |
+| @nagiyu/stock-tracker-batch-minute-{env} | 1分間隔バッチ (MINUTE_LEVEL アラート) | Runtime: Node.js 20.x<br/>Timeout: 50秒<br/>Memory: 512MB |
+| @nagiyu/stock-tracker-batch-hourly-{env} | 1時間間隔バッチ (HOURLY_LEVEL アラート) | Runtime: Node.js 20.x<br/>Timeout: 5分<br/>Memory: 512MB |
+| @nagiyu/stock-tracker-batch-daily-{env} | 日次バッチ (データクリーンアップ) | Runtime: Node.js 20.x<br/>Timeout: 10分<br/>Memory: 512MB |
 
 #### DynamoDB テーブル
 
@@ -442,9 +442,9 @@ docClient.scan({
 
 | リソース名 | スケジュール | ターゲット |
 |---------|------------|----------|
-| stock-tracker-batch-minute-{env} | rate(1 minute) | stock-tracker-batch-minute-{env} |
-| stock-tracker-batch-hourly-{env} | rate(1 hour) | stock-tracker-batch-hourly-{env} |
-| stock-tracker-batch-daily-{env} | cron(0 0 * * ? *) | stock-tracker-batch-daily-{env} |
+| @nagiyu/stock-tracker-batch-minute-{env} | rate(1 minute) | @nagiyu/stock-tracker-batch-minute-{env} |
+| @nagiyu/stock-tracker-batch-hourly-{env} | rate(1 hour) | @nagiyu/stock-tracker-batch-hourly-{env} |
+| @nagiyu/stock-tracker-batch-daily-{env} | cron(0 0 * * ? *) | @nagiyu/stock-tracker-batch-daily-{env} |
 
 #### Secrets Manager
 
@@ -463,7 +463,7 @@ docClient.scan({
 | リソース名 | 説明 | 設定 |
 |---------|------|------|
 | nagiyu-stock-tracker-web-ecr-{env} | Web Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
-| nagiyu-stock-tracker-batch-ecr-{env} | Batch Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
+| nagiyu-@nagiyu/stock-tracker-batch-ecr-{env} | Batch Lambda 用イメージ | Image Scan: 有効<br/>Lifecycle: 最新10イメージ保持 |
 
 ### 5.3 ネットワーク設計
 

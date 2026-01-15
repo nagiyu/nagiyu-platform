@@ -73,7 +73,7 @@ Stock Tracker サービスの品質を保証し、以下を実現する：
 
 ```bash
 # カバレッジレポート生成
-npm run test:coverage --workspace=stock-tracker-core
+npm run test:coverage --workspace=@nagiyu/stock-tracker-core
 
 # カバレッジ結果の確認
 # - コンソール出力: サマリー
@@ -368,16 +368,16 @@ npm run test:coverage --workspace=stock-tracker-core
 
 ```bash
 # core パッケージのテスト実行
-npm run test --workspace=stock-tracker-core
+npm run test --workspace=@nagiyu/stock-tracker-core
 
 # ウォッチモード（ファイル変更時に自動実行）
-npm run test:watch --workspace=stock-tracker-core
+npm run test:watch --workspace=@nagiyu/stock-tracker-core
 
 # カバレッジレポート生成
-npm run test:coverage --workspace=stock-tracker-core
+npm run test:coverage --workspace=@nagiyu/stock-tracker-core
 
 # 特定のテストファイルのみ実行
-npm run test --workspace=stock-tracker-core -- tests/unit/services/alert-evaluator.test.ts
+npm run test --workspace=@nagiyu/stock-tracker-core -- tests/unit/services/alert-evaluator.test.ts
 ```
 
 #### E2Eテスト
@@ -651,13 +651,13 @@ test.afterEach(async () => {
 
 ```bash
 # 特定のテストのみ実行
-npm run test --workspace=stock-tracker-core -- tests/unit/services/alert-evaluator.test.ts
+npm run test --workspace=@nagiyu/stock-tracker-core -- tests/unit/services/alert-evaluator.test.ts
 
 # デバッグ情報を出力
-npm run test --workspace=stock-tracker-core -- --verbose
+npm run test --workspace=@nagiyu/stock-tracker-core -- --verbose
 
 # カバレッジを確認しながらデバッグ
-npm run test:coverage --workspace=stock-tracker-core
+npm run test:coverage --workspace=@nagiyu/stock-tracker-core
 ```
 
 #### E2Eテストのデバッグ
