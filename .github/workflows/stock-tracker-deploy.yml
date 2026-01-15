@@ -1,0 +1,376 @@
+name: Stock Tracker - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'services/stock-tracker/**'
+      - 'infra/stock-tracker/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/stock-tracker-deploy.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infrastructure-ecr:
+    name: Deploy ECR Repositories
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      stack-suffix: ${{ steps.set-env.outputs.stack-suffix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-stock-tracker
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECR Stacks
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
+            NagiyuStockTrackerWebECR${STACK_SUFFIX} \
+            NagiyuStockTrackerBatchECR${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
+            --require-approval never
+
+          echo "ECR repositories deployed (environment: $ENVIRONMENT)"
+
+  build-web:
+    name: Build and Push Web Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuStockTrackerWebECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Web ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository (Web): $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Web Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build and tag with commit SHA
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/web/Dockerfile .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          # Also tag as latest
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-batch:
+    name: Build and Push Batch Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuStockTrackerBatchECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Batch ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository (Batch): $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Batch Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Build and tag with commit SHA
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          # Also tag as latest
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  infrastructure-app:
+    name: Deploy Application Infrastructure
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-web, build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-stock-tracker
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Application Stacks
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
+            --context env="$ENVIRONMENT" \
+            --require-approval never \
+            --all \
+            --exclude "NagiyuStockTrackerWebECR${STACK_SUFFIX}" \
+            --exclude "NagiyuStockTrackerBatchECR${STACK_SUFFIX}"
+
+          echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
+
+      - name: Update Lambda functions with latest images
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          # Get ECR repository URI
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          BATCH_IMAGE_URI="$ECR_REGISTRY/nagiyu-stock-tracker-batch-ecr-$ENVIRONMENT:latest"
+          WEB_IMAGE_URI="$ECR_REGISTRY/nagiyu-stock-tracker-web-ecr-$ENVIRONMENT:latest"
+
+          # Update Web Lambda function code
+          aws lambda update-function-code \
+            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --image-uri "$WEB_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          # Update Batch Lambda functions code
+          aws lambda update-function-code \
+            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda update-function-code \
+            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda update-function-code \
+            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Lambda functions updated with latest images"
+
+      - name: Wait for Lambda updates to complete
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          # Wait for all functions to complete updating
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "All Lambda functions updated successfully"
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-web, build-batch, infrastructure-app]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify deployment
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          # Get Function URL from CloudFormation
+          STACK_NAME="NagiyuStockTrackerLambda${STACK_SUFFIX}"
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "Error: Failed to get Function URL from CDK stack."
+            exit 1
+          fi
+
+          echo "Function URL: $FUNCTION_URL"
+
+          # Health check
+          if ! curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" | grep -q "200"; then
+            echo "Error: Health check failed. The application may not be running correctly."
+            exit 1
+          fi
+
+          echo "Health check passed successfully!"
+
+      - name: Display deployment information
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          # Get CloudFront distribution domain
+          CF_STACK_NAME="NagiyuStockTrackerCloudFront${STACK_SUFFIX}"
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$CF_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          # Get Web application version
+          WEB_VERSION=$(node -p "require('./services/stock-tracker/web/package.json').version")
+
+          echo ""
+          echo "=== Deployment Summary ===" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "- **App Version**: $WEB_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Image**: \`${{ needs.build-web.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Batch Image**: \`${{ needs.build-batch.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront Domain**: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Note: If this is a new distribution or domain configuration has changed," >> $GITHUB_STEP_SUMMARY
+          echo "please update your DNS records to point to the CloudFront domain." >> $GITHUB_STEP_SUMMARY

@@ -2,7 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { SecretsStack } from '../lib/secrets-stack';
-import { EcrStack } from '../lib/ecr-stack';
+import { WebEcrStack, BatchEcrStack } from '../lib/ecr-stack';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { SNSStack } from '../lib/sns-stack';
 import { LambdaStack } from '../lib/lambda-stack';
@@ -37,11 +37,17 @@ const secretsStack = new SecretsStack(app, `NagiyuStockTrackerSecrets${envSuffix
   description: `Stock Tracker Secrets - ${env} environment`,
 });
 
-// 2. ECR スタック（Web/Batch 用リポジトリ）
-const ecrStack = new EcrStack(app, `NagiyuStockTrackerECR${envSuffix}`, {
+// 2. ECR スタック（Web/Batch 用リポジトリ - 分割）
+const webEcrStack = new WebEcrStack(app, `NagiyuStockTrackerWebECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
-  description: `Stock Tracker ECR Repositories - ${env} environment`,
+  description: `Stock Tracker Web ECR Repository - ${env} environment`,
+});
+
+const batchEcrStack = new BatchEcrStack(app, `NagiyuStockTrackerBatchECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Stock Tracker Batch ECR Repository - ${env} environment`,
 });
 
 // 3. DynamoDB スタック（Single Table Design）
@@ -64,15 +70,16 @@ const authSecretArn = app.node.tryGetContext('authSecretArn');
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
-  webEcrRepositoryName: `stock-tracker-web-${env}`,
-  batchEcrRepositoryName: `stock-tracker-batch-${env}`,
+  webEcrRepositoryName: webEcrStack.repository.repositoryName,
+  batchEcrRepositoryName: batchEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
   vapidSecret: secretsStack.vapidSecret,
   authSecretArn,
   env: stackEnv,
   description: `Stock Tracker Lambda Functions - ${env} environment`,
 });
-lambdaStack.addDependency(ecrStack);
+lambdaStack.addDependency(webEcrStack);
+lambdaStack.addDependency(batchEcrStack);
 lambdaStack.addDependency(secretsStack);
 lambdaStack.addDependency(dynamoStack);
 
