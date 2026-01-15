@@ -10,3 +10,4 @@
 
 export * from './types.js';
 export * from './validation/helpers.js';
+export * from './repositories/ticker.js';
