@@ -127,11 +127,11 @@ jobs:
           # Build and tag with commit SHA
           docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
-          
+
           # Also tag as latest
           docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
           docker push "$REPOSITORY_URI:latest"
-          
+
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   build-batch:
@@ -187,11 +187,11 @@ jobs:
           # Build and tag with commit SHA
           docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
-          
+
           # Also tag as latest
           docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
           docker push "$REPOSITORY_URI:latest"
-          
+
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   infrastructure-app:

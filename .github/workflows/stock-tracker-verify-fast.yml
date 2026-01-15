@@ -262,7 +262,18 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [build-web, build-batch, docker-build-web, docker-build-batch, test-core, e2e-test, lint, format-check, infra-test]
+    needs:
+      [
+        build-web,
+        build-batch,
+        docker-build-web,
+        docker-build-batch,
+        test-core,
+        e2e-test,
+        lint,
+        format-check,
+        infra-test,
+      ]
 
     permissions:
       contents: read
