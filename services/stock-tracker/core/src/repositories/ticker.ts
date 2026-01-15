@@ -172,10 +172,7 @@ export class TickerRepository {
       await this.getById(tickerId);
       throw new Error(ERROR_MESSAGES.TICKER_ALREADY_EXISTS);
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message === ERROR_MESSAGES.TICKER_ALREADY_EXISTS
-      ) {
+      if (error instanceof Error && error.message === ERROR_MESSAGES.TICKER_ALREADY_EXISTS) {
         throw error;
       }
       // ティッカーが見つからない = OK（作成可能）

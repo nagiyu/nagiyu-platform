@@ -163,9 +163,7 @@ describe('TickerRepository', () => {
         $metadata: {},
       });
 
-      await expect(repository.getById('NONEXISTENT')).rejects.toThrow(
-        'ティッカーが見つかりません'
-      );
+      await expect(repository.getById('NONEXISTENT')).rejects.toThrow('ティッカーが見つかりません');
     });
 
     it('データベースエラーが発生した場合はエラーをスロー', async () => {
@@ -428,9 +426,9 @@ describe('TickerRepository', () => {
         $metadata: {},
       });
 
-      await expect(
-        repository.update('NONEXISTENT', { Name: 'New Name' })
-      ).rejects.toThrow('ティッカーが見つかりません');
+      await expect(repository.update('NONEXISTENT', { Name: 'New Name' })).rejects.toThrow(
+        'ティッカーが見つかりません'
+      );
     });
 
     it('データベースエラーが発生した場合はエラーをスロー', async () => {
@@ -443,9 +441,9 @@ describe('TickerRepository', () => {
 
       mockDocClient.send.mockRejectedValueOnce(new Error('DynamoDB error'));
 
-      await expect(
-        repository.update('NSDQ:AAPL', { Name: 'New Name' })
-      ).rejects.toThrow('データベースエラーが発生しました: DynamoDB error');
+      await expect(repository.update('NSDQ:AAPL', { Name: 'New Name' })).rejects.toThrow(
+        'データベースエラーが発生しました: DynamoDB error'
+      );
     });
   });
 
@@ -481,9 +479,7 @@ describe('TickerRepository', () => {
         $metadata: {},
       });
 
-      await expect(repository.delete('NONEXISTENT')).rejects.toThrow(
-        'ティッカーが見つかりません'
-      );
+      await expect(repository.delete('NONEXISTENT')).rejects.toThrow('ティッカーが見つかりません');
     });
 
     it('データベースエラーが発生した場合はエラーをスロー', async () => {
