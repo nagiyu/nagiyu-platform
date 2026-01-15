@@ -70,6 +70,30 @@ jobs:
       - name: Build Batch application
         run: npm run build --workspace @nagiyu/stock-tracker-batch
 
+  build-infra:
+    name: Infrastructure Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-stock-tracker
+
   docker-build-web:
     name: Docker Build Verification (Web)
     runs-on: ubuntu-latest
@@ -116,8 +140,8 @@ jobs:
       - name: Run Core tests
         run: npm run test --workspace @nagiyu/stock-tracker-core
 
-  e2e-test:
-    name: Run E2E Tests (chromium-mobile only)
+  e2e-test-web:
+    name: Run E2E Tests Web (chromium-mobile only)
     runs-on: ubuntu-latest
 
     permissions:
@@ -231,8 +255,8 @@ jobs:
       - name: Check formatting on Web
         run: npm run format:check --workspace stock-tracker-web
 
-  infra-test:
-    name: Infrastructure Test
+  synth-infra:
+    name: Synthesize Infrastructure
     runs-on: ubuntu-latest
 
     steps:
@@ -266,13 +290,14 @@ jobs:
       [
         build-web,
         build-batch,
+        build-infra,
         docker-build-web,
         docker-build-batch,
         test-core,
-        e2e-test,
+        e2e-test-web,
         lint,
         format-check,
-        infra-test,
+        synth-infra,
       ]
 
     permissions:
@@ -288,13 +313,14 @@ jobs:
             const results = {
               'Web Build': '${{ needs.build-web.result }}',
               'Batch Build': '${{ needs.build-batch.result }}',
+              'Infrastructure Build': '${{ needs.build-infra.result }}',
               'Docker Build (Web)': '${{ needs.docker-build-web.result }}',
               'Docker Build (Batch)': '${{ needs.docker-build-batch.result }}',
               'Core Unit Tests': '${{ needs.test-core.result }}',
-              'E2E Tests (Fast)': '${{ needs.e2e-test.result }}',
+              'E2E Tests Web (Fast)': '${{ needs.e2e-test-web.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
-              'Infrastructure Test': '${{ needs.infra-test.result }}'
+              'Synthesize Infrastructure': '${{ needs.synth-infra.result }}'
             };
 
             const statusEmoji = {
