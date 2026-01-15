@@ -46,7 +46,6 @@ Phase 1 では、Google OAuth 認証、ユーザー管理、ロール・権限�
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/auth/`
 - **インフラ定義**: `infra/auth/`
-- **バージョン**: 1.0.0
 
 ---
 
