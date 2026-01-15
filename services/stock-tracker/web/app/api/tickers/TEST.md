@@ -12,11 +12,11 @@ GET /api/tickers
 
 ### Query Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| exchangeId | string | No | - | Filter tickers by exchange ID |
-| limit | number | No | 50 | Number of results (1-100) |
-| lastKey | string | No | - | Pagination key from previous response |
+| Parameter  | Type   | Required | Default | Description                           |
+| ---------- | ------ | -------- | ------- | ------------------------------------- |
+| exchangeId | string | No       | -       | Filter tickers by exchange ID         |
+| limit      | number | No       | 50      | Number of results (1-100)             |
+| lastKey    | string | No       | -       | Pagination key from previous response |
 
 ### Required Permission
 
@@ -27,6 +27,7 @@ GET /api/tickers
 ### Prerequisites
 
 1. Build the core package:
+
    ```bash
    cd services/stock-tracker/core
    npm run build
@@ -41,6 +42,7 @@ GET /api/tickers
 ### Test Cases
 
 #### 1. Basic Request
+
 ```bash
 curl http://localhost:3000/api/tickers
 ```
@@ -48,6 +50,7 @@ curl http://localhost:3000/api/tickers
 **Expected**: 500 error (no DynamoDB) but routing and auth work
 
 #### 2. With Limit Parameter
+
 ```bash
 curl "http://localhost:3000/api/tickers?limit=10"
 ```
@@ -55,11 +58,13 @@ curl "http://localhost:3000/api/tickers?limit=10"
 **Expected**: Same as above, validates limit parameter
 
 #### 3. Invalid Limit (>100)
+
 ```bash
 curl "http://localhost:3000/api/tickers?limit=150"
 ```
 
-**Expected**: 
+**Expected**:
+
 ```json
 {
   "error": "INVALID_REQUEST",
@@ -68,6 +73,7 @@ curl "http://localhost:3000/api/tickers?limit=150"
 ```
 
 #### 4. With Exchange Filter
+
 ```bash
 curl "http://localhost:3000/api/tickers?exchangeId=NASDAQ"
 ```
@@ -75,11 +81,13 @@ curl "http://localhost:3000/api/tickers?exchangeId=NASDAQ"
 **Expected**: 500 error (no DynamoDB) but query param is parsed
 
 #### 5. Health Check (Sanity Test)
+
 ```bash
 curl http://localhost:3000/api/health
 ```
 
 **Expected**:
+
 ```json
 {
   "status": "ok",
@@ -90,12 +98,12 @@ curl http://localhost:3000/api/health
 
 ## Environment Variables
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SKIP_AUTH_CHECK` | Skip authentication for testing | `true` |
-| `DYNAMODB_TABLE` | DynamoDB table name | `nagiyu-stock-tracker-main-dev` |
-| `AWS_REGION` | AWS region | `us-east-1` |
-| `TEST_USER_ROLES` | Mock user roles (comma-separated) | `stock-user,stock-admin` |
+| Variable          | Description                       | Example                         |
+| ----------------- | --------------------------------- | ------------------------------- |
+| `SKIP_AUTH_CHECK` | Skip authentication for testing   | `true`                          |
+| `DYNAMODB_TABLE`  | DynamoDB table name               | `nagiyu-stock-tracker-main-dev` |
+| `AWS_REGION`      | AWS region                        | `us-east-1`                     |
+| `TEST_USER_ROLES` | Mock user roles (comma-separated) | `stock-user,stock-admin`        |
 
 ## Response Format
 
@@ -121,6 +129,7 @@ curl http://localhost:3000/api/health
 ### Error Responses
 
 #### 401 Unauthorized
+
 ```json
 {
   "error": "UNAUTHORIZED",
@@ -129,6 +138,7 @@ curl http://localhost:3000/api/health
 ```
 
 #### 403 Forbidden
+
 ```json
 {
   "error": "FORBIDDEN",
@@ -137,6 +147,7 @@ curl http://localhost:3000/api/health
 ```
 
 #### 400 Bad Request
+
 ```json
 {
   "error": "INVALID_REQUEST",
@@ -145,6 +156,7 @@ curl http://localhost:3000/api/health
 ```
 
 #### 500 Internal Server Error
+
 ```json
 {
   "error": "INTERNAL_ERROR",
