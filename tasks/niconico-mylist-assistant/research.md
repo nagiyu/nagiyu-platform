@@ -41,7 +41,7 @@
     - `title`: 動画タイトル
 
 - **IUserMusicSetting**: ユーザー個別設定
-    - `userId`: Google User ID（パーティションキー）
+    - `userId`: Auth プロジェクトの UserID（パーティションキー）
     - `videoId`: 動画ID（ソートキー）
     - `isFavorite`: お気に入りフラグ
     - `isSkip`: スキップフラグ
@@ -255,7 +255,7 @@
 ### データアクセス制御
 
 - ユーザーは自分が登録した動画データ（動画基本情報 + ユーザー設定）のみアクセス可能
-- Google User ID でデータを分離
+- Auth プロジェクトの UserID でデータを分離
 - DynamoDB の IAM ロールで制限
 
 ---
