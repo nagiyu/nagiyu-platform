@@ -36,11 +36,13 @@
 
 既存実装では以下のデータ構造を使用：
 
-- **IMusicCommon**: 楽曲共通情報（全ユーザー共通）
+**注**: 以下のテーブル名は既存実装からの引用であり、仮称です。実装時に適切な命名規則に従って再定義します。
+
+- **IMusicCommon（仮）**: 楽曲共通情報（全ユーザー共通）
     - `videoId`: 動画ID（パーティションキー）
     - `title`: 動画タイトル
 
-- **IUserMusicSetting**: ユーザー個別設定
+- **IUserMusicSetting（仮）**: ユーザー個別設定
     - `userId`: Auth プロジェクトの UserID（パーティションキー）
     - `videoId`: 動画ID（ソートキー）
     - `isFavorite`: お気に入りフラグ
@@ -63,7 +65,7 @@
 **特徴**:
 - 全ユーザーで共有される
 - ニコニコ動画 API (`getthumbinfo`) から取得
-- DynamoDB の `IMusicCommon` テーブルに格納
+- DynamoDB の `IMusicCommon`（仮）テーブルに格納
 
 ### ユーザー設定情報（ユーザー固有）
 
@@ -78,7 +80,7 @@
 **特徴**:
 - ユーザーごとに異なる値を持つ
 - ユーザーが Web UI で編集可能
-- DynamoDB の `IUserMusicSetting` テーブルに格納
+- DynamoDB の `IUserMusicSetting`（仮）テーブルに格納
 - `userId` と `videoId` の組み合わせで一意に識別
 
 ### 用語の使い分け
