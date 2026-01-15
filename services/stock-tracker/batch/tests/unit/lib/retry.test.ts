@@ -60,10 +60,13 @@ describe('withRetry', () => {
     const promise = withRetry(fn, { maxRetries: 2, initialDelayMs: 10 });
 
     // runAllTimersAsync と expect().rejects を並行して実行
-    const [, result] = await Promise.all([jest.runAllTimersAsync(), promise.catch((err) => err)]);
+    const [, result] = await Promise.all([
+      jest.runAllTimersAsync(),
+      promise.catch((err) => err),
+    ]);
 
     expect(result).toBeInstanceOf(Error);
-    expect(result.message).toBe('恒久的なエラー');
+    expect((result as Error).message).toBe('恒久的なエラー');
     expect(fn).toHaveBeenCalledTimes(3); // 初回 + リトライ2回
   });
 
