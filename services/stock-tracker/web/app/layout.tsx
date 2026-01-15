@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Box } from '@mui/material';
+import { Header, Footer } from '@nagiyu/ui';
 import ClientProviders from '@/components/ClientProviders';
 import './globals.css';
 
@@ -15,7 +17,21 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <ClientProviders>{children}</ClientProviders>
+        <ClientProviders>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '100vh',
+            }}
+          >
+            <Header title="Stock Tracker" />
+            <Box component="main" sx={{ flexGrow: 1 }}>
+              {children}
+            </Box>
+            <Footer version="1.0.0" />
+          </Box>
+        </ClientProviders>
       </body>
     </html>
   );
