@@ -70,9 +70,9 @@ export class ExchangeRepository {
       })
     );
 
-    return (result.Items || []).map((item: DynamoDBItem & Exchange) => {
+    return (result.Items || []).map((item: Record<string, unknown>) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { PK, SK, Type, GSI1PK, GSI1SK, GSI2PK, GSI2SK, GSI3PK, GSI3SK, ...exchange } = item;
+      const { PK, SK, Type, GSI1PK, GSI1SK, GSI2PK, GSI2SK, GSI3PK, GSI3SK, ...exchange } = item as DynamoDBItem & Exchange;
       return exchange as Exchange;
     });
   }
