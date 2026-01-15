@@ -1,8 +1,11 @@
-# Toolsアプリ 基本設計書
+# Tools アーキテクチャ設計書
 
 ---
 
-## 1. システムアーキテクチャ
+## 1. システム概要
+
+Toolsアプリは、AWS Lambda + Next.js SSR で構築されたサーバーレスWebアプリケーションです。
+CloudFront経由でコンテンツを配信し、ユーザーデータはすべてクライアントサイドで処理します。
 
 ### 1.1 全体構成図
 
@@ -23,9 +26,11 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
     └─ 静的アセット (_next/static, public)
 ```
 
-### 1.2 技術スタック
+---
 
-#### フロントエンド
+## 2. 技術スタック
+
+### 2.1 フロントエンド
 
 | カテゴリ | 技術 | バージョン | 用途 |
 |---------|------|----------|------|
@@ -36,7 +41,7 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | 状態管理 | React Context / useState | - | ローカル状態管理 |
 | PWA | next-pwa | - | Progressive Web App 対応 |
 
-#### バックエンド
+### 2.2 バックエンド
 
 | カテゴリ | 技術 | バージョン | 用途 |
 |---------|------|----------|------|
@@ -44,7 +49,7 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | フレームワーク | Next.js API Routes | 15.x | サーバーサイド処理 |
 | Lambda Adapter | AWS Lambda Web Adapter | 0.8.x | Lambda で Web アプリ実行 |
 
-#### インフラ
+### 2.3 インフラ
 
 | カテゴリ | 技術 | 用途 |
 |---------|------|------|
@@ -53,11 +58,11 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | CDN | Amazon CloudFront | コンテンツ配信、カスタムドメイン |
 | SSL/TLS | AWS ACM | HTTPS 証明書 (共通基盤) |
 | DNS | 外部DNSサービス | ドメイン管理 |
-| IaC | AWS CloudFormation | インフラ定義 |
+| IaC | AWS CDK (TypeScript) | インフラ定義 |
 | CI/CD | GitHub Actions | 自動ビルド・デプロイ |
 | シークレット管理 | AWS Secrets Manager | API キー等 (必要時) |
 
-#### 開発ツール
+### 2.4 開発ツール
 
 | カテゴリ | 技術 | 用途 |
 |---------|------|------|
@@ -69,17 +74,32 @@ Lambda Function URL (Next.js SSR + Lambda Web Adapter)
 | テスト (アクセシビリティ) | @axe-core/playwright | アクセシビリティ検証 |
 | CI/CD | GitHub Actions | 自動ビルド・テスト・デプロイ |
 
-### 1.3 コンポーネント構成
+---
+
+## 3. アーキテクチャパターン
+
+### 3.1 データフロー
+
+**データフロー概要**:
+
+```
+ユーザー (ブラウザ)
+    ↓ HTTPS
+CloudFront Distribution
+    ↓ オリジン
+Lambda Function URL (Next.js SSR)
+    ├─ Next.js App Router
+    ├─ Material UI コンポーネント
+    └─ 静的アセット (_next/static, public)
+```
+
+すべての処理はクライアントサイドまたはステートレスに実行され、ユーザーデータはサーバーに保存されません。
+
+### 3.2 コンポーネント構成
 
 #### アプリケーションレイヤー
 
 ![アプリケーションレイヤー構成図](../../images/services/tools/application-layers.drawio.svg)
-
----
-
-## 2. アプリケーションアーキテクチャ
-
-### 2.1 フロントエンド構成
 
 #### Next.js App Router 構成
 
@@ -134,92 +154,48 @@ Next.js の API Routes (`app/api/` ディレクトリ) を使用。
 - `/api/health` - ヘルスチェック (Lambda 稼働確認用)
 - (将来) `/api/tools/*` - サーバーサイド処理が必要なツール
 
-#### Lambda 実行環境
+---
 
-- **ランタイム**: Node.js 22 (コンテナイメージ)
-- **メモリ**: 512MB〜1024MB (パフォーマンスを見て調整)
-- **タイムアウト**: 30秒 (API Gateway最大値)
-- **環境変数**:
-    - `NODE_ENV=production`
-    - `PORT=3000` (Lambda Web Adapter用)
-    - その他、必要に応じて追加
+## 4. データモデル
+
+### 4.1 データベーススキーマ
+
+現時点ではデータベースを使用しません。すべてのデータはクライアントサイド（LocalStorage）またはステートレスに処理されます。
+
+将来的にデータベースが必要になった場合は DynamoDB を検討します。
+
+### 4.2 API 型定義
+
+#### Health API
+
+**エンドポイント**: `/api/health`
+
+**レスポンス**:
+```typescript
+{
+  status: "ok",
+  timestamp: string,  // ISO 8601形式
+  version: string     // アプリケーションバージョン
+}
+```
 
 ---
 
-## 3. インフラ設計
-
-### 3.1 AWS構成図
+## 5. インフラ構成
 
 ![AWS インフラ構成図](../../images/services/tools/aws-architecture.drawio.svg)
 
-### 3.2 CloudFormationスタック設計
+### 5.2 リソース一覧
 
-#### スタック一覧
+| リソース | 説明 | 設定 |
+|---------|------|------|
+| ECR Repository | Docker イメージ保存 | `nagiyu/tools`, ライフサイクルポリシー: 最新10イメージ保持 |
+| Lambda Function | Next.js 実行環境 | Node.js 22 コンテナ、1024MB、30秒タイムアウト |
+| Lambda Function URL | HTTP(S) エンドポイント | 認証なし、CORS許可 |
+| CloudFront Distribution | CDN、カスタムドメイン | オリジン: Lambda Function URL、HTTPS強制 |
+| ACM Certificate | SSL/TLS証明書 | 共通基盤（`*.nagiyu.com`）、us-east-1 |
 
-| スタック名 | テンプレート | 説明 | 依存関係 |
-|-----------|-------------|------|---------|
-| `nagiyu-tools-ecr` | `infra/tools/ecr.yaml` | ECR リポジトリ | なし |
-| `nagiyu-tools-lambda-dev` | `infra/tools/lambda.yaml` | Lambda 関数 (dev) | ECR |
-| `nagiyu-tools-lambda-prod` | `infra/tools/lambda.yaml` | Lambda 関数 (prod) | ECR |
-| `nagiyu-tools-cloudfront-dev` | `infra/tools/cloudfront.yaml` | CloudFront (dev) | Lambda (dev) 、ACM (共通) |
-| `nagiyu-tools-cloudfront-prod` | `infra/tools/cloudfront.yaml` | CloudFront (prod) | Lambda (prod) 、ACM (共通) |
-
-#### スタック詳細
-
-**1. ECR リポジトリ**
-- リポジトリ名: `nagiyu/tools`
-- イメージタグ: `latest`, `{git-commit-sha}`, `{環境}-{version}`
-- ライフサイクルポリシー: 最新10イメージのみ保持
-
-**2. Lambda 関数**
-- 関数名: `nagiyu-tools-app-{env}`
-- イメージURI: ECRから取得
-- メモリ: 1024MB
-- タイムアウト: 30秒
-- Function URL: 有効化 (認証なし)
-- 環境変数:
-    - `NODE_ENV=production`
-    - `PORT=3000`
-    -  (必要に応じて) Secrets Manager から取得した値
-
-**3. CloudFront Distribution**
-- オリジン: Lambda Function URL
-- ビヘイビア:
-    - デフォルト: すべてのリクエストをLambdaに転送
-    - キャッシュポリシー: `CachingDisabled` (SSRのため)
-- 証明書: ACM (共通基盤の `nagiyu-shared-acm-certificate`)
-- カスタムドメイン:
-    - dev: `dev-tools.example.com`
-    - prod: `tools.example.com`
-- HTTPS: Redirect HTTP to HTTPS
-
-#### パラメータ管理
-
-各スタックで使用するパラメータ:
-
-```yaml
-Parameters:
-  Environment:
-    Type: String
-    AllowedValues: [dev, prod]
-    Description: 環境名
-
-  ImageUri:
-    Type: String
-    Description: ECR イメージ URI
-
-  CustomDomain:
-    Type: String
-    Description: カスタムドメイン名
-
-  CertificateArn:
-    Type: String
-    Description: ACM 証明書 ARN (共通基盤からImport)
-```
-
-### 3.3 ネットワーク設計
-
-#### VPC 使用の有無
+### 5.3 ネットワーク設計
 
 **現時点**: VPC 不要
 - Lambda は VPC 外で実行 (パブリックインターネットアクセス)
@@ -229,7 +205,7 @@ Parameters:
 - VPC 内で Lambda を実行
 - 共通基盤の VPC を使用
 
-#### DNS 設定
+**DNS 設定**:
 
 外部DNSサービスでの設定:
 
@@ -240,15 +216,17 @@ Parameters:
 
 **注**: `d123456.cloudfront.net` は CloudFront のドメイン名 (スタック出力から取得)
 
-### 3.4 セキュリティ設計
+---
 
-#### HTTPS 通信
+## 6. セキュリティ設計
+
+### 6.1 認証・認可
 
 - CloudFront で SSL/TLS 終端
 - ACM 証明書を使用 (共通基盤)
 - HTTP → HTTPS リダイレクト強制
 
-#### Lambda セキュリティ
+**Lambda セキュリティ**:
 
 - **IAM ロール**: 最小権限の原則
     - CloudWatch Logs への書き込み
@@ -256,7 +234,7 @@ Parameters:
     - ECR からのイメージプル
 - **環境変数**: 機密情報は Secrets Manager から取得してデプロイ時に設定
 
-#### セキュリティヘッダー
+### 6.3 セキュリティヘッダー
 
 CloudFront Response Headers Policy で以下を設定:
 
@@ -269,290 +247,96 @@ SecurityHeadersPolicy:
   Referrer-Policy: "strict-origin-when-cross-origin"
 ```
 
-#### CORS 設定
+### 6.4 その他のセキュリティ対策
+
+**CORS 設定**:
 
 - 基本的に CORS は不要 (同一オリジン)
 - 将来的に外部APIを使用する場合のみ設定
 
----
-
-## 4. CI/CD 設計
-
-### 4.1 GitHub Actions ワークフロー構成
-
-Tools アプリでは、2段階のテスト戦略に基づく3つの GitHub Actions ワークフローを使用します:
-
-#### 1. 高速検証ワークフロー (`tools-verify-fast.yml`)
-
-**目的**: integration/** ブランチへのプルリクエスト時に素早いフィードバックを提供
-
-**トリガー条件**:
-- `pull_request` イベント
-- 対象ブランチ: `integration/**`
-- 対象パス:
-    - `services/tools/**`
-    - `libs/**`
-    - `infra/tools/**`
-    - `.github/workflows/tools-verify-fast.yml`
-
-**実行内容**:
-1. **Next.js ビルド検証**
-    - `npm ci` で依存関係をインストール
-    - `npm run build` でプロダクションビルドを実行
-2. **Docker ビルド検証**
-    - Dockerfile を使用したイメージビルド
-3. **単体テスト**
-    - Jest テストスイートの実行
-4. **E2Eテスト (高速)**
-    - chromium-mobile のみで実行
-    - `PROJECT=chromium-mobile` 環境変数を設定
-5. **リント・フォーマットチェック**
-
-#### 2. 完全検証ワークフロー (`tools-verify-full.yml`)
-
-**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
-
-**トリガー条件**:
-- `pull_request` イベント
-- 対象ブランチ: `develop`
-- 対象パス:
-    - `services/tools/**`
-    - `libs/**`
-    - `infra/tools/**`
-    - `.github/workflows/tools-verify-full.yml`
-
-**実行内容**:
-1. **Next.js ビルド検証**
-2. **Docker ビルド検証**
-3. **単体テスト**
-4. **カバレッジチェック**
-    - `npm run test:coverage` で80%未満の場合は失敗
-5. **E2Eテスト (完全)**
-    - 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）で実行
-6. **リント・フォーマットチェック**
-
-**マージ条件**:
-- すべてのジョブが成功すること
-- GitHub のブランチプロテクションルールで必須チェックとして設定
-
-#### 3. デプロイワークフロー (`tools-deploy.yml`)
-
-**目的**: develop, integration/**, master ブランチへのプッシュ時に自動デプロイ
-
-**トリガー条件**:
-- `push` イベント
-- 対象ブランチ: `develop`, `integration/**`, `master`
-- 対象パス:
-    - `services/tools/**`
-    - `infra/tools/**`
-    - `.github/workflows/tools-deploy.yml`
-
-**実行内容**:
-1. インフラストラクチャのデプロイ (ECR)
-2. Docker イメージのビルドと ECR へのプッシュ
-3. Lambda 関数のデプロイ
-4. CloudFront ディストリビューションのデプロイ
-
-**環境分離**:
-- `develop`, `integration/**` → 開発環境 (dev)
-- `master` → 本番環境 (prod)
-
-### 4.2 CI/CD フロー図
-
-```
-Pull Request (to develop/integration/**)
-    ↓
-PR検証ワークフロー実行
-    ├─ Next.js ビルド検証
-    ├─ Docker イメージビルド検証
-    └─ 単体テスト実行
-    ↓
-すべて成功 → マージ可能
-    ↓
-マージ (develop/integration/** へ push)
-    ↓
-デプロイワークフロー実行
-    ├─ ECR スタックデプロイ
-    ├─ Docker ビルド & プッシュ
-    ├─ Lambda デプロイ
-    └─ CloudFront デプロイ
-    ↓
-開発環境へデプロイ完了
-```
-
-### 4.3 ワークフロー設計方針
-
-#### PR検証の重要性
-
-- **master ブランチは対象外**: 本番環境への直接プッシュは行わないため、PR検証も不要
-- **早期フィードバック**: マージ前に問題を検出し、デプロイ失敗を防ぐ
-- **品質保証**: すべてのコードがビルド・テストを通過してからマージ
-- **コスト最適化**:
-    - PR段階では ECR プッシュやデプロイを行わない
-    - 検証のみに留めることで AWS リソース使用を最小化
-
-#### テスト戦略
-
-**単体テスト対象**:
-- ビジネスロジック (`src/lib/parsers/`, `src/lib/formatters/`)
-- ユーティリティ関数 (`src/lib/clipboard.ts`)
-- API Routes (`src/app/api/**`)
-
-**テスト要件**:
-- 全テストが合格すること
-- 重要なロジックにはテストカバレッジを確保
-
-#### ブランチ保護ルール
-
-develop および integration/** ブランチには以下を設定:
-- PR検証ワークフローの成功を必須とする
-- 直接プッシュを禁止 (PR経由のみ)
-- レビュー承認を推奨 (チーム規模に応じて)
+**データの取り扱い**:
+- 入力データはブラウザ内で処理 (サーバーに送信しない方針)
+- バックエンドAPIを使用する場合も、ログには機密情報を含めない
 
 ---
 
-## 5. API設計
+## 7. 技術選定理由
 
-### 5.1 エラーハンドリング方針
+### Next.js
 
-#### クライアントサイド
+**理由**:
+- React ベースの SSR フレームワークとして成熟
+- App Router による直感的なファイルベースルーティング
+- AWS Lambda でのコンテナ実行が容易
+- PWA 対応が容易
 
-- ユーザー入力エラー: Material UI の Snackbar でフィードバック
-- ネットワークエラー: リトライ機能を提供
-- パースエラー: エラーメッセージを表示し、入力の修正を促す
+**代替案との比較**:
+- Remix: Next.js の方が AWS Lambda との統合実績が豊富
+- Astro: MPA ではなく SPA が必要なため不適
 
-#### サーバーサイド
+### Material-UI (MUI)
 
-- Lambda エラー: CloudWatch Logs に記録
-- HTTP ステータスコード:
-    - `200`: 成功
-    - `400`: クライアントエラー (不正なリクエスト)
-    - `500`: サーバーエラー (内部エラー)
+**理由**:
+- React 用の成熟した UI ライブラリ
+- レスポンシブデザインが容易
+- アクセシビリティ対応が充実
+- カスタマイズ性が高い
 
----
+**代替案との比較**:
+- Chakra UI: Material Design に準拠したい
+- Tailwind CSS: コンポーネントライブラリとして MUI の方が高機能
 
-## 6. 画面設計
+### AWS Lambda (コンテナ)
 
-### 6.1 画面遷移図
+**理由**:
+- サーバーレスでコスト効率が高い
+- Next.js SSR がコンテナで実行可能
+- 自動スケーリング
+- Lambda Web Adapter による簡単な実装
 
-![画面遷移図](../../images/services/tools/screen-transition.drawio.svg)
-
-#### 画面遷移フロー
-
-```
-トップページ (ツール一覧)
-  ├─→ 乗り換え変換ツール
-  └─→  (将来) その他のツール
-```
-
-### 6.2 画面一覧
-
-| 画面ID | 画面名 | URL | 説明 |
-|--------|-------|-----|------|
-| SCR-001 | トップページ | `/` | ツール一覧を表示 |
-| SCR-002 | 乗り換え変換ツール | `/transit-converter` | 乗り換え情報を変換 |
-
-### 6.3 ワイヤーフレーム (主要画面)
-
-#### SCR-001: トップページ (ツール一覧)
-
-![トップページワイヤーフレーム](../../images/services/tools/wireframe-top.drawio.svg)
-
-**構成要素:**
-- ヘッダー: アプリ名「Tools」(中央揃え)
-- メインコンテンツ: ツールカード一覧 (Grid レイアウト)
-- フッター: バージョン表示、将来実装予定リンク (プライバシーポリシー、利用規約)
-
-**レイアウト:**
-- PC: 3カラム
-- タブレット: 2カラム
-- スマートフォン: 1カラム
+**代替案との比較**:
+- ECS Fargate: Lambda の方がコスト効率が高い
+- Vercel: AWS 上での完全な制御が必要
 
 ---
 
-#### SCR-002: 乗り換え変換ツール
+## 8. 制約事項
 
-![乗り換え変換ツールワイヤーフレーム](../../images/services/tools/wireframe-transit.drawio.svg)
+### 8.1 技術的制約
 
-**構成要素:**
-- ヘッダー: 共通
-- メインコンテンツ:
-    - 入力エリア: テキストフィールド (URLまたはテキスト貼り付け)
-    - クリップボード読み取りボタン (Clipboard API使用)
-    - 変換ボタン
-    - 出力エリア: 整形された結果表示
-    - コピーボタン
-- フッター: 共通
+1. **ブラウザ依存**:
+    - モダンブラウザのみ対応 (IE11等のレガシーブラウザは非対応)
+    - JavaScriptが有効である必要がある
+    - Clipboard API が使用可能である必要がある
+
+2. **データサイズ制限**:
+    - ブラウザのメモリ制限により、大きなデータの処理には限界がある
+    - 入力データは10MB以内を推奨
+
+3. **Lambda 制約**:
+    - タイムアウト: 最大30秒 (Function URL の制約)
+    - メモリ: 最大10GB (現在は1024MB)
+    - コンテナイメージ: 最大10GB
+
+### 8.2 運用制約
+
+1. **保守体制**:
+    - 個人による保守のため、障害対応は迅速でない可能性
+    - SLAは提供しない
+
+2. **コスト制約**:
+    - AWS無料枠の範囲内で運用 (可能な限り)
+    - 大規模なトラフィックは想定しない
 
 ---
 
-## 7. 外部インターフェース
+## 9. 将来拡張
 
-### 7.1 外部DNS連携
+### 検討事項
 
-#### DNS レコード設定
-
-外部DNSサービス (例: お名前.com、ムームードメイン等) で以下を設定:
-
-**開発環境:**
-- ホスト名: `dev-tools`
-- タイプ: `CNAME`
-- 値: CloudFront Distribution のドメイン名 (例: `d789012.cloudfront.net`)
-- TTL: 300秒
-
-**本番環境:**
-- ホスト名: `tools` (または `www.tools`)
-- タイプ: `CNAME`
-- 値: CloudFront Distribution のドメイン名 (例: `d123456.cloudfront.net`)
-- TTL: 300秒
-
-#### SSL/TLS 証明書
-
-- 共通基盤の ACM 証明書を使用
-- ワイルドカード証明書: `*.example.com`、`example.com`
-- Export値: `nagiyu-shared-acm-certificate-arn`
-
-### 7.2 CloudFront設定
-
-#### オリジン設定
-
-| 設定項目 | 値 |
-|---------|---|
-| オリジンドメイン | Lambda Function URL (例: `abc123.lambda-url.us-east-1.on.aws`) |
-| オリジンプロトコル | HTTPS only |
-| オリジンパス | なし |
-| カスタムヘッダー | なし |
-
-#### ビヘイビア設定
-
-| 設定項目 | 値 |
-|---------|---|
-| パスパターン | デフォルト (`*`) |
-| ビューワープロトコルポリシー | Redirect HTTP to HTTPS |
-| 許可HTTPメソッド | GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE |
-| キャッシュポリシー | CachingDisabled (SSRのため) |
-| オリジンリクエストポリシー | AllViewer |
-| レスポンスヘッダーポリシー | SecurityHeadersPolicy (カスタム) |
-
-#### エラーページ
-
-| HTTPステータス | エラーキャッシング最小TTL | カスタムエラーレスポンス |
-|--------------|----------------------|---------------------|
-| 404 | 10 | `/404` にリダイレクト (将来実装) |
-| 500 | 0 | なし (Lambdaのエラーをそのまま返す) |
-
-### 7.3 その他外部サービス連携
-
-#### GitHub (CI/CD)
-
-- **GitHub Actions** でビルド・デプロイを自動化
-- ワークフロー:
-    1. コードプッシュ
-    2. Dockerイメージビルド
-    3. ECR にプッシュ
-    4. Lambda 関数を更新
-
-#### Secrets Manager (必要時)
-
-- APIキー等のシークレットを保存
-- デプロイ時に取得して Lambda 環境変数に設定
+- **データベース統合**: ユーザー設定の永続化が必要になった場合は DynamoDB を検討
+- **認証機能**: ユーザー固有の機能が必要になった場合は Cognito または Auth0 を検討
+- **API Gateway 統合**: REST API が必要になった場合は API Gateway を追加
+- **ダークモード対応**: Material-UI のテーマ機能を活用したダークモード実装
+- **多言語対応**: i18n ライブラリによる国際化対応
+- **CDN キャッシュ最適化**: 静的アセットのキャッシュポリシー最適化
