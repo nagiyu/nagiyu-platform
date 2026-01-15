@@ -58,9 +58,12 @@ describe('withRetry', () => {
     const fn = jest.fn().mockRejectedValue(new Error('恒久的なエラー'));
 
     const promise = withRetry(fn, { maxRetries: 2, initialDelayMs: 10 });
-    await jest.runAllTimersAsync();
 
-    await expect(promise).rejects.toThrow('恒久的なエラー');
+    // runAllTimersAsync と expect().rejects を並行して実行
+    const [, result] = await Promise.all([jest.runAllTimersAsync(), promise.catch((err) => err)]);
+
+    expect(result).toBeInstanceOf(Error);
+    expect(result.message).toBe('恒久的なエラー');
     expect(fn).toHaveBeenCalledTimes(3); // 初回 + リトライ2回
   });
 
@@ -73,10 +76,13 @@ describe('withRetry', () => {
       backoffMultiplier: 2,
     });
 
-    await jest.runAllTimersAsync();
-    await promise.catch(() => {
-      /* エラーを無視 */
-    });
+    // runAllTimersAsync と catch を並行して実行
+    await Promise.all([
+      jest.runAllTimersAsync(),
+      promise.catch(() => {
+        /* エラーを無視 */
+      }),
+    ]);
 
     // 初回 + リトライ2回 = 3回実行されること
     expect(fn).toHaveBeenCalledTimes(3);
