@@ -1,25 +1,68 @@
-# {service-name} アーキテクチャ設計書
-
-<!-- 記入ガイド: サービス名を記述してください（例: Tools アプリ、Codec Converter、Auth サービス） -->
+# niconico-mylist-assistant アーキテクチャ設計書
 
 ---
 
 ## 1. システム概要
 
-<!-- 記入ガイド: システムの全体像を1-2段落で記述し、構成図を含めてください -->
+niconico-mylist-assistant は、ニコニコ動画のマイリスト登録作業を自動化するサーバーレスアプリケーションです。ユーザーは Web UI（Next.js）を通じて条件を指定し、DynamoDB に保存された動画データから最大 100 個をランダムに選択してマイリストに一括登録できます。**AWS Batch** を採用することで Lambda の 15 分制限を回避し、各動画間に最低 2 秒の待機時間を設けることでニコニコ動画サーバーへの配慮を徹底しています。
+
+本システムは **3 パッケージ構成（core / web / batch）** により、ビジネスロジック、Web フロントエンド、バッチ処理をそれぞれ独立したモジュールとして管理します。core パッケージは完全フレームワーク非依存の TypeScript ライブラリとして設計され、web パッケージ（Next.js）と batch パッケージ（Playwright 自動化）の両方から共通ロジックを再利用します。これにより、テストの容易性と保守性を確保しています。
 
 ### 1.1 全体構成図
 
-<!-- 記入ガイド: Mermaid で構成図を記述してください。複雑な場合は Draw.io (system-architecture.drawio.svg) を使用 -->
-
 ```mermaid
-graph TD
-    User[ユーザー<br/>ブラウザ] --> Component1[{コンポーネント1}]
-    Component1 --> Component2[{コンポーネント2}]
-```
+graph TB
+    subgraph "ユーザー"
+        User[ブラウザ]
+    end
 
-<!-- Draw.io を使用する場合は、上記 Mermaid を以下の形式に置き換えてください -->
-<!-- ![システム構成図](../../images/services/{service-name}/system-architecture.drawio.svg) -->
+    subgraph "AWS インフラ"
+        subgraph "Web パッケージ"
+            CF[CloudFront]
+            Lambda[Lambda@Edge<br/>Next.js]
+            API[API Routes<br/>動画情報取得<br/>一括インポート<br/>バッチ投入]
+        end
+
+        subgraph "Batch パッケージ"
+            Batch[AWS Batch<br/>無制限実行時間<br/>Playwright 自動化]
+        end
+
+        subgraph "Core パッケージ"
+            Core[共通ビジネスロジック<br/>型定義・定数<br/>ヘルパー関数]
+        end
+
+        subgraph "データストア"
+            DDB[(DynamoDB<br/>動画基本情報<br/>ユーザー設定)]
+            S3[(S3<br/>スクリーンショット<br/>ログ)]
+        end
+    end
+
+    subgraph "外部API"
+        NicoAPI[ニコニコ動画 API<br/>getthumbinfo]
+        NicoWeb[ニコニコ動画<br/>Web サイト]
+    end
+
+    User -->|HTTPS| CF
+    CF --> Lambda
+    Lambda --> API
+
+    API -->|参照| Core
+    API -->|動画基本情報取得| NicoAPI
+    API -->|CRUD| DDB
+    API -->|ジョブ投入| Batch
+
+    Batch -->|参照| Core
+    Batch -->|Playwright| NicoWeb
+    Batch -->|登録結果保存| DDB
+    Batch -->|スクリーンショット保存| S3
+
+    Core -.->|型定義・共通ロジック| API
+    Core -.->|型定義・共通ロジック| Batch
+
+    style Batch fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style Core fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style User fill:#fff3e0,stroke:#e65100
+```
 
 ---
 
@@ -29,36 +72,36 @@ graph TD
 
 ### 2.1 フロントエンド
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| フレームワーク | {技術名} | {用途} |
-| UI ライブラリ | {技術名} | {用途} |
-| 言語 | TypeScript | 型安全な開発 |
+| カテゴリ       | 技術       | 用途         |
+| -------------- | ---------- | ------------ |
+| フレームワーク | {技術名}   | {用途}       |
+| UI ライブラリ  | {技術名}   | {用途}       |
+| 言語           | TypeScript | 型安全な開発 |
 
 ### 2.2 バックエンド
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| ランタイム | {技術名} | {用途} |
+| カテゴリ       | 技術     | 用途   |
+| -------------- | -------- | ------ |
+| ランタイム     | {技術名} | {用途} |
 | フレームワーク | {技術名} | {用途} |
 
 ### 2.3 インフラ
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| コンピューティング | {技術名} | {用途} |
-| データベース | {技術名} | {用途} |
-| CDN | Amazon CloudFront | コンテンツ配信 |
-| IaC | AWS CDK (TypeScript) | インフラ定義 |
+| カテゴリ           | 技術                 | 用途           |
+| ------------------ | -------------------- | -------------- |
+| コンピューティング | {技術名}             | {用途}         |
+| データベース       | {技術名}             | {用途}         |
+| CDN                | Amazon CloudFront    | コンテンツ配信 |
+| IaC                | AWS CDK (TypeScript) | インフラ定義   |
 
 ### 2.4 開発ツール
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| パッケージマネージャ | npm | 依存関係管理 |
-| リンター | ESLint | コード品質チェック |
-| フォーマッター | Prettier | コード整形 |
-| テスト | Jest, Playwright | ユニット・E2Eテスト |
+| カテゴリ             | 技術             | 用途                |
+| -------------------- | ---------------- | ------------------- |
+| パッケージマネージャ | npm              | 依存関係管理        |
+| リンター             | ESLint           | コード品質チェック  |
+| フォーマッター       | Prettier         | コード整形          |
+| テスト               | Jest, Playwright | ユニット・E2Eテスト |
 
 ---
 
@@ -74,7 +117,7 @@ graph TD
 sequenceDiagram
     participant User as ユーザー
     participant Service as {service-name}
-    
+
     User->>Service: {リクエスト}
     Service->>User: {レスポンス}
 ```
@@ -126,8 +169,8 @@ graph TD
 
 <!-- 記入ガイド: 使用する AWS リソースを表形式で記述してください -->
 
-| リソース | 説明 | 設定 |
-|---------|------|------|
+| リソース     | 説明   | 設定         |
+| ------------ | ------ | ------------ |
 | {リソース名} | {説明} | {主要な設定} |
 
 ### 5.3 ネットワーク設計
@@ -157,10 +200,12 @@ graph TD
 ### {技術名}
 
 **理由**:
+
 - {理由1}
 - {理由2}
 
 **代替案との比較**:
+
 - {代替案1}: {比較結果}
 - {代替案2}: {比較結果}
 
