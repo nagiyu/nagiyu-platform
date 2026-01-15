@@ -70,8 +70,8 @@ const authSecretArn = app.node.tryGetContext('authSecretArn');
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
-  webEcrRepositoryName: `stock-tracker-web-${env}`,
-  batchEcrRepositoryName: `stock-tracker-batch-${env}`,
+  webEcrRepositoryName: webEcrStack.repository.repositoryName,
+  batchEcrRepositoryName: batchEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
   vapidSecret: secretsStack.vapidSecret,
   authSecretArn,
