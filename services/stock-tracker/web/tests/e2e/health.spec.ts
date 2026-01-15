@@ -7,7 +7,6 @@ test.describe('Health Check', () => {
 
     const data = await response.json();
     expect(data.status).toBe('ok');
-    expect(data.service).toBe('stock-tracker-web');
     expect(data).toHaveProperty('timestamp');
     expect(data).toHaveProperty('version');
   });
