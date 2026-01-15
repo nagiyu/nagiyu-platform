@@ -18,6 +18,7 @@
     "@nagiyu/ui": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
+    "@nagiyu/stock-tracker-core": "*",
     "@aws-sdk/client-dynamodb": "^3.712.0",
     "@aws-sdk/lib-dynamodb": "^3.712.0",
     "next-auth": "^5.0.0-beta.27",
