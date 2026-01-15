@@ -24,7 +24,7 @@ RUN npm run build --workspace=@nagiyu/stock-tracker-batch
 
 # 実行ステージ
 FROM base AS runner
-WORKDIR /app
+WORKDIR ${LAMBDA_TASK_ROOT}
 
 ENV NODE_ENV=production
 
