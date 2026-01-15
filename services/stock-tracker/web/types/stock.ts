@@ -1,21 +1,9 @@
 /**
- * 取引所の型定義
+ * UI表示用の型定義
+ *
+ * Note: コアのビジネスロジック型は @nagiyu/stock-tracker-core/types で定義されています。
+ * このファイルはフロントエンドのUI表示に特化した型のみを定義します。
  */
-export type Exchange = {
-  id: string;
-  name: string;
-  key: string;
-};
-
-/**
- * ティッカーの型定義
- */
-export type Ticker = {
-  id: string;
-  symbol: string;
-  name: string;
-  exchangeId: string;
-};
 
 /**
  * 時間枠の型定義

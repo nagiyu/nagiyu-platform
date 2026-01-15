@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import { Box } from '@mui/material';
-import { Header, Footer } from '@nagiyu/ui';
-import ClientProviders from '@/components/ClientProviders';
+import ThemeRegistry from '@/components/ThemeRegistry';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -14,24 +12,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const version = process.env.APP_VERSION || '1.0.0';
+
   return (
     <html lang="ja">
       <body>
-        <ClientProviders>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              minHeight: '100vh',
-            }}
-          >
-            <Header title="Stock Tracker" />
-            <Box component="main" sx={{ flexGrow: 1 }}>
-              {children}
-            </Box>
-            <Footer version="1.0.0" />
-          </Box>
-        </ClientProviders>
+        <ThemeRegistry version={version}>{children}</ThemeRegistry>
       </body>
     </html>
   );
