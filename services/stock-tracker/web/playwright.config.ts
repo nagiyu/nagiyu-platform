@@ -24,24 +24,36 @@ export default defineConfig({
   },
 
   /* Configure projects for major browsers */
-  projects: [
-    {
-      name: 'chromium-mobile',
-      use: {
-        ...devices['Pixel 5'],
-      },
-    },
-    {
-      name: 'chromium-desktop',
-      use: { ...devices['Desktop Chrome'] },
-    },
-    {
-      name: 'webkit-mobile',
-      use: {
-        ...devices['iPhone 12'],
-      },
-    },
-  ],
+  projects: process.env.PROJECT
+    ? [
+        {
+          name: process.env.PROJECT,
+          use:
+            process.env.PROJECT === 'chromium-mobile'
+              ? { ...devices['Pixel 5'] }
+              : process.env.PROJECT === 'chromium-desktop'
+                ? { ...devices['Desktop Chrome'] }
+                : { ...devices['iPhone 12'] },
+        },
+      ]
+    : [
+        {
+          name: 'chromium-mobile',
+          use: {
+            ...devices['Pixel 5'],
+          },
+        },
+        {
+          name: 'chromium-desktop',
+          use: { ...devices['Desktop Chrome'] },
+        },
+        {
+          name: 'webkit-mobile',
+          use: {
+            ...devices['iPhone 12'],
+          },
+        },
+      ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
