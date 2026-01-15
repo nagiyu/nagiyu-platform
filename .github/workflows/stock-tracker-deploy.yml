@@ -63,12 +63,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy ECR Stack
+      - name: Deploy ECR Stacks
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
           STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
         run: |
-          npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy NagiyuStockTrackerECR${STACK_SUFFIX} \
+          npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
+            NagiyuStockTrackerWebECR${STACK_SUFFIX} \
+            NagiyuStockTrackerBatchECR${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
             --require-approval never
 
@@ -98,11 +100,11 @@ jobs:
         env:
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
         run: |
-          STACK_NAME="NagiyuStockTrackerECR${STACK_SUFFIX}"
+          STACK_NAME="NagiyuStockTrackerWebECR${STACK_SUFFIX}"
 
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='WebRepositoryUri'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}")
 
@@ -158,11 +160,11 @@ jobs:
         env:
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
         run: |
-          STACK_NAME="NagiyuStockTrackerECR${STACK_SUFFIX}"
+          STACK_NAME="NagiyuStockTrackerBatchECR${STACK_SUFFIX}"
 
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='BatchRepositoryUri'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}")
 
@@ -234,7 +236,8 @@ jobs:
             --context env="$ENVIRONMENT" \
             --require-approval never \
             --all \
-            --exclude "NagiyuStockTrackerECR${STACK_SUFFIX}"
+            --exclude "NagiyuStockTrackerWebECR${STACK_SUFFIX}" \
+            --exclude "NagiyuStockTrackerBatchECR${STACK_SUFFIX}"
 
           echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
 
