@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import ClientProviders from '@/components/ClientProviders';
+import ThemeRegistry from '@/components/ThemeRegistry';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -12,10 +12,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const version = process.env.APP_VERSION || '1.0.0';
+
   return (
     <html lang="ja">
       <body>
-        <ClientProviders>{children}</ClientProviders>
+        <ThemeRegistry version={version}>{children}</ThemeRegistry>
       </body>
     </html>
   );
