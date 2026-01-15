@@ -43,6 +43,30 @@ jobs:
       - name: Build Web application
         run: npm run build --workspace stock-tracker-web
 
+  build-core:
+    name: Core Build Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Build Core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
   build-batch:
     name: Batch Build Verification
     runs-on: ubuntu-latest
@@ -139,6 +163,33 @@ jobs:
 
       - name: Run Core tests
         run: npm run test --workspace @nagiyu/stock-tracker-core
+
+  test-batch:
+    name: Run Batch Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Run Batch tests
+        run: npm run test --workspace @nagiyu/stock-tracker-batch
 
   coverage:
     name: Test Coverage Check
@@ -312,11 +363,13 @@ jobs:
     needs:
       [
         build-web,
+        build-core,
         build-batch,
         build-infra,
         docker-build-web,
         docker-build-batch,
         test-core,
+        test-batch,
         coverage,
         e2e-test-web,
         lint,
@@ -336,11 +389,13 @@ jobs:
           script: |
             const results = {
               'Web Build': '${{ needs.build-web.result }}',
+              'Core Build': '${{ needs.build-core.result }}',
               'Batch Build': '${{ needs.build-batch.result }}',
               'Infrastructure Build': '${{ needs.build-infra.result }}',
               'Docker Build (Web)': '${{ needs.docker-build-web.result }}',
               'Docker Build (Batch)': '${{ needs.docker-build-batch.result }}',
               'Core Unit Tests': '${{ needs.test-core.result }}',
+              'Batch Unit Tests': '${{ needs.test-batch.result }}',
               'Coverage Check': '${{ needs.coverage.result }}',
               'E2E Tests Web (Full)': '${{ needs.e2e-test-web.result }}',
               'Lint': '${{ needs.lint.result }}',
