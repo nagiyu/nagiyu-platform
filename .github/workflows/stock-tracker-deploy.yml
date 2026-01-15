@@ -241,6 +241,63 @@ jobs:
 
           echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
 
+      - name: Update Lambda functions with latest images
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          # Get ECR repository URI
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          BATCH_IMAGE_URI="$ECR_REGISTRY/stock-tracker-batch-$ENVIRONMENT:latest"
+          WEB_IMAGE_URI="$ECR_REGISTRY/stock-tracker-web-$ENVIRONMENT:latest"
+
+          # Update Web Lambda function code
+          aws lambda update-function-code \
+            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --image-uri "$WEB_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          # Update Batch Lambda functions code
+          aws lambda update-function-code \
+            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda update-function-code \
+            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda update-function-code \
+            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "Lambda functions updated with latest images"
+
+      - name: Wait for Lambda updates to complete
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          # Wait for all functions to complete updating
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          echo "All Lambda functions updated successfully"
+
   verify:
     name: Verify Deployment
     runs-on: ubuntu-latest
