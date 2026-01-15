@@ -8,6 +8,7 @@ import {
   ExchangeRepository,
   ExchangeNotFoundError,
   InvalidExchangeDataError,
+  ExchangeAlreadyExistsError,
 } from '../../../src/repositories/exchange.js';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
@@ -234,7 +235,7 @@ describe('ExchangeRepository', () => {
       );
     });
 
-    it('重複する取引所IDの場合はDynamoDBエラーがスローされる', async () => {
+    it('重複する取引所IDの場合はExchangeAlreadyExistsErrorがスローされる', async () => {
       const exchangeData = {
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ Stock Market',
@@ -248,9 +249,7 @@ describe('ExchangeRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(repository.create(exchangeData)).rejects.toThrow(
-        'ConditionalCheckFailedException'
-      );
+      await expect(repository.create(exchangeData)).rejects.toThrow(ExchangeAlreadyExistsError);
     });
   });
 
@@ -422,17 +421,6 @@ describe('ExchangeRepository', () => {
       };
 
       // getById (存在確認) - 最初の呼び出し
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: {
-          PK: 'EXCHANGE#NASDAQ',
-          SK: 'METADATA',
-          Type: 'Exchange',
-          ...existingExchange,
-        },
-        $metadata: {},
-      });
-
-      // 2回目のテストのためのモック
       mockDocClient.send.mockResolvedValueOnce({
         Item: {
           PK: 'EXCHANGE#NASDAQ',

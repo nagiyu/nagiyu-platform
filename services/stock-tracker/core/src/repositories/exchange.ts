@@ -18,7 +18,7 @@ import type { Exchange, DynamoDBItem } from '../types.js';
 const ERROR_MESSAGES = {
   EXCHANGE_NOT_FOUND: '取引所が見つかりません',
   INVALID_EXCHANGE_DATA: '取引所データが無効です',
-  TABLE_NAME_NOT_SET: 'テーブル名が設定されていません',
+  EXCHANGE_ALREADY_EXISTS: '取引所は既に存在します',
   DATABASE_ERROR: 'データベースエラーが発生しました',
 } as const;
 
@@ -34,6 +34,13 @@ export class InvalidExchangeDataError extends Error {
   constructor(message: string) {
     super(`${ERROR_MESSAGES.INVALID_EXCHANGE_DATA}: ${message}`);
     this.name = 'InvalidExchangeDataError';
+  }
+}
+
+export class ExchangeAlreadyExistsError extends Error {
+  constructor(exchangeId: string) {
+    super(`${ERROR_MESSAGES.EXCHANGE_ALREADY_EXISTS}: ${exchangeId}`);
+    this.name = 'ExchangeAlreadyExistsError';
   }
 }
 
@@ -145,6 +152,10 @@ export class ExchangeRepository {
 
       return newExchange;
     } catch (error) {
+      // ConditionalCheckFailedException を特定してカスタムエラーにマップ
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        throw new ExchangeAlreadyExistsError(exchange.ExchangeID);
+      }
       throw new Error(
         `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -282,15 +293,56 @@ export class ExchangeRepository {
    * @returns Exchange
    */
   private mapDynamoDBItemToExchange(item: Record<string, unknown>): Exchange {
+    // フィールドのバリデーション
+    const exchangeId = item.ExchangeID;
+    if (typeof exchangeId !== 'string' || exchangeId.length === 0) {
+      throw new InvalidExchangeDataError('フィールド "ExchangeID" が不正です');
+    }
+
+    const name = item.Name;
+    if (typeof name !== 'string' || name.length === 0) {
+      throw new InvalidExchangeDataError('フィールド "Name" が不正です');
+    }
+
+    const key = item.Key;
+    if (typeof key !== 'string' || key.length === 0) {
+      throw new InvalidExchangeDataError('フィールド "Key" が不正です');
+    }
+
+    const timezone = item.Timezone;
+    if (typeof timezone !== 'string' || timezone.length === 0) {
+      throw new InvalidExchangeDataError('フィールド "Timezone" が不正です');
+    }
+
+    const start = item.Start;
+    if (typeof start !== 'string' || start.length === 0) {
+      throw new InvalidExchangeDataError('フィールド "Start" が不正です');
+    }
+
+    const end = item.End;
+    if (typeof end !== 'string' || end.length === 0) {
+      throw new InvalidExchangeDataError('フィールド "End" が不正です');
+    }
+
+    const createdAt = item.CreatedAt;
+    if (typeof createdAt !== 'number') {
+      throw new InvalidExchangeDataError('フィールド "CreatedAt" が不正です');
+    }
+
+    const updatedAt = item.UpdatedAt;
+    if (typeof updatedAt !== 'number') {
+      throw new InvalidExchangeDataError('フィールド "UpdatedAt" が不正です');
+    }
+
     const exchange: Exchange = {
-      ExchangeID: item.ExchangeID as string,
-      Name: item.Name as string,
-      Key: item.Key as string,
-      Timezone: item.Timezone as string,
-      Start: item.Start as string,
-      End: item.End as string,
-      CreatedAt: item.CreatedAt as number,
-      UpdatedAt: item.UpdatedAt as number,
+      ExchangeID: exchangeId,
+      Name: name,
+      Key: key,
+      Timezone: timezone,
+      Start: start,
+      End: end,
+      CreatedAt: createdAt,
+      UpdatedAt: updatedAt,
     };
     return exchange;
   }
