@@ -19,7 +19,7 @@ graph TB
     subgraph "AWS インフラ"
         subgraph "Web パッケージ"
             CF[CloudFront]
-            Lambda[Lambda@Edge<br/>Next.js]
+            Lambda["Lambda (Next.js)"]
             API[API Routes<br/>動画情報取得<br/>一括インポート<br/>バッチ投入]
         end
 
