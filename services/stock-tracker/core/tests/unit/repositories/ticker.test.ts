@@ -9,11 +9,8 @@
  */
 
 import { TickerRepository } from '../../../src/repositories/ticker.js';
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { Ticker } from '../../../src/types.js';
-
-// DynamoDB クライアントのモック
-jest.mock('@aws-sdk/lib-dynamodb');
 
 describe('TickerRepository', () => {
   let repository: TickerRepository;
