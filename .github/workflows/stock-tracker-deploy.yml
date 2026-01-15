@@ -248,8 +248,8 @@ jobs:
           # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          BATCH_IMAGE_URI="$ECR_REGISTRY/stock-tracker-batch-$ENVIRONMENT:latest"
-          WEB_IMAGE_URI="$ECR_REGISTRY/stock-tracker-web-$ENVIRONMENT:latest"
+          BATCH_IMAGE_URI="$ECR_REGISTRY/nagiyu-stock-tracker-batch-ecr-$ENVIRONMENT:latest"
+          WEB_IMAGE_URI="$ECR_REGISTRY/nagiyu-stock-tracker-web-ecr-$ENVIRONMENT:latest"
 
           # Update Web Lambda function code
           aws lambda update-function-code \
