@@ -331,8 +331,7 @@
 1. AWS Batch ジョブ実装
 2. Playwright によるマイリスト登録
 3. エラーハンドリング
-4. スクリーンショット保存（S3）
-5. Integration Test
+4. Integration Test
 
 ### Phase 4: インフラ実装
 

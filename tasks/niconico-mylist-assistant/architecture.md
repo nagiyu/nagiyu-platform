@@ -33,7 +33,6 @@ graph TB
 
         subgraph "データストア"
             DDB[(DynamoDB<br/>動画基本情報<br/>ユーザー設定)]
-            S3[(S3<br/>スクリーンショット<br/>ログ)]
         end
     end
 
@@ -54,7 +53,6 @@ graph TB
     Batch -->|参照| Core
     Batch -->|Playwright| NicoWeb
     Batch -->|登録結果保存| DDB
-    Batch -->|スクリーンショット保存| S3
 
     Core -.->|型定義・共通ロジック| API
     Core -.->|型定義・共通ロジック| Batch
@@ -90,9 +88,9 @@ graph TB
 | カテゴリ           | 技術                 | 用途                             |
 | ------------------ | -------------------- | -------------------------------- |
 | コンピューティング | AWS Lambda           | Next.js アプリケーションの実行   |
-| バッチ処理         | AWS Batch            | 長時間実行（マイリスト一括登録） |
+| バッチ処理         | AWS Batch (Fargate)  | 長時間実行（マイリスト一括登録） |
 | データベース       | Amazon DynamoDB      | 動画基本情報・ユーザー設定の保存 |
-| ストレージ         | Amazon S3            | スクリーンショット・ログ保存     |
+| ログ管理           | CloudWatch Logs      | アプリケーションログ             |
 | CDN                | Amazon CloudFront    | コンテンツ配信                   |
 | IaC                | AWS CDK (TypeScript) | インフラ定義                     |
 
@@ -495,33 +493,119 @@ interface BatchResult {
 
 ## 5. インフラ構成
 
-<!-- 記入ガイド: AWS リソース、ネットワーク設計を記述してください -->
-
 ### 5.1 AWS 構成図
 
-<!-- 記入ガイド: Mermaid で AWS 構成を記述してください。複雑な場合は Draw.io を使用 -->
-
 ```mermaid
-graph TD
-    User[ユーザー] --> CF[CloudFront]
-    CF --> Lambda[Lambda]
-    Lambda --> DB[{データベース}]
-```
+graph TB
+    subgraph "ユーザー"
+        User[ブラウザ]
+    end
 
-<!-- Draw.io を使用する場合は、上記 Mermaid を以下の形式に置き換えてください -->
-<!-- ![AWS インフラ構成図](../../images/services/{service-name}/aws-architecture.drawio.svg) -->
+    subgraph "AWS Cloud"
+        subgraph "エッジロケーション"
+            CF[CloudFront<br/>CDN・HTTPS終端]
+        end
+
+        subgraph "us-east-1"
+            subgraph "Lambda"
+                LambdaFn[Lambda Function<br/>Next.js アプリケーション]
+            end
+
+            subgraph "共有 VPC"
+                subgraph "Public Subnet"
+                    Batch[AWS Batch<br/>Fargate<br/>Playwright 自動化]
+                end
+            end
+
+            subgraph "マネージドサービス"
+                DDB[(DynamoDB<br/>動画基本情報<br/>ユーザー設定<br/>ジョブステータス)]
+                ECR[(ECR<br/>Batch コンテナイメージ)]
+                CWLogs[CloudWatch Logs<br/>アプリケーションログ]
+            end
+        end
+    end
+
+    subgraph "外部サービス"
+        NicoAPI[ニコニコ動画 API<br/>getthumbinfo]
+        NicoWeb[ニコニコ動画<br/>Web サイト]
+    end
+
+    User -->|HTTPS| CF
+    CF -->|HTTPS| LambdaFn
+
+    LambdaFn -->|動画情報取得| NicoAPI
+    LambdaFn -->|CRUD| DDB
+    LambdaFn -->|ジョブ投入| Batch
+    LambdaFn -->|ログ出力| CWLogs
+
+    Batch -->|イメージ取得| ECR
+    Batch -->|Playwright| NicoWeb
+    Batch -->|ステータス更新| DDB
+    Batch -->|ログ出力| CWLogs
+
+    style CF fill:#ff9900,stroke:#232f3e,color:#fff
+    style LambdaFn fill:#ff9900,stroke:#232f3e,color:#fff
+    style Batch fill:#ff9900,stroke:#232f3e,color:#fff
+    style DDB fill:#3b48cc,stroke:#232f3e,color:#fff
+    style ECR fill:#ff9900,stroke:#232f3e,color:#fff
+    style CWLogs fill:#ff9900,stroke:#232f3e,color:#fff
+```
 
 ### 5.2 リソース一覧
 
-<!-- 記入ガイド: 使用する AWS リソースを表形式で記述してください -->
-
-| リソース     | 説明   | 設定         |
-| ------------ | ------ | ------------ |
-| {リソース名} | {説明} | {主要な設定} |
+| リソース | 説明 | 主要な設定 |
+|---------|------|-----------|
+| **CloudFront** | CDN・HTTPS 終端 | サービス固有ディストリビューション、CloudFrontStackBase 継承、TLS 1.2、HTTP/2・HTTP/3 有効 |
+| **Lambda** | Next.js アプリケーション実行 | VPC 外、Function URL 使用 |
+| **AWS Batch** | マイリスト登録バッチ処理 | Fargate、共有 VPC (Public Subnet)、vCPU/メモリは運用しながら調整 |
+| **DynamoDB** | データストア | オンデマンドキャパシティ、単一テーブル設計、TTL 有効（ジョブステータス用、7日） |
+| **ECR** | コンテナイメージ管理 | Batch 用 Playwright イメージ |
+| **CloudWatch Logs** | ログ管理 | Lambda・Batch のアプリケーションログ |
+| **共有 ACM 証明書** | SSL/TLS 証明書 | `*.nagiyu.com` ワイルドカード証明書（共有リソース） |
+| **共有 VPC** | ネットワーク | Batch 用、Public Subnet のみ（共有リソース） |
 
 ### 5.3 ネットワーク設計
 
-<!-- 記入ガイド: VPC、サブネット、セキュリティグループなどを記述してください -->
+#### VPC 構成
+
+本サービスは**プラットフォーム共有 VPC** を使用します。
+
+| 環境 | VPC CIDR | サブネット | 用途 |
+|------|----------|-----------|------|
+| dev | `10.0.0.0/24` | Public (us-east-1a) | AWS Batch (Fargate) |
+| prod | `10.1.0.0/24` | Public (us-east-1a, 1b) | AWS Batch (Fargate) |
+
+#### 各コンポーネントのネットワーク配置
+
+| コンポーネント | 配置 | 理由 |
+|---------------|------|------|
+| Lambda | VPC 外 | DynamoDB へのアクセスは VPC エンドポイント不要、コールドスタート短縮 |
+| AWS Batch (Fargate) | 共有 VPC (Public Subnet) | ニコニコ動画へのインターネットアクセスが必要 |
+| DynamoDB | マネージドサービス | VPC 外からアクセス（IAM 認証） |
+
+#### セキュリティグループ
+
+AWS Batch 用のセキュリティグループを**サービス専用で作成**します。
+
+| セキュリティグループ | インバウンド | アウトバウンド |
+|---------------------|-------------|---------------|
+| Batch 用 SG | なし | HTTPS (443) - インターネット向け |
+
+**注記**: Fargate タスクはインターネットへのアウトバウンド通信のみ必要（ニコニコ動画へのアクセス）。インバウンドは不要。
+
+### 5.4 ドメイン設計
+
+| 環境 | ドメイン名 |
+|------|-----------|
+| dev | `dev-niconico-mylist-assistant.nagiyu.com` |
+| prod | `niconico-mylist-assistant.nagiyu.com` |
+
+### 5.5 将来的な設定変更
+
+| 項目 | 初期設定 | 将来的な変更 |
+|------|---------|-------------|
+| DynamoDB PITR | 無効 | 本番運用安定後に有効化 |
+| Batch vCPU/メモリ | 最小構成 | 運用しながら調整 |
 
 ---
 
