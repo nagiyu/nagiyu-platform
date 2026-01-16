@@ -39,6 +39,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
       - name: Build TypeScript
         run: npm run build --workspace=@nagiyu/infra-auth
 
@@ -60,6 +63,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
 
       - name: Build TypeScript
         run: npm run build --workspace=@nagiyu/infra-auth

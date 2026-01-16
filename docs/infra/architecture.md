@@ -246,6 +246,92 @@ Nagiyu{Service}{ResourceType}{Env}
 
 ---
 
+## 共通インフラパッケージ
+
+### @nagiyu/infra-common
+
+**目的**: コードの重複排除、一貫性の確保、メンテナンス性の向上
+
+Nagiyu Platform の全サービスで共通利用できる AWS CDK のベーススタック実装を提供します。
+
+#### 主な機能
+
+- **ベーススタッククラス**: ECR、Lambda、CloudFront の共通スタック実装
+- **型定義**: サービス設定、リソース設定の TypeScript 型定義
+- **命名規則**: AWS リソース名の統一的な生成ユーティリティ (`nagiyu-{service}-{type}-{env}`)
+- **デフォルト値**: Lambda、ECR、CloudFront の推奨設定値
+- **セキュリティヘッダー**: 標準化されたセキュリティヘッダー定義
+
+#### パッケージ構造
+
+```
+infra/common/                      # @nagiyu/infra-common
+├── src/
+│   ├── stacks/                   # ベーススタック実装
+│   │   ├── ecr-stack-base.ts
+│   │   ├── lambda-stack-base.ts
+│   │   └── cloudfront-stack-base.ts
+│   ├── types/                    # 型定義
+│   │   ├── environment.ts
+│   │   ├── service-config.ts
+│   │   ├── ecr-config.ts
+│   │   ├── lambda-config.ts
+│   │   └── cloudfront-config.ts
+│   ├── constants/                # 定数定義
+│   │   ├── defaults.ts          # デフォルト値
+│   │   └── security-headers.ts  # セキュリティヘッダー
+│   └── utils/                    # ユーティリティ
+│       └── naming.ts            # 命名規則関数
+├── tests/                        # テスト
+├── package.json
+├── tsconfig.json
+└── CHANGELOG.md
+```
+
+#### 使用例
+
+```typescript
+import { EcrStackBase, LambdaStackBase, CloudFrontStackBase } from '@nagiyu/infra-common';
+
+// ECR スタック
+const ecrStack = new EcrStackBase(app, 'ToolsEcrStack', {
+  serviceName: 'tools',
+  environment: 'dev',
+});
+
+// Lambda スタック
+const lambdaStack = new LambdaStackBase(app, 'ToolsLambdaStack', {
+  serviceName: 'tools',
+  environment: 'dev',
+  ecrRepositoryName: ecrStack.repository.repositoryName,
+  lambdaConfig: {
+    memorySize: 1024,
+    timeout: 60,
+  },
+});
+
+// CloudFront スタック
+const cloudfrontStack = new CloudFrontStackBase(app, 'ToolsCloudFrontStack', {
+  serviceName: 'tools',
+  environment: 'dev',
+  functionUrl: lambdaStack.functionUrl!.url,
+  cloudfrontConfig: {
+    enableSecurityHeaders: true,
+  },
+});
+```
+
+#### 期待される効果
+
+- **コード削減**: 50-75%のコード削減
+- **一貫性**: リソース命名規則とセキュリティ設定の統一
+- **メンテナンス性**: 設定変更が1箇所で完結
+- **型安全性**: TypeScript strict mode による型チェック
+
+詳細は [共通パッケージドキュメント](./common/README.md) を参照してください。
+
+---
+
 ## 関連ドキュメント
 
 - [初回セットアップ](./setup.md) - インフラの初期構築手順
@@ -257,3 +343,4 @@ Nagiyu{Service}{ResourceType}{Env}
 - [ACM 詳細](./shared/acm.md) - SSL/TLS 証明書の管理
 - [CloudFront 詳細](./shared/cloudfront.md) - CloudFront の設計と運用
 - [ルートドメインアーキテクチャ](./root/architecture.md) - ルートドメインの詳細設計
+- [@nagiyu/infra-common](./common/README.md) - 共通インフラパッケージ
