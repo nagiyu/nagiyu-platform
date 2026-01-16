@@ -611,33 +611,232 @@ AWS Batch 用のセキュリティグループを**サービス専用で作成**
 
 ## 6. セキュリティ設計
 
-<!-- 記入ガイド: 認証、認可、データ暗号化、セキュリティヘッダーなどを記述してください -->
-
 ### 6.1 認証・認可
+
+#### 認証方式
+
+本サービスは **Auth サービス** と連携し、Google OAuth による認証を行います。
+
+| 項目 | 内容 |
+|------|------|
+| 認証方式 | Google OAuth（Auth サービス連携） |
+| JWT Cookie | `nagiyu-session` |
+| Cookie Domain | `.nagiyu.com`（全サブドメインで共有） |
+| 有効期限 | 30日 |
+
+Auth サービスで発行された JWT クッキーは `.nagiyu.com` ドメインで共有されるため、本サービス（`niconico-mylist-assistant.nagiyu.com`）でも自動的に認証情報が利用できます。
+
+#### 認可方式
+
+サービス単位の権限チェックを行います。
+
+| 項目 | 内容 |
+|------|------|
+| 認可方式 | RBAC（Role-Based Access Control） |
+| 必要権限 | `niconico-mylist:use` |
+| 権限なし時 | 403 Forbidden |
+
+**権限チェックの流れ:**
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Web as Web パッケージ
+
+    User->>Web: リクエスト<br/>(JWT Cookie 自動送信)
+    Web->>Web: JWT 検証<br/>(署名、有効期限)
+
+    alt JWT 無効 or 未認証
+        Web-->>User: 401 Unauthorized<br/>→ Auth サービスへリダイレクト
+    else JWT 有効
+        Web->>Web: 権限チェック<br/>(niconico-mylist:use)
+        alt 権限なし
+            Web-->>User: 403 Forbidden
+        else 権限あり
+            Web->>Web: ユーザー ID でデータフィルタリング
+            Web-->>User: 200 OK（自分のデータのみ）
+        end
+    end
+```
+
+#### データアクセス制御
+
+- ユーザーは **自分のデータのみ** アクセス可能
+- DynamoDB のクエリ時に `userId` でフィルタリング
+- 他ユーザーのデータにはアクセス不可
 
 ### 6.2 データ暗号化
 
+#### 暗号化対象と方式
+
+| 対象 | 暗号化方式 | 保存場所 | 備考 |
+|------|-----------|----------|------|
+| ニコニコパスワード | AES-256-GCM | メモリのみ（DB 保存なし） | API Routes で暗号化、Batch で復号 |
+| 暗号化キー | - | AWS Secrets Manager | 環境変数 `SHARED_SECRET_KEY` |
+| DynamoDB データ | AWS KMS（At Rest） | DynamoDB | AWS 管理キーによる自動暗号化 |
+| 通信 | TLS 1.2+ | - | CloudFront ↔ Lambda 間 |
+
+#### ニコニコパスワードの暗号化フロー
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Web as Web パッケージ<br/>(API Routes)
+    participant SM as Secrets Manager
+    participant Batch as Batch パッケージ
+    participant Nico as ニコニコ動画
+
+    User->>Web: パスワード入力<br/>(平文、HTTPS)
+    Web->>SM: 暗号化キー取得
+    SM-->>Web: SHARED_SECRET_KEY
+
+    Note over Web: AES-256-GCM で暗号化<br/>(IV + AuthTag 生成)
+
+    Web->>Batch: ジョブ投入<br/>(暗号化パスワード)
+
+    Note over Batch: Batch 内で復号化
+    Batch->>Nico: ログイン<br/>(平文パスワード)
+
+    Note over Batch: 処理完了後<br/>メモリから即座に削除
+```
+
+**重要:**
+- パスワードは **DB に保存しない**
+- バッチ処理内でのみ復号化し、処理完了後は即座にメモリから削除
+- 暗号化には認証付き暗号（AES-256-GCM）を使用し、改ざん検知も行う
+
 ### 6.3 セキュリティヘッダー
 
+CloudFront 共通設定（`CloudFrontStackBase`）を継承し、以下のセキュリティヘッダーを自動適用します。
+
+| ヘッダー | 値 | 効果 |
+|----------|-----|------|
+| Strict-Transport-Security | max-age=63072000; includeSubDomains; preload | HTTPS 強制（2年間） |
+| X-Content-Type-Options | nosniff | MIME スニッフィング防止 |
+| X-Frame-Options | DENY | iframe 埋め込み禁止（クリックジャッキング対策） |
+| X-XSS-Protection | 1; mode=block | ブラウザの XSS フィルタ有効化 |
+| Referrer-Policy | strict-origin-when-cross-origin | リファラー情報の制御 |
+
+**注記:**
+- Content-Security-Policy（CSP）は現時点では設定しない
+- 将来的にニコニコ動画のサムネイル画像読み込みなどで必要になった場合に検討
+
 ### 6.4 その他のセキュリティ対策
+
+#### XSS 対策
+
+| 対策 | 内容 |
+|------|------|
+| React エスケープ | React のデフォルト機能により、出力時に自動エスケープ |
+| dangerouslySetInnerHTML | 使用しない |
+| ユーザー入力 | 表示前にサニタイズ |
+
+#### CSRF 対策
+
+| 対策 | 内容 |
+|------|------|
+| SameSite Cookie | Auth サービスの JWT Cookie は `SameSite=Lax` |
+| オリジン検証 | クロスオリジンリクエストを制限 |
+
+#### 入力検証
+
+| 対策 | 内容 |
+|------|------|
+| API Routes | リクエストパラメータを手動でバリデーション |
+| 型チェック | TypeScript strict mode による型安全性 |
+| 境界値チェック | 動画 ID の形式、配列の長さなどを検証 |
+
+#### ログ出力
+
+| 対策 | 内容 |
+|------|------|
+| 出力先 | CloudWatch Logs |
+| 機密情報 | パスワード、暗号化キー等は **出力しない** |
+| マスキング | 必要に応じてユーザー情報をマスキング |
+
+#### Rate Limiting
+
+| 対策 | 内容 |
+|------|------|
+| ニコニコ動画向け | 各動画登録間に **最低2秒** の待機時間 |
+| API 側 | 現時点では設定しない（将来必要に応じて AWS WAF を検討） |
 
 ---
 
 ## 7. 技術選定理由
 
-<!-- 記入ガイド: 主要な技術の選定理由、代替案との比較を記述してください -->
+### 7.1 TypeScript + Playwright
 
-### {技術名}
+**選定理由**:
 
-**理由**:
+- **プラットフォーム統一**: 本プラットフォームは TypeScript で統一されており、言語の一貫性を維持
+- **型安全性**: TypeScript strict mode による実行時エラーの早期発見とバグ削減
+- **メンテナンス性**: 単一言語での保守が容易、開発者の学習コスト削減
+- **既存ノウハウ**: 本プラットフォームでは E2E テストに Playwright を既に採用しており、知見を活用可能
 
-- {理由1}
-- {理由2}
+**代替案との比較（Python + Selenium）**:
 
-**代替案との比較**:
+| 項目 | TypeScript + Playwright | Python + Selenium |
+|------|------------------------|-------------------|
+| 実行速度 | 高速（並列実行、効率的な待機） | 比較的遅い |
+| API 設計 | モダンで直感的、Promise ベース | 古典的、同期的 |
+| 自動待機 | 組み込み（要素の可視性等を自動判定） | 明示的に記述が必要 |
+| TypeScript サポート | 公式サポート | サードパーティ型定義 |
+| ブラウザ自動化 | Chromium/Firefox/WebKit | 主要ブラウザ |
+| プラットフォーム統一 | ✅ 統一可能 | ❌ 別言語が必要 |
 
-- {代替案1}: {比較結果}
-- {代替案2}: {比較結果}
+**結論**: プラットフォームの技術統一と開発効率の観点から TypeScript + Playwright を採用
+
+---
+
+### 7.2 AWS Batch (Fargate)
+
+**選定理由**:
+
+- **時間制限なし**: Lambda の 15分制限を回避し、100個の動画登録（各2秒待機で最低200秒以上）を一括処理可能
+- **シンプルな設計**: チェーン実行や分割処理が不要で、実装・運用がシンプル
+- **安定性**: 長時間実行でも安定したコンテナ環境
+- **コスト効率**: 使用時のみ課金（Fargate Spot も選択可能）
+- **Playwright 互換**: Docker コンテナ内で Playwright + Chromium を問題なく実行可能
+
+**代替案との比較（AWS Lambda）**:
+
+| 項目 | AWS Batch (Fargate) | AWS Lambda |
+|------|---------------------|------------|
+| 実行時間制限 | なし | 最大15分 |
+| 100動画の処理 | ✅ 一括処理可能 | ❌ 分割・チェーン実行が必要 |
+| Chromium サイズ | 制限なし | 250MB 制限（Layer 含む） |
+| コールドスタート | 数十秒〜数分 | 数秒 |
+| コスト | 使用時間課金 | リクエスト + 実行時間課金 |
+| 設定の複雑さ | やや複雑（Job Definition 等） | シンプル |
+
+**結論**: マイリスト登録処理は長時間実行が前提のため、時間制限のない AWS Batch を採用。Lambda は Web アプリケーション（Next.js）の実行に使用
+
+---
+
+### 7.3 Amazon DynamoDB
+
+**選定理由**:
+
+- **スキーマレス**: 柔軟なデータ構造の変更が可能、将来の拡張に対応しやすい
+- **コスト効率**: オンデマンドキャパシティで使用した分だけ課金、低トラフィック時のコストを最小化
+- **サーバーレス親和性**: Lambda/Batch との統合が容易、IAM 認証でセキュアに接続
+- **運用負荷**: フルマネージドで運用が簡単、バックアップ・暗号化が標準機能
+- **スケーラビリティ**: 自動スケーリングでトラフィック増加にも対応
+
+**代替案との比較（Amazon RDS）**:
+
+| 項目 | DynamoDB | RDS (PostgreSQL/MySQL) |
+|------|----------|------------------------|
+| 課金モデル | 使用量課金（オンデマンド） | 常時稼働課金 |
+| 接続管理 | 不要（HTTP API） | 接続プール管理が必要 |
+| スキーマ | スキーマレス | 固定スキーマ |
+| 複雑なクエリ | 制限あり（GSI で対応） | SQL で柔軟に対応 |
+| トランザクション | 制限あり | フルサポート |
+| 想定データ量との適合 | ✅ 適切（1ユーザー1,000件程度） | オーバースペック |
+| Lambda との相性 | ✅ 良好 | 接続管理が複雑 |
+
+**結論**: 想定データ量（1ユーザーあたり1,000件程度）とサーバーレスアーキテクチャとの親和性から DynamoDB を採用。RDS は常時稼働コストと接続管理の複雑さがデメリット
 
 ---
 
