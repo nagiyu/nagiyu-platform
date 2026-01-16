@@ -1,74 +1,88 @@
-# {service-name} API 仕様書
+# niconico-mylist-assistant API 仕様書
 
-<!-- 記入ガイド: サービス名を記述してください（例: Auth サービス、Codec Converter） -->
-<!-- 記入ガイド: このテンプレートは API を提供するサービスのみが使用します -->
+本ドキュメントは、niconico-mylist-assistant サービスが提供する API の仕様を定義します。
+本サービスは Next.js の API Routes を使用して構築されており、動画基本情報の管理、一括インポート、マイリスト登録バッチの投入機能を提供します。
 
 ---
 
 ## 1. API 概要
 
-<!-- 記入ガイド: API の全体的な情報を記述してください -->
+本サービスの API は Next.js API Routes として実装され、認証には Auth プロジェクトとの連携を使用します。
+すべてのエンドポイントは HTTPS 経由でアクセスされ、CloudFront を通じて配信されます。
 
 ### 1.1 ベース URL
 
-<!-- 記入ガイド: 環境ごとの API エンドポイントを表形式で記述してください -->
-
-| 環境 | URL                                |
-| ---- | ---------------------------------- |
-| 開発 | `https://dev-{service}.nagiyu.com` |
-| 本番 | `https://{service}.nagiyu.com`     |
+| 環境 | URL                                           |
+| ---- | --------------------------------------------- |
+| 開発 | `https://dev-niconico-mylist.nagiyu.com`      |
+| 本番 | `https://niconico-mylist.nagiyu.com`          |
 
 ### 1.2 認証方式
 
-<!-- 記入ガイド: 使用する認証方式を記述してください（JWT, API Key, OAuth など） -->
-<!-- 記入例: JWT トークン (Cookie)、Bearer Token、API Key など -->
+本サービスは、Auth プロジェクトによる Google OAuth 認証を使用します。
+認証情報は Cookie に保存された JWT トークンにより管理されます。
 
-#### {認証方式名}
+#### Google OAuth 認証（Auth プロジェクト連携）
 
-<!-- 記入ガイド: 認証方式の詳細を記述してください -->
+- **認証方式**: Cookie ベースの JWT トークン
+- **Cookie 名**: Auth プロジェクトで定義された Cookie 名を使用
+- **形式**: JWT (JSON Web Token)
+- **有効期限**: Auth プロジェクトの設定に準拠
+- **スコープ**: ユーザー識別（UserID）によるデータアクセス制御
 
-- **認証ヘッダー/Cookie 名**: `{header-name}`
-- **形式**: {形式の説明}
-- **有効期限**: {有効期限}
-- **スコープ**: {適用範囲}
+#### ニコニコアカウント情報の取り扱い
+
+マイリスト登録機能では、ニコニコ動画のアカウント情報（メールアドレスとパスワード）が必要です。
+
+- **パスワード保存**: データベースには保存しない
+- **暗号化送信**: フロントエンド → API Routes → AWS Batch の通信経路で暗号化
+- **暗号化方式**: AES-256（環境変数 `SHARED_SECRET_KEY` を使用）
+- **復号化**: AWS Batch 内でのみ復号化し、メモリ上で一時保持
+- **削除**: バッチ処理終了後、即座にメモリから削除
 
 #### リクエスト例
 
 ```http
-GET /api/{endpoint} HTTP/1.1
-Host: {service}.nagiyu.com
-Authorization: Bearer {token}
+GET /api/videos HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: {auth-cookie-name}={jwt-token}
 ```
 
-<!-- または Cookie を使用する場合 -->
-
 ```http
-GET /api/{endpoint} HTTP/1.1
-Host: {service}.nagiyu.com
-Cookie: {cookie-name}={token}
+POST /api/videos/bulk-import HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: {auth-cookie-name}={jwt-token}
+Content-Type: application/json
+
+{
+    "videoIds": ["sm12345678", "sm87654321"]
+}
 ```
 
 ### 1.3 共通レスポンス形式
 
-<!-- 記入ガイド: API の共通レスポンス構造を記述してください -->
+本サービスの API は、シンプルな JSON 形式でレスポンスを返します。
 
 #### 成功レスポンス
 
 ```json
 {
-    "data": { ... },
-    "meta": {
-        "timestamp": "2024-01-15T12:34:56.789Z"
+    "success": true,
+    "data": {
+        "videos": [...],
+        "count": 100
     }
 }
 ```
 
-<!-- または単純な形式の場合 -->
+または、データのみを返す場合:
 
 ```json
 {
-  "{field1}": "{value1}",
-  "{field2}": "{value2}"
+    "videoId": "sm12345678",
+    "title": "動画タイトル",
+    "isFavorite": false,
+    "isSkip": false
 }
 ```
 
@@ -77,51 +91,54 @@ Cookie: {cookie-name}={token}
 ```json
 {
     "error": {
-        "code": "ERROR_CODE",
-        "message": "エラーメッセージ",
-        "details": "詳細情報（オプション）"
-    },
-    "meta": {
-        "timestamp": "2024-01-15T12:34:56.789Z"
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です"
     }
 }
 ```
 
-<!-- または単純な形式の場合 -->
+詳細情報が必要な場合:
 
 ```json
 {
-    "error": "ERROR_CODE",
-    "message": "エラーメッセージ"
+    "error": {
+        "code": "BATCH_SUBMIT_FAILED",
+        "message": "バッチジョブの投入に失敗しました",
+        "details": "AWS Batch サービスに接続できませんでした"
+    }
 }
 ```
 
 ### 1.4 HTTP ステータスコード
 
-<!-- 記入ガイド: 使用する HTTP ステータスコードを表形式で記述してください -->
-
-| コード | 意味                  | 用途                 |
-| ------ | --------------------- | -------------------- |
-| 200    | OK                    | 成功                 |
-| 201    | Created               | リソース作成成功     |
-| 400    | Bad Request           | リクエストが不正     |
-| 401    | Unauthorized          | 認証が必要           |
-| 403    | Forbidden             | 権限不足             |
-| 404    | Not Found             | リソースが存在しない |
-| 500    | Internal Server Error | サーバーエラー       |
+| コード | 意味                  | 用途                                           |
+| ------ | --------------------- | ---------------------------------------------- |
+| 200    | OK                    | リクエスト成功                                 |
+| 201    | Created               | リソース作成成功                               |
+| 400    | Bad Request           | リクエストが不正（バリデーションエラー等）     |
+| 401    | Unauthorized          | 認証が必要（未ログイン）                       |
+| 403    | Forbidden             | 権限不足（他のユーザーのデータへのアクセス等） |
+| 404    | Not Found             | リソースが存在しない                           |
+| 500    | Internal Server Error | サーバー内部エラー                             |
+| 502    | Bad Gateway           | 外部APIエラー（ニコニコ動画API等）             |
+| 503    | Service Unavailable   | サービス一時停止（AWS Batch等）                |
 
 ### 1.5 エラーコード一覧
 
-<!-- [任意] -->
-<!-- 記入ガイド: アプリケーション固有のエラーコードを定義する場合に記述してください -->
-
-| コード            | HTTP ステータス | 説明                   |
-| ----------------- | --------------- | ---------------------- |
-| `UNAUTHORIZED`    | 401             | 認証が必要             |
-| `FORBIDDEN`       | 403             | 権限が不足している     |
-| `NOT_FOUND`       | 404             | リソースが見つからない |
-| `INVALID_REQUEST` | 400             | リクエストが不正       |
-| `INTERNAL_ERROR`  | 500             | 内部エラー             |
+| コード                    | HTTP ステータス | 説明                                                 |
+| ------------------------- | --------------- | ---------------------------------------------------- |
+| `UNAUTHORIZED`            | 401             | 認証が必要です。ログインしてください                 |
+| `FORBIDDEN`               | 403             | このリソースへのアクセス権限がありません             |
+| `NOT_FOUND`               | 404             | 指定されたリソースが見つかりません                   |
+| `INVALID_REQUEST`         | 400             | リクエストが不正です（必須パラメータ不足等）         |
+| `VALIDATION_ERROR`        | 400             | バリデーションエラー（動画ID形式不正等）             |
+| `DUPLICATE_VIDEO`         | 400             | 指定された動画は既に登録されています                 |
+| `VIDEO_NOT_FOUND`         | 404             | 指定された動画が見つかりません（削除済み等）         |
+| `NICONICO_API_ERROR`      | 502             | ニコニコ動画APIへのアクセスに失敗しました            |
+| `BATCH_SUBMIT_FAILED`     | 500             | バッチジョブの投入に失敗しました                     |
+| `DATABASE_ERROR`          | 500             | データベースへのアクセスに失敗しました               |
+| `ENCRYPTION_ERROR`        | 500             | パスワードの暗号化に失敗しました                     |
+| `INTERNAL_ERROR`          | 500             | 内部エラーが発生しました                             |
 
 ---
 
