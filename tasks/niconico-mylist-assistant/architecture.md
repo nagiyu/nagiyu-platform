@@ -109,27 +109,193 @@ graph TB
 
 ## 3. アーキテクチャパターン
 
-<!-- 記入ガイド: データフロー、コンポーネント構成、設計パターンを記述してください -->
-
 ### 3.1 データフロー
 
-<!-- 記入ガイド: Mermaid シーケンス図でデータフローを記述してください。複雑な場合は Draw.io を使用 -->
+本サービスには主に2つのデータフローがあります：
+1. **一括インポートフロー**: 動画IDからニコニコ動画APIで動画基本情報を取得してDynamoDBに保存
+2. **マイリスト登録フロー**: 条件指定により動画を選択し、AWS Batchでマイリストに自動登録
+
+#### 3.1.1 一括インポートフロー
 
 ```mermaid
 sequenceDiagram
     participant User as ユーザー
-    participant Service as {service-name}
+    participant Web as Web UI<br/>(Next.js)
+    participant API as API Routes<br/>(/api/videos/bulk-import)
+    participant Nico as ニコニコ動画API<br/>(getthumbinfo)
+    participant DDB as DynamoDB<br/>(動画基本情報)
 
-    User->>Service: {リクエスト}
-    Service->>User: {レスポンス}
+    User->>Web: 動画ID入力（改行区切り）
+    User->>Web: 「インポート実行」クリック
+    Web->>API: POST /api/videos/bulk-import<br/>{videoIds: [...]}
+
+    loop 各動画IDを順次処理
+        API->>Nico: GET /api/getthumbinfo/{videoId}
+        Nico-->>API: XML (動画タイトル等)
+        API->>DDB: ConditionalPut<br/>(重複チェック)
+        alt 新規追加成功
+            DDB-->>API: Success
+            Note over API: success++
+        else 既に存在
+            DDB-->>API: ConditionalCheckFailed
+            Note over API: skipped++
+        else API失敗
+            Nico-->>API: Error
+            Note over API: failed++
+        else DB保存失敗
+            DDB-->>API: Error
+            Note over API: dbErrors++
+        end
+    end
+
+    API-->>Web: 結果返却<br/>{success, failed, skipped, dbErrors}
+    Web-->>User: 結果表示
 ```
 
-<!-- Draw.io を使用する場合は、上記 Mermaid を以下の形式に置き換えてください -->
-<!-- ![データフロー図](../../images/services/{service-name}/data-flow.drawio.svg) -->
+**処理の特徴**:
+- **順次処理**: 各動画IDをforループで1つずつ処理（並列処理なし）
+- **エラー継続**: ニコニコAPI失敗やDB保存失敗が発生しても処理を継続
+- **重複チェック**: DynamoDBのConditionalPut（`attribute_not_exists`）で重複を検出
+- **結果集計**: 成功数、失敗数、スキップ数、DBエラー数を集計して返却
+
+#### 3.1.2 マイリスト登録フロー
+
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Web as Web UI<br/>(Next.js)
+    participant API as API Routes<br/>(/api/batch/submit)
+    participant Batch as AWS Batch<br/>(Playwright)
+    participant Nico as ニコニコ動画
+    participant DDB as DynamoDB
+    participant Push as Web Push
+
+    User->>Web: 登録条件指定
+    User->>Web: アカウント情報入力<br/>(email, password)
+    User->>Web: マイリスト名入力（任意）
+    User->>Web: 「登録開始」クリック
+
+    Web->>API: POST /api/batch/submit<br/>{email, password, mylistName, filters}
+    Note over API: パスワードを暗号化<br/>(AES-256 + SHARED_SECRET_KEY)
+    API->>Batch: ジョブ投入<br/>{email, encryptedPassword, mylistName}
+    API->>DDB: ジョブステータス書き込み<br/>{jobId, status: "SUBMITTED"}
+    API-->>Web: {jobId, status: "SUBMITTED"}
+    Web-->>User: 「処理を開始しました」
+
+    Note over Batch: バックグラウンド処理開始
+    Batch->>Batch: パスワード復号化
+    Batch->>Nico: Playwright: ログイン
+    Batch->>Nico: マイリスト一覧取得
+
+    loop 既存マイリストを全削除
+        Batch->>Nico: マイリスト削除
+    end
+
+    Batch->>Nico: 新しいマイリスト作成<br/>(ユーザー指定の名前)
+
+    loop 各動画を登録（最大100個）
+        Batch->>Nico: 動画をマイリストに追加
+        Note over Batch: 2秒待機
+    end
+
+    Batch->>DDB: ジョブステータス更新<br/>{status: "SUCCEEDED", result}
+    Batch->>Push: Web Push通知送信
+    Push-->>User: 「登録完了」通知
+
+    User->>Web: 通知クリック or 画面確認
+    Web->>API: GET /api/batch/status/{jobId}
+    API->>DDB: ステータス取得
+    DDB-->>API: {status, result}
+    API-->>Web: {status, result}
+    Web-->>User: 結果表示
+```
+
+**処理の特徴**:
+- **非同期処理**: AWS Batchでバックグラウンド実行（Lambda の15分制限を回避）
+- **暗号化**: ニコニコアカウントのパスワードはAPI Routes内で暗号化、Batch内でのみ復号化
+- **マイリスト完全リセット**: 既存のマイリストを全削除してから新規作成
+- **マイリスト名**: ユーザー指定、未指定時は日時デフォルト（例: `自動登録 2026/1/16 15:30:45`）
+- **待機時間**: 各動画登録間に最低2秒待機（ニコニコ動画サーバーへの配慮）
+- **完了通知**: Web Push通知 + DynamoDBステータス書き込みのハイブリッド方式
 
 ### 3.2 コンポーネント構成
 
-<!-- 記入ガイド: 主要なコンポーネントとその責務を記述してください -->
+本サービスは **3パッケージ構成** を採用し、ビジネスロジック、Webアプリケーション、バッチ処理をそれぞれ独立したモジュールとして管理します。
+
+#### 3.2.1 パッケージ構成
+
+```
+services/niconico-mylist-assistant/
+├── packages/
+│   ├── core/          # @nagiyu/niconico-mylist-assistant-core
+│   ├── web/           # @nagiyu/niconico-mylist-assistant-web
+│   └── batch/         # @nagiyu/niconico-mylist-assistant-batch
+└── package.json       # ワークスペースルート
+```
+
+#### 3.2.2 各パッケージの責務
+
+##### core パッケージ (`@nagiyu/niconico-mylist-assistant-core`)
+
+- **責務**: フレームワーク非依存の共通ビジネスロジック
+- **提供機能**:
+  - 型定義（動画基本情報、ユーザー設定、バッチジョブ等）
+  - 定数定義（待機時間、上限数等）
+  - Playwright ヘルパー関数
+  - ニコニコ動画 API 連携（getthumbinfo）
+  - マイリスト自動化ロジック
+- **依存先**: なし（Pure TypeScript）
+- **利用元**: web, batch
+
+##### web パッケージ (`@nagiyu/niconico-mylist-assistant-web`)
+
+- **責務**: ユーザーインターフェースとAPI提供
+- **提供機能**:
+  - フロントエンド（React + Material-UI）
+  - API Routes（動画一括インポート、バッチジョブ投入、ステータス確認）
+  - 認証（Auth プロジェクト連携）
+  - DynamoDB 操作
+- **依存先**:
+  - `@nagiyu/niconico-mylist-assistant-core`
+  - `@nagiyu/common`
+  - `@nagiyu/ui`
+- **デプロイ先**: AWS Lambda + CloudFront
+
+##### batch パッケージ (`@nagiyu/niconico-mylist-assistant-batch`)
+
+- **責務**: マイリスト登録の長時間バッチ処理
+- **提供機能**:
+  - Playwright によるニコニコ動画自動操作
+  - パスワード復号化
+  - マイリスト完全リセット + 新規作成
+  - Web Push 通知送信
+  - ジョブステータス更新
+- **依存先**:
+  - `@nagiyu/niconico-mylist-assistant-core`
+  - `@nagiyu/browser`
+- **デプロイ先**: AWS Batch (Docker コンテナ)
+
+#### 3.2.3 依存関係図
+
+```mermaid
+graph TB
+    Web["@nagiyu/niconico-mylist-assistant-web"]
+    Batch["@nagiyu/niconico-mylist-assistant-batch"]
+    Core["@nagiyu/niconico-mylist-assistant-core"]
+    Common["@nagiyu/common"]
+    UI["@nagiyu/ui"]
+    Browser["@nagiyu/browser"]
+
+    Web --> Core
+    Web --> Common
+    Web --> UI
+    Batch --> Core
+    Batch --> Browser
+
+    style Core fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Web fill:#e3f2fd,stroke:#01579b,stroke-width:2px
+    style Batch fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+```
 
 ---
 
