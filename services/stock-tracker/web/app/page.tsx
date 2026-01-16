@@ -173,9 +173,7 @@ export default function Home() {
             value={exchange}
             label="取引所選択"
             onChange={handleExchangeChange}
-            startAdornment={
-              exchangesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
-            }
+            startAdornment={exchangesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
           >
             <MenuItem value="">
               <em>選択してください</em>
@@ -197,9 +195,7 @@ export default function Home() {
             value={ticker}
             label="ティッカー選択"
             onChange={handleTickerChange}
-            startAdornment={
-              tickersLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null
-            }
+            startAdornment={tickersLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
           >
             <MenuItem value="">
               <em>選択してください</em>
