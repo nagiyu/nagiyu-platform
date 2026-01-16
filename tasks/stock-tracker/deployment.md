@@ -882,13 +882,13 @@ AWS コンソールから CloudFormation スタックを手動でロールバッ
 # ローカルで PR検証と同じステップを実行
 
 # 1. Core パッケージのビルド検証
-npm run build -w stock-tracker-core
+npm run build -w @nagiyu/stock-tracker-core
 
 # 2. Web パッケージのビルド検証
-npm run build -w stock-tracker-web
+npm run build -w @nagiyu/stock-tracker-web
 
 # 3. Batch パッケージのビルド検証
-npm run build -w stock-tracker-batch
+npm run build -w @nagiyu/stock-tracker-batch
 
 # 4. Web Docker ビルド検証
 docker build -t stock-tracker-web-pr-test -f services/stock-tracker/web/Dockerfile .

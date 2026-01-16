@@ -41,7 +41,7 @@ jobs:
         run: npm run build --workspace @nagiyu/stock-tracker-core
 
       - name: Build Web application
-        run: npm run build --workspace stock-tracker-web
+        run: npm run build --workspace @nagiyu/stock-tracker-web
 
   build-core:
     name: Core Build Verification
@@ -253,7 +253,7 @@ jobs:
         env:
           CI: true
         run: |
-          npm run test:e2e --workspace stock-tracker-web
+          npm run test:e2e --workspace @nagiyu/stock-tracker-web
           if [ $? -ne 0 ]; then
             echo "E2E tests failed"
             exit 1
@@ -300,7 +300,7 @@ jobs:
         run: npm run lint --workspace @nagiyu/stock-tracker-batch
 
       - name: Run lint on Web
-        run: npm run lint --workspace stock-tracker-web
+        run: npm run lint --workspace @nagiyu/stock-tracker-web
 
   format-check:
     name: Format Check
@@ -327,7 +327,7 @@ jobs:
         run: npm run format:check --workspace @nagiyu/stock-tracker-batch
 
       - name: Check formatting on Web
-        run: npm run format:check --workspace stock-tracker-web
+        run: npm run format:check --workspace @nagiyu/stock-tracker-web
 
   synth-infra:
     name: Synthesize Infrastructure

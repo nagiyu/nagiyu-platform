@@ -21,7 +21,7 @@ RUN npm run build --workspace=libs/common
 RUN npm run build --workspace=libs/browser
 RUN npm run build --workspace=libs/ui
 RUN npm run build --workspace=@nagiyu/stock-tracker-core
-RUN npm run build --workspace=stock-tracker-web
+RUN npm run build --workspace=@nagiyu/stock-tracker-web
 
 # 本番ステージ
 FROM base AS runner
