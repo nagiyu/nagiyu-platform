@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
-import { hasPermission } from '@nagiyu/common';
-import { ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import { ExchangeRepository, getAuthError } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
   INTERNAL_ERROR: '取引所一覧の取得に失敗しました',
 } as const;
 
@@ -25,21 +22,17 @@ const ERROR_MESSAGES = {
  */
 export async function GET() {
   try {
-    // 認証チェック
+    // 認証・権限チェック
     const session = await getSession();
+    const authError = getAuthError(session, 'stocks:read');
 
-    if (!session) {
-      return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
-    }
-
-    // 権限チェック (stocks:read 必須)
-    if (!hasPermission(session.user.roles, 'stocks:read')) {
+    if (authError) {
       return NextResponse.json(
         {
-          error: ERROR_MESSAGES.FORBIDDEN,
-          details: 'Required permission: stocks:read',
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
         },
-        { status: 403 }
+        { status: authError.statusCode }
       );
     }
 
