@@ -186,7 +186,7 @@ jobs:
         run: npm run build --workspace @nagiyu/common
 
       - name: Build core package
-        run: npm run build --workspace stock-tracker-core
+        run: npm run build --workspace @nagiyu/stock-tracker-core
 
       - name: Run Batch tests
         run: npm run test --workspace @nagiyu/stock-tracker-batch

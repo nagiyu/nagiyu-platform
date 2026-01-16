@@ -168,7 +168,7 @@
 
 **受入条件**:
 - [ ] `npm run build -w @nagiyu/stock-tracker-core` が成功
-- [ ] `npm run test -w stock-tracker-core` が成功（サンプルテスト含む）
+- [ ] `npm run test -w @nagiyu/stock-tracker-core` が成功（サンプルテスト含む）
 
 **依存関係**: なし
 

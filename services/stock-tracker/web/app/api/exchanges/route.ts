@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { hasPermission } from '@nagiyu/common';
 import { ExchangeRepository } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBDocClient, getDynamoDBTableName } from '../../../lib/aws-clients';
+import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
 
 // エラーメッセージ定数
@@ -44,8 +44,8 @@ export async function GET() {
     }
 
     // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBDocClient();
-    const tableName = getDynamoDBTableName();
+    const docClient = getDynamoDBClient();
+    const tableName = getTableName();
 
     // Exchange リポジトリを初期化
     const exchangeRepo = new ExchangeRepository(docClient, tableName);
