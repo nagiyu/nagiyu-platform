@@ -301,17 +301,195 @@ graph TB
 
 ## 4. データモデル
 
-<!-- 記入ガイド: データベーススキーマ、API型定義を記述してください -->
-
 ### 4.1 データベーススキーマ
 
-<!-- [任意] データベースを使用する場合のみ -->
-<!-- 記入ガイド: テーブル構造、主キー、インデックスを記述してください -->
+本サービスは **DynamoDB 単一テーブル設計** を採用します。動画基本情報（全ユーザー共通）とユーザー設定（ユーザー固有）を1つのテーブルで管理し、コスト効率と管理の簡素化を実現します。
+
+#### テーブル定義
+
+**テーブル名**: `nagiyu-niconico-mylist-assistant-dynamodb-{environment}`
+- 環境: `dev` または `prod`
+- 作成方法: `infra/common/src/utils/naming.ts` の `getDynamoDBTableName()` を使用
+
+**課金モード**: オンデマンド（On-Demand）
+
+**キー構造**:
+- **パーティションキー (PK)**: `string`
+- **ソートキー (SK)**: `string`
+
+#### エンティティ設計
+
+本テーブルには2種類のエンティティを格納します：
+
+##### 1. 動画基本情報（VIDEO）
+
+全ユーザー共通の動画メタデータ。ニコニコ動画API（`getthumbinfo`）から取得した情報を保存します。
+
+| 属性名 | 型 | 説明 | 必須 |
+|--------|------|------|------|
+| `PK` | String | `VIDEO#{videoId}` | ✓ |
+| `SK` | String | `VIDEO#{videoId}` | ✓ |
+| `entityType` | String | `"VIDEO"` （エンティティ識別用） | ✓ |
+| `videoId` | String | 動画ID（例: `sm12345678`） | ✓ |
+| `title` | String | 動画タイトル | ✓ |
+| `thumbnailUrl` | String | サムネイル画像URL | ✓ |
+| `length` | String | 再生時間（例: `5:30`） | ✓ |
+| `createdAt` | String | 登録日時（ISO 8601形式） | ✓ |
+
+**アクセスパターン**:
+- 特定の動画情報を取得: `GetItem(PK=VIDEO#{videoId}, SK=VIDEO#{videoId})`
+- 複数の動画情報を一括取得: `BatchGetItem` または個別に `GetItem`
+
+**例**:
+```json
+{
+    "PK": "VIDEO#sm12345678",
+    "SK": "VIDEO#sm12345678",
+    "entityType": "VIDEO",
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://example.com/thumb.jpg",
+    "length": "5:30",
+    "createdAt": "2026-01-16T10:30:00Z"
+}
+```
+
+##### 2. ユーザー設定（USER_SETTING）
+
+各ユーザーが個別に設定するメタデータ（お気に入りフラグ、スキップフラグ、メモ）。
+
+| 属性名 | 型 | 説明 | 必須 |
+|--------|------|------|------|
+| `PK` | String | `USER#{userId}` | ✓ |
+| `SK` | String | `VIDEO#{videoId}` | ✓ |
+| `entityType` | String | `"USER_SETTING"` （エンティティ識別用） | ✓ |
+| `userId` | String | Auth プロジェクトの UserID | ✓ |
+| `videoId` | String | 動画ID | ✓ |
+| `isFavorite` | Boolean | お気に入りフラグ（デフォルト: `false`） | ✓ |
+| `isSkip` | Boolean | スキップフラグ（デフォルト: `false`） | ✓ |
+| `memo` | String | ユーザーのメモ | ✗ |
+| `createdAt` | String | 登録日時（ISO 8601形式） | ✓ |
+| `updatedAt` | String | 更新日時（ISO 8601形式） | ✓ |
+
+**アクセスパターン**:
+- 特定ユーザーの全動画設定を取得: `Query(PK=USER#{userId})`
+- 特定ユーザーの特定動画設定を取得: `GetItem(PK=USER#{userId}, SK=VIDEO#{videoId})`
+- 条件付きフィルタ（お気に入りのみ、スキップを除くなど）: アプリ側でフィルタリング
+
+**例**:
+```json
+{
+    "PK": "USER#auth0|abc123",
+    "SK": "VIDEO#sm12345678",
+    "entityType": "USER_SETTING",
+    "userId": "auth0|abc123",
+    "videoId": "sm12345678",
+    "isFavorite": true,
+    "isSkip": false,
+    "memo": "お気に入りの曲",
+    "createdAt": "2026-01-16T10:30:00Z",
+    "updatedAt": "2026-01-16T12:00:00Z"
+}
+```
+
+#### インデックス
+
+**プライマリインデックスのみ使用**:
+- パーティションキー (PK) + ソートキー (SK)
+
+**GSI（Global Secondary Index）**: なし
+- 条件付きフィルタ（`isFavorite=true`, `isSkip=false` など）はアプリ側で実装
+- 理由: 現在の想定データ量（1ユーザーあたり1,000件程度）では、全件取得してアプリ側でフィルタリングする方がコスト効率が良い
+- 将来的にデータ量が増加した場合（10,000件以上）は、GSI の追加を検討
+
+#### データ整合性
+
+**動画基本情報とユーザー設定の関係**:
+- ユーザー設定（`USER_SETTING`）は、対応する動画基本情報（`VIDEO`）が存在することを前提とする
+- 一括インポート時に動画基本情報を先に保存し、その後ユーザー設定を作成する
+- 動画基本情報が削除された場合、対応するユーザー設定も削除する必要がある（アプリ側で制御）
+
+**重複チェック**:
+- 動画基本情報: `ConditionalPut` で `attribute_not_exists(PK)` を使用し、重複を防止
+- ユーザー設定: 同一ユーザー・同一動画の組み合わせは上書き更新
+
+#### 想定データ量とパフォーマンス
+
+- **1ユーザーあたりの動画数**: 1,000件程度（中規模）
+- **1動画あたりのデータサイズ**:
+    - 動画基本情報: 約 500 bytes
+    - ユーザー設定: 約 200 bytes
+- **マイリスト登録時の読み取り**: `Query(PK=USER#{userId})` で全件取得（約 200 KB）
+    - DynamoDB の読み取りキャパシティ: 200 KB ÷ 8 KB = 25 RCU（Eventually Consistent Read）
+    - レスポンス時間: 数百ミリ秒程度
 
 ### 4.2 API 型定義
 
-<!-- [任意] APIを提供する場合のみ -->
-<!-- 記入ガイド: 主要なリクエスト/レスポンス型を記述してください -->
+本サービスの主要APIの型定義を記述します。すべてのAPIは Next.js の API Routes として実装され、認証済みユーザーのみがアクセス可能です。
+
+#### 動画一括インポート API
+
+`POST /api/videos/bulk-import`
+
+```typescript
+interface BulkImportRequest {
+    videoIds: string[];
+}
+
+interface BulkImportResponse {
+    success: number;
+    failed: number;
+    skipped: number;
+    dbErrors: number;
+    total: number;
+}
+```
+
+#### バッチジョブ投入 API
+
+`POST /api/batch/submit`
+
+```typescript
+interface BatchSubmitRequest {
+    email: string;
+    password: string;
+    mylistName?: string;
+    filters: FilterConditions;
+}
+
+interface FilterConditions {
+    excludeSkip: boolean;
+    favoritesOnly: boolean;
+}
+
+interface BatchSubmitResponse {
+    jobId: string;
+    status: string;
+}
+```
+
+#### バッチステータス取得 API
+
+`GET /api/batch/status/{jobId}`
+
+```typescript
+interface BatchStatusResponse {
+    jobId: string;
+    status: BatchStatus;
+    result?: BatchResult;
+    createdAt: string;
+    updatedAt: string;
+}
+
+type BatchStatus = "SUBMITTED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+
+interface BatchResult {
+    registeredCount: number;
+    failedCount: number;
+    totalCount: number;
+    errorMessage?: string;
+}
+```
 
 ---
 
