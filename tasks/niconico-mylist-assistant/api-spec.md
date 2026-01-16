@@ -148,26 +148,26 @@ Content-Type: application/json
 
 ### 2.1 概要
 
-| カテゴリ         | エンドポイント数 | 説明                                           |
-| ---------------- | ---------------- | ---------------------------------------------- |
-| ヘルスチェック   | 1                | サービス稼働状況の確認                         |
-| 動画管理         | 5                | 動画基本情報とユーザー設定の CRUD 操作         |
-| 一括インポート   | 1                | ニコニコ動画 API から動画情報を一括取得・保存  |
-| バッチジョブ管理 | 2                | マイリスト登録バッチの投入とステータス確認     |
+| カテゴリ         | エンドポイント数 | 説明                                          |
+| ---------------- | ---------------- | --------------------------------------------- |
+| ヘルスチェック   | 1                | サービス稼働状況の確認                        |
+| 動画管理         | 5                | 動画基本情報とユーザー設定の CRUD 操作        |
+| 一括インポート   | 1                | ニコニコ動画 API から動画情報を一括取得・保存 |
+| バッチジョブ管理 | 2                | マイリスト登録バッチの投入とステータス確認    |
 
 ### 2.2 全エンドポイント一覧
 
-| メソッド | パス                             | 説明                                             | 認証 | 備考                                   |
-| -------- | -------------------------------- | ------------------------------------------------ | ---- | -------------------------------------- |
-| GET      | `/api/health`                    | ヘルスチェック                                   | 不要 | サービス稼働状況の確認                 |
-| GET      | `/api/videos`                    | 動画一覧取得                                     | 必須 | 認証ユーザーの動画データのみ取得       |
-| GET      | `/api/videos/{videoId}`          | 動画詳細取得                                     | 必須 | 動画基本情報 + ユーザー設定を取得      |
-| POST     | `/api/videos`                    | 動画作成（単一）                                 | 必須 | 動画基本情報 + ユーザー設定を作成      |
-| PUT      | `/api/videos/{videoId}`          | 動画更新（ユーザー設定のみ）                     | 必須 | お気に入り・スキップフラグ・メモを更新 |
-| DELETE   | `/api/videos/{videoId}`          | 動画削除                                         | 必須 | ユーザー設定のみ削除（動画基本情報保持）|
-| POST     | `/api/videos/bulk-import`        | 動画一括インポート                               | 必須 | 動画 ID リストから動画情報を一括取得   |
-| POST     | `/api/batch/submit`              | バッチジョブ投入                                 | 必須 | マイリスト登録バッチを AWS Batch に投入|
-| GET      | `/api/batch/status/{jobId}`      | バッチステータス確認                             | 必須 | ジョブの実行状況と結果を取得           |
+| メソッド | パス                        | 説明                         | 認証 | 備考                                     |
+| -------- | --------------------------- | ---------------------------- | ---- | ---------------------------------------- |
+| GET      | `/api/health`               | ヘルスチェック               | 不要 | サービス稼働状況の確認                   |
+| GET      | `/api/videos`               | 動画一覧取得                 | 必須 | 認証ユーザーの動画データのみ取得         |
+| GET      | `/api/videos/{videoId}`     | 動画詳細取得                 | 必須 | 動画基本情報 + ユーザー設定を取得        |
+| POST     | `/api/videos`               | 動画作成（単一）             | 必須 | 動画基本情報 + ユーザー設定を作成        |
+| PUT      | `/api/videos/{videoId}`     | 動画更新（ユーザー設定のみ） | 必須 | お気に入り・スキップフラグ・メモを更新   |
+| DELETE   | `/api/videos/{videoId}`     | 動画削除                     | 必須 | ユーザー設定のみ削除（動画基本情報保持） |
+| POST     | `/api/videos/bulk-import`   | 動画一括インポート           | 必須 | 動画 ID リストから動画情報を一括取得     |
+| POST     | `/api/batch/submit`         | バッチジョブ投入             | 必須 | マイリスト登録バッチを AWS Batch に投入  |
+| GET      | `/api/batch/status/{jobId}` | バッチステータス確認         | 必須 | ジョブの実行状況と結果を取得             |
 
 ### 2.3 認証要件の詳細
 
@@ -254,8 +254,8 @@ Content-Type: application/json
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": "{value2}"
+  "{field1}": "{value1}",
+  "{field2}": "{value2}"
 }
 ```
 
@@ -295,8 +295,8 @@ curl -X {METHOD} https://{service}.nagiyu.com/api/{path} \
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": "{value2}"
+  "{field1}": "{value1}",
+  "{field2}": "{value2}"
 }
 ```
 
@@ -374,9 +374,9 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-    "status": "ok",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0"
+  "status": "ok",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "version": "1.0.0"
 }
 ```
 
@@ -384,13 +384,13 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-    "status": "ok",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0",
-    "dependencies": {
-        "database": "ok",
-        "externalService": "ok"
-    }
+  "status": "ok",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "version": "1.0.0",
+  "dependencies": {
+    "database": "ok",
+    "externalService": "ok"
+  }
 }
 ```
 
@@ -398,13 +398,13 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-    "status": "degraded",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0",
-    "dependencies": {
-        "database": "error",
-        "externalService": "ok"
-    }
+  "status": "degraded",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "version": "1.0.0",
+  "dependencies": {
+    "database": "error",
+    "externalService": "ok"
+  }
 }
 ```
 
@@ -432,9 +432,9 @@ interface {Model} {
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": 123,
-    "{field3}": "{value3}"
+  "{field1}": "{value1}",
+  "{field2}": 123,
+  "{field3}": "{value3}"
 }
 ```
 
@@ -524,10 +524,10 @@ Retry-After: 60
 
 ```json
 {
-    "AllowedOrigins": ["https://{domain}"],
-    "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
-    "AllowedHeaders": ["*"],
-    "MaxAgeSeconds": 3600
+  "AllowedOrigins": ["https://{domain}"],
+  "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
+  "AllowedHeaders": ["*"],
+  "MaxAgeSeconds": 3600
 }
 ```
 
@@ -593,10 +593,10 @@ Content-Security-Policy: default-src 'self'
 
 ```json
 {
-    "event": "{event.name}",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "data": {
-        "{field}": "{value}"
-    }
+  "event": "{event.name}",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "data": {
+    "{field}": "{value}"
+  }
 }
 ```
