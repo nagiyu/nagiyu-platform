@@ -26,24 +26,24 @@ Admin サービスは、nagiyu プラットフォームの管理機能を提供�
 ### 開発者向け
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
-   - Phase 1 のスコープ（SSO 連携動作確認）を確認
-   - ロールベースアクセス制御（RBAC）の仕様を理解
+    - Phase 1 のスコープ（SSO 連携動作確認）を確認
+    - ロールベースアクセス制御（RBAC）の仕様を理解
 2. **設計を確認する**: [architecture.md](./architecture.md) を読む
-   - Next.js + Material-UI + AWS Lambda 構成を理解
-   - 認証フロー、JWT 検証の仕組みを確認
+    - Next.js + Material-UI + AWS Lambda 構成を理解
+    - 認証フロー、JWT 検証の仕組みを確認
 3. **実装を確認する**: ソースコード (`services/admin/web/`) を参照
-   - Middleware での JWT 検証実装
-   - ダッシュボード UI の実装
+    - Middleware での JWT 検証実装
+    - ダッシュボード UI の実装
 
 ### 運用担当者向け
 
 1. **デプロイ手順を確認**: [deployment.md](./deployment.md) を読む
-   - CI/CD パイプライン（Fast CI / Full CI）の理解
-   - 初回セットアップ手順の確認
+    - CI/CD パイプライン（Fast CI / Full CI）の理解
+    - 初回セットアップ手順の確認
 2. **監視・ログ確認**: CloudWatch Logs を参照
-   - ロググループ: `/aws/lambda/admin-{env}`
+    - ロググループ: `/aws/lambda/admin-{env}`
 3. **障害対応**: [deployment.md](./deployment.md) の障害対応セクションを参照
-   - ロールバック手順、よくある障害と対処法
+    - ロールバック手順、よくある障害と対処法
 
 ---
 
@@ -53,7 +53,6 @@ Admin サービスは、nagiyu プラットフォームの管理機能を提供�
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/admin/web/`
 - **インフラ定義**: `infra/admin/`
-- **バージョン**: 0.1.0 (Phase 1 - MVP)
 
 ---
 
