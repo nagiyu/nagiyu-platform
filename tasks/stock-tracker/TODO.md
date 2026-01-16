@@ -252,9 +252,9 @@
   - [x] prod 環境（master ブランチ）
 - [x] リソース一覧
   - [x] Lambda (Web): stock-tracker-web-{env}
-  - [x] Lambda (Batch): @nagiyu/stock-tracker-batch-{env}（3関数: minute, hourly, daily）
+  - [x] Lambda (Batch): stock-tracker-batch-{env}（3関数: minute, hourly, daily）
   - [x] DynamoDB: nagiyu-stock-tracker-main-{env}
-  - [x] ECR: stock-tracker-web-{env}, @nagiyu/stock-tracker-batch-{env}
+  - [x] ECR: stock-tracker-web-{env}, stock-tracker-batch-{env}
   - [x] CloudFront Distribution
   - [x] EventBridge Scheduler（3ルール）
   - [x] Secrets Manager（VAPID キー）

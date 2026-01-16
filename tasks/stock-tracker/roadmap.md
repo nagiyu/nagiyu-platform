@@ -168,7 +168,7 @@
 
 **受入条件**:
 - [ ] `npm run build -w @nagiyu/stock-tracker-core` が成功
-- [ ] `npm run test -w @nagiyu/stock-tracker-core` が成功（サンプルテスト含む）
+- [ ] `npm run test -w stock-tracker-core` が成功（サンプルテスト含む）
 
 **依存関係**: なし
 
@@ -225,7 +225,7 @@
     - `src/lib/` - ユーティリティ（リトライ、ログ出力）
 
 **受入条件**:
-- [ ] `npm run build -w stock-tracker-batch` が成功
+- [ ] `npm run build -w @nagiyu/stock-tracker-batch` が成功
 - [ ] `docker build -f services/stock-tracker/batch/Dockerfile .` が成功
 - [ ] Lambda Handler 関数が実装されている（仮実装でも可）
 
