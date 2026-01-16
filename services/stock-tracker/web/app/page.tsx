@@ -90,12 +90,14 @@ export default function Home() {
   useEffect(() => {
     if (!exchange) {
       setTickers([]);
+      setTicker(''); // 取引所がクリアされた場合はティッカーもリセット
       return;
     }
 
     const fetchTickers = async () => {
       setTickersLoading(true);
       setTickersError('');
+      setTicker(''); // 取引所変更時にティッカーをリセット
 
       try {
         const response = await fetch(`/api/tickers?exchangeId=${encodeURIComponent(exchange)}`);

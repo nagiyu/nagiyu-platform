@@ -91,13 +91,15 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
         const selectedTicker = await tickerSelect.locator('input').inputValue();
         expect(selectedTicker).not.toBe('');
 
-        // 別の取引所に変更
-        await exchangeSelect.click();
-        await options.nth(2).click(); // 3番目のオプション（2番目の取引所）
+        // 別の取引所に変更（optionCount > 2の場合のみ）
+        if (optionCount > 2) {
+          await exchangeSelect.click();
+          await options.nth(2).click(); // 3番目のオプション（2番目の取引所）
 
-        // ティッカーがリセットされることを確認
-        const resetTicker = await tickerSelect.locator('input').inputValue();
-        expect(resetTicker).toBe('');
+          // ティッカーがリセットされることを確認
+          const resetTicker = await tickerSelect.locator('input').inputValue();
+          expect(resetTicker).toBe('');
+        }
       }
     }
   });
