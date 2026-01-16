@@ -205,8 +205,8 @@ Content-Type: application/json
 
 ```json
 {
-  "{field1}": "{value1}",
-  "{field2}": "{value2}"
+    "{field1}": "{value1}",
+    "{field2}": "{value2}"
 }
 ```
 
@@ -246,8 +246,8 @@ curl -X {METHOD} https://{service}.nagiyu.com/api/{path} \
 
 ```json
 {
-  "{field1}": "{value1}",
-  "{field2}": "{value2}"
+    "{field1}": "{value1}",
+    "{field2}": "{value2}"
 }
 ```
 
@@ -325,9 +325,9 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-  "status": "ok",
-  "timestamp": "2024-01-15T12:34:56.789Z",
-  "version": "1.0.0"
+    "status": "ok",
+    "timestamp": "2024-01-15T12:34:56.789Z",
+    "version": "1.0.0"
 }
 ```
 
@@ -335,13 +335,13 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-  "status": "ok",
-  "timestamp": "2024-01-15T12:34:56.789Z",
-  "version": "1.0.0",
-  "dependencies": {
-    "database": "ok",
-    "externalService": "ok"
-  }
+    "status": "ok",
+    "timestamp": "2024-01-15T12:34:56.789Z",
+    "version": "1.0.0",
+    "dependencies": {
+        "database": "ok",
+        "externalService": "ok"
+    }
 }
 ```
 
@@ -349,13 +349,13 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-  "status": "degraded",
-  "timestamp": "2024-01-15T12:34:56.789Z",
-  "version": "1.0.0",
-  "dependencies": {
-    "database": "error",
-    "externalService": "ok"
-  }
+    "status": "degraded",
+    "timestamp": "2024-01-15T12:34:56.789Z",
+    "version": "1.0.0",
+    "dependencies": {
+        "database": "error",
+        "externalService": "ok"
+    }
 }
 ```
 
@@ -383,9 +383,9 @@ interface {Model} {
 
 ```json
 {
-  "{field1}": "{value1}",
-  "{field2}": 123,
-  "{field3}": "{value3}"
+    "{field1}": "{value1}",
+    "{field2}": 123,
+    "{field3}": "{value3}"
 }
 ```
 
@@ -475,10 +475,10 @@ Retry-After: 60
 
 ```json
 {
-  "AllowedOrigins": ["https://{domain}"],
-  "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
-  "AllowedHeaders": ["*"],
-  "MaxAgeSeconds": 3600
+    "AllowedOrigins": ["https://{domain}"],
+    "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
+    "AllowedHeaders": ["*"],
+    "MaxAgeSeconds": 3600
 }
 ```
 
@@ -544,10 +544,10 @@ Content-Security-Policy: default-src 'self'
 
 ```json
 {
-  "event": "{event.name}",
-  "timestamp": "2024-01-15T12:34:56.789Z",
-  "data": {
-    "{field}": "{value}"
-  }
+    "event": "{event.name}",
+    "timestamp": "2024-01-15T12:34:56.789Z",
+    "data": {
+        "{field}": "{value}"
+    }
 }
 ```
