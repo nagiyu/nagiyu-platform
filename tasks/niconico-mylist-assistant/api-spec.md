@@ -12,10 +12,10 @@
 
 ### 1.1 ベース URL
 
-| 環境 | URL                                           |
-| ---- | --------------------------------------------- |
-| 開発 | `https://dev-niconico-mylist.nagiyu.com`      |
-| 本番 | `https://niconico-mylist.nagiyu.com`          |
+| 環境 | URL                                      |
+| ---- | ---------------------------------------- |
+| 開発 | `https://dev-niconico-mylist.nagiyu.com` |
+| 本番 | `https://niconico-mylist.nagiyu.com`     |
 
 ### 1.2 認証方式
 
@@ -79,10 +79,10 @@ Content-Type: application/json
 
 ```json
 {
-    "videoId": "sm12345678",
-    "title": "動画タイトル",
-    "isFavorite": false,
-    "isSkip": false
+  "videoId": "sm12345678",
+  "title": "動画タイトル",
+  "isFavorite": false,
+  "isSkip": false
 }
 ```
 
@@ -90,10 +90,10 @@ Content-Type: application/json
 
 ```json
 {
-    "error": {
-        "code": "INVALID_REQUEST",
-        "message": "リクエストが不正です"
-    }
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "リクエストが不正です"
+  }
 }
 ```
 
@@ -101,11 +101,11 @@ Content-Type: application/json
 
 ```json
 {
-    "error": {
-        "code": "BATCH_SUBMIT_FAILED",
-        "message": "バッチジョブの投入に失敗しました",
-        "details": "AWS Batch サービスに接続できませんでした"
-    }
+  "error": {
+    "code": "BATCH_SUBMIT_FAILED",
+    "message": "バッチジョブの投入に失敗しました",
+    "details": "AWS Batch サービスに接続できませんでした"
+  }
 }
 ```
 
@@ -125,20 +125,20 @@ Content-Type: application/json
 
 ### 1.5 エラーコード一覧
 
-| コード                    | HTTP ステータス | 説明                                                 |
-| ------------------------- | --------------- | ---------------------------------------------------- |
-| `UNAUTHORIZED`            | 401             | 認証が必要です。ログインしてください                 |
-| `FORBIDDEN`               | 403             | このリソースへのアクセス権限がありません             |
-| `NOT_FOUND`               | 404             | 指定されたリソースが見つかりません                   |
-| `INVALID_REQUEST`         | 400             | リクエストが不正です（必須パラメータ不足等）         |
-| `VALIDATION_ERROR`        | 400             | バリデーションエラー（動画ID形式不正等）             |
-| `DUPLICATE_VIDEO`         | 400             | 指定された動画は既に登録されています                 |
-| `VIDEO_NOT_FOUND`         | 404             | 指定された動画が見つかりません（削除済み等）         |
-| `NICONICO_API_ERROR`      | 502             | ニコニコ動画APIへのアクセスに失敗しました            |
-| `BATCH_SUBMIT_FAILED`     | 500             | バッチジョブの投入に失敗しました                     |
-| `DATABASE_ERROR`          | 500             | データベースへのアクセスに失敗しました               |
-| `ENCRYPTION_ERROR`        | 500             | パスワードの暗号化に失敗しました                     |
-| `INTERNAL_ERROR`          | 500             | 内部エラーが発生しました                             |
+| コード                | HTTP ステータス | 説明                                         |
+| --------------------- | --------------- | -------------------------------------------- |
+| `UNAUTHORIZED`        | 401             | 認証が必要です。ログインしてください         |
+| `FORBIDDEN`           | 403             | このリソースへのアクセス権限がありません     |
+| `NOT_FOUND`           | 404             | 指定されたリソースが見つかりません           |
+| `INVALID_REQUEST`     | 400             | リクエストが不正です（必須パラメータ不足等） |
+| `VALIDATION_ERROR`    | 400             | バリデーションエラー（動画ID形式不正等）     |
+| `DUPLICATE_VIDEO`     | 400             | 指定された動画は既に登録されています         |
+| `VIDEO_NOT_FOUND`     | 404             | 指定された動画が見つかりません（削除済み等） |
+| `NICONICO_API_ERROR`  | 502             | ニコニコ動画APIへのアクセスに失敗しました    |
+| `BATCH_SUBMIT_FAILED` | 500             | バッチジョブの投入に失敗しました             |
+| `DATABASE_ERROR`      | 500             | データベースへのアクセスに失敗しました       |
+| `ENCRYPTION_ERROR`    | 500             | パスワードの暗号化に失敗しました             |
+| `INTERNAL_ERROR`      | 500             | 内部エラーが発生しました                     |
 
 ---
 
@@ -205,8 +205,8 @@ Content-Type: application/json
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": "{value2}"
+  "{field1}": "{value1}",
+  "{field2}": "{value2}"
 }
 ```
 
@@ -246,8 +246,8 @@ curl -X {METHOD} https://{service}.nagiyu.com/api/{path} \
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": "{value2}"
+  "{field1}": "{value1}",
+  "{field2}": "{value2}"
 }
 ```
 
@@ -325,9 +325,9 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-    "status": "ok",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0"
+  "status": "ok",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "version": "1.0.0"
 }
 ```
 
@@ -335,13 +335,13 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-    "status": "ok",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0",
-    "dependencies": {
-        "database": "ok",
-        "externalService": "ok"
-    }
+  "status": "ok",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "version": "1.0.0",
+  "dependencies": {
+    "database": "ok",
+    "externalService": "ok"
+  }
 }
 ```
 
@@ -349,13 +349,13 @@ curl https://{service}.nagiyu.com/api/health
 
 ```json
 {
-    "status": "degraded",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0",
-    "dependencies": {
-        "database": "error",
-        "externalService": "ok"
-    }
+  "status": "degraded",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "version": "1.0.0",
+  "dependencies": {
+    "database": "error",
+    "externalService": "ok"
+  }
 }
 ```
 
@@ -383,9 +383,9 @@ interface {Model} {
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": 123,
-    "{field3}": "{value3}"
+  "{field1}": "{value1}",
+  "{field2}": 123,
+  "{field3}": "{value3}"
 }
 ```
 
@@ -475,10 +475,10 @@ Retry-After: 60
 
 ```json
 {
-    "AllowedOrigins": ["https://{domain}"],
-    "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
-    "AllowedHeaders": ["*"],
-    "MaxAgeSeconds": 3600
+  "AllowedOrigins": ["https://{domain}"],
+  "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
+  "AllowedHeaders": ["*"],
+  "MaxAgeSeconds": 3600
 }
 ```
 
@@ -544,10 +544,10 @@ Content-Security-Policy: default-src 'self'
 
 ```json
 {
-    "event": "{event.name}",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "data": {
-        "{field}": "{value}"
-    }
+  "event": "{event.name}",
+  "timestamp": "2024-01-15T12:34:56.789Z",
+  "data": {
+    "{field}": "{value}"
+  }
 }
 ```
