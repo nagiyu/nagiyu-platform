@@ -1,24 +1,25 @@
 /**
  * NextAuth.js Session Management
  *
- * Web層でのセッション取得を担当
- * 認証・認可ロジックは core/services/auth.ts に実装
+ * Auth サービスから発行された JWT を検証し、セッション情報を返す。
+ * Admin サービスと同じ実装パターンを使用。
  */
 
+import { auth } from '../auth';
 import type { Session } from '@nagiyu/common';
 
 /**
  * セッション情報を取得する
  *
- * TODO: NextAuth.js統合後に実装
- * 現在はモックセッションを返す（開発用）
+ * Auth サービスから発行された JWT を検証し、セッション情報を返す。
+ *
+ * テスト環境で SKIP_AUTH_CHECK=true の場合、モックセッションを返します。
  *
  * @returns セッション情報、未認証の場合は null
  */
 export async function getSession(): Promise<Session | null> {
-  // TODO: Phase 0.6 完了後、NextAuth.js の auth() を使用
   // テスト環境で認証をスキップする場合、モックセッションを返す
-  if (process.env.SKIP_AUTH_CHECK === 'true' || process.env.NODE_ENV === 'development') {
+  if (process.env.SKIP_AUTH_CHECK === 'true') {
     return {
       user: {
         userId: process.env.TEST_USER_ID || 'test-user-id',
@@ -33,12 +34,23 @@ export async function getSession(): Promise<Session | null> {
     };
   }
 
-  // TODO: NextAuth.js統合後に以下を有効化
-  // const session = await auth();
-  // if (!session?.user) {
-  //   return null;
-  // }
-  // return session;
+  const session = await auth();
 
-  return null;
+  if (!session?.user) {
+    return null;
+  }
+
+  // NextAuth session を @nagiyu/common Session 形式に変換
+  return {
+    user: {
+      userId: session.user.id || '',
+      googleId: '', // NextAuth の token から取得する場合は実装が必要
+      email: session.user.email || '',
+      name: session.user.name || '',
+      roles: session.user.roles || [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    expires: session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  };
 }

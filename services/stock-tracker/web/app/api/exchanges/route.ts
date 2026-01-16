@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { hasPermission } from '@nagiyu/common';
 import { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBDocClient, getDynamoDBTableName } from '../../../lib/aws-clients';
-import { getSession } from '../../../lib/auth/session';
+import { getSession } from '../../../lib/auth';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
