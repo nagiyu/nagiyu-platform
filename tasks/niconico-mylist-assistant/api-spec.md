@@ -151,8 +151,9 @@ Content-Type: application/json
 | カテゴリ         | エンドポイント数 | 説明                                          |
 | ---------------- | ---------------- | --------------------------------------------- |
 | ヘルスチェック   | 1                | サービス稼働状況の確認                        |
-| 動画管理         | 3                | 動画基本情報の参照と更新                      |
-| ユーザー設定管理 | 4                | ユーザー設定の CRUD 操作                      |
+| 動画データ取得   | 2                | 動画基本情報 + ユーザー設定の結合データ取得   |
+| 動画基本情報管理 | 3                | 動画基本情報の CUD 操作                       |
+| ユーザー設定管理 | 3                | ユーザー設定の CUD 操作                       |
 | 一括インポート   | 1                | ニコニコ動画 API から動画情報を一括取得・保存 |
 | バッチジョブ管理 | 2                | マイリスト登録バッチの投入とステータス確認    |
 
@@ -161,12 +162,12 @@ Content-Type: application/json
 | メソッド | パス                              | 説明                         | 認証 | 備考                                     |
 | -------- | --------------------------------- | ---------------------------- | ---- | ---------------------------------------- |
 | GET      | `/api/health`                     | ヘルスチェック               | 不要 | サービス稼働状況の確認                   |
-| GET      | `/api/videos`                     | 動画一覧取得                 | 必須 | 認証ユーザーの動画データのみ取得         |
-| GET      | `/api/videos/{videoId}`           | 動画詳細取得                 | 必須 | 動画基本情報 + ユーザー設定を取得        |
+| GET      | `/api/videos`                     | 動画一覧取得                 | 必須 | 動画基本情報 + ユーザー設定の結合データ  |
+| GET      | `/api/videos/{videoId}`           | 動画詳細取得                 | 必須 | 動画基本情報 + ユーザー設定の結合データ  |
 | POST     | `/api/videos/bulk-import`         | 動画一括インポート           | 必須 | 動画 ID リストから動画基本情報を一括取得 |
+| POST     | `/api/videos/basic`               | 動画基本情報作成             | 必須 | 動画基本情報を新規作成                   |
 | PUT      | `/api/videos/{videoId}/basic`     | 動画基本情報更新             | 必須 | タイトル・サムネイル等の更新             |
-| GET      | `/api/user-settings`              | ユーザー設定一覧取得         | 必須 | 認証ユーザーの全ユーザー設定を取得       |
-| GET      | `/api/user-settings/{videoId}`    | ユーザー設定取得             | 必須 | 特定動画のユーザー設定を取得             |
+| DELETE   | `/api/videos/{videoId}/basic`     | 動画基本情報削除             | 必須 | 動画基本情報を削除（全ユーザーから削除） |
 | POST     | `/api/user-settings/{videoId}`    | ユーザー設定作成             | 必須 | お気に入り・スキップフラグ・メモを作成   |
 | PUT      | `/api/user-settings/{videoId}`    | ユーザー設定更新             | 必須 | お気に入り・スキップフラグ・メモを更新   |
 | DELETE   | `/api/user-settings/{videoId}`    | ユーザー設定削除             | 必須 | ユーザー設定を削除（動画基本情報は保持） |
@@ -279,10 +280,10 @@ curl https://niconico-mylist.nagiyu.com/api/health
 
 ---
 
-### 3.2 動画管理 API
+### 3.2 動画データ取得 API
 
-動画基本情報の参照と更新を提供します。
-動画基本情報は全ユーザーで共有されるデータであり、変更は慎重に行う必要があります。
+動画基本情報とユーザー設定を結合したデータの取得（READ のみ）を提供します。
+認証ユーザーは自分のユーザー設定と結合された動画データのみアクセス可能です。
 
 #### 3.2.1 動画一覧取得
 
@@ -494,7 +495,125 @@ curl https://niconico-mylist.nagiyu.com/api/videos/sm12345678 \
 
 ---
 
-#### 3.2.3 動画基本情報更新
+### 3.3 動画基本情報管理 API
+
+動画基本情報の作成・更新・削除（CUD 操作）を提供します。
+動画基本情報は全ユーザーで共有されるデータであり、変更は慎重に行う必要があります。
+
+#### 3.3.1 動画基本情報作成
+
+新しい動画基本情報を作成します。一括インポートAPIを使用せず、個別に動画情報を登録する場合に使用します。
+
+##### エンドポイント
+
+```
+POST /api/videos/basic
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### リクエストボディ
+
+```json
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30"
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド   | 型     | 必須 | 説明                        |
+| ------------ | ------ | ---- | --------------------------- |
+| videoId      | string | ✅   | 動画 ID（例: `sm12345678`） |
+| title        | string | ✅   | 動画タイトル                |
+| thumbnailUrl | string | ✅   | サムネイル画像 URL          |
+| length       | string | ✅   | 再生時間（例: `5:30`）      |
+
+##### リクエスト例
+
+```http
+POST /api/videos/basic HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30"
+}
+```
+
+```bash
+curl -X POST https://niconico-mylist.nagiyu.com/api/videos/basic \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "videoId": "sm12345678",
+        "title": "サンプル動画タイトル",
+        "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+        "length": "5:30"
+    }'
+```
+
+##### レスポンス (201 Created)
+
+```json
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30",
+    "videoCreatedAt": "2026-01-16T10:30:00.000Z"
+}
+```
+
+##### エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "videoId は必須です"
+    }
+}
+
+// 400 Bad Request
+{
+    "error": {
+        "code": "DUPLICATE_VIDEO",
+        "message": "指定された動画は既に登録されています"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+#### 3.3.2 動画基本情報更新
 
 動画基本情報（タイトル、サムネイル URL、再生時間）を更新します。
 このエンドポイントは、ニコニコ動画側で情報が変更された場合に使用します。
@@ -609,110 +728,14 @@ curl -X PUT https://niconico-mylist.nagiyu.com/api/videos/sm12345678/basic \
 
 ---
 
-### 3.3 ユーザー設定管理 API
+#### 3.3.3 動画基本情報削除
 
-ユーザー固有の設定（お気に入りフラグ、スキップフラグ、メモ）の CRUD 操作を提供します。
-すべてのエンドポイントで認証が必須であり、ユーザーは自分の設定のみアクセス可能です。
-
-#### 3.3.1 ユーザー設定一覧取得
-
-認証ユーザーの全ユーザー設定を取得します。
+動画基本情報を削除します。全ユーザーから動画が削除されるため、慎重に使用する必要があります。
 
 ##### エンドポイント
 
 ```
-GET /api/user-settings
-```
-
-##### 必要な権限
-
-- `niconico-mylist:use`
-
-##### クエリパラメータ
-
-| パラメータ   | 型      | 必須 | デフォルト | 説明                                       |
-| ------------ | ------- | ---- | ---------- | ------------------------------------------ |
-| limit        | number  | -    | 50         | 取得件数（最大 100）                       |
-| offset       | number  | -    | 0          | 開始位置                                   |
-
-##### リクエスト例
-
-```http
-GET /api/user-settings?limit=10 HTTP/1.1
-Host: niconico-mylist.nagiyu.com
-Cookie: nagiyu-session={jwt-token}
-```
-
-```bash
-curl https://niconico-mylist.nagiyu.com/api/user-settings?limit=10 \
-    -b "nagiyu-session={jwt-token}"
-```
-
-##### レスポンス (200 OK)
-
-```json
-{
-    "settings": [
-        {
-            "videoId": "sm12345678",
-            "isFavorite": true,
-            "isSkip": false,
-            "memo": "お気に入りの曲",
-            "createdAt": "2026-01-16T10:30:00.000Z",
-            "updatedAt": "2026-01-16T12:00:00.000Z"
-        }
-    ],
-    "total": 250,
-    "limit": 10,
-    "offset": 0
-}
-```
-
-##### レスポンスフィールド
-
-| フィールド              | 型      | 説明                            |
-| ----------------------- | ------- | ------------------------------- |
-| settings                | array   | ユーザー設定の配列              |
-| settings[].videoId      | string  | 動画 ID（例: `sm12345678`）     |
-| settings[].isFavorite   | boolean | お気に入りフラグ                |
-| settings[].isSkip       | boolean | スキップフラグ                  |
-| settings[].memo         | string  | ユーザーメモ（オプション）      |
-| settings[].createdAt    | string  | 作成日時（ISO 8601 形式）       |
-| settings[].updatedAt    | string  | 更新日時（ISO 8601 形式）       |
-| total                   | number  | 総件数                          |
-| limit                   | number  | 取得件数                        |
-| offset                  | number  | 開始位置                        |
-
-##### エラーレスポンス
-
-```json
-// 401 Unauthorized
-{
-    "error": {
-        "code": "UNAUTHORIZED",
-        "message": "認証が必要です。ログインしてください"
-    }
-}
-
-// 500 Internal Server Error
-{
-    "error": {
-        "code": "DATABASE_ERROR",
-        "message": "データベースへのアクセスに失敗しました"
-    }
-}
-```
-
----
-
-#### 3.3.2 ユーザー設定取得
-
-特定動画のユーザー設定を取得します。
-
-##### エンドポイント
-
-```
-GET /api/user-settings/{videoId}
+DELETE /api/videos/{videoId}/basic
 ```
 
 ##### 必要な権限
@@ -728,13 +751,13 @@ GET /api/user-settings/{videoId}
 ##### リクエスト例
 
 ```http
-GET /api/user-settings/sm12345678 HTTP/1.1
+DELETE /api/videos/sm12345678/basic HTTP/1.1
 Host: niconico-mylist.nagiyu.com
 Cookie: nagiyu-session={jwt-token}
 ```
 
 ```bash
-curl https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
+curl -X DELETE https://niconico-mylist.nagiyu.com/api/videos/sm12345678/basic \
     -b "nagiyu-session={jwt-token}"
 ```
 
@@ -742,25 +765,10 @@ curl https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
 
 ```json
 {
-    "videoId": "sm12345678",
-    "isFavorite": true,
-    "isSkip": false,
-    "memo": "お気に入りの曲",
-    "createdAt": "2026-01-16T10:30:00.000Z",
-    "updatedAt": "2026-01-16T12:00:00.000Z"
+    "success": true,
+    "message": "動画基本情報を削除しました"
 }
 ```
-
-##### レスポンスフィールド
-
-| フィールド  | 型      | 説明                        |
-| ----------- | ------- | --------------------------- |
-| videoId     | string  | 動画 ID（例: `sm12345678`） |
-| isFavorite  | boolean | お気に入りフラグ            |
-| isSkip      | boolean | スキップフラグ              |
-| memo        | string  | ユーザーメモ（オプション）  |
-| createdAt   | string  | 作成日時（ISO 8601 形式）   |
-| updatedAt   | string  | 更新日時（ISO 8601 形式）   |
 
 ##### エラーレスポンス
 
@@ -777,7 +785,7 @@ curl https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
 {
     "error": {
         "code": "NOT_FOUND",
-        "message": "指定されたユーザー設定が見つかりません"
+        "message": "指定された動画が見つかりません"
     }
 }
 
@@ -792,7 +800,12 @@ curl https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
 
 ---
 
-#### 3.3.3 ユーザー設定作成
+### 3.4 ユーザー設定管理 API
+
+ユーザー固有の設定（お気に入りフラグ、スキップフラグ、メモ）の作成・更新・削除（CUD 操作）を提供します。
+すべてのエンドポイントで認証が必須であり、ユーザーは自分の設定のみアクセス可能です。
+
+#### 3.4.1 ユーザー設定作成
 
 新しいユーザー設定を作成します。
 
@@ -906,7 +919,7 @@ curl -X POST https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
 
 ---
 
-#### 3.3.4 ユーザー設定更新
+#### 3.4.2 ユーザー設定更新
 
 既存のユーザー設定を更新します。
 
@@ -1022,7 +1035,7 @@ curl -X PUT https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
 
 ---
 
-#### 3.3.5 ユーザー設定削除
+#### 3.4.3 ユーザー設定削除
 
 ユーザー設定を削除します。動画基本情報は削除されません。
 
@@ -1094,11 +1107,11 @@ curl -X DELETE https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
 
 ---
 
-### 3.4 一括インポート API
+### 3.5 一括インポート API
 
 動画 ID のリストからニコニコ動画 API (`getthumbinfo`) を使用して動画基本情報を取得し、DynamoDB に一括保存します。
 
-#### 3.4.1 動画一括インポート
+#### 3.5.1 動画一括インポート
 
 複数の動画 ID を指定して、動画基本情報を一括取得・保存します。
 動画基本情報の保存と同時に、認証ユーザーのユーザー設定も自動作成されます。
@@ -1228,11 +1241,11 @@ curl -X POST https://niconico-mylist.nagiyu.com/api/videos/bulk-import \
 
 ---
 
-### 3.5 バッチジョブ管理 API
+### 3.6 バッチジョブ管理 API
 
 マイリスト一括登録バッチの投入とステータス確認を行います。
 
-#### 3.5.1 バッチジョブ投入
+#### 3.6.1 バッチジョブ投入
 
 条件指定により動画を選択し、AWS Batch でマイリストに一括登録するジョブを投入します。
 
@@ -1386,7 +1399,7 @@ curl -X POST https://niconico-mylist.nagiyu.com/api/batch/submit \
 
 ---
 
-#### 3.5.2 バッチステータス確認
+#### 3.6.2 バッチステータス確認
 
 投入したバッチジョブの実行状況と結果を確認します。
 
