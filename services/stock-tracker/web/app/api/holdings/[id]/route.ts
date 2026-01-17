@@ -55,7 +55,11 @@ interface ErrorResponse {
 /**
  * Holding エンティティをレスポンス形式に変換
  */
-function mapHoldingToResponse(holding: Holding, tickerSymbol: string, tickerName: string): HoldingResponse {
+function mapHoldingToResponse(
+  holding: Holding,
+  tickerSymbol: string,
+  tickerName: string
+): HoldingResponse {
   // HoldingID は UserID と TickerID の組み合わせ
   const holdingId = `${holding.UserID}#${holding.TickerID}`;
 
@@ -114,7 +118,7 @@ export async function PUT(
 
     // paramsを await で取得 (Next.js 15+)
     const resolvedParams = await params;
-    
+
     // HoldingID をパース
     const holdingId = resolvedParams.id;
     const parsedId = parseHoldingId(holdingId);
@@ -255,7 +259,7 @@ export async function DELETE(
 
     // paramsを await で取得 (Next.js 15+)
     const resolvedParams = await params;
-    
+
     // HoldingID をパース
     const holdingId = resolvedParams.id;
     const parsedId = parseHoldingId(holdingId);

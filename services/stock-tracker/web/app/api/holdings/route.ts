@@ -57,7 +57,11 @@ interface ErrorResponse {
 /**
  * Holding エンティティをレスポンス形式に変換
  */
-function mapHoldingToResponse(holding: Holding, tickerSymbol: string, tickerName: string): HoldingResponse {
+function mapHoldingToResponse(
+  holding: Holding,
+  tickerSymbol: string,
+  tickerName: string
+): HoldingResponse {
   // HoldingID は UserID と TickerID の組み合わせ
   const holdingId = `${holding.UserID}#${holding.TickerID}`;
 
