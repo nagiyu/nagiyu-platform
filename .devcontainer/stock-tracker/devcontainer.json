@@ -8,7 +8,14 @@
 		"AWS_ACCESS_KEY_ID": "",
 		"AWS_SECRET_ACCESS_KEY": "",
 		"AWS_REGION": "",
-		"GITHUB_TOKEN": ""
+		"GITHUB_TOKEN": "",
+		"DYNAMODB_TABLE_NAME": "nagiyu-stock-tracker-main-dev",
+		"VAPID_PUBLIC_KEY": "",
+		"VAPID_PRIVATE_KEY": "",
+		"AUTH_URL": "",
+		"NEXT_PUBLIC_AUTH_URL": "http://localhost:3000",
+		"APP_URL": "http://localhost:3000",
+		"SKIP_AUTH_CHECK": "true"
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
