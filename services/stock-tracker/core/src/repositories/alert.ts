@@ -319,7 +319,8 @@ export class AlertRepository {
       expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
       expressionAttributeValues[':updatedAt'] = now;
 
-      if (updateExpressions.length === 1) {
+      const ONLY_UPDATED_AT_FIELD = 1;
+      if (updateExpressions.length === ONLY_UPDATED_AT_FIELD) {
         // UpdatedAt のみの更新（他のフィールドが指定されていない）
         throw new InvalidAlertDataError('更新するフィールドが指定されていません');
       }
