@@ -161,6 +161,14 @@ describe('AlertRepository', () => {
       expect(result.items).toEqual([]);
       expect(result.lastKey).toBeUndefined();
     });
+
+    it('データベースエラーが発生した場合は例外をスロー', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getByUserId('user-123')).rejects.toThrow(
+        'データベースエラーが発生しました'
+      );
+    });
   });
 
   describe('getByFrequency', () => {
@@ -274,6 +282,14 @@ describe('AlertRepository', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('データベースエラーが発生した場合は例外をスロー', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getByFrequency('MINUTE_LEVEL')).rejects.toThrow(
+        'データベースエラーが発生しました'
+      );
+    });
   });
 
   describe('getById', () => {
@@ -345,6 +361,14 @@ describe('AlertRepository', () => {
       const result = await repository.getById('user-123', 'nonexistent');
 
       expect(result).toBeNull();
+    });
+
+    it('データベースエラーが発生した場合は例外をスロー', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.getById('user-123', 'alert-1')).rejects.toThrow(
+        'データベースエラーが発生しました'
+      );
     });
   });
 
@@ -439,6 +463,27 @@ describe('AlertRepository', () => {
             }),
           }),
         })
+      );
+    });
+
+    it('データベースエラーが発生した場合は例外をスロー', async () => {
+      const alertData: Omit<Alert, 'AlertID' | 'CreatedAt' | 'UpdatedAt'> = {
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'test-p256dh-key',
+        SubscriptionKeysAuth: 'test-auth-key',
+      };
+
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.create(alertData)).rejects.toThrow(
+        'データベースエラーが発生しました'
       );
     });
   });
@@ -591,6 +636,87 @@ describe('AlertRepository', () => {
       expect(result.UpdatedAt).toBe(mockNow);
     });
 
+    it('アラートの複数フィールドを更新できる', async () => {
+      const existingAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'test-p256dh-key',
+        SubscriptionKeysAuth: 'test-auth-key',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const newConditionList: AlertCondition[] = [
+        { field: 'price', operator: 'gte', value: 250.0 },
+      ];
+
+      const updatedAlert: Alert = {
+        ...existingAlert,
+        TickerID: 'NSDQ:NVDA',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        ConditionList: newConditionList,
+        SubscriptionEndpoint: 'https://new.example.com/push',
+        SubscriptionKeysP256dh: 'new-p256dh-key',
+        SubscriptionKeysAuth: 'new-auth-key',
+        UpdatedAt: 1704153600000,
+      };
+
+      // getById (存在確認)
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'USER#user-123',
+          SK: 'ALERT#alert-1',
+          Type: 'Alert',
+          ...existingAlert,
+        },
+        $metadata: {},
+      });
+
+      // update
+      mockDocClient.send.mockResolvedValueOnce({
+        $metadata: {},
+      });
+
+      // getById (更新後の取得)
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'USER#user-123',
+          SK: 'ALERT#alert-1',
+          Type: 'Alert',
+          ...updatedAlert,
+        },
+        $metadata: {},
+      });
+
+      const mockNow = 1704153600000;
+      jest.spyOn(Date, 'now').mockReturnValue(mockNow);
+
+      const result = await repository.update('user-123', 'alert-1', {
+        TickerID: 'NSDQ:NVDA',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        ConditionList: newConditionList,
+        SubscriptionEndpoint: 'https://new.example.com/push',
+        SubscriptionKeysP256dh: 'new-p256dh-key',
+        SubscriptionKeysAuth: 'new-auth-key',
+      });
+
+      expect(result.TickerID).toBe('NSDQ:NVDA');
+      expect(result.Mode).toBe('Buy');
+      expect(result.ConditionList[0].value).toBe(250.0);
+      expect(result.SubscriptionEndpoint).toBe('https://new.example.com/push');
+      expect(result.SubscriptionKeysP256dh).toBe('new-p256dh-key');
+      expect(result.SubscriptionKeysAuth).toBe('new-auth-key');
+    });
+
     it('頻度を更新するとGSI2PKも更新される', async () => {
       const existingAlert: Alert = {
         AlertID: 'alert-1',
@@ -712,6 +838,42 @@ describe('AlertRepository', () => {
         InvalidAlertDataError
       );
     });
+
+    it('データベースエラーが発生した場合は例外をスロー', async () => {
+      const existingAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'test-p256dh-key',
+        SubscriptionKeysAuth: 'test-auth-key',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      // getById (存在確認)
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'USER#user-123',
+          SK: 'ALERT#alert-1',
+          Type: 'Alert',
+          ...existingAlert,
+        },
+        $metadata: {},
+      });
+
+      // update でエラー
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(
+        repository.update('user-123', 'alert-1', { Enabled: false })
+      ).rejects.toThrow('データベースエラーが発生しました');
+    });
   });
 
   describe('delete', () => {
@@ -774,6 +936,42 @@ describe('AlertRepository', () => {
 
       await expect(repository.delete('user-123', 'nonexistent')).rejects.toThrow(
         AlertNotFoundError
+      );
+    });
+
+    it('データベースエラーが発生した場合は例外をスロー', async () => {
+      const existingAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'test-p256dh-key',
+        SubscriptionKeysAuth: 'test-auth-key',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      // getById (存在確認)
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'USER#user-123',
+          SK: 'ALERT#alert-1',
+          Type: 'Alert',
+          ...existingAlert,
+        },
+        $metadata: {},
+      });
+
+      // delete でエラー
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(repository.delete('user-123', 'alert-1')).rejects.toThrow(
+        'データベースエラーが発生しました'
       );
     });
   });
