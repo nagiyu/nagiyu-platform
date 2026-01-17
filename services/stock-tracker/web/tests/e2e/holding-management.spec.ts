@@ -133,8 +133,8 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     // 何も入力せずに保存ボタンをクリック
     await page.getByRole('button', { name: '保存' }).click();
 
-    // エラーメッセージが表示される
-    await expect(page.getByText('この項目は必須です')).toBeVisible();
+    // エラーメッセージが表示される（複数フィールドで同じメッセージが表示される可能性があるため、.first()を使用）
+    await expect(page.getByText('この項目は必須です').first()).toBeVisible();
 
     // 不正な数値を入力
     await page.locator('#create-quantity').fill('-1');
