@@ -15,7 +15,8 @@
 		"AUTH_URL": "",
 		"NEXT_PUBLIC_AUTH_URL": "http://localhost:3000",
 		"APP_URL": "http://localhost:3000",
-		"SKIP_AUTH_CHECK": "true"
+		"SKIP_AUTH_CHECK": "true",
+		"TEST_USER_ROLES": "stock-admin"
 	},
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
