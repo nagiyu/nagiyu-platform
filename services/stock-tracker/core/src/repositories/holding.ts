@@ -25,7 +25,7 @@ const ERROR_MESSAGES = {
 // カスタムエラークラス
 export class HoldingNotFoundError extends Error {
   constructor(userId: string, tickerId: string) {
-    super(`${ERROR_MESSAGES.HOLDING_NOT_FOUND}: UserID=${userId}, TickerID=${tickerId}`);
+    super(`${ERROR_MESSAGES.HOLDING_NOT_FOUND}: UserID=${userId} TickerID=${tickerId}`);
     this.name = 'HoldingNotFoundError';
   }
 }
@@ -39,7 +39,7 @@ export class InvalidHoldingDataError extends Error {
 
 export class HoldingAlreadyExistsError extends Error {
   constructor(userId: string, tickerId: string) {
-    super(`${ERROR_MESSAGES.HOLDING_ALREADY_EXISTS}: UserID=${userId}, TickerID=${tickerId}`);
+    super(`${ERROR_MESSAGES.HOLDING_ALREADY_EXISTS}: UserID=${userId} TickerID=${tickerId}`);
     this.name = 'HoldingAlreadyExistsError';
   }
 }
@@ -222,6 +222,11 @@ export class HoldingRepository {
       const expressionAttributeNames: Record<string, string> = {};
       const expressionAttributeValues: Record<string, string | number> = {};
 
+      // 更新するフィールドが指定されていない場合はエラー
+      if (Object.keys(updates).length === 0) {
+        throw new InvalidHoldingDataError('更新するフィールドが指定されていません');
+      }
+
       if (updates.Quantity !== undefined) {
         updateExpressions.push('#quantity = :quantity');
         expressionAttributeNames['#quantity'] = 'Quantity';
@@ -245,11 +250,6 @@ export class HoldingRepository {
       updateExpressions.push('#updatedAt = :updatedAt');
       expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
       expressionAttributeValues[':updatedAt'] = now;
-
-      if (updateExpressions.length === 1) {
-        // UpdatedAt のみの更新（他のフィールドが指定されていない）
-        throw new InvalidHoldingDataError('更新するフィールドが指定されていません');
-      }
 
       await this.docClient.send(
         new UpdateCommand({
