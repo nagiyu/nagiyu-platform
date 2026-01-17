@@ -494,3 +494,82 @@ export function validateAlert(alert: unknown): ValidationResult {
 
   return errors.length === 0 ? { valid: true } : { valid: false, errors };
 }
+
+/**
+ * ティッカー作成データのバリデーション（POST用）
+ *
+ * @param data - 作成データ（Symbol, Name, ExchangeID）
+ * @returns バリデーション結果
+ */
+export function validateTickerCreateData(data: unknown): ValidationResult {
+  const errors: string[] = [];
+
+  // null/undefined チェック
+  if (data === null || data === undefined) {
+    return { valid: false, errors: ['ティッカーデータが指定されていません'] };
+  }
+
+  // 型チェック
+  if (typeof data !== 'object') {
+    return { valid: false, errors: ['ティッカーデータが不正です'] };
+  }
+
+  const d = data as Partial<{ symbol: string; name: string; exchangeId: string }>;
+
+  // Symbol
+  if (!d.symbol || typeof d.symbol !== 'string') {
+    errors.push(ERROR_MESSAGES.TICKER_SYMBOL_REQUIRED);
+  } else if (!/^[A-Z0-9]{1,20}$/.test(d.symbol)) {
+    errors.push(ERROR_MESSAGES.TICKER_SYMBOL_INVALID_FORMAT);
+  }
+
+  // Name
+  if (!d.name || typeof d.name !== 'string' || !isNonEmptyString(d.name)) {
+    errors.push(ERROR_MESSAGES.TICKER_NAME_REQUIRED);
+  } else if (d.name.length > 200) {
+    errors.push(ERROR_MESSAGES.TICKER_NAME_TOO_LONG);
+  }
+
+  // ExchangeID
+  if (!d.exchangeId || typeof d.exchangeId !== 'string' || !isNonEmptyString(d.exchangeId)) {
+    errors.push(ERROR_MESSAGES.TICKER_EXCHANGE_ID_REQUIRED);
+  }
+
+  return errors.length === 0 ? { valid: true } : { valid: false, errors };
+}
+
+/**
+ * ティッカー更新データのバリデーション（PUT用）
+ *
+ * @param data - 更新データ（name のみ）
+ * @returns バリデーション結果
+ */
+export function validateTickerUpdateData(data: unknown): ValidationResult {
+  const errors: string[] = [];
+
+  // null/undefined チェック
+  if (data === null || data === undefined) {
+    return { valid: false, errors: ['ティッカーデータが指定されていません'] };
+  }
+
+  // 型チェック
+  if (typeof data !== 'object') {
+    return { valid: false, errors: ['ティッカーデータが不正です'] };
+  }
+
+  const d = data as Partial<{ name: string }>;
+
+  // 更新フィールドがない場合
+  if (d.name === undefined) {
+    errors.push('更新する内容を指定してください');
+  } else {
+    // Name
+    if (typeof d.name !== 'string' || !isNonEmptyString(d.name)) {
+      errors.push(ERROR_MESSAGES.TICKER_NAME_REQUIRED);
+    } else if (d.name.length > 200) {
+      errors.push(ERROR_MESSAGES.TICKER_NAME_TOO_LONG);
+    }
+  }
+
+  return errors.length === 0 ? { valid: true } : { valid: false, errors };
+}

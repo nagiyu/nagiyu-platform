@@ -17,6 +17,7 @@ import {
   ExchangeRepository,
   getAuthError,
   TickerAlreadyExistsError,
+  validateTickerCreateData,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
@@ -27,11 +28,6 @@ import { getSession } from '../../../lib/auth';
 const ERROR_MESSAGES = {
   INVALID_LIMIT: 'limit は 1 から 100 の間で指定してください',
   INTERNAL_ERROR: 'ティッカー一覧の取得に失敗しました',
-  SYMBOL_REQUIRED: 'シンボルは必須です',
-  SYMBOL_INVALID_FORMAT: 'シンボルは1-20文字の英大文字と数字のみ使用できます',
-  NAME_REQUIRED: '銘柄名は必須です',
-  NAME_TOO_LONG: '銘柄名は200文字以内で入力してください',
-  EXCHANGE_ID_REQUIRED: '取引所IDは必須です',
   EXCHANGE_NOT_FOUND: '取引所が見つかりません',
   TICKER_CREATE_FAILED: 'ティッカーの作成に失敗しました',
   TICKER_ALREADY_EXISTS: 'ティッカーは既に存在します',
@@ -217,52 +213,13 @@ export async function POST(
       );
     }
 
-    // バリデーション: Symbol
-    if (!body.symbol || typeof body.symbol !== 'string') {
+    // バリデーション
+    const validationResult = validateTickerCreateData(body);
+    if (!validationResult.valid) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.SYMBOL_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-    if (!/^[A-Z0-9]{1,20}$/.test(body.symbol)) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.SYMBOL_INVALID_FORMAT,
-        },
-        { status: 400 }
-      );
-    }
-
-    // バリデーション: Name
-    if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NAME_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-    if (body.name.length > 200) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NAME_TOO_LONG,
-        },
-        { status: 400 }
-      );
-    }
-
-    // バリデーション: ExchangeID
-    if (!body.exchangeId || typeof body.exchangeId !== 'string') {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.EXCHANGE_ID_REQUIRED,
+          message: validationResult.errors?.[0] || 'バリデーションエラー',
         },
         { status: 400 }
       );

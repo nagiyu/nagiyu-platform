@@ -8,7 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { TickerRepository, getAuthError, TickerNotFoundError } from '@nagiyu/stock-tracker-core';
+import {
+  TickerRepository,
+  getAuthError,
+  TickerNotFoundError,
+  validateTickerUpdateData,
+} from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
 
@@ -16,13 +21,10 @@ import { getSession } from '../../../../lib/auth';
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
-  NAME_REQUIRED: '銘柄名は必須です',
-  NAME_TOO_LONG: '銘柄名は200文字以内で入力してください',
   TICKER_NOT_FOUND: 'ティッカーが見つかりません',
   TICKER_UPDATE_FAILED: 'ティッカーの更新に失敗しました',
   TICKER_DELETE_FAILED: 'ティッカーの削除に失敗しました',
   RELATED_DATA_EXISTS: '関連するデータが存在するため削除できません',
-  NO_UPDATE_FIELDS: '更新する内容を指定してください',
   INVALID_REQUEST_BODY: 'リクエストボディが不正です',
 } as const;
 
@@ -100,32 +102,13 @@ export async function PUT(
       );
     }
 
-    // 更新内容のチェック - 空の場合は400エラー
-    if (body.name === undefined) {
+    // バリデーション
+    const validationResult = validateTickerUpdateData(body);
+    if (!validationResult.valid) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NO_UPDATE_FIELDS,
-        },
-        { status: 400 }
-      );
-    }
-
-    // バリデーション: Name
-    if (typeof body.name !== 'string' || body.name.trim() === '') {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NAME_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-    if (body.name.length > 200) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NAME_TOO_LONG,
+          message: validationResult.errors?.[0] || 'バリデーションエラー',
         },
         { status: 400 }
       );
