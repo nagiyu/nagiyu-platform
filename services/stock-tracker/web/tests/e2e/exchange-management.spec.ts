@@ -65,9 +65,9 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     await expect(page.locator('input[placeholder="NSDQ"]')).toBeVisible();
 
     // タイムゾーン選択、時間選択が表示される
-    await expect(modal.getByText('タイムゾーン')).toBeVisible();
-    await expect(modal.getByText('取引開始時間')).toBeVisible();
-    await expect(modal.getByText('取引終了時間')).toBeVisible();
+    await expect(modal.getByText('タイムゾーン', { exact: true }).first()).toBeVisible();
+    await expect(modal.getByText('取引開始時間', { exact: true }).first()).toBeVisible();
+    await expect(modal.getByText('取引終了時間', { exact: true }).first()).toBeVisible();
 
     // キャンセルボタンをクリック
     await page.locator('button:has-text("キャンセル")').click();
