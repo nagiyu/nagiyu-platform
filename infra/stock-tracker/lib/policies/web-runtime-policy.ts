@@ -18,11 +18,6 @@ export interface WebRuntimePolicyProps {
   vapidSecret: secretsmanager.ISecret;
 
   /**
-   * NextAuth シークレット（オプショナル）
-   */
-  authSecret?: secretsmanager.ISecret;
-
-  /**
    * 環境名 (例: 'dev', 'prod')
    */
   envName: string;
@@ -40,7 +35,7 @@ export interface WebRuntimePolicyProps {
  *
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem)
- * - Secrets Manager: VAPID キーと NextAuth Secret の読み取り
+ * - Secrets Manager: VAPID キーと Auth サービスの NextAuth Secret の読み取り
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
 export class WebRuntimePolicy extends iam.ManagedPolicy {
@@ -81,16 +76,19 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
       })
     );
 
-    // Secrets Manager 権限: NextAuth Secret 読み取り（オプショナル）
-    if (props.authSecret) {
-      this.addStatements(
-        new iam.PolicyStatement({
-          sid: 'SecretsManagerAuthAccess',
-          effect: iam.Effect.ALLOW,
-          actions: ['secretsmanager:GetSecretValue'],
-          resources: [props.authSecret.secretArn],
-        })
-      );
-    }
+    // Secrets Manager 権限: Auth サービスの NextAuth Secret 読み取り
+    // Stock Tracker は Auth サービスから発行された JWT を検証するため、
+    // Auth サービスと同じ NEXTAUTH_SECRET にアクセスする必要がある
+    this.addStatements(
+      new iam.PolicyStatement({
+        sid: 'SecretsManagerAuthAccess',
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          // リージョンとアカウントIDは Lambda Stack 内で解決される
+          `arn:aws:secretsmanager:*:*:secret:nagiyu-auth-nextauth-secret-${props.envName}-*`,
+        ],
+      })
+    );
   }
 }
