@@ -113,10 +113,9 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
           await expect(tickerSelect).toBeEnabled();
 
           // ティッカー選択値がリセットされていることを確認
-          // Material-UI Selectの内部input要素の値をチェック
-          const tickerInput = tickerSelect.locator('input[type="hidden"]');
-          const tickerValue = await tickerInput.inputValue();
-          expect(tickerValue).toBe('');
+          // 新しい取引所に切り替わった後、ティッカーセレクトは空の状態から始まる
+          // "選択してください" プレースホルダーが表示されることを確認
+          await expect(tickerSelect).toContainText('選択してください');
         }
       }
     }
