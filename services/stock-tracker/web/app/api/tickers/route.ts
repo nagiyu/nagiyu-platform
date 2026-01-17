@@ -36,6 +36,7 @@ const ERROR_MESSAGES = {
   EXCHANGE_NOT_FOUND: '取引所が見つかりません',
   TICKER_CREATE_FAILED: 'ティッカーの作成に失敗しました',
   TICKER_ALREADY_EXISTS: 'ティッカーは既に存在します',
+  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
 } as const;
 
 /**
@@ -204,7 +205,18 @@ export async function POST(
     }
 
     // リクエストボディの取得
-    const body: CreateTickerRequest = await request.json();
+    let body: CreateTickerRequest;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+        },
+        { status: 400 }
+      );
+    }
 
     // バリデーション: Symbol
     if (!body.symbol || typeof body.symbol !== 'string') {

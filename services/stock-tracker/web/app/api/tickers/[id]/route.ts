@@ -26,6 +26,8 @@ const ERROR_MESSAGES = {
   TICKER_UPDATE_FAILED: 'ティッカーの更新に失敗しました',
   TICKER_DELETE_FAILED: 'ティッカーの削除に失敗しました',
   RELATED_DATA_EXISTS: '関連するデータが存在するため削除できません',
+  NO_UPDATE_FIELDS: '更新する内容を指定してください',
+  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
 } as const;
 
 /**
@@ -89,14 +91,25 @@ export async function PUT(
     const { id: tickerId } = await params;
 
     // リクエストボディの取得
-    const body: UpdateTickerRequest = await request.json();
+    let body: UpdateTickerRequest;
+    try {
+      body = await request.json();
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+        },
+        { status: 400 }
+      );
+    }
 
     // 更新内容のチェック - 空の場合は400エラー
     if (body.name === undefined) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: '更新する内容を指定してください',
+          message: ERROR_MESSAGES.NO_UPDATE_FIELDS,
         },
         { status: 400 }
       );
