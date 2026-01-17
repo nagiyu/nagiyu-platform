@@ -38,6 +38,30 @@ const ERROR_MESSAGES = {
 } as const;
 
 /**
+ * カスタムエラークラス
+ */
+export class TickerNotFoundError extends Error {
+  constructor(tickerId: string) {
+    super(`${ERROR_MESSAGES.TICKER_NOT_FOUND}: ${tickerId}`);
+    this.name = 'TickerNotFoundError';
+  }
+}
+
+export class TickerAlreadyExistsError extends Error {
+  constructor(tickerId: string) {
+    super(`${ERROR_MESSAGES.TICKER_ALREADY_EXISTS}: ${tickerId}`);
+    this.name = 'TickerAlreadyExistsError';
+  }
+}
+
+export class InvalidTickerDataError extends Error {
+  constructor(message: string) {
+    super(`${ERROR_MESSAGES.INVALID_TICKER_ID}: ${message}`);
+    this.name = 'InvalidTickerDataError';
+  }
+}
+
+/**
  * Ticker リポジトリ
  */
 export class TickerRepository {
@@ -93,7 +117,7 @@ export class TickerRepository {
    *
    * @param tickerId - ティッカーID（例: NSDQ:AAPL）
    * @returns ティッカー
-   * @throws ティッカーが見つからない場合
+   * @throws TickerNotFoundError - ティッカーが見つからない場合
    */
   async getById(tickerId: string): Promise<Ticker> {
     try {
@@ -108,12 +132,12 @@ export class TickerRepository {
       );
 
       if (!result.Item) {
-        throw new Error(ERROR_MESSAGES.TICKER_NOT_FOUND);
+        throw new TickerNotFoundError(tickerId);
       }
 
       return this.mapDynamoDBItemToTicker(result.Item);
     } catch (error) {
-      if (error instanceof Error && error.message === ERROR_MESSAGES.TICKER_NOT_FOUND) {
+      if (error instanceof TickerNotFoundError) {
         throw error;
       }
       throw new Error(
@@ -161,7 +185,7 @@ export class TickerRepository {
    * @param ticker - 作成するティッカー（TickerIDは不要、自動生成される）
    * @param exchangeKey - 取引所のKey（TradingView API用）
    * @returns 作成されたティッカー（TickerID付き）
-   * @throws ティッカーが既に存在する場合
+   * @throws TickerAlreadyExistsError - ティッカーが既に存在する場合
    */
   async create(
     ticker: Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'>,
@@ -173,12 +197,15 @@ export class TickerRepository {
     // 既存チェック
     try {
       await this.getById(tickerId);
-      throw new Error(ERROR_MESSAGES.TICKER_ALREADY_EXISTS);
+      throw new TickerAlreadyExistsError(tickerId);
     } catch (error) {
-      if (error instanceof Error && error.message === ERROR_MESSAGES.TICKER_ALREADY_EXISTS) {
+      if (error instanceof TickerAlreadyExistsError) {
         throw error;
       }
-      // ティッカーが見つからない = OK（作成可能）
+      // TickerNotFoundError = OK（作成可能）
+      if (!(error instanceof TickerNotFoundError)) {
+        throw error;
+      }
     }
 
     const now = Date.now();
@@ -211,7 +238,7 @@ export class TickerRepository {
    * @param tickerId - ティッカーID
    * @param updates - 更新内容（Symbol, Name のみ更新可能）
    * @returns 更新後のティッカー
-   * @throws ティッカーが見つからない場合
+   * @throws TickerNotFoundError - ティッカーが見つからない場合
    */
   async update(
     tickerId: string,
@@ -261,7 +288,7 @@ export class TickerRepository {
       // 更新後のティッカーを取得して返す
       return await this.getById(tickerId);
     } catch (error) {
-      if (error instanceof Error && error.message === ERROR_MESSAGES.TICKER_NOT_FOUND) {
+      if (error instanceof TickerNotFoundError) {
         throw error;
       }
       throw new Error(
@@ -274,7 +301,7 @@ export class TickerRepository {
    * ティッカー削除
    *
    * @param tickerId - ティッカーID
-   * @throws ティッカーが見つからない場合
+   * @throws TickerNotFoundError - ティッカーが見つからない場合
    */
   async delete(tickerId: string): Promise<void> {
     // 存在チェック
