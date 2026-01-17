@@ -66,8 +66,8 @@ const snsStack = new SNSStack(app, `NagiyuStockTrackerSNS${envSuffix}`, {
 });
 
 // 5. Lambda スタック（Web + Batch × 3関数）
-// NextAuth Secret ARN（オプショナル）
-const authSecretArn = app.node.tryGetContext('authSecretArn');
+// NextAuth Secret（Auth サービスから取得、未指定の場合はプレースホルダー）
+const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
@@ -75,7 +75,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`,
   batchEcrRepositoryName: batchEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
   vapidSecret: secretsStack.vapidSecret,
-  authSecretArn,
+  nextAuthSecret,
   env: stackEnv,
   description: `Stock Tracker Lambda Functions - ${env} environment`,
 });

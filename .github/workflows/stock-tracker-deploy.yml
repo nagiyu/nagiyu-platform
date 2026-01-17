@@ -2,16 +2,16 @@ name: Stock Tracker - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'services/stock-tracker/**'
-      - 'infra/stock-tracker/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/stock-tracker-deploy.yml'
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    # paths:
+    #   - 'services/stock-tracker/**'
+    #   - 'infra/stock-tracker/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/stock-tracker-deploy.yml'
   workflow_dispatch:
 
 env:
@@ -227,13 +227,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.infrastructure-ecr.outputs.environment }}
+          parse-json-secrets: true
+
       - name: Deploy Application Stacks
         env:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
             --context env="$ENVIRONMENT" \
+            --context nextAuthSecret="$SECRET_VALUE" \
             --require-approval never \
             --all \
             --exclude "NagiyuStockTrackerWebECR${STACK_SUFFIX}" \

@@ -15,7 +15,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   batchEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
   vapidSecret: secretsmanager.ISecret;
-  authSecretArn?: string; // NextAuth Secret ARN (オプショナル)
+  nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
 /**
@@ -43,7 +43,7 @@ export class LambdaStack extends cdk.Stack {
       batchEcrRepositoryName,
       dynamoTable,
       vapidSecret,
-      authSecretArn,
+      nextAuthSecret,
     } = props;
 
     // ECR リポジトリの参照
@@ -58,17 +58,11 @@ export class LambdaStack extends cdk.Stack {
       batchEcrRepositoryName
     );
 
-    // NextAuth Secret の参照（オプショナル）
-    const authSecret = authSecretArn
-      ? secretsmanager.Secret.fromSecretCompleteArn(this, 'AuthSecret', authSecretArn)
-      : undefined;
-
     // マネージドポリシーの作成
     // Web Lambda と開発用 IAM ユーザーで共有
     this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
       dynamoTable,
       vapidSecret,
-      authSecret,
       envName: environment,
     });
 
@@ -110,7 +104,7 @@ export class LambdaStack extends cdk.Stack {
         AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
         NEXT_PUBLIC_AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
         APP_URL: environment === 'prod' ? 'https://stock-tracker.nagiyu.com' : 'https://dev-stock-tracker.nagiyu.com',
-        ...(authSecret ? { AUTH_SECRET: authSecret.secretValue.unsafeUnwrap() } : {}),
+        AUTH_SECRET: nextAuthSecret,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
