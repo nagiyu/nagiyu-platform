@@ -20,7 +20,7 @@ type Params = {
  * DELETE /api/watchlist/[id] - ウォッチリスト削除
  *
  * ウォッチリストから銘柄を削除します。
- * IDの形式: {tickerId} (例: NSDQ:AAPL)
+ * IDの形式: {userId}#{tickerId} (例: test-user-id#NSDQ:AAPL)
  *
  * 必要な権限: stocks:write-own
  *
@@ -53,8 +53,8 @@ export async function DELETE(_request: Request, { params }: Params) {
     // パスパラメータからIDを取得
     const { id } = await params;
 
-    // IDの形式チェック（TickerID: {Exchange.Key}:{Symbol}）
-    if (!id || typeof id !== 'string' || !id.includes(':')) {
+    // IDの形式チェック（watchlistId形式: {UserID}#{TickerID}）
+    if (!id || typeof id !== 'string') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -64,7 +64,19 @@ export async function DELETE(_request: Request, { params }: Params) {
       );
     }
 
-    const tickerId = id;
+    // watchlistIdからtickerIdを抽出（形式: {UserID}#{TickerID}）
+    const hashIndex = id.indexOf('#');
+    if (hashIndex === -1) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_ID_FORMAT,
+        },
+        { status: 400 }
+      );
+    }
+
+    const tickerId = id.substring(hashIndex + 1);
 
     // DynamoDB クライアントとテーブル名を取得
     const docClient = getDynamoDBClient();

@@ -192,8 +192,8 @@ test.describe('Watchlist 管理画面', () => {
 
         // 削除可能なアイテムが存在する場合のみテスト実行
         if (deleteButtonCount > 0) {
-          // 現在の行数を記録
-          const currentRows = await page.getByRole('row').count();
+          // 削除前の削除ボタンの数を記録（データ行の数と同じ）
+          const initialDeleteButtonCount = deleteButtonCount;
 
           await deleteButtons.first().click();
 
@@ -215,9 +215,10 @@ test.describe('Watchlist 管理画面', () => {
           // ネットワークが落ち着くまで待つ
           await page.waitForLoadState('networkidle');
 
-          // 行数が減っていることを確認
-          const updatedRows = await page.getByRole('row').count();
-          expect(updatedRows).toBeLessThan(currentRows);
+          // 削除後の削除ボタンの数を確認（1つ減っているはず）
+          const updatedDeleteButtons = page.getByRole('button', { name: '削除' });
+          const updatedDeleteButtonCount = await updatedDeleteButtons.count();
+          expect(updatedDeleteButtonCount).toBeLessThan(initialDeleteButtonCount);
         }
       }
     }
