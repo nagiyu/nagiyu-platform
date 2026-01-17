@@ -80,10 +80,14 @@ describe('WatchlistRepository', () => {
           input: expect.objectContaining({
             TableName: TABLE_NAME,
             IndexName: 'UserIndex',
-            KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+            KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
+            ExpressionAttributeNames: {
+              '#gsi1pk': 'GSI1PK',
+              '#gsi1sk': 'GSI1SK',
+            },
             ExpressionAttributeValues: {
-              ':pk': 'user-123',
-              ':sk': 'Watchlist#',
+              ':userId': 'user-123',
+              ':prefix': 'Watchlist#',
             },
             Limit: 50,
           }),
