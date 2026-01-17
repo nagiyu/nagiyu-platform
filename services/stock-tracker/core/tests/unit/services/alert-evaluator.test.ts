@@ -199,6 +199,7 @@ describe('Alert Evaluator Service', () => {
       UserID: 'user-123',
       TickerID: 'NSDQ:AAPL',
       ExchangeID: 'NASDAQ',
+      // Mode と operator の対応: gte (>=) は売りアラート、lte (<=) は買いアラート
       Mode: operator === 'gte' ? 'Sell' : 'Buy',
       Frequency: 'MINUTE_LEVEL',
       Enabled: true,
