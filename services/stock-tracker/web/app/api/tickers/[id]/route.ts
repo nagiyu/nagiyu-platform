@@ -91,26 +91,35 @@ export async function PUT(
     // リクエストボディの取得
     const body: UpdateTickerRequest = await request.json();
 
+    // 更新内容のチェック - 空の場合は400エラー
+    if (body.name === undefined) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: '更新する内容を指定してください',
+        },
+        { status: 400 }
+      );
+    }
+
     // バリデーション: Name
-    if (body.name !== undefined) {
-      if (typeof body.name !== 'string' || body.name.trim() === '') {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NAME_REQUIRED,
-          },
-          { status: 400 }
-        );
-      }
-      if (body.name.length > 200) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NAME_TOO_LONG,
-          },
-          { status: 400 }
-        );
-      }
+    if (typeof body.name !== 'string' || body.name.trim() === '') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.NAME_REQUIRED,
+        },
+        { status: 400 }
+      );
+    }
+    if (body.name.length > 200) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.NAME_TOO_LONG,
+        },
+        { status: 400 }
+      );
     }
 
     // DynamoDBクライアントとリポジトリの初期化
@@ -120,12 +129,9 @@ export async function PUT(
 
     // ティッカー更新
     try {
-      const updates: { Name?: string } = {};
-      if (body.name !== undefined) {
-        updates.Name = body.name;
-      }
-
-      const updatedTicker = await tickerRepo.update(tickerId, updates);
+      const updatedTicker = await tickerRepo.update(tickerId, {
+        Name: body.name,
+      });
 
       // レスポンス形式に変換
       const response: UpdateTickerResponse = {

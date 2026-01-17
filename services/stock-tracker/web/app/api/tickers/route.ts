@@ -227,7 +227,7 @@ export async function POST(
     }
 
     // バリデーション: Name
-    if (!body.name || typeof body.name !== 'string') {
+    if (typeof body.name !== 'string' || body.name.trim() === '') {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
