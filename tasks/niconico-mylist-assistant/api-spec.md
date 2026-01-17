@@ -1532,19 +1532,23 @@ curl https://niconico-mylist.nagiyu.com/api/batch/status/batch-job-20260116-1234
 
 ## 5. データモデル
 
-<!-- 記入ガイド: API で使用する主要なデータモデルを記述してください -->
+本セクションでは、API で使用する主要なデータモデルを定義します。
+すべてのモデルは TypeScript インターフェースとして定義され、JSON 形式でシリアライズされます。
 
-### 5.1 {Model}
+### 5.1 Video (動画基本情報)
 
-<!-- 記入ガイド: データモデルの説明を1-2行で記述してください -->
+ニコニコ動画から取得した動画のメタデータ。全ユーザーで共有される共通データです。
 
 #### スキーマ
 
 ```typescript
-interface {Model} {
-    {field1}: string;           // {説明}
-    {field2}: number;           // {説明}
-    {field3}?: string;          // {説明}（オプション）
+interface Video {
+    videoId: string;           // 動画ID（例: "sm12345678"）
+    title: string;             // 動画タイトル
+    thumbnailUrl: string;      // サムネイル画像URL
+    length: string;            // 再生時間（例: "5:30"）
+    videoCreatedAt: string;    // 動画基本情報の登録日時（ISO 8601形式）
+    videoUpdatedAt?: string;   // 動画基本情報の更新日時（ISO 8601形式、更新時のみ）
 }
 ```
 
@@ -1552,11 +1556,291 @@ interface {Model} {
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": 123,
-    "{field3}": "{value3}"
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30",
+    "videoCreatedAt": "2026-01-16T10:30:00.000Z"
 }
 ```
+
+#### 備考
+
+- ニコニコ動画API（`getthumbinfo`）から取得した情報を保存
+- DynamoDBに `VIDEO#{videoId}` として保存（全ユーザー共通）
+- 複数ユーザーが同じ動画を登録しても、動画基本情報は1つのみ保存される
+
+---
+
+### 5.2 UserSetting (ユーザー設定)
+
+各ユーザーが個別に設定する動画のメタデータ（お気に入りフラグ、スキップフラグ、メモ）。
+
+#### スキーマ
+
+```typescript
+interface UserSetting {
+    videoId: string;           // 動画ID
+    isFavorite: boolean;       // お気に入りフラグ（デフォルト: false）
+    isSkip: boolean;           // スキップフラグ（デフォルト: false）
+    memo?: string;             // ユーザーメモ（オプション）
+    createdAt: string;         // ユーザー設定の作成日時（ISO 8601形式）
+    updatedAt: string;         // ユーザー設定の更新日時（ISO 8601形式）
+}
+```
+
+#### 例
+
+```json
+{
+    "videoId": "sm12345678",
+    "isFavorite": true,
+    "isSkip": false,
+    "memo": "お気に入りの曲",
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T12:00:00.000Z"
+}
+```
+
+#### 備考
+
+- DynamoDBに `USER#{userId}` / `VIDEO#{videoId}` として保存（ユーザー固有）
+- ユーザーは自分のユーザー設定のみアクセス可能
+- お気に入りフラグとスキップフラグはマイリスト登録時のフィルタ条件として使用される
+
+---
+
+### 5.3 VideoData (動画データ)
+
+動画基本情報とユーザー設定を結合したデータ。API レスポンスで返される主要なデータモデル。
+
+#### スキーマ
+
+```typescript
+interface VideoData {
+    videoId: string;           // 動画ID（例: "sm12345678"）
+    title: string;             // 動画タイトル
+    thumbnailUrl: string;      // サムネイル画像URL
+    length: string;            // 再生時間（例: "5:30"）
+    videoCreatedAt: string;    // 動画基本情報の登録日時（ISO 8601形式）
+    userSetting?: UserSetting; // ユーザー設定（存在する場合のみ）
+}
+```
+
+#### 例
+
+```json
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30",
+    "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+    "userSetting": {
+        "videoId": "sm12345678",
+        "isFavorite": true,
+        "isSkip": false,
+        "memo": "お気に入りの曲",
+        "createdAt": "2026-01-16T10:30:00.000Z",
+        "updatedAt": "2026-01-16T12:00:00.000Z"
+    }
+}
+```
+
+#### 備考
+
+- `GET /api/videos` および `GET /api/videos/{videoId}` のレスポンスで使用
+- `userSetting` フィールドはオプションで、ユーザー設定が存在しない場合は `undefined`
+- 動画基本情報とユーザー設定は別々のDynamoDBエンティティとして保存されるが、API レスポンスでは結合される
+
+---
+
+### 5.4 BatchJob (バッチジョブ)
+
+マイリスト登録バッチジョブのステータスと結果を管理するモデル。
+
+#### スキーマ
+
+```typescript
+interface BatchJob {
+    jobId: string;                 // バッチジョブID（例: "batch-job-20260116-123456-abc123"）
+    status: BatchStatus;           // ジョブステータス
+    result?: BatchResult;          // 実行結果（完了時のみ）
+    createdAt: string;             // ジョブ作成日時（ISO 8601形式）
+    updatedAt: string;             // ジョブ更新日時（ISO 8601形式）
+    completedAt?: string;          // ジョブ完了日時（ISO 8601形式、完了時のみ）
+}
+
+type BatchStatus = "SUBMITTED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+
+interface BatchResult {
+    registeredCount: number;       // 登録成功した動画数
+    failedCount: number;           // 登録失敗した動画数
+    totalCount: number;            // 処理対象の総動画数
+    errorMessage?: string;         // エラーメッセージ（失敗時のみ）
+}
+```
+
+#### 例 (実行中)
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "RUNNING",
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:31:00.000Z"
+}
+```
+
+#### 例 (成功)
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "SUCCEEDED",
+    "result": {
+        "registeredCount": 75,
+        "failedCount": 0,
+        "totalCount": 75
+    },
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:45:00.000Z",
+    "completedAt": "2026-01-16T10:45:00.000Z"
+}
+```
+
+#### 例 (失敗)
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "FAILED",
+    "result": {
+        "registeredCount": 50,
+        "failedCount": 25,
+        "totalCount": 75,
+        "errorMessage": "ニコニコ動画へのログインに失敗しました"
+    },
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:40:00.000Z",
+    "completedAt": "2026-01-16T10:40:00.000Z"
+}
+```
+
+#### 備考
+
+- `POST /api/batch/submit` のレスポンスおよび `GET /api/batch/status/{jobId}` のレスポンスで使用
+- `status` フィールドはバッチ処理の進行状況を表す
+- `result` フィールドはステータスが `SUCCEEDED` または `FAILED` の場合のみ存在
+- DynamoDBに7日間のTTL（Time To Live）を設定し、古いジョブ情報は自動削除される
+
+---
+
+### 5.5 FilterConditions (フィルタ条件)
+
+マイリスト登録時の動画選択条件を指定するモデル。
+
+#### スキーマ
+
+```typescript
+interface FilterConditions {
+    excludeSkip: boolean;      // スキップフラグを除外するかどうか
+    favoritesOnly: boolean;    // お気に入りのみを登録するかどうか
+}
+```
+
+#### 例 (スキップを除く)
+
+```json
+{
+    "excludeSkip": true,
+    "favoritesOnly": false
+}
+```
+
+#### 例 (お気に入りのみ)
+
+```json
+{
+    "excludeSkip": false,
+    "favoritesOnly": true
+}
+```
+
+#### 例 (お気に入りかつスキップを除く)
+
+```json
+{
+    "excludeSkip": true,
+    "favoritesOnly": true
+}
+```
+
+#### 備考
+
+- `POST /api/batch/submit` のリクエストボディで使用
+- 条件に合致する動画を DynamoDB から取得し、ランダムに最大 100 個を選択
+- `excludeSkip=true` と `favoritesOnly=true` を同時に指定した場合、両方の条件を満たす動画のみが選択される
+
+---
+
+### 5.6 ErrorResponse (エラーレスポンス)
+
+API エラー発生時のレスポンス形式。
+
+#### スキーマ
+
+```typescript
+interface ErrorResponse {
+    error: {
+        code: string;          // エラーコード（例: "UNAUTHORIZED", "NOT_FOUND"）
+        message: string;       // エラーメッセージ（日本語）
+        details?: string;      // 詳細情報（オプション）
+    };
+}
+```
+
+#### 例 (認証エラー)
+
+```json
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+```
+
+#### 例 (バリデーションエラー)
+
+```json
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "動画 ID の数が上限を超えています",
+        "details": "最大 100 件まで指定可能です"
+    }
+}
+```
+
+#### 例 (外部APIエラー)
+
+```json
+{
+    "error": {
+        "code": "BATCH_SUBMIT_FAILED",
+        "message": "バッチジョブの投入に失敗しました",
+        "details": "AWS Batch サービスに接続できませんでした"
+    }
+}
+```
+
+#### 備考
+
+- すべてのエラーレスポンスで使用される共通フォーマット
+- `code` フィールドはセクション 1.5 のエラーコード一覧に対応
+- `message` フィールドは必ず日本語で記述される
+- `details` フィールドは追加情報が必要な場合にのみ含まれる
 
 ---
 
