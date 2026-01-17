@@ -48,7 +48,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     }
 
     // ユーザーIDを取得
-    const userId = session!.user.id;
+    const userId = session!.user.userId;
 
     // パスパラメータからIDを取得
     const { id } = await params;

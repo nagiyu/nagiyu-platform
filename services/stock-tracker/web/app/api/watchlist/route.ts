@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }
 
     // ユーザーIDを取得
-    const userId = session!.user.id;
+    const userId = session!.user.userId;
 
     // クエリパラメータの取得
     const { searchParams } = new URL(request.url);
@@ -115,7 +115,7 @@ export async function POST(request: Request) {
     }
 
     // ユーザーIDを取得
-    const userId = session!.user.id;
+    const userId = session!.user.userId;
 
     // リクエストボディの取得
     const body = await request.json();
