@@ -21,6 +21,10 @@ import {
   DialogActions,
   TextField,
   Snackbar,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -72,6 +76,38 @@ const SUCCESS_MESSAGES = {
   DELETE: '取引所を削除しました',
 } as const;
 
+// タイムゾーンオプション（主要な取引所のタイムゾーン）
+const TIMEZONE_OPTIONS = [
+  { value: 'America/New_York', label: 'America/New_York (NYSE, NASDAQ)' },
+  { value: 'America/Chicago', label: 'America/Chicago (CME)' },
+  { value: 'Europe/London', label: 'Europe/London (LSE)' },
+  { value: 'Europe/Paris', label: 'Europe/Paris (Euronext)' },
+  { value: 'Europe/Frankfurt', label: 'Europe/Frankfurt (FWB)' },
+  { value: 'Asia/Tokyo', label: 'Asia/Tokyo (TSE)' },
+  { value: 'Asia/Hong_Kong', label: 'Asia/Hong_Kong (HKEX)' },
+  { value: 'Asia/Shanghai', label: 'Asia/Shanghai (SSE)' },
+  { value: 'Asia/Singapore', label: 'Asia/Singapore (SGX)' },
+  { value: 'Australia/Sydney', label: 'Australia/Sydney (ASX)' },
+] as const;
+
+// 時間と分の選択肢を生成
+const HOURS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const MINUTES = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+// HH:MM形式の文字列を時と分に分割
+const parseTime = (time: string): { hour: string; minute: string } => {
+  const parts = time.split(':');
+  return {
+    hour: parts[0] || '00',
+    minute: parts[1] || '00',
+  };
+};
+
+// 時と分からHH:MM形式の文字列を生成
+const formatTime = (hour: string, minute: string): string => {
+  return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`;
+};
+
 export default function ExchangesPage() {
   const router = useRouter();
 
@@ -97,6 +133,14 @@ export default function ExchangesPage() {
     start: '',
     end: '',
   });
+
+  // 時間選択用の状態（start）
+  const [startHour, setStartHour] = useState<string>('09');
+  const [startMinute, setStartMinute] = useState<string>('30');
+
+  // 時間選択用の状態（end）
+  const [endHour, setEndHour] = useState<string>('16');
+  const [endMinute, setEndMinute] = useState<string>('00');
 
   // フォーム送信中フラグ
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -152,12 +196,18 @@ export default function ExchangesPage() {
       start: '',
       end: '',
     });
+    setStartHour('09');
+    setStartMinute('30');
+    setEndHour('16');
+    setEndMinute('00');
     setCreateModalOpen(true);
   };
 
   // 編集モーダルを開く
   const handleEditOpen = (exchange: Exchange) => {
     setSelectedExchange(exchange);
+    const startTime = parseTime(exchange.tradingHours.start);
+    const endTime = parseTime(exchange.tradingHours.end);
     setFormData({
       exchangeId: exchange.exchangeId,
       name: exchange.name,
@@ -166,6 +216,10 @@ export default function ExchangesPage() {
       start: exchange.tradingHours.start,
       end: exchange.tradingHours.end,
     });
+    setStartHour(startTime.hour);
+    setStartMinute(startTime.minute);
+    setEndHour(endTime.hour);
+    setEndMinute(endTime.minute);
     setEditModalOpen(true);
   };
 
@@ -208,8 +262,8 @@ export default function ExchangesPage() {
           key: formData.key,
           timezone: formData.timezone,
           tradingHours: {
-            start: formData.start,
-            end: formData.end,
+            start: formatTime(startHour, startMinute),
+            end: formatTime(endHour, endMinute),
           },
         }),
       });
@@ -258,8 +312,8 @@ export default function ExchangesPage() {
           name: formData.name,
           timezone: formData.timezone,
           tradingHours: {
-            start: formData.start,
-            end: formData.end,
+            start: formatTime(startHour, startMinute),
+            end: formatTime(endHour, endMinute),
           },
         }),
       });
@@ -506,15 +560,24 @@ export default function ExchangesPage() {
               <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                 タイムゾーン
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="America/New_York"
-                value={formData.timezone}
-                onChange={handleInputChange('timezone')}
-                disabled={submitting}
-              />
+              <FormControl fullWidth disabled={submitting}>
+                <Select
+                  value={formData.timezone}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, timezone: e.target.value }))}
+                  displayEmpty
+                >
+                  <MenuItem value="">
+                    <em>選択してください</em>
+                  </MenuItem>
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <MenuItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <Typography variant="caption" color="text.secondary" fontStyle="italic">
-                ※ IANA タイムゾーン形式（例: America/New_York, Asia/Tokyo）
+                ※ 主要な取引所のタイムゾーン
               </Typography>
             </Box>
 
@@ -522,15 +585,39 @@ export default function ExchangesPage() {
               <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                 取引開始時間
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="09:30"
-                value={formData.start}
-                onChange={handleInputChange('start')}
-                disabled={submitting}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>時</InputLabel>
+                  <Select
+                    value={startHour}
+                    label="時"
+                    onChange={(e) => setStartHour(e.target.value)}
+                  >
+                    {HOURS.map((hour) => (
+                      <MenuItem key={hour} value={hour}>
+                        {hour}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography>:</Typography>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>分</InputLabel>
+                  <Select
+                    value={startMinute}
+                    label="分"
+                    onChange={(e) => setStartMinute(e.target.value)}
+                  >
+                    {MINUTES.map((minute) => (
+                      <MenuItem key={minute} value={minute}>
+                        {minute}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
               <Typography variant="caption" color="text.secondary" fontStyle="italic">
-                ※ 24時間形式（HH:MM）
+                ※ 24時間形式で選択
               </Typography>
             </Box>
 
@@ -538,15 +625,35 @@ export default function ExchangesPage() {
               <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                 取引終了時間
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="16:00"
-                value={formData.end}
-                onChange={handleInputChange('end')}
-                disabled={submitting}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>時</InputLabel>
+                  <Select value={endHour} label="時" onChange={(e) => setEndHour(e.target.value)}>
+                    {HOURS.map((hour) => (
+                      <MenuItem key={hour} value={hour}>
+                        {hour}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography>:</Typography>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>分</InputLabel>
+                  <Select
+                    value={endMinute}
+                    label="分"
+                    onChange={(e) => setEndMinute(e.target.value)}
+                  >
+                    {MINUTES.map((minute) => (
+                      <MenuItem key={minute} value={minute}>
+                        {minute}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
               <Typography variant="caption" color="text.secondary" fontStyle="italic">
-                ※ 24時間形式（HH:MM）
+                ※ 24時間形式で選択
               </Typography>
             </Box>
           </Box>
@@ -612,15 +719,24 @@ export default function ExchangesPage() {
               <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                 タイムゾーン
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="America/New_York"
-                value={formData.timezone}
-                onChange={handleInputChange('timezone')}
-                disabled={submitting}
-              />
+              <FormControl fullWidth disabled={submitting}>
+                <Select
+                  value={formData.timezone}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, timezone: e.target.value }))}
+                  displayEmpty
+                >
+                  <MenuItem value="">
+                    <em>選択してください</em>
+                  </MenuItem>
+                  {TIMEZONE_OPTIONS.map((tz) => (
+                    <MenuItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <Typography variant="caption" color="text.secondary" fontStyle="italic">
-                ※ IANA タイムゾーン形式（例: America/New_York, Asia/Tokyo）
+                ※ 主要な取引所のタイムゾーン
               </Typography>
             </Box>
 
@@ -628,15 +744,39 @@ export default function ExchangesPage() {
               <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                 取引開始時間
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="09:30"
-                value={formData.start}
-                onChange={handleInputChange('start')}
-                disabled={submitting}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>時</InputLabel>
+                  <Select
+                    value={startHour}
+                    label="時"
+                    onChange={(e) => setStartHour(e.target.value)}
+                  >
+                    {HOURS.map((hour) => (
+                      <MenuItem key={hour} value={hour}>
+                        {hour}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography>:</Typography>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>分</InputLabel>
+                  <Select
+                    value={startMinute}
+                    label="分"
+                    onChange={(e) => setStartMinute(e.target.value)}
+                  >
+                    {MINUTES.map((minute) => (
+                      <MenuItem key={minute} value={minute}>
+                        {minute}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
               <Typography variant="caption" color="text.secondary" fontStyle="italic">
-                ※ 24時間形式（HH:MM）
+                ※ 24時間形式で選択
               </Typography>
             </Box>
 
@@ -644,15 +784,35 @@ export default function ExchangesPage() {
               <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
                 取引終了時間
               </Typography>
-              <TextField
-                fullWidth
-                placeholder="16:00"
-                value={formData.end}
-                onChange={handleInputChange('end')}
-                disabled={submitting}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>時</InputLabel>
+                  <Select value={endHour} label="時" onChange={(e) => setEndHour(e.target.value)}>
+                    {HOURS.map((hour) => (
+                      <MenuItem key={hour} value={hour}>
+                        {hour}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography>:</Typography>
+                <FormControl fullWidth disabled={submitting}>
+                  <InputLabel>分</InputLabel>
+                  <Select
+                    value={endMinute}
+                    label="分"
+                    onChange={(e) => setEndMinute(e.target.value)}
+                  >
+                    {MINUTES.map((minute) => (
+                      <MenuItem key={minute} value={minute}>
+                        {minute}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
               <Typography variant="caption" color="text.secondary" fontStyle="italic">
-                ※ 24時間形式（HH:MM）
+                ※ 24時間形式で選択
               </Typography>
             </Box>
           </Box>
