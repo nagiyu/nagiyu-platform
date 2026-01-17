@@ -6,6 +6,8 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import { WebRuntimePolicy } from './policies/web-runtime-policy';
+import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -20,6 +22,8 @@ export interface LambdaStackProps extends cdk.StackProps {
  * Stock Tracker Lambda Stack
  *
  * Web Lambda（Next.js）と Batch Lambda（3関数）を作成します。
+ * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
+ * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
  */
 export class LambdaStack extends cdk.Stack {
   public readonly webFunction: lambda.Function;
@@ -27,6 +31,8 @@ export class LambdaStack extends cdk.Stack {
   public readonly batchHourlyFunction: lambda.Function;
   public readonly batchDailyFunction: lambda.Function;
   public readonly functionUrl: lambda.FunctionUrl;
+  public readonly webRuntimePolicy: iam.IManagedPolicy;
+  public readonly batchRuntimePolicy: iam.IManagedPolicy;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
@@ -57,6 +63,22 @@ export class LambdaStack extends cdk.Stack {
       ? secretsmanager.Secret.fromSecretCompleteArn(this, 'AuthSecret', authSecretArn)
       : undefined;
 
+    // マネージドポリシーの作成
+    // Web Lambda と開発用 IAM ユーザーで共有
+    this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
+      dynamoTable,
+      vapidSecret,
+      authSecret,
+      envName: environment,
+    });
+
+    // Batch Lambda と開発用 IAM ユーザーで共有
+    this.batchRuntimePolicy = new BatchRuntimePolicy(this, 'BatchRuntimePolicy', {
+      dynamoTable,
+      vapidSecret,
+      envName: environment,
+    });
+
     // Web Lambda 用の実行ロール
     const webExecutionRole = new iam.Role(this, 'WebExecutionRole', {
       roleName: `stock-tracker-web-execution-role-${environment}`,
@@ -65,17 +87,9 @@ export class LambdaStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName(
           'service-role/AWSLambdaBasicExecutionRole'
         ),
+        this.webRuntimePolicy,
       ],
     });
-
-    // Web Lambda に DynamoDB アクセス権限を付与
-    dynamoTable.grantReadWriteData(webExecutionRole);
-
-    // Web Lambda に Secrets Manager アクセス権限を付与
-    vapidSecret.grantRead(webExecutionRole);
-    if (authSecret) {
-      authSecret.grantRead(webExecutionRole);
-    }
 
     // Web Lambda Function の作成
     this.webFunction = new lambda.Function(this, 'WebFunction', {
@@ -121,14 +135,9 @@ export class LambdaStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName(
           'service-role/AWSLambdaBasicExecutionRole'
         ),
+        this.batchRuntimePolicy,
       ],
     });
-
-    // Batch Lambda に DynamoDB アクセス権限を付与（Query, Scan, UpdateItem のみ）
-    dynamoTable.grant(batchExecutionRole, 'dynamodb:Query', 'dynamodb:Scan', 'dynamodb:UpdateItem');
-
-    // Batch Lambda に Secrets Manager アクセス権限を付与（VAPID キーのみ）
-    vapidSecret.grantRead(batchExecutionRole);
 
     // Batch Lambda - Minute（1分間隔、MINUTE_LEVEL アラート処理）
     this.batchMinuteFunction = new lambda.Function(this, 'BatchMinuteFunction', {
@@ -233,6 +242,19 @@ export class LambdaStack extends cdk.Stack {
       value: this.batchDailyFunction.functionArn,
       description: 'Batch Daily Lambda Function ARN',
       exportName: `${this.stackName}-BatchDailyFunctionArn`,
+    });
+
+    // Runtime Policies (IAM スタックで参照するため Export)
+    new cdk.CfnOutput(this, 'WebRuntimePolicyArn', {
+      value: this.webRuntimePolicy.managedPolicyArn,
+      description: 'Web Runtime Managed Policy ARN',
+      exportName: `${this.stackName}-WebRuntimePolicyArn`,
+    });
+
+    new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
+      value: this.batchRuntimePolicy.managedPolicyArn,
+      description: 'Batch Runtime Managed Policy ARN',
+      exportName: `${this.stackName}-BatchRuntimePolicyArn`,
     });
   }
 }

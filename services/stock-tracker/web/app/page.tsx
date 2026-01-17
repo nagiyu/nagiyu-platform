@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -11,9 +11,36 @@ import {
   Paper,
   Typography,
   SelectChangeEvent,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import type { Timeframe, TradingSession } from '@/types/stock';
 import { TIMEFRAME_LABELS, TRADING_SESSION_LABELS } from '@/types/stock';
+
+// API レスポンス型定義
+interface Exchange {
+  exchangeId: string;
+  name: string;
+  key: string;
+  timezone: string;
+  tradingHours: {
+    start: string;
+    end: string;
+  };
+}
+
+interface Ticker {
+  tickerId: string;
+  symbol: string;
+  name: string;
+  exchangeId: string;
+}
+
+// エラーメッセージ定数
+const ERROR_MESSAGES = {
+  FETCH_EXCHANGES_ERROR: '取引所一覧の取得に失敗しました',
+  FETCH_TICKERS_ERROR: 'ティッカー一覧の取得に失敗しました',
+} as const;
 
 export default function Home() {
   // 選択状態の管理
@@ -21,6 +48,75 @@ export default function Home() {
   const [ticker, setTicker] = useState<string>('');
   const [timeframe, setTimeframe] = useState<Timeframe>('1d');
   const [session, setSession] = useState<TradingSession>('regular');
+
+  // データ状態の管理
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [tickers, setTickers] = useState<Ticker[]>([]);
+
+  // ローディング状態の管理
+  const [exchangesLoading, setExchangesLoading] = useState<boolean>(false);
+  const [tickersLoading, setTickersLoading] = useState<boolean>(false);
+
+  // エラー状態の管理
+  const [exchangesError, setExchangesError] = useState<string>('');
+  const [tickersError, setTickersError] = useState<string>('');
+
+  // 取引所一覧を取得
+  useEffect(() => {
+    const fetchExchanges = async () => {
+      setExchangesLoading(true);
+      setExchangesError('');
+
+      try {
+        const response = await fetch('/api/exchanges');
+        if (!response.ok) {
+          throw new Error(ERROR_MESSAGES.FETCH_EXCHANGES_ERROR);
+        }
+
+        const data = await response.json();
+        setExchanges(data.exchanges || []);
+      } catch (error) {
+        console.error('Error fetching exchanges:', error);
+        setExchangesError(ERROR_MESSAGES.FETCH_EXCHANGES_ERROR);
+      } finally {
+        setExchangesLoading(false);
+      }
+    };
+
+    fetchExchanges();
+  }, []);
+
+  // 取引所選択時にティッカー一覧を取得
+  useEffect(() => {
+    if (!exchange) {
+      setTickers([]);
+      setTicker(''); // 取引所がクリアされた場合はティッカーもリセット
+      return;
+    }
+
+    const fetchTickers = async () => {
+      setTickersLoading(true);
+      setTickersError('');
+      setTicker(''); // 取引所変更時にティッカーをリセット
+
+      try {
+        const response = await fetch(`/api/tickers?exchangeId=${encodeURIComponent(exchange)}`);
+        if (!response.ok) {
+          throw new Error(ERROR_MESSAGES.FETCH_TICKERS_ERROR);
+        }
+
+        const data = await response.json();
+        setTickers(data.tickers || []);
+      } catch (error) {
+        console.error('Error fetching tickers:', error);
+        setTickersError(ERROR_MESSAGES.FETCH_TICKERS_ERROR);
+      } finally {
+        setTickersLoading(false);
+      }
+    };
+
+    fetchTickers();
+  }, [exchange]);
 
   // イベントハンドラー
   const handleExchangeChange = (event: SelectChangeEvent) => {
@@ -43,6 +139,18 @@ export default function Home() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
+      {/* エラーメッセージ表示 */}
+      {exchangesError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {exchangesError}
+        </Alert>
+      )}
+      {tickersError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {tickersError}
+        </Alert>
+      )}
+
       {/* セレクターグループ */}
       <Box
         sx={{
@@ -57,7 +165,7 @@ export default function Home() {
         }}
       >
         {/* 取引所選択 */}
-        <FormControl fullWidth>
+        <FormControl fullWidth disabled={exchangesLoading}>
           <InputLabel id="exchange-select-label">取引所選択</InputLabel>
           <Select
             labelId="exchange-select-label"
@@ -65,18 +173,21 @@ export default function Home() {
             value={exchange}
             label="取引所選択"
             onChange={handleExchangeChange}
+            startAdornment={exchangesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
           >
             <MenuItem value="">
               <em>選択してください</em>
             </MenuItem>
-            <MenuItem value="NYSE">NYSE</MenuItem>
-            <MenuItem value="NASDAQ">NASDAQ</MenuItem>
-            <MenuItem value="TSE">東京証券取引所</MenuItem>
+            {exchanges.map((ex) => (
+              <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
+                {ex.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 
         {/* ティッカー選択 */}
-        <FormControl fullWidth disabled={!exchange}>
+        <FormControl fullWidth disabled={!exchange || tickersLoading}>
           <InputLabel id="ticker-select-label">ティッカー選択</InputLabel>
           <Select
             labelId="ticker-select-label"
@@ -84,17 +195,16 @@ export default function Home() {
             value={ticker}
             label="ティッカー選択"
             onChange={handleTickerChange}
+            startAdornment={tickersLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
           >
             <MenuItem value="">
               <em>選択してください</em>
             </MenuItem>
-            {exchange && (
-              <>
-                <MenuItem value="AAPL">AAPL - Apple Inc.</MenuItem>
-                <MenuItem value="GOOGL">GOOGL - Alphabet Inc.</MenuItem>
-                <MenuItem value="MSFT">MSFT - Microsoft Corporation</MenuItem>
-              </>
-            )}
+            {tickers.map((t) => (
+              <MenuItem key={t.tickerId} value={t.tickerId}>
+                {t.symbol} - {t.name}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 

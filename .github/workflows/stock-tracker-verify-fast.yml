@@ -209,6 +209,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Fetch dev IAM credentials from Secrets Manager
+        id: fetch-dev-credentials
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
+          parse-json-secrets: true
+
       - name: Install dependencies
         run: npm ci
 
@@ -229,6 +244,9 @@ jobs:
         env:
           CI: true
           PROJECT: chromium-mobile
+          AWS_ACCESS_KEY_ID: ${{ env.DEV_CREDENTIALS_ACCESSKEYID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DEV_CREDENTIALS_SECRETACCESSKEY }}
+          AWS_REGION: us-east-1
         run: |
           npm run test:e2e --workspace @nagiyu/stock-tracker-web
           if [ $? -ne 0 ]; then
