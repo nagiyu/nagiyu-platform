@@ -12,4 +12,5 @@ export * from './types.js';
 export * from './validation/helpers.js';
 export * from './repositories/exchange.js';
 export * from './repositories/ticker.js';
+export * from './repositories/holding.js';
 export * from './services/auth.js';
