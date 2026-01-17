@@ -187,7 +187,8 @@ test.describe('ティッカー管理', () => {
 
   test('取引所フィルタが正しく動作する', async ({ page }) => {
     // 取引所フィルタを開く
-    await page.getByLabel('取引所でフィルタ').click();
+    const exchangeFilter = page.getByRole('combobox', { name: /取引所でフィルタ/ });
+    await exchangeFilter.click();
 
     // オプションを取得
     const options = page.locator('[role="listbox"] [role="option"]');
@@ -212,7 +213,7 @@ test.describe('ティッカー管理', () => {
       }
 
       // フィルタをクリア（「すべて」を選択）
-      await page.getByLabel('取引所でフィルタ').click();
+      await exchangeFilter.click();
       await options.first().click();
 
       // ページが更新されるまで待つ
