@@ -8,7 +8,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { TickerRepository, HoldingRepository, getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
+import {
+  TickerRepository,
+  HoldingRepository,
+  getAuthError,
+  validateHolding,
+} from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
