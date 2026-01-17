@@ -106,8 +106,17 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
           // リストボックスが閉じるまで待つ
           await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-          // ティッカーが無効化されるか、空の状態になることを確認
-          await expect(tickerSelect).toBeDisabled();
+          // ネットワークが落ち着くまで待つ（新しい取引所のティッカーを取得中）
+          await page.waitForLoadState('networkidle');
+
+          // ティッカーは有効のまま（新しい取引所のティッカーが読み込まれるため）
+          // ただし、ティッカー選択値はリセットされていることを確認
+          await expect(tickerSelect).toBeEnabled();
+          
+          // ティッカーの表示テキストが「選択してください」または空であることを確認
+          const tickerDisplayText = await tickerSelect.textContent();
+          const isReset = tickerDisplayText?.includes('選択してください') || tickerDisplayText?.trim() === '';
+          expect(isReset).toBeTruthy();
         }
       }
     }
