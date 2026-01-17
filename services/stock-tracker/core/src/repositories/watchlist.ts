@@ -85,10 +85,14 @@ export class WatchlistRepository {
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'UserIndex',
-          KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
+          KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
+          ExpressionAttributeNames: {
+            '#gsi1pk': 'GSI1PK',
+            '#gsi1sk': 'GSI1SK',
+          },
           ExpressionAttributeValues: {
-            ':pk': userId,
-            ':sk': 'Watchlist#',
+            ':userId': userId,
+            ':prefix': 'Watchlist#',
           },
           Limit: limit,
           ExclusiveStartKey: lastKey,
