@@ -131,12 +131,12 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     // 取引所名は2番目のフィールド（取引所IDの次）
     const dialogContent = page.locator('div[role="dialog"]');
     const textFields = dialogContent.locator('input[type="text"]');
-    
+
     // 取引所名フィールドを特定（取引所IDはdisabled、取引所名はenabled）
     const nameFieldIndex = await textFields.evaluateAll((inputs) => {
       return inputs.findIndex((input) => !input.disabled && input.value.length > 0);
     });
-    
+
     const nameInput = textFields.nth(nameFieldIndex);
     await nameInput.clear();
     await nameInput.fill(`${originalName} (Updated)`);
@@ -184,7 +184,9 @@ test.describe('取引所管理画面 (E2E-006)', () => {
 
     // 削除確認ダイアログが表示される
     await expect(page.locator('h2:has-text("取引所削除")')).toBeVisible();
-    await expect(page.locator(`text=取引所「${exchangeName}」を削除してもよろしいですか？`)).toBeVisible();
+    await expect(
+      page.locator(`text=取引所「${exchangeName}」を削除してもよろしいですか？`)
+    ).toBeVisible();
 
     // キャンセルボタンをクリック
     await page.locator('button:has-text("キャンセル")').click();
@@ -209,7 +211,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     const errorAlert = page.locator('[role="alert"]');
 
     const isModalVisible = await modal.isVisible();
-    const isErrorVisible = await errorAlert.count() > 0;
+    const isErrorVisible = (await errorAlert.count()) > 0;
 
     expect(isModalVisible || isErrorVisible).toBeTruthy();
   });

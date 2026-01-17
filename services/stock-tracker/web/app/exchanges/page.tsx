@@ -184,14 +184,13 @@ export default function ExchangesPage() {
   };
 
   // フォーム入力を処理
-  const handleInputChange = (field: keyof ExchangeFormData) => (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: event.target.value,
-    }));
-  };
+  const handleInputChange =
+    (field: keyof ExchangeFormData) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: event.target.value,
+      }));
+    };
 
   // 取引所作成
   const handleCreate = async () => {
@@ -677,9 +676,7 @@ export default function ExchangesPage() {
       <Dialog open={deleteDialogOpen} onClose={handleCloseModals} maxWidth="xs" fullWidth>
         <DialogTitle>取引所削除</DialogTitle>
         <DialogContent>
-          <Typography>
-            取引所「{selectedExchange?.name}」を削除してもよろしいですか？
-          </Typography>
+          <Typography>取引所「{selectedExchange?.name}」を削除してもよろしいですか？</Typography>
           <Typography variant="body2" color="error" sx={{ mt: 2 }}>
             ※ この操作は取り消せません
           </Typography>
