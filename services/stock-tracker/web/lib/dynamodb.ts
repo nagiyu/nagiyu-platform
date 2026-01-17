@@ -32,10 +32,10 @@ export function getDynamoDBClient(): DynamoDBDocumentClient {
  * @throws テーブル名が設定されていない場合
  */
 export function getTableName(): string {
-  const tableName = process.env.DYNAMODB_TABLE;
+  const tableName = process.env.DYNAMODB_TABLE_NAME;
 
   if (!tableName) {
-    throw new Error('DYNAMODB_TABLE environment variable is not set');
+    throw new Error('DYNAMODB_TABLE_NAME environment variable is not set');
   }
 
   return tableName;

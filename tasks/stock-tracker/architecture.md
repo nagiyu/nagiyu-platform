@@ -477,31 +477,46 @@ docClient.scan({
 
 VPC を使用しないため、セキュリティグループは不要。
 
-#### IAM ロール
+#### IAM ロールとポリシー
 
-**Web 用マネージドポリシー (WebRuntimePolicy)**:
-- DynamoDB: Query, GetItem, PutItem, UpdateItem, DeleteItem
-- Secrets Manager: GetSecretValue (VAPID キー取得)
-- CloudWatch Logs: CreateLogGroup, CreateLogStream, PutLogEvents
+**マネージドポリシー (再利用可能)**:
 
-**Batch 用マネージドポリシー (BatchRuntimePolicy)**:
-- DynamoDB: Query, Scan, UpdateItem
-- CloudWatch Logs: CreateLogGroup, CreateLogStream, PutLogEvents
+1. **WebRuntimePolicy** (`stock-tracker-web-runtime-{env}`)
+    - DynamoDB: Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan
+    - DynamoDB GSI: すべてのインデックスへのアクセス
+    - Secrets Manager: VAPID キー、NextAuth Secret の読み取り
+    - 使用先: Web Lambda 実行ロール、開発用 IAM ユーザー
 
-**Lambda 実行ロール (Web)**:
-- 基本権限: WebRuntimePolicy
-- 信頼ポリシー: Lambda サービスロール
+2. **BatchRuntimePolicy** (`stock-tracker-batch-runtime-{env}`)
+    - DynamoDB: Query, Scan, UpdateItem のみ（最小権限）
+    - DynamoDB GSI: AlertIndex へのアクセス
+    - Secrets Manager: VAPID キーの読み取り
+    - 使用先: Batch Lambda 実行ロール（3関数共通）、開発用 IAM ユーザー
 
-**Lambda 実行ロール (Batch)**:
-- 基本権限: BatchRuntimePolicy
-- 信頼ポリシー: Lambda サービスロール
+**Lambda 実行ロール**:
 
-**開発用 IAM ユーザー**:
-- ユーザー名: `stock-tracker-dev-{env}`
-- 権限: WebRuntimePolicy + BatchRuntimePolicy（両方付与）
-- 用途: ローカル開発で Web/Batch 両方をデバッグ
-- アクセスキー: AWS コンソールで手動発行 (90日ごとにローテーション推奨)
-- メリット: 本番環境と同じ権限でテストでき、デプロイ前に権限ミスを防げる
+1. **Web 用実行ロール** (`stock-tracker-web-execution-role-{env}`)
+    - マネージドポリシー: AWSLambdaBasicExecutionRole, WebRuntimePolicy
+    - 信頼ポリシー: Lambda サービスロール
+
+2. **Batch 用実行ロール** (`stock-tracker-batch-execution-role-{env}`)
+    - マネージドポリシー: AWSLambdaBasicExecutionRole, BatchRuntimePolicy
+    - 信頼ポリシー: Lambda サービスロール
+    - 共有: 3つの Batch Lambda 関数で共通使用
+
+**開発用 IAM ユーザー（dev 環境のみ）**:
+- ユーザー名: `stock-tracker-dev-dev`
+- マネージドポリシー: WebRuntimePolicy + BatchRuntimePolicy
+- 用途: ローカル開発環境で Web/Batch 両方のテスト実行
+- アクセスキー: AWS コンソールで手動発行（90日ごとにローテーション推奨）
+- メリット:
+    - 本番環境の Lambda と全く同じ権限でテスト可能
+    - デプロイ前に権限不足エラーを検出できる
+    - DynamoDB、Secrets Manager への直接アクセスが可能
+- セキュリティ:
+    - 本番環境 (prod) では作成されない
+    - アクセスキーは安全に保管（AWS Secrets Manager 推奨）
+    - 定期的なローテーション必須
 
 ---
 

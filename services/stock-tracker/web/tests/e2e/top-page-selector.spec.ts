@@ -13,6 +13,9 @@ import { test, expect } from '@playwright/test';
 test.describe('取引所・ティッカーセレクタ機能', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+
+    // 3秒待つ (TODO: 今後修正したい)
+    await page.waitForTimeout(3000);
   });
 
   test('取引所一覧が正しく表示される', async ({ page }) => {

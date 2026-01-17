@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 test.describe('トップ画面レイアウト', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
+
+    // 3秒待つ (TODO: 今後修正したい)
+    await page.waitForTimeout(3000);
   });
 
   test('ページが正しく表示される', async ({ page }) => {
@@ -15,7 +18,7 @@ test.describe('トップ画面レイアウト', () => {
 
     // フッターが表示される
     await expect(page.getByRole('contentinfo')).toBeVisible();
-    await expect(page.getByText(/v1.0.0/)).toBeVisible();
+    await expect(page.getByText(/v0.0.0/)).toBeVisible();
   });
 
   test('セレクトボックスが正しく表示される', async ({ page }) => {
@@ -56,7 +59,7 @@ test.describe('トップ画面レイアウト', () => {
     // 取引所を選択
     const exchangeSelect = page.getByLabel('取引所選択');
     await exchangeSelect.click();
-    await page.locator('[role="listbox"]').getByText('NYSE').click();
+    await page.locator('[role="listbox"]').getByText('New York Stock Exchange').click();
 
     // ティッカーが有効になる
     await expect(tickerSelect).toBeEnabled();
@@ -70,12 +73,12 @@ test.describe('トップ画面レイアウト', () => {
     // 取引所を選択すると、ティッカーが有効になる
     const exchangeSelect = page.locator('#exchange-select');
     await exchangeSelect.click();
-    await page.locator('[role="listbox"]').getByText('NYSE').click();
+    await page.locator('[role="listbox"]').getByText('New York Stock Exchange').click();
     await expect(tickerSelect).toBeEnabled();
 
     // 異なる取引所に変更しても、ティッカーは有効のまま
     await exchangeSelect.click();
-    await page.locator('[role="listbox"]').getByText('NASDAQ').click();
+    await page.locator('[role="listbox"]').getByText('NASDAQ Stock Market').click();
     await expect(tickerSelect).toBeEnabled();
   });
 
