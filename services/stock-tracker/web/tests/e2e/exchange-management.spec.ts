@@ -63,9 +63,19 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     await expect(page.locator('input[placeholder="NASDAQ"]')).toBeVisible();
     await expect(page.locator('input[placeholder="NASDAQ Stock Market"]')).toBeVisible();
     await expect(page.locator('input[placeholder="NSDQ"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="America/New_York"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="09:30"]')).toBeVisible();
-    await expect(page.locator('input[placeholder="16:00"]')).toBeVisible();
+
+    // タイムゾーン選択（セレクトボックス）
+    const timezoneSelect = modal
+      .locator('div[role="button"]')
+      .filter({ hasText: '選択してください' })
+      .first();
+    await expect(timezoneSelect).toBeVisible();
+
+    // 時間選択（セレクトボックス - 時・分）
+    const hourSelects = modal.locator('label:has-text("時")');
+    await expect(hourSelects.first()).toBeVisible();
+    const minuteSelects = modal.locator('label:has-text("分")');
+    await expect(minuteSelects.first()).toBeVisible();
 
     // キャンセルボタンをクリック
     await page.locator('button:has-text("キャンセル")').click();
@@ -85,9 +95,29 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     await page.locator('input[placeholder="NASDAQ"]').fill(testId);
     await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange');
     await page.locator('input[placeholder="NSDQ"]').fill('TEST');
-    await page.locator('input[placeholder="America/New_York"]').fill('America/New_York');
-    await page.locator('input[placeholder="09:30"]').fill('09:30');
-    await page.locator('input[placeholder="16:00"]').fill('16:00');
+
+    // タイムゾーンを選択
+    const modal = page.locator('div[role="dialog"]');
+    await modal
+      .locator('div[role="button"]')
+      .filter({ hasText: '選択してください' })
+      .first()
+      .click();
+    await page.locator('li[role="option"]:has-text("America/New_York (NYSE, NASDAQ)")').click();
+
+    // 取引開始時間を選択（09:30）
+    // 最初の「時」セレクト
+    await modal.locator('div[role="button"]').filter({ hasText: /^09$/ }).first().click();
+    await page.locator('li[role="option"]:has-text("09")').first().click();
+    // 最初の「分」セレクト
+    await modal.locator('div[role="button"]').filter({ hasText: /^30$/ }).first().click();
+    await page.locator('li[role="option"]:has-text("30")').first().click();
+
+    // 取引終了時間を選択（16:00）
+    // 2番目の「時」セレクト
+    await modal.locator('div[role="button"]').filter({ hasText: /^16$/ }).last().click();
+    await page.locator('li[role="option"]:has-text("16")').last().click();
+    // 2番目の「分」セレクト（00はすでに選択されている）
 
     // 保存ボタンをクリック
     await page.locator('button:has-text("保存")').click();
