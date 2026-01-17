@@ -8,7 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { TickerRepository, getAuthError } from '@nagiyu/stock-tracker-core';
+import {
+  TickerRepository,
+  getAuthError,
+  TickerNotFoundError,
+} from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
 
@@ -202,7 +206,7 @@ export async function DELETE(
       return NextResponse.json(response, { status: 200 });
     } catch (error) {
       // ティッカーが見つからない場合
-      if (error instanceof Error && error.message.includes('見つかりません')) {
+      if (error instanceof TickerNotFoundError) {
         return NextResponse.json(
           {
             error: 'NOT_FOUND',

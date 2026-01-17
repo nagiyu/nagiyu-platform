@@ -16,6 +16,8 @@ import {
   TickerRepository,
   ExchangeRepository,
   getAuthError,
+  TickerAlreadyExistsError,
+  ExchangeNotFoundError,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
@@ -267,13 +269,16 @@ export async function POST(
       const exchange = await exchangeRepo.getById(body.exchangeId);
       exchangeKey = exchange.Key;
     } catch (error) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-        },
-        { status: 400 }
-      );
+      if (error instanceof ExchangeNotFoundError) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+          },
+          { status: 400 }
+        );
+      }
+      throw error;
     }
 
     // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
@@ -299,7 +304,7 @@ export async function POST(
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
       // ティッカーが既に存在する場合
-      if (error instanceof Error && error.message.includes('既に存在します')) {
+      if (error instanceof TickerAlreadyExistsError) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
