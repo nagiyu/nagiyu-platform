@@ -8,11 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  getAuthError,
-  TickerNotFoundError,
-} from '@nagiyu/stock-tracker-core';
+import { TickerRepository, getAuthError, TickerNotFoundError } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
 
