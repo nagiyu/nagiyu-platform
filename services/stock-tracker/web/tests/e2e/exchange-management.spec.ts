@@ -15,13 +15,13 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     // 取引所管理画面にアクセス
     await page.goto('/exchanges');
 
-    // ページが読み込まれるまで待つ
-    await page.waitForLoadState('networkidle');
+    // ページが読み込まれるまで待つ (他のテストと同様に3秒待機)
+    await page.waitForTimeout(3000);
   });
 
   test('取引所一覧が正しく表示される', async ({ page }) => {
     // ページタイトルが表示される
-    await expect(page.locator('h4')).toContainText('取引所管理');
+    await expect(page.locator('h1:has-text("取引所管理")')).toBeVisible();
 
     // テーブルが表示される
     const table = page.locator('table');
@@ -233,10 +233,10 @@ test.describe('取引所管理画面 - 権限チェック (E2E-005の一部)', (
     // テスト環境では SKIP_AUTH_CHECK=true で stock-admin ロールが設定されている想定
 
     await page.goto('/exchanges');
-    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
 
     // ページが正常に表示される（403エラーが表示されない）
-    await expect(page.locator('h4:has-text("取引所管理")')).toBeVisible();
+    await expect(page.locator('h1:has-text("取引所管理")')).toBeVisible();
     await expect(page.locator('button:has-text("新規登録")')).toBeVisible();
   });
 
