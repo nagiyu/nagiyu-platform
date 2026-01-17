@@ -131,7 +131,7 @@ Content-Type: application/json
 | `FORBIDDEN`           | 403             | このリソースへのアクセス権限がありません     |
 | `NOT_FOUND`           | 404             | 指定されたリソースが見つかりません           |
 | `INVALID_REQUEST`     | 400             | リクエストが不正です（必須パラメータ不足等） |
-| `VALIDATION_ERROR`    | 400             | バリデーションエラー（動画ID形式不正等）     |
+| `VALIDATION_ERROR`    | 400             | バリデーションエラー                         |
 | `DUPLICATE_VIDEO`     | 400             | 指定された動画は既に登録されています         |
 | `VIDEO_NOT_FOUND`     | 404             | 指定された動画が見つかりません（削除済み等） |
 | `NICONICO_API_ERROR`  | 502             | ニコニコ動画APIへのアクセスに失敗しました    |
@@ -2089,37 +2089,347 @@ Retry-After: 60
 
 ## 9. セキュリティ
 
-<!-- [任意] -->
-<!-- 記入ガイド: API 固有のセキュリティ要件を記述してください -->
+本サービスは、CloudFront を通じて配信され、Auth プロジェクトと連携した認証・認可を実装します。
+また、ニコニコアカウント情報（パスワード）の暗号化送信を行うため、セキュリティ対策を徹底しています。
 
 ### 9.1 CORS 設定
 
-<!-- [任意] CORS が必要な場合 -->
+本サービスは Next.js の API Routes として実装され、フロントエンドと同一オリジンで配信されるため、CORS 設定は不要です。
 
-```json
-{
-    "AllowedOrigins": ["https://{domain}"],
-    "AllowedMethods": ["GET", "POST", "PUT", "DELETE"],
-    "AllowedHeaders": ["*"],
-    "MaxAgeSeconds": 3600
+**理由**:
+- CloudFront 経由で `niconico-mylist.nagiyu.com` から配信
+- API Routes (`/api/*`) もフロントエンド (`/*`) も同一オリジン
+- ブラウザは Same-Origin Policy によりリクエストを許可
+
+**将来的な対応**:
+外部ドメインからのアクセスが必要になった場合、Next.js の `next.config.ts` で CORS ヘッダーを設定します。
+
+```typescript
+// next.config.ts (参考例)
+async headers() {
+    return [
+        {
+            source: '/api/:path*',
+            headers: [
+                { key: 'Access-Control-Allow-Origin', value: 'https://example.com' },
+                { key: 'Access-Control-Allow-Methods', value: 'GET,POST,PUT,DELETE' },
+                { key: 'Access-Control-Allow-Headers', value: 'Content-Type' },
+            ],
+        },
+    ];
 }
 ```
 
 ### 9.2 セキュリティヘッダー
 
-<!-- [任意] 推奨されるセキュリティヘッダー -->
+CloudFront Functions または Lambda@Edge でセキュリティヘッダーを追加します（nagiyu-platform 共通設定を使用）。
+
+#### 推奨ヘッダー
 
 ```
 Strict-Transport-Security: max-age=31536000; includeSubDomains
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
-Content-Security-Policy: default-src 'self'
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';
 ```
 
-### 9.3 その他のセキュリティ対策
+#### ヘッダーの説明
 
-<!-- 記入ガイド: API 固有のセキュリティ対策を記述してください -->
-<!-- 記入例: 入力検証、SQL インジェクション対策、XSS 対策など -->
+| ヘッダー                        | 効果                                                   |
+| ------------------------------ | ------------------------------------------------------ |
+| `Strict-Transport-Security`    | HTTPS の強制（HSTS）。HTTP でのアクセスを HTTPS にリダイレクト |
+| `X-Content-Type-Options`       | MIME タイプスニッフィングの無効化                       |
+| `X-Frame-Options`              | クリックジャッキング対策（iframe 埋め込みを禁止）        |
+| `X-XSS-Protection`             | ブラウザの XSS フィルタを有効化                         |
+| `Content-Security-Policy`      | XSS 対策（スクリプトやスタイルの読み込み元を制限）       |
+
+**実装方法**:
+CloudFront のレスポンスポリシーまたは Lambda@Edge でヘッダーを追加します（詳細は [docs/infra/shared/cloudfront.md](../../docs/infra/shared/cloudfront.md) を参照）。
+
+### 9.3 認証・認可
+
+#### 9.3.1 認証方式
+
+本サービスは、Auth プロジェクトが提供する Google OAuth 認証を使用します。
+
+**認証フロー**:
+1. ユーザーが Auth サービス (`https://auth.nagiyu.com`) で Google OAuth ログイン
+2. Auth サービスが JWT トークンを発行し、Cookie (`nagiyu-session`) に保存
+3. 本サービスは Cookie から JWT トークンを検証し、UserID を取得
+4. UserID に基づいてデータアクセスを制御
+
+**Cookie 情報**:
+- **Cookie 名**: `nagiyu-session`
+- **スコープ**: `.nagiyu.com` (全サブドメインで共有)
+- **有効期限**: 30 日
+- **属性**: `HttpOnly`, `Secure`, `SameSite=Lax`
+
+**JWT トークンの検証**:
+- Next.js API Routes 内で `next-auth` を使用して JWT を検証
+- `getServerSession()` で認証ユーザーの UserID を取得
+- 署名検証により改ざんを防止
+
+#### 9.3.2 認可（アクセス制御）
+
+本サービスはシンプルな権限モデルを採用し、管理者が手動で認可したユーザーのみがサービスを利用できます。
+
+**権限チェックフロー**:
+1. JWT トークンから UserID を取得
+2. DynamoDB で UserID の権限情報を取得
+3. `niconico-mylist:use` 権限の有無を確認
+4. 権限がない場合は 403 Forbidden を返す
+
+**データアクセス制御**:
+- ユーザーは自分の UserID に紐づくデータのみアクセス可能
+- DynamoDB のクエリで `PK = USER#{userId}` をフィルタリング
+- 他のユーザーのデータへのアクセス試行は 403 Forbidden
+
+**実装例（API Routes）**:
+
+```typescript
+// app/api/videos/route.ts
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
+export async function GET(req: Request) {
+    // 認証チェック
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user) {
+        return new Response(JSON.stringify({
+            error: { code: 'UNAUTHORIZED', message: '認証が必要です。ログインしてください' }
+        }), { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // 認可チェック
+    const hasPermission = await checkPermission(userId, 'niconico-mylist:use');
+    if (!hasPermission) {
+        return new Response(JSON.stringify({
+            error: { code: 'FORBIDDEN', message: 'このリソースへのアクセス権限がありません' }
+        }), { status: 403 });
+    }
+
+    // UserID でフィルタリングしてデータ取得
+    const videos = await fetchVideosByUserId(userId);
+    return new Response(JSON.stringify({ videos }), { status: 200 });
+}
+```
+
+詳細は [セクション 6: 権限一覧](#6-権限一覧) を参照してください。
+
+### 9.4 ニコニコアカウント情報の暗号化
+
+マイリスト登録バッチでは、ニコニコ動画のアカウント情報（メールアドレスとパスワード）が必要です。
+パスワードはデータベースに保存せず、API Routes から AWS Batch への通信経路で暗号化して送信します。
+
+#### 9.4.1 暗号化方式
+
+**アルゴリズム**: AES-256-GCM (Galois/Counter Mode)
+
+**理由**:
+- **AES-256**: NIST が推奨する強力な暗号化アルゴリズム
+- **GCM モード**: 認証付き暗号化により、改ざん検出とデータの機密性を同時に確保
+- **認証タグ**: 16 バイトの認証タグにより、復号時にデータの完全性を検証
+
+#### 9.4.2 暗号化フロー
+
+```
+フロントエンド → API Routes → AWS Batch
+  (平文)          (暗号化)      (復号化)
+```
+
+1. **フロントエンド**: ユーザーがニコニコアカウント情報（メールアドレス、パスワード）を入力
+2. **API Routes** (`POST /api/batch/submit`):
+    - パスワードを AES-256-GCM で暗号化
+    - 暗号化されたパスワード、IV (Initialization Vector)、認証タグをバッチジョブに渡す
+3. **AWS Batch**:
+    - 暗号化されたパスワードを復号化
+    - メモリ上でのみ使用し、処理完了後は即座に削除
+
+#### 9.4.3 暗号化の実装詳細
+
+**鍵管理**:
+- **環境変数**: `SHARED_SECRET_KEY` (32 バイト、16 進数文字列)
+- **保管場所**: AWS Secrets Manager
+- **アクセス制御**: API Routes (Lambda) と AWS Batch の実行ロールのみアクセス可能
+
+**暗号化処理** (API Routes):
+
+```typescript
+import crypto from 'crypto';
+
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12; // GCM 推奨 IV 長
+const AUTH_TAG_LENGTH = 16; // GCM 認証タグ長
+
+function encryptPassword(password: string, secretKey: string): {
+    encryptedPassword: string;
+    iv: string;
+    authTag: string;
+} {
+    // 環境変数から秘密鍵を取得 (32 バイト)
+    const key = Buffer.from(secretKey, 'hex');
+
+    // ランダムな IV を生成
+    const iv = crypto.randomBytes(IV_LENGTH);
+
+    // 暗号化
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const encrypted = Buffer.concat([
+        cipher.update(password, 'utf8'),
+        cipher.final(),
+    ]);
+
+    // 認証タグを取得
+    const authTag = cipher.getAuthTag();
+
+    return {
+        encryptedPassword: encrypted.toString('hex'),
+        iv: iv.toString('hex'),
+        authTag: authTag.toString('hex'),
+    };
+}
+```
+
+**復号化処理** (AWS Batch):
+
+```typescript
+import crypto from 'crypto';
+
+const ALGORITHM = 'aes-256-gcm';
+
+function decryptPassword(
+    encryptedPassword: string,
+    iv: string,
+    authTag: string,
+    secretKey: string
+): string {
+    // 環境変数から秘密鍵を取得 (32 バイト)
+    const key = Buffer.from(secretKey, 'hex');
+
+    // 復号化
+    const decipher = crypto.createDecipheriv(
+        ALGORITHM,
+        key,
+        Buffer.from(iv, 'hex')
+    );
+    decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+
+    const decrypted = Buffer.concat([
+        decipher.update(Buffer.from(encryptedPassword, 'hex')),
+        decipher.final(),
+    ]);
+
+    return decrypted.toString('utf8');
+}
+```
+
+#### 9.4.4 セキュリティ保証
+
+| 項目               | 対策                                                                 |
+| ------------------ | -------------------------------------------------------------------- |
+| データベース保存   | パスワードはデータベースに保存されない                                |
+| 通信経路の暗号化   | AES-256-GCM により暗号化されて送信                                    |
+| 改ざん検出         | GCM の認証タグにより、データの改ざんを検出                            |
+| 鍵管理             | 環境変数で管理し、AWS Secrets Manager に保管                          |
+| メモリ上の削除     | バッチ処理終了後、即座にメモリから削除                                |
+| ログ出力の制限     | パスワードはログに出力されない（暗号化されたデータのみ）              |
+| リトライ時の再暗号化 | リトライ時も同じ暗号化データを使用（新規暗号化は不要）              |
+
+### 9.5 入力検証
+
+すべての API エンドポイントで、リクエストボディとクエリパラメータの検証を行います。
+
+#### 9.5.1 検証ルール
+
+| パラメータ                   | 検証内容                                                   |
+| ---------------------------- | ---------------------------------------------------------- |
+| `videoIds` (配列)            | 配列長チェック（最大 100 件）                               |
+| `limit` (ページネーション)    | 範囲チェック（1〜100）                                       |
+| `offset` (ページネーション)   | 非負整数チェック                                             |
+| `isFavorite`, `isSkip`       | boolean 型チェック                                           |
+| `memo`                       | 文字列長チェック（最大 500 文字）                            |
+| `email`                      | メールアドレス形式チェック                                   |
+| `password`                   | 文字列長チェック（1〜128 文字）、空文字列の拒否              |
+| `mylistName`                 | 文字列長チェック（最大 100 文字）                            |
+| `filters.excludeSkip`, `filters.favoritesOnly` | boolean 型チェック                      |
+
+#### 9.5.2 エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "動画 ID の数が上限を超えています",
+        "details": "最大 100 件まで指定可能です"
+    }
+}
+```
+
+#### 9.5.3 実装例
+
+```typescript
+// lib/validators.ts
+export function validateVideoIds(videoIds: string[]): void {
+    if (!Array.isArray(videoIds)) {
+        throw new Error('videoIds は配列である必要があります');
+    }
+    if (videoIds.length === 0) {
+        throw new Error('videoIds が空です');
+    }
+    if (videoIds.length > 100) {
+        throw new Error('動画 ID の数が上限を超えています（最大 100 件）');
+    }
+}
+```
+
+### 9.6 XSS・CSRF 対策
+
+#### 9.6.1 XSS (Cross-Site Scripting) 対策
+
+**React のデフォルト保護**:
+- React は JSX で自動的にエスケープ処理を行う
+- `dangerouslySetInnerHTML` は使用しない
+
+**Content Security Policy (CSP)**:
+- CloudFront でセキュリティヘッダーを設定（セクション 9.2 参照）
+- インラインスクリプトを制限（`script-src 'self'`）
+
+#### 9.6.2 CSRF (Cross-Site Request Forgery) 対策
+
+**Next.js のデフォルト保護**:
+- Next.js は自動的に CSRF 対策を実装
+- API Routes は同一オリジンからのみアクセス可能
+
+**Cookie の SameSite 属性**:
+- `SameSite=Lax` により、クロスサイトからの Cookie 送信を制限
+- CSRF 攻撃のリスクを軽減
+
+### 9.7 SQL インジェクション対策
+
+本サービスは DynamoDB を使用しているため、SQL インジェクションのリスクはありません。
+
+**DynamoDB のセキュリティ**:
+- パラメータ化されたクエリを使用（AWS SDK が自動的に処理）
+- ユーザー入力は属性値として安全に扱われる
+
+### 9.8 ログ出力とモニタリング
+
+**機密情報の除外**:
+- パスワード、JWT トークンはログに出力しない
+- 暗号化されたパスワードのみログに記録（復号化前のデータ）
+
+**CloudWatch Logs**:
+- API のリクエスト・レスポンスをログに記録
+- エラー発生時のスタックトレースを記録
+- ログ保持期間: 30 日
+
+**モニタリング**:
+- CloudWatch メトリクスで API のエラー率を監視
+- エラー率が 10% を超えた場合にアラート
 
 ---
 
