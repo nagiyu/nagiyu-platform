@@ -68,22 +68,26 @@ test.describe('ティッカー管理', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'ティッカー新規作成' })).toBeVisible();
 
-    // フォームフィールドが表示される
-    await expect(page.getByLabel('シンボル', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('銘柄名', { exact: true })).toBeVisible();
-    await expect(page.getByLabel('取引所', { exact: true })).toBeVisible();
+    // フォームフィールドが表示される（Material-UIのTextFieldはlabelテキストで検索）
+    const symbolField = page.getByRole('textbox', { name: /シンボル/ });
+    const nameField = page.getByRole('textbox', { name: /銘柄名/ });
+    const exchangeField = page.getByRole('combobox', { name: /取引所/ });
+
+    await expect(symbolField).toBeVisible();
+    await expect(nameField).toBeVisible();
+    await expect(exchangeField).toBeVisible();
 
     // ティッカーID自動生成の説明が表示される
     await expect(page.getByText(/ティッカーIDは自動生成されます/)).toBeVisible();
 
     // シンボルを入力（自動的に大文字に変換される）
-    await page.getByLabel('シンボル', { exact: true }).fill(testSymbol);
+    await symbolField.fill(testSymbol);
 
     // 銘柄名を入力
-    await page.getByLabel('銘柄名', { exact: true }).fill(testName);
+    await nameField.fill(testName);
 
     // 取引所を選択
-    await page.getByLabel('取引所', { exact: true }).click();
+    await exchangeField.click();
 
     // 取引所のオプションを取得
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
@@ -148,19 +152,19 @@ test.describe('ティッカー管理', () => {
     await expect(page.getByRole('heading', { name: 'ティッカー編集' })).toBeVisible();
 
     // ティッカーIDは変更不可（disabled）
-    const tickerIdField = page.getByLabel('ティッカーID', { exact: true });
+    const tickerIdField = page.getByRole('textbox', { name: /ティッカーID/ });
     await expect(tickerIdField).toBeDisabled();
 
     // シンボルは変更不可（disabled）
-    const symbolField = page.getByLabel('シンボル', { exact: true });
+    const symbolField = page.getByRole('textbox', { name: /シンボル/ });
     await expect(symbolField).toBeDisabled();
 
     // 取引所は変更不可（disabled）
-    const exchangeField = page.getByLabel('取引所', { exact: true });
+    const exchangeField = page.getByRole('combobox', { name: /取引所/ });
     await expect(exchangeField).toBeDisabled();
 
     // 銘柄名のみ編集可能
-    const nameField = page.getByLabel('銘柄名', { exact: true });
+    const nameField = page.getByRole('textbox', { name: /銘柄名/ });
     await expect(nameField).toBeEnabled();
 
     // 銘柄名を変更
@@ -227,7 +231,7 @@ test.describe('ティッカー管理', () => {
     await expect(createButton).toBeDisabled();
 
     // シンボルのみ入力
-    await page.getByLabel('シンボル', { exact: true }).fill('TEST');
+    await page.getByRole('textbox', { name: /シンボル/ }).fill('TEST');
 
     // 作成ボタンはまだ無効（銘柄名と取引所が未入力）
     await expect(createButton).toBeDisabled();
