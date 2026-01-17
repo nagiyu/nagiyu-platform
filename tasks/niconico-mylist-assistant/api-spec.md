@@ -2435,52 +2435,240 @@ export function validateVideoIds(videoIds: string[]): void {
 
 ## 10. その他
 
-<!-- [任意] -->
-<!-- 記入ガイド: 上記に該当しない API 固有の情報があれば記述してください -->
+本セクションでは、API 全体に共通する仕様（ページネーション、フィルタリング）を定義します。
 
 ### 10.1 ページネーション
 
-<!-- [任意] ページネーションを実装する場合 -->
+動画一覧取得系のエンドポイント（`GET /api/videos`）では、Offset/Limit 方式のページネーションをサポートします。
 
-リスト系エンドポイントでは以下のクエリパラメータでページネーションをサポートします。
+#### 対応エンドポイント
 
-| パラメータ | 型     | デフォルト | 説明                   |
-| ---------- | ------ | ---------- | ---------------------- |
-| limit      | number | 50         | 取得件数（最大100）    |
-| offset     | number | 0          | 開始位置               |
-| cursor     | string | -          | カーソル（オプション） |
+- `GET /api/videos`: 動画一覧取得
 
-### 10.2 ソート・フィルタリング
+#### クエリパラメータ
 
-<!-- [任意] ソート・フィルタリングを実装する場合 -->
+| パラメータ | 型     | 必須 | デフォルト | 説明                      |
+| ---------- | ------ | ---- | ---------- | ------------------------- |
+| limit      | number | -    | 50         | 取得件数（最小1、最大100） |
+| offset     | number | -    | 0          | 開始位置（0始まり）       |
 
-リスト系エンドポイントでは以下のクエリパラメータでソート・フィルタリングをサポートします。
+#### 使用例
 
-| パラメータ | 型     | 説明                           |
-| ---------- | ------ | ------------------------------ |
-| sort       | string | ソート順（`+field`, `-field`） |
-| filter     | string | フィルタ条件                   |
+```bash
+# 最初の50件を取得（デフォルト）
+curl https://niconico-mylist.nagiyu.com/api/videos \
+    -b "nagiyu-session={jwt-token}"
 
-### 10.3 Webhook
+# 51件目から100件目を取得
+curl https://niconico-mylist.nagiyu.com/api/videos?limit=50&offset=50 \
+    -b "nagiyu-session={jwt-token}"
 
-<!-- [任意] Webhook を提供する場合 -->
+# 最大100件を取得
+curl https://niconico-mylist.nagiyu.com/api/videos?limit=100&offset=0 \
+    -b "nagiyu-session={jwt-token}"
+```
 
-特定のイベント発生時に、登録された URL にリクエストを送信します。
-
-#### イベント一覧
-
-| イベント名     | 説明             |
-| -------------- | ---------------- |
-| `{event.name}` | {イベントの説明} |
-
-#### Webhook ペイロード
+#### レスポンス例
 
 ```json
 {
-    "event": "{event.name}",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "data": {
-        "{field}": "{value}"
+    "videos": [
+        {
+            "videoId": "sm12345678",
+            "title": "動画タイトル",
+            "isFavorite": false,
+            "isSkip": false,
+            "memo": "",
+            "createdAt": "2026-01-16T10:30:00.000Z",
+            "updatedAt": "2026-01-16T10:30:00.000Z"
+        }
+    ],
+    "pagination": {
+        "total": 250,
+        "limit": 50,
+        "offset": 0,
+        "hasNext": true
     }
 }
 ```
+
+#### レスポンスフィールド（pagination）
+
+| フィールド | 型      | 説明                                  |
+| ---------- | ------- | ------------------------------------- |
+| total      | number  | 全体の件数                            |
+| limit      | number  | 現在のページの取得件数                |
+| offset     | number  | 現在のページの開始位置                |
+| hasNext    | boolean | 次のページが存在するか（true/false）  |
+
+#### パラメータバリデーション
+
+- `limit` が 1 未満の場合、400 Bad Request を返す
+- `limit` が 100 を超える場合、400 Bad Request を返す
+- `offset` が 0 未満の場合、400 Bad Request を返す
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "limit は 1 以上 100 以下である必要があります"
+    }
+}
+```
+
+---
+
+### 10.2 フィルタリング
+
+動画一覧取得エンドポイント（`GET /api/videos`）では、ユーザー設定によるフィルタリングをサポートします。
+
+#### 対応エンドポイント
+
+- `GET /api/videos`: 動画一覧取得
+
+#### クエリパラメータ
+
+| パラメータ | 型      | 必須 | デフォルト | 説明                                               |
+| ---------- | ------- | ---- | ---------- | -------------------------------------------------- |
+| isFavorite | boolean | -    | -          | `true`: お気に入りのみ、`false`: お気に入り以外    |
+| isSkip     | boolean | -    | -          | `true`: スキップのみ、`false`: スキップ以外        |
+
+#### フィルタの組み合わせ
+
+複数のフィルタを同時に指定した場合、**AND 条件**で適用されます。
+
+#### 使用例
+
+```bash
+# お気に入りのみを取得
+curl "https://niconico-mylist.nagiyu.com/api/videos?isFavorite=true" \
+    -b "nagiyu-session={jwt-token}"
+
+# スキップを除外（スキップ以外を取得）
+curl "https://niconico-mylist.nagiyu.com/api/videos?isSkip=false" \
+    -b "nagiyu-session={jwt-token}"
+
+# お気に入りかつスキップ以外を取得（AND条件）
+curl "https://niconico-mylist.nagiyu.com/api/videos?isFavorite=true&isSkip=false" \
+    -b "nagiyu-session={jwt-token}"
+
+# フィルタとページネーションの併用
+curl "https://niconico-mylist.nagiyu.com/api/videos?isFavorite=true&limit=20&offset=0" \
+    -b "nagiyu-session={jwt-token}"
+```
+
+#### レスポンス例
+
+```json
+{
+    "videos": [
+        {
+            "videoId": "sm12345678",
+            "title": "お気に入りの動画",
+            "isFavorite": true,
+            "isSkip": false,
+            "memo": "お気に入り",
+            "createdAt": "2026-01-16T10:30:00.000Z",
+            "updatedAt": "2026-01-16T10:30:00.000Z"
+        }
+    ],
+    "pagination": {
+        "total": 50,
+        "limit": 50,
+        "offset": 0,
+        "hasNext": false
+    }
+}
+```
+
+**注**: `pagination.total` は、フィルタ適用後の件数を返します。
+
+#### パラメータバリデーション
+
+- `isFavorite` が `true`/`false` 以外の場合、400 Bad Request を返す
+- `isSkip` が `true`/`false` 以外の場合、400 Bad Request を返す
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "isFavorite は true または false である必要があります"
+    }
+}
+```
+
+---
+
+### 10.3 Web Push 通知
+
+本サービスでは、バッチ処理完了時にブラウザへ Web Push 通知を送信します。
+
+ただし、これは**外部サービスへの Webhook 送信ではなく**、ユーザーのブラウザに対するプッシュ通知機能です。
+
+#### 通知タイミング
+
+- マイリスト一括登録バッチ処理が完了したとき
+- バッチ処理がエラーで終了したとき
+
+#### 通知内容
+
+```json
+// 成功時
+{
+    "title": "マイリスト登録完了",
+    "body": "100件の動画をマイリストに登録しました",
+    "icon": "/icon-192x192.png",
+    "data": {
+        "status": "success",
+        "count": 100,
+        "timestamp": "2026-01-16T12:00:00.000Z"
+    }
+}
+
+// エラー時
+{
+    "title": "マイリスト登録エラー",
+    "body": "マイリスト登録中にエラーが発生しました",
+    "icon": "/icon-192x192.png",
+    "data": {
+        "status": "error",
+        "message": "ニコニコ動画へのログインに失敗しました",
+        "timestamp": "2026-01-16T12:00:00.000Z"
+    }
+}
+```
+
+#### Web Push の実装
+
+- Service Worker を使用した Push API による実装
+- ユーザーは初回アクセス時に通知許可を求められます
+- 通知を拒否した場合でも、サービスの利用は可能です（通知のみが無効化されます）
+
+#### セキュリティ
+
+- Web Push の購読情報（subscription）は DynamoDB に保存され、UserID と紐づけられます
+- 通知は認証済みユーザーのみに送信されます
+- VAPID キーによる認証を使用します
+
+---
+
+### 10.4 ソート機能について
+
+本サービスでは、動画一覧取得エンドポイント（`GET /api/videos`）において**ソート機能を提供しません**。
+
+#### 理由
+
+- DynamoDB の Scan 操作では効率的なソートが困難
+- ユーザーは主にフィルタリング（お気に入り、スキップ）による絞り込みを利用する想定
+- ソート機能は将来的な拡張として検討可能
+
+#### 代替手段
+
+- フロントエンド側で取得したデータをクライアントサイドでソート
+- 必要に応じて、将来的に ElasticSearch などの検索エンジンを導入してソート機能を実装
+
+---
