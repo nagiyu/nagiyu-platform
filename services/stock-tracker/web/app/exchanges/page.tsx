@@ -139,6 +139,7 @@ export default function ExchangesPage() {
 
   useEffect(() => {
     fetchExchanges();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 新規作成モーダルを開く

@@ -127,8 +127,17 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     // モーダルが表示される
     await expect(page.locator('h2:has-text("取引所編集")')).toBeVisible();
 
-    // 取引所名を変更
-    const nameInput = page.locator('input').nth(1); // 2番目のinput（取引所名）
+    // 取引所名フィールドを探して変更
+    // 取引所名は2番目のフィールド（取引所IDの次）
+    const dialogContent = page.locator('div[role="dialog"]');
+    const textFields = dialogContent.locator('input[type="text"]');
+    
+    // 取引所名フィールドを特定（取引所IDはdisabled、取引所名はenabled）
+    const nameFieldIndex = await textFields.evaluateAll((inputs) => {
+      return inputs.findIndex((input) => !input.disabled && input.value.length > 0);
+    });
+    
+    const nameInput = textFields.nth(nameFieldIndex);
     await nameInput.clear();
     await nameInput.fill(`${originalName} (Updated)`);
 
@@ -146,8 +155,13 @@ test.describe('取引所管理画面 (E2E-006)', () => {
 
     // 元の名前に戻す
     await firstRow.locator('button:has-text("編集")').click();
-    await page.locator('input').nth(1).clear();
-    await page.locator('input').nth(1).fill(originalName || 'Original Name');
+    const dialogContent2 = page.locator('div[role="dialog"]');
+    const textFields2 = dialogContent2.locator('input[type="text"]');
+    const nameFieldIndex2 = await textFields2.evaluateAll((inputs) => {
+      return inputs.findIndex((input) => !input.disabled && input.value.length > 0);
+    });
+    await textFields2.nth(nameFieldIndex2).clear();
+    await textFields2.nth(nameFieldIndex2).fill(originalName || 'Original Name');
     await page.locator('button:has-text("保存")').click();
     await page.waitForTimeout(1000);
   });
