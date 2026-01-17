@@ -168,6 +168,8 @@ export class WatchlistRepository {
         PK: `USER#${newWatchlist.UserID}`,
         SK: `WATCHLIST#${newWatchlist.TickerID}`,
         Type: 'Watchlist',
+        GSI1PK: newWatchlist.UserID,
+        GSI1SK: `Watchlist#${newWatchlist.TickerID}`,
         ...newWatchlist,
       };
 
