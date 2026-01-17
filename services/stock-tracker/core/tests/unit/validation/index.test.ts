@@ -13,7 +13,6 @@ import {
   validateHolding,
   validateWatchlist,
   validateAlert,
-  type ValidationResult,
 } from '../../../src/validation';
 import type {
   Exchange,
