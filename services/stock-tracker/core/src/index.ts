@@ -15,4 +15,5 @@ export * from './repositories/exchange.js';
 export * from './repositories/ticker.js';
 export * from './repositories/holding.js';
 export * from './repositories/watchlist.js';
+export * from './repositories/alert.js';
 export * from './services/auth.js';
