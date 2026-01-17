@@ -14,13 +14,7 @@ import {
   validateWatchlist,
   validateAlert,
 } from '../../../src/validation';
-import type {
-  Exchange,
-  Ticker,
-  Holding,
-  Watchlist,
-  Alert,
-} from '../../../src/types';
+import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../../../src/types';
 
 describe('validateExchange', () => {
   const validExchange: Exchange = {
@@ -102,18 +96,14 @@ describe('validateExchange', () => {
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '取引所IDは1-50文字の英数字とハイフンのみ使用できます',
-      );
+      expect(result.errors).toContain('取引所IDは1-50文字の英数字とハイフンのみ使用できます');
     });
 
     it('ExchangeIDに不正な文字が含まれる場合はバリデーションに失敗する', () => {
       const exchange: Exchange = { ...validExchange, ExchangeID: 'NASDAQ_' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '取引所IDは1-50文字の英数字とハイフンのみ使用できます',
-      );
+      expect(result.errors).toContain('取引所IDは1-50文字の英数字とハイフンのみ使用できます');
     });
 
     it('Nameが空文字の場合はバリデーションに失敗する', () => {
@@ -145,7 +135,7 @@ describe('validateExchange', () => {
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        'TradingView APIキーは1-20文字の英大文字と数字のみ使用できます',
+        'TradingView APIキーは1-20文字の英大文字と数字のみ使用できます'
       );
     });
 
@@ -161,7 +151,7 @@ describe('validateExchange', () => {
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        'タイムゾーンはIANA形式（例: America/New_York）で入力してください',
+        'タイムゾーンはIANA形式（例: America/New_York）で入力してください'
       );
     });
 
@@ -176,9 +166,7 @@ describe('validateExchange', () => {
       const exchange: Exchange = { ...validExchange, Start: '4:00' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '取引開始時刻はHH:MM形式（例: 04:00）で入力してください',
-      );
+      expect(result.errors).toContain('取引開始時刻はHH:MM形式（例: 04:00）で入力してください');
     });
 
     it('Endが空文字の場合はバリデーションに失敗する', () => {
@@ -192,9 +180,7 @@ describe('validateExchange', () => {
       const exchange: Exchange = { ...validExchange, End: '24:00' };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '取引終了時刻はHH:MM形式（例: 20:00）で入力してください',
-      );
+      expect(result.errors).toContain('取引終了時刻はHH:MM形式（例: 20:00）で入力してください');
     });
 
     it('CreatedAtが未来すぎる場合はバリデーションに失敗する', () => {
@@ -333,7 +319,7 @@ describe('validateTicker', () => {
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        'ティッカーIDは{取引所キー}:{シンボル}形式で入力してください（例: NSDQ:AAPL）',
+        'ティッカーIDは{取引所キー}:{シンボル}形式で入力してください（例: NSDQ:AAPL）'
       );
     });
 
@@ -342,7 +328,7 @@ describe('validateTicker', () => {
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        'ティッカーIDは{取引所キー}:{シンボル}形式で入力してください（例: NSDQ:AAPL）',
+        'ティッカーIDは{取引所キー}:{シンボル}形式で入力してください（例: NSDQ:AAPL）'
       );
     });
 
@@ -357,9 +343,7 @@ describe('validateTicker', () => {
       const ticker: Ticker = { ...validTicker, Symbol: 'Aapl' };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'シンボルは1-20文字の英大文字と数字のみ使用できます',
-      );
+      expect(result.errors).toContain('シンボルは1-20文字の英大文字と数字のみ使用できます');
     });
 
     it('Symbolが21文字の場合はバリデーションに失敗する', () => {
@@ -369,9 +353,7 @@ describe('validateTicker', () => {
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'シンボルは1-20文字の英大文字と数字のみ使用できます',
-      );
+      expect(result.errors).toContain('シンボルは1-20文字の英大文字と数字のみ使用できます');
     });
 
     it('Nameが空文字の場合はバリデーションに失敗する', () => {
@@ -512,36 +494,28 @@ describe('validateHolding', () => {
       const holding: Holding = { ...validHolding, Quantity: 0.00009 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '保有数は0.0001〜1,000,000,000の範囲で入力してください',
-      );
+      expect(result.errors).toContain('保有数は0.0001〜1,000,000,000の範囲で入力してください');
     });
 
     it('Quantityが1,000,000,001の場合はバリデーションに失敗する', () => {
       const holding: Holding = { ...validHolding, Quantity: 1_000_000_001 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '保有数は0.0001〜1,000,000,000の範囲で入力してください',
-      );
+      expect(result.errors).toContain('保有数は0.0001〜1,000,000,000の範囲で入力してください');
     });
 
     it('AveragePriceが0.009の場合はバリデーションに失敗する', () => {
       const holding: Holding = { ...validHolding, AveragePrice: 0.009 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '平均取得価格は0.01〜1,000,000の範囲で入力してください',
-      );
+      expect(result.errors).toContain('平均取得価格は0.01〜1,000,000の範囲で入力してください');
     });
 
     it('AveragePriceが1,000,001の場合はバリデーションに失敗する', () => {
       const holding: Holding = { ...validHolding, AveragePrice: 1_000_001 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '平均取得価格は0.01〜1,000,000の範囲で入力してください',
-      );
+      expect(result.errors).toContain('平均取得価格は0.01〜1,000,000の範囲で入力してください');
     });
 
     it('Currencyが空文字の場合はバリデーションに失敗する', () => {
@@ -556,7 +530,7 @@ describe('validateHolding', () => {
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）',
+        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）'
       );
     });
 
@@ -565,7 +539,7 @@ describe('validateHolding', () => {
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）',
+        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）'
       );
     });
 
@@ -574,7 +548,7 @@ describe('validateHolding', () => {
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）',
+        '通貨コードは3文字の英大文字で入力してください（例: USD, JPY）'
       );
     });
   });
@@ -626,17 +600,13 @@ describe('validateWatchlist', () => {
     it('nullの場合はバリデーションに失敗する', () => {
       const result = validateWatchlist(null);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'ウォッチリストデータが指定されていません',
-      );
+      expect(result.errors).toContain('ウォッチリストデータが指定されていません');
     });
 
     it('undefinedの場合はバリデーションに失敗する', () => {
       const result = validateWatchlist(undefined);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'ウォッチリストデータが指定されていません',
-      );
+      expect(result.errors).toContain('ウォッチリストデータが指定されていません');
     });
 
     it('オブジェクト以外の型の場合はバリデーションに失敗する', () => {
@@ -787,9 +757,7 @@ describe('validateAlert', () => {
       }; // v3
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'アラートIDはUUID v4形式で入力してください',
-      );
+      expect(result.errors).toContain('アラートIDはUUID v4形式で入力してください');
     });
 
     it('UserIDが空文字の場合はバリデーションに失敗する', () => {
@@ -825,7 +793,7 @@ describe('validateAlert', () => {
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain(
-        '通知頻度は"MINUTE_LEVEL"または"HOURLY_LEVEL"を指定してください',
+        '通知頻度は"MINUTE_LEVEL"または"HOURLY_LEVEL"を指定してください'
       );
     });
 
@@ -856,9 +824,7 @@ describe('validateAlert', () => {
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'Phase 1ではフィールドは"price"のみ指定できます',
-      );
+      expect(result.errors).toContain('Phase 1ではフィールドは"price"のみ指定できます');
     });
 
     it('条件のoperatorが"eq"の場合はバリデーションに失敗する', () => {
@@ -868,9 +834,7 @@ describe('validateAlert', () => {
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'Phase 1では演算子は"gte"または"lte"のみ指定できます',
-      );
+      expect(result.errors).toContain('Phase 1では演算子は"gte"または"lte"のみ指定できます');
     });
 
     it('条件値が0.009の場合はバリデーションに失敗する', () => {
@@ -880,9 +844,7 @@ describe('validateAlert', () => {
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '条件値は0.01〜1,000,000の範囲で入力してください',
-      );
+      expect(result.errors).toContain('条件値は0.01〜1,000,000の範囲で入力してください');
     });
 
     it('条件値が1,000,001の場合はバリデーションに失敗する', () => {
@@ -892,18 +854,14 @@ describe('validateAlert', () => {
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        '条件値は0.01〜1,000,000の範囲で入力してください',
-      );
+      expect(result.errors).toContain('条件値は0.01〜1,000,000の範囲で入力してください');
     });
 
     it('SubscriptionEndpointが空文字の場合はバリデーションに失敗する', () => {
       const alert: Alert = { ...validAlert, SubscriptionEndpoint: '' };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        'Web Pushサブスクリプションエンドポイントは必須です',
-      );
+      expect(result.errors).toContain('Web Pushサブスクリプションエンドポイントは必須です');
     });
 
     it('SubscriptionKeysP256dhが空文字の場合はバリデーションに失敗する', () => {

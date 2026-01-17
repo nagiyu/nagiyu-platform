@@ -6,12 +6,7 @@
  */
 
 import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../types';
-import {
-  isValidPrice,
-  isValidQuantity,
-  isNonEmptyString,
-  isValidTimestamp,
-} from './helpers';
+import { isValidPrice, isValidQuantity, isNonEmptyString, isValidTimestamp } from './helpers';
 
 /**
  * バリデーションエラーメッセージ定数
@@ -25,7 +20,8 @@ const ERROR_MESSAGES = {
   EXCHANGE_KEY_REQUIRED: 'TradingView APIキーは必須です',
   EXCHANGE_KEY_INVALID_FORMAT: 'TradingView APIキーは1-20文字の英大文字と数字のみ使用できます',
   EXCHANGE_TIMEZONE_REQUIRED: 'タイムゾーンは必須です',
-  EXCHANGE_TIMEZONE_INVALID_FORMAT: 'タイムゾーンはIANA形式（例: America/New_York）で入力してください',
+  EXCHANGE_TIMEZONE_INVALID_FORMAT:
+    'タイムゾーンはIANA形式（例: America/New_York）で入力してください',
   EXCHANGE_START_REQUIRED: '取引開始時刻は必須です',
   EXCHANGE_START_INVALID_FORMAT: '取引開始時刻はHH:MM形式（例: 04:00）で入力してください',
   EXCHANGE_END_REQUIRED: '取引終了時刻は必須です',
@@ -37,7 +33,8 @@ const ERROR_MESSAGES = {
 
   // Ticker
   TICKER_ID_REQUIRED: 'ティッカーIDは必須です',
-  TICKER_ID_INVALID_FORMAT: 'ティッカーIDは{取引所キー}:{シンボル}形式で入力してください（例: NSDQ:AAPL）',
+  TICKER_ID_INVALID_FORMAT:
+    'ティッカーIDは{取引所キー}:{シンボル}形式で入力してください（例: NSDQ:AAPL）',
   TICKER_SYMBOL_REQUIRED: 'シンボルは必須です',
   TICKER_SYMBOL_INVALID_FORMAT: 'シンボルは1-20文字の英大文字と数字のみ使用できます',
   TICKER_NAME_REQUIRED: '銘柄名は必須です',
@@ -399,9 +396,7 @@ export function validateAlert(alert: unknown): ValidationResult {
   if (!alt.AlertID || !isNonEmptyString(alt.AlertID)) {
     errors.push(ERROR_MESSAGES.ALERT_ID_REQUIRED);
   } else if (
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      alt.AlertID,
-    )
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(alt.AlertID)
   ) {
     errors.push(ERROR_MESSAGES.ALERT_ID_INVALID_FORMAT);
   }
@@ -431,10 +426,7 @@ export function validateAlert(alert: unknown): ValidationResult {
   // Frequency
   if (!alt.Frequency) {
     errors.push(ERROR_MESSAGES.ALERT_FREQUENCY_REQUIRED);
-  } else if (
-    alt.Frequency !== 'MINUTE_LEVEL' &&
-    alt.Frequency !== 'HOURLY_LEVEL'
-  ) {
+  } else if (alt.Frequency !== 'MINUTE_LEVEL' && alt.Frequency !== 'HOURLY_LEVEL') {
     errors.push(ERROR_MESSAGES.ALERT_FREQUENCY_INVALID);
   }
 
@@ -472,26 +464,17 @@ export function validateAlert(alert: unknown): ValidationResult {
   }
 
   // SubscriptionEndpoint
-  if (
-    !alt.SubscriptionEndpoint ||
-    !isNonEmptyString(alt.SubscriptionEndpoint)
-  ) {
+  if (!alt.SubscriptionEndpoint || !isNonEmptyString(alt.SubscriptionEndpoint)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_ENDPOINT_REQUIRED);
   }
 
   // SubscriptionKeysP256dh
-  if (
-    !alt.SubscriptionKeysP256dh ||
-    !isNonEmptyString(alt.SubscriptionKeysP256dh)
-  ) {
+  if (!alt.SubscriptionKeysP256dh || !isNonEmptyString(alt.SubscriptionKeysP256dh)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_P256DH_REQUIRED);
   }
 
   // SubscriptionKeysAuth
-  if (
-    !alt.SubscriptionKeysAuth ||
-    !isNonEmptyString(alt.SubscriptionKeysAuth)
-  ) {
+  if (!alt.SubscriptionKeysAuth || !isNonEmptyString(alt.SubscriptionKeysAuth)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED);
   }
 
