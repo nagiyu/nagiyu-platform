@@ -4,6 +4,7 @@ import {
   getAuthError,
   ExchangeAlreadyExistsError,
   InvalidExchangeDataError,
+  validateExchange,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
@@ -105,24 +106,29 @@ export async function POST(request: Request) {
     // リクエストボディをパース
     const body = await request.json();
 
-    // 必須フィールドのバリデーション
+    // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
     const { exchangeId, name, key, timezone, tradingHours } = body;
 
-    if (!exchangeId || !name || !key || !timezone || !tradingHours) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST,
-        },
-        { status: 400 }
-      );
-    }
+    // バリデーション用の一時的な Exchange オブジェクトを作成
+    const exchangeToValidate = {
+      ExchangeID: exchangeId,
+      Name: name,
+      Key: key,
+      Timezone: timezone,
+      Start: tradingHours?.start,
+      End: tradingHours?.end,
+      CreatedAt: Date.now(), // バリデーション用の仮値
+      UpdatedAt: Date.now(), // バリデーション用の仮値
+    };
 
-    if (!tradingHours.start || !tradingHours.end) {
+    // バリデーション実行
+    const validationResult = validateExchange(exchangeToValidate);
+
+    if (!validationResult.valid) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST,
+          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
         },
         { status: 400 }
       );

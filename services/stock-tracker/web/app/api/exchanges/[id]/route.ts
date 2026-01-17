@@ -4,6 +4,7 @@ import {
   getAuthError,
   ExchangeNotFoundError,
   InvalidExchangeDataError,
+  validateExchange,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
@@ -126,6 +127,25 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const { id: exchangeId } = await params;
 
+    // DynamoDB クライアントとテーブル名を取得
+    const docClient = getDynamoDBClient();
+    const tableName = getTableName();
+
+    // Exchange リポジトリを初期化
+    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+
+    // 既存の取引所を取得
+    const existingExchange = await exchangeRepo.getById(exchangeId);
+    if (!existingExchange) {
+      return NextResponse.json(
+        {
+          error: 'NOT_FOUND',
+          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
     // リクエストボディをパース
     const body = await request.json();
 
@@ -164,12 +184,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
+    // 更新後のデータをバリデーション用にマージ
+    const exchangeToValidate = {
+      ...existingExchange,
+      ...updates,
+    };
 
-    // Exchange リポジトリを初期化
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    // バリデーション実行
+    const validationResult = validateExchange(exchangeToValidate);
+
+    if (!validationResult.valid) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
+        },
+        { status: 400 }
+      );
+    }
 
     // 取引所を更新
     const updatedExchange = await exchangeRepo.update(exchangeId, updates);
