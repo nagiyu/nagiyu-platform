@@ -243,7 +243,7 @@ test.describe('取引所管理画面 - 権限チェック (E2E-005の一部)', (
   test('エラーメッセージが適切に表示される', async ({ page }) => {
     // 認証エラーや権限エラーが発生した場合の表示を確認
     await page.goto('/exchanges');
-    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
 
     // エラーが発生していない場合はテーブルが表示される
     const errorAlert = page.locator('[role="alert"]');
@@ -260,7 +260,7 @@ test.describe('取引所管理画面 - 権限チェック (E2E-005の一部)', (
 test.describe('取引所管理画面 - アクセシビリティ', () => {
   test('キーボードナビゲーションが機能する', async ({ page }) => {
     await page.goto('/exchanges');
-    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
 
     // 新規登録ボタンにフォーカスを移動
     await page.keyboard.press('Tab');
@@ -272,7 +272,7 @@ test.describe('取引所管理画面 - アクセシビリティ', () => {
 
   test('ボタンとリンクに適切なラベルが設定されている', async ({ page }) => {
     await page.goto('/exchanges');
-    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(3000);
 
     // 新規登録ボタンのラベルを確認
     const createButton = page.locator('button:has-text("新規登録")');
