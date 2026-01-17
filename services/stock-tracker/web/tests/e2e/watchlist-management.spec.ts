@@ -186,14 +186,15 @@ test.describe('Watchlist 管理画面', () => {
 
         await page.waitForLoadState('networkidle');
 
-        // 現在の行数を記録
-        const currentRows = await page.getByRole('row').count();
-
         // 削除ボタンをクリック（最初の行の削除ボタン）
         const deleteButtons = page.getByRole('button', { name: '削除' });
         const deleteButtonCount = await deleteButtons.count();
 
+        // 削除可能なアイテムが存在する場合のみテスト実行
         if (deleteButtonCount > 0) {
+          // 現在の行数を記録
+          const currentRows = await page.getByRole('row').count();
+
           await deleteButtons.first().click();
 
           // 削除確認ダイアログが表示される
@@ -266,14 +267,15 @@ test.describe('Watchlist 管理画面', () => {
 
         await page.waitForLoadState('networkidle');
 
-        // 現在の行数を記録
-        const currentRows = await page.getByRole('row').count();
-
         // 削除ボタンをクリック
         const deleteButtons = page.getByRole('button', { name: '削除' });
         const deleteButtonCount = await deleteButtons.count();
 
+        // 削除可能なアイテムが存在する場合のみテスト実行
         if (deleteButtonCount > 0) {
+          // 現在の行数を記録
+          const currentRows = await page.getByRole('row').count();
+
           await deleteButtons.first().click();
 
           // 削除確認ダイアログが表示される
