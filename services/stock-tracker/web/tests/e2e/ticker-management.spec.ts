@@ -110,13 +110,16 @@ test.describe('ティッカー管理', () => {
       // モーダルが閉じる
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
-      // テーブルに新しいティッカーが表示される（セル内で検索してstrictモード違反を回避）
-      await expect(page.getByRole('cell', { name: testSymbol, exact: true })).toBeVisible();
-      await expect(page.getByRole('cell', { name: testName })).toBeVisible();
+      // テーブルに新しいティッカーが表示される
+      // 作成したティッカーの行を特定（ユニークなシンボルで検索）
+      const tickerRow = page.getByRole('row').filter({ hasText: testSymbol });
+      await expect(tickerRow).toBeVisible();
+
+      // 行内でシンボルと名前が表示されていることを確認
+      await expect(tickerRow.getByRole('cell', { name: testSymbol, exact: true })).toBeVisible();
+      await expect(tickerRow.getByRole('cell', { name: testName })).toBeVisible();
 
       // ティッカーIDを取得（{Exchange.Key}:{Symbol} 形式を確認）
-      // シンボルセルを含む行を取得し、その行の最初のセル（TickerID）を取得
-      const tickerRow = page.getByRole('row').filter({ hasText: testSymbol });
       const tickerIdCell = tickerRow.getByRole('cell').first();
       testTickerId = (await tickerIdCell.textContent()) || '';
       console.log('作成されたティッカーID:', testTickerId);
@@ -177,8 +180,9 @@ test.describe('ティッカー管理', () => {
     // モーダルが閉じる
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
-    // テーブルに更新された銘柄名が表示される
-    await expect(page.getByRole('cell', { name: updatedName })).toBeVisible();
+    // テーブルに更新された銘柄名が表示される（該当行内で確認）
+    const updatedTickerRow = page.getByRole('row').filter({ hasText: testSymbol });
+    await expect(updatedTickerRow.getByRole('cell', { name: updatedName })).toBeVisible();
   });
 
   test('取引所フィルタが正しく動作する', async ({ page }) => {
