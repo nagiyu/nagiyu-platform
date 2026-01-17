@@ -139,7 +139,7 @@ export async function PUT(
       return NextResponse.json(response, { status: 200 });
     } catch (error) {
       // ティッカーが見つからない場合
-      if (error instanceof Error && error.message.includes('見つかりません')) {
+      if (error instanceof TickerNotFoundError) {
         return NextResponse.json(
           {
             error: 'NOT_FOUND',
