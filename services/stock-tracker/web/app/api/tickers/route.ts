@@ -17,7 +17,6 @@ import {
   ExchangeRepository,
   getAuthError,
   TickerAlreadyExistsError,
-  ExchangeNotFoundError,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
@@ -276,22 +275,17 @@ export async function POST(
     const tickerRepo = new TickerRepository(docClient, tableName);
 
     // 取引所の存在確認と Key 取得
-    let exchangeKey: string;
-    try {
-      const exchange = await exchangeRepo.getById(body.exchangeId);
-      exchangeKey = exchange.Key;
-    } catch (error) {
-      if (error instanceof ExchangeNotFoundError) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-          },
-          { status: 400 }
-        );
-      }
-      throw error;
+    const exchange = await exchangeRepo.getById(body.exchangeId);
+    if (!exchange) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+        },
+        { status: 400 }
+      );
     }
+    const exchangeKey = exchange.Key;
 
     // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
     try {
