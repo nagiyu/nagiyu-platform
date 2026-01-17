@@ -13,7 +13,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  IconButton,
   Alert,
   CircularProgress,
   Dialog,
@@ -25,7 +24,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  SelectChangeEvent,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -374,16 +372,19 @@ export default function HoldingsPage() {
     setError('');
 
     try {
-      const response = await fetch(`/api/holdings/${encodeURIComponent(selectedHolding.holdingId)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          quantity: parseFloat(formData.quantity),
-          averagePrice: parseFloat(formData.averagePrice),
-        }),
-      });
+      const response = await fetch(
+        `/api/holdings/${encodeURIComponent(selectedHolding.holdingId)}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            quantity: parseFloat(formData.quantity),
+            averagePrice: parseFloat(formData.averagePrice),
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -416,9 +417,12 @@ export default function HoldingsPage() {
     setError('');
 
     try {
-      const response = await fetch(`/api/holdings/${encodeURIComponent(selectedHolding.holdingId)}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/holdings/${encodeURIComponent(selectedHolding.holdingId)}`,
+        {
+          method: 'DELETE',
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -448,7 +452,9 @@ export default function HoldingsPage() {
       router.push('/alerts');
     } else {
       // 未設定の場合はアラート設定モーダルを開く
-      router.push(`/alerts?ticker=${encodeURIComponent(holding.tickerId)}&mode=Sell&openModal=true`);
+      router.push(
+        `/alerts?ticker=${encodeURIComponent(holding.tickerId)}&mode=Sell&openModal=true`
+      );
     }
   };
 
@@ -478,7 +484,12 @@ export default function HoldingsPage() {
             保有株式管理
           </Typography>
         </Box>
-        <Button startIcon={<AddIcon />} variant="contained" color="primary" onClick={handleOpenCreateModal}>
+        <Button
+          startIcon={<AddIcon />}
+          variant="contained"
+          color="primary"
+          onClick={handleOpenCreateModal}
+        >
           新規登録
         </Button>
       </Box>
@@ -627,7 +638,11 @@ export default function HoldingsPage() {
             </FormControl>
 
             {/* ティッカー選択 */}
-            <FormControl fullWidth error={!!formErrors.tickerId} disabled={!formData.exchangeId || tickersLoading}>
+            <FormControl
+              fullWidth
+              error={!!formErrors.tickerId}
+              disabled={!formData.exchangeId || tickersLoading}
+            >
               <InputLabel id="create-ticker-label">ティッカー</InputLabel>
               <Select
                 labelId="create-ticker-label"
@@ -762,7 +777,13 @@ export default function HoldingsPage() {
             />
 
             {/* 通貨（表示のみ） */}
-            <TextField fullWidth label="通貨" value={formData.currency} disabled InputProps={{ readOnly: true }} />
+            <TextField
+              fullWidth
+              label="通貨"
+              value={formData.currency}
+              disabled
+              InputProps={{ readOnly: true }}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
@@ -796,7 +817,8 @@ export default function HoldingsPage() {
                 <strong>保有数:</strong> {selectedHolding.quantity.toLocaleString()}
               </Typography>
               <Typography variant="body2">
-                <strong>平均取得価格:</strong> {selectedHolding.averagePrice.toLocaleString()} {selectedHolding.currency}
+                <strong>平均取得価格:</strong> {selectedHolding.averagePrice.toLocaleString()}{' '}
+                {selectedHolding.currency}
               </Typography>
             </Box>
           )}
