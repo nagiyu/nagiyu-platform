@@ -72,7 +72,7 @@ export default function TickersPage() {
   const [tickers, setTickers] = useState<Ticker[]>([]);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [filteredTickers, setFilteredTickers] = useState<Ticker[]>([]);
-  
+
   // フィルタ状態
   const [exchangeFilter, setExchangeFilter] = useState<string>('');
 
@@ -138,7 +138,7 @@ export default function TickersPage() {
       const url = exchangeFilter
         ? `/api/tickers?exchangeId=${encodeURIComponent(exchangeFilter)}`
         : '/api/tickers';
-      
+
       const response = await fetch(url);
       if (!response.ok) {
         const data = await response.json();
@@ -381,9 +381,7 @@ export default function TickersPage() {
             ) : filteredTickers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">
-                    ティッカーが登録されていません
-                  </Typography>
+                  <Typography color="text.secondary">ティッカーが登録されていません</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -503,11 +501,7 @@ export default function TickersPage() {
             />
             <FormControl fullWidth disabled>
               <InputLabel id="edit-exchange-label">取引所</InputLabel>
-              <Select
-                labelId="edit-exchange-label"
-                value={formData.exchangeId}
-                label="取引所"
-              >
+              <Select labelId="edit-exchange-label" value={formData.exchangeId} label="取引所">
                 {exchanges.map((ex) => (
                   <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
                     {ex.name}
@@ -515,9 +509,7 @@ export default function TickersPage() {
                 ))}
               </Select>
             </FormControl>
-            <Alert severity="info">
-              取引所は変更できません
-            </Alert>
+            <Alert severity="info">取引所は変更できません</Alert>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -537,9 +529,7 @@ export default function TickersPage() {
       <Dialog open={deleteDialogOpen} onClose={closeModals}>
         <DialogTitle>ティッカー削除</DialogTitle>
         <DialogContent>
-          <Typography>
-            本当にこのティッカーを削除しますか？
-          </Typography>
+          <Typography>本当にこのティッカーを削除しますか？</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             ティッカーID: {deletingTickerId}
           </Typography>

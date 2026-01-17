@@ -111,7 +111,12 @@ test.describe('ティッカー管理', () => {
       await expect(page.getByText(testName)).toBeVisible();
 
       // ティッカーIDを取得（{Exchange.Key}:{Symbol} 形式を確認）
-      const tickerIdCell = page.locator(`text=${testSymbol}`).locator('..').locator('..').locator('td').first();
+      const tickerIdCell = page
+        .locator(`text=${testSymbol}`)
+        .locator('..')
+        .locator('..')
+        .locator('td')
+        .first();
       testTickerId = (await tickerIdCell.textContent()) || '';
       console.log('作成されたティッカーID:', testTickerId);
 
@@ -280,9 +285,7 @@ test.describe('ティッカー管理', () => {
       await page.goto('/tickers');
 
       // 403エラーまたはアクセス拒否メッセージが表示される
-      await expect(
-        page.getByText(/アクセスが拒否されました|権限がありません/)
-      ).toBeVisible();
+      await expect(page.getByText(/アクセスが拒否されました|権限がありません/)).toBeVisible();
     });
 
     test('stock-admin ロールではアクセスが許可される', async ({ page }) => {
