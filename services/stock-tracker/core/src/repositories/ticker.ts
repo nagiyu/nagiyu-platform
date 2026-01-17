@@ -61,7 +61,6 @@ export class InvalidTickerDataError extends Error {
   }
 }
 
-
 /**
  * Ticker リポジトリ
  */
