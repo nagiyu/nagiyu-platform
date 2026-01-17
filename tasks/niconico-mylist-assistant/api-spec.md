@@ -151,23 +151,28 @@ Content-Type: application/json
 | カテゴリ         | エンドポイント数 | 説明                                          |
 | ---------------- | ---------------- | --------------------------------------------- |
 | ヘルスチェック   | 1                | サービス稼働状況の確認                        |
-| 動画管理         | 5                | 動画基本情報とユーザー設定の CRUD 操作        |
+| 動画データ取得   | 2                | 動画基本情報 + ユーザー設定の結合データ取得   |
+| 動画基本情報管理 | 3                | 動画基本情報の CUD 操作                       |
+| ユーザー設定管理 | 3                | ユーザー設定の CUD 操作                       |
 | 一括インポート   | 1                | ニコニコ動画 API から動画情報を一括取得・保存 |
 | バッチジョブ管理 | 2                | マイリスト登録バッチの投入とステータス確認    |
 
 ### 2.2 全エンドポイント一覧
 
-| メソッド | パス                        | 説明                         | 認証 | 備考                                     |
-| -------- | --------------------------- | ---------------------------- | ---- | ---------------------------------------- |
-| GET      | `/api/health`               | ヘルスチェック               | 不要 | サービス稼働状況の確認                   |
-| GET      | `/api/videos`               | 動画一覧取得                 | 必須 | 認証ユーザーの動画データのみ取得         |
-| GET      | `/api/videos/{videoId}`     | 動画詳細取得                 | 必須 | 動画基本情報 + ユーザー設定を取得        |
-| POST     | `/api/videos`               | 動画作成（単一）             | 必須 | 動画基本情報 + ユーザー設定を作成        |
-| PUT      | `/api/videos/{videoId}`     | 動画更新（ユーザー設定のみ） | 必須 | お気に入り・スキップフラグ・メモを更新   |
-| DELETE   | `/api/videos/{videoId}`     | 動画削除                     | 必須 | ユーザー設定のみ削除（動画基本情報保持） |
-| POST     | `/api/videos/bulk-import`   | 動画一括インポート           | 必須 | 動画 ID リストから動画情報を一括取得     |
-| POST     | `/api/batch/submit`         | バッチジョブ投入             | 必須 | マイリスト登録バッチを AWS Batch に投入  |
-| GET      | `/api/batch/status/{jobId}` | バッチステータス確認         | 必須 | ジョブの実行状況と結果を取得             |
+| メソッド | パス                              | 説明                         | 認証 | 備考                                     |
+| -------- | --------------------------------- | ---------------------------- | ---- | ---------------------------------------- |
+| GET      | `/api/health`                     | ヘルスチェック               | 不要 | サービス稼働状況の確認                   |
+| GET      | `/api/videos`                     | 動画一覧取得                 | 必須 | 動画基本情報 + ユーザー設定の結合データ  |
+| GET      | `/api/videos/{videoId}`           | 動画詳細取得                 | 必須 | 動画基本情報 + ユーザー設定の結合データ  |
+| POST     | `/api/videos/bulk-import`         | 動画一括インポート           | 必須 | 動画 ID リストから動画基本情報を一括取得 |
+| POST     | `/api/videos/basic`               | 動画基本情報作成             | 必須 | 動画基本情報を新規作成                   |
+| PUT      | `/api/videos/{videoId}/basic`     | 動画基本情報更新             | 必須 | タイトル・サムネイル等の更新             |
+| DELETE   | `/api/videos/{videoId}/basic`     | 動画基本情報削除             | 必須 | 動画基本情報を削除（全ユーザーから削除） |
+| POST     | `/api/user-settings/{videoId}`    | ユーザー設定作成             | 必須 | お気に入り・スキップフラグ・メモを作成   |
+| PUT      | `/api/user-settings/{videoId}`    | ユーザー設定更新             | 必須 | お気に入り・スキップフラグ・メモを更新   |
+| DELETE   | `/api/user-settings/{videoId}`    | ユーザー設定削除             | 必須 | ユーザー設定を削除（動画基本情報は保持） |
+| POST     | `/api/batch/submit`               | バッチジョブ投入             | 必須 | マイリスト登録バッチを AWS Batch に投入  |
+| GET      | `/api/batch/status/{jobId}`       | バッチステータス確認         | 必須 | ジョブの実行状況と結果を取得             |
 
 ### 2.3 認証要件の詳細
 
@@ -208,124 +213,266 @@ Content-Type: application/json
 
 ## 3. エンドポイント詳細
 
-<!-- 記入ガイド: 各エンドポイントの詳細仕様を記述してください -->
-<!-- 記入ガイド: 機能ごとにセクションを分けて整理することを推奨します -->
+本セクションでは、各エンドポイントの詳細仕様を記述します。
+すべての API は Next.js の API Routes として実装され、ヘルスチェックを除き認証が必須です。
 
-### 3.1 {機能グループ名} API
+### 3.1 ヘルスチェック API
 
-<!-- 記入ガイド: 関連するエンドポイントをグループ化して記述してください -->
-<!-- 記入例: 認証 API、ユーザー管理 API、ヘルスチェック API など -->
+サービスの稼働状況を確認するための公開エンドポイント。
 
-#### 3.1.1 {エンドポイント名}
+#### 3.1.1 ヘルスチェック
 
-<!-- 記入ガイド: エンドポイントの概要を1-2行で記述してください -->
+サービスの稼働状況を確認します。モニタリングやロードバランサーのヘルスチェックに使用されます。
 
 ##### エンドポイント
 
 ```
-{METHOD} /api/{path}
+GET /api/health
 ```
 
-##### 必要な権限
+##### 認証
 
-<!-- [任意] 権限が必要な場合のみ -->
-
-- `{permission:scope}`
-
-##### パスパラメータ
-
-<!-- [任意] パスパラメータがある場合のみ -->
-
-| パラメータ | 型     | 説明   |
-| ---------- | ------ | ------ |
-| {param}    | string | {説明} |
-
-##### クエリパラメータ
-
-<!-- [任意] クエリパラメータがある場合のみ -->
-
-| パラメータ | 型     | 必須 | デフォルト | 説明   |
-| ---------- | ------ | ---- | ---------- | ------ |
-| {param}    | string | -    | {default}  | {説明} |
-
-##### リクエストボディ
-
-<!-- [任意] リクエストボディがある場合のみ -->
-
-```json
-{
-    "{field1}": "{value1}",
-    "{field2}": "{value2}"
-}
-```
-
-##### リクエストボディスキーマ
-
-<!-- [任意] リクエストボディがある場合のみ -->
-
-| フィールド | 型     | 必須 | 説明   |
-| ---------- | ------ | ---- | ------ |
-| {field}    | string | ✅   | {説明} |
+不要（公開エンドポイント）
 
 ##### リクエスト例
 
 ```http
-{METHOD} /api/{path} HTTP/1.1
-Host: {service}.nagiyu.com
-Cookie: {auth-cookie}={token}
-Content-Type: application/json
-
-{
-    "{field}": "{value}"
-}
+GET /api/health HTTP/1.1
+Host: niconico-mylist.nagiyu.com
 ```
 
-<!-- curl コマンド例も含めることを推奨 -->
-
 ```bash
-curl -X {METHOD} https://{service}.nagiyu.com/api/{path} \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer {token}" \
-    -d '{
-        "{field}": "{value}"
-    }'
+curl https://niconico-mylist.nagiyu.com/api/health
 ```
 
 ##### レスポンス (200 OK)
 
 ```json
 {
-    "{field1}": "{value1}",
-    "{field2}": "{value2}"
+    "status": "ok",
+    "timestamp": "2026-01-16T10:30:00.000Z",
+    "version": "1.0.0"
 }
 ```
 
 ##### レスポンスフィールド
 
-<!-- [任意] レスポンスが複雑な場合に記述 -->
-
-| フィールド | 型     | 説明   |
-| ---------- | ------ | ------ |
-| {field}    | string | {説明} |
+| フィールド  | 型     | 説明                                      |
+| ----------- | ------ | ----------------------------------------- |
+| status      | string | サービスステータス（`ok` または `error`） |
+| timestamp   | string | レスポンス生成日時（ISO 8601 形式）       |
+| version     | string | サービスバージョン                        |
 
 ##### エラーレスポンス
 
-<!-- 記入ガイド: 想定されるエラーケースを記述してください -->
-
 ```json
-// 400 Bad Request
+// 503 Service Unavailable
 {
+    "status": "error",
+    "timestamp": "2026-01-16T10:30:00.000Z",
+    "version": "1.0.0",
     "error": {
-        "code": "INVALID_REQUEST",
-        "message": "リクエストが不正です"
+        "code": "SERVICE_UNAVAILABLE",
+        "message": "サービスが利用できません"
     }
 }
+```
 
+---
+
+### 3.2 動画データ取得 API
+
+動画基本情報とユーザー設定を結合したデータの取得（READ のみ）を提供します。
+認証ユーザーは自分のユーザー設定と結合された動画データのみアクセス可能です。
+
+#### 3.2.1 動画一覧取得
+
+認証ユーザーの動画データ（動画基本情報 + ユーザー設定）を一覧取得します。
+
+##### エンドポイント
+
+```
+GET /api/videos
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### クエリパラメータ
+
+| パラメータ   | 型      | 必須 | デフォルト | 説明                                       |
+| ------------ | ------- | ---- | ---------- | ------------------------------------------ |
+| limit        | number  | -    | 50         | 取得件数（最大 100）                       |
+| offset       | number  | -    | 0          | 開始位置                                   |
+| isFavorite   | boolean | -    | -          | お気に入りフラグでフィルタ（`true`/`false`）|
+| isSkip       | boolean | -    | -          | スキップフラグでフィルタ（`true`/`false`） |
+
+##### リクエスト例
+
+```http
+GET /api/videos?limit=10&isFavorite=true HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+```
+
+```bash
+curl https://niconico-mylist.nagiyu.com/api/videos?limit=10&isFavorite=true \
+    -b "nagiyu-session={jwt-token}"
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "videos": [
+        {
+            "videoId": "sm12345678",
+            "title": "サンプル動画タイトル",
+            "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+            "length": "5:30",
+            "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+            "userSetting": {
+                "isFavorite": true,
+                "isSkip": false,
+                "memo": "お気に入りの曲",
+                "createdAt": "2026-01-16T10:30:00.000Z",
+                "updatedAt": "2026-01-16T12:00:00.000Z"
+            }
+        }
+    ],
+    "total": 250,
+    "limit": 10,
+    "offset": 0
+}
+```
+
+##### レスポンスフィールド
+
+| フィールド                  | 型      | 説明                                |
+| --------------------------- | ------- | ----------------------------------- |
+| videos                      | array   | 動画データの配列                    |
+| videos[].videoId            | string  | 動画 ID（例: `sm12345678`）         |
+| videos[].title              | string  | 動画タイトル                        |
+| videos[].thumbnailUrl       | string  | サムネイル画像 URL                  |
+| videos[].length             | string  | 再生時間（例: `5:30`）              |
+| videos[].videoCreatedAt     | string  | 動画基本情報の登録日時（ISO 8601）  |
+| videos[].userSetting        | object  | ユーザー設定（存在する場合のみ）    |
+| videos[].userSetting.isFavorite | boolean | お気に入りフラグ            |
+| videos[].userSetting.isSkip | boolean | スキップフラグ                      |
+| videos[].userSetting.memo   | string  | ユーザーメモ（オプション）          |
+| videos[].userSetting.createdAt | string | ユーザー設定の作成日時（ISO 8601）|
+| videos[].userSetting.updatedAt | string | ユーザー設定の更新日時（ISO 8601）|
+| total                       | number  | 条件に合致する総件数                |
+| limit                       | number  | 取得件数                            |
+| offset                      | number  | 開始位置                            |
+
+##### エラーレスポンス
+
+```json
 // 401 Unauthorized
 {
     "error": {
         "code": "UNAUTHORIZED",
-        "message": "認証が必要です"
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 403 Forbidden
+{
+    "error": {
+        "code": "FORBIDDEN",
+        "message": "このリソースへのアクセス権限がありません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+#### 3.2.2 動画詳細取得
+
+特定の動画の詳細情報（動画基本情報 + ユーザー設定）を取得します。
+
+##### エンドポイント
+
+```
+GET /api/videos/{videoId}
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| videoId    | string | 動画 ID（例: `sm12345678`） |
+
+##### リクエスト例
+
+```http
+GET /api/videos/sm12345678 HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+```
+
+```bash
+curl https://niconico-mylist.nagiyu.com/api/videos/sm12345678 \
+    -b "nagiyu-session={jwt-token}"
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30",
+    "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+    "userSetting": {
+        "isFavorite": true,
+        "isSkip": false,
+        "memo": "お気に入りの曲",
+        "createdAt": "2026-01-16T10:30:00.000Z",
+        "updatedAt": "2026-01-16T12:00:00.000Z"
+    }
+}
+```
+
+##### レスポンスフィールド
+
+| フィールド                | 型      | 説明                                |
+| ------------------------- | ------- | ----------------------------------- |
+| videoId                   | string  | 動画 ID（例: `sm12345678`）         |
+| title                     | string  | 動画タイトル                        |
+| thumbnailUrl              | string  | サムネイル画像 URL                  |
+| length                    | string  | 再生時間（例: `5:30`）              |
+| videoCreatedAt            | string  | 動画基本情報の登録日時（ISO 8601）  |
+| userSetting               | object  | ユーザー設定（存在する場合のみ）    |
+| userSetting.isFavorite    | boolean | お気に入りフラグ                    |
+| userSetting.isSkip        | boolean | スキップフラグ                      |
+| userSetting.memo          | string  | ユーザーメモ（オプション）          |
+| userSetting.createdAt     | string  | ユーザー設定の作成日時（ISO 8601）  |
+| userSetting.updatedAt     | string  | ユーザー設定の更新日時（ISO 8601）  |
+
+##### エラーレスポンス
+
+```json
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
     }
 }
 
@@ -333,80 +480,1053 @@ curl -X {METHOD} https://{service}.nagiyu.com/api/{path} \
 {
     "error": {
         "code": "NOT_FOUND",
-        "message": "リソースが見つかりません"
+        "message": "指定された動画が見つかりません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
     }
 }
 ```
 
 ---
 
-## 4. ヘルスチェック API
+### 3.3 動画基本情報管理 API
 
-<!-- 記入ガイド: ヘルスチェックエンドポイントの仕様を記述してください -->
-<!-- 記入ガイド: 多くのサービスで共通的に必要となるため、専用セクションとして用意 -->
+動画基本情報の作成・更新・削除（CUD 操作）を提供します。
+動画基本情報は全ユーザーで共有されるデータであり、変更は慎重に行う必要があります。
 
-### 4.1 ヘルスチェック
+#### 3.3.1 動画基本情報作成
 
-サービスの稼働状況を確認します。
+新しい動画基本情報を作成します。一括インポートAPIを使用せず、個別に動画情報を登録する場合に使用します。
 
-#### エンドポイント
+##### エンドポイント
 
 ```
-GET /api/health
+POST /api/videos/basic
 ```
 
-#### 認証
+##### 必要な権限
 
-不要（公開エンドポイント）
+- `niconico-mylist:use`
 
-#### リクエスト例
+##### リクエストボディ
+
+```json
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30"
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド   | 型     | 必須 | 説明                        |
+| ------------ | ------ | ---- | --------------------------- |
+| videoId      | string | ✅   | 動画 ID（例: `sm12345678`） |
+| title        | string | ✅   | 動画タイトル                |
+| thumbnailUrl | string | ✅   | サムネイル画像 URL          |
+| length       | string | ✅   | 再生時間（例: `5:30`）      |
+
+##### リクエスト例
 
 ```http
-GET /api/health HTTP/1.1
-Host: {service}.nagiyu.com
+POST /api/videos/basic HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30"
+}
 ```
 
 ```bash
-curl https://{service}.nagiyu.com/api/health
+curl -X POST https://niconico-mylist.nagiyu.com/api/videos/basic \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "videoId": "sm12345678",
+        "title": "サンプル動画タイトル",
+        "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+        "length": "5:30"
+    }'
 ```
 
-#### レスポンス (200 OK)
+##### レスポンス (201 Created)
 
 ```json
 {
-    "status": "ok",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0"
+    "videoId": "sm12345678",
+    "title": "サンプル動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30",
+    "videoCreatedAt": "2026-01-16T10:30:00.000Z"
 }
 ```
 
-<!-- [任意] 依存サービスのステータスを含める場合 -->
+##### エラーレスポンス
 
 ```json
+// 400 Bad Request
 {
-    "status": "ok",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0",
-    "dependencies": {
-        "database": "ok",
-        "externalService": "ok"
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "videoId は必須です"
+    }
+}
+
+// 400 Bad Request
+{
+    "error": {
+        "code": "DUPLICATE_VIDEO",
+        "message": "指定された動画は既に登録されています"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
     }
 }
 ```
 
-#### レスポンス (503 Service Unavailable)
+---
+
+#### 3.3.2 動画基本情報更新
+
+動画基本情報（タイトル、サムネイル URL、再生時間）を更新します。
+このエンドポイントは、ニコニコ動画側で情報が変更された場合に使用します。
+
+##### エンドポイント
+
+```
+PUT /api/videos/{videoId}/basic
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| videoId    | string | 動画 ID（例: `sm12345678`） |
+
+##### リクエストボディ
 
 ```json
 {
-    "status": "degraded",
-    "timestamp": "2024-01-15T12:34:56.789Z",
-    "version": "1.0.0",
-    "dependencies": {
-        "database": "error",
-        "externalService": "ok"
+    "title": "更新後の動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.99999999",
+    "length": "5:45"
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド   | 型     | 必須 | 説明               |
+| ------------ | ------ | ---- | ------------------ |
+| title        | string | -    | 動画タイトル       |
+| thumbnailUrl | string | -    | サムネイル画像 URL |
+| length       | string | -    | 再生時間           |
+
+**注**: すべてのフィールドはオプションです。指定されたフィールドのみが更新されます。
+
+##### リクエスト例
+
+```http
+PUT /api/videos/sm12345678/basic HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "title": "更新後の動画タイトル"
+}
+```
+
+```bash
+curl -X PUT https://niconico-mylist.nagiyu.com/api/videos/sm12345678/basic \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "title": "更新後の動画タイトル"
+    }'
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "videoId": "sm12345678",
+    "title": "更新後の動画タイトル",
+    "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
+    "length": "5:30",
+    "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+    "videoUpdatedAt": "2026-01-16T15:00:00.000Z"
+}
+```
+
+##### エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "更新するフィールドを指定してください"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 404 Not Found
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "指定された動画が見つかりません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
     }
 }
 ```
+
+---
+
+#### 3.3.3 動画基本情報削除
+
+動画基本情報を削除します。全ユーザーから動画が削除されるため、慎重に使用する必要があります。
+
+##### エンドポイント
+
+```
+DELETE /api/videos/{videoId}/basic
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| videoId    | string | 動画 ID（例: `sm12345678`） |
+
+##### リクエスト例
+
+```http
+DELETE /api/videos/sm12345678/basic HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+```
+
+```bash
+curl -X DELETE https://niconico-mylist.nagiyu.com/api/videos/sm12345678/basic \
+    -b "nagiyu-session={jwt-token}"
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "success": true,
+    "message": "動画基本情報を削除しました"
+}
+```
+
+##### エラーレスポンス
+
+```json
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 404 Not Found
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "指定された動画が見つかりません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+### 3.4 ユーザー設定管理 API
+
+ユーザー固有の設定（お気に入りフラグ、スキップフラグ、メモ）の作成・更新・削除（CUD 操作）を提供します。
+すべてのエンドポイントで認証が必須であり、ユーザーは自分の設定のみアクセス可能です。
+
+#### 3.4.1 ユーザー設定作成
+
+新しいユーザー設定を作成します。
+
+##### エンドポイント
+
+```
+POST /api/user-settings/{videoId}
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| videoId    | string | 動画 ID（例: `sm12345678`） |
+
+##### リクエストボディ
+
+```json
+{
+    "isFavorite": false,
+    "isSkip": false,
+    "memo": ""
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド | 型      | 必須 | デフォルト | 説明                 |
+| ---------- | ------- | ---- | ---------- | -------------------- |
+| isFavorite | boolean | -    | false      | お気に入りフラグ     |
+| isSkip     | boolean | -    | false      | スキップフラグ       |
+| memo       | string  | -    | ""         | ユーザーメモ         |
+
+##### リクエスト例
+
+```http
+POST /api/user-settings/sm12345678 HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "isFavorite": true,
+    "memo": "お気に入りの曲"
+}
+```
+
+```bash
+curl -X POST https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "isFavorite": true,
+        "memo": "お気に入りの曲"
+    }'
+```
+
+##### レスポンス (201 Created)
+
+```json
+{
+    "videoId": "sm12345678",
+    "isFavorite": true,
+    "isSkip": false,
+    "memo": "お気に入りの曲",
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:30:00.000Z"
+}
+```
+
+##### エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "VIDEO_NOT_FOUND",
+        "message": "指定された動画が存在しません",
+        "details": "ユーザー設定を作成する前に、動画基本情報を登録してください"
+    }
+}
+
+// 400 Bad Request
+{
+    "error": {
+        "code": "DUPLICATE_SETTING",
+        "message": "指定された動画のユーザー設定は既に存在します"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+#### 3.4.2 ユーザー設定更新
+
+既存のユーザー設定を更新します。
+
+##### エンドポイント
+
+```
+PUT /api/user-settings/{videoId}
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| videoId    | string | 動画 ID（例: `sm12345678`） |
+
+##### リクエストボディ
+
+```json
+{
+    "isFavorite": true,
+    "isSkip": false,
+    "memo": "お気に入りの曲"
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド | 型      | 必須 | 説明                 |
+| ---------- | ------- | ---- | -------------------- |
+| isFavorite | boolean | -    | お気に入りフラグ     |
+| isSkip     | boolean | -    | スキップフラグ       |
+| memo       | string  | -    | ユーザーメモ         |
+
+**注**: すべてのフィールドはオプションです。指定されたフィールドのみが更新されます。
+
+##### リクエスト例
+
+```http
+PUT /api/user-settings/sm12345678 HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "isFavorite": true,
+    "memo": "お気に入りの曲"
+}
+```
+
+```bash
+curl -X PUT https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "isFavorite": true,
+        "memo": "お気に入りの曲"
+    }'
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "videoId": "sm12345678",
+    "isFavorite": true,
+    "isSkip": false,
+    "memo": "お気に入りの曲",
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T12:00:00.000Z"
+}
+```
+
+##### エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "更新するフィールドを指定してください"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 404 Not Found
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "指定されたユーザー設定が見つかりません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+#### 3.4.3 ユーザー設定削除
+
+ユーザー設定を削除します。動画基本情報は削除されません。
+
+##### エンドポイント
+
+```
+DELETE /api/user-settings/{videoId}
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                        |
+| ---------- | ------ | --------------------------- |
+| videoId    | string | 動画 ID（例: `sm12345678`） |
+
+##### リクエスト例
+
+```http
+DELETE /api/user-settings/sm12345678 HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+```
+
+```bash
+curl -X DELETE https://niconico-mylist.nagiyu.com/api/user-settings/sm12345678 \
+    -b "nagiyu-session={jwt-token}"
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "success": true,
+    "message": "ユーザー設定を削除しました"
+}
+```
+
+##### エラーレスポンス
+
+```json
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 404 Not Found
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "指定されたユーザー設定が見つかりません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+### 3.5 一括インポート API
+
+動画 ID のリストからニコニコ動画 API (`getthumbinfo`) を使用して動画基本情報を取得し、DynamoDB に一括保存します。
+
+#### 3.5.1 動画一括インポート
+
+複数の動画 ID を指定して、動画基本情報を一括取得・保存します。
+動画基本情報の保存と同時に、認証ユーザーのユーザー設定も自動作成されます。
+
+##### エンドポイント
+
+```
+POST /api/videos/bulk-import
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### リクエストボディ
+
+```json
+{
+    "videoIds": [
+        "sm12345678",
+        "sm87654321",
+        "sm11111111"
+    ]
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド | 型           | 必須 | 説明                                      |
+| ---------- | ------------ | ---- | ----------------------------------------- |
+| videoIds   | string array | ✅   | 動画 ID の配列（例: `["sm12345678", ...]`） |
+
+**注**: 動画 ID は 1 回のリクエストで最大 100 件まで指定可能です。
+
+##### リクエスト例
+
+```http
+POST /api/videos/bulk-import HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "videoIds": [
+        "sm12345678",
+        "sm87654321",
+        "sm11111111"
+    ]
+}
+```
+
+```bash
+curl -X POST https://niconico-mylist.nagiyu.com/api/videos/bulk-import \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "videoIds": ["sm12345678", "sm87654321", "sm11111111"]
+    }'
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "success": 2,
+    "failed": 1,
+    "skipped": 0,
+    "total": 3
+}
+```
+
+##### レスポンスフィールド
+
+| フィールド | 型     | 説明                                   |
+| ---------- | ------ | -------------------------------------- |
+| success    | number | 成功した動画数                         |
+| failed     | number | ニコニコ API エラーで失敗した動画数    |
+| skipped    | number | 既に登録済みでスキップされた動画数     |
+| total      | number | 処理対象の総動画数                     |
+
+##### エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "videoIds は必須です"
+    }
+}
+
+// 400 Bad Request
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "動画 ID の数が上限を超えています",
+        "details": "最大 100 件まで指定可能です"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 502 Bad Gateway
+{
+    "error": {
+        "code": "NICONICO_API_ERROR",
+        "message": "ニコニコ動画 API へのアクセスに失敗しました",
+        "details": "API サーバーが応答しません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+### 3.6 バッチジョブ管理 API
+
+マイリスト一括登録バッチの投入とステータス確認を行います。
+
+#### 3.6.1 バッチジョブ投入
+
+条件指定により動画を選択し、AWS Batch でマイリストに一括登録するジョブを投入します。
+
+##### エンドポイント
+
+```
+POST /api/batch/submit
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### リクエストボディ
+
+```json
+{
+    "email": "user@example.com",
+    "password": "niconicoPassword",
+    "mylistName": "お気に入り動画",
+    "filters": {
+        "excludeSkip": true,
+        "favoritesOnly": false
+    }
+}
+```
+
+##### リクエストボディスキーマ
+
+| フィールド                | 型      | 必須 | デフォルト | 説明                                                     |
+| ------------------------- | ------- | ---- | ---------- | -------------------------------------------------------- |
+| email                     | string  | ✅   | -          | ニコニコ動画のメールアドレス                             |
+| password                  | string  | ✅   | -          | ニコニコ動画のパスワード（暗号化して送信）               |
+| mylistName                | string  | -    | 日時       | マイリスト名（未指定時: `自動登録 2026/1/16 15:30:45`） |
+| filters                   | object  | ✅   | -          | 登録条件                                                 |
+| filters.excludeSkip       | boolean | ✅   | -          | スキップフラグを除外するかどうか                         |
+| filters.favoritesOnly     | boolean | ✅   | -          | お気に入りのみを登録するかどうか                         |
+
+**セキュリティ注意事項**:
+- パスワードは API Routes 内で AES-256-GCM により暗号化され、データベースには保存されません
+- バッチ処理内でのみ復号化され、処理完了後は即座にメモリから削除されます
+
+##### リクエスト例
+
+```http
+POST /api/batch/submit HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+Content-Type: application/json
+
+{
+    "email": "user@example.com",
+    "password": "niconicoPassword",
+    "mylistName": "お気に入り動画",
+    "filters": {
+        "excludeSkip": true,
+        "favoritesOnly": false
+    }
+}
+```
+
+```bash
+curl -X POST https://niconico-mylist.nagiyu.com/api/batch/submit \
+    -b "nagiyu-session={jwt-token}" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "email": "user@example.com",
+        "password": "niconicoPassword",
+        "mylistName": "お気に入り動画",
+        "filters": {
+            "excludeSkip": true,
+            "favoritesOnly": false
+        }
+    }'
+```
+
+##### レスポンス (200 OK)
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "SUBMITTED",
+    "message": "バッチジョブを投入しました",
+    "estimatedVideos": 75
+}
+```
+
+##### レスポンスフィールド
+
+| フィールド       | 型     | 説明                                   |
+| ---------------- | ------ | -------------------------------------- |
+| jobId            | string | バッチジョブ ID                        |
+| status           | string | ジョブステータス（初期値: `SUBMITTED`）|
+| message          | string | メッセージ                             |
+| estimatedVideos  | number | 登録予定の動画数（条件に合致した数）   |
+
+##### エラーレスポンス
+
+```json
+// 400 Bad Request
+{
+    "error": {
+        "code": "INVALID_REQUEST",
+        "message": "リクエストが不正です",
+        "details": "email と password は必須です"
+    }
+}
+
+// 400 Bad Request
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "メールアドレスの形式が不正です"
+    }
+}
+
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 409 Conflict
+{
+    "error": {
+        "code": "JOB_ALREADY_RUNNING",
+        "message": "既に実行中のジョブがあります",
+        "details": "前のジョブが完了するまでお待ちください"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "ENCRYPTION_ERROR",
+        "message": "パスワードの暗号化に失敗しました"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "BATCH_SUBMIT_FAILED",
+        "message": "バッチジョブの投入に失敗しました",
+        "details": "AWS Batch サービスに接続できませんでした"
+    }
+}
+```
+
+---
+
+#### 3.6.2 バッチステータス確認
+
+投入したバッチジョブの実行状況と結果を確認します。
+
+##### エンドポイント
+
+```
+GET /api/batch/status/{jobId}
+```
+
+##### 必要な権限
+
+- `niconico-mylist:use`
+
+##### パスパラメータ
+
+| パラメータ | 型     | 説明                                          |
+| ---------- | ------ | --------------------------------------------- |
+| jobId      | string | バッチジョブ ID（例: `batch-job-20260116-...`）|
+
+##### リクエスト例
+
+```http
+GET /api/batch/status/batch-job-20260116-123456-abc123 HTTP/1.1
+Host: niconico-mylist.nagiyu.com
+Cookie: nagiyu-session={jwt-token}
+```
+
+```bash
+curl https://niconico-mylist.nagiyu.com/api/batch/status/batch-job-20260116-123456-abc123 \
+    -b "nagiyu-session={jwt-token}"
+```
+
+##### レスポンス (200 OK) - 実行中
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "RUNNING",
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:31:00.000Z"
+}
+```
+
+##### レスポンス (200 OK) - 成功
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "SUCCEEDED",
+    "result": {
+        "registeredCount": 75,
+        "failedCount": 0,
+        "totalCount": 75
+    },
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:45:00.000Z",
+    "completedAt": "2026-01-16T10:45:00.000Z"
+}
+```
+
+##### レスポンス (200 OK) - 失敗
+
+```json
+{
+    "jobId": "batch-job-20260116-123456-abc123",
+    "status": "FAILED",
+    "result": {
+        "registeredCount": 50,
+        "failedCount": 25,
+        "totalCount": 75,
+        "errorMessage": "ニコニコ動画へのログインに失敗しました"
+    },
+    "createdAt": "2026-01-16T10:30:00.000Z",
+    "updatedAt": "2026-01-16T10:40:00.000Z",
+    "completedAt": "2026-01-16T10:40:00.000Z"
+}
+```
+
+##### レスポンスフィールド
+
+| フィールド                   | 型     | 説明                                                                    |
+| ---------------------------- | ------ | ----------------------------------------------------------------------- |
+| jobId                        | string | バッチジョブ ID                                                         |
+| status                       | string | ジョブステータス（`SUBMITTED` / `RUNNING` / `SUCCEEDED` / `FAILED`）    |
+| result                       | object | 実行結果（完了時のみ）                                                  |
+| result.registeredCount       | number | 登録成功した動画数                                                      |
+| result.failedCount           | number | 登録失敗した動画数                                                      |
+| result.totalCount            | number | 処理対象の総動画数                                                      |
+| result.errorMessage          | string | エラーメッセージ（失敗時のみ）                                          |
+| createdAt                    | string | ジョブ作成日時（ISO 8601 形式）                                         |
+| updatedAt                    | string | ジョブ更新日時（ISO 8601 形式）                                         |
+| completedAt                  | string | ジョブ完了日時（ISO 8601 形式、完了時のみ）                             |
+
+##### エラーレスポンス
+
+```json
+// 401 Unauthorized
+{
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "認証が必要です。ログインしてください"
+    }
+}
+
+// 404 Not Found
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "指定されたジョブが見つかりません"
+    }
+}
+
+// 500 Internal Server Error
+{
+    "error": {
+        "code": "DATABASE_ERROR",
+        "message": "データベースへのアクセスに失敗しました"
+    }
+}
+```
+
+---
+
+## 4. データモデル詳細
+
+<!-- このセクションは既存の「5. データモデル」セクションと統合または削除する予定 -->
+<!-- 現在、セクション 3 にエンドポイント詳細が記載されたため、このセクションは将来的に整理します -->
 
 ---
 
