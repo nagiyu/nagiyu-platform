@@ -870,9 +870,9 @@ describe('AlertRepository', () => {
       // update でエラー
       mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
 
-      await expect(
-        repository.update('user-123', 'alert-1', { Enabled: false })
-      ).rejects.toThrow('データベースエラーが発生しました');
+      await expect(repository.update('user-123', 'alert-1', { Enabled: false })).rejects.toThrow(
+        'データベースエラーが発生しました'
+      );
     });
   });
 

@@ -176,9 +176,7 @@ export class AlertRepository {
    * @param alert - アラートデータ（AlertIDを除く）
    * @returns 作成されたアラート（AlertID, CreatedAt, UpdatedAtを含む）
    */
-  async create(
-    alert: Omit<Alert, 'AlertID' | 'CreatedAt' | 'UpdatedAt'>
-  ): Promise<Alert> {
+  async create(alert: Omit<Alert, 'AlertID' | 'CreatedAt' | 'UpdatedAt'>): Promise<Alert> {
     try {
       const now = Date.now();
       const alertId = randomUUID();
