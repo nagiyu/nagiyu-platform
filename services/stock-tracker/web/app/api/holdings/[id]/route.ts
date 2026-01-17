@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { HoldingRepository, getAuthError } from '@nagiyu/stock-tracker-core';
+import { TickerRepository, HoldingRepository, getAuthError } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
@@ -210,7 +210,6 @@ export async function PUT(
     }
 
     // TickerリポジトリでSymbolとNameを取得
-    const { TickerRepository } = await import('@nagiyu/stock-tracker-core');
     const tickerRepo = new TickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(updatedHolding.TickerID);
 

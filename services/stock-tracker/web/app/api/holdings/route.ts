@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { HoldingRepository, getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
+import { TickerRepository, HoldingRepository, getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
@@ -141,7 +141,6 @@ export async function GET(
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const { TickerRepository } = await import('@nagiyu/stock-tracker-core');
     const tickerRepo = new TickerRepository(docClient, tableName);
 
     const holdings: HoldingResponse[] = [];
@@ -278,7 +277,6 @@ export async function POST(
     }
 
     // TickerリポジトリでSymbolとNameを取得
-    const { TickerRepository } = await import('@nagiyu/stock-tracker-core');
     const tickerRepo = new TickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(createdHolding.TickerID);
 
