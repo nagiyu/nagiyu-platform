@@ -1,0 +1,363 @@
+/**
+ * TradingView API クライアント - Unit Test
+ *
+ * TradingView API の getCurrentPrice 関数のテスト
+ * TradingView ライブラリをモック化してテストを実施
+ */
+
+import {
+  getCurrentPrice,
+  TRADINGVIEW_ERROR_MESSAGES,
+} from '../../../src/services/tradingview-client';
+
+/**
+ * TradingView ライブラリのモック
+ *
+ * WebSocket 接続をシミュレートするモックオブジェクト
+ */
+type MockChart = {
+  setMarket: jest.Mock;
+  onUpdate: jest.Mock;
+  onError: jest.Mock;
+  delete: jest.Mock;
+  periods: Array<{ close: number }>;
+};
+
+type MockSession = {
+  Chart: jest.Mock<MockChart>;
+};
+
+type MockClient = {
+  Session: MockSession;
+  end: jest.Mock;
+};
+
+let mockChart: MockChart;
+let mockClient: MockClient;
+let onUpdateCallback: (() => void) | null = null;
+let onErrorCallback: ((error: Error) => void) | null = null;
+
+// TradingView ライブラリのモック
+jest.mock('@mathieuc/tradingview', () => {
+  return {
+    Client: jest.fn().mockImplementation(() => mockClient),
+  };
+});
+
+describe('TradingView Client', () => {
+  beforeEach(() => {
+    // モックオブジェクトの初期化
+    onUpdateCallback = null;
+    onErrorCallback = null;
+
+    mockChart = {
+      setMarket: jest.fn(),
+      onUpdate: jest.fn((callback: () => void) => {
+        onUpdateCallback = callback;
+      }),
+      onError: jest.fn((callback: (error: Error) => void) => {
+        onErrorCallback = callback;
+      }),
+      delete: jest.fn(),
+      periods: [],
+    };
+
+    mockClient = {
+      Session: {
+        Chart: jest.fn().mockReturnValue(mockChart),
+      },
+      end: jest.fn(),
+    };
+  });
+
+  describe('getCurrentPrice', () => {
+    describe('正常系', () => {
+      test('現在価格を正しく取得できる', async () => {
+        // Arrange: モックデータの設定
+        const expectedPrice = 150.5;
+        mockChart.periods = [{ close: expectedPrice }];
+
+        // Act: getCurrentPrice を非同期で実行
+        const pricePromise = getCurrentPrice('NSDQ:AAPL');
+
+        // onUpdate コールバックを実行（WebSocket からのデータ受信をシミュレート）
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const actualPrice = await pricePromise;
+
+        // Assert: 取得した価格が正しいか確認
+        expect(actualPrice).toBe(expectedPrice);
+        expect(mockChart.setMarket).toHaveBeenCalledWith('NSDQ:AAPL', {
+          timeframe: '1',
+          session: 'extended',
+        });
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('カスタムオプション（timeout, session）を使用して価格を取得できる', async () => {
+        // Arrange
+        const expectedPrice = 200.75;
+        mockChart.periods = [{ close: expectedPrice }];
+
+        // Act
+        const pricePromise = getCurrentPrice('NYSE:TSLA', {
+          timeout: 5000,
+          session: 'regular',
+        });
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const actualPrice = await pricePromise;
+
+        // Assert
+        expect(actualPrice).toBe(expectedPrice);
+        expect(mockChart.setMarket).toHaveBeenCalledWith('NYSE:TSLA', {
+          timeframe: '1',
+          session: 'regular',
+        });
+      });
+
+      test('リソース管理: chart.delete() と client.end() が必ず呼び出される', async () => {
+        // Arrange
+        mockChart.periods = [{ close: 100.0 }];
+
+        // Act
+        const pricePromise = getCurrentPrice('NSDQ:NVDA');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        await pricePromise;
+
+        // Assert: リソースクリーンアップが呼ばれているか確認
+        expect(mockChart.delete).toHaveBeenCalledTimes(1);
+        expect(mockClient.end).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('異常系: バリデーションエラー', () => {
+      test('無効なティッカーID（空文字列）でエラーをスローする', async () => {
+        // Act & Assert
+        await expect(getCurrentPrice('')).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
+        );
+      });
+
+      test('無効なティッカーID（コロンなし）でエラーをスローする', async () => {
+        // Act & Assert
+        await expect(getCurrentPrice('AAPL')).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
+        );
+      });
+
+      test('無効なティッカーID（数値型）でエラーをスローする', async () => {
+        // Act & Assert
+        await expect(getCurrentPrice(123 as any)).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
+        );
+      });
+    });
+
+    describe('異常系: タイムアウト', () => {
+      test('タイムアウト時にエラーをスローする', async () => {
+        // Arrange: onUpdateCallback を呼び出さない（タイムアウトをシミュレート）
+        const timeout = 100; // 短いタイムアウト時間を設定
+
+        // Act & Assert
+        await expect(
+          getCurrentPrice('NSDQ:AAPL', { timeout })
+        ).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT);
+
+        // リソース管理が実行されたか確認
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('タイムアウト後にリソースが適切にクリーンアップされる', async () => {
+        // Arrange
+        const timeout = 100;
+
+        // Act
+        try {
+          await getCurrentPrice('NYSE:AAPL', { timeout });
+        } catch {
+          // タイムアウトエラーを無視
+        }
+
+        // Assert: エラー時もリソースクリーンアップが呼ばれる
+        expect(mockChart.delete).toHaveBeenCalledTimes(1);
+        expect(mockClient.end).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('異常系: 接続エラー', () => {
+      test('TradingView API の接続エラーでエラーをスローする', async () => {
+        // Arrange
+        const errorMessage = 'Connection failed';
+
+        // Act
+        const pricePromise = getCurrentPrice('NSDQ:AAPL');
+
+        // onErrorCallback を実行（接続エラーをシミュレート）
+        if (onErrorCallback) {
+          onErrorCallback(new Error(errorMessage));
+        }
+
+        // Assert
+        await expect(pricePromise).rejects.toThrow(
+          `${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`
+        );
+
+        // リソース管理が実行されたか確認
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('レート制限エラーでエラーをスローする', async () => {
+        // Arrange: レート制限のエラーメッセージをシミュレート
+        const errorMessage = 'rate limit exceeded';
+
+        // Act
+        const pricePromise = getCurrentPrice('NYSE:TSLA');
+
+        if (onErrorCallback) {
+          onErrorCallback(new Error(errorMessage));
+        }
+
+        // Assert
+        await expect(pricePromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT);
+
+        // リソース管理が実行されたか確認
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+    });
+
+    describe('異常系: データ取得失敗', () => {
+      test('periods が空配列の場合、タイムアウトまで待機する', async () => {
+        // Arrange: periods が空配列（データなし）
+        mockChart.periods = [];
+        const timeout = 100;
+
+        // Act
+        const pricePromise = getCurrentPrice('NSDQ:AAPL', { timeout });
+
+        // onUpdate を呼び出してもデータがないため、タイムアウトする
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        // Assert
+        await expect(pricePromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT);
+      });
+
+      test('periods[0].close が undefined の場合、タイムアウトまで待機する', async () => {
+        // Arrange
+        mockChart.periods = [{ close: undefined as any }];
+        const timeout = 100;
+
+        // Act
+        const pricePromise = getCurrentPrice('NYSE:AAPL', { timeout });
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        // Assert
+        await expect(pricePromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT);
+      });
+
+      test('periods[0].close が null の場合、タイムアウトまで待機する', async () => {
+        // Arrange
+        mockChart.periods = [{ close: null as any }];
+        const timeout = 100;
+
+        // Act
+        const pricePromise = getCurrentPrice('NSDQ:NVDA', { timeout });
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        // Assert
+        await expect(pricePromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT);
+      });
+    });
+
+    describe('エッジケース', () => {
+      test('chart.delete() がエラーをスローしても、client.end() は実行される', async () => {
+        // Arrange
+        mockChart.periods = [{ close: 100.0 }];
+        mockChart.delete.mockImplementation(() => {
+          throw new Error('delete error');
+        });
+
+        // Act
+        const pricePromise = getCurrentPrice('NSDQ:AAPL');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        await pricePromise;
+
+        // Assert: delete でエラーが発生しても、end は呼ばれる
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('client.end() がエラーをスローしても、処理は正常に完了する', async () => {
+        // Arrange
+        mockChart.periods = [{ close: 150.0 }];
+        mockClient.end.mockImplementation(() => {
+          throw new Error('end error');
+        });
+
+        // Act
+        const pricePromise = getCurrentPrice('NYSE:TSLA');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const actualPrice = await pricePromise;
+
+        // Assert: end でエラーが発生しても、価格は正しく取得される
+        expect(actualPrice).toBe(150.0);
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('複数の onUpdate イベントが発生しても、最初の有効なデータのみを返す', async () => {
+        // Arrange
+        const firstPrice = 100.0;
+        const secondPrice = 200.0;
+        mockChart.periods = [{ close: firstPrice }];
+
+        // Act
+        const pricePromise = getCurrentPrice('NSDQ:AAPL');
+
+        // 1回目の onUpdate: 有効なデータ
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        // 2回目の onUpdate: データを変更
+        mockChart.periods = [{ close: secondPrice }];
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const actualPrice = await pricePromise;
+
+        // Assert: 最初のデータのみが返される
+        expect(actualPrice).toBe(firstPrice);
+      });
+    });
+  });
+});
