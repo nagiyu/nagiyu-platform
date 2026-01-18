@@ -90,15 +90,21 @@ describe('Price Calculator Service', () => {
 
     describe('エラーハンドリング', () => {
       it('NaN の場合、エラーをスローする', () => {
-        expect(() => calculateTargetPrice(NaN)).toThrow(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
+        expect(() => calculateTargetPrice(NaN)).toThrow(
+          PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE
+        );
       });
 
       it('負の値の場合、エラーをスローする', () => {
-        expect(() => calculateTargetPrice(-100)).toThrow(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
+        expect(() => calculateTargetPrice(-100)).toThrow(
+          PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE
+        );
       });
 
       it('負の小数の場合、エラーをスローする', () => {
-        expect(() => calculateTargetPrice(-0.01)).toThrow(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
+        expect(() => calculateTargetPrice(-0.01)).toThrow(
+          PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE
+        );
       });
 
       it('数値でない場合、エラーをスローする', () => {
@@ -120,11 +126,15 @@ describe('Price Calculator Service', () => {
       });
 
       it('Infinity の場合、エラーをスローする', () => {
-        expect(() => calculateTargetPrice(Infinity)).toThrow(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
+        expect(() => calculateTargetPrice(Infinity)).toThrow(
+          PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE
+        );
       });
 
       it('-Infinity の場合、エラーをスローする', () => {
-        expect(() => calculateTargetPrice(-Infinity)).toThrow(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
+        expect(() => calculateTargetPrice(-Infinity)).toThrow(
+          PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE
+        );
       });
     });
 
