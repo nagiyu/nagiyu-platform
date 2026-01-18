@@ -158,6 +158,7 @@ describe('TradingView Client', () => {
 
       test('無効なティッカーID（数値型）でエラーをスローする', async () => {
         // Act & Assert
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await expect(getCurrentPrice(123 as any)).rejects.toThrow(
           TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
         );
@@ -170,9 +171,9 @@ describe('TradingView Client', () => {
         const timeout = 100; // 短いタイムアウト時間を設定
 
         // Act & Assert
-        await expect(
-          getCurrentPrice('NSDQ:AAPL', { timeout })
-        ).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT);
+        await expect(getCurrentPrice('NSDQ:AAPL', { timeout })).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.TIMEOUT
+        );
 
         // リソース管理が実行されたか確認
         expect(mockChart.delete).toHaveBeenCalled();
@@ -259,6 +260,7 @@ describe('TradingView Client', () => {
 
       test('periods[0].close が undefined の場合、タイムアウトまで待機する', async () => {
         // Arrange
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockChart.periods = [{ close: undefined as any }];
         const timeout = 100;
 
@@ -275,6 +277,7 @@ describe('TradingView Client', () => {
 
       test('periods[0].close が null の場合、タイムアウトまで待機する', async () => {
         // Arrange
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         mockChart.periods = [{ close: null as any }];
         const timeout = 100;
 

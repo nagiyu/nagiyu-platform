@@ -111,11 +111,7 @@ export async function getCurrentPrice(
           if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
             reject(new Error(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT));
           } else {
-            reject(
-              new Error(
-                `${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`
-              )
-            );
+            reject(new Error(`${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`));
           }
         }
       });
