@@ -67,11 +67,7 @@ interface ErrorResponse {
 /**
  * Alert エンティティをレスポンス形式に変換
  */
-function mapAlertToResponse(
-  alert: Alert,
-  tickerSymbol: string,
-  tickerName: string
-): AlertResponse {
+function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: string): AlertResponse {
   return {
     alertId: alert.AlertID,
     tickerId: alert.TickerID,
