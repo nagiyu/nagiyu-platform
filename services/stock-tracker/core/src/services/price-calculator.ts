@@ -11,7 +11,7 @@
 /**
  * エラーメッセージ定数
  */
-export const ERROR_MESSAGES = {
+export const PRICE_CALCULATOR_ERROR_MESSAGES = {
   INVALID_PRICE: '無効な価格です。価格は正の数値である必要があります',
 } as const;
 
@@ -37,7 +37,7 @@ export function calculateTargetPrice(averagePrice: number): number {
     averagePrice < 0 ||
     !isFinite(averagePrice)
   ) {
-    throw new Error(ERROR_MESSAGES.INVALID_PRICE);
+    throw new Error(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
   }
 
   // Phase 1: 固定倍率 1.2 を使用
