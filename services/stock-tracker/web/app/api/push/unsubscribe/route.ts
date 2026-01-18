@@ -36,7 +36,18 @@ interface ErrorResponse {
  * エンドポイント情報のバリデーション
  */
 function validateEndpoint(endpoint: unknown): endpoint is string {
-  return typeof endpoint === 'string' && endpoint.length > 0;
+  if (typeof endpoint !== 'string' || endpoint.length === 0) {
+    return false;
+  }
+
+  try {
+    // URL コンストラクタで形式チェックを行う
+    // 無効な URL の場合は例外がスローされる
+    new URL(endpoint);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

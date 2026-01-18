@@ -7,6 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'crypto';
 import webpush from 'web-push';
 import { getAuthError } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
@@ -21,6 +22,16 @@ const ERROR_MESSAGES = {
   MISSING_VAPID_KEYS: 'VAPID キーが設定されていません',
   INTERNAL_ERROR: 'サブスクリプションの登録に失敗しました',
 } as const;
+
+/**
+ * VAPID キーの初期化（モジュールレベル）
+ */
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+if (vapidPublicKey && vapidPrivateKey) {
+  webpush.setVapidDetails('mailto:noreply@nagiyu.com', vapidPublicKey, vapidPrivateKey);
+}
 
 /**
  * リクエストボディ型定義
@@ -61,6 +72,14 @@ function validateSubscription(
   const sub = subscription as Record<string, unknown>;
 
   if (typeof sub.endpoint !== 'string' || !sub.endpoint) {
+    return false;
+  }
+
+  // endpoint が有効な URL 形式であることを検証
+  try {
+    // 不正な URL 文字列の場合は例外が発生する
+    new URL(sub.endpoint);
+  } catch {
     return false;
   }
 
@@ -141,10 +160,7 @@ export async function POST(
       );
     }
 
-    // VAPID キーの取得
-    const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-
+    // VAPID キーの存在確認
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.error('VAPID keys are not configured');
       return NextResponse.json(
@@ -156,11 +172,11 @@ export async function POST(
       );
     }
 
-    // VAPID キーの設定
-    webpush.setVapidDetails('mailto:noreply@nagiyu.com', vapidPublicKey, vapidPrivateKey);
-
-    // サブスクリプションIDの生成（endpoint をハッシュ化）
-    const subscriptionId = Buffer.from(subscription.endpoint).toString('base64').substring(0, 32);
+    // サブスクリプションIDの生成（endpoint をSHA-256でハッシュ化）
+    const subscriptionId = createHash('sha256')
+      .update(subscription.endpoint)
+      .digest('hex')
+      .substring(0, 32);
 
     // Phase 1: サブスクリプション情報は Alert エンティティに保存される
     // ここでは単純に成功レスポンスを返す
