@@ -256,6 +256,9 @@ export async function POST(
 
     // リクエストボディから Alert オブジェクトを構築
     // Note: AlertID, CreatedAt, UpdatedAt はリポジトリで自動生成される
+    // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
+    const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
+
     const alertData = {
       UserID: userId,
       TickerID: body.tickerId,
@@ -267,8 +270,8 @@ export async function POST(
       SubscriptionEndpoint: subscription.endpoint,
       SubscriptionKeysP256dh: subscription.keys.p256dh,
       SubscriptionKeysAuth: subscription.keys.auth,
-      // AlertID は UUID v4 でリポジトリが自動生成（バリデーション用のプレースホルダー）
-      AlertID: '00000000-0000-4000-8000-000000000000',
+      // AlertID は UUID v4 でリポジトリが自動生成
+      AlertID: VALIDATION_PLACEHOLDER_UUID,
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     };
