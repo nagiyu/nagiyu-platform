@@ -148,6 +148,13 @@ export async function getCurrentPrice(
 }
 
 /**
+ * 最大取得件数
+ *
+ * チャートデータの最大取得件数（API 仕様に準拠）
+ */
+const MAX_CHART_DATA_COUNT = 500;
+
+/**
  * チャートデータ取得オプション
  */
 export type GetChartDataOptions = {
@@ -224,7 +231,7 @@ export async function getChartData(
           const chartData: ChartDataPoint[] = [];
 
           // 指定された件数分のデータを取得（最大500件）
-          const maxCount = Math.min(count, 500);
+          const maxCount = Math.min(count, MAX_CHART_DATA_COUNT);
           const dataCount = Math.min(chart.periods.length, maxCount);
 
           for (let i = 0; i < dataCount; i++) {
@@ -283,14 +290,16 @@ export async function getChartData(
     // リソース管理: chart と client を必ずクリーンアップ
     try {
       chart.delete();
-    } catch {
-      // chart.delete() のエラーは無視
+    } catch (error) {
+      // chart.delete() のエラーはログ出力のみ（既に削除済みの可能性）
+      console.debug('Error deleting chart (might be already deleted):', error);
     }
 
     try {
       client.end();
-    } catch {
-      // client.end() のエラーは無視
+    } catch (error) {
+      // client.end() のエラーはログ出力のみ（既に終了済みの可能性）
+      console.debug('Error ending client (might be already ended):', error);
     }
   }
 }

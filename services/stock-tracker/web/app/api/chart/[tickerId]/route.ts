@@ -114,11 +114,43 @@ export async function GET(
       if (error instanceof Error) {
         const errorMessage = error.message;
 
-        // ティッカーが見つからない場合
+        // 定数定義されたエラーメッセージとの完全一致チェック（優先）
+        if (errorMessage === TRADINGVIEW_ERROR_MESSAGES.TIMEOUT) {
+          return NextResponse.json(
+            {
+              error: 'INTERNAL_ERROR',
+              message: TRADINGVIEW_ERROR_MESSAGES.TIMEOUT,
+            },
+            { status: 504 }
+          );
+        }
+
+        if (errorMessage === TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT) {
+          return NextResponse.json(
+            {
+              error: 'INTERNAL_ERROR',
+              message: TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT,
+            },
+            { status: 429 }
+          );
+        }
+
+        if (errorMessage === TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+
+        // フォールバック: 部分文字列マッチ（TradingView API からの生のエラーメッセージ用）
+        // ティッカーが見つからない場合（フォールバック）
         if (
-          errorMessage.includes('invalid') ||
-          errorMessage.includes('not found') ||
-          errorMessage.includes('symbol')
+          errorMessage.toLowerCase().includes('invalid') ||
+          errorMessage.toLowerCase().includes('not found') ||
+          errorMessage.toLowerCase().includes('symbol')
         ) {
           return NextResponse.json(
             {
@@ -129,8 +161,8 @@ export async function GET(
           );
         }
 
-        // タイムアウトエラー
-        if (errorMessage.includes(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT)) {
+        // タイムアウトエラー（フォールバック）
+        if (errorMessage.toLowerCase().includes('timeout')) {
           return NextResponse.json(
             {
               error: 'INTERNAL_ERROR',
@@ -140,8 +172,11 @@ export async function GET(
           );
         }
 
-        // レート制限エラー
-        if (errorMessage.includes(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT)) {
+        // レート制限エラー（フォールバック）
+        if (
+          errorMessage.toLowerCase().includes('rate') ||
+          errorMessage.toLowerCase().includes('limit')
+        ) {
           return NextResponse.json(
             {
               error: 'INTERNAL_ERROR',
@@ -164,7 +199,9 @@ export async function GET(
     }
 
     // ティッカーIDからシンボルを抽出（例: "NSDQ:NVDA" → "NVDA"）
-    const symbol = tickerId.split(':')[1] || tickerId;
+    // tickerId が "EXCHANGE:SYMBOL" 形式であることは上記のバリデーションで保証されている
+    const parts = tickerId.split(':');
+    const symbol = parts.length >= 2 ? parts[1] : tickerId;
 
     // レスポンス形式に変換
     const response: ChartData = {
