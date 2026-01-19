@@ -7,17 +7,18 @@
 
 /**
  * 時間枠の型定義
+ * TradingView API で対応するタイムフレームに準拠
  */
-export type Timeframe = '1m' | '5m' | '1h' | '1d';
+export type Timeframe = '1' | '5' | '60' | 'D';
 
 /**
  * 時間枠の表示用ラベル
  */
 export const TIMEFRAME_LABELS: Record<Timeframe, string> = {
-  '1m': '1分足',
-  '5m': '5分足',
-  '1h': '1時間足',
-  '1d': '日足',
+  '1': '1分足',
+  '5': '5分足',
+  '60': '1時間足',
+  D: '日足',
 } as const;
 
 /**

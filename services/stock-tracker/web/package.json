@@ -15,12 +15,14 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@nagiyu/ui": "*",
+    "@aws-sdk/client-dynamodb": "^3.712.0",
+    "@aws-sdk/lib-dynamodb": "^3.712.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/stock-tracker-core": "*",
-    "@aws-sdk/client-dynamodb": "^3.712.0",
-    "@aws-sdk/lib-dynamodb": "^3.712.0",
+    "@nagiyu/ui": "*",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.5",
     "next-auth": "^5.0.0-beta.27",
     "next-pwa": "^5.6.0"
   },
