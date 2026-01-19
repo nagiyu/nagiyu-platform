@@ -282,42 +282,22 @@ export type DynamoDBItem = {
 };
 
 /**
- * タイムフレーム (Timeframe)
- *
- * チャート表示用の時間枠
- *
- * Phase 1 で対応する時間枠:
- * - "1": 1分足
- * - "5": 5分足
- * - "60": 1時間足
- * - "D": 日足
- *
- * Phase 2 以降で追加予定:
- * - "3", "15", "30", "120", "240", "W", "M"
- */
-export type Timeframe = '1' | '5' | '60' | 'D';
-
-/**
  * チャートデータポイント (ChartDataPoint)
  *
  * OHLCV（始値・高値・安値・終値・出来高）形式の株価データ
  *
- * フィールド:
- * - time: Unix timestamp（秒）
- * - open: 始値
- * - high: 高値
- * - low: 安値
- * - close: 終値
- * - volume: 出来高
+ * Note: TradingView API の PricePeriod から変換した形式
+ * - PricePeriod の max/min を high/low に変換して使用
+ * - 標準的な OHLCV 形式（high/low）で統一するため独自型として定義
  */
 export type ChartDataPoint = {
   /** タイムスタンプ (Unix timestamp 秒) */
   time: number;
   /** 始値 */
   open: number;
-  /** 高値 */
+  /** 高値 (TradingView API の max を変換) */
   high: number;
-  /** 安値 */
+  /** 安値 (TradingView API の min を変換) */
   low: number;
   /** 終値 */
   close: number;
@@ -330,19 +310,15 @@ export type ChartDataPoint = {
  *
  * チャートデータ API のレスポンス形式
  *
- * フィールド:
- * - tickerId: ティッカーID（例: "NSDQ:NVDA"）
- * - symbol: シンボル（例: "NVDA"）
- * - timeframe: タイムフレーム（例: "60"）
- * - data: チャートデータポイントの配列
+ * Note: TimeFrame 型は @types/mathieuc__tradingview から import して使用
  */
 export type ChartData = {
-  /** ティッカーID */
+  /** ティッカーID (例: "NSDQ:NVDA") */
   tickerId: string;
-  /** シンボル */
+  /** シンボル (例: "NVDA") */
   symbol: string;
-  /** タイムフレーム */
-  timeframe: Timeframe;
+  /** タイムフレーム (例: "60") */
+  timeframe: string;
   /** チャートデータポイントの配列 */
   data: ChartDataPoint[];
 };

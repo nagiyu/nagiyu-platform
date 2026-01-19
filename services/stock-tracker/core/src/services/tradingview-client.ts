@@ -12,7 +12,8 @@
  */
 
 import * as TradingView from '@mathieuc/tradingview';
-import type { Timeframe, ChartDataPoint } from '../types.js';
+import type { TimeFrame } from '@mathieuc/tradingview';
+import type { ChartDataPoint } from '../types.js';
 
 /**
  * TradingView API エラーメッセージ定数
@@ -35,8 +36,10 @@ export const TRADINGVIEW_ERROR_MESSAGES = {
  * "5": 5分足
  * "60": 1時間足
  * "D": 日足
+ *
+ * Note: TimeFrame 型は @types/mathieuc__tradingview で定義されている
  */
-export const SUPPORTED_TIMEFRAMES: readonly Timeframe[] = ['1', '5', '60', 'D'] as const;
+export const SUPPORTED_TIMEFRAMES: readonly TimeFrame[] = ['1', '5', '60', 'D'] as const;
 
 /**
  * TradingView API から現在価格を取得するオプション
@@ -186,7 +189,7 @@ export type GetChartDataOptions = {
  */
 export async function getChartData(
   tickerId: string,
-  timeframe: Timeframe,
+  timeframe: TimeFrame,
   options: GetChartDataOptions = {}
 ): Promise<ChartDataPoint[]> {
   const { timeout = 10000, session = 'extended', count = 30 } = options;

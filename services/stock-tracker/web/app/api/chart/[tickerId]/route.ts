@@ -7,13 +7,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { TimeFrame } from '@mathieuc/tradingview';
 import {
   getChartData,
   getAuthError,
   SUPPORTED_TIMEFRAMES,
   TRADINGVIEW_ERROR_MESSAGES,
 } from '@nagiyu/stock-tracker-core';
-import type { Timeframe, ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
+import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../../lib/auth';
 
 /**
@@ -78,7 +79,7 @@ export async function GET(
     const countParam = searchParams.get('count');
 
     // timeframe のバリデーション
-    if (!SUPPORTED_TIMEFRAMES.includes(timeframeParam as Timeframe)) {
+    if (!SUPPORTED_TIMEFRAMES.includes(timeframeParam as TimeFrame)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -87,7 +88,7 @@ export async function GET(
         { status: 400 }
       );
     }
-    const timeframe = timeframeParam as Timeframe;
+    const timeframe = timeframeParam as TimeFrame;
 
     // count のバリデーション
     const count = countParam ? parseInt(countParam, 10) : 30;
