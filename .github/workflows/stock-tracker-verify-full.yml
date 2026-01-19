@@ -16,6 +16,7 @@ jobs:
   build-web:
     name: Web Build Verification
     runs-on: ubuntu-latest
+    needs: [build-core]
 
     steps:
       - name: Checkout code
@@ -46,6 +47,7 @@ jobs:
   build-core:
     name: Core Build Verification
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -70,6 +72,7 @@ jobs:
   build-batch:
     name: Batch Build Verification
     runs-on: ubuntu-latest
+    needs: [build-core]
 
     steps:
       - name: Checkout code
@@ -97,6 +100,7 @@ jobs:
   build-infra:
     name: Infrastructure Build Verification
     runs-on: ubuntu-latest
+    needs: [synth-infra]
 
     steps:
       - name: Checkout code
@@ -121,6 +125,7 @@ jobs:
   docker-build-web:
     name: Docker Build Verification (Web)
     runs-on: ubuntu-latest
+    needs: [build-web]
 
     steps:
       - name: Checkout code
@@ -132,6 +137,7 @@ jobs:
   docker-build-batch:
     name: Docker Build Verification (Batch)
     runs-on: ubuntu-latest
+    needs: [build-batch]
 
     steps:
       - name: Checkout code
@@ -143,6 +149,7 @@ jobs:
   test-core:
     name: Run Core Unit Tests
     runs-on: ubuntu-latest
+    needs: [build-core]
 
     steps:
       - name: Checkout code
@@ -167,6 +174,7 @@ jobs:
   test-batch:
     name: Run Batch Unit Tests
     runs-on: ubuntu-latest
+    needs: [build-batch]
 
     steps:
       - name: Checkout code
@@ -194,6 +202,7 @@ jobs:
   coverage:
     name: Test Coverage Check
     runs-on: ubuntu-latest
+    needs: [build-core]
 
     steps:
       - name: Checkout code
@@ -218,6 +227,7 @@ jobs:
   e2e-test-web:
     name: Run E2E Tests Web (All Devices)
     runs-on: ubuntu-latest
+    needs: [build-web]
 
     permissions:
       contents: read
@@ -350,6 +360,7 @@ jobs:
   synth-infra:
     name: Synthesize Infrastructure
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
