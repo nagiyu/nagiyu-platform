@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import {
   Container,
   Box,
@@ -94,7 +94,8 @@ const MODE_LABELS: Record<string, string> = {
   Sell: '売り',
 };
 
-export default function AlertsPage() {
+// メインコンテンツコンポーネント（useSearchParams を使用）
+function AlertsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -561,5 +562,22 @@ export default function AlertsPage() {
         </DialogActions>
       </Dialog>
     </Container>
+  );
+}
+
+// ページコンポーネント（Suspense でラップ）
+export default function AlertsPage() {
+  return (
+    <Suspense
+      fallback={
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        </Container>
+      }
+    >
+      <AlertsPageContent />
+    </Suspense>
   );
 }
