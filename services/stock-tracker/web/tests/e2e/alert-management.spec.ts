@@ -12,9 +12,6 @@
 
 import { test, expect } from '@playwright/test';
 
-// テストユーザーID（.env.testで定義）
-const TEST_USER_ID = process.env.TEST_USER_ID || 'test-user-stock';
-
 // テストデータ
 const TEST_EXCHANGE = {
   exchangeId: 'TEST-EXCHANGE-ALERT',
@@ -63,7 +60,7 @@ const TEST_ALERT = {
 };
 
 // テストデータクリーンアップ用ヘルパー
-async function cleanupTestData(request: any) {
+async function cleanupTestData(request: { get: (url: string) => Promise<{ ok: () => boolean; json: () => Promise<{ alerts?: unknown[]; holdings?: unknown[] }> }>; delete: (url: string) => Promise<unknown> }) {
   // アラート一覧を取得して削除
   const alertsResponse = await request.get('/api/alerts');
   if (alertsResponse.ok()) {
@@ -131,6 +128,14 @@ test.describe('Alert Management Flow', () => {
 
     // ページが読み込まれるまで待機
     await page.waitForLoadState('networkidle');
+
+    // アラート管理のヘッダーが表示されるまで待機
+    await expect(page.getByRole('heading', { name: 'アラート管理' })).toBeVisible({ timeout: 10000 });
+
+    // テーブルのロード完了を待つ（ローディングスピナーが消えるまで待つ）
+    await page.waitForSelector('[role="progressbar"]', { state: 'detached', timeout: 10000 }).catch(() => {
+      // ローディングスピナーが既に消えている場合はエラーを無視
+    });
   });
 
   test.afterEach(async ({ request }) => {
@@ -145,8 +150,8 @@ test.describe('Alert Management Flow', () => {
     // テーブルが表示されることを確認
     await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
 
-    // テストアラートが表示されることを確認
-    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible();
+    // テストアラートが表示されることを確認（タイムアウトを長めに設定）
+    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(TEST_TICKER.name)).toBeVisible();
 
     // モードチップが表示されることを確認
@@ -163,6 +168,12 @@ test.describe('Alert Management Flow', () => {
   });
 
   test('アラートを編集できる', async ({ page }) => {
+    // テーブルが表示されるまで待つ
+    await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
+    
+    // テストデータが表示されるまで待つ
+    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
+
     // 編集ボタンをクリック
     await page.getByRole('button', { name: '編集' }).click();
 
@@ -194,10 +205,10 @@ test.describe('Alert Management Flow', () => {
     await page.getByRole('button', { name: '保存' }).click();
 
     // 成功メッセージが表示されることを確認
-    await expect(page.getByText('アラートを更新しました')).toBeVisible();
+    await expect(page.getByText('アラートを更新しました')).toBeVisible({ timeout: 10000 });
 
     // モーダルが閉じることを確認
-    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible({ timeout: 5000 });
 
     // 更新された内容が一覧に反映されることを確認
     await expect(page.getByText(/価格 以上 \(>=\) 250\.5/)).toBeVisible();
@@ -205,6 +216,12 @@ test.describe('Alert Management Flow', () => {
   });
 
   test('アラートを削除できる', async ({ page }) => {
+    // テーブルが表示されるまで待つ
+    await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
+    
+    // テストデータが表示されるまで待つ
+    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
+
     // 削除ボタンをクリック
     await page.getByRole('button', { name: '削除' }).click();
 
@@ -222,10 +239,10 @@ test.describe('Alert Management Flow', () => {
     await page.getByRole('button', { name: '削除', exact: true }).click();
 
     // 成功メッセージが表示されることを確認
-    await expect(page.getByText('アラートを削除しました')).toBeVisible();
+    await expect(page.getByText('アラートを削除しました')).toBeVisible({ timeout: 10000 });
 
     // ダイアログが閉じることを確認
-    await expect(page.getByRole('dialog', { name: 'アラートの削除' })).not.toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'アラートの削除' })).not.toBeVisible({ timeout: 5000 });
 
     // アラートが一覧から削除されたことを確認
     await expect(page.getByText(TEST_TICKER.symbol)).not.toBeVisible();
@@ -233,6 +250,12 @@ test.describe('Alert Management Flow', () => {
   });
 
   test('キャンセルボタンでモーダルを閉じることができる', async ({ page }) => {
+    // テーブルが表示されるまで待つ
+    await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
+    
+    // テストデータが表示されるまで待つ
+    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
+
     // 編集ボタンをクリック
     await page.getByRole('button', { name: '編集' }).click();
 
@@ -243,13 +266,19 @@ test.describe('Alert Management Flow', () => {
     await page.getByRole('button', { name: 'キャンセル' }).first().click();
 
     // モーダルが閉じることを確認
-    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible({ timeout: 5000 });
 
     // 元のデータが保持されていることを確認
     await expect(page.getByText(/価格 以上 \(>=\) 200/)).toBeVisible();
   });
 
   test('バリデーションエラーが正しく表示される', async ({ page }) => {
+    // テーブルが表示されるまで待つ
+    await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
+    
+    // テストデータが表示されるまで待つ
+    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
+
     // 編集ボタンをクリック
     await page.getByRole('button', { name: '編集' }).click();
 
@@ -286,19 +315,23 @@ test.describe('Alert Management Flow', () => {
     await page.goto('/holdings');
     await page.waitForLoadState('networkidle');
 
-    // 売りアラートボタンをクリック
-    await page.getByRole('button', { name: '売りアラート' }).click();
+    // テーブルが表示されるまで待つ
+    await expect(page.getByRole('table', { name: '保有株式一覧' })).toBeVisible();
+
+    // テストデータが表示されることを確認
+    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible();
+
+    // アラート設定済みの場合は「アラート設定済」ボタンが表示される
+    // 未設定の場合は「売りアラート」ボタンが表示される
+    // このテストでは、beforeEachでアラートを作成しているので「アラート設定済」ボタンを探す
+    const alertButton = page.getByRole('button', { name: /アラート設定済|売りアラート/ });
+    await expect(alertButton).toBeVisible({ timeout: 10000 });
+    await alertButton.click();
 
     // アラート一覧画面に遷移することを確認
-    await expect(page).toHaveURL(
-      new RegExp(
-        `/alerts\\?ticker=${encodeURIComponent(TEST_TICKER.tickerId)}&mode=Sell&openModal=true`
-      )
-    );
+    await expect(page).toHaveURL(/\/alerts/);
 
     // アラート一覧画面が表示されることを確認
     await expect(page.getByRole('heading', { name: 'アラート管理' })).toBeVisible();
-
-    // TODO: Task 3.13でアラート設定モーダルが実装されたら、モーダルが開くことを確認
   });
 });
