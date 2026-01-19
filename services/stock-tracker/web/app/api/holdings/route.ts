@@ -150,7 +150,14 @@ export async function GET(
 
     const holdings: HoldingResponse[] = [];
     for (const holding of result.items) {
-      const ticker = await tickerRepo.getById(holding.TickerID);
+      // ティッカーが見つからない場合はデフォルト値を使用
+      let ticker;
+      try {
+        ticker = await tickerRepo.getById(holding.TickerID);
+      } catch (error) {
+        // ティッカーが見つからない場合は null として扱う
+        ticker = null;
+      }
       holdings.push(
         mapHoldingToResponse(
           holding,
