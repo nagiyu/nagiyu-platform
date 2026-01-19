@@ -4,7 +4,28 @@
  * MINUTE_LEVEL のアラート条件をチェックして通知を送信する
  */
 
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  AlertRepository,
+  ExchangeRepository,
+  evaluateAlert,
+  isTradingHours,
+  getCurrentPrice,
+  type Alert,
+  type Exchange,
+} from '@nagiyu/stock-tracker-core';
+import webpush from 'web-push';
 import { logger } from './lib/logger.js';
+
+/**
+ * エラーメッセージ定数
+ */
+const ERROR_MESSAGES = {
+  MISSING_TABLE_NAME: 'TABLE_NAME 環境変数が設定されていません',
+  MISSING_VAPID_KEYS: 'VAPID キーが環境変数に設定されていません',
+  INVALID_VAPID_KEYS: 'VAPID キーの形式が不正です',
+} as const;
 
 /**
  * Lambda Handlerイベント型
@@ -30,6 +51,178 @@ export interface HandlerResponse {
 }
 
 /**
+ * バッチ処理結果統計
+ */
+interface BatchStats {
+  totalAlerts: number;
+  disabledAlerts: number;
+  outsideTradingHours: number;
+  conditionMet: number;
+  notificationsSent: number;
+  errors: number;
+}
+
+/**
+ * DynamoDB クライアントのシングルトン
+ */
+let docClient: DynamoDBDocumentClient | undefined;
+
+/**
+ * DynamoDB Document Client を取得（シングルトン）
+ */
+function getDocClient(): DynamoDBDocumentClient {
+  if (!docClient) {
+    const client = new DynamoDBClient({});
+    docClient = DynamoDBDocumentClient.from(client);
+  }
+  return docClient;
+}
+
+/**
+ * Web Push の VAPID キーを設定
+ */
+function configureWebPush(): void {
+  const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    throw new Error(ERROR_MESSAGES.MISSING_VAPID_KEYS);
+  }
+
+  // VAPID キーの基本的なバリデーション（Base64URL形式チェック）
+  const base64UrlRegex = /^[A-Za-z0-9_-]+$/;
+  if (!base64UrlRegex.test(vapidPublicKey) || !base64UrlRegex.test(vapidPrivateKey)) {
+    throw new Error(ERROR_MESSAGES.INVALID_VAPID_KEYS);
+  }
+
+  webpush.setVapidDetails(
+    'mailto:support@nagiyu.com', // Contact email
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+}
+
+/**
+ * Web Push 通知を送信
+ */
+async function sendWebPushNotification(
+  alert: Alert,
+  currentPrice: number,
+  tickerName: string
+): Promise<void> {
+  const payload = JSON.stringify({
+    title: `${alert.Mode === 'Sell' ? '売りアラート' : '買いアラート'}: ${tickerName}`,
+    body: `現在価格: ${currentPrice.toFixed(2)} (目標: ${alert.ConditionList[0].value.toFixed(2)})`,
+    data: {
+      alertId: alert.AlertID,
+      tickerId: alert.TickerID,
+      mode: alert.Mode,
+      currentPrice,
+      targetPrice: alert.ConditionList[0].value,
+    },
+  });
+
+  const subscription = {
+    endpoint: alert.SubscriptionEndpoint,
+    keys: {
+      p256dh: alert.SubscriptionKeysP256dh,
+      auth: alert.SubscriptionKeysAuth,
+    },
+  };
+
+  await webpush.sendNotification(subscription, payload);
+}
+
+/**
+ * 単一アラートを処理
+ */
+async function processAlert(
+  alert: Alert,
+  exchangeRepo: ExchangeRepository,
+  stats: BatchStats
+): Promise<void> {
+  try {
+    // 1. Enabled = true かチェック
+    if (!alert.Enabled) {
+      stats.disabledAlerts++;
+      logger.debug('アラートが無効化されています', {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+      });
+      return;
+    }
+
+    // 2. 取引所情報を取得
+    const exchange = await exchangeRepo.getById(alert.ExchangeID);
+    if (!exchange) {
+      logger.warn('取引所が見つかりません', {
+        exchangeId: alert.ExchangeID,
+        alertId: alert.AlertID,
+      });
+      stats.errors++;
+      return;
+    }
+
+    // 3. 取引時間外チェック
+    const currentTime = Date.now();
+    if (!isTradingHours(exchange, currentTime)) {
+      stats.outsideTradingHours++;
+      logger.debug('取引時間外のため通知をスキップします', {
+        alertId: alert.AlertID,
+        exchangeId: alert.ExchangeID,
+        currentTime: new Date(currentTime).toISOString(),
+      });
+      return;
+    }
+
+    // 4. TradingView API で現在価格取得
+    const currentPrice = await getCurrentPrice(alert.TickerID);
+    logger.debug('現在価格を取得しました', {
+      alertId: alert.AlertID,
+      tickerId: alert.TickerID,
+      currentPrice,
+    });
+
+    // 5. アラート条件評価
+    const conditionMet = evaluateAlert(alert, currentPrice);
+    if (!conditionMet) {
+      logger.debug('アラート条件を満たしていません', {
+        alertId: alert.AlertID,
+        currentPrice,
+        targetPrice: alert.ConditionList[0].value,
+        operator: alert.ConditionList[0].operator,
+      });
+      return;
+    }
+
+    stats.conditionMet++;
+    logger.info('アラート条件を満たしました', {
+      alertId: alert.AlertID,
+      userId: alert.UserID,
+      tickerId: alert.TickerID,
+      currentPrice,
+      targetPrice: alert.ConditionList[0].value,
+    });
+
+    // 6. Web Push 通知送信
+    await sendWebPushNotification(alert, currentPrice, alert.TickerID);
+    stats.notificationsSent++;
+    logger.info('Web Push 通知を送信しました', {
+      alertId: alert.AlertID,
+      userId: alert.UserID,
+    });
+  } catch (error) {
+    stats.errors++;
+    logger.error('アラート処理中にエラーが発生しました', {
+      alertId: alert.AlertID,
+      userId: alert.UserID,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+  }
+}
+
+/**
  * Lambda Handler
  * EventBridge Scheduler から定期実行される
  */
@@ -39,24 +232,55 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     eventTime: event.time,
   });
 
-  try {
-    // TODO: Phase 3 で実装
-    // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得
-    // 2. 各アラートに対して:
-    //    - Enabled = true かチェック
-    //    - 取引時間外チェック
-    //    - TradingView API で現在価格取得
-    //    - アラート条件評価
-    //    - 条件達成時、Web Push 通知送信
+  const stats: BatchStats = {
+    totalAlerts: 0,
+    disabledAlerts: 0,
+    outsideTradingHours: 0,
+    conditionMet: 0,
+    notificationsSent: 0,
+    errors: 0,
+  };
 
+  try {
+    // 環境変数チェック
+    const tableName = process.env.TABLE_NAME;
+    if (!tableName) {
+      throw new Error(ERROR_MESSAGES.MISSING_TABLE_NAME);
+    }
+
+    // Web Push VAPID キー設定
+    configureWebPush();
+
+    // リポジトリ初期化
+    const client = getDocClient();
+    const alertRepo = new AlertRepository(client, tableName);
+    const exchangeRepo = new ExchangeRepository(client, tableName);
+
+    // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得
+    logger.info('MINUTE_LEVEL アラート一覧を取得します');
+    const alerts = await alertRepo.getByFrequency('MINUTE_LEVEL');
+    stats.totalAlerts = alerts.length;
+
+    logger.info('アラート一覧を取得しました', {
+      totalAlerts: stats.totalAlerts,
+    });
+
+    // 2. 各アラートに対して処理
+    for (const alert of alerts) {
+      await processAlert(alert, exchangeRepo, stats);
+    }
+
+    // 3. 処理結果をログ出力
     logger.info('1分間隔バッチ処理が正常に完了しました', {
       eventId: event.id,
+      stats,
     });
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: '1分間隔バッチ処理が正常に完了しました',
+        stats,
       }),
     };
   } catch (error) {
@@ -64,6 +288,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     logger.error('1分間隔バッチ処理でエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      stats,
     });
 
     return {
@@ -71,6 +297,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       body: JSON.stringify({
         message: '1分間隔バッチ処理でエラーが発生しました',
         error: errorMessage,
+        stats,
       }),
     };
   }

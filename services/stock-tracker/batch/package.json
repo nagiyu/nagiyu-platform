@@ -17,6 +17,10 @@
     "@aws-sdk/client-dynamodb": "^3.968.0",
     "@aws-sdk/lib-dynamodb": "^3.968.0",
     "@nagiyu/common": "*",
-    "@nagiyu/stock-tracker-core": "*"
+    "@nagiyu/stock-tracker-core": "*",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/web-push": "^3.6.3"
   }
 }
