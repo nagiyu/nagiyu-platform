@@ -16,7 +16,7 @@ test.describe('チャート表示機能', () => {
     await page.goto('/');
 
     // ページ読み込み完了を待つ
-    await page.waitForTimeout(3000);
+    await page.waitForLoadState('networkidle');
   });
 
   test('初期状態ではチャートが表示されない', async ({ page }) => {
@@ -56,8 +56,13 @@ test.describe('チャート表示機能', () => {
         // リストボックスが閉じるまで待つ
         await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-        // チャート表示を待つ（ローディングが完了するまで）
-        await page.waitForTimeout(5000);
+        // チャート表示を待つ（チャートが表示されるか、エラーが表示されるまで）
+        await Promise.race([
+          page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
+          page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
+        ]).catch(() => {
+          // タイムアウトした場合も続行（APIエラーの可能性）
+        });
 
         // チャートまたはエラーメッセージが表示されることを確認
         const chartDisplayed = await page
@@ -106,7 +111,10 @@ test.describe('チャート表示機能', () => {
         await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
         // チャート表示を待つ
-        await page.waitForTimeout(5000);
+        await Promise.race([
+          page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
+          page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
+        ]).catch(() => {});
 
         // 時間枠を変更
         const timeframeSelect = page.getByLabel('時間枠');
@@ -123,8 +131,11 @@ test.describe('チャート表示機能', () => {
           // リストボックスが閉じるまで待つ
           await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-          // チャートが再読み込みされる（ローディングが表示される可能性）
-          await page.waitForTimeout(5000);
+          // チャートが再読み込みされる
+          await Promise.race([
+            page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
+            page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
+          ]).catch(() => {});
 
           // チャートまたはエラーメッセージが表示されることを確認
           const chartDisplayed = await page
@@ -167,7 +178,10 @@ test.describe('チャート表示機能', () => {
         await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
         // チャート表示を待つ
-        await page.waitForTimeout(5000);
+        await Promise.race([
+          page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
+          page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
+        ]).catch(() => {});
 
         // チャートエリアが表示されていることを確認
         const chartArea = page.locator('canvas').first();

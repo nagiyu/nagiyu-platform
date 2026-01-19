@@ -7,7 +7,7 @@
 
 /**
  * 時間枠の型定義
- * TradingView API で対応するタイムフレームに準拠
+ * TradingView API で対応するタイムフレーム（timeframe）に準拠
  */
 export type Timeframe = '1' | '5' | '60' | 'D';
 

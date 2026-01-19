@@ -140,9 +140,25 @@ export default function StockChart({
           type: 'cross',
         },
         formatter: (params: unknown) => {
+          // ECharts の params は配列または単一オブジェクトの可能性がある
           if (!Array.isArray(params) || params.length === 0) return '';
 
-          const dataIndex = (params[0] as { dataIndex: number }).dataIndex;
+          // 型安全性: dataIndex の存在を確認してから使用
+          const firstParam = params[0];
+          if (
+            !firstParam ||
+            typeof firstParam !== 'object' ||
+            !('dataIndex' in firstParam) ||
+            typeof firstParam.dataIndex !== 'number'
+          ) {
+            return '';
+          }
+
+          const dataIndex = firstParam.dataIndex;
+          if (dataIndex < 0 || dataIndex >= chartData.data.length) {
+            return '';
+          }
+
           const point = chartData.data[dataIndex];
           const date = dates[dataIndex];
 
