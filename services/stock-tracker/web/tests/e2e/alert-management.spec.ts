@@ -59,8 +59,17 @@ const TEST_ALERT = {
   },
 };
 
+// Playwright Request 型定義
+interface PlaywrightRequest {
+  get: (url: string) => Promise<{
+    ok: () => boolean;
+    json: () => Promise<{ alerts?: unknown[]; holdings?: unknown[] }>;
+  }>;
+  delete: (url: string) => Promise<unknown>;
+}
+
 // テストデータクリーンアップ用ヘルパー
-async function cleanupTestData(request: { get: (url: string) => Promise<{ ok: () => boolean; json: () => Promise<{ alerts?: unknown[]; holdings?: unknown[] }> }>; delete: (url: string) => Promise<unknown> }) {
+async function cleanupTestData(request: PlaywrightRequest) {
   // アラート一覧を取得して削除
   const alertsResponse = await request.get('/api/alerts');
   if (alertsResponse.ok()) {
@@ -133,9 +142,11 @@ test.describe('Alert Management Flow', () => {
     await expect(page.getByRole('heading', { name: 'アラート管理' })).toBeVisible({ timeout: 10000 });
 
     // テーブルのロード完了を待つ（ローディングスピナーが消えるまで待つ）
-    await page.waitForSelector('[role="progressbar"]', { state: 'detached', timeout: 10000 }).catch(() => {
-      // ローディングスピナーが既に消えている場合はエラーを無視
-    });
+    const progressBar = page.locator('[role="progressbar"]');
+    const isProgressBarVisible = await progressBar.isVisible().catch(() => false);
+    if (isProgressBarVisible) {
+      await progressBar.waitFor({ state: 'detached', timeout: 10000 });
+    }
   });
 
   test.afterEach(async ({ request }) => {
@@ -321,10 +332,14 @@ test.describe('Alert Management Flow', () => {
     // テストデータが表示されることを確認
     await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible();
 
-    // アラート設定済みの場合は「アラート設定済」ボタンが表示される
-    // 未設定の場合は「売りアラート」ボタンが表示される
-    // このテストでは、beforeEachでアラートを作成しているので「アラート設定済」ボタンを探す
-    const alertButton = page.getByRole('button', { name: /アラート設定済|売りアラート/ });
+    // アラートボタンを探して クリック
+    // アラート設定済みの場合は「アラート設定済」、未設定の場合は「売りアラート」が表示される
+    const alertSetButton = page.getByRole('button', { name: 'アラート設定済' });
+    const sellAlertButton = page.getByRole('button', { name: '売りアラート' });
+    
+    const isAlertSet = await alertSetButton.isVisible().catch(() => false);
+    const alertButton = isAlertSet ? alertSetButton : sellAlertButton;
+    
     await expect(alertButton).toBeVisible({ timeout: 10000 });
     await alertButton.click();
 
