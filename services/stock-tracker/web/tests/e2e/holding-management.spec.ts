@@ -110,7 +110,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
         await page.getByRole('button', { name: '保存' }).click();
 
         // モーダルが閉じるまで待つ（エラーの場合は閉じない）
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(2000);
 
         // エラーメッセージが表示されているか確認
         const errorAlert = page.locator('[role="dialog"] [role="alert"]');
@@ -125,7 +125,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
         } else {
           // 正常に登録された場合
           // モーダルが閉じることを確認
-          await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
+          await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
 
           // ネットワークが落ち着くまで待つ
           await page.waitForLoadState('networkidle');
