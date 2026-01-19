@@ -280,3 +280,69 @@ export type DynamoDBItem = {
   /** GSI3 ソートキー - Tickerのみ使用 */
   GSI3SK?: string;
 };
+
+/**
+ * タイムフレーム (Timeframe)
+ *
+ * チャート表示用の時間枠
+ *
+ * Phase 1 で対応する時間枠:
+ * - "1": 1分足
+ * - "5": 5分足
+ * - "60": 1時間足
+ * - "D": 日足
+ *
+ * Phase 2 以降で追加予定:
+ * - "3", "15", "30", "120", "240", "W", "M"
+ */
+export type Timeframe = '1' | '5' | '60' | 'D';
+
+/**
+ * チャートデータポイント (ChartDataPoint)
+ *
+ * OHLCV（始値・高値・安値・終値・出来高）形式の株価データ
+ *
+ * フィールド:
+ * - time: Unix timestamp（秒）
+ * - open: 始値
+ * - high: 高値
+ * - low: 安値
+ * - close: 終値
+ * - volume: 出来高
+ */
+export type ChartDataPoint = {
+  /** タイムスタンプ (Unix timestamp 秒) */
+  time: number;
+  /** 始値 */
+  open: number;
+  /** 高値 */
+  high: number;
+  /** 安値 */
+  low: number;
+  /** 終値 */
+  close: number;
+  /** 出来高 */
+  volume: number;
+};
+
+/**
+ * チャートデータ (ChartData)
+ *
+ * チャートデータ API のレスポンス形式
+ *
+ * フィールド:
+ * - tickerId: ティッカーID（例: "NSDQ:NVDA"）
+ * - symbol: シンボル（例: "NVDA"）
+ * - timeframe: タイムフレーム（例: "60"）
+ * - data: チャートデータポイントの配列
+ */
+export type ChartData = {
+  /** ティッカーID */
+  tickerId: string;
+  /** シンボル */
+  symbol: string;
+  /** タイムフレーム */
+  timeframe: Timeframe;
+  /** チャートデータポイントの配列 */
+  data: ChartDataPoint[];
+};
