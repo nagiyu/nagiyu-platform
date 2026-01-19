@@ -120,7 +120,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
           // エラーが発生した場合（例: 重複登録）
           const errorMessage = await errorAlert.textContent();
           console.log('Registration error:', errorMessage);
-          
+
           // エラーが表示されたらテストをスキップ（データの状態によって失敗することがある）
           console.log('Skipping test due to error state');
           await page.getByRole('button', { name: 'キャンセル' }).click();
@@ -128,16 +128,16 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
         } else {
           // モーダルが開いたままか確認
           const modalStillVisible = await page.getByRole('dialog').isVisible();
-          
+
           if (modalStillVisible) {
             // モーダルが開いたままの場合、エラーメッセージを探す（異なるセレクタで）
             const anyError = await page.locator('[role="dialog"]').textContent();
             console.log('Modal still visible. Content:', anyError);
-            
+
             // エラーがある場合はキャンセルしてテストを続行
             await page.getByRole('button', { name: 'キャンセル' }).click();
             await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
-            
+
             // テスト失敗を回避（データ依存のため）
             console.log('Test skipped due to modal not closing - likely data-dependent issue');
           } else {
