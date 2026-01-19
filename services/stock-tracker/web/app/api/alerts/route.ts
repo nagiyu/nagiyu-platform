@@ -290,19 +290,15 @@ export async function POST(
     const tableName = getTableName();
     const alertRepo = new AlertRepository(docClient, tableName);
 
-    // アラートを作成
-    const createdAlert = await alertRepo.create({
-      UserID: userId,
-      TickerID: alertData.TickerID,
-      ExchangeID: alertData.ExchangeID,
-      Mode: alertData.Mode,
-      Frequency: alertData.Frequency,
-      Enabled: alertData.Enabled,
-      ConditionList: alertData.ConditionList,
-      SubscriptionEndpoint: alertData.SubscriptionEndpoint,
-      SubscriptionKeysP256dh: alertData.SubscriptionKeysP256dh,
-      SubscriptionKeysAuth: alertData.SubscriptionKeysAuth,
-    });
+    // アラートを作成（バリデーション済みデータから AlertID, CreatedAt, UpdatedAt を除く）
+    const {
+      AlertID: _ignoredAlertID,
+      CreatedAt: _ignoredCreatedAt,
+      UpdatedAt: _ignoredUpdatedAt,
+      ...alertDataForCreate
+    } = alertData;
+
+    const createdAlert = await alertRepo.create(alertDataForCreate);
 
     // TickerリポジトリでSymbolとNameを取得
     const tickerRepo = new TickerRepository(docClient, tableName);

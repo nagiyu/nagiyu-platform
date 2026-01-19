@@ -121,19 +121,45 @@ export async function PUT(
       );
     }
 
+    // DynamoDBクライアントとリポジトリの初期化
+    const docClient = getDynamoDBClient();
+    const tableName = getTableName();
+    const alertRepo = new AlertRepository(docClient, tableName);
+
+    // 既存アラートを取得（部分更新用）
+    const existingAlert = await alertRepo.getById(userId, alertId);
+    if (!existingAlert) {
+      return NextResponse.json(
+        {
+          error: 'NOT_FOUND',
+          message: ERROR_MESSAGES.ALERT_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
     // 更新可能なフィールドを抽出
     const updates: Partial<Alert> = {};
 
     if (body.conditions !== undefined) {
-      updates.ConditionList = body.conditions;
+      // 条件の部分更新をサポート
+      // Phase 1: 条件は1つのみなので、既存条件とマージ
+      const existingCondition = existingAlert.ConditionList[0];
+      const updateCondition = body.conditions[0];
+
+      if (updateCondition) {
+        updates.ConditionList = [
+          {
+            field: updateCondition.field ?? existingCondition.field,
+            operator: updateCondition.operator ?? existingCondition.operator,
+            value: updateCondition.value ?? existingCondition.value,
+          },
+        ];
+      }
     }
 
     if (body.enabled !== undefined) {
       updates.Enabled = body.enabled;
-    }
-
-    if (body.frequency !== undefined) {
-      updates.Frequency = body.frequency;
     }
 
     // 更新フィールドが存在しない場合
@@ -144,23 +170,6 @@ export async function PUT(
           message: ERROR_MESSAGES.NO_UPDATE_FIELDS,
         },
         { status: 400 }
-      );
-    }
-
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
-
-    // 既存アラートを取得（バリデーション用）
-    const existingAlert = await alertRepo.getById(userId, alertId);
-    if (!existingAlert) {
-      return NextResponse.json(
-        {
-          error: 'NOT_FOUND',
-          message: ERROR_MESSAGES.ALERT_NOT_FOUND,
-        },
-        { status: 404 }
       );
     }
 
