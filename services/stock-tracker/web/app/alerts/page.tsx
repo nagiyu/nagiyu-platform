@@ -128,15 +128,16 @@ export default function AlertsPage() {
   }, []);
 
   // クエリパラメータによる自動モーダル表示
+  // Note: Task 3.13でアラート設定モーダルを実装予定
   useEffect(() => {
     const ticker = searchParams.get('ticker');
     const mode = searchParams.get('mode');
     const openModal = searchParams.get('openModal');
 
+    // アラート設定モーダルは Task 3.13 で実装予定
+    // 現時点では何もしない（クエリパラメータは保持される）
     if (ticker && mode && openModal === 'true') {
-      // TODO: Task 3.13でアラート設定モーダルを実装
-      // 現時点ではアラート設定機能がまだないため、何もしない
-      console.log('Alert creation modal will be implemented in Task 3.13');
+      // TODO: Task 3.13 - アラート設定モーダルを開く処理を実装
     }
   }, [searchParams]);
 
@@ -322,7 +323,7 @@ export default function AlertsPage() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/')} variant="outlined">
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outlined">
             戻る
           </Button>
           <Typography variant="h5" component="h1" fontWeight="bold">
