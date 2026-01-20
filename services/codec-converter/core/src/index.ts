@@ -1,5 +1,5 @@
 // Types
-export type { Job, JobStatus, CodecType } from './types';
+export type { Job, JobStatus, CodecType } from './types.js';
 
 // Constants
 export {
@@ -9,16 +9,16 @@ export {
   ALLOWED_MIME_TYPES,
   ALLOWED_FILE_EXTENSIONS,
   CODEC_FILE_EXTENSIONS,
-} from './constants';
+} from './constants.js';
 
 // Validation
-export type { ValidationResult } from './validation';
+export type { ValidationResult } from './validation.js';
 export {
   validateFileSize,
   validateMimeType,
   validateFileExtension,
   validateFile,
-} from './validation';
+} from './validation.js';
 
 // Format utilities
-export { formatFileSize, formatDateTime, formatJobId } from './format';
+export { formatFileSize, formatDateTime, formatJobId } from './format.js';

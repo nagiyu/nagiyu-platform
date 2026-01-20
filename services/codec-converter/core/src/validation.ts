@@ -1,4 +1,4 @@
-import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, ALLOWED_FILE_EXTENSIONS } from './constants';
+import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, ALLOWED_FILE_EXTENSIONS } from './constants.js';
 
 /**
  * バリデーション結果

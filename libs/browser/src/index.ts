@@ -6,7 +6,7 @@
  */
 
 // Clipboard API utilities
-export { readFromClipboard, writeToClipboard } from './clipboard';
+export { readFromClipboard, writeToClipboard } from './clipboard.js';
 
 // localStorage utilities
-export { getItem, setItem, removeItem } from './localStorage';
+export { getItem, setItem, removeItem } from './localStorage.js';
