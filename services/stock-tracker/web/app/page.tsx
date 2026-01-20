@@ -9,14 +9,14 @@ import {
   Select,
   MenuItem,
   Paper,
-  Typography,
   SelectChangeEvent,
   CircularProgress,
-  Alert,
 } from '@mui/material';
 import type { Timeframe, TradingSession } from '@/types/stock';
 import { TIMEFRAME_LABELS, TRADING_SESSION_LABELS } from '@/types/stock';
 import StockChart from '../components/StockChart';
+import ErrorAlert from '../components/ErrorAlert';
+import EmptyState from '../components/EmptyState';
 
 // API レスポンス型定義
 interface Exchange {
@@ -39,8 +39,8 @@ interface Ticker {
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  FETCH_EXCHANGES_ERROR: '取引所一覧の取得に失敗しました',
-  FETCH_TICKERS_ERROR: 'ティッカー一覧の取得に失敗しました',
+  FETCH_EXCHANGES_ERROR: '取引所一覧の取得に失敗しました。ネットワーク接続を確認してください。',
+  FETCH_TICKERS_ERROR: 'ティッカー一覧の取得に失敗しました。ネットワーク接続を確認してください。',
 } as const;
 
 export default function Home() {
@@ -139,18 +139,10 @@ export default function Home() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 3 }} role="main">
       {/* エラーメッセージ表示 */}
-      {exchangesError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {exchangesError}
-        </Alert>
-      )}
-      {tickersError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {tickersError}
-        </Alert>
-      )}
+      {exchangesError && <ErrorAlert message={exchangesError} />}
+      {tickersError && <ErrorAlert message={tickersError} />}
 
       {/* セレクターグループ */}
       <Box
@@ -164,6 +156,8 @@ export default function Home() {
           gap: 2,
           mb: 3,
         }}
+        role="region"
+        aria-label="チャート設定"
       >
         {/* 取引所選択 */}
         <FormControl fullWidth disabled={exchangesLoading}>
@@ -175,6 +169,7 @@ export default function Home() {
             label="取引所選択"
             onChange={handleExchangeChange}
             startAdornment={exchangesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            aria-busy={exchangesLoading}
           >
             <MenuItem value="">
               <em>選択してください</em>
@@ -197,6 +192,8 @@ export default function Home() {
             label="ティッカー選択"
             onChange={handleTickerChange}
             startAdornment={tickersLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            aria-busy={tickersLoading}
+            aria-describedby={!exchange ? 'ticker-hint' : undefined}
           >
             <MenuItem value="">
               <em>選択してください</em>
@@ -207,6 +204,11 @@ export default function Home() {
               </MenuItem>
             ))}
           </Select>
+          {!exchange && (
+            <span id="ticker-hint" style={{ display: 'none' }}>
+              先に取引所を選択してください
+            </span>
+          )}
         </FormControl>
 
         {/* 時間枠選択 */}
@@ -257,30 +259,21 @@ export default function Home() {
             md: 600,
           },
         }}
+        role="region"
+        aria-label="株価チャート"
       >
         {ticker ? (
           <StockChart tickerId={ticker} timeframe={timeframe} session={session} count={100} />
         ) : (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: {
-                xs: 400,
-                sm: 500,
-                md: 600,
-              },
+          <EmptyState
+            title="チャート表示エリア"
+            description="取引所とティッカーを選択してください"
+            minHeight={{
+              xs: 400,
+              sm: 500,
+              md: 600,
             }}
-          >
-            <Typography variant="h5" color="text.secondary" gutterBottom>
-              チャート表示エリア
-            </Typography>
-            <Typography variant="body1" color="text.secondary" align="center" sx={{ mt: 2 }}>
-              取引所とティッカーを選択してください
-            </Typography>
-          </Box>
+          />
         )}
       </Paper>
     </Container>

@@ -503,17 +503,29 @@ export default function HoldingsPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 3 }} role="main">
       {/* エラーメッセージ表示 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setError('')}
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </Alert>
       )}
 
       {/* 成功メッセージ表示 */}
       {successMessage && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccessMessage('')}
+          role="status"
+          aria-live="polite"
+        >
           {successMessage}
         </Alert>
       )}
@@ -545,8 +557,13 @@ export default function HoldingsPage() {
 
       {/* ローディング表示 */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
+        <Box
+          sx={{ display: 'flex', justifyContent: 'center', py: 8 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <CircularProgress aria-label="保有株式を読み込んでいます" />
         </Box>
       ) : (
         // 保有株式一覧テーブル
