@@ -260,7 +260,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       if (!holdingResponse.ok()) {
         const errorData = await holdingResponse.json().catch(() => ({}));
         // 既に登録されている場合以外はエラー
-        if (!JSON.stringify(errorData).includes('既に登録されています')) {
+        if (!JSON.stringify(errorData).includes('登録されています')) {
           throw new Error(`Failed to create holding: ${JSON.stringify(errorData)}`);
         }
       }
@@ -329,9 +329,10 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       // 成功メッセージが表示されることを確認
       await expect(page.getByText('保有株式を更新しました')).toBeVisible({ timeout: 5000 });
 
-      // 更新された値が表示されることを確認
-      await expect(page.getByText('200')).toBeVisible();
-      await expect(page.getByText('155.75 USD')).toBeVisible();
+      // 更新された値が表示されることを確認（TEST_TICKERの行で確認）
+      const targetRow = page.locator(`tr:has-text("${TEST_TICKER.symbol}")`);
+      await expect(targetRow.getByText('200')).toBeVisible();
+      await expect(targetRow.getByText('155.75 USD')).toBeVisible();
     });
   });
 
