@@ -171,7 +171,7 @@ export default function WatchlistPage() {
 
       const data = await response.json();
       const alertMap: Record<string, boolean> = {};
-      
+
       // アラート一覧からWatchlistに対応するアラートをマッピング
       if (data.alerts) {
         data.alerts.forEach((alert: { tickerId: string; mode: string; enabled: boolean }) => {
@@ -304,7 +304,7 @@ export default function WatchlistPage() {
     setSuccessMessage('アラートを設定しました');
     // アラート一覧を再取得
     await fetchAlerts();
-    
+
     // 成功メッセージを3秒後に消す
     setTimeout(() => {
       setSuccessMessage('');

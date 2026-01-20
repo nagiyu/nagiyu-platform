@@ -258,9 +258,7 @@ export default function AlertSettingsModal({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        アラート設定 ({mode === 'Buy' ? '買い' : '売り'}アラート)
-      </DialogTitle>
+      <DialogTitle>アラート設定 ({mode === 'Buy' ? '買い' : '売り'}アラート)</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
