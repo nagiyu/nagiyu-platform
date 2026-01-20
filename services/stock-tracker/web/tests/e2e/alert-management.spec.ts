@@ -139,24 +139,28 @@ test.describe('Alert Management Flow', () => {
     }
 
     // DynamoDB の eventual consistency のため、データが利用可能になるまで待機
-    // アラートAPIでデータが取得できることを確認
+    // アラートAPIでデータが取得できることを確認（リトライ回数と待機時間を増加）
     let alertCreated = false;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       const checkResponse = await request.get('/api/alerts');
       if (checkResponse.ok()) {
         const data = await checkResponse.json();
         const alerts = data.alerts || [];
         if (alerts.some((a: { tickerId: string }) => a.tickerId === TEST_TICKER.tickerId)) {
           alertCreated = true;
+          // データが確認できたら、さらに少し待機してから次へ（安全マージン）
+          await page.waitForTimeout(1000);
           break;
         }
       }
-      // 少し待機してリトライ
-      await page.waitForTimeout(500);
+      // 待機時間を1秒に増加
+      await page.waitForTimeout(1000);
     }
 
     if (!alertCreated) {
-      console.warn('Alert may not be immediately available due to eventual consistency');
+      throw new Error(
+        'Alert data is not available after creation. This may indicate a problem with data persistence or eventual consistency.'
+      );
     }
 
     // アラート一覧画面にアクセス
@@ -176,6 +180,10 @@ test.describe('Alert Management Flow', () => {
     if (isProgressBarVisible) {
       await progressBar.waitFor({ state: 'detached', timeout: 10000 });
     }
+
+    // データがページに表示されるまで追加の待機（eventual consistency の最終確認）
+    // テーブルにデータ行が表示されるまで待つ
+    await page.waitForTimeout(2000);
   });
 
   test.afterEach(async ({ request }) => {
