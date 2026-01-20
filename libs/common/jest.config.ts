@@ -1,8 +1,9 @@
 import type { Config } from '@jest/types';
 
 const config: Config.InitialOptions = {
-  preset: 'ts-jest',
+  preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
+  extensionsToTreatAsEsm: ['.ts'],
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   // Exclude monorepo root from module scanning
@@ -10,6 +11,19 @@ const config: Config.InitialOptions = {
   // Support .js extensions in imports (ES modules)
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  transform: {
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          module: 'esnext',
+          moduleResolution: 'bundler',
+          esModuleInterop: true,
+        },
+      },
+    ],
   },
   // Common coverage settings
   coverageDirectory: 'coverage',
