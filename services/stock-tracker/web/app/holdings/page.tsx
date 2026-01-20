@@ -34,6 +34,7 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import AlertSettingsModal from '../../components/AlertSettingsModal';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -109,6 +110,7 @@ export default function HoldingsPage() {
   const [holdings, setHoldings] = useState<HoldingResponse[]>([]);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [tickers, setTickers] = useState<Ticker[]>([]);
+  const [alerts, setAlerts] = useState<Record<string, boolean>>({});
 
   // ローディング状態
   const [loading, setLoading] = useState<boolean>(true);
@@ -128,17 +130,19 @@ export default function HoldingsPage() {
   const [createModalOpen, setCreateModalOpen] = useState<boolean>(false);
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [alertModalOpen, setAlertModalOpen] = useState<boolean>(false);
 
   // フォームデータ
   const [formData, setFormData] = useState<HoldingFormData>(INITIAL_FORM_DATA);
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof HoldingFormData, string>>>({});
 
-  // 編集対象・削除対象
+  // 編集対象・削除対象・アラート設定対象
   const [selectedHolding, setSelectedHolding] = useState<HoldingResponse | null>(null);
 
   // 保有株式一覧を取得
   useEffect(() => {
     fetchHoldings();
+    fetchAlerts();
   }, []);
 
   // 取引所一覧を取得
@@ -218,6 +222,35 @@ export default function HoldingsPage() {
       setTickersError(ERROR_MESSAGES.FETCH_TICKERS_ERROR);
     } finally {
       setTickersLoading(false);
+    }
+  };
+
+  // アラート一覧を取得してチェック
+  const fetchAlerts = async () => {
+    try {
+      const response = await fetch('/api/alerts');
+      if (!response.ok) {
+        // エラーの場合は単にアラート情報を空にする
+        return;
+      }
+
+      const data = await response.json();
+      const alertMap: Record<string, boolean> = {};
+      
+      // アラート一覧からHoldingに対応するアラートをマッピング
+      if (data.alerts) {
+        data.alerts.forEach((alert: { tickerId: string; mode: string; enabled: boolean }) => {
+          // 売りアラートのみを対象
+          if (alert.mode === 'Sell' && alert.enabled) {
+            alertMap[alert.tickerId] = true;
+          }
+        });
+      }
+
+      setAlerts(alertMap);
+    } catch (err) {
+      console.error('Error fetching alerts:', err);
+      // エラーの場合は単にアラート情報を空にする
     }
   };
 
@@ -446,16 +479,27 @@ export default function HoldingsPage() {
   };
 
   // アラート設定画面に遷移
-  const handleNavigateToAlert = (holding: HoldingResponse, hasAlert: boolean) => {
-    if (hasAlert) {
-      // アラート設定済みの場合はアラート一覧画面へ
-      router.push('/alerts');
-    } else {
-      // 未設定の場合はアラート設定モーダルを開く
-      router.push(
-        `/alerts?ticker=${encodeURIComponent(holding.tickerId)}&mode=Sell&openModal=true`
-      );
-    }
+  const handleOpenAlertModal = (holding: HoldingResponse) => {
+    setSelectedHolding(holding);
+    setAlertModalOpen(true);
+  };
+
+  // アラート設定モーダルを閉じる
+  const handleCloseAlertModal = () => {
+    setAlertModalOpen(false);
+    setSelectedHolding(null);
+  };
+
+  // アラート設定成功時の処理
+  const handleAlertSuccess = async () => {
+    setSuccessMessage('アラートを設定しました');
+    // アラート一覧を再取得
+    await fetchAlerts();
+    
+    // 成功メッセージを3秒後に消す
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   };
 
   return (
@@ -536,8 +580,8 @@ export default function HoldingsPage() {
                 </TableRow>
               ) : (
                 holdings.map((holding) => {
-                  // アラート設定済みかどうかの判定（TODO: 実際のアラートデータとの連携）
-                  const hasAlert = false;
+                  // アラート設定済みかどうかの判定
+                  const hasAlert = alerts[holding.tickerId] || false;
 
                   return (
                     <TableRow key={holding.holdingId} hover>
@@ -558,7 +602,7 @@ export default function HoldingsPage() {
                           color={hasAlert ? 'primary' : 'success'}
                           size="small"
                           startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsNoneIcon />}
-                          onClick={() => handleNavigateToAlert(holding, hasAlert)}
+                          onClick={() => handleOpenAlertModal(holding)}
                           sx={{ minWidth: 140 }}
                         >
                           {hasAlert ? 'アラート設定済' : '売りアラート'}
@@ -832,6 +876,20 @@ export default function HoldingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* アラート設定モーダル */}
+      {selectedHolding && (
+        <AlertSettingsModal
+          open={alertModalOpen}
+          onClose={handleCloseAlertModal}
+          onSuccess={handleAlertSuccess}
+          tickerId={selectedHolding.tickerId}
+          symbol={selectedHolding.symbol}
+          exchangeId={selectedHolding.tickerId.split(':')[0] || ''}
+          mode="Sell"
+          defaultTargetPrice={selectedHolding.averagePrice * 1.2}
+        />
+      )}
     </Container>
   );
 }
