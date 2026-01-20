@@ -17,6 +17,14 @@
     "@aws-sdk/client-dynamodb": "^3.968.0",
     "@aws-sdk/lib-dynamodb": "^3.968.0",
     "@nagiyu/common": "*",
-    "@nagiyu/stock-tracker-core": "*"
+    "@nagiyu/stock-tracker-core": "*",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/web-push": "^3.6.4",
+    "jest": "^29.x",
+    "ts-jest": "^29.x",
+    "typescript": "^5.x"
   }
 }
