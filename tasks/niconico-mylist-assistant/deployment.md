@@ -1,168 +1,237 @@
-# {service-name} デプロイ・運用マニュアル
+# niconico-mylist-assistant デプロイ・運用マニュアル
 
-<!-- 記入ガイド: サービス名を記述してください（例: Tools アプリ、Codec Converter） -->
-
-本ドキュメントは、{service-name} のデプロイと運用に関する手順を説明します。
+本ドキュメントは、niconico-mylist-assistant のデプロイと運用に関する手順を説明します。
 
 ---
 
 ## 1. 環境構成
 
-<!-- 記入ガイド: サービスの環境構成を記述してください -->
-<!-- 記入例: 開発環境・本番環境の構成、リージョン戦略、インフラリソース構成 -->
-
 ### 1.1 環境一覧
 
-<!-- 記入ガイド: 環境の定義とそれぞれの目的を記述してください -->
-
-| 環境        | 用途   | デプロイ元ブランチ          | URL                                 |
-| ----------- | ------ | --------------------------- | ----------------------------------- |
-| dev (開発)  | {用途} | `develop`, `integration/**` | `https://dev-{service}.example.com` |
-| prod (本番) | {用途} | `master`                    | `https://{service}.example.com`     |
+| 環境        | 用途                         | デプロイ元ブランチ          | URL                                              |
+| ----------- | ---------------------------- | --------------------------- | ------------------------------------------------ |
+| dev (開発)  | 開発・検証用                 | `develop`, `integration/**` | `https://dev-niconico-mylist-assistant.nagiyu.com` |
+| prod (本番) | 本番運用                     | `master`                    | `https://niconico-mylist-assistant.nagiyu.com`     |
 
 ### 1.2 リソース構成
 
-<!-- 記入ガイド: 使用する AWS リソースや主要なインフラコンポーネントを記述してください -->
-<!-- 記入例: Lambda, ECR, S3, DynamoDB, CloudFront, VPC, Batch など -->
-
 **主要リソース**:
 
-- {リソース1}: {用途}
-- {リソース2}: {用途}
-- {リソース3}: {用途}
+- **Lambda**: Next.js アプリケーション実行（VPC 外）
+- **AWS Batch (Fargate)**: マイリスト登録バッチ処理（共有 VPC）
+- **DynamoDB**: 動画基本情報・ユーザー設定・ジョブステータス
+- **ECR**: Lambda / Batch 用コンテナイメージ
+- **CloudFront**: CDN・HTTPS 終端
+- **CloudWatch Logs**: アプリケーションログ
+- **Secrets Manager**: 暗号化キー、テスト用アカウント情報
 
 **インフラ定義の場所**:
 
-- CDK スタック: `infra/{service-name}/lib/`
+- CDK スタック: `infra/niconico-mylist-assistant/`
 
 ### 1.3 環境ごとのリソース名
 
-<!-- 記入ガイド: 環境ごとのリソース名の命名規則を表形式で記述してください -->
-
-| リソース    | dev 環境                   | prod 環境                   |
-| ----------- | -------------------------- | --------------------------- |
-| {リソース1} | `{service}-{resource}-dev` | `{service}-{resource}-prod` |
-| {リソース2} | `{service}-{resource}-dev` | `{service}-{resource}-prod` |
+| リソース                  | dev 環境                                            | prod 環境                                             |
+| ------------------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| Lambda 関数               | `niconico-mylist-assistant-web-dev`                 | `niconico-mylist-assistant-web-prod`                  |
+| ECR (web)                 | `niconico-mylist-assistant-web-dev`                 | `niconico-mylist-assistant-web-prod`                  |
+| ECR (batch)               | `niconico-mylist-assistant-batch-dev`               | `niconico-mylist-assistant-batch-prod`                |
+| Batch Job Definition      | `niconico-mylist-assistant-batch-job-dev`           | `niconico-mylist-assistant-batch-job-prod`            |
+| Batch Job Queue           | `niconico-mylist-assistant-queue-dev`               | `niconico-mylist-assistant-queue-prod`                |
+| Batch Compute Environment | `niconico-mylist-assistant-compute-dev`             | `niconico-mylist-assistant-compute-prod`              |
+| セキュリティグループ      | `niconico-mylist-assistant-batch-sg-dev`            | `niconico-mylist-assistant-batch-sg-prod`             |
+| DynamoDB テーブル         | `nagiyu-niconico-mylist-assistant-dynamodb-dev`     | `nagiyu-niconico-mylist-assistant-dynamodb-prod`      |
+| CloudWatch Logs (Lambda)  | `/aws/lambda/niconico-mylist-assistant-web-dev`     | `/aws/lambda/niconico-mylist-assistant-web-prod`      |
+| CloudWatch Logs (Batch)   | `/aws/batch/niconico-mylist-assistant-dev`          | `/aws/batch/niconico-mylist-assistant-prod`           |
 
 ---
 
 ## 2. 前提条件
 
-<!-- 記入ガイド: デプロイ前に必要な前提条件を記述してください -->
-
 ### 2.1 共有インフラ
-
-<!-- 記入ガイド: デプロイ前に必要な共有インフラを記述してください -->
-<!-- 記入例: VPC, ACM 証明書, IAM ロール、ドメイン設定など -->
 
 以下がデプロイ済みであることを確認してください:
 
-- [ ] **VPC**: `nagiyu-{env}-vpc` - [共有インフラ: VPC](../../infra/shared/vpc.md) 参照
-- [ ] **ACM 証明書** (CloudFront 用): [共有インフラ: ACM](../../infra/shared/acm.md) 参照
-- [ ] **その他の共有リソース**: {追加の共有リソース}
+- [ ] **VPC**: `nagiyu-{env}-vpc` - [共有インフラ: VPC](../../docs/infra/shared/vpc.md) 参照
+- [ ] **ACM 証明書** (CloudFront 用): [共有インフラ: ACM](../../docs/infra/shared/acm.md) 参照
 
 ### 2.2 必要なツール
-
-<!-- 記入ガイド: デプロイに必要なツールを記述してください -->
-<!-- 記入例: モノレポ管理のため、バージョンは package.json に記載し、ここでは記述しない -->
 
 - Node.js
 - AWS CLI
 - Docker
-- {その他のツール}
 
 ### 2.3 認証情報
 
-<!-- 記入ガイド: デプロイに必要な認証情報を記述してください -->
-<!-- 記入例: GitHub Actions Secrets, AWS認証情報、API キーなど -->
+GitHub Actions で自動デプロイを行うには、以下の GitHub Secrets が必要です:
+
+| Name                    | 説明                                   | 設定済み                   |
+| ----------------------- | -------------------------------------- | -------------------------- |
+| `AWS_ACCESS_KEY_ID`     | IAM ユーザーのアクセスキー ID          | ✓ (共通インフラで設定済み) |
+| `AWS_SECRET_ACCESS_KEY` | IAM ユーザーのシークレットアクセスキー | ✓ (共通インフラで設定済み) |
+| `AWS_REGION`            | デプロイ先リージョン (`us-east-1`)     | ✓ (共通インフラで設定済み) |
+| `AWS_ACCOUNT_ID`        | AWS アカウント ID                      | ✓ (共通インフラで設定済み) |
 
 ---
 
 ## 3. 初回セットアップ
 
-<!-- 記入ガイド: サービスの初回デプロイ手順を記述してください -->
-
 ### 3.1 手順概要
 
-<!-- 記入ガイド: セットアップの全体的な流れを記述してください -->
+1. **Secrets Manager にシークレット作成**: 暗号化キー等を手動で作成
+2. **ECR リポジトリ作成**: コンテナイメージ格納用リポジトリの作成
+3. **Docker イメージビルド**: web / batch のコンテナイメージを作成
+4. **インフラデプロイ**: Lambda, CloudFront, Batch などのリソースをデプロイ
+5. **動作確認**: ヘルスチェック・機能確認
 
-1. **ECR リポジトリ作成**: コンテナイメージ格納用リポジトリの作成
-2. **Docker イメージビルド**: アプリケーションのコンテナイメージを作成
-3. **インフラデプロイ**: Lambda, CloudFront などのリソースをデプロイ
-4. **動作確認**: ヘルスチェック・機能確認
+### 3.2 Secrets Manager の設定
 
-### 3.2 ECR リポジトリの作成
+以下のシークレットを AWS コンソールまたは CLI で作成してください:
 
-<!-- 記入ガイド: ECR リポジトリの作成手順を記述してください -->
-<!-- 記入例: CDK を使った作成コマンド -->
+```bash
+# 暗号化キー（AES-256 用、32 バイトのランダム文字列）
+aws secretsmanager create-secret \
+    --name niconico-mylist-assistant/shared-secret-key \
+    --secret-string "$(openssl rand -base64 32)" \
+    --region us-east-1
+
+# テスト用ニコニコアカウント（CI 統合テスト用）
+aws secretsmanager create-secret \
+    --name niconico-mylist-assistant/test-account \
+    --secret-string '{"email":"test@example.com","password":"your-password"}' \
+    --region us-east-1
+```
+
+### 3.3 CDK スタック構成
+
+本サービスは Auth に倣い、リソースごとにスタックを分割しています。
+
+| スタック名 (dev)                                | スタック名 (prod)                                | 内容                                       |
+| ----------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
+| `NagiyuNiconicoMylistAssistantDynamoDBDev`      | `NagiyuNiconicoMylistAssistantDynamoDBProd`      | DynamoDB テーブル                          |
+| `NagiyuNiconicoMylistAssistantSecretsDev`       | `NagiyuNiconicoMylistAssistantSecretsProd`       | Secrets Manager 参照                       |
+| `NagiyuNiconicoMylistAssistantECRDev`           | `NagiyuNiconicoMylistAssistantECRProd`           | ECR リポジトリ（web / batch）              |
+| `NagiyuNiconicoMylistAssistantLambdaDev`        | `NagiyuNiconicoMylistAssistantLambdaProd`        | Lambda 関数                                |
+| `NagiyuNiconicoMylistAssistantCloudFrontDev`    | `NagiyuNiconicoMylistAssistantCloudFrontProd`    | CloudFront ディストリビューション          |
+| `NagiyuNiconicoMylistAssistantBatchDev`         | `NagiyuNiconicoMylistAssistantBatchProd`         | Batch (Compute Env, Job Queue, Job Definition, SG) |
+
+**CDK ディレクトリ構成**:
+
+```
+infra/niconico-mylist-assistant/
+├── bin/
+│   └── app.ts
+├── lib/
+│   ├── dynamodb-stack.ts
+│   ├── secrets-stack.ts
+│   ├── ecr-stack.ts
+│   ├── lambda-stack.ts
+│   ├── cloudfront-stack.ts
+│   ├── batch-stack.ts
+│   ├── policies/
+│   │   ├── lambda-policy.ts        # Lambda 用ポリシー
+│   │   └── batch-policy.ts         # Batch 用ポリシー
+│   ├── roles/
+│   │   ├── lambda-execution-role.ts
+│   │   └── batch-job-role.ts
+│   └── users/
+│       └── dev-user.ts             # 開発用 IAM ユーザー
+├── package.json
+├── cdk.json
+└── tsconfig.json
+```
+
+### 3.4 インフラのデプロイ（手動）
+
+#### DynamoDB, Secrets, ECR のデプロイ
 
 ```bash
 # 開発環境
-npm run deploy -w {service-name} -- --context env=dev --context deploymentPhase=ecr-only
+npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
+    --context env=dev \
+    "NagiyuNiconicoMylistAssistantDynamoDBDev" \
+    "NagiyuNiconicoMylistAssistantSecretsDev" \
+    "NagiyuNiconicoMylistAssistantECRDev" \
+    --require-approval never
 
 # 本番環境
-npm run deploy -w {service-name} -- --context env=prod --context deploymentPhase=ecr-only
+npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
+    --context env=prod \
+    "NagiyuNiconicoMylistAssistantDynamoDBProd" \
+    "NagiyuNiconicoMylistAssistantSecretsProd" \
+    "NagiyuNiconicoMylistAssistantECRProd" \
+    --require-approval never
 ```
 
-### 3.3 Docker イメージのビルドとプッシュ
+### 3.5 Docker イメージのビルドとプッシュ
 
-<!-- 記入ガイド: Docker イメージのビルド・プッシュ手順を記述してください -->
+#### web パッケージ（Lambda 用）
 
 ```bash
 # 1. ECR にログイン
 aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
-# 2. イメージのビルド
-docker build -t {service}:latest -f services/{service}/Dockerfile .
+# 2. イメージのビルド（モノレポルートから実行）
+docker build -t niconico-mylist-assistant-web:latest \
+    -f services/niconico-mylist-assistant/packages/web/Dockerfile .
 
-# 3. タグ付け
-docker tag {service}:latest <ECR_REGISTRY>/{service}-dev:latest
-
-# 4. プッシュ
-docker push <ECR_REGISTRY>/{service}-dev:latest
+# 3. タグ付け & プッシュ
+docker tag niconico-mylist-assistant-web:latest \
+    <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest
 ```
 
-### 3.4 アプリケーションリソースのデプロイ
-
-<!-- 記入ガイド: Lambda, CloudFront などのアプリケーションリソースをデプロイする手順を記述してください -->
+#### batch パッケージ（AWS Batch 用）
 
 ```bash
-# 開発環境
-npm run deploy -w {service-name} -- --context env=dev --context deploymentPhase=full
+# 1. イメージのビルド（モノレポルートから実行）
+docker build -t niconico-mylist-assistant-batch:latest \
+    -f services/niconico-mylist-assistant/packages/batch/Dockerfile .
 
-# 本番環境
-npm run deploy -w {service-name} -- --context env=prod --context deploymentPhase=full
+# 2. タグ付け & プッシュ
+docker tag niconico-mylist-assistant-batch:latest \
+    <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-batch-dev:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-batch-dev:latest
 ```
 
-### 3.5 動作確認
+### 3.6 アプリケーションリソースのデプロイ
 
-<!-- 記入ガイド: デプロイ後の動作確認手順を記述してください -->
+```bash
+# 開発環境（全スタック）
+npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
+    --context env=dev \
+    --all \
+    --require-approval never
+
+# 本番環境（全スタック）
+npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
+    --context env=prod \
+    --all \
+    --require-approval never
+```
+
+### 3.7 動作確認
 
 ```bash
 # Lambda 関数の確認
 aws lambda get-function \
-    --function-name {service}-dev \
+    --function-name niconico-mylist-assistant-web-dev \
     --region us-east-1
 
 # ヘルスチェック
-curl https://<FUNCTION_URL>/api/health
+curl https://dev-niconico-mylist-assistant.nagiyu.com/api/health
 ```
 
 ---
 
 ## 4. CI/CD パイプライン
 
-<!-- 記入ガイド: GitHub Actions などの CI/CD パイプラインの詳細を記述してください -->
-
 ### 4.1 ワークフロー概要
 
-<!-- 記入ガイド: プロジェクトで使用する GitHub Actions ワークフローを記述してください -->
-<!-- 記入例: 高速検証ワークフロー (Fast CI)、完全検証ワークフロー (Full CI)、デプロイワークフロー -->
+niconico-mylist-assistant では、以下の GitHub Actions ワークフローを使用します:
 
-{service-name} では、以下の GitHub Actions ワークフローを使用します:
-
-#### 1. 高速検証ワークフロー (`.github/workflows/{service}-verify-fast.yml`)
+#### 1. 高速検証ワークフロー (`.github/workflows/niconico-mylist-assistant-verify-fast.yml`)
 
 **目的**: integration/\*\* ブランチへのプルリクエスト時に素早いフィードバックを提供
 
@@ -174,21 +243,21 @@ on:
     branches:
       - integration/**
     paths:
-      - 'services/{service}/**'
+      - 'services/niconico-mylist-assistant/**'
       - 'libs/**'
-      - 'infra/{service}/**'
+      - 'infra/niconico-mylist-assistant/**'
 ```
 
 **ジョブ構成**:
 
-1. **build**: アプリケーションのビルド検証
-2. **docker-build**: Docker イメージのビルド検証
-3. **test**: 単体テストの実行（core プロジェクトのみ）
-4. **e2e-test**: E2Eテストの実行（web プロジェクトの場合、chromium-mobile のみ）
+1. **build**: アプリケーションのビルド検証（web / batch）
+2. **docker-build**: Docker イメージのビルド検証（web / batch）
+3. **test**: 単体テストの実行（core パッケージのみ）
+4. **e2e-test**: E2E テストの実行（chromium-mobile のみ）
 5. **lint**: リントチェック
 6. **format-check**: フォーマットチェック
 
-#### 2. 完全検証ワークフロー (`.github/workflows/{service}-verify-full.yml`)
+#### 2. 完全検証ワークフロー (`.github/workflows/niconico-mylist-assistant-verify-full.yml`)
 
 **目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
 
@@ -200,22 +269,23 @@ on:
     branches:
       - develop
     paths:
-      - 'services/{service}/**'
+      - 'services/niconico-mylist-assistant/**'
       - 'libs/**'
-      - 'infra/{service}/**'
+      - 'infra/niconico-mylist-assistant/**'
 ```
 
 **ジョブ構成**:
 
-1. **build**: アプリケーションのビルド検証
-2. **docker-build**: Docker イメージのビルド検証
-3. **test**: 単体テストの実行（core プロジェクトのみ）
-4. **coverage**: テストカバレッジチェック（80%以上必須）
-5. **e2e-test**: E2Eテストの実行（web プロジェクトの場合、全デバイス）
-6. **lint**: リントチェック
-7. **format-check**: フォーマットチェック
+1. **build**: アプリケーションのビルド検証（web / batch）
+2. **docker-build**: Docker イメージのビルド検証（web / batch）
+3. **test**: 単体テストの実行（core パッケージのみ）
+4. **coverage**: テストカバレッジチェック（80% 以上必須）
+5. **e2e-test**: E2E テストの実行（全デバイス）
+6. **integration-test**: batch 統合テスト（テスト専用アカウント使用）
+7. **lint**: リントチェック
+8. **format-check**: フォーマットチェック
 
-#### 3. デプロイワークフロー (`.github/workflows/{service}-deploy.yml`)
+#### 3. デプロイワークフロー (`.github/workflows/niconico-mylist-assistant-deploy.yml`)
 
 **目的**: develop, integration/\*\*, master ブランチへのプッシュ時に自動デプロイ
 
@@ -229,21 +299,19 @@ on:
       - integration/**
       - master
     paths:
-      - 'services/{service}/**'
-      - 'infra/{service}/**'
+      - 'services/niconico-mylist-assistant/**'
+      - 'infra/niconico-mylist-assistant/**'
 ```
 
 **ジョブ構成**:
 
-1. **infrastructure**: ECR リポジトリの CDK スタックデプロイ
-2. **build**: Docker イメージのビルドと ECR へのプッシュ
-3. **deploy**: Lambda と CloudFront の CDK デプロイ
+1. **infrastructure**: DynamoDB, Secrets, ECR の CDK スタックデプロイ
+2. **build**: Docker イメージのビルドと ECR へのプッシュ（web / batch）
+3. **deploy**: Lambda, CloudFront, Batch の CDK デプロイ
 4. **verify**: デプロイ後のヘルスチェック
+5. **cloudfront-invalidation**: CloudFront キャッシュ無効化
 
 ### 4.2 ブランチ戦略とデプロイフロー
-
-<!-- 記入ガイド: ブランチごとのデプロイ戦略を表形式で記述してください -->
-<!-- 参照: docs/branching.md のブランチ戦略に従ってください -->
 
 ```mermaid
 graph LR
@@ -259,16 +327,13 @@ graph LR
     style D fill:#ffe1e1
 ```
 
-| ブランチ         | 環境 | PR検証     | 自動デプロイ |
+| ブランチ         | 環境 | PR 検証    | 自動デプロイ |
 | ---------------- | ---- | ---------- | ------------ |
 | `develop`        | 開発 | ✅ Full CI | ✅           |
 | `integration/**` | 開発 | ✅ Fast CI | ✅           |
 | `master`         | 本番 | -          | ✅           |
 
 ### 4.3 GitHub Secrets の設定
-
-<!-- 記入ガイド: GitHub Actions に必要な Secret を記述してください -->
-<!-- 記入例: AWS認証情報、API キー、トークンなど -->
 
 GitHub リポジトリの Settings → Secrets and variables → Actions で以下を確認:
 
@@ -278,83 +343,38 @@ GitHub リポジトリの Settings → Secrets and variables → Actions で以�
 | `AWS_SECRET_ACCESS_KEY` | IAM ユーザーのシークレットアクセスキー | ✓ (共通インフラで設定済み) |
 | `AWS_REGION`            | デプロイ先リージョン                   | ✓ (共通インフラで設定済み) |
 
-### 4.4 ワークフロー実行例
-
-<!-- 記入ガイド: 典型的な開発フローでのワークフロー実行例を記述してください -->
-
-#### プルリクエスト作成時
-
-```bash
-# feature ブランチから integration/** へのプルリクエスト作成
-git checkout -b feature/new-feature
-git push origin feature/new-feature
-
-# GitHub でプルリクエストを integration/feature-test ブランチに作成
-# → {service}-verify-fast.yml が自動実行される
-#   ✓ ビルド検証
-#   ✓ 単体テスト実行（core プロジェクトの場合）
-#   ✓ E2Eテスト実行（web プロジェクトの場合、chromium-mobile のみ）
-#   ✓ リントチェック
-# → すべて成功でマージ可能
-
-# integration/** ブランチから develop へのプルリクエスト作成
-# → {service}-verify-full.yml が自動実行される
-#   ✓ ビルド検証
-#   ✓ Docker ビルド検証
-#   ✓ 単体テスト実行（core プロジェクトの場合）
-#   ✓ カバレッジチェック（80%以上）
-#   ✓ E2Eテスト実行（web プロジェクトの場合、全デバイス）
-#   ✓ リントチェック
-#   ✓ フォーマットチェック
-# → すべて成功でマージ可能
-```
-
-#### マージ後のデプロイ
-
-```bash
-# プルリクエストをマージ
-# → develop ブランチに push される
-# → {service}-deploy.yml が自動実行される
-#   1. ECR の CDK スタックデプロイ
-#   2. Docker イメージビルド & プッシュ
-#   3. Lambda の CDK デプロイ
-#   4. CloudFront の CDK デプロイ
-#   5. ヘルスチェック
-# → 開発環境へデプロイ完了
-```
-
 ---
 
 ## 5. 手動デプロイ
 
-<!-- 記入ガイド: CI/CD を使わない手動デプロイ手順を記述してください -->
-<!-- 記入例: 緊急時のデプロイ、ローカルからのデプロイ -->
-
 ### 5.1 Docker イメージの手動デプロイ
-
-<!-- 記入ガイド: Docker イメージを手動でビルド・プッシュする手順を記述してください -->
 
 ```bash
 # 1. ECR ログイン
 aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
-# 2. イメージのビルド
-docker build -t {service}:latest -f services/{service}/Dockerfile .
+# 2. web イメージのビルド & プッシュ
+docker build -t niconico-mylist-assistant-web:latest \
+    -f services/niconico-mylist-assistant/packages/web/Dockerfile .
+docker tag niconico-mylist-assistant-web:latest \
+    <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest
 
-# 3. タグ付け & プッシュ
-docker tag {service}:latest <ECR_REGISTRY>/{service}-dev:latest
-docker push <ECR_REGISTRY>/{service}-dev:latest
+# 3. batch イメージのビルド & プッシュ
+docker build -t niconico-mylist-assistant-batch:latest \
+    -f services/niconico-mylist-assistant/packages/batch/Dockerfile .
+docker tag niconico-mylist-assistant-batch:latest \
+    <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-batch-dev:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-batch-dev:latest
 ```
 
 ### 5.2 Lambda 関数の手動更新
 
-<!-- 記入ガイド: Lambda 関数を手動で更新する手順を記述してください -->
-
 ```bash
 aws lambda update-function-code \
-    --function-name {service}-dev \
-    --image-uri <ECR_REGISTRY>/{service}-dev:latest \
+    --function-name niconico-mylist-assistant-web-dev \
+    --image-uri <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest \
     --region us-east-1
 ```
 
@@ -362,75 +382,76 @@ aws lambda update-function-code \
 
 ## 6. 環境変数管理
 
-<!-- 記入ガイド: アプリケーションで使用する環境変数を記述してください -->
-
 ### 6.1 環境変数一覧
 
-<!-- 記入ガイド: Lambda や Batch などで設定される環境変数を表形式で記述してください -->
+#### Lambda 環境変数
 
-| 環境変数      | 説明   | 例     | 必須 |
-| ------------- | ------ | ------ | ---- |
-| `{ENV_VAR_1}` | {説明} | `{例}` | ✅   |
-| `{ENV_VAR_2}` | {説明} | `{例}` | ✅   |
-| `{ENV_VAR_3}` | {説明} | `{例}` | ❌   |
+| 環境変数               | 説明                       | 設定方法          |
+| ---------------------- | -------------------------- | ----------------- |
+| `DYNAMODB_TABLE_NAME`  | DynamoDB テーブル名        | CDK で自動設定    |
+| `SHARED_SECRET_KEY`    | パスワード暗号化キー       | Secrets Manager → 環境変数 |
+| `BATCH_JOB_QUEUE`      | Batch Job Queue ARN        | CDK で自動設定    |
+| `BATCH_JOB_DEFINITION` | Batch Job Definition ARN   | CDK で自動設定    |
 
-### 6.2 環境変数の設定方法
+#### Batch 環境変数
 
-<!-- 記入ガイド: 環境変数の設定方法を記述してください -->
-<!-- 記入例: CDK コンテキスト、Lambda コンソール、Systems Manager Parameter Store など -->
+| 環境変数               | 説明                       | 設定方法          |
+| ---------------------- | -------------------------- | ----------------- |
+| `DYNAMODB_TABLE_NAME`  | DynamoDB テーブル名        | CDK で自動設定    |
+| `SHARED_SECRET_KEY`    | パスワード復号キー         | Secrets Manager → 環境変数 |
 
-**CDK での設定**:
+### 6.2 リソース設定
 
-環境変数は CDK スタックで自動的に設定されます:
+#### Lambda 設定
 
-```typescript
-// lib/{service-name}-stack.ts
-environment: {
-  {ENV_VAR_1}: {resource}.{property},
-  {ENV_VAR_2}: `${stackName}`,
-}
-```
+| 項目                 | 設定値   |
+| -------------------- | -------- |
+| メモリサイズ         | 1024 MB  |
+| タイムアウト         | 30 秒    |
+| 予約済み同時実行数   | 設定なし |
 
-**手動設定（緊急時）**:
+#### Batch 設定
 
-```bash
-aws lambda update-function-configuration \
-    --function-name {service}-dev \
-    --environment Variables="{ENV_VAR_1}={value}" \
-    --region us-east-1
-```
+| 項目           | 設定値          |
+| -------------- | --------------- |
+| vCPU           | 0.25            |
+| メモリ         | 512 MB          |
+| タイムアウト   | 1800 秒（30 分）|
+| リトライ回数   | 1               |
 
 ---
 
 ## 7. ログ管理・監視
 
-<!-- 記入ガイド: ログとモニタリングの詳細を記述してください -->
-
 ### 7.1 ログの確認
-
-<!-- 記入ガイド: CloudWatch Logs やその他のログ管理サービスの利用方法を記述してください -->
 
 **Lambda ログ**:
 
-- ロググループ: `/aws/lambda/{service}-{env}`
-- 保持期間: 7日
+- ロググループ: `/aws/lambda/niconico-mylist-assistant-web-{env}`
+- 保持期間: 7 日
+
+**Batch ログ**:
+
+- ロググループ: `/aws/batch/niconico-mylist-assistant-{env}`
+- 保持期間: 7 日
 
 **ログの確認方法**:
 
 ```bash
-# ログのリアルタイム確認
-aws logs tail /aws/lambda/{service}-dev --follow
+# Lambda ログのリアルタイム確認
+aws logs tail /aws/lambda/niconico-mylist-assistant-web-dev --follow
+
+# Batch ログの確認
+aws logs tail /aws/batch/niconico-mylist-assistant-dev --follow
 
 # 特定期間のログ検索
 aws logs filter-log-events \
-    --log-group-name /aws/lambda/{service}-dev \
+    --log-group-name /aws/lambda/niconico-mylist-assistant-web-dev \
     --start-time $(date -d '1 hour ago' +%s)000 \
     --filter-pattern "ERROR"
 ```
 
 ### 7.2 メトリクスとアラート
-
-<!-- 記入ガイド: CloudWatch メトリクスやアラート設定を記述してください -->
 
 **Lambda メトリクス**:
 
@@ -439,32 +460,20 @@ aws logs filter-log-events \
 - 同時実行数 (ConcurrentExecutions)
 - スロットル (Throttles)
 
-**その他のメトリクス**:
+**Batch メトリクス**:
 
-<!-- 記入ガイド: S3, DynamoDB, API Gateway など、サービスで使用する他のリソースのメトリクスを記述してください -->
+- ジョブ数（成功/失敗）
+- 実行時間
 
-### 7.3 推奨アラート設定
-
-<!-- 記入ガイド: 設定すべきアラートを記述してください -->
-<!-- 記入例: エラー率、レイテンシ、可用性に関するアラート -->
-
-| アラート項目         | 閾値        | アクション   |
-| -------------------- | ----------- | ------------ |
-| Lambda エラー率      | > 5%        | {アクション} |
-| Lambda 実行時間      | > {閾値} ms | {アクション} |
-| {その他のメトリクス} | {閾値}      | {アクション} |
+**アラート設定**: 初期段階では設定なし。必要に応じて後から追加。
 
 ---
 
 ## 8. 運用手順
 
-<!-- 記入ガイド: 日常的な運用手順を記述してください -->
-
 ### 8.1 バージョン管理
 
-<!-- 記入ガイド: バージョン番号のルールと更新手順を記述してください -->
-
-#### 8.1.1 バージョン番号のルール
+#### バージョン番号のルール
 
 本プロジェクトは [Semantic Versioning](https://semver.org/) に準拠します:
 
@@ -472,40 +481,39 @@ aws logs filter-log-events \
 - **マイナー (0.X.0)**: 新機能追加（後方互換性あり）
 - **パッチ (0.0.X)**: バグ修正
 
-#### 8.1.2 バージョン管理の Single Source of Truth
+#### バージョン管理の Single Source of Truth
 
-**`services/{service}/package.json` の `version` フィールドがすべてのバージョン情報の唯一の真実の情報源です。**
+**`services/niconico-mylist-assistant/package.json` の `version` フィールドがすべてのバージョン情報の唯一の真実の情報源です。**
 
-#### 8.1.3 バージョン更新手順
-
-<!-- 記入ガイド: モノレポルートからワークスペース指定でバージョンアップする -->
+#### バージョン更新手順
 
 ```bash
 # パッチバージョンアップ（例: 1.0.0 → 1.0.1）
-npm version patch -w {service-name}
+npm version patch -w niconico-mylist-assistant
 
 # マイナーバージョンアップ（例: 1.0.0 → 1.1.0）
-npm version minor -w {service-name}
+npm version minor -w niconico-mylist-assistant
 
 # メジャーバージョンアップ（例: 1.0.0 → 2.0.0）
-npm version major -w {service-name}
+npm version major -w niconico-mylist-assistant
 ```
 
 **注**: `npm version` コマンドは自動的に Git タグとコミットを作成します。
 
 ### 8.2 スケーリング対応
 
-<!-- 記入ガイド: スケーリングに関する設定や対応方法を記述してください -->
-
 Lambda は自動スケーリングされます。必要に応じて以下を調整:
 
-- メモリサイズ: {現在の設定値}
-- タイムアウト: {現在の設定値}
-- 予約済み同時実行数: {設定値}
+- メモリサイズ: 1024 MB（初期値）
+- タイムアウト: 30 秒（初期値）
+- 予約済み同時実行数: 設定なし（初期値）
+
+Batch は必要に応じて以下を調整:
+
+- vCPU: 0.25（初期値）
+- メモリ: 512 MB（初期値）
 
 ### 8.3 セキュリティアップデート
-
-<!-- 記入ガイド: 依存パッケージのセキュリティアップデート手順を記述してください -->
 
 依存パッケージの定期的な更新を実施してください。
 
@@ -524,11 +532,7 @@ npm audit fix --force
 
 ## 9. 障害対応
 
-<!-- 記入ガイド: 障害時の対応手順を記述してください -->
-
 ### 9.1 ロールバック手順
-
-<!-- 記入ガイド: デプロイに問題がある場合のロールバック手順を記述してください -->
 
 #### GitHub Actions からのロールバック
 
@@ -544,18 +548,18 @@ git push origin <branch-name>
 
 ```bash
 # 前のイメージタグを確認
-aws ecr describe-images --repository-name {service}-dev --region us-east-1
+aws ecr describe-images \
+    --repository-name niconico-mylist-assistant-web-dev \
+    --region us-east-1
 
 # 前のイメージタグを指定してロールバック
 aws lambda update-function-code \
-    --function-name {service}-dev \
-    --image-uri <ECR_REGISTRY>/{service}-dev:<PREVIOUS_TAG> \
+    --function-name niconico-mylist-assistant-web-dev \
+    --image-uri <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:<PREVIOUS_TAG> \
     --region us-east-1
 ```
 
 ### 9.2 よくある障害と対処法
-
-<!-- 記入ガイド: 想定される障害シナリオと対処法を記述してください -->
 
 #### デプロイが失敗する
 
@@ -577,56 +581,72 @@ aws lambda update-function-code \
 - 環境変数の設定ミス → Lambda の環境変数を確認
 - メモリ不足 → Lambda のメモリサイズを増やす
 
-#### PR検証ワークフローが失敗する
+#### Batch ジョブが失敗する
+
+**症状**: マイリスト登録が完了しない
+
+**原因と対処**:
+
+- ニコニコ動画のログイン失敗 → アカウント情報を確認
+- HTML 構造の変更 → セレクタを更新
+- タイムアウト → Batch のタイムアウト設定を確認
+
+#### PR 検証ワークフローが失敗する
 
 **症状**: プルリクエストのチェックが失敗する
 
 **デバッグ方法**:
 
-<!-- 記入ガイド: モノレポルートからワークスペース指定でコマンド実行する -->
-
 ```bash
-# ローカルで PR検証と同じステップを実行
+# ローカルで PR 検証と同じステップを実行
 
 # 1. ビルド検証
-npm run build -w {service-name}
+npm run build -w niconico-mylist-assistant-core
+npm run build -w niconico-mylist-assistant-web
+npm run build -w niconico-mylist-assistant-batch
 
 # 2. Docker ビルド検証
-docker build -t {service}-pr-test -f services/{service}/Dockerfile .
+docker build -t niconico-mylist-assistant-web-test \
+    -f services/niconico-mylist-assistant/packages/web/Dockerfile .
+docker build -t niconico-mylist-assistant-batch-test \
+    -f services/niconico-mylist-assistant/packages/batch/Dockerfile .
 
-# 3. E2Eテスト実行
-npm run test:e2e -w {service-name}
+# 3. テスト実行
+npm run test -w niconico-mylist-assistant-core
+
+# 4. E2E テスト実行
+npm run test:e2e -w niconico-mylist-assistant-web
 ```
-
-### 9.3 エスカレーションフロー
-
-<!-- [任意] -->
-<!-- 記入ガイド: 障害レベルに応じたエスカレーションフローを記述してください -->
 
 ---
 
-## 10. 削除手順
+## 10. 開発環境セットアップ
 
-<!-- [任意] -->
-<!-- 記入ガイド: サービスを完全に削除する手順を記述してください -->
+### 10.1 IAM 構成
 
-### 10.1 リソースの削除
+本サービスでは、Lambda 用と Batch 用でポリシーを分離し、開発用ユーザーには両方のポリシーをアタッチする設計を採用しています。
 
-**注意**: S3 バケットや DynamoDB テーブルなどは削除するとデータも失われます。
+| リソース             | 命名 (dev)                                        | 用途                                    |
+| -------------------- | ------------------------------------------------- | --------------------------------------- |
+| Lambda 用ポリシー    | `niconico-mylist-assistant-lambda-policy-dev`     | DynamoDB, Batch 投入等                  |
+| Batch 用ポリシー     | `niconico-mylist-assistant-batch-policy-dev`      | DynamoDB, Secrets Manager 等            |
+| Lambda 実行ロール    | `niconico-mylist-assistant-lambda-role-dev`       | Lambda 用ポリシーをアタッチ             |
+| Batch ジョブロール   | `niconico-mylist-assistant-batch-job-role-dev`    | Batch 用ポリシーをアタッチ              |
+| 開発用 IAM ユーザー  | `niconico-mylist-assistant-dev-dev`               | Lambda 用 + Batch 用の両ポリシーをアタッチ |
 
-```bash
-# CDK スタックの削除
-npm run cdk -w {service-name} -- destroy --context env={env}
-```
+### 10.2 開発用 IAM ユーザーのセットアップ
+
+1. CDK デプロイにより `niconico-mylist-assistant-dev-{env}` ユーザーが作成される
+2. AWS コンソールでアクセスキーを手動発行
+3. `aws configure --profile niconico-mylist-assistant-dev` で設定
+4. `export AWS_PROFILE=niconico-mylist-assistant-dev` で使用
 
 ---
 
 ## 参考資料
 
-<!-- 記入ガイド: 参考になる外部ドキュメントやリンクを記述してください -->
-
 - [GitHub Actions - OIDC を使用した AWS との連携](https://docs.github.com/ja/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-amazon-web-services)
 - [AWS Lambda - コンテナイメージを使用した関数の更新](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-images.html)
-- [プラットフォームブランチ戦略](../../branching.md)
-- [プラットフォーム開発ガイドライン](../../development/rules.md)
-- [共有インフラドキュメント](../../infra/README.md)
+- [プラットフォームブランチ戦略](../../docs/branching.md)
+- [プラットフォーム開発ガイドライン](../../docs/development/rules.md)
+- [共有インフラドキュメント](../../docs/infra/README.md)
