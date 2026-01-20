@@ -77,6 +77,9 @@ export default function StockChart({
       setError('');
 
       try {
+        // Note: tickerId contains a colon (e.g., "NSDQ:NVDA"), but we don't use encodeURIComponent here
+        // because Next.js App Router handles the dynamic route parameter [tickerId] correctly without encoding.
+        // Encoding the colon to %3A may cause issues with route matching or parameter extraction.
         const response = await fetch(
           `/api/chart/${tickerId}?timeframe=${encodeURIComponent(timeframe)}&count=${count}`
         );
