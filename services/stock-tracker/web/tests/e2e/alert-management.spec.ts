@@ -139,21 +139,20 @@ test.describe('Alert Management Flow', () => {
     }
 
     // DynamoDB の eventual consistency のため、データが利用可能になるまで待機
-    // アラートAPIでデータが取得できることを確認（リトライ回数と待機時間を増加）
+    // アラートAPIでデータが取得できることを確認
+    // タイムアウト(30秒)内に収まるよう、最大10秒でリトライ
     let alertCreated = false;
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       const checkResponse = await request.get('/api/alerts');
       if (checkResponse.ok()) {
         const data = await checkResponse.json();
         const alerts = data.alerts || [];
         if (alerts.some((a: { tickerId: string }) => a.tickerId === TEST_TICKER.tickerId)) {
           alertCreated = true;
-          // データが確認できたら、さらに少し待機してから次へ（安全マージン）
-          await page.waitForTimeout(1000);
           break;
         }
       }
-      // 待機時間を1秒に増加
+      // 1秒待機してリトライ
       await page.waitForTimeout(1000);
     }
 
@@ -180,10 +179,6 @@ test.describe('Alert Management Flow', () => {
     if (isProgressBarVisible) {
       await progressBar.waitFor({ state: 'detached', timeout: 10000 });
     }
-
-    // データがページに表示されるまで追加の待機（eventual consistency の最終確認）
-    // テーブルにデータ行が表示されるまで待つ
-    await page.waitForTimeout(2000);
   });
 
   test.afterEach(async ({ request }) => {
