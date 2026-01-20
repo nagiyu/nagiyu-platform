@@ -110,7 +110,9 @@ test.describe('ティッカー管理', () => {
       await exchangeField.click();
 
       // 作成した取引所のオプションを選択
-      const exchangeOption = page.locator(`[role="listbox"] [role="option"]:has-text("${exchange.name}")`);
+      const exchangeOption = page.locator(
+        `[role="listbox"] [role="option"]:has-text("${exchange.name}")`
+      );
       const isExchangeVisible = await exchangeOption.isVisible().catch(() => false);
 
       if (isExchangeVisible) {
@@ -324,7 +326,9 @@ test.describe('ティッカー管理', () => {
       await expect(page.getByRole('dialog')).not.toBeVisible();
 
       // テーブルから削除されたティッカーが消える（セル内で検索）
-      await expect(page.getByRole('cell', { name: testTicker.symbol, exact: true })).not.toBeVisible();
+      await expect(
+        page.getByRole('cell', { name: testTicker.symbol, exact: true })
+      ).not.toBeVisible();
     });
   });
 
