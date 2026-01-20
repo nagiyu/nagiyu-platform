@@ -1,8 +1,8 @@
 /**
- * Holdings API Endpoint
+ * Alerts API Endpoint
  *
- * GET /api/holdings - 保有株式一覧取得
- * POST /api/holdings - 保有株式登録
+ * GET /api/alerts - アラート一覧取得
+ * POST /api/alerts - アラート作成（Web Push サブスクリプション含む）
  *
  * Required Permission: stocks:write-own (POST), stocks:read (GET)
  */
@@ -10,13 +10,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   TickerRepository,
-  HoldingRepository,
+  AlertRepository,
   getAuthError,
-  validateHolding,
+  validateAlert,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
-import type { Holding } from '@nagiyu/stock-tracker-core';
+import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -25,28 +25,33 @@ const ERROR_MESSAGES = {
   INVALID_LIMIT: 'limit は 1 から 100 の間で指定してください',
   INVALID_REQUEST_BODY: 'リクエストボディが不正です',
   VALIDATION_ERROR: '入力データが不正です',
-  INTERNAL_ERROR: '保有株式の取得に失敗しました',
-  CREATE_ERROR: '保有株式の登録に失敗しました',
-  ALREADY_EXISTS: '指定された銘柄は既に保有株式として登録されています',
+  INTERNAL_ERROR: 'アラートの取得に失敗しました',
+  CREATE_ERROR: 'アラートの登録に失敗しました',
+  SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
 } as const;
 
 /**
  * レスポンス型定義
  */
-interface HoldingResponse {
-  holdingId: string;
+interface AlertResponse {
+  alertId: string;
   tickerId: string;
   symbol: string;
   name: string;
-  quantity: number;
-  averagePrice: number;
-  currency: string;
+  mode: string;
+  frequency: string;
+  conditions: Array<{
+    field: string;
+    operator: string;
+    value: number;
+  }>;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-interface HoldingsListResponse {
-  holdings: HoldingResponse[];
+interface AlertsListResponse {
+  alerts: AlertResponse[];
   pagination: {
     count: number;
     lastKey?: string;
@@ -60,36 +65,30 @@ interface ErrorResponse {
 }
 
 /**
- * Holding エンティティをレスポンス形式に変換
+ * Alert エンティティをレスポンス形式に変換
  */
-function mapHoldingToResponse(
-  holding: Holding,
-  tickerSymbol: string,
-  tickerName: string
-): HoldingResponse {
-  // HoldingID は UserID と TickerID の組み合わせ
-  const holdingId = `${holding.UserID}#${holding.TickerID}`;
-
+function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: string): AlertResponse {
   return {
-    holdingId,
-    tickerId: holding.TickerID,
+    alertId: alert.AlertID,
+    tickerId: alert.TickerID,
     symbol: tickerSymbol,
     name: tickerName,
-    quantity: holding.Quantity,
-    averagePrice: holding.AveragePrice,
-    currency: holding.Currency,
-    createdAt: new Date(holding.CreatedAt).toISOString(),
-    updatedAt: new Date(holding.UpdatedAt).toISOString(),
+    mode: alert.Mode,
+    frequency: alert.Frequency,
+    conditions: alert.ConditionList,
+    enabled: alert.Enabled,
+    createdAt: new Date(alert.CreatedAt).toISOString(),
+    updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
 }
 
 /**
- * GET /api/holdings
- * 保有株式一覧取得
+ * GET /api/alerts
+ * アラート一覧取得
  */
 export async function GET(
   request: NextRequest
-): Promise<NextResponse<HoldingsListResponse | ErrorResponse>> {
+): Promise<NextResponse<AlertsListResponse | ErrorResponse>> {
   try {
     // 認証・権限チェック
     const session = await getSession();
@@ -123,7 +122,7 @@ export async function GET(
     }
 
     // lastKey のデコード（base64エンコードされている場合）
-    let lastKey: { PK: string; SK: string } | undefined;
+    let lastKey: Record<string, unknown> | undefined;
     if (lastKeyParam) {
       try {
         lastKey = JSON.parse(Buffer.from(lastKeyParam, 'base64').toString('utf-8'));
@@ -136,32 +135,25 @@ export async function GET(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const holdingRepo = new HoldingRepository(docClient, tableName);
+    const alertRepo = new AlertRepository(docClient, tableName);
 
     // ユーザーIDを取得
     const userId = session!.user.userId;
 
-    // 保有株式一覧取得
-    const result = await holdingRepo.getByUserId(userId, limit, lastKey);
+    // アラート一覧取得
+    const result = await alertRepo.getByUserId(userId, limit, lastKey);
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
     const tickerRepo = new TickerRepository(docClient, tableName);
 
-    const holdings: HoldingResponse[] = [];
-    for (const holding of result.items) {
-      // ティッカーが見つからない場合はデフォルト値を使用
-      let ticker;
-      try {
-        ticker = await tickerRepo.getById(holding.TickerID);
-      } catch (error) {
-        // ティッカーが見つからない場合は null として扱う
-        ticker = null;
-      }
-      holdings.push(
-        mapHoldingToResponse(
-          holding,
-          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
+    const alerts: AlertResponse[] = [];
+    for (const alert of result.items) {
+      const ticker = await tickerRepo.getById(alert.TickerID);
+      alerts.push(
+        mapAlertToResponse(
+          alert,
+          ticker?.Symbol || alert.TickerID.split(':')[1] || '',
           ticker?.Name || ''
         )
       );
@@ -173,17 +165,17 @@ export async function GET(
       : undefined;
 
     // レスポンス形式に変換
-    const response: HoldingsListResponse = {
-      holdings,
+    const response: AlertsListResponse = {
+      alerts,
       pagination: {
-        count: holdings.length,
+        count: alerts.length,
         ...(encodedLastKey && { lastKey: encodedLastKey }),
       },
     };
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error fetching holdings:', error);
+    console.error('Error fetching alerts:', error);
     return NextResponse.json(
       {
         error: 'INTERNAL_ERROR',
@@ -195,12 +187,12 @@ export async function GET(
 }
 
 /**
- * POST /api/holdings
- * 保有株式登録
+ * POST /api/alerts
+ * アラート作成（Web Push サブスクリプション含む）
  */
 export async function POST(
   request: NextRequest
-): Promise<NextResponse<HoldingResponse | ErrorResponse>> {
+): Promise<NextResponse<AlertResponse | ErrorResponse>> {
   try {
     // 認証・権限チェック
     const session = await getSession();
@@ -233,20 +225,55 @@ export async function POST(
     // ユーザーIDを取得
     const userId = session!.user.userId;
 
-    // リクエストボディから Holding オブジェクトを構築
-    const holdingData = {
+    // Web Push サブスクリプション情報の確認
+    if (!body.subscription || typeof body.subscription !== 'object') {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
+        },
+        { status: 400 }
+      );
+    }
+
+    const subscription = body.subscription;
+    if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
+        },
+        { status: 400 }
+      );
+    }
+
+    // ExchangeID の自動取得（tickerId から）
+    const exchangeId = body.exchangeId || body.tickerId?.split(':')[0] || '';
+
+    // リクエストボディから Alert オブジェクトを構築
+    // Note: AlertID, CreatedAt, UpdatedAt はリポジトリで自動生成される
+    // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
+    const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
+
+    const alertData = {
       UserID: userId,
       TickerID: body.tickerId,
-      ExchangeID: body.exchangeId || body.tickerId?.split(':')[0] || '',
-      Quantity: body.quantity,
-      AveragePrice: body.averagePrice,
-      Currency: body.currency,
+      ExchangeID: exchangeId,
+      Mode: body.mode,
+      Frequency: body.frequency,
+      Enabled: body.enabled !== undefined ? body.enabled : true,
+      ConditionList: body.conditions || [],
+      SubscriptionEndpoint: subscription.endpoint,
+      SubscriptionKeysP256dh: subscription.keys.p256dh,
+      SubscriptionKeysAuth: subscription.keys.auth,
+      // AlertID は UUID v4 でリポジトリが自動生成
+      AlertID: VALIDATION_PLACEHOLDER_UUID,
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     };
 
     // バリデーション
-    const validationResult = validateHolding(holdingData);
+    const validationResult = validateAlert(alertData);
     if (!validationResult.valid) {
       return NextResponse.json(
         {
@@ -261,47 +288,32 @@ export async function POST(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const holdingRepo = new HoldingRepository(docClient, tableName);
+    const alertRepo = new AlertRepository(docClient, tableName);
 
-    // 保有株式を作成
-    let createdHolding: Holding;
-    try {
-      createdHolding = await holdingRepo.create({
-        UserID: userId,
-        TickerID: holdingData.TickerID,
-        ExchangeID: holdingData.ExchangeID,
-        Quantity: holdingData.Quantity,
-        AveragePrice: holdingData.AveragePrice,
-        Currency: holdingData.Currency,
-      });
-    } catch (error) {
-      // HoldingAlreadyExistsError のチェック
-      if (error instanceof Error && error.name === 'HoldingAlreadyExistsError') {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.ALREADY_EXISTS,
-          },
-          { status: 400 }
-        );
-      }
-      throw error;
-    }
+    // アラートを作成（バリデーション済みデータから AlertID, CreatedAt, UpdatedAt を除く）
+    const {
+      AlertID: _ignoredAlertID,
+      CreatedAt: _ignoredCreatedAt,
+      UpdatedAt: _ignoredUpdatedAt,
+      ...alertDataForCreate
+    } = alertData;
+
+    const createdAlert = await alertRepo.create(alertDataForCreate);
 
     // TickerリポジトリでSymbolとNameを取得
     const tickerRepo = new TickerRepository(docClient, tableName);
-    const ticker = await tickerRepo.getById(createdHolding.TickerID);
+    const ticker = await tickerRepo.getById(createdAlert.TickerID);
 
     // レスポンス形式に変換
-    const response = mapHoldingToResponse(
-      createdHolding,
-      ticker?.Symbol || createdHolding.TickerID.split(':')[1] || '',
+    const response = mapAlertToResponse(
+      createdAlert,
+      ticker?.Symbol || createdAlert.TickerID.split(':')[1] || '',
       ticker?.Name || ''
     );
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    console.error('Error creating holding:', error);
+    console.error('Error creating alert:', error);
     return NextResponse.json(
       {
         error: 'INTERNAL_ERROR',
