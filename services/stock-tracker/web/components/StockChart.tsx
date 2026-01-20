@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
 import { Box, CircularProgress, Alert, Typography } from '@mui/material';
+import ErrorAlert from './ErrorAlert';
+import LoadingState from './LoadingState';
 
 /**
  * チャートデータポイント型定義
@@ -276,22 +278,7 @@ export default function StockChart({
 
   // ローディング状態
   if (loading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: { xs: 400, sm: 500, md: 600 },
-        }}
-      >
-        <CircularProgress size={60} />
-        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-          チャートデータを読み込み中...
-        </Typography>
-      </Box>
-    );
+    return <LoadingState message="チャートデータを読み込み中..." minHeight={{ xs: 400, sm: 500, md: 600 }} />;
   }
 
   // エラー状態
@@ -306,9 +293,7 @@ export default function StockChart({
           minHeight: { xs: 400, sm: 500, md: 600 },
         }}
       >
-        <Alert severity="error" sx={{ width: '100%', maxWidth: 600 }}>
-          {error}
-        </Alert>
+        <ErrorAlert message={error} title="チャート読み込みエラー" sx={{ width: '100%', maxWidth: 600 }} />
       </Box>
     );
   }
@@ -339,6 +324,8 @@ export default function StockChart({
         width: '100%',
         minHeight: { xs: 400, sm: 500, md: 600 },
       }}
+      role="img"
+      aria-label={`${chartData.symbol} の株価チャート`}
     >
       <ReactECharts
         ref={chartRef}
