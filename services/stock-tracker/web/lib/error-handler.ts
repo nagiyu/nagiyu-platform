@@ -144,7 +144,7 @@ export function mapAPIErrorToMessage(errorResponse: APIErrorResponse): string {
 /**
  * エラーがリトライ可能か判定
  */
-export function isRetryableError(status: number, errorCode?: string): boolean {
+export function isRetryableError(status: number): boolean {
   // ネットワークエラー、タイムアウト、サーバーエラーはリトライ可能
   if (status === 0 || status === 408 || status >= 500) {
     return true;
@@ -164,7 +164,7 @@ export function isRetryableError(status: number, errorCode?: string): boolean {
 export async function extractErrorInfo(response: Response): Promise<ErrorInfo> {
   const errorResponse = await parseErrorResponse(response);
   const message = mapAPIErrorToMessage(errorResponse);
-  const shouldRetry = isRetryableError(response.status, errorResponse.error);
+  const shouldRetry = isRetryableError(response.status);
 
   return {
     type: getErrorTypeFromStatus(response.status),
