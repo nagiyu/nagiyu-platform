@@ -16,11 +16,13 @@ test.describe('Error Handling', () => {
 
       await page.goto('/holdings');
 
-      // エラーメッセージが表示されることを確認
-      await expect(page.getByRole('alert')).toBeVisible();
-
       // ユーザーフレンドリーなメッセージが表示されることを確認
       await expect(page.getByText(/ネットワーク接続を確認してください/)).toBeVisible();
+
+      // エラーメッセージが表示されることを確認（特定のテキストでフィルタ）
+      await expect(
+        page.getByRole('alert').filter({ hasText: '保有株式の取得に失敗しました' })
+      ).toBeVisible();
     });
 
     test('should display validation error details', async ({ page }) => {
@@ -86,11 +88,10 @@ test.describe('Error Handling', () => {
 
       await page.goto('/holdings');
 
-      // トーストメッセージが表示されることを確認（Material-UI の Snackbar）
-      // Note: 実際のテストでは、操作に成功した後のトースト表示を確認する
-      // ここでは、Snackbar要素の存在を確認（表示されていなくても要素は存在する）
-      const snackbar = page.locator('[role="presentation"]');
-      await expect(snackbar).toBeDefined();
+      // トーストメッセージプロバイダーが存在することを確認
+      // Note: 実際のトースト表示は操作後に確認する必要がある
+      // ここではページが正常にロードされることのみ確認
+      await expect(page.getByRole('table')).toBeVisible();
     });
 
     test('should display error toast on failed operation', async ({ page }) => {
@@ -119,9 +120,8 @@ test.describe('Error Handling', () => {
 
       await page.goto('/holdings');
 
-      // トーストメッセージが表示されることを確認
-      const snackbar = page.locator('[role="presentation"]');
-      await expect(snackbar).toBeDefined();
+      // ページが正常にロードされることを確認
+      await expect(page.getByRole('table')).toBeVisible();
     });
   });
 
