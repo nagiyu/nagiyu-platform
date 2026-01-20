@@ -95,6 +95,22 @@ function configureWebPush(): void {
     throw new Error(ERROR_MESSAGES.INVALID_VAPID_KEYS);
   }
 
+  // VAPID キーの長さチェック
+  // 公開鍵は通常87文字（P-256非圧縮形式）、秘密鍵は43文字
+  const MIN_PUBLIC_KEY_LENGTH = 80;
+  const MIN_PRIVATE_KEY_LENGTH = 40;
+  if (
+    vapidPublicKey.length < MIN_PUBLIC_KEY_LENGTH ||
+    vapidPrivateKey.length < MIN_PRIVATE_KEY_LENGTH
+  ) {
+    throw new Error(ERROR_MESSAGES.INVALID_VAPID_KEYS);
+  }
+
+  // 公開鍵は "B" で始まる必要がある（P-256非圧縮形式）
+  if (!vapidPublicKey.startsWith('B')) {
+    throw new Error(ERROR_MESSAGES.INVALID_VAPID_KEYS);
+  }
+
   webpush.setVapidDetails(
     'mailto:support@nagiyu.com', // Contact email
     vapidPublicKey,
@@ -108,17 +124,23 @@ function configureWebPush(): void {
 async function sendWebPushNotification(
   alert: Alert,
   currentPrice: number,
-  tickerName: string
+  tickerId: string
 ): Promise<void> {
+  // ConditionList[0] の存在確認
+  if (!alert.ConditionList || alert.ConditionList.length === 0) {
+    throw new Error('アラート条件が設定されていません');
+  }
+
+  const targetPrice = alert.ConditionList[0].value;
   const payload = JSON.stringify({
-    title: `${alert.Mode === 'Sell' ? '売りアラート' : '買いアラート'}: ${tickerName}`,
-    body: `現在価格: ${currentPrice.toFixed(2)} (目標: ${alert.ConditionList[0].value.toFixed(2)})`,
+    title: `${alert.Mode === 'Sell' ? '売りアラート' : '買いアラート'}: ${tickerId}`,
+    body: `現在価格: ${currentPrice.toFixed(2)} (目標: ${targetPrice.toFixed(2)})`,
     data: {
       alertId: alert.AlertID,
       tickerId: alert.TickerID,
       mode: alert.Mode,
       currentPrice,
-      targetPrice: alert.ConditionList[0].value,
+      targetPrice,
     },
   });
 
@@ -205,19 +227,45 @@ async function processAlert(
     });
 
     // 6. Web Push 通知送信
-    await sendWebPushNotification(alert, currentPrice, alert.TickerID);
-    stats.notificationsSent++;
-    logger.info('Web Push 通知を送信しました', {
-      alertId: alert.AlertID,
-      userId: alert.UserID,
-    });
+    try {
+      await sendWebPushNotification(alert, currentPrice, alert.TickerID);
+      stats.notificationsSent++;
+      logger.info('Web Push 通知を送信しました', {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+      });
+    } catch (notificationError) {
+      stats.errors++;
+      logger.error('Web Push 通知送信に失敗しました', {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+        error:
+          notificationError instanceof Error
+            ? notificationError.message
+            : String(notificationError),
+        stack: notificationError instanceof Error ? notificationError.stack : undefined,
+      });
+    }
   } catch (error) {
     stats.errors++;
-    logger.error('アラート処理中にエラーが発生しました', {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    // エラーの種類に応じたログメッセージ
+    let errorStage = 'アラート処理中';
+    if (errorMessage.includes('取引所')) {
+      errorStage = '取引所情報の取得中';
+    } else if (errorMessage.includes('価格') || errorMessage.includes('TradingView')) {
+      errorStage = '現在価格の取得中';
+    } else if (errorMessage.includes('条件')) {
+      errorStage = 'アラート条件の評価中';
+    }
+
+    logger.error(`${errorStage}にエラーが発生しました`, {
       alertId: alert.AlertID,
       userId: alert.UserID,
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
+      error: errorMessage,
+      stack: errorStack,
     });
   }
 }
@@ -265,10 +313,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       totalAlerts: stats.totalAlerts,
     });
 
-    // 2. 各アラートに対して処理
-    for (const alert of alerts) {
-      await processAlert(alert, exchangeRepo, stats);
-    }
+    // 2. 各アラートに対して処理（並列実行）
+    await Promise.all(alerts.map((alert) => processAlert(alert, exchangeRepo, stats)));
 
     // 3. 処理結果をログ出力
     logger.info('1分間隔バッチ処理が正常に完了しました', {
