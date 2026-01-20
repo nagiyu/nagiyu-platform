@@ -139,7 +139,9 @@ test.describe('Alert Management Flow', () => {
     await page.waitForLoadState('networkidle');
 
     // アラート管理のヘッダーが表示されるまで待機
-    await expect(page.getByRole('heading', { name: 'アラート管理' })).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'アラート管理' })).toBeVisible({
+      timeout: 10000,
+    });
 
     // テーブルのロード完了を待つ（ローディングスピナーが消えるまで待つ）
     const progressBar = page.locator('[role="progressbar"]');
@@ -181,7 +183,7 @@ test.describe('Alert Management Flow', () => {
   test('アラートを編集できる', async ({ page }) => {
     // テーブルが表示されるまで待つ
     await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
-    
+
     // テストデータが表示されるまで待つ
     await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
 
@@ -219,7 +221,9 @@ test.describe('Alert Management Flow', () => {
     await expect(page.getByText('アラートを更新しました')).toBeVisible({ timeout: 10000 });
 
     // モーダルが閉じることを確認
-    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible({
+      timeout: 5000,
+    });
 
     // 更新された内容が一覧に反映されることを確認
     await expect(page.getByText(/価格 以上 \(>=\) 250\.5/)).toBeVisible();
@@ -229,7 +233,7 @@ test.describe('Alert Management Flow', () => {
   test('アラートを削除できる', async ({ page }) => {
     // テーブルが表示されるまで待つ
     await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
-    
+
     // テストデータが表示されるまで待つ
     await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
 
@@ -253,7 +257,9 @@ test.describe('Alert Management Flow', () => {
     await expect(page.getByText('アラートを削除しました')).toBeVisible({ timeout: 10000 });
 
     // ダイアログが閉じることを確認
-    await expect(page.getByRole('dialog', { name: 'アラートの削除' })).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog', { name: 'アラートの削除' })).not.toBeVisible({
+      timeout: 5000,
+    });
 
     // アラートが一覧から削除されたことを確認
     await expect(page.getByText(TEST_TICKER.symbol)).not.toBeVisible();
@@ -263,7 +269,7 @@ test.describe('Alert Management Flow', () => {
   test('キャンセルボタンでモーダルを閉じることができる', async ({ page }) => {
     // テーブルが表示されるまで待つ
     await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
-    
+
     // テストデータが表示されるまで待つ
     await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
 
@@ -277,7 +283,9 @@ test.describe('Alert Management Flow', () => {
     await page.getByRole('button', { name: 'キャンセル' }).first().click();
 
     // モーダルが閉じることを確認
-    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog', { name: 'アラートの編集' })).not.toBeVisible({
+      timeout: 5000,
+    });
 
     // 元のデータが保持されていることを確認
     await expect(page.getByText(/価格 以上 \(>=\) 200/)).toBeVisible();
@@ -286,7 +294,7 @@ test.describe('Alert Management Flow', () => {
   test('バリデーションエラーが正しく表示される', async ({ page }) => {
     // テーブルが表示されるまで待つ
     await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
-    
+
     // テストデータが表示されるまで待つ
     await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
 
@@ -336,10 +344,10 @@ test.describe('Alert Management Flow', () => {
     // アラート設定済みの場合は「アラート設定済」、未設定の場合は「売りアラート」が表示される
     const alertSetButton = page.getByRole('button', { name: 'アラート設定済' });
     const sellAlertButton = page.getByRole('button', { name: '売りアラート' });
-    
+
     const isAlertSet = await alertSetButton.isVisible().catch(() => false);
     const alertButton = isAlertSet ? alertSetButton : sellAlertButton;
-    
+
     await expect(alertButton).toBeVisible({ timeout: 10000 });
     await alertButton.click();
 
