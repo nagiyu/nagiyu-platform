@@ -85,7 +85,8 @@ graph TB
 | ランタイム | Node.js 20.x | Lambda 実行環境 |
 | フレームワーク | Next.js 15.x (API Routes) | RESTful API エンドポイント |
 | 認証 | NextAuth.js + @nagiyu/auth-core | JWT ベース認証 |
-| 外部API | @mathieuc/tradingview (^3.5.1) | 株価データ取得 |
+| 外部API | @mathieuc/tradingview (^3.5.2) | 株価データ取得 |
+| WebSocket最適化 | bufferutil, utf-8-validate | WebSocketマスキング高速化 |
 
 ### 2.3 インフラ
 
