@@ -533,12 +533,7 @@ export default function HoldingsPage() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/')}
-            variant="outlined"
-            aria-label="トップ画面に戻る"
-          >
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/')} variant="outlined">
             戻る
           </Button>
           <Typography variant="h5" component="h1" fontWeight="bold">
@@ -550,7 +545,6 @@ export default function HoldingsPage() {
           variant="contained"
           color="primary"
           onClick={handleOpenCreateModal}
-          aria-label="新しい保有株式を登録"
         >
           新規登録
         </Button>
@@ -627,11 +621,6 @@ export default function HoldingsPage() {
                           startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsNoneIcon />}
                           onClick={() => handleOpenAlertModal(holding)}
                           sx={{ minWidth: 140 }}
-                          aria-label={
-                            hasAlert
-                              ? `${holding.symbol}のアラート設定を編集`
-                              : `${holding.symbol}の売りアラートを設定`
-                          }
                         >
                           {hasAlert ? 'アラート設定済' : '売りアラート'}
                         </Button>
@@ -644,7 +633,6 @@ export default function HoldingsPage() {
                             size="small"
                             startIcon={<EditIcon />}
                             onClick={() => handleOpenEditModal(holding)}
-                            aria-label={`${holding.symbol}を編集`}
                           >
                             編集
                           </Button>
@@ -654,7 +642,6 @@ export default function HoldingsPage() {
                             size="small"
                             startIcon={<DeleteIcon />}
                             onClick={() => handleOpenDeleteDialog(holding)}
-                            aria-label={`${holding.symbol}を削除`}
                           >
                             削除
                           </Button>
