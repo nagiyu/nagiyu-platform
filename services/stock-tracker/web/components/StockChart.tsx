@@ -78,7 +78,7 @@ export default function StockChart({
 
       try {
         const response = await fetch(
-          `/api/chart/${encodeURIComponent(tickerId)}?timeframe=${encodeURIComponent(timeframe)}&count=${count}`
+          `/api/chart/${tickerId}?timeframe=${encodeURIComponent(timeframe)}&count=${count}`
         );
 
         if (!response.ok) {
