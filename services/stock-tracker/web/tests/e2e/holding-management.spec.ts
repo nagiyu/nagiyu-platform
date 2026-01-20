@@ -266,7 +266,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       }
 
       // データが反映されるまで待つ
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     });
 
     test.afterEach(async ({ request }) => {
@@ -282,8 +282,12 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
         }
       }
 
-      await request.delete(`/api/tickers/${encodeURIComponent(TEST_TICKER.tickerId)}`).catch(() => {});
-      await request.delete(`/api/exchanges/${encodeURIComponent(TEST_EXCHANGE.exchangeId)}`).catch(() => {});
+      await request
+        .delete(`/api/tickers/${encodeURIComponent(TEST_TICKER.tickerId)}`)
+        .catch(() => {});
+      await request
+        .delete(`/api/exchanges/${encodeURIComponent(TEST_EXCHANGE.exchangeId)}`)
+        .catch(() => {});
     });
 
     test('保有株式の編集ができる', async ({ page }) => {
