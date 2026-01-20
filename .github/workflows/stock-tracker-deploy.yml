@@ -2,16 +2,16 @@ name: Stock Tracker - Build and Deploy
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'services/stock-tracker/**'
-      - 'infra/stock-tracker/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/stock-tracker-deploy.yml'
+    # branches:
+    #   - develop
+    #   - integration/**
+    #   - master
+    # paths:
+    #   - 'services/stock-tracker/**'
+    #   - 'infra/stock-tracker/**'
+    #   - 'package.json'
+    #   - 'package-lock.json'
+    #   - '.github/workflows/stock-tracker-deploy.yml'
   workflow_dispatch:
 
 env:
