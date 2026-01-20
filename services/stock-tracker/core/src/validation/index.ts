@@ -5,8 +5,8 @@
  * architecture.md のバリデーションルールに準拠
  */
 
-import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../types';
-import { isValidPrice, isValidQuantity, isNonEmptyString, isValidTimestamp } from './helpers';
+import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../types.js';
+import { isValidPrice, isValidQuantity, isNonEmptyString, isValidTimestamp } from './helpers.js';
 
 /**
  * バリデーションエラーメッセージ定数
