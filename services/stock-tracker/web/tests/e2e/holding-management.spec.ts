@@ -11,6 +11,33 @@ import { test, expect } from '@playwright/test';
  * - レスポンシブ対応
  */
 
+// テスト用データ
+const TEST_EXCHANGE = {
+  exchangeId: 'TEST-EXCHANGE-HOLDING',
+  name: 'Test Exchange for Holding',
+  key: 'THOLD',
+  timezone: 'America/New_York',
+  tradingHours: {
+    start: '09:30',
+    end: '16:00',
+  },
+};
+
+const TEST_TICKER = {
+  tickerId: 'THOLD:EDIT',
+  symbol: 'EDIT',
+  name: 'Test Ticker for Edit',
+  exchangeId: TEST_EXCHANGE.exchangeId,
+};
+
+const TEST_HOLDING = {
+  tickerId: TEST_TICKER.tickerId,
+  exchangeId: TEST_EXCHANGE.exchangeId,
+  quantity: 100,
+  averagePrice: 150.0,
+  currency: 'USD',
+};
+
 test.describe('Holding 管理フロー (E2E-003)', () => {
   test.beforeEach(async ({ page }) => {
     // Holding管理画面にアクセス
@@ -193,13 +220,75 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     await expect(page.getByText(/平均取得価格は0\.01以上/)).toBeVisible();
   });
 
-  test('保有株式の編集ができる', async ({ page }) => {
-    // 保有株式が存在する場合のみテスト実行
-    const editButtons = page.getByRole('button', { name: '編集' });
-    const editButtonCount = await editButtons.count();
+  test.describe('保有株式の編集', () => {
+    test.beforeEach(async ({ request }) => {
+      // テストデータを作成
+      // 1. 取引所を作成
+      const exchangeResponse = await request.post('/api/exchanges', {
+        data: TEST_EXCHANGE,
+      });
+      if (!exchangeResponse.ok()) {
+        // すでに存在する場合はエラーを無視
+        const errorData = await exchangeResponse.json().catch(() => ({}));
+        if (!errorData.message?.includes('既に存在します')) {
+          throw new Error(`Failed to create exchange: ${JSON.stringify(errorData)}`);
+        }
+      }
 
-    if (editButtonCount > 0) {
-      // 最初の編集ボタンをクリック
+      // 2. ティッカーを作成
+      const tickerResponse = await request.post('/api/tickers', {
+        data: TEST_TICKER,
+      });
+      if (!tickerResponse.ok()) {
+        const errorData = await tickerResponse.json().catch(() => ({}));
+        if (!errorData.message?.includes('既に存在します')) {
+          throw new Error(`Failed to create ticker: ${JSON.stringify(errorData)}`);
+        }
+      }
+
+      // 3. Holdingを作成
+      const holdingResponse = await request.post('/api/holdings', {
+        data: TEST_HOLDING,
+      });
+      if (!holdingResponse.ok()) {
+        const errorData = await holdingResponse.json().catch(() => ({}));
+        // 既に登録されている場合以外はエラー
+        if (!JSON.stringify(errorData).includes('既に登録されています')) {
+          throw new Error(`Failed to create holding: ${JSON.stringify(errorData)}`);
+        }
+      }
+
+      // データが反映されるまで待つ
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    });
+
+    test.afterEach(async ({ request }) => {
+      // テストデータをクリーンアップ
+      const holdingsResponse = await request.get('/api/holdings');
+      if (holdingsResponse.ok()) {
+        const holdingsData = await holdingsResponse.json();
+        const holdings = holdingsData.holdings || [];
+        for (const holding of holdings) {
+          if (holding.tickerId === TEST_TICKER.tickerId) {
+            await request.delete(`/api/holdings/${holding.holdingId}`);
+          }
+        }
+      }
+
+      await request.delete(`/api/tickers/${encodeURIComponent(TEST_TICKER.tickerId)}`).catch(() => {});
+      await request.delete(`/api/exchanges/${encodeURIComponent(TEST_EXCHANGE.exchangeId)}`).catch(() => {});
+    });
+
+    test('保有株式の編集ができる', async ({ page }) => {
+      // ページをリロードして新しいデータを表示
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      // 編集ボタンを探す（TEST_TICKERのシンボルがあるか確認）
+      await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
+
+      // 編集ボタンをクリック
+      const editButtons = page.getByRole('button', { name: '編集' });
       await editButtons.first().click();
 
       // 編集モーダルが表示される
@@ -223,12 +312,16 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
 
-      // 成功メッセージが表示される
+      // モーダルが閉じることを待つ
+      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
+
+      // 成功メッセージが表示されることを確認
       await expect(page.getByText('保有株式を更新しました')).toBeVisible({ timeout: 5000 });
 
-      // モーダルが閉じる
-      await expect(page.getByRole('dialog')).not.toBeVisible();
-    }
+      // 更新された値が表示されることを確認
+      await expect(page.getByText('200')).toBeVisible();
+      await expect(page.getByText('155.75 USD')).toBeVisible();
+    });
   });
 
   test('保有株式の削除ができる', async ({ page }) => {

@@ -18,8 +18,10 @@ const TEST_EXCHANGE = {
   name: 'Test Exchange for Alert',
   key: 'TALERT',
   timezone: 'America/New_York',
-  start: '09:30',
-  end: '16:00',
+  tradingHours: {
+    start: '09:30',
+    end: '16:00',
+  },
 };
 
 const TEST_TICKER = {
@@ -96,11 +98,15 @@ async function cleanupTestData(request: PlaywrightRequest) {
     }
   }
 
-  // ティッカーを削除
-  await request.delete(`/api/tickers/${encodeURIComponent(TEST_TICKER.tickerId)}`);
+  // ティッカーを削除（存在しない場合のエラーは無視）
+  await request.delete(`/api/tickers/${encodeURIComponent(TEST_TICKER.tickerId)}`).catch(() => {});
 
-  // 取引所を削除
-  await request.delete(`/api/exchanges/${encodeURIComponent(TEST_EXCHANGE.exchangeId)}`);
+  // 取引所を削除（存在しない場合のエラーは無視）
+  await request.delete(`/api/exchanges/${encodeURIComponent(TEST_EXCHANGE.exchangeId)}`).catch(() => {});
+
+  // データベースの更新が完全に反映されるまで待機
+  // DynamoDBのeventual consistencyのため、十分長く待つ
+  await new Promise(resolve => setTimeout(resolve, 5000));
 }
 
 test.describe('Alert Management Flow', () => {
@@ -111,16 +117,19 @@ test.describe('Alert Management Flow', () => {
     // テストデータをクリーンアップ
     await cleanupTestData(request);
 
-    // テストデータを作成
+    // テストデータを作成（既存データがあればスキップ）
     // 1. 取引所を作成
     const exchangeResponse = await request.post('/api/exchanges', {
       data: TEST_EXCHANGE,
     });
     if (!exchangeResponse.ok()) {
       const errorData = await exchangeResponse.json().catch(() => ({}));
-      throw new Error(
-        `Failed to create exchange: ${JSON.stringify(errorData)}. Status: ${exchangeResponse.status()}`
-      );
+      // 既に存在する場合以外はエラー
+      if (!JSON.stringify(errorData).includes('既に存在します')) {
+        throw new Error(
+          `Failed to create exchange: ${JSON.stringify(errorData)}. Status: ${exchangeResponse.status()}`
+        );
+      }
     }
 
     // 2. ティッカーを作成
@@ -129,9 +138,11 @@ test.describe('Alert Management Flow', () => {
     });
     if (!tickerResponse.ok()) {
       const errorData = await tickerResponse.json().catch(() => ({}));
-      throw new Error(
-        `Failed to create ticker: ${JSON.stringify(errorData)}. Status: ${tickerResponse.status()}`
-      );
+      if (!JSON.stringify(errorData).includes('既に存在します')) {
+        throw new Error(
+          `Failed to create ticker: ${JSON.stringify(errorData)}. Status: ${tickerResponse.status()}`
+        );
+      }
     }
 
     // 3. Holdingを作成
@@ -140,9 +151,11 @@ test.describe('Alert Management Flow', () => {
     });
     if (!holdingResponse.ok()) {
       const errorData = await holdingResponse.json().catch(() => ({}));
-      throw new Error(
-        `Failed to create holding: ${JSON.stringify(errorData)}. Status: ${holdingResponse.status()}`
-      );
+      if (!JSON.stringify(errorData).includes('既に登録されています')) {
+        throw new Error(
+          `Failed to create holding: ${JSON.stringify(errorData)}. Status: ${holdingResponse.status()}`
+        );
+      }
     }
 
     // 4. アラートを作成
@@ -218,8 +231,8 @@ test.describe('Alert Management Flow', () => {
     await expect(page.getByRole('table', { name: 'アラート一覧' })).toBeVisible();
 
     // テストアラートが表示されることを確認（タイムアウトを長めに設定）
-    await expect(page.getByText(TEST_TICKER.symbol)).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(TEST_TICKER.name)).toBeVisible();
+    await expect(page.getByRole('cell', { name: TEST_TICKER.symbol }).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('cell', { name: TEST_TICKER.name }).first()).toBeVisible();
 
     // モードチップが表示されることを確認
     await expect(page.getByText('売り')).toBeVisible();
