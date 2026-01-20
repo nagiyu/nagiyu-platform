@@ -80,6 +80,9 @@ function getDocClient(): DynamoDBDocumentClient {
 
 /**
  * Web Push の VAPID キーを設定
+ *
+ * Note: webpush.setVapidDetails は複数回呼び出しても安全です。
+ * Lambda のウォームスタート時に再度呼び出されても問題ありません。
  */
 function configureWebPush(): void {
   const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
