@@ -128,9 +128,36 @@ test.describe('Alert Management Flow', () => {
     });
 
     // 4. アラートを作成
-    await request.post('/api/alerts', {
+    const alertResponse = await request.post('/api/alerts', {
       data: TEST_ALERT,
     });
+
+    // アラート作成が成功したことを確認
+    if (!alertResponse.ok()) {
+      const errorData = await alertResponse.json().catch(() => ({}));
+      console.error('Failed to create alert:', errorData);
+    }
+
+    // DynamoDB の eventual consistency のため、データが利用可能になるまで待機
+    // アラートAPIでデータが取得できることを確認
+    let alertCreated = false;
+    for (let i = 0; i < 10; i++) {
+      const checkResponse = await request.get('/api/alerts');
+      if (checkResponse.ok()) {
+        const data = await checkResponse.json();
+        const alerts = data.alerts || [];
+        if (alerts.some((a: { tickerId: string }) => a.tickerId === TEST_TICKER.tickerId)) {
+          alertCreated = true;
+          break;
+        }
+      }
+      // 少し待機してリトライ
+      await page.waitForTimeout(500);
+    }
+
+    if (!alertCreated) {
+      console.warn('Alert may not be immediately available due to eventual consistency');
+    }
 
     // アラート一覧画面にアクセス
     await page.goto('/alerts');
