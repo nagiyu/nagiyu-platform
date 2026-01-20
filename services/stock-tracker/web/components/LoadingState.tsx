@@ -11,9 +11,9 @@ export interface LoadingStateProps {
    */
   message?: string;
   /**
-   * 最小高さ
+   * 最小高さ（レスポンシブ対応）
    */
-  minHeight?: number | string;
+  minHeight?: number | string | { xs?: number; sm?: number; md?: number; lg?: number; xl?: number };
   /**
    * サイズ（CircularProgressのサイズ）
    */
