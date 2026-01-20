@@ -135,20 +135,23 @@ test.describe('Alert Management Flow', () => {
     // アラート作成が成功したことを確認
     if (!alertResponse.ok()) {
       const errorData = await alertResponse.json().catch(() => ({}));
-      console.error('Failed to create alert:', errorData);
+      throw new Error(
+        `Failed to create alert: ${JSON.stringify(errorData)}. Status: ${alertResponse.status()}`
+      );
     }
 
     // DynamoDB の eventual consistency のため、データが利用可能になるまで待機
     // アラートAPIでデータが取得できることを確認
-    // タイムアウト(30秒)内に収まるよう、最大10秒でリトライ
+    // タイムアウト(30秒)内に収まるよう、最大15秒でリトライ
     let alertCreated = false;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       const checkResponse = await request.get('/api/alerts');
       if (checkResponse.ok()) {
         const data = await checkResponse.json();
         const alerts = data.alerts || [];
         if (alerts.some((a: { tickerId: string }) => a.tickerId === TEST_TICKER.tickerId)) {
           alertCreated = true;
+          console.log(`Alert found after ${i + 1} attempts (${(i + 1) * 1000}ms)`);
           break;
         }
       }
@@ -157,8 +160,11 @@ test.describe('Alert Management Flow', () => {
     }
 
     if (!alertCreated) {
+      // 最終確認: アラートAPIの生データをログ出力
+      const finalCheck = await request.get('/api/alerts');
+      const finalData = finalCheck.ok() ? await finalCheck.json() : { error: 'API call failed' };
       throw new Error(
-        'Alert data is not available after creation. This may indicate a problem with data persistence or eventual consistency.'
+        `Alert data is not available after 15 seconds. Final API response: ${JSON.stringify(finalData)}`
       );
     }
 
