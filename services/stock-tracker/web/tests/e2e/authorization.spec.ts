@@ -26,8 +26,8 @@ test.describe('権限チェック (E2E-005)', () => {
       const table = page.locator('table');
       await expect(table).toBeVisible();
 
-      // 新規登録ボタンが表示される（編集可能）
-      await expect(page.locator('button:has-text("新規登録")')).toBeVisible();
+      // 新規作成ボタンが表示される（編集可能）
+      await expect(page.locator('button:has-text("新規作成")')).toBeVisible();
     });
 
     test('ティッカー管理画面にアクセスできる', async ({ page }) => {
@@ -44,8 +44,8 @@ test.describe('権限チェック (E2E-005)', () => {
       const table = page.locator('table');
       await expect(table).toBeVisible();
 
-      // 新規登録ボタンが表示される（編集可能）
-      await expect(page.locator('button:has-text("新規登録")')).toBeVisible();
+      // 新規作成ボタンが表示される（編集可能）
+      await expect(page.locator('button:has-text("新規作成")')).toBeVisible();
     });
   });
 
@@ -91,7 +91,7 @@ test.describe('権限チェック (E2E-005)', () => {
       if (isVisible) {
         // stock-admin の場合: ページが表示される
         await expect(pageHeading).toBeVisible();
-        await expect(page.locator('button:has-text("新規登録")')).toBeVisible();
+        await expect(page.locator('button:has-text("新規作成")')).toBeVisible();
       } else {
         // stock-viewer/stock-user の場合: アクセス拒否またはリダイレクト
         const errorMessage = page.locator('text=/アクセス権限がありません|権限がありません|403/i');
@@ -138,7 +138,7 @@ test.describe('権限チェック (E2E-005)', () => {
       await page.waitForLoadState('networkidle');
 
       // ページが正しく表示される
-      await expect(page.getByRole('heading', { name: 'ウォッチリスト管理' })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'ウォッチリスト' })).toBeVisible({
         timeout: 10000,
       });
 

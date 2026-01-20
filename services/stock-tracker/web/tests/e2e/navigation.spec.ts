@@ -41,7 +41,7 @@ test.describe('ナビゲーション (E2E-009)', () => {
 
       // ウォッチリスト管理画面に遷移
       await expect(page).toHaveURL('/watchlist');
-      await expect(page.getByRole('heading', { name: 'ウォッチリスト管理' })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'ウォッチリスト' })).toBeVisible({
         timeout: 10000,
       });
     });
@@ -328,7 +328,7 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.goto('/watchlist');
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveURL('/watchlist');
-      await expect(page.getByRole('heading', { name: 'ウォッチリスト管理' })).toBeVisible({
+      await expect(page.getByRole('heading', { name: 'ウォッチリスト' })).toBeVisible({
         timeout: 10000,
       });
 

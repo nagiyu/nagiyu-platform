@@ -51,11 +51,15 @@ test.describe('エラーハンドリング (E2E-008)', () => {
         if (tickerCount > 1) {
           await tickerOptions.nth(1).click();
 
-          // 負の保有数を入力
-          await page.locator('#create-quantity').fill('-10');
+          // 保有数を入力
+          const quantityInput = page.locator('#create-quantity');
+          await quantityInput.click();
+          await quantityInput.fill('-10');
 
-          // 平均取得価格を入力
-          await page.locator('#create-averagePrice').fill('100');
+          // 平均取得価格フィールドに移動して入力
+          const averagePriceInput = page.locator('#create-averagePrice');
+          await averagePriceInput.click();
+          await averagePriceInput.fill('100');
 
           // 通貨を選択
           const currencySelect = page.locator('#create-currency');
@@ -69,9 +73,9 @@ test.describe('エラーハンドリング (E2E-008)', () => {
           await page.getByRole('button', { name: '保存' }).click();
 
           // バリデーションエラーメッセージが表示される
-          await expect(
-            page.locator('text=/保有数は正の数値である必要があります|保有数が無効です|保有数/i')
-          ).toBeVisible({ timeout: 5000 });
+          await expect(page.locator('text=/保有数は0\\.0001以上|保有数/i')).toBeVisible({
+            timeout: 5000,
+          });
         }
       }
     });
@@ -105,10 +109,14 @@ test.describe('エラーハンドリング (E2E-008)', () => {
           await tickerOptions.nth(1).click();
 
           // 保有数を入力
-          await page.locator('#create-quantity').fill('10');
+          const quantityInput = page.locator('#create-quantity');
+          await quantityInput.click();
+          await quantityInput.fill('10');
 
           // 負の平均取得価格を入力
-          await page.locator('#create-averagePrice').fill('-100');
+          const averagePriceInput = page.locator('#create-averagePrice');
+          await averagePriceInput.click();
+          await averagePriceInput.fill('-100');
 
           // 通貨を選択
           const currencySelect = page.locator('#create-currency');
@@ -123,9 +131,7 @@ test.describe('エラーハンドリング (E2E-008)', () => {
 
           // バリデーションエラーメッセージが表示される
           await expect(
-            page.locator(
-              'text=/平均取得価格は正の数値である必要があります|平均取得価格が無効です|価格/i'
-            )
+            page.locator('text=/平均取得価格は0\\.01以上|平均取得価格|価格/i')
           ).toBeVisible({ timeout: 5000 });
         }
       }
@@ -143,7 +149,9 @@ test.describe('エラーハンドリング (E2E-008)', () => {
       await page.getByRole('button', { name: '保存' }).click();
 
       // エラーメッセージが表示される（取引所またはティッカーが未選択）
-      const errorMessages = page.locator('text=/選択してください|必須項目です|入力してください/i');
+      const errorMessages = page.locator(
+        'text=/この項目は必須です|選択してください|必須項目です|入力してください/i'
+      );
       const errorCount = await errorMessages.count();
 
       // 少なくとも1つのエラーメッセージが表示される
@@ -315,8 +323,13 @@ test.describe('エラーハンドリング (E2E-008)', () => {
       const errorVisible = await errorAlert.isVisible().catch(() => false);
       const tableVisible = await table.isVisible().catch(() => false);
 
-      // エラーまたはテーブルのいずれかが表示される
+      // エラーまたはテーブルのいずれかが表示される（通常はテーブルが表示される）
       expect(errorVisible || tableVisible).toBeTruthy();
+
+      // テーブルが表示される場合、正常に動作している
+      if (tableVisible) {
+        await expect(table).toBeVisible();
+      }
 
       // エラーが表示された場合、適切なメッセージが含まれることを確認
       if (errorVisible) {
@@ -372,18 +385,19 @@ test.describe('エラーハンドリング (E2E-008)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 無効なデータで保存を試みる
-      await page.locator('#create-quantity').fill('-10');
+      const quantityInput = page.locator('#create-quantity');
+      await quantityInput.click();
+      await quantityInput.fill('-10');
       await page.getByRole('button', { name: '保存' }).click();
 
       // エラーメッセージが表示される
       await expect(
-        page.locator(
-          'text=/保有数は正の数値である必要があります|保有数が無効です|保有数|選択してください/i'
-        )
+        page.locator('text=/保有数は0\\.0001以上|保有数|選択してください/i')
       ).toBeVisible({ timeout: 5000 });
 
       // 正しいデータに修正できる
-      await page.locator('#create-quantity').fill('10');
+      await quantityInput.click();
+      await quantityInput.fill('10');
 
       // 新規登録ボタンが引き続き操作可能
       await expect(page.getByRole('button', { name: '保存' })).toBeEnabled();
