@@ -113,19 +113,37 @@ test.describe('Alert Management Flow', () => {
 
     // テストデータを作成
     // 1. 取引所を作成
-    await request.post('/api/exchanges', {
+    const exchangeResponse = await request.post('/api/exchanges', {
       data: TEST_EXCHANGE,
     });
+    if (!exchangeResponse.ok()) {
+      const errorData = await exchangeResponse.json().catch(() => ({}));
+      throw new Error(
+        `Failed to create exchange: ${JSON.stringify(errorData)}. Status: ${exchangeResponse.status()}`
+      );
+    }
 
     // 2. ティッカーを作成
-    await request.post('/api/tickers', {
+    const tickerResponse = await request.post('/api/tickers', {
       data: TEST_TICKER,
     });
+    if (!tickerResponse.ok()) {
+      const errorData = await tickerResponse.json().catch(() => ({}));
+      throw new Error(
+        `Failed to create ticker: ${JSON.stringify(errorData)}. Status: ${tickerResponse.status()}`
+      );
+    }
 
     // 3. Holdingを作成
-    await request.post('/api/holdings', {
+    const holdingResponse = await request.post('/api/holdings', {
       data: TEST_HOLDING,
     });
+    if (!holdingResponse.ok()) {
+      const errorData = await holdingResponse.json().catch(() => ({}));
+      throw new Error(
+        `Failed to create holding: ${JSON.stringify(errorData)}. Status: ${holdingResponse.status()}`
+      );
+    }
 
     // 4. アラートを作成
     const alertResponse = await request.post('/api/alerts', {
