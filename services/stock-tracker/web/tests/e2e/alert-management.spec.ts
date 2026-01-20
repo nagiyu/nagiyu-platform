@@ -79,8 +79,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // アラート設定モーダルが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.getByRole('heading', { name: /アラート設定/ })).toBeVisible();
-      await expect(page.getByText(/売りアラート/)).toBeVisible();
+      await expect(page.getByRole('heading', { name: /アラート設定.*売りアラート/ })).toBeVisible();
 
       // 必要なフィールドが表示される
       await expect(page.getByLabel('取引所')).toBeVisible();
@@ -229,8 +228,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // アラート設定モーダルが表示される
       await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.getByRole('heading', { name: /アラート設定/ })).toBeVisible();
-      await expect(page.getByText(/買いアラート/)).toBeVisible();
+      await expect(page.getByRole('heading', { name: /アラート設定.*買いアラート/ })).toBeVisible();
 
       // 必要なフィールドが表示される
       await expect(page.getByLabel('取引所')).toBeVisible();
