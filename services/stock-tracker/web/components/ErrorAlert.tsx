@@ -30,12 +30,7 @@ export interface ErrorAlertProps {
  * 統一されたエラー表示を提供します。
  * アクセシビリティ対応として、role="alert"とaria-live="assertive"を設定しています。
  */
-export default function ErrorAlert({
-  message,
-  title,
-  sx,
-  severity = 'error',
-}: ErrorAlertProps) {
+export default function ErrorAlert({ message, title, sx, severity = 'error' }: ErrorAlertProps) {
   if (!message) {
     return null;
   }

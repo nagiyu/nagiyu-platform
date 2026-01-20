@@ -1,9 +1,11 @@
 # Stock Tracker UI/UX改善 - 実装レポート
 
 ## 実施日
+
 2026-01-20
 
 ## 概要
+
 Stock Tracker サービスの全画面において、UI/UXの改善とアクセシビリティ対応を実施しました。
 
 ## 実装した改善
@@ -11,6 +13,7 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 ### 1. 共通コンポーネントの作成
 
 #### ErrorAlert (`components/ErrorAlert.tsx`)
+
 - 統一されたエラー表示コンポーネント
 - アクセシビリティ対応:
   - `role="alert"` - エラーメッセージをアラートとして識別
@@ -19,6 +22,7 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 - エラーのタイトルとメッセージを分けて表示可能
 
 #### LoadingState (`components/LoadingState.tsx`)
+
 - 統一されたローディング表示コンポーネント
 - アクセシビリティ対応:
   - `role="status"` - ステータス情報として識別
@@ -28,6 +32,7 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 - カスタマイズ可能な最小高さとサイズ
 
 #### EmptyState (`components/EmptyState.tsx`)
+
 - 統一された空状態表示コンポーネント
 - アイコン、タイトル、説明文をカスタマイズ可能
 - `role="region"` でセマンティックな領域として識別
@@ -35,10 +40,10 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 ### 2. トップページ (`app/page.tsx`)
 
 #### 改善内容
+
 - **ErrorAlert と EmptyState の統合**:
   - Alert コンポーネントを ErrorAlert に置き換え
   - 空状態表示を EmptyState コンポーネントに置き換え
-  
 - **アクセシビリティ対応**:
   - メインコンテナに `role="main"` を追加
   - チャート設定エリアに `role="region"` と `aria-label="チャート設定"` を追加
@@ -52,6 +57,7 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 ### 3. StockChart コンポーネント (`components/StockChart.tsx`)
 
 #### 改善内容
+
 - **LoadingState と ErrorAlert の統合**:
   - カスタムローディング表示を LoadingState コンポーネントに置き換え
   - エラー表示を ErrorAlert コンポーネントに置き換え
@@ -63,6 +69,7 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 ### 4. 保有株式管理ページ (`app/holdings/page.tsx`)
 
 #### 改善内容
+
 - **アクセシビリティ対応**:
   - メインコンテナに `role="main"` を追加
   - エラーメッセージに `role="alert"` と `aria-live="assertive"` を追加
@@ -80,6 +87,7 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 ### ARIA属性の使用
 
 #### role属性
+
 - `role="main"`: メインコンテンツ領域を示す
 - `role="region"`: 意味のあるセクションを示す
 - `role="alert"`: 重要なエラーメッセージを示す
@@ -87,22 +95,26 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 - `role="img"`: チャートを画像として識別
 
 #### aria-live属性
+
 - `aria-live="assertive"`: エラーメッセージなど、即座に読み上げが必要な内容
 - `aria-live="polite"`: 成功メッセージなど、現在の読み上げ後に通知する内容
 
 #### その他のARIA属性
+
 - `aria-label`: 要素の説明ラベル
 - `aria-busy`: ローディング中であることを示す
 - `aria-describedby`: 追加の説明を関連付ける
 - `aria-atomic`: 要素全体を読み上げるかどうか
 
 ### セマンティックHTML
+
 - `<h1>`, `<h2>`: 見出し階層の明確化
 - `component="h1"` などの Material-UI props で正しい HTML タグを使用
 
 ## 受入条件の達成状況
 
 ### ✅ 完了した項目
+
 - [x] 共通デザインの統一（ErrorAlert, LoadingState, EmptyState コンポーネント）
 - [x] レスポンシブ対応の最終確認（既存のグリッドレイアウトを維持）
 - [x] ローディング状態の改善（統一されたコンポーネント）
@@ -110,23 +122,25 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 - [x] アクセシビリティ対応（ARIA ラベル、role属性の追加）
 
 ### ⚠️ 部分的に完了した項目
+
 - [~] すべての画面でデザインが統一されている
   - トップページ、チャート、保有株式管理ページに適用済み
   - 残り: watchlist, alerts, exchanges, tickers ページへの適用が推奨
 
 ### ✅ WCAG AA 基準
+
 - コントラスト比は Material-UI のデフォルトテーマが 4.5:1 以上を満たしています
 - キーボード操作は Material-UI コンポーネントのデフォルト動作で対応済み
 
 ## 今後の推奨事項
 
 ### 高優先度
+
 1. **残りのページへの適用**:
    - `app/watchlist/page.tsx`
    - `app/alerts/page.tsx`
    - `app/exchanges/page.tsx`
    - `app/tickers/page.tsx`
-   
 2. **ダイアログのアクセシビリティ**:
    - `aria-labelledby` でダイアログタイトルを関連付け
    - `aria-describedby` でダイアログの説明を関連付け
@@ -137,11 +151,13 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
    - 必須フィールドに `aria-required="true"` を追加
 
 ### 中優先度
+
 1. **タッチターゲットサイズ**: ボタンやリンクが最小 44x44px であることを確認
 2. **フォーカス表示**: キーボード操作時のフォーカスが明確に見えることを確認
 3. **コントラスト比の自動チェック**: axe-core などのツールで定期的にチェック
 
 ### 低優先度
+
 1. **トーストメッセージ**: 成功メッセージをトースト形式で表示（Snackbar使用）
 2. **スケルトンローダー**: データ読み込み中により詳細なプレースホルダーを表示
 3. **アニメーション**: 画面遷移やローディング時のスムーズなアニメーション
@@ -149,16 +165,19 @@ Stock Tracker サービスの全画面において、UI/UXの改善とアクセ�
 ## 技術的な注意事項
 
 ### Material-UI v7 の使用
+
 - すべての改善は Material-UI v7 のコンポーネントを使用
 - テーマは `@nagiyu/ui` の共通テーマを継続使用
 - コンポーネントの props は TypeScript の型チェックで保証
 
 ### コーディング規約の遵守
+
 - エラーメッセージは定数化済み (`ERROR_MESSAGES`)
 - TypeScript strict mode で型安全性を確保
 - UI層とビジネスロジックの分離を維持
 
 ## 参考資料
+
 - [WCAG 2.1 ガイドライン](https://www.w3.org/WAI/WCAG21/quickref/)
 - [ARIA Authoring Practices Guide](https://www.w3.org/WAI/ARIA/apg/)
 - [Material-UI Accessibility Guide](https://mui.com/material-ui/guides/accessibility/)

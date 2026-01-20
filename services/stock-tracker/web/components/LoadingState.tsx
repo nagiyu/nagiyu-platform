@@ -46,12 +46,7 @@ export default function LoadingState({
     >
       <CircularProgress size={size} aria-label={message} />
       {message && (
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          sx={{ mt: 2 }}
-          aria-live="polite"
-        >
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }} aria-live="polite">
           {message}
         </Typography>
       )}

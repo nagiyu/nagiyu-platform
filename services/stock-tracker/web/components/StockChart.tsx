@@ -278,7 +278,12 @@ export default function StockChart({
 
   // ローディング状態
   if (loading) {
-    return <LoadingState message="チャートデータを読み込み中..." minHeight={{ xs: 400, sm: 500, md: 600 }} />;
+    return (
+      <LoadingState
+        message="チャートデータを読み込み中..."
+        minHeight={{ xs: 400, sm: 500, md: 600 }}
+      />
+    );
   }
 
   // エラー状態
@@ -293,7 +298,11 @@ export default function StockChart({
           minHeight: { xs: 400, sm: 500, md: 600 },
         }}
       >
-        <ErrorAlert message={error} title="チャート読み込みエラー" sx={{ width: '100%', maxWidth: 600 }} />
+        <ErrorAlert
+          message={error}
+          title="チャート読み込みエラー"
+          sx={{ width: '100%', maxWidth: 600 }}
+        />
       </Box>
     );
   }

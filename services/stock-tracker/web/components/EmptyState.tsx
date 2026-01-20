@@ -30,12 +30,7 @@ export interface EmptyStateProps {
  *
  * データが無い場合の統一された表示を提供します。
  */
-export default function EmptyState({
-  title,
-  description,
-  icon,
-  minHeight = 400,
-}: EmptyStateProps) {
+export default function EmptyState({ title, description, icon, minHeight = 400 }: EmptyStateProps) {
   return (
     <Box
       sx={{
@@ -57,12 +52,7 @@ export default function EmptyState({
         {title}
       </Typography>
       {description && (
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          align="center"
-          sx={{ mt: 2 }}
-        >
+        <Typography variant="body1" color="text.secondary" align="center" sx={{ mt: 2 }}>
           {description}
         </Typography>
       )}

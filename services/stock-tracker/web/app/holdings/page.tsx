@@ -506,14 +506,26 @@ export default function HoldingsPage() {
     <Container maxWidth="xl" sx={{ py: 3 }} role="main">
       {/* エラーメッセージ表示 */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')} role="alert" aria-live="assertive">
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setError('')}
+          role="alert"
+          aria-live="assertive"
+        >
           {error}
         </Alert>
       )}
 
       {/* 成功メッセージ表示 */}
       {successMessage && (
-        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')} role="status" aria-live="polite">
+        <Alert
+          severity="success"
+          sx={{ mb: 2 }}
+          onClose={() => setSuccessMessage('')}
+          role="status"
+          aria-live="polite"
+        >
           {successMessage}
         </Alert>
       )}
@@ -551,7 +563,12 @@ export default function HoldingsPage() {
 
       {/* ローディング表示 */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }} role="status" aria-live="polite" aria-busy="true">
+        <Box
+          sx={{ display: 'flex', justifyContent: 'center', py: 8 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
           <CircularProgress aria-label="保有株式を読み込んでいます" />
         </Box>
       ) : (
@@ -610,7 +627,11 @@ export default function HoldingsPage() {
                           startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsNoneIcon />}
                           onClick={() => handleOpenAlertModal(holding)}
                           sx={{ minWidth: 140 }}
-                          aria-label={hasAlert ? `${holding.symbol}のアラート設定を編集` : `${holding.symbol}の売りアラートを設定`}
+                          aria-label={
+                            hasAlert
+                              ? `${holding.symbol}のアラート設定を編集`
+                              : `${holding.symbol}の売りアラートを設定`
+                          }
                         >
                           {hasAlert ? 'アラート設定済' : '売りアラート'}
                         </Button>
