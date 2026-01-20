@@ -18,5 +18,6 @@ export * from './repositories/watchlist.js';
 export * from './repositories/alert.js';
 export * from './services/auth.js';
 export * from './services/alert-evaluator.js';
+export * from './services/price-calculator.js';
 export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
