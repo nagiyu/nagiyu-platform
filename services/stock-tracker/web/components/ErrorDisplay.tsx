@@ -95,7 +95,10 @@ interface LoadingErrorProps {
   onRetry?: () => void;
 }
 
-export function LoadingError({ message = 'データの読み込みに失敗しました', onRetry }: LoadingErrorProps) {
+export function LoadingError({
+  message = 'データの読み込みに失敗しました',
+  onRetry,
+}: LoadingErrorProps) {
   return (
     <Box sx={{ py: 4, textAlign: 'center' }}>
       <Alert severity="error" sx={{ maxWidth: 600, mx: 'auto', mb: onRetry ? 2 : 0 }}>

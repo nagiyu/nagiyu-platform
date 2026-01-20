@@ -99,7 +99,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             {/* 開発環境ではエラー詳細を表示 */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1, width: '100%' }}>
-                <Typography variant="body2" component="pre" sx={{ textAlign: 'left', overflow: 'auto' }}>
+                <Typography
+                  variant="body2"
+                  component="pre"
+                  sx={{ textAlign: 'left', overflow: 'auto' }}
+                >
                   {this.state.error.toString()}
                   {this.state.error.stack && `\n\n${this.state.error.stack}`}
                 </Typography>

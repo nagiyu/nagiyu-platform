@@ -36,4 +36,8 @@ export {
 } from './error-handler';
 
 // カスタムフック
-export { useAPIRequest, type UseAPIRequestOptions, type UseAPIRequestReturn } from './hooks/useAPIRequest';
+export {
+  useAPIRequest,
+  type UseAPIRequestOptions,
+  type UseAPIRequestReturn,
+} from './hooks/useAPIRequest';

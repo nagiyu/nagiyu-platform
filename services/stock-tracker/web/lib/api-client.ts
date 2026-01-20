@@ -51,10 +51,7 @@ export class APIError extends Error {
 /**
  * エクスポネンシャルバックオフの遅延時間を計算
  */
-function calculateBackoffDelay(
-  attempt: number,
-  config: RetryConfig
-): number {
+function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const delay = Math.min(
     config.initialDelay * Math.pow(config.backoffMultiplier, attempt),
     config.maxDelay
