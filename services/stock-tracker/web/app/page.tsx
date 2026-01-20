@@ -169,7 +169,6 @@ export default function Home() {
             label="取引所選択"
             onChange={handleExchangeChange}
             startAdornment={exchangesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-            aria-label="取引所を選択"
             aria-busy={exchangesLoading}
           >
             <MenuItem value="">
@@ -193,7 +192,6 @@ export default function Home() {
             label="ティッカー選択"
             onChange={handleTickerChange}
             startAdornment={tickersLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-            aria-label="ティッカーを選択"
             aria-busy={tickersLoading}
             aria-describedby={!exchange ? 'ticker-hint' : undefined}
           >
@@ -222,7 +220,6 @@ export default function Home() {
             value={timeframe}
             label="時間枠"
             onChange={handleTimeframeChange}
-            aria-label="チャートの時間枠を選択"
           >
             {(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => (
               <MenuItem key={key} value={key}>
@@ -241,7 +238,6 @@ export default function Home() {
             value={session}
             label="セッション"
             onChange={handleSessionChange}
-            aria-label="取引セッションを選択"
           >
             {(Object.keys(TRADING_SESSION_LABELS) as TradingSession[]).map((key) => (
               <MenuItem key={key} value={key}>
