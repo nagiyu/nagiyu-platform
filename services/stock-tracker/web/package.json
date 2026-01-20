@@ -21,6 +21,8 @@
     "@nagiyu/common": "*",
     "@nagiyu/stock-tracker-core": "*",
     "@nagiyu/ui": "*",
+    "echarts": "^6.0.0",
+    "echarts-for-react": "^3.0.5",
     "next-auth": "^5.0.0-beta.27",
     "next-pwa": "^5.6.0",
     "web-push": "^3.6.7"

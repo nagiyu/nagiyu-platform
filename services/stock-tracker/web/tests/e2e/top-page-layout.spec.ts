@@ -44,11 +44,8 @@ test.describe('トップ画面レイアウト', () => {
     // チャート表示エリアのヘッダー
     await expect(page.getByRole('heading', { name: 'チャート表示エリア' })).toBeVisible();
 
-    // チャート説明テキスト
-    await expect(page.getByText(/ECharts によるローソク足チャート/)).toBeVisible();
-    await expect(page.getByText(/ローソク足表示/)).toBeVisible();
-    await expect(page.getByText(/X軸: 日時/)).toBeVisible();
-    await expect(page.getByText(/Y軸: 価格/)).toBeVisible();
+    // 初期状態では「取引所とティッカーを選択してください」というメッセージが表示される
+    await expect(page.getByText('取引所とティッカーを選択してください')).toBeVisible();
   });
 
   test('取引所を選択するとティッカーが有効になる', async ({ page }) => {
