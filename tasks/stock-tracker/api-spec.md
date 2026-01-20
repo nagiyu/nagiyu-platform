@@ -902,7 +902,7 @@ POST /api/alerts
 ```json
 {
     "tickerId": "NSDQ:NVDA",
-    "mode": "BUY",
+    "mode": "Buy",
     "frequency": "MINUTE_LEVEL",
     "conditions": [
         {
@@ -910,7 +910,14 @@ POST /api/alerts
             "operator": "lte",
             "value": 800.0
         }
-    ]
+    ],
+    "subscription": {
+        "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+        "keys": {
+            "p256dh": "BNcRd...",
+            "auth": "tBHI..."
+        }
+    }
 }
 ```
 
@@ -919,12 +926,17 @@ POST /api/alerts
 | フィールド | 型 | 必須 | 説明 |
 |-----------|---|------|------|
 | tickerId | string | ✅ | ティッカーID |
-| mode | string | ✅ | モード（`BUY` or `SELL`） |
+| mode | string | ✅ | モード（`Buy` or `Sell`） |
 | frequency | string | ✅ | 頻度（`MINUTE_LEVEL` or `HOURLY_LEVEL`） |
 | conditions | array | ✅ | 条件リスト（Phase 1: 1条件のみ） |
 | conditions[].field | string | ✅ | フィールド名（Phase 1: `price` のみ） |
 | conditions[].operator | string | ✅ | 演算子（`gte`, `lte`） |
 | conditions[].value | number | ✅ | 閾値 |
+| subscription | object | ✅ | Web Push サブスクリプション情報 |
+| subscription.endpoint | string | ✅ | Push サービスのエンドポイント |
+| subscription.keys | object | ✅ | 暗号化キー |
+| subscription.keys.p256dh | string | ✅ | 公開鍵 |
+| subscription.keys.auth | string | ✅ | 認証シークレット |
 
 ##### レスポンス (201 Created)
 
@@ -934,7 +946,7 @@ POST /api/alerts
     "tickerId": "NSDQ:NVDA",
     "symbol": "NVDA",
     "name": "NVIDIA Corporation",
-    "mode": "BUY",
+    "mode": "Buy",
     "frequency": "MINUTE_LEVEL",
     "conditions": [
         {
@@ -981,13 +993,15 @@ PUT /api/alerts/{id}
 }
 ```
 
+**Note**: `conditions` は部分更新をサポートします。`value` のみを指定した場合、既存の `field` と `operator` はそのまま維持されます。
+
 ##### レスポンス (200 OK)
 
 ```json
 {
     "alertId": "alert_def456",
     "tickerId": "NSDQ:NVDA",
-    "mode": "BUY",
+    "mode": "Buy",
     "frequency": "MINUTE_LEVEL",
     "conditions": [
         {
