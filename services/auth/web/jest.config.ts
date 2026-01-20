@@ -17,6 +17,8 @@ const config: Config = {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
+    // ESM .js extension to .ts mapping for libs/common
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testMatch: ['**/tests/unit/**/*.test.ts', '**/tests/unit/**/*.test.tsx'],
   testPathIgnorePatterns: ['/node_modules/', '/tests/unit/app/api/'],

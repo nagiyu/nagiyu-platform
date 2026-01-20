@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import type { Timeframe, TradingSession } from '@/types/stock';
 import { TIMEFRAME_LABELS, TRADING_SESSION_LABELS } from '@/types/stock';
+import StockChart from '../components/StockChart';
 
 // API レスポンス型定義
 interface Exchange {
@@ -46,8 +47,8 @@ export default function Home() {
   // 選択状態の管理
   const [exchange, setExchange] = useState<string>('');
   const [ticker, setTicker] = useState<string>('');
-  const [timeframe, setTimeframe] = useState<Timeframe>('1d');
-  const [session, setSession] = useState<TradingSession>('regular');
+  const [timeframe, setTimeframe] = useState<Timeframe>('60');
+  const [session, setSession] = useState<TradingSession>('extended');
 
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
@@ -255,36 +256,32 @@ export default function Home() {
             sm: 500,
             md: 600,
           },
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#f5f5f5',
         }}
       >
-        <Typography variant="h5" color="text.secondary" gutterBottom>
-          チャート表示エリア
-        </Typography>
-        <Typography variant="body1" color="text.secondary" align="center" sx={{ mt: 2 }}>
-          ECharts によるローソク足チャート
-        </Typography>
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            • ローソク足表示
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • X軸: 日時
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • Y軸: 価格
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • ズーム/パン操作対応
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • ツールチップ表示（ホバー/タップ時に価格情報表示）
-          </Typography>
-        </Box>
+        {ticker ? (
+          <StockChart tickerId={ticker} timeframe={timeframe} session={session} count={100} />
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: {
+                xs: 400,
+                sm: 500,
+                md: 600,
+              },
+            }}
+          >
+            <Typography variant="h5" color="text.secondary" gutterBottom>
+              チャート表示エリア
+            </Typography>
+            <Typography variant="body1" color="text.secondary" align="center" sx={{ mt: 2 }}>
+              取引所とティッカーを選択してください
+            </Typography>
+          </Box>
+        )}
       </Paper>
     </Container>
   );

@@ -6,12 +6,18 @@ const config: Config = {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
   transform: {
     '^.+\\.tsx?$': [
       'ts-jest',
       {
         useESM: true,
+        tsconfig: {
+          moduleResolution: 'node',
+          esModuleInterop: true,
+        },
       },
     ],
   },

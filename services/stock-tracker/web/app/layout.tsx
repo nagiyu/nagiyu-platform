@@ -5,6 +5,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Stock Tracker',
   description: 'Real-time stock price tracking and alerts',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({

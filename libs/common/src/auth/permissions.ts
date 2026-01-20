@@ -5,8 +5,8 @@
  * These functions implement role-based access control (RBAC) for the nagiyu platform.
  */
 
-import { ROLES } from './roles';
-import type { Permission } from './types';
+import { ROLES } from './roles.js';
+import type { Permission } from './types.js';
 
 /**
  * Check if the user has a specific permission
