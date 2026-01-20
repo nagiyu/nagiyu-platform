@@ -29,6 +29,8 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AddIcon from '@mui/icons-material/Add';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AlertSettingsModal from '../../components/AlertSettingsModal';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -72,11 +74,15 @@ export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [alerts, setAlerts] = useState<Record<string, boolean>>({});
 
   // モーダル状態
   const [openCreateModal, setOpenCreateModal] = useState<boolean>(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState<boolean>(false);
+  const [alertModalOpen, setAlertModalOpen] = useState<boolean>(false);
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<string>('');
+  const [selectedWatchlistItem, setSelectedWatchlistItem] = useState<WatchlistItem | null>(null);
 
   // 新規登録フォーム
   const [selectedExchange, setSelectedExchange] = useState<string>('');
@@ -110,6 +116,7 @@ export default function WatchlistPage() {
 
   useEffect(() => {
     fetchWatchlist();
+    fetchAlerts();
   }, []);
 
   // 取引所一覧を取得
@@ -150,6 +157,35 @@ export default function WatchlistPage() {
       setCreateError(ERROR_MESSAGES.FETCH_TICKERS_ERROR);
     } finally {
       setTickersLoading(false);
+    }
+  };
+
+  // アラート一覧を取得してチェック
+  const fetchAlerts = async () => {
+    try {
+      const response = await fetch('/api/alerts');
+      if (!response.ok) {
+        // エラーの場合は単にアラート情報を空にする
+        return;
+      }
+
+      const data = await response.json();
+      const alertMap: Record<string, boolean> = {};
+
+      // アラート一覧からWatchlistに対応するアラートをマッピング
+      if (data.alerts) {
+        data.alerts.forEach((alert: { tickerId: string; mode: string; enabled: boolean }) => {
+          // 買いアラートのみを対象
+          if (alert.mode === 'Buy' && alert.enabled) {
+            alertMap[alert.tickerId] = true;
+          }
+        });
+      }
+
+      setAlerts(alertMap);
+    } catch (err) {
+      console.error('Error fetching alerts:', err);
+      // エラーの場合は単にアラート情報を空にする
     }
   };
 
@@ -251,10 +287,28 @@ export default function WatchlistPage() {
     }
   };
 
-  // アラート設定ボタン（Phase 3で実装予定）
-  const handleSetupAlert = (tickerId: string) => {
-    // TODO: Phase 3 で実装
-    console.log('Setup alert for ticker:', tickerId);
+  // アラート設定モーダルを開く
+  const handleOpenAlertModal = (item: WatchlistItem) => {
+    setSelectedWatchlistItem(item);
+    setAlertModalOpen(true);
+  };
+
+  // アラート設定モーダルを閉じる
+  const handleCloseAlertModal = () => {
+    setAlertModalOpen(false);
+    setSelectedWatchlistItem(null);
+  };
+
+  // アラート設定成功時の処理
+  const handleAlertSuccess = async () => {
+    setSuccessMessage('アラートを設定しました');
+    // アラート一覧を再取得
+    await fetchAlerts();
+
+    // 成功メッセージを3秒後に消す
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   };
 
   return (
@@ -278,6 +332,13 @@ export default function WatchlistPage() {
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
           {error}
+        </Alert>
+      )}
+
+      {/* 成功メッセージ */}
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMessage('')}>
+          {successMessage}
         </Alert>
       )}
 
@@ -311,33 +372,40 @@ export default function WatchlistPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                watchlist.map((item) => (
-                  <TableRow key={item.watchlistId} hover>
-                    <TableCell>{item.tickerId}</TableCell>
-                    <TableCell>{item.symbol}</TableCell>
-                    <TableCell>{new Date(item.createdAt).toLocaleString('ja-JP')}</TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleSetupAlert(item.tickerId)}
-                        size="small"
-                        title="買いアラート設定"
-                      >
-                        <NotificationsIcon />
-                      </IconButton>
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton
-                        color="error"
-                        onClick={() => handleOpenDeleteDialog(item.watchlistId)}
-                        size="small"
-                        title="削除"
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
+                watchlist.map((item) => {
+                  // アラート設定済みかどうかの判定
+                  const hasAlert = alerts[item.tickerId] || false;
+
+                  return (
+                    <TableRow key={item.watchlistId} hover>
+                      <TableCell>{item.tickerId}</TableCell>
+                      <TableCell>{item.symbol}</TableCell>
+                      <TableCell>{new Date(item.createdAt).toLocaleString('ja-JP')}</TableCell>
+                      <TableCell align="center">
+                        <Button
+                          variant="contained"
+                          color={hasAlert ? 'primary' : 'success'}
+                          size="small"
+                          startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsIcon />}
+                          onClick={() => handleOpenAlertModal(item)}
+                          sx={{ minWidth: 140 }}
+                        >
+                          {hasAlert ? 'アラート設定済' : '買いアラート'}
+                        </Button>
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          color="error"
+                          onClick={() => handleOpenDeleteDialog(item.watchlistId)}
+                          size="small"
+                          title="削除"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
@@ -428,6 +496,19 @@ export default function WatchlistPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* アラート設定モーダル */}
+      {selectedWatchlistItem && selectedWatchlistItem.tickerId && (
+        <AlertSettingsModal
+          open={alertModalOpen}
+          onClose={handleCloseAlertModal}
+          onSuccess={handleAlertSuccess}
+          tickerId={selectedWatchlistItem.tickerId}
+          symbol={selectedWatchlistItem.symbol}
+          exchangeId={selectedWatchlistItem.tickerId.split(':')[0] || ''}
+          mode="Buy"
+        />
+      )}
     </Container>
   );
 }
