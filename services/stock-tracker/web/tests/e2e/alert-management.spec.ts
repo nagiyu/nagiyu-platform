@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { TestDataFactory, CreatedHolding, CreatedWatchlist } from './utils/test-data-factory';
 
 /**
  * E2E-002: アラート設定フロー (一部)
@@ -17,19 +18,13 @@ async function grantNotificationPermission(page: Page): Promise<void> {
   await page.context().grantPermissions(['notifications']);
 }
 
-// DynamoDBからテストデータを削除するヘルパー関数
-async function cleanupTestData(
-  exchangeId: string,
-  tickerId: string,
-  userId: string
-): Promise<void> {
-  // Note: 実際の実装では DynamoDB から削除する
-  // E2Eテストではモックデータまたはテスト専用環境を使用
-  console.log(`Cleaning up test data: ${exchangeId}, ${tickerId}, ${userId}`);
-}
-
 test.describe('アラート設定フロー (E2E-002 一部)', () => {
-  test.beforeEach(async ({ page }) => {
+  let factory: TestDataFactory;
+
+  test.beforeEach(async ({ page, request }) => {
+    // TestDataFactory を初期化
+    factory = new TestDataFactory(request);
+
     // 通知許可を付与
     await grantNotificationPermission(page);
 
@@ -38,23 +33,38 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
     await page.waitForLoadState('networkidle');
   });
 
+  test.afterEach(async () => {
+    // TestDataFactory でクリーンアップ
+    await factory.cleanup();
+  });
+
   test.describe('Holdingからの売りアラート設定', () => {
+    let testHolding: CreatedHolding;
+
+    test.beforeEach(async () => {
+      // テスト用の Holding を作成
+      testHolding = await factory.createHolding({
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
+      });
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    });
+
     test('売りアラート設定ボタンが表示される', async ({ page }) => {
       // Holding管理画面にアクセス
       await page.goto('/holdings');
       await page.waitForLoadState('networkidle');
 
-      // 保有株式が存在する場合、売りアラートボタンが表示される
-      const alertButtons = page.getByRole('button', { name: /売りアラート|アラート設定済/ });
-      const count = await alertButtons.count();
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
-      if (count > 0) {
-        // 少なくとも1つのアラートボタンが表示されている
-        await expect(alertButtons.first()).toBeVisible();
-      } else {
-        // 保有株式がない場合はスキップ
-        test.skip();
-      }
+      // 売りアラートボタンが表示される
+      const alertButton = targetRow.getByRole('button', { name: /売りアラート|アラート設定済/ });
+      await expect(alertButton).toBeVisible();
     });
 
     test('アラート設定モーダルが正しく開く', async ({ page }) => {
@@ -62,19 +72,12 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.goto('/holdings');
       await page.waitForLoadState('networkidle');
 
-      // 売りアラートボタンを探す（未設定のもの）
-      const sellAlertButton = page
-        .getByRole('button', { name: /売りアラート/ })
-        .filter({ hasNotText: /設定済/ })
-        .first();
-
-      const isVisible = await sellAlertButton.isVisible().catch(() => false);
-      if (!isVisible) {
-        // ボタンがない場合はスキップ（全てアラート設定済みまたは保有株式なし）
-        test.skip();
-      }
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
       // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
       await sellAlertButton.click();
 
       // アラート設定モーダルが表示される
@@ -100,19 +103,12 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.goto('/holdings');
       await page.waitForLoadState('networkidle');
 
-      // 売りアラートボタンを探す（未設定のもの）
-      const sellAlertButton = page
-        .getByRole('button', { name: /売りアラート/ })
-        .filter({ hasNotText: /設定済/ })
-        .first();
-
-      const isVisible = await sellAlertButton.isVisible().catch(() => false);
-      if (!isVisible) {
-        // ボタンがない場合はスキップ
-        test.skip();
-      }
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
       // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
       await sellAlertButton.click();
 
       // モーダルが表示されるまで待つ
@@ -125,14 +121,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
         await targetPriceInput.fill('100');
       }
 
-      // 条件を選択（デフォルトで「以上」が選ばれているはず）
-      // 通知頻度を選択（デフォルトで「1分間隔」が選ばれているはず）
-
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
-
-      // 通知許可ダイアログが表示される可能性がある（ブラウザによる）
-      // テスト環境では自動的に許可される
 
       // モーダルが閉じることを確認、またはエラーが表示されることを確認
       // テスト環境でVAPID鍵が設定されていない場合はエラーが表示される
@@ -169,92 +159,85 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.goto('/holdings');
       await page.waitForLoadState('networkidle');
 
-      // 既に設定済みのアラートボタンを探す
-      const setAlertButton = page.getByRole('button', { name: /アラート設定済/ }).first();
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
-      const isVisible = await setAlertButton.isVisible().catch(() => false);
-      if (!isVisible) {
-        // 設定済みアラートがない場合は、新しく設定してテスト
-        const sellAlertButton = page
-          .getByRole('button', { name: /売りアラート/ })
-          .filter({ hasNotText: /設定済/ })
-          .first();
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
 
-        const isSellVisible = await sellAlertButton.isVisible().catch(() => false);
-        if (!isSellVisible) {
-          test.skip();
-        }
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-        // アラート設定
-        await sellAlertButton.click();
-        await expect(page.getByRole('dialog')).toBeVisible();
-        const targetPriceInput = page.getByLabel('目標価格');
-        const currentValue = await targetPriceInput.inputValue();
-        if (!currentValue) {
-          await targetPriceInput.fill('100');
-        }
-        await page.getByRole('button', { name: '保存' }).click();
-
-        // モーダルが閉じることを確認、またはエラーが表示されることを確認
-        await Promise.race([
-          expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
-          expect(
-            page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
-          ).toBeVisible({ timeout: 5000 }),
-        ]).catch(async () => {
-          // エラーメッセージが表示されている場合はテストをスキップ
-          const errorVisible = await page
-            .getByText(/エラー|失敗|対応していません/)
-            .isVisible()
-            .catch(() => false);
-          if (errorVisible) {
-            test.skip();
-          }
-        });
-
-        // モーダルが閉じたか確認
-        const modalClosed = await page
-          .getByRole('dialog')
-          .isVisible()
-          .then((visible) => !visible)
-          .catch(() => false);
-
-        if (!modalClosed) {
-          // モーダルが閉じていない場合はテストをスキップ
-          test.skip();
-        }
-
-        // ページをリロードして状態を確認
-        await page.reload();
-        await page.waitForLoadState('networkidle');
-
-        // ボタンが「アラート設定済」に変化していることを確認
-        await expect(page.getByRole('button', { name: /アラート設定済/ }).first()).toBeVisible();
-      } else {
-        // 既に設定済みボタンが存在する
-        await expect(setAlertButton).toBeVisible();
-        await expect(setAlertButton).toContainText(/アラート設定済/);
+      // 目標価格を入力
+      const targetPriceInput = page.getByLabel('目標価格');
+      const currentValue = await targetPriceInput.inputValue();
+      if (!currentValue) {
+        await targetPriceInput.fill('100');
       }
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // モーダルが閉じることを確認、またはエラーが表示されることを確認
+      await Promise.race([
+        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
+        expect(
+          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
+        ).toBeVisible({ timeout: 5000 }),
+      ]).catch(async () => {
+        const errorVisible = await page
+          .getByText(/エラー|失敗|対応していません/)
+          .isVisible()
+          .catch(() => false);
+        if (errorVisible) {
+          test.skip();
+        }
+      });
+
+      // モーダルが閉じたか確認
+      const modalClosed = await page
+        .getByRole('dialog')
+        .isVisible()
+        .then((visible) => !visible)
+        .catch(() => false);
+
+      if (!modalClosed) {
+        test.skip();
+      }
+
+      // ページをリロードして状態を確認
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      // ボタンが「アラート設定済」に変化していることを確認
+      const updatedRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(updatedRow.getByRole('button', { name: /アラート設定済/ })).toBeVisible();
     });
   });
 
   test.describe('Watchlistからの買いアラート設定', () => {
+    let testWatchlist: CreatedWatchlist;
+
+    test.beforeEach(async () => {
+      // テスト用の Watchlist を作成
+      testWatchlist = await factory.createWatchlist();
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    });
+
     test('買いアラート設定ボタンが表示される', async ({ page }) => {
       // Watchlist管理画面にアクセス
       await page.goto('/watchlist');
       await page.waitForLoadState('networkidle');
 
-      // ウォッチリストが存在する場合、買いアラートボタンが表示される
-      const alertButtons = page.getByRole('button', { name: /買いアラート|アラート設定済/ });
-      const count = await alertButtons.count();
+      // 作成した Watchlist の行を探す
+      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
-      if (count > 0) {
-        // 少なくとも1つのアラートボタンが表示されている
-        await expect(alertButtons.first()).toBeVisible();
-      } else {
-        // ウォッチリストがない場合はスキップ
-        test.skip();
-      }
+      // 買いアラートボタンが表示される
+      const alertButton = targetRow.getByRole('button', { name: /買いアラート|アラート設定済/ });
+      await expect(alertButton).toBeVisible();
     });
 
     test('アラート設定モーダルが正しく開く', async ({ page }) => {
@@ -262,19 +245,12 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.goto('/watchlist');
       await page.waitForLoadState('networkidle');
 
-      // 買いアラートボタンを探す（未設定のもの）
-      const buyAlertButton = page
-        .getByRole('button', { name: /買いアラート/ })
-        .filter({ hasNotText: /設定済/ })
-        .first();
-
-      const isVisible = await buyAlertButton.isVisible().catch(() => false);
-      if (!isVisible) {
-        // ボタンがない場合はスキップ
-        test.skip();
-      }
+      // 作成した Watchlist の行を探す
+      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
       // 買いアラートボタンをクリック
+      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
       await buyAlertButton.click();
 
       // アラート設定モーダルが表示される
@@ -300,19 +276,12 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.goto('/watchlist');
       await page.waitForLoadState('networkidle');
 
-      // 買いアラートボタンを探す（未設定のもの）
-      const buyAlertButton = page
-        .getByRole('button', { name: /買いアラート/ })
-        .filter({ hasNotText: /設定済/ })
-        .first();
-
-      const isVisible = await buyAlertButton.isVisible().catch(() => false);
-      if (!isVisible) {
-        // ボタンがない場合はスキップ
-        test.skip();
-      }
+      // 作成した Watchlist の行を探す
+      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
       // 買いアラートボタンをクリック
+      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
       await buyAlertButton.click();
 
       // モーダルが表示されるまで待つ
@@ -321,9 +290,6 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 目標価格を入力
       const targetPriceInput = page.getByLabel('目標価格');
       await targetPriceInput.fill('50');
-
-      // 条件を選択（デフォルトで「以下」が選ばれているはず）
-      // 通知頻度を選択（デフォルトで「1分間隔」が選ばれているはず）
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -363,68 +329,55 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.goto('/watchlist');
       await page.waitForLoadState('networkidle');
 
-      // 既に設定済みのアラートボタンを探す
-      const setAlertButton = page.getByRole('button', { name: /アラート設定済/ }).first();
+      // 作成した Watchlist の行を探す
+      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
 
-      const isVisible = await setAlertButton.isVisible().catch(() => false);
-      if (!isVisible) {
-        // 設定済みアラートがない場合は、新しく設定してテスト
-        const buyAlertButton = page
-          .getByRole('button', { name: /買いアラート/ })
-          .filter({ hasNotText: /設定済/ })
-          .first();
+      // 買いアラートボタンをクリック
+      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
+      await buyAlertButton.click();
 
-        const isBuyVisible = await buyAlertButton.isVisible().catch(() => false);
-        if (!isBuyVisible) {
-          test.skip();
-        }
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
 
-        // アラート設定
-        await buyAlertButton.click();
-        await expect(page.getByRole('dialog')).toBeVisible();
-        await page.getByLabel('目標価格').fill('50');
-        await page.getByRole('button', { name: '保存' }).click();
+      // 目標価格を入力
+      await page.getByLabel('目標価格').fill('50');
+      await page.getByRole('button', { name: '保存' }).click();
 
-        // モーダルが閉じることを確認、またはエラーが表示されることを確認
-        await Promise.race([
-          expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
-          expect(
-            page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
-          ).toBeVisible({ timeout: 5000 }),
-        ]).catch(async () => {
-          // エラーメッセージが表示されている場合はテストをスキップ
-          const errorVisible = await page
-            .getByText(/エラー|失敗|対応していません/)
-            .isVisible()
-            .catch(() => false);
-          if (errorVisible) {
-            test.skip();
-          }
-        });
-
-        // モーダルが閉じたか確認
-        const modalClosed = await page
-          .getByRole('dialog')
+      // モーダルが閉じることを確認、またはエラーが表示されることを確認
+      await Promise.race([
+        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
+        expect(
+          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
+        ).toBeVisible({ timeout: 5000 }),
+      ]).catch(async () => {
+        const errorVisible = await page
+          .getByText(/エラー|失敗|対応していません/)
           .isVisible()
-          .then((visible) => !visible)
           .catch(() => false);
-
-        if (!modalClosed) {
-          // モーダルが閉じていない場合はテストをスキップ
+        if (errorVisible) {
           test.skip();
         }
+      });
 
-        // ページをリロードして状態を確認
-        await page.reload();
-        await page.waitForLoadState('networkidle');
+      // モーダルが閉じたか確認
+      const modalClosed = await page
+        .getByRole('dialog')
+        .isVisible()
+        .then((visible) => !visible)
+        .catch(() => false);
 
-        // ボタンが「アラート設定済」に変化していることを確認
-        await expect(page.getByRole('button', { name: /アラート設定済/ }).first()).toBeVisible();
-      } else {
-        // 既に設定済みボタンが存在する
-        await expect(setAlertButton).toBeVisible();
-        await expect(setAlertButton).toContainText(/アラート設定済/);
+      if (!modalClosed) {
+        test.skip();
       }
+
+      // ページをリロードして状態を確認
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+
+      // ボタンが「アラート設定済」に変化していることを確認
+      const updatedRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
+      await expect(updatedRow.getByRole('button', { name: /アラート設定済/ })).toBeVisible();
     });
   });
 
@@ -483,12 +436,5 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
         console.log('Service Worker is registered');
       }
     });
-  });
-
-  // テスト後のクリーンアップ
-  test.afterEach(async () => {
-    // テストデータのクリーンアップ
-    // Note: 実際の実装では DynamoDB から削除する
-    await cleanupTestData('TEST-EXCHANGE', 'TEST:DUMMY', 'test-user-stock');
   });
 });
