@@ -131,7 +131,10 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(mockAlertRepo.getByFrequency).toHaveBeenCalledWith('MINUTE_LEVEL');
       expect(mockExchangeRepo.getById).toHaveBeenCalledWith('NASDAQ');
-      expect(tradingHoursChecker.isTradingHours).toHaveBeenCalledWith(mockExchange, expect.any(Number));
+      expect(tradingHoursChecker.isTradingHours).toHaveBeenCalledWith(
+        mockExchange,
+        expect.any(Number)
+      );
       expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
       expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
