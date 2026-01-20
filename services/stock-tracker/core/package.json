@@ -23,9 +23,9 @@
     "@aws-sdk/lib-dynamodb": "^3.968.0",
     "@mathieuc/tradingview": "^3.5.2",
     "@nagiyu/common": "*",
-    "bufferutil": "^4.0.9",
+    "bufferutil": "^4.1.0",
     "date-fns-tz": "^3.2.0",
-    "utf-8-validate": "^6.0.5"
+    "utf-8-validate": "^6.0.6"
   },
   "devDependencies": {
     "@types/mathieuc__tradingview": "^3.5.0"
