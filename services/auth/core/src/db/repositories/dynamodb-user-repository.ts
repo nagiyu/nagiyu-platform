@@ -5,8 +5,8 @@ import {
   QueryCommand,
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { dynamoDb, USERS_TABLE_NAME } from '../dynamodb-client';
-import type { User, CreateUserInput, UpdateUserInput } from '../types';
+import { dynamoDb, USERS_TABLE_NAME } from '../dynamodb-client.js';
+import type { User, CreateUserInput, UpdateUserInput } from '../types.js';
 import { randomUUID } from 'node:crypto';
 
 const ERROR_MESSAGES = {

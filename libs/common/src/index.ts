@@ -7,4 +7,4 @@
  */
 
 // Auth module - Authentication and Authorization utilities
-export * from './auth/index';
+export * from './auth/index.js';

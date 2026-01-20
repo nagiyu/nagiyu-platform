@@ -1,4 +1,4 @@
-import type { UserRepository, UserData, UpsertUserInput } from './user-repository';
+import type { UserRepository, UserData, UpsertUserInput } from './user-repository.js';
 
 /**
  * メモリ内でユーザーデータを管理するモック実装

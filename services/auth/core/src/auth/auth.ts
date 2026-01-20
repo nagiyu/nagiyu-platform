@@ -1,6 +1,6 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
-import { DynamoDBUserRepository } from '../db/repositories/dynamodb-user-repository';
+import { DynamoDBUserRepository } from '../db/repositories/dynamodb-user-repository.js';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
