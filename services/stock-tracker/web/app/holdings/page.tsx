@@ -878,7 +878,7 @@ export default function HoldingsPage() {
       </Dialog>
 
       {/* アラート設定モーダル */}
-      {selectedHolding && (
+      {selectedHolding && selectedHolding.tickerId && (
         <AlertSettingsModal
           open={alertModalOpen}
           onClose={handleCloseAlertModal}

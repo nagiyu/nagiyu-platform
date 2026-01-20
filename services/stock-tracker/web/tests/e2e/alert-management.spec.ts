@@ -136,7 +136,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // テスト環境では自動的に許可される
 
       // モーダルが閉じることを確認
-      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
 
       // 成功メッセージが表示される
       await expect(page.getByText(/アラートを設定しました/)).toBeVisible();
@@ -172,7 +172,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
           await targetPriceInput.fill('100');
         }
         await page.getByRole('button', { name: '保存' }).click();
-        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
 
         // ページをリロードして状態を確認
         await page.reload();
@@ -280,7 +280,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('button', { name: '保存' }).click();
 
       // モーダルが閉じることを確認
-      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
 
       // 成功メッセージが表示される
       await expect(page.getByText(/アラートを設定しました/)).toBeVisible();
@@ -312,7 +312,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
         await expect(page.getByRole('dialog')).toBeVisible();
         await page.getByLabel('目標価格').fill('50');
         await page.getByRole('button', { name: '保存' }).click();
-        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
+        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
 
         // ページをリロードして状態を確認
         await page.reload();

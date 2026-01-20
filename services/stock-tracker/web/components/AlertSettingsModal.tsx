@@ -327,7 +327,7 @@ export default function AlertSettingsModal({
             error={!!formErrors.targetPrice}
             helperText={
               formErrors.targetPrice ||
-              (defaultTargetPrice
+              (defaultTargetPrice && defaultTargetPrice > 0
                 ? `推奨値: ${defaultTargetPrice.toFixed(2)} (平均取得価格 × 1.2)`
                 : '')
             }

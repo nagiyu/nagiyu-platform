@@ -498,7 +498,7 @@ export default function WatchlistPage() {
       </Dialog>
 
       {/* アラート設定モーダル */}
-      {selectedWatchlistItem && (
+      {selectedWatchlistItem && selectedWatchlistItem.tickerId && (
         <AlertSettingsModal
           open={alertModalOpen}
           onClose={handleCloseAlertModal}
