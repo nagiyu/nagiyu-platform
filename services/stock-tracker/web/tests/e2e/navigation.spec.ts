@@ -353,7 +353,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.waitForLoadState('networkidle');
 
       // 404ページまたはリダイレクトが表示される
-      const is404 = await page.locator('text=/404|ページが見つかりません/i').isVisible().catch(() => false);
+      const is404 = await page
+        .locator('text=/404|ページが見つかりません/i')
+        .isVisible()
+        .catch(() => false);
       const isRedirected = page.url() === new URL('/', page.url()).href;
 
       // 404ページまたはリダイレクトのいずれかが発生する

@@ -76,9 +76,7 @@ test.describe('エラーハンドリング (E2E-008)', () => {
       }
     });
 
-    test('保有株式登録: 負の平均取得価格でバリデーションエラーが表示される', async ({
-      page,
-    }) => {
+    test('保有株式登録: 負の平均取得価格でバリデーションエラーが表示される', async ({ page }) => {
       await page.goto('/holdings');
       await page.waitForLoadState('networkidle');
 
@@ -269,14 +267,22 @@ test.describe('エラーハンドリング (E2E-008)', () => {
           await Promise.race([
             page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
             page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-            page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
+            page
+              .getByText('チャートデータを読み込み中')
+              .waitFor({ state: 'visible', timeout: 15000 }),
           ]).catch(() => {
             // タイムアウトはエラーではない（APIエラーの可能性）
           });
 
           // チャート、エラーメッセージ、またはローディング表示のいずれかが表示される
-          const chartDisplayed = await page.locator('canvas').isVisible().catch(() => false);
-          const errorDisplayed = await page.locator('[role="alert"]').isVisible().catch(() => false);
+          const chartDisplayed = await page
+            .locator('canvas')
+            .isVisible()
+            .catch(() => false);
+          const errorDisplayed = await page
+            .locator('[role="alert"]')
+            .isVisible()
+            .catch(() => false);
           const loadingDisplayed = await page
             .getByText('チャートデータを読み込み中')
             .isVisible()
@@ -371,7 +377,9 @@ test.describe('エラーハンドリング (E2E-008)', () => {
 
       // エラーメッセージが表示される
       await expect(
-        page.locator('text=/保有数は正の数値である必要があります|保有数が無効です|保有数|選択してください/i')
+        page.locator(
+          'text=/保有数は正の数値である必要があります|保有数が無効です|保有数|選択してください/i'
+        )
       ).toBeVisible({ timeout: 5000 });
 
       // 正しいデータに修正できる
@@ -417,7 +425,9 @@ test.describe('エラーハンドリング (E2E-008)', () => {
       await page.getByRole('button', { name: '保存' }).click();
 
       // エラー表示要素を探す
-      const errorElements = page.locator('[role="alert"], .error, .Mui-error, .MuiFormHelperText-root.Mui-error');
+      const errorElements = page.locator(
+        '[role="alert"], .error, .Mui-error, .MuiFormHelperText-root.Mui-error'
+      );
       const errorCount = await errorElements.count();
 
       if (errorCount > 0) {
