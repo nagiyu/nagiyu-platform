@@ -17,6 +17,7 @@ const config: Config = {
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   // Exclude E2E tests from Jest (they use Playwright)
   testPathIgnorePatterns: ['/node_modules/', '/tests/e2e/'],
