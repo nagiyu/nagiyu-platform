@@ -157,7 +157,8 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
             console.log('Modal still visible. Content:', dialogContent);
 
             // フォームバリデーションエラーが表示されているか確認
-            const hasValidationError = dialogContent?.includes('必須') || dialogContent?.includes('エラー');
+            const hasValidationError =
+              dialogContent?.includes('必須') || dialogContent?.includes('エラー');
 
             if (hasValidationError) {
               console.log('Validation error detected, closing modal');
