@@ -70,7 +70,7 @@ export default function ServiceWorkerRegistration() {
             // Push 通知をサブスクライブ
             subscription = await registration.pushManager.subscribe({
               userVisibleOnly: true,
-              applicationServerKey: urlBase64ToUint8Array(publicKey),
+              applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
             });
 
             console.log('Push subscription created');
