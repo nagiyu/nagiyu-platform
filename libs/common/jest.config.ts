@@ -9,6 +9,7 @@ const config: Config.InitialOptions = {
   // Exclude monorepo root from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
   // Support .js extensions in imports (ES modules)
+  // Remove .js extension for ts-jest compatibility
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
