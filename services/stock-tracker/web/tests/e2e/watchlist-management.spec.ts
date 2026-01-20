@@ -124,7 +124,8 @@ test.describe('Watchlist 管理画面', () => {
             const symbol = tickerText.split(' - ')[0]?.trim();
             if (symbol) {
               // テーブルにシンボルが表示されることを確認（登録成功の証拠）
-              await expect(page.getByRole('cell', { name: symbol })).toBeVisible();
+              // 複数の要素にマッチする可能性があるため、.first()を使用
+              await expect(page.getByRole('cell', { name: symbol }).first()).toBeVisible();
             }
           }
 
