@@ -39,8 +39,8 @@ interface Ticker {
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  FETCH_EXCHANGES_ERROR: '取引所一覧の取得に失敗しました',
-  FETCH_TICKERS_ERROR: 'ティッカー一覧の取得に失敗しました',
+  FETCH_EXCHANGES_ERROR: '取引所一覧の取得に失敗しました。ネットワーク接続を確認してください。',
+  FETCH_TICKERS_ERROR: 'ティッカー一覧の取得に失敗しました。ネットワーク接続を確認してください。',
 } as const;
 
 export default function Home() {
