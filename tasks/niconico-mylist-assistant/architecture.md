@@ -93,6 +93,7 @@ graph TB
 | ログ管理           | CloudWatch Logs      | アプリケーションログ             |
 | CDN                | Amazon CloudFront    | コンテンツ配信                   |
 | IaC                | AWS CDK (TypeScript) | インフラ定義                     |
+| Push 通知          | web-push             | バッチ完了通知（VAPID 認証）     |
 
 ### 2.4 開発ツール
 
@@ -142,11 +143,11 @@ sequenceDiagram
             Note over API: failed++
         else DB保存失敗
             DDB-->>API: Error
-            Note over API: dbErrors++
+            Note over API: failed++
         end
     end
 
-    API-->>Web: 結果返却<br/>{success, failed, skipped, dbErrors}
+    API-->>Web: 結果返却<br/>{success, failed, skipped}
     Web-->>User: 結果表示
 ```
 
@@ -154,7 +155,7 @@ sequenceDiagram
 - **順次処理**: 各動画IDをforループで1つずつ処理（並列処理なし）
 - **エラー継続**: ニコニコAPI失敗やDB保存失敗が発生しても処理を継続
 - **重複チェック**: DynamoDBのConditionalPut（`attribute_not_exists`）で重複を検出
-- **結果集計**: 成功数、失敗数、スキップ数、DBエラー数を集計して返却
+- **結果集計**: 成功数、失敗数、スキップ数を集計して返却
 
 #### 3.1.2 マイリスト登録フロー
 
@@ -438,7 +439,6 @@ interface BulkImportResponse {
     success: number;
     failed: number;
     skipped: number;
-    dbErrors: number;
     total: number;
 }
 ```
@@ -900,7 +900,7 @@ CloudFront 共通設定（`CloudFrontStackBase`）を継承し、以下のセキ
 
 | 項目 | 保持期間 | 備考 |
 |------|----------|------|
-| CloudWatch Logs | 30 日 | Lambda・Batch のアプリケーションログ |
+| CloudWatch Logs | 7 日 | Lambda・Batch のアプリケーションログ |
 | ジョブステータス（DynamoDB） | 7 日（TTL） | 古いジョブ情報は自動削除 |
 | 動画基本情報・ユーザー設定 | 無期限 | ユーザーが明示的に削除するまで保持 |
 
@@ -913,7 +913,7 @@ CloudFront 共通設定（`CloudFrontStackBase`）を継承し、以下のセキ
 | DynamoDB キャパシティ | オンデマンド | 低トラフィック時のコスト最小化 |
 | AWS Batch vCPU/メモリ | 最小構成（0.25 vCPU / 512 MB から開始） | 必要に応じて調整 |
 | DynamoDB PITR | 無効（初期） | 本番運用安定後に有効化を検討 |
-| CloudWatch Logs 保持 | 30 日 | 過剰なログ蓄積を防止 |
+| CloudWatch Logs 保持 | 7 日 | 過剰なログ蓄積を防止 |
 
 **注記**: Fargate Spot の使用も検討可能ですが、ジョブの中断リスクがあるため、初期段階では通常の Fargate を使用します。
 

@@ -12,10 +12,10 @@
 
 ### 1.1 ベース URL
 
-| 環境 | URL                                      |
-| ---- | ---------------------------------------- |
-| 開発 | `https://dev-niconico-mylist.nagiyu.com` |
-| 本番 | `https://niconico-mylist.nagiyu.com`     |
+| 環境 | URL                                                |
+| ---- | -------------------------------------------------- |
+| 開発 | `https://dev-niconico-mylist-assistant.nagiyu.com` |
+| 本番 | `https://niconico-mylist-assistant.nagiyu.com`     |
 
 ### 1.2 認証方式
 
@@ -331,7 +331,7 @@ curl https://niconico-mylist.nagiyu.com/api/videos?limit=10&isFavorite=true \
             "title": "サンプル動画タイトル",
             "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
             "length": "5:30",
-            "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+            "createdAt": "2026-01-16T10:30:00.000Z",
             "userSetting": {
                 "isFavorite": true,
                 "isSkip": false,
@@ -356,7 +356,7 @@ curl https://niconico-mylist.nagiyu.com/api/videos?limit=10&isFavorite=true \
 | videos[].title              | string  | 動画タイトル                        |
 | videos[].thumbnailUrl       | string  | サムネイル画像 URL                  |
 | videos[].length             | string  | 再生時間（例: `5:30`）              |
-| videos[].videoCreatedAt     | string  | 動画基本情報の登録日時（ISO 8601）  |
+| videos[].createdAt     | string  | 動画基本情報の登録日時（ISO 8601）  |
 | videos[].userSetting        | object  | ユーザー設定（存在する場合のみ）    |
 | videos[].userSetting.isFavorite | boolean | お気に入りフラグ            |
 | videos[].userSetting.isSkip | boolean | スキップフラグ                      |
@@ -438,7 +438,7 @@ curl https://niconico-mylist.nagiyu.com/api/videos/sm12345678 \
     "title": "サンプル動画タイトル",
     "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
     "length": "5:30",
-    "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+    "createdAt": "2026-01-16T10:30:00.000Z",
     "userSetting": {
         "isFavorite": true,
         "isSkip": false,
@@ -457,7 +457,7 @@ curl https://niconico-mylist.nagiyu.com/api/videos/sm12345678 \
 | title                     | string  | 動画タイトル                        |
 | thumbnailUrl              | string  | サムネイル画像 URL                  |
 | length                    | string  | 再生時間（例: `5:30`）              |
-| videoCreatedAt            | string  | 動画基本情報の登録日時（ISO 8601）  |
+| createdAt            | string  | 動画基本情報の登録日時（ISO 8601）  |
 | userSetting               | object  | ユーザー設定（存在する場合のみ）    |
 | userSetting.isFavorite    | boolean | お気に入りフラグ                    |
 | userSetting.isSkip        | boolean | スキップフラグ                      |
@@ -570,7 +570,7 @@ curl -X POST https://niconico-mylist.nagiyu.com/api/videos/basic \
     "title": "サンプル動画タイトル",
     "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
     "length": "5:30",
-    "videoCreatedAt": "2026-01-16T10:30:00.000Z"
+    "createdAt": "2026-01-16T10:30:00.000Z"
 }
 ```
 
@@ -684,7 +684,7 @@ curl -X PUT https://niconico-mylist.nagiyu.com/api/videos/sm12345678/basic \
     "title": "更新後の動画タイトル",
     "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
     "length": "5:30",
-    "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+    "createdAt": "2026-01-16T10:30:00.000Z",
     "videoUpdatedAt": "2026-01-16T15:00:00.000Z"
 }
 ```
@@ -1547,7 +1547,7 @@ interface Video {
     title: string;             // 動画タイトル
     thumbnailUrl: string;      // サムネイル画像URL
     length: string;            // 再生時間（例: "5:30"）
-    videoCreatedAt: string;    // 動画基本情報の登録日時（ISO 8601形式）
+    createdAt: string;    // 動画基本情報の登録日時（ISO 8601形式）
     videoUpdatedAt?: string;   // 動画基本情報の更新日時（ISO 8601形式、更新時のみ）
 }
 ```
@@ -1560,7 +1560,7 @@ interface Video {
     "title": "サンプル動画タイトル",
     "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
     "length": "5:30",
-    "videoCreatedAt": "2026-01-16T10:30:00.000Z"
+    "createdAt": "2026-01-16T10:30:00.000Z"
 }
 ```
 
@@ -1622,7 +1622,7 @@ interface VideoData {
     title: string;             // 動画タイトル
     thumbnailUrl: string;      // サムネイル画像URL
     length: string;            // 再生時間（例: "5:30"）
-    videoCreatedAt: string;    // 動画基本情報の登録日時（ISO 8601形式）
+    createdAt: string;    // 動画基本情報の登録日時（ISO 8601形式）
     userSetting?: UserSetting; // ユーザー設定（存在する場合のみ）
 }
 ```
@@ -1635,7 +1635,7 @@ interface VideoData {
     "title": "サンプル動画タイトル",
     "thumbnailUrl": "https://nicovideo.cdn.nimg.jp/thumbnails/12345678/12345678.12345678",
     "length": "5:30",
-    "videoCreatedAt": "2026-01-16T10:30:00.000Z",
+    "createdAt": "2026-01-16T10:30:00.000Z",
     "userSetting": {
         "videoId": "sm12345678",
         "isFavorite": true,
@@ -2346,7 +2346,7 @@ function decryptPassword(
 
 | パラメータ                   | 検証内容                                                   |
 | ---------------------------- | ---------------------------------------------------------- |
-| `videoIds` (配列)            | 配列長チェック（最大 100 件）                               |
+| `videoIds` (配列)            | 配列長チェック（最大 100 件）※動画 ID 形式のバリデーションは行わない |
 | `limit` (ページネーション)    | 範囲チェック（1〜100）                                       |
 | `offset` (ページネーション)   | 非負整数チェック                                             |
 | `isFavorite`, `isSkip`       | boolean 型チェック                                           |
@@ -2425,7 +2425,7 @@ export function validateVideoIds(videoIds: string[]): void {
 **CloudWatch Logs**:
 - API のリクエスト・レスポンスをログに記録
 - エラー発生時のスタックトレースを記録
-- ログ保持期間: 30 日
+- ログ保持期間: 7 日
 
 **モニタリング**:
 - CloudWatch メトリクスで API のエラー率を監視
