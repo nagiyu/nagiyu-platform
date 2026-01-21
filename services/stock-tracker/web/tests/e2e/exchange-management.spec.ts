@@ -89,8 +89,11 @@ test.describe('取引所管理画面 (E2E-006)', () => {
 
   test.describe('取引所作成', () => {
     test('取引所を新規作成できる', async ({ page }) => {
-      // テスト用のユニークなID生成
-      const testId = `E2E${Date.now() % 100000}`;
+      // テスト用のユニークなデータを生成（TestDataFactoryのパターンに合わせる）
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 6);
+      const testId = `E2E-${timestamp}-${random}-EX`;
+      const testKey = `E2E${random}`.substring(0, 10).toUpperCase();
 
       // 新規登録ボタンをクリック
       await page.locator('button:has-text("新規登録")').click();
@@ -101,7 +104,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       // 基本情報を入力
       await page.locator('input[placeholder="NASDAQ"]').fill(testId);
       await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange');
-      await page.locator('input[placeholder="NSDQ"]').fill('TEST');
+      await page.locator('input[placeholder="NSDQ"]').fill(testKey);
 
       // タイムゾーンを選択 - フォームコントロールを特定して操作
       // タイムゾーンのSelect（最初のSelect）
@@ -140,9 +143,10 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       const createdRow = page.locator(`tr:has-text("${testId}")`);
       await expect(createdRow.locator('td:has-text("Test Exchange")')).toBeVisible();
 
-      // クリーンアップ: 作成した取引所を削除（UIで作成したため手動削除が必要）
-      await page.locator(`tr:has-text("${testId}") button:has-text("削除")`).click();
-      await page.locator('button:has-text("削除")').last().click();
+      // UI経由で作成した Exchange を factory に追跡させる（クリーンアップのため）
+      // Note: factory の内部状態を直接操作することはできないため、
+      // API経由で削除する
+      await page.request.delete(`/api/exchanges/${encodeURIComponent(testId)}`);
       await page.waitForTimeout(1000);
     });
   });

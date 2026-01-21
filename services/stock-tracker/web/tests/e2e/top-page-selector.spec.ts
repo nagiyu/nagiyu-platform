@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { TestDataFactory } from './utils/test-data-factory';
 
 /**
  * E2E-001 の一部: 取引所・ティッカーセレクタのテスト
@@ -11,11 +12,24 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('取引所・ティッカーセレクタ機能', () => {
-  test.beforeEach(async ({ page }) => {
+  let factory: TestDataFactory;
+
+  test.beforeEach(async ({ page, request }) => {
+    // TestDataFactory を初期化
+    factory = new TestDataFactory(request);
+
+    // テスト用データを作成
+    await factory.createTicker(); // Exchange と Ticker を自動作成
+
     await page.goto('/');
 
-    // 3秒待つ (TODO: 今後修正したい)
+    // データが反映されるまで待つ
     await page.waitForTimeout(3000);
+  });
+
+  test.afterEach(async () => {
+    // TestDataFactory でクリーンアップ
+    await factory.cleanup();
   });
 
   test('取引所一覧が正しく表示される', async ({ page }) => {
@@ -23,8 +37,13 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
     const exchangeSelect = page.locator('#exchange-select');
     await expect(exchangeSelect).toBeVisible();
 
-    // Note: API呼び出しが成功するかはDynamoDBのデータ状況に依存
-    // Phase 1では最小限の検証に留める（セレクトボックスの表示のみ確認）
+    // 取引所を選択して、作成したテストデータが存在することを確認
+    await exchangeSelect.click();
+    const options = page.locator('[role="listbox"] [role="option"]');
+    const optionCount = await options.count();
+
+    // 「選択してください」+ 作成した取引所が存在
+    expect(optionCount).toBeGreaterThanOrEqual(2);
   });
 
   test('取引所選択時にティッカーが自動更新される', async ({ page }) => {
@@ -36,95 +55,101 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
     const exchangeSelect = page.getByLabel('取引所選択');
     await exchangeSelect.click();
 
-    // APIレスポンスを待つ（取引所データがある場合）
+    // 作成したテスト用取引所を選択
     const options = page.locator('[role="listbox"] [role="option"]');
     const optionCount = await options.count();
 
-    if (optionCount > 1) {
-      // 「選択してください」以外のオプションがある場合
-      // 2番目のオプション（最初の実際の取引所）を選択
-      await options.nth(1).click();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(optionCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-      // ティッカーセレクトが有効になるまで待つ
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    // 2番目のオプション（最初の実際の取引所）を選択
+    await options.nth(1).click();
 
-      // ティッカー一覧が更新されることを確認
-      // ローディングインジケーターが表示される可能性がある
-      // ローディングが完了するまで待機
-      await page.waitForLoadState('networkidle');
+    // ティッカーセレクトが有効になるまで待つ
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
 
-      // ティッカーセレクトボックスをクリック
-      await tickerSelect.click();
+    // ティッカー一覧が更新されることを確認
+    // ローディングインジケーターが表示される可能性がある
+    // ローディングが完了するまで待機
+    await page.waitForLoadState('networkidle');
 
-      // ティッカーオプションが表示される
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+    // ティッカーセレクトボックスをクリック
+    await tickerSelect.click();
 
-      // 「選択してください」オプションは最低限表示される
-      expect(tickerCount).toBeGreaterThanOrEqual(1);
-    }
+    // ティッカーオプションが表示される
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
+
+    // 「選択してください」+ 作成したティッカーが存在
+    expect(tickerCount).toBeGreaterThanOrEqual(2);
   });
 
   test('取引所変更時にティッカーがリセットされる', async ({ page }) => {
     const exchangeSelect = page.getByLabel('取引所選択');
     const tickerSelect = page.getByLabel('ティッカー選択');
 
+    // 2つ目のテスト用 Exchange と Ticker を作成
+    await factory.createTicker();
+
+    // データが反映されるまで待つ
+    await page.waitForTimeout(2000);
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
     // 取引所を選択
     await exchangeSelect.click();
     const options = page.locator('[role="listbox"] [role="option"]');
     const optionCount = await options.count();
 
-    if (optionCount > 1) {
-      // 最初の取引所を選択
-      await options.nth(1).click();
+    // テストデータが2つ作成されているので、必ず2つ以上の取引所が存在
+    expect(optionCount).toBeGreaterThanOrEqual(3); // 「選択してください」+ 2つのテスト取引所
 
-      // ティッカーが有効になるのを待つ
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-      await page.waitForLoadState('networkidle');
+    // 最初の取引所を選択
+    await options.nth(1).click();
 
-      // ティッカーを選択
-      await tickerSelect.click();
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+    // ティッカーが有効になるのを待つ
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await page.waitForLoadState('networkidle');
 
-      if (tickerCount > 1) {
-        // 最初のティッカーを選択
-        const firstTickerText = await tickerOptions.nth(1).textContent();
-        await tickerOptions.nth(1).click();
+    // ティッカーを選択
+    await tickerSelect.click();
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
 
-        // リストボックスが閉じるまで待つ
-        await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // 最初のティッカーを選択
+    expect(tickerCount).toBeGreaterThanOrEqual(2);
+    const firstTickerText = await tickerOptions.nth(1).textContent();
+    await tickerOptions.nth(1).click();
 
-        // ティッカーが選択されたことを確認（セレクトボックスに表示されているテキストで確認）
-        await expect(tickerSelect).toContainText(firstTickerText || '');
+    // リストボックスが閉じるまで待つ
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-        // 別の取引所に変更（optionCount > 2の場合のみ）
-        if (optionCount > 2) {
-          await exchangeSelect.click();
-          await options.nth(2).click(); // 3番目のオプション（2番目の取引所）
+    // ティッカーが選択されたことを確認（セレクトボックスに表示されているテキストで確認）
+    await expect(tickerSelect).toContainText(firstTickerText || '');
 
-          // リストボックスが閉じるまで待つ
-          await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // 別の取引所に変更
+    await exchangeSelect.click();
+    await options.nth(2).click(); // 3番目のオプション（2番目の取引所）
 
-          // ネットワークが落ち着くまで待つ（新しい取引所のティッカーを取得中）
-          await page.waitForLoadState('networkidle');
+    // リストボックスが閉じるまで待つ
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-          // ティッカーは有効のまま（新しい取引所のティッカーが読み込まれるため）
-          await expect(tickerSelect).toBeEnabled();
+    // ネットワークが落ち着くまで待つ（新しい取引所のティッカーを取得中）
+    await page.waitForLoadState('networkidle');
 
-          // ティッカー選択値がリセットされていることを確認
-          // 取引所変更後、ティッカーセレクトはクリックして新しいティッカーを選択できる状態
-          // （空の状態から選択可能）
-          await tickerSelect.click();
-          const newTickerOptions = page.locator('[role="listbox"] [role="option"]');
-          const newTickerCount = await newTickerOptions.count();
-          // "選択してください"オプションを含むオプションが存在することを確認
-          expect(newTickerCount).toBeGreaterThanOrEqual(1);
-          // リストボックスを閉じる
-          await page.keyboard.press('Escape');
-        }
-      }
-    }
+    // ティッカーは有効のまま（新しい取引所のティッカーが読み込まれるため）
+    await expect(tickerSelect).toBeEnabled();
+
+    // ティッカー選択値がリセットされていることを確認
+    // 取引所変更後、ティッカーセレクトはクリックして新しいティッカーを選択できる状態
+    // （空の状態から選択可能）
+    await tickerSelect.click();
+    const newTickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const newTickerCount = await newTickerOptions.count();
+    // "選択してください"オプションを含むオプションが存在することを確認
+    expect(newTickerCount).toBeGreaterThanOrEqual(2);
+    // リストボックスを閉じる
+    await page.keyboard.press('Escape');
   });
 
   test('ローディング状態が表示される', async ({ page }) => {
@@ -138,17 +163,17 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
     const options = page.locator('[role="listbox"] [role="option"]');
     const optionCount = await options.count();
 
-    if (optionCount > 1) {
-      await options.nth(1).click();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(optionCount).toBeGreaterThanOrEqual(2);
+    await options.nth(1).click();
 
-      // ティッカーローディングインジケーターが表示される可能性がある
-      // Note: 高速なレスポンスの場合は表示されないため、必須検証ではない
-      // ネットワークが遅い環境ではローディングが確認できる
+    // ティッカーローディングインジケーターが表示される可能性がある
+    // Note: 高速なレスポンスの場合は表示されないため、必須検証ではない
+    // ネットワークが遅い環境ではローディングが確認できる
 
-      // 最終的にティッカーセレクトが有効になることを確認
-      const tickerSelect = page.getByLabel('ティッカー選択');
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    }
+    // 最終的にティッカーセレクトが有効になることを確認
+    const tickerSelect = page.getByLabel('ティッカー選択');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
   });
 
   test('エラー時にエラーメッセージが表示される', async ({ page }) => {
@@ -171,6 +196,22 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
 });
 
 test.describe('取引所・ティッカーセレクタのアクセシビリティ', () => {
+  let factory: TestDataFactory;
+
+  test.beforeEach(async ({ page, request }) => {
+    // TestDataFactory を初期化
+    factory = new TestDataFactory(request);
+
+    // テスト用データを作成
+    await factory.createTicker(); // Exchange と Ticker を自動作成
+
+    await page.goto('/');
+  });
+
+  test.afterEach(async () => {
+    // TestDataFactory でクリーンアップ
+    await factory.cleanup();
+  });
   test('キーボードナビゲーションが機能する', async ({ page }) => {
     await page.goto('/');
 
