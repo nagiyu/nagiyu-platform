@@ -5,7 +5,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import { theme, Header, Footer } from '@nagiyu/ui';
+import { theme, Header, Footer, NavigationItem } from '@nagiyu/ui';
 import { SnackbarProvider } from './SnackbarProvider';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -15,6 +15,35 @@ interface ThemeRegistryProps {
 }
 
 export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
+  // ナビゲーションメニュー項目の定義
+  const navigationItems: NavigationItem[] = [
+    { label: 'チャート', href: '/' },
+    { label: '保有株式', href: '/holdings' },
+    { label: 'ウォッチリスト', href: '/watchlist' },
+    { label: 'アラート', href: '/alerts' },
+    // TODO: 権限管理の実装後、条件付きでメニューを表示
+    // ...(hasPermission(session, 'stocks:manage-data') ? [
+    //   {
+    //     label: '管理',
+    //     href: '#',
+    //     children: [
+    //       { label: '取引所', href: '/exchanges' },
+    //       { label: 'ティッカー', href: '/tickers' },
+    //     ],
+    //   },
+    // ] : []),
+  ];
+
+  // TODO: NextAuth の session からユーザー情報を取得
+  // const { data: session } = useSession();
+  // const user = session?.user ? {
+  //   name: session.user.name || '',
+  //   email: session.user.email || '',
+  // } : undefined;
+
+  // TODO: NextAuth の signOut を使ってログアウト
+  // const handleLogout = () => signOut();
+
   return (
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>
@@ -22,7 +51,12 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
         <ErrorBoundary>
           <SnackbarProvider>
             <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-              <Header title="Stock Tracker" />
+              <Header
+                title="Stock Tracker"
+                navigationItems={navigationItems}
+                // user={user}
+                // onLogout={handleLogout}
+              />
               <Box component="main" sx={{ flexGrow: 1 }}>
                 {children}
               </Box>
