@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedWatchlist } from './utils/test-data-factory';
+import { TestDataFactory, CreatedWatchlist, CreatedTicker } from './utils/test-data-factory';
 
 /**
  * E2E-004: Watchlist 管理フロー
@@ -13,7 +13,7 @@ import { TestDataFactory, CreatedWatchlist } from './utils/test-data-factory';
 
 test.describe('Watchlist 管理画面', () => {
   let factory: TestDataFactory;
-  let testTicker: any; // CreatedTicker を保存
+  let testTicker: CreatedTicker;
 
   test.beforeEach(async ({ page, request }) => {
     // TestDataFactory を初期化

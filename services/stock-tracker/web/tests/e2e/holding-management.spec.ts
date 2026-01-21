@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedHolding } from './utils/test-data-factory';
+import { TestDataFactory, CreatedTicker, CreatedHolding } from './utils/test-data-factory';
 
 /**
  * E2E-003: Holding 管理フロー
@@ -14,7 +14,7 @@ import { TestDataFactory, CreatedHolding } from './utils/test-data-factory';
 
 test.describe('Holding 管理フロー (E2E-003)', () => {
   let factory: TestDataFactory;
-  let testTicker: any; // CreatedTicker を保存
+  let testTicker: CreatedTicker;
 
   test.beforeEach(async ({ page, request }) => {
     // TestDataFactory を初期化
