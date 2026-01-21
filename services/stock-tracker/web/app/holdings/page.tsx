@@ -143,6 +143,7 @@ export default function HoldingsPage() {
   useEffect(() => {
     fetchHoldings();
     fetchAlerts();
+    fetchExchanges();
   }, []);
 
   // 取引所一覧を取得
@@ -600,12 +601,20 @@ export default function HoldingsPage() {
                   // アラート設定済みかどうかの判定
                   const hasAlert = alerts[holding.tickerId] || false;
 
+                  // 取引所IDから取引所名を取得
+                  const exchangeId = holding.tickerId.split(':')[0] || '';
+                  const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
+                  const exchangeName = exchange?.name || exchangeId;
+
                   return (
                     <TableRow key={holding.holdingId} hover>
-                      <TableCell>{holding.tickerId.split(':')[0] || '-'}</TableCell>
+                      <TableCell>{exchangeName}</TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">
                           {holding.symbol}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {holding.name}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">{holding.quantity.toLocaleString()}</TableCell>
@@ -797,7 +806,15 @@ export default function HoldingsPage() {
             <TextField
               fullWidth
               label="取引所"
-              value={selectedHolding?.tickerId.split(':')[0] || ''}
+              value={
+                selectedHolding
+                  ? (() => {
+                      const exchangeId = selectedHolding.tickerId.split(':')[0] || '';
+                      const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
+                      return exchange?.name || exchangeId;
+                    })()
+                  : ''
+              }
               disabled
               InputProps={{ readOnly: true }}
             />

@@ -48,8 +48,8 @@ test.describe('Watchlist 管理画面', () => {
     await expect(table).toBeVisible();
 
     // テーブルヘッダーが正しく表示される
+    await expect(page.getByRole('columnheader', { name: '取引所' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: 'ティッカー' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: 'シンボル' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '登録日時' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '買いアラート' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '操作' })).toBeVisible();

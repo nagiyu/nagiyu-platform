@@ -64,6 +64,12 @@ interface AlertResponse {
   updatedAt: string;
 }
 
+interface Exchange {
+  exchangeId: string;
+  name: string;
+  key: string;
+}
+
 // フォームデータ型
 interface AlertFormData {
   conditionValue: string;
@@ -101,6 +107,7 @@ function AlertsPageContent() {
 
   // データ状態
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
+  const [exchanges, setExchanges] = useState<Exchange[]>([]);
 
   // ローディング状態
   const [loading, setLoading] = useState<boolean>(true);
@@ -126,6 +133,7 @@ function AlertsPageContent() {
   // アラート一覧を取得
   useEffect(() => {
     fetchAlerts();
+    fetchExchanges();
   }, []);
 
   // クエリパラメータによる自動モーダル表示
@@ -160,6 +168,24 @@ function AlertsPageContent() {
       setError(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 取引所一覧を取得
+  const fetchExchanges = async () => {
+    try {
+      const response = await fetch('/api/exchanges');
+      if (!response.ok) {
+        // 取引所の取得に失敗してもアラート一覧は表示できるようにする
+        console.error('Failed to fetch exchanges');
+        return;
+      }
+
+      const data = await response.json();
+      setExchanges(data.exchanges || []);
+    } catch (err) {
+      console.error('Error fetching exchanges:', err);
+      // エラーが発生してもアラート一覧は表示できるようにする
     }
   };
 
@@ -376,6 +402,11 @@ function AlertsPageContent() {
                     ? `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`
                     : '-';
 
+                  // 取引所IDから取引所名を取得
+                  const exchangeId = alert.tickerId.split(':')[0] || '';
+                  const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
+                  const exchangeName = exchange?.name || exchangeId;
+
                   return (
                     <TableRow key={alert.alertId} hover>
                       <TableCell>
@@ -385,7 +416,7 @@ function AlertsPageContent() {
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>{alert.tickerId.split(':')[0] || '-'}</TableCell>
+                      <TableCell>{exchangeName}</TableCell>
                       <TableCell>
                         <Typography variant="body2" fontWeight="bold">
                           {alert.symbol}
