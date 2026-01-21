@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { EcrStackBase, EcrStackBaseProps, getEcrRepositoryName } from '@nagiyu/infra-common';
+import { EcrStackBase, EcrStackBaseProps } from '@nagiyu/infra-common';
 
 export interface WebECRStackProps extends cdk.StackProps {
   environment: string;
@@ -17,9 +17,6 @@ export class WebECRStack extends EcrStackBase {
       ...stackProps,
       serviceName: 'niconico-mylist-assistant-web',
       environment: environment as 'dev' | 'prod',
-      ecrConfig: {
-        repositoryName: getEcrRepositoryName('niconico-mylist-assistant-web', environment as 'dev' | 'prod'),
-      },
     };
 
     super(scope, id, baseProps);
@@ -42,9 +39,6 @@ export class BatchECRStack extends EcrStackBase {
       ...stackProps,
       serviceName: 'niconico-mylist-assistant-batch',
       environment: environment as 'dev' | 'prod',
-      ecrConfig: {
-        repositoryName: getEcrRepositoryName('niconico-mylist-assistant-batch', environment as 'dev' | 'prod'),
-      },
     };
 
     super(scope, id, baseProps);

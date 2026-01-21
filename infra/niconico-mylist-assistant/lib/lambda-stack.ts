@@ -1,8 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps, getDynamoDBTableName, getEcrRepositoryName, getLambdaFunctionName } from '@nagiyu/infra-common';
+import { LambdaStackBase, LambdaStackBaseProps, getDynamoDBTableName } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -46,23 +45,14 @@ export class LambdaStack extends LambdaStackBase {
       ...stackProps,
       serviceName: 'niconico-mylist-assistant-web',
       environment: env,
-      ecrRepositoryName: getEcrRepositoryName('niconico-mylist-assistant-web', env),
       lambdaConfig: {
-        functionName: getLambdaFunctionName('niconico-mylist-assistant-web', env),
         memorySize: 1024,
-        timeout: 30,
         environment: {
           NODE_ENV: 'production',
           DYNAMODB_TABLE_NAME: tableName,
         },
       },
       additionalPolicyStatements,
-      enableFunctionUrl: true,
-      functionUrlCorsConfig: {
-        allowedOrigins: ['*'],
-        allowedMethods: [lambda.HttpMethod.ALL],
-        allowedHeaders: ['*'],
-      },
     };
 
     super(scope, id, baseProps);

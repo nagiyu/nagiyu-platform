@@ -21,14 +21,12 @@ export class CloudFrontStack extends CloudFrontStackBase {
       serviceName: 'niconico-mylist-assistant',
       environment: environment as 'dev' | 'prod',
       functionUrl,
-      cloudfrontConfig: {
-        // セキュリティヘッダーを有効化
-        enableSecurityHeaders: true,
-        // dev 環境ではコスト削減のため PRICE_CLASS_100 を使用
-        priceClass: environment === 'prod' ? 'PriceClass_All' : 'PriceClass_100',
-        // HTTP/3 を有効化
-        enableHttp3: true,
-      },
+      cloudfrontConfig:
+        environment === 'prod'
+          ? {
+              priceClass: 'PriceClass_All',
+            }
+          : undefined,
     };
 
     super(scope, id, baseProps);
