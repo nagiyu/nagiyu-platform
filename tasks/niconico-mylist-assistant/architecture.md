@@ -225,11 +225,10 @@ sequenceDiagram
 
 ```
 services/niconico-mylist-assistant/
-├── packages/
-│   ├── core/          # @nagiyu/niconico-mylist-assistant-core
-│   ├── web/           # @nagiyu/niconico-mylist-assistant-web
-│   └── batch/         # @nagiyu/niconico-mylist-assistant-batch
-└── package.json       # ワークスペースルート
+├── core/              # @nagiyu/niconico-mylist-assistant-core
+├── web/               # @nagiyu/niconico-mylist-assistant-web
+├── batch/             # @nagiyu/niconico-mylist-assistant-batch
+└── package.json       # ワークスペースルート（将来的に追加）
 ```
 
 #### 3.2.2 各パッケージの責務

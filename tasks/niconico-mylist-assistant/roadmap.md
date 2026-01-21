@@ -34,21 +34,21 @@ Phase 4: 品質向上・本番準備
 
 #### 0-1a. core パッケージ初期化
 
-- `services/niconico-mylist-assistant/packages/core/` を作成
+- `services/niconico-mylist-assistant/core/` を作成
 - package.json, tsconfig.json 設定
 - 型定義ファイルのスケルトン作成（`src/types/index.ts`）
 - 空の index.ts エクスポート
 
 #### 0-1b. web パッケージ初期化
 
-- `services/niconico-mylist-assistant/packages/web/` を作成
+- `services/niconico-mylist-assistant/web/` を作成
 - Next.js 16 プロジェクト初期化
 - Material-UI 7 設定
 - 既存サービス（tools など）の設定を参考に統一
 
 #### 0-1c. batch パッケージ初期化
 
-- `services/niconico-mylist-assistant/packages/batch/` を作成
+- `services/niconico-mylist-assistant/batch/` を作成
 - package.json, tsconfig.json 設定
 - Playwright 依存追加
 - Dockerfile スケルトン作成

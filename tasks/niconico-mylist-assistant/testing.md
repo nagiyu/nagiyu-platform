@@ -72,10 +72,10 @@
 
 以下は Jest のカバレッジ対象外とします（E2E テストまたは統合テストでカバー）:
 
-- `packages/web/app/**/page.tsx` - Next.js App Router の page コンポーネント
-- `packages/web/app/**/layout.tsx` - レイアウトコンポーネント
-- `packages/web/app/api/**` - API Routes（E2E でカバー）
-- `packages/batch/**` - バッチ処理（統合テストでカバー）
+- `web/app/**/page.tsx` - Next.js App Router の page コンポーネント
+- `web/app/**/layout.tsx` - レイアウトコンポーネント
+- `web/app/api/**` - API Routes（E2E でカバー）
+- `batch/**` - バッチ処理（統合テストでカバー）
 
 ### 3.3 カバレッジ計測方法
 
@@ -128,7 +128,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 - 動画基本情報が DynamoDB に保存される
 - 結果サマリーが正しく表示される
 
-**テストファイル**: `packages/web/tests/e2e/bulk-import.spec.ts`
+**テストファイル**: `web/tests/e2e/bulk-import.spec.ts`
 
 **実行環境要件**:
 
@@ -159,7 +159,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 - 動画一覧が正しく表示される
 - フィルタリングが正しく動作する
 
-**テストファイル**: `packages/web/tests/e2e/video-list.spec.ts`
+**テストファイル**: `web/tests/e2e/video-list.spec.ts`
 
 ---
 
@@ -184,7 +184,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 - 各設定が即座に DynamoDB に保存される
 - UI が更新される
 
-**テストファイル**: `packages/web/tests/e2e/user-settings.spec.ts`
+**テストファイル**: `web/tests/e2e/user-settings.spec.ts`
 
 ---
 
@@ -210,7 +210,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 - 確認ダイアログが表示される
 - 削除後、一覧が更新される
 
-**テストファイル**: `packages/web/tests/e2e/video-delete.spec.ts`
+**テストファイル**: `web/tests/e2e/video-delete.spec.ts`
 
 ---
 
@@ -236,7 +236,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 - バッチジョブが投入される（モック）
 - ステータスが「処理を開始しました」と表示される
 
-**テストファイル**: `packages/web/tests/e2e/batch-submit.spec.ts`
+**テストファイル**: `web/tests/e2e/batch-submit.spec.ts`
 
 **実行環境要件**:
 
@@ -264,7 +264,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 - 適切なエラーメッセージが表示される
 - 処理は継続され、結果サマリーに反映される
 
-**テストファイル**: `packages/web/tests/e2e/error-handling.spec.ts`
+**テストファイル**: `web/tests/e2e/error-handling.spec.ts`
 
 ---
 
@@ -285,7 +285,7 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 
 - 401 エラーまたはログインページへリダイレクト
 
-**テストファイル**: `packages/web/tests/e2e/auth-redirect.spec.ts`
+**テストファイル**: `web/tests/e2e/auth-redirect.spec.ts`
 
 ---
 
@@ -317,13 +317,13 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
     - 動画 ID の形式チェック
     - リクエストパラメータのバリデーション
 
-#### web パッケージ (packages/web/)
+#### web パッケージ (web/)
 
 最小限のユニットテストのみ。主に E2E でカバー。
 
 - ユニットテスト対象なし（E2E でカバー）
 
-#### batch パッケージ (packages/batch/)
+#### batch パッケージ (batch/)
 
 最小限のユニットテストのみ。主に統合テストでカバー。
 
@@ -333,9 +333,9 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 
 以下はユニットテストの対象外とします:
 
-- ❌ `packages/web/app/**/page.tsx` - E2E でカバー（React 19 + Jest 互換性問題）
-- ❌ `packages/web/app/api/**` - E2E でカバー
-- ❌ `packages/batch/src/**` - 統合テストでカバー
+- ❌ `web/app/**/page.tsx` - E2E でカバー（React 19 + Jest 互換性問題）
+- ❌ `web/app/api/**` - E2E でカバー
+- ❌ `batch/src/**` - 統合テストでカバー
 
 ---
 
@@ -372,7 +372,7 @@ batch パッケージは、テスト専用ニコニコアカウントを使用�
 - 各ステップが正常に完了する
 - セレクタが正しく動作する（UI 変更の検知）
 
-**テストファイル**: `packages/batch/tests/integration/mylist-registration.spec.ts`
+**テストファイル**: `batch/tests/integration/mylist-registration.spec.ts`
 
 **実行環境要件**:
 
@@ -571,7 +571,7 @@ paths:
 
 **問題内容**: React 19 の新しいアーキテクチャと Jest の組み合わせにおいて、Next.js App Router の page コンポーネントを直接ユニットテストすることができない
 
-**影響範囲**: `packages/web/app/**/page.tsx`
+**影響範囲**: `web/app/**/page.tsx`
 
 **回避策**: E2E テストでカバー。page コンポーネントはカバレッジ対象外に設定
 
