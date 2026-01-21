@@ -20,16 +20,3 @@ export const TIMEFRAME_LABELS: Record<Timeframe, string> = {
   '60': '1時間足',
   D: '日足',
 } as const;
-
-/**
- * 取引セッションの型定義
- */
-export type TradingSession = 'regular' | 'extended';
-
-/**
- * 取引セッションの表示用ラベル
- */
-export const TRADING_SESSION_LABELS: Record<TradingSession, string> = {
-  regular: '通常取引',
-  extended: '時間外取引',
-} as const;

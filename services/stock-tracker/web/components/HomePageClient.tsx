@@ -12,8 +12,8 @@ import {
   SelectChangeEvent,
   CircularProgress,
 } from '@mui/material';
-import type { Timeframe, TradingSession } from '@/types/stock';
-import { TIMEFRAME_LABELS, TRADING_SESSION_LABELS } from '@/types/stock';
+import type { Timeframe } from '@/types/stock';
+import { TIMEFRAME_LABELS } from '@/types/stock';
 import StockChart from './StockChart';
 import ErrorAlert from './ErrorAlert';
 import EmptyState from './EmptyState';
@@ -52,7 +52,6 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   const [exchange, setExchange] = useState<string>('');
   const [ticker, setTicker] = useState<string>('');
   const [timeframe, setTimeframe] = useState<Timeframe>('60');
-  const [session, setSession] = useState<TradingSession>('extended');
 
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
@@ -138,10 +137,6 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     setTimeframe(event.target.value as Timeframe);
   };
 
-  const handleSessionChange = (event: SelectChangeEvent) => {
-    setSession(event.target.value as TradingSession);
-  };
-
   return (
     <Container maxWidth="xl" sx={{ py: 3 }} role="main">
       {/* エラーメッセージ表示 */}
@@ -155,7 +150,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
-            md: 'repeat(4, 1fr)',
+            md: 'repeat(3, 1fr)',
           },
           gap: 2,
           mb: 3,
@@ -232,24 +227,6 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             ))}
           </Select>
         </FormControl>
-
-        {/* セッション選択 */}
-        <FormControl fullWidth>
-          <InputLabel id="session-select-label">セッション</InputLabel>
-          <Select
-            labelId="session-select-label"
-            id="session-select"
-            value={session}
-            label="セッション"
-            onChange={handleSessionChange}
-          >
-            {(Object.keys(TRADING_SESSION_LABELS) as TradingSession[]).map((key) => (
-              <MenuItem key={key} value={key}>
-                {TRADING_SESSION_LABELS[key]}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
       </Box>
 
       {/* チャート表示エリア */}
@@ -267,7 +244,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         aria-label="株価チャート"
       >
         {ticker ? (
-          <StockChart tickerId={ticker} timeframe={timeframe} session={session} count={100} />
+          <StockChart tickerId={ticker} timeframe={timeframe} count={100} />
         ) : (
           <EmptyState
             title="チャート表示エリア"
