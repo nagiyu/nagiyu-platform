@@ -40,7 +40,8 @@ export async function updateVideoSettings(
 ): Promise<void> {
   const updateExpressions: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, string | boolean> = {};
+  // DynamoDB の ExpressionAttributeValues は様々な型を受け入れる
+  const expressionAttributeValues: Record<string, string | boolean | number> = {};
 
   if (settings.isFavorite !== undefined) {
     updateExpressions.push('#isFavorite = :isFavorite');
@@ -94,10 +95,12 @@ export async function listVideos(
     lastEvaluatedKey?: Record<string, string>;
   }
 ): Promise<{ videos: Video[]; lastEvaluatedKey?: Record<string, string> }> {
+  // DynamoDB の ExpressionAttributeValues は様々な型を受け入れる
+  type ExpressionValue = string | boolean | number;
   const queryParams: {
     TableName: string;
     KeyConditionExpression: string;
-    ExpressionAttributeValues: Record<string, string | boolean>;
+    ExpressionAttributeValues: Record<string, ExpressionValue>;
     Limit: number;
     ExclusiveStartKey?: Record<string, string>;
     FilterExpression?: string;
