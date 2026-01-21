@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "format": "prettier --write .",
@@ -20,7 +20,10 @@
   "dependencies": {
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/common": "*",
-    "@nagiyu/ui": "*"
+    "@nagiyu/ui": "*",
+    "next": "^16",
+    "react": "^19",
+    "react-dom": "^19"
   },
   "devDependencies": {
     "@types/node": "^22",
