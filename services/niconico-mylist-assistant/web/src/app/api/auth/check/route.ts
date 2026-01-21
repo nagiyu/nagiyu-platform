@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
         email: user.email,
       },
     });
-  } catch (error) {
+  } catch (_error) {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 }
