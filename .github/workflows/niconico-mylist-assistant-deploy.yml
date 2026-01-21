@@ -1,0 +1,334 @@
+name: Niconico Mylist Assistant - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'services/niconico-mylist-assistant/**'
+      - 'infra/niconico-mylist-assistant/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/niconico-mylist-assistant-deploy.yml'
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infrastructure-ecr:
+    name: Deploy ECR Repositories
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      stack-suffix: ${{ steps.set-env.outputs.stack-suffix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Set environment
+        id: set-env
+        run: |
+          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECR Stack
+        env:
+          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
+            NagiyuNiconicoMylistAssistantECR${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
+            --require-approval never
+
+          echo "ECR repositories deployed (environment: $ENVIRONMENT)"
+
+  build-web:
+    name: Build and Push Web Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuNiconicoMylistAssistantECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='WebRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find web ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "Web ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/niconico-mylist-assistant/web/Dockerfile .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-batch:
+    name: Build and Push Batch Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuNiconicoMylistAssistantECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='BatchRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find batch ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "Batch ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/niconico-mylist-assistant/batch/Dockerfile .
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  infrastructure-app:
+    name: Deploy Application Infrastructure
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-web, build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy all application stacks
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
+            --all \
+            --context env="$ENVIRONMENT" \
+            --require-approval never
+
+          echo "All stacks deployed (environment: $ENVIRONMENT)"
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-web, build-batch, infrastructure-app]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify deployment
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}"
+
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "Error: Failed to get Function URL from CDK stack."
+            exit 1
+          fi
+
+          echo "Function URL: $FUNCTION_URL"
+
+          if ! curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}api/health" | grep -q "200"; then
+            echo "Error: Health check failed. The application may not be running correctly."
+            exit 1
+          fi
+
+          echo "Health check passed successfully!"
+
+      - name: Display deployment information
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          CF_STACK_NAME="NagiyuNiconicoMylistAssistantCloudFront${STACK_SUFFIX}"
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$CF_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "=== Deployment Summary ===" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "- **Web Image**: \`${{ needs.build-web.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Batch Image**: \`${{ needs.build-batch.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront Domain**: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Note: If this is a new distribution or domain configuration has changed," >> $GITHUB_STEP_SUMMARY
+          echo "please update your DNS records to point to the CloudFront domain." >> $GITHUB_STEP_SUMMARY
+
+  cloudfront-invalidation:
+    name: CloudFront Cache Invalidation
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, verify]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Invalidate CloudFront cache
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          CF_STACK_NAME="NagiyuNiconicoMylistAssistantCloudFront${STACK_SUFFIX}"
+
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name "$CF_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$DISTRIBUTION_ID" ]; then
+            echo "Warning: Could not find CloudFront distribution ID. Skipping invalidation."
+            exit 0
+          fi
+
+          echo "Creating CloudFront invalidation for distribution: $DISTRIBUTION_ID"
+
+          aws cloudfront create-invalidation \
+            --distribution-id "$DISTRIBUTION_ID" \
+            --paths "/*" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "CloudFront cache invalidation created successfully"
