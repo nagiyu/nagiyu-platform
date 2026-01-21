@@ -2,8 +2,7 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
-import { WebECRStack } from '../lib/web-ecr-stack';
-import { BatchECRStack } from '../lib/batch-ecr-stack';
+import { WebECRStack, BatchECRStack } from '../lib/ecr-stacks';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 

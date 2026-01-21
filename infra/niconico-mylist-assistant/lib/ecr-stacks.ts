@@ -25,3 +25,28 @@ export class WebECRStack extends EcrStackBase {
     super(scope, id, baseProps);
   }
 }
+
+export interface BatchECRStackProps extends cdk.StackProps {
+  environment: string;
+}
+
+/**
+ * niconico-mylist-assistant サービスの batch パッケージ用 ECR スタック
+ * Phase 3 で使用予定
+ */
+export class BatchECRStack extends EcrStackBase {
+  constructor(scope: Construct, id: string, props: BatchECRStackProps) {
+    const { environment, ...stackProps } = props;
+
+    const baseProps: EcrStackBaseProps = {
+      ...stackProps,
+      serviceName: 'niconico-mylist-assistant-batch',
+      environment: environment as 'dev' | 'prod',
+      ecrConfig: {
+        repositoryName: getEcrRepositoryName('niconico-mylist-assistant-batch', environment as 'dev' | 'prod'),
+      },
+    };
+
+    super(scope, id, baseProps);
+  }
+}
