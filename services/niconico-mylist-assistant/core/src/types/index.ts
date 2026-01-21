@@ -54,16 +54,6 @@ export interface VideoSettings {
 }
 
 /**
- * ユーザー情報
- */
-export interface User {
-  userId: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
  * バッチジョブステータス
  */
 export type BatchStatus = "SUBMITTED" | "RUNNING" | "SUCCEEDED" | "FAILED";
