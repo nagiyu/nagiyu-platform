@@ -7,6 +7,7 @@
 
 import {
   getCurrentPrice,
+  getChartData,
   TRADINGVIEW_ERROR_MESSAGES,
 } from '../../../src/services/tradingview-client';
 
@@ -20,7 +21,14 @@ type MockChart = {
   onUpdate: jest.Mock;
   onError: jest.Mock;
   delete: jest.Mock;
-  periods: Array<{ close: number }>;
+  periods: Array<{
+    time?: number;
+    close?: number;
+    open?: number;
+    max?: number;
+    min?: number;
+    volume?: number;
+  }>;
 };
 
 type MockSession = {
@@ -360,6 +368,101 @@ describe('TradingView Client', () => {
 
         // Assert: 最初のデータのみが返される
         expect(actualPrice).toBe(firstPrice);
+      });
+    });
+  });
+
+  describe('getChartData', () => {
+    describe('正常系', () => {
+      test('チャートデータを正しく取得できる（時間がミリ秒に変換される）', async () => {
+        // Arrange: モックデータの設定（時間は秒単位）
+        const mockTimeInSeconds = 1640000000; // 2021-12-20 12:26:40 UTC
+        const expectedTimeInMilliseconds = mockTimeInSeconds * 1000;
+
+        mockChart.periods = [
+          {
+            time: mockTimeInSeconds,
+            open: 100.0,
+            max: 110.0,
+            min: 95.0,
+            close: 105.0,
+            volume: 1000000,
+          },
+        ];
+
+        // Act: getChartData を非同期で実行
+        const chartDataPromise = getChartData('NSDQ:AAPL', '60', { count: 10 });
+
+        // onUpdate コールバックを実行
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const chartData = await chartDataPromise;
+
+        // Assert: チャートデータが正しく取得され、時間がミリ秒に変換されているか確認
+        expect(chartData).toHaveLength(1);
+        expect(chartData[0]).toEqual({
+          time: expectedTimeInMilliseconds, // ミリ秒に変換されているべき
+          open: 100.0,
+          high: 110.0,
+          low: 95.0,
+          close: 105.0,
+          volume: 1000000,
+        });
+        expect(mockChart.setMarket).toHaveBeenCalledWith('NSDQ:AAPL', {
+          timeframe: '60',
+          session: 'extended',
+        });
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('複数のチャートデータを正しく取得できる', async () => {
+        // Arrange
+        const baseTime = 1640000000;
+        mockChart.periods = [
+          {
+            time: baseTime,
+            open: 100.0,
+            max: 110.0,
+            min: 95.0,
+            close: 105.0,
+            volume: 1000000,
+          },
+          {
+            time: baseTime - 3600, // 1時間前
+            open: 95.0,
+            max: 105.0,
+            min: 90.0,
+            close: 100.0,
+            volume: 900000,
+          },
+        ];
+
+        // Act
+        const chartDataPromise = getChartData('NYSE:TSLA', 'D', { count: 2 });
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const chartData = await chartDataPromise;
+
+        // Assert
+        expect(chartData).toHaveLength(2);
+        expect(chartData[0].time).toBe(baseTime * 1000);
+        expect(chartData[1].time).toBe((baseTime - 3600) * 1000);
+      });
+    });
+
+    describe('異常系: バリデーションエラー', () => {
+      test('無効なタイムフレームでエラーをスローする', async () => {
+        // Act & Assert
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await expect(getChartData('NSDQ:AAPL', '30' as any)).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TIMEFRAME
+        );
       });
     });
   });
