@@ -79,9 +79,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('動画一覧取得エラー:', error);
-    return NextResponse.json(
-      { error: 'サーバーエラーが発生しました' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 });
   }
 }

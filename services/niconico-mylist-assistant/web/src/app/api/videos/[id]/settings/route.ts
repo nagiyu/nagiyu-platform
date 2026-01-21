@@ -12,13 +12,10 @@ interface UpdateSettingsRequest {
   memo?: string;
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    
+
     // 認証チェック
     const session = await getSession();
     if (!session) {
@@ -28,36 +25,21 @@ export async function PUT(
     // リクエストボディのバリデーション
     const body: UpdateSettingsRequest = await request.json();
 
-    if (
-      body.isFavorite !== undefined &&
-      typeof body.isFavorite !== 'boolean'
-    ) {
-      return NextResponse.json(
-        { error: 'isFavorite must be a boolean' },
-        { status: 400 }
-      );
+    if (body.isFavorite !== undefined && typeof body.isFavorite !== 'boolean') {
+      return NextResponse.json({ error: 'isFavorite must be a boolean' }, { status: 400 });
     }
 
     if (body.isSkip !== undefined && typeof body.isSkip !== 'boolean') {
-      return NextResponse.json(
-        { error: 'isSkip must be a boolean' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'isSkip must be a boolean' }, { status: 400 });
     }
 
     if (body.memo !== undefined && typeof body.memo !== 'string') {
-      return NextResponse.json(
-        { error: 'memo must be a string' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'memo must be a string' }, { status: 400 });
     }
 
     // memo の長さ制限
     if (body.memo && body.memo.length > 1000) {
-      return NextResponse.json(
-        { error: 'memo must be 1000 characters or less' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'memo must be 1000 characters or less' }, { status: 400 });
     }
 
     // 動画存在確認
@@ -79,9 +61,6 @@ export async function PUT(
     return NextResponse.json({ video: updatedVideo });
   } catch (error) {
     console.error('Update video settings error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

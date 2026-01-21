@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getVideoInfoBatch,
-  createVideo,
-  getVideo,
-} from '@nagiyu/niconico-mylist-assistant-core';
+import { getVideoInfoBatch, createVideo, getVideo } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -31,34 +27,22 @@ export async function POST(request: NextRequest) {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.UNAUTHORIZED },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
     }
 
     // リクエストボディのバリデーション
     const body: BulkImportRequest = await request.json();
 
     if (!Array.isArray(body.videoIds)) {
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.VIDEO_IDS_MUST_BE_ARRAY },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_MUST_BE_ARRAY }, { status: 400 });
     }
 
     if (body.videoIds.length === 0) {
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.VIDEO_IDS_EMPTY },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_EMPTY }, { status: 400 });
     }
 
     if (body.videoIds.length > 100) {
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.VIDEO_IDS_TOO_MANY },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_TOO_MANY }, { status: 400 });
     }
 
     // 動画 ID のバリデーション（sm[数字] 形式）
@@ -94,8 +78,7 @@ export async function POST(request: NextRequest) {
     });
 
     // ニコニコ動画 API から情報取得
-    const { success: videoInfos, failed: apiFailed } =
-      await getVideoInfoBatch(videoIdsToImport);
+    const { success: videoInfos, failed: apiFailed } = await getVideoInfoBatch(videoIdsToImport);
 
     // DynamoDB に保存（Promise.allSettled でエラーハンドリング）
     const success: BulkImportResponse['success'] = [];
@@ -135,10 +118,7 @@ export async function POST(request: NextRequest) {
       } else {
         dbFailed.push({
           videoId: info.videoId,
-          error:
-            result.reason instanceof Error
-              ? result.reason.message
-              : 'Failed to save',
+          error: result.reason instanceof Error ? result.reason.message : 'Failed to save',
         });
       }
     });
@@ -152,9 +132,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response);
   } catch (error) {
     console.error('Bulk import error:', error);
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
 }
