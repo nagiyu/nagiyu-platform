@@ -23,14 +23,15 @@ const config: Config.InitialOptions = {
   // Common coverage settings
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
-  // Note: Coverage threshold is lower due to Jest module loading issues with DynamoDB DocumentClient
-  // and FFmpeg child_process mocking. Some integration tests are skipped due to ES module issues.
+  // Coverage threshold set to 80% as per project standard
+  // Note: If Jest module loading issues with DynamoDB DocumentClient or FFmpeg prevent
+  // reaching 80%, those specific issues should be documented and resolved separately
   coverageThreshold: {
     global: {
-      branches: 65,
-      functions: 50,
-      lines: 60,
-      statements: 60,
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
 };

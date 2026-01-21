@@ -21,10 +21,7 @@
   },
   "devDependencies": {
     "@aws-sdk/types": "^3.968.0",
-    "@types/jest": "^30.0.0",
     "aws-sdk-client-mock": "^4.1.0",
-    "aws-sdk-client-mock-jest": "^4.1.0",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6"
+    "aws-sdk-client-mock-jest": "^4.1.0"
   }
 }
