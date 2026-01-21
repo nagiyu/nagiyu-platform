@@ -78,7 +78,7 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
-  test('保有株式の登録ができる', async ({ page }) => {
+  test('保有株式の登録ができる', async ({ page, request }) => {
     // 新規登録ボタンをクリック
     await page.getByRole('button', { name: /新規登録/ }).click();
 
@@ -112,6 +112,10 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
 
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
+
+    // 選択されたティッカーのテキストを取得（クリーンアップ用）
+    const selectedTickerText = await tickerOptions.nth(1).textContent();
+    const tickerId = selectedTickerText?.split(' - ')[0]?.trim() || '';
 
     // 最初のティッカーを選択
     await tickerOptions.nth(1).click();
@@ -168,6 +172,18 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
           // 削除ボタンが少なくとも1つ存在することを確認
           const deleteButtons = page.getByRole('button', { name: '削除' });
           await expect(deleteButtons.first()).toBeVisible();
+        }
+
+        // UI経由で作成したHoldingをクリーンアップするために、APIで削除
+        // HoldingIDの形式: USER#{tickerId}
+        if (tickerId) {
+          const holdingId = `USER#${tickerId}`;
+          try {
+            await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
+            console.log(`Cleaned up UI-created holding: ${holdingId}`);
+          } catch (error) {
+            console.warn(`Warning: Failed to delete UI-created holding ${holdingId}:`, error);
+          }
         }
       } else {
         // モーダルが開いたままの場合、エラーメッセージを探す

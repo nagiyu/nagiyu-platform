@@ -73,7 +73,7 @@ test.describe('Watchlist 管理画面', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  test('ウォッチリスト新規登録フロー（正常系）', async ({ page }) => {
+  test('ウォッチリスト新規登録フロー（正常系）', async ({ page, request }) => {
     // 新規登録ボタンをクリック
     await page.getByRole('button', { name: '新規登録' }).click();
 
@@ -113,6 +113,7 @@ test.describe('Watchlist 管理画面', () => {
 
     // 最初のティッカーを選択
     const tickerText = await tickerOptions.nth(1).textContent();
+    const tickerId = tickerText?.split(' - ')[0]?.trim() || '';
     await tickerOptions.nth(1).click();
 
     // 登録ボタンをクリック
@@ -150,6 +151,18 @@ test.describe('Watchlist 管理画面', () => {
       // 削除ボタンが少なくとも1つ存在することを確認（データが登録されている証拠）
       const deleteButtons = page.getByRole('button', { name: '削除' });
       await expect(deleteButtons.first()).toBeVisible();
+
+      // UI経由で作成したWatchlistをクリーンアップするために、APIで削除
+      // WatchlistIDの形式: USER#{tickerId}
+      if (tickerId) {
+        const watchlistId = `USER#${tickerId}`;
+        try {
+          await request.delete(`/api/watchlist/${encodeURIComponent(watchlistId)}`);
+          console.log(`Cleaned up UI-created watchlist: ${watchlistId}`);
+        } catch (error) {
+          console.warn(`Warning: Failed to delete UI-created watchlist ${watchlistId}:`, error);
+        }
+      }
     }
   });
 
