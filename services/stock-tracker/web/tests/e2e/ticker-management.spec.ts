@@ -66,7 +66,7 @@ test.describe('ティッカー管理', () => {
   });
 
   test.describe('ティッカー作成', () => {
-    test('ティッカーを作成できる', async ({ page }) => {
+    test('ティッカーを作成できる', async ({ page, request }) => {
       // テスト用の Exchange を API 経由で作成
       const exchange = await factory.createExchange();
 
@@ -159,6 +159,17 @@ test.describe('ティッカー管理', () => {
       // ティッカーIDが正しい形式であることを確認（Exchange.Key:Symbol）
       expect(createdTickerId).toMatch(/^[A-Z0-9]+:[A-Z0-9]+$/);
       expect(createdTickerId).toContain(testSymbol);
+
+      // UI経由で作成したTickerをAPI経由でクリーンアップ
+      // TestDataFactoryでは追跡されていないため、手動で削除する
+      if (createdTickerId) {
+        try {
+          await request.delete(`/api/tickers/${encodeURIComponent(createdTickerId)}`);
+          console.log(`UI作成ティッカーをクリーンアップ: ${createdTickerId}`);
+        } catch (error) {
+          console.warn(`Warning: Failed to cleanup UI-created ticker ${createdTickerId}:`, error);
+        }
+      }
     });
   });
 

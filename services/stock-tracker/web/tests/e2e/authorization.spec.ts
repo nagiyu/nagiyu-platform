@@ -215,20 +215,42 @@ test.describe('権限チェック (E2E-005)', () => {
     });
 
     test('保有株式作成APIはすべてのロールで実行可能', async ({ request }) => {
-      // 保有株式作成を試みる
-      const response = await request.post('/api/holdings', {
-        data: {
-          tickerId: 'NASDAQ:AAPL',
-          quantity: 10,
-          averagePrice: 150.0,
-          currency: 'USD',
-        },
-      });
+      const testTickerId = 'NASDAQ:AAPL';
+      let holdingCreated = false;
 
-      // 取引所・ティッカーが存在しない場合は400または404エラー
-      // 権限がある場合は 201 または 400/404
-      // 権限がない場合は 403
-      expect(response.status()).not.toBe(403);
+      try {
+        // 保有株式作成を試みる
+        const response = await request.post('/api/holdings', {
+          data: {
+            tickerId: testTickerId,
+            quantity: 10,
+            averagePrice: 150.0,
+            currency: 'USD',
+          },
+        });
+
+        // 取引所・ティッカーが存在しない場合は400または404エラー
+        // 権限がある場合は 201 または 400/404
+        // 権限がない場合は 403
+        expect(response.status()).not.toBe(403);
+
+        // 201 (成功) の場合、後でクリーンアップが必要
+        if (response.status() === 201) {
+          holdingCreated = true;
+        }
+      } finally {
+        // クリーンアップ: 作成されたHoldingを削除
+        if (holdingCreated) {
+          try {
+            // HoldingIDの形式: {UserID}#{TickerID}
+            // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
+            const holdingId = `test-user-id#${testTickerId}`;
+            await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
+          } catch (error) {
+            console.warn(`Warning: Failed to cleanup holding ${testTickerId}:`, error);
+          }
+        }
+      }
     });
   });
 });

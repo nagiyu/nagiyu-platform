@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedWatchlist } from './utils/test-data-factory';
+import { TestDataFactory, CreatedWatchlist, CreatedTicker } from './utils/test-data-factory';
 
 /**
  * E2E-004: Watchlist 管理フロー
@@ -13,10 +13,14 @@ import { TestDataFactory, CreatedWatchlist } from './utils/test-data-factory';
 
 test.describe('Watchlist 管理画面', () => {
   let factory: TestDataFactory;
+  let testTicker: CreatedTicker;
 
   test.beforeEach(async ({ page, request }) => {
     // TestDataFactory を初期化
     factory = new TestDataFactory(request);
+
+    // テスト用データを作成（取引所とティッカー）
+    testTicker = await factory.createTicker();
 
     // ウォッチリスト管理画面にアクセス
     await page.goto('/watchlist');
@@ -70,7 +74,7 @@ test.describe('Watchlist 管理画面', () => {
     await expect(modal).not.toBeVisible();
   });
 
-  test('ウォッチリスト新規登録フロー（正常系）', async ({ page }) => {
+  test('ウォッチリスト新規登録フロー（正常系）', async ({ page, request }) => {
     // 新規登録ボタンをクリック
     await page.getByRole('button', { name: '新規登録' }).click();
 
@@ -78,7 +82,7 @@ test.describe('Watchlist 管理画面', () => {
     const modal = page.getByRole('dialog', { name: 'ウォッチリスト新規登録' });
     await expect(modal).toBeVisible();
 
-    // 取引所を選択
+    // 取引所を選択 - テスト用の取引所を明示的に選択
     const exchangeSelect = page.getByLabel('取引所');
     await exchangeSelect.click();
 
@@ -86,63 +90,83 @@ test.describe('Watchlist 管理画面', () => {
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
     const exchangeCount = await exchangeOptions.count();
 
-    if (exchangeCount > 1) {
-      // 最初の取引所を選択（"選択してください"以外）
-      await exchangeOptions.nth(1).click();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-      // ティッカーが有効になるまで待つ
-      const tickerSelect = page.getByLabel('ティッカー');
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    // テスト用の取引所を完全一致で選択（既存データではなく確実にテストデータを選択）
+    await page
+      .getByRole('option', {
+        name: new RegExp(`^${testTicker.exchange.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+      })
+      .click();
+
+    // ティッカーが有効になるまで待つ
+    const tickerSelect = page.getByLabel('ティッカー');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+
+    // ネットワークが落ち着くまで待つ
+    await page.waitForLoadState('networkidle');
+
+    // ティッカーを選択 - テスト用のティッカーを明示的に選択
+    await tickerSelect.click();
+
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
+
+    // テストデータが作成されているので、必ずティッカーが存在する
+    expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
+
+    // テスト用のティッカーを選択（既存データではなく確実にテストデータを選択）
+    // UI表示形式に合わせてシンボルで検索
+    await page
+      .getByRole('option', {
+        name: new RegExp(`^${testTicker.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+      })
+      .click();
+
+    // クリーンアップ用にtickerIdを保存
+    const tickerId = testTicker.tickerId;
+
+    // 登録ボタンをクリック
+    const registerButton = modal.getByRole('button', { name: '登録' });
+    await registerButton.click();
+
+    // モーダルが閉じるまで待つ（エラーの場合は閉じない）
+    await page.waitForTimeout(1000);
+
+    // エラーメッセージが表示されているか確認
+    const errorAlert = modal.locator('[role="alert"]');
+    const hasError = await errorAlert.isVisible().catch(() => false);
+
+    if (hasError) {
+      // 既に登録済みの場合はテストをスキップ
+      await modal.getByRole('button', { name: 'キャンセル' }).click();
+      await expect(modal).not.toBeVisible();
+    } else {
+      // 正常に登録された場合
+      await expect(modal).not.toBeVisible({ timeout: 5000 });
 
       // ネットワークが落ち着くまで待つ
       await page.waitForLoadState('networkidle');
 
-      // ティッカーを選択
-      await tickerSelect.click();
+      // 登録されたティッカーが表示されることを確認
+      // testTicker.symbol を使用してテーブルにシンボルが表示されることを確認
+      await expect(page.getByRole('cell', { name: testTicker.symbol }).first()).toBeVisible();
 
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+      // 削除ボタンが少なくとも1つ存在することを確認（データが登録されている証拠）
+      const deleteButtons = page.getByRole('button', { name: '削除' });
+      await expect(deleteButtons.first()).toBeVisible();
 
-      if (tickerCount > 1) {
-        // 最初のティッカーを選択
-        const tickerText = await tickerOptions.nth(1).textContent();
-        await tickerOptions.nth(1).click();
-
-        // 登録ボタンをクリック
-        const registerButton = modal.getByRole('button', { name: '登録' });
-        await registerButton.click();
-
-        // モーダルが閉じるまで待つ（エラーの場合は閉じない）
-        await page.waitForTimeout(1000);
-
-        // エラーメッセージが表示されているか確認
-        const errorAlert = modal.locator('[role="alert"]');
-        const hasError = await errorAlert.isVisible().catch(() => false);
-
-        if (hasError) {
-          // 既に登録済みの場合はテストをスキップ
-          await modal.getByRole('button', { name: 'キャンセル' }).click();
-          await expect(modal).not.toBeVisible();
-        } else {
-          // 正常に登録された場合
-          await expect(modal).not.toBeVisible({ timeout: 5000 });
-
-          // ネットワークが落ち着くまで待つ
-          await page.waitForLoadState('networkidle');
-
-          // 登録されたティッカーが表示されることを確認
-          if (tickerText) {
-            const symbol = tickerText.split(' - ')[0]?.trim();
-            if (symbol) {
-              // テーブルにシンボルが表示されることを確認（登録成功の証拠）
-              // 複数の要素にマッチする可能性があるため、.first()を使用
-              await expect(page.getByRole('cell', { name: symbol }).first()).toBeVisible();
-            }
-          }
-
-          // 削除ボタンが少なくとも1つ存在することを確認（データが登録されている証拠）
-          const deleteButtons = page.getByRole('button', { name: '削除' });
-          await expect(deleteButtons.first()).toBeVisible();
+      // UI経由で作成したWatchlistをクリーンアップするために、APIで削除
+      // WatchlistIDの形式: {UserID}#{TickerID}
+      // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
+      if (tickerId) {
+        const watchlistId = `test-user-id#${tickerId}`;
+        try {
+          await request.delete(`/api/watchlist/${encodeURIComponent(watchlistId)}`);
+          console.log(`Cleaned up UI-created watchlist: ${watchlistId}`);
+        } catch (error) {
+          console.warn(`Warning: Failed to delete UI-created watchlist ${watchlistId}:`, error);
         }
       }
     }

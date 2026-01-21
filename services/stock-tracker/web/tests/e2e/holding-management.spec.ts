@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedHolding } from './utils/test-data-factory';
+import { TestDataFactory, CreatedTicker, CreatedHolding } from './utils/test-data-factory';
 
 /**
  * E2E-003: Holding 管理フロー
@@ -13,12 +13,26 @@ import { TestDataFactory, CreatedHolding } from './utils/test-data-factory';
  */
 
 test.describe('Holding 管理フロー (E2E-003)', () => {
-  test.beforeEach(async ({ page }) => {
+  let factory: TestDataFactory;
+  let testTicker: CreatedTicker;
+
+  test.beforeEach(async ({ page, request }) => {
+    // TestDataFactory を初期化
+    factory = new TestDataFactory(request);
+
+    // テスト用データを作成（取引所とティッカー）
+    testTicker = await factory.createTicker();
+
     // Holding管理画面にアクセス
     await page.goto('/holdings');
 
     // ページロードを待つ
     await page.waitForLoadState('networkidle');
+  });
+
+  test.afterEach(async () => {
+    // TestDataFactory でクリーンアップ
+    await factory.cleanup();
   });
 
   test('保有株式管理画面が正しく表示される', async ({ page }) => {
@@ -65,113 +79,140 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
-  test('保有株式の登録ができる', async ({ page }) => {
+  test('保有株式の登録ができる', async ({ page, request }) => {
     // 新規登録ボタンをクリック
     await page.getByRole('button', { name: /新規登録/ }).click();
 
     // モーダルが表示されるまで待つ
     await expect(page.getByRole('dialog')).toBeVisible();
 
-    // 取引所を選択
+    // 取引所を選択 - テスト用の取引所を明示的に選択
     const exchangeSelect = page.locator('#create-exchange');
     await exchangeSelect.click();
 
-    // オプションを取得
+    // テスト用の取引所を選択（exchangeIdで特定）
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
     const exchangeCount = await exchangeOptions.count();
 
-    if (exchangeCount > 1) {
-      // 最初の取引所を選択（「選択してください」以外）
-      await exchangeOptions.nth(1).click();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-      // ティッカーがロードされるまで待つ
-      await page.waitForTimeout(1000);
+    // テスト用の取引所を完全一致で選択（既存データではなく確実にテストデータを選択）
+    await page
+      .getByRole('option', {
+        name: new RegExp(`^${testTicker.exchange.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+      })
+      .click();
 
-      // ティッカーを選択
-      const tickerSelect = page.locator('#create-ticker');
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-      await tickerSelect.click();
+    // ティッカーがロードされるまで待つ
+    await page.waitForTimeout(1000);
 
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+    // ティッカーを選択 - テスト用のティッカーを明示的に選択
+    const tickerSelect = page.locator('#create-ticker');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await tickerSelect.click();
 
-      if (tickerCount > 1) {
-        // 最初のティッカーを選択
-        await tickerOptions.nth(1).click();
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
 
-        // 保有数を入力
-        await page.locator('#create-quantity').fill('100');
+    // テストデータが作成されているので、必ずティッカーが存在する
+    expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
 
-        // 平均取得価格を入力
-        await page.locator('#create-average-price').fill('150.50');
+    // テスト用のティッカーを選択（既存データではなく確実にテストデータを選択）
+    // UI表示形式に合わせてシンボルで検索（部分一致でOK）
+    await page
+      .getByRole('option', {
+        name: new RegExp(testTicker.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
+      })
+      .click();
 
-        // 通貨はデフォルトのUSDのまま
+    // クリーンアップ用にtickerIdを保存
+    const tickerId = testTicker.tickerId;
 
-        // 保存ボタンをクリック
-        await page.getByRole('button', { name: '保存' }).click();
+    // 保有数を入力
+    await page.locator('#create-quantity').fill('100');
 
-        // モーダルの処理が完了するまで待つ（5秒）
-        await page.waitForTimeout(5000);
+    // 平均取得価格を入力
+    await page.locator('#create-average-price').fill('150.50');
 
-        // エラーメッセージが表示されているか確認
-        const errorAlert = page.locator('[role="dialog"] [role="alert"]');
-        const hasError = await errorAlert.isVisible().catch(() => false);
+    // 通貨はデフォルトのUSDのまま
 
-        if (hasError) {
-          // エラーが発生した場合（例: 重複登録）
-          const errorMessage = await errorAlert.textContent();
-          console.log('Registration error:', errorMessage);
+    // 保存ボタンをクリック
+    await page.getByRole('button', { name: '保存' }).click();
 
-          // エラーが表示されたらキャンセルしてテストを続行
-          console.log('Skipping test due to error state');
-          await page.getByRole('button', { name: 'キャンセル' }).click();
-          await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
+    // モーダルの処理が完了するまで待つ（5秒）
+    await page.waitForTimeout(5000);
+
+    // エラーメッセージが表示されているか確認
+    const errorAlert = page.locator('[role="dialog"] [role="alert"]');
+    const hasError = await errorAlert.isVisible().catch(() => false);
+
+    if (hasError) {
+      // エラーが発生した場合（例: 重複登録）
+      const errorMessage = await errorAlert.textContent();
+      console.log('Registration error:', errorMessage);
+
+      // エラーが表示されたらキャンセルしてテストを続行
+      console.log('Skipping test due to error state');
+      await page.getByRole('button', { name: 'キャンセル' }).click();
+      await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
+    } else {
+      // モーダルが閉じているかを確認
+      const modalClosed = await page
+        .getByRole('dialog')
+        .isHidden()
+        .catch(() => false);
+
+      if (modalClosed) {
+        // 正常に登録された場合
+        // ネットワークが落ち着くまで待つ
+        await page.waitForLoadState('networkidle');
+
+        // 成功メッセージまたはテーブルにデータが表示されることを確認
+        const successMessage = page.getByText('保有株式を登録しました');
+        const hasSuccessMessage = await successMessage.isVisible().catch(() => false);
+
+        if (hasSuccessMessage) {
+          await expect(successMessage).toBeVisible();
         } else {
-          // モーダルが閉じているかを確認
-          const modalClosed = await page
-            .getByRole('dialog')
-            .isHidden()
-            .catch(() => false);
+          // 成功メッセージが消えていても、テーブルにデータがあれば成功
+          const table = page.getByRole('table');
+          await expect(table).toBeVisible();
+          // 削除ボタンが少なくとも1つ存在することを確認
+          const deleteButtons = page.getByRole('button', { name: '削除' });
+          await expect(deleteButtons.first()).toBeVisible();
+        }
 
-          if (modalClosed) {
-            // 正常に登録された場合
-            // ネットワークが落ち着くまで待つ
-            await page.waitForLoadState('networkidle');
-
-            // 成功メッセージまたはテーブルにデータが表示されることを確認
-            const successMessage = page.getByText('保有株式を登録しました');
-            const hasSuccessMessage = await successMessage.isVisible().catch(() => false);
-
-            if (hasSuccessMessage) {
-              await expect(successMessage).toBeVisible();
-            } else {
-              // 成功メッセージが消えていても、テーブルにデータがあれば成功
-              const table = page.getByRole('table');
-              await expect(table).toBeVisible();
-              // 削除ボタンが少なくとも1つ存在することを確認
-              const deleteButtons = page.getByRole('button', { name: '削除' });
-              await expect(deleteButtons.first()).toBeVisible();
-            }
-          } else {
-            // モーダルが開いたままの場合、エラーメッセージを探す
-            const dialogContent = await page.locator('[role="dialog"]').textContent();
-            console.log('Modal still visible. Content:', dialogContent);
-
-            // フォームバリデーションエラーが表示されているか確認
-            const hasValidationError =
-              dialogContent?.includes('必須') || dialogContent?.includes('エラー');
-
-            if (hasValidationError) {
-              console.log('Validation error detected, closing modal');
-            } else {
-              console.log('Modal did not close, but no clear error - may be a timing issue');
-            }
-
-            // キャンセルしてテストを続行
-            await page.getByRole('button', { name: 'キャンセル' }).click();
-            await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
+        // UI経由で作成したHoldingをクリーンアップするために、APIで削除
+        // HoldingIDの形式: {UserID}#{TickerID}
+        // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
+        if (tickerId) {
+          const holdingId = `test-user-id#${tickerId}`;
+          try {
+            await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
+            console.log(`Cleaned up UI-created holding: ${holdingId}`);
+          } catch (error) {
+            console.warn(`Warning: Failed to delete UI-created holding ${holdingId}:`, error);
           }
         }
+      } else {
+        // モーダルが開いたままの場合、エラーメッセージを探す
+        const dialogContent = await page.locator('[role="dialog"]').textContent();
+        console.log('Modal still visible. Content:', dialogContent);
+
+        // フォームバリデーションエラーが表示されているか確認
+        const hasValidationError =
+          dialogContent?.includes('必須') || dialogContent?.includes('エラー');
+
+        if (hasValidationError) {
+          console.log('Validation error detected, closing modal');
+        } else {
+          console.log('Modal did not close, but no clear error - may be a timing issue');
+        }
+
+        // キャンセルしてテストを続行
+        await page.getByRole('button', { name: 'キャンセル' }).click();
+        await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 });
       }
     }
   });
