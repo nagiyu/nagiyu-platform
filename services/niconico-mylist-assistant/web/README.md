@@ -31,7 +31,7 @@ npm run test:e2e
 ## ディレクトリ構成
 
 ```
-packages/web/
+web/
 ├── app/              # Next.js App Router
 │   ├── layout.tsx    # ルートレイアウト
 │   ├── page.tsx      # トップページ
