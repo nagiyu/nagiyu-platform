@@ -1,0 +1,27 @@
+{
+  "name": "@nagiyu/infra-niconico-mylist-assistant",
+  "version": "0.1.0",
+  "description": "Niconico Mylist Assistant AWS CDK Infrastructure",
+  "main": "bin/niconico-mylist-assistant.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "npx cdk",
+    "synth": "npx cdk synth",
+    "deploy": "npx cdk deploy",
+    "deploy:dev": "npx cdk deploy --context env=dev --all",
+    "deploy:prod": "npx cdk deploy --context env=prod --all",
+    "diff": "npx cdk diff",
+    "diff:dev": "npx cdk diff --context env=dev",
+    "diff:prod": "npx cdk diff --context env=prod"
+  },
+  "dependencies": {
+    "@nagiyu/infra-common": "*",
+    "aws-cdk-lib": "^2.234.1",
+    "constructs": "^10.4.4",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^22"
+  }
+}
