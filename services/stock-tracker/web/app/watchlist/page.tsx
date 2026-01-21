@@ -117,6 +117,7 @@ export default function WatchlistPage() {
   useEffect(() => {
     fetchWatchlist();
     fetchAlerts();
+    fetchExchanges();
   }, []);
 
   // 取引所一覧を取得
@@ -355,8 +356,8 @@ export default function WatchlistPage() {
           <Table>
             <TableHead>
               <TableRow>
+                <TableCell>取引所</TableCell>
                 <TableCell>ティッカー</TableCell>
-                <TableCell>シンボル</TableCell>
                 <TableCell>登録日時</TableCell>
                 <TableCell align="center">買いアラート</TableCell>
                 <TableCell align="center">操作</TableCell>
@@ -376,10 +377,22 @@ export default function WatchlistPage() {
                   // アラート設定済みかどうかの判定
                   const hasAlert = alerts[item.tickerId] || false;
 
+                  // 取引所IDから取引所名を取得
+                  const exchangeId = item.tickerId.split(':')[0] || '';
+                  const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
+                  const exchangeName = exchange?.name || exchangeId;
+
                   return (
                     <TableRow key={item.watchlistId} hover>
-                      <TableCell>{item.symbol}</TableCell>
-                      <TableCell>{item.symbol}</TableCell>
+                      <TableCell>{exchangeName}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="bold">
+                          {item.symbol}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {item.name}
+                        </Typography>
+                      </TableCell>
                       <TableCell>{new Date(item.createdAt).toLocaleString('ja-JP')}</TableCell>
                       <TableCell align="center">
                         <Button

@@ -613,6 +613,9 @@ export default function HoldingsPage() {
                         <Typography variant="body2" fontWeight="bold">
                           {holding.symbol}
                         </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {holding.name}
+                        </Typography>
                       </TableCell>
                       <TableCell align="right">{holding.quantity.toLocaleString()}</TableCell>
                       <TableCell align="right">
