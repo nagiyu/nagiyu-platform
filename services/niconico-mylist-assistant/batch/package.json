@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/niconico-mylist-assistant-batch",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Batch job for niconico mylist registration",
   "main": "dist/index.js",
   "scripts": {
@@ -14,12 +14,5 @@
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/browser": "*",
     "playwright": "^1.57.0"
-  },
-  "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^22",
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
-    "typescript": "^5"
   }
 }
