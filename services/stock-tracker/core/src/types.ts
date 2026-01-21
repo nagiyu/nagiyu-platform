@@ -288,10 +288,11 @@ export type DynamoDBItem = {
  *
  * Note: TradingView API の PricePeriod から変換した形式
  * - PricePeriod の max/min を high/low に変換して使用
+ * - PricePeriod の time（秒）をミリ秒に変換して使用
  * - 標準的な OHLCV 形式（high/low）で統一するため独自型として定義
  */
 export type ChartDataPoint = {
-  /** タイムスタンプ (Unix timestamp 秒) */
+  /** タイムスタンプ (Unix timestamp ミリ秒) */
   time: number;
   /** 始値 */
   open: number;

@@ -252,7 +252,7 @@ export async function getChartData(
               period.volume !== undefined
             ) {
               chartData.push({
-                time: period.time,
+                time: period.time * 1000, // 秒をミリ秒に変換
                 open: period.open,
                 high: period.max,
                 low: period.min,
