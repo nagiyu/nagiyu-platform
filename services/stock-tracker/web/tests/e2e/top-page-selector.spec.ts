@@ -92,7 +92,7 @@ test.describe('取引所・ティッカーセレクタ機能', () => {
     await factory.createTicker();
 
     // データが反映されるまで待つ
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     await page.reload();
     await page.waitForLoadState('networkidle');
 
