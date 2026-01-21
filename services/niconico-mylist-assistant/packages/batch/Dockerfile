@@ -10,4 +10,4 @@ RUN npm ci --only=production
 COPY dist ./dist
 
 # エントリーポイント
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]
