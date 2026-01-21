@@ -97,8 +97,8 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     // テストデータが作成されているので、必ず取引所が存在する
     expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-    // テスト用の取引所を名前で検索して選択
-    await page.getByRole('option', { name: new RegExp(testTicker.exchange.name) }).click();
+    // テスト用の取引所を完全一致で選択（既存データではなく確実にテストデータを選択）
+    await page.getByRole('option', { name: new RegExp(`^${testTicker.exchange.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).click();
 
     // ティッカーがロードされるまで待つ
     await page.waitForTimeout(1000);
@@ -114,8 +114,9 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
 
-    // テスト用のティッカーを名前で検索して選択（既存データではなく確実にテストデータを選択）
-    await page.getByRole('option', { name: new RegExp(testTicker.symbol) }).click();
+    // テスト用のティッカーを完全一致で選択（既存データではなく確実にテストデータを選択）
+    // tickerId は "exchangeKey:symbol" 形式なので、それで完全一致させる
+    await page.getByRole('option', { name: new RegExp(`^${testTicker.tickerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`) }).click();
 
     // クリーンアップ用にtickerIdを保存
     const tickerId = testTicker.tickerId;
