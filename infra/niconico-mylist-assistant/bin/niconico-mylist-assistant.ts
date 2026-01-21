@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
+import { DynamoDBStack } from '../lib/dynamodb-stack';
+import { ECRStack } from '../lib/ecr-stack';
+import { LambdaStack } from '../lib/lambda-stack';
+import { CloudFrontStack } from '../lib/cloudfront-stack';
 
 const app = new cdk.App();
 
@@ -22,23 +26,47 @@ const stackEnv = {
 
 const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
 
-// Phase 0: スケルトンのみ（空のスタック）
-// Phase 1 以降で以下のスタックを実装予定:
-// - DynamoDB スタック (NagiyuNiconicoMylistAssistantDynamoDB{Dev|Prod})
-// - Secrets スタック (NagiyuNiconicoMylistAssistantSecrets{Dev|Prod})
-// - ECR スタック (NagiyuNiconicoMylistAssistantECR{Dev|Prod})
-// - Lambda スタック (NagiyuNiconicoMylistAssistantLambda{Dev|Prod})
-// - CloudFront スタック (NagiyuNiconicoMylistAssistantCloudFront{Dev|Prod})
-// - Batch スタック (NagiyuNiconicoMylistAssistantBatch{Dev|Prod})
-
-// Phase 0: 空のプレースホルダースタック（CDK synth を成功させるため）
-new cdk.Stack(app, `NagiyuNiconicoMylistAssistantPlaceholder${envSuffix}`, {
+// DynamoDB スタックを作成
+new DynamoDBStack(app, `NagiyuNiconicoMylistAssistantDynamoDB${envSuffix}`, {
+  environment: env,
   env: stackEnv,
-  description: `Niconico Mylist Assistant Placeholder - ${env} environment (Phase 0)`,
-  tags: {
-    Environment: env,
-    Service: 'niconico-mylist-assistant',
-  },
+  description: `Niconico Mylist Assistant DynamoDB - ${env} environment`,
 });
+
+// ECR スタックを作成
+const ecrStack = new ECRStack(app, `NagiyuNiconicoMylistAssistantECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Niconico Mylist Assistant ECR - ${env} environment`,
+});
+
+// Lambda スタックを作成
+const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Niconico Mylist Assistant Lambda - ${env} environment`,
+});
+
+// Lambda は ECR に依存
+lambdaStack.addDependency(ecrStack);
+
+// CloudFront スタックを作成
+if (!lambdaStack.functionUrl) {
+  throw new Error('Lambda function URL is not available');
+}
+
+const cloudFrontStack = new CloudFrontStack(app, `NagiyuNiconicoMylistAssistantCloudFront${envSuffix}`, {
+  environment: env,
+  functionUrl: lambdaStack.functionUrl.url,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: 'us-east-1', // CloudFront は us-east-1 必須
+  },
+  crossRegionReferences: true,
+  description: `Niconico Mylist Assistant CloudFront - ${env} environment`,
+});
+
+// CloudFront は Lambda に依存
+cloudFrontStack.addDependency(lambdaStack);
 
 app.synth();
