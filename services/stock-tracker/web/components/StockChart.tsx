@@ -35,7 +35,6 @@ interface ChartData {
 export interface StockChartProps {
   tickerId: string;
   timeframe: string;
-  session?: string;
   count?: number;
 }
 
@@ -55,13 +54,9 @@ const ERROR_MESSAGES = {
  * - ローソク足表示
  * - インタラクティブ操作（ズーム、パン）
  * - レスポンシブデザイン対応
+ * - Phase 1: session は 'extended' 固定（時間外取引を含む）。Phase 2 で設定可能になる予定
  */
-export default function StockChart({
-  tickerId,
-  timeframe,
-  session = 'extended', // eslint-disable-line @typescript-eslint/no-unused-vars -- 将来的にAPI呼び出しで使用予定
-  count = 100,
-}: StockChartProps) {
+export default function StockChart({ tickerId, timeframe, count = 100 }: StockChartProps) {
   // 状態管理
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
