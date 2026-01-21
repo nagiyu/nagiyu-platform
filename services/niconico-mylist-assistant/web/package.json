@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/niconico-mylist-assistant-web",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -20,15 +20,7 @@
   "dependencies": {
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/common": "*",
-    "@nagiyu/ui": "*",
-    "next": "^16",
-    "react": "^19",
-    "react-dom": "^19"
+    "@nagiyu/ui": "*"
   },
-  "devDependencies": {
-    "@types/node": "^22",
-    "eslint": "^9",
-    "jest-environment-jsdom": "^30.2.0",
-    "prettier": "^3.7.4"
-  }
+  "devDependencies": {}
 }
