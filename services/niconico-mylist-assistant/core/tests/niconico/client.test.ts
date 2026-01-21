@@ -1,12 +1,16 @@
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { getVideoInfo, NiconicoAPIError } from '../../src/niconico/client';
 
-// グローバルfetchをモック化
-global.fetch = jest.fn() as any;
-
 describe('getVideoInfo', () => {
+  let fetchMock: jest.Mock;
+
   beforeEach(() => {
-    jest.clearAllMocks();
+    fetchMock = jest.fn();
+    global.fetch = fetchMock as any;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('should fetch video info successfully', async () => {
@@ -30,10 +34,10 @@ describe('getVideoInfo', () => {
   </thumb>
 </nicovideo_thumb_response>`;
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       text: async () => mockXmlResponse,
-    });
+    } as Response);
 
     const info = await getVideoInfo('sm9');
     
@@ -50,13 +54,15 @@ describe('getVideoInfo', () => {
   });
 
   it('should throw error for HTTP error', async () => {
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: false,
       status: 404,
-    });
+    } as Response);
 
-    await expect(getVideoInfo('invalid_id')).rejects.toThrow(NiconicoAPIError);
-    await expect(getVideoInfo('invalid_id')).rejects.toThrow('HTTP error: 404');
+    const error = await getVideoInfo('invalid_id').catch(e => e);
+    
+    expect(error).toBeInstanceOf(NiconicoAPIError);
+    expect(error.message).toBe('HTTP error: 404');
   });
 
   it('should throw error for API error response', async () => {
@@ -68,13 +74,15 @@ describe('getVideoInfo', () => {
   </error>
 </nicovideo_thumb_response>`;
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       text: async () => mockXmlError,
-    });
+    } as Response);
 
-    await expect(getVideoInfo('sm1')).rejects.toThrow(NiconicoAPIError);
-    await expect(getVideoInfo('sm1')).rejects.toThrow('動画が見つかりませんでした');
+    const error = await getVideoInfo('sm1').catch(e => e);
+    
+    expect(error).toBeInstanceOf(NiconicoAPIError);
+    expect(error.message).toBe('動画が見つかりませんでした');
   });
 
   it('should parse duration correctly for mm:ss format', async () => {
@@ -94,10 +102,10 @@ describe('getVideoInfo', () => {
   </thumb>
 </nicovideo_thumb_response>`;
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       text: async () => mockXml,
-    });
+    } as Response);
 
     const info = await getVideoInfo('test1');
     expect(info.duration).toBe(225); // 3*60 + 45 = 225秒
@@ -120,10 +128,10 @@ describe('getVideoInfo', () => {
   </thumb>
 </nicovideo_thumb_response>`;
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       text: async () => mockXml,
-    });
+    } as Response);
 
     const info = await getVideoInfo('test2');
     expect(info.duration).toBe(5445); // 1*3600 + 30*60 + 45 = 5445秒
@@ -145,19 +153,21 @@ describe('getVideoInfo', () => {
   </thumb>
 </nicovideo_thumb_response>`;
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
+    fetchMock.mockResolvedValueOnce({
       ok: true,
       text: async () => mockXml,
-    });
+    } as Response);
 
     const info = await getVideoInfo('test3');
     expect(info.tags).toEqual([]);
   });
 
   it('should handle fetch errors', async () => {
-    (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
+    fetchMock.mockRejectedValueOnce(new Error('Network error'));
 
-    await expect(getVideoInfo('test')).rejects.toThrow(NiconicoAPIError);
-    await expect(getVideoInfo('test')).rejects.toThrow('Failed to fetch video info: Network error');
+    const error = await getVideoInfo('test').catch(e => e);
+    
+    expect(error).toBeInstanceOf(NiconicoAPIError);
+    expect(error.message).toBe('Failed to fetch video info: Network error');
   });
 });
