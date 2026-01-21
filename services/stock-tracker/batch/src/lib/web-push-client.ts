@@ -76,10 +76,7 @@ export async function sendNotification(
     };
 
     // Web Push 通知を送信
-    const response = await webpush.sendNotification(
-      subscription,
-      JSON.stringify(payload)
-    );
+    const response = await webpush.sendNotification(subscription, JSON.stringify(payload));
 
     logger.info('Web Push 通知を送信しました', {
       alertId: alert.AlertID,
