@@ -5,18 +5,19 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { SessionProvider, useSession, signOut } from 'next-auth/react';
 import { theme, Header, Footer, NavigationItem } from '@nagiyu/ui';
 import { SnackbarProvider } from './SnackbarProvider';
 import { ErrorBoundary } from './ErrorBoundary';
+import { hasPermission } from '@nagiyu/common';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
   version?: string;
 }
 
-export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
-  // TODO: NextAuth の session からユーザー情報を取得
-  // const { data: session } = useSession();
+function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProps) {
+  const { data: session } = useSession();
 
   // ナビゲーションメニュー項目の定義
   const navigationItems: NavigationItem[] = [
@@ -25,27 +26,31 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
     { label: 'ウォッチリスト', href: '/watchlist' },
     { label: 'アラート', href: '/alerts' },
     // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）
-    // TODO: NextAuth 統合後、session を使って権限チェックを有効化
-    // ...(session && hasPermission(session, 'stocks:manage-data') ? [
-    //   {
-    //     label: '管理',
-    //     href: '#',
-    //     children: [
-    //       { label: '取引所', href: '/exchanges' },
-    //       { label: 'ティッカー', href: '/tickers' },
-    //     ],
-    //   },
-    // ] : []),
+    ...(session?.user?.roles && hasPermission(session.user.roles, 'stocks:manage-data')
+      ? [
+          {
+            label: '管理',
+            href: '#',
+            children: [
+              { label: '取引所', href: '/exchanges' },
+              { label: 'ティッカー', href: '/tickers' },
+            ],
+          },
+        ]
+      : []),
   ];
 
-  // TODO: NextAuth の session からユーザー情報を取得
-  // const user = session?.user ? {
-  //   name: session.user.name || '',
-  //   email: session.user.email || '',
-  // } : undefined;
+  // ユーザー情報
+  const user = session?.user
+    ? {
+        name: session.user.name || '',
+        email: session.user.email || '',
+        avatar: session.user.image,
+      }
+    : undefined;
 
-  // TODO: NextAuth の signOut を使ってログアウト
-  // const handleLogout = () => signOut();
+  // ログアウトハンドラー
+  const handleLogout = () => signOut();
 
   return (
     <AppRouterCacheProvider>
@@ -57,8 +62,8 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
               <Header
                 title="Stock Tracker"
                 navigationItems={navigationItems}
-                // user={user}
-                // onLogout={handleLogout}
+                user={user}
+                onLogout={handleLogout}
               />
               <Box component="main" sx={{ flexGrow: 1 }}>
                 {children}
@@ -69,5 +74,13 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
         </ErrorBoundary>
       </ThemeProvider>
     </AppRouterCacheProvider>
+  );
+}
+
+export default function ThemeRegistry({ children, version }: ThemeRegistryProps) {
+  return (
+    <SessionProvider>
+      <ThemeRegistryContent version={version}>{children}</ThemeRegistryContent>
+    </SessionProvider>
   );
 }
