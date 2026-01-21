@@ -117,8 +117,12 @@ export default function StockChart({
       return {};
     }
 
+    // データを反転（TradingView API は最新→古いの順で返すため、古い→最新の順に変換）
+    // slice() で配列をコピーしてから reverse() で反転（元の配列は変更しない）
+    const reversedData = chartData.data.slice().reverse();
+
     // データを日時、OHLC、出来高に分割
-    const dates = chartData.data.map((item) =>
+    const dates = reversedData.map((item) =>
       new Date(item.time).toLocaleString('ja-JP', {
         year: 'numeric',
         month: '2-digit',
@@ -128,9 +132,9 @@ export default function StockChart({
       })
     );
 
-    const ohlcData = chartData.data.map((item) => [item.open, item.close, item.low, item.high]);
+    const ohlcData = reversedData.map((item) => [item.open, item.close, item.low, item.high]);
 
-    const volumeData = chartData.data.map((item) => item.volume);
+    const volumeData = reversedData.map((item) => item.volume);
 
     return {
       title: {
@@ -161,11 +165,11 @@ export default function StockChart({
           }
 
           const dataIndex = firstParam.dataIndex;
-          if (dataIndex < 0 || dataIndex >= chartData.data.length) {
+          if (dataIndex < 0 || dataIndex >= reversedData.length) {
             return '';
           }
 
-          const point = chartData.data[dataIndex];
+          const point = reversedData[dataIndex];
           const date = dates[dataIndex];
 
           return `
