@@ -27,6 +27,8 @@ export async function getUser(userId: string): Promise<User | null> {
 
   if (!result.Item) return null;
 
+  // DynamoDBの内部キー（PK, SK, GSI1PK, GSI1SK）を除去
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { PK, SK, GSI1PK, GSI1SK, ...user } = result.Item;
   return user as User;
 }

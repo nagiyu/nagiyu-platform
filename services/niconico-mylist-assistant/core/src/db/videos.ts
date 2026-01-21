@@ -27,6 +27,8 @@ export async function getVideo(userId: string, videoId: string): Promise<Video |
 
   if (!result.Item) return null;
 
+  // DynamoDBの内部キー（PK, SK, GSI1PK, GSI1SK）を除去
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { PK, SK, GSI1PK, GSI1SK, ...video } = result.Item;
   return video as Video;
 }
@@ -38,7 +40,7 @@ export async function updateVideoSettings(
 ): Promise<void> {
   const updateExpressions: string[] = [];
   const expressionAttributeNames: Record<string, string> = {};
-  const expressionAttributeValues: Record<string, any> = {};
+  const expressionAttributeValues: Record<string, string | boolean> = {};
 
   if (settings.isFavorite !== undefined) {
     updateExpressions.push('#isFavorite = :isFavorite');
@@ -89,10 +91,17 @@ export async function listVideos(
   options?: {
     filter?: 'favorite' | 'skip' | 'all';
     limit?: number;
-    lastEvaluatedKey?: Record<string, any>;
+    lastEvaluatedKey?: Record<string, string>;
   }
-): Promise<{ videos: Video[]; lastEvaluatedKey?: Record<string, any> }> {
-  const queryParams: any = {
+): Promise<{ videos: Video[]; lastEvaluatedKey?: Record<string, string> }> {
+  const queryParams: {
+    TableName: string;
+    KeyConditionExpression: string;
+    ExpressionAttributeValues: Record<string, string | boolean>;
+    Limit: number;
+    ExclusiveStartKey?: Record<string, string>;
+    FilterExpression?: string;
+  } = {
     TableName: TABLE_NAME,
     KeyConditionExpression: 'PK = :pk AND begins_with(SK, :sk)',
     ExpressionAttributeValues: {
@@ -117,12 +126,14 @@ export async function listVideos(
   const result = await docClient.send(new QueryCommand(queryParams));
 
   const videos = (result.Items || []).map((item) => {
+    // DynamoDBの内部キー（PK, SK, GSI1PK, GSI1SK）を除去
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { PK, SK, GSI1PK, GSI1SK, ...video } = item;
     return video as Video;
   });
 
   return {
     videos,
-    lastEvaluatedKey: result.LastEvaluatedKey,
+    lastEvaluatedKey: result.LastEvaluatedKey as Record<string, string> | undefined,
   };
 }
