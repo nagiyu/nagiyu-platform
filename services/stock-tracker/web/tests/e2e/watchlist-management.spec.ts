@@ -13,13 +13,14 @@ import { TestDataFactory, CreatedWatchlist } from './utils/test-data-factory';
 
 test.describe('Watchlist 管理画面', () => {
   let factory: TestDataFactory;
+  let testTicker: any; // CreatedTicker を保存
 
   test.beforeEach(async ({ page, request }) => {
     // TestDataFactory を初期化
     factory = new TestDataFactory(request);
 
     // テスト用データを作成（取引所とティッカー）
-    await factory.createTicker();
+    testTicker = await factory.createTicker();
 
     // ウォッチリスト管理画面にアクセス
     await page.goto('/watchlist');
@@ -81,7 +82,7 @@ test.describe('Watchlist 管理画面', () => {
     const modal = page.getByRole('dialog', { name: 'ウォッチリスト新規登録' });
     await expect(modal).toBeVisible();
 
-    // 取引所を選択
+    // 取引所を選択 - テスト用の取引所を明示的に選択
     const exchangeSelect = page.getByLabel('取引所');
     await exchangeSelect.click();
 
@@ -92,8 +93,8 @@ test.describe('Watchlist 管理画面', () => {
     // テストデータが作成されているので、必ず取引所が存在する
     expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-    // 最初の取引所を選択（"選択してください"以外）
-    await exchangeOptions.nth(1).click();
+    // テスト用の取引所を名前で検索して選択（既存データではなく確実にテストデータを選択）
+    await page.getByRole('option', { name: new RegExp(testTicker.exchange.name) }).click();
 
     // ティッカーが有効になるまで待つ
     const tickerSelect = page.getByLabel('ティッカー');
@@ -102,7 +103,7 @@ test.describe('Watchlist 管理画面', () => {
     // ネットワークが落ち着くまで待つ
     await page.waitForLoadState('networkidle');
 
-    // ティッカーを選択
+    // ティッカーを選択 - テスト用のティッカーを明示的に選択
     await tickerSelect.click();
 
     const tickerOptions = page.locator('[role="listbox"] [role="option"]');
@@ -111,10 +112,11 @@ test.describe('Watchlist 管理画面', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
 
-    // 最初のティッカーを選択
-    const tickerText = await tickerOptions.nth(1).textContent();
-    const tickerId = tickerText?.split(' - ')[0]?.trim() || '';
-    await tickerOptions.nth(1).click();
+    // テスト用のティッカーを名前で検索して選択（既存データではなく確実にテストデータを選択）
+    await page.getByRole('option', { name: new RegExp(testTicker.symbol) }).click();
+
+    // クリーンアップ用にtickerIdを保存
+    const tickerId = testTicker.tickerId;
 
     // 登録ボタンをクリック
     const registerButton = modal.getByRole('button', { name: '登録' });

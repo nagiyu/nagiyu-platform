@@ -14,13 +14,14 @@ import { TestDataFactory, CreatedHolding } from './utils/test-data-factory';
 
 test.describe('Holding 管理フロー (E2E-003)', () => {
   let factory: TestDataFactory;
+  let testTicker: any; // CreatedTicker を保存
 
   test.beforeEach(async ({ page, request }) => {
     // TestDataFactory を初期化
     factory = new TestDataFactory(request);
 
     // テスト用データを作成（取引所とティッカー）
-    await factory.createTicker();
+    testTicker = await factory.createTicker();
 
     // Holding管理画面にアクセス
     await page.goto('/holdings');
@@ -85,24 +86,24 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     // モーダルが表示されるまで待つ
     await expect(page.getByRole('dialog')).toBeVisible();
 
-    // 取引所を選択
+    // 取引所を選択 - テスト用の取引所を明示的に選択
     const exchangeSelect = page.locator('#create-exchange');
     await exchangeSelect.click();
 
-    // オプションを取得
+    // テスト用の取引所を選択（exchangeIdで特定）
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
     const exchangeCount = await exchangeOptions.count();
 
     // テストデータが作成されているので、必ず取引所が存在する
     expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-    // 最初の取引所を選択（「選択してください」以外）
-    await exchangeOptions.nth(1).click();
+    // テスト用の取引所を名前で検索して選択
+    await page.getByRole('option', { name: new RegExp(testTicker.exchange.name) }).click();
 
     // ティッカーがロードされるまで待つ
     await page.waitForTimeout(1000);
 
-    // ティッカーを選択
+    // ティッカーを選択 - テスト用のティッカーを明示的に選択
     const tickerSelect = page.locator('#create-ticker');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
     await tickerSelect.click();
@@ -113,12 +114,11 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
 
-    // 選択されたティッカーのテキストを取得（クリーンアップ用）
-    const selectedTickerText = await tickerOptions.nth(1).textContent();
-    const tickerId = selectedTickerText?.split(' - ')[0]?.trim() || '';
+    // テスト用のティッカーを名前で検索して選択（既存データではなく確実にテストデータを選択）
+    await page.getByRole('option', { name: new RegExp(testTicker.symbol) }).click();
 
-    // 最初のティッカーを選択
-    await tickerOptions.nth(1).click();
+    // クリーンアップ用にtickerIdを保存
+    const tickerId = testTicker.tickerId;
 
     // 保有数を入力
     await page.locator('#create-quantity').fill('100');
