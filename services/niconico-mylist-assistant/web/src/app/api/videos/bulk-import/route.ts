@@ -94,50 +94,59 @@ export async function POST(request: NextRequest) {
     });
 
     // ニコニコ動画 API から情報取得
-    const { success: videoInfos, failed } =
+    const { success: videoInfos, failed: apiFailed } =
       await getVideoInfoBatch(videoIdsToImport);
 
-    // DynamoDB に保存
+    // DynamoDB に保存（Promise.allSettled でエラーハンドリング）
     const success: BulkImportResponse['success'] = [];
+    const dbFailed: BulkImportResponse['failed'] = [];
     const now = new Date().toISOString();
 
-    await Promise.all(
+    const saveResults = await Promise.allSettled(
       videoInfos.map(async (info) => {
-        try {
-          await createVideo(session.user.id, {
-            videoId: info.videoId,
-            title: info.title,
-            description: info.description,
-            thumbnailUrl: info.thumbnailUrl,
-            duration: info.duration,
-            viewCount: info.viewCount,
-            commentCount: info.commentCount,
-            mylistCount: info.mylistCount,
-            uploadedAt: info.uploadedAt,
-            tags: info.tags,
-            isFavorite: false,
-            isSkip: false,
-            createdAt: now,
-            updatedAt: now,
-          });
-
-          success.push({
-            videoId: info.videoId,
-            title: info.title,
-          });
-        } catch (error) {
-          failed.push({
-            videoId: info.videoId,
-            error: error instanceof Error ? error.message : 'Failed to save',
-          });
-        }
+        await createVideo(session.user.id, {
+          videoId: info.videoId,
+          title: info.title,
+          description: info.description,
+          thumbnailUrl: info.thumbnailUrl,
+          duration: info.duration,
+          viewCount: info.viewCount,
+          commentCount: info.commentCount,
+          mylistCount: info.mylistCount,
+          uploadedAt: info.uploadedAt,
+          tags: info.tags,
+          isFavorite: false,
+          isSkip: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+        return info;
       })
     );
+
+    // 保存結果の処理
+    saveResults.forEach((result, index) => {
+      const info = videoInfos[index];
+      if (result.status === 'fulfilled') {
+        success.push({
+          videoId: info.videoId,
+          title: info.title,
+        });
+      } else {
+        dbFailed.push({
+          videoId: info.videoId,
+          error:
+            result.reason instanceof Error
+              ? result.reason.message
+              : 'Failed to save',
+        });
+      }
+    });
 
     const response: BulkImportResponse = {
       success,
       skipped,
-      failed,
+      failed: [...apiFailed, ...dbFailed],
     };
 
     return NextResponse.json(response);
