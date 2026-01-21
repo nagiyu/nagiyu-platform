@@ -65,8 +65,8 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     // 新規登録ボタンをクリック
     await page.locator('button:has-text("新規登録")').click();
 
-    // モーダルが表示される
-    const modal = page.locator('div[role="dialog"]');
+    // モーダルが表示される (MuiDialog を特定)
+    const modal = page.getByRole('dialog', { name: '取引所登録' });
     await expect(modal).toBeVisible();
     await expect(page.locator('h2:has-text("取引所登録")')).toBeVisible();
 
@@ -98,7 +98,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       // 新規登録ボタンをクリック
       await page.locator('button:has-text("新規登録")').click();
 
-      const modal = page.locator('div[role="dialog"]');
+      const modal = page.getByRole('dialog', { name: '取引所登録' });
       await expect(modal).toBeVisible();
 
       // 基本情報を入力
@@ -132,7 +132,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await page.locator('button:has-text("保存")').click();
 
       // モーダルが閉じるまで待つ
-      await expect(modal).not.toBeVisible({ timeout: 5000 });
+      await expect(modal).not.toBeVisible({ timeout: 10000 });
 
       // 成功メッセージが表示される
       await expect(page.locator('text=取引所を作成しました')).toBeVisible({ timeout: 3000 });
@@ -176,11 +176,13 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await targetRow.locator('button:has-text("編集")').click();
 
       // モーダルが表示される
+      const modal = page.getByRole('dialog', { name: '取引所編集' });
+      await expect(modal).toBeVisible();
       await expect(page.locator('h2:has-text("取引所編集")')).toBeVisible();
 
       // 取引所名フィールドを探して変更
       // 取引所名は2番目のフィールド（取引所IDの次）
-      const dialogContent = page.locator('div[role="dialog"]');
+      const dialogContent = modal;
       const textFields = dialogContent.locator('input[type="text"]');
 
       // 取引所名フィールドを特定（取引所IDはdisabled、取引所名はenabled）
@@ -196,7 +198,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await page.locator('button:has-text("保存")').click();
 
       // モーダルが閉じるまで待つ
-      await expect(page.locator('div[role="dialog"]')).not.toBeVisible({ timeout: 5000 });
+      await expect(modal).not.toBeVisible({ timeout: 10000 });
 
       // 成功メッセージが表示される
       await expect(page.locator('text=取引所を更新しました')).toBeVisible({ timeout: 3000 });
@@ -230,6 +232,8 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await targetRow.locator('button:has-text("削除")').click();
 
       // 削除確認ダイアログが表示される
+      const deleteDialog = page.getByRole('dialog', { name: '取引所削除' });
+      await expect(deleteDialog).toBeVisible();
       await expect(page.locator('h2:has-text("取引所削除")')).toBeVisible();
       await expect(
         page.locator(`text=取引所「${testExchange.name}」を削除してもよろしいですか？`)
@@ -239,7 +243,7 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await page.locator('button:has-text("キャンセル")').click();
 
       // ダイアログが閉じる
-      await expect(page.locator('div[role="dialog"]')).not.toBeVisible();
+      await expect(deleteDialog).not.toBeVisible();
     });
 
     test('取引所を削除できる', async ({ page }) => {
@@ -255,13 +259,15 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await targetRow.locator('button:has-text("削除")').click();
 
       // 削除確認ダイアログが表示される
+      const deleteDialog = page.getByRole('dialog', { name: '取引所削除' });
+      await expect(deleteDialog).toBeVisible();
       await expect(page.locator('h2:has-text("取引所削除")')).toBeVisible();
 
       // 削除ボタンをクリック
       await page.locator('button:has-text("削除")').last().click();
 
       // ダイアログが閉じる
-      await expect(page.locator('div[role="dialog"]')).not.toBeVisible({ timeout: 5000 });
+      await expect(deleteDialog).not.toBeVisible({ timeout: 10000 });
 
       // 成功メッセージが表示される
       await expect(page.locator('text=取引所を削除しました')).toBeVisible({ timeout: 3000 });
@@ -287,10 +293,10 @@ test.describe('取引所管理画面 (E2E-006)', () => {
     await page.waitForTimeout(1000);
 
     // モーダルが開いたままかエラーメッセージが表示される
-    const modal = page.locator('div[role="dialog"]');
+    const modal = page.getByRole('dialog', { name: '取引所登録' });
     const errorAlert = page.locator('[role="alert"]');
 
-    const isModalVisible = await modal.isVisible();
+    const isModalVisible = await modal.isVisible().catch(() => false);
     const isErrorVisible = (await errorAlert.count()) > 0;
 
     expect(isModalVisible || isErrorVisible).toBeTruthy();

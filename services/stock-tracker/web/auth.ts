@@ -10,6 +10,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
  */
 export const authConfig: NextAuthConfig = {
   providers: [],
+  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
   session: {
     strategy: 'jwt',
