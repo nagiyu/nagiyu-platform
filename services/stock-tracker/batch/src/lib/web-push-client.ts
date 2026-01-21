@@ -76,12 +76,14 @@ export async function sendNotification(
     };
 
     // Web Push 通知を送信
-    await webpush.sendNotification(subscription, JSON.stringify(payload));
+    const response = await webpush.sendNotification(subscription, JSON.stringify(payload));
 
     logger.info('Web Push 通知を送信しました', {
       alertId: alert.AlertID,
       userId: alert.UserID,
       tickerId: alert.TickerID,
+      statusCode: response.statusCode,
+      endpoint: alert.SubscriptionEndpoint,
     });
 
     return true;
