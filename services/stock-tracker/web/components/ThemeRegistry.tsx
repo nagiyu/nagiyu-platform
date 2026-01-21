@@ -15,14 +15,18 @@ interface ThemeRegistryProps {
 }
 
 export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
+  // TODO: NextAuth の session からユーザー情報を取得
+  // const { data: session } = useSession();
+
   // ナビゲーションメニュー項目の定義
   const navigationItems: NavigationItem[] = [
     { label: 'チャート', href: '/' },
     { label: '保有株式', href: '/holdings' },
     { label: 'ウォッチリスト', href: '/watchlist' },
     { label: 'アラート', href: '/alerts' },
-    // TODO: 権限管理の実装後、条件付きでメニューを表示
-    // ...(hasPermission(session, 'stocks:manage-data') ? [
+    // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）
+    // TODO: NextAuth 統合後、session を使って権限チェックを有効化
+    // ...(session && hasPermission(session, 'stocks:manage-data') ? [
     //   {
     //     label: '管理',
     //     href: '#',
@@ -35,7 +39,6 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
   ];
 
   // TODO: NextAuth の session からユーザー情報を取得
-  // const { data: session } = useSession();
   // const user = session?.user ? {
   //   name: session.user.name || '',
   //   email: session.user.email || '',
