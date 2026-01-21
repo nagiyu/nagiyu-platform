@@ -273,15 +273,4 @@ test.describe('チャート表示のアクセシビリティ', () => {
     // リストボックスが閉じる
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
   });
-
-  test('セッションセレクタがキーボード操作可能である', async ({ page }) => {
-    await page.goto('/');
-
-    // セッションセレクトボックスにフォーカスを移動
-    const sessionSelect = page.locator('#session-select');
-    await sessionSelect.focus();
-
-    // フォーカスされていることを確認
-    await expect(sessionSelect).toBeFocused();
-  });
 });

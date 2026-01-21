@@ -34,10 +34,6 @@ test.describe('トップ画面レイアウト', () => {
     // 時間枠選択
     const timeframeSelect = page.getByLabel('時間枠');
     await expect(timeframeSelect).toBeVisible();
-
-    // セッション選択
-    const sessionSelect = page.getByLabel('セッション');
-    await expect(sessionSelect).toBeVisible();
   });
 
   test('チャート表示エリアが表示される', async ({ page }) => {
@@ -89,15 +85,6 @@ test.describe('トップ画面レイアウト', () => {
     await expect(page.getByRole('option', { name: '1時間足' })).toBeVisible();
     await expect(page.getByRole('option', { name: '日足' })).toBeVisible();
   });
-
-  test('セッションセレクトボックスの選択肢が正しい', async ({ page }) => {
-    const sessionSelect = page.getByLabel('セッション');
-    await sessionSelect.click();
-
-    // 各セッションが表示される
-    await expect(page.getByRole('option', { name: '通常取引' })).toBeVisible();
-    await expect(page.getByRole('option', { name: '時間外取引' })).toBeVisible();
-  });
 });
 
 test.describe('レスポンシブ対応', () => {
@@ -111,7 +98,6 @@ test.describe('レスポンシブ対応', () => {
     await expect(page.getByLabel('取引所選択')).toBeVisible();
     await expect(page.getByLabel('ティッカー選択')).toBeVisible();
     await expect(page.getByLabel('時間枠')).toBeVisible();
-    await expect(page.getByLabel('セッション')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'チャート表示エリア' })).toBeVisible();
     await expect(page.getByRole('contentinfo')).toBeVisible();
   });
@@ -126,7 +112,6 @@ test.describe('レスポンシブ対応', () => {
     await expect(page.getByLabel('取引所選択')).toBeVisible();
     await expect(page.getByLabel('ティッカー選択')).toBeVisible();
     await expect(page.getByLabel('時間枠')).toBeVisible();
-    await expect(page.getByLabel('セッション')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'チャート表示エリア' })).toBeVisible();
     await expect(page.getByRole('contentinfo')).toBeVisible();
   });
