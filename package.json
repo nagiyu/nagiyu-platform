@@ -10,7 +10,6 @@
     "services/*/web-*",
     "services/*/batch",
     "services/*/batch-*",
-    "services/*/packages/batch",
     "services/*/api",
     "libs/*",
     "infra",
