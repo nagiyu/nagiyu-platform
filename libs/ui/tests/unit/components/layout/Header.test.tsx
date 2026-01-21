@@ -171,7 +171,9 @@ describe('Header', () => {
       await user.click(menuButton);
 
       // Drawerが開く
-      expect(screen.getByRole('navigation', { name: 'ナビゲーションメニュー' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('navigation', { name: 'ナビゲーションメニュー' })
+      ).toBeInTheDocument();
     });
   });
 

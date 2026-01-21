@@ -26,7 +26,10 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
     { label: 'ウォッチリスト', href: '/watchlist' },
     { label: 'アラート', href: '/alerts' },
     // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）
-    ...(session?.user?.roles && hasPermission(session.user.roles, 'stocks:manage-data')
+    ...(session?.user &&
+    'roles' in session.user &&
+    Array.isArray(session.user.roles) &&
+    hasPermission(session.user.roles, 'stocks:manage-data')
       ? [
           {
             label: '管理',
@@ -45,7 +48,7 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
     ? {
         name: session.user.name || '',
         email: session.user.email || '',
-        avatar: session.user.image,
+        avatar: 'image' in session.user ? session.user.image : undefined,
       }
     : undefined;
 
