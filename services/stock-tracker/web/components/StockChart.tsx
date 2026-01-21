@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
-import { Box, CircularProgress, Alert, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
+import { DEFAULT_CHART_BAR_COUNT } from '@/types/stock';
 import ErrorAlert from './ErrorAlert';
 import LoadingState from './LoadingState';
 
@@ -55,8 +56,13 @@ const ERROR_MESSAGES = {
  * - インタラクティブ操作（ズーム、パン）
  * - レスポンシブデザイン対応
  * - Phase 1: session は 'extended' 固定（時間外取引を含む）。Phase 2 で設定可能になる予定
+ * - 表示本数はプリセット値（30, 60, 100, 200, 300）から選択可能
  */
-export default function StockChart({ tickerId, timeframe, count = 100 }: StockChartProps) {
+export default function StockChart({
+  tickerId,
+  timeframe,
+  count = DEFAULT_CHART_BAR_COUNT,
+}: StockChartProps) {
   // 状態管理
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -231,14 +237,6 @@ export default function StockChart({ tickerId, timeframe, count = 100 }: StockCh
         {
           type: 'inside',
           xAxisIndex: [0, 1],
-          start: 0,
-          end: 100,
-        },
-        {
-          show: true,
-          xAxisIndex: [0, 1],
-          type: 'slider',
-          bottom: '5%',
           start: 0,
           end: 100,
         },

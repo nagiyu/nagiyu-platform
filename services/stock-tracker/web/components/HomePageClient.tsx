@@ -12,8 +12,13 @@ import {
   SelectChangeEvent,
   CircularProgress,
 } from '@mui/material';
-import type { Timeframe } from '@/types/stock';
-import { TIMEFRAME_LABELS } from '@/types/stock';
+import type { Timeframe, ChartBarCount } from '@/types/stock';
+import {
+  TIMEFRAME_LABELS,
+  CHART_BAR_COUNTS,
+  CHART_BAR_COUNT_LABELS,
+  DEFAULT_CHART_BAR_COUNT,
+} from '@/types/stock';
 import StockChart from './StockChart';
 import ErrorAlert from './ErrorAlert';
 import EmptyState from './EmptyState';
@@ -52,6 +57,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   const [exchange, setExchange] = useState<string>('');
   const [ticker, setTicker] = useState<string>('');
   const [timeframe, setTimeframe] = useState<Timeframe>('60');
+  const [barCount, setBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
 
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
@@ -137,6 +143,10 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     setTimeframe(event.target.value as Timeframe);
   };
 
+  const handleBarCountChange = (event: SelectChangeEvent) => {
+    setBarCount(Number(event.target.value) as ChartBarCount);
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 3 }} role="main">
       {/* エラーメッセージ表示 */}
@@ -150,7 +160,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
-            md: 'repeat(3, 1fr)',
+            md: 'repeat(4, 1fr)',
           },
           gap: 2,
           mb: 3,
@@ -227,6 +237,24 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             ))}
           </Select>
         </FormControl>
+
+        {/* 表示本数選択 */}
+        <FormControl fullWidth>
+          <InputLabel id="barcount-select-label">表示本数</InputLabel>
+          <Select
+            labelId="barcount-select-label"
+            id="barcount-select"
+            value={String(barCount)}
+            label="表示本数"
+            onChange={handleBarCountChange}
+          >
+            {CHART_BAR_COUNTS.map((count) => (
+              <MenuItem key={count} value={String(count)}>
+                {CHART_BAR_COUNT_LABELS[count]}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Box>
 
       {/* チャート表示エリア */}
@@ -244,7 +272,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         aria-label="株価チャート"
       >
         {ticker ? (
-          <StockChart tickerId={ticker} timeframe={timeframe} count={100} />
+          <StockChart tickerId={ticker} timeframe={timeframe} count={barCount} />
         ) : (
           <EmptyState
             title="チャート表示エリア"
