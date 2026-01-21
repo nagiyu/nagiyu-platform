@@ -96,9 +96,7 @@ test.describe('Watchlist 管理画面', () => {
     // テスト用の取引所を完全一致で選択（既存データではなく確実にテストデータを選択）
     await page
       .getByRole('option', {
-        name: new RegExp(
-          `^${testTicker.exchange.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
-        ),
+        name: new RegExp(`^${testTicker.exchange.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
       })
       .click();
 
@@ -122,9 +120,7 @@ test.describe('Watchlist 管理画面', () => {
     // UI表示形式に合わせてシンボルで検索
     await page
       .getByRole('option', {
-        name: new RegExp(
-          `^${testTicker.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`
-        ),
+        name: new RegExp(`^${testTicker.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
       })
       .click();
 
