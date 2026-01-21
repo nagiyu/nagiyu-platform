@@ -19,6 +19,7 @@ export async function getSession(): Promise<Session | null> {
         email: process.env.TEST_USER_EMAIL || 'test@example.com',
         name: process.env.TEST_USER_NAME || 'Test User',
         image: undefined,
+        roles: process.env.TEST_USER_ROLES?.split(',') || [],
       },
     };
   }
@@ -35,6 +36,7 @@ export async function getSession(): Promise<Session | null> {
       email: session.user.email || '',
       name: session.user.name || '',
       image: session.user.image,
+      roles: session.user.roles || [],
     },
   };
 }
