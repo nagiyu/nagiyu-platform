@@ -24,7 +24,6 @@
     "constructs": "^10.4.4"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
     "@types/node": "^22"
   }
 }
