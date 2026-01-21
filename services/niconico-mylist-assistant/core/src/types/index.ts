@@ -25,7 +25,7 @@ export interface UserVideoSetting {
 /**
  * バッチジョブステータス
  */
-export type BatchStatus = "SUBMITTED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+export type BatchStatus = 'SUBMITTED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
 
 /**
  * バッチジョブ結果

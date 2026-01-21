@@ -18,7 +18,10 @@ export default function ThemeRegistry({ children, version = '0.1.0' }: ThemeRegi
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Header title="niconico-mylist-assistant" ariaLabel="niconico-mylist-assistant ホームページに戻る" />
+          <Header
+            title="niconico-mylist-assistant"
+            ariaLabel="niconico-mylist-assistant ホームページに戻る"
+          />
           <Box component="main" sx={{ flexGrow: 1 }}>
             {children}
           </Box>

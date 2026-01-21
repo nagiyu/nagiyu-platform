@@ -10,8 +10,9 @@
     "build": "tsc",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {},
   "devDependencies": {}
