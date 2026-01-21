@@ -43,7 +43,7 @@ export default function VideoDetailPage({ params }: PageProps) {
       setVideoId(p.id);
       fetchVideo(p.id);
     });
-  }, []);
+  }, [params]);
 
   const fetchVideo = async (id: string) => {
     setLoading(true);
