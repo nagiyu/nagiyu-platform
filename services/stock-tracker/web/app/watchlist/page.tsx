@@ -378,14 +378,7 @@ export default function WatchlistPage() {
 
                   return (
                     <TableRow key={item.watchlistId} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
-                          {item.symbol}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {item.name}
-                        </Typography>
-                      </TableCell>
+                      <TableCell>{item.symbol}</TableCell>
                       <TableCell>{item.symbol}</TableCell>
                       <TableCell>{new Date(item.createdAt).toLocaleString('ja-JP')}</TableCell>
                       <TableCell align="center">

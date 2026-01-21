@@ -389,14 +389,7 @@ export default function TickersPage() {
                 const exchange = exchanges.find((ex) => ex.exchangeId === ticker.exchangeId);
                 return (
                   <TableRow key={ticker.tickerId}>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
-                        {ticker.symbol}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {ticker.name}
-                      </Typography>
-                    </TableCell>
+                    <TableCell>{ticker.symbol}</TableCell>
                     <TableCell>{ticker.symbol}</TableCell>
                     <TableCell>{ticker.name}</TableCell>
                     <TableCell>{exchange?.name || ticker.exchangeId}</TableCell>
