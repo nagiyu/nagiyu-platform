@@ -1,0 +1,7 @@
+# Phase 1 以降でスタックファイルを追加予定
+# - dynamodb-stack.ts
+# - secrets-stack.ts
+# - ecr-stack.ts
+# - lambda-stack.ts
+# - cloudfront-stack.ts
+# - batch-stack.ts

@@ -174,7 +174,7 @@ aws ecr get-login-password --region us-east-1 | \
 
 # 2. イメージのビルド（モノレポルートから実行）
 docker build -t niconico-mylist-assistant-web:latest \
-    -f services/niconico-mylist-assistant/packages/web/Dockerfile .
+    -f services/niconico-mylist-assistant/web/Dockerfile .
 
 # 3. タグ付け & プッシュ
 docker tag niconico-mylist-assistant-web:latest \
@@ -187,7 +187,7 @@ docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-ass
 ```bash
 # 1. イメージのビルド（モノレポルートから実行）
 docker build -t niconico-mylist-assistant-batch:latest \
-    -f services/niconico-mylist-assistant/packages/batch/Dockerfile .
+    -f services/niconico-mylist-assistant/batch/Dockerfile .
 
 # 2. タグ付け & プッシュ
 docker tag niconico-mylist-assistant-batch:latest \
@@ -356,14 +356,14 @@ aws ecr get-login-password --region us-east-1 | \
 
 # 2. web イメージのビルド & プッシュ
 docker build -t niconico-mylist-assistant-web:latest \
-    -f services/niconico-mylist-assistant/packages/web/Dockerfile .
+    -f services/niconico-mylist-assistant/web/Dockerfile .
 docker tag niconico-mylist-assistant-web:latest \
     <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest
 docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-web-dev:latest
 
 # 3. batch イメージのビルド & プッシュ
 docker build -t niconico-mylist-assistant-batch:latest \
-    -f services/niconico-mylist-assistant/packages/batch/Dockerfile .
+    -f services/niconico-mylist-assistant/batch/Dockerfile .
 docker tag niconico-mylist-assistant-batch:latest \
     <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-batch-dev:latest
 docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-assistant-batch-dev:latest
@@ -607,9 +607,9 @@ npm run build -w niconico-mylist-assistant-batch
 
 # 2. Docker ビルド検証
 docker build -t niconico-mylist-assistant-web-test \
-    -f services/niconico-mylist-assistant/packages/web/Dockerfile .
+    -f services/niconico-mylist-assistant/web/Dockerfile .
 docker build -t niconico-mylist-assistant-batch-test \
-    -f services/niconico-mylist-assistant/packages/batch/Dockerfile .
+    -f services/niconico-mylist-assistant/batch/Dockerfile .
 
 # 3. テスト実行
 npm run test -w niconico-mylist-assistant-core

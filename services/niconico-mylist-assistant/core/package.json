@@ -1,0 +1,17 @@
+{
+  "name": "@nagiyu/niconico-mylist-assistant-core",
+  "version": "0.1.0",
+  "description": "Core business logic for niconico-mylist-assistant",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

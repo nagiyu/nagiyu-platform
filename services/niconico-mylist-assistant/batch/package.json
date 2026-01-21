@@ -1,0 +1,18 @@
+{
+  "name": "@nagiyu/niconico-mylist-assistant-batch",
+  "version": "1.0.0",
+  "description": "Batch job for niconico mylist registration",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@nagiyu/niconico-mylist-assistant-core": "*",
+    "@nagiyu/browser": "*",
+    "playwright": "^1.57.0"
+  }
+}
