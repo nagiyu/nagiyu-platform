@@ -1,0 +1,39 @@
+import type { Config } from '@jest/types';
+
+const config: Config.InitialOptions = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/tests'],
+  testMatch: ['**/*.test.ts'],
+  // Exclude monorepo root package.json to prevent Jest from scanning workspace root
+  modulePathIgnorePatterns: ['<rootDir>/../../../../package.json'],
+  // Handle ES modules
+  extensionsToTreatAsEsm: ['.ts'],
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
+  transform: {
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        useESM: true,
+      },
+    ],
+  },
+  // Common coverage settings
+  coverageDirectory: 'coverage',
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  // Coverage threshold set to 80% as per project standard
+  // Note: This is a skeleton package with minimal implementation
+  // Coverage threshold will be enforced once actual business logic is implemented
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
+};
+
+export default config;
