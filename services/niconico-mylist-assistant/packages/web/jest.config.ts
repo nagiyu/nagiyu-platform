@@ -12,21 +12,23 @@ const config: Config = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/(.*)$': '<rootDir>/$1',
     '^@nagiyu/niconico-mylist-assistant-core$': '<rootDir>/../../core/src/index.ts',
-    '^@nagiyu/common$': '<rootDir>/../../../../../libs/common/src/index.ts',
-    '^@nagiyu/browser$': '<rootDir>/../../../../../libs/browser/src/index.ts',
-    '^@nagiyu/ui$': '<rootDir>/../../../../../libs/ui/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../../../libs/common/src/index.ts',
+    '^@nagiyu/browser$': '<rootDir>/../../../../libs/browser/src/index.ts',
+    '^@nagiyu/ui$': '<rootDir>/../../../../libs/ui/src/index.ts',
   },
   testMatch: ['**/tests/unit/**/*.test.ts', '**/tests/unit/**/*.test.tsx'],
   testPathIgnorePatterns: ['/node_modules/', '/tests/unit/app/api/'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: [
-    'src/**/*.{ts,tsx}',
-    '!src/**/*.d.ts',
-    '!src/app/**/layout.tsx',
-    '!src/app/**/page.tsx',
-    '!src/app/api/**', // Exclude API routes from coverage for now
+    'app/**/*.{ts,tsx}',
+    'components/**/*.{ts,tsx}',
+    'lib/**/*.{ts,tsx}',
+    '!**/*.d.ts',
+    '!app/**/layout.tsx',
+    '!app/**/page.tsx',
+    '!app/api/**', // Exclude API routes from coverage for now
   ],
   // Coverage thresholds (fail if below 80%)
   coverageThreshold: {
