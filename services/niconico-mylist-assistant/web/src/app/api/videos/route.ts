@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
         decodedLastEvaluatedKey = JSON.parse(
           Buffer.from(lastEvaluatedKey, 'base64').toString('utf-8')
         );
-      } catch {
+      } catch (error) {
+        console.error('lastEvaluatedKey のデコードに失敗しました:', error);
         return NextResponse.json(
           { error: 'lastEvaluatedKey パラメータが無効です' },
           { status: 400 }
