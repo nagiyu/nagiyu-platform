@@ -230,10 +230,10 @@ test.describe('チャート表示機能', () => {
 
     const barCountOptions = page.locator('[role="listbox"] [role="option"]');
 
-    // 別の表示本数を選択（例: 30本）
+    // 別の表示本数を選択（例: 10本）
     const barCountCount = await barCountOptions.count();
     if (barCountCount > 0) {
-      // 30本を選択（最初のオプション）
+      // 10本を選択（最初のオプション）
       await barCountOptions.first().click();
 
       // リストボックスが閉じるまで待つ

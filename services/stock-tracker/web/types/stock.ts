@@ -24,12 +24,12 @@ export const TIMEFRAME_LABELS: Record<Timeframe, string> = {
 /**
  * チャート表示本数の型定義
  */
-export type ChartBarCount = 30 | 60 | 100 | 200 | 300;
+export type ChartBarCount = 10 | 30 | 50 | 100;
 
 /**
  * チャート表示本数のプリセット値
  */
-export const CHART_BAR_COUNTS: ChartBarCount[] = [30, 60, 100, 200, 300];
+export const CHART_BAR_COUNTS: ChartBarCount[] = [10, 30, 50, 100];
 
 /**
  * チャート表示本数のデフォルト値
@@ -40,9 +40,8 @@ export const DEFAULT_CHART_BAR_COUNT: ChartBarCount = 100;
  * チャート表示本数の表示用ラベル
  */
 export const CHART_BAR_COUNT_LABELS: Record<ChartBarCount, string> = {
+  10: '10本',
   30: '30本',
-  60: '60本',
+  50: '50本',
   100: '100本',
-  200: '200本',
-  300: '300本',
 } as const;
