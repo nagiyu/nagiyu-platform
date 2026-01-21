@@ -116,11 +116,11 @@ test.describe('Watchlist 管理画面', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
 
-    // テスト用のティッカーを完全一致で選択（既存データではなく確実にテストデータを選択）
-    // tickerId は "exchangeKey:symbol" 形式なので、それで完全一致させる
+    // テスト用のティッカーを選択（既存データではなく確実にテストデータを選択）
+    // UI表示形式に合わせてシンボルで検索（部分一致でOK）
     await page
       .getByRole('option', {
-        name: new RegExp(`^${testTicker.tickerId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+        name: new RegExp(testTicker.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
       })
       .click();
 
