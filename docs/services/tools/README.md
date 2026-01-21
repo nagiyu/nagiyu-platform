@@ -9,16 +9,13 @@ JSONフォーマッター、Base64エンコーダー、乗り換え案内変換�
 
 ## ドキュメント一覧
 
-本プロジェクトのドキュメントは、ウォーターフォール型開発プロセスに沿って整理されています。
-
-### プロジェクトドキュメント
-
 | ドキュメント | 説明 |
 |------------|------|
 | [requirements.md](./requirements.md) | ビジネス要件、機能要件、非機能要件、ユースケース |
-| [architecture.md](./architecture.md) | システムアーキテクチャ、インフラ設計、画面設計 |
+| [architecture.md](./architecture.md) | システムアーキテクチャ、技術スタック、設計思想 |
 | [deployment.md](./deployment.md) | デプロイ手順、CI/CD、監視、障害対応 |
-| [tools-catalog.md](./tools-catalog.md) | 実装済みツール一覧 |
+| [testing.md](./testing.md) | テスト戦略、カバレッジ目標、テストシナリオ |
+| [tools-catalog.md](./tools-catalog.md) | 実装済みツール一覧（サービス固有） |
 
 ---
 
@@ -42,8 +39,8 @@ JSONフォーマッター、Base64エンコーダー、乗り換え案内変換�
 
 - **プロジェクト名**: Tools
 - **リポジトリ**: nagiyu-platform monorepo
-- **配置場所**: `services/tools/` (将来)
-- **インフラ定義**: `infra/tools/` (将来)
+- **配置場所**: `services/tools/`
+- **インフラ定義**: `infra/tools/`
 
 ---
 
@@ -52,3 +49,4 @@ JSONフォーマッター、Base64エンコーダー、乗り換え案内変換�
 - [プラットフォーム全体ドキュメント](../../README.md)
 - [ブランチ戦略](../../branching.md)
 - [インフラドキュメント](../../infra/README.md)
+- [開発ガイドライン](../../development/rules.md)

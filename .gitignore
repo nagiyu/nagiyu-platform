@@ -75,4 +75,3 @@ Thumbs.db
 cdk.out/
 infra/**/*.js
 infra/**/*.d.ts
-!infra/**/jest.config.js

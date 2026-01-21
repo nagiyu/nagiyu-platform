@@ -45,12 +45,12 @@
 ## プロジェクト情報
 
 <!-- 記入ガイド: プロジェクトの基本情報を記述してください -->
+<!-- 注意: バージョン情報は package.json で一元管理するため、ここには記載しない -->
 
 - **プロジェクト名**: {service-name}
 - **リポジトリ**: nagiyu-platform monorepo
 - **配置場所**: `services/{service-name}/`
 - **インフラ定義**: `infra/{service-name}/`
-- **バージョン**: {version} <!-- 記入ガイド: サービスのバージョン番号を記載（例: package.json の version） -->
 
 ---
 

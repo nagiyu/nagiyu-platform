@@ -1,55 +1,67 @@
-# Admin サービス アーキテクチャ
+# Admin サービス アーキテクチャ設計書
 
-## 概要
+---
 
-Admin サービスは、nagiyu プラットフォームの管理機能を提供する Web アプリケーションです。認証された管理者ユーザーが、プラットフォーム全体のユーザー管理、ログ閲覧（Phase 2）、各種設定を行うための統合ダッシュボードとして機能します。
+## 1. システム概要
 
-Phase 1 では、**Auth サービスとの SSO 連携動作確認**を主目的とした最小限のダッシュボードを実装します。
+Admin サービスは、nagiyu プラットフォームの管理機能を提供する Web アプリケーションです。Phase 1 では、Auth サービスとの **SSO 連携動作確認** を主目的とした最小限のダッシュボードを実装します。
 
-## サービス責務
+### 1.1 全体構成図
 
-### Phase 1 スコープ
+![Admin Service Architecture](../../images/services/admin/admin-architecture.drawio.svg)
 
-| 責務 | 説明 |
-|------|------|
-| **JWT 検証** | Auth サービスが発行した JWT トークンを検証し、ユーザー情報を取得 |
-| **SSO 連携** | Auth サービスとのシングルサインオンを実現 |
-| **シンプルなダッシュボード** | ログイン済みユーザーの情報を表示する最小限の UI |
-| **ロールベースアクセス制御 (RBAC)** | ユーザーのロールに基づいたルート保護とアクセス制限 |
+**構成要素**:
+- **ユーザー（ブラウザ）**: 管理者が Web ブラウザからアクセス
+- **CloudFront**: グローバル配信、エッジキャッシング
+- **Lambda (Next.js)**: サーバーレス Next.js 実行環境（コンテナイメージ）
+- **Auth サービス**: JWT 発行、ユーザー認証を担当
+- **共有クッキー**: `.nagiyu.com` ドメインで Auth と Admin が JWT を共有
 
-### Phase 2 以降で追加予定
+---
 
-- CloudWatch Logs 閲覧機能
-- ユーザー管理 UI（Auth サービスの API を呼び出し）
-- ロール割り当て UI
-- プラットフォーム統計ダッシュボード
+## 2. 技術スタック
 
-## 技術スタック
+### 2.1 フロントエンド
 
-### フレームワーク・ライブラリ
+| カテゴリ | 技術 | 用途 |
+|---------|------|------|
+| フレームワーク | Next.js 16.x | SSR/SSG 対応の React フレームワーク |
+| UI ライブラリ | Material-UI (MUI) 7.x | 統一された UI コンポーネント |
+| 言語 | TypeScript 5.x | 型安全な開発 |
+| スタイリング | Emotion 11.x | CSS-in-JS (MUI の依存) |
 
-| カテゴリ | 技術 | バージョン | 用途 |
-|---------|------|-----------|------|
-| **フレームワーク** | Next.js | 16.x | SSR/SSG 対応の React フレームワーク |
-| **言語** | TypeScript | 5.x | 型安全な開発 |
-| **UI ライブラリ** | Material-UI (MUI) | 7.x | 統一された UI コンポーネント |
-| **スタイリング** | Emotion | 11.x | CSS-in-JS (MUI の依存) |
-| **HTTP クライアント** | axios | 1.x | Auth サービス API 呼び出し |
-| **テスト** | Jest, Playwright | latest | ユニットテスト、E2E テスト |
+### 2.2 バックエンド
 
-### インフラストラクチャ
+| カテゴリ | 技術 | 用途 |
+|---------|------|------|
+| ランタイム | Node.js | サーバーサイド処理 |
+| HTTP クライアント | axios 1.x | Auth サービス API 呼び出し（Phase 2） |
 
-| コンポーネント | 技術 | 用途 |
-|--------------|------|------|
-| **ホスティング** | AWS Lambda (コンテナイメージ) | サーバーレス Next.js 実行環境 |
-| **CDN** | Amazon CloudFront | グローバル配信、エッジキャッシング |
-| **コンテナレジストリ** | Amazon ECR | Docker イメージ保存 |
-| **IaC** | AWS CDK (TypeScript) | インフラストラクチャコード |
-| **CI/CD** | GitHub Actions | 自動デプロイパイプライン |
+### 2.3 インフラ
 
-## 設計思想
+| カテゴリ | 技術 | 用途 |
+|---------|------|------|
+| コンピューティング | AWS Lambda (コンテナイメージ) | サーバーレス Next.js 実行環境 |
+| CDN | Amazon CloudFront | コンテンツ配信 |
+| コンテナレジストリ | Amazon ECR | Docker イメージ保存 |
+| IaC | AWS CDK (TypeScript) | インフラ定義 |
 
-### 1. 軽量かつシンプルな実装
+### 2.4 開発ツール
+
+| カテゴリ | 技術 | 用途 |
+|---------|------|------|
+| パッケージマネージャ | npm | 依存関係管理 |
+| リンター | ESLint | コード品質チェック |
+| フォーマッター | Prettier | コード整形 |
+| テスト | Jest, Playwright | ユニット・E2Eテスト |
+
+---
+
+## 3. アーキテクチャパターン
+
+### 3.1 設計思想
+
+#### 1. 軽量かつシンプルな実装
 
 Admin サービスは Phase 1 において**認証基盤の動作確認**を主目的としています。そのため、以下の原則に従います：
 
@@ -57,7 +69,7 @@ Admin サービスは Phase 1 において**認証基盤の動作確認**を主�
 - **複雑なロジックは持たない**: ビジネスロジックは Auth サービスに委譲
 - **早期デプロイ検証**: CI/CD パイプラインを先行構築し、動作確認を優先
 
-### 2. 認証・認可の分離
+#### 2. 認証・認可の分離
 
 Admin サービスは**認可（Authorization）のみ**を担当します：
 
@@ -77,13 +89,13 @@ flowchart TD
     style Note2 fill:#fff2cc,stroke:#d6b656
 ```
 
-### 3. SSO によるシームレスな体験
+#### 3. SSO によるシームレスな体験
 
 - Auth サービスで発行された JWT クッキー（domain: `.nagiyu.com`）を共有
 - Admin サービスはトークンを検証し、セッションを確立
 - ユーザーは一度のログインで全サービスにアクセス可能
 
-### 4. 将来の拡張性を考慮した設計
+#### 4. 将来の拡張性を考慮した設計
 
 Phase 1 ではシンプルな実装としますが、Phase 2 以降で以下の拡張を想定しています：
 
@@ -92,13 +104,7 @@ Phase 1 ではシンプルな実装としますが、Phase 2 以降で以下の�
 - プラットフォーム統計ダッシュボード
 - ロール・権限マトリクスの UI 管理
 
-## アーキテクチャ
-
-### システム構成図
-
-![Admin Service Architecture](../../images/services/admin/admin-architecture.drawio.svg)
-
-### 認証フロー（SSO）
+### 3.2 データフロー（SSO 認証）
 
 ```mermaid
 sequenceDiagram
@@ -122,39 +128,132 @@ sequenceDiagram
     Admin->>User: 9. ダッシュボード表示
 ```
 
-### 認証・認可の実装方針
+### 3.3 コンポーネント構成
+
+#### UI レイヤー (`app/`, `components/`)
+- **Next.js App Router**: ルーティング、ページレンダリング
+- **React コンポーネント**: ユーザー情報カード、認証ステータスカード
+- **共通 UI ライブラリ (`@nagiyu/ui`)**: Header, Footer コンポーネント
+
+#### ビジネスロジック (`lib/`)
+- **JWT 検証**: トークンの署名、有効期限、発行者を検証
+- **権限チェック**: ロールベースのアクセス制御ロジック
+
+#### Middleware
+- **認証チェック**: 全リクエストで JWT クッキーを検証
+- **リダイレクト**: 認証失敗時は Auth サービスへリダイレクト
+
+---
+
+## 4. データモデル
+
+### 4.1 JWT ペイロード構造
+
+Admin サービスが検証する JWT のペイロード:
+
+```typescript
+interface JWTPayload {
+  sub: string;          // ユーザーID
+  email: string;        // メールアドレス
+  roles: string[];      // ロール一覧（例: ["admin", "user-manager"]）
+  iss: string;          // 発行者（"auth.nagiyu.com"）
+  exp: number;          // 有効期限（Unix タイムスタンプ）
+  iat: number;          // 発行時刻（Unix タイムスタンプ）
+}
+```
+
+### 4.2 セッション型
+
+Admin サービス内部で使用するセッション型:
+
+```typescript
+interface Session {
+  userId: string;
+  email: string;
+  roles: string[];
+  expiresAt: Date;
+}
+```
+
+---
+
+## 5. インフラ構成
+
+### 5.1 AWS 構成図
+
+```mermaid
+graph TD
+    User[ユーザー<br/>ブラウザ] --> CF[CloudFront]
+    CF --> Lambda[Lambda<br/>Next.js コンテナ]
+    Lambda --> ECR[ECR<br/>イメージ保存]
+    Lambda --> CW[CloudWatch Logs<br/>ログ出力]
+    
+    Auth[Auth Service] -.->|JWT 発行| User
+    Lambda -.->|JWT 検証| Lambda
+
+    style CF fill:#ffd699
+    style Lambda fill:#99ccff
+    style ECR fill:#d9d9d9
+    style CW fill:#ffffcc
+    style Auth fill:#dae8fc
+```
+
+### 5.2 リソース一覧
+
+| リソース           | 説明                                                  | 設定                                                        |
+| ------------------ | ----------------------------------------------------- | ----------------------------------------------------------- |
+| Lambda 関数        | Next.js アプリケーションの実行環境                    | メモリ: 1024 MB, タイムアウト: 30秒, コンテナイメージ起動 |
+| CloudFront         | グローバル配信、HTTPS 強制                            | Lambda Function URL をオリジンとして設定                    |
+| ECR リポジトリ     | Docker イメージ保存                                   | イメージタグ: `admin-{env}:latest`                          |
+| CloudWatch Logs    | Lambda 実行ログ                                       | ロググループ: `/aws/lambda/admin-{env}`, 保持期間: 7日      |
+| Lambda Function URL| Lambda への直接アクセス URL                           | 認証: なし（CloudFront 経由のアクセスを前提）                |
+
+### 5.3 ネットワーク設計
+
+- **VPC**: 共有 VPC (`nagiyu-{env}-vpc`) を使用
+- **サブネット**: パブリックサブネットに Lambda を配置（VPC 外でも可）
+- **セキュリティグループ**: Lambda には付与しない（VPC 外の場合）
+- **通信経路**: ユーザー → CloudFront → Lambda Function URL
+
+---
+
+## 6. セキュリティ設計
+
+### 6.1 認証・認可
 
 #### JWT 検証
+- **署名検証**: Auth サービスと共有する秘密鍵（または公開鍵）で署名を検証
+- **有効期限チェック**: `exp` クレームを確認し、期限切れトークンを拒否
+- **発行者検証**: `iss` クレームが `auth.nagiyu.com` であることを確認
 
-Admin サービスは Next.js Middleware で全リクエストの JWT を検証します：
+#### RBAC（ロールベースアクセス制御）
+- **Phase 1 サポートロール**: `admin`, `user-manager`
+- **権限チェック**: Middleware, API Route, UI で権限を検証
+- **権限不足時の挙動**: 403 Forbidden レスポンス
 
-**実装場所:** `services/admin/web/src/middleware.ts`
+### 6.2 データ暗号化
 
-**処理フロー:**
-1. リクエストから JWT クッキー (`nagiyu-session`) を取得
-2. トークンがない場合 → Auth サービスの `/signin` へリダイレクト
-3. トークンを検証（署名、有効期限）
-4. 検証成功 → ユーザー情報をリクエストヘッダーに追加して次の処理へ
-5. 検証失敗 → Auth サービスへリダイレクト
+- **通信暗号化**: HTTPS 強制（CloudFront で HTTP → HTTPS リダイレクト）
+- **クッキー**: `Secure` フラグ付き JWT クッキー（HTTPS 通信でのみ送信）
 
-**公開ルート:**
-- `/api/health`: ヘルスチェック（認証不要）
+### 6.3 セキュリティヘッダー
 
-#### ロールベースアクセス制御 (RBAC)
+Next.js で以下のセキュリティヘッダーを設定:
 
-**実装場所:** `services/admin/web/src/lib/auth/permissions.ts`
+- **HSTS**: `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- **X-Frame-Options**: `DENY`（クリックジャッキング対策）
+- **X-Content-Type-Options**: `nosniff`
+- **Referrer-Policy**: `strict-origin-when-cross-origin`
 
-**ロール・権限定義:**
-- Auth サービスの `libs/common/src/auth/roles.ts` と同じ定義を使用
-- Phase 1 では `admin` と `user-manager` のみサポート
-- Phase 2 で `log-viewer` を追加予定
+### 6.4 その他のセキュリティ対策
 
-**権限チェック方法:**
-- API Route: `requirePermission()` で権限チェック、失敗時は 403 Forbidden
-- Middleware: ルートパターンに基づいた権限チェック
-- UI: `hasPermission()` でコンポーネントの表示制御（セキュリティ目的ではない）
+- **レート制限**: AWS WAF でリクエストレート制限（Phase 2 で検討）
+- **最小権限の原則**: Lambda 実行ロールは必要最小限の権限のみ付与
+- **クッキーセキュリティ**: `SameSite=Lax`（CSRF 保護）、`Domain=.nagiyu.com`
 
-## ディレクトリ構成
+---
+
+## 7. ディレクトリ構成
 
 ```
 services/admin/web/
@@ -199,181 +298,70 @@ services/admin/web/
 └── tsconfig.json
 ```
 
-## 画面設計
+---
 
-### Phase 1: シンプルなダッシュボード
+## 8. 技術選定理由
 
-![Dashboard Screen](../images/services/admin/dashboard-screen.drawio.svg)
+### Next.js 16.x
 
-**設計方針：**
+**理由**:
+- SSR/SSG 対応により、SEO とパフォーマンスを両立
+- App Router による直感的なルーティング
+- Middleware による認証チェックの実装が容易
+- プラットフォーム標準技術として統一
 
-- **モバイルファースト**: スマートフォンでの閲覧を前提とした UI 設計（375px 幅を基準）
-- **共通レイアウトの活用**: `@nagiyu/ui` の Header/Footer コンポーネントを使用
-- **レスポンシブ対応**: PC でも同じ UI で閲覧可能（必要に応じてタブレット・PC 向けレイアウト調整）
+**代替案との比較**:
+- **React SPA**: SSR が不要な場合は選択肢だが、Admin は SEO 不要のため検討不要
+- **Vue.js/Nuxt.js**: Next.js の方がプラットフォーム内で統一しやすい
 
-**画面構成：**
+### Material-UI (MUI) 7.x
 
-- **Header** (`@nagiyu/ui`): "Admin" タイトル表示
-- **メインコンテンツ**:
-    - ユーザー情報カード（名前、メールアドレス、ロール一覧）
-    - 認証ステータス（JWT 有効期限表示）
-    - 動作確認メッセージ（"Auth サービスとの SSO 連携が正常に動作しています"）
-    - メニュー（ダッシュボード、ログ閲覧※、ユーザー管理※）
-    - ログアウトボタン
-- **Footer** (`@nagiyu/ui`): バージョン情報、プライバシーポリシー、利用規約
+**理由**:
+- プラットフォーム標準の UI ライブラリ
+- 豊富なコンポーネントライブラリ
+- `@nagiyu/ui` 共通コンポーネントとの親和性
 
-※ Phase 2 で実装予定の機能
+**代替案との比較**:
+- **Tailwind CSS**: カスタマイズ性は高いが、統一性が低くなる
+- **Ant Design**: MUI と同等だが、プラットフォーム標準として MUI を採用
 
-### Phase 2 以降で追加予定の画面
+### AWS Lambda (コンテナイメージ)
 
-- ユーザー一覧・編集画面
-- ログ閲覧画面（CloudWatch Logs クエリ UI）
-- ロール・権限マトリクス管理画面
+**理由**:
+- サーバーレスで運用コストが低い
+- 自動スケーリング対応
+- コンテナイメージによる Next.js の実行が可能
+- プラットフォーム標準のホスティング方式
 
-## セキュリティ設計
+**代替案との比較**:
+- **ECS/Fargate**: 常時稼働が必要な場合は選択肢だが、Admin は低トラフィックのため Lambda で十分
+- **Vercel**: 外部サービスへの依存を避けたい
 
-### 1. JWT 検証
+---
 
-- **署名検証**: Auth サービスと共有する秘密鍵（または公開鍵）で署名を検証
-- **有効期限チェック**: `exp` クレームを確認し、期限切れトークンを拒否
-- **発行者検証**: `iss` クレームが `auth.nagiyu.com` であることを確認
+## 9. 制約事項
 
-### 2. クッキーセキュリティ
+### 9.1 技術的制約
 
-Admin サービスは JWT クッキーを**読み取り専用**として扱います：
+- **Lambda コールドスタート**: 初回アクセス時に 1-2秒の遅延が発生する可能性
+- **Lambda タイムアウト**: 30秒でタイムアウト（長時間実行する処理には不向き）
+- **コンテナイメージサイズ**: 10 GB 制限（Next.js アプリケーションは問題なし）
 
-- **発行しない**: JWT の発行は Auth サービスのみ
-- **検証のみ**: クッキーの署名と有効期限を検証
-- **SameSite=Lax**: CSRF 保護
-- **Secure フラグ**: HTTPS 通信でのみ送信
+### 9.2 運用制約
 
-### 3. HTTPS 強制
+- **Phase 1 では最小限の機能**: CloudWatch Logs 閲覧、ユーザー管理は Phase 2 以降
+- **Auth サービス依存**: Auth サービスが稼働していないと Admin サービスも機能しない
+- **共有クッキー**: `.nagiyu.com` ドメインのクッキーを共有するため、ドメイン設定が必須
 
-- CloudFront で HTTPS リダイレクト設定
-- HTTP Strict Transport Security (HSTS) ヘッダー送信
+---
 
-### 4. レート制限
+## 10. 将来拡張
 
-- AWS WAF でリクエストレート制限
-- API Routes に対する過度なアクセスを防止
+### Phase 2 以降で検討する拡張
 
-### 5. 最小権限の原則
+- **CloudWatch Logs 閲覧機能**: ログクエリ UI の追加
+- **ユーザー管理 UI**: Auth サービスの API を呼び出してユーザーを管理
+- **プラットフォーム統計ダッシュボード**: 各サービスの利用状況を可視化
+- **ロール・権限マトリクス管理**: UI でロールと権限を管理
+- **外部 API の提供**: Admin 機能を他サービスから呼び出せるようにする（要検討）
 
-- Lambda 実行ロールは必要最小限の権限のみ付与
-- Phase 1 では DynamoDB, CloudWatch Logs への読み取り権限なし（Phase 2 で追加）
-
-## 非機能要件
-
-### パフォーマンス
-
-| 項目 | 目標値 |
-|------|--------|
-| **初回表示速度** | < 2秒 (グローバル平均) |
-| **Time to Interactive (TTI)** | < 3秒 |
-| **Lambda コールドスタート** | < 1秒 |
-
-### 可用性
-
-| 項目 | 目標値 |
-|------|--------|
-| **稼働率** | 99.9% (月間ダウンタイム < 43分) |
-| **RTO (復旧目標時間)** | < 30分 |
-| **RPO (復旧目標時点)** | 0 (ステートレス) |
-
-### スケーラビリティ
-
-- Lambda の自動スケーリングにより、同時リクエスト数に応じて拡張
-- CloudFront キャッシュにより、静的アセットの配信を高速化
-
-### 監視・ロギング
-
-| 項目 | ツール/方法 |
-|------|-----------|
-| **アプリケーションログ** | CloudWatch Logs (Phase 2 で libs/common logger 統合) |
-| **エラー追跡** | CloudWatch Logs Insights |
-| **メトリクス** | CloudWatch Metrics (Lambda 実行時間、エラー率) |
-| **アラート** | CloudWatch Alarms (エラー率 > 5%, Lambda タイムアウト) |
-
-## 開発・運用
-
-### 環境
-
-| 環境 | URL | 用途 |
-|------|-----|------|
-| **dev** | admin-dev.nagiyu.com | 開発・動作確認 |
-| **prod** | admin.nagiyu.com | 本番環境 |
-
-### デプロイフロー
-
-```
-開発ブランチ (integration/admin)
-    ↓ PR作成
-develop ブランチ
-    ↓ マージ → CI/CD 実行
-dev 環境へデプロイ
-    ↓ 動作確認 OK
-master ブランチへ PR
-    ↓ マージ → CI/CD 実行
-prod 環境へデプロイ
-```
-
-### CI/CD パイプライン
-
-**GitHub Actions ワークフロー:**
-
-1. **admin-verify-fast.yml** (integration/** PR)
-    - ユニットテスト実行
-    - ビルド検証
-    - トリガー: integration/** ブランチへの push
-
-2. **admin-verify-full.yml** (develop PR)
-    - ユニットテスト + E2E テスト
-    - カバレッジ計測 (80% 以上)
-    - トリガー: develop ブランチへの PR
-
-3. **admin-deploy.yml** (develop/master へのマージ)
-    - Docker イメージビルド
-    - ECR へプッシュ
-    - AWS CDK デプロイ
-    - Lambda 関数更新
-    - CloudFront キャッシュクリア
-
-### テスト戦略
-
-| テスト種別 | ツール | カバレッジ目標 |
-|-----------|--------|---------------|
-| **ユニットテスト** | Jest | 80% 以上 |
-| **E2E テスト** | Playwright | 主要フロー 100% |
-| **セキュリティテスト** | 手動 | JWT 検証、RBAC |
-
-**E2E テストシナリオ（Phase 1）:**
-
-1. 未認証ユーザーが admin.nagiyu.com にアクセス → auth.nagiyu.com へリダイレクト
-2. Google OAuth ログイン → JWT クッキー発行 → admin.nagiyu.com へリダイレクト
-3. ダッシュボードにユーザー情報が表示される
-4. JWT 有効期限切れ → auth.nagiyu.com へリダイレクト
-
-## Phase 2 以降の拡張計画
-
-### CloudWatch Logs 閲覧機能
-
-- CloudWatch Logs Insights API を使用したログクエリ
-- サービス、ログレベル、時刻範囲でフィルタリング
-- リアルタイムログストリーム表示
-
-### ユーザー管理 UI
-
-- Auth サービスの `/api/users` エンドポイントを呼び出し
-- ユーザー一覧、作成、編集、削除
-- ロール割り当て UI
-
-### プラットフォーム統計
-
-- 各サービスの利用状況ダッシュボード
-- ユーザー数、アクティブユーザー数、エラー率などの可視化
-
-## 関連ドキュメント
-
-- [Auth サービス アーキテクチャ](../auth/architecture.md)
-- [Auth サービス API 仕様](../auth/api-spec.md)
-- [ロール・権限定義](../auth/roles-and-permissions.md)
