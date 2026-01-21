@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
   WatchlistRepository,
+  TickerRepository,
   getAuthError,
   validateWatchlist,
   type Watchlist,
@@ -62,17 +63,35 @@ export async function GET(request: Request) {
     // ユーザーのウォッチリスト一覧を取得
     const result = await watchlistRepo.getByUserId(userId, limit, lastKey);
 
-    // レスポンスを返す (API仕様に従った形式)
-    return NextResponse.json({
-      watchlist: result.items.map((item) => ({
+    // TickerリポジトリでSymbolとNameを取得
+    // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
+    const tickerRepo = new TickerRepository(docClient, tableName);
+
+    const watchlistItems = [];
+    for (const item of result.items) {
+      // ティッカーが見つからない場合はデフォルト値を使用
+      let ticker;
+      try {
+        ticker = await tickerRepo.getById(item.TickerID);
+      } catch (error) {
+        // ティッカーが見つからない場合は null として扱う
+        ticker = null;
+      }
+
+      watchlistItems.push({
         watchlistId: `${item.UserID}#${item.TickerID}`,
         tickerId: item.TickerID,
-        symbol: item.TickerID.split(':')[1] || item.TickerID,
-        name: '', // Note: 実際の実装ではTickerRepositoryから取得する必要があるが、Phase 1では省略
+        symbol: ticker?.Symbol || item.TickerID.split(':')[1] || item.TickerID,
+        name: ticker?.Name || '',
         createdAt: new Date(item.CreatedAt).toISOString(),
-      })),
+      });
+    }
+
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json({
+      watchlist: watchlistItems,
       pagination: {
-        count: result.items.length,
+        count: watchlistItems.length,
         lastKey: result.lastKey ? JSON.stringify(result.lastKey) : undefined,
       },
     });
@@ -166,13 +185,23 @@ export async function POST(request: Request) {
     // ウォッチリストを作成
     const newWatchlist = await watchlistRepo.create(watchlistData);
 
+    // TickerリポジトリでSymbolとNameを取得
+    const tickerRepo = new TickerRepository(docClient, tableName);
+    let ticker;
+    try {
+      ticker = await tickerRepo.getById(newWatchlist.TickerID);
+    } catch (error) {
+      // ティッカーが見つからない場合は null として扱う
+      ticker = null;
+    }
+
     // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json(
       {
         watchlistId: `${newWatchlist.UserID}#${newWatchlist.TickerID}`,
         tickerId: newWatchlist.TickerID,
-        symbol: newWatchlist.TickerID.split(':')[1] || newWatchlist.TickerID,
-        name: '', // Note: 実際の実装ではTickerRepositoryから取得する必要があるが、Phase 1では省略
+        symbol: ticker?.Symbol || newWatchlist.TickerID.split(':')[1] || newWatchlist.TickerID,
+        name: ticker?.Name || '',
         createdAt: new Date(newWatchlist.CreatedAt).toISOString(),
       },
       { status: 201 }
