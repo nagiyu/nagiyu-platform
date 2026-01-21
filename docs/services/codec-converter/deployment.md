@@ -329,5 +329,7 @@ npm run cdk -w codec-converter -- destroy --context env=dev --context deployment
 
 - [アーキテクチャ設計](./architecture.md)
 - [要件定義](./requirements.md)
+- [API仕様](./api-spec.md)
+- [テスト仕様](./testing.md)
 - [共有インフラ: VPC](../../infra/shared/vpc.md)
 - [共有インフラ: ACM](../../infra/shared/acm.md)
