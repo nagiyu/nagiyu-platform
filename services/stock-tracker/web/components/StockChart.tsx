@@ -56,7 +56,7 @@ const ERROR_MESSAGES = {
  * - インタラクティブ操作（ズーム、パン）
  * - レスポンシブデザイン対応
  * - Phase 1: session は 'extended' 固定（時間外取引を含む）。Phase 2 で設定可能になる予定
- * - 表示本数はプリセット値（30, 60, 100, 200, 300）から選択可能
+ * - 表示本数はプリセット値（10, 30, 50, 100）から選択可能
  */
 export default function StockChart({
   tickerId,
