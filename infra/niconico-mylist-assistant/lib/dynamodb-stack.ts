@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import { getDynamoDBTableName } from '@nagiyu/infra-common';
 
 export interface DynamoDBStackProps extends cdk.StackProps {
   environment: string;
@@ -16,7 +17,7 @@ export class DynamoDBStack extends cdk.Stack {
 
     // DynamoDB テーブル (Single Table Design)
     this.table = new dynamodb.Table(this, 'Table', {
-      tableName: `nagiyu-niconico-mylist-assistant-${environment}`,
+      tableName: getDynamoDBTableName('niconico-mylist-assistant', environment as 'dev' | 'prod'),
       partitionKey: {
         name: 'PK',
         type: dynamodb.AttributeType.STRING,

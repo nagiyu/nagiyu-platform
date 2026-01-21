@@ -2,7 +2,8 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { DynamoDBStack } from '../lib/dynamodb-stack';
-import { ECRStack } from '../lib/ecr-stack';
+import { WebECRStack } from '../lib/web-ecr-stack';
+import { BatchECRStack } from '../lib/batch-ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 
@@ -33,11 +34,18 @@ new DynamoDBStack(app, `NagiyuNiconicoMylistAssistantDynamoDB${envSuffix}`, {
   description: `Niconico Mylist Assistant DynamoDB - ${env} environment`,
 });
 
-// ECR スタックを作成
-const ecrStack = new ECRStack(app, `NagiyuNiconicoMylistAssistantECR${envSuffix}`, {
+// ECR スタックを作成（web用）
+const webEcrStack = new WebECRStack(app, `NagiyuNiconicoMylistAssistantWebECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
-  description: `Niconico Mylist Assistant ECR - ${env} environment`,
+  description: `Niconico Mylist Assistant Web ECR - ${env} environment`,
+});
+
+// ECR スタックを作成（batch用）
+const batchEcrStack = new BatchECRStack(app, `NagiyuNiconicoMylistAssistantBatchECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Niconico Mylist Assistant Batch ECR - ${env} environment`,
 });
 
 // Lambda スタックを作成
@@ -47,8 +55,8 @@ const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${e
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });
 
-// Lambda は ECR に依存
-lambdaStack.addDependency(ecrStack);
+// Lambda は Web ECR に依存
+lambdaStack.addDependency(webEcrStack);
 
 // CloudFront スタックを作成
 if (!lambdaStack.functionUrl) {

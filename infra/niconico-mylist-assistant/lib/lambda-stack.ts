@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
+import { LambdaStackBase, LambdaStackBaseProps, getDynamoDBTableName, getEcrRepositoryName, getLambdaFunctionName } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -18,6 +18,9 @@ export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     const { environment, ...stackProps } = props;
 
+    const env = environment as 'dev' | 'prod';
+    const tableName = getDynamoDBTableName('niconico-mylist-assistant', env);
+
     // DynamoDB アクセス権限の定義
     const additionalPolicyStatements = [
       new iam.PolicyStatement({
@@ -32,9 +35,9 @@ export class LambdaStack extends LambdaStackBase {
         ],
         resources: [
           // DynamoDB テーブル
-          `arn:aws:dynamodb:*:*:table/nagiyu-niconico-mylist-assistant-${environment}`,
+          `arn:aws:dynamodb:*:*:table/${tableName}`,
           // GSI1 インデックス
-          `arn:aws:dynamodb:*:*:table/nagiyu-niconico-mylist-assistant-${environment}/index/*`,
+          `arn:aws:dynamodb:*:*:table/${tableName}/index/*`,
         ],
       }),
     ];
@@ -42,15 +45,15 @@ export class LambdaStack extends LambdaStackBase {
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
       serviceName: 'niconico-mylist-assistant-web',
-      environment: environment as 'dev' | 'prod',
-      ecrRepositoryName: `niconico-mylist-assistant-web-${environment}`,
+      environment: env,
+      ecrRepositoryName: getEcrRepositoryName('niconico-mylist-assistant-web', env),
       lambdaConfig: {
-        functionName: `niconico-mylist-assistant-web-${environment}`,
+        functionName: getLambdaFunctionName('niconico-mylist-assistant-web', env),
         memorySize: 1024,
         timeout: 30,
         environment: {
           NODE_ENV: 'production',
-          DYNAMODB_TABLE_NAME: `nagiyu-niconico-mylist-assistant-${environment}`,
+          DYNAMODB_TABLE_NAME: tableName,
         },
       },
       additionalPolicyStatements,
