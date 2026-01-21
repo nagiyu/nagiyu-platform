@@ -184,9 +184,10 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
         }
 
         // UI経由で作成したHoldingをクリーンアップするために、APIで削除
-        // HoldingIDの形式: USER#{tickerId}
+        // HoldingIDの形式: {UserID}#{TickerID}
+        // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
         if (tickerId) {
-          const holdingId = `USER#${tickerId}`;
+          const holdingId = `test-user-id#${tickerId}`;
           try {
             await request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
             console.log(`Cleaned up UI-created holding: ${holdingId}`);

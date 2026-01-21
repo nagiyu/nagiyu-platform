@@ -158,9 +158,10 @@ test.describe('Watchlist 管理画面', () => {
       await expect(deleteButtons.first()).toBeVisible();
 
       // UI経由で作成したWatchlistをクリーンアップするために、APIで削除
-      // WatchlistIDの形式: USER#{tickerId}
+      // WatchlistIDの形式: {UserID}#{TickerID}
+      // SKIP_AUTH_CHECK=true環境では UserID は "test-user-id"
       if (tickerId) {
-        const watchlistId = `USER#${tickerId}`;
+        const watchlistId = `test-user-id#${tickerId}`;
         try {
           await request.delete(`/api/watchlist/${encodeURIComponent(watchlistId)}`);
           console.log(`Cleaned up UI-created watchlist: ${watchlistId}`);
