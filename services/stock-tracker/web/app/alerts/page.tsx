@@ -401,7 +401,7 @@ function AlertsPageContent() {
                   const conditionText = condition
                     ? `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`
                     : '-';
-                  
+
                   // 取引所IDから取引所名を取得
                   const exchangeId = alert.tickerId.split(':')[0] || '';
                   const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);

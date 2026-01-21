@@ -600,7 +600,7 @@ export default function HoldingsPage() {
                 holdings.map((holding) => {
                   // アラート設定済みかどうかの判定
                   const hasAlert = alerts[holding.tickerId] || false;
-                  
+
                   // 取引所IDから取引所名を取得
                   const exchangeId = holding.tickerId.split(':')[0] || '';
                   const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
