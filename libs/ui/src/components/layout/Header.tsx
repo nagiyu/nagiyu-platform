@@ -263,7 +263,7 @@ export default function Header({
           {user && (
             <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
               <Avatar src={user.avatar} alt={user.name} sx={{ width: 32, height: 32, mr: 1 }}>
-                {user.name[0]}
+                {user.name && user.name.length > 0 ? user.name[0] : '?'}
               </Avatar>
               <Typography
                 variant="body2"
@@ -299,8 +299,9 @@ export default function Header({
             role="navigation"
             aria-label="ナビゲーションメニュー"
             onClick={(e) => {
-              // Prevent closing on nested clicks
-              if ((e.target as HTMLElement).tagName === 'A') {
+              // Prevent closing on nested clicks - check for closest 'a' element
+              const target = e.target as HTMLElement;
+              if (target.closest('a')) {
                 handleDrawerClose();
               }
             }}
