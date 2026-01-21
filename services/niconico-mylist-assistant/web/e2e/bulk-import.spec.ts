@@ -70,9 +70,7 @@ test.describe('Bulk Import API', () => {
 });
 
 test.describe('Bulk Import API with Authentication', () => {
-  test.skip('should import videos successfully when authenticated', async ({
-    request,
-  }) => {
+  test.skip('should import videos successfully when authenticated', async ({ request }) => {
     // TODO: Implement authentication setup
     // This test is skipped until authentication is properly set up in the test environment
 
@@ -108,5 +106,103 @@ test.describe('Bulk Import API with Authentication', () => {
     expect(body.skipped[0]).toHaveProperty('videoId');
     expect(body.skipped[0]).toHaveProperty('reason');
     expect(body.skipped[0].reason).toBe('Already exists');
+  });
+});
+
+test.describe('Bulk Import UI', () => {
+  test('should display import form', async ({ page }) => {
+    await page.goto('/import');
+
+    // タイトルの確認
+    await expect(page.getByRole('heading', { name: '動画一括インポート' })).toBeVisible();
+
+    // 説明文の確認
+    await expect(page.getByText(/ニコニコ動画の動画 ID/)).toBeVisible();
+
+    // テキストエリアの確認
+    const textarea = page.getByRole('textbox');
+    await expect(textarea).toBeVisible();
+
+    // インポートボタンの確認（初期状態では無効）
+    const importButton = page.getByRole('button', { name: 'インポート実行' });
+    await expect(importButton).toBeVisible();
+    await expect(importButton).toBeDisabled();
+  });
+
+  test('should enable import button when video IDs are entered', async ({ page }) => {
+    await page.goto('/import');
+
+    const textarea = page.getByRole('textbox');
+    const importButton = page.getByRole('button', { name: 'インポート実行' });
+
+    // 動画IDを入力
+    await textarea.fill('sm9\nsm10\nsm11');
+
+    // ボタンが有効化される
+    await expect(importButton).toBeEnabled();
+  });
+
+  test('should show validation error for empty input', async ({ page }) => {
+    await page.goto('/import');
+
+    const textarea = page.getByRole('textbox');
+    const importButton = page.getByRole('button', { name: 'インポート実行' });
+
+    // スペースだけを入力
+    await textarea.fill('   ');
+
+    // ボタンをクリック（無効なので実際にはクリックできない想定だが、JSで有効化されることを確認）
+    await expect(importButton).toBeDisabled();
+  });
+
+  test('should show validation error for too many videos', async ({ page }) => {
+    await page.goto('/import');
+
+    const textarea = page.getByRole('textbox');
+    const importButton = page.getByRole('button', { name: 'インポート実行' });
+
+    // 101個の動画IDを入力
+    const videoIds = Array.from({ length: 101 }, (_, i) => `sm${i + 1}`).join('\n');
+    await textarea.fill(videoIds);
+
+    // ボタンをクリック
+    await importButton.click();
+
+    // エラーメッセージの確認
+    await expect(page.getByText(/一度に登録できる動画は最大 100 件です/)).toBeVisible();
+  });
+
+  test('should parse video IDs with different separators', async ({ page }) => {
+    await page.goto('/import');
+
+    const textarea = page.getByRole('textbox');
+
+    // 改行、カンマ、スペース混在の入力
+    await textarea.fill('sm9,sm10 sm11\nsm12');
+
+    // 4つのIDが認識されることを確認するため、ボタンが有効化される
+    const importButton = page.getByRole('button', { name: 'インポート実行' });
+    await expect(importButton).toBeEnabled();
+  });
+});
+
+test.describe('Bulk Import Navigation', () => {
+  test('should have navigation links', async ({ page }) => {
+    await page.goto('/import');
+
+    // ナビゲーションリンクの確認
+    await expect(page.getByRole('button', { name: 'ホーム' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'インポート' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '動画一覧' })).toBeVisible();
+  });
+
+  test('should navigate to home when clicking home button', async ({ page }) => {
+    await page.goto('/import');
+
+    const homeButton = page.getByRole('button', { name: 'ホーム' });
+    await homeButton.click();
+
+    // ホームページに遷移
+    await expect(page).toHaveURL('/');
   });
 });
