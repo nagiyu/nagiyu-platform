@@ -6,7 +6,7 @@ const config: Config.InitialOptions = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   // Exclude monorepo root package.json to prevent Jest from scanning workspace root
-  modulePathIgnorePatterns: ['<rootDir>/../../../../package.json'],
+  modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   // Handle ES modules
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
