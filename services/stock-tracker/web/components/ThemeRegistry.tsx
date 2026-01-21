@@ -48,7 +48,7 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
     ? {
         name: session.user.name || '',
         email: session.user.email || '',
-        avatar: 'image' in session.user ? session.user.image : undefined,
+        avatar: 'image' in session.user && session.user.image ? session.user.image : undefined,
       }
     : undefined;
 
