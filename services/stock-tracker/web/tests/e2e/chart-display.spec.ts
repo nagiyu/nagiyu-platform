@@ -134,9 +134,7 @@ test.describe('チャート表示機能', () => {
     await Promise.race([
       page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
       page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-      page
-        .getByText('チャートデータを読み込み中')
-        .waitFor({ state: 'visible', timeout: 15000 }),
+      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
     ]).catch(() => {
       console.log('Initial chart load timed out, continuing test');
     });
@@ -160,9 +158,7 @@ test.describe('チャート表示機能', () => {
       await Promise.race([
         page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
         page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-        page
-          .getByText('チャートデータを読み込み中')
-          .waitFor({ state: 'visible', timeout: 15000 }),
+        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
       ]).catch(() => {
         console.log('Chart reload timed out');
       });
