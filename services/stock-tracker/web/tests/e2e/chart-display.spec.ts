@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { TestDataFactory } from './utils/test-data-factory';
 
 /**
  * E2E-001: チャート表示フロー
@@ -12,11 +13,24 @@ import { test, expect } from '@playwright/test';
  */
 
 test.describe('チャート表示機能', () => {
-  test.beforeEach(async ({ page }) => {
+  let factory: TestDataFactory;
+
+  test.beforeEach(async ({ page, request }) => {
+    // TestDataFactory を初期化
+    factory = new TestDataFactory(request);
+
+    // テスト用データを作成
+    await factory.createTicker(); // Exchange と Ticker を自動作成
+
     await page.goto('/');
 
     // ページ読み込み完了を待つ
     await page.waitForLoadState('networkidle');
+  });
+
+  test.afterEach(async () => {
+    // TestDataFactory でクリーンアップ
+    await factory.cleanup();
   });
 
   test('初期状態ではチャートが表示されない', async ({ page }) => {
@@ -32,57 +46,59 @@ test.describe('チャート表示機能', () => {
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
     const exchangeCount = await exchangeOptions.count();
 
-    if (exchangeCount > 1) {
-      // 最初の取引所を選択
-      await exchangeOptions.nth(1).click();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
 
-      // リストボックスが閉じるまで待つ
-      await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // 最初の取引所を選択
+    await exchangeOptions.nth(1).click();
 
-      // ティッカーが有効になるのを待つ
-      const tickerSelect = page.getByLabel('ティッカー選択');
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-      await page.waitForLoadState('networkidle');
+    // リストボックスが閉じるまで待つ
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // ティッカーを選択
-      await tickerSelect.click();
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+    // ティッカーが有効になるのを待つ
+    const tickerSelect = page.getByLabel('ティッカー選択');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await page.waitForLoadState('networkidle');
 
-      if (tickerCount > 1) {
-        // 最初のティッカーを選択
-        await tickerOptions.nth(1).click();
+    // ティッカーを選択
+    await tickerSelect.click();
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
 
-        // リストボックスが閉じるまで待つ
-        await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // テストデータが作成されているので、必ずティッカーが存在する
+    expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
 
-        // チャート表示を待つ（チャートが表示されるか、エラーが表示されるまで）
-        await Promise.race([
-          page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
-          page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
-        ]).catch(() => {
-          // タイムアウトした場合も続行（APIエラーの可能性）
-        });
+    // 最初のティッカーを選択
+    await tickerOptions.nth(1).click();
 
-        // チャートまたはエラーメッセージが表示されることを確認
-        const chartDisplayed = await page
-          .locator('canvas')
-          .isVisible()
-          .catch(() => false);
-        const errorDisplayed = await page
-          .locator('[role="alert"]')
-          .isVisible()
-          .catch(() => false);
+    // リストボックスが閉じるまで待つ
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-        // チャートまたはエラーのいずれかが表示される
-        expect(chartDisplayed || errorDisplayed).toBeTruthy();
+    // チャート表示を待つ（チャートが表示されるか、エラーが表示されるまで）
+    await Promise.race([
+      page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
+      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
+    ]).catch(() => {
+      // タイムアウトした場合も続行（APIエラーの可能性）
+    });
 
-        if (chartDisplayed) {
-          // チャートが表示されている場合、canvas要素が存在することを確認
-          const canvas = page.locator('canvas');
-          await expect(canvas).toBeVisible();
-        }
-      }
+    // チャートまたはエラーメッセージが表示されることを確認
+    const chartDisplayed = await page
+      .locator('canvas')
+      .isVisible()
+      .catch(() => false);
+    const errorDisplayed = await page
+      .locator('[role="alert"]')
+      .isVisible()
+      .catch(() => false);
+
+    // チャートまたはエラーのいずれかが表示される
+    expect(chartDisplayed || errorDisplayed).toBeTruthy();
+
+    if (chartDisplayed) {
+      // チャートが表示されている場合、canvas要素が存在することを確認
+      const canvas = page.locator('canvas');
+      await expect(canvas).toBeVisible();
     }
   });
 
@@ -94,77 +110,75 @@ test.describe('チャート表示機能', () => {
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
     const exchangeCount = await exchangeOptions.count();
 
-    if (exchangeCount > 1) {
-      await exchangeOptions.nth(1).click();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(exchangeCount).toBeGreaterThanOrEqual(2);
+
+    await exchangeOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+    const tickerSelect = page.getByLabel('ティッカー選択');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await page.waitForLoadState('networkidle');
+
+    await tickerSelect.click();
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
+
+    // テストデータが作成されているので、必ずティッカーが存在する
+    expect(tickerCount).toBeGreaterThanOrEqual(2);
+
+    await tickerOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+    // チャート表示またはエラーを待つ（より長いタイムアウト）
+    await Promise.race([
+      page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
+      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
+      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
+    ]).catch(() => {
+      console.log('Initial chart load timed out, continuing test');
+    });
+
+    // 時間枠を変更
+    const timeframeSelect = page.getByLabel('時間枠');
+    await timeframeSelect.click();
+
+    const timeframeOptions = page.locator('[role="listbox"] [role="option"]');
+
+    // 別の時間枠を選択（例: 2番目のオプション）
+    const timeframeCount = await timeframeOptions.count();
+    if (timeframeCount > 1) {
+      // 現在選択されているオプションではないものを選択
+      await timeframeOptions.nth(1).click();
+
+      // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      const tickerSelect = page.getByLabel('ティッカー選択');
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-      await page.waitForLoadState('networkidle');
+      // チャートが再読み込みされる（より長いタイムアウト）
+      await Promise.race([
+        page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
+        page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
+        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
+      ]).catch(() => {
+        console.log('Chart reload timed out');
+      });
 
-      await tickerSelect.click();
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+      // チャートまたはエラーメッセージが表示されることを確認
+      const chartDisplayed = await page
+        .locator('canvas')
+        .isVisible()
+        .catch(() => false);
+      const errorDisplayed = await page
+        .locator('[role="alert"]')
+        .isVisible()
+        .catch(() => false);
+      const loadingDisplayed = await page
+        .getByText('チャートデータを読み込み中')
+        .isVisible()
+        .catch(() => false);
 
-      if (tickerCount > 1) {
-        await tickerOptions.nth(1).click();
-        await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-        // チャート表示またはエラーを待つ（より長いタイムアウト）
-        await Promise.race([
-          page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-          page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-          page
-            .getByText('チャートデータを読み込み中')
-            .waitFor({ state: 'visible', timeout: 15000 }),
-        ]).catch(() => {
-          console.log('Initial chart load timed out, continuing test');
-        });
-
-        // 時間枠を変更
-        const timeframeSelect = page.getByLabel('時間枠');
-        await timeframeSelect.click();
-
-        const timeframeOptions = page.locator('[role="listbox"] [role="option"]');
-
-        // 別の時間枠を選択（例: 2番目のオプション）
-        const timeframeCount = await timeframeOptions.count();
-        if (timeframeCount > 1) {
-          // 現在選択されているオプションではないものを選択
-          await timeframeOptions.nth(1).click();
-
-          // リストボックスが閉じるまで待つ
-          await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-          // チャートが再読み込みされる（より長いタイムアウト）
-          await Promise.race([
-            page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-            page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-            page
-              .getByText('チャートデータを読み込み中')
-              .waitFor({ state: 'visible', timeout: 15000 }),
-          ]).catch(() => {
-            console.log('Chart reload timed out');
-          });
-
-          // チャートまたはエラーメッセージが表示されることを確認
-          const chartDisplayed = await page
-            .locator('canvas')
-            .isVisible()
-            .catch(() => false);
-          const errorDisplayed = await page
-            .locator('[role="alert"]')
-            .isVisible()
-            .catch(() => false);
-          const loadingDisplayed = await page
-            .getByText('チャートデータを読み込み中')
-            .isVisible()
-            .catch(() => false);
-
-          // いずれかの状態が表示されることを確認
-          expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
-        }
-      }
+      // いずれかの状態が表示されることを確認
+      expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
     }
   });
 
@@ -176,41 +190,43 @@ test.describe('チャート表示機能', () => {
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
     const exchangeCount = await exchangeOptions.count();
 
-    if (exchangeCount > 1) {
-      await exchangeOptions.nth(1).click();
-      await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(exchangeCount).toBeGreaterThanOrEqual(2);
 
-      const tickerSelect = page.getByLabel('ティッカー選択');
-      await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-      await page.waitForLoadState('networkidle');
+    await exchangeOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      await tickerSelect.click();
-      const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-      const tickerCount = await tickerOptions.count();
+    const tickerSelect = page.getByLabel('ティッカー選択');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await page.waitForLoadState('networkidle');
 
-      if (tickerCount > 1) {
-        await tickerOptions.nth(1).click();
-        await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await tickerSelect.click();
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
 
-        // チャート表示を待つ
-        await Promise.race([
-          page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
-          page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
-        ]).catch(() => {});
+    // テストデータが作成されているので、必ずティッカーが存在する
+    expect(tickerCount).toBeGreaterThanOrEqual(2);
 
-        // チャートエリアが表示されていることを確認
-        const chartArea = page.locator('canvas').first();
-        if (await chartArea.isVisible()) {
-          // チャートエリアのサイズを取得
-          const box = await chartArea.boundingBox();
+    await tickerOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-          // チャートエリアが適切なサイズで表示されていることを確認
-          expect(box).toBeTruthy();
-          if (box) {
-            expect(box.height).toBeGreaterThan(300); // 最小高さ
-            expect(box.width).toBeGreaterThan(200); // 最小幅
-          }
-        }
+    // チャート表示を待つ
+    await Promise.race([
+      page.locator('canvas').waitFor({ state: 'visible', timeout: 10000 }),
+      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 10000 }),
+    ]).catch(() => {});
+
+    // チャートエリアが表示されていることを確認
+    const chartArea = page.locator('canvas').first();
+    if (await chartArea.isVisible()) {
+      // チャートエリアのサイズを取得
+      const box = await chartArea.boundingBox();
+
+      // チャートエリアが適切なサイズで表示されていることを確認
+      expect(box).toBeTruthy();
+      if (box) {
+        expect(box.height).toBeGreaterThan(300); // 最小高さ
+        expect(box.width).toBeGreaterThan(200); // 最小幅
       }
     }
   });

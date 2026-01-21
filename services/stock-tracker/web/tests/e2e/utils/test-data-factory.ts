@@ -184,6 +184,7 @@ export class TestDataFactory {
   private readonly request: APIRequestContext;
   private readonly trackedData: TrackedData;
   private readonly testPrefix: string;
+  private readonly testUserId: string;
 
   /**
    * @param request - Playwright の APIRequestContext
@@ -192,6 +193,9 @@ export class TestDataFactory {
   constructor(request: APIRequestContext, prefix: string = 'E2E') {
     this.request = request;
     this.testPrefix = prefix;
+    // SKIP_AUTH_CHECK=true の環境で使用される固定のユーザーID
+    // lib/auth.ts の getSession() 参照
+    this.testUserId = 'test-user-id';
     this.trackedData = {
       exchanges: new Map(),
       tickers: new Map(),
@@ -376,10 +380,13 @@ export class TestDataFactory {
       if (!JSON.stringify(errorData).includes('登録されています')) {
         throw new Error(`Failed to create holding: ${JSON.stringify(errorData)}`);
       }
-      holdingId = `USER#${ticker.tickerId}`;
+      // 既に登録されている場合も、正しい形式の holdingId を使用
+      // APIが期待する形式: {UserID}#{TickerID}
+      holdingId = `${this.testUserId}#${ticker.tickerId}`;
     } else {
       const responseData = await response.json().catch(() => ({}));
-      holdingId = responseData.holdingId || `USER#${ticker.tickerId}`;
+      // APIレスポンスから holdingId を取得、なければ正しい形式で生成
+      holdingId = responseData.holdingId || `${this.testUserId}#${ticker.tickerId}`;
     }
 
     const createdHolding: CreatedHolding = {
@@ -430,10 +437,13 @@ export class TestDataFactory {
       if (!JSON.stringify(errorData).includes('既に')) {
         throw new Error(`Failed to create watchlist: ${JSON.stringify(errorData)}`);
       }
-      watchlistId = `USER#${ticker.tickerId}`;
+      // 既に登録されている場合も、正しい形式の watchlistId を使用
+      // APIが期待する形式: {UserID}#{TickerID}
+      watchlistId = `${this.testUserId}#${ticker.tickerId}`;
     } else {
       const responseData = await response.json().catch(() => ({}));
-      watchlistId = responseData.watchlistId || `USER#${ticker.tickerId}`;
+      // APIレスポンスから watchlistId を取得、なければ正しい形式で生成
+      watchlistId = responseData.watchlistId || `${this.testUserId}#${ticker.tickerId}`;
     }
 
     const createdWatchlist: CreatedWatchlist = {
