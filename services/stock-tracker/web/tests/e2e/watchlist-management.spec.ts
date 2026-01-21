@@ -141,14 +141,8 @@ test.describe('Watchlist 管理画面', () => {
       await page.waitForLoadState('networkidle');
 
       // 登録されたティッカーが表示されることを確認
-      if (tickerText) {
-        const symbol = tickerText.split(' - ')[0]?.trim();
-        if (symbol) {
-          // テーブルにシンボルが表示されることを確認（登録成功の証拠）
-          // 複数の要素にマッチする可能性があるため、.first()を使用
-          await expect(page.getByRole('cell', { name: symbol }).first()).toBeVisible();
-        }
-      }
+      // testTicker.symbol を使用してテーブルにシンボルが表示されることを確認
+      await expect(page.getByRole('cell', { name: testTicker.symbol }).first()).toBeVisible();
 
       // 削除ボタンが少なくとも1つ存在することを確認（データが登録されている証拠）
       const deleteButtons = page.getByRole('button', { name: '削除' });
