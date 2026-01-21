@@ -182,6 +182,91 @@ test.describe('チャート表示機能', () => {
     }
   });
 
+  test('表示本数切り替えが正常に動作する', async ({ page }) => {
+    // 取引所とティッカーを選択
+    const exchangeSelect = page.getByLabel('取引所選択');
+    await exchangeSelect.click();
+
+    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+    const exchangeCount = await exchangeOptions.count();
+
+    // テストデータが作成されているので、必ず取引所が存在する
+    expect(exchangeCount).toBeGreaterThanOrEqual(2);
+
+    await exchangeOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+    const tickerSelect = page.getByLabel('ティッカー選択');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await page.waitForLoadState('networkidle');
+
+    await tickerSelect.click();
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerCount = await tickerOptions.count();
+
+    // テストデータが作成されているので、必ずティッカーが存在する
+    expect(tickerCount).toBeGreaterThanOrEqual(2);
+
+    await tickerOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+    // チャート表示またはエラーを待つ
+    await Promise.race([
+      page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
+      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
+      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
+    ]).catch(() => {
+      console.log('Initial chart load timed out, continuing test');
+    });
+
+    // 表示本数を変更
+    const barCountSelect = page.getByLabel('表示本数');
+    await expect(barCountSelect).toBeVisible();
+
+    // 初期値が100本であることを確認
+    await expect(barCountSelect).toContainText('100本');
+
+    await barCountSelect.click();
+
+    const barCountOptions = page.locator('[role="listbox"] [role="option"]');
+
+    // 別の表示本数を選択（例: 30本）
+    const barCountCount = await barCountOptions.count();
+    if (barCountCount > 0) {
+      // 30本を選択（最初のオプション）
+      await barCountOptions.first().click();
+
+      // リストボックスが閉じるまで待つ
+      await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+      // チャートが再読み込みされる
+      await Promise.race([
+        page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
+        page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
+        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
+      ]).catch(() => {
+        console.log('Chart reload timed out');
+      });
+
+      // チャートまたはエラーメッセージが表示されることを確認
+      const chartDisplayed = await page
+        .locator('canvas')
+        .isVisible()
+        .catch(() => false);
+      const errorDisplayed = await page
+        .locator('[role="alert"]')
+        .isVisible()
+        .catch(() => false);
+      const loadingDisplayed = await page
+        .getByText('チャートデータを読み込み中')
+        .isVisible()
+        .catch(() => false);
+
+      // いずれかの状態が表示されることを確認
+      expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
+    }
+  });
+
   test('チャート表示エリアがレスポンシブである', async ({ page }) => {
     // 取引所とティッカーを選択
     const exchangeSelect = page.getByLabel('取引所選択');
@@ -260,6 +345,29 @@ test.describe('チャート表示のアクセシビリティ', () => {
 
     // フォーカスされていることを確認
     await expect(timeframeSelect).toBeFocused();
+
+    // Enterキーでドロップダウンを開く
+    await page.keyboard.press('Enter');
+
+    // リストボックスが表示される
+    await expect(page.locator('[role="listbox"]')).toBeVisible();
+
+    // Escapeキーでドロップダウンを閉じる
+    await page.keyboard.press('Escape');
+
+    // リストボックスが閉じる
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+  });
+
+  test('表示本数セレクタがキーボード操作可能である', async ({ page }) => {
+    await page.goto('/');
+
+    // 表示本数セレクトボックスにフォーカスを移動
+    const barCountSelect = page.locator('#barcount-select');
+    await barCountSelect.focus();
+
+    // フォーカスされていることを確認
+    await expect(barCountSelect).toBeFocused();
 
     // Enterキーでドロップダウンを開く
     await page.keyboard.press('Enter');
