@@ -54,7 +54,7 @@ const ERROR_MESSAGES = {
  * - ローソク足表示
  * - インタラクティブ操作（ズーム、パン）
  * - レスポンシブデザイン対応
- * - Phase 1: session は 'extended' 固定（時間外取引を含む）
+ * - Phase 1: session は 'extended' 固定（時間外取引を含む）。Phase 2 で設定可能になる予定
  */
 export default function StockChart({ tickerId, timeframe, count = 100 }: StockChartProps) {
   // 状態管理
