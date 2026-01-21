@@ -270,7 +270,9 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       await page.waitForLoadState('networkidle');
 
       // 編集ボタンを探す（作成したティッカーのシンボルがあるか確認）
-      await expect(page.getByText(testHolding.ticker.symbol)).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(testHolding.ticker.symbol, { exact: true })).toBeVisible({
+        timeout: 10000,
+      });
 
       // 該当行の編集ボタンをクリック
       const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
