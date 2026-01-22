@@ -1,0 +1,15 @@
+# Compiled output
+dist/
+
+# Compiled config files (TypeScript -> JavaScript)
+jest.config.js
+jest.config.d.ts
+
+# Coverage
+coverage/
+
+# Node modules
+node_modules/
+
+# Build info
+*.tsbuildinfo
