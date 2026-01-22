@@ -383,6 +383,14 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
   test.describe('Web Push通知許可', () => {
     test('通知許可がリクエストされる', async ({ page, context }) => {
+      // Notification API がサポートされているか確認
+      const hasNotificationApi = await page.evaluate(() => {
+        return typeof Notification !== 'undefined';
+      });
+
+      // Notification API がサポートされていない環境（webkit-mobile等）ではスキップ
+      test.skip(!hasNotificationApi, 'Notification API is not supported in this environment');
+
       // 通知許可の状態を確認
       const permissionState = await page.evaluate(() => {
         return Notification.permission;
