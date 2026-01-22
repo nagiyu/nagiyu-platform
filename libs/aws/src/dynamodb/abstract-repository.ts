@@ -193,29 +193,34 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
       const expressionAttributeNames: Record<string, string> = {};
       const expressionAttributeValues: Record<string, unknown> = {};
 
+      let fieldIndex = 0;
+      let hasUpdates = false;
+
       for (const [field, value] of Object.entries(updates)) {
         if (field === 'CreatedAt' || field === 'UpdatedAt') {
           // タイムスタンプフィールドは自動管理のためスキップ
           continue;
         }
 
-        const attrName = `#${field.toLowerCase()}`;
-        const attrValue = `:${field.toLowerCase()}`;
+        const attrName = `#field${fieldIndex}`;
+        const attrValue = `:value${fieldIndex}`;
+        fieldIndex++;
 
         updateExpressions.push(`${attrName} = ${attrValue}`);
         expressionAttributeNames[attrName] = field;
         expressionAttributeValues[attrValue] = value;
+        hasUpdates = true;
+      }
+
+      if (!hasUpdates) {
+        // 更新するフィールドが指定されていない
+        throw new InvalidEntityDataError('更新するフィールドが指定されていません');
       }
 
       // UpdatedAt を自動更新
       updateExpressions.push('#updatedAt = :updatedAt');
       expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
       expressionAttributeValues[':updatedAt'] = now;
-
-      if (updateExpressions.length === 1) {
-        // UpdatedAt のみ（他のフィールドが指定されていない）
-        throw new InvalidEntityDataError('更新するフィールドが指定されていません');
-      }
 
       await this.docClient.send(
         new UpdateCommand(

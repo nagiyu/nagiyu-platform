@@ -46,9 +46,11 @@ export function buildUpdateExpression(
   const expressionAttributeValues: Record<string, unknown> = {};
 
   // 更新フィールドを処理
+  let fieldIndex = 0;
   for (const [key, value] of Object.entries(updates)) {
-    const attrName = `#${key.toLowerCase()}`;
-    const attrValue = `:${key.toLowerCase()}`;
+    const attrName = `#field${fieldIndex}`;
+    const attrValue = `:value${fieldIndex}`;
+    fieldIndex++;
 
     updateExpressions.push(`${attrName} = ${attrValue}`);
     expressionAttributeNames[attrName] = key;
