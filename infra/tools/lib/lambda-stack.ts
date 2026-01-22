@@ -6,6 +6,7 @@ import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  appVersion: string;
 }
 
 /**
@@ -16,7 +17,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    const { environment, ...stackProps } = props;
+    const { environment, appVersion, ...stackProps } = props;
 
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
@@ -35,7 +36,7 @@ export class LambdaStack extends LambdaStackBase {
         timeout: 30,
         environment: {
           NODE_ENV: 'production',
-          APP_VERSION: '1.0.0',
+          APP_VERSION: appVersion,
         },
       },
       enableFunctionUrl: true,
