@@ -36,6 +36,7 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
@@ -265,6 +266,7 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
 
       - name: Build core package
