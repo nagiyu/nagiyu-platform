@@ -62,8 +62,5 @@ export class DatabaseError extends RepositoryError {
   ) {
     super(`${ERROR_MESSAGES.DATABASE_ERROR}: ${message}`);
     this.name = 'DatabaseError';
-    if (cause) {
-      this.cause = cause;
-    }
   }
 }
