@@ -148,6 +148,9 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
     try {
       const now = Date.now();
       const baseItem = this.mapToItem(entity);
+      
+      // Type assertion needed because TypeScript can't infer that baseItem contains PK, SK, Type
+      // when combined with CreatedAt/UpdatedAt via spread operator
       const item = {
         ...baseItem,
         CreatedAt: now,
