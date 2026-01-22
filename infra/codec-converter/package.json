@@ -14,9 +14,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "devDependencies": {
-    "aws-cdk": "^2.233.0"
-  },
   "dependencies": {
     "@nagiyu/infra-common": "*",
     "aws-cdk-lib": "^2.233.0",

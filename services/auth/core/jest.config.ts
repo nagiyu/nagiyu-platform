@@ -7,6 +7,7 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],

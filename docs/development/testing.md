@@ -354,11 +354,58 @@ React 19 の testing ecosystem が成熟し、以下のいずれかが対応さ�
 - Next.js の Jest 統合改善
 - React Testing Tools の更新
 
-#### 関連情報
+### E2Eテストにおけるブラウザ固有の制約
 
-- 発見時期: 2026年1月（Phase 5: codec-converter UI migration）
-- 対象サービス: codec-converter-web（他サービスでも同様の制約あり）
-- 参考 Issue: #415
+#### 問題概要
+
+Playwright E2E テストにおいて、ブラウザ/デバイスごとに Web API のサポート状況が異なるため、特定の環境でテストが失敗することがあります。
+
+#### WebKit (Safari) モバイルでの Notification API
+
+**問題**:
+WebKit モバイル環境では `Notification` API が存在しないため、`Notification.permission` 等へのアクセスで `ReferenceError` が発生します。
+
+```
+Error: page.evaluate: ReferenceError: Can't find variable: Notification
+```
+
+**原因**:
+iOS Safari では Web Push 通知が制限されており、`Notification` オブジェクト自体が定義されていません。
+
+**回避策**:
+API の存在確認を行い、サポートされていない環境ではテストをスキップします。
+
+```typescript
+test('通知許可がリクエストされる', async ({ page, context }) => {
+  // Notification API がサポートされているか確認
+  const hasNotificationApi = await page.evaluate(() => {
+    return typeof Notification !== 'undefined';
+  });
+
+  // サポートされていない環境（webkit-mobile等）ではスキップ
+  test.skip(!hasNotificationApi, 'Notification API is not supported in this environment');
+
+  // 以降は通常のテストコード
+  const permissionState = await page.evaluate(() => {
+    return Notification.permission;
+  });
+  // ...
+});
+```
+
+#### ブラウザ固有の制約一覧
+
+| Web API | chromium-desktop | chromium-mobile | webkit-mobile | 備考 |
+|---------|-----------------|-----------------|---------------|------|
+| Notification | ✅ | ✅ | ❌ | iOS Safari は非サポート |
+| Service Worker | ✅ | ✅ | ✅ | 登録は可能だが Push は制限あり |
+| Web Push | ✅ | ✅ | ⚠️ | iOS 16.4+ で限定的にサポート |
+
+#### 設計指針
+
+1. **API存在確認を先に行う**: `typeof API !== 'undefined'` でチェック
+2. **`test.skip()` で明示的にスキップ**: スキップ理由をメッセージで明記
+3. **代替テストを検討**: 可能であれば別のアプローチでテストを追加
 
 ## 参考
 

@@ -17,6 +17,8 @@ const config: Config = {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
+    // ESM .js extension to .ts mapping for libs/common
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   testMatch: ['**/tests/unit/**/*.test.ts', '**/tests/unit/**/*.test.tsx'],
   testPathIgnorePatterns: ['/node_modules/', '/tests/unit/app/api/'],
@@ -28,6 +30,15 @@ const config: Config = {
     '!src/app/**/page.tsx',
     '!src/app/api/**', // Exclude API routes from coverage for now
   ],
+  // Coverage thresholds (fail if below 80%)
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
 };
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async

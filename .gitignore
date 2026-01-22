@@ -58,11 +58,9 @@ Thumbs.db
 # Vercel
 .vercel
 
-# PWA files
-**/public/sw.js
+# PWA auto-generated files (workbox)
 **/public/workbox-*.js
 **/public/worker-*.js
-**/public/sw.js.map
 **/public/workbox-*.js.map
 **/public/worker-*.js.map
 
@@ -75,4 +73,3 @@ Thumbs.db
 cdk.out/
 infra/**/*.js
 infra/**/*.d.ts
-!infra/**/jest.config.js

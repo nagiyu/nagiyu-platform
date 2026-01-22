@@ -1,0 +1,438 @@
+name: Stock Tracker - Fast Verification
+
+on:
+  pull_request:
+    branches:
+      - integration/**
+    paths:
+      - 'services/stock-tracker/**'
+      - 'libs/**'
+      - 'infra/stock-tracker/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/stock-tracker-verify-fast.yml'
+
+jobs:
+  build-web:
+    name: Web Build Verification
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Build Web application
+        run: npm run build --workspace @nagiyu/stock-tracker-web
+
+  build-core:
+    name: Core Build Verification
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Build Core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+  build-batch:
+    name: Batch Build Verification
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Build Batch application
+        run: npm run build --workspace @nagiyu/stock-tracker-batch
+
+  build-infra:
+    name: Infrastructure Build Verification
+    runs-on: ubuntu-latest
+    needs: [synth-infra]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-stock-tracker
+
+  docker-build-web:
+    name: Docker Build Verification (Web)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t stock-tracker-web-verify-fast-test -f services/stock-tracker/web/Dockerfile .
+
+  docker-build-batch:
+    name: Docker Build Verification (Batch)
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t stock-tracker-batch-verify-fast-test -f services/stock-tracker/batch/Dockerfile .
+
+  test-core:
+    name: Run Core Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Run Core tests
+        run: npm run test --workspace @nagiyu/stock-tracker-core
+
+  test-batch:
+    name: Run Batch Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Run Batch tests
+        run: npm run test --workspace @nagiyu/stock-tracker-batch
+
+  e2e-test-web:
+    name: Run E2E Tests Web (chromium-mobile only)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Fetch dev IAM credentials from Secrets Manager
+        id: fetch-dev-credentials
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
+          parse-json-secrets: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/stock-tracker/web
+
+      - name: Run Playwright tests (chromium-mobile only)
+        env:
+          CI: true
+          PROJECT: chromium-mobile
+          AWS_ACCESS_KEY_ID: ${{ env.DEV_CREDENTIALS_ACCESSKEYID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DEV_CREDENTIALS_SECRETACCESSKEY }}
+          AWS_REGION: us-east-1
+        run: |
+          npm run test:e2e --workspace @nagiyu/stock-tracker-web
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-fast
+          path: services/stock-tracker/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-fast
+          path: services/stock-tracker/web/test-results/
+          retention-days: 30
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint on Core
+        run: npm run lint --workspace @nagiyu/stock-tracker-core
+
+      - name: Run lint on Batch
+        run: npm run lint --workspace @nagiyu/stock-tracker-batch
+
+      - name: Run lint on Web
+        run: npm run lint --workspace @nagiyu/stock-tracker-web
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting on Core
+        run: npm run format:check --workspace @nagiyu/stock-tracker-core
+
+      - name: Check formatting on Batch
+        run: npm run format:check --workspace @nagiyu/stock-tracker-batch
+
+      - name: Check formatting on Web
+        run: npm run format:check --workspace @nagiyu/stock-tracker-web
+
+  synth-infra:
+    name: Synthesize Infrastructure
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-stock-tracker
+
+      - name: Synthesize CDK stack
+        run: npm run synth --workspace=@nagiyu/infra-stock-tracker -- --context env=dev
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      [
+        build-web,
+        build-core,
+        build-batch,
+        build-infra,
+        docker-build-web,
+        docker-build-batch,
+        test-core,
+        test-batch,
+        e2e-test-web,
+        lint,
+        format-check,
+        synth-infra,
+      ]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Web Build': '${{ needs.build-web.result }}',
+              'Core Build': '${{ needs.build-core.result }}',
+              'Batch Build': '${{ needs.build-batch.result }}',
+              'Infrastructure Build': '${{ needs.build-infra.result }}',
+              'Docker Build (Web)': '${{ needs.docker-build-web.result }}',
+              'Docker Build (Batch)': '${{ needs.docker-build-batch.result }}',
+              'Core Unit Tests': '${{ needs.test-core.result }}',
+              'Batch Unit Tests': '${{ needs.test-batch.result }}',
+              'E2E Tests Web (Fast)': '${{ needs.e2e-test-web.result }}',
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Synthesize Infrastructure': '${{ needs.synth-infra.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ All Fast Checks Passed'
+              : '## ❌ Some Fast Checks Failed';
+
+            let body = `${header}\n\n`;
+            body += '**Fast Verification (chromium-mobile only)**\n\n';
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
