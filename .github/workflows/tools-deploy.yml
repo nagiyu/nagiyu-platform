@@ -181,6 +181,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-tools -- deploy \
             NagiyuToolsLambda${STACK_SUFFIX} \
