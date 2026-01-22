@@ -209,27 +209,6 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 - 日本語エラーメッセージの定数化
 - 継承による階層的なエラー設計
 
-### 使用例
-
-```typescript
-import {
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
-  InvalidEntityDataError,
-  DatabaseError,
-} from '@nagiyu/aws';
-
-// エンティティが見つからない場合
-throw new EntityNotFoundError('Alert', 'alert-123');
-
-// データベースエラーが発生した場合
-try {
-  // DynamoDB操作
-} catch (error) {
-  throw new DatabaseError('アイテムの取得に失敗しました', error);
-}
-```
-
 ## バージョン管理
 
 ### 基本方針
