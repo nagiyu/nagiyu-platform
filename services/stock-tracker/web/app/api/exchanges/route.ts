@@ -164,8 +164,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error creating exchange:', error);
 
-    // ExchangeAlreadyExistsError の場合は 400
-    if (error instanceof ExchangeAlreadyExistsError) {
+    // EntityAlreadyExistsError の場合は 400
+    if (error instanceof EntityAlreadyExistsError) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
