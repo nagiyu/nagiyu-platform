@@ -284,8 +284,6 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
         npm run build --workspace @nagiyu/browser
         npm run build --workspace @nagiyu/ui
 ```
-        npm run build --workspace @nagiyu/ui
-```
 
 詳細は [testing.md](./testing.md) の「GitHub Actions ワークフロー設計パターン」を参照してください。
 
