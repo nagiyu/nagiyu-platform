@@ -13,10 +13,6 @@
     "diff": "cdk diff",
     "destroy": "cdk destroy"
   },
-  "devDependencies": {
-    "@types/node": "^22",
-    "aws-cdk": "^2.233.0"
-  },
   "dependencies": {
     "@nagiyu/infra-common": "*",
     "aws-cdk-lib": "^2.233.0",

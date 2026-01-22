@@ -21,12 +21,5 @@
     "@nagiyu/common": "*",
     "@nagiyu/ui": "*",
     "next-pwa": "^5.6.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22",
-    "eslint": "^9",
-    "jest-environment-jsdom": "^30.2.0",
-    "prettier": "^3.7.4",
-    "ts-node": "^10.9.2"
   }
 }
