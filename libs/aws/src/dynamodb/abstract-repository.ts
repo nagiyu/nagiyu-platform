@@ -96,11 +96,11 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
    * Entity を DynamoDB Item にマッピング（サブクラスで実装）
    *
    * @param entity - エンティティ（CreatedAt/UpdatedAt を除く）
-   * @returns DynamoDB Item
+   * @returns DynamoDB Item（CreatedAt/UpdatedAt を除く）
    */
   protected abstract mapToItem(
     entity: Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>
-  ): DynamoDBItem;
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'>;
 
   /**
    * ID でエンティティを取得
@@ -147,11 +147,12 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
   async create(entity: Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>): Promise<TEntity> {
     try {
       const now = Date.now();
-      const item: DynamoDBItem = {
-        ...this.mapToItem(entity),
+      const baseItem = this.mapToItem(entity);
+      const item = {
+        ...baseItem,
         CreatedAt: now,
         UpdatedAt: now,
-      };
+      } as DynamoDBItem;
 
       await this.docClient.send(
         new PutCommand(
@@ -164,7 +165,10 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return this.mapToEntity(item);
     } catch (error) {
-      if (error instanceof ConditionalCheckFailedException) {
+      if (
+        error instanceof ConditionalCheckFailedException ||
+        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
+      ) {
         throw new EntityAlreadyExistsError(this.config.entityType, JSON.stringify(entity));
       }
       throw new DatabaseError(
@@ -242,7 +246,10 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return updated;
     } catch (error) {
-      if (error instanceof ConditionalCheckFailedException) {
+      if (
+        error instanceof ConditionalCheckFailedException ||
+        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
+      ) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       if (
@@ -278,7 +285,10 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
         )
       );
     } catch (error) {
-      if (error instanceof ConditionalCheckFailedException) {
+      if (
+        error instanceof ConditionalCheckFailedException ||
+        (error instanceof Error && error.name === 'ConditionalCheckFailedException')
+      ) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
       throw new DatabaseError(
