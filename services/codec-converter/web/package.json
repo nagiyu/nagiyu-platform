@@ -25,8 +25,6 @@
   },
   "devDependencies": {
     "@aws-sdk/types": "^3.968.0",
-    "@types/uuid": "^10.0.0",
-    "eslint": "^9",
-    "prettier": "^3.7.4"
+    "@types/uuid": "^10.0.0"
   }
 }
