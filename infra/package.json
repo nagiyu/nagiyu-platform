@@ -4,7 +4,7 @@
   "private": true,
   "description": "AWS CDK Infrastructure for Nagiyu Platform",
   "scripts": {
-    "build": "npm run build --workspace=@nagiyu/infra-common && tsc",
+    "build": "tsc",
     "watch": "tsc -w",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
