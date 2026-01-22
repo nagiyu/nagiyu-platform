@@ -19,11 +19,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "peerDependencies": {
+  "dependencies": {
+    "@nagiyu/common": "*",
     "react": ">=18.0.0",
     "react-dom": ">=18.0.0"
-  },
-  "dependencies": {
-    "@nagiyu/common": "*"
   }
 }
