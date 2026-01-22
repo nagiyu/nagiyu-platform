@@ -193,11 +193,11 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 ### 含まれるもの
 
 - DynamoDB Repository 用の共通エラークラス
-  - `RepositoryError` (基底クラス)
-  - `EntityNotFoundError`
-  - `EntityAlreadyExistsError`
-  - `InvalidEntityDataError`
-  - `DatabaseError`
+    - `RepositoryError` (基底クラス)
+    - `EntityNotFoundError`
+    - `EntityAlreadyExistsError`
+    - `InvalidEntityDataError`
+    - `DatabaseError`
 
 ### パッケージ名
 
@@ -254,8 +254,8 @@ try {
 ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
 
 1. 並列実行可能（依存なし）:
-   - `@nagiyu/common`
-   - `@nagiyu/aws`
+    - `@nagiyu/common`
+    - `@nagiyu/aws`
 2. `@nagiyu/browser` - `@nagiyu/common` に依存
 3. `@nagiyu/ui` - `@nagiyu/browser` に依存
 
