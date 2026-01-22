@@ -8,3 +8,6 @@
 
 // Auth module - Authentication and Authorization utilities
 export * from './auth/index.js';
+
+// API module - API-related utilities and types
+export * from './api/index.js';
