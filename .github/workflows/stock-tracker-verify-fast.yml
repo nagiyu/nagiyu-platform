@@ -35,6 +35,7 @@ jobs:
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
@@ -64,7 +65,9 @@ jobs:
         run: npm ci
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Build Core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -89,7 +92,9 @@ jobs:
         run: npm ci
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -166,7 +171,9 @@ jobs:
         run: npm ci
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Run Core tests
         run: npm run test --workspace @nagiyu/stock-tracker-core
@@ -191,7 +198,9 @@ jobs:
         run: npm ci
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
@@ -239,6 +248,7 @@ jobs:
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
