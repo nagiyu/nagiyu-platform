@@ -5,5 +5,10 @@
  * This package provides React hooks, components, and utilities that depend on React.
  */
 
-// Export React utilities and components here
-// This is a placeholder for future React-specific exports
+// Export hooks
+export {
+  useAPIRequest,
+  type UseAPIRequestOptions,
+  type UseAPIRequestReturn,
+  type APIRequestState,
+} from './hooks/index.js';
