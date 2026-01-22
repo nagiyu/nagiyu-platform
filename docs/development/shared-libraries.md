@@ -203,14 +203,9 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 
 `@nagiyu/aws`
 
-### サブパスエクスポート
-
-- `@nagiyu/aws/dynamodb` - DynamoDB関連機能
-
 ### 設計のポイント
 
-- AWS SDKをpeerDependenciesとして外部化
-- サブパスエクスポートによる機能分離
+- AWS SDKを通常の依存関係として管理
 - 日本語エラーメッセージの定数化
 - 継承による階層的なエラー設計
 
@@ -222,7 +217,7 @@ import {
   EntityAlreadyExistsError,
   InvalidEntityDataError,
   DatabaseError,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 
 // エンティティが見つからない場合
 throw new EntityNotFoundError('Alert', 'alert-123');

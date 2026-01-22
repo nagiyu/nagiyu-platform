@@ -8,10 +8,6 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
-    },
-    "./dynamodb": {
-      "types": "./dist/src/dynamodb/index.d.ts",
-      "import": "./dist/src/dynamodb/index.js"
     }
   },
   "scripts": {
@@ -23,7 +19,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
-  "peerDependencies": {
+  "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/lib-dynamodb": "^3.0.0"
   }
