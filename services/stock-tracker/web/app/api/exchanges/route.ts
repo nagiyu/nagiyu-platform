@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server';
 import {
   ExchangeRepository,
   getAuthError,
-  ExchangeAlreadyExistsError,
-  InvalidExchangeDataError,
   validateExchange,
 } from '@nagiyu/stock-tracker-core';
+import { EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
 
@@ -180,8 +179,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // InvalidExchangeDataError の場合は 400
-    if (error instanceof InvalidExchangeDataError) {
+    // InvalidEntityDataError の場合は 400
+    if (error instanceof InvalidEntityDataError) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
