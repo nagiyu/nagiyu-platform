@@ -20,10 +20,10 @@
 
 全サービスで共有可能なライブラリパッケージ。
 
-- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`
-- **責務**: フレームワーク・ブラウザAPIに依存した汎用機能の提供
+- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/aws/`
+- **責務**: フレームワーク・ブラウザAPI・AWS SDKに依存した汎用機能の提供
 - **バージョン管理**: 各ライブラリで独立したバージョン管理
-- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`
+- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `@nagiyu/aws`
 
 #### 固有パッケージ (services/\*/xxx)
 
@@ -48,12 +48,13 @@ services/{service}/batch → libs/common のみ
 
 ## ライブラリ構成
 
-### 3分割の設計
+### ライブラリ分類
 
 ```
 libs/
 ├── ui/           # Next.js + Material-UI 依存
 ├── browser/      # ブラウザAPI依存
+├── aws/          # AWS SDK 依存
 └── common/       # 完全フレームワーク非依存
 ```
 
@@ -183,6 +184,57 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 - 外部依存なし（Node.js標準ライブラリのみ可）
 - 高いテストカバレッジを維持
 
+## libs/aws/
+
+### 責務
+
+AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機能を提供。
+
+### 含まれるもの
+
+- DynamoDB Repository 用の共通エラークラス
+  - `RepositoryError` (基底クラス)
+  - `EntityNotFoundError`
+  - `EntityAlreadyExistsError`
+  - `InvalidEntityDataError`
+  - `DatabaseError`
+
+### パッケージ名
+
+`@nagiyu/aws`
+
+### サブパスエクスポート
+
+- `@nagiyu/aws/dynamodb` - DynamoDB関連機能
+
+### 設計のポイント
+
+- AWS SDKをpeerDependenciesとして外部化
+- サブパスエクスポートによる機能分離
+- 日本語エラーメッセージの定数化
+- 継承による階層的なエラー設計
+
+### 使用例
+
+```typescript
+import {
+  EntityNotFoundError,
+  EntityAlreadyExistsError,
+  InvalidEntityDataError,
+  DatabaseError,
+} from '@nagiyu/aws/dynamodb';
+
+// エンティティが見つからない場合
+throw new EntityNotFoundError('Alert', 'alert-123');
+
+// データベースエラーが発生した場合
+try {
+  // DynamoDB操作
+} catch (error) {
+  throw new DatabaseError('アイテムの取得に失敗しました', error);
+}
+```
+
 ## バージョン管理
 
 ### 基本方針
@@ -201,7 +253,9 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
 
-1. `@nagiyu/common` - 依存なし（最初にビルド）
+1. 並列実行可能（依存なし）:
+   - `@nagiyu/common`
+   - `@nagiyu/aws`
 2. `@nagiyu/browser` - `@nagiyu/common` に依存
 3. `@nagiyu/ui` - `@nagiyu/browser` に依存
 
@@ -211,6 +265,7 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 ```bash
 npm run build --workspace @nagiyu/common
+npm run build --workspace @nagiyu/aws
 npm run build --workspace @nagiyu/browser
 npm run build --workspace @nagiyu/ui
 ```
@@ -225,7 +280,10 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
 - name: Build shared libraries
     run: |
         npm run build --workspace @nagiyu/common
+        npm run build --workspace @nagiyu/aws
         npm run build --workspace @nagiyu/browser
+        npm run build --workspace @nagiyu/ui
+```
         npm run build --workspace @nagiyu/ui
 ```
 
