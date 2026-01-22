@@ -12,6 +12,13 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\""
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.972.0",
+    "@aws-sdk/lib-dynamodb": "^3.972.0",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/xml2js": "^0.4.14",
+    "aws-sdk-client-mock": "^4.1.0"
+  }
 }
