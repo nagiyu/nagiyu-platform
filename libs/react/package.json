@@ -21,5 +21,13 @@
   },
   "dependencies": {
     "@nagiyu/common": "*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.0.6",
+    "react": "^19.2.3"
   }
 }
