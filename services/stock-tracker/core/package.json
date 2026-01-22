@@ -1,0 +1,33 @@
+{
+  "name": "@nagiyu/stock-tracker-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.968.0",
+    "@aws-sdk/lib-dynamodb": "^3.968.0",
+    "@mathieuc/tradingview": "^3.5.2",
+    "@nagiyu/common": "*",
+    "bufferutil": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "utf-8-validate": "^6.0.6"
+  },
+  "devDependencies": {
+    "@types/mathieuc__tradingview": "^3.5.0"
+  }
+}
