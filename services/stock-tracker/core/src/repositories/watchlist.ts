@@ -205,23 +205,51 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
   }
 
   /**
-   * ウォッチリストを削除
+   * ウォッチリストを削除（基底クラスのシグネチャ）
    */
-  async delete(userId: string, tickerId: string): Promise<void> {
+  async delete(key: { userId: string; tickerId: string }): Promise<void>;
+  /**
+   * ウォッチリストを削除（互換性のある2パラメータ版）
+   */
+  async delete(userId: string, tickerId: string): Promise<void>;
+  /**
+   * ウォッチリストを削除の実装
+   */
+  async delete(
+    keyOrUserId: { userId: string; tickerId: string } | string,
+    tickerId?: string
+  ): Promise<void> {
     try {
-      // 存在確認
-      const existing = await this.getById(userId, tickerId);
-      if (!existing) {
-        throw new WatchlistNotFoundError(userId, tickerId);
+      // Normalize parameters
+      let userId: string;
+      let tickerIdValue: string;
+
+      if (typeof keyOrUserId === 'string') {
+        // 2-parameter version: (userId, tickerId)
+        userId = keyOrUserId;
+        tickerIdValue = tickerId as string;
+      } else {
+        // 1-parameter version: (key)
+        userId = keyOrUserId.userId;
+        tickerIdValue = keyOrUserId.tickerId;
       }
 
-      await super.delete({ userId, tickerId });
+      // 存在確認
+      const existing = await this.getById(userId, tickerIdValue);
+      if (!existing) {
+        throw new WatchlistNotFoundError(userId, tickerIdValue);
+      }
+
+      await super.delete({ userId, tickerId: tickerIdValue });
     } catch (error) {
       if (error instanceof WatchlistNotFoundError) {
         throw error;
       }
       if (error instanceof EntityNotFoundError) {
-        throw new WatchlistNotFoundError(userId, tickerId);
+        const userId = typeof keyOrUserId === 'string' ? keyOrUserId : keyOrUserId.userId;
+        const tickerIdValue =
+          typeof keyOrUserId === 'string' ? (tickerId as string) : keyOrUserId.tickerId;
+        throw new WatchlistNotFoundError(userId, tickerIdValue);
       }
       throw error;
     }

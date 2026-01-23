@@ -275,13 +275,11 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   }
 
   /**
-   * アラートを更新
-   *
-   * @param userId - ユーザーID
-   * @param alertId - アラートID
-   * @param updates - 更新するフィールド
-   * @returns 更新されたアラート
-   * @throws AlertNotFoundError アラートが存在しない場合
+   * アラートを更新（基底クラスのシグネチャ）
+   */
+  async update(key: { userId: string; alertId: string }, updates: Partial<Alert>): Promise<Alert>;
+  /**
+   * アラートを更新（互換性のある3パラメータ版）
    */
   async update(
     userId: string,
@@ -300,8 +298,46 @@ export class AlertRepository extends AbstractDynamoDBRepository<
         | 'SubscriptionKeysAuth'
       >
     >
+  ): Promise<Alert>;
+  /**
+   * アラートを更新の実装
+   */
+  async update(
+    keyOrUserId: { userId: string; alertId: string } | string,
+    alertIdOrUpdates?: string | Partial<Alert>,
+    updates?: Partial<
+      Pick<
+        Alert,
+        | 'TickerID'
+        | 'ExchangeID'
+        | 'Mode'
+        | 'Frequency'
+        | 'Enabled'
+        | 'ConditionList'
+        | 'SubscriptionEndpoint'
+        | 'SubscriptionKeysP256dh'
+        | 'SubscriptionKeysAuth'
+      >
+    >
   ): Promise<Alert> {
     try {
+      // Normalize parameters
+      let userId: string;
+      let alertId: string;
+      let updateData: Partial<Alert>;
+
+      if (typeof keyOrUserId === 'string') {
+        // 3-parameter version: (userId, alertId, updates)
+        userId = keyOrUserId;
+        alertId = alertIdOrUpdates as string;
+        updateData = updates as Partial<Alert>;
+      } else {
+        // 2-parameter version: (key, updates)
+        userId = keyOrUserId.userId;
+        alertId = keyOrUserId.alertId;
+        updateData = alertIdOrUpdates as Partial<Alert>;
+      }
+
       // 存在確認（テストとの互換性のため）
       const existing = await this.getById(userId, alertId);
       if (!existing) {
@@ -309,10 +345,10 @@ export class AlertRepository extends AbstractDynamoDBRepository<
       }
 
       // Frequency が更新される場合、GSI2PK も更新する必要がある
-      const updatesWithGSI = { ...updates };
-      if (updates.Frequency !== undefined) {
+      const updatesWithGSI = { ...updateData };
+      if (updateData.Frequency !== undefined) {
         // @ts-expect-error GSI2PK is internal field
-        updatesWithGSI.GSI2PK = `ALERT#${updates.Frequency}`;
+        updatesWithGSI.GSI2PK = `ALERT#${updateData.Frequency}`;
       }
 
       return await super.update({ userId, alertId }, updatesWithGSI as Partial<Alert>);
@@ -321,6 +357,9 @@ export class AlertRepository extends AbstractDynamoDBRepository<
         throw error;
       }
       if (error instanceof EntityNotFoundError) {
+        const userId = typeof keyOrUserId === 'string' ? keyOrUserId : keyOrUserId.userId;
+        const alertId =
+          typeof keyOrUserId === 'string' ? (alertIdOrUpdates as string) : keyOrUserId.alertId;
         throw new AlertNotFoundError(userId, alertId);
       }
       if (error instanceof InvalidEntityDataError) {
@@ -333,27 +372,51 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   }
 
   /**
-   * アラートを削除
-   *
-   * @param userId - ユーザーID
-   * @param alertId - アラートID
-   * @throws AlertNotFoundError アラートが存在しない場合
+   * アラートを削除（基底クラスのシグネチャ）
    */
-  async delete(userId: string, alertId: string): Promise<void> {
+  async delete(key: { userId: string; alertId: string }): Promise<void>;
+  /**
+   * アラートを削除（互換性のある2パラメータ版）
+   */
+  async delete(userId: string, alertId: string): Promise<void>;
+  /**
+   * アラートを削除の実装
+   */
+  async delete(
+    keyOrUserId: { userId: string; alertId: string } | string,
+    alertId?: string
+  ): Promise<void> {
     try {
-      // 存在確認（テストとの互換性のため）
-      const existing = await this.getById(userId, alertId);
-      if (!existing) {
-        throw new AlertNotFoundError(userId, alertId);
+      // Normalize parameters
+      let userId: string;
+      let alertIdValue: string;
+
+      if (typeof keyOrUserId === 'string') {
+        // 2-parameter version: (userId, alertId)
+        userId = keyOrUserId;
+        alertIdValue = alertId as string;
+      } else {
+        // 1-parameter version: (key)
+        userId = keyOrUserId.userId;
+        alertIdValue = keyOrUserId.alertId;
       }
 
-      await super.delete({ userId, alertId });
+      // 存在確認（テストとの互換性のため）
+      const existing = await this.getById(userId, alertIdValue);
+      if (!existing) {
+        throw new AlertNotFoundError(userId, alertIdValue);
+      }
+
+      await super.delete({ userId, alertId: alertIdValue });
     } catch (error) {
       if (error instanceof AlertNotFoundError) {
         throw error;
       }
       if (error instanceof EntityNotFoundError) {
-        throw new AlertNotFoundError(userId, alertId);
+        const userId = typeof keyOrUserId === 'string' ? keyOrUserId : keyOrUserId.userId;
+        const alertIdValue =
+          typeof keyOrUserId === 'string' ? (alertId as string) : keyOrUserId.alertId;
+        throw new AlertNotFoundError(userId, alertIdValue);
       }
       throw error;
     }
