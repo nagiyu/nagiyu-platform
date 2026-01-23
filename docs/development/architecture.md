@@ -108,6 +108,53 @@ batch → core → libs/common
 - **定数化**: エラーメッセージは定数オブジェクトで管理
 - **ユーザーフレンドリー**: 技術的な詳細より対処方法を優先
 
+#### エラーハンドリング戦略
+
+プラットフォームでは、統一されたエラーハンドリング戦略を採用しています。
+
+##### 3層エラー処理モデル
+
+APIエラーを3つの層で処理します：
+
+1. **リトライ層（Retry Layer）**
+    - 一時的なエラー（ネットワークエラー、サーバーエラー、タイムアウト、429 Too Many Requests）に対する自動リトライ
+    - エクスポネンシャルバックオフ戦略を使用
+    - リトライ可能性の判定ロジックによる制御
+
+2. **変換層（Transform Layer）**
+    - 技術的なエラーコードをユーザーフレンドリーな日本語メッセージに変換
+    - 2段階マッピング: サービス固有メッセージ → 共通メッセージ
+    - フォールバック機構による確実なメッセージ提供
+
+3. **表示層（Display Layer）**
+    - エラーメッセージをUIに表示（トースト通知、エラーダイアログなど）
+    - React統合によるシームレスな表示
+    - エラータイプ（error/warning/info）に応じた適切な表示
+
+##### エクスポネンシャルバックオフ戦略
+
+リトライ時の遅延時間を指数関数的に増加させることで、サーバーへの負荷を分散：
+
+- **初回遅延**: 1秒
+- **増加率**: 2倍（カスタマイズ可能）
+- **最大遅延**: 10秒（カスタマイズ可能）
+- **ジッター**: 遅延時間の±25%のランダム値を追加（複数クライアントの同時リトライを分散）
+
+計算式: `delay = min(initialDelay × backoffMultiplier^attempt, maxDelay) ± jitter`
+
+##### リトライ可能性の判定ロジック
+
+以下のエラーはリトライ可能と判定されます：
+
+- ネットワークエラー（`status === 0`）
+- タイムアウト（`status === 408`）
+- サーバーエラー（`status >= 500`）
+- Too Many Requests（`status === 429`）
+
+クライアントエラー（4xx、401/408/429を除く）はリトライされません。
+
+詳細は [api-client-guide.md](./api-client-guide.md) を参照。
+
 ### コードフォーマット
 
 - **Prettier**: モノレポ全体で統一設定を使用
@@ -136,8 +183,37 @@ batch → core → libs/common
 - `libs/ui/`: Next.js + Material-UI 依存
 - `libs/browser/`: ブラウザAPI依存
 - `libs/common/`: 完全フレームワーク非依存
+- `libs/react/`: React依存、`@nagiyu/common`に依存
 
-詳細は [shared-libraries.md](./shared-libraries.md) を参照。
+### パッケージ構成
+
+プラットフォームは以下のパッケージで構成されています：
+
+#### 共通パッケージ (libs/*)
+
+| パッケージ       | 責務                                           | 依存           | 主な機能                                    |
+| ---------------- | ---------------------------------------------- | -------------- | ------------------------------------------- |
+| `@nagiyu/common` | フレームワーク非依存の汎用ユーティリティ       | なし           | APIクライアント、認証、型定義               |
+| `@nagiyu/browser`| ブラウザAPI依存のユーティリティ                | `@nagiyu/common` | Clipboard、localStorage ラッパー          |
+| `@nagiyu/ui`     | Next.js + Material-UI依存のUIコンポーネント    | `@nagiyu/browser` | Header、Footer、ThemeRegistry            |
+| `@nagiyu/react`  | React統合のユーティリティとフック              | `@nagiyu/common` | useAPIRequest、React用ヘルパー          |
+
+#### APIクライアントパッケージ
+
+APIリクエスト処理は以下のパッケージで提供されます：
+
+- **@nagiyu/common**: 
+    - `apiRequest<T>()` 関数（リトライ、エラーハンドリング）
+    - `get()`, `post()`, `put()`, `del()` ラッパー関数
+    - `APIError` クラスと型定義
+    - エラーメッセージ定数（`COMMON_ERROR_MESSAGES`）
+
+- **@nagiyu/react**: 
+    - `useAPIRequest<T>()` フック（状態管理、React統合）
+    - `onSuccess`/`onError` コールバック機能
+    - リトライ・リセット機能
+
+詳細は [shared-libraries.md](./shared-libraries.md) および [api-client-guide.md](./api-client-guide.md) を参照。
 
 ## パフォーマンス
 
