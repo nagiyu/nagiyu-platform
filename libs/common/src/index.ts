@@ -8,3 +8,6 @@
 
 // Auth module - Authentication and Authorization utilities
 export * from './auth/index.js';
+
+// API module - API client with retry logic and error handling
+export * from './api/index.js';
