@@ -5,6 +5,7 @@ const config: Config.InitialOptions = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   // Exclude monorepo root from module scanning
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
   // Support .js extensions in imports (ES modules)
@@ -20,7 +21,7 @@ const config: Config.InitialOptions = {
         useESM: true,
         tsconfig: {
           moduleResolution: 'nodenext',
-          module: 'esnext',
+          module: 'nodenext',
         },
       },
     ],

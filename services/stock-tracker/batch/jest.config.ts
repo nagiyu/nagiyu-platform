@@ -18,7 +18,7 @@ const config: Config = {
         useESM: true,
         tsconfig: {
           moduleResolution: 'nodenext',
-          esModuleInterop: true,
+          module: 'nodenext',
         },
       },
     ],

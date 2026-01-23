@@ -5,6 +5,7 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   moduleNameMapper: {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
@@ -19,7 +20,7 @@ const config: Config = {
         useESM: true,
         tsconfig: {
           moduleResolution: 'nodenext',
-          module: 'esnext',
+          module: 'nodenext',
         },
       },
     ],

@@ -5,7 +5,10 @@
     "types": ["node"],
     "declaration": true,
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    // Override for Node.js ESM compatibility (Lambda environment)
+    "module": "nodenext",
+    "moduleResolution": "nodenext"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
