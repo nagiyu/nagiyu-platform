@@ -188,26 +188,35 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 ### 責務
 
-AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機能を提供。
+AWS SDK 補助・拡張ライブラリ。DynamoDB Repository パターン実装のための共通機能を提供。
+
+### 設計思想
+
+- **標準化**: Repository パターンの一貫した実装を保証
+- **型安全性**: バリデーションによる実行時エラーの早期発見
+- **エラーの意味付け**: 技術的エラーをビジネス文脈に変換
 
 ### 含まれるもの
 
-- DynamoDB Repository 用の共通エラークラス
-    - `RepositoryError` (基底クラス)
-    - `EntityNotFoundError`
-    - `EntityAlreadyExistsError`
-    - `InvalidEntityDataError`
-    - `DatabaseError`
+- **エラークラス**: 階層的なエラー設計（`RepositoryError`基底、`EntityNotFoundError`等）
+- **抽象基底クラス**: CRUD操作の共通実装（`AbstractDynamoDBRepository`）
+- **バリデーション関数**: 型安全なマッピング（文字列、数値、列挙型、タイムスタンプ等）
+- **ヘルパー関数**: 条件付き操作、UpdateExpression生成
+- **型定義**: Single Table Design対応（`DynamoDBItem`、`PaginatedResult`等）
 
 ### パッケージ名
 
 `@nagiyu/aws`
 
+### 依存関係設計
+
+AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージョンを柔軟に選択可能にすることで、SDKの頻繁な更新に対応。
+
 ### 設計のポイント
 
-- AWS SDKを通常の依存関係として管理
-- 日本語エラーメッセージの定数化
-- 継承による階層的なエラー設計
+- **日本語エラーメッセージ**: ユーザーフレンドリーなエラー表現
+- **継承による拡張**: 基底クラス継承でサービス固有の実装を追加
+- **CRUD自動化**: タイムスタンプ管理等の定型処理を抽象化
 
 ## バージョン管理
 
