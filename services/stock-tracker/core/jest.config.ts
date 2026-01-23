@@ -6,6 +6,7 @@ const config: Config = {
   roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
+    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
   },

@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
-import {
-  ExchangeRepository,
-  getAuthError,
-  ExchangeNotFoundError,
-  InvalidExchangeDataError,
-  validateExchange,
-} from '@nagiyu/stock-tracker-core';
+import { ExchangeRepository, getAuthError, validateExchange } from '@nagiyu/stock-tracker-core';
+import { EntityNotFoundError, InvalidEntityDataError } from '@nagiyu/aws';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
 
@@ -221,8 +216,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   } catch (error) {
     console.error('Error updating exchange:', error);
 
-    // ExchangeNotFoundError の場合は 404
-    if (error instanceof ExchangeNotFoundError) {
+    // EntityNotFoundError の場合は 404
+    if (error instanceof EntityNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
@@ -232,8 +227,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       );
     }
 
-    // InvalidExchangeDataError の場合は 400
-    if (error instanceof InvalidExchangeDataError) {
+    // InvalidEntityDataError の場合は 400
+    if (error instanceof InvalidEntityDataError) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -302,8 +297,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   } catch (error) {
     console.error('Error deleting exchange:', error);
 
-    // ExchangeNotFoundError の場合は 404
-    if (error instanceof ExchangeNotFoundError) {
+    // EntityNotFoundError の場合は 404
+    if (error instanceof EntityNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
