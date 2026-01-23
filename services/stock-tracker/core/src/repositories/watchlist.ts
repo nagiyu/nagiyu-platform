@@ -4,41 +4,37 @@
  * ウォッチリストデータの CRUD 操作を提供
  */
 
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  GetCommand,
-  PutCommand,
-  DeleteCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import type { Watchlist, DynamoDBItem } from '../types.js';
+  AbstractDynamoDBRepository,
+  EntityNotFoundError,
+  EntityAlreadyExistsError,
+  InvalidEntityDataError,
+  validateStringField,
+  validateNumberField,
+  validateTimestampField,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
+import type { Watchlist } from '../types.js';
 
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  WATCHLIST_NOT_FOUND: 'ウォッチリストが見つかりません',
-  INVALID_WATCHLIST_DATA: 'ウォッチリストデータが無効です',
-  WATCHLIST_ALREADY_EXISTS: 'ウォッチリストは既に存在します',
-  DATABASE_ERROR: 'データベースエラーが発生しました',
-} as const;
-
-// カスタムエラークラス
-export class WatchlistNotFoundError extends Error {
+// 互換性のためのエラークラスエイリアス
+export class WatchlistNotFoundError extends EntityNotFoundError {
   constructor(userId: string, tickerId: string) {
-    super(`${ERROR_MESSAGES.WATCHLIST_NOT_FOUND}: UserID=${userId}, TickerID=${tickerId}`);
+    super('Watchlist', `UserID=${userId}, TickerID=${tickerId}`);
     this.name = 'WatchlistNotFoundError';
   }
 }
 
-export class InvalidWatchlistDataError extends Error {
+export class InvalidWatchlistDataError extends InvalidEntityDataError {
   constructor(message: string) {
-    super(`${ERROR_MESSAGES.INVALID_WATCHLIST_DATA}: ${message}`);
+    super(message);
     this.name = 'InvalidWatchlistDataError';
   }
 }
 
-export class WatchlistAlreadyExistsError extends Error {
+export class WatchlistAlreadyExistsError extends EntityAlreadyExistsError {
   constructor(userId: string, tickerId: string) {
-    super(`${ERROR_MESSAGES.WATCHLIST_ALREADY_EXISTS}: UserID=${userId}, TickerID=${tickerId}`);
+    super('Watchlist', `UserID=${userId}, TickerID=${tickerId}`);
     this.name = 'WatchlistAlreadyExistsError';
   }
 }
@@ -56,24 +52,92 @@ export type WatchlistQueryResult = {
  *
  * DynamoDB Single Table Design に基づくウォッチリストデータの CRUD 操作
  */
-export class WatchlistRepository {
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
-
+export class WatchlistRepository extends AbstractDynamoDBRepository<
+  Watchlist,
+  { userId: string; tickerId: string }
+> {
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
+    super(docClient, {
+      tableName,
+      entityType: 'Watchlist',
+    });
+  }
+
+  /**
+   * PK/SK を構築
+   */
+  protected buildKeys(key: { userId: string; tickerId: string }): { PK: string; SK: string } {
+    return {
+      PK: `USER#${key.userId}`,
+      SK: `WATCHLIST#${key.tickerId}`,
+    };
+  }
+
+  /**
+   * DynamoDB Item を Watchlist にマッピング
+   */
+  protected mapToEntity(item: Record<string, unknown>): Watchlist {
+    try {
+      return {
+        UserID: validateStringField(item.UserID, 'UserID'),
+        TickerID: validateStringField(item.TickerID, 'TickerID'),
+        ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
+        CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      };
+    } catch (error) {
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidWatchlistDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Watchlist を DynamoDB Item にマッピング
+   */
+  protected mapToItem(watchlist: Omit<Watchlist, 'CreatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ userId: watchlist.UserID, tickerId: watchlist.TickerID });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      GSI1PK: watchlist.UserID,
+      GSI1SK: `Watchlist#${watchlist.TickerID}`,
+      UserID: watchlist.UserID,
+      TickerID: watchlist.TickerID,
+      ExchangeID: watchlist.ExchangeID,
+    };
+  }
+
+  /**
+   * ID でエンティティを取得（オーバーライド: 2パラメータサポート）
+   */
+  async getById(key: { userId: string; tickerId: string }): Promise<Watchlist | null>;
+  async getById(userId: string, tickerId: string): Promise<Watchlist | null>;
+  async getById(
+    keyOrUserId: { userId: string; tickerId: string } | string,
+    tickerId?: string
+  ): Promise<Watchlist | null> {
+    try {
+      const key =
+        typeof keyOrUserId === 'string' && tickerId !== undefined
+          ? { userId: keyOrUserId, tickerId }
+          : (keyOrUserId as { userId: string; tickerId: string });
+
+      return await super.getById(key);
+    } catch (error) {
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidWatchlistDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      throw error;
+    }
   }
 
   /**
    * ユーザーのウォッチリスト一覧を取得
-   *
-   * GSI1 (UserIndex) を使用してユーザーごとのウォッチリストを取得
-   *
-   * @param userId - ユーザーID
-   * @param limit - 取得件数の上限（デフォルト: 50）
-   * @param lastKey - ページネーション用の最後のキー
-   * @returns ウォッチリストの配列と次のページのキー
    */
   async getByUserId(
     userId: string,
@@ -83,7 +147,7 @@ export class WatchlistRepository {
     try {
       const result = await this.docClient.send(
         new QueryCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
           ExpressionAttributeNames: {
@@ -100,14 +164,13 @@ export class WatchlistRepository {
       );
 
       if (!result.Items || result.Items.length === 0) {
-        return {
-          items: [],
-          lastKey: undefined,
-        };
+        return { items: [] };
       }
 
+      const items = result.Items.map((item) => this.mapToEntity(item));
+
       return {
-        items: result.Items.map((item) => this.mapDynamoDBItemToWatchlist(item)),
+        items,
         lastKey: result.LastEvaluatedKey,
       };
     } catch (error) {
@@ -115,94 +178,32 @@ export class WatchlistRepository {
         throw error;
       }
       throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
+        `データベースエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
 
   /**
-   * 単一のウォッチリストを取得
-   *
-   * @param userId - ユーザーID
-   * @param tickerId - ティッカーID
-   * @returns ウォッチリスト（存在しない場合はnull）
-   */
-  async getById(userId: string, tickerId: string): Promise<Watchlist | null> {
-    try {
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `USER#${userId}`,
-            SK: `WATCHLIST#${tickerId}`,
-          },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapDynamoDBItemToWatchlist(result.Item);
-    } catch (error) {
-      if (error instanceof InvalidWatchlistDataError) {
-        throw error;
-      }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * 新しいウォッチリストを作成
-   *
-   * @param watchlist - ウォッチリストデータ（UserID, TickerID, ExchangeID）
-   * @returns 作成されたウォッチリスト（CreatedAtを含む）
+   * ウォッチリストを作成（オーバーライド: エラーラッピング）
    */
   async create(watchlist: Omit<Watchlist, 'CreatedAt'>): Promise<Watchlist> {
     try {
-      const now = Date.now();
-      const newWatchlist: Watchlist = {
-        ...watchlist,
-        CreatedAt: now,
-      };
-
-      const item: DynamoDBItem & Watchlist = {
-        PK: `USER#${newWatchlist.UserID}`,
-        SK: `WATCHLIST#${newWatchlist.TickerID}`,
-        Type: 'Watchlist',
-        GSI1PK: newWatchlist.UserID,
-        GSI1SK: `Watchlist#${newWatchlist.TickerID}`,
-        ...newWatchlist,
-      };
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return newWatchlist;
+      // Base class expects Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>, but Watchlist doesn't have UpdatedAt
+      // So we pass it as-is and let the base class add both timestamps
+      const result = await super.create(watchlist as any);
+      // Return only the fields that Watchlist type includes
+      const { UpdatedAt, ...watchlistData } = result as any;
+      return watchlistData as Watchlist;
     } catch (error) {
-      // ConditionalCheckFailedException を特定してカスタムエラーにマップ
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (error instanceof EntityAlreadyExistsError) {
         throw new WatchlistAlreadyExistsError(watchlist.UserID, watchlist.TickerID);
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      throw error;
     }
   }
 
   /**
    * ウォッチリストを削除
-   *
-   * @param userId - ユーザーID
-   * @param tickerId - ティッカーID
-   * @throws WatchlistNotFoundError ウォッチリストが存在しない場合
    */
   async delete(userId: string, tickerId: string): Promise<void> {
     try {
@@ -212,60 +213,15 @@ export class WatchlistRepository {
         throw new WatchlistNotFoundError(userId, tickerId);
       }
 
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `USER#${userId}`,
-            SK: `WATCHLIST#${tickerId}`,
-          },
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
+      await super.delete({ userId, tickerId });
     } catch (error) {
       if (error instanceof WatchlistNotFoundError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof EntityNotFoundError) {
+        throw new WatchlistNotFoundError(userId, tickerId);
+      }
+      throw error;
     }
-  }
-
-  /**
-   * DynamoDB Item を Watchlist にマッピング
-   *
-   * @param item - DynamoDB Item
-   * @returns Watchlist
-   */
-  private mapDynamoDBItemToWatchlist(item: Record<string, unknown>): Watchlist {
-    // フィールドのバリデーション
-    const userId = item.UserID;
-    if (typeof userId !== 'string' || userId.length === 0) {
-      throw new InvalidWatchlistDataError('フィールド "UserID" が不正です');
-    }
-
-    const tickerId = item.TickerID;
-    if (typeof tickerId !== 'string' || tickerId.length === 0) {
-      throw new InvalidWatchlistDataError('フィールド "TickerID" が不正です');
-    }
-
-    const exchangeId = item.ExchangeID;
-    if (typeof exchangeId !== 'string' || exchangeId.length === 0) {
-      throw new InvalidWatchlistDataError('フィールド "ExchangeID" が不正です');
-    }
-
-    const createdAt = item.CreatedAt;
-    if (typeof createdAt !== 'number') {
-      throw new InvalidWatchlistDataError('フィールド "CreatedAt" が不正です');
-    }
-
-    const watchlist: Watchlist = {
-      UserID: userId,
-      TickerID: tickerId,
-      ExchangeID: exchangeId,
-      CreatedAt: createdAt,
-    };
-    return watchlist;
   }
 }
