@@ -11,8 +11,8 @@ export type {
   ErrorType,
   ErrorInfo,
   APIErrorResponse,
-} from './types';
-export { APIError, COMMON_ERROR_MESSAGES } from './types';
+} from './types.js';
+export { APIError, COMMON_ERROR_MESSAGES } from './types.js';
 
 // Export error handling utilities
 export {
@@ -22,7 +22,7 @@ export {
   mapAPIErrorToMessage,
   isRetryableError,
   extractErrorInfo,
-} from './error-handler';
+} from './error-handler.js';
 
 // Export API client
 export {
@@ -34,4 +34,4 @@ export {
   post,
   put,
   del,
-} from './client';
+} from './client.js';

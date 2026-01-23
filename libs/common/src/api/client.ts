@@ -4,8 +4,8 @@
  * リトライ機能とエラーハンドリングを統合したFetchラッパー
  */
 
-import { handleFetchError, extractErrorInfo } from './error-handler';
-import { APIError, type APIRequestOptions, type RetryConfig } from './types';
+import { handleFetchError, extractErrorInfo } from './error-handler.js';
+import { APIError, type APIRequestOptions, type RetryConfig } from './types.js';
 
 /**
  * デフォルトリトライ設定
