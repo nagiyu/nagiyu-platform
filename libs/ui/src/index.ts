@@ -11,10 +11,6 @@ export type { TermsOfServiceDialogProps } from './components/dialogs/TermsOfServ
 
 // Export data
 export { privacyPolicySections } from './data/privacyPolicyData';
-export type {
-  PolicySection,
-  PolicyContent,
-  PolicySubContent,
-} from './data/privacyPolicyData';
+export type { PolicySection, PolicyContent, PolicySubContent } from './data/privacyPolicyData';
 export { termSections } from './data/termsOfServiceData';
 export type { TermSection, TermContent } from './data/termsOfServiceData';
