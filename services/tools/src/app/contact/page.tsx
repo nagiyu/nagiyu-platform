@@ -55,7 +55,9 @@ export default function ContactPage() {
         </Typography>
         <Box component="ul" sx={{ pl: 3 }}>
           <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body1">個人プロジェクトのため、すべての要望に対応できるわけではありません。</Typography>
+            <Typography variant="body1">
+              個人プロジェクトのため、すべての要望に対応できるわけではありません。
+            </Typography>
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body1">回答までにお時間をいただく場合があります。</Typography>

@@ -20,7 +20,10 @@ test.describe('Privacy Policy Page', () => {
     await expect(heading).toBeVisible();
 
     // Check first section (AdSense related)
-    const firstSection = page.getByRole('heading', { name: /第1条（広告の配信について）/, level: 2 });
+    const firstSection = page.getByRole('heading', {
+      name: /第1条（広告の配信について）/,
+      level: 2,
+    });
     await expect(firstSection).toBeVisible();
 
     // Verify AdSense mention
@@ -30,7 +33,10 @@ test.describe('Privacy Policy Page', () => {
 
   test('プライバシーポリシーに必須コンテンツが含まれている', async ({ page }) => {
     // Check Cookie section
-    const cookieSection = page.getByRole('heading', { name: /Cookie（クッキー）について/, level: 2 });
+    const cookieSection = page.getByRole('heading', {
+      name: /Cookie（クッキー）について/,
+      level: 2,
+    });
     await expect(cookieSection).toBeVisible();
 
     // Check data handling section
@@ -89,7 +95,10 @@ test.describe('Terms of Service Page', () => {
     await expect(serviceText.first()).toBeVisible();
 
     // Check disclaimer section
-    const disclaimerSection = page.getByRole('heading', { name: /保証の否認および免責事項/, level: 2 });
+    const disclaimerSection = page.getByRole('heading', {
+      name: /保証の否認および免責事項/,
+      level: 2,
+    });
     await expect(disclaimerSection).toBeVisible();
 
     // Check prohibited actions section
