@@ -5,15 +5,6 @@ const config: Config = {
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  globals: {
-    'ts-jest': {
-      useESM: true,
-      tsconfig: {
-        moduleResolution: 'nodenext',
-        esModuleInterop: true,
-      },
-    },
-  },
   moduleNameMapper: {
     // Strip .js extension and let ts-jest find the .ts file
     '^(\\.{1,2}/.*)\\.js$': '$1',
