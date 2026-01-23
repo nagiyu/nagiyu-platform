@@ -19,6 +19,7 @@ RUN npm ci
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace=libs/common
 RUN npm run build --workspace=libs/browser
+RUN npm run build --workspace=libs/react
 RUN npm run build --workspace=libs/ui
 RUN npm run build --workspace=@nagiyu/stock-tracker-core
 RUN npm run build --workspace=@nagiyu/stock-tracker-web

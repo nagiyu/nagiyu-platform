@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
     '@nagiyu/ui',
     '@nagiyu/browser',
     '@nagiyu/common',
+    '@nagiyu/react',
     '@nagiyu/stock-tracker-core',
   ],
   // Environment variables
