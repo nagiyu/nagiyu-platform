@@ -119,7 +119,7 @@ libs/{library-name}/
 
 #### ci-fast（高速フィードバック）
 
-- **トリガー**: integration/** ブランチへのPR
+- **トリガー**: integration/\*\* ブランチへのPR
 - **対象**: chromium-mobile のみ
 - **目的**: 開発中の素早いフィードバック
 
@@ -149,17 +149,20 @@ libs/{library-name}/
 E2Eテストを持つサービスでは、2段階のワークフローを作成します:
 
 **{target}-verify-fast.yml** (高速フィードバック):
+
 - トリガー: `integration/**` ブランチへのPR
 - E2Eテスト: chromium-mobile のみ
 - 目的: 開発中の素早いフィードバック
 
 **{target}-verify-full.yml** (完全テスト):
+
 - トリガー: `develop` ブランチへのPR
 - E2Eテスト: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
 - カバレッジチェック: 80%未満で失敗
 - 目的: マージ前の完全な検証
 
 **ライブラリの場合**:
+
 - E2Eテストがないため、単一の `{target}-verify.yml` のみ
 - トリガー: `develop` および `integration/**` ブランチへのPR
 
@@ -167,52 +170,56 @@ E2Eテストを持つサービスでは、2段階のワークフローを作成�
 
 ```yaml
 on:
-    pull_request:
-        branches:
-            - develop           # メインブランチ
-            - integration/**    # 統合ブランチ（fast verifyでは integration/** のみ）
-        paths:
-            - 'libs/hoge/**'           # ターゲットファイル
-            - 'libs/common/**'            # 依存ライブラリ
-            - 'package.json'              # ルートパッケージ定義
-            - 'package-lock.json'         # 依存関係ロック
-            - '.github/workflows/hoge-verify.yml'  # ワークフロー自体
+  pull_request:
+    branches:
+      - develop # メインブランチ
+      - integration/** # 統合ブランチ（fast verifyでは integration/** のみ）
+    paths:
+      - 'libs/hoge/**' # ターゲットファイル
+      - 'libs/common/**' # 依存ライブラリ
+      - 'package.json' # ルートパッケージ定義
+      - 'package-lock.json' # 依存関係ロック
+      - '.github/workflows/hoge-verify.yml' # ワークフロー自体
 ```
 
 **設計原則**:
 
 1. **ブランチフィルター**: `develop` と `integration/**` を標準とする
-    - `develop`: プロダクションに向けた統合ブランチ
-    - `integration/**`: フィーチャー統合用の作業ブランチ
+   - `develop`: プロダクションに向けた統合ブランチ
+   - `integration/**`: フィーチャー統合用の作業ブランチ
 
 2. **パスフィルター**: 関連ファイルのみでトリガー
-    - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
-    - **依存対象**: 直接依存するライブラリ（例: `libs/common/**`）
-    - **ルートパッケージ**: `package.json`, `package-lock.json`
-    - **ワークフロー自体**: ワークフロー定義ファイル
+   - **ターゲット**: 変更対象のディレクトリ（例: `services/hoge/**`）
+   - **依存対象**: 直接依存するライブラリ（例: `libs/common/**`）
+   - **ルートパッケージ**: `package.json`, `package-lock.json`
+   - **ワークフロー自体**: ワークフロー定義ファイル
 
 3. **ワークスペース指定**: パッケージ名を使用
-    ```yaml
-    - name: Run tests
-        run: npm run test --workspace=@nagiyu/hoge
-    ```
-    - パス指定（`services/hoge`）ではなくパッケージ名（`@nagiyu/hoge`）を使用
-    - より明示的で、リファクタリング時にも対応しやすい
+
+   ```yaml
+   - name: Run tests
+       run: npm run test --workspace=@nagiyu/hoge
+   ```
+
+   - パス指定（`services/hoge`）ではなくパッケージ名（`@nagiyu/hoge`）を使用
+   - より明示的で、リファクタリング時にも対応しやすい
 
 4. **ビルド順序の考慮**: 依存関係に従って順序を守る
-    ```yaml
-    - name: Build shared libraries
-        run: |
-            npm run build --workspace @nagiyu/common
-            npm run build --workspace @nagiyu/browser
-            npm run build --workspace @nagiyu/ui
 
-    - name: Build application
-        run: npm run build --workspace @nagiyu/hoge
-    ```
-    - **重要**: `npm run build` (全ワークスペース並列ビルド) を使用すると依存関係が考慮されず、ビルドエラーが発生する可能性があります
-    - ライブラリ間の依存関係: `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common`
-    - 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」を参照
+   ```yaml
+   - name: Build shared libraries
+       run: |
+           npm run build --workspace @nagiyu/common
+           npm run build --workspace @nagiyu/browser
+           npm run build --workspace @nagiyu/ui
+
+   - name: Build application
+       run: npm run build --workspace @nagiyu/hoge
+   ```
+
+   - **重要**: `npm run build` (全ワークスペース並列ビルド) を使用すると依存関係が考慮されず、ビルドエラーが発生する可能性があります
+   - ライブラリ間の依存関係: `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common`
+   - 詳細は [shared-libraries.md](./shared-libraries.md) の「ビルド順序」を参照
 
 **標準ジョブ構成**:
 
@@ -245,6 +252,86 @@ coverageThreshold: {
 - 変更対象に応じた適切なテストのみ実行され、高速なフィードバック
 - ワークフロー定義が明確で、メンテナンスしやすい
 
+#### ジョブ依存関係（needs）の設計
+
+CI ワークフローでは `needs` を使ってジョブ間の依存関係を設定することで、以下の効果を得られます:
+
+1. **早期失敗**: lint/format が失敗した場合、ビルド・テストをスキップ
+2. **リソース節約**: 前提ジョブが失敗すると後続ジョブが実行されない
+3. **明確な依存関係**: ビルド順序が保証される
+
+**推奨する依存関係グラフ（core/web/batch 構成）**:
+
+```mermaid
+flowchart LR
+    lint[lint]
+    format[format-check]
+    build_core[build-core]
+    synth[synth-infra]
+    build_web[build-web]
+    build_batch[build-batch]
+    test_core[test-core]
+    coverage[coverage]
+    build_infra[build-infra]
+    docker_web[docker-build-web]
+    docker_batch[docker-build-batch]
+    test_batch[test-batch]
+    e2e[e2e-test-web]
+    report[report]
+
+    lint --> build_core
+    format --> build_core
+    lint --> synth
+    format --> synth
+
+    build_core --> build_web
+    build_core --> build_batch
+    build_core --> test_core
+    build_core --> coverage
+    synth --> build_infra
+
+    build_web --> docker_web
+    build_web --> e2e
+    build_batch --> docker_batch
+    build_batch --> test_batch
+
+    docker_web --> report
+    docker_batch --> report
+    test_core --> report
+    test_batch --> report
+    coverage --> report
+    e2e --> report
+    build_infra --> report
+```
+
+**標準パターン（core/web/batch 構成）**:
+
+| ジョブ             | 依存先（needs）    | 理由                             |
+| ------------------ | ------------------ | -------------------------------- |
+| lint               | なし               | 最初に実行                       |
+| format-check       | なし               | lint と並列実行                  |
+| build-core         | lint, format-check | コード品質確認後にビルド         |
+| synth-infra        | lint, format-check | infra も lint 後に検証           |
+| build-web          | build-core         | core のビルド成果物に依存        |
+| build-batch        | build-core         | 同上                             |
+| test-core          | build-core         | ビルド成功後にテスト             |
+| coverage           | build-core         | ビルド成功後にカバレッジチェック |
+| build-infra        | synth-infra        | synth 成功後にビルド             |
+| docker-build-web   | build-web          | ビルド成功後に Docker ビルド     |
+| docker-build-batch | build-batch        | 同上                             |
+| test-batch         | build-batch        | ビルド成功後にテスト             |
+| e2e-test-web       | build-web          | ビルド成功後に E2E               |
+| report             | 全ジョブ           | 最後に結果を集約                 |
+
+**設計のポイント**:
+
+- **並列実行の最大化**: 依存関係のないジョブ（lint と format-check）は並列実行
+- **段階的な検証**: 品質チェック → ビルド → テスト → Docker の順で段階的に検証
+- **失敗時の無駄な実行を防止**: 前提条件が満たされない場合は後続ジョブをスキップ
+- **明示的な依存関係**: ビルド成果物を使用するジョブは明確に依存を宣言
+
+この依存関係パターンは、core/web/batch 構成のサービスに適用できます。サービスの構成が異なる場合は、同じ原則に基づいて依存関係を設計してください。
+
 ## テスト作成ガイドライン
 
 ### ユニットテスト
@@ -260,9 +347,15 @@ coverageThreshold: {
 ```typescript
 describe('機能名', () => {
   describe('関数名', () => {
-    it('正常系: 説明', () => { /* ... */ });
-    it('異常系: 説明', () => { /* ... */ });
-    it('エッジケース: 説明', () => { /* ... */ });
+    it('正常系: 説明', () => {
+      /* ... */
+    });
+    it('異常系: 説明', () => {
+      /* ... */
+    });
+    it('エッジケース: 説明', () => {
+      /* ... */
+    });
   });
 });
 ```
@@ -310,6 +403,7 @@ GitHub Actionsで自動実行。
 React 19 の新しいアーキテクチャと Jest の組み合わせにおいて、Next.js App Router の page コンポーネントを直接ユニットテストすることができない互換性問題が確認されています。
 
 **エラー内容**:
+
 ```
 Invalid hook call. Hooks can only be called inside of the body of a function component.
 TypeError: Cannot read properties of null (reading 'useState')
@@ -318,7 +412,7 @@ TypeError: Cannot read properties of null (reading 'useState')
 #### 影響範囲
 
 - **影響あり**: Next.js App Router の page コンポーネント（`app/**/page.tsx`）
-- **影響なし**: 
+- **影響なし**:
   - 個別の React コンポーネント（Material-UI コンポーネント含む）
   - Next.js API routes
   - ブラウザAPI以外のビジネスロジック
@@ -327,13 +421,13 @@ TypeError: Cannot read properties of null (reading 'useState')
 
 以下のテストパターンで動作確認済み:
 
-| テスト対象 | 結果 | 備考 |
-|-----------|------|------|
-| Material-UI コンポーネント単体 | ✅ 動作 | ThemeProvider でラップして正常動作 |
-| `useRouter` モック | ✅ 動作 | Next.js routing のモックは正常動作 |
-| `useState` 等の React hooks | ❌ エラー | page コンポーネント内で使用時にエラー |
-| Page コンポーネント全体 | ❌ エラー | App Router page は直接テスト不可 |
-| API routes | ✅ 動作 | React 不使用のため影響なし |
+| テスト対象                     | 結果      | 備考                                  |
+| ------------------------------ | --------- | ------------------------------------- |
+| Material-UI コンポーネント単体 | ✅ 動作   | ThemeProvider でラップして正常動作    |
+| `useRouter` モック             | ✅ 動作   | Next.js routing のモックは正常動作    |
+| `useState` 等の React hooks    | ❌ エラー | page コンポーネント内で使用時にエラー |
+| Page コンポーネント全体        | ❌ エラー | App Router page は直接テスト不可      |
+| API routes                     | ✅ 動作   | React 不使用のため影響なし            |
 
 #### 回避策
 
@@ -350,6 +444,7 @@ TypeError: Cannot read properties of null (reading 'useState')
 #### 将来の対応
 
 React 19 の testing ecosystem が成熟し、以下のいずれかが対応された時点で再評価:
+
 - Testing Library の React 19 完全対応
 - Next.js の Jest 統合改善
 - React Testing Tools の更新
@@ -395,11 +490,11 @@ test('通知許可がリクエストされる', async ({ page, context }) => {
 
 #### ブラウザ固有の制約一覧
 
-| Web API | chromium-desktop | chromium-mobile | webkit-mobile | 備考 |
-|---------|-----------------|-----------------|---------------|------|
-| Notification | ✅ | ✅ | ❌ | iOS Safari は非サポート |
-| Service Worker | ✅ | ✅ | ✅ | 登録は可能だが Push は制限あり |
-| Web Push | ✅ | ✅ | ⚠️ | iOS 16.4+ で限定的にサポート |
+| Web API        | chromium-desktop | chromium-mobile | webkit-mobile | 備考                           |
+| -------------- | ---------------- | --------------- | ------------- | ------------------------------ |
+| Notification   | ✅               | ✅              | ❌            | iOS Safari は非サポート        |
+| Service Worker | ✅               | ✅              | ✅            | 登録は可能だが Push は制限あり |
+| Web Push       | ✅               | ✅              | ⚠️            | iOS 16.4+ で限定的にサポート   |
 
 #### 設計指針
 
