@@ -4,6 +4,7 @@ const config: Config = {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   globals: {
     'ts-jest': {
       useESM: true,
@@ -14,6 +15,7 @@ const config: Config = {
     },
   },
   moduleNameMapper: {
+    // Strip .js extension and let ts-jest find the .ts file
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
