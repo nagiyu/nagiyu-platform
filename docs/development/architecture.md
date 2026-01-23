@@ -106,11 +106,11 @@ Pure Business Logic Functions（純粋関数によるビジネスロジック）
 
 ### ディレクトリ構造と配置ルール
 
-#### MUST: ビジネスロジックの純粋関数は `services/{service}/core/src/lib/` に配置
+#### MUST: ビジネスロジックの純粋関数は `services/{service}/core/src/libs/` に配置
 
 ```
 services/{service}/core/src/
-├── lib/                    # 純粋なビジネスロジック（MUST）
+├── libs/                   # 純粋なビジネスロジック（MUST）
 │   ├── calculations.ts     # 計算ロジック
 │   ├── formatters.ts       # データフォーマット
 │   ├── validators.ts       # バリデーション
@@ -124,16 +124,9 @@ services/{service}/core/src/
 
 **配置ルールの理由**:
 
-- **lib/**: "library" の略で、ライブラリのような再利用可能な純粋関数を配置
-- **責務の明確化**: 純粋関数（lib/）と副作用を持つ処理（services/, repositories/）を分離
-- **テストの容易性**: lib/ 配下のコードは高いカバレッジでユニットテストを実施
-
-#### Stock Tracker の移行について
-
-**注意**: Stock Tracker は現在 `services/` ディレクトリを使用していますが、将来的に `lib/` への移行を推奨します。
-
-- **新規サービス**: 標準の `lib/` ディレクトリを使用
-- **既存サービス**: 段階的な移行を検討（別 Issue で対応）
+- **libs/**: "libraries" の略で、ライブラリのような再利用可能な純粋関数を配置
+- **責務の明確化**: 純粋関数（libs/）と副作用を持つ処理（services/, repositories/）を分離
+- **テストの容易性**: libs/ 配下のコードは高いカバレッジでユニットテストを実施
 
 ### 関数設計ガイドライン
 
@@ -280,57 +273,11 @@ export function calculateTargetPrice(averagePrice: number): number {
 }
 ```
 
-#### 実装例（Stock Tracker の price-calculator.ts を参照）
-
-Stock Tracker における Pure Functions の実装例：
-
-```typescript
-/**
- * エラーメッセージ定数
- */
-export const PRICE_CALCULATOR_ERROR_MESSAGES = {
-  INVALID_PRICE: '無効な価格です。価格は正の数値である必要があります',
-} as const;
-
-/**
- * 目標価格の算出
- *
- * Phase 1: 平均取得価格 × 1.2 で目標価格を算出
- *
- * @param averagePrice - 平均取得価格
- * @returns 目標価格（平均取得価格 × 1.2）
- * @throws Error - 無効な価格の場合
- *
- * @example
- * calculateTargetPrice(100.00) // => 120.00
- * calculateTargetPrice(250.50) // => 300.60
- * calculateTargetPrice(1000) // => 1200
- */
-export function calculateTargetPrice(averagePrice: number): number {
-  // 価格の妥当性チェック
-  if (
-    typeof averagePrice !== 'number' ||
-    isNaN(averagePrice) ||
-    averagePrice < 0 ||
-    !isFinite(averagePrice)
-  ) {
-    throw new Error(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
-  }
-
-  // Phase 1: 固定倍率 1.2 を使用
-  const targetPrice = averagePrice * 1.2;
-
-  return targetPrice;
-}
-```
-
-**参照**: `services/stock-tracker/core/src/services/price-calculator.ts`
-
 ### テスト戦略
 
 #### MUST: 純粋関数のテストカバレッジは 80% 以上
 
-ビジネスロジック（`lib/` 配下）は重点的にテストを実施します。テストカバレッジ 80% 未満の場合、Full CI（develop へのPR）で自動的に失敗します。
+ビジネスロジック（`libs/` 配下）は重点的にテストを実施します。テストカバレッジ 80% 未満の場合、Full CI（develop へのPR）で自動的に失敗します。
 
 #### テストの基本パターン
 
