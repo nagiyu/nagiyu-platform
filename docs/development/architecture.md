@@ -97,7 +97,7 @@ core/
 
 #### 実装方法
 
-`@nagiyu/aws/dynamodb` パッケージの `AbstractDynamoDBRepository` を継承して実装する。
+`@nagiyu/aws` パッケージの `AbstractDynamoDBRepository` を継承して実装する。
 
 ```typescript
 import {
@@ -105,7 +105,7 @@ import {
     type DynamoDBItem,
     validateStringField,
     validateTimestampField,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 
 class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
     constructor(docClient: DynamoDBDocumentClient, tableName: string) {

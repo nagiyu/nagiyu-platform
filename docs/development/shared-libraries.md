@@ -252,7 +252,7 @@ import {
     type DynamoDBItem,
     validateStringField,
     validateTimestampField,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 interface User {
@@ -334,7 +334,7 @@ import {
     EntityNotFoundError,
     EntityAlreadyExistsError,
     DatabaseError,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 
 try {
     const user = await userRepository.getById({ userId: 'user-123' });

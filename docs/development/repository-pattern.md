@@ -21,7 +21,7 @@ Repository Pattern は、データアクセスロジックをビジネスロジ�
 - データアクセスロジックが複雑化しているケース
 - 複数のサービスで同じデータモデルを共有するケース
 
-## `@nagiyu/aws/dynamodb` の使い方
+## `@nagiyu/aws` の使い方
 
 `@nagiyu/aws` パッケージは、DynamoDB Repository の共通機能を提供する。
 
@@ -40,7 +40,7 @@ import {
     type RepositoryConfig,
     validateStringField,
     validateTimestampField,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 // エンティティ型定義
@@ -225,7 +225,7 @@ class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }
 
 ### 標準エラークラス
 
-`@nagiyu/aws/dynamodb` が提供する標準エラークラスを使用する。
+`@nagiyu/aws` が提供する標準エラークラスを使用する。
 
 ```typescript
 import {
@@ -234,7 +234,7 @@ import {
     EntityAlreadyExistsError, // エンティティが既に存在
     InvalidEntityDataError,   // データが無効
     DatabaseError,            // データベースエラー
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 ```
 
 ### エラーハンドリングパターン
@@ -314,7 +314,7 @@ export class UserEmailAlreadyExistsError extends RepositoryError {
 
 ### 標準バリデーション関数
 
-`@nagiyu/aws/dynamodb` が提供するバリデーション関数を使用する。
+`@nagiyu/aws` が提供するバリデーション関数を使用する。
 
 ```typescript
 import {
@@ -323,7 +323,7 @@ import {
     validateEnumField,
     validateBooleanField,
     validateTimestampField,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 ```
 
 ### 各バリデーション関数の使い方

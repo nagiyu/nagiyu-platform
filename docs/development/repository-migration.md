@@ -2,7 +2,7 @@
 
 ## 目的
 
-本ドキュメントは、既存のデータアクセス実装から `@nagiyu/aws/dynamodb` を使用した Repository Pattern への移行手順を提供する。
+本ドキュメントは、既存のデータアクセス実装から `@nagiyu/aws` を使用した Repository Pattern への移行手順を提供する。
 
 ## 移行の利点
 
@@ -161,7 +161,7 @@ import {
     type DynamoDBItem,
     validateStringField,
     validateTimestampField,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { User } from './types.js';
 
@@ -247,7 +247,7 @@ async getByEmail(email: string): Promise<User | null> {
 
 ```typescript
 import { QueryCommand } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError } from '@nagiyu/aws/dynamodb';
+import { DatabaseError } from '@nagiyu/aws';
 
 async getByEmail(email: string): Promise<User | null> {
     try {
@@ -306,12 +306,12 @@ export class UserAlreadyExistsError extends Error {
 #### After: 標準エラークラスを使用
 
 ```typescript
-// エラークラスの定義は不要（@nagiyu/aws/dynamodb から import）
+// エラークラスの定義は不要（@nagiyu/aws から import）
 import {
     EntityNotFoundError,
     EntityAlreadyExistsError,
     DatabaseError,
-} from '@nagiyu/aws/dynamodb';
+} from '@nagiyu/aws';
 
 // 使用例
 throw new EntityNotFoundError('User', userId);
@@ -585,7 +585,7 @@ diff coverage-before.txt coverage-after.txt
 ```markdown
 ## データアクセス層
 
-本サービスでは、`@nagiyu/aws/dynamodb` を使用した Repository Pattern を採用しています。
+本サービスでは、`@nagiyu/aws` を使用した Repository Pattern を採用しています。
 
 詳細は以下を参照：
 - [Repository Pattern 設計ガイド](../../docs/development/repository-pattern.md)
