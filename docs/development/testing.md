@@ -252,6 +252,86 @@ coverageThreshold: {
 - 変更対象に応じた適切なテストのみ実行され、高速なフィードバック
 - ワークフロー定義が明確で、メンテナンスしやすい
 
+#### ジョブ依存関係（needs）の設計
+
+CI ワークフローでは `needs` を使ってジョブ間の依存関係を設定することで、以下の効果を得られます:
+
+1. **早期失敗**: lint/format が失敗した場合、ビルド・テストをスキップ
+2. **リソース節約**: 前提ジョブが失敗すると後続ジョブが実行されない
+3. **明確な依存関係**: ビルド順序が保証される
+
+**推奨する依存関係グラフ（core/web/batch 構成）**:
+
+```mermaid
+flowchart LR
+    lint[lint]
+    format[format-check]
+    build_core[build-core]
+    synth[synth-infra]
+    build_web[build-web]
+    build_batch[build-batch]
+    test_core[test-core]
+    coverage[coverage]
+    build_infra[build-infra]
+    docker_web[docker-build-web]
+    docker_batch[docker-build-batch]
+    test_batch[test-batch]
+    e2e[e2e-test-web]
+    report[report]
+
+    lint --> build_core
+    format --> build_core
+    lint --> synth
+    format --> synth
+
+    build_core --> build_web
+    build_core --> build_batch
+    build_core --> test_core
+    build_core --> coverage
+    synth --> build_infra
+
+    build_web --> docker_web
+    build_web --> e2e
+    build_batch --> docker_batch
+    build_batch --> test_batch
+
+    docker_web --> report
+    docker_batch --> report
+    test_core --> report
+    test_batch --> report
+    coverage --> report
+    e2e --> report
+    build_infra --> report
+```
+
+**標準パターン（core/web/batch 構成）**:
+
+| ジョブ             | 依存先（needs）    | 理由                             |
+| ------------------ | ------------------ | -------------------------------- |
+| lint               | なし               | 最初に実行                       |
+| format-check       | なし               | lint と並列実行                  |
+| build-core         | lint, format-check | コード品質確認後にビルド         |
+| synth-infra        | lint, format-check | infra も lint 後に検証           |
+| build-web          | build-core         | core のビルド成果物に依存        |
+| build-batch        | build-core         | 同上                             |
+| test-core          | build-core         | ビルド成功後にテスト             |
+| coverage           | build-core         | ビルド成功後にカバレッジチェック |
+| build-infra        | synth-infra        | synth 成功後にビルド             |
+| docker-build-web   | build-web          | ビルド成功後に Docker ビルド     |
+| docker-build-batch | build-batch        | 同上                             |
+| test-batch         | build-batch        | ビルド成功後にテスト             |
+| e2e-test-web       | build-web          | ビルド成功後に E2E               |
+| report             | 全ジョブ           | 最後に結果を集約                 |
+
+**設計のポイント**:
+
+- **並列実行の最大化**: 依存関係のないジョブ（lint と format-check）は並列実行
+- **段階的な検証**: 品質チェック → ビルド → テスト → Docker の順で段階的に検証
+- **失敗時の無駄な実行を防止**: 前提条件が満たされない場合は後続ジョブをスキップ
+- **明示的な依存関係**: ビルド成果物を使用するジョブは明確に依存を宣言
+
+この依存関係パターンは、core/web/batch 構成のサービスに適用できます。サービスの構成が異なる場合は、同じ原則に基づいて依存関係を設計してください。
+
 ## テスト作成ガイドライン
 
 ### ユニットテスト
