@@ -94,7 +94,9 @@ export class AlertRepository extends AbstractDynamoDBRepository<
     } catch (error) {
       // 共通ライブラリのエラーをAlertRepositoryのエラーに変換（後方互換性のため）
       if (error instanceof InvalidEntityDataError) {
-        throw new InvalidAlertDataError(error.message.replace('エンティティデータが無効です: ', ''));
+        throw new InvalidAlertDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
       }
       throw error;
     }
@@ -157,7 +159,9 @@ export class AlertRepository extends AbstractDynamoDBRepository<
       return await super.getById(key);
     } catch (error) {
       if (error instanceof InvalidEntityDataError) {
-        throw new InvalidAlertDataError(error.message.replace('エンティティデータが無効です: ', ''));
+        throw new InvalidAlertDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
       }
       throw error;
     }
@@ -265,6 +269,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
 
     // AbstractDynamoDBRepositoryのcreateを呼び出す
     // AlertIDを持つnewAlertから CreatedAt/UpdatedAt を除いて渡す
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { CreatedAt, UpdatedAt, ...alertWithoutTimestamps } = newAlert;
     return await super.create(alertWithoutTimestamps as Omit<Alert, 'CreatedAt' | 'UpdatedAt'>);
   }
@@ -319,7 +324,9 @@ export class AlertRepository extends AbstractDynamoDBRepository<
         throw new AlertNotFoundError(userId, alertId);
       }
       if (error instanceof InvalidEntityDataError) {
-        throw new InvalidAlertDataError(error.message.replace('エンティティデータが無効です: ', ''));
+        throw new InvalidAlertDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
       }
       throw error;
     }

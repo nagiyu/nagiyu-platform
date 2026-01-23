@@ -11,7 +11,6 @@ import {
   EntityAlreadyExistsError,
   InvalidEntityDataError,
   validateStringField,
-  validateNumberField,
   validateTimestampField,
   type DynamoDBItem,
 } from '@nagiyu/aws';
@@ -97,7 +96,9 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
   /**
    * Watchlist を DynamoDB Item にマッピング
    */
-  protected mapToItem(watchlist: Omit<Watchlist, 'CreatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+  protected mapToItem(
+    watchlist: Omit<Watchlist, 'CreatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
     const keys = this.buildKeys({ userId: watchlist.UserID, tickerId: watchlist.TickerID });
     return {
       ...keys,
@@ -190,9 +191,10 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
     try {
       // Base class expects Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>, but Watchlist doesn't have UpdatedAt
       // So we pass it as-is and let the base class add both timestamps
-      const result = await super.create(watchlist as any);
+      const result = await super.create(watchlist as Omit<Watchlist, 'CreatedAt' | 'UpdatedAt'>);
       // Return only the fields that Watchlist type includes
-      const { UpdatedAt, ...watchlistData } = result as any;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { UpdatedAt, ...watchlistData } = result as Watchlist & { UpdatedAt?: number };
       return watchlistData as Watchlist;
     } catch (error) {
       if (error instanceof EntityAlreadyExistsError) {
