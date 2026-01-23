@@ -113,22 +113,6 @@ libs/common/src/logger/
 - **拡張性**: 将来的にエラートラッキングサービスとの統合を考慮した設計
 - **責務の明確化**: ログの整形と出力に集中
 
-### ディレクトリ構成
-
-```
-libs/common/
-├── src/
-│   ├── logger/
-│   │   ├── types.ts          # 型定義
-│   │   ├── logger.ts         # ロガー実装
-│   │   └── index.ts          # logger からのエクスポート
-│   └── index.ts              # パッケージのメインエクスポート
-├── tests/
-│   └── unit/
-│       └── logger.test.ts    # ロガーのユニットテスト
-└── package.json
-```
-
 ### 型定義の詳細
 
 #### LogLevel 型
@@ -544,63 +528,6 @@ LOG_LEVEL=WARN npm start
 - **モック対象**: `console.log`, `console.error`, `process.env`
 - **配置**: `tests/unit/logger.test.ts`
 
-#### テストコード例
-
-```typescript
-import { logger } from '../../src/logger';
-
-describe('Logger', () => {
-    let consoleLogSpy: jest.SpyInstance;
-    let consoleErrorSpy: jest.SpyInstance;
-    
-    beforeEach(() => {
-        consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
-    });
-    
-    afterEach(() => {
-        consoleLogSpy.mockRestore();
-        consoleErrorSpy.mockRestore();
-    });
-    
-    describe('ログレベルフィルタリング', () => {
-        it('LOG_LEVEL=INFO の場合、DEBUG は出力されない', () => {
-            process.env.LOG_LEVEL = 'INFO';
-            
-            logger.debug('Debug message');
-            
-            expect(consoleLogSpy).not.toHaveBeenCalled();
-        });
-        
-        it('LOG_LEVEL=INFO の場合、INFO は出力される', () => {
-            process.env.LOG_LEVEL = 'INFO';
-            
-            logger.info('Info message');
-            
-            expect(consoleLogSpy).toHaveBeenCalledTimes(1);
-            const output = JSON.parse(consoleLogSpy.mock.calls[0][0]);
-            expect(output.level).toBe('INFO');
-            expect(output.message).toBe('Info message');
-        });
-    });
-    
-    describe('JSON形式', () => {
-        it('正しいJSON形式で出力される', () => {
-            logger.info('Test message', { key: 'value' });
-            
-            const output = consoleLogSpy.mock.calls[0][0];
-            expect(() => JSON.parse(output)).not.toThrow();
-            
-            const parsed = JSON.parse(output);
-            expect(parsed).toHaveProperty('timestamp');
-            expect(parsed).toHaveProperty('level');
-            expect(parsed).toHaveProperty('message');
-            expect(parsed).toHaveProperty('context');
-        });
-    });
-});
-```
-
 ### CI/CDでのテスト実行
 
 テストは以下のタイミングで自動実行されます：
@@ -638,16 +565,7 @@ describe('Logger', () => {
 
 ## 関連ドキュメント
 
-- [親Issue #797: ロギング戦略とエラートラッキングの標準化](https://github.com/nagiyu/nagiyu-platform/issues/797)
 - [@nagiyu/common README](./README.md)
 - [共通ライブラリ設計](../../development/shared-libraries.md)
 - [コーディング規約](../../development/rules.md)
 - [テスト戦略](../../development/testing.md)
-
----
-
-## 改訂履歴
-
-| 日付       | バージョン | 変更内容                 | 著者            |
-| ---------- | ---------- | ------------------------ | --------------- |
-| 2026-01-23 | 1.0.0      | 初版作成                 | GitHub Copilot  |
