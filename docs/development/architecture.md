@@ -72,13 +72,109 @@ batch → core → libs/common
 - Parser と Formatter は純粋関数として実装
 - 中間データ構造を型定義
 
-### その他のパターン
+### Repository パターン
 
-サービスの特性に応じて、以下のようなパターンも検討：
+データアクセス層の抽象化を行うパターン。データソース（DynamoDB、RDS等）への依存を分離する。
 
-- **Repository パターン**: データアクセス層の抽象化
-- **Service パターン**: 複雑なビジネスロジックのカプセル化
-- **Hook パターン**: React固有のロジックの再利用
+#### 適用ケース
+
+- DynamoDB を使用するサービス
+- データアクセスロジックが複雑化しているケース
+- 複数のサービスで同じデータモデルを共有するケース
+
+#### 基本構成
+
+```
+core/
+├── repositories/        # データアクセス層
+│   ├── user.ts         # UserRepository
+│   └── watchlist.ts    # WatchlistRepository
+├── services/           # ビジネスロジック層（オプション）
+│   └── user-service.ts
+└── types/              # 型定義
+    └── entities.ts
+```
+
+#### 実装方法
+
+`@nagiyu/aws/dynamodb` パッケージの `AbstractDynamoDBRepository` を継承して実装する。
+
+```typescript
+import {
+    AbstractDynamoDBRepository,
+    type DynamoDBItem,
+    validateStringField,
+    validateTimestampField,
+} from '@nagiyu/aws/dynamodb';
+
+class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
+    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+        super(docClient, {
+            tableName,
+            entityType: 'User',
+        });
+    }
+
+    protected buildKeys(key: { userId: string }) {
+        return {
+            PK: `USER#${key.userId}`,
+            SK: 'PROFILE',
+        };
+    }
+
+    protected mapToEntity(item: Record<string, unknown>): User {
+        return {
+            userId: validateStringField(item.UserId, 'UserId'),
+            name: validateStringField(item.Name, 'Name'),
+            createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+            updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+        };
+    }
+
+    protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+        const keys = this.buildKeys({ userId: entity.userId });
+        return {
+            ...keys,
+            Type: this.config.entityType,
+            UserId: entity.userId,
+            Name: entity.name,
+        };
+    }
+}
+```
+
+#### メリット
+
+- **テスト容易性**: リポジトリをモック化してビジネスロジックを単体テスト可能
+- **データソースの抽象化**: データベースの変更がビジネスロジックに影響しない
+- **一貫性**: データアクセスのパターンを統一
+- **保守性**: データアクセスロジックが一箇所に集約
+
+#### 参考
+
+詳細は以下のドキュメントを参照：
+- [Repository Pattern 設計ガイド](./repository-pattern.md)
+- [Repository Pattern 移行ガイド](./repository-migration.md)
+- 実装例: `services/stock-tracker/core/src/repositories/`
+
+### Service パターン
+
+複雑なビジネスロジックのカプセル化を行うパターン。
+
+#### 適用ケース
+
+- 複数のリポジトリを組み合わせる処理
+- トランザクション制御が必要な処理
+- 外部APIとの連携を含む処理
+
+### Hook パターン
+
+React固有のロジックの再利用を行うパターン。
+
+#### 適用ケース
+
+- 複数のコンポーネントで共通するState管理
+- 副作用を伴う処理の共通化
 
 ## State Management
 

@@ -192,22 +192,182 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 
 ### 含まれるもの
 
-- DynamoDB Repository 用の共通エラークラス
+#### DynamoDB Repository 用の共通機能
+
+- **エラークラス**:
     - `RepositoryError` (基底クラス)
     - `EntityNotFoundError`
     - `EntityAlreadyExistsError`
     - `InvalidEntityDataError`
     - `DatabaseError`
 
+- **抽象基底クラス**:
+    - `AbstractDynamoDBRepository` - CRUD操作の共通実装を提供
+
+- **バリデーション関数**:
+    - `validateStringField` - 文字列フィールドのバリデーション
+    - `validateNumberField` - 数値フィールドのバリデーション
+    - `validateEnumField` - 列挙型フィールドのバリデーション
+    - `validateBooleanField` - 真偽値フィールドのバリデーション
+    - `validateTimestampField` - タイムスタンプフィールドのバリデーション
+
+- **ヘルパー関数**:
+    - `buildUpdateExpression` - UpdateExpression を動的に生成
+    - `conditionalPut` - 条件付きPUT（存在しない場合のみ作成）
+    - `conditionalUpdate` - 条件付きUPDATE（存在する場合のみ更新）
+    - `conditionalDelete` - 条件付きDELETE（存在する場合のみ削除）
+
+- **型定義**:
+    - `DynamoDBItem` - Single Table Design の基本Item構造
+    - `PaginatedResult` - ページネーション結果
+    - `RepositoryConfig` - リポジトリ設定
+
 ### パッケージ名
 
 `@nagiyu/aws`
 
+### peerDependencies
+
+このパッケージは AWS SDK に依存しています。使用するプロジェクトでは、以下のパッケージを明示的にインストールする必要があります：
+
+```json
+{
+    "dependencies": {
+        "@nagiyu/aws": "workspace:*",
+        "@aws-sdk/client-dynamodb": "^3.0.0",
+        "@aws-sdk/lib-dynamodb": "^3.0.0"
+    }
+}
+```
+
+**理由**: AWS SDK は頻繁に更新されるため、各サービスで必要なバージョンを柔軟に選択できるようにするため、`@nagiyu/aws` では peerDependencies として管理しています。
+
+### 使用例
+
+#### 基本的なリポジトリ実装
+
+```typescript
+import {
+    AbstractDynamoDBRepository,
+    type DynamoDBItem,
+    validateStringField,
+    validateTimestampField,
+} from '@nagiyu/aws/dynamodb';
+import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+
+interface User {
+    userId: string;
+    name: string;
+    email: string;
+    createdAt: number;
+    updatedAt: number;
+}
+
+class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
+    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+        super(docClient, {
+            tableName,
+            entityType: 'User',
+        });
+    }
+
+    protected buildKeys(key: { userId: string }) {
+        return {
+            PK: `USER#${key.userId}`,
+            SK: 'PROFILE',
+        };
+    }
+
+    protected mapToEntity(item: Record<string, unknown>): User {
+        return {
+            userId: validateStringField(item.UserId, 'UserId'),
+            name: validateStringField(item.Name, 'Name'),
+            email: validateStringField(item.Email, 'Email'),
+            createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+            updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+        };
+    }
+
+    protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+        const keys = this.buildKeys({ userId: entity.userId });
+        return {
+            ...keys,
+            Type: this.config.entityType,
+            UserId: entity.userId,
+            Name: entity.name,
+            Email: entity.email,
+        };
+    }
+}
+```
+
+#### CRUD操作の使用
+
+```typescript
+const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'ap-northeast-1' }));
+const userRepository = new UserRepository(docClient, 'MyTable');
+
+// 作成
+const newUser = await userRepository.create({
+    userId: 'user-123',
+    name: 'John Doe',
+    email: 'john@example.com',
+});
+
+// 取得
+const user = await userRepository.getById({ userId: 'user-123' });
+
+// 更新
+const updated = await userRepository.update(
+    { userId: 'user-123' },
+    { name: 'Jane Doe' }
+);
+
+// 削除
+await userRepository.delete({ userId: 'user-123' });
+```
+
+#### エラーハンドリング
+
+```typescript
+import {
+    EntityNotFoundError,
+    EntityAlreadyExistsError,
+    DatabaseError,
+} from '@nagiyu/aws/dynamodb';
+
+try {
+    const user = await userRepository.getById({ userId: 'user-123' });
+    if (!user) {
+        throw new EntityNotFoundError('User', 'user-123');
+    }
+} catch (error) {
+    if (error instanceof EntityNotFoundError) {
+        console.error('ユーザーが見つかりません:', error.message);
+    } else if (error instanceof DatabaseError) {
+        console.error('データベースエラー:', error.message);
+    } else {
+        throw error;
+    }
+}
+```
+
 ### 設計のポイント
 
-- AWS SDKを通常の依存関係として管理
-- 日本語エラーメッセージの定数化
-- 継承による階層的なエラー設計
+- **AWS SDKを通常の依存関係として管理**: 各サービスで必要なバージョンを選択可能
+- **日本語エラーメッセージの定数化**: ユーザーフレンドリーなエラーメッセージ
+- **継承による階層的なエラー設計**: エラータイプごとに適切な処理が可能
+- **型安全なバリデーション**: バリデーション関数により、DynamoDBからのデータを型安全にマッピング
+- **CRUD操作の共通化**: AbstractDynamoDBRepository により、実装の重複を削減
+- **Single Table Design 対応**: DynamoDBItem 型により、Single Table Design を標準化
+
+### 参考ドキュメント
+
+詳細な使い方は以下のドキュメントを参照してください：
+
+- [Repository Pattern 設計ガイド](./repository-pattern.md)
+- [Repository Pattern 移行ガイド](./repository-migration.md)
+- 実装例: `services/stock-tracker/core/src/repositories/`
 
 ## バージョン管理
 
