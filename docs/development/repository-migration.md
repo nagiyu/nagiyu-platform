@@ -50,11 +50,11 @@ npm test --workspace=your-service-core
 ```typescript
 // 既存: types.ts
 export interface User {
-    userId: string;
-    name: string;
-    email: string;
-    createdAt: number;
-    updatedAt: number;
+  userId: string;
+  name: string;
+  email: string;
+  createdAt: number;
+  updatedAt: number;
 }
 ```
 
@@ -63,15 +63,16 @@ export interface User {
 ```typescript
 // 変更なし: types.ts
 export interface User {
-    userId: string;
-    name: string;
-    email: string;
-    createdAt: number;
-    updatedAt: number;
+  userId: string;
+  name: string;
+  email: string;
+  createdAt: number;
+  updatedAt: number;
 }
 ```
 
 **注意点**:
+
 - `createdAt` / `updatedAt` フィールドは `number` 型（Unix timestamp）であること
 - フィールド名は camelCase であること
 
@@ -87,68 +88,68 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dyn
 import type { User } from './types.js';
 
 export class UserRepository {
-    private readonly docClient: DynamoDBDocumentClient;
-    private readonly tableName: string;
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
 
-    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-        this.docClient = docClient;
-        this.tableName = tableName;
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    this.docClient = docClient;
+    this.tableName = tableName;
+  }
+
+  async getById(userId: string): Promise<User | null> {
+    const result = await this.docClient.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: `USER#${userId}`,
+          SK: 'PROFILE',
+        },
+      })
+    );
+
+    if (!result.Item) {
+      return null;
     }
 
-    async getById(userId: string): Promise<User | null> {
-        const result = await this.docClient.send(
-            new GetCommand({
-                TableName: this.tableName,
-                Key: {
-                    PK: `USER#${userId}`,
-                    SK: 'PROFILE',
-                },
-            })
-        );
+    // 手動マッピング
+    return {
+      userId: result.Item.UserId as string,
+      name: result.Item.Name as string,
+      email: result.Item.Email as string,
+      createdAt: result.Item.CreatedAt as number,
+      updatedAt: result.Item.UpdatedAt as number,
+    };
+  }
 
-        if (!result.Item) {
-            return null;
-        }
+  async create(user: Omit<User, 'createdAt' | 'updatedAt'>): Promise<User> {
+    const now = Date.now();
+    const newUser = {
+      ...user,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-        // 手動マッピング
-        return {
-            userId: result.Item.UserId as string,
-            name: result.Item.Name as string,
-            email: result.Item.Email as string,
-            createdAt: result.Item.CreatedAt as number,
-            updatedAt: result.Item.UpdatedAt as number,
-        };
-    }
+    await this.docClient.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: {
+          PK: `USER#${user.userId}`,
+          SK: 'PROFILE',
+          Type: 'User',
+          UserId: user.userId,
+          Name: user.name,
+          Email: user.email,
+          CreatedAt: now,
+          UpdatedAt: now,
+        },
+        ConditionExpression: 'attribute_not_exists(PK)',
+      })
+    );
 
-    async create(user: Omit<User, 'createdAt' | 'updatedAt'>): Promise<User> {
-        const now = Date.now();
-        const newUser = {
-            ...user,
-            createdAt: now,
-            updatedAt: now,
-        };
+    return newUser;
+  }
 
-        await this.docClient.send(
-            new PutCommand({
-                TableName: this.tableName,
-                Item: {
-                    PK: `USER#${user.userId}`,
-                    SK: 'PROFILE',
-                    Type: 'User',
-                    UserId: user.userId,
-                    Name: user.name,
-                    Email: user.email,
-                    CreatedAt: now,
-                    UpdatedAt: now,
-                },
-                ConditionExpression: 'attribute_not_exists(PK)',
-            })
-        );
-
-        return newUser;
-    }
-
-    // ... 他の CRUD メソッド
+  // ... 他の CRUD メソッド
 }
 ```
 
@@ -157,53 +158,56 @@ export class UserRepository {
 ```typescript
 // 移行後: user-repository.ts
 import {
-    AbstractDynamoDBRepository,
-    type DynamoDBItem,
-    validateStringField,
-    validateTimestampField,
+  AbstractDynamoDBRepository,
+  type DynamoDBItem,
+  validateStringField,
+  validateTimestampField,
 } from '@nagiyu/aws';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { User } from './types.js';
 
 export class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
-    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-        super(docClient, {
-            tableName,
-            entityType: 'User',
-        });
-    }
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    super(docClient, {
+      tableName,
+      entityType: 'User',
+    });
+  }
 
-    protected buildKeys(key: { userId: string }) {
-        return {
-            PK: `USER#${key.userId}`,
-            SK: 'PROFILE',
-        };
-    }
+  protected buildKeys(key: { userId: string }) {
+    return {
+      PK: `USER#${key.userId}`,
+      SK: 'PROFILE',
+    };
+  }
 
-    protected mapToEntity(item: Record<string, unknown>): User {
-        return {
-            userId: validateStringField(item.UserId, 'UserId'),
-            name: validateStringField(item.Name, 'Name'),
-            email: validateStringField(item.Email, 'Email'),
-            createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-            updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-        };
-    }
+  protected mapToEntity(item: Record<string, unknown>): User {
+    return {
+      userId: validateStringField(item.UserId, 'UserId'),
+      name: validateStringField(item.Name, 'Name'),
+      email: validateStringField(item.Email, 'Email'),
+      createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
 
-    protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-        const keys = this.buildKeys({ userId: entity.userId });
-        return {
-            ...keys,
-            Type: this.config.entityType,
-            UserId: entity.userId,
-            Name: entity.name,
-            Email: entity.email,
-        };
-    }
+  protected mapToItem(
+    entity: Omit<User, 'createdAt' | 'updatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ userId: entity.userId });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      UserId: entity.userId,
+      Name: entity.name,
+      Email: entity.email,
+    };
+  }
 }
 ```
 
 **変更点**:
+
 1. `AbstractDynamoDBRepository` を継承
 2. `buildKeys()`, `mapToEntity()`, `mapToItem()` の3つのメソッドを実装
 3. バリデーション関数を使用して型安全性を向上
@@ -278,6 +282,7 @@ async getByEmail(email: string): Promise<User | null> {
 ```
 
 **変更点**:
+
 1. `this.mapToEntity()` を使用してマッピング（バリデーション自動適用）
 2. エラーハンドリングを標準化（`DatabaseError` を使用）
 
@@ -289,17 +294,17 @@ async getByEmail(email: string): Promise<User | null> {
 
 ```typescript
 export class UserNotFoundError extends Error {
-    constructor(userId: string) {
-        super(`ユーザーが見つかりません: ${userId}`);
-        this.name = 'UserNotFoundError';
-    }
+  constructor(userId: string) {
+    super(`ユーザーが見つかりません: ${userId}`);
+    this.name = 'UserNotFoundError';
+  }
 }
 
 export class UserAlreadyExistsError extends Error {
-    constructor(userId: string) {
-        super(`ユーザーは既に存在します: ${userId}`);
-        this.name = 'UserAlreadyExistsError';
-    }
+  constructor(userId: string) {
+    super(`ユーザーは既に存在します: ${userId}`);
+    this.name = 'UserAlreadyExistsError';
+  }
 }
 ```
 
@@ -307,11 +312,7 @@ export class UserAlreadyExistsError extends Error {
 
 ```typescript
 // エラークラスの定義は不要（@nagiyu/aws から import）
-import {
-    EntityNotFoundError,
-    EntityAlreadyExistsError,
-    DatabaseError,
-} from '@nagiyu/aws';
+import { EntityNotFoundError, EntityAlreadyExistsError, DatabaseError } from '@nagiyu/aws';
 
 // 使用例
 throw new EntityNotFoundError('User', userId);
@@ -319,6 +320,7 @@ throw new EntityAlreadyExistsError('User', userId);
 ```
 
 **注意点**:
+
 - 既存のエラーハンドリングコードで `UserNotFoundError` を使用している箇所を `EntityNotFoundError` に置き換える
 - エラーメッセージの形式が変わる可能性があるため、テストを更新する
 
@@ -339,6 +341,7 @@ const user = await userRepository.getById({ userId: 'user-123' });
 ```
 
 **変更点**:
+
 - `getById()`, `update()`, `delete()` はキーオブジェクト（`{ userId: string }`）を受け取る
 - `create()` は変更なし
 
@@ -350,21 +353,21 @@ const user = await userRepository.getById({ userId: 'user-123' });
 
 ```typescript
 test('getById - ユーザーが存在する場合', async () => {
-    ddbMock.on(GetCommand).resolves({
-        Item: {
-            PK: 'USER#user-123',
-            SK: 'PROFILE',
-            Type: 'User',
-            UserId: 'user-123',
-            Name: 'John Doe',
-            Email: 'john@example.com',
-            CreatedAt: 1234567890,
-            UpdatedAt: 1234567890,
-        },
-    });
+  ddbMock.on(GetCommand).resolves({
+    Item: {
+      PK: 'USER#user-123',
+      SK: 'PROFILE',
+      Type: 'User',
+      UserId: 'user-123',
+      Name: 'John Doe',
+      Email: 'john@example.com',
+      CreatedAt: 1234567890,
+      UpdatedAt: 1234567890,
+    },
+  });
 
-    const user = await repository.getById('user-123');
-    expect(user?.userId).toBe('user-123');
+  const user = await repository.getById('user-123');
+  expect(user?.userId).toBe('user-123');
 });
 ```
 
@@ -372,21 +375,21 @@ test('getById - ユーザーが存在する場合', async () => {
 
 ```typescript
 test('getById - ユーザーが存在する場合', async () => {
-    ddbMock.on(GetCommand).resolves({
-        Item: {
-            PK: 'USER#user-123',
-            SK: 'PROFILE',
-            Type: 'User',
-            UserId: 'user-123',
-            Name: 'John Doe',
-            Email: 'john@example.com',
-            CreatedAt: 1234567890,
-            UpdatedAt: 1234567890,
-        },
-    });
+  ddbMock.on(GetCommand).resolves({
+    Item: {
+      PK: 'USER#user-123',
+      SK: 'PROFILE',
+      Type: 'User',
+      UserId: 'user-123',
+      Name: 'John Doe',
+      Email: 'john@example.com',
+      CreatedAt: 1234567890,
+      UpdatedAt: 1234567890,
+    },
+  });
 
-    const user = await repository.getById({ userId: 'user-123' });
-    expect(user?.userId).toBe('user-123');
+  const user = await repository.getById({ userId: 'user-123' });
+  expect(user?.userId).toBe('user-123');
 });
 ```
 
@@ -425,6 +428,7 @@ test('getById - ユーザーが存在する場合', async () => {
 ### 問題 1: 型エラーが発生する
 
 **症状**:
+
 ```
 Type 'string | undefined' is not assignable to type 'string'.
 ```
@@ -433,17 +437,19 @@ Type 'string | undefined' is not assignable to type 'string'.
 バリデーション関数を使用せずに型キャストしている。
 
 **解決策**:
+
 ```typescript
 // ❌ 型キャスト
-userId: item.UserId as string
+userId: item.UserId as string;
 
 // ✅ バリデーション関数を使用
-userId: validateStringField(item.UserId, 'UserId')
+userId: validateStringField(item.UserId, 'UserId');
 ```
 
 ### 問題 2: テストが失敗する
 
 **症状**:
+
 ```
 Expected "USER#user-123" but received { userId: "user-123" }
 ```
@@ -452,6 +458,7 @@ Expected "USER#user-123" but received { userId: "user-123" }
 `getById()`, `update()`, `delete()` の引数がキーオブジェクトに変更されている。
 
 **解決策**:
+
 ```typescript
 // ❌ 文字列を直接渡す
 await repository.getById('user-123');
@@ -463,6 +470,7 @@ await repository.getById({ userId: 'user-123' });
 ### 問題 3: CreatedAt/UpdatedAt が自動設定されない
 
 **症状**:
+
 ```
 CreatedAt is undefined
 ```
@@ -471,6 +479,7 @@ CreatedAt is undefined
 `mapToItem()` で `CreatedAt`/`UpdatedAt` を含めている。
 
 **解決策**:
+
 ```typescript
 // ❌ タイムスタンプを含める
 protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): DynamoDBItem {
@@ -503,19 +512,21 @@ protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoD
 基底クラスで自動的に `EntityAlreadyExistsError` に変換される。
 
 **解決策**:
+
 ```typescript
 try {
-    await repository.create(user);
+  await repository.create(user);
 } catch (error) {
-    if (error instanceof EntityAlreadyExistsError) {
-        // 重複エラー処理
-    }
+  if (error instanceof EntityAlreadyExistsError) {
+    // 重複エラー処理
+  }
 }
 ```
 
 ### 問題 5: カスタムクエリでバリデーションエラーが発生する
 
 **症状**:
+
 ```
 InvalidEntityDataError: フィールド "UserId" が文字列ではありません
 ```
@@ -524,6 +535,7 @@ InvalidEntityDataError: フィールド "UserId" が文字列ではありませ�
 DynamoDB からのレスポンスデータが想定と異なる。
 
 **解決策**:
+
 1. DynamoDB のデータ構造を確認
 2. バリデーション関数のオプションを調整（例: `allowEmpty: true`）
 3. カスタムバリデーション関数を作成
@@ -534,8 +546,8 @@ console.log('Raw item:', result.Items[0]);
 
 // バリデーションをスキップしてマッピング（一時的）
 return {
-    userId: item.UserId as string,  // 一時的に型キャスト
-    // ...
+  userId: item.UserId as string, // 一時的に型キャスト
+  // ...
 };
 ```
 
@@ -588,6 +600,7 @@ diff coverage-before.txt coverage-after.txt
 本サービスでは、`@nagiyu/aws` を使用した Repository Pattern を採用しています。
 
 詳細は以下を参照：
+
 - [Repository Pattern 設計ガイド](../../docs/development/repository-pattern.md)
 - [実装例](./src/repositories/)
 ```

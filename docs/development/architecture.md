@@ -11,18 +11,18 @@
 サービスは以下のパッケージに分離することで、責務を明確化する：
 
 - **core**: ビジネスロジック層
-    - フレームワーク非依存のビジネスロジック
-    - 純粋関数として実装
-    - Unit Test 必須
-    - 相対パスで import（path alias 使用不可）
+  - フレームワーク非依存のビジネスロジック
+  - 純粋関数として実装
+  - Unit Test 必須
+  - 相対パスで import（path alias 使用不可）
 - **web**: プレゼンテーション層
-    - Next.js + React による UI 実装
-    - E2E Test 主体
-    - path alias（`@/`）使用可能
+  - Next.js + React による UI 実装
+  - E2E Test 主体
+  - path alias（`@/`）使用可能
 - **batch**: バッチ処理層
-    - 定期実行やイベント駆動の処理
-    - Lambda などでの実行を想定
-    - Unit Test 必須
+  - 定期実行やイベント駆動の処理
+  - Lambda などでの実行を想定
+  - Unit Test 必須
 
 ### 基本方針
 
@@ -101,45 +101,47 @@ core/
 
 ```typescript
 import {
-    AbstractDynamoDBRepository,
-    type DynamoDBItem,
-    validateStringField,
-    validateTimestampField,
+  AbstractDynamoDBRepository,
+  type DynamoDBItem,
+  validateStringField,
+  validateTimestampField,
 } from '@nagiyu/aws';
 
 class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
-    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-        super(docClient, {
-            tableName,
-            entityType: 'User',
-        });
-    }
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    super(docClient, {
+      tableName,
+      entityType: 'User',
+    });
+  }
 
-    protected buildKeys(key: { userId: string }) {
-        return {
-            PK: `USER#${key.userId}`,
-            SK: 'PROFILE',
-        };
-    }
+  protected buildKeys(key: { userId: string }) {
+    return {
+      PK: `USER#${key.userId}`,
+      SK: 'PROFILE',
+    };
+  }
 
-    protected mapToEntity(item: Record<string, unknown>): User {
-        return {
-            userId: validateStringField(item.UserId, 'UserId'),
-            name: validateStringField(item.Name, 'Name'),
-            createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-            updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-        };
-    }
+  protected mapToEntity(item: Record<string, unknown>): User {
+    return {
+      userId: validateStringField(item.UserId, 'UserId'),
+      name: validateStringField(item.Name, 'Name'),
+      createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
 
-    protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-        const keys = this.buildKeys({ userId: entity.userId });
-        return {
-            ...keys,
-            Type: this.config.entityType,
-            UserId: entity.userId,
-            Name: entity.name,
-        };
-    }
+  protected mapToItem(
+    entity: Omit<User, 'createdAt' | 'updatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ userId: entity.userId });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      UserId: entity.userId,
+      Name: entity.name,
+    };
+  }
 }
 ```
 
@@ -153,6 +155,7 @@ class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }
 #### 参考
 
 詳細は以下のドキュメントを参照：
+
 - [Repository Pattern 設計ガイド](./repository-pattern.md)
 - [Repository Pattern 移行ガイド](./repository-migration.md)
 - 実装例: `services/stock-tracker/core/src/repositories/`

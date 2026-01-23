@@ -35,59 +35,61 @@ npm install @nagiyu/aws --workspace=your-service-core
 
 ```typescript
 import {
-    AbstractDynamoDBRepository,
-    type DynamoDBItem,
-    type RepositoryConfig,
-    validateStringField,
-    validateTimestampField,
+  AbstractDynamoDBRepository,
+  type DynamoDBItem,
+  type RepositoryConfig,
+  validateStringField,
+  validateTimestampField,
 } from '@nagiyu/aws';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 // エンティティ型定義
 interface User {
-    userId: string;
-    name: string;
-    email: string;
-    createdAt: number;
-    updatedAt: number;
+  userId: string;
+  name: string;
+  email: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 // リポジトリ実装
 class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
-    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-        super(docClient, {
-            tableName,
-            entityType: 'User',
-        });
-    }
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    super(docClient, {
+      tableName,
+      entityType: 'User',
+    });
+  }
 
-    protected buildKeys(key: { userId: string }) {
-        return {
-            PK: `USER#${key.userId}`,
-            SK: 'PROFILE',
-        };
-    }
+  protected buildKeys(key: { userId: string }) {
+    return {
+      PK: `USER#${key.userId}`,
+      SK: 'PROFILE',
+    };
+  }
 
-    protected mapToEntity(item: Record<string, unknown>): User {
-        return {
-            userId: validateStringField(item.UserId, 'UserId'),
-            name: validateStringField(item.Name, 'Name'),
-            email: validateStringField(item.Email, 'Email'),
-            createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-            updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-        };
-    }
+  protected mapToEntity(item: Record<string, unknown>): User {
+    return {
+      userId: validateStringField(item.UserId, 'UserId'),
+      name: validateStringField(item.Name, 'Name'),
+      email: validateStringField(item.Email, 'Email'),
+      createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
 
-    protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-        const keys = this.buildKeys({ userId: entity.userId });
-        return {
-            ...keys,
-            Type: this.config.entityType,
-            UserId: entity.userId,
-            Name: entity.name,
-            Email: entity.email,
-        };
-    }
+  protected mapToItem(
+    entity: Omit<User, 'createdAt' | 'updatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ userId: entity.userId });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      UserId: entity.userId,
+      Name: entity.name,
+      Email: entity.email,
+    };
+  }
 }
 ```
 
@@ -100,19 +102,16 @@ const userRepository = new UserRepository(docClient, 'MyTable');
 
 // 作成
 const newUser = await userRepository.create({
-    userId: 'user-123',
-    name: 'John Doe',
-    email: 'john@example.com',
+  userId: 'user-123',
+  name: 'John Doe',
+  email: 'john@example.com',
 });
 
 // 取得
 const user = await userRepository.getById({ userId: 'user-123' });
 
 // 更新
-const updated = await userRepository.update(
-    { userId: 'user-123' },
-    { name: 'Jane Doe' }
-);
+const updated = await userRepository.update({ userId: 'user-123' }, { name: 'Jane Doe' });
 
 // 削除
 await userRepository.delete({ userId: 'user-123' });
@@ -136,6 +135,7 @@ protected buildKeys(key: { userId: string }): { PK: string; SK: string } {
 ```
 
 **ポイント**:
+
 - PK: エンティティタイプとIDを組み合わせる（例: `USER#123`）
 - SK: サブエンティティやメタデータの種類（例: `PROFILE`, `METADATA`）
 
@@ -156,6 +156,7 @@ protected mapToEntity(item: Record<string, unknown>): User {
 ```
 
 **ポイント**:
+
 - バリデーション関数を使用して型安全性を確保
 - DynamoDBのフィールド名（PascalCase）をエンティティのフィールド名（camelCase）にマッピング
 
@@ -177,6 +178,7 @@ protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoD
 ```
 
 **ポイント**:
+
 - `CreatedAt` / `UpdatedAt` は自動管理されるため除外
 - `Type` フィールドは必須（エンティティタイプ識別用）
 - GSI 用のフィールド（GSI1PK, GSI1SK等）もここで設定
@@ -187,37 +189,37 @@ protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoD
 
 ```typescript
 class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
-    // ... 基本実装 ...
+  // ... 基本実装 ...
 
-    /**
-     * メールアドレスでユーザーを検索
-     * GSI1 (EmailIndex) を使用
-     */
-    async getByEmail(email: string): Promise<User | null> {
-        try {
-            const result = await this.docClient.send(
-                new QueryCommand({
-                    TableName: this.config.tableName,
-                    IndexName: 'EmailIndex',
-                    KeyConditionExpression: 'GSI1PK = :email',
-                    ExpressionAttributeValues: {
-                        ':email': email,
-                    },
-                })
-            );
+  /**
+   * メールアドレスでユーザーを検索
+   * GSI1 (EmailIndex) を使用
+   */
+  async getByEmail(email: string): Promise<User | null> {
+    try {
+      const result = await this.docClient.send(
+        new QueryCommand({
+          TableName: this.config.tableName,
+          IndexName: 'EmailIndex',
+          KeyConditionExpression: 'GSI1PK = :email',
+          ExpressionAttributeValues: {
+            ':email': email,
+          },
+        })
+      );
 
-            if (!result.Items || result.Items.length === 0) {
-                return null;
-            }
+      if (!result.Items || result.Items.length === 0) {
+        return null;
+      }
 
-            return this.mapToEntity(result.Items[0]);
-        } catch (error) {
-            throw new DatabaseError(
-                `メールアドレスでのユーザー取得エラー: ${error instanceof Error ? error.message : String(error)}`,
-                error instanceof Error ? error : undefined
-            );
-        }
+      return this.mapToEntity(result.Items[0]);
+    } catch (error) {
+      throw new DatabaseError(
+        `メールアドレスでのユーザー取得エラー: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error : undefined
+      );
     }
+  }
 }
 ```
 
@@ -229,11 +231,11 @@ class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }
 
 ```typescript
 import {
-    RepositoryError,          // 基底クラス
-    EntityNotFoundError,      // エンティティが見つからない
-    EntityAlreadyExistsError, // エンティティが既に存在
-    InvalidEntityDataError,   // データが無効
-    DatabaseError,            // データベースエラー
+  RepositoryError, // 基底クラス
+  EntityNotFoundError, // エンティティが見つからない
+  EntityAlreadyExistsError, // エンティティが既に存在
+  InvalidEntityDataError, // データが無効
+  DatabaseError, // データベースエラー
 } from '@nagiyu/aws';
 ```
 
@@ -243,23 +245,23 @@ import {
 
 ```typescript
 async function processUser(userId: string) {
-    try {
-        const user = await userRepository.getById({ userId });
-        if (!user) {
-            throw new EntityNotFoundError('User', userId);
-        }
-        // ビジネスロジック
-    } catch (error) {
-        if (error instanceof EntityNotFoundError) {
-            console.error('ユーザーが見つかりません:', error.message);
-            // ユーザー向けエラー処理
-        } else if (error instanceof DatabaseError) {
-            console.error('データベースエラー:', error.message);
-            // システムエラー処理
-        } else {
-            throw error; // 予期しないエラーは再スロー
-        }
+  try {
+    const user = await userRepository.getById({ userId });
+    if (!user) {
+      throw new EntityNotFoundError('User', userId);
     }
+    // ビジネスロジック
+  } catch (error) {
+    if (error instanceof EntityNotFoundError) {
+      console.error('ユーザーが見つかりません:', error.message);
+      // ユーザー向けエラー処理
+    } else if (error instanceof DatabaseError) {
+      console.error('データベースエラー:', error.message);
+      // システムエラー処理
+    } else {
+      throw error; // 予期しないエラーは再スロー
+    }
+  }
 }
 ```
 
@@ -267,18 +269,18 @@ async function processUser(userId: string) {
 
 ```typescript
 try {
-    const newUser = await userRepository.create({
-        userId: 'user-123',
-        name: 'John Doe',
-        email: 'john@example.com',
-    });
+  const newUser = await userRepository.create({
+    userId: 'user-123',
+    name: 'John Doe',
+    email: 'john@example.com',
+  });
 } catch (error) {
-    if (error instanceof EntityAlreadyExistsError) {
-        console.error('ユーザーは既に存在します');
-        // 既存ユーザーの処理
-    } else {
-        throw error;
-    }
+  if (error instanceof EntityAlreadyExistsError) {
+    console.error('ユーザーは既に存在します');
+    // 既存ユーザーの処理
+  } else {
+    throw error;
+  }
 }
 ```
 
@@ -286,14 +288,14 @@ try {
 
 ```typescript
 try {
-    const user = await userRepository.getById({ userId: 'invalid' });
+  const user = await userRepository.getById({ userId: 'invalid' });
 } catch (error) {
-    if (error instanceof InvalidEntityDataError) {
-        console.error('データが不正です:', error.message);
-        // バリデーションエラー処理
-    } else {
-        throw error;
-    }
+  if (error instanceof InvalidEntityDataError) {
+    console.error('データが不正です:', error.message);
+    // バリデーションエラー処理
+  } else {
+    throw error;
+  }
 }
 ```
 
@@ -303,10 +305,10 @@ try {
 
 ```typescript
 export class UserEmailAlreadyExistsError extends RepositoryError {
-    constructor(email: string) {
-        super(`メールアドレスは既に使用されています: ${email}`);
-        this.name = 'UserEmailAlreadyExistsError';
-    }
+  constructor(email: string) {
+    super(`メールアドレスは既に使用されています: ${email}`);
+    this.name = 'UserEmailAlreadyExistsError';
+  }
 }
 ```
 
@@ -318,11 +320,11 @@ export class UserEmailAlreadyExistsError extends RepositoryError {
 
 ```typescript
 import {
-    validateStringField,
-    validateNumberField,
-    validateEnumField,
-    validateBooleanField,
-    validateTimestampField,
+  validateStringField,
+  validateNumberField,
+  validateEnumField,
+  validateBooleanField,
+  validateTimestampField,
 } from '@nagiyu/aws';
 ```
 
@@ -339,8 +341,8 @@ const nickname = validateStringField(item.Nickname, 'Nickname', { allowEmpty: tr
 
 // 長さ制限
 const username = validateStringField(item.Username, 'Username', {
-    minLength: 3,
-    maxLength: 20,
+  minLength: 3,
+  maxLength: 20,
 });
 ```
 
@@ -352,8 +354,8 @@ const age = validateNumberField(item.Age, 'Age');
 
 // 範囲制限
 const score = validateNumberField(item.Score, 'Score', {
-    min: 0,
-    max: 100,
+  min: 0,
+  max: 100,
 });
 
 // 整数のみ
@@ -365,11 +367,11 @@ const count = validateNumberField(item.Count, 'Count', { integer: true });
 ```typescript
 type UserStatus = 'active' | 'inactive' | 'suspended';
 
-const status = validateEnumField<UserStatus>(
-    item.Status,
-    'Status',
-    ['active', 'inactive', 'suspended']
-);
+const status = validateEnumField<UserStatus>(item.Status, 'Status', [
+  'active',
+  'inactive',
+  'suspended',
+]);
 ```
 
 #### 4. validateBooleanField
@@ -386,7 +388,7 @@ const createdAt = validateTimestampField(item.CreatedAt, 'CreatedAt');
 
 // 未来の日時を禁止
 const birthDate = validateTimestampField(item.BirthDate, 'BirthDate', {
-    allowFuture: false,
+  allowFuture: false,
 });
 ```
 
@@ -396,15 +398,15 @@ const birthDate = validateTimestampField(item.BirthDate, 'BirthDate', {
 
 ```typescript
 function validateEmail(value: unknown, fieldName: string): string {
-    const email = validateStringField(value, fieldName);
-    
-    // メールアドレス形式チェック
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        throw new InvalidEntityDataError(`フィールド "${fieldName}" が不正なメールアドレス形式です`);
-    }
-    
-    return email;
+  const email = validateStringField(value, fieldName);
+
+  // メールアドレス形式チェック
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" が不正なメールアドレス形式です`);
+  }
+
+  return email;
 }
 ```
 
@@ -420,66 +422,66 @@ import { DynamoDBDocumentClient, GetCommand, PutCommand } from '@aws-sdk/lib-dyn
 import { UserRepository } from './user-repository';
 
 describe('UserRepository', () => {
-    const ddbMock = mockClient(DynamoDBDocumentClient);
-    let repository: UserRepository;
+  const ddbMock = mockClient(DynamoDBDocumentClient);
+  let repository: UserRepository;
 
-    beforeEach(() => {
-        ddbMock.reset();
-        const docClient = DynamoDBDocumentClient.from({} as any);
-        repository = new UserRepository(docClient, 'TestTable');
+  beforeEach(() => {
+    ddbMock.reset();
+    const docClient = DynamoDBDocumentClient.from({} as any);
+    repository = new UserRepository(docClient, 'TestTable');
+  });
+
+  test('getById - ユーザーが存在する場合', async () => {
+    // モックの設定
+    ddbMock.on(GetCommand).resolves({
+      Item: {
+        PK: 'USER#user-123',
+        SK: 'PROFILE',
+        Type: 'User',
+        UserId: 'user-123',
+        Name: 'John Doe',
+        Email: 'john@example.com',
+        CreatedAt: 1234567890,
+        UpdatedAt: 1234567890,
+      },
     });
 
-    test('getById - ユーザーが存在する場合', async () => {
-        // モックの設定
-        ddbMock.on(GetCommand).resolves({
-            Item: {
-                PK: 'USER#user-123',
-                SK: 'PROFILE',
-                Type: 'User',
-                UserId: 'user-123',
-                Name: 'John Doe',
-                Email: 'john@example.com',
-                CreatedAt: 1234567890,
-                UpdatedAt: 1234567890,
-            },
-        });
+    // テスト実行
+    const user = await repository.getById({ userId: 'user-123' });
 
-        // テスト実行
-        const user = await repository.getById({ userId: 'user-123' });
+    // 検証
+    expect(user).not.toBeNull();
+    expect(user?.userId).toBe('user-123');
+    expect(user?.name).toBe('John Doe');
+  });
 
-        // 検証
-        expect(user).not.toBeNull();
-        expect(user?.userId).toBe('user-123');
-        expect(user?.name).toBe('John Doe');
+  test('create - 新規ユーザーを作成', async () => {
+    // モックの設定
+    ddbMock.on(PutCommand).resolves({});
+
+    // テスト実行
+    const newUser = await repository.create({
+      userId: 'user-456',
+      name: 'Jane Doe',
+      email: 'jane@example.com',
     });
 
-    test('create - 新規ユーザーを作成', async () => {
-        // モックの設定
-        ddbMock.on(PutCommand).resolves({});
+    // 検証
+    expect(newUser.userId).toBe('user-456');
+    expect(newUser.name).toBe('Jane Doe');
+    expect(ddbMock.calls()).toHaveLength(1);
+  });
 
-        // テスト実行
-        const newUser = await repository.create({
-            userId: 'user-456',
-            name: 'Jane Doe',
-            email: 'jane@example.com',
-        });
+  test('getById - エンティティが存在しない場合', async () => {
+    // モックの設定
+    ddbMock.on(GetCommand).resolves({ Item: undefined });
 
-        // 検証
-        expect(newUser.userId).toBe('user-456');
-        expect(newUser.name).toBe('Jane Doe');
-        expect(ddbMock.calls()).toHaveLength(1);
-    });
+    // テスト実行
+    const user = await repository.getById({ userId: 'not-found' });
 
-    test('getById - エンティティが存在しない場合', async () => {
-        // モックの設定
-        ddbMock.on(GetCommand).resolves({ Item: undefined });
-
-        // テスト実行
-        const user = await repository.getById({ userId: 'not-found' });
-
-        // 検証
-        expect(user).toBeNull();
-    });
+    // 検証
+    expect(user).toBeNull();
+  });
 });
 ```
 
@@ -493,53 +495,50 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { UserRepository } from './user-repository';
 
 describe('UserRepository Integration Test', () => {
-    let repository: UserRepository;
-    const testTableName = 'TestTable';
+  let repository: UserRepository;
+  const testTableName = 'TestTable';
 
-    beforeAll(() => {
-        const client = new DynamoDBClient({
-            region: 'ap-northeast-1',
-            endpoint: 'http://localhost:8000', // DynamoDB Local
-        });
-        const docClient = DynamoDBDocumentClient.from(client);
-        repository = new UserRepository(docClient, testTableName);
+  beforeAll(() => {
+    const client = new DynamoDBClient({
+      region: 'ap-northeast-1',
+      endpoint: 'http://localhost:8000', // DynamoDB Local
     });
+    const docClient = DynamoDBDocumentClient.from(client);
+    repository = new UserRepository(docClient, testTableName);
+  });
 
-    afterEach(async () => {
-        // テストデータのクリーンアップ
-        try {
-            await repository.delete({ userId: 'test-user' });
-        } catch (error) {
-            // エンティティが存在しない場合は無視
-        }
+  afterEach(async () => {
+    // テストデータのクリーンアップ
+    try {
+      await repository.delete({ userId: 'test-user' });
+    } catch (error) {
+      // エンティティが存在しない場合は無視
+    }
+  });
+
+  test('CRUD操作のフルサイクル', async () => {
+    // 作成
+    const created = await repository.create({
+      userId: 'test-user',
+      name: 'Test User',
+      email: 'test@example.com',
     });
+    expect(created.userId).toBe('test-user');
 
-    test('CRUD操作のフルサイクル', async () => {
-        // 作成
-        const created = await repository.create({
-            userId: 'test-user',
-            name: 'Test User',
-            email: 'test@example.com',
-        });
-        expect(created.userId).toBe('test-user');
+    // 取得
+    const fetched = await repository.getById({ userId: 'test-user' });
+    expect(fetched).not.toBeNull();
+    expect(fetched?.name).toBe('Test User');
 
-        // 取得
-        const fetched = await repository.getById({ userId: 'test-user' });
-        expect(fetched).not.toBeNull();
-        expect(fetched?.name).toBe('Test User');
+    // 更新
+    const updated = await repository.update({ userId: 'test-user' }, { name: 'Updated Name' });
+    expect(updated.name).toBe('Updated Name');
 
-        // 更新
-        const updated = await repository.update(
-            { userId: 'test-user' },
-            { name: 'Updated Name' }
-        );
-        expect(updated.name).toBe('Updated Name');
-
-        // 削除
-        await repository.delete({ userId: 'test-user' });
-        const deleted = await repository.getById({ userId: 'test-user' });
-        expect(deleted).toBeNull();
-    });
+    // 削除
+    await repository.delete({ userId: 'test-user' });
+    const deleted = await repository.getById({ userId: 'test-user' });
+    expect(deleted).toBeNull();
+  });
 });
 ```
 
@@ -611,12 +610,14 @@ SK: METADATA
 #### アクセスパターン
 
 1. **ユーザーのプロフィールとウォッチリストを取得**
+
    ```typescript
    // Query: PK = USER#user-123
    // → PROFILE, WATCHLIST#AAPL, WATCHLIST#GOOGL を一度に取得
    ```
 
 2. **ティッカー情報を取得**
+
    ```typescript
    // GetItem: PK = TICKER#AAPL, SK = METADATA
    ```
@@ -632,20 +633,20 @@ SK: METADATA
 ```typescript
 // Stock Tracker の Watchlist Repository
 class WatchlistRepository {
-    async getByUserId(userId: string): Promise<Watchlist[]> {
-        const result = await this.docClient.send(
-            new QueryCommand({
-                TableName: this.tableName,
-                IndexName: 'UserIndex',
-                KeyConditionExpression: 'GSI1PK = :userId AND begins_with(GSI1SK, :prefix)',
-                ExpressionAttributeValues: {
-                    ':userId': userId,
-                    ':prefix': 'Watchlist#',
-                },
-            })
-        );
-        return result.Items?.map(item => this.mapToEntity(item)) || [];
-    }
+  async getByUserId(userId: string): Promise<Watchlist[]> {
+    const result = await this.docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: 'UserIndex',
+        KeyConditionExpression: 'GSI1PK = :userId AND begins_with(GSI1SK, :prefix)',
+        ExpressionAttributeValues: {
+          ':userId': userId,
+          ':prefix': 'Watchlist#',
+        },
+      })
+    );
+    return result.Items?.map((item) => this.mapToEntity(item)) || [];
+  }
 }
 ```
 

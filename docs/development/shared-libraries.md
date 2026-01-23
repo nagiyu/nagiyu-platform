@@ -195,32 +195,32 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 #### DynamoDB Repository 用の共通機能
 
 - **エラークラス**:
-    - `RepositoryError` (基底クラス)
-    - `EntityNotFoundError`
-    - `EntityAlreadyExistsError`
-    - `InvalidEntityDataError`
-    - `DatabaseError`
+  - `RepositoryError` (基底クラス)
+  - `EntityNotFoundError`
+  - `EntityAlreadyExistsError`
+  - `InvalidEntityDataError`
+  - `DatabaseError`
 
 - **抽象基底クラス**:
-    - `AbstractDynamoDBRepository` - CRUD操作の共通実装を提供
+  - `AbstractDynamoDBRepository` - CRUD操作の共通実装を提供
 
 - **バリデーション関数**:
-    - `validateStringField` - 文字列フィールドのバリデーション
-    - `validateNumberField` - 数値フィールドのバリデーション
-    - `validateEnumField` - 列挙型フィールドのバリデーション
-    - `validateBooleanField` - 真偽値フィールドのバリデーション
-    - `validateTimestampField` - タイムスタンプフィールドのバリデーション
+  - `validateStringField` - 文字列フィールドのバリデーション
+  - `validateNumberField` - 数値フィールドのバリデーション
+  - `validateEnumField` - 列挙型フィールドのバリデーション
+  - `validateBooleanField` - 真偽値フィールドのバリデーション
+  - `validateTimestampField` - タイムスタンプフィールドのバリデーション
 
 - **ヘルパー関数**:
-    - `buildUpdateExpression` - UpdateExpression を動的に生成
-    - `conditionalPut` - 条件付きPUT（存在しない場合のみ作成）
-    - `conditionalUpdate` - 条件付きUPDATE（存在する場合のみ更新）
-    - `conditionalDelete` - 条件付きDELETE（存在する場合のみ削除）
+  - `buildUpdateExpression` - UpdateExpression を動的に生成
+  - `conditionalPut` - 条件付きPUT（存在しない場合のみ作成）
+  - `conditionalUpdate` - 条件付きUPDATE（存在する場合のみ更新）
+  - `conditionalDelete` - 条件付きDELETE（存在する場合のみ削除）
 
 - **型定義**:
-    - `DynamoDBItem` - Single Table Design の基本Item構造
-    - `PaginatedResult` - ページネーション結果
-    - `RepositoryConfig` - リポジトリ設定
+  - `DynamoDBItem` - Single Table Design の基本Item構造
+  - `PaginatedResult` - ページネーション結果
+  - `RepositoryConfig` - リポジトリ設定
 
 ### パッケージ名
 
@@ -232,11 +232,11 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 
 ```json
 {
-    "dependencies": {
-        "@nagiyu/aws": "workspace:*",
-        "@aws-sdk/client-dynamodb": "^3.0.0",
-        "@aws-sdk/lib-dynamodb": "^3.0.0"
-    }
+  "dependencies": {
+    "@nagiyu/aws": "workspace:*",
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0"
+  }
 }
 ```
 
@@ -248,56 +248,58 @@ AWS SDK 補助・拡張ライブラリ。AWS SDKを使用する際の共通機�
 
 ```typescript
 import {
-    AbstractDynamoDBRepository,
-    type DynamoDBItem,
-    validateStringField,
-    validateTimestampField,
+  AbstractDynamoDBRepository,
+  type DynamoDBItem,
+  validateStringField,
+  validateTimestampField,
 } from '@nagiyu/aws';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 interface User {
-    userId: string;
-    name: string;
-    email: string;
-    createdAt: number;
-    updatedAt: number;
+  userId: string;
+  name: string;
+  email: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
-    constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-        super(docClient, {
-            tableName,
-            entityType: 'User',
-        });
-    }
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    super(docClient, {
+      tableName,
+      entityType: 'User',
+    });
+  }
 
-    protected buildKeys(key: { userId: string }) {
-        return {
-            PK: `USER#${key.userId}`,
-            SK: 'PROFILE',
-        };
-    }
+  protected buildKeys(key: { userId: string }) {
+    return {
+      PK: `USER#${key.userId}`,
+      SK: 'PROFILE',
+    };
+  }
 
-    protected mapToEntity(item: Record<string, unknown>): User {
-        return {
-            userId: validateStringField(item.UserId, 'UserId'),
-            name: validateStringField(item.Name, 'Name'),
-            email: validateStringField(item.Email, 'Email'),
-            createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-            updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-        };
-    }
+  protected mapToEntity(item: Record<string, unknown>): User {
+    return {
+      userId: validateStringField(item.UserId, 'UserId'),
+      name: validateStringField(item.Name, 'Name'),
+      email: validateStringField(item.Email, 'Email'),
+      createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
 
-    protected mapToItem(entity: Omit<User, 'createdAt' | 'updatedAt'>): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-        const keys = this.buildKeys({ userId: entity.userId });
-        return {
-            ...keys,
-            Type: this.config.entityType,
-            UserId: entity.userId,
-            Name: entity.name,
-            Email: entity.email,
-        };
-    }
+  protected mapToItem(
+    entity: Omit<User, 'createdAt' | 'updatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ userId: entity.userId });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      UserId: entity.userId,
+      Name: entity.name,
+      Email: entity.email,
+    };
+  }
 }
 ```
 
@@ -309,19 +311,16 @@ const userRepository = new UserRepository(docClient, 'MyTable');
 
 // 作成
 const newUser = await userRepository.create({
-    userId: 'user-123',
-    name: 'John Doe',
-    email: 'john@example.com',
+  userId: 'user-123',
+  name: 'John Doe',
+  email: 'john@example.com',
 });
 
 // 取得
 const user = await userRepository.getById({ userId: 'user-123' });
 
 // 更新
-const updated = await userRepository.update(
-    { userId: 'user-123' },
-    { name: 'Jane Doe' }
-);
+const updated = await userRepository.update({ userId: 'user-123' }, { name: 'Jane Doe' });
 
 // 削除
 await userRepository.delete({ userId: 'user-123' });
@@ -330,25 +329,21 @@ await userRepository.delete({ userId: 'user-123' });
 #### エラーハンドリング
 
 ```typescript
-import {
-    EntityNotFoundError,
-    EntityAlreadyExistsError,
-    DatabaseError,
-} from '@nagiyu/aws';
+import { EntityNotFoundError, EntityAlreadyExistsError, DatabaseError } from '@nagiyu/aws';
 
 try {
-    const user = await userRepository.getById({ userId: 'user-123' });
-    if (!user) {
-        throw new EntityNotFoundError('User', 'user-123');
-    }
+  const user = await userRepository.getById({ userId: 'user-123' });
+  if (!user) {
+    throw new EntityNotFoundError('User', 'user-123');
+  }
 } catch (error) {
-    if (error instanceof EntityNotFoundError) {
-        console.error('ユーザーが見つかりません:', error.message);
-    } else if (error instanceof DatabaseError) {
-        console.error('データベースエラー:', error.message);
-    } else {
-        throw error;
-    }
+  if (error instanceof EntityNotFoundError) {
+    console.error('ユーザーが見つかりません:', error.message);
+  } else if (error instanceof DatabaseError) {
+    console.error('データベースエラー:', error.message);
+  } else {
+    throw error;
+  }
 }
 ```
 
@@ -388,8 +383,8 @@ try {
 ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
 
 1. 並列実行可能（依存なし）:
-    - `@nagiyu/common`
-    - `@nagiyu/aws`
+   - `@nagiyu/common`
+   - `@nagiyu/aws`
 2. `@nagiyu/browser` - `@nagiyu/common` に依存
 3. `@nagiyu/ui` - `@nagiyu/browser` に依存
 
@@ -445,10 +440,10 @@ Next.jsサービス（`services/{service}/web`）の package.json で必要な�
 
 ```json
 {
-    "name": "tools-core",
-    "dependencies": {
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "tools-core",
+  "dependencies": {
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -457,7 +452,7 @@ Next.jsサービス（`services/{service}/web`）の package.json で必要な�
 import { someUtil } from '@nagiyu/common';
 
 export function processData(input: string): string {
-    return someUtil(input);
+  return someUtil(input);
 }
 ```
 
@@ -467,13 +462,13 @@ Web UIパッケージでは、core パッケージと共通ライブラリを使
 
 ```json
 {
-    "name": "tools-web",
-    "dependencies": {
-        "tools-core": "workspace:*",
-        "@nagiyu/ui": "workspace:*",
-        "@nagiyu/browser": "workspace:*",
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "tools-web",
+  "dependencies": {
+    "tools-core": "workspace:*",
+    "@nagiyu/ui": "workspace:*",
+    "@nagiyu/browser": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -505,11 +500,11 @@ export default function ToolsPage() {
 
 ```json
 {
-    "name": "tools-batch",
-    "dependencies": {
-        "tools-core": "workspace:*",
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "tools-batch",
+  "dependencies": {
+    "tools-core": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -519,9 +514,9 @@ import { processData } from 'tools-core';
 import { someUtil } from '@nagiyu/common';
 
 export async function dailyBatch() {
-    const data = await fetchData();
-    const processed = processData(data);
-    await saveResult(processed);
+  const data = await fetchData();
+  const processed = processData(data);
+  await saveResult(processed);
 }
 ```
 
