@@ -4,6 +4,15 @@ const config: Config = {
   preset: 'ts-jest/presets/default-esm',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
+  globals: {
+    'ts-jest': {
+      useESM: true,
+      tsconfig: {
+        moduleResolution: 'nodenext',
+        esModuleInterop: true,
+      },
+    },
+  },
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
@@ -15,7 +24,7 @@ const config: Config = {
       {
         useESM: true,
         tsconfig: {
-          moduleResolution: 'node',
+          moduleResolution: 'nodenext',
           esModuleInterop: true,
         },
       },

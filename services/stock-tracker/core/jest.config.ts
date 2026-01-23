@@ -10,6 +10,20 @@ const config: Config = {
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
+  // ESM support for ts-jest with nodenext module resolution
+  extensionsToTreatAsEsm: ['.ts'],
+  transform: {
+    '^.+\\.ts$': [
+      'ts-jest',
+      {
+        useESM: true,
+        tsconfig: {
+          moduleResolution: 'nodenext',
+          module: 'esnext',
+        },
+      },
+    ],
+  },
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
