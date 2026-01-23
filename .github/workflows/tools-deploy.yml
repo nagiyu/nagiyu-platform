@@ -135,9 +135,11 @@ jobs:
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
+          APP_VERSION: ${{ steps.get-version.outputs.app-version }}
         run: |
           # Build and tag with commit SHA
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
+          docker build --build-arg APP_VERSION="$APP_VERSION" \
+            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           
           # Also tag as latest
