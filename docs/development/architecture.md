@@ -11,18 +11,18 @@
 サービスは以下のパッケージに分離することで、責務を明確化する：
 
 - **core**: ビジネスロジック層
-  - フレームワーク非依存のビジネスロジック
-  - 純粋関数として実装
-  - Unit Test 必須
-  - 相対パスで import（path alias 使用不可）
+    - フレームワーク非依存のビジネスロジック
+    - 純粋関数として実装
+    - Unit Test 必須
+    - 相対パスで import（path alias 使用不可）
 - **web**: プレゼンテーション層
-  - Next.js + React による UI 実装
-  - E2E Test 主体
-  - path alias（`@/`）使用可能
+    - Next.js + React による UI 実装
+    - E2E Test 主体
+    - path alias（`@/`）使用可能
 - **batch**: バッチ処理層
-  - 定期実行やイベント駆動の処理
-  - Lambda などでの実行を想定
-  - Unit Test 必須
+    - 定期実行やイベント駆動の処理
+    - Lambda などでの実行を想定
+    - Unit Test 必須
 
 ### 基本方針
 
@@ -74,110 +74,43 @@ batch → core → libs/common
 
 ### Repository パターン
 
-データアクセス層の抽象化を行うパターン。データソース（DynamoDB、RDS等）への依存を分離する。
+データアクセス層をビジネスロジックから分離し、データソースへの依存を抽象化するパターン。
 
-#### 適用ケース
+#### 設計思想
 
-- DynamoDB を使用するサービス
-- データアクセスロジックが複雑化しているケース
-- 複数のサービスで同じデータモデルを共有するケース
+- **関心の分離**: データアクセスの詳細をビジネスロジックから隠蔽
+- **テスト容易性**: データソースをモック化して独立したテスト実行
+- **保守性**: データベース変更の影響をリポジトリ層に限定
 
-#### 基本構成
+#### 適用判断
 
-```
-core/
-├── repositories/        # データアクセス層
-│   ├── user.ts         # UserRepository
-│   └── watchlist.ts    # WatchlistRepository
-├── services/           # ビジネスロジック層（オプション）
-│   └── user-service.ts
-└── types/              # 型定義
-    └── entities.ts
-```
+- DynamoDB等の外部データストアを使用する場合
+- データアクセスロジックが複雑化する場合
+- 複数サービスで共通のデータモデルを扱う場合
 
-#### 実装方法
+#### Single Table Design vs Multiple Table Design
 
-`@nagiyu/aws` パッケージの `AbstractDynamoDBRepository` を継承して実装する。
+**Single Table Design**: 複数エンティティを1テーブルに格納
 
-```typescript
-import {
-  AbstractDynamoDBRepository,
-  type DynamoDBItem,
-  validateStringField,
-  validateTimestampField,
-} from '@nagiyu/aws';
+- 利点: パフォーマンス向上、コスト削減、トランザクション対応
+- 欠点: 設計複雑性、学習コスト
+- 適用: 関連性の高いエンティティ、明確なアクセスパターン
 
-class UserRepository extends AbstractDynamoDBRepository<User, { userId: string }> {
-  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    super(docClient, {
-      tableName,
-      entityType: 'User',
-    });
-  }
+**Multiple Table Design**: エンティティごとに独立テーブル
 
-  protected buildKeys(key: { userId: string }) {
-    return {
-      PK: `USER#${key.userId}`,
-      SK: 'PROFILE',
-    };
-  }
+- 利点: シンプル、理解容易、変更柔軟性
+- 欠点: パフォーマンス、コスト増加
+- 適用: 独立性の高いエンティティ、不明確なアクセスパターン
 
-  protected mapToEntity(item: Record<string, unknown>): User {
-    return {
-      userId: validateStringField(item.UserId, 'UserId'),
-      name: validateStringField(item.Name, 'Name'),
-      createdAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
-      updatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
-    };
-  }
-
-  protected mapToItem(
-    entity: Omit<User, 'createdAt' | 'updatedAt'>
-  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
-    const keys = this.buildKeys({ userId: entity.userId });
-    return {
-      ...keys,
-      Type: this.config.entityType,
-      UserId: entity.userId,
-      Name: entity.name,
-    };
-  }
-}
-```
-
-#### メリット
-
-- **テスト容易性**: リポジトリをモック化してビジネスロジックを単体テスト可能
-- **データソースの抽象化**: データベースの変更がビジネスロジックに影響しない
-- **一貫性**: データアクセスのパターンを統一
-- **保守性**: データアクセスロジックが一箇所に集約
-
-#### 参考
-
-詳細は以下のドキュメントを参照：
-
-- [Repository Pattern 設計ガイド](./repository-pattern.md)
-- [Repository Pattern 移行ガイド](./repository-migration.md)
-- 実装例: `services/stock-tracker/core/src/repositories/`
+採用判断はアクセスパターンの明確性、エンティティ間の関連性、パフォーマンス要求を考慮して行う。
 
 ### Service パターン
 
-複雑なビジネスロジックのカプセル化を行うパターン。
-
-#### 適用ケース
-
-- 複数のリポジトリを組み合わせる処理
-- トランザクション制御が必要な処理
-- 外部APIとの連携を含む処理
+複雑なビジネスロジックのカプセル化を行うパターン。複数リポジトリの組み合わせやトランザクション制御が必要な場合に適用。
 
 ### Hook パターン
 
-React固有のロジックの再利用を行うパターン。
-
-#### 適用ケース
-
-- 複数のコンポーネントで共通するState管理
-- 副作用を伴う処理の共通化
+React固有のロジックの再利用を行うパターン。複数コンポーネントで共通するState管理や副作用処理の共通化に適用。
 
 ## State Management
 
