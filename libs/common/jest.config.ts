@@ -20,8 +20,8 @@ const config: Config.InitialOptions = {
       {
         useESM: true,
         tsconfig: {
-          moduleResolution: 'nodenext',
-          module: 'nodenext',
+          moduleResolution: 'node',
+          esModuleInterop: true,
         },
       },
     ],
