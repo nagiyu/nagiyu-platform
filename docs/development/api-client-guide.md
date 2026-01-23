@@ -2,29 +2,29 @@
 
 ## 目次
 
--   [概要](#概要)
--   [アーキテクチャ](#アーキテクチャ)
--   [@nagiyu/commonの使い方](#nagiyucommonの使い方)
--   [@nagiyu/reactの使い方](#nagiyureactの使い方)
--   [サービス固有のエラーメッセージ定義](#サービス固有のエラーメッセージ定義)
--   [コード例とサンプル](#コード例とサンプル)
+- [概要](#概要)
+- [アーキテクチャ](#アーキテクチャ)
+- [@nagiyu/commonの使い方](#nagiyucommonの使い方)
+- [@nagiyu/reactの使い方](#nagiyureactの使い方)
+- [サービス固有のエラーメッセージ定義](#サービス固有のエラーメッセージ定義)
+- [コード例とサンプル](#コード例とサンプル)
 
 ## 概要
 
 Nagiyu Platform では、APIリクエストを統一的に扱うためのクライアントライブラリを提供しています。このライブラリは以下の機能を提供します：
 
--   **リトライ機能**: 一時的なネットワークエラーやサーバーエラーに対する自動リトライ
--   **エクスポネンシャルバックオフ**: リトライ時の遅延時間を指数関数的に増加
--   **タイムアウト制御**: リクエストのタイムアウト設定
--   **エラーハンドリング**: 統一的なエラー処理とユーザーフレンドリーなメッセージ変換
--   **型安全性**: TypeScriptの型推論によるレスポンスデータの型保証
+- **リトライ機能**: 一時的なネットワークエラーやサーバーエラーに対する自動リトライ
+- **エクスポネンシャルバックオフ**: リトライ時の遅延時間を指数関数的に増加
+- **タイムアウト制御**: リクエストのタイムアウト設定
+- **エラーハンドリング**: 統一的なエラー処理とユーザーフレンドリーなメッセージ変換
+- **型安全性**: TypeScriptの型推論によるレスポンスデータの型保証
 
 ### パッケージ構成
 
-| パッケージ       | 責務                                           | 依存           |
-| ---------------- | ---------------------------------------------- | -------------- |
-| `@nagiyu/common` | フレームワーク非依存のAPIクライアント機能      | なし           |
-| `@nagiyu/react`  | Reactフック（useAPIRequest）とReact統合機能    | `@nagiyu/common` |
+| パッケージ       | 責務                                        | 依存             |
+| ---------------- | ------------------------------------------- | ---------------- |
+| `@nagiyu/common` | フレームワーク非依存のAPIクライアント機能   | なし             |
+| `@nagiyu/react`  | Reactフック（useAPIRequest）とReact統合機能 | `@nagiyu/common` |
 
 ## アーキテクチャ
 
@@ -49,26 +49,26 @@ flowchart TB
 
 #### 1. リトライ層（Retry Layer）
 
--   **責務**: 一時的なエラーに対する自動リトライ
--   **対象エラー**:
-    -   ネットワークエラー（`NetworkError`）
-    -   タイムアウト（`TimeoutError`）
-    -   サーバーエラー（5xx）
-    -   Too Many Requests（429）
--   **戦略**: エクスポネンシャルバックオフ + ジッター
+- **責務**: 一時的なエラーに対する自動リトライ
+- **対象エラー**:
+  - ネットワークエラー（`NetworkError`）
+  - タイムアウト（`TimeoutError`）
+  - サーバーエラー（5xx）
+  - Too Many Requests（429）
+- **戦略**: エクスポネンシャルバックオフ + ジッター
 
 #### 2. 変換層（Transform Layer）
 
--   **責務**: 技術的なエラーコードをユーザーフレンドリーなメッセージに変換
--   **2段階マッピング**:
-    1.  サービス固有メッセージマッピング（オプション）
-    2.  共通メッセージマッピング（フォールバック）
+- **責務**: 技術的なエラーコードをユーザーフレンドリーなメッセージに変換
+- **2段階マッピング**:
+  1.  サービス固有メッセージマッピング（オプション）
+  2.  共通メッセージマッピング（フォールバック）
 
 #### 3. 表示層（Display Layer）
 
--   **責務**: エラーメッセージをUIに表示
--   **実装**: トースト通知、エラーダイアログなど
--   **React統合**: `useAPIRequest` フックで自動処理
+- **責務**: エラーメッセージをUIに表示
+- **実装**: トースト通知、エラーダイアログなど
+- **React統合**: `useAPIRequest` フックで自動処理
 
 ### エクスポネンシャルバックオフ戦略
 
@@ -78,35 +78,35 @@ flowchart TB
 delay = min(initialDelay × backoffMultiplier^attempt, maxDelay) ± jitter
 ```
 
--   **initialDelay**: 初回リトライの遅延時間（デフォルト: 1秒）
--   **backoffMultiplier**: 増加率（デフォルト: 2倍）
--   **maxDelay**: 最大遅延時間（デフォルト: 10秒）
--   **jitter**: 遅延時間の±25%のランダム値（複数クライアントの同時リトライを分散）
+- **initialDelay**: 初回リトライの遅延時間（デフォルト: 1秒）
+- **backoffMultiplier**: 増加率（デフォルト: 2倍）
+- **maxDelay**: 最大遅延時間（デフォルト: 10秒）
+- **jitter**: 遅延時間の±25%のランダム値（複数クライアントの同時リトライを分散）
 
 **例**:
 
 | Attempt | Base Delay | Actual Delay (with jitter) |
 | ------- | ---------- | -------------------------- |
-| 0       | 1秒        | 0.75秒 ～ 1.25秒          |
-| 1       | 2秒        | 1.5秒 ～ 2.5秒            |
-| 2       | 4秒        | 3秒 ～ 5秒                |
-| 3       | 8秒        | 6秒 ～ 10秒               |
+| 0       | 1秒        | 0.75秒 ～ 1.25秒           |
+| 1       | 2秒        | 1.5秒 ～ 2.5秒             |
+| 2       | 4秒        | 3秒 ～ 5秒                 |
+| 3       | 8秒        | 6秒 ～ 10秒                |
 
 ### リトライ可能性の判定ロジック
 
 ```typescript
 function isRetryableError(status: number): boolean {
-    // ネットワークエラー、タイムアウト、サーバーエラーはリトライ可能
-    if (status === 0 || status === 408 || status >= 500) {
-        return true;
-    }
+  // ネットワークエラー、タイムアウト、サーバーエラーはリトライ可能
+  if (status === 0 || status === 408 || status >= 500) {
+    return true;
+  }
 
-    // 429 (Too Many Requests) もリトライ可能
-    if (status === 429) {
-        return true;
-    }
+  // 429 (Too Many Requests) もリトライ可能
+  if (status === 429) {
+    return true;
+  }
 
-    return false;
+  return false;
 }
 ```
 
@@ -116,9 +116,9 @@ function isRetryableError(status: number): boolean {
 
 ```json
 {
-    "dependencies": {
-        "@nagiyu/common": "workspace:*"
-    }
+  "dependencies": {
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -133,13 +133,13 @@ import { apiRequest } from '@nagiyu/common';
 
 // 型を指定してリクエスト
 interface User {
-    id: number;
-    name: string;
-    email: string;
+  id: number;
+  name: string;
+  email: string;
 }
 
 const user = await apiRequest<User>('/api/users/1', {
-    method: 'GET',
+  method: 'GET',
 });
 
 console.log(user.name); // 型安全にアクセス可能
@@ -157,13 +157,13 @@ const user = await get<User>('/api/users/1');
 
 // POSTリクエスト
 const newUser = await post<User>('/api/users', {
-    name: 'John Doe',
-    email: 'john@example.com',
+  name: 'John Doe',
+  email: 'john@example.com',
 });
 
 // PUTリクエスト
 const updatedUser = await put<User>('/api/users/1', {
-    name: 'Jane Doe',
+  name: 'Jane Doe',
 });
 
 // DELETEリクエスト
@@ -179,15 +179,15 @@ import { apiRequest, type RetryConfig } from '@nagiyu/common';
 
 // リトライ設定のカスタマイズ
 const customRetryConfig: Partial<RetryConfig> = {
-    maxRetries: 5, // 最大5回リトライ
-    initialDelay: 2000, // 初回遅延2秒
-    maxDelay: 30000, // 最大遅延30秒
-    backoffMultiplier: 3, // 3倍ずつ増加
+  maxRetries: 5, // 最大5回リトライ
+  initialDelay: 2000, // 初回遅延2秒
+  maxDelay: 30000, // 最大遅延30秒
+  backoffMultiplier: 3, // 3倍ずつ増加
 };
 
 const data = await apiRequest<DataType>('/api/data', {
-    method: 'GET',
-    retry: customRetryConfig,
+  method: 'GET',
+  retry: customRetryConfig,
 });
 ```
 
@@ -195,10 +195,10 @@ const data = await apiRequest<DataType>('/api/data', {
 
 ```typescript
 const data = await apiRequest<DataType>('/api/data', {
-    method: 'GET',
-    retry: {
-        maxRetries: 0, // リトライなし
-    },
+  method: 'GET',
+  retry: {
+    maxRetries: 0, // リトライなし
+  },
 });
 ```
 
@@ -211,8 +211,8 @@ import { apiRequest } from '@nagiyu/common';
 
 // タイムアウトを60秒に設定
 const data = await apiRequest<DataType>('/api/long-running-task', {
-    method: 'POST',
-    timeout: 60000, // ミリ秒単位
+  method: 'POST',
+  timeout: 60000, // ミリ秒単位
 });
 ```
 
@@ -224,18 +224,18 @@ const data = await apiRequest<DataType>('/api/long-running-task', {
 import { apiRequest, APIError } from '@nagiyu/common';
 
 try {
-    const data = await apiRequest<DataType>('/api/data');
-    console.log(data);
+  const data = await apiRequest<DataType>('/api/data');
+  console.log(data);
 } catch (error) {
-    if (error instanceof APIError) {
-        console.error('ステータスコード:', error.status);
-        console.error('エラーメッセージ:', error.message);
-        console.error('エラータイプ:', error.errorInfo.type); // 'error' | 'warning' | 'info'
-        console.error('詳細:', error.errorInfo.details);
-        console.error('リトライ可能:', error.errorInfo.shouldRetry);
-    } else {
-        console.error('予期しないエラー:', error);
-    }
+  if (error instanceof APIError) {
+    console.error('ステータスコード:', error.status);
+    console.error('エラーメッセージ:', error.message);
+    console.error('エラータイプ:', error.errorInfo.type); // 'error' | 'warning' | 'info'
+    console.error('詳細:', error.errorInfo.details);
+    console.error('リトライ可能:', error.errorInfo.shouldRetry);
+  } else {
+    console.error('予期しないエラー:', error);
+  }
 }
 ```
 
@@ -243,20 +243,20 @@ try {
 
 ```typescript
 interface ErrorInfo {
-    type: 'error' | 'warning' | 'info';
-    message: string; // ユーザーフレンドリーなメッセージ
-    details?: string[]; // 詳細情報（オプション）
-    shouldRetry?: boolean; // リトライ可能か
+  type: 'error' | 'warning' | 'info';
+  message: string; // ユーザーフレンドリーなメッセージ
+  details?: string[]; // 詳細情報（オプション）
+  shouldRetry?: boolean; // リトライ可能か
 }
 
 class APIError extends Error {
-    constructor(
-        public readonly status: number, // HTTPステータスコード
-        public readonly errorInfo: ErrorInfo,
-        message: string
-    ) {
-        super(message);
-    }
+  constructor(
+    public readonly status: number, // HTTPステータスコード
+    public readonly errorInfo: ErrorInfo,
+    message: string
+  ) {
+    super(message);
+  }
 }
 ```
 
@@ -268,11 +268,11 @@ class APIError extends Error {
 import { apiRequest } from '@nagiyu/common';
 
 const data = await apiRequest<DataType>('/api/protected', {
-    method: 'GET',
-    headers: {
-        Authorization: `Bearer ${token}`,
-        'X-Custom-Header': 'custom-value',
-    },
+  method: 'GET',
+  headers: {
+    Authorization: `Bearer ${token}`,
+    'X-Custom-Header': 'custom-value',
+  },
 });
 ```
 
@@ -290,22 +290,22 @@ console.log(COMMON_ERROR_MESSAGES.SERVER_ERROR); // "サーバーエラーが発
 
 **利用可能なメッセージ**:
 
-| キー                | メッセージ                                                           |
-| ------------------- | -------------------------------------------------------------------- |
-| `UNAUTHORIZED`      | ログインが必要です。再度ログインしてください                         |
-| `FORBIDDEN`         | この操作を実行する権限がありません                                   |
-| `SESSION_EXPIRED`   | セッションが期限切れです。再度ログインしてください                   |
-| `NETWORK_ERROR`     | ネットワーク接続を確認してください                                   |
-| `TIMEOUT_ERROR`     | 接続がタイムアウトしました。しばらくしてから再度お試しください       |
-| `SERVER_ERROR`      | サーバーエラーが発生しました。しばらくしてから再度お試しください     |
-| `INVALID_REQUEST`   | 入力内容に誤りがあります。確認してください                           |
-| `VALIDATION_ERROR`  | 入力データが不正です                                                 |
-| `NOT_FOUND`         | データが見つかりませんでした                                         |
-| `CREATE_ERROR`      | 登録に失敗しました                                                   |
-| `UPDATE_ERROR`      | 更新に失敗しました                                                   |
-| `DELETE_ERROR`      | 削除に失敗しました                                                   |
-| `FETCH_ERROR`       | データの取得に失敗しました                                           |
-| `UNKNOWN_ERROR`     | 予期しないエラーが発生しました                                       |
+| キー               | メッセージ                                                       |
+| ------------------ | ---------------------------------------------------------------- |
+| `UNAUTHORIZED`     | ログインが必要です。再度ログインしてください                     |
+| `FORBIDDEN`        | この操作を実行する権限がありません                               |
+| `SESSION_EXPIRED`  | セッションが期限切れです。再度ログインしてください               |
+| `NETWORK_ERROR`    | ネットワーク接続を確認してください                               |
+| `TIMEOUT_ERROR`    | 接続がタイムアウトしました。しばらくしてから再度お試しください   |
+| `SERVER_ERROR`     | サーバーエラーが発生しました。しばらくしてから再度お試しください |
+| `INVALID_REQUEST`  | 入力内容に誤りがあります。確認してください                       |
+| `VALIDATION_ERROR` | 入力データが不正です                                             |
+| `NOT_FOUND`        | データが見つかりませんでした                                     |
+| `CREATE_ERROR`     | 登録に失敗しました                                               |
+| `UPDATE_ERROR`     | 更新に失敗しました                                               |
+| `DELETE_ERROR`     | 削除に失敗しました                                               |
+| `FETCH_ERROR`      | データの取得に失敗しました                                       |
+| `UNKNOWN_ERROR`    | 予期しないエラーが発生しました                                   |
 
 ## @nagiyu/reactの使い方
 
@@ -313,10 +313,10 @@ console.log(COMMON_ERROR_MESSAGES.SERVER_ERROR); // "サーバーエラーが発
 
 ```json
 {
-    "dependencies": {
-        "@nagiyu/react": "workspace:*",
-        "@nagiyu/common": "workspace:*"
-    }
+  "dependencies": {
+    "@nagiyu/react": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -367,12 +367,12 @@ function UserProfile({ userId }: { userId: number }) {
 
 ```typescript
 interface UseAPIRequestReturn<T> {
-    data: T | null; // レスポンスデータ
-    loading: boolean; // ローディング状態
-    error: APIError | null; // エラー情報
-    execute: (url: string, options?: APIRequestOptions) => Promise<T | null>; // リクエスト実行
-    reset: () => void; // 状態をリセット
-    retry: () => Promise<T | null>; // 最後のリクエストをリトライ
+  data: T | null; // レスポンスデータ
+  loading: boolean; // ローディング状態
+  error: APIError | null; // エラー情報
+  execute: (url: string, options?: APIRequestOptions) => Promise<T | null>; // リクエスト実行
+  reset: () => void; // 状態をリセット
+  retry: () => Promise<T | null>; // 最後のリクエストをリトライ
 }
 ```
 
@@ -483,41 +483,41 @@ function SearchComponent() {
 import { useAPIRequest } from '@nagiyu/react';
 
 function UserEditor() {
-    const { data, execute } = useAPIRequest<User>();
+  const { data, execute } = useAPIRequest<User>();
 
-    // GET
-    const loadUser = (userId: number) => {
-        execute(`/api/users/${userId}`, {
-            method: 'GET',
-        });
-    };
+  // GET
+  const loadUser = (userId: number) => {
+    execute(`/api/users/${userId}`, {
+      method: 'GET',
+    });
+  };
 
-    // POST
-    const createUser = (userData: Partial<User>) => {
-        execute('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
-        });
-    };
+  // POST
+  const createUser = (userData: Partial<User>) => {
+    execute('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+  };
 
-    // PUT
-    const updateUser = (userId: number, userData: Partial<User>) => {
-        execute(`/api/users/${userId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
-        });
-    };
+  // PUT
+  const updateUser = (userId: number, userData: Partial<User>) => {
+    execute(`/api/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+  };
 
-    // DELETE
-    const deleteUser = (userId: number) => {
-        execute(`/api/users/${userId}`, {
-            method: 'DELETE',
-        });
-    };
+  // DELETE
+  const deleteUser = (userId: number) => {
+    execute(`/api/users/${userId}`, {
+      method: 'DELETE',
+    });
+  };
 
-    // ...
+  // ...
 }
 ```
 
@@ -532,25 +532,25 @@ import { useAPIRequest } from '@nagiyu/react';
 import { useToast } from '@/hooks/useToast';
 
 function TodoList() {
-    const toast = useToast();
+  const toast = useToast();
 
-    const { data, loading, execute } = useAPIRequest<Todo[]>({
-        onSuccess: () => {
-            toast.success('タスクを読み込みました');
-        },
-        onError: (error) => {
-            // エラータイプに応じた通知
-            if (error.errorInfo.type === 'error') {
-                toast.error(error.message);
-            } else if (error.errorInfo.type === 'warning') {
-                toast.warning(error.message);
-            } else {
-                toast.info(error.message);
-            }
-        },
-    });
+  const { data, loading, execute } = useAPIRequest<Todo[]>({
+    onSuccess: () => {
+      toast.success('タスクを読み込みました');
+    },
+    onError: (error) => {
+      // エラータイプに応じた通知
+      if (error.errorInfo.type === 'error') {
+        toast.error(error.message);
+      } else if (error.errorInfo.type === 'warning') {
+        toast.warning(error.message);
+      } else {
+        toast.info(error.message);
+      }
+    },
+  });
 
-    // ...
+  // ...
 }
 ```
 
@@ -566,21 +566,21 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 function ProtectedComponent() {
-    const router = useRouter();
-    const { data, error, execute } = useAPIRequest<ProtectedData>({
-        onError: (error) => {
-            // 認証エラーの場合はログインページにリダイレクト
-            if (error.status === 401) {
-                router.push('/login');
-            }
-        },
-    });
+  const router = useRouter();
+  const { data, error, execute } = useAPIRequest<ProtectedData>({
+    onError: (error) => {
+      // 認証エラーの場合はログインページにリダイレクト
+      if (error.status === 401) {
+        router.push('/login');
+      }
+    },
+  });
 
-    useEffect(() => {
-        execute('/api/protected-data');
-    }, []);
+  useEffect(() => {
+    execute('/api/protected-data');
+  }, []);
 
-    // ...
+  // ...
 }
 ```
 
@@ -669,13 +669,13 @@ APIクライアントは、エラーメッセージを2段階でマッピング�
 // services/stock-tracker/core/src/constants/error-messages.ts
 
 export const STOCK_ERROR_MESSAGES = {
-    // Stock Tracker 固有のエラー
-    STOCK_NOT_FOUND: '指定された銘柄が見つかりませんでした',
-    INVALID_SYMBOL: '銘柄コードの形式が正しくありません',
-    MARKET_CLOSED: '市場が閉まっています。取引時間内にお試しください',
-    PRICE_FETCH_FAILED: '株価情報の取得に失敗しました',
-    PORTFOLIO_FULL: 'ポートフォリオの登録上限に達しています',
-    DUPLICATE_STOCK: 'この銘柄は既に登録されています',
+  // Stock Tracker 固有のエラー
+  STOCK_NOT_FOUND: '指定された銘柄が見つかりませんでした',
+  INVALID_SYMBOL: '銘柄コードの形式が正しくありません',
+  MARKET_CLOSED: '市場が閉まっています。取引時間内にお試しください',
+  PRICE_FETCH_FAILED: '株価情報の取得に失敗しました',
+  PORTFOLIO_FULL: 'ポートフォリオの登録上限に達しています',
+  DUPLICATE_STOCK: 'この銘柄は既に登録されています',
 } as const;
 ```
 
@@ -690,25 +690,25 @@ import { apiRequest } from '@nagiyu/common';
 import { STOCK_ERROR_MESSAGES } from '../constants/error-messages';
 
 export async function getStockPrice(symbol: string): Promise<StockPrice> {
-    return apiRequest<StockPrice>(
-        `/api/stocks/${symbol}/price`,
-        {
-            method: 'GET',
-        },
-        STOCK_ERROR_MESSAGES // サービス固有メッセージを渡す
-    );
+  return apiRequest<StockPrice>(
+    `/api/stocks/${symbol}/price`,
+    {
+      method: 'GET',
+    },
+    STOCK_ERROR_MESSAGES // サービス固有メッセージを渡す
+  );
 }
 
 export async function addStockToPortfolio(symbol: string): Promise<Portfolio> {
-    return apiRequest<Portfolio>(
-        '/api/portfolio',
-        {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ symbol }),
-        },
-        STOCK_ERROR_MESSAGES
-    );
+  return apiRequest<Portfolio>(
+    '/api/portfolio',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol }),
+    },
+    STOCK_ERROR_MESSAGES
+  );
 }
 ```
 
@@ -725,20 +725,20 @@ import { useAPIRequest } from '@nagiyu/react';
 import { getStockPrice, addStockToPortfolio } from 'stock-tracker-core/api/stock-api';
 
 export function useStockPrice() {
-    const { data, loading, error, execute } = useAPIRequest<StockPrice>({
-        onError: (error) => {
-            // サービス固有のエラーメッセージが適用される
-            toast.error(error.message);
-        },
-    });
+  const { data, loading, error, execute } = useAPIRequest<StockPrice>({
+    onError: (error) => {
+      // サービス固有のエラーメッセージが適用される
+      toast.error(error.message);
+    },
+  });
 
-    const fetchPrice = async (symbol: string) => {
-        // apiRequest() を直接呼ぶ代わりに、ラップされた関数を使用
-        const result = await getStockPrice(symbol);
-        return result;
-    };
+  const fetchPrice = async (symbol: string) => {
+    // apiRequest() を直接呼ぶ代わりに、ラップされた関数を使用
+    const result = await getStockPrice(symbol);
+    return result;
+  };
 
-    return { data, loading, error, fetchPrice };
+  return { data, loading, error, fetchPrice };
 }
 ```
 
@@ -747,13 +747,13 @@ export function useStockPrice() {
 エラーコード `INVALID_SYMBOL` が発生した場合の処理フロー：
 
 1.  **サービス固有メッセージを確認**
-    -   `STOCK_ERROR_MESSAGES.INVALID_SYMBOL` が存在する場合 → 「銘柄コードの形式が正しくありません」
+    - `STOCK_ERROR_MESSAGES.INVALID_SYMBOL` が存在する場合 → 「銘柄コードの形式が正しくありません」
 2.  **共通メッセージを確認**
-    -   サービス固有メッセージがない場合 → `COMMON_ERROR_MESSAGES` から検索
+    - サービス固有メッセージがない場合 → `COMMON_ERROR_MESSAGES` から検索
 3.  **APIレスポンスのメッセージを使用**
-    -   共通メッセージもない場合 → APIレスポンスの `message` フィールドをそのまま使用
+    - 共通メッセージもない場合 → APIレスポンスの `message` フィールドをそのまま使用
 4.  **デフォルトメッセージ**
-    -   すべてがない場合 → `COMMON_ERROR_MESSAGES.UNKNOWN_ERROR`
+    - すべてがない場合 → `COMMON_ERROR_MESSAGES.UNKNOWN_ERROR`
 
 ### バックエンドAPIレスポンス形式
 
@@ -761,15 +761,15 @@ export function useStockPrice() {
 
 ```json
 {
-    "error": "INVALID_SYMBOL",
-    "message": "Invalid stock symbol format",
-    "details": ["Symbol must be 4 alphanumeric characters"]
+  "error": "INVALID_SYMBOL",
+  "message": "Invalid stock symbol format",
+  "details": ["Symbol must be 4 alphanumeric characters"]
 }
 ```
 
--   **error**: エラーコード（マッピングのキー）
--   **message**: 技術的なエラーメッセージ（マッピングされなかった場合に使用）
--   **details**: 詳細情報（オプション）
+- **error**: エラーコード（マッピングのキー）
+- **message**: 技術的なエラーメッセージ（マッピングされなかった場合に使用）
+- **details**: 詳細情報（オプション）
 
 ## コード例とサンプル
 
@@ -779,20 +779,20 @@ export function useStockPrice() {
 import { get } from '@nagiyu/common';
 
 interface Todo {
-    id: number;
-    title: string;
-    completed: boolean;
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
 async function fetchTodos(): Promise<Todo[]> {
-    try {
-        const todos = await get<Todo[]>('/api/todos');
-        console.log('取得したTodo:', todos);
-        return todos;
-    } catch (error) {
-        console.error('Todoの取得に失敗:', error);
-        throw error;
-    }
+  try {
+    const todos = await get<Todo[]>('/api/todos');
+    console.log('取得したTodo:', todos);
+    return todos;
+  } catch (error) {
+    console.error('Todoの取得に失敗:', error);
+    throw error;
+  }
 }
 ```
 
@@ -802,31 +802,31 @@ async function fetchTodos(): Promise<Todo[]> {
 import { post, APIError } from '@nagiyu/common';
 
 interface CreateTodoRequest {
-    title: string;
-    completed?: boolean;
+  title: string;
+  completed?: boolean;
 }
 
 interface Todo {
-    id: number;
-    title: string;
-    completed: boolean;
+  id: number;
+  title: string;
+  completed: boolean;
 }
 
 async function createTodo(data: CreateTodoRequest): Promise<Todo> {
-    try {
-        const newTodo = await post<Todo>('/api/todos', data);
-        console.log('作成されたTodo:', newTodo);
-        return newTodo;
-    } catch (error) {
-        if (error instanceof APIError) {
-            if (error.status === 400) {
-                console.error('バリデーションエラー:', error.errorInfo.details);
-            } else {
-                console.error('サーバーエラー:', error.message);
-            }
-        }
-        throw error;
+  try {
+    const newTodo = await post<Todo>('/api/todos', data);
+    console.log('作成されたTodo:', newTodo);
+    return newTodo;
+  } catch (error) {
+    if (error instanceof APIError) {
+      if (error.status === 400) {
+        console.error('バリデーションエラー:', error.errorInfo.details);
+      } else {
+        console.error('サーバーエラー:', error.message);
+      }
     }
+    throw error;
+  }
 }
 ```
 
@@ -836,19 +836,19 @@ async function createTodo(data: CreateTodoRequest): Promise<Todo> {
 import { apiRequest } from '@nagiyu/common';
 
 async function uploadLargeFile(file: File): Promise<{ url: string }> {
-    const formData = new FormData();
-    formData.append('file', file);
+  const formData = new FormData();
+  formData.append('file', file);
 
-    return apiRequest<{ url: string }>('/api/upload', {
-        method: 'POST',
-        body: formData,
-        timeout: 120000, // 2分
-        retry: {
-            maxRetries: 5, // 大きいファイルなので5回リトライ
-            initialDelay: 3000, // 初回3秒待つ
-            maxDelay: 60000, // 最大60秒
-        },
-    });
+  return apiRequest<{ url: string }>('/api/upload', {
+    method: 'POST',
+    body: formData,
+    timeout: 120000, // 2分
+    retry: {
+      maxRetries: 5, // 大きいファイルなので5回リトライ
+      initialDelay: 3000, // 初回3秒待つ
+      maxDelay: 60000, // 最大60秒
+    },
+  });
 }
 ```
 
@@ -1049,29 +1049,29 @@ function ArticleList() {
 import { get } from '@nagiyu/common';
 
 interface User {
-    id: number;
-    name: string;
+  id: number;
+  name: string;
 }
 
 interface Post {
-    id: number;
-    title: string;
-    userId: number;
+  id: number;
+  title: string;
+  userId: number;
 }
 
 async function loadUserWithPosts(userId: number) {
-    try {
-        // 並列実行
-        const [user, posts] = await Promise.all([
-            get<User>(`/api/users/${userId}`),
-            get<Post[]>(`/api/users/${userId}/posts`),
-        ]);
+  try {
+    // 並列実行
+    const [user, posts] = await Promise.all([
+      get<User>(`/api/users/${userId}`),
+      get<Post[]>(`/api/users/${userId}/posts`),
+    ]);
 
-        return { user, posts };
-    } catch (error) {
-        console.error('データの取得に失敗:', error);
-        throw error;
-    }
+    return { user, posts };
+  } catch (error) {
+    console.error('データの取得に失敗:', error);
+    throw error;
+  }
 }
 ```
 
@@ -1082,40 +1082,35 @@ import { post, APIError } from '@nagiyu/common';
 
 // サービス固有のエラーメッセージ
 const STOCK_ERROR_MESSAGES = {
-    STOCK_NOT_FOUND: '指定された銘柄が見つかりませんでした',
-    INVALID_SYMBOL: '銘柄コードの形式が正しくありません',
-    MARKET_CLOSED: '市場が閉まっています',
+  STOCK_NOT_FOUND: '指定された銘柄が見つかりませんでした',
+  INVALID_SYMBOL: '銘柄コードの形式が正しくありません',
+  MARKET_CLOSED: '市場が閉まっています',
 };
 
 interface StockPrice {
-    symbol: string;
-    price: number;
-    timestamp: string;
+  symbol: string;
+  price: number;
+  timestamp: string;
 }
 
 async function getStockPrice(symbol: string): Promise<StockPrice> {
-    try {
-        // 第3引数にサービス固有メッセージを渡す
-        const price = await post<StockPrice>(
-            '/api/stocks/price',
-            { symbol },
-            {},
-            STOCK_ERROR_MESSAGES
-        );
-        return price;
-    } catch (error) {
-        if (error instanceof APIError) {
-            // エラーメッセージは自動的にマッピングされる
-            console.error(error.message); // "指定された銘柄が見つかりませんでした" など
-        }
-        throw error;
+  try {
+    // 第3引数にサービス固有メッセージを渡す
+    const price = await post<StockPrice>('/api/stocks/price', { symbol }, {}, STOCK_ERROR_MESSAGES);
+    return price;
+  } catch (error) {
+    if (error instanceof APIError) {
+      // エラーメッセージは自動的にマッピングされる
+      console.error(error.message); // "指定された銘柄が見つかりませんでした" など
     }
+    throw error;
+  }
 }
 ```
 
 ## 関連ドキュメント
 
--   [APIクライアントマイグレーションガイド](./api-client-migration.md)
--   [アーキテクチャ方針](./architecture.md)
--   [共通ライブラリ設計](./shared-libraries.md)
--   [テスト戦略](./testing.md)
+- [APIクライアントマイグレーションガイド](./api-client-migration.md)
+- [アーキテクチャ方針](./architecture.md)
+- [共通ライブラリ設計](./shared-libraries.md)
+- [テスト戦略](./testing.md)

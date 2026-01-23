@@ -12,11 +12,11 @@ React統合のためのユーティリティとフックを提供するライブ
 
 ### useAPIRequest フック
 
--   **状態管理**: APIリクエストの状態（data, loading, error）を自動管理
--   **コールバック機能**: 成功時・エラー時のコールバック設定
--   **リトライ機能**: 最後のリクエストを再実行
--   **リセット機能**: 状態をクリア
--   **型安全性**: TypeScriptによる厳格な型チェック
+- **状態管理**: APIリクエストの状態（data, loading, error）を自動管理
+- **コールバック機能**: 成功時・エラー時のコールバック設定
+- **リトライ機能**: 最後のリクエストを再実行
+- **リセット機能**: 状態をクリア
+- **型安全性**: TypeScriptによる厳格な型チェック
 
 ## インストール
 
@@ -24,10 +24,10 @@ React統合のためのユーティリティとフックを提供するライブ
 
 ```json
 {
-    "dependencies": {
-        "@nagiyu/react": "workspace:*",
-        "@nagiyu/common": "workspace:*"
-    }
+  "dependencies": {
+    "@nagiyu/react": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -196,37 +196,37 @@ function SearchComponent() {
 import { useAPIRequest } from '@nagiyu/react';
 
 function UserEditor() {
-    const { data, loading, execute } = useAPIRequest<User>();
+  const { data, loading, execute } = useAPIRequest<User>();
 
-    const loadUser = (userId: number) => {
-        execute(`/api/users/${userId}`, {
-            method: 'GET',
-        });
-    };
+  const loadUser = (userId: number) => {
+    execute(`/api/users/${userId}`, {
+      method: 'GET',
+    });
+  };
 
-    const createUser = (userData: Partial<User>) => {
-        execute('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
-        });
-    };
+  const createUser = (userData: Partial<User>) => {
+    execute('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+  };
 
-    const updateUser = (userId: number, userData: Partial<User>) => {
-        execute(`/api/users/${userId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(userData),
-        });
-    };
+  const updateUser = (userId: number, userData: Partial<User>) => {
+    execute(`/api/users/${userId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData),
+    });
+  };
 
-    const deleteUser = (userId: number) => {
-        execute(`/api/users/${userId}`, {
-            method: 'DELETE',
-        });
-    };
+  const deleteUser = (userId: number) => {
+    execute(`/api/users/${userId}`, {
+      method: 'DELETE',
+    });
+  };
 
-    // ...
+  // ...
 }
 ```
 
@@ -281,18 +281,18 @@ APIリクエストを実行し、状態管理とエラーハンドリングを�
 
 **パラメータ:**
 
--   `options?: UseAPIRequestOptions<T>` - オプション設定
-    -   `onSuccess?: (data: T) => void` - 成功時のコールバック
-    -   `onError?: (error: APIError) => void` - エラー時のコールバック
+- `options?: UseAPIRequestOptions<T>` - オプション設定
+  - `onSuccess?: (data: T) => void` - 成功時のコールバック
+  - `onError?: (error: APIError) => void` - エラー時のコールバック
 
 **戻り値: `UseAPIRequestReturn<T>`**
 
--   `data: T | null` - レスポンスデータ
--   `loading: boolean` - ローディング状態
--   `error: APIError | null` - エラー情報
--   `execute: (url: string, options?: APIRequestOptions) => Promise<T | null>` - リクエスト実行関数
--   `reset: () => void` - 状態をリセット
--   `retry: () => Promise<T | null>` - 最後のリクエストをリトライ
+- `data: T | null` - レスポンスデータ
+- `loading: boolean` - ローディング状態
+- `error: APIError | null` - エラー情報
+- `execute: (url: string, options?: APIRequestOptions) => Promise<T | null>` - リクエスト実行関数
+- `reset: () => void` - 状態をリセット
+- `retry: () => Promise<T | null>` - 最後のリクエストをリトライ
 
 ### 型定義
 
@@ -300,8 +300,8 @@ APIリクエストを実行し、状態管理とエラーハンドリングを�
 
 ```typescript
 interface UseAPIRequestOptions<T> {
-    onSuccess?: (data: T) => void;
-    onError?: (error: APIError) => void;
+  onSuccess?: (data: T) => void;
+  onError?: (error: APIError) => void;
 }
 ```
 
@@ -309,12 +309,12 @@ interface UseAPIRequestOptions<T> {
 
 ```typescript
 interface UseAPIRequestReturn<T> {
-    data: T | null;
-    loading: boolean;
-    error: APIError | null;
-    execute: (url: string, options?: APIRequestOptions) => Promise<T | null>;
-    reset: () => void;
-    retry: () => Promise<T | null>;
+  data: T | null;
+  loading: boolean;
+  error: APIError | null;
+  execute: (url: string, options?: APIRequestOptions) => Promise<T | null>;
+  reset: () => void;
+  retry: () => Promise<T | null>;
 }
 ```
 
@@ -322,9 +322,9 @@ interface UseAPIRequestReturn<T> {
 
 ```typescript
 interface APIRequestState<T> {
-    data: T | null;
-    loading: boolean;
-    error: APIError | null;
+  data: T | null;
+  loading: boolean;
+  error: APIError | null;
 }
 ```
 
@@ -334,21 +334,21 @@ interface APIRequestState<T> {
 
 ```typescript
 const { data, error, execute } = useAPIRequest<DataType>({
-    onError: (error) => {
-        // エラータイプに応じた処理
-        if (error.errorInfo.type === 'error') {
-            toast.error(error.message);
-        } else if (error.errorInfo.type === 'warning') {
-            toast.warning(error.message);
-        } else {
-            toast.info(error.message);
-        }
+  onError: (error) => {
+    // エラータイプに応じた処理
+    if (error.errorInfo.type === 'error') {
+      toast.error(error.message);
+    } else if (error.errorInfo.type === 'warning') {
+      toast.warning(error.message);
+    } else {
+      toast.info(error.message);
+    }
 
-        // ステータスコードに応じた処理
-        if (error.status === 401) {
-            router.push('/login');
-        }
-    },
+    // ステータスコードに応じた処理
+    if (error.status === 401) {
+      router.push('/login');
+    }
+  },
 });
 ```
 
@@ -384,19 +384,19 @@ function DataView() {
 ```typescript
 // ❌ executeを依存配列に含めると無限ループ
 useEffect(() => {
-    execute('/api/data');
+  execute('/api/data');
 }, [execute]);
 
 // ✅ executeを依存配列から除外
 useEffect(() => {
-    execute('/api/data');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  execute('/api/data');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []);
 
 // または、特定の値が変わった時だけ実行
 useEffect(() => {
-    execute(`/api/users/${userId}`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  execute(`/api/users/${userId}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [userId]);
 ```
 
@@ -407,32 +407,32 @@ useEffect(() => {
 import { getStockPrice } from 'stock-tracker-core/api/stock-api';
 
 function StockPrice({ symbol }: { symbol: string }) {
-    const toast = useToast();
-    const { data, loading, error } = useAPIRequest<StockPrice>({
-        onError: (error) => {
-            // サービス固有のエラーメッセージが適用される
-            toast.error(error.message);
-        },
-    });
+  const toast = useToast();
+  const { data, loading, error } = useAPIRequest<StockPrice>({
+    onError: (error) => {
+      // サービス固有のエラーメッセージが適用される
+      toast.error(error.message);
+    },
+  });
 
-    useEffect(() => {
-        const fetchPrice = async () => {
-            // getStockPrice() は内部でサービス固有メッセージを使用
-            await getStockPrice(symbol);
-        };
-        fetchPrice();
-    }, [symbol]);
+  useEffect(() => {
+    const fetchPrice = async () => {
+      // getStockPrice() は内部でサービス固有メッセージを使用
+      await getStockPrice(symbol);
+    };
+    fetchPrice();
+  }, [symbol]);
 
-    // ...
+  // ...
 }
 ```
 
 ## 設計原則
 
--   **React統合**: Reactのフックパターンに準拠
--   **型安全性**: TypeScript strict modeで厳格な型チェック
--   **依存分離**: トースト通知はコールバックで注入
--   **再利用性**: 状態管理ロジックを共通化
+- **React統合**: Reactのフックパターンに準拠
+- **型安全性**: TypeScript strict modeで厳格な型チェック
+- **依存分離**: トースト通知はコールバックで注入
+- **再利用性**: 状態管理ロジックを共通化
 
 ## 開発
 
@@ -468,17 +468,17 @@ npm run format
 
 ## 関連ドキュメント
 
--   [APIクライアント使用ガイド](../../docs/development/api-client-guide.md)
--   [APIクライアントマイグレーションガイド](../../docs/development/api-client-migration.md)
--   [アーキテクチャ方針](../../docs/development/architecture.md)
--   [共通ライブラリ設計](../../docs/development/shared-libraries.md)
+- [APIクライアント使用ガイド](../../docs/development/api-client-guide.md)
+- [APIクライアントマイグレーションガイド](../../docs/development/api-client-migration.md)
+- [アーキテクチャ方針](../../docs/development/architecture.md)
+- [共通ライブラリ設計](../../docs/development/shared-libraries.md)
 
 ## 依存関係
 
 このパッケージは以下に依存しています：
 
--   `@nagiyu/common` - APIクライアント機能
--   `react` - Reactフック機能
+- `@nagiyu/common` - APIクライアント機能
+- `react` - Reactフック機能
 
 ## ライセンス
 

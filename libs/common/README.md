@@ -12,17 +12,17 @@ Framework-agnostic common utility library for Nagiyu Platform.
 
 ### APIクライアント
 
--   **リトライ機能付きAPIクライアント**: ネットワークエラーやサーバーエラーへの自動リトライ
--   **エクスポネンシャルバックオフ**: リトライ時の遅延を指数関数的に増加
--   **タイムアウト制御**: リクエストのタイムアウト設定
--   **エラーハンドリング**: 統一的なエラー処理とユーザーフレンドリーなメッセージ変換
--   **型安全性**: TypeScriptによる厳格な型チェック
+- **リトライ機能付きAPIクライアント**: ネットワークエラーやサーバーエラーへの自動リトライ
+- **エクスポネンシャルバックオフ**: リトライ時の遅延を指数関数的に増加
+- **タイムアウト制御**: リクエストのタイムアウト設定
+- **エラーハンドリング**: 統一的なエラー処理とユーザーフレンドリーなメッセージ変換
+- **型安全性**: TypeScriptによる厳格な型チェック
 
 ### 認証・認可
 
--   ロールベースアクセス制御（RBAC）
--   パーミッション管理
--   認証ユーティリティ
+- ロールベースアクセス制御（RBAC）
+- パーミッション管理
+- 認証ユーティリティ
 
 ## インストール
 
@@ -30,9 +30,9 @@ Framework-agnostic common utility library for Nagiyu Platform.
 
 ```json
 {
-    "dependencies": {
-        "@nagiyu/common": "workspace:*"
-    }
+  "dependencies": {
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -50,9 +50,9 @@ npm install
 import { get } from '@nagiyu/common';
 
 interface User {
-    id: number;
-    name: string;
-    email: string;
+  id: number;
+  name: string;
+  email: string;
 }
 
 const user = await get<User>('/api/users/1');
@@ -65,19 +65,19 @@ console.log(user.name); // 型安全にアクセス
 import { post } from '@nagiyu/common';
 
 interface CreateUserRequest {
-    name: string;
-    email: string;
+  name: string;
+  email: string;
 }
 
 interface User {
-    id: number;
-    name: string;
-    email: string;
+  id: number;
+  name: string;
+  email: string;
 }
 
 const newUser = await post<User>('/api/users', {
-    name: 'John Doe',
-    email: 'john@example.com',
+  name: 'John Doe',
+  email: 'john@example.com',
 });
 ```
 
@@ -87,15 +87,15 @@ const newUser = await post<User>('/api/users', {
 import { apiRequest, type RetryConfig } from '@nagiyu/common';
 
 const customRetryConfig: Partial<RetryConfig> = {
-    maxRetries: 5,
-    initialDelay: 2000,
-    maxDelay: 30000,
-    backoffMultiplier: 3,
+  maxRetries: 5,
+  initialDelay: 2000,
+  maxDelay: 30000,
+  backoffMultiplier: 3,
 };
 
 const data = await apiRequest<DataType>('/api/data', {
-    method: 'GET',
-    retry: customRetryConfig,
+  method: 'GET',
+  retry: customRetryConfig,
 });
 ```
 
@@ -105,17 +105,17 @@ const data = await apiRequest<DataType>('/api/data', {
 import { get, APIError } from '@nagiyu/common';
 
 try {
-    const data = await get<DataType>('/api/data');
-    console.log(data);
+  const data = await get<DataType>('/api/data');
+  console.log(data);
 } catch (error) {
-    if (error instanceof APIError) {
-        console.error('ステータスコード:', error.status);
-        console.error('エラーメッセージ:', error.message);
-        console.error('エラータイプ:', error.errorInfo.type);
-        console.error('リトライ可能:', error.errorInfo.shouldRetry);
-    } else {
-        console.error('予期しないエラー:', error);
-    }
+  if (error instanceof APIError) {
+    console.error('ステータスコード:', error.status);
+    console.error('エラーメッセージ:', error.message);
+    console.error('エラータイプ:', error.errorInfo.type);
+    console.error('リトライ可能:', error.errorInfo.shouldRetry);
+  } else {
+    console.error('予期しないエラー:', error);
+  }
 }
 ```
 
@@ -125,8 +125,8 @@ try {
 import { get } from '@nagiyu/common';
 
 const SERVICE_ERROR_MESSAGES = {
-    RESOURCE_NOT_FOUND: 'リソースが見つかりませんでした',
-    INVALID_INPUT: '入力内容が正しくありません',
+  RESOURCE_NOT_FOUND: 'リソースが見つかりませんでした',
+  INVALID_INPUT: '入力内容が正しくありません',
 };
 
 const data = await get<DataType>('/api/data', {}, SERVICE_ERROR_MESSAGES);
@@ -173,22 +173,22 @@ console.log(COMMON_ERROR_MESSAGES.SERVER_ERROR);
 
 **パラメータ:**
 
--   `url: string` - リクエストURL
--   `options?: APIRequestOptions` - リクエストオプション
-    -   `method?: string` - HTTPメソッド（GET, POST, PUT, DELETEなど）
-    -   `headers?: Record<string, string>` - カスタムヘッダー
-    -   `body?: BodyInit` - リクエストボディ
-    -   `retry?: Partial<RetryConfig>` - リトライ設定
-    -   `timeout?: number` - タイムアウト（ミリ秒、デフォルト: 30000）
--   `serviceMessages?: Record<string, string>` - サービス固有のエラーメッセージマッピング
+- `url: string` - リクエストURL
+- `options?: APIRequestOptions` - リクエストオプション
+  - `method?: string` - HTTPメソッド（GET, POST, PUT, DELETEなど）
+  - `headers?: Record<string, string>` - カスタムヘッダー
+  - `body?: BodyInit` - リクエストボディ
+  - `retry?: Partial<RetryConfig>` - リトライ設定
+  - `timeout?: number` - タイムアウト（ミリ秒、デフォルト: 30000）
+- `serviceMessages?: Record<string, string>` - サービス固有のエラーメッセージマッピング
 
 **戻り値:**
 
--   `Promise<T>` - レスポンスデータ
+- `Promise<T>` - レスポンスデータ
 
 **例外:**
 
--   `APIError` - APIエラーが発生した場合
+- `APIError` - APIエラーが発生した場合
 
 ### `get<T>(url, options?, serviceMessages?)`
 
@@ -212,13 +212,13 @@ APIエラーを表すクラス。
 
 **プロパティ:**
 
--   `status: number` - HTTPステータスコード
--   `errorInfo: ErrorInfo` - エラー情報
-    -   `type: 'error' | 'warning' | 'info'` - エラータイプ
-    -   `message: string` - ユーザーフレンドリーなメッセージ
-    -   `details?: string[]` - 詳細情報
-    -   `shouldRetry?: boolean` - リトライ可能か
--   `message: string` - エラーメッセージ
+- `status: number` - HTTPステータスコード
+- `errorInfo: ErrorInfo` - エラー情報
+  - `type: 'error' | 'warning' | 'info'` - エラータイプ
+  - `message: string` - ユーザーフレンドリーなメッセージ
+  - `details?: string[]` - 詳細情報
+  - `shouldRetry?: boolean` - リトライ可能か
+- `message: string` - エラーメッセージ
 
 ### `RetryConfig`
 
@@ -226,22 +226,22 @@ APIエラーを表すクラス。
 
 **プロパティ:**
 
--   `maxRetries: number` - 最大リトライ回数（デフォルト: 3）
--   `initialDelay: number` - 初回遅延時間（ミリ秒、デフォルト: 1000）
--   `maxDelay: number` - 最大遅延時間（ミリ秒、デフォルト: 10000）
--   `backoffMultiplier: number` - バックオフ増加率（デフォルト: 2）
+- `maxRetries: number` - 最大リトライ回数（デフォルト: 3）
+- `initialDelay: number` - 初回遅延時間（ミリ秒、デフォルト: 1000）
+- `maxDelay: number` - 最大遅延時間（ミリ秒、デフォルト: 10000）
+- `backoffMultiplier: number` - バックオフ増加率（デフォルト: 2）
 
 ### `COMMON_ERROR_MESSAGES`
 
 共通エラーメッセージ定数。
 
--   `UNAUTHORIZED` - 認証エラー
--   `FORBIDDEN` - 権限エラー
--   `NETWORK_ERROR` - ネットワークエラー
--   `TIMEOUT_ERROR` - タイムアウトエラー
--   `SERVER_ERROR` - サーバーエラー
--   `INVALID_REQUEST` - 無効なリクエスト
--   その他多数
+- `UNAUTHORIZED` - 認証エラー
+- `FORBIDDEN` - 権限エラー
+- `NETWORK_ERROR` - ネットワークエラー
+- `TIMEOUT_ERROR` - タイムアウトエラー
+- `SERVER_ERROR` - サーバーエラー
+- `INVALID_REQUEST` - 無効なリクエスト
+- その他多数
 
 ## アーキテクチャ
 
@@ -265,17 +265,17 @@ delay = min(initialDelay × backoffMultiplier^attempt, maxDelay) ± jitter
 
 以下のエラーはリトライ可能と判定されます：
 
--   ネットワークエラー（`status === 0`）
--   タイムアウト（`status === 408`）
--   サーバーエラー（`status >= 500`）
--   Too Many Requests（`status === 429`）
+- ネットワークエラー（`status === 0`）
+- タイムアウト（`status === 408`）
+- サーバーエラー（`status >= 500`）
+- Too Many Requests（`status === 429`）
 
 ## 設計原則
 
--   **フレームワーク非依存**: ブラウザAPI、React、Next.jsなどに依存しない
--   **純粋関数**: 副作用のない関数として実装
--   **型安全性**: TypeScript strict modeで厳格な型チェック
--   **テスト容易性**: 高いテストカバレッジを維持
+- **フレームワーク非依存**: ブラウザAPI、React、Next.jsなどに依存しない
+- **純粋関数**: 副作用のない関数として実装
+- **型安全性**: TypeScript strict modeで厳格な型チェック
+- **テスト容易性**: 高いテストカバレッジを維持
 
 ## 開発
 
@@ -311,10 +311,10 @@ npm run format
 
 ## 関連ドキュメント
 
--   [APIクライアント使用ガイド](../../docs/development/api-client-guide.md)
--   [APIクライアントマイグレーションガイド](../../docs/development/api-client-migration.md)
--   [アーキテクチャ方針](../../docs/development/architecture.md)
--   [共通ライブラリ設計](../../docs/development/shared-libraries.md)
+- [APIクライアント使用ガイド](../../docs/development/api-client-guide.md)
+- [APIクライアントマイグレーションガイド](../../docs/development/api-client-migration.md)
+- [アーキテクチャ方針](../../docs/development/architecture.md)
+- [共通ライブラリ設計](../../docs/development/shared-libraries.md)
 
 ## ライセンス
 

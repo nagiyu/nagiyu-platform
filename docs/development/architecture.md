@@ -11,18 +11,18 @@
 サービスは以下のパッケージに分離することで、責務を明確化する：
 
 - **core**: ビジネスロジック層
-    - フレームワーク非依存のビジネスロジック
-    - 純粋関数として実装
-    - Unit Test 必須
-    - 相対パスで import（path alias 使用不可）
+  - フレームワーク非依存のビジネスロジック
+  - 純粋関数として実装
+  - Unit Test 必須
+  - 相対パスで import（path alias 使用不可）
 - **web**: プレゼンテーション層
-    - Next.js + React による UI 実装
-    - E2E Test 主体
-    - path alias（`@/`）使用可能
+  - Next.js + React による UI 実装
+  - E2E Test 主体
+  - path alias（`@/`）使用可能
 - **batch**: バッチ処理層
-    - 定期実行やイベント駆動の処理
-    - Lambda などでの実行を想定
-    - Unit Test 必須
+  - 定期実行やイベント駆動の処理
+  - Lambda などでの実行を想定
+  - Unit Test 必須
 
 ### 基本方針
 
@@ -117,19 +117,19 @@ batch → core → libs/common
 APIエラーを3つの層で処理します：
 
 1. **リトライ層（Retry Layer）**
-    - 一時的なエラー（ネットワークエラー、サーバーエラー、タイムアウト、429 Too Many Requests）に対する自動リトライ
-    - エクスポネンシャルバックオフ戦略を使用
-    - リトライ可能性の判定ロジックによる制御
+   - 一時的なエラー（ネットワークエラー、サーバーエラー、タイムアウト、429 Too Many Requests）に対する自動リトライ
+   - エクスポネンシャルバックオフ戦略を使用
+   - リトライ可能性の判定ロジックによる制御
 
 2. **変換層（Transform Layer）**
-    - 技術的なエラーコードをユーザーフレンドリーな日本語メッセージに変換
-    - 2段階マッピング: サービス固有メッセージ → 共通メッセージ
-    - フォールバック機構による確実なメッセージ提供
+   - 技術的なエラーコードをユーザーフレンドリーな日本語メッセージに変換
+   - 2段階マッピング: サービス固有メッセージ → 共通メッセージ
+   - フォールバック機構による確実なメッセージ提供
 
 3. **表示層（Display Layer）**
-    - エラーメッセージをUIに表示（トースト通知、エラーダイアログなど）
-    - React統合によるシームレスな表示
-    - エラータイプ（error/warning/info）に応じた適切な表示
+   - エラーメッセージをUIに表示（トースト通知、エラーダイアログなど）
+   - React統合によるシームレスな表示
+   - エラータイプ（error/warning/info）に応じた適切な表示
 
 ##### エクスポネンシャルバックオフ戦略
 
@@ -189,29 +189,29 @@ APIエラーを3つの層で処理します：
 
 プラットフォームは以下のパッケージで構成されています：
 
-#### 共通パッケージ (libs/*)
+#### 共通パッケージ (libs/\*)
 
-| パッケージ       | 責務                                           | 依存           | 主な機能                                    |
-| ---------------- | ---------------------------------------------- | -------------- | ------------------------------------------- |
-| `@nagiyu/common` | フレームワーク非依存の汎用ユーティリティ       | なし           | APIクライアント、認証、型定義               |
-| `@nagiyu/browser`| ブラウザAPI依存のユーティリティ                | `@nagiyu/common` | Clipboard、localStorage ラッパー          |
-| `@nagiyu/ui`     | Next.js + Material-UI依存のUIコンポーネント    | `@nagiyu/browser` | Header、Footer、ThemeRegistry            |
-| `@nagiyu/react`  | React統合のユーティリティとフック              | `@nagiyu/common` | useAPIRequest、React用ヘルパー          |
+| パッケージ        | 責務                                        | 依存              | 主な機能                         |
+| ----------------- | ------------------------------------------- | ----------------- | -------------------------------- |
+| `@nagiyu/common`  | フレームワーク非依存の汎用ユーティリティ    | なし              | APIクライアント、認証、型定義    |
+| `@nagiyu/browser` | ブラウザAPI依存のユーティリティ             | `@nagiyu/common`  | Clipboard、localStorage ラッパー |
+| `@nagiyu/ui`      | Next.js + Material-UI依存のUIコンポーネント | `@nagiyu/browser` | Header、Footer、ThemeRegistry    |
+| `@nagiyu/react`   | React統合のユーティリティとフック           | `@nagiyu/common`  | useAPIRequest、React用ヘルパー   |
 
 #### APIクライアントパッケージ
 
 APIリクエスト処理は以下のパッケージで提供されます：
 
-- **@nagiyu/common**: 
-    - `apiRequest<T>()` 関数（リトライ、エラーハンドリング）
-    - `get()`, `post()`, `put()`, `del()` ラッパー関数
-    - `APIError` クラスと型定義
-    - エラーメッセージ定数（`COMMON_ERROR_MESSAGES`）
+- **@nagiyu/common**:
+  - `apiRequest<T>()` 関数（リトライ、エラーハンドリング）
+  - `get()`, `post()`, `put()`, `del()` ラッパー関数
+  - `APIError` クラスと型定義
+  - エラーメッセージ定数（`COMMON_ERROR_MESSAGES`）
 
-- **@nagiyu/react**: 
-    - `useAPIRequest<T>()` フック（状態管理、React統合）
-    - `onSuccess`/`onError` コールバック機能
-    - リトライ・リセット機能
+- **@nagiyu/react**:
+  - `useAPIRequest<T>()` フック（状態管理、React統合）
+  - `onSuccess`/`onError` コールバック機能
+  - リトライ・リセット機能
 
 詳細は [shared-libraries.md](./shared-libraries.md) および [api-client-guide.md](./api-client-guide.md) を参照。
 

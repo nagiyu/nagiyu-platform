@@ -2,11 +2,11 @@
 
 ## 目次
 
--   [概要](#概要)
--   [変更点一覧](#変更点一覧)
--   [移行手順](#移行手順)
--   [移行チェックリスト](#移行チェックリスト)
--   [トラブルシューティング](#トラブルシューティング)
+- [概要](#概要)
+- [変更点一覧](#変更点一覧)
+- [移行手順](#移行手順)
+- [移行チェックリスト](#移行チェックリスト)
+- [トラブルシューティング](#トラブルシューティング)
 
 ## 概要
 
@@ -14,16 +14,16 @@
 
 ### 移行の目的
 
--   **統一されたエラーハンドリング**: プラットフォーム全体で一貫したエラー処理
--   **自動リトライ機能**: ネットワークエラーやサーバーエラーへの自動対応
--   **型安全性の向上**: TypeScriptによる厳格な型チェック
--   **保守性の向上**: 共通ライブラリによるコードの重複削減
+- **統一されたエラーハンドリング**: プラットフォーム全体で一貫したエラー処理
+- **自動リトライ機能**: ネットワークエラーやサーバーエラーへの自動対応
+- **型安全性の向上**: TypeScriptによる厳格な型チェック
+- **保守性の向上**: 共通ライブラリによるコードの重複削減
 
 ### 対象者
 
--   既存サービスの開発者
--   新しいAPIクライアントライブラリを導入するプロジェクト
--   fetch APIやaxiosを直接使用しているコード
+- 既存サービスの開発者
+- 新しいAPIクライアントライブラリを導入するプロジェクト
+- fetch APIやaxiosを直接使用しているコード
 
 ## 変更点一覧
 
@@ -34,19 +34,19 @@
 ```typescript
 // エラーハンドリングとトースト通知が混在
 async function fetchData() {
-    try {
-        const response = await fetch('/api/data');
-        if (!response.ok) {
-            toast.error('データの取得に失敗しました');
-            throw new Error('Fetch failed');
-        }
-        const data = await response.json();
-        toast.success('データを取得しました');
-        return data;
-    } catch (error) {
-        toast.error('エラーが発生しました');
-        throw error;
+  try {
+    const response = await fetch('/api/data');
+    if (!response.ok) {
+      toast.error('データの取得に失敗しました');
+      throw new Error('Fetch failed');
     }
+    const data = await response.json();
+    toast.success('データを取得しました');
+    return data;
+  } catch (error) {
+    toast.error('エラーが発生しました');
+    throw error;
+  }
 }
 ```
 
@@ -59,12 +59,12 @@ import { useToast } from '@/hooks/useToast';
 
 const toast = useToast();
 const { data, execute } = useAPIRequest<DataType>({
-    onSuccess: (data) => {
-        toast.success('データを取得しました');
-    },
-    onError: (error) => {
-        toast.error(error.message);
-    },
+  onSuccess: (data) => {
+    toast.success('データを取得しました');
+  },
+  onError: (error) => {
+    toast.error(error.message);
+  },
 });
 
 await execute('/api/data');
@@ -90,9 +90,9 @@ console.log(user.name); // any型、型安全でない
 import { get } from '@nagiyu/common';
 
 interface User {
-    id: number;
-    name: string;
-    email: string;
+  id: number;
+  name: string;
+  email: string;
 }
 
 const user = await get<User>('/api/users/1');
@@ -108,15 +108,15 @@ console.log(user.name); // 型安全にアクセス
 ```typescript
 // エラーメッセージがハードコード
 try {
-    const response = await fetch('/api/stocks/AAPL');
-    if (response.status === 404) {
-        throw new Error('銘柄が見つかりませんでした');
-    }
-    if (response.status === 500) {
-        throw new Error('サーバーエラーが発生しました');
-    }
+  const response = await fetch('/api/stocks/AAPL');
+  if (response.status === 404) {
+    throw new Error('銘柄が見つかりませんでした');
+  }
+  if (response.status === 500) {
+    throw new Error('サーバーエラーが発生しました');
+  }
 } catch (error) {
-    console.error(error.message);
+  console.error(error.message);
 }
 ```
 
@@ -127,15 +127,15 @@ try {
 import { get, APIError } from '@nagiyu/common';
 
 const SERVICE_MESSAGES = {
-    STOCK_NOT_FOUND: '指定された銘柄が見つかりませんでした',
+  STOCK_NOT_FOUND: '指定された銘柄が見つかりませんでした',
 };
 
 try {
-    const stock = await get<Stock>('/api/stocks/AAPL', {}, SERVICE_MESSAGES);
+  const stock = await get<Stock>('/api/stocks/AAPL', {}, SERVICE_MESSAGES);
 } catch (error) {
-    if (error instanceof APIError) {
-        console.error(error.message); // 自動的にマッピングされたメッセージ
-    }
+  if (error instanceof APIError) {
+    console.error(error.message); // 自動的にマッピングされたメッセージ
+  }
 }
 ```
 
@@ -148,23 +148,23 @@ try {
 ```typescript
 // 手動でリトライロジックを実装
 async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const response = await fetch(url);
-            if (response.ok) {
-                return response;
-            }
-            if (i === maxRetries - 1) {
-                throw new Error('Max retries reached');
-            }
-        } catch (error) {
-            if (i === maxRetries - 1) {
-                throw error;
-            }
-            await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, i)));
-        }
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return response;
+      }
+      if (i === maxRetries - 1) {
+        throw new Error('Max retries reached');
+      }
+    } catch (error) {
+      if (i === maxRetries - 1) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000 * Math.pow(2, i)));
     }
-    throw new Error('Unreachable');
+  }
+  throw new Error('Unreachable');
 }
 ```
 
@@ -190,17 +190,17 @@ const controller = new AbortController();
 const timeoutId = setTimeout(() => controller.abort(), 30000);
 
 try {
-    const response = await fetch('/api/data', {
-        signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response;
+  const response = await fetch('/api/data', {
+    signal: controller.signal,
+  });
+  clearTimeout(timeoutId);
+  return response;
 } catch (error) {
-    clearTimeout(timeoutId);
-    if (error.name === 'AbortError') {
-        throw new Error('タイムアウトしました');
-    }
-    throw error;
+  clearTimeout(timeoutId);
+  if (error.name === 'AbortError') {
+    throw new Error('タイムアウトしました');
+  }
+  throw error;
 }
 ```
 
@@ -211,7 +211,7 @@ try {
 import { get } from '@nagiyu/common';
 
 const data = await get<DataType>('/api/data', {
-    timeout: 30000, // ミリ秒
+  timeout: 30000, // ミリ秒
 });
 ```
 
@@ -228,17 +228,17 @@ const [loading, setLoading] = useState(false);
 const [error, setError] = useState<Error | null>(null);
 
 const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-        const response = await fetch('/api/data');
-        const result = await response.json();
-        setData(result);
-    } catch (err) {
-        setError(err as Error);
-    } finally {
-        setLoading(false);
-    }
+  setLoading(true);
+  setError(null);
+  try {
+    const response = await fetch('/api/data');
+    const result = await response.json();
+    setData(result);
+  } catch (err) {
+    setError(err as Error);
+  } finally {
+    setLoading(false);
+  }
 };
 ```
 
@@ -251,7 +251,7 @@ import { useAPIRequest } from '@nagiyu/react';
 const { data, loading, error, execute } = useAPIRequest<DataType>();
 
 const fetchData = async () => {
-    await execute('/api/data');
+  await execute('/api/data');
 };
 ```
 
@@ -265,10 +265,10 @@ const fetchData = async () => {
 
 ```json
 {
-    "name": "your-service-core",
-    "dependencies": {
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "your-service-core",
+  "dependencies": {
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -276,12 +276,12 @@ const fetchData = async () => {
 
 ```json
 {
-    "name": "your-service-web",
-    "dependencies": {
-        "your-service-core": "workspace:*",
-        "@nagiyu/common": "workspace:*",
-        "@nagiyu/react": "workspace:*"
-    }
+  "name": "your-service-web",
+  "dependencies": {
+    "your-service-core": "workspace:*",
+    "@nagiyu/common": "workspace:*",
+    "@nagiyu/react": "workspace:*"
+  }
 }
 ```
 
@@ -297,10 +297,10 @@ npm install
 // services/your-service/core/src/constants/error-messages.ts
 
 export const SERVICE_ERROR_MESSAGES = {
-    // サービス固有のエラーコードとメッセージのマッピング
-    RESOURCE_NOT_FOUND: 'リソースが見つかりませんでした',
-    INVALID_INPUT: '入力内容が正しくありません',
-    OPERATION_FAILED: '操作に失敗しました',
+  // サービス固有のエラーコードとメッセージのマッピング
+  RESOURCE_NOT_FOUND: 'リソースが見つかりませんでした',
+  INVALID_INPUT: '入力内容が正しくありません',
+  OPERATION_FAILED: '操作に失敗しました',
 } as const;
 ```
 
@@ -312,25 +312,25 @@ export const SERVICE_ERROR_MESSAGES = {
 // services/your-service/core/src/api/old-api.ts
 
 export async function fetchUser(userId: number): Promise<User> {
-    const response = await fetch(`/api/users/${userId}`);
-    if (!response.ok) {
-        throw new Error('Failed to fetch user');
-    }
-    return response.json();
+  const response = await fetch(`/api/users/${userId}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch user');
+  }
+  return response.json();
 }
 
 export async function createUser(userData: CreateUserRequest): Promise<User> {
-    const response = await fetch('/api/users', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(userData),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to create user');
-    }
-    return response.json();
+  const response = await fetch('/api/users', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(userData),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create user');
+  }
+  return response.json();
 }
 ```
 
@@ -343,11 +343,11 @@ import { get, post } from '@nagiyu/common';
 import { SERVICE_ERROR_MESSAGES } from '../constants/error-messages';
 
 export async function fetchUser(userId: number): Promise<User> {
-    return get<User>(`/api/users/${userId}`, {}, SERVICE_ERROR_MESSAGES);
+  return get<User>(`/api/users/${userId}`, {}, SERVICE_ERROR_MESSAGES);
 }
 
 export async function createUser(userData: CreateUserRequest): Promise<User> {
-    return post<User>('/api/users', userData, {}, SERVICE_ERROR_MESSAGES);
+  return post<User>('/api/users', userData, {}, SERVICE_ERROR_MESSAGES);
 }
 ```
 
@@ -489,18 +489,18 @@ export function UserProfile({ userId }: { userId: number }) {
 
 ```typescript
 try {
-    const response = await fetch('/api/data');
-    if (response.status === 401) {
-        router.push('/login');
-        return;
-    }
-    if (!response.ok) {
-        throw new Error('Request failed');
-    }
-    const data = await response.json();
-    // ...
+  const response = await fetch('/api/data');
+  if (response.status === 401) {
+    router.push('/login');
+    return;
+  }
+  if (!response.ok) {
+    throw new Error('Request failed');
+  }
+  const data = await response.json();
+  // ...
 } catch (error) {
-    console.error(error);
+  console.error(error);
 }
 ```
 
@@ -510,20 +510,20 @@ try {
 import { get, APIError } from '@nagiyu/common';
 
 try {
-    const data = await get<DataType>('/api/data');
-    // ...
+  const data = await get<DataType>('/api/data');
+  // ...
 } catch (error) {
-    if (error instanceof APIError) {
-        if (error.status === 401) {
-            router.push('/login');
-            return;
-        }
-        console.error('APIエラー:', error.message);
-        console.error('ステータス:', error.status);
-        console.error('詳細:', error.errorInfo.details);
-    } else {
-        console.error('予期しないエラー:', error);
+  if (error instanceof APIError) {
+    if (error.status === 401) {
+      router.push('/login');
+      return;
     }
+    console.error('APIエラー:', error.message);
+    console.error('ステータス:', error.status);
+    console.error('詳細:', error.errorInfo.details);
+  } else {
+    console.error('予期しないエラー:', error);
+  }
 }
 ```
 
@@ -536,13 +536,13 @@ try {
 global.fetch = jest.fn();
 
 test('fetchUser returns user data', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue({
-        ok: true,
-        json: async () => ({ id: 1, name: 'Test User' }),
-    });
+  (global.fetch as jest.Mock).mockResolvedValue({
+    ok: true,
+    json: async () => ({ id: 1, name: 'Test User' }),
+  });
 
-    const user = await fetchUser(1);
-    expect(user).toEqual({ id: 1, name: 'Test User' });
+  const user = await fetchUser(1);
+  expect(user).toEqual({ id: 1, name: 'Test User' });
 });
 ```
 
@@ -554,18 +554,18 @@ import { get } from '@nagiyu/common';
 import { fetchUser } from './user-api';
 
 jest.mock('@nagiyu/common', () => ({
-    get: jest.fn(),
+  get: jest.fn(),
 }));
 
 const mockGet = get as jest.MockedFunction<typeof get>;
 
 test('fetchUser returns user data', async () => {
-    const mockUser = { id: 1, name: 'Test User' };
-    mockGet.mockResolvedValue(mockUser);
+  const mockUser = { id: 1, name: 'Test User' };
+  mockGet.mockResolvedValue(mockUser);
 
-    const user = await fetchUser(1);
-    expect(user).toEqual(mockUser);
-    expect(mockGet).toHaveBeenCalledWith('/api/users/1', {}, expect.any(Object));
+  const user = await fetchUser(1);
+  expect(user).toEqual(mockUser);
+  expect(mockGet).toHaveBeenCalledWith('/api/users/1', {}, expect.any(Object));
 });
 ```
 
@@ -584,61 +584,61 @@ test('fetchUser returns user data', async () => {
 
 ### パッケージのインストール
 
--   [ ] `@nagiyu/common` をcore層にインストール
--   [ ] `@nagiyu/react` をweb層にインストール
--   [ ] package.jsonの依存関係が正しい
+- [ ] `@nagiyu/common` をcore層にインストール
+- [ ] `@nagiyu/react` をweb層にインストール
+- [ ] package.jsonの依存関係が正しい
 
 ### エラーメッセージの定義
 
--   [ ] サービス固有のエラーメッセージ定数を作成
--   [ ] エラーコードとメッセージのマッピングが完全
--   [ ] 日本語メッセージが適切
+- [ ] サービス固有のエラーメッセージ定数を作成
+- [ ] エラーコードとメッセージのマッピングが完全
+- [ ] 日本語メッセージが適切
 
 ### API関数の置き換え（core層）
 
--   [ ] `fetch()` を `apiRequest()` / `get()` / `post()` などに置き換え
--   [ ] 型パラメータ `<T>` を正しく指定
--   [ ] サービス固有メッセージを第3引数に渡している
--   [ ] カスタムヘッダーが必要な場合、正しく設定されている
--   [ ] タイムアウトが必要な場合、設定されている
+- [ ] `fetch()` を `apiRequest()` / `get()` / `post()` などに置き換え
+- [ ] 型パラメータ `<T>` を正しく指定
+- [ ] サービス固有メッセージを第3引数に渡している
+- [ ] カスタムヘッダーが必要な場合、正しく設定されている
+- [ ] タイムアウトが必要な場合、設定されている
 
 ### Reactコンポーネントの置き換え（web層）
 
--   [ ] `useState`/`useEffect` を `useAPIRequest` に置き換え
--   [ ] `onSuccess` と `onError` コールバックでトースト通知を実装
--   [ ] ローディング状態を適切に表示
--   [ ] エラー状態を適切に表示
--   [ ] データがない場合の処理を実装
+- [ ] `useState`/`useEffect` を `useAPIRequest` に置き換え
+- [ ] `onSuccess` と `onError` コールバックでトースト通知を実装
+- [ ] ローディング状態を適切に表示
+- [ ] エラー状態を適切に表示
+- [ ] データがない場合の処理を実装
 
 ### エラーハンドリング
 
--   [ ] `APIError` 型でエラーをキャッチ
--   [ ] `error.status` でHTTPステータスコードを確認
--   [ ] `error.message` でユーザーフレンドリーなメッセージを表示
--   [ ] 認証エラー（401）への対応を実装
--   [ ] 権限エラー（403）への対応を実装
+- [ ] `APIError` 型でエラーをキャッチ
+- [ ] `error.status` でHTTPステータスコードを確認
+- [ ] `error.message` でユーザーフレンドリーなメッセージを表示
+- [ ] 認証エラー（401）への対応を実装
+- [ ] 権限エラー（403）への対応を実装
 
 ### テストの更新
 
--   [ ] `@nagiyu/common` のモックを作成
--   [ ] `APIError` のモックを作成（React層）
--   [ ] エラーケースのテストを追加
--   [ ] リトライのテストを追加（必要に応じて）
--   [ ] すべてのテストがパスする
+- [ ] `@nagiyu/common` のモックを作成
+- [ ] `APIError` のモックを作成（React層）
+- [ ] エラーケースのテストを追加
+- [ ] リトライのテストを追加（必要に応じて）
+- [ ] すべてのテストがパスする
 
 ### ドキュメント
 
--   [ ] APIの使い方をドキュメント化
--   [ ] エラーメッセージの一覧を作成
--   [ ] 他の開発者がコードを理解できる
+- [ ] APIの使い方をドキュメント化
+- [ ] エラーメッセージの一覧を作成
+- [ ] 他の開発者がコードを理解できる
 
 ### デプロイ前の確認
 
--   [ ] ローカル環境で動作確認
--   [ ] 開発環境でE2Eテストを実行
--   [ ] ビルドエラーがない
--   [ ] ESLintエラーがない
--   [ ] TypeScriptの型エラーがない
+- [ ] ローカル環境で動作確認
+- [ ] 開発環境でE2Eテストを実行
+- [ ] ビルドエラーがない
+- [ ] ESLintエラーがない
+- [ ] TypeScriptの型エラーがない
 
 ## トラブルシューティング
 
@@ -655,7 +655,7 @@ console.log(data.name); // 型エラー
 
 // ✅ 型を指定する
 interface DataType {
-    name: string;
+  name: string;
 }
 const data = await get<DataType>('/api/data');
 console.log(data.name); // OK
@@ -673,7 +673,7 @@ const data = await get<DataType>('/api/data');
 
 // ✅ サービス固有メッセージを渡す
 const SERVICE_MESSAGES = {
-    DATA_NOT_FOUND: 'データが見つかりませんでした',
+  DATA_NOT_FOUND: 'データが見つかりませんでした',
 };
 const data = await get<DataType>('/api/data', {}, SERVICE_MESSAGES);
 ```
@@ -686,12 +686,12 @@ const data = await get<DataType>('/api/data', {}, SERVICE_MESSAGES);
 
 ```typescript
 try {
-    const data = await get<DataType>('/api/data');
+  const data = await get<DataType>('/api/data');
 } catch (error) {
-    if (error instanceof APIError) {
-        console.log('リトライ可能:', error.errorInfo.shouldRetry);
-        console.log('ステータスコード:', error.status);
-    }
+  if (error instanceof APIError) {
+    console.log('リトライ可能:', error.errorInfo.shouldRetry);
+    console.log('ステータスコード:', error.status);
+  }
 }
 ```
 
@@ -704,9 +704,9 @@ try {
 ```typescript
 // リトライ設定を確認
 const data = await get<DataType>('/api/data', {
-    retry: {
-        maxRetries: 3, // 0ではないことを確認
-    },
+  retry: {
+    maxRetries: 3, // 0ではないことを確認
+  },
 });
 ```
 
@@ -719,7 +719,7 @@ const data = await get<DataType>('/api/data', {
 ```typescript
 // タイムアウトを延長
 const data = await get<DataType>('/api/slow-endpoint', {
-    timeout: 60000, // 60秒
+  timeout: 60000, // 60秒
 });
 ```
 
@@ -732,13 +732,13 @@ const data = await get<DataType>('/api/slow-endpoint', {
 ```typescript
 // ❌ executeが依存配列に含まれている
 useEffect(() => {
-    execute('/api/data');
+  execute('/api/data');
 }, [execute]); // executeは毎レンダリングで新しい関数
 
 // ✅ executeを依存配列から除外
 useEffect(() => {
-    execute('/api/data');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  execute('/api/data');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
 }, []); // 初回のみ実行
 ```
 
@@ -751,9 +751,9 @@ useEffect(() => {
 ```typescript
 // ✅ ヘッダーを明示的に設定
 const data = await get<DataType>('/api/protected', {
-    headers: {
-        Authorization: `Bearer ${token}`,
-    },
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
 });
 ```
 
@@ -769,14 +769,14 @@ const data = await post<DataType>('/api/data', { key: 'value' });
 
 // カスタムヘッダーが必要な場合
 const data = await post<DataType>(
-    '/api/data',
-    { key: 'value' },
-    {
-        headers: {
-            'Content-Type': 'application/json', // 明示的に指定
-            'X-Custom-Header': 'value',
-        },
-    }
+  '/api/data',
+  { key: 'value' },
+  {
+    headers: {
+      'Content-Type': 'application/json', // 明示的に指定
+      'X-Custom-Header': 'value',
+    },
+  }
 );
 ```
 
@@ -789,10 +789,10 @@ const data = await post<DataType>(
 ```javascript
 // jest.config.js
 module.exports = {
-    moduleNameMapper: {
-        '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
-        '^@nagiyu/react$': '<rootDir>/../../../libs/react/src/index.ts',
-    },
+  moduleNameMapper: {
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^@nagiyu/react$': '<rootDir>/../../../libs/react/src/index.ts',
+  },
 };
 ```
 
@@ -801,9 +801,9 @@ module.exports = {
 ```typescript
 // テストファイル
 jest.mock('@nagiyu/common', () => ({
-    get: jest.fn(),
-    post: jest.fn(),
-    APIError: class APIError extends Error {},
+  get: jest.fn(),
+  post: jest.fn(),
+  APIError: class APIError extends Error {},
 }));
 ```
 
@@ -816,9 +816,9 @@ jest.mock('@nagiyu/common', () => ({
 ```json
 // 正しい形式
 {
-    "error": "RESOURCE_NOT_FOUND",
-    "message": "Resource not found",
-    "details": ["Resource ID 123 does not exist"]
+  "error": "RESOURCE_NOT_FOUND",
+  "message": "Resource not found",
+  "details": ["Resource ID 123 does not exist"]
 }
 ```
 
@@ -842,15 +842,15 @@ console.log(data.name); // OK
 
 ## 参考資料
 
--   [APIクライアント使用ガイド](./api-client-guide.md)
--   [アーキテクチャ方針](./architecture.md)
--   [共通ライブラリ設計](./shared-libraries.md)
--   [テスト戦略](./testing.md)
+- [APIクライアント使用ガイド](./api-client-guide.md)
+- [アーキテクチャ方針](./architecture.md)
+- [共通ライブラリ設計](./shared-libraries.md)
+- [テスト戦略](./testing.md)
 
 ## サポート
 
 移行に関する質問や問題がある場合は、以下の方法でサポートを受けられます：
 
--   GitHub Issueで質問を投稿
--   開発チームのSlackチャンネルで質問
--   コードレビューでフィードバックをリクエスト
+- GitHub Issueで質問を投稿
+- 開発チームのSlackチャンネルで質問
+- コードレビューでフィードバックをリクエスト
