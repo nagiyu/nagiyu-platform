@@ -6,8 +6,8 @@ const config: Config = {
   extensionsToTreatAsEsm: ['.ts'],
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   moduleNameMapper: {
-    // Strip .js extension and let ts-jest find the .ts file
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    // Map .js imports to corresponding TypeScript files (only for relative paths)
+    '^(\\.{1,2}/.+)\\.js$': '$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
