@@ -163,15 +163,27 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   }
 
   /**
-   * ユーザーIDとティッカーIDで単一の保有株式を取得
-   *
-   * @param userId - ユーザーID
-   * @param tickerId - ティッカーID
-   * @returns 保有株式（存在しない場合はnull）
+   * ユーザーIDとティッカーIDで単一の保有株式を取得（基底クラスのシグネチャ）
    */
-  async getById(userId: string, tickerId: string): Promise<Holding | null> {
+  async getById(key: { userId: string; tickerId: string }): Promise<Holding | null>;
+  /**
+   * ユーザーIDとティッカーIDで単一の保有株式を取得（互換性のある2パラメータ版）
+   */
+  async getById(userId: string, tickerId: string): Promise<Holding | null>;
+  /**
+   * ユーザーIDとティッカーIDで単一の保有株式を取得の実装
+   */
+  async getById(
+    keyOrUserId: { userId: string; tickerId: string } | string,
+    tickerId?: string
+  ): Promise<Holding | null> {
     try {
-      return await super.getById({ userId, tickerId });
+      const key =
+        typeof keyOrUserId === 'string' && tickerId !== undefined
+          ? { userId: keyOrUserId, tickerId }
+          : (keyOrUserId as { userId: string; tickerId: string });
+
+      return await super.getById(key);
     } catch (error) {
       // InvalidHoldingDataErrorは そのまま投げる
       if (error instanceof InvalidHoldingDataError) {
@@ -218,20 +230,45 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   }
 
   /**
-   * 保有株式を更新
-   *
-   * @param userId - ユーザーID
-   * @param tickerId - ティッカーID
-   * @param updates - 更新するフィールド（Quantity, AveragePrice, Currency）
-   * @returns 更新された保有株式
-   * @throws HoldingNotFoundError 保有株式が存在しない場合
+   * 保有株式を更新（基底クラスのシグネチャ）
+   */
+  async update(
+    key: { userId: string; tickerId: string },
+    updates: Partial<Holding>
+  ): Promise<Holding>;
+  /**
+   * 保有株式を更新（互換性のある3パラメータ版）
    */
   async update(
     userId: string,
     tickerId: string,
     updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>>
+  ): Promise<Holding>;
+  /**
+   * 保有株式を更新の実装
+   */
+  async update(
+    keyOrUserId: { userId: string; tickerId: string } | string,
+    tickerIdOrUpdates?: string | Partial<Holding>,
+    updates?: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>>
   ): Promise<Holding> {
     try {
+      let userId: string;
+      let tickerId: string;
+      let actualUpdates: Partial<Holding>;
+
+      if (typeof keyOrUserId === 'string') {
+        // 3-parameter version: (userId, tickerId, updates)
+        userId = keyOrUserId;
+        tickerId = tickerIdOrUpdates as string;
+        actualUpdates = updates as Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>>;
+      } else {
+        // 2-parameter version: (key, updates)
+        userId = keyOrUserId.userId;
+        tickerId = keyOrUserId.tickerId;
+        actualUpdates = tickerIdOrUpdates as Partial<Holding>;
+      }
+
       // 存在確認
       const existing = await this.getById(userId, tickerId);
       if (!existing) {
@@ -239,16 +276,19 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
       }
 
       // 更新するフィールドが指定されていない場合はエラー
-      if (Object.keys(updates).length === 0) {
+      if (Object.keys(actualUpdates).length === 0) {
         throw new InvalidHoldingDataError('更新するフィールドが指定されていません');
       }
 
-      return await super.update({ userId, tickerId }, updates);
+      return await super.update({ userId, tickerId }, actualUpdates);
     } catch (error) {
       if (error instanceof HoldingNotFoundError || error instanceof InvalidHoldingDataError) {
         throw error;
       }
       if (error instanceof EntityNotFoundError) {
+        const userId = typeof keyOrUserId === 'string' ? keyOrUserId : keyOrUserId.userId;
+        const tickerId =
+          typeof keyOrUserId === 'string' ? (tickerIdOrUpdates as string) : keyOrUserId.tickerId;
         throw new HoldingNotFoundError(userId, tickerId);
       }
       if (error instanceof InvalidEntityDataError) {
@@ -271,27 +311,50 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   }
 
   /**
-   * 保有株式を削除
-   *
-   * @param userId - ユーザーID
-   * @param tickerId - ティッカーID
-   * @throws HoldingNotFoundError 保有株式が存在しない場合
+   * 保有株式を削除（基底クラスのシグネチャ）
    */
-  async delete(userId: string, tickerId: string): Promise<void> {
+  async delete(key: { userId: string; tickerId: string }): Promise<void>;
+  /**
+   * 保有株式を削除（互換性のある2パラメータ版）
+   */
+  async delete(userId: string, tickerId: string): Promise<void>;
+  /**
+   * 保有株式を削除の実装
+   */
+  async delete(
+    keyOrUserId: { userId: string; tickerId: string } | string,
+    tickerId?: string
+  ): Promise<void> {
     try {
-      // 存在確認
-      const existing = await this.getById(userId, tickerId);
-      if (!existing) {
-        throw new HoldingNotFoundError(userId, tickerId);
+      let userId: string;
+      let tickerIdValue: string;
+
+      if (typeof keyOrUserId === 'string') {
+        // 2-parameter version: (userId, tickerId)
+        userId = keyOrUserId;
+        tickerIdValue = tickerId as string;
+      } else {
+        // 1-parameter version: (key)
+        userId = keyOrUserId.userId;
+        tickerIdValue = keyOrUserId.tickerId;
       }
 
-      await super.delete({ userId, tickerId });
+      // 存在確認
+      const existing = await this.getById(userId, tickerIdValue);
+      if (!existing) {
+        throw new HoldingNotFoundError(userId, tickerIdValue);
+      }
+
+      await super.delete({ userId, tickerId: tickerIdValue });
     } catch (error) {
       if (error instanceof HoldingNotFoundError) {
         throw error;
       }
       if (error instanceof EntityNotFoundError) {
-        throw new HoldingNotFoundError(userId, tickerId);
+        const userId = typeof keyOrUserId === 'string' ? keyOrUserId : keyOrUserId.userId;
+        const tickerIdValue =
+          typeof keyOrUserId === 'string' ? (tickerId as string) : keyOrUserId.tickerId;
+        throw new HoldingNotFoundError(userId, tickerIdValue);
       }
       if (error instanceof DatabaseError) {
         const originalError = error.cause || error;
