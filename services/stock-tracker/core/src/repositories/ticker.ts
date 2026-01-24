@@ -12,51 +12,37 @@
  * - delete: 削除
  */
 
+import { QueryCommand, ScanCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  DynamoDBDocumentClient,
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  DeleteCommand,
-  QueryCommand,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
-import type { Ticker, DynamoDBItem } from '../types.js';
+  AbstractDynamoDBRepository,
+  EntityNotFoundError,
+  EntityAlreadyExistsError,
+  InvalidEntityDataError,
+  DatabaseError,
+  validateStringField,
+  validateTimestampField,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
+import type { Ticker } from '../types.js';
 
-/**
- * エラーメッセージ定数
- */
-const ERROR_MESSAGES = {
-  TICKER_NOT_FOUND: 'ティッカーが見つかりません',
-  TICKER_ALREADY_EXISTS: 'ティッカーは既に存在します',
-  INVALID_TICKER_ID: 'ティッカーIDが不正です',
-  INVALID_EXCHANGE_ID: '取引所IDが不正です',
-  INVALID_SYMBOL: 'シンボルが不正です',
-  INVALID_NAME: '銘柄名が不正です',
-  EXCHANGE_NOT_FOUND: '取引所が見つかりません',
-  DATABASE_ERROR: 'データベースエラーが発生しました',
-} as const;
-
-/**
- * カスタムエラークラス
- */
+// 互換性のためのエラークラスエイリアス
 export class TickerNotFoundError extends Error {
   constructor(tickerId: string) {
-    super(`${ERROR_MESSAGES.TICKER_NOT_FOUND}: ${tickerId}`);
+    super(`ティッカーが見つかりません: ${tickerId}`);
     this.name = 'TickerNotFoundError';
   }
 }
 
 export class TickerAlreadyExistsError extends Error {
   constructor(tickerId: string) {
-    super(`${ERROR_MESSAGES.TICKER_ALREADY_EXISTS}: ${tickerId}`);
+    super(`ティッカーは既に存在します: ${tickerId}`);
     this.name = 'TickerAlreadyExistsError';
   }
 }
 
 export class InvalidTickerDataError extends Error {
   constructor(message: string) {
-    super(`${ERROR_MESSAGES.INVALID_TICKER_ID}: ${message}`);
+    super(message);
     this.name = 'InvalidTickerDataError';
   }
 }
@@ -64,13 +50,64 @@ export class InvalidTickerDataError extends Error {
 /**
  * Ticker リポジトリ
  */
-export class TickerRepository {
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
-
+export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { tickerId: string }> {
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
+    super(docClient, {
+      tableName,
+      entityType: 'Ticker',
+    });
+  }
+
+  /**
+   * PK/SK を構築
+   */
+  protected buildKeys(key: { tickerId: string }): { PK: string; SK: string } {
+    return {
+      PK: `TICKER#${key.tickerId}`,
+      SK: 'METADATA',
+    };
+  }
+
+  /**
+   * DynamoDB Item を Ticker にマッピング
+   */
+  protected mapToEntity(item: Record<string, unknown>): Ticker {
+    try {
+      return {
+        TickerID: validateStringField(item.TickerID, 'TickerID'),
+        Symbol: validateStringField(item.Symbol, 'Symbol'),
+        Name: validateStringField(item.Name, 'Name'),
+        ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
+        CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+        UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+      };
+    } catch (error) {
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidTickerDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Ticker を DynamoDB Item にマッピング
+   */
+  protected mapToItem(
+    ticker: Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ tickerId: ticker.TickerID });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      GSI3PK: ticker.ExchangeID,
+      GSI3SK: `TICKER#${ticker.TickerID}`,
+      TickerID: ticker.TickerID,
+      Symbol: ticker.Symbol,
+      Name: ticker.Name,
+      ExchangeID: ticker.ExchangeID,
+    };
   }
 
   /**
@@ -89,7 +126,7 @@ export class TickerRepository {
       // 全ティッカーを取得（Scan with filter）
       const result = await this.docClient.send(
         new ScanCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           FilterExpression: '#type = :type',
           ExpressionAttributeNames: {
             '#type': 'Type',
@@ -104,45 +141,63 @@ export class TickerRepository {
         return [];
       }
 
-      return result.Items.map((item) => this.mapDynamoDBItemToTicker(item));
+      return result.Items.map((item) => this.mapToEntity(item));
     } catch (error) {
+      if (error instanceof InvalidTickerDataError) {
+        throw error;
+      }
       throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
+        `データベースエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
 
   /**
-   * ティッカーIDでティッカーを取得
-   *
-   * @param tickerId - ティッカーID（例: NSDQ:AAPL）
-   * @returns ティッカー
-   * @throws TickerNotFoundError - ティッカーが見つからない場合
+   * ティッカーIDでティッカーを取得（基底クラスのシグネチャ）
    */
-  async getById(tickerId: string): Promise<Ticker> {
+  async getById(key: { tickerId: string }): Promise<Ticker | null>;
+  /**
+   * ティッカーIDでティッカーを取得（互換性のある文字列版）
+   */
+  async getById(tickerId: string): Promise<Ticker>;
+  /**
+   * ティッカーIDでティッカーを取得の実装
+   */
+  async getById(keyOrTickerId: { tickerId: string } | string): Promise<Ticker | null> {
     try {
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `TICKER#${tickerId}`,
-            SK: 'METADATA',
-          },
-        })
-      );
-
-      if (!result.Item) {
+      const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
+      const result = await super.getById({ tickerId });
+      
+      // 文字列が渡された場合はnullを返すのではなくエラーをスロー（後方互換性）
+      if (!result && typeof keyOrTickerId === 'string') {
         throw new TickerNotFoundError(tickerId);
       }
-
-      return this.mapDynamoDBItemToTicker(result.Item);
+      
+      return result;
     } catch (error) {
       if (error instanceof TickerNotFoundError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof EntityNotFoundError) {
+        const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
+        throw new TickerNotFoundError(tickerId);
+      }
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidTickerDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      if (error instanceof DatabaseError) {
+        // DatabaseErrorを元のDynamoDBエラーに変換
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      // その他のエラーはデータベースエラーとしてラップ
+      if (error instanceof Error) {
+        throw new Error(`データベースエラーが発生しました: ${error.message}`);
+      }
+      throw new Error(`データベースエラーが発生しました: ${String(error)}`);
     }
   }
 
@@ -156,7 +211,7 @@ export class TickerRepository {
     try {
       const result = await this.docClient.send(
         new QueryCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           IndexName: 'ExchangeTickerIndex',
           KeyConditionExpression: 'GSI3PK = :exchangeId',
           ExpressionAttributeValues: {
@@ -169,30 +224,54 @@ export class TickerRepository {
         return [];
       }
 
-      return result.Items.map((item) => this.mapDynamoDBItemToTicker(item));
+      return result.Items.map((item) => this.mapToEntity(item));
     } catch (error) {
+      if (error instanceof InvalidTickerDataError) {
+        throw error;
+      }
       throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
+        `データベースエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
 
   /**
-   * ティッカー作成
-   *
-   * TickerIDは {Exchange.Key}:{Symbol} 形式で自動生成される
-   *
-   * @param ticker - 作成するティッカー（TickerIDは不要、自動生成される）
-   * @param exchangeKey - 取引所のKey（TradingView API用）
-   * @returns 作成されたティッカー（TickerID付き）
-   * @throws TickerAlreadyExistsError - ティッカーが既に存在する場合
+   * ティッカー作成（基底クラスのシグネチャ）
+   */
+  async create(entity: Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>): Promise<Ticker>;
+  /**
+   * ティッカー作成（互換性のある2パラメータ版）
    */
   async create(
     ticker: Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'>,
     exchangeKey: string
+  ): Promise<Ticker>;
+  /**
+   * ティッカー作成の実装
+   */
+  async create(
+    tickerOrEntity: Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'> | Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>,
+    exchangeKey?: string
   ): Promise<Ticker> {
-    // TickerID自動生成: {Exchange.Key}:{Symbol}
-    const tickerId = `${exchangeKey}:${ticker.Symbol}`;
+    let tickerId: string;
+    let tickerWithId: Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>;
+
+    if ('TickerID' in tickerOrEntity) {
+      // 基底クラスのシグネチャ（TickerID付き）
+      tickerId = tickerOrEntity.TickerID;
+      tickerWithId = tickerOrEntity;
+    } else {
+      // 互換性のあるシグネチャ（TickerID自動生成）
+      if (!exchangeKey) {
+        throw new Error('exchangeKey is required when TickerID is not provided');
+      }
+      // TickerID自動生成: {Exchange.Key}:{Symbol}
+      tickerId = `${exchangeKey}:${tickerOrEntity.Symbol}`;
+      tickerWithId = {
+        ...tickerOrEntity,
+        TickerID: tickerId,
+      };
+    }
 
     // 既存チェック
     try {
@@ -208,151 +287,128 @@ export class TickerRepository {
       }
     }
 
-    const now = Date.now();
-    const newTicker: Ticker = {
-      ...ticker,
-      TickerID: tickerId,
-      CreatedAt: now,
-      UpdatedAt: now,
-    };
-
     try {
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: this.mapTickerToDynamoDBItem(newTicker),
-        })
-      );
-
-      return newTicker;
+      return await super.create(tickerWithId);
     } catch (error) {
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof EntityAlreadyExistsError) {
+        throw new TickerAlreadyExistsError(tickerId);
+      }
+      if (error instanceof DatabaseError) {
+        // DatabaseErrorを元のDynamoDBエラーに変換
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      // エラーメッセージが既にラップされている場合はそのまま投げる
+      if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {
+        throw error;
+      }
+      // その他のエラーはデータベースエラーとしてラップ
+      if (error instanceof Error) {
+        throw new Error(`データベースエラーが発生しました: ${error.message}`);
+      }
+      throw new Error(`データベースエラーが発生しました: ${String(error)}`);
     }
   }
 
   /**
-   * ティッカー更新
-   *
-   * @param tickerId - ティッカーID
-   * @param updates - 更新内容（Symbol, Name のみ更新可能）
-   * @returns 更新後のティッカー
-   * @throws TickerNotFoundError - ティッカーが見つからない場合
+   * ティッカー更新（基底クラスのシグネチャ）
+   */
+  async update(key: { tickerId: string }, updates: Partial<Ticker>): Promise<Ticker>;
+  /**
+   * ティッカー更新（互換性のある2パラメータ版）
    */
   async update(
     tickerId: string,
     updates: Partial<Pick<Ticker, 'Symbol' | 'Name'>>
+  ): Promise<Ticker>;
+  /**
+   * ティッカー更新の実装
+   */
+  async update(
+    keyOrTickerId: { tickerId: string } | string,
+    updates: Partial<Ticker> | Partial<Pick<Ticker, 'Symbol' | 'Name'>>
   ): Promise<Ticker> {
-    // 存在チェック
-    await this.getById(tickerId);
-
-    const now = Date.now();
-
     try {
-      // 更新可能なフィールドを動的に構築
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, unknown> = {};
+      const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
+      
+      // 存在チェック
+      await this.getById(tickerId);
 
-      if (updates.Symbol !== undefined) {
-        updateExpressions.push('#symbol = :symbol');
-        expressionAttributeNames['#symbol'] = 'Symbol';
-        expressionAttributeValues[':symbol'] = updates.Symbol;
-      }
-
-      if (updates.Name !== undefined) {
-        updateExpressions.push('#name = :name');
-        expressionAttributeNames['#name'] = 'Name';
-        expressionAttributeValues[':name'] = updates.Name;
-      }
-
-      // UpdatedAt は常に更新
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
-
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `TICKER#${tickerId}`,
-            SK: 'METADATA',
-          },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
-        })
-      );
-
-      // 更新後のティッカーを取得して返す
-      return await this.getById(tickerId);
+      return await super.update({ tickerId }, updates);
     } catch (error) {
       if (error instanceof TickerNotFoundError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof EntityNotFoundError) {
+        const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
+        throw new TickerNotFoundError(tickerId);
+      }
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidTickerDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      if (error instanceof DatabaseError) {
+        // DatabaseErrorを元のDynamoDBエラーに変換
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      // エラーメッセージが既にラップされている場合はそのまま投げる
+      if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {
+        throw error;
+      }
+      // その他のエラーはデータベースエラーとしてラップ
+      if (error instanceof Error) {
+        throw new Error(`データベースエラーが発生しました: ${error.message}`);
+      }
+      throw new Error(`データベースエラーが発生しました: ${String(error)}`);
     }
   }
 
   /**
-   * ティッカー削除
-   *
-   * @param tickerId - ティッカーID
-   * @throws TickerNotFoundError - ティッカーが見つからない場合
+   * ティッカー削除（基底クラスのシグネチャ）
    */
-  async delete(tickerId: string): Promise<void> {
-    // 存在チェック
-    await this.getById(tickerId);
-
+  async delete(key: { tickerId: string }): Promise<void>;
+  /**
+   * ティッカー削除（互換性のある文字列版）
+   */
+  async delete(tickerId: string): Promise<void>;
+  /**
+   * ティッカー削除の実装
+   */
+  async delete(keyOrTickerId: { tickerId: string } | string): Promise<void> {
     try {
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `TICKER#${tickerId}`,
-            SK: 'METADATA',
-          },
-        })
-      );
+      const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
+      
+      // 存在チェック
+      await this.getById(tickerId);
+
+      await super.delete({ tickerId });
     } catch (error) {
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof TickerNotFoundError) {
+        throw error;
+      }
+      if (error instanceof EntityNotFoundError) {
+        const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
+        throw new TickerNotFoundError(tickerId);
+      }
+      if (error instanceof DatabaseError) {
+        // DatabaseErrorを元のDynamoDBエラーに変換
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      // エラーメッセージが既にラップされている場合はそのまま投げる
+      if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {
+        throw error;
+      }
+      // その他のエラーはデータベースエラーとしてラップ
+      if (error instanceof Error) {
+        throw new Error(`データベースエラーが発生しました: ${error.message}`);
+      }
+      throw new Error(`データベースエラーが発生しました: ${String(error)}`);
     }
-  }
-
-  /**
-   * DynamoDB Item を Ticker にマッピング
-   */
-  private mapDynamoDBItemToTicker(item: Record<string, unknown>): Ticker {
-    // DynamoDBアイテムからTickerフィールドのみを抽出
-    const ticker: Ticker = {
-      TickerID: item.TickerID as string,
-      Symbol: item.Symbol as string,
-      Name: item.Name as string,
-      ExchangeID: item.ExchangeID as string,
-      CreatedAt: item.CreatedAt as number,
-      UpdatedAt: item.UpdatedAt as number,
-    };
-    return ticker;
-  }
-
-  /**
-   * Ticker を DynamoDB Item にマッピング
-   */
-  private mapTickerToDynamoDBItem(ticker: Ticker): DynamoDBItem & Ticker {
-    // DynamoDBキーとメタデータを追加
-    const dynamoDBItem: DynamoDBItem & Ticker = {
-      PK: `TICKER#${ticker.TickerID}`,
-      SK: 'METADATA',
-      Type: 'Ticker',
-      GSI3PK: ticker.ExchangeID,
-      GSI3SK: `TICKER#${ticker.TickerID}`,
-      ...ticker,
-    };
-    return dynamoDBItem;
   }
 }
