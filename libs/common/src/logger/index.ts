@@ -1,6 +1,6 @@
 /**
  * Logger module
- * 
+ *
  * Provides structured logging functionality with JSON output format.
  * Supports log levels (DEBUG, INFO, WARN, ERROR) and contextual information.
  */
