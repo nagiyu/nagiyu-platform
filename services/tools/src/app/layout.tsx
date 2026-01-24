@@ -57,23 +57,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeRegistry version={version}>
-          <Header
-            title="Tools"
-            href="/"
-            ariaLabel="Tools ホームページに戻る"
-            navigationItems={navigationItems}
-          />
-          <Box
-            component="main"
-            sx={{
-              minHeight: 'calc(100vh - 64px - 80px)',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {children}
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <Header
+              title="Tools"
+              href="/"
+              ariaLabel="Tools ホームページに戻る"
+              navigationItems={navigationItems}
+            />
+            <Box
+              component="main"
+              sx={{
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {children}
+            </Box>
+            <Footer version={version} contactHref="/contact" />
           </Box>
-          <Footer version={version} contactHref="/contact" />
         </ThemeRegistry>
       </body>
     </html>
