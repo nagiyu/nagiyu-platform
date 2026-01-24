@@ -11,6 +11,12 @@ export interface FooterProps {
    * @default "1.0.0"
    */
   version?: string;
+
+  /**
+   * Optional contact page link
+   * When provided, a link to the contact page will be displayed
+   */
+  contactHref?: string;
 }
 
 /**
@@ -25,7 +31,7 @@ export interface FooterProps {
  * <Footer version="2.1.0" />
  * ```
  */
-export default function Footer({ version = '1.0.0' }: FooterProps) {
+export default function Footer({ version = '1.0.0', contactHref }: FooterProps) {
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
 
@@ -65,6 +71,20 @@ export default function Footer({ version = '1.0.0' }: FooterProps) {
             >
               利用規約
             </Link>
+            {contactHref && (
+              <>
+                {' | '}
+                <Link
+                  href={contactHref}
+                  color="inherit"
+                  sx={{
+                    color: 'text.secondary',
+                  }}
+                >
+                  お問い合わせ
+                </Link>
+              </>
+            )}
           </Typography>
         </Container>
       </Box>
