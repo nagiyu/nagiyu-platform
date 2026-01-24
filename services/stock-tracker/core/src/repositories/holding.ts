@@ -4,42 +4,38 @@
  * 保有株式データの CRUD 操作を提供
  */
 
+import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import {
-  GetCommand,
-  PutCommand,
-  UpdateCommand,
-  DeleteCommand,
-  QueryCommand,
-  type DynamoDBDocumentClient,
-} from '@aws-sdk/lib-dynamodb';
-import type { Holding, DynamoDBItem } from '../types.js';
+  AbstractDynamoDBRepository,
+  EntityNotFoundError,
+  EntityAlreadyExistsError,
+  InvalidEntityDataError,
+  DatabaseError,
+  validateStringField,
+  validateNumberField,
+  validateTimestampField,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
+import type { Holding } from '../types.js';
 
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  HOLDING_NOT_FOUND: '保有株式が見つかりません',
-  INVALID_HOLDING_DATA: '保有株式データが無効です',
-  HOLDING_ALREADY_EXISTS: '保有株式は既に存在します',
-  DATABASE_ERROR: 'データベースエラーが発生しました',
-} as const;
-
-// カスタムエラークラス
+// 互換性のためのエラークラス
 export class HoldingNotFoundError extends Error {
   constructor(userId: string, tickerId: string) {
-    super(`${ERROR_MESSAGES.HOLDING_NOT_FOUND}: UserID=${userId} TickerID=${tickerId}`);
+    super(`保有株式が見つかりません: UserID=${userId} TickerID=${tickerId}`);
     this.name = 'HoldingNotFoundError';
   }
 }
 
 export class InvalidHoldingDataError extends Error {
   constructor(message: string) {
-    super(`${ERROR_MESSAGES.INVALID_HOLDING_DATA}: ${message}`);
+    super(`保有株式データが無効です: ${message}`);
     this.name = 'InvalidHoldingDataError';
   }
 }
 
 export class HoldingAlreadyExistsError extends Error {
   constructor(userId: string, tickerId: string) {
-    super(`${ERROR_MESSAGES.HOLDING_ALREADY_EXISTS}: UserID=${userId} TickerID=${tickerId}`);
+    super(`保有株式は既に存在します: UserID=${userId} TickerID=${tickerId}`);
     this.name = 'HoldingAlreadyExistsError';
   }
 }
@@ -57,13 +53,62 @@ export type PaginatedHoldings = {
  *
  * DynamoDB Single Table Design に基づく保有株式データの CRUD 操作
  */
-export class HoldingRepository {
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
-
+export class HoldingRepository extends AbstractDynamoDBRepository<
+  Holding,
+  { userId: string; tickerId: string }
+> {
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
+    super(docClient, {
+      tableName,
+      entityType: 'Holding',
+    });
+  }
+
+  /**
+   * PK/SK を構築
+   */
+  protected buildKeys(key: { userId: string; tickerId: string }): { PK: string; SK: string } {
+    return {
+      PK: `USER#${key.userId}`,
+      SK: `HOLDING#${key.tickerId}`,
+    };
+  }
+
+  /**
+   * DynamoDB Item を Holding にマッピング
+   */
+  protected mapToEntity(item: Record<string, unknown>): Holding {
+    return {
+      UserID: validateStringField(item.UserID, 'UserID'),
+      TickerID: validateStringField(item.TickerID, 'TickerID'),
+      ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
+      Quantity: validateNumberField(item.Quantity, 'Quantity'),
+      AveragePrice: validateNumberField(item.AveragePrice, 'AveragePrice'),
+      Currency: validateStringField(item.Currency, 'Currency'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
+
+  /**
+   * Holding を DynamoDB Item にマッピング
+   */
+  protected mapToItem(
+    holding: Omit<Holding, 'CreatedAt' | 'UpdatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const keys = this.buildKeys({ userId: holding.UserID, tickerId: holding.TickerID });
+    return {
+      ...keys,
+      Type: this.config.entityType,
+      GSI1PK: holding.UserID,
+      GSI1SK: `Holding#${holding.TickerID}`,
+      UserID: holding.UserID,
+      TickerID: holding.TickerID,
+      ExchangeID: holding.ExchangeID,
+      Quantity: holding.Quantity,
+      AveragePrice: holding.AveragePrice,
+      Currency: holding.Currency,
+    };
   }
 
   /**
@@ -82,7 +127,7 @@ export class HoldingRepository {
     try {
       const result = await this.docClient.send(
         new QueryCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
           ExpressionAttributeNames: {
@@ -102,7 +147,7 @@ export class HoldingRepository {
         return { items: [] };
       }
 
-      const items = result.Items.map((item) => this.mapDynamoDBItemToHolding(item));
+      const items = result.Items.map((item) => this.mapToEntity(item));
 
       return {
         items,
@@ -112,9 +157,8 @@ export class HoldingRepository {
       if (error instanceof InvalidHoldingDataError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`データベースエラーが発生しました: ${message}`);
     }
   }
 
@@ -127,28 +171,24 @@ export class HoldingRepository {
    */
   async getById(userId: string, tickerId: string): Promise<Holding | null> {
     try {
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `USER#${userId}`,
-            SK: `HOLDING#${tickerId}`,
-          },
-        })
-      );
-
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapDynamoDBItemToHolding(result.Item);
+      return await super.getById({ userId, tickerId });
     } catch (error) {
+      // InvalidHoldingDataErrorは そのまま投げる
       if (error instanceof InvalidHoldingDataError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidHoldingDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      if (error instanceof DatabaseError) {
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`データベースエラーが発生しました: ${message}`);
     }
   }
 
@@ -160,39 +200,18 @@ export class HoldingRepository {
    */
   async create(holding: Omit<Holding, 'CreatedAt' | 'UpdatedAt'>): Promise<Holding> {
     try {
-      const now = Date.now();
-      const newHolding: Holding = {
-        ...holding,
-        CreatedAt: now,
-        UpdatedAt: now,
-      };
-
-      const item: DynamoDBItem & Holding = {
-        PK: `USER#${newHolding.UserID}`,
-        SK: `HOLDING#${newHolding.TickerID}`,
-        Type: 'Holding',
-        GSI1PK: newHolding.UserID,
-        GSI1SK: `Holding#${newHolding.TickerID}`,
-        ...newHolding,
-      };
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return newHolding;
+      return await super.create(holding);
     } catch (error) {
-      // ConditionalCheckFailedException を特定してカスタムエラーにマップ
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+      if (error instanceof EntityAlreadyExistsError) {
         throw new HoldingAlreadyExistsError(holding.UserID, holding.TickerID);
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof DatabaseError) {
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`データベースエラーが発生しました: ${message}`);
     }
   }
 
@@ -217,68 +236,34 @@ export class HoldingRepository {
         throw new HoldingNotFoundError(userId, tickerId);
       }
 
-      // 更新可能なフィールドのみ抽出
-      const updateExpressions: string[] = [];
-      const expressionAttributeNames: Record<string, string> = {};
-      const expressionAttributeValues: Record<string, string | number> = {};
-
       // 更新するフィールドが指定されていない場合はエラー
       if (Object.keys(updates).length === 0) {
         throw new InvalidHoldingDataError('更新するフィールドが指定されていません');
       }
 
-      if (updates.Quantity !== undefined) {
-        updateExpressions.push('#quantity = :quantity');
-        expressionAttributeNames['#quantity'] = 'Quantity';
-        expressionAttributeValues[':quantity'] = updates.Quantity;
-      }
-
-      if (updates.AveragePrice !== undefined) {
-        updateExpressions.push('#averagePrice = :averagePrice');
-        expressionAttributeNames['#averagePrice'] = 'AveragePrice';
-        expressionAttributeValues[':averagePrice'] = updates.AveragePrice;
-      }
-
-      if (updates.Currency !== undefined) {
-        updateExpressions.push('#currency = :currency');
-        expressionAttributeNames['#currency'] = 'Currency';
-        expressionAttributeValues[':currency'] = updates.Currency;
-      }
-
-      // UpdatedAt を自動更新
-      const now = Date.now();
-      updateExpressions.push('#updatedAt = :updatedAt');
-      expressionAttributeNames['#updatedAt'] = 'UpdatedAt';
-      expressionAttributeValues[':updatedAt'] = now;
-
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `USER#${userId}`,
-            SK: `HOLDING#${tickerId}`,
-          },
-          UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-          ExpressionAttributeNames: expressionAttributeNames,
-          ExpressionAttributeValues: expressionAttributeValues,
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
-
-      // 更新後のデータを取得して返す
-      const updated = await this.getById(userId, tickerId);
-      if (!updated) {
-        throw new HoldingNotFoundError(userId, tickerId);
-      }
-
-      return updated;
+      return await super.update({ userId, tickerId }, updates);
     } catch (error) {
       if (error instanceof HoldingNotFoundError || error instanceof InvalidHoldingDataError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof EntityNotFoundError) {
+        throw new HoldingNotFoundError(userId, tickerId);
+      }
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidHoldingDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
+      }
+      if (error instanceof DatabaseError) {
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`データベースエラーが発生しました: ${message}`);
     }
   }
 
@@ -297,84 +282,24 @@ export class HoldingRepository {
         throw new HoldingNotFoundError(userId, tickerId);
       }
 
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: {
-            PK: `USER#${userId}`,
-            SK: `HOLDING#${tickerId}`,
-          },
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
+      await super.delete({ userId, tickerId });
     } catch (error) {
       if (error instanceof HoldingNotFoundError) {
         throw error;
       }
-      throw new Error(
-        `${ERROR_MESSAGES.DATABASE_ERROR}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      if (error instanceof EntityNotFoundError) {
+        throw new HoldingNotFoundError(userId, tickerId);
+      }
+      if (error instanceof DatabaseError) {
+        const originalError = error.cause || error;
+        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        throw new Error(`データベースエラーが発生しました: ${message}`);
+      }
+      if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`データベースエラーが発生しました: ${message}`);
     }
-  }
-
-  /**
-   * DynamoDB Item を Holding にマッピング
-   *
-   * @param item - DynamoDB Item
-   * @returns Holding
-   */
-  private mapDynamoDBItemToHolding(item: Record<string, unknown>): Holding {
-    // フィールドのバリデーション
-    const userId = item.UserID;
-    if (typeof userId !== 'string' || userId.length === 0) {
-      throw new InvalidHoldingDataError('フィールド "UserID" が不正です');
-    }
-
-    const tickerId = item.TickerID;
-    if (typeof tickerId !== 'string' || tickerId.length === 0) {
-      throw new InvalidHoldingDataError('フィールド "TickerID" が不正です');
-    }
-
-    const exchangeId = item.ExchangeID;
-    if (typeof exchangeId !== 'string' || exchangeId.length === 0) {
-      throw new InvalidHoldingDataError('フィールド "ExchangeID" が不正です');
-    }
-
-    const quantity = item.Quantity;
-    if (typeof quantity !== 'number') {
-      throw new InvalidHoldingDataError('フィールド "Quantity" が不正です');
-    }
-
-    const averagePrice = item.AveragePrice;
-    if (typeof averagePrice !== 'number') {
-      throw new InvalidHoldingDataError('フィールド "AveragePrice" が不正です');
-    }
-
-    const currency = item.Currency;
-    if (typeof currency !== 'string' || currency.length === 0) {
-      throw new InvalidHoldingDataError('フィールド "Currency" が不正です');
-    }
-
-    const createdAt = item.CreatedAt;
-    if (typeof createdAt !== 'number') {
-      throw new InvalidHoldingDataError('フィールド "CreatedAt" が不正です');
-    }
-
-    const updatedAt = item.UpdatedAt;
-    if (typeof updatedAt !== 'number') {
-      throw new InvalidHoldingDataError('フィールド "UpdatedAt" が不正です');
-    }
-
-    const holding: Holding = {
-      UserID: userId,
-      TickerID: tickerId,
-      ExchangeID: exchangeId,
-      Quantity: quantity,
-      AveragePrice: averagePrice,
-      Currency: currency,
-      CreatedAt: createdAt,
-      UpdatedAt: updatedAt,
-    };
-    return holding;
   }
 }
