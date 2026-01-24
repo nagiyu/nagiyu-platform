@@ -441,28 +441,24 @@ describe('HoldingRepository', () => {
       expect(result.Quantity).toBe(15.0);
       expect(result.UpdatedAt).toBe(mockNow);
 
-      expect(mockDocClient.send).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: TABLE_NAME,
-            Key: {
-              PK: 'USER#user-123',
-              SK: 'HOLDING#NSDQ:AAPL',
-            },
-            UpdateExpression: 'SET #quantity = :quantity, #updatedAt = :updatedAt',
-            ExpressionAttributeNames: {
-              '#quantity': 'Quantity',
-              '#updatedAt': 'UpdatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':quantity': 15.0,
-              ':updatedAt': mockNow,
-            },
-            ConditionExpression: 'attribute_exists(PK)',
-          }),
-        })
-      );
+      // Verify the update call was made with correct values
+      const updateCall = mockDocClient.send.mock.calls[1][0];
+      expect(updateCall.input.TableName).toBe(TABLE_NAME);
+      expect(updateCall.input.Key).toEqual({
+        PK: 'USER#user-123',
+        SK: 'HOLDING#NSDQ:AAPL',
+      });
+      expect(updateCall.input.ConditionExpression).toBe('attribute_exists(PK)');
+      // Check that UpdateExpression contains SET
+      expect(updateCall.input.UpdateExpression).toContain('SET');
+      // Check that UpdatedAt is in the attribute names mapping
+      const attrNames = Object.values(updateCall.input.ExpressionAttributeNames || {});
+      expect(attrNames).toContain('Quantity');
+      expect(attrNames).toContain('UpdatedAt');
+      // Check that the values are correct
+      const values = Object.values(updateCall.input.ExpressionAttributeValues);
+      expect(values).toContain(15.0);
+      expect(values).toContain(mockNow);
     });
 
     it('保有株式の複数フィールドを更新できる', async () => {

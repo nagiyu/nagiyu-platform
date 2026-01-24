@@ -429,9 +429,18 @@ describe('TickerRepository', () => {
     });
 
     it('データベースエラーが発生した場合はエラーをスロー', async () => {
+      // Return complete valid ticker data on first call (getById check)
       mockDocClient.send.mockResolvedValueOnce({
         Item: {
+          PK: 'TICKER#NSDQ:AAPL',
+          SK: 'METADATA',
+          Type: 'Ticker',
           TickerID: 'NSDQ:AAPL',
+          Symbol: 'AAPL',
+          Name: 'Apple Inc.',
+          ExchangeID: 'NASDAQ',
+          CreatedAt: 1700000000000,
+          UpdatedAt: 1700000000000,
         },
         $metadata: {},
       });
@@ -480,9 +489,18 @@ describe('TickerRepository', () => {
     });
 
     it('データベースエラーが発生した場合はエラーをスロー', async () => {
+      // Return complete valid ticker data on first call (getById check)
       mockDocClient.send.mockResolvedValueOnce({
         Item: {
+          PK: 'TICKER#NSDQ:AAPL',
+          SK: 'METADATA',
+          Type: 'Ticker',
           TickerID: 'NSDQ:AAPL',
+          Symbol: 'AAPL',
+          Name: 'Apple Inc.',
+          ExchangeID: 'NASDAQ',
+          CreatedAt: 1700000000000,
+          UpdatedAt: 1700000000000,
         },
         $metadata: {},
       });
