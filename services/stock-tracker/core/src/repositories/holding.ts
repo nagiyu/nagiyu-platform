@@ -184,7 +184,8 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
       }
       if (error instanceof DatabaseError) {
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       const message = error instanceof Error ? error.message : String(error);
@@ -207,7 +208,8 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
       }
       if (error instanceof DatabaseError) {
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       const message = error instanceof Error ? error.message : String(error);
@@ -256,7 +258,8 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
       }
       if (error instanceof DatabaseError) {
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {
@@ -292,7 +295,8 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
       }
       if (error instanceof DatabaseError) {
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       if (error instanceof Error && error.message.startsWith('データベースエラーが発生しました:')) {

@@ -167,12 +167,12 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
     try {
       const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
       const result = await super.getById({ tickerId });
-      
+
       // 文字列が渡された場合はnullを返すのではなくエラーをスロー（後方互換性）
       if (!result && typeof keyOrTickerId === 'string') {
         throw new TickerNotFoundError(tickerId);
       }
-      
+
       return result;
     } catch (error) {
       if (error instanceof TickerNotFoundError) {
@@ -190,7 +190,8 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
       if (error instanceof DatabaseError) {
         // DatabaseErrorを元のDynamoDBエラーに変換
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       // その他のエラーはデータベースエラーとしてラップ
@@ -250,7 +251,9 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
    * ティッカー作成の実装
    */
   async create(
-    tickerOrEntity: Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'> | Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>,
+    tickerOrEntity:
+      | Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'>
+      | Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>,
     exchangeKey?: string
   ): Promise<Ticker> {
     let tickerId: string;
@@ -296,7 +299,8 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
       if (error instanceof DatabaseError) {
         // DatabaseErrorを元のDynamoDBエラーに変換
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       // エラーメッセージが既にラップされている場合はそのまま投げる
@@ -331,7 +335,7 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
   ): Promise<Ticker> {
     try {
       const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
-      
+
       // 存在チェック
       await this.getById(tickerId);
 
@@ -352,7 +356,8 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
       if (error instanceof DatabaseError) {
         // DatabaseErrorを元のDynamoDBエラーに変換
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       // エラーメッセージが既にラップされている場合はそのまま投げる
@@ -381,7 +386,7 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
   async delete(keyOrTickerId: { tickerId: string } | string): Promise<void> {
     try {
       const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
-      
+
       // 存在チェック
       await this.getById(tickerId);
 
@@ -397,7 +402,8 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
       if (error instanceof DatabaseError) {
         // DatabaseErrorを元のDynamoDBエラーに変換
         const originalError = error.cause || error;
-        const message = originalError instanceof Error ? originalError.message : String(originalError);
+        const message =
+          originalError instanceof Error ? originalError.message : String(originalError);
         throw new Error(`データベースエラーが発生しました: ${message}`);
       }
       // エラーメッセージが既にラップされている場合はそのまま投げる
