@@ -148,7 +148,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
     try {
       const now = Date.now();
       const baseItem = this.mapToItem(entity);
-      
+
       // Type assertion needed because TypeScript can't infer that baseItem contains PK, SK, Type
       // when combined with CreatedAt/UpdatedAt via spread operator
       const item = {
@@ -255,10 +255,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
       ) {
         throw new EntityNotFoundError(this.config.entityType, JSON.stringify(key));
       }
-      if (
-        error instanceof EntityNotFoundError ||
-        error instanceof InvalidEntityDataError
-      ) {
+      if (error instanceof EntityNotFoundError || error instanceof InvalidEntityDataError) {
         throw error;
       }
       throw new DatabaseError(

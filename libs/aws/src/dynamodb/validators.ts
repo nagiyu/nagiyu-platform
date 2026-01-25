@@ -90,15 +90,11 @@ export function validateNumberField(
   }
 
   if (min !== undefined && value < min) {
-    throw new InvalidEntityDataError(
-      `フィールド "${fieldName}" は${min}以上である必要があります`
-    );
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" は${min}以上である必要があります`);
   }
 
   if (max !== undefined && value > max) {
-    throw new InvalidEntityDataError(
-      `フィールド "${fieldName}" は${max}以下である必要があります`
-    );
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" は${max}以下である必要があります`);
   }
 
   return value;
@@ -172,15 +168,11 @@ export function validateTimestampField(
   }
 
   if (value < 0) {
-    throw new InvalidEntityDataError(
-      `フィールド "${fieldName}" が負の値のタイムスタンプです`
-    );
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" が負の値のタイムスタンプです`);
   }
 
   if (!allowFuture && value > Date.now()) {
-    throw new InvalidEntityDataError(
-      `フィールド "${fieldName}" が未来のタイムスタンプです`
-    );
+    throw new InvalidEntityDataError(`フィールド "${fieldName}" が未来のタイムスタンプです`);
   }
 
   return value;
