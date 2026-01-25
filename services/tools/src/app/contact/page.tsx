@@ -4,6 +4,9 @@ import { Container, Typography, Box, Link } from '@mui/material';
 export const metadata: Metadata = {
   title: 'お問い合わせ - Tools',
   description: 'Tools へのお問い合わせ方法',
+  alternates: {
+    canonical: 'https://nagiyu.com/contact',
+  },
 };
 
 export default function ContactPage() {
