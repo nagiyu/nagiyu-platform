@@ -3,8 +3,9 @@ import { Container, Typography, Box, Link } from '@mui/material';
 import { privacyPolicySections } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
-  title: 'プライバシーポリシー - Tools',
-  description: 'Tools のプライバシーポリシー',
+  title: 'プライバシーポリシー',
+  description:
+    'Toolsのプライバシーポリシーです。Google AdSenseの使用、Cookieの取り扱い、データの処理方法、個人情報の保護について詳しく説明します。',
   alternates: {
     canonical: 'https://nagiyu.com/privacy',
   },

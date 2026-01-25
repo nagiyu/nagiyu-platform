@@ -3,8 +3,9 @@ import { Container, Typography, Box } from '@mui/material';
 import { termSections } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
-  title: '利用規約 - Tools',
-  description: 'Tools の利用規約',
+  title: '利用規約',
+  description:
+    'Toolsの利用規約です。サービスの利用条件、免責事項、禁止事項、知的財産権、利用規約の変更について説明します。ご利用前に必ずお読みください。',
   alternates: {
     canonical: 'https://nagiyu.com/terms',
   },

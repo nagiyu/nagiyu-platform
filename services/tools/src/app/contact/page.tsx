@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { Container, Typography, Box, Link } from '@mui/material';
 
 export const metadata: Metadata = {
-  title: 'お問い合わせ - Tools',
-  description: 'Tools へのお問い合わせ方法',
+  title: 'お問い合わせ',
+  description:
+    'Toolsへのお問い合わせ方法をご案内します。バグ報告や機能要望はGitHub Issuesで、その他のお問い合わせはフォームで受け付けています。',
   alternates: {
     canonical: 'https://nagiyu.com/contact',
   },
