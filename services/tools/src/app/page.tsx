@@ -1,7 +1,16 @@
+import type { Metadata } from 'next';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import TrainIcon from '@mui/icons-material/Train';
 import ToolCard from '@/components/tools/ToolCard';
 import { Tool } from '@/types/tools';
+
+export const metadata: Metadata = {
+  title: 'Tools - 便利なツール集',
+  description: '便利な開発ツール集',
+  alternates: {
+    canonical: 'https://nagiyu.com',
+  },
+};
 
 export default function HomePage() {
   const tools: Tool[] = [

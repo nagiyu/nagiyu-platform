@@ -5,6 +5,9 @@ import { privacyPolicySections } from '@nagiyu/ui';
 export const metadata: Metadata = {
   title: 'プライバシーポリシー - Tools',
   description: 'Tools のプライバシーポリシー',
+  alternates: {
+    canonical: 'https://nagiyu.com/privacy',
+  },
 };
 
 export default function PrivacyPage() {

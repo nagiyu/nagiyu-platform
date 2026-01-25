@@ -5,6 +5,9 @@ import { termSections } from '@nagiyu/ui';
 export const metadata: Metadata = {
   title: '利用規約 - Tools',
   description: 'Tools の利用規約',
+  alternates: {
+    canonical: 'https://nagiyu.com/terms',
+  },
 };
 
 export default function TermsPage() {

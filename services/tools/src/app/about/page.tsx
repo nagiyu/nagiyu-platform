@@ -4,6 +4,9 @@ import { Container, Typography, Box, Link } from '@mui/material';
 export const metadata: Metadata = {
   title: 'Tools について - Tools',
   description: 'Tools サイトの概要、開発の経緯、技術スタック、提供ツールの紹介',
+  alternates: {
+    canonical: 'https://nagiyu.com/about',
+  },
 };
 
 export default function AboutPage() {
