@@ -5,7 +5,7 @@ import { privacyPolicySections } from '@nagiyu/ui';
 export const metadata: Metadata = {
   title: 'プライバシーポリシー',
   description:
-    'Toolsのプライバシーポリシーです。Google AdSenseの使用、Cookieの取り扱い、データの処理方法、個人情報の保護について詳しく説明します。',
+    'Toolsのプライバシーポリシーです。Google AdSenseの使用、Cookie（クッキー）の取り扱い、アクセスログの収集、個人情報の保護方針、データの処理方法について詳しく説明します。ユーザーのプライバシーを最優先に考え、入力データは一切サーバーに送信されません。',
   alternates: {
     canonical: 'https://nagiyu.com/privacy',
   },

@@ -5,7 +5,7 @@ import { termSections } from '@nagiyu/ui';
 export const metadata: Metadata = {
   title: '利用規約',
   description:
-    'Toolsの利用規約です。サービスの利用条件、免責事項、禁止事項、知的財産権、利用規約の変更について説明します。ご利用前に必ずお読みください。',
+    'Toolsの利用規約です。本サービスを利用する前に必ずお読みください。サービスの利用条件、免責事項、禁止事項、知的財産権の取り扱い、利用規約の変更に関する手続きなどについて説明します。無料で利用できますが、規約に同意いただく必要があります。',
   alternates: {
     canonical: 'https://nagiyu.com/terms',
   },
