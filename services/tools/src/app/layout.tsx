@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
+import { Box } from '@mui/material';
+import { Header, Footer, type NavigationItem } from '@nagiyu/ui';
+import HomeIcon from '@mui/icons-material/Home';
+import InfoIcon from '@mui/icons-material/Info';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import './globals.css';
 
@@ -26,6 +30,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const version = process.env.APP_VERSION || '1.0.0';
   const isProduction = process.env.NODE_ENV === 'production';
 
+  const navigationItems: NavigationItem[] = [
+    {
+      label: 'ホーム',
+      href: '/',
+      icon: <HomeIcon />,
+    },
+    {
+      label: 'About',
+      href: '/about',
+      icon: <InfoIcon />,
+    },
+  ];
+
   return (
     <html lang="ja">
       <head>
@@ -39,7 +56,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
-        <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        <ThemeRegistry version={version}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <Header
+              title="Tools"
+              href="/"
+              ariaLabel="Tools ホームページに戻る"
+              navigationItems={navigationItems}
+            />
+            <Box
+              component="main"
+              sx={{
+                flexGrow: 1,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {children}
+            </Box>
+            <Footer version={version} contactHref="/contact" />
+          </Box>
+        </ThemeRegistry>
       </body>
     </html>
   );
