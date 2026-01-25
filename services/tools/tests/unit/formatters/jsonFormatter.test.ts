@@ -1,4 +1,4 @@
-import { formatJson, minifyJson, ERROR_MESSAGES } from '../jsonFormatter';
+import { formatJson, minifyJson, ERROR_MESSAGES } from '@/lib/formatters/jsonFormatter';
 
 describe('jsonFormatter', () => {
   describe('formatJson', () => {
