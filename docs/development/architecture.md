@@ -11,18 +11,18 @@
 サービスは以下のパッケージに分離することで、責務を明確化する：
 
 - **core**: ビジネスロジック層
-    - フレームワーク非依存のビジネスロジック
-    - 純粋関数として実装
-    - Unit Test 必須
-    - 相対パスで import（path alias 使用不可）
+  - フレームワーク非依存のビジネスロジック
+  - 純粋関数として実装
+  - Unit Test 必須
+  - 相対パスで import（path alias 使用不可）
 - **web**: プレゼンテーション層
-    - Next.js + React による UI 実装
-    - E2E Test 主体
-    - path alias（`@/`）使用可能
+  - Next.js + React による UI 実装
+  - E2E Test 主体
+  - path alias（`@/`）使用可能
 - **batch**: バッチ処理層
-    - 定期実行やイベント駆動の処理
-    - Lambda などでの実行を想定
-    - Unit Test 必須
+  - 定期実行やイベント駆動の処理
+  - Lambda などでの実行を想定
+  - Unit Test 必須
 
 ### 基本方針
 
@@ -48,6 +48,316 @@ batch → core → libs/common
 - コンポーネントの再利用性向上
 - 責務の明確化
 - バッチ処理の追加が容易
+
+## Pure Business Logic Functions パターン
+
+### 概要
+
+Pure Business Logic Functions（純粋関数によるビジネスロジック）は、副作用のない関数としてビジネスロジックを実装するパターンです。このパターンにより、テスト容易性、保守性、予測可能性が向上します。
+
+### 純粋関数とは
+
+純粋関数（Pure Function）は以下の特性を持つ関数です：
+
+1. **同じ入力に対して常に同じ出力を返す**
+   - 関数の戻り値は、入力パラメータのみに依存
+   - 外部状態（グローバル変数、データベース、API等）に依存しない
+
+2. **副作用がない**
+   - 外部状態を変更しない
+   - ファイルI/O、データベース更新、API呼び出しなどを行わない
+   - 引数として受け取ったオブジェクトを変更しない（イミュータブル）
+
+### なぜ純粋関数を使用するのか
+
+#### テスト容易性
+
+- **モック不要**: 外部依存がないため、モックやスタブを用意する必要がない
+- **単純なテスト**: 入力と期待する出力を定義するだけでテストできる
+- **高速なテスト実行**: I/O操作がないため、テストが高速に実行される
+
+#### 保守性
+
+- **予測可能な動作**: 同じ入力に対して常に同じ結果が返るため、動作が予測しやすい
+- **デバッグの容易性**: 関数の入力と出力のみを確認すればよい
+- **リファクタリングの安全性**: 副作用がないため、関数の内部実装を変更しやすい
+
+#### 再利用性
+
+- **独立性**: 外部依存がないため、複数の場所から呼び出し可能
+- **テスタビリティ**: 型安全性により、関数のインターフェースが明確
+
+### 適用すべきケースと適用しないケース
+
+#### 適用すべきケース
+
+- **計算ロジック**: 価格計算、税金計算、ポイント計算など
+- **データ変換**: フォーマット変換、正規化、マッピングなど
+- **バリデーション**: 入力チェック、ビジネスルールの検証など
+- **データ集計**: 合計、平均、フィルタリングなど
+
+#### 適用しないケース
+
+- **外部I/Oが必要**: API呼び出し、データベースアクセス、ファイル操作など
+- **副作用が必須**: 状態更新、ログ出力、イベント発行など
+- **非同期処理**: Promise、async/awaitを使用する処理
+
+これらのケースでは、純粋関数を呼び出す**サービス層**やリポジトリ層で副作用を扱います。
+
+### ディレクトリ構造と配置ルール
+
+#### MUST: ビジネスロジックの純粋関数は `services/{service}/core/src/libs/` に配置
+
+```
+services/{service}/core/src/
+├── libs/                   # 純粋なビジネスロジック（MUST）
+│   ├── calculations.ts     # 計算ロジック
+│   ├── formatters.ts       # データフォーマット
+│   ├── validators.ts       # バリデーション
+│   └── converters.ts       # データ変換
+├── services/               # ステートフルなサービス層（該当する場合）
+│   └── data-service.ts     # 副作用を持つ処理（API、DB等）
+├── repositories/           # データアクセス層（該当する場合）
+│   └── user-repository.ts
+└── types.ts                # 型定義
+```
+
+**配置ルールの理由**:
+
+- **libs/**: "libraries" の略で、ライブラリのような再利用可能な純粋関数を配置
+- **責務の明確化**: 純粋関数（libs/）と副作用を持つ処理（services/, repositories/）を分離
+- **テストの容易性**: libs/ 配下のコードは高いカバレッジでユニットテストを実施
+
+### 関数設計ガイドライン
+
+#### 純粋関数の実装ルール
+
+##### MUST: 同じ入力に対して常に同じ出力を返す
+
+```typescript
+// ✅ OK: 純粋関数
+export function calculateTax(price: number, taxRate: number): number {
+  return price * taxRate;
+}
+
+// ❌ NG: 外部状態（Date.now()）に依存
+export function calculateDiscount(price: number): number {
+  const now = Date.now();
+  return now % 2 === 0 ? price * 0.9 : price;
+}
+```
+
+##### MUST: 外部状態を変更しない（副作用なし）
+
+```typescript
+// ✅ OK: 新しいオブジェクトを返す（イミュータブル）
+export function addItem(items: Item[], newItem: Item): Item[] {
+  return [...items, newItem];
+}
+
+// ❌ NG: 引数のオブジェクトを変更（ミュータブル）
+export function addItem(items: Item[], newItem: Item): Item[] {
+  items.push(newItem); // 副作用
+  return items;
+}
+```
+
+##### MUST: エラーメッセージは定数オブジェクトで管理
+
+```typescript
+// ✅ OK
+export const ERROR_MESSAGES = {
+  INVALID_INPUT: '入力が不正です',
+  OUT_OF_RANGE: '値が範囲外です',
+} as const;
+
+export function validatePrice(price: number): void {
+  if (price < 0) {
+    throw new Error(ERROR_MESSAGES.OUT_OF_RANGE);
+  }
+}
+
+// ❌ NG: エラーメッセージを直接記述
+export function validatePrice(price: number): void {
+  if (price < 0) {
+    throw new Error('値が範囲外です'); // 定数化されていない
+  }
+}
+```
+
+**理由**:
+
+- エラーメッセージの一元管理
+- テストでのエラーメッセージの検証が容易
+- メッセージ変更時の影響範囲が明確
+
+##### MUST: エラーは例外（throw Error）で処理
+
+```typescript
+// ✅ OK: 例外を投げる
+export function calculateTargetPrice(averagePrice: number): number {
+  if (averagePrice < 0) {
+    throw new Error(ERROR_MESSAGES.INVALID_PRICE);
+  }
+  return averagePrice * 1.2;
+}
+
+// ❌ NG: null や undefined を返す（型安全性が損なわれる）
+export function calculateTargetPrice(averagePrice: number): number | null {
+  if (averagePrice < 0) {
+    return null;
+  }
+  return averagePrice * 1.2;
+}
+```
+
+**理由**:
+
+- Next.js の Error Boundary と相性が良い
+- 型安全性が保たれる（戻り値の型が単純）
+- エラーハンドリングが呼び出し側で明示的になる
+
+#### JSDoc コメントの必須項目
+
+##### MUST: 関数の説明、@param、@returns
+
+```typescript
+/**
+ * 目標価格の算出
+ *
+ * @param averagePrice - 平均取得価格
+ * @returns 目標価格（平均取得価格 × 1.2）
+ */
+export function calculateTargetPrice(averagePrice: number): number {
+  return averagePrice * 1.2;
+}
+```
+
+##### SHOULD: @throws（例外を投げる場合）
+
+```typescript
+/**
+ * 目標価格の算出
+ *
+ * @param averagePrice - 平均取得価格
+ * @returns 目標価格（平均取得価格 × 1.2）
+ * @throws Error - 無効な価格の場合
+ */
+export function calculateTargetPrice(averagePrice: number): number {
+  if (averagePrice < 0) {
+    throw new Error(ERROR_MESSAGES.INVALID_PRICE);
+  }
+  return averagePrice * 1.2;
+}
+```
+
+##### SHOULD: @example（使用例）
+
+```typescript
+/**
+ * 目標価格の算出
+ *
+ * @param averagePrice - 平均取得価格
+ * @returns 目標価格（平均取得価格 × 1.2）
+ * @throws Error - 無効な価格の場合
+ *
+ * @example
+ * calculateTargetPrice(100.00) // => 120.00
+ * calculateTargetPrice(250.50) // => 300.60
+ */
+export function calculateTargetPrice(averagePrice: number): number {
+  if (averagePrice < 0) {
+    throw new Error(ERROR_MESSAGES.INVALID_PRICE);
+  }
+  return averagePrice * 1.2;
+}
+```
+
+### テスト戦略
+
+#### MUST: 純粋関数のテストカバレッジは 80% 以上
+
+ビジネスロジック（`libs/` 配下）は重点的にテストを実施します。テストカバレッジ 80% 未満の場合、Full CI（develop へのPR）で自動的に失敗します。
+
+#### テストの基本パターン
+
+##### AAA パターン（Arrange, Act, Assert）
+
+```typescript
+describe('calculateTargetPrice', () => {
+  it('平均取得価格 × 1.2 で目標価格を算出する', () => {
+    // Arrange: テストデータの準備
+    const averagePrice = 100.0;
+
+    // Act: 関数の実行
+    const result = calculateTargetPrice(averagePrice);
+
+    // Assert: 結果の検証
+    expect(result).toBe(120.0);
+  });
+});
+```
+
+##### 一つのテストで一つの検証
+
+```typescript
+// ✅ OK: 一つのテストで一つのケースを検証
+describe('calculateTargetPrice', () => {
+  it('正常な価格の場合、1.2倍した値を返す', () => {
+    expect(calculateTargetPrice(100)).toBe(120);
+  });
+
+  it('負の価格の場合、エラーを投げる', () => {
+    expect(() => calculateTargetPrice(-100)).toThrow(PRICE_CALCULATOR_ERROR_MESSAGES.INVALID_PRICE);
+  });
+});
+
+// ❌ NG: 一つのテストで複数のケースを検証
+describe('calculateTargetPrice', () => {
+  it('目標価格を正しく計算する', () => {
+    expect(calculateTargetPrice(100)).toBe(120);
+    expect(calculateTargetPrice(200)).toBe(240); // 複数の検証
+    expect(() => calculateTargetPrice(-100)).toThrow(); // 異なる種類の検証
+  });
+});
+```
+
+#### 純粋関数はモック化しない
+
+純粋関数は副作用がないため、モック化せずにそのまま実行します。
+
+```typescript
+// ✅ OK: 純粋関数をそのまま実行
+import { calculateTargetPrice } from './calculations';
+
+describe('PriceService', () => {
+  it('目標価格を正しく計算する', () => {
+    const result = calculateTargetPrice(100);
+    expect(result).toBe(120);
+  });
+});
+
+// ❌ NG: 純粋関数をモック化（不要）
+import * as calculations from './calculations';
+
+describe('PriceService', () => {
+  it('目標価格を正しく計算する', () => {
+    jest.spyOn(calculations, 'calculateTargetPrice').mockReturnValue(120);
+    // ...
+  });
+});
+```
+
+**モック化が必要なのは副作用がある処理のみ**:
+
+- API呼び出し（fetch, axios等）
+- データベースアクセス
+- ファイルI/O
+- 現在時刻の取得（Date.now()）
+
+#### 参考
+
+詳細なテスト戦略については、[testing.md](./testing.md) を参照してください。
 
 ## 推奨アーキテクチャパターン
 
