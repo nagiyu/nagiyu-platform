@@ -16,7 +16,6 @@ import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { SnackbarState } from '@/types/tools';
 import { formatJson, minifyJson } from '@/lib/formatters/jsonFormatter';
-import { validateJson } from '@/lib/parsers/jsonParser';
 import { readFromClipboard, writeToClipboard } from '@nagiyu/browser';
 
 export default function JsonFormatterPage() {
@@ -32,19 +31,7 @@ export default function JsonFormatterPage() {
   const handleFormat = () => {
     setError(null);
 
-    // バリデーション
-    const validation = validateJson(inputText);
-    if (!validation.valid) {
-      setError(validation.error || '');
-      setSnackbar({
-        open: true,
-        message: validation.error || '入力エラーが発生しました',
-        severity: 'error',
-      });
-      return;
-    }
-
-    // 整形処理
+    // 整形処理（バリデーション含む）
     const result = formatJson(inputText);
     if (!result.isValid) {
       setError(result.error || '');
@@ -67,19 +54,7 @@ export default function JsonFormatterPage() {
   const handleMinify = () => {
     setError(null);
 
-    // バリデーション
-    const validation = validateJson(inputText);
-    if (!validation.valid) {
-      setError(validation.error || '');
-      setSnackbar({
-        open: true,
-        message: validation.error || '入力エラーが発生しました',
-        severity: 'error',
-      });
-      return;
-    }
-
-    // 圧縮処理
+    // 圧縮処理（バリデーション含む）
     const result = minifyJson(inputText);
     if (!result.isValid) {
       setError(result.error || '');
