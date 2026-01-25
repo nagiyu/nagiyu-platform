@@ -11,7 +11,11 @@ import {
   Alert,
   CircularProgress,
   Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -214,6 +218,114 @@ function TransitConverterContent() {
       <Typography variant="body1" color="text.secondary" paragraph align="center">
         乗り換え案内のテキストを貼り付けて、整形された形式に変換します。
       </Typography>
+
+      {/* 使い方ガイド */}
+      <Box sx={{ mb: 4 }}>
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" component="h3">
+              📖 使い方ガイド
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box>
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1 }}>
+                ステップ1: 乗り換え案内のテキストを取得
+              </Typography>
+              <Typography variant="body2" paragraph>
+                乗り換え案内サイト（Yahoo!乗換案内、ジョルダンなど）で経路を検索し、
+                表示された経路情報をコピーします。
+              </Typography>
+
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+                ステップ2: テキストを入力
+              </Typography>
+              <Typography variant="body2" paragraph>
+                コピーしたテキストを入力欄に貼り付けます。
+                「クリップボードから読み取り」ボタンを使うと、
+                クリップボードの内容を自動で入力できます。
+              </Typography>
+
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+                ステップ3: 表示設定を調整（任意）
+              </Typography>
+              <Typography variant="body2" paragraph>
+                表示したい項目をチェックボックスで選択できます。
+                デフォルトでは主要な情報（日付、出発地・到着地、時刻、運賃など）が選択されています。
+                設定は自動的に保存され、次回訪問時も反映されます。
+              </Typography>
+
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+                ステップ4: 変換を実行
+              </Typography>
+              <Typography variant="body2" paragraph>
+                「変換」ボタンをクリックすると、テキストが解析され、
+                整形された結果が出力欄に表示されます。
+              </Typography>
+
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+                ステップ5: 結果をコピー
+              </Typography>
+              <Typography variant="body2" paragraph>
+                「コピー」ボタンをクリックすると、整形された結果がクリップボードにコピーされます。
+                メモアプリやメッセージアプリに貼り付けてご利用ください。
+              </Typography>
+
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 3 }}>
+                💡 入力例
+              </Typography>
+              <Box
+                component="pre"
+                sx={{
+                  p: 2,
+                  bgcolor: 'grey.100',
+                  borderRadius: 1,
+                  fontSize: '0.875rem',
+                  overflow: 'auto',
+                }}
+              >
+                {`2024年1月15日
+東京 → 大阪
+08:00発 → 10:30着
+所要時間: 2時間30分
+乗換: 0回
+運賃: 13,870円
+距離: 552.6km
+
+東京 08:00発
+  ↓ 東海道新幹線のぞみ (2番線)
+大阪 10:30着`}
+              </Box>
+
+              <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 3 }}>
+                📤 出力例
+              </Typography>
+              <Box
+                component="pre"
+                sx={{
+                  p: 2,
+                  bgcolor: 'grey.100',
+                  borderRadius: 1,
+                  fontSize: '0.875rem',
+                  overflow: 'auto',
+                }}
+              >
+                {`【2024年1月15日】
+東京 → 大阪
+08:00発 → 10:30着
+所要時間: 2時間30分
+運賃: 13,870円
+乗換: 0回
+
+■ ルート
+東京 (08:00)
+  ↓ 東海道新幹線のぞみ
+大阪 (10:30)`}
+              </Box>
+            </Box>
+          </AccordionDetails>
+        </Accordion>
+      </Box>
 
       {/* 表示設定セクション */}
       <Box sx={{ mb: 3 }}>
