@@ -129,11 +129,11 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   });
 
   test('should have proper form labels', async ({ page }) => {
-    // Check for textarea labels
-    const inputSection = page.locator('text=入力').locator('..');
+    // Check for textarea labels using more specific selectors to avoid matching guide content
+    const inputSection = page.getByRole('heading', { name: '入力', level: 6 }).locator('..');
     await expect(inputSection).toBeVisible();
 
-    const outputSection = page.locator('text=出力').locator('..');
+    const outputSection = page.getByRole('heading', { name: '出力', level: 6 }).locator('..');
     await expect(outputSection).toBeVisible();
   });
 
