@@ -8,3 +8,6 @@
 
 // Auth module - Authentication and Authorization utilities
 export * from './auth/index.js';
+
+// Logger module - Structured logging functionality
+export * from './logger/index.js';
