@@ -296,7 +296,7 @@ test.describe('Required Pages - Common Features', () => {
       // Verify we're back on home page
       await expect(page).toHaveURL('/');
       await dismissMigrationDialogIfVisible(page);
-      const homeHeading = page.getByRole('heading', { name: /ツール一覧/ });
+      const homeHeading = page.getByRole('heading', { name: /Tools.*便利なツール集/i });
       await expect(homeHeading).toBeVisible();
     }
   });

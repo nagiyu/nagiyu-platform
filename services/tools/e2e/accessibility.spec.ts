@@ -28,7 +28,7 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
     // Check for h1 tag
     const h1 = page.locator('h1');
     await expect(h1).toHaveCount(1);
-    await expect(h1).toContainText(/ツール一覧/i);
+    await expect(h1).toContainText(/Tools.*便利なツール集/i);
   });
 
   test('should have accessible tool cards', async ({ page }) => {

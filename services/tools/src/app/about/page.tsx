@@ -67,8 +67,8 @@ export default function AboutPage() {
           </Box>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          今後も便利なツールを追加していく予定です。
-          ツールのリクエストは GitHub Issues で受け付けています。
+          今後も便利なツールを追加していく予定です。 ツールのリクエストは GitHub Issues
+          で受け付けています。
         </Typography>
       </Box>
 
@@ -93,8 +93,8 @@ export default function AboutPage() {
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body1">
-              <strong>Material-UI (MUI) v6</strong> - Google の Material Design
-              を採用した UI コンポーネントライブラリ
+              <strong>Material-UI (MUI) v6</strong> - Google の Material Design を採用した UI
+              コンポーネントライブラリ
             </Typography>
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
@@ -182,8 +182,7 @@ export default function AboutPage() {
           すべてのツールはブラウザ内で動作し、入力データはサーバーに送信されません。
         </Typography>
         <Typography variant="body1" paragraph>
-          個人を特定できる情報は一切収集していません。
-          Google Analytics による匿名のアクセス統計と、
+          個人を特定できる情報は一切収集していません。 Google Analytics による匿名のアクセス統計と、
           Google AdSense による広告配信のみ行っています。
         </Typography>
         <Typography variant="body2" color="text.secondary">
