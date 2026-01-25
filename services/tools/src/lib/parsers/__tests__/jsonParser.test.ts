@@ -207,7 +207,8 @@ describe('jsonParser', () => {
     });
 
     it('正常系: 複雑なJSONもパースできる', () => {
-      const input = '{"users":[{"id":1,"name":"太郎","tags":["admin","user"]},{"id":2,"name":"花子","tags":["user"]}]}';
+      const input =
+        '{"users":[{"id":1,"name":"太郎","tags":["admin","user"]},{"id":2,"name":"花子","tags":["user"]}]}';
       const result = parseJson(input);
 
       expect(result.isValid).toBe(true);
