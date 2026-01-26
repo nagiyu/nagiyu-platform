@@ -88,7 +88,7 @@ test.describe('PWA - Offline Functionality', () => {
     await dismissMigrationDialogIfVisible(page);
 
     // Verify homepage loaded successfully
-    const heading = page.getByRole('heading', { name: /ツール一覧/i });
+    const heading = page.getByRole('heading', { name: /Tools.*便利なツール集/i });
     await expect(heading).toBeVisible();
 
     // Note: In development mode, service worker is disabled
@@ -106,7 +106,7 @@ test.describe('PWA - Offline Functionality', () => {
       await page.goto('/');
 
       // Should still be able to see the cached homepage
-      const headingOffline = page.getByRole('heading', { name: /ツール一覧/i });
+      const headingOffline = page.getByRole('heading', { name: /Tools.*便利なツール集/i });
       await expect(headingOffline).toBeVisible();
 
       // Go back online

@@ -457,12 +457,159 @@ describe('TradingView Client', () => {
     });
 
     describe('異常系: バリデーションエラー', () => {
+      test('無効なティッカーID（空文字）でエラーをスローする', async () => {
+        // Act & Assert
+        await expect(getChartData('', '1')).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
+        );
+      });
+
+      test('無効なティッカーID（コロンなし）でエラーをスローする', async () => {
+        // Act & Assert
+        await expect(getChartData('AAPL', '1')).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER
+        );
+      });
+
       test('無効なタイムフレームでエラーをスローする', async () => {
         // Act & Assert
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await expect(getChartData('NSDQ:AAPL', '30' as any)).rejects.toThrow(
           TRADINGVIEW_ERROR_MESSAGES.INVALID_TIMEFRAME
         );
+      });
+    });
+
+    describe('異常系: タイムアウト', () => {
+      test('タイムアウト時にエラーをスローする', async () => {
+        // Arrange: タイムアウトを短く設定し、onUpdateを呼ばない
+
+        // Act & Assert
+        await expect(getChartData('NSDQ:AAPL', '1', { timeout: 100 })).rejects.toThrow(
+          TRADINGVIEW_ERROR_MESSAGES.TIMEOUT
+        );
+
+        // リソースクリーンアップが呼ばれることを確認
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+    });
+
+    describe('異常系: エラーハンドリング', () => {
+      test('レート制限エラーをスローする', async () => {
+        // Arrange
+        const rateError = new Error('rate limit exceeded');
+
+        // Act
+        const chartDataPromise = getChartData('NSDQ:AAPL', '1');
+
+        // Trigger onError callback
+        if (onErrorCallback) {
+          onErrorCallback(rateError);
+        }
+
+        // Assert
+        await expect(chartDataPromise).rejects.toThrow(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT);
+
+        // リソースクリーンアップが呼ばれることを確認
+        expect(mockChart.delete).toHaveBeenCalled();
+        expect(mockClient.end).toHaveBeenCalled();
+      });
+
+      test('その他の接続エラーをスローする', async () => {
+        // Arrange
+        const connectionError = new Error('Connection failed');
+
+        // Act
+        const chartDataPromise = getChartData('NSDQ:AAPL', '1');
+
+        // Trigger onError callback
+        if (onErrorCallback) {
+          onErrorCallback(connectionError);
+        }
+
+        // Assert
+        await expect(chartDataPromise).rejects.toThrow(
+          `${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: Connection failed`
+        );
+      });
+    });
+
+    describe('リソースクリーンアップのエラー処理', () => {
+      test('chart.delete()でエラーが発生しても処理を継続', async () => {
+        // Arrange
+        mockChart.delete.mockImplementationOnce(() => {
+          throw new Error('Delete error');
+        });
+        mockChart.periods = [
+          {
+            time: 1640000000,
+            open: 100.0,
+            max: 110.0,
+            min: 95.0,
+            close: 105.0,
+            volume: 1000000,
+          },
+        ];
+
+        // Spy on console.debug
+        const consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
+
+        // Act
+        const chartDataPromise = getChartData('NSDQ:AAPL', '1');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const chartData = await chartDataPromise;
+
+        // Assert: データは正常に取得される
+        expect(chartData).toHaveLength(1);
+        expect(consoleDebugSpy).toHaveBeenCalledWith(
+          'Error deleting chart (might be already deleted):',
+          expect.any(Error)
+        );
+
+        consoleDebugSpy.mockRestore();
+      });
+
+      test('client.end()でエラーが発生しても処理を継続', async () => {
+        // Arrange
+        mockClient.end.mockImplementationOnce(() => {
+          throw new Error('End error');
+        });
+        mockChart.periods = [
+          {
+            time: 1640000000,
+            open: 100.0,
+            max: 110.0,
+            min: 95.0,
+            close: 105.0,
+            volume: 1000000,
+          },
+        ];
+
+        // Spy on console.debug
+        const consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
+
+        // Act
+        const chartDataPromise = getChartData('NSDQ:AAPL', '1');
+
+        if (onUpdateCallback) {
+          onUpdateCallback();
+        }
+
+        const chartData = await chartDataPromise;
+
+        // Assert: データは正常に取得される
+        expect(chartData).toHaveLength(1);
+        expect(consoleDebugSpy).toHaveBeenCalledWith(
+          'Error ending client (might be already ended):',
+          expect.any(Error)
+        );
+
+        consoleDebugSpy.mockRestore();
       });
     });
   });

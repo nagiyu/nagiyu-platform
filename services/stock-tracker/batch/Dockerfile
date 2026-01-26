@@ -19,6 +19,7 @@ RUN npm ci
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=@nagiyu/common
+RUN npm run build --workspace=@nagiyu/aws
 RUN npm run build --workspace=@nagiyu/stock-tracker-core
 RUN npm run build --workspace=@nagiyu/stock-tracker-batch
 
@@ -37,6 +38,10 @@ COPY --from=builder /app/package*.json ./
 # 共通ライブラリ
 COPY --from=builder /app/libs/common/package*.json ./libs/common/
 COPY --from=builder /app/libs/common/dist ./libs/common/dist
+
+# AWS ライブラリ
+COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
+COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 
 # Core パッケージ
 COPY --from=builder /app/services/stock-tracker/core/package*.json ./services/stock-tracker/core/

@@ -3,9 +3,8 @@
 import * as React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { Box } from '@mui/material';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
-import { theme, Header, Footer } from '@nagiyu/ui';
+import { theme } from '@nagiyu/ui';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
 
 interface ThemeRegistryProps {
@@ -19,13 +18,7 @@ export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegi
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <MigrationDialog />
-        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-          <Header title="Tools" ariaLabel="Tools ホームページに戻る" />
-          <Box component="main" sx={{ flexGrow: 1 }}>
-            {children}
-          </Box>
-          <Footer version={version} />
-        </Box>
+        {children}
       </ThemeProvider>
     </AppRouterCacheProvider>
   );

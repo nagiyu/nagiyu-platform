@@ -135,9 +135,11 @@ jobs:
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
+          APP_VERSION: ${{ steps.get-version.outputs.app-version }}
         run: |
           # Build and tag with commit SHA
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
+          docker build --build-arg APP_VERSION="$APP_VERSION" \
+            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           
           # Also tag as latest
@@ -190,6 +192,34 @@ jobs:
             --require-approval never
 
           echo "Lambda and CloudFront deployed (environment: $ENVIRONMENT)"
+
+      - name: Update Lambda functions with latest images
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Get ECR repository URI
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="${ECR_REGISTRY}/tools-app-${ENVIRONMENT}:latest"
+
+          # Update Lambda function
+          aws lambda update-function-code \
+            --function-name "tools-app-${ENVIRONMENT}" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Lambda function updated with latest image."
+
+      - name: Wait for Lambda updates to complete
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Wait for function to complete updating
+          aws lambda wait function-updated \
+            --function-name "tools-app-${ENVIRONMENT}" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Lambda function update successfully"
 
   verify:
     name: Verify Deployment
