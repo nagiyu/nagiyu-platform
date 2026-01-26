@@ -1,6 +1,5 @@
-import type { DynamoDBItem } from '../mapper/dynamodb-item.interface.js';
-import type { PaginationOptions, PaginatedResult } from '../interfaces/pagination.interface.js';
-import { EntityNotFoundError, EntityAlreadyExistsError } from '../errors/repository-errors.js';
+import type { DynamoDBItem, PaginationOptions, PaginatedResult } from '../types.js';
+import { EntityNotFoundError, EntityAlreadyExistsError } from '../errors.js';
 
 /**
  * クエリ条件

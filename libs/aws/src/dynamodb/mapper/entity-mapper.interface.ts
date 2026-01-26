@@ -1,4 +1,4 @@
-import type { DynamoDBItem } from './dynamodb-item.interface.js';
+import type { DynamoDBItem } from '../types.js';
 
 /**
  * Entity ↔ DynamoDB Item の変換を担当するMapper

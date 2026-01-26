@@ -1,6 +1,6 @@
-import { InMemorySingleTableStore } from '../../../src/in-memory/single-table-store';
-import { EntityNotFoundError, EntityAlreadyExistsError } from '../../../src/errors/repository-errors';
-import type { DynamoDBItem } from '../../../src/mapper/dynamodb-item.interface';
+import { InMemorySingleTableStore } from '../../../../src/dynamodb/in-memory/single-table-store';
+import { EntityNotFoundError, EntityAlreadyExistsError } from '../../../../src/dynamodb/errors';
+import type { DynamoDBItem } from '../../../../src/dynamodb/types';
 
 describe('InMemorySingleTableStore', () => {
   let store: InMemorySingleTableStore;

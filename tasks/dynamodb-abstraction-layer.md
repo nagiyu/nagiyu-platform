@@ -121,22 +121,24 @@ interface EntityMapper<TEntity, TKey> {
 
 ```
 libs/
-  data-access/          # 新規作成
+  aws/                  # AWS SDK 補助・拡張ライブラリ（既存）
     src/
-      interfaces/       # Repository インターフェース
-        repository.interface.ts
-        pagination.interface.ts
-      mapper/           # Mapper 関連
-        entity-mapper.interface.ts
-        dynamodb-item.interface.ts
-      dynamodb/         # DynamoDB 実装
-        repository.ts
-      in-memory/        # InMemory 実装
-        single-table-store.ts
-        repository.ts
-      errors/           # エラークラス
-        repository-errors.ts
-      index.ts          # エクスポート
+      dynamodb/
+        interfaces/       # Repository インターフェース（既存の types.ts を拡張）
+          (types.ts に統合)
+        mapper/           # Mapper 関連（新規）
+          entity-mapper.interface.ts
+        dynamodb/         # DynamoDB 実装（将来追加予定）
+          repository.ts
+        in-memory/        # InMemory 実装（新規）
+          single-table-store.ts
+          repository.ts
+        errors.ts         # エラークラス（既存）
+        types.ts          # 型定義（既存 + PaginationOptions追加）
+        abstract-repository.ts  # 抽象基底クラス（既存）
+        validators.ts     # バリデーション関数（既存）
+        helpers.ts        # ヘルパー関数（既存）
+        index.ts          # エクスポート
 
 services/
   {service-name}/
@@ -152,42 +154,45 @@ services/
           in-memory-holding.repository.ts
 ```
 
+**設計変更の理由**:
+- `@nagiyu/aws` に既に同じエラークラスと型定義（`DynamoDBItem`, `PaginatedResult`, `RepositoryConfig`）が存在していたため、コードの重複を避けるために既存ライブラリに統合
+- DynamoDB関連機能として一箇所にまとめることで、保守性と一貫性が向上
+- 新規追加要素は `in-memory/` と `mapper/` のみで、既存コードへの影響は最小限
+
 ## 実装計画
 
 実装は以下のフェーズに分けて進める。各フェーズは独立した Sub Issue として切り出す。
 
-### Phase 1: 基盤の実装（共通ライブラリ）
+### Phase 1: 基盤の実装（@nagiyu/aws への統合）
 
-**目的**: 各サービスで共通利用する基盤コンポーネントを `libs/data-access` に実装する
+**目的**: 各サービスで共通利用する基盤コンポーネントを既存の `@nagiyu/aws` ライブラリに追加する
 
 **タスク**:
-1. ディレクトリ構造の作成
-2. インターフェース定義
-   - `RepositoryConfig` インターフェース
-   - `PaginationOptions` と `PaginatedResult` インターフェース
-   - `EntityMapper` インターフェース
-   - `DynamoDBItem` インターフェース
-3. エラークラスの実装
-   - `EntityNotFoundError`
-   - `EntityAlreadyExistsError`
-   - `InvalidEntityDataError`
-   - `DatabaseError`
-4. InMemorySingleTableStore の実装
+1. 型定義の拡張
+   - `PaginationOptions` を `types.ts` に追加（`PaginatedResult`, `RepositoryConfig`, `DynamoDBItem` は既存）
+2. Mapper インターフェースの追加
+   - `mapper/entity-mapper.interface.ts` を新規作成
+3. InMemorySingleTableStore の実装
+   - `in-memory/single-table-store.ts` を新規作成
    - 基本操作（get, put, delete）
    - クエリ操作（query, queryByAttribute, scan）
    - ページネーション対応
+4. エクスポートの更新
+   - `dynamodb/index.ts` に新規コンポーネントを追加
 
 **成果物**:
-- `libs/data-access/src/interfaces/`
-- `libs/data-access/src/mapper/`
-- `libs/data-access/src/errors/`
-- `libs/data-access/src/in-memory/single-table-store.ts`
+- `libs/aws/src/dynamodb/types.ts` (PaginationOptions 追加)
+- `libs/aws/src/dynamodb/mapper/entity-mapper.interface.ts` (新規)
+- `libs/aws/src/dynamodb/in-memory/single-table-store.ts` (新規)
+- `libs/aws/tests/unit/dynamodb/in-memory/single-table-store.test.ts` (新規)
 
 **受け入れ基準**:
-- [ ] 全インターフェースが型定義されている
-- [ ] InMemorySingleTableStore が基本操作を提供している
-- [ ] エラークラスが定義されている
-- [ ] ユニットテストが作成されている
+- [x] `PaginationOptions` が `libs/aws/src/dynamodb/types.ts` に追加されている
+- [x] `EntityMapper` インターフェースが定義されている
+- [x] `InMemorySingleTableStore` が基本操作を提供している
+- [x] エラークラスは既存の `libs/aws/src/dynamodb/errors.ts` を活用
+- [x] ユニットテストが作成され全てパス（75テスト）
+- [x] ビルドが成功している
 
 ---
 
