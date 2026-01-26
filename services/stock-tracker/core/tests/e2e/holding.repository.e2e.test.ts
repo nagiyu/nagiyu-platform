@@ -248,20 +248,32 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
 
       await repository.create(input);
 
-      // 同じデータを作成しようとするとエラー
-      await expect(repository.create(input)).rejects.toThrow('は既に存在します');
+      // 同じデータを作成しようとするとEntityAlreadyExistsErrorがスローされる
+      await expect(repository.create(input)).rejects.toThrow(
+        expect.objectContaining({
+          name: 'EntityAlreadyExistsError',
+        })
+      );
     });
 
     it('存在しないデータの更新時にEntityNotFoundErrorをスローする', async () => {
       await expect(
         repository.update('non-existent-user', 'non-existent-ticker', { Quantity: 100 })
-      ).rejects.toThrow('が見つかりません');
+      ).rejects.toThrow(
+        expect.objectContaining({
+          name: 'EntityNotFoundError',
+        })
+      );
     });
 
     it('存在しないデータの削除時にEntityNotFoundErrorをスローする', async () => {
       await expect(
         repository.delete('non-existent-user', 'non-existent-ticker')
-      ).rejects.toThrow('が見つかりません');
+      ).rejects.toThrow(
+        expect.objectContaining({
+          name: 'EntityNotFoundError',
+        })
+      );
     });
   });
 

@@ -383,17 +383,36 @@ const holdingRepo = new DynamoDBHoldingRepository(docClient, 'StockTrackerTable'
 環境変数に応じて適切な実装を生成するファクトリーを作成します。
 
 ```typescript
+// シングルトンパターンでストアを管理（テスト環境での共有ストア）
+let sharedStore: InMemorySingleTableStore | null = null;
+
+function getOrCreateSharedStore(): InMemorySingleTableStore {
+  if (!sharedStore) {
+    sharedStore = new InMemorySingleTableStore();
+  }
+  return sharedStore;
+}
+
 export function createHoldingRepository(): HoldingRepository {
   if (process.env.NODE_ENV === 'test') {
-    const store = new InMemorySingleTableStore();
+    // テスト環境では共有ストアを使用（Single Table Designを再現）
+    const store = getOrCreateSharedStore();
     return new InMemoryHoldingRepository(store);
   } else {
+    // 本番環境ではDynamoDBを使用
     const client = new DynamoDBClient({ region: process.env.AWS_REGION });
     const docClient = DynamoDBDocumentClient.from(client);
     return new DynamoDBHoldingRepository(docClient, process.env.TABLE_NAME!);
   }
 }
+
+// テスト間でストアをリセットする関数（テストのbeforeEachで使用）
+export function resetSharedStore(): void {
+  sharedStore = null;
+}
 ```
+
+**注意**: ファクトリーパターンを使用する場合、複数のリポジトリが同じストアを共有する必要があります。上記の例では、シングルトンパターンでストアを管理し、全てのリポジトリが同じストアインスタンスを使用します。
 
 ## ベストプラクティス
 
