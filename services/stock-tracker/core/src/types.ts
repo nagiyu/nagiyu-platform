@@ -176,6 +176,8 @@ export type Alert = {
   Enabled: boolean;
   /** アラート条件リスト (Phase 1は1条件のみ) - 必須 */
   ConditionList: AlertCondition[];
+  /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用 */
+  LogicalOperator?: 'AND' | 'OR';
   /** Web Push サブスクリプションエンドポイント - 必須 */
   SubscriptionEndpoint: string;
   /** Web Push 公開鍵 (p256dh) - 必須 */
