@@ -89,8 +89,10 @@ const ERROR_MESSAGES = {
   ALERT_LOGICAL_OPERATOR_REQUIRED: '2条件の場合は論理演算子が必須です',
   ALERT_LOGICAL_OPERATOR_UNEXPECTED: '単一条件の場合、論理演算子は設定できません',
   ALERT_CONDITION_OPERATORS_DUPLICATE: '同じ演算子を複数指定することはできません',
-  ALERT_CONDITION_RANGE_INVALID_AND: '範囲内アラート(AND)の場合、下限価格は上限価格より小さい値を設定してください',
-  ALERT_CONDITION_RANGE_INVALID_OR: '範囲外アラート(OR)の場合、下限価格は上限価格より大きい値を設定してください',
+  ALERT_CONDITION_RANGE_INVALID_AND:
+    '範囲内アラート(AND)の場合、下限価格は上限価格より小さい値を設定してください',
+  ALERT_CONDITION_RANGE_INVALID_OR:
+    '範囲外アラート(OR)の場合、下限価格は上限価格より大きい値を設定してください',
   ALERT_SUBSCRIPTION_ENDPOINT_REQUIRED: 'Web Pushサブスクリプションエンドポイントは必須です',
   ALERT_SUBSCRIPTION_KEYS_P256DH_REQUIRED: 'Web Push公開鍵は必須です',
   ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED: 'Web Push認証シークレットは必須です',
