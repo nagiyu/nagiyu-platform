@@ -530,7 +530,7 @@ describe('E2E テスト', () => {
     // テストケースごとに必要なデータを作成
     await repository.create({ ... });
     await repository.create({ ... });
-    
+
     // テストロジック
   });
 });

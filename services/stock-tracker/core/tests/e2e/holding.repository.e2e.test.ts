@@ -267,9 +267,7 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
     });
 
     it('存在しないデータの削除時にEntityNotFoundErrorをスローする', async () => {
-      await expect(
-        repository.delete('non-existent-user', 'non-existent-ticker')
-      ).rejects.toThrow(
+      await expect(repository.delete('non-existent-user', 'non-existent-ticker')).rejects.toThrow(
         expect.objectContaining({
           name: 'EntityNotFoundError',
         })

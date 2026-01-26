@@ -19,16 +19,19 @@ DynamoDB を使用する各サービスにおいて、テスト（特に E2E）�
 調査の結果、以下の状況が判明：
 
 ### DynamoDB 使用サービス
+
 - **Auth**: ユーザー管理（直接実装、GSI 1つ）
 - **Stock-Tracker**: 保有株式・ティッカー・アラート管理（抽象基底クラス使用、GSI 3つ）
 - **Codec-Converter**: ジョブ状態更新（軽量な直接実装）
 
 ### 既存の実装パターン
+
 - Stock-Tracker は `AbstractDynamoDBRepository` という抽象基底クラスを使用（[libs/aws/src/dynamodb/abstract-repository.ts](../libs/aws/src/dynamodb/abstract-repository.ts)）
 - Auth は直接実装
 - DI フレームワークは未使用（手動 DI またはシングルトン）
 
 ### テストの現状
+
 - ユニットテスト: `jest.mock()` で DynamoDB クライアントをモック
 - インテグレーションテスト: `aws-sdk-client-mock` を使用
 - **E2E テストは実 DynamoDB を使用**（課題）
@@ -59,11 +62,13 @@ DynamoDB を使用する各サービスにおいて、テスト（特に E2E）�
 ### 2. 主要コンポーネント
 
 #### Repository Interface
+
 - 基本 CRUD 操作をビジネスキーで定義
 - クエリ操作は意味のあるメソッド名で定義
 - 例: `getById(userId, tickerId)`, `getByUserId(userId, options)`
 
 #### Entity（ビジネスオブジェクト）
+
 - PK/SK を持たない純粋なビジネスオブジェクト
 - DynamoDB の実装詳細に依存しない
 - 将来的に別の DB に移行しても Entity は変わらない
@@ -80,6 +85,7 @@ interface Holding {
 ```
 
 #### Mapper
+
 - Entity ↔ DynamoDB Item の変換を担当
 - PK/SK の構築ロジックを持つ
 - DynamoDB 実装とインメモリ実装で同じ Mapper を共有
@@ -93,11 +99,13 @@ interface EntityMapper<TEntity, TKey> {
 ```
 
 #### InMemorySingleTableStore
+
 - Single Table Design を再現する共通ストア
 - PK/SK でデータを管理
 - クエリ操作は全件スキャン + フィルタで実装（テストデータは少量なので問題ない）
 
 #### Repository 実装
+
 - `DynamoDBRepository`: 本番環境用（DynamoDB を使用）
 - `InMemoryRepository`: テスト環境用（InMemorySingleTableStore を使用）
 - 同じ Repository Interface を実装
@@ -105,17 +113,17 @@ interface EntityMapper<TEntity, TKey> {
 
 ### 3. 技術的決定事項
 
-| 項目 | 決定内容 | 理由 |
-|------|----------|------|
-| 抽象化レベル | Option 3（ハイブリッド）: 基本 CRUD はビジネスキー、クエリは意味のあるメソッド名 | よく使う操作はシンプルに、複雑なクエリは意味のあるメソッド名で表現 |
-| Entity 設計 | PK/SK を持たない | ビジネスロジックに集中、将来的な柔軟性が高い |
-| Mapper | 採用 | Entity とストレージの境界が明確、DynamoDB 実装とインメモリ実装でコード共有可能 |
-| Type フィールド | Mapper が自動付与 | Type は DynamoDB の実装詳細なので Entity に含めない |
-| Single Table | 共通ストアを使用 | 各リポジトリが独立したストアではなく、共通の InMemorySingleTableStore を共有 |
-| GSI シミュレーション | 全件スキャン + フィルタ | テストデータは少量なのでパフォーマンスは気にしない、実装がシンプル |
-| ページネーション | JSON 文字列の不透明トークン | 実装の詳細を完全に隠蔽、DynamoDB と InMemory で異なる lastKey 形式を使える |
-| 条件付き操作 | DynamoDB と InMemory で同じエラーを投げる | テストで本番と同じエラーハンドリングを検証できる |
-| DI | 手動 DI からスタート | シンプルに始めて、必要に応じて Factory パターンや NestJS DI に移行 |
+| 項目                 | 決定内容                                                                         | 理由                                                                           |
+| -------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 抽象化レベル         | Option 3（ハイブリッド）: 基本 CRUD はビジネスキー、クエリは意味のあるメソッド名 | よく使う操作はシンプルに、複雑なクエリは意味のあるメソッド名で表現             |
+| Entity 設計          | PK/SK を持たない                                                                 | ビジネスロジックに集中、将来的な柔軟性が高い                                   |
+| Mapper               | 採用                                                                             | Entity とストレージの境界が明確、DynamoDB 実装とインメモリ実装でコード共有可能 |
+| Type フィールド      | Mapper が自動付与                                                                | Type は DynamoDB の実装詳細なので Entity に含めない                            |
+| Single Table         | 共通ストアを使用                                                                 | 各リポジトリが独立したストアではなく、共通の InMemorySingleTableStore を共有   |
+| GSI シミュレーション | 全件スキャン + フィルタ                                                          | テストデータは少量なのでパフォーマンスは気にしない、実装がシンプル             |
+| ページネーション     | JSON 文字列の不透明トークン                                                      | 実装の詳細を完全に隠蔽、DynamoDB と InMemory で異なる lastKey 形式を使える     |
+| 条件付き操作         | DynamoDB と InMemory で同じエラーを投げる                                        | テストで本番と同じエラーハンドリングを検証できる                               |
+| DI                   | 手動 DI からスタート                                                             | シンプルに始めて、必要に応じて Factory パターンや NestJS DI に移行             |
 
 ### 4. ディレクトリ構成
 
@@ -155,6 +163,7 @@ services/
 ```
 
 **設計変更の理由**:
+
 - `@nagiyu/aws` に既に同じエラークラスと型定義（`DynamoDBItem`, `PaginatedResult`, `RepositoryConfig`）が存在していたため、コードの重複を避けるために既存ライブラリに統合
 - DynamoDB関連機能として一箇所にまとめることで、保守性と一貫性が向上
 - 新規追加要素は `in-memory/` と `mapper/` のみで、既存コードへの影響は最小限
@@ -168,6 +177,7 @@ services/
 **目的**: 各サービスで共通利用する基盤コンポーネントを既存の `@nagiyu/aws` ライブラリに追加する
 
 **タスク**:
+
 1. 型定義の拡張
    - `PaginationOptions` を `types.ts` に追加（`PaginatedResult`, `RepositoryConfig`, `DynamoDBItem` は既存）
 2. Mapper インターフェースの追加
@@ -181,12 +191,14 @@ services/
    - `dynamodb/index.ts` に新規コンポーネントを追加
 
 **成果物**:
+
 - `libs/aws/src/dynamodb/types.ts` (PaginationOptions 追加)
 - `libs/aws/src/dynamodb/mapper/entity-mapper.interface.ts` (新規)
 - `libs/aws/src/dynamodb/in-memory/single-table-store.ts` (新規)
 - `libs/aws/tests/unit/dynamodb/in-memory/single-table-store.test.ts` (新規)
 
 **受け入れ基準**:
+
 - [x] `PaginationOptions` が `libs/aws/src/dynamodb/types.ts` に追加されている
 - [x] `EntityMapper` インターフェースが定義されている
 - [x] `InMemorySingleTableStore` が基本操作を提供している
@@ -201,6 +213,7 @@ services/
 **目的**: Stock-Tracker の Holding エンティティを例に、具体的な実装パターンを確立する
 
 **タスク**:
+
 1. Holding Entity の定義
    - PK/SK を持たない純粋なビジネスオブジェクト
 2. HoldingMapper の実装
@@ -221,6 +234,7 @@ services/
    - ページネーション対応
 
 **成果物**:
+
 - `services/stock-tracker/core/src/entities/holding.entity.ts`
 - `services/stock-tracker/core/src/mappers/holding.mapper.ts`
 - `services/stock-tracker/core/src/repositories/holding.repository.interface.ts`
@@ -228,6 +242,7 @@ services/
 - `services/stock-tracker/core/src/repositories/in-memory-holding.repository.ts`
 
 **受け入れ基準**:
+
 - [ ] Holding Entity が PK/SK を持たない
 - [ ] HoldingMapper が Entity ↔ DynamoDBItem の変換を行う
 - [ ] DynamoDB 実装と InMemory 実装が同じインターフェースを実装している
@@ -242,6 +257,7 @@ services/
 **目的**: DI を使ってテスト環境で InMemory 実装を使用できることを検証する
 
 **タスク**:
+
 1. 手動 DI パターンの実装例
    - テストでの InMemory リポジトリの使用
    - 本番での DynamoDB リポジトリの使用
@@ -256,12 +272,14 @@ services/
    - InMemorySingleTableStore の初期化方法
 
 **成果物**:
+
 - `services/stock-tracker/core/tests/e2e/holding.repository.e2e.test.ts`
 - `services/stock-tracker/core/tests/unit/mappers/holding.mapper.test.ts`
 - `services/stock-tracker/core/tests/unit/repositories/holding.repository.test.ts`
 - `docs/development/testing-with-in-memory-repositories.md`（テストガイドライン）
 
 **受け入れ基準**:
+
 - [x] E2E テストで実 DynamoDB を使わずにテストできている
 - [x] 複数リポジトリが同じストアを共有できることが検証されている
 - [x] テストガイドラインが作成されている
@@ -274,6 +292,7 @@ services/
 **目的**: Holding 以外のエンティティ（Ticker, Alert など）にも同じパターンを適用する
 
 **タスク**:
+
 1. Ticker リポジトリの実装
    - TickerMapper
    - DynamoDBTickerRepository
@@ -285,10 +304,12 @@ services/
 3. 各リポジトリのテスト作成
 
 **成果物**:
+
 - Ticker, Alert の各実装ファイル
 - 各リポジトリのテスト
 
 **受け入れ基準**:
+
 - [ ] Ticker, Alert リポジトリが実装されている
 - [ ] 全リポジトリが同じパターンに従っている
 - [ ] 全テストがパスしている
@@ -300,6 +321,7 @@ services/
 **目的**: 他の開発者が同じパターンを適用できるようにドキュメントを整備する
 
 **タスク**:
+
 1. アーキテクチャドキュメントの作成
    - 設計方針の説明
    - コンポーネント図
@@ -313,11 +335,13 @@ services/
    - 段階的な移行戦略
 
 **成果物**:
+
 - `docs/development/data-access-layer.md`（アーキテクチャドキュメント）
 - `docs/development/implementing-repositories.md`（実装ガイド）
 - `docs/development/migrating-to-new-repository-pattern.md`（マイグレーションガイド）
 
 **受け入れ基準**:
+
 - [ ] ドキュメントが作成されている
 - [ ] 他の開発者が読んで実装できる内容になっている
 - [ ] コード例が含まれている
@@ -331,13 +355,16 @@ services/
 **Note**: このフェーズは必須ではなく、必要に応じてカスタマイズしながら変更していく。
 
 **タスク**:
+
 1. Auth サービスへの適用検討
 2. Codec-Converter サービスへの適用検討
 
 **成果物**:
+
 - 各サービスの実装ファイル
 
 **受け入れ基準**:
+
 - [ ] 既存テストが引き続きパスしている
 - [ ] E2E テストが InMemory 実装を使用している
 
@@ -348,30 +375,37 @@ services/
 各フェーズを Sub Issue として作成する際のテンプレート：
 
 ### Issue タイトル
+
 ```
 [DynamoDB Abstraction] Phase X: {フェーズ名}
 ```
 
 ### Issue 本文
+
 ```markdown
 ## 概要
+
 {フェーズの目的}
 
 ## 関連ドキュメント
+
 - 親タスク: tasks/dynamodb-abstraction-layer.md
 - {その他の関連ドキュメント}
 
 ## タスク
+
 - [ ] {タスク1}
 - [ ] {タスク2}
 - [ ] ...
 
 ## 受け入れ基準
+
 - [ ] {基準1}
 - [ ] {基準2}
 - [ ] ...
 
 ## 成果物
+
 - {ファイルパス1}
 - {ファイルパス2}
 - ...
@@ -380,16 +414,19 @@ services/
 ## 技術参考資料
 
 ### 既存の実装
+
 - [libs/aws/src/dynamodb/abstract-repository.ts](../libs/aws/src/dynamodb/abstract-repository.ts) - 既存の抽象基底クラス
 - [services/stock-tracker/core/src/repositories/holding.ts](../services/stock-tracker/core/src/repositories/holding.ts) - 既存の Holding リポジトリ
 - [services/stock-tracker/web/lib/dynamodb.ts](../services/stock-tracker/web/lib/dynamodb.ts) - DynamoDB クライアント初期化
 
 ### 設計パターン
+
 - Repository パターン
 - Mapper パターン
 - Dependency Injection
 
 ### DynamoDB 関連
+
 - Single Table Design
 - GSI（Global Secondary Index）
 - 条件付き操作（ConditionalExpression）
@@ -425,6 +462,6 @@ services/
 
 ## 更新履歴
 
-| 日付 | 内容 | 担当者 |
-|------|------|--------|
+| 日付       | 内容     | 担当者      |
+| ---------- | -------- | ----------- |
 | 2026-01-26 | 初版作成 | Claude Code |
