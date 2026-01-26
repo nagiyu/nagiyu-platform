@@ -38,7 +38,12 @@ export function isValidNumber(value: number, min: number, max: number): boolean 
  * @param timestamp - Unix タイムスタンプ (ミリ秒)
  * @returns 有効な場合は true
  */
-export function isValidTimestamp(timestamp: number): boolean {
+export function isValidTimestamp(timestamp: unknown): boolean {
+  // 型チェック
+  if (typeof timestamp !== 'number') {
+    return false;
+  }
+
   // 負の値と0を拒否
   if (timestamp <= 0) {
     return false;
