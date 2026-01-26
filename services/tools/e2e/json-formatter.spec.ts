@@ -86,7 +86,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
       const outputValue = await outputField.inputValue();
-      
+
       // 配列要素が含まれることを確認
       expect(outputValue).toContain('1');
       expect(outputValue).toContain('2');
@@ -106,7 +106,7 @@ test.describe('JSON Formatter - E2E Tests', () => {
 
       const outputField = page.locator('text=出力').locator('..').locator('textarea').first();
       const outputValue = await outputField.inputValue();
-      
+
       // ネストされた構造が含まれることを確認
       expect(outputValue).toContain('user');
       expect(outputValue).toContain('profile');
