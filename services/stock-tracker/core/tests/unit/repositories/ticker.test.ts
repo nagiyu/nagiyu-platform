@@ -621,7 +621,10 @@ describe('TickerRepository', () => {
           $metadata: {},
         });
 
-        const result = await repository.update({ tickerId: 'NSDQ:AAPL' }, { Name: 'Apple Corporation' });
+        const result = await repository.update(
+          { tickerId: 'NSDQ:AAPL' },
+          { Name: 'Apple Corporation' }
+        );
 
         expect(result.Name).toBe('Apple Corporation');
       });
@@ -761,7 +764,9 @@ describe('TickerRepository', () => {
           $metadata: {},
         });
 
-        await expect(repository.delete('NONEXISTENT')).rejects.toThrow('ティッカーが見つかりません');
+        await expect(repository.delete('NONEXISTENT')).rejects.toThrow(
+          'ティッカーが見つかりません'
+        );
       });
     });
   });

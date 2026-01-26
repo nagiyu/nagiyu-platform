@@ -1092,9 +1092,9 @@ describe('HoldingRepository', () => {
           $metadata: {},
         });
 
-        await expect(repository.update('user-123', 'NONEXISTENT', { Quantity: 20 })).rejects.toThrow(
-          HoldingNotFoundError
-        );
+        await expect(
+          repository.update('user-123', 'NONEXISTENT', { Quantity: 20 })
+        ).rejects.toThrow(HoldingNotFoundError);
       });
 
       it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（オブジェクトキー版）', async () => {
@@ -1245,9 +1245,9 @@ describe('HoldingRepository', () => {
           $metadata: {},
         });
 
-        await expect(repository.getById({ userId: 'user-123', tickerId: 'NSDQ:AAPL' })).rejects.toThrow(
-          InvalidHoldingDataError
-        );
+        await expect(
+          repository.getById({ userId: 'user-123', tickerId: 'NSDQ:AAPL' })
+        ).rejects.toThrow(InvalidHoldingDataError);
       });
 
       it('getByUserId: InvalidEntityDataErrorがデータベースエラーとしてラップされる', async () => {
@@ -1272,7 +1272,9 @@ describe('HoldingRepository', () => {
           $metadata: {},
         });
 
-        await expect(repository.getByUserId('user-123')).rejects.toThrow('データベースエラーが発生しました');
+        await expect(repository.getByUserId('user-123')).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
       });
 
       it('update: HoldingNotFoundErrorをそのままスロー', async () => {
