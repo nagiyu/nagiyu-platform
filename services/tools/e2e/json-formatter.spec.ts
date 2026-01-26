@@ -385,21 +385,24 @@ test.describe('JSON Formatter - E2E Tests', () => {
     test('should have proper ARIA labels', async ({ page }) => {
       await page.goto('/json-formatter');
 
-      // 重要なボタンにARIAラベルが設定されていることを確認
+      // 重要なボタンにARIAラベルが設定されていることを確認（値も検証）
       await expect(
         page.getByRole('button', { name: 'クリップボードから JSON を読み取る' })
-      ).toHaveAttribute('aria-label');
+      ).toHaveAttribute('aria-label', 'クリップボードから JSON を読み取る');
       await expect(page.getByRole('button', { name: 'JSON を整形する' })).toHaveAttribute(
-        'aria-label'
+        'aria-label',
+        'JSON を整形する'
       );
       await expect(page.getByRole('button', { name: 'JSON を圧縮する' })).toHaveAttribute(
-        'aria-label'
+        'aria-label',
+        'JSON を圧縮する'
       );
       await expect(
         page.getByRole('button', { name: '結果をクリップボードにコピーする' })
-      ).toHaveAttribute('aria-label');
+      ).toHaveAttribute('aria-label', '結果をクリップボードにコピーする');
       await expect(page.getByRole('button', { name: '入力と出力をクリアする' })).toHaveAttribute(
-        'aria-label'
+        'aria-label',
+        '入力と出力をクリアする'
       );
     });
 
