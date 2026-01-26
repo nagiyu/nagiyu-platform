@@ -463,10 +463,10 @@ describe('Alert Evaluator Service', () => {
               value: 200.0,
             },
           ],
-          LogicalOperator: 'INVALID' as unknown as 'AND' | 'OR',
+          LogicalOperator: 'INVALID' as 'AND' | 'OR',
         };
 
-        expect(() => evaluateAlert(alert, 150.0)).toThrow('無効な LogicalOperator です');
+        expect(() => evaluateAlert(alert, 150.0)).toThrow(ERROR_MESSAGES.INVALID_LOGICAL_OPERATOR);
       });
     });
   });

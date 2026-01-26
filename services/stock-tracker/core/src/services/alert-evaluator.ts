@@ -19,6 +19,7 @@ export const ERROR_MESSAGES = {
   INVALID_FIELD: '無効なフィールドです。Phase 1 では "price" のみサポートされています',
   EMPTY_CONDITION_LIST: 'ConditionList が空です',
   INVALID_PRICE: '無効な価格です。価格は数値である必要があります',
+  INVALID_LOGICAL_OPERATOR: '無効な LogicalOperator です',
 } as const;
 
 /**
@@ -145,6 +146,6 @@ export function evaluateAlert(alert: Alert, currentPrice: number): boolean {
     // 範囲外: いずれかの条件を満たせば発火
     return alert.ConditionList.some((condition) => evaluateCondition(condition, currentPrice));
   } else {
-    throw new Error('無効な LogicalOperator です');
+    throw new Error(ERROR_MESSAGES.INVALID_LOGICAL_OPERATOR);
   }
 }
