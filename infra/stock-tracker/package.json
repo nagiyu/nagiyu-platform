@@ -1,0 +1,25 @@
+{
+  "name": "@nagiyu/infra-stock-tracker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS CDK Infrastructure for Stock Tracker Service",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk",
+    "bootstrap": "cdk bootstrap",
+    "synth": "cdk synth",
+    "deploy": "cdk deploy",
+    "diff": "cdk diff",
+    "destroy": "cdk destroy"
+  },
+  "dependencies": {
+    "@nagiyu/infra-common": "*",
+    "aws-cdk-lib": "^2.233.0",
+    "constructs": "^10.4.4"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  }
+}

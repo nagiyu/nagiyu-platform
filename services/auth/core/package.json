@@ -20,15 +20,9 @@
   },
   "dependencies": {
     "@auth/core": "^0.41.0",
-    "@aws-sdk/client-dynamodb": "^3.968.0",
-    "@aws-sdk/lib-dynamodb": "^3.968.0",
+    "@aws-sdk/client-dynamodb": "^3.975.0",
+    "@aws-sdk/lib-dynamodb": "^3.975.0",
     "@nagiyu/common": "*",
     "next-auth": "^5.0.0-beta.30"
-  },
-  "devDependencies": {
-    "@types/node": "^22",
-    "eslint": "^9",
-    "prettier": "^3.7.4",
-    "ts-node": "^10.9.2"
   }
 }

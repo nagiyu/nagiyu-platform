@@ -13,10 +13,7 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@nagiyu/auth-core": ["../core/src"],
-      "@nagiyu/ui": ["../../../libs/ui/src"],
-      "@nagiyu/browser": ["../../../libs/browser/src"],
-      "@nagiyu/common": ["../../../libs/common/src"]
+      "@nagiyu/auth-core": ["../core/src"]
     }
   },
   "include": [

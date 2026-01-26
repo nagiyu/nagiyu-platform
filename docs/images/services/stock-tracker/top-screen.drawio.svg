@@ -1,0 +1,106 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="トップ画面（チャート表示）" id="top-screen">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="1600" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ページ全体 -->
+        <mxCell id="page-container" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="1120" height="1520" as="geometry" />
+        </mxCell>
+
+        <!-- タイトル -->
+        <mxCell id="page-title" value="トップ画面（チャート表示）" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="60" y="60" width="300" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- メインコンテナ -->
+        <mxCell id="main-container" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="120" width="1080" height="1420" as="geometry" />
+        </mxCell>
+
+        <!-- 取引所選択 -->
+        <mxCell id="exchange-selector-label" value="取引所選択" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="140" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="exchange-selector" value="▼ NYSE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="80" y="170" width="300" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ティッカー選択 -->
+        <mxCell id="ticker-selector-label" value="ティッカー選択" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="140" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ticker-selector" value="▼ AAPL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="400" y="170" width="300" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- 時間枠選択 -->
+        <mxCell id="timeframe-selector-label" value="時間枠" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="720" y="140" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="timeframe-selector" value="▼ 日足（D）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="720" y="170" width="200" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- セッション選択 -->
+        <mxCell id="session-selector-label" value="セッション" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="940" y="140" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="session-selector" value="▼ 通常取引" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="940" y="170" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- チャート表示エリア -->
+        <mxCell id="chart-area-label" value="チャート表示エリア" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="230" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="chart-area" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="80" y="260" width="1040" height="800" as="geometry" />
+        </mxCell>
+
+        <!-- チャート内の表示 -->
+        <mxCell id="chart-placeholder" value="ECharts によるローソク足チャート&#xa;&#xa;・ローソク足表示&#xa;・X軸: 日時&#xa;・Y軸: 価格&#xa;・ズーム/パン操作対応&#xa;・ツールチップ表示（ホバー/タップ時に価格情報表示）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="350" y="560" width="500" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- アクションボタン -->
+        <mxCell id="actions-label" value="アクション" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="1090" width="200" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="btn-alert" value="📢 アラート設定" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2196F3;strokeColor=#1976D2;fontColor=#ffffff;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="1120" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="btn-holding" value="📊 保有株式管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4CAF50;strokeColor=#388E3C;fontColor=#ffffff;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="350" y="1120" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="btn-exchange" value="🏢 取引所管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9800;strokeColor=#F57C00;fontColor=#ffffff;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="80" y="1190" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="btn-ticker" value="🎯 ティッカー管理" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF9800;strokeColor=#F57C00;fontColor=#ffffff;fontSize=14;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="350" y="1190" width="250" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="admin-note" value="※ 取引所管理・ティッカー管理は stock-admin ロールのみ表示" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=12;fontColor=#999999;fontStyle=2" vertex="1" parent="1">
+          <mxGeometry x="80" y="1250" width="520" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ナビゲーション -->
+        <mxCell id="nav-note" value="ナビゲーション: 共通ヘッダー（@nagiyu/ui）を使用&#xa;・ロゴ&#xa;・ユーザー情報&#xa;・ログアウトボタン" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#1976D2;align=left;verticalAlign=top;spacingLeft=10;spacingTop=10;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1300" width="520" height="120" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
