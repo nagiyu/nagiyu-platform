@@ -198,7 +198,12 @@ describe('DynamoDBHoldingRepository', () => {
     });
 
     it('ページネーションカーソルが正しく処理される', async () => {
-      const lastKey = { PK: 'USER#user-123', SK: 'HOLDING#NSDQ:AAPL', GSI1PK: 'user-123', GSI1SK: 'Holding#NSDQ:AAPL' };
+      const lastKey = {
+        PK: 'USER#user-123',
+        SK: 'HOLDING#NSDQ:AAPL',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Holding#NSDQ:AAPL',
+      };
       mockDocClient.send.mockResolvedValueOnce({
         Items: [],
         LastEvaluatedKey: lastKey,
@@ -256,24 +261,22 @@ describe('DynamoDBHoldingRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(
-        repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('更新するフィールドが指定されていない場合はDatabaseErrorをスローする', async () => {
-      await expect(repository.update('user-123', 'NSDQ:AAPL', {})).rejects.toThrow(
-        DatabaseError
-      );
+      await expect(repository.update('user-123', 'NSDQ:AAPL', {})).rejects.toThrow(DatabaseError);
     });
 
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
       const dbError = new Error('Database connection failed');
       mockDocClient.send.mockRejectedValueOnce(dbError);
 
-      await expect(
-        repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })
-      ).rejects.toThrow(DatabaseError);
+      await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+        DatabaseError
+      );
     });
   });
 
@@ -291,9 +294,7 @@ describe('DynamoDBHoldingRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
-        EntityNotFoundError
-      );
+      await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(EntityNotFoundError);
     });
 
     it('データベースエラー時にDatabaseErrorをスローする', async () => {

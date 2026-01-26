@@ -5,7 +5,12 @@
  */
 
 import { InMemoryHoldingRepository } from '../../../src/repositories/in-memory-holding.repository.js';
-import { InMemorySingleTableStore, EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+  DatabaseError,
+} from '@nagiyu/aws';
 import type { CreateHoldingInput } from '../../../src/entities/holding.entity.js';
 
 describe('InMemoryHoldingRepository', () => {
@@ -228,9 +233,9 @@ describe('InMemoryHoldingRepository', () => {
     });
 
     it('存在しない保有株式を更新しようとした場合はEntityNotFoundErrorをスローする', async () => {
-      await expect(
-        repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('更新するフィールドが指定されていない場合はDatabaseErrorをスローする', async () => {
@@ -245,9 +250,7 @@ describe('InMemoryHoldingRepository', () => {
 
       await repository.create(input);
 
-      await expect(repository.update('user-123', 'NSDQ:AAPL', {})).rejects.toThrow(
-        DatabaseError
-      );
+      await expect(repository.update('user-123', 'NSDQ:AAPL', {})).rejects.toThrow(DatabaseError);
     });
 
     it('一部のフィールドだけを更新できる', async () => {
@@ -290,9 +293,7 @@ describe('InMemoryHoldingRepository', () => {
     });
 
     it('存在しない保有株式を削除しようとした場合はEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
-        EntityNotFoundError
-      );
+      await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(EntityNotFoundError);
     });
   });
 

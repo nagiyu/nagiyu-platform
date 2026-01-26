@@ -4,7 +4,11 @@
  * 保有株式データの CRUD 操作インターフェース
  */
 
-import type { HoldingEntity, CreateHoldingInput, UpdateHoldingInput } from '../entities/holding.entity.js';
+import type {
+  HoldingEntity,
+  CreateHoldingInput,
+  UpdateHoldingInput,
+} from '../entities/holding.entity.js';
 import type { PaginationOptions, PaginatedResult } from '@nagiyu/aws';
 
 /**

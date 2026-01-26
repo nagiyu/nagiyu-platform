@@ -13,7 +13,11 @@ import {
   type PaginatedResult,
 } from '@nagiyu/aws';
 import type { HoldingRepository } from './holding.repository.interface.js';
-import type { HoldingEntity, CreateHoldingInput, UpdateHoldingInput } from '../entities/holding.entity.js';
+import type {
+  HoldingEntity,
+  CreateHoldingInput,
+  UpdateHoldingInput,
+} from '../entities/holding.entity.js';
 import { HoldingMapper } from '../mappers/holding.mapper.js';
 
 // エラーメッセージ定数

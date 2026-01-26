@@ -21,7 +21,11 @@ import {
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { HoldingRepository } from './holding.repository.interface.js';
-import type { HoldingEntity, CreateHoldingInput, UpdateHoldingInput } from '../entities/holding.entity.js';
+import type {
+  HoldingEntity,
+  CreateHoldingInput,
+  UpdateHoldingInput,
+} from '../entities/holding.entity.js';
 import { HoldingMapper } from '../mappers/holding.mapper.js';
 
 // エラーメッセージ定数
@@ -100,7 +104,9 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
         })
       );
 
-      const items = (result.Items || []).map((item) => this.mapper.toEntity(item as unknown as DynamoDBItem));
+      const items = (result.Items || []).map((item) =>
+        this.mapper.toEntity(item as unknown as DynamoDBItem)
+      );
       const nextCursor = result.LastEvaluatedKey
         ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
         : undefined;
