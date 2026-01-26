@@ -89,8 +89,6 @@ const ERROR_MESSAGES = {
   ALERT_LOGICAL_OPERATOR_REQUIRED: '2条件の場合は論理演算子が必須です',
   ALERT_LOGICAL_OPERATOR_UNEXPECTED: '単一条件の場合、論理演算子は設定できません',
   ALERT_CONDITION_OPERATORS_DUPLICATE: '同じ演算子を複数指定することはできません',
-  ALERT_CONDITION_OPERATORS_INVALID_COMBINATION:
-    '2つの条件を設定する場合は、一方を「以上(gte)」、もう一方を「以下(lte)」にしてください',
   ALERT_CONDITION_RANGE_INVALID_AND: '範囲内アラート(AND)の場合、下限価格は上限価格より小さい値を設定してください',
   ALERT_CONDITION_RANGE_INVALID_OR: '範囲外アラート(OR)の場合、下限価格は上限価格より大きい値を設定してください',
   ALERT_SUBSCRIPTION_ENDPOINT_REQUIRED: 'Web Pushサブスクリプションエンドポイントは必須です',
@@ -479,13 +477,9 @@ export function validateAlert(alert: unknown): ValidationResult {
     // operator の組み合わせチェック
     if (cond1.operator === cond2.operator) {
       errors.push(ERROR_MESSAGES.ALERT_CONDITION_OPERATORS_DUPLICATE);
-    } else {
-      // 一方が gte、もう一方が lte であることを確認
-      const operators = [cond1.operator, cond2.operator].sort();
-      if (!(operators[0] === 'gte' && operators[1] === 'lte')) {
-        errors.push(ERROR_MESSAGES.ALERT_CONDITION_OPERATORS_INVALID_COMBINATION);
-      }
     }
+    // Note: Since only 'gte' and 'lte' are valid (checked above), if operators are different, 
+    // they're guaranteed to be one 'gte' and one 'lte', so no additional check needed
 
     // 条件値のチェック
     if (cond1.value === undefined || cond1.value === null) {
@@ -501,9 +495,9 @@ export function validateAlert(alert: unknown): ValidationResult {
     }
 
     // 範囲の妥当性チェック（AND/OR別）
+    // Note: alt.LogicalOperator is guaranteed to be 'AND' or 'OR' at this point (validated above)
     if (
       alt.LogicalOperator &&
-      (alt.LogicalOperator === 'AND' || alt.LogicalOperator === 'OR') &&
       cond1.operator !== cond2.operator &&
       cond1.value !== undefined &&
       cond1.value !== null &&
