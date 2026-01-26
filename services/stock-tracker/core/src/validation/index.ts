@@ -478,8 +478,6 @@ export function validateAlert(alert: unknown): ValidationResult {
     if (cond1.operator === cond2.operator) {
       errors.push(ERROR_MESSAGES.ALERT_CONDITION_OPERATORS_DUPLICATE);
     }
-    // Note: Since only 'gte' and 'lte' are valid (checked above), if operators are different, 
-    // they're guaranteed to be one 'gte' and one 'lte', so no additional check needed
 
     // 条件値のチェック
     if (cond1.value === undefined || cond1.value === null) {
@@ -495,7 +493,6 @@ export function validateAlert(alert: unknown): ValidationResult {
     }
 
     // 範囲の妥当性チェック（AND/OR別）
-    // Note: alt.LogicalOperator is guaranteed to be 'AND' or 'OR' at this point (validated above)
     if (
       alt.LogicalOperator &&
       cond1.operator !== cond2.operator &&
