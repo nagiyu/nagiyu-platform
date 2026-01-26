@@ -905,7 +905,7 @@ describe('validateAlert', () => {
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const alert = {
         ...validAlert,
-        CreatedAt: 'invalid' as any,
+        CreatedAt: 'invalid' as unknown,
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -915,7 +915,7 @@ describe('validateAlert', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const alert = {
         ...validAlert,
-        UpdatedAt: 'invalid' as any,
+        UpdatedAt: 'invalid' as unknown,
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
@@ -940,7 +940,7 @@ describe('validateExchange', () => {
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const exchange = {
         ...validExchange,
-        CreatedAt: 'invalid' as any,
+        CreatedAt: 'invalid' as unknown,
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -950,7 +950,7 @@ describe('validateExchange', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const exchange = {
         ...validExchange,
-        UpdatedAt: null as any,
+        UpdatedAt: null as unknown,
       };
       const result = validateExchange(exchange);
       expect(result.valid).toBe(false);
@@ -973,7 +973,7 @@ describe('validateTicker', () => {
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const ticker = {
         ...validTicker,
-        CreatedAt: -1 as any,
+        CreatedAt: -1 as unknown,
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
@@ -983,7 +983,7 @@ describe('validateTicker', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const ticker = {
         ...validTicker,
-        UpdatedAt: 'string' as any,
+        UpdatedAt: 'string' as unknown,
       };
       const result = validateTicker(ticker);
       expect(result.valid).toBe(false);
@@ -1008,7 +1008,7 @@ describe('validateHolding', () => {
     it('Quantityが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        Quantity: 'invalid' as any,
+        Quantity: 'invalid' as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1018,7 +1018,7 @@ describe('validateHolding', () => {
     it('AveragePriceが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        AveragePrice: null as any,
+        AveragePrice: null as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1028,7 +1028,7 @@ describe('validateHolding', () => {
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        CreatedAt: false as any,
+        CreatedAt: false as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1038,7 +1038,7 @@ describe('validateHolding', () => {
     it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const holding = {
         ...validHolding,
-        UpdatedAt: [] as any,
+        UpdatedAt: [] as unknown,
       };
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
@@ -1059,7 +1059,7 @@ describe('validateWatchlist', () => {
     it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
       const watchlist = {
         ...validWatchlist,
-        CreatedAt: {} as any,
+        CreatedAt: {} as unknown,
       };
       const result = validateWatchlist(watchlist);
       expect(result.valid).toBe(false);
