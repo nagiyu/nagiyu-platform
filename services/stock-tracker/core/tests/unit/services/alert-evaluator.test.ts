@@ -247,25 +247,171 @@ describe('Alert Evaluator Service', () => {
       expect(evaluateAlert(alert, 150.0)).toBe(true);
     });
 
-    it('Phase 1: 複数条件がある場合、最初の条件のみを評価する', () => {
-      const alert: Alert = {
-        ...createMockAlert('gte', 200.0),
+    describe('複数条件 AND 評価（範囲内）', () => {
+      const createAndAlert = (minValue: number, maxValue: number): Alert => ({
+        AlertID: 'test-alert-and',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
         ConditionList: [
           {
             field: 'price',
             operator: 'gte',
-            value: 200.0,
+            value: minValue,
           },
           {
             field: 'price',
             operator: 'lte',
-            value: 300.0,
+            value: maxValue,
           },
         ],
-      };
+        LogicalOperator: 'AND',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'test-p256dh-key',
+        SubscriptionKeysAuth: 'test-auth-key',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      });
 
-      // 最初の条件 (gte 200) のみ評価されるため、true
-      expect(evaluateAlert(alert, 205.0)).toBe(true);
+      it('範囲内の価格の場合、true を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 150.0)).toBe(true);
+      });
+
+      it('範囲外（下限未満）の価格の場合、false を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 95.0)).toBe(false);
+      });
+
+      it('範囲外（上限超過）の価格の場合、false を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 205.0)).toBe(false);
+      });
+
+      it('境界値: 下限ちょうどの場合、true を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 100.0)).toBe(true);
+      });
+
+      it('境界値: 上限ちょうどの場合、true を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 200.0)).toBe(true);
+      });
+
+      it('境界値: 下限のすぐ下（99.99）の場合、false を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 99.99)).toBe(false);
+      });
+
+      it('境界値: 上限のすぐ上（200.01）の場合、false を返す', () => {
+        const alert = createAndAlert(100.0, 200.0);
+        expect(evaluateAlert(alert, 200.01)).toBe(false);
+      });
+    });
+
+    describe('複数条件 OR 評価（範囲外）', () => {
+      const createOrAlert = (lowerBound: number, upperBound: number): Alert => ({
+        AlertID: 'test-alert-or',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          {
+            field: 'price',
+            operator: 'lte',
+            value: lowerBound,
+          },
+          {
+            field: 'price',
+            operator: 'gte',
+            value: upperBound,
+          },
+        ],
+        LogicalOperator: 'OR',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'test-p256dh-key',
+        SubscriptionKeysAuth: 'test-auth-key',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      });
+
+      it('下限以下の価格の場合、true を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 85.0)).toBe(true);
+      });
+
+      it('上限以上の価格の場合、true を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 125.0)).toBe(true);
+      });
+
+      it('範囲内の価格の場合、false を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 100.0)).toBe(false);
+      });
+
+      it('境界値: 下限ちょうどの場合、true を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 90.0)).toBe(true);
+      });
+
+      it('境界値: 上限ちょうどの場合、true を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 120.0)).toBe(true);
+      });
+
+      it('境界値: 下限のすぐ上（90.01）の場合、false を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 90.01)).toBe(false);
+      });
+
+      it('境界値: 上限のすぐ下（119.99）の場合、false を返す', () => {
+        const alert = createOrAlert(90.0, 120.0);
+        expect(evaluateAlert(alert, 119.99)).toBe(false);
+      });
+    });
+
+    describe('後方互換性', () => {
+      it('単一条件（gte）の場合、従来通り動作する', () => {
+        const alert = createMockAlert('gte', 200.0);
+        expect(evaluateAlert(alert, 205.0)).toBe(true);
+        expect(evaluateAlert(alert, 195.0)).toBe(false);
+      });
+
+      it('単一条件（lte）の場合、従来通り動作する', () => {
+        const alert = createMockAlert('lte', 150.0);
+        expect(evaluateAlert(alert, 145.0)).toBe(true);
+        expect(evaluateAlert(alert, 155.0)).toBe(false);
+      });
+
+      it('複数条件があるが LogicalOperator が未指定の場合、AND として評価される', () => {
+        const alert: Alert = {
+          ...createMockAlert('gte', 100.0),
+          ConditionList: [
+            {
+              field: 'price',
+              operator: 'gte',
+              value: 100.0,
+            },
+            {
+              field: 'price',
+              operator: 'lte',
+              value: 200.0,
+            },
+          ],
+          // LogicalOperator は未指定（デフォルトは AND）
+        };
+
+        expect(evaluateAlert(alert, 150.0)).toBe(true); // 範囲内
+        expect(evaluateAlert(alert, 95.0)).toBe(false); // 範囲外（下限未満）
+        expect(evaluateAlert(alert, 205.0)).toBe(false); // 範囲外（上限超過）
+      });
     });
 
     describe('エラーハンドリング', () => {
@@ -300,6 +446,27 @@ describe('Alert Evaluator Service', () => {
         };
 
         expect(() => evaluateAlert(alert, 205.0)).toThrow(ERROR_MESSAGES.INVALID_FIELD);
+      });
+
+      it('無効な LogicalOperator の場合、エラーをスローする', () => {
+        const alert: Alert = {
+          ...createMockAlert('gte', 200.0),
+          ConditionList: [
+            {
+              field: 'price',
+              operator: 'gte',
+              value: 100.0,
+            },
+            {
+              field: 'price',
+              operator: 'lte',
+              value: 200.0,
+            },
+          ],
+          LogicalOperator: 'INVALID' as unknown as 'AND' | 'OR',
+        };
+
+        expect(() => evaluateAlert(alert, 150.0)).toThrow('無効な LogicalOperator です');
       });
     });
   });
