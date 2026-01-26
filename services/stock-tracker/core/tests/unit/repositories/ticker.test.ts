@@ -9,12 +9,7 @@
  */
 
 import { TickerRepository } from '../../../src/repositories/ticker.js';
-import {
-  DatabaseError,
-  InvalidEntityDataError,
-  EntityNotFoundError,
-  EntityAlreadyExistsError,
-} from '@nagiyu/aws';
+import { DatabaseError, InvalidEntityDataError } from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { Ticker } from '../../../src/types.js';
 
@@ -911,7 +906,9 @@ describe('TickerRepository', () => {
         });
 
         // 更新時にInvalidEntityDataError
-        const invalidError = new InvalidEntityDataError('エンティティデータが無効です: Invalid data');
+        const invalidError = new InvalidEntityDataError(
+          'エンティティデータが無効です: Invalid data'
+        );
         mockDocClient.send.mockRejectedValueOnce(invalidError);
 
         await expect(repository.update('NSDQ:AAPL', { Name: 'Test' })).rejects.toThrow(

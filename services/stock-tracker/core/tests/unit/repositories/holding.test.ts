@@ -10,7 +10,7 @@ import {
   InvalidHoldingDataError,
   HoldingAlreadyExistsError,
 } from '../../../src/repositories/holding.js';
-import { DatabaseError, InvalidEntityDataError } from '@nagiyu/aws';
+import { DatabaseError } from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 describe('HoldingRepository', () => {
@@ -1295,11 +1295,10 @@ describe('HoldingRepository', () => {
           $metadata: {},
         });
 
-        await expect(
-          repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })
-        ).rejects.toThrow(HoldingNotFoundError);
+        await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+          HoldingNotFoundError
+        );
       });
-
     });
 
     describe('Error handling - delete', () => {
