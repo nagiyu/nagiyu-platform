@@ -5,8 +5,14 @@ import ToolCard from '@/components/tools/ToolCard';
 import { Tool } from '@/types/tools';
 
 export const metadata: Metadata = {
-  title: 'Tools - 便利なツール集',
-  description: '便利な開発ツール集',
+  title: 'Tools - 便利なオンラインツール集',
+  description:
+    'Toolsは、日常的に便利なオンラインツール群を提供する無料のWebアプリケーションです。乗り換え案内の整形ツール、今後追加予定の様々なツールを無料で利用できます。すべてのツールはブラウザ内で動作し、入力データは外部に送信されません。PWA対応でオフライン環境でも利用可能です。',
+  openGraph: {
+    title: 'Tools - 便利なオンラインツール集',
+    description:
+      'Toolsは、日常的に便利なオンラインツール群を提供する無料のWebアプリケーションです。',
+  },
   alternates: {
     canonical: 'https://nagiyu.com',
   },

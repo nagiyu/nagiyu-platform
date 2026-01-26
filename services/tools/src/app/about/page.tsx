@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { Container, Typography, Box, Link } from '@mui/material';
 
 export const metadata: Metadata = {
-  title: 'Tools について - Tools',
-  description: 'Tools サイトの概要、開発の経緯、技術スタック、提供ツールの紹介',
+  title: 'Tools について',
+  description:
+    'Toolsは、日常的に便利なツール群を提供する無料のWebアプリケーションです。このページでは、Toolsの目的、開発の経緯、採用している技術スタック（Next.js、TypeScript、Material-UI、PWA）、今後の展望について詳しく説明します。プライバシーとセキュリティを最優先に考えた設計です。',
   alternates: {
     canonical: 'https://nagiyu.com/about',
   },

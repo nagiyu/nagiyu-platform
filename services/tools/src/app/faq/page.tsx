@@ -10,8 +10,9 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 export const metadata: Metadata = {
-  title: 'よくある質問 (FAQ) - Tools',
-  description: 'Tools サイトに関するよくある質問と回答',
+  title: 'よくある質問（FAQ）',
+  description:
+    'Toolsに関するよくある質問（FAQ）と回答をまとめました。料金体系、データの保存場所、オフライン利用の方法、対応ブラウザ、プライバシー保護、PWAのインストール方法、広告表示の理由、バグ報告の方法などについて詳しく説明します。ご不明な点があればこちらをご確認ください。',
   alternates: {
     canonical: 'https://nagiyu.com/faq',
   },
