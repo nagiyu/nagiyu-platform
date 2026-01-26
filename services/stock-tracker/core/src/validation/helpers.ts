@@ -1,11 +1,8 @@
 /**
  * Stock Tracker Core - Validation Helpers
  *
- * 入力データのバリデーション用ヘルパー関数
+ * Stock Tracker 固有のバリデーション用ヘルパー関数
  */
-
-// 共通ライブラリのヘルパーをエクスポート
-export { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 
 /**
  * 価格が有効な範囲内かチェック

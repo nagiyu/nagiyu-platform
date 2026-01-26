@@ -7,9 +7,8 @@
 import {
   isValidPrice,
   isValidQuantity,
-  isNonEmptyString,
-  isValidTimestamp,
 } from '../../../src/validation/helpers.js';
+import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 
 describe('Validation Helpers', () => {
   describe('isValidPrice', () => {
