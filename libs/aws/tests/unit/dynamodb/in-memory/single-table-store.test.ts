@@ -335,7 +335,10 @@ describe('InMemorySingleTableStore', () => {
 
     it('cursor で次のページを取得できる', () => {
       const firstPage = store.query({ pk: 'USER#123' }, { limit: 3 });
-      const secondPage = store.query({ pk: 'USER#123' }, { limit: 3, cursor: firstPage.nextCursor });
+      const secondPage = store.query(
+        { pk: 'USER#123' },
+        { limit: 3, cursor: firstPage.nextCursor }
+      );
 
       expect(secondPage.items).toHaveLength(3);
       expect(secondPage.items[0].SK).not.toBe(firstPage.items[0].SK);
