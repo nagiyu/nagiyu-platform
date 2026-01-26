@@ -135,6 +135,77 @@ import { something } from '@/lib/utils/helper';
 **理由**: ライブラリとして配布する際の一貫性、ビルド設定の複雑化を回避
 **違反時の影響**: ビルドエラー、配布時の問題
 
+### 1.4 クラス設計
+
+#### MUST NOT: コンストラクタパラメータでプロパティを定義しない
+
+```typescript
+// ❌ NG: コンストラクタパラメータでプロパティを定義
+class APIError extends Error {
+    constructor(
+        public readonly status: number,
+        public readonly message: string
+    ) {
+        super(message);
+    }
+}
+
+// ✅ OK: クラスプロパティとして明示的に定義
+class APIError extends Error {
+    public readonly status: number;
+    public readonly message: string;
+
+    constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+        this.message = message;
+    }
+}
+```
+
+**理由**: 
+- コードの明示性と可読性の向上
+- プロパティの定義位置が一目で分かる
+- ESLint ルール `@typescript-eslint/parameter-properties` で自動検出
+
+**違反時の影響**: ESLint エラー、コードレビューで指摘
+
+#### MUST: アクセス修飾子を必ず明示する
+
+```typescript
+// ❌ NG: アクセス修飾子なし
+class UserRepository {
+    async getUserById(id: string): Promise<User | null> {
+        // ...
+    }
+}
+
+// ✅ OK: public を明示
+class UserRepository {
+    public async getUserById(id: string): Promise<User | null> {
+        // ...
+    }
+}
+
+// ✅ OK: private メソッド
+class UserRepository {
+    private async fetchFromCache(id: string): Promise<User | null> {
+        // ...
+    }
+}
+```
+
+**理由**:
+- API の意図が明確になる
+- public/private/protected の区別が一目で分かる
+- リファクタリング時の影響範囲が明確
+- ESLint ルール `@typescript-eslint/explicit-member-accessibility` で自動検出
+
+**違反時の影響**: ESLint エラー、API 設計の曖昧さ
+
+**例外**:
+- コンストラクタには `public` を付けない（`overrides: { constructors: 'no-public' }` 設定）
+
 ---
 
 ## 2. React / Next.js ルール
