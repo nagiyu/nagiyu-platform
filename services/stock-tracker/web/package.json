@@ -15,8 +15,8 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.972.0",
-    "@aws-sdk/lib-dynamodb": "^3.972.0",
+    "@aws-sdk/client-dynamodb": "^3.975.0",
+    "@aws-sdk/lib-dynamodb": "^3.975.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/stock-tracker-core": "*",
