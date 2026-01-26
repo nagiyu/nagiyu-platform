@@ -193,6 +193,34 @@ jobs:
 
           echo "Lambda and CloudFront deployed (environment: $ENVIRONMENT)"
 
+      - name: Update Lambda functions with latest images
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Get ECR repository URI
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="${ECR_REGISTRY}/tools-app-${ENVIRONMENT}:latest"
+
+          # Update Lambda function
+          aws lambda update-function-code \
+            --function-name "tools-app-${ENVIRONMENT}" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Lambda function updated with latest image."
+
+      - name: Wait for Lambda updates to complete
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          # Wait for function to complete updating
+          aws lambda wait function-updated \
+            --function-name "tools-app-${ENVIRONMENT}" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Lambda function update successfully"
+
   verify:
     name: Verify Deployment
     runs-on: ubuntu-latest
