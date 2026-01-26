@@ -41,7 +41,7 @@ export type UpdateHoldingInput = Partial<
 >;
 
 /**
- * HoldingのビジネスキーTEntity
+ * Holdingのビジネスキー
  */
 export interface HoldingKey {
   userId: string;

@@ -8,12 +8,18 @@ import {
   InMemorySingleTableStore,
   EntityNotFoundError,
   EntityAlreadyExistsError,
+  DatabaseError,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
 import type { HoldingRepository } from './holding.repository.interface.js';
 import type { HoldingEntity, CreateHoldingInput, UpdateHoldingInput } from '../entities/holding.entity.js';
 import { HoldingMapper } from '../mappers/holding.mapper.js';
+
+// エラーメッセージ定数
+const ERROR_MESSAGES = {
+  NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
+} as const;
 
 /**
  * InMemory Holding Repository
@@ -106,7 +112,7 @@ export class InMemoryHoldingRepository implements HoldingRepository {
   ): Promise<HoldingEntity> {
     // 更新するフィールドがない場合はエラー
     if (Object.keys(updates).length === 0) {
-      throw new Error('更新するフィールドが指定されていません');
+      throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
     }
 
     const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });

@@ -5,7 +5,7 @@
  */
 
 import { InMemoryHoldingRepository } from '../../../src/repositories/in-memory-holding.repository.js';
-import { InMemorySingleTableStore, EntityAlreadyExistsError, EntityNotFoundError } from '@nagiyu/aws';
+import { InMemorySingleTableStore, EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
 import type { CreateHoldingInput } from '../../../src/entities/holding.entity.js';
 
 describe('InMemoryHoldingRepository', () => {
@@ -233,7 +233,7 @@ describe('InMemoryHoldingRepository', () => {
       ).rejects.toThrow(EntityNotFoundError);
     });
 
-    it('更新するフィールドが指定されていない場合はエラーをスローする', async () => {
+    it('更新するフィールドが指定されていない場合はDatabaseErrorをスローする', async () => {
       const input: CreateHoldingInput = {
         UserID: 'user-123',
         TickerID: 'NSDQ:AAPL',
@@ -246,7 +246,7 @@ describe('InMemoryHoldingRepository', () => {
       await repository.create(input);
 
       await expect(repository.update('user-123', 'NSDQ:AAPL', {})).rejects.toThrow(
-        '更新するフィールドが指定されていません'
+        DatabaseError
       );
     });
 
