@@ -28,7 +28,7 @@ test.describe('Accessibility Tests - Homepage @a11y', () => {
     // Check for h1 tag
     const h1 = page.locator('h1');
     await expect(h1).toHaveCount(1);
-    await expect(h1).toContainText(/ツール一覧/i);
+    await expect(h1).toContainText(/Tools.*便利なツール集/i);
   });
 
   test('should have accessible tool cards', async ({ page }) => {
@@ -129,11 +129,11 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
   });
 
   test('should have proper form labels', async ({ page }) => {
-    // Check for textarea labels
-    const inputSection = page.locator('text=入力').locator('..');
+    // Check for textarea labels using more specific selectors to avoid matching guide content
+    const inputSection = page.getByRole('heading', { name: '入力', level: 6 }).locator('..');
     await expect(inputSection).toBeVisible();
 
-    const outputSection = page.locator('text=出力').locator('..');
+    const outputSection = page.getByRole('heading', { name: '出力', level: 6 }).locator('..');
     await expect(outputSection).toBeVisible();
   });
 

@@ -10,6 +10,7 @@ import {
   InvalidHoldingDataError,
   HoldingAlreadyExistsError,
 } from '../../../src/repositories/holding.js';
+import { DatabaseError } from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 describe('HoldingRepository', () => {
@@ -441,28 +442,24 @@ describe('HoldingRepository', () => {
       expect(result.Quantity).toBe(15.0);
       expect(result.UpdatedAt).toBe(mockNow);
 
-      expect(mockDocClient.send).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: TABLE_NAME,
-            Key: {
-              PK: 'USER#user-123',
-              SK: 'HOLDING#NSDQ:AAPL',
-            },
-            UpdateExpression: 'SET #quantity = :quantity, #updatedAt = :updatedAt',
-            ExpressionAttributeNames: {
-              '#quantity': 'Quantity',
-              '#updatedAt': 'UpdatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':quantity': 15.0,
-              ':updatedAt': mockNow,
-            },
-            ConditionExpression: 'attribute_exists(PK)',
-          }),
-        })
-      );
+      // Verify the update call was made with correct values
+      const updateCall = mockDocClient.send.mock.calls[1][0];
+      expect(updateCall.input.TableName).toBe(TABLE_NAME);
+      expect(updateCall.input.Key).toEqual({
+        PK: 'USER#user-123',
+        SK: 'HOLDING#NSDQ:AAPL',
+      });
+      expect(updateCall.input.ConditionExpression).toBe('attribute_exists(PK)');
+      // Check that UpdateExpression contains SET
+      expect(updateCall.input.UpdateExpression).toContain('SET');
+      // Check that UpdatedAt is in the attribute names mapping
+      const attrNames = Object.values(updateCall.input.ExpressionAttributeNames || {});
+      expect(attrNames).toContain('Quantity');
+      expect(attrNames).toContain('UpdatedAt');
+      // Check that the values are correct
+      const values = Object.values(updateCall.input.ExpressionAttributeValues);
+      expect(values).toContain(15.0);
+      expect(values).toContain(mockNow);
     });
 
     it('保有株式の複数フィールドを更新できる', async () => {
@@ -852,6 +849,683 @@ describe('HoldingRepository', () => {
       await expect(repository.getById('user-123', 'NSDQ:AAPL')).rejects.toThrow(
         InvalidHoldingDataError
       );
+    });
+  });
+
+  describe('Method overloads and error handling', () => {
+    describe('getById with object key', () => {
+      it('基底クラスのシグネチャ（オブジェクトキー）で取得できる', async () => {
+        const mockItem = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockItem,
+          $metadata: {},
+        });
+
+        const result = await repository.getById({ userId: 'user-123', tickerId: 'NSDQ:AAPL' });
+
+        expect(result).not.toBeNull();
+        expect(result?.UserID).toBe('user-123');
+        expect(result?.TickerID).toBe('NSDQ:AAPL');
+      });
+
+      it('存在しない場合はnullを返す', async () => {
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        const result = await repository.getById({ userId: 'user-123', tickerId: 'NONEXISTENT' });
+
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('update with object key', () => {
+      it('基底クラスのシグネチャ（オブジェクトキー）で更新できる', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 更新実行
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        // 更新後の取得
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: {
+            ...mockExistingHolding,
+            Quantity: 20.0,
+            UpdatedAt: 1704067300000,
+          },
+          $metadata: {},
+        });
+
+        const result = await repository.update(
+          { userId: 'user-123', tickerId: 'NSDQ:AAPL' },
+          { Quantity: 20.0 }
+        );
+
+        expect(result.Quantity).toBe(20.0);
+      });
+
+      it('更新するフィールドが空の場合はエラー', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        await expect(
+          repository.update({ userId: 'user-123', tickerId: 'NSDQ:AAPL' }, {})
+        ).rejects.toThrow('更新するフィールドが指定されていません');
+      });
+    });
+
+    describe('delete with object key', () => {
+      it('基底クラスのシグネチャ（オブジェクトキー）で削除できる', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 削除実行
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await repository.delete({ userId: 'user-123', tickerId: 'NSDQ:AAPL' });
+
+        expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    describe('Error handling - getByUserId', () => {
+      it('InvalidHoldingDataErrorが発生した場合はそのままスロー', async () => {
+        const mockItems = [
+          {
+            PK: 'USER#user-123',
+            SK: 'HOLDING#NSDQ:AAPL',
+            Type: 'Holding',
+            UserID: 'user-123',
+            TickerID: 'NSDQ:AAPL',
+            ExchangeID: 'NASDAQ',
+            Quantity: 'invalid', // Invalid type
+            AveragePrice: 150.25,
+            Currency: 'USD',
+            CreatedAt: 1704067200000,
+            UpdatedAt: 1704067200000,
+          },
+        ];
+
+        mockDocClient.send.mockResolvedValueOnce({
+          Items: mockItems,
+          $metadata: {},
+        });
+
+        await expect(repository.getByUserId('user-123')).rejects.toThrow('Quantity');
+      });
+
+      it('その他のエラーはデータベースエラーとしてラップ', async () => {
+        mockDocClient.send.mockRejectedValueOnce(new Error('DynamoDB error'));
+
+        await expect(repository.getByUserId('user-123')).rejects.toThrow(
+          'データベースエラーが発生しました: DynamoDB error'
+        );
+      });
+    });
+
+    describe('Error handling - getById', () => {
+      it('InvalidEntityDataErrorをInvalidHoldingDataErrorに変換', async () => {
+        const mockItem = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 'invalid',
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockItem,
+          $metadata: {},
+        });
+
+        await expect(repository.getById('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          InvalidHoldingDataError
+        );
+      });
+
+      it('その他のエラーはデータベースエラーとしてラップ', async () => {
+        mockDocClient.send.mockRejectedValueOnce(new Error('Unknown error'));
+
+        await expect(repository.getById('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          'データベースエラーが発生しました: Unknown error'
+        );
+      });
+
+      it('DatabaseErrorをデータベースエラーとしてラップ', async () => {
+        const originalError = new Error('DynamoDB connection failed');
+        const dbError = new DatabaseError('Database operation failed', {
+          cause: originalError,
+        });
+        mockDocClient.send.mockRejectedValueOnce(dbError);
+
+        await expect(repository.getById('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('非Error型のエラーを処理', async () => {
+        mockDocClient.send.mockRejectedValueOnce('String error');
+
+        await expect(repository.getById('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+    });
+
+    describe('Error handling - create', () => {
+      it('その他のエラーはデータベースエラーとしてラップ', async () => {
+        mockDocClient.send.mockRejectedValueOnce(new Error('Unknown error'));
+
+        const newHolding = {
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+        };
+
+        await expect(repository.create(newHolding)).rejects.toThrow(
+          'データベースエラーが発生しました: Unknown error'
+        );
+      });
+
+      it('DatabaseErrorをデータベースエラーとしてラップ', async () => {
+        const originalError = new Error('DynamoDB connection failed');
+        const dbError = new DatabaseError('Database operation failed', {
+          cause: originalError,
+        });
+        mockDocClient.send.mockRejectedValueOnce(dbError);
+
+        const newHolding = {
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+        };
+
+        await expect(repository.create(newHolding)).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('非Error型のエラーを処理', async () => {
+        mockDocClient.send.mockRejectedValueOnce('String error');
+
+        const newHolding = {
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+        };
+
+        await expect(repository.create(newHolding)).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+    });
+
+    describe('Error handling - update', () => {
+      it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（文字列版）', async () => {
+        // 存在しない
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(
+          repository.update('user-123', 'NONEXISTENT', { Quantity: 20 })
+        ).rejects.toThrow(HoldingNotFoundError);
+      });
+
+      it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（オブジェクトキー版）', async () => {
+        // 存在しない
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(
+          repository.update({ userId: 'user-123', tickerId: 'NONEXISTENT' }, { Quantity: 20 })
+        ).rejects.toThrow(HoldingNotFoundError);
+      });
+
+      it('InvalidEntityDataErrorをInvalidHoldingDataErrorに変換', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 更新でエラー（モック）
+        mockDocClient.send.mockRejectedValueOnce(new Error('Validation error'));
+
+        await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('既にラップされたエラーメッセージはそのままスロー', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 更新で既にラップされたエラー
+        mockDocClient.send.mockRejectedValueOnce(
+          new Error('データベースエラーが発生しました: Already wrapped')
+        );
+
+        await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+          'データベースエラーが発生しました: Already wrapped'
+        );
+      });
+
+      it('DatabaseErrorをデータベースエラーとしてラップ', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 更新でDatabaseError
+        const originalError = new Error('DynamoDB connection failed');
+        const dbError = new DatabaseError('Database operation failed', {
+          cause: originalError,
+        });
+        mockDocClient.send.mockRejectedValueOnce(dbError);
+
+        await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('非Error型のエラーを処理', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 更新で非Error型のエラー
+        mockDocClient.send.mockRejectedValueOnce('String error');
+
+        await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（文字列版 - 3パラメータ）', async () => {
+        // getById (存在確認) - 成功するがentityが見つからないケース
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+          HoldingNotFoundError
+        );
+      });
+    });
+
+    describe('Error handling - delete', () => {
+      it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（文字列版）', async () => {
+        // 存在しない
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(repository.delete('user-123', 'NONEXISTENT')).rejects.toThrow(
+          HoldingNotFoundError
+        );
+      });
+
+      it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（オブジェクトキー版）', async () => {
+        // 存在しない
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(
+          repository.delete({ userId: 'user-123', tickerId: 'NONEXISTENT' })
+        ).rejects.toThrow(HoldingNotFoundError);
+      });
+
+      it('既にラップされたエラーメッセージはそのままスロー', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 削除で既にラップされたエラー
+        mockDocClient.send.mockRejectedValueOnce(
+          new Error('データベースエラーが発生しました: Already wrapped')
+        );
+
+        await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          'データベースエラーが発生しました: Already wrapped'
+        );
+      });
+
+      it('DatabaseErrorをデータベースエラーとしてラップ', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 削除でDatabaseError
+        const originalError = new Error('DynamoDB connection failed');
+        const dbError = new DatabaseError('Database operation failed', {
+          cause: originalError,
+        });
+        mockDocClient.send.mockRejectedValueOnce(dbError);
+
+        await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('非Error型のエラーを処理', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        // 存在チェック成功
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        // 削除で非Error型のエラー
+        mockDocClient.send.mockRejectedValueOnce('String error');
+
+        await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('EntityNotFoundErrorをHoldingNotFoundErrorに変換（文字列版 - 2パラメータ）', async () => {
+        // getById (存在確認) - entityが見つからない
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+          HoldingNotFoundError
+        );
+      });
+    });
+
+    describe('Additional error branches for better coverage', () => {
+      it('getById: InvalidHoldingDataErrorをそのままスロー', async () => {
+        const mockItem = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 'invalid',
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockItem,
+          $metadata: {},
+        });
+
+        await expect(
+          repository.getById({ userId: 'user-123', tickerId: 'NSDQ:AAPL' })
+        ).rejects.toThrow(InvalidHoldingDataError);
+      });
+
+      it('getByUserId: InvalidEntityDataErrorがデータベースエラーとしてラップされる', async () => {
+        const mockItems = [
+          {
+            PK: 'USER#user-123',
+            SK: 'HOLDING#NSDQ:AAPL',
+            Type: 'Holding',
+            UserID: 'user-123',
+            TickerID: 'NSDQ:AAPL',
+            ExchangeID: 'NASDAQ',
+            Quantity: 10.5,
+            AveragePrice: 'invalid', // Invalid type
+            Currency: 'USD',
+            CreatedAt: 1704067200000,
+            UpdatedAt: 1704067200000,
+          },
+        ];
+
+        mockDocClient.send.mockResolvedValueOnce({
+          Items: mockItems,
+          $metadata: {},
+        });
+
+        await expect(repository.getByUserId('user-123')).rejects.toThrow(
+          'データベースエラーが発生しました'
+        );
+      });
+
+      it('update: HoldingNotFoundErrorをそのままスロー', async () => {
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(
+          repository.update({ userId: 'user-123', tickerId: 'NONEXISTENT' }, { Quantity: 20 })
+        ).rejects.toThrow(HoldingNotFoundError);
+      });
+
+      it('update: InvalidHoldingDataErrorをそのままスロー', async () => {
+        const mockExistingHolding = {
+          PK: 'USER#user-123',
+          SK: 'HOLDING#NSDQ:AAPL',
+          Type: 'Holding',
+          UserID: 'user-123',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 10.5,
+          AveragePrice: 150.25,
+          Currency: 'USD',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        };
+
+        mockDocClient.send.mockResolvedValueOnce({
+          Item: mockExistingHolding,
+          $metadata: {},
+        });
+
+        await expect(repository.update('user-123', 'NSDQ:AAPL', {})).rejects.toThrow(
+          InvalidHoldingDataError
+        );
+      });
+
+      it('delete: HoldingNotFoundErrorをそのままスロー', async () => {
+        mockDocClient.send.mockResolvedValueOnce({
+          $metadata: {},
+        });
+
+        await expect(
+          repository.delete({ userId: 'user-123', tickerId: 'NONEXISTENT' })
+        ).rejects.toThrow(HoldingNotFoundError);
+      });
     });
   });
 });

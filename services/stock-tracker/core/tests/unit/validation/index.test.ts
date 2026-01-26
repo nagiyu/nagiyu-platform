@@ -13,6 +13,8 @@ import {
   validateHolding,
   validateWatchlist,
   validateAlert,
+  validateTickerCreateData,
+  validateTickerUpdateData,
 } from '../../../src/validation';
 import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../../../src/types';
 
@@ -897,5 +899,309 @@ describe('validateAlert', () => {
       const result = validateAlert(alert);
       expect(result.valid).toBe(true);
     });
+  });
+
+  describe('無効なタイムスタンプのテスト', () => {
+    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const alert = {
+        ...validAlert,
+        CreatedAt: 'invalid' as unknown,
+      };
+      const result = validateAlert(alert);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('作成日時が無効です');
+    });
+
+    it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const alert = {
+        ...validAlert,
+        UpdatedAt: 'invalid' as unknown,
+      };
+      const result = validateAlert(alert);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('更新日時が無効です');
+    });
+  });
+});
+
+describe('validateExchange', () => {
+  describe('無効なタイムスタンプのテスト', () => {
+    const validExchange = {
+      ExchangeID: 'NASDAQ',
+      Name: 'NASDAQ Stock Market',
+      Key: 'NSDQ',
+      Timezone: 'America/New_York',
+      Start: '04:00',
+      End: '20:00',
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    };
+
+    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const exchange = {
+        ...validExchange,
+        CreatedAt: 'invalid' as unknown,
+      };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('作成日時が無効です');
+    });
+
+    it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const exchange = {
+        ...validExchange,
+        UpdatedAt: null as unknown,
+      };
+      const result = validateExchange(exchange);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('更新日時は必須です');
+    });
+  });
+});
+
+describe('validateTicker', () => {
+  describe('無効なタイムスタンプのテスト', () => {
+    const validTicker = {
+      TickerID: 'NSDQ:AAPL',
+      Symbol: 'AAPL',
+      Name: 'Apple Inc.',
+      ExchangeID: 'NASDAQ',
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    };
+
+    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const ticker = {
+        ...validTicker,
+        CreatedAt: -1 as unknown,
+      };
+      const result = validateTicker(ticker);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('作成日時が無効です');
+    });
+
+    it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const ticker = {
+        ...validTicker,
+        UpdatedAt: 'string' as unknown,
+      };
+      const result = validateTicker(ticker);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('更新日時が無効です');
+    });
+  });
+});
+
+describe('validateHolding', () => {
+  describe('無効な値のテスト', () => {
+    const validHolding = {
+      UserID: 'user-123',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Quantity: 10.5,
+      AveragePrice: 150.25,
+      Currency: 'USD',
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    };
+
+    it('Quantityが無効な値の場合はバリデーションに失敗する', () => {
+      const holding = {
+        ...validHolding,
+        Quantity: 'invalid' as unknown,
+      };
+      const result = validateHolding(holding);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('保有数は0.0001〜1,000,000,000の範囲で入力してください');
+    });
+
+    it('AveragePriceが無効な値の場合はバリデーションに失敗する', () => {
+      const holding = {
+        ...validHolding,
+        AveragePrice: null as unknown,
+      };
+      const result = validateHolding(holding);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('平均取得価格は必須です');
+    });
+
+    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const holding = {
+        ...validHolding,
+        CreatedAt: false as unknown,
+      };
+      const result = validateHolding(holding);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('作成日時が無効です');
+    });
+
+    it('UpdatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const holding = {
+        ...validHolding,
+        UpdatedAt: [] as unknown,
+      };
+      const result = validateHolding(holding);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('更新日時が無効です');
+    });
+  });
+});
+
+describe('validateWatchlist', () => {
+  describe('無効なタイムスタンプのテスト', () => {
+    const validWatchlist = {
+      UserID: 'user-123',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      CreatedAt: 1704067200000,
+    };
+
+    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
+      const watchlist = {
+        ...validWatchlist,
+        CreatedAt: {} as unknown,
+      };
+      const result = validateWatchlist(watchlist);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('作成日時が無効です');
+    });
+  });
+});
+
+describe('validateTickerCreateData', () => {
+  it('正常なデータの場合はバリデーションに成功する', () => {
+    const data = {
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
+    };
+    const result = validateTickerCreateData(data);
+    expect(result.valid).toBe(true);
+  });
+
+  it('symbolが空文字の場合はバリデーションに失敗する', () => {
+    const data = {
+      symbol: '',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
+    };
+    const result = validateTickerCreateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('シンボルは必須です');
+  });
+
+  it('symbolが無効な形式の場合はバリデーションに失敗する', () => {
+    const data = {
+      symbol: 'aapl',
+      name: 'Apple Inc.',
+      exchangeId: 'NASDAQ',
+    };
+    const result = validateTickerCreateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('シンボルは1-20文字の英大文字と数字のみ使用できます');
+  });
+
+  it('nameが空文字の場合はバリデーションに失敗する', () => {
+    const data = {
+      symbol: 'AAPL',
+      name: '',
+      exchangeId: 'NASDAQ',
+    };
+    const result = validateTickerCreateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('銘柄名は必須です');
+  });
+
+  it('nameが200文字を超える場合はバリデーションに失敗する', () => {
+    const data = {
+      symbol: 'AAPL',
+      name: 'A'.repeat(201),
+      exchangeId: 'NASDAQ',
+    };
+    const result = validateTickerCreateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('銘柄名は200文字以内で入力してください');
+  });
+
+  it('exchangeIdが空文字の場合はバリデーションに失敗する', () => {
+    const data = {
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      exchangeId: '',
+    };
+    const result = validateTickerCreateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('取引所IDは必須です');
+  });
+
+  it('nullの場合はバリデーションに失敗する', () => {
+    const result = validateTickerCreateData(null);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('ティッカーデータが指定されていません');
+  });
+
+  it('undefinedの場合はバリデーションに失敗する', () => {
+    const result = validateTickerCreateData(undefined);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('ティッカーデータが指定されていません');
+  });
+
+  it('オブジェクトでない場合はバリデーションに失敗する', () => {
+    const result = validateTickerCreateData('string');
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('ティッカーデータが不正です');
+  });
+});
+
+describe('validateTickerUpdateData', () => {
+  it('正常なデータの場合はバリデーションに成功する', () => {
+    const data = {
+      name: 'Apple Corporation',
+    };
+    const result = validateTickerUpdateData(data);
+    expect(result.valid).toBe(true);
+  });
+
+  it('nameが空文字の場合はバリデーションに失敗する', () => {
+    const data = {
+      name: '',
+    };
+    const result = validateTickerUpdateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('銘柄名は必須です');
+  });
+
+  it('nameが200文字を超える場合はバリデーションに失敗する', () => {
+    const data = {
+      name: 'A'.repeat(201),
+    };
+    const result = validateTickerUpdateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('銘柄名は200文字以内で入力してください');
+  });
+
+  it('更新フィールドがない場合はバリデーションに失敗する', () => {
+    const data = {};
+    const result = validateTickerUpdateData(data);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('更新する内容を指定してください');
+  });
+
+  it('nullの場合はバリデーションに失敗する', () => {
+    const result = validateTickerUpdateData(null);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('ティッカーデータが指定されていません');
+  });
+
+  it('undefinedの場合はバリデーションに失敗する', () => {
+    const result = validateTickerUpdateData(undefined);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('ティッカーデータが指定されていません');
+  });
+
+  it('オブジェクトでない場合はバリデーションに失敗する', () => {
+    const result = validateTickerUpdateData(123);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain('ティッカーデータが不正です');
   });
 });

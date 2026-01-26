@@ -8,7 +8,7 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
 
   test('should display tool cards on homepage', async ({ page }) => {
     // Check if the main heading exists
-    const heading = page.getByRole('heading', { name: /ツール一覧/i });
+    const heading = page.getByRole('heading', { name: /Tools.*便利なツール集/i });
     await expect(heading).toBeVisible();
 
     // Check if tool cards are displayed

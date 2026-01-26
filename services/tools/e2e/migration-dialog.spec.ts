@@ -139,8 +139,10 @@ test.describe('MigrationDialog', () => {
       // ダイアログの外側（背景）をクリックしようと試みる
       // MUIのDialogは背景をクリックするとonCloseが呼ばれるが、
       // 実装では背景クリックを無効化しているので閉じない
+      // 可視状態の backdrop のみをターゲットにする
       await page
         .locator('[role="presentation"]')
+        .locator('visible=true')
         .first()
         .click({ position: { x: 1, y: 1 } });
 
