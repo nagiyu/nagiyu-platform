@@ -4,12 +4,8 @@
  * バリデーション関数のユニットテスト
  */
 
-import {
-  isValidPrice,
-  isValidQuantity,
-  isNonEmptyString,
-  isValidTimestamp,
-} from '../../../src/validation/helpers.js';
+import { isValidPrice, isValidQuantity } from '../../../src/validation/helpers.js';
+import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 
 describe('Validation Helpers', () => {
   describe('isValidPrice', () => {

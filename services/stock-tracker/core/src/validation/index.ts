@@ -5,8 +5,10 @@
  * architecture.md のバリデーションルールに準拠
  */
 
+import type { ValidationResult } from '@nagiyu/common';
+import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
 import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../types.js';
-import { isValidPrice, isValidQuantity, isNonEmptyString, isValidTimestamp } from './helpers.js';
+import { isValidPrice, isValidQuantity } from './helpers.js';
 
 /**
  * バリデーションエラーメッセージ定数
@@ -94,15 +96,8 @@ const ERROR_MESSAGES = {
   ALERT_UPDATED_AT_INVALID: '更新日時が無効です',
 } as const;
 
-/**
- * バリデーション結果
- */
-export type ValidationResult = {
-  /** バリデーション成功フラグ */
-  valid: boolean;
-  /** エラーメッセージ配列（valid が false の場合のみ） */
-  errors?: string[];
-};
+// ValidationResult型を再エクスポート
+export type { ValidationResult };
 
 /**
  * 取引所のバリデーション
