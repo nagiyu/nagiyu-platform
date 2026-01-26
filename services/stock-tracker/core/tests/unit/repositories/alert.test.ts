@@ -547,28 +547,59 @@ describe('AlertRepository', () => {
       expect(result.Enabled).toBe(false);
       expect(result.UpdatedAt).toBe(mockNow);
 
-      expect(mockDocClient.send).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          input: expect.objectContaining({
-            TableName: TABLE_NAME,
-            Key: {
-              PK: 'USER#user-123',
-              SK: 'ALERT#alert-1',
-            },
-            UpdateExpression: 'SET #enabled = :enabled, #updatedAt = :updatedAt',
-            ExpressionAttributeNames: {
-              '#enabled': 'Enabled',
-              '#updatedAt': 'UpdatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':enabled': false,
-              ':updatedAt': mockNow,
-            },
-            ConditionExpression: 'attribute_exists(PK)',
-          }),
-        })
-      );
+      // UpdateExpression format check - verify the correct fields are being updated
+      const updateCall = mockDocClient.send.mock.calls[1][0];
+      expect(updateCall.input.TableName).toBe(TABLE_NAME);
+      expect(updateCall.input.Key).toEqual({
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+      });
+      expect(updateCall.input.ConditionExpression).toBe('attribute_exists(PK)');
+
+      // Verify UpdateExpression contains the correct updates (format may vary)
+      expect(updateCall.input.UpdateExpression).toContain('SET');
+      expect(updateCall.input.UpdateExpression).toMatch(/#updatedAt|#UpdatedAt/i);
+
+      // Verify ExpressionAttributeNames maps to correct DynamoDB fields
+      const attrNames = updateCall.input.ExpressionAttributeNames;
+      const attrValues = updateCall.input.ExpressionAttributeValues;
+
+      // Build reverse map: DynamoDB field name -> placeholder
+      const fieldToPlaceholder: Record<string, string> = {};
+      for (const [placeholder, fieldName] of Object.entries(attrNames)) {
+        fieldToPlaceholder[fieldName as string] = placeholder;
+      }
+
+      // Find value placeholders by looking at the UpdateExpression
+      // Common infrastructure uses #field0 -> :value0 pattern
+      const enabledPlaceholder = fieldToPlaceholder['Enabled'];
+      const updatedAtPlaceholder = fieldToPlaceholder['UpdatedAt'];
+
+      expect(enabledPlaceholder).toBeDefined();
+      expect(updatedAtPlaceholder).toBeDefined();
+
+      // Match attribute name placeholders to value placeholders
+      // Pattern: #fieldN corresponds to :valueN or #name corresponds to :name
+      let enabledValue = undefined;
+      let updatedAtValue = undefined;
+
+      // Check both naming patterns
+      if (enabledPlaceholder.startsWith('#field')) {
+        const fieldNum = enabledPlaceholder.replace('#field', '');
+        enabledValue = attrValues[`:value${fieldNum}`];
+      } else {
+        enabledValue = attrValues[enabledPlaceholder.replace('#', ':')];
+      }
+
+      if (updatedAtPlaceholder.startsWith('#field')) {
+        const fieldNum = updatedAtPlaceholder.replace('#field', '');
+        updatedAtValue = attrValues[`:value${fieldNum}`];
+      } else {
+        updatedAtValue = attrValues[updatedAtPlaceholder.replace('#', ':')];
+      }
+
+      expect(enabledValue).toBe(false);
+      expect(updatedAtValue).toBe(mockNow);
     });
 
     it('アラートの条件を更新できる', async () => {
@@ -773,25 +804,61 @@ describe('AlertRepository', () => {
 
       await repository.update('user-123', 'alert-1', { Frequency: 'HOURLY_LEVEL' });
 
-      expect(mockDocClient.send).toHaveBeenNthCalledWith(
-        2,
-        expect.objectContaining({
-          input: expect.objectContaining({
-            UpdateExpression:
-              'SET #frequency = :frequency, #gsi2pk = :gsi2pk, #updatedAt = :updatedAt',
-            ExpressionAttributeNames: {
-              '#frequency': 'Frequency',
-              '#gsi2pk': 'GSI2PK',
-              '#updatedAt': 'UpdatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':frequency': 'HOURLY_LEVEL',
-              ':gsi2pk': 'ALERT#HOURLY_LEVEL',
-              ':updatedAt': mockNow,
-            },
-          }),
-        })
-      );
+      // UpdateExpression format check - verify the correct fields are being updated
+      const updateCall = mockDocClient.send.mock.calls[1][0];
+
+      // Verify ExpressionAttributeNames maps to correct DynamoDB fields
+      const attrNames = updateCall.input.ExpressionAttributeNames;
+      const attrValues = updateCall.input.ExpressionAttributeValues;
+
+      // Build reverse map: DynamoDB field name -> placeholder
+      const fieldToPlaceholder: Record<string, string> = {};
+      for (const [placeholder, fieldName] of Object.entries(attrNames)) {
+        fieldToPlaceholder[fieldName as string] = placeholder;
+      }
+
+      const frequencyPlaceholder = fieldToPlaceholder['Frequency'];
+      const gsi2pkPlaceholder = fieldToPlaceholder['GSI2PK'];
+      const updatedAtPlaceholder = fieldToPlaceholder['UpdatedAt'];
+
+      expect(frequencyPlaceholder).toBeDefined();
+      expect(gsi2pkPlaceholder).toBeDefined();
+      expect(updatedAtPlaceholder).toBeDefined();
+
+      // Verify UpdateExpression contains all three updates
+      expect(updateCall.input.UpdateExpression).toContain('SET');
+      expect(updateCall.input.UpdateExpression).toMatch(/#updatedAt|#UpdatedAt/i);
+
+      // Match attribute name placeholders to value placeholders
+      let frequencyValue = undefined;
+      let gsi2pkValue = undefined;
+      let updatedAtValue = undefined;
+
+      // Common infrastructure uses #fieldN -> :valueN pattern
+      if (frequencyPlaceholder.startsWith('#field')) {
+        const fieldNum = frequencyPlaceholder.replace('#field', '');
+        frequencyValue = attrValues[`:value${fieldNum}`];
+      } else {
+        frequencyValue = attrValues[frequencyPlaceholder.replace('#', ':')];
+      }
+
+      if (gsi2pkPlaceholder.startsWith('#field')) {
+        const fieldNum = gsi2pkPlaceholder.replace('#field', '');
+        gsi2pkValue = attrValues[`:value${fieldNum}`];
+      } else {
+        gsi2pkValue = attrValues[gsi2pkPlaceholder.replace('#', ':')];
+      }
+
+      if (updatedAtPlaceholder.startsWith('#field')) {
+        const fieldNum = updatedAtPlaceholder.replace('#field', '');
+        updatedAtValue = attrValues[`:value${fieldNum}`];
+      } else {
+        updatedAtValue = attrValues[updatedAtPlaceholder.replace('#', ':')];
+      }
+
+      expect(frequencyValue).toBe('HOURLY_LEVEL');
+      expect(gsi2pkValue).toBe('ALERT#HOURLY_LEVEL');
+      expect(updatedAtValue).toBe(mockNow);
     });
 
     it('存在しないアラートIDの場合はAlertNotFoundErrorをスロー', async () => {

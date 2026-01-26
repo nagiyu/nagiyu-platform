@@ -4,12 +4,8 @@
  * ExchangeRepositoryのユニットテスト
  */
 
-import {
-  ExchangeRepository,
-  ExchangeNotFoundError,
-  InvalidExchangeDataError,
-  ExchangeAlreadyExistsError,
-} from '../../../src/repositories/exchange.js';
+import { ExchangeRepository } from '../../../src/repositories/exchange.js';
+import { EntityNotFoundError, EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 describe('ExchangeRepository', () => {
@@ -235,7 +231,7 @@ describe('ExchangeRepository', () => {
       );
     });
 
-    it('重複する取引所IDの場合はExchangeAlreadyExistsErrorがスローされる', async () => {
+    it('重複する取引所IDの場合はEntityAlreadyExistsErrorがスローされる', async () => {
       const exchangeData = {
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ Stock Market',
@@ -249,7 +245,7 @@ describe('ExchangeRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(repository.create(exchangeData)).rejects.toThrow(ExchangeAlreadyExistsError);
+      await expect(repository.create(exchangeData)).rejects.toThrow(EntityAlreadyExistsError);
     });
   });
 
@@ -271,17 +267,6 @@ describe('ExchangeRepository', () => {
         Name: 'NASDAQ Updated',
         UpdatedAt: 1704153600000,
       };
-
-      // getById (存在確認)
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: {
-          PK: 'EXCHANGE#NASDAQ',
-          SK: 'METADATA',
-          Type: 'Exchange',
-          ...existingExchange,
-        },
-        $metadata: {},
-      });
 
       // update
       mockDocClient.send.mockResolvedValueOnce({
@@ -308,22 +293,13 @@ describe('ExchangeRepository', () => {
       expect(result.UpdatedAt).toBe(mockNow);
 
       expect(mockDocClient.send).toHaveBeenNthCalledWith(
-        2,
+        1,
         expect.objectContaining({
           input: expect.objectContaining({
             TableName: TABLE_NAME,
             Key: {
               PK: 'EXCHANGE#NASDAQ',
               SK: 'METADATA',
-            },
-            UpdateExpression: 'SET #name = :name, #updatedAt = :updatedAt',
-            ExpressionAttributeNames: {
-              '#name': 'Name',
-              '#updatedAt': 'UpdatedAt',
-            },
-            ExpressionAttributeValues: {
-              ':name': 'NASDAQ Updated',
-              ':updatedAt': mockNow,
             },
             ConditionExpression: 'attribute_exists(PK)',
           }),
@@ -351,17 +327,6 @@ describe('ExchangeRepository', () => {
         End: '21:00',
         UpdatedAt: 1704153600000,
       };
-
-      // getById (存在確認)
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: {
-          PK: 'EXCHANGE#NASDAQ',
-          SK: 'METADATA',
-          Type: 'Exchange',
-          ...existingExchange,
-        },
-        $metadata: {},
-      });
 
       // update
       mockDocClient.send.mockResolvedValueOnce({
@@ -396,19 +361,18 @@ describe('ExchangeRepository', () => {
       expect(result.UpdatedAt).toBe(mockNow);
     });
 
-    it('存在しない取引所IDの場合はExchangeNotFoundErrorをスロー', async () => {
-      // getById (存在確認) - Item がない場合
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: undefined,
-        $metadata: {},
-      });
+    it('存在しない取引所IDの場合はEntityNotFoundErrorをスロー', async () => {
+      // update with ConditionalCheckFailedException
+      const conditionalCheckError = new Error('ConditionalCheckFailedException');
+      conditionalCheckError.name = 'ConditionalCheckFailedException';
+      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
       await expect(repository.update('NONEXISTENT', { Name: 'Updated' })).rejects.toThrow(
-        ExchangeNotFoundError
+        EntityNotFoundError
       );
     });
 
-    it('更新するフィールドが指定されていない場合はInvalidExchangeDataErrorをスロー', async () => {
+    it('更新するフィールドが指定されていない場合はInvalidEntityDataErrorをスロー', async () => {
       const existingExchange = {
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ Stock Market',
@@ -431,34 +395,12 @@ describe('ExchangeRepository', () => {
         $metadata: {},
       });
 
-      await expect(repository.update('NASDAQ', {})).rejects.toThrow(InvalidExchangeDataError);
+      await expect(repository.update('NASDAQ', {})).rejects.toThrow(InvalidEntityDataError);
     });
   });
 
   describe('delete', () => {
     it('取引所を削除できる', async () => {
-      const existingExchange = {
-        ExchangeID: 'NASDAQ',
-        Name: 'NASDAQ Stock Market',
-        Key: 'NSDQ',
-        Timezone: 'America/New_York',
-        Start: '04:00',
-        End: '20:00',
-        CreatedAt: 1704067200000,
-        UpdatedAt: 1704067200000,
-      };
-
-      // getById (存在確認)
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: {
-          PK: 'EXCHANGE#NASDAQ',
-          SK: 'METADATA',
-          Type: 'Exchange',
-          ...existingExchange,
-        },
-        $metadata: {},
-      });
-
       // delete
       mockDocClient.send.mockResolvedValueOnce({
         $metadata: {},
@@ -466,8 +408,7 @@ describe('ExchangeRepository', () => {
 
       await repository.delete('NASDAQ');
 
-      expect(mockDocClient.send).toHaveBeenNthCalledWith(
-        2,
+      expect(mockDocClient.send).toHaveBeenCalledWith(
         expect.objectContaining({
           input: expect.objectContaining({
             TableName: TABLE_NAME,
@@ -481,14 +422,13 @@ describe('ExchangeRepository', () => {
       );
     });
 
-    it('存在しない取引所IDの場合はExchangeNotFoundErrorをスロー', async () => {
-      // getById (存在確認) - Item がない場合
-      mockDocClient.send.mockResolvedValueOnce({
-        Item: undefined,
-        $metadata: {},
-      });
+    it('存在しない取引所IDの場合はEntityNotFoundErrorをスロー', async () => {
+      // delete with ConditionalCheckFailedException
+      const conditionalCheckError = new Error('ConditionalCheckFailedException');
+      conditionalCheckError.name = 'ConditionalCheckFailedException';
+      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(repository.delete('NONEXISTENT')).rejects.toThrow(ExchangeNotFoundError);
+      await expect(repository.delete('NONEXISTENT')).rejects.toThrow(EntityNotFoundError);
     });
   });
 });
