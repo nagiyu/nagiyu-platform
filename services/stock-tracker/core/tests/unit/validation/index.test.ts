@@ -1000,7 +1000,7 @@ describe('validateAlert', () => {
       it('2条件の場合にLogicalOperatorが不正な値だとバリデーションに失敗する', () => {
         const alert = {
           ...validAlert,
-          LogicalOperator: 'XOR' as any,
+          LogicalOperator: 'XOR' as unknown as 'AND' | 'OR',
           ConditionList: [
             { field: 'price', operator: 'gte', value: 100.0 },
             { field: 'price', operator: 'lte', value: 200.0 },
@@ -1137,7 +1137,7 @@ describe('validateAlert', () => {
           ...validAlert,
           LogicalOperator: 'AND' as const,
           ConditionList: [
-            { field: 'volume' as any, operator: 'gte' as const, value: 100.0 },
+            { field: 'volume' as unknown as 'price', operator: 'gte' as const, value: 100.0 },
             { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
           ],
         };
@@ -1151,7 +1151,7 @@ describe('validateAlert', () => {
           ...validAlert,
           LogicalOperator: 'AND' as const,
           ConditionList: [
-            { field: 'price' as const, operator: 'eq' as any, value: 100.0 },
+            { field: 'price' as const, operator: 'eq' as unknown as 'gte' | 'lte', value: 100.0 },
             { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
           ],
         };
