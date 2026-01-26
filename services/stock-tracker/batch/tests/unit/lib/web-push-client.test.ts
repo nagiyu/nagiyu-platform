@@ -314,5 +314,38 @@ describe('web-push-client', () => {
         '無効な LogicalOperator です'
       );
     });
+
+    it('条件が0個の場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [],
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        'サポートされていない条件数です'
+      );
+    });
+
+    it('条件が3個以上の場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'AND',
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        'サポートされていない条件数です: 3'
+      );
+    });
   });
 });

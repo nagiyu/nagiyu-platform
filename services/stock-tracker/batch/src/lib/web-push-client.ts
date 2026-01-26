@@ -126,7 +126,13 @@ export function createAlertNotificationPayload(
   let body: string;
   let targetPrice: number;
 
-  if (alert.ConditionList.length === 2) {
+  if (alert.ConditionList.length === 1) {
+    // 単一条件の場合（従来通り）
+    const condition = alert.ConditionList[0];
+    const operatorText = condition.operator === 'gte' ? '以上' : '以下';
+    body = `現在価格 $${currentPrice.toFixed(2)} が目標価格 $${condition.value.toFixed(2)} ${operatorText}になりました`;
+    targetPrice = condition.value;
+  } else if (alert.ConditionList.length === 2) {
     // 複数条件の場合
     const gteCondition = alert.ConditionList.find((c) => c.operator === 'gte');
     const lteCondition = alert.ConditionList.find((c) => c.operator === 'lte');
@@ -147,11 +153,7 @@ export function createAlertNotificationPayload(
       throw new Error('無効な LogicalOperator です');
     }
   } else {
-    // 単一条件の場合（従来通り）
-    const condition = alert.ConditionList[0];
-    const operatorText = condition.operator === 'gte' ? '以上' : '以下';
-    body = `現在価格 $${currentPrice.toFixed(2)} が目標価格 $${condition.value.toFixed(2)} ${operatorText}になりました`;
-    targetPrice = condition.value;
+    throw new Error(`サポートされていない条件数です: ${alert.ConditionList.length}`);
   }
 
   return {
