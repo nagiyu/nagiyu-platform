@@ -143,9 +143,9 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   /**
    * ID でエンティティを取得（オーバーライド: エラーハンドリング追加）
    */
-  async getById(key: { userId: string; alertId: string }): Promise<Alert | null>;
-  async getById(userId: string, alertId: string): Promise<Alert | null>;
-  async getById(
+  public async getById(key: { userId: string; alertId: string }): Promise<Alert | null>;
+  public async getById(userId: string, alertId: string): Promise<Alert | null>;
+  public async getById(
     keyOrUserId: { userId: string; alertId: string } | string,
     alertId?: string
   ): Promise<Alert | null> {
@@ -175,7 +175,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
    * @param lastKey - ページネーション用の最後のキー
    * @returns アラートの配列と次のページのキー
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     limit = 50,
     lastKey?: Record<string, unknown>
@@ -221,7 +221,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
    * @param frequency - 通知頻度（MINUTE_LEVEL または HOURLY_LEVEL）
    * @returns アラートの配列
    */
-  async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<Alert[]> {
+  public async getByFrequency(frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'): Promise<Alert[]> {
     try {
       const result = await this.docClient.send(
         new QueryCommand({
@@ -258,7 +258,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
    * @param alert - アラートデータ（AlertIDを除く）
    * @returns 作成されたアラート（AlertID, CreatedAt, UpdatedAtを含む）
    */
-  async create(alert: Omit<Alert, 'AlertID' | 'CreatedAt' | 'UpdatedAt'>): Promise<Alert> {
+  public async create(alert: Omit<Alert, 'AlertID' | 'CreatedAt' | 'UpdatedAt'>): Promise<Alert> {
     const alertId = randomUUID();
     const newAlert: Alert = {
       ...alert,
@@ -277,11 +277,11 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   /**
    * アラートを更新（基底クラスのシグネチャ）
    */
-  async update(key: { userId: string; alertId: string }, updates: Partial<Alert>): Promise<Alert>;
+  public async update(key: { userId: string; alertId: string }, updates: Partial<Alert>): Promise<Alert>;
   /**
    * アラートを更新（互換性のある3パラメータ版）
    */
-  async update(
+  public async update(
     userId: string,
     alertId: string,
     updates: Partial<
@@ -302,7 +302,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   /**
    * アラートを更新の実装
    */
-  async update(
+  public async update(
     keyOrUserId: { userId: string; alertId: string } | string,
     alertIdOrUpdates?: string | Partial<Alert>,
     updates?: Partial<
@@ -374,15 +374,15 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   /**
    * アラートを削除（基底クラスのシグネチャ）
    */
-  async delete(key: { userId: string; alertId: string }): Promise<void>;
+  public async delete(key: { userId: string; alertId: string }): Promise<void>;
   /**
    * アラートを削除（互換性のある2パラメータ版）
    */
-  async delete(userId: string, alertId: string): Promise<void>;
+  public async delete(userId: string, alertId: string): Promise<void>;
   /**
    * アラートを削除の実装
    */
-  async delete(
+  public async delete(
     keyOrUserId: { userId: string; alertId: string } | string,
     alertId?: string
   ): Promise<void> {
