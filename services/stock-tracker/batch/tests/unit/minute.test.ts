@@ -482,4 +482,130 @@ describe('minute batch handler', () => {
       expect(body.statistics.notificationsSent).toBe(1); // alert-2 の通知
     });
   });
+
+  describe('正常系: 複数条件（範囲内）アラート', () => {
+    it('範囲内アラート（AND）の条件が達成された場合、Web Push 通知を送信する', async () => {
+      // Arrange
+      const mockAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+        ],
+        LogicalOperator: 'AND',
+        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
+        SubscriptionKeysP256dh: 'test-p256dh',
+        SubscriptionKeysAuth: 'test-auth',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      const mockExchange: Exchange = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(105.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
+      });
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
+      expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
+      expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
+      });
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.conditionsMet).toBe(1);
+      expect(body.statistics.notificationsSent).toBe(1);
+    });
+  });
+
+  describe('正常系: 複数条件（範囲外）アラート', () => {
+    it('範囲外アラート（OR）の条件が達成された場合、Web Push 通知を送信する', async () => {
+      // Arrange
+      const mockAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
+        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
+        SubscriptionKeysP256dh: 'test-p256dh',
+        SubscriptionKeysAuth: 'test-auth',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      const mockExchange: Exchange = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert]);
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(85.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
+      });
+
+      // Act
+      const response = await handler(mockEvent);
+
+      // Assert
+      expect(response.statusCode).toBe(200);
+      expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 85.0);
+      expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 85.0);
+      expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
+      });
+
+      const body = JSON.parse(response.body);
+      expect(body.statistics.conditionsMet).toBe(1);
+      expect(body.statistics.notificationsSent).toBe(1);
+    });
+  });
 });

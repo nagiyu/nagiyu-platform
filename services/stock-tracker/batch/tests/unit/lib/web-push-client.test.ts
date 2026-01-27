@@ -139,10 +139,9 @@ describe('web-push-client', () => {
     it('売りアラートの通知ペイロードを生成する (gte)', () => {
       // Arrange
       const currentPrice = 205.5;
-      const condition = { operator: 'gte', value: 200.0 };
 
       // Act
-      const payload = createAlertNotificationPayload(mockAlert, currentPrice, condition);
+      const payload = createAlertNotificationPayload(mockAlert, currentPrice);
 
       // Assert
       expect(payload).toEqual({
@@ -164,12 +163,12 @@ describe('web-push-client', () => {
       const buyAlert: Alert = {
         ...mockAlert,
         Mode: 'Buy',
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
       };
       const currentPrice = 145.25;
-      const condition = { operator: 'lte', value: 150.0 };
 
       // Act
-      const payload = createAlertNotificationPayload(buyAlert, currentPrice, condition);
+      const payload = createAlertNotificationPayload(buyAlert, currentPrice);
 
       // Assert
       expect(payload).toEqual({
@@ -189,14 +188,164 @@ describe('web-push-client', () => {
     it('小数点以下の価格を正しくフォーマットする', () => {
       // Arrange
       const currentPrice = 123.456;
-      const condition = { operator: 'gte', value: 123.45 };
+      const alert: Alert = {
+        ...mockAlert,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 123.45 }],
+      };
 
       // Act
-      const payload = createAlertNotificationPayload(mockAlert, currentPrice, condition);
+      const payload = createAlertNotificationPayload(alert, currentPrice);
 
       // Assert
       expect(payload.body).toContain('$123.46'); // 四捨五入される
       expect(payload.body).toContain('$123.45');
+    });
+
+    it('範囲内アラート（AND）の通知ペイロードを生成する', () => {
+      // Arrange
+      const rangeAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+        ],
+        LogicalOperator: 'AND',
+      };
+      const currentPrice = 105.0;
+
+      // Act
+      const payload = createAlertNotificationPayload(rangeAlert, currentPrice);
+
+      // Assert
+      expect(payload).toEqual({
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
+        icon: '/icon-192x192.png',
+        data: {
+          alertId: 'alert-1',
+          tickerId: 'NSDQ:AAPL',
+          mode: 'Sell',
+          currentPrice: 105.0,
+          targetPrice: 100.0,
+        },
+      });
+    });
+
+    it('範囲外アラート（OR）の通知ペイロードを生成する', () => {
+      // Arrange
+      const rangeAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
+      };
+      const currentPrice = 85.0;
+
+      // Act
+      const payload = createAlertNotificationPayload(rangeAlert, currentPrice);
+
+      // Assert
+      expect(payload).toEqual({
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
+        icon: '/icon-192x192.png',
+        data: {
+          alertId: 'alert-1',
+          tickerId: 'NSDQ:AAPL',
+          mode: 'Sell',
+          currentPrice: 85.0,
+          targetPrice: 120.0,
+        },
+      });
+    });
+
+    it('複数条件で gte がない場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+        ],
+        LogicalOperator: 'AND',
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        '複数条件のアラートには gte と lte が必要です'
+      );
+    });
+
+    it('複数条件で lte がない場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'gte', value: 110.0 },
+        ],
+        LogicalOperator: 'AND',
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        '複数条件のアラートには gte と lte が必要です'
+      );
+    });
+
+    it('無効な LogicalOperator の場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+        ],
+        LogicalOperator: undefined,
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        '無効な LogicalOperator です'
+      );
+    });
+
+    it('条件が0個の場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [],
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        'サポートされていない条件数です'
+      );
+    });
+
+    it('条件が3個以上の場合はエラーをスローする', () => {
+      // Arrange
+      const invalidAlert: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'AND',
+      };
+      const currentPrice = 105.0;
+
+      // Act & Assert
+      expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
+        'サポートされていない条件数です: 3'
+      );
     });
   });
 });
