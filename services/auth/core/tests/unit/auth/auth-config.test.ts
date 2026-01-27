@@ -1,6 +1,6 @@
 /**
  * Auth Configuration のテスト
- * 
+ *
  * 環境変数に基づいて正しい cookie domain が設定されることを確認します。
  * auth.ts をモックして、設定値のみをテストします。
  */
@@ -146,4 +146,3 @@ describe('Auth Configuration - Environment-based Cookie Domain', () => {
     });
   });
 });
-

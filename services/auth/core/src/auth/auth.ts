@@ -35,7 +35,7 @@ const userRepository = new DynamoDBUserRepository();
 // - dev 環境: NODE_ENV === 'dev'
 // - prod 環境: NODE_ENV === 'prod'
 const isDevelopment = process.env.NODE_ENV === 'development';
-const isProduction = process.env.NODE_ENV === 'prod';
+const isProduction = (process.env.NODE_ENV as string) === 'prod';
 
 export const authConfig: NextAuthConfig = {
   providers: [
