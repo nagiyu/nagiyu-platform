@@ -275,6 +275,8 @@ describe('InMemoryAlertRepository', () => {
       };
 
       const created = await repository.create(input);
+      // 確実にタイムスタンプが異なるように待機
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       const result = await repository.update('user-123', created.AlertID, {
         Enabled: false,
