@@ -60,11 +60,9 @@ export async function fetchWithTimeout(
       ...fetchOptions,
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
     return response;
-  } catch (error) {
+  } finally {
     clearTimeout(timeoutId);
-    throw error;
   }
 }
 
@@ -138,8 +136,9 @@ export async function apiRequest<T>(url: string, options: APIRequestOptions = {}
     }
   }
 
-  // 理論上はここには到達しないが、型安全性のため
-  throw lastError || new Error('Unknown error occurred');
+  // このコードは理論上到達しないが、TypeScriptの型安全性のために存在
+  // すべてのリトライが完了した場合、ループ内でエラーがスローされる
+  throw lastError || new Error('Request failed after all retries');
 }
 
 /**
