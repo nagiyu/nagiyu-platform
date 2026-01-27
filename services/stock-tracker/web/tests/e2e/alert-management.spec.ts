@@ -480,7 +480,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 範囲タイプフィールドが表示されることを確認（デフォルト値は「範囲内（AND）」）
@@ -527,11 +527,11 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 範囲タイプを「範囲外（OR）」に変更
-      await page.getByLabel('範囲タイプ').click();
+      await page.getByRole('combobox', { name: '範囲タイプ' }).click();
       await page.getByRole('option', { name: /範囲外/ }).click();
 
       // 範囲を入力（90ドル以下または120ドル以上）
@@ -577,7 +577,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 不正な範囲を入力（最小価格 > 最大価格）
@@ -612,11 +612,11 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 範囲タイプを「範囲外（OR）」に変更
-      await page.getByLabel('範囲タイプ').click();
+      await page.getByRole('combobox', { name: '範囲タイプ' }).click();
       await page.getByRole('option', { name: /範囲外/ }).click();
 
       // 不正な範囲を入力（下限価格 >= 上限価格）
@@ -654,7 +654,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 範囲指定に切り替え
-      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 範囲指定のフィールドが表示される
@@ -667,7 +667,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).not.toBeVisible();
 
       // 単一条件に戻す
-      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: /単一条件/ }).click();
 
       // 単一条件のフィールドが表示される
