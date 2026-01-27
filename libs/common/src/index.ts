@@ -13,3 +13,6 @@ export * from './auth/index.js';
 export * from './validation/index.js';
 // Logger module - Structured logging functionality
 export * from './logger/index.js';
+
+// API module - Common API utilities and types
+export * from './api/index.js';
