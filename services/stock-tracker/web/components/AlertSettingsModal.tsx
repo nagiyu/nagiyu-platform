@@ -24,7 +24,7 @@ const ERROR_MESSAGES = {
   INVALID_MIN_PRICE: '最小価格は0.01以上、1,000,000以下で入力してください',
   INVALID_MAX_PRICE: '最大価格は0.01以上、1,000,000以下で入力してください',
   INVALID_RANGE_INSIDE: '範囲内アラートの場合、最小価格は最大価格より小さい値を設定してください',
-  INVALID_RANGE_OUTSIDE: '範囲外アラートの場合、最小価格は最大価格より大きい値を設定してください',
+  INVALID_RANGE_OUTSIDE: '範囲外アラートの場合、下限価格は上限価格より小さい値を設定してください',
   REQUIRED_FIELD: 'この項目は必須です',
   NOTIFICATION_PERMISSION_DENIED: '通知の許可が拒否されました。ブラウザの設定から許可してください',
   SUBSCRIPTION_ERROR: 'Web Push通知の登録に失敗しました',
@@ -236,8 +236,8 @@ export default function AlertSettingsModal({
               errors.minPrice = ERROR_MESSAGES.INVALID_RANGE_INSIDE;
             }
           } else {
-            // 範囲外: minPrice > maxPrice
-            if (minPrice <= maxPrice) {
+            // 範囲外: minPrice < maxPrice (lte.value < gte.value)
+            if (minPrice >= maxPrice) {
               errors.minPrice = ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
             }
           }

@@ -617,16 +617,16 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByLabel('範囲タイプ').click();
       await page.getByRole('option', { name: /範囲外/ }).click();
 
-      // 不正な範囲を入力（下限価格 < 上限価格）
-      await page.getByLabel(/下限価格/).fill('90');
-      await page.getByLabel(/上限価格/).fill('120');
+      // 不正な範囲を入力（下限価格 >= 上限価格）
+      await page.getByLabel(/下限価格/).fill('120');
+      await page.getByLabel(/上限価格/).fill('90');
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
 
       // エラーメッセージが表示されることを確認
       await expect(
-        page.getByText(/範囲外アラートの場合、最小価格は最大価格より大きい値を設定してください/)
+        page.getByText(/範囲外アラートの場合、下限価格は上限価格より小さい値を設定してください/)
       ).toBeVisible();
     });
 
