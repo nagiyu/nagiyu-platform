@@ -70,16 +70,13 @@ export async function fetchWithTimeout(
 
 /**
  * リトライ機能付きAPIリクエスト
- * 
+ *
  * @template T - レスポンスデータの型（明示的に指定する必要があります）
  * @param url - リクエストURL
  * @param options - リクエストオプション
  * @returns レスポンスデータ
  */
-export async function apiRequest<T>(
-  url: string,
-  options: APIRequestOptions = {}
-): Promise<T> {
+export async function apiRequest<T>(url: string, options: APIRequestOptions = {}): Promise<T> {
   const { retry, timeout, ...fetchOptions } = options;
   const retryConfig: RetryConfig = {
     ...DEFAULT_RETRY_CONFIG,
@@ -147,7 +144,7 @@ export async function apiRequest<T>(
 
 /**
  * GETリクエスト
- * 
+ *
  * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
 export async function get<T>(
@@ -162,7 +159,7 @@ export async function get<T>(
 
 /**
  * POSTリクエスト
- * 
+ *
  * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
 export async function post<T>(
@@ -183,7 +180,7 @@ export async function post<T>(
 
 /**
  * PUTリクエスト
- * 
+ *
  * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
 export async function put<T>(
@@ -204,7 +201,7 @@ export async function put<T>(
 
 /**
  * DELETEリクエスト
- * 
+ *
  * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
 export async function del<T>(

@@ -26,7 +26,15 @@ export function getErrorTypeFromStatus(status: number): ErrorType {
 export async function parseErrorResponse(response: Response): Promise<APIErrorResponse> {
   try {
     const data = await response.json();
-    if (data.error && data.message) {
+    // Type guard to check if data has error and message properties
+    if (
+      data &&
+      typeof data === 'object' &&
+      'error' in data &&
+      'message' in data &&
+      typeof data.error === 'string' &&
+      typeof data.message === 'string'
+    ) {
       return data as APIErrorResponse;
     }
   } catch {
