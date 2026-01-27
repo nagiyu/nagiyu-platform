@@ -16,7 +16,6 @@ import {
   CircularProgress,
   Box,
   Typography,
-  FormHelperText,
 } from '@mui/material';
 
 // エラーメッセージ定数
@@ -58,6 +57,21 @@ interface FormData {
   minPrice: string; // 範囲指定の場合のみ
   maxPrice: string; // 範囲指定の場合のみ
   frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+}
+
+// アラート作成リクエストボディ型
+interface CreateAlertRequest {
+  tickerId: string;
+  exchangeId: string;
+  mode: 'Buy' | 'Sell';
+  frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+  conditions: Array<{
+    field: 'price';
+    operator: 'gte' | 'lte';
+    value: number;
+  }>;
+  subscription: PushSubscriptionJSON;
+  logicalOperator?: 'AND' | 'OR';
 }
 
 // 初期フォームデータ
@@ -306,7 +320,7 @@ export default function AlertSettingsModal({
       }
 
       // アラートを作成
-      const requestBody: any = {
+      const requestBody: CreateAlertRequest = {
         tickerId,
         exchangeId,
         mode,
