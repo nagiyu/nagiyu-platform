@@ -80,7 +80,7 @@ export class InMemoryTickerRepository implements TickerRepository {
    * 全ティッカー取得
    */
   async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
-    const result = this.store.scan(
+    const result = this.store.queryByAttribute(
       {
         attributeName: 'Type',
         attributeValue: 'Ticker',
