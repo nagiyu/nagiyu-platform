@@ -8,7 +8,7 @@ export class InMemoryUserRepository implements UserRepository {
   private users: Map<string, UserData> = new Map();
   private googleIdIndex: Map<string, string> = new Map();
 
-  async getUserByGoogleId(googleId: string): Promise<UserData | null> {
+  public async getUserByGoogleId(googleId: string): Promise<UserData | null> {
     const userId = this.googleIdIndex.get(googleId);
     if (!userId) {
       return null;
@@ -16,11 +16,11 @@ export class InMemoryUserRepository implements UserRepository {
     return this.users.get(userId) || null;
   }
 
-  async getUserById(userId: string): Promise<UserData | null> {
+  public async getUserById(userId: string): Promise<UserData | null> {
     return this.users.get(userId) || null;
   }
 
-  async upsertUser(input: UpsertUserInput): Promise<UserData> {
+  public async upsertUser(input: UpsertUserInput): Promise<UserData> {
     const existingUserId = this.googleIdIndex.get(input.googleId);
     const now = new Date().toISOString();
 
@@ -57,7 +57,7 @@ export class InMemoryUserRepository implements UserRepository {
     return newUser;
   }
 
-  async updateLastLogin(userId: string): Promise<void> {
+  public async updateLastLogin(userId: string): Promise<void> {
     const user = this.users.get(userId);
     if (user) {
       user.lastLoginAt = new Date().toISOString();

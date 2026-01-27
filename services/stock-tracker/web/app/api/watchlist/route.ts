@@ -73,7 +73,7 @@ export async function GET(request: Request) {
       let ticker;
       try {
         ticker = await tickerRepo.getById(item.TickerID);
-      } catch (error) {
+      } catch {
         // ティッカーが見つからない場合は null として扱う
         ticker = null;
       }
@@ -190,7 +190,7 @@ export async function POST(request: Request) {
     let ticker;
     try {
       ticker = await tickerRepo.getById(newWatchlist.TickerID);
-    } catch (error) {
+    } catch {
       // ティッカーが見つからない場合は null として扱う
       ticker = null;
     }

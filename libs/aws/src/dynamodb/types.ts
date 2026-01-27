@@ -33,6 +33,16 @@ export interface DynamoDBItem extends Record<string, unknown> {
 }
 
 /**
+ * ページネーションオプション
+ */
+export interface PaginationOptions {
+  /** 取得する最大件数 */
+  limit?: number;
+  /** 次のページのカーソル（不透明トークン） */
+  cursor?: string;
+}
+
+/**
  * ページネーション結果
  */
 export interface PaginatedResult<T> {

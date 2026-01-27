@@ -79,7 +79,7 @@ export class ExchangeRepository extends AbstractDynamoDBRepository<
    *
    * @returns 取引所の配列
    */
-  async getAll(): Promise<Exchange[]> {
+  public async getAll(): Promise<Exchange[]> {
     const result = await this.docClient.send(
       new ScanCommand({
         TableName: this.config.tableName,
@@ -106,7 +106,7 @@ export class ExchangeRepository extends AbstractDynamoDBRepository<
    * @param exchangeIdOrKey - 取引所ID または { exchangeId: string }
    * @returns 取引所（存在しない場合はnull）
    */
-  async getById(exchangeIdOrKey: string | { exchangeId: string }): Promise<Exchange | null> {
+  public async getById(exchangeIdOrKey: string | { exchangeId: string }): Promise<Exchange | null> {
     const key =
       typeof exchangeIdOrKey === 'string' ? { exchangeId: exchangeIdOrKey } : exchangeIdOrKey;
     return super.getById(key);
@@ -119,7 +119,7 @@ export class ExchangeRepository extends AbstractDynamoDBRepository<
    * @param updates - 更新するフィールド
    * @returns 更新された取引所
    */
-  async update(
+  public async update(
     exchangeIdOrKey: string | { exchangeId: string },
     updates: Partial<Pick<Exchange, 'Name' | 'Timezone' | 'Start' | 'End'>>
   ): Promise<Exchange> {
@@ -133,7 +133,7 @@ export class ExchangeRepository extends AbstractDynamoDBRepository<
    *
    * @param exchangeIdOrKey - 取引所ID または { exchangeId: string }
    */
-  async delete(exchangeIdOrKey: string | { exchangeId: string }): Promise<void> {
+  public async delete(exchangeIdOrKey: string | { exchangeId: string }): Promise<void> {
     const key =
       typeof exchangeIdOrKey === 'string' ? { exchangeId: exchangeIdOrKey } : exchangeIdOrKey;
     return super.delete(key);

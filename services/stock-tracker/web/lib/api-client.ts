@@ -38,12 +38,13 @@ export interface APIRequestOptions extends RequestInit {
  * APIエラー
  */
 export class APIError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly errorInfo: ErrorInfo,
-    message: string
-  ) {
+  public readonly status: number;
+  public readonly errorInfo: ErrorInfo;
+
+  constructor(status: number, errorInfo: ErrorInfo, message: string) {
     super(message);
+    this.status = status;
+    this.errorInfo = errorInfo;
     this.name = 'APIError';
   }
 }

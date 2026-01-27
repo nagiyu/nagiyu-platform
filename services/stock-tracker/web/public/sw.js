@@ -1,7 +1,7 @@
 // Service Worker for Stock Tracker Push Notifications
 
 // インストール時
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   console.log('Service Worker: Installing...');
   // 即座にアクティベート
   self.skipWaiting();
@@ -86,6 +86,6 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // 通知閉じた時
-self.addEventListener('notificationclose', (event) => {
+self.addEventListener('notificationclose', () => {
   console.log('Service Worker: Notification closed');
 });

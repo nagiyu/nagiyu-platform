@@ -92,7 +92,7 @@ export async function PUT(
     let body: UpdateTickerRequest;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',

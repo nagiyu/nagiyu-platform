@@ -56,11 +56,11 @@ export class InvalidEntityDataError extends RepositoryError {
  * データベース操作でエラーが発生した場合のエラー
  */
 export class DatabaseError extends RepositoryError {
-  constructor(
-    message: string,
-    public readonly cause?: Error
-  ) {
+  public readonly cause?: Error;
+
+  constructor(message: string, cause?: Error) {
     super(`${ERROR_MESSAGES.DATABASE_ERROR}: ${message}`);
+    this.cause = cause;
     this.name = 'DatabaseError';
   }
 }

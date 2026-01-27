@@ -114,9 +114,9 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
   /**
    * ID でエンティティを取得（オーバーライド: 2パラメータサポート）
    */
-  async getById(key: { userId: string; tickerId: string }): Promise<Watchlist | null>;
-  async getById(userId: string, tickerId: string): Promise<Watchlist | null>;
-  async getById(
+  public async getById(key: { userId: string; tickerId: string }): Promise<Watchlist | null>;
+  public async getById(userId: string, tickerId: string): Promise<Watchlist | null>;
+  public async getById(
     keyOrUserId: { userId: string; tickerId: string } | string,
     tickerId?: string
   ): Promise<Watchlist | null> {
@@ -140,7 +140,7 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
   /**
    * ユーザーのウォッチリスト一覧を取得
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     limit: number = 50,
     lastKey?: Record<string, unknown>
@@ -187,7 +187,7 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
   /**
    * ウォッチリストを作成（オーバーライド: エラーラッピング）
    */
-  async create(watchlist: Omit<Watchlist, 'CreatedAt'>): Promise<Watchlist> {
+  public async create(watchlist: Omit<Watchlist, 'CreatedAt'>): Promise<Watchlist> {
     try {
       // Base class expects Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>, but Watchlist doesn't have UpdatedAt
       // So we pass it as-is and let the base class add both timestamps
@@ -207,15 +207,15 @@ export class WatchlistRepository extends AbstractDynamoDBRepository<
   /**
    * ウォッチリストを削除（基底クラスのシグネチャ）
    */
-  async delete(key: { userId: string; tickerId: string }): Promise<void>;
+  public async delete(key: { userId: string; tickerId: string }): Promise<void>;
   /**
    * ウォッチリストを削除（互換性のある2パラメータ版）
    */
-  async delete(userId: string, tickerId: string): Promise<void>;
+  public async delete(userId: string, tickerId: string): Promise<void>;
   /**
    * ウォッチリストを削除の実装
    */
-  async delete(
+  public async delete(
     keyOrUserId: { userId: string; tickerId: string } | string,
     tickerId?: string
   ): Promise<void> {

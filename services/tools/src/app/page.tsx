@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import TrainIcon from '@mui/icons-material/Train';
+import DataObjectIcon from '@mui/icons-material/DataObject';
 import ToolCard from '@/components/tools/ToolCard';
 import { Tool } from '@/types/tools';
 
@@ -26,6 +27,14 @@ export default function HomePage() {
       description: '乗り換え案内のテキストを整形してコピーします',
       icon: <TrainIcon sx={{ fontSize: 48 }} />,
       href: '/transit-converter',
+      category: '変換ツール',
+    },
+    {
+      id: 'json-formatter',
+      title: 'JSON 整形ツール',
+      description: 'JSONの整形・圧縮・検証ができます',
+      icon: <DataObjectIcon sx={{ fontSize: 48 }} />,
+      href: '/json-formatter',
       category: '変換ツール',
     },
   ];
