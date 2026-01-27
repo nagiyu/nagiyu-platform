@@ -30,8 +30,12 @@ if (
 // DynamoDB を使用してユーザー情報を永続化
 const userRepository = new DynamoDBUserRepository();
 
-// 開発環境判定
+// 環境判定
+// - ローカル開発環境: NODE_ENV === 'development'
+// - dev 環境: NODE_ENV === 'dev'
+// - prod 環境: NODE_ENV === 'prod'
 const isDevelopment = process.env.NODE_ENV === 'development';
+const isProduction = (process.env.NODE_ENV as string) === 'prod';
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -53,12 +57,21 @@ export const authConfig: NextAuthConfig = {
   },
   cookies: {
     sessionToken: {
-      name: `__Secure-next-auth.session-token`,
+      // 環境別のクッキー名でdev環境とprod環境を分離
+      // - ローカル開発環境: __Secure-next-auth.session-token (localhost専用)
+      // - dev環境: __Secure-next-auth.session-token.dev (dev-*.nagiyu.comで共有)
+      // - prod環境: __Secure-next-auth.session-token (*.nagiyu.comで共有)
+      name: isProduction
+        ? `__Secure-next-auth.session-token`
+        : isDevelopment
+          ? `__Secure-next-auth.session-token`
+          : `__Secure-next-auth.session-token.dev`,
       options: {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        // ローカル開発環境では domain を設定しない
+        // 全環境で .nagiyu.com を設定してSSO共有を実現
+        // ローカル開発環境のみ未設定（localhost専用）
         domain: isDevelopment ? undefined : '.nagiyu.com',
         // ローカル開発環境では secure を false にする
         secure: !isDevelopment,

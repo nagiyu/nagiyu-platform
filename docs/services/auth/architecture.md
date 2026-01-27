@@ -206,17 +206,36 @@ sequenceDiagram
 ```typescript
 cookies: {
   sessionToken: {
-    name: 'nagiyu-session',
+    // 環境別のクッキー名でdev環境とprod環境を分離
+    name: isProduction
+      ? '__Secure-next-auth.session-token'
+      : isDevelopment
+        ? '__Secure-next-auth.session-token'
+        : '__Secure-next-auth.session-token.dev',
     options: {
       httpOnly: true,     // XSS 対策
       sameSite: 'lax',    // CSRF 対策
       path: '/',
-      secure: true,       // HTTPS のみ
-      domain: '.nagiyu.com', // サブドメイン全体で共有
+      secure: !isDevelopment,  // ローカル開発環境以外では HTTPS のみ
+      // 全環境で .nagiyu.com を設定してSSO共有を実現
+      // ローカル開発環境のみ未設定（localhost専用）
+      domain: isDevelopment ? undefined : '.nagiyu.com',
     }
   }
 }
 ```
+
+**重要な設計判断:**
+
+- **環境分離の方法**: クッキー名を環境別に変更することで分離
+  - **ローカル開発環境** (NODE_ENV=development): 標準名 `__Secure-next-auth.session-token`、`domain=undefined` (localhost専用)
+  - **dev 環境** (NODE_ENV=dev): `.dev` サフィックス付き `__Secure-next-auth.session-token.dev`、`domain=.nagiyu.com` (dev-*.nagiyu.com で SSO)
+  - **prod 環境** (NODE_ENV=prod): 標準名 `__Secure-next-auth.session-token`、`domain=.nagiyu.com` (*.nagiyu.com で SSO)
+
+- **SSO 機能**: dev 環境と prod 環境の両方で SSO を実現
+  - dev 環境: `dev-auth.nagiyu.com`, `dev-admin.nagiyu.com`, `dev-stock-tracker.nagiyu.com` などで SSO
+  - prod 環境: `auth.nagiyu.com`, `admin.nagiyu.com`, `tools.nagiyu.com` などで SSO
+  - クッキー名が異なるため、dev と prod でクッキーが混同されない
 
 ### 4.4 他サービスとの認証共有 (SSO)
 
@@ -246,15 +265,22 @@ sequenceDiagram
 #### SSO の仕組み
 
 **JWT Cookie 詳細:**
-- **Cookie 名**: `nagiyu-session`
-- **Domain**: `.nagiyu.com` (全サブドメインで共有)
+- **Cookie 名**:
+  - **ローカル開発環境** (NODE_ENV=development): `__Secure-next-auth.session-token` (localhost のみ)
+  - **dev 環境** (NODE_ENV=dev): `__Secure-next-auth.session-token.dev` (dev-*.nagiyu.com で SSO)
+  - **prod 環境** (NODE_ENV=prod): `__Secure-next-auth.session-token` (*.nagiyu.com で SSO)
+- **Domain**:
+  - **ローカル開発環境**: 未設定（localhost のみ）
+  - **dev 環境**: `.nagiyu.com`（dev-auth, dev-admin, dev-stock-tracker などで SSO 共有）
+  - **prod 環境**: `.nagiyu.com`（auth, admin, tools などで SSO 共有）
 - **属性**: `HttpOnly; Secure; SameSite=Lax`
 - **有効期限**: 30日
 
 **メリット:**
-- ✓ 一度のログインで全サービスにアクセス可能
+- ✓ 一度のログインで全サービスにアクセス可能（dev 環境、prod 環境それぞれで）
 - ✓ 各サービスは独立して JWT を検証（Auth Service への問い合わせ不要）
 - ✓ 認証ロジックが Auth Service に集約され保守性向上
+- ✓ クッキー名が異なるため、dev 環境と prod 環境でクッキーが混同されない（セキュリティ向上）
 
 #### シナリオ: admin.nagiyu.com へのアクセス
 
