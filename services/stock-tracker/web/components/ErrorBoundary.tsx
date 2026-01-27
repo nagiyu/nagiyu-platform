@@ -41,14 +41,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return {
       hasError: true,
       error,
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  public componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // エラーログ出力
     console.error('ErrorBoundary caught an error:', error, errorInfo);
 
@@ -58,14 +58,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     }
   }
 
-  handleReset = () => {
+  public handleReset = () => {
     this.setState({
       hasError: false,
       error: null,
     });
   };
 
-  render() {
+  public render() {
     if (this.state.hasError) {
       // カスタムfallbackがある場合はそれを表示
       if (this.props.fallback) {

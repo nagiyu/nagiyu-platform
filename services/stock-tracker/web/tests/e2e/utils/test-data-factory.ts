@@ -249,7 +249,7 @@ export class TestDataFactory {
    * @param options - 作成オプション（全てオプショナル）
    * @returns 作成された Exchange
    */
-  async createExchange(options: CreateExchangeOptions = {}): Promise<CreatedExchange> {
+  public async createExchange(options: CreateExchangeOptions = {}): Promise<CreatedExchange> {
     const exchangeId = options.exchangeId || this.generateUniqueId('EX');
     const key = options.key || this.generateUniqueKey();
 
@@ -295,7 +295,7 @@ export class TestDataFactory {
    * @param options - 作成オプション
    * @returns 作成された Ticker（関連 Exchange を含む）
    */
-  async createTicker(options: CreateTickerOptions = {}): Promise<CreatedTicker> {
+  public async createTicker(options: CreateTickerOptions = {}): Promise<CreatedTicker> {
     let exchange: CreatedExchange;
     if (options.exchangeId) {
       const existing = this.trackedData.exchanges.get(options.exchangeId);
@@ -348,7 +348,7 @@ export class TestDataFactory {
    * @param options - 作成オプション
    * @returns 作成された Holding（関連エンティティを含む）
    */
-  async createHolding(options: CreateHoldingOptions = {}): Promise<CreatedHolding> {
+  public async createHolding(options: CreateHoldingOptions = {}): Promise<CreatedHolding> {
     let ticker: CreatedTicker;
     if (options.tickerId) {
       const existing = this.trackedData.tickers.get(options.tickerId);
@@ -410,7 +410,7 @@ export class TestDataFactory {
    * @param options - 作成オプション
    * @returns 作成された Watchlist（関連エンティティを含む）
    */
-  async createWatchlist(options: CreateWatchlistOptions = {}): Promise<CreatedWatchlist> {
+  public async createWatchlist(options: CreateWatchlistOptions = {}): Promise<CreatedWatchlist> {
     let ticker: CreatedTicker;
     if (options.tickerId) {
       const existing = this.trackedData.tickers.get(options.tickerId);
@@ -464,7 +464,7 @@ export class TestDataFactory {
    * @param options - 作成オプション
    * @returns 作成された Alert（関連エンティティを含む）
    */
-  async createAlert(options: CreateAlertOptions = {}): Promise<CreatedAlert> {
+  public async createAlert(options: CreateAlertOptions = {}): Promise<CreatedAlert> {
     let ticker: CreatedTicker;
     if (options.tickerId) {
       const existing = this.trackedData.tickers.get(options.tickerId);
@@ -544,7 +544,7 @@ export class TestDataFactory {
    * @param alertOptions - Alert のオプション
    * @returns 作成結果
    */
-  async createAlertWithDependencies(
+  public async createAlertWithDependencies(
     withHolding: boolean = true,
     alertOptions: CreateAlertOptions = {}
   ): Promise<{
@@ -580,7 +580,7 @@ export class TestDataFactory {
    * 作成した全データを削除
    * 依存関係の逆順で削除: Alert -> Watchlist -> Holding -> Ticker -> Exchange
    */
-  async cleanup(): Promise<void> {
+  public async cleanup(): Promise<void> {
     // 1. Alert を削除
     for (const [alertId] of this.trackedData.alerts) {
       try {
@@ -636,23 +636,23 @@ export class TestDataFactory {
   // ゲッター
   // ==========================================================================
 
-  get exchanges(): CreatedExchange[] {
+  public get exchanges(): CreatedExchange[] {
     return Array.from(this.trackedData.exchanges.values());
   }
 
-  get tickers(): CreatedTicker[] {
+  public get tickers(): CreatedTicker[] {
     return Array.from(this.trackedData.tickers.values());
   }
 
-  get holdings(): CreatedHolding[] {
+  public get holdings(): CreatedHolding[] {
     return Array.from(this.trackedData.holdings.values());
   }
 
-  get watchlists(): CreatedWatchlist[] {
+  public get watchlists(): CreatedWatchlist[] {
     return Array.from(this.trackedData.watchlists.values());
   }
 
-  get alerts(): CreatedAlert[] {
+  public get alerts(): CreatedAlert[] {
     return Array.from(this.trackedData.alerts.values());
   }
 }
