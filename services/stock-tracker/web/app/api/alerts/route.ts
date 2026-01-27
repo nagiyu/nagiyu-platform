@@ -263,6 +263,7 @@ export async function POST(
       Frequency: body.frequency,
       Enabled: body.enabled !== undefined ? body.enabled : true,
       ConditionList: body.conditions || [],
+      LogicalOperator: body.logicalOperator,
       SubscriptionEndpoint: subscription.endpoint,
       SubscriptionKeysP256dh: subscription.keys.p256dh,
       SubscriptionKeysAuth: subscription.keys.auth,
