@@ -230,16 +230,14 @@ export default function AlertSettingsModal({
         const maxPrice = parseFloat(formData.maxPrice);
 
         if (!isNaN(minPrice) && !isNaN(maxPrice)) {
-          if (formData.rangeType === 'inside') {
-            // 範囲内: minPrice < maxPrice
-            if (minPrice >= maxPrice) {
-              errors.minPrice = ERROR_MESSAGES.INVALID_RANGE_INSIDE;
-            }
-          } else {
-            // 範囲外: minPrice < maxPrice (lte.value < gte.value)
-            if (minPrice >= maxPrice) {
-              errors.minPrice = ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
-            }
+          // 両方の範囲タイプで minPrice < maxPrice が必要
+          // - 範囲内: price >= minPrice AND price <= maxPrice
+          // - 範囲外: price <= minPrice OR price >= maxPrice
+          if (minPrice >= maxPrice) {
+            errors.minPrice =
+              formData.rangeType === 'inside'
+                ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
           }
         }
       }
