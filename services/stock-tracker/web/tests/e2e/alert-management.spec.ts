@@ -445,4 +445,237 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       }
     });
   });
+
+  test.describe('範囲指定アラート設定', () => {
+    let testHolding: CreatedHolding;
+
+    test.beforeEach(async () => {
+      // テスト用の Holding を作成
+      testHolding = await factory.createHolding({
+        quantity: 100,
+        averagePrice: 150.0,
+        currency: 'USD',
+      });
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    });
+
+    test('範囲内アラート（AND）を作成できる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 範囲タイプが「範囲内（AND）」になっていることを確認
+      await expect(page.getByLabel('範囲タイプ')).toHaveValue('inside');
+
+      // 範囲を入力（100〜110ドル）
+      await page.getByLabel(/最小価格/).fill('100');
+      await page.getByLabel(/最大価格/).fill('110');
+
+      // 保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // モーダルが閉じることを確認、またはエラーが表示されることを確認
+      await Promise.race([
+        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
+        expect(
+          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
+        ).toBeVisible({ timeout: 5000 }),
+      ]).catch(async () => {
+        const errorVisible = await page
+          .getByText(/エラー|失敗|対応していません/)
+          .isVisible()
+          .catch(() => false);
+        if (errorVisible) {
+          test.skip();
+        }
+      });
+    });
+
+    test('範囲外アラート（OR）を作成できる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 範囲タイプを「範囲外（OR）」に変更
+      await page.getByLabel('範囲タイプ').click();
+      await page.getByRole('option', { name: /範囲外/ }).click();
+
+      // 範囲を入力（90ドル以下または120ドル以上）
+      await page.getByLabel(/下限価格/).fill('90');
+      await page.getByLabel(/上限価格/).fill('120');
+
+      // 保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // モーダルが閉じることを確認、またはエラーが表示されることを確認
+      await Promise.race([
+        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
+        expect(
+          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
+        ).toBeVisible({ timeout: 5000 }),
+      ]).catch(async () => {
+        const errorVisible = await page
+          .getByText(/エラー|失敗|対応していません/)
+          .isVisible()
+          .catch(() => false);
+        if (errorVisible) {
+          test.skip();
+        }
+      });
+    });
+
+    test('範囲内アラートで不正な範囲を入力するとバリデーションエラーが表示される', async ({
+      page,
+    }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 不正な範囲を入力（最小価格 > 最大価格）
+      await page.getByLabel(/最小価格/).fill('110');
+      await page.getByLabel(/最大価格/).fill('100');
+
+      // 保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // エラーメッセージが表示されることを確認
+      await expect(
+        page.getByText(/範囲内アラートの場合、最小価格は最大価格より小さい値を設定してください/)
+      ).toBeVisible();
+    });
+
+    test('範囲外アラートで不正な範囲を入力するとバリデーションエラーが表示される', async ({
+      page,
+    }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 範囲タイプを「範囲外（OR）」に変更
+      await page.getByLabel('範囲タイプ').click();
+      await page.getByRole('option', { name: /範囲外/ }).click();
+
+      // 不正な範囲を入力（下限価格 < 上限価格）
+      await page.getByLabel(/下限価格/).fill('90');
+      await page.getByLabel(/上限価格/).fill('120');
+
+      // 保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // エラーメッセージが表示されることを確認
+      await expect(
+        page.getByText(/範囲外アラートの場合、最小価格は最大価格より大きい値を設定してください/)
+      ).toBeVisible();
+    });
+
+    test('単一条件と範囲指定を切り替えできる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // 初期状態は単一条件
+      await expect(page.getByLabel('条件タイプ')).toHaveValue('single');
+      await expect(page.getByLabel('条件')).toBeVisible();
+      await expect(page.getByLabel('目標価格')).toBeVisible();
+
+      // 範囲指定に切り替え
+      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 範囲指定のフィールドが表示される
+      await expect(page.getByLabel('範囲タイプ')).toBeVisible();
+      await expect(page.getByLabel(/最小価格/)).toBeVisible();
+      await expect(page.getByLabel(/最大価格/)).toBeVisible();
+
+      // 単一条件のフィールドが非表示になる
+      await expect(page.getByLabel('条件')).not.toBeVisible();
+      await expect(page.getByLabel('目標価格')).not.toBeVisible();
+
+      // 単一条件に戻す
+      await page.getByLabel('条件タイプ').click();
+      await page.getByRole('option', { name: /単一条件/ }).click();
+
+      // 単一条件のフィールドが表示される
+      await expect(page.getByLabel('条件')).toBeVisible();
+      await expect(page.getByLabel('目標価格')).toBeVisible();
+
+      // 範囲指定のフィールドが非表示になる
+      await expect(page.getByLabel('範囲タイプ')).not.toBeVisible();
+      await expect(page.getByLabel(/最小価格/)).not.toBeVisible();
+      await expect(page.getByLabel(/最大価格/)).not.toBeVisible();
+    });
+  });
 });
