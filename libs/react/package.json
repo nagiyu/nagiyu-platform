@@ -1,6 +1,7 @@
 {
   "name": "@nagiyu/react",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -18,10 +19,6 @@
     "lint": "eslint src/**/*.{ts,tsx} tests/**/*.{ts,tsx}",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
-  },
-  "peerDependencies": {
-    "react": ">=19.0.0",
-    "react-dom": ">=19.0.0"
   },
   "dependencies": {
     "@nagiyu/common": "*"
