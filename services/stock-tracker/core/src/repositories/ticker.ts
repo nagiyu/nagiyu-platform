@@ -116,7 +116,7 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
    * @param exchangeId - 取引所ID（指定時は該当取引所のティッカーのみ取得）
    * @returns ティッカー配列
    */
-  async getAll(exchangeId?: string): Promise<Ticker[]> {
+  public async getAll(exchangeId?: string): Promise<Ticker[]> {
     try {
       if (exchangeId) {
         // 取引所フィルタが指定されている場合はgetByExchangeを使用
@@ -155,15 +155,15 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
   /**
    * ティッカーIDでティッカーを取得（基底クラスのシグネチャ）
    */
-  async getById(key: { tickerId: string }): Promise<Ticker | null>;
+  public async getById(key: { tickerId: string }): Promise<Ticker | null>;
   /**
    * ティッカーIDでティッカーを取得（互換性のある文字列版）
    */
-  async getById(tickerId: string): Promise<Ticker>;
+  public async getById(tickerId: string): Promise<Ticker>;
   /**
    * ティッカーIDでティッカーを取得の実装
    */
-  async getById(keyOrTickerId: { tickerId: string } | string): Promise<Ticker | null> {
+  public async getById(keyOrTickerId: { tickerId: string } | string): Promise<Ticker | null> {
     try {
       const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
       const result = await super.getById({ tickerId });
@@ -208,7 +208,7 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
    * @param exchangeId - 取引所ID
    * @returns ティッカー配列
    */
-  async getByExchange(exchangeId: string): Promise<Ticker[]> {
+  public async getByExchange(exchangeId: string): Promise<Ticker[]> {
     try {
       const result = await this.docClient.send(
         new QueryCommand({
@@ -239,18 +239,18 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
   /**
    * ティッカー作成（基底クラスのシグネチャ）
    */
-  async create(entity: Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>): Promise<Ticker>;
+  public async create(entity: Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>): Promise<Ticker>;
   /**
    * ティッカー作成（互換性のある2パラメータ版）
    */
-  async create(
+  public async create(
     ticker: Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'>,
     exchangeKey: string
   ): Promise<Ticker>;
   /**
    * ティッカー作成の実装
    */
-  async create(
+  public async create(
     tickerOrEntity:
       | Omit<Ticker, 'TickerID' | 'CreatedAt' | 'UpdatedAt'>
       | Omit<Ticker, 'CreatedAt' | 'UpdatedAt'>,
@@ -318,18 +318,18 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
   /**
    * ティッカー更新（基底クラスのシグネチャ）
    */
-  async update(key: { tickerId: string }, updates: Partial<Ticker>): Promise<Ticker>;
+  public async update(key: { tickerId: string }, updates: Partial<Ticker>): Promise<Ticker>;
   /**
    * ティッカー更新（互換性のある2パラメータ版）
    */
-  async update(
+  public async update(
     tickerId: string,
     updates: Partial<Pick<Ticker, 'Symbol' | 'Name'>>
   ): Promise<Ticker>;
   /**
    * ティッカー更新の実装
    */
-  async update(
+  public async update(
     keyOrTickerId: { tickerId: string } | string,
     updates: Partial<Ticker> | Partial<Pick<Ticker, 'Symbol' | 'Name'>>
   ): Promise<Ticker> {
@@ -375,15 +375,15 @@ export class TickerRepository extends AbstractDynamoDBRepository<Ticker, { ticke
   /**
    * ティッカー削除（基底クラスのシグネチャ）
    */
-  async delete(key: { tickerId: string }): Promise<void>;
+  public async delete(key: { tickerId: string }): Promise<void>;
   /**
    * ティッカー削除（互換性のある文字列版）
    */
-  async delete(tickerId: string): Promise<void>;
+  public async delete(tickerId: string): Promise<void>;
   /**
    * ティッカー削除の実装
    */
-  async delete(keyOrTickerId: { tickerId: string } | string): Promise<void> {
+  public async delete(keyOrTickerId: { tickerId: string } | string): Promise<void> {
     try {
       const tickerId = typeof keyOrTickerId === 'string' ? keyOrTickerId : keyOrTickerId.tickerId;
 

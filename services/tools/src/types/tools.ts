@@ -62,3 +62,9 @@ export const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   showLineName: true,
   showPlatform: false,
 };
+
+export interface JsonFormatterResult {
+  formatted: string;
+  isValid: boolean;
+  error?: string;
+}

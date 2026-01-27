@@ -108,6 +108,16 @@ Lambda Function URL (Next.js SSR)
 - **レイアウト**: 共通レイアウトを `app/layout.tsx` で定義
 - **ページ**: 各ツールを動的ルートで実装
 
+**実装されているツールページ**:
+- `/` - ツール一覧ページ（トップページ）
+- `/transit-converter` - 乗り換え変換ツール
+- `/json-formatter` - JSON 整形ツール（フェーズ2で実装予定）
+
+**設計方針**:
+- 各ツールは独立したページとして実装
+- 共通のレイアウト・UIコンポーネントを再利用
+- クライアントサイドで完結する処理を優先
+
 #### Material UI 構成
 
 - **テーマ**: ライトテーマのみ (将来ダークモード対応予定)
@@ -118,6 +128,32 @@ Lambda Function URL (Next.js SSR)
     - `md`: 900px〜 (小型PC)
     - `lg`: 1200px〜 (デスクトップ)
     - `xl`: 1536px〜 (大型ディスプレイ)
+
+#### ツール固有のコンポーネント設計
+
+各ツールは以下の設計パターンに従います。
+
+**共通設計方針**:
+- 縦並びレイアウト（入力エリア → アクションボタン → 出力エリア）
+- クリップボード読み取り・書き込み機能の統一
+- エラー表示は Snackbar で統一
+- レスポンシブ対応
+
+**JSON Formatter の設計要素**:
+- **入力コンポーネント**: `TextField`（Material UI）、複数行テキストエリア
+- **アクションボタン**:
+  - 「整形」ボタン: `JSON.stringify(JSON.parse(input), null, 2)` を実行
+  - 「圧縮」ボタン: `JSON.stringify(JSON.parse(input))` を実行
+  - 「クリア」ボタン: 入力・出力をリセット
+  - クリップボード読み取りボタン: Clipboard API 使用
+- **出力コンポーネント**: `TextField`（読み取り専用）、複数行テキストエリア
+- **エラーハンドリング**: `JSON.parse()` の例外を `try-catch` でキャッチし、Snackbar に表示
+- **コピー機能**: Clipboard API 使用、成功時に Snackbar でフィードバック
+
+**再利用可能なコンポーネント**:
+- クリップボード読み取りボタン（Transit Converter と共通化可能）
+- コピーボタン（Transit Converter と共通化可能）
+- エラー表示 Snackbar
 
 #### PWA 構成
 
@@ -178,6 +214,38 @@ Next.js の API Routes (`app/api/` ディレクトリ) を使用。
   version: string     // アプリケーションバージョン
 }
 ```
+
+#### JSON Formatter 型定義
+
+JSON Formatter はクライアントサイドで完結する処理のため、API は不要です。
+型定義の設計指針のみを示します。
+
+**設計方針**:
+- `JSON.parse()` と `JSON.stringify()` を使用した標準的な実装
+- エラーハンドリング: `try-catch` で `JSON.parse()` の例外をキャッチ
+- 入出力の型安全性を確保
+- バリデーション結果の明確な表現
+
+**型定義の例**:
+```typescript
+// JSON 操作の結果
+interface JsonFormatResult {
+  success: boolean;
+  data?: string;        // 整形/圧縮されたJSON文字列
+  error?: string;       // エラーメッセージ
+}
+
+// JSON バリデーション結果
+interface JsonValidationResult {
+  valid: boolean;
+  error?: string;       // エラーメッセージ
+}
+```
+
+**実装の考慮事項**:
+- インデント: 2スペース固定
+- 大きなJSONの処理パフォーマンス（10MB以内を推奨）
+- 循環参照の検出（`JSON.stringify()` がエラーを投げる）
 
 ---
 
