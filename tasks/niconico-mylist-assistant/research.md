@@ -215,6 +215,164 @@
 - いずれかが成功すれば OK とする
 - 定期的な動作確認と迅速な対応
 
+#### 1.1 既存実装のセレクタ分析（2026-01-27 調査）
+
+既存実装（Python + Selenium）で使用されているXPathセレクタの脆弱性を分析しました。
+
+**使用されているセレクタ一覧**:
+
+```python
+# ログイン関連
+LOGIN_BUTTON_XPATH = '//*[@id="CommonHeader"]/div/div/div/div[2]/a'
+MAIL_INPUT_XPATH = '//*[@id="input__mailtel"]'
+PASS_INPUT_XPATH = '//*[@id="input__password"]'
+LOGIN_SUBMIT_XPATH = '//*[@id="login__submit"]'
+
+# マイリスト操作
+MYLIST_COUNT_XPATH = '//*[@id="UserPage-app"]/section/section/main/div/div/div[1]/div[2]/div/div/div/ul[1]/div/header/div/span/span[1]'
+MYLIST_REMOVE1_XPATH = '//*[@id="UserPage-app"]/section/section/main/div/section/div/div[3]/div[1]/div/a'
+MYLIST_CREATE_BUTTON_XPATH = '//*[@id="UserPage-app"]/section/section/main/div/div/div[1]/div[2]/div/div/div/ul[1]/div/div/button[1]'
+MYLIST_TITLE_INPUT_XPATH = '//*[@id="undefined-title"]'
+MYLIST_CREATE_CONFIRM_XPATH = '/html/body/div[13]/div/div/article/footer/button'
+
+# 動画登録
+VIDEO_MENU_BUTTON_XPATH = '/html/body/div/div[1]/main/div[2]/div[1]/section/div[1]/div/div[2]/div[3]/div/button[5]'
+VIDEO_ADD_TO_MYLIST_XPATH = '/html/body/div[2]/div/div/div[2]/button'
+VIDEO_MYLIST_SELECT_XPATH = '//*[@id="root"]/div[1]/main/div[2]/div[1]/section/div[3]/div[2]/section/div/ul/li[2]/button'
+```
+
+**脆弱性評価**:
+
+| セレクタ | 脆弱性 | 問題点 |
+|---------|-------|--------|
+| `LOGIN_BUTTON_XPATH` | 🔴 高 | 絶対XPath、`div[2]`など位置ベース |
+| `MAIL_INPUT_XPATH` | 🟢 低 | ID属性ベース、比較的安定 |
+| `PASS_INPUT_XPATH` | 🟢 低 | ID属性ベース、比較的安定 |
+| `MYLIST_COUNT_XPATH` | 🔴 高 | 長い階層、`div[1]`、`span[1]`など位置指定多数 |
+| `MYLIST_CREATE_CONFIRM_XPATH` | 🔴 高 | **絶対XPath** `/html/body/div[13]` - div番号変更で即座に破綻 |
+| `VIDEO_MENU_BUTTON_XPATH` | 🔴 高 | `button[5]` - 5番目のボタンに依存 |
+| `VIDEO_MYLIST_SELECT_XPATH` | 🔴 高 | `li[2]` - 2番目のマイリスト選択、順序依存 |
+
+**総合評価**: 🔴 **高リスク** - 大部分のセレクタが脆弱で、UI変更時に破綻する可能性が極めて高い
+
+#### 1.2 ニコニコ動画の現在の構造（2026-01-27 調査）
+
+**トップページ** (`https://www.nicovideo.jp/`):
+- テンプレートエンジン: Handlebars
+- レンダリング: サーバーサイドレンダリング
+- SPAフレームワーク: なし
+
+**ログインページ** (`https://account.nicovideo.jp/login`):
+- フォーム: `id="login_form"` が存在
+- JavaScript: Google Tag Manager、Fingerprint認証
+
+**動画視聴ページ** (`https://www.nicovideo.jp/watch/{videoId}`):
+- **フレームワーク: React Router ベースのSPA**
+- 設定: `"isSpaMode": true`
+- データ埋め込み: Schema.org JSON-LD（VideoObject）
+- `__NEXT_DATA__` や `__NUXT__` は存在しない
+
+**重要な発見**:
+1. 動画視聴ページはReact Router SPAで、JavaScriptで動的にDOMが生成される
+2. ページごとに構造が異なる（トップ: テンプレート、動画: SPA）
+3. Schema.org JSON-LDメタデータが埋め込まれている（比較的安定）
+
+#### 1.3 複数の抽出戦略の設計
+
+TypeScript + Playwright実装では、以下の複数戦略を採用します：
+
+**戦略A: 安定したID/属性ベース**
+```typescript
+// 優先度1: ID属性（変更されにくい）
+const element = await page.locator('#login__submit').first();
+
+// 優先度2: data属性
+const element = await page.locator('[data-test-id="login-submit"]').first();
+
+// 優先度3: aria-label
+const element = await page.locator('button[aria-label="ログイン"]').first();
+```
+
+**戦略B: Playwright推奨のRoleセレクタ**
+```typescript
+// テキストベースで検索（言語依存だが比較的安定）
+const loginButton = await page.getByRole('button', { name: 'ログイン' });
+const mylistButton = await page.getByText('マイリストに追加');
+```
+
+**戦略C: JSON-LD/APIデータの利用**
+```typescript
+// Schema.org JSON-LDから動画情報を取得
+const videoData = await page.evaluate(() => {
+  const scriptTag = document.querySelector('script[type="application/ld+json"]');
+  return scriptTag ? JSON.parse(scriptTag.textContent) : null;
+});
+```
+
+**戦略D: 部分一致セレクタ**
+```typescript
+// CSSセレクタの部分一致
+const button = await page.locator('button[class*="MylistButton"]').first();
+
+// XPathの部分一致
+const button = await page.locator('//button[contains(@class, "Mylist")]').first();
+```
+
+**フォールバック実装パターン**:
+```typescript
+async function findElement(page: Page, strategies: Strategy[]): Promise<ElementHandle | null> {
+  for (const strategy of strategies) {
+    try {
+      const element = await strategy.find(page);
+      if (element) {
+        console.log(`✅ Strategy succeeded: ${strategy.name}`);
+        return element;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Strategy failed: ${strategy.name}`);
+      // 次の戦略にフォールバック
+    }
+  }
+  throw new Error('All strategies failed to find element');
+}
+```
+
+**セレクタの定数化**:
+```typescript
+// src/constants/selectors.ts
+export const SELECTORS = {
+  login: {
+    strategies: [
+      { type: 'id', value: '#login__submit' },
+      { type: 'role', value: { role: 'button', name: 'ログイン' } },
+      { type: 'css', value: 'button[class*="login"]' },
+    ],
+  },
+  mylist: {
+    createButton: {
+      strategies: [
+        { type: 'role', value: { role: 'button', name: 'マイリスト作成' } },
+        { type: 'css', value: 'button[class*="MylistCreate"]' },
+        { type: 'xpath', value: '//button[contains(text(), "作成")]' },
+      ],
+    },
+  },
+};
+```
+
+#### 1.4 実装フェーズでの対応計画
+
+**Milestone 5-6での実装**:
+1. `core/src/playwright/selectors.ts` - セレクタ定義と複数戦略
+2. `core/src/playwright/strategies.ts` - 抽出戦略ロジック
+3. `core/src/playwright/fallback.ts` - フォールバック実装
+4. 統合テストで定期的にセレクタの動作確認
+
+**運用時の対応**:
+- 統合テストを週次または月次で実行
+- セレクタ失敗時のアラート設定
+- UI変更検知時の迅速な対応フローを確立
+
 ### 2. AWS Lambda のサイズ制限
 
 **課題**:
@@ -384,7 +542,3 @@
 - `register` と `register-batch` の2つが既存リポジトリにあるが、**現行動いているのは register-batch のみ**
 - Lambda の時間制限を気にする必要はない（AWS Batch を使用）
 - 30個単位でのチェーン実行は不要（100個まで一括処理）
-
----
-
-**最終更新日**: 2026-01-14

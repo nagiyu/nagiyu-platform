@@ -47,9 +47,14 @@ Milestone 7: 本番準備
 
 ---
 
-## Milestone 1: デプロイ基盤構築
+## Milestone 1: デプロイ基盤構築（Web + Batch）
 
-**目標**: dev環境への継続的デプロイを可能にする
+**目標**: Web と Batch の両方を dev 環境にデプロイして動作確認
+
+**方針**:
+- Web と Batch の基盤を Milestone 1 で完成させる
+- Codec Converter の実績を活用して AWS Batch CDK を実装
+- デプロイ駆動開発: Milestone 1 完了後、全コンポーネントが dev 環境で動作
 
 ### Issue 1-1: Web Dockerfile 作成
 
@@ -64,12 +69,53 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 1-2: GitHub Actions ワークフロー作成
+### Issue 1-2: Batch Dockerfile とダミー処理実装
+
+**実装内容**:
+- Playwright 実行環境の Dockerfile（基本構成は既存を利用）
+- **ダミー処理の実装**:
+  - 環境変数の読み取り（`DYNAMODB_TABLE_NAME` など）
+  - 開始/完了ログの出力
+  - タイムスタンプの表示
+  - 3秒程度の待機処理
+- エントリーポイント設定の確認
+
+**完了条件**:
+- [ ] ローカルで Docker イメージがビルドできる
+- [ ] ローカルでコンテナが起動してログが出力される
+- [ ] ダミー処理が正常に完了する（エラーなく終了）
+
+---
+
+### Issue 1-3: infra: AWS Batch 設定（CDK）
+
+**実装内容**:
+- Batch コンピューティング環境（Fargate）
+  - **最小リソース**: vCPU 0.25, メモリ 512 MB
+  - 共有 VPC の Public Subnet を使用
+- ジョブ定義（ECR イメージを参照）
+- ジョブキュー
+- IAM ロール設定（最小権限: CloudWatch Logs 書き込みのみ）
+- セキュリティグループ（アウトバウンド HTTPS のみ）
+
+**参考**:
+- 既存の codec-converter の Batch 実装
+- [deployment.md:109-116](./deployment.md) の CDK スタック構成
+
+**完了条件**:
+- [ ] CDK デプロイが成功する
+- [ ] Batch リソースが作成される（コンピューティング環境、ジョブ定義、ジョブキュー）
+- [ ] IAM ロールが適切に設定される
+
+---
+
+### Issue 1-4: GitHub Actions ワークフロー作成
 
 **実装内容**:
 - PR マージ時の自動デプロイワークフロー
 - dev 環境への CDK デプロイ
-- Docker イメージのビルド・プッシュ
+- **Web と Batch 両方の** Docker イメージのビルド・プッシュ
+- バージョンタグ管理（latest + コミットハッシュ）
 - ブランチ戦略（integration/* → develop）に対応
 
 **参考**:
@@ -77,20 +123,25 @@ Milestone 7: 本番準備
 
 **完了条件**:
 - [ ] develop ブランチへのマージで自動デプロイが実行される
+- [ ] Web と Batch の Docker イメージが ECR にプッシュされる
 - [ ] デプロイ成功時に dev 環境が更新される
 
 ---
 
-### Issue 1-3: デプロイ検証
+### Issue 1-5: デプロイ検証（Web + Batch）
 
 **実装内容**:
 - 最小限の Web 画面をデプロイ
 - ヘルスチェック API が正常応答することを確認
+- **Batch のダミージョブを手動で投入して動作確認**
+  - AWS コンソール/CLI でジョブ投入
+  - CloudWatch Logs でログ確認
 - dev 環境での動作確認手順をドキュメント化
 
 **完了条件**:
 - [ ] `https://dev-niconico-mylist-assistant.nagiyu.com` にアクセス可能
 - [ ] CI/CD による自動デプロイが動作
+- [ ] **Batch のダミージョブが `SUCCEEDED` で完了する**
 - [ ] デプロイ手順が `tasks/niconico-mylist-assistant/deployment.md` に記載
 
 ---
@@ -309,74 +360,48 @@ Milestone 7: 本番準備
 
 ---
 
-## Milestone 5: バッチ基盤構築
+## Milestone 5: バッチ動作検証
 
-**目標**: AWS Batch で処理を実行できる環境を構築
+**目標**: dev 環境で AWS Batch のダミージョブが安定して動作することを確認（[risks.md:50-57](./risks.md) 推奨対策に準拠）
 
-### Issue 5-1: batch: Dockerfile 作成
+**前提**: Milestone 1 で AWS Batch の基盤（Dockerfile、CDK、CI/CD）は完成済み
 
-**実装内容**:
-- Playwright 実行環境の Dockerfile
-- 必要な依存関係のインストール
-- エントリーポイント設定
+**方針**:
+- 基盤の安定性を確認してから本実装（Milestone 6）に進む
+- エラーケースの動作確認を徹底
+- 暗号化や Playwright 実装は Milestone 6 で実施
 
-**完了条件**:
-- [ ] Docker イメージがビルドできる
-- [ ] Playwright がコンテナ内で実行できる
-
----
-
-### Issue 5-2: core: 暗号化ユーティリティ実装
+### Issue 5-1: dev 環境でのバッチ動作検証
 
 **実装内容**:
-- AES-256-GCM による暗号化/復号化関数
-- AWS KMS との連携
-- エラーハンドリング
+- **複数回のダミージョブ実行**:
+  - AWS コンソールまたは CLI で手動投入（3回以上）
+  - ジョブステータスの確認（SUBMITTED → RUNNING → SUCCEEDED）
+  - CloudWatch Logs でログの確認
+- **エラーケースの確認**:
+  - 存在しない環境変数を指定した場合の挙動
+  - ジョブの再実行（リトライ）の動作確認
+  - 同時実行の動作確認（複数ジョブを並行投入）
+- **リソース使用状況の確認**:
+  - vCPU/メモリ使用率の確認
+  - 実行時間の測定
+  - 必要に応じてリソース調整
 
 **完了条件**:
-- [ ] 暗号化/復号化が正常に動作する
-- [ ] KMS キーが適切に使用される
-- [ ] ユニットテストが実装される
+- [ ] dev 環境で複数回ジョブが安定して `SUCCEEDED` で完了する
+- [ ] CloudWatch Logs でダミー処理のログが確認できる
+- [ ] 環境変数が正しく渡されている
+- [ ] エラーケースの挙動が確認できる
+- [ ] リソース使用状況が適切（必要に応じて調整済み）
 
----
+**🎯 Milestone 5 完了時点**:
+- AWS Batch の基盤が安定して動作することが確認できた状態
+- 本実装（Playwright、暗号化）に進む準備が整った状態
 
-### Issue 5-3: infra: AWS Batch 設定（CDK）
-
-**実装内容**:
-- Batch コンピューティング環境（Fargate）
-- ジョブ定義
-- ジョブキュー
-- IAM ロール設定
-
-**完了条件**:
-- [ ] CDK デプロイが成功する
-- [ ] Batch リソースが作成される
-
----
-
-### Issue 5-4: batch: ECR プッシュ設定
-
-**実装内容**:
-- GitHub Actions ワークフローに ECR プッシュを追加
-- バージョンタグ管理
-- dev/prod 環境の分離
-
-**完了条件**:
-- [ ] CI で Docker イメージが ECR にプッシュされる
-- [ ] タグが適切に管理される
-
----
-
-### Issue 5-5: dev 環境でバッチ実行確認
-
-**実装内容**:
-- ダミー処理を実装してバッチジョブを実行
-- ジョブログの確認
-- エラーハンドリングの確認
-
-**完了条件**:
-- [ ] dev 環境で AWS Batch ジョブが実行できる
-- [ ] CloudWatch Logs でログが確認できる
+**📊 リスク管理**:
+- [risks.md](./risks.md) の「リスク2: AWS Batch の初回構築と動作確認」対策として設計
+- ダミー処理での段階的検証によりリスクを軽減
+- 本実装前に基盤の安定性を確保
 
 ---
 
@@ -384,7 +409,26 @@ Milestone 7: 本番準備
 
 **目標**: 条件を指定してマイリストに自動登録できる
 
-### Issue 6-1: batch: Playwright 自動化スクリプト実装
+**前提**: Milestone 5 で AWS Batch の基盤が動作確認済み
+
+### Issue 6-1: core: 暗号化ユーティリティ実装
+
+**実装内容**:
+- AES-256-GCM による暗号化/復号化関数
+- Secrets Manager からのキー取得
+- エラーハンドリング
+- メモリ上での安全な取り扱い
+
+**完了条件**:
+- [ ] 暗号化/復号化が正常に動作する
+- [ ] Secrets Manager キーが適切に使用される
+- [ ] ユニットテストが実装される（カバレッジ 80% 以上）
+
+**注**: Milestone 5 から移動。本実装で必要になるタイミングで実装。
+
+---
+
+### Issue 6-2: batch: Playwright 自動化スクリプト実装
 
 **実装内容**:
 - ニコニコ動画ログイン処理
@@ -400,7 +444,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-2: web: バッチ投入 API 実装
+### Issue 6-3: web: バッチ投入 API 実装
 
 **実装内容**:
 - `POST /api/mylist/register` エンドポイント実装
@@ -415,7 +459,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-3: web: ジョブステータス確認 API 実装
+### Issue 6-4: web: ジョブステータス確認 API 実装
 
 **実装内容**:
 - `GET /api/mylist/status/:jobId` エンドポイント実装
@@ -428,7 +472,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-4: web: マイリスト登録画面 UI 実装
+### Issue 6-5: web: マイリスト登録画面 UI 実装
 
 **実装内容**:
 - 登録条件指定フォーム（最大件数、お気に入りのみ等）
@@ -442,7 +486,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-5: web: ジョブステータス表示 UI 実装
+### Issue 6-6: web: ジョブステータス表示 UI 実装
 
 **実装内容**:
 - ジョブステータスのリアルタイム表示
@@ -457,7 +501,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-6: dev 環境での E2E テスト
+### Issue 6-7: dev 環境での E2E テスト
 
 **実装内容**:
 - dev 環境で実際にマイリスト登録ジョブを実行
@@ -609,20 +653,20 @@ graph TB
     end
 
     subgraph "Milestone 5: バッチ基盤"
-        M5-1[5-1: Batch Dockerfile]
-        M5-2[5-2: 暗号化]
-        M5-3[5-3: Batch CDK]
-        M5-4[5-4: ECRプッシュ]
-        M5-5[5-5: バッチ確認]
+        M5-1[5-1: Dockerfile+ダミー]
+        M5-2[5-2: Batch CDK]
+        M5-3[5-3: ECRプッシュ]
+        M5-4[5-4: ダミージョブ確認]
     end
 
     subgraph "Milestone 6: 自動登録機能"
-        M6-1[6-1: Playwright]
-        M6-2[6-2: 投入API]
-        M6-3[6-3: ステータスAPI]
-        M6-4[6-4: 登録UI]
-        M6-5[6-5: ステータスUI]
-        M6-6[6-6: E2Eテスト]
+        M6-1[6-1: 暗号化]
+        M6-2[6-2: Playwright]
+        M6-3[6-3: 投入API]
+        M6-4[6-4: ステータスAPI]
+        M6-5[6-5: 登録UI]
+        M6-6[6-6: ステータスUI]
+        M6-7[6-7: E2Eテスト]
     end
 
     subgraph "Milestone 7: 本番準備"
@@ -659,24 +703,25 @@ graph TB
     M4-5 --> M4-6
 
     M4-6 --> M5-1
-    M4-6 --> M5-2
-    M5-1 --> M5-4
-    M5-2 --> M5-3
-    M5-4 --> M5-5
-    M5-3 --> M5-5
+    M5-1 --> M5-2
+    M5-1 --> M5-3
+    M5-2 --> M5-4
+    M5-3 --> M5-4
 
-    M5-5 --> M6-1
-    M6-1 --> M6-2
+    M5-4 --> M6-1
+    M5-4 --> M6-2
+    M6-1 --> M6-3
     M6-2 --> M6-3
-    M6-2 --> M6-4
+    M6-3 --> M6-4
     M6-3 --> M6-5
     M6-4 --> M6-6
     M6-5 --> M6-6
+    M6-6 --> M6-7
 
-    M6-6 --> M7-1
-    M6-6 --> M7-2
-    M6-6 --> M7-3
-    M6-6 --> M7-4
+    M6-7 --> M7-1
+    M6-7 --> M7-2
+    M6-7 --> M7-3
+    M6-7 --> M7-4
     M7-1 --> M7-5
     M7-2 --> M7-5
     M7-3 --> M7-5
@@ -703,11 +748,13 @@ graph TB
 - Issue 4-4（詳細UI）と Issue 4-5（フィルター）は並列可能
 
 ### Milestone 5
-- Issue 5-1（Dockerfile）と Issue 5-2（暗号化）は並列可能
+- Issue 5-2（Batch CDK）と Issue 5-3（ECR プッシュ）は並列可能
+- ただし Issue 5-1 完了後
 
 ### Milestone 6
-- Issue 6-2（投入API）と Issue 6-3（ステータスAPI）は並列可能
-- Issue 6-4（登録UI）と Issue 6-5（ステータスUI）は並列可能
+- Issue 6-1（暗号化）と Issue 6-2（Playwright）は並列可能
+- Issue 6-3（投入API）と Issue 6-4（ステータスAPI）は並列可能
+- Issue 6-5（登録UI）と Issue 6-6（ステータスUI）は並列可能
 
 ### Milestone 7
 - Issue 7-1〜7-4 は全て並列可能
