@@ -33,12 +33,7 @@
 - [共通ライブラリ設計](./development/shared-libraries.md)
 - [サービステンプレート](./development/service-template.md)
 - [PWA設定ガイド](./development/pwa.md)
-
-#### データアクセス層
-
-- [データアクセス層アーキテクチャ](./development/data-access-layer.md) - DynamoDB Repository パターンの設計思想
-- [Repository実装ガイド](./development/implementing-repositories.md) - 新規エンティティの実装手順
-- [Repositoryパターンへのマイグレーション](./development/migrating-to-new-repository-pattern.md) - 既存サービスの移行方法
+- [データアクセス層](./development/data-access-layer.md) - DynamoDB Repository パターンの設計思想と実装ガイドライン
 
 ## サービス
 
