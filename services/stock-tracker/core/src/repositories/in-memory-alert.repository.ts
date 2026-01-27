@@ -13,11 +13,7 @@ import {
   type PaginatedResult,
 } from '@nagiyu/aws';
 import type { AlertRepository } from './alert.repository.interface.js';
-import type {
-  AlertEntity,
-  CreateAlertInput,
-  UpdateAlertInput,
-} from '../entities/alert.entity.js';
+import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
 import { AlertMapper } from '../mappers/alert.mapper.js';
 import { randomUUID } from 'crypto';
 
@@ -136,11 +132,7 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * アラートを更新
    */
-  async update(
-    userId: string,
-    alertId: string,
-    updates: UpdateAlertInput
-  ): Promise<AlertEntity> {
+  async update(userId: string, alertId: string, updates: UpdateAlertInput): Promise<AlertEntity> {
     // 更新するフィールドがない場合はエラー
     if (Object.keys(updates).length === 0) {
       throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);

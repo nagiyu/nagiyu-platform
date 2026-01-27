@@ -32,7 +32,10 @@ export interface TickerRepository {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  getByExchange(exchangeId: string, options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>>;
+  getByExchange(
+    exchangeId: string,
+    options?: PaginationOptions
+  ): Promise<PaginatedResult<TickerEntity>>;
 
   /**
    * 全ティッカー取得

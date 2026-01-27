@@ -4,11 +4,7 @@
  * アラートデータの CRUD 操作インターフェース
  */
 
-import type {
-  AlertEntity,
-  CreateAlertInput,
-  UpdateAlertInput,
-} from '../entities/alert.entity.js';
+import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
 import type { PaginationOptions, PaginatedResult } from '@nagiyu/aws';
 
 /**

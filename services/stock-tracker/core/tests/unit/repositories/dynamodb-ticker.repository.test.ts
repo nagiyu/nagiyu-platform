@@ -238,9 +238,9 @@ describe('DynamoDBTickerRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(
-        repository.update('NSDQ:NOTFOUND', { Name: 'Updated' })
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.update('NSDQ:NOTFOUND', { Name: 'Updated' })).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
@@ -262,9 +262,7 @@ describe('DynamoDBTickerRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(
-        EntityNotFoundError
-      );
+      await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(EntityNotFoundError);
     });
   });
 });

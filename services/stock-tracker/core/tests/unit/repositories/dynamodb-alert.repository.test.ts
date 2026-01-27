@@ -147,9 +147,7 @@ describe('DynamoDBAlertRepository', () => {
       const dbError = new Error('Database connection failed');
       mockDocClient.send.mockRejectedValueOnce(dbError);
 
-      await expect(repository.getById('user-123', 'alert-123')).rejects.toThrow(
-        DatabaseError
-      );
+      await expect(repository.getById('user-123', 'alert-123')).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -328,9 +326,7 @@ describe('DynamoDBAlertRepository', () => {
     });
 
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
-      await expect(repository.update('user-123', 'alert-123', {})).rejects.toThrow(
-        DatabaseError
-      );
+      await expect(repository.update('user-123', 'alert-123', {})).rejects.toThrow(DatabaseError);
     });
   });
 

@@ -211,9 +211,9 @@ describe('InMemoryTickerRepository', () => {
     });
 
     it('存在しないティッカーを更新しようとするとEntityNotFoundErrorをスローする', async () => {
-      await expect(
-        repository.update('NSDQ:NOTFOUND', { Name: 'Updated' })
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.update('NSDQ:NOTFOUND', { Name: 'Updated' })).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
@@ -247,9 +247,7 @@ describe('InMemoryTickerRepository', () => {
     });
 
     it('存在しないティッカーを削除しようとするとEntityNotFoundErrorをスローする', async () => {
-      await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(
-        EntityNotFoundError
-      );
+      await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(EntityNotFoundError);
     });
   });
 });
