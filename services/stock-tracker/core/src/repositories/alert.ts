@@ -277,7 +277,10 @@ export class AlertRepository extends AbstractDynamoDBRepository<
   /**
    * アラートを更新（基底クラスのシグネチャ）
    */
-  public async update(key: { userId: string; alertId: string }, updates: Partial<Alert>): Promise<Alert>;
+  public async update(
+    key: { userId: string; alertId: string },
+    updates: Partial<Alert>
+  ): Promise<Alert>;
   /**
    * アラートを更新（互換性のある3パラメータ版）
    */
