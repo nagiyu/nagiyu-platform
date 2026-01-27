@@ -33,15 +33,17 @@ const ERROR_MESSAGES = {
  */
 export class InMemoryTickerRepository implements TickerRepository {
   private readonly mapper: TickerMapper;
+  private readonly store: InMemorySingleTableStore;
 
-  constructor(private readonly store: InMemorySingleTableStore) {
+  constructor(store: InMemorySingleTableStore) {
+    this.store = store;
     this.mapper = new TickerMapper();
   }
 
   /**
    * ティッカーIDで単一のティッカーを取得
    */
-  async getById(tickerId: string): Promise<TickerEntity | null> {
+  public async getById(tickerId: string): Promise<TickerEntity | null> {
     const { pk, sk } = this.mapper.buildKeys({ tickerId });
     const item = this.store.get(pk, sk);
 
@@ -55,7 +57,7 @@ export class InMemoryTickerRepository implements TickerRepository {
   /**
    * 取引所ごとのティッカー一覧を取得
    */
-  async getByExchange(
+  public async getByExchange(
     exchangeId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<TickerEntity>> {
@@ -79,7 +81,7 @@ export class InMemoryTickerRepository implements TickerRepository {
   /**
    * 全ティッカー取得
    */
-  async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
+  public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     const result = this.store.queryByAttribute(
       {
         attributeName: 'Type',
@@ -100,7 +102,7 @@ export class InMemoryTickerRepository implements TickerRepository {
   /**
    * 新しいティッカーを作成
    */
-  async create(input: CreateTickerInput): Promise<TickerEntity> {
+  public async create(input: CreateTickerInput): Promise<TickerEntity> {
     const now = Date.now();
     const entity: TickerEntity = {
       ...input,
@@ -125,7 +127,7 @@ export class InMemoryTickerRepository implements TickerRepository {
   /**
    * ティッカーを更新
    */
-  async update(tickerId: string, updates: UpdateTickerInput): Promise<TickerEntity> {
+  public async update(tickerId: string, updates: UpdateTickerInput): Promise<TickerEntity> {
     // 更新するフィールドがない場合はエラー
     if (Object.keys(updates).length === 0) {
       throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
@@ -157,7 +159,7 @@ export class InMemoryTickerRepository implements TickerRepository {
   /**
    * ティッカーを削除
    */
-  async delete(tickerId: string): Promise<void> {
+  public async delete(tickerId: string): Promise<void> {
     const { pk, sk } = this.mapper.buildKeys({ tickerId });
 
     try {

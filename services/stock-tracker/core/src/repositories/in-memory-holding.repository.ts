@@ -33,15 +33,17 @@ const ERROR_MESSAGES = {
  */
 export class InMemoryHoldingRepository implements HoldingRepository {
   private readonly mapper: HoldingMapper;
+  private readonly store: InMemorySingleTableStore;
 
-  constructor(private readonly store: InMemorySingleTableStore) {
+  constructor(store: InMemorySingleTableStore) {
+    this.store = store;
     this.mapper = new HoldingMapper();
   }
 
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得
    */
-  async getById(userId: string, tickerId: string): Promise<HoldingEntity | null> {
+  public async getById(userId: string, tickerId: string): Promise<HoldingEntity | null> {
     const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
     const item = this.store.get(pk, sk);
 
@@ -55,7 +57,7 @@ export class InMemoryHoldingRepository implements HoldingRepository {
   /**
    * ユーザーの保有株式一覧を取得
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<HoldingEntity>> {
@@ -84,7 +86,7 @@ export class InMemoryHoldingRepository implements HoldingRepository {
   /**
    * 新しい保有株式を作成
    */
-  async create(input: CreateHoldingInput): Promise<HoldingEntity> {
+  public async create(input: CreateHoldingInput): Promise<HoldingEntity> {
     const now = Date.now();
     const entity: HoldingEntity = {
       ...input,
@@ -109,7 +111,7 @@ export class InMemoryHoldingRepository implements HoldingRepository {
   /**
    * 保有株式を更新
    */
-  async update(
+  public async update(
     userId: string,
     tickerId: string,
     updates: UpdateHoldingInput
@@ -145,7 +147,7 @@ export class InMemoryHoldingRepository implements HoldingRepository {
   /**
    * 保有株式を削除
    */
-  async delete(userId: string, tickerId: string): Promise<void> {
+  public async delete(userId: string, tickerId: string): Promise<void> {
     const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
 
     try {

@@ -41,18 +41,19 @@ const ERROR_MESSAGES = {
  */
 export class DynamoDBTickerRepository implements TickerRepository {
   private readonly mapper: TickerMapper;
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
 
-  constructor(
-    private readonly docClient: DynamoDBDocumentClient,
-    private readonly tableName: string
-  ) {
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    this.docClient = docClient;
+    this.tableName = tableName;
     this.mapper = new TickerMapper();
   }
 
   /**
    * ティッカーIDで単一のティッカーを取得
    */
-  async getById(tickerId: string): Promise<TickerEntity | null> {
+  public async getById(tickerId: string): Promise<TickerEntity | null> {
     try {
       const { pk, sk } = this.mapper.buildKeys({ tickerId });
 
@@ -77,7 +78,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
   /**
    * 取引所ごとのティッカー一覧を取得（GSI3使用）
    */
-  async getByExchange(
+  public async getByExchange(
     exchangeId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<TickerEntity>> {
@@ -124,7 +125,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
   /**
    * 全ティッカー取得（Scan with filter）
    */
-  async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
+  public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     try {
       const limit = options?.limit || 50;
       const exclusiveStartKey = options?.cursor
@@ -167,7 +168,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
   /**
    * 新しいティッカーを作成
    */
-  async create(input: CreateTickerInput): Promise<TickerEntity> {
+  public async create(input: CreateTickerInput): Promise<TickerEntity> {
     try {
       const now = Date.now();
       const entity: TickerEntity = {
@@ -200,7 +201,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
   /**
    * ティッカーを更新
    */
-  async update(tickerId: string, updates: UpdateTickerInput): Promise<TickerEntity> {
+  public async update(tickerId: string, updates: UpdateTickerInput): Promise<TickerEntity> {
     try {
       // 更新するフィールドがない場合はエラー
       if (Object.keys(updates).length === 0) {
@@ -265,7 +266,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
   /**
    * ティッカーを削除
    */
-  async delete(tickerId: string): Promise<void> {
+  public async delete(tickerId: string): Promise<void> {
     try {
       const { pk, sk } = this.mapper.buildKeys({ tickerId });
 

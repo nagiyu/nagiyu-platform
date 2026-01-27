@@ -203,7 +203,7 @@ export async function POST(
     let body: CreateTickerRequest;
     try {
       body = await request.json();
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',

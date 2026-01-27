@@ -37,18 +37,19 @@ const ERROR_MESSAGES = {
  */
 export class DynamoDBAlertRepository implements AlertRepository {
   private readonly mapper: AlertMapper;
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
 
-  constructor(
-    private readonly docClient: DynamoDBDocumentClient,
-    private readonly tableName: string
-  ) {
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    this.docClient = docClient;
+    this.tableName = tableName;
     this.mapper = new AlertMapper();
   }
 
   /**
    * ユーザーIDとアラートIDで単一のアラートを取得
    */
-  async getById(userId: string, alertId: string): Promise<AlertEntity | null> {
+  public async getById(userId: string, alertId: string): Promise<AlertEntity | null> {
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
 
@@ -73,7 +74,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * ユーザーのアラート一覧を取得（GSI1使用）
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<AlertEntity>> {
@@ -122,7 +123,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * 頻度ごとのアラート一覧を取得（GSI2使用、バッチ処理用）
    */
-  async getByFrequency(
+  public async getByFrequency(
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
     options?: PaginationOptions
   ): Promise<PaginatedResult<AlertEntity>> {
@@ -169,7 +170,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * 新しいアラートを作成
    */
-  async create(input: CreateAlertInput): Promise<AlertEntity> {
+  public async create(input: CreateAlertInput): Promise<AlertEntity> {
     try {
       const now = Date.now();
       const alertId = randomUUID();
@@ -204,7 +205,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * アラートを更新
    */
-  async update(userId: string, alertId: string, updates: UpdateAlertInput): Promise<AlertEntity> {
+  public async update(
+    userId: string,
+    alertId: string,
+    updates: UpdateAlertInput
+  ): Promise<AlertEntity> {
     try {
       // 更新するフィールドがない場合はエラー
       if (Object.keys(updates).length === 0) {
@@ -308,7 +313,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
   /**
    * アラートを削除
    */
-  async delete(userId: string, alertId: string): Promise<void> {
+  public async delete(userId: string, alertId: string): Promise<void> {
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
 

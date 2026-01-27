@@ -23,7 +23,7 @@ export class TickerMapper implements EntityMapper<TickerEntity, TickerKey> {
    * @param entity - Ticker Entity
    * @returns DynamoDB Item
    */
-  toItem(entity: TickerEntity): DynamoDBItem {
+  public toItem(entity: TickerEntity): DynamoDBItem {
     const { pk, sk } = this.buildKeys({
       tickerId: entity.TickerID,
     });
@@ -49,7 +49,7 @@ export class TickerMapper implements EntityMapper<TickerEntity, TickerKey> {
    * @param item - DynamoDB Item
    * @returns Ticker Entity
    */
-  toEntity(item: DynamoDBItem): TickerEntity {
+  public toEntity(item: DynamoDBItem): TickerEntity {
     return {
       TickerID: validateStringField(item.TickerID, 'TickerID'),
       Symbol: validateStringField(item.Symbol, 'Symbol'),
@@ -66,7 +66,7 @@ export class TickerMapper implements EntityMapper<TickerEntity, TickerKey> {
    * @param key - Ticker Key
    * @returns PK と SK
    */
-  buildKeys(key: TickerKey): { pk: string; sk: string } {
+  public buildKeys(key: TickerKey): { pk: string; sk: string } {
     return {
       pk: `TICKER#${key.tickerId}`,
       sk: 'METADATA',

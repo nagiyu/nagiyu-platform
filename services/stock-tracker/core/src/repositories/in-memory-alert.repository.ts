@@ -30,15 +30,17 @@ const ERROR_MESSAGES = {
  */
 export class InMemoryAlertRepository implements AlertRepository {
   private readonly mapper: AlertMapper;
+  private readonly store: InMemorySingleTableStore;
 
-  constructor(private readonly store: InMemorySingleTableStore) {
+  constructor(store: InMemorySingleTableStore) {
+    this.store = store;
     this.mapper = new AlertMapper();
   }
 
   /**
    * ユーザーIDとアラートIDで単一のアラートを取得
    */
-  async getById(userId: string, alertId: string): Promise<AlertEntity | null> {
+  public async getById(userId: string, alertId: string): Promise<AlertEntity | null> {
     const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
     const item = this.store.get(pk, sk);
 
@@ -52,7 +54,7 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * ユーザーのアラート一覧を取得
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<AlertEntity>> {
@@ -81,7 +83,7 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * 頻度ごとのアラート一覧を取得（バッチ処理用）
    */
-  async getByFrequency(
+  public async getByFrequency(
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
     options?: PaginationOptions
   ): Promise<PaginatedResult<AlertEntity>> {
@@ -105,7 +107,7 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * 新しいアラートを作成
    */
-  async create(input: CreateAlertInput): Promise<AlertEntity> {
+  public async create(input: CreateAlertInput): Promise<AlertEntity> {
     const now = Date.now();
     const alertId = randomUUID();
     const entity: AlertEntity = {
@@ -132,7 +134,11 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * アラートを更新
    */
-  async update(userId: string, alertId: string, updates: UpdateAlertInput): Promise<AlertEntity> {
+  public async update(
+    userId: string,
+    alertId: string,
+    updates: UpdateAlertInput
+  ): Promise<AlertEntity> {
     // 更新するフィールドがない場合はエラー
     if (Object.keys(updates).length === 0) {
       throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
@@ -164,7 +170,7 @@ export class InMemoryAlertRepository implements AlertRepository {
   /**
    * アラートを削除
    */
-  async delete(userId: string, alertId: string): Promise<void> {
+  public async delete(userId: string, alertId: string): Promise<void> {
     const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
 
     try {

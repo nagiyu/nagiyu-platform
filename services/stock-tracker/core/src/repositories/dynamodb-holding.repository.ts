@@ -40,18 +40,19 @@ const ERROR_MESSAGES = {
  */
 export class DynamoDBHoldingRepository implements HoldingRepository {
   private readonly mapper: HoldingMapper;
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
 
-  constructor(
-    private readonly docClient: DynamoDBDocumentClient,
-    private readonly tableName: string
-  ) {
+  constructor(docClient: DynamoDBDocumentClient, tableName: string) {
+    this.docClient = docClient;
+    this.tableName = tableName;
     this.mapper = new HoldingMapper();
   }
 
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得
    */
-  async getById(userId: string, tickerId: string): Promise<HoldingEntity | null> {
+  public async getById(userId: string, tickerId: string): Promise<HoldingEntity | null> {
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
 
@@ -76,7 +77,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
   /**
    * ユーザーの保有株式一覧を取得（GSI1使用）
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<HoldingEntity>> {
@@ -125,7 +126,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
   /**
    * 新しい保有株式を作成
    */
-  async create(input: CreateHoldingInput): Promise<HoldingEntity> {
+  public async create(input: CreateHoldingInput): Promise<HoldingEntity> {
     try {
       const now = Date.now();
       const entity: HoldingEntity = {
@@ -158,7 +159,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
   /**
    * 保有株式を更新
    */
-  async update(
+  public async update(
     userId: string,
     tickerId: string,
     updates: UpdateHoldingInput
@@ -232,7 +233,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
   /**
    * 保有株式を削除
    */
-  async delete(userId: string, tickerId: string): Promise<void> {
+  public async delete(userId: string, tickerId: string): Promise<void> {
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
 

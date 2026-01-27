@@ -29,7 +29,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
    * @param entity - Alert Entity
    * @returns DynamoDB Item
    */
-  toItem(entity: AlertEntity): DynamoDBItem {
+  public toItem(entity: AlertEntity): DynamoDBItem {
     const { pk, sk } = this.buildKeys({
       userId: entity.UserID,
       alertId: entity.AlertID,
@@ -65,7 +65,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
    * @param item - DynamoDB Item
    * @returns Alert Entity
    */
-  toEntity(item: DynamoDBItem): AlertEntity {
+  public toEntity(item: DynamoDBItem): AlertEntity {
     return {
       AlertID: validateStringField(item.AlertID, 'AlertID'),
       UserID: validateStringField(item.UserID, 'UserID'),
@@ -95,7 +95,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
    * @param key - Alert Key
    * @returns PK と SK
    */
-  buildKeys(key: AlertKey): { pk: string; sk: string } {
+  public buildKeys(key: AlertKey): { pk: string; sk: string } {
     return {
       pk: `USER#${key.userId}`,
       sk: `ALERT#${key.alertId}`,

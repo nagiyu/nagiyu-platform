@@ -291,12 +291,8 @@ export async function POST(
     const alertRepo = new AlertRepository(docClient, tableName);
 
     // アラートを作成（バリデーション済みデータから AlertID, CreatedAt, UpdatedAt を除く）
-    const {
-      AlertID: _ignoredAlertID,
-      CreatedAt: _ignoredCreatedAt,
-      UpdatedAt: _ignoredUpdatedAt,
-      ...alertDataForCreate
-    } = alertData;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
 
     const createdAlert = await alertRepo.create(alertDataForCreate);
 

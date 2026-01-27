@@ -23,7 +23,7 @@ export class HoldingMapper implements EntityMapper<HoldingEntity, HoldingKey> {
    * @param entity - Holding Entity
    * @returns DynamoDB Item
    */
-  toItem(entity: HoldingEntity): DynamoDBItem {
+  public toItem(entity: HoldingEntity): DynamoDBItem {
     const { pk, sk } = this.buildKeys({
       userId: entity.UserID,
       tickerId: entity.TickerID,
@@ -52,7 +52,7 @@ export class HoldingMapper implements EntityMapper<HoldingEntity, HoldingKey> {
    * @param item - DynamoDB Item
    * @returns Holding Entity
    */
-  toEntity(item: DynamoDBItem): HoldingEntity {
+  public toEntity(item: DynamoDBItem): HoldingEntity {
     return {
       UserID: validateStringField(item.UserID, 'UserID'),
       TickerID: validateStringField(item.TickerID, 'TickerID'),
@@ -71,7 +71,7 @@ export class HoldingMapper implements EntityMapper<HoldingEntity, HoldingKey> {
    * @param key - Holding Key
    * @returns PK と SK
    */
-  buildKeys(key: HoldingKey): { pk: string; sk: string } {
+  public buildKeys(key: HoldingKey): { pk: string; sk: string } {
     return {
       pk: `USER#${key.userId}`,
       sk: `HOLDING#${key.tickerId}`,
