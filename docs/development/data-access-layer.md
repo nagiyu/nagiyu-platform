@@ -421,13 +421,7 @@ class InMemoryTickerRepository {
 
 ### 実装例
 
-実際の実装例は以下を参照：
-
-- `services/stock-tracker/core/src/entities/holding.entity.ts` - Entity定義
-- `services/stock-tracker/core/src/mappers/holding.mapper.ts` - Mapper実装
-- `services/stock-tracker/core/src/repositories/holding.repository.interface.ts` - Repository Interface
-- `services/stock-tracker/core/src/repositories/dynamodb-holding.repository.ts` - DynamoDB実装
-- `services/stock-tracker/core/src/repositories/in-memory-holding.repository.ts` - InMemory実装
+実際の実装は、本プラットフォームの Stock-Tracker サービスに含まれている。Entity、Mapper、Repository Interface、DynamoDB実装、InMemory実装の全てが実装済みであり、参考にできる。
 
 ### 共通ライブラリ
 
