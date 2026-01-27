@@ -107,7 +107,9 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
    */
   private validateConditionList(value: unknown): AlertEntity['ConditionList'] {
     if (!Array.isArray(value) || value.length === 0) {
-      throw new InvalidEntityDataError('フィールド "ConditionList" が不正です');
+      throw new InvalidEntityDataError(
+        'フィールド "ConditionList" が不正です: 空でない配列である必要があります'
+      );
     }
     return value;
   }
