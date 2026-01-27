@@ -177,6 +177,13 @@ describe('DynamoDBTickerRepository', () => {
 
       expect(result.items).toHaveLength(0);
     });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.getByExchange('NASDAQ')).rejects.toThrow(DatabaseError);
+    });
   });
 
   describe('getAll', () => {
@@ -204,6 +211,13 @@ describe('DynamoDBTickerRepository', () => {
 
       expect(result.items).toHaveLength(1);
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.getAll()).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -246,6 +260,50 @@ describe('DynamoDBTickerRepository', () => {
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
       await expect(repository.update('NSDQ:AAPL', {})).rejects.toThrow(DatabaseError);
     });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.update('NSDQ:AAPL', { Name: 'Updated' })).rejects.toThrow(
+        DatabaseError
+      );
+    });
+
+    it('Symbolフィールドを更新できる', async () => {
+      const mockUpdatedItem = {
+        PK: 'TICKER#NSDQ:AAPL',
+        SK: 'METADATA',
+        Type: 'Ticker',
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL2',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067300000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      const result = await repository.update('NSDQ:AAPL', {
+        Symbol: 'AAPL2',
+      });
+
+      expect(result.Symbol).toBe('AAPL2');
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('Attributesが存在しない場合はEntityNotFoundErrorをスローする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: undefined,
+      });
+
+      await expect(repository.update('NSDQ:AAPL', { Name: 'Updated' })).rejects.toThrow(
+        EntityNotFoundError
+      );
+    });
   });
 
   describe('delete', () => {
@@ -263,6 +321,13 @@ describe('DynamoDBTickerRepository', () => {
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
       await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(EntityNotFoundError);
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.delete('NSDQ:AAPL')).rejects.toThrow(DatabaseError);
     });
   });
 });

@@ -223,6 +223,13 @@ describe('DynamoDBAlertRepository', () => {
 
       expect(result.items).toHaveLength(0);
     });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
+    });
   });
 
   describe('getByFrequency', () => {
@@ -273,6 +280,13 @@ describe('DynamoDBAlertRepository', () => {
       const result = await repository.getByFrequency('MINUTE_LEVEL');
 
       expect(result.items).toHaveLength(0);
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.getByFrequency('MINUTE_LEVEL')).rejects.toThrow(DatabaseError);
     });
   });
 
@@ -328,6 +342,70 @@ describe('DynamoDBAlertRepository', () => {
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {
       await expect(repository.update('user-123', 'alert-123', {})).rejects.toThrow(DatabaseError);
     });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.update('user-123', 'alert-123', { Enabled: false })).rejects.toThrow(
+        DatabaseError
+      );
+    });
+
+    it('複数のフィールドを同時に更新できる', async () => {
+      const mockUpdatedItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-123',
+        GSI2PK: 'ALERT#HOURLY_LEVEL',
+        GSI2SK: 'user-123#alert-123',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:NVDA',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
+        SubscriptionEndpoint: 'https://new.example.com/push',
+        SubscriptionKeysP256dh: 'new-p256dh-key',
+        SubscriptionKeysAuth: 'new-auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067400000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      const result = await repository.update('user-123', 'alert-123', {
+        TickerID: 'NSDQ:NVDA',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        SubscriptionEndpoint: 'https://new.example.com/push',
+        SubscriptionKeysP256dh: 'new-p256dh-key',
+        SubscriptionKeysAuth: 'new-auth-secret',
+      });
+
+      expect(result.TickerID).toBe('NSDQ:NVDA');
+      expect(result.Mode).toBe('Sell');
+      expect(result.Frequency).toBe('HOURLY_LEVEL');
+      expect(result.SubscriptionEndpoint).toBe('https://new.example.com/push');
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('Attributesが存在しない場合はEntityNotFoundErrorをスローする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: undefined,
+      });
+
+      await expect(repository.update('user-123', 'alert-123', { Enabled: false })).rejects.toThrow(
+        EntityNotFoundError
+      );
+    });
   });
 
   describe('delete', () => {
@@ -347,6 +425,13 @@ describe('DynamoDBAlertRepository', () => {
       await expect(repository.delete('user-123', 'alert-notfound')).rejects.toThrow(
         EntityNotFoundError
       );
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      const dbError = new Error('Database connection failed');
+      mockDocClient.send.mockRejectedValueOnce(dbError);
+
+      await expect(repository.delete('user-123', 'alert-123')).rejects.toThrow(DatabaseError);
     });
   });
 });

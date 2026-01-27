@@ -278,6 +278,46 @@ describe('DynamoDBHoldingRepository', () => {
         DatabaseError
       );
     });
+
+    it('Currencyフィールドを更新できる', async () => {
+      const mockUpdatedItem = {
+        PK: 'USER#user-123',
+        SK: 'HOLDING#NSDQ:AAPL',
+        Type: 'Holding',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Holding#NSDQ:AAPL',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Quantity: 10,
+        AveragePrice: 150,
+        Currency: 'JPY',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704153600000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+        $metadata: {},
+      });
+
+      const result = await repository.update('user-123', 'NSDQ:AAPL', {
+        Currency: 'JPY',
+      });
+
+      expect(result.Currency).toBe('JPY');
+    });
+
+    it('Attributesが存在しない場合はEntityNotFoundErrorをスローする', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: undefined,
+        $metadata: {},
+      });
+
+      await expect(repository.update('user-123', 'NSDQ:AAPL', { Quantity: 20 })).rejects.toThrow(
+        EntityNotFoundError
+      );
+    });
   });
 
   describe('delete', () => {
