@@ -154,7 +154,7 @@ export async function GET(
       let ticker;
       try {
         ticker = await tickerRepo.getById(holding.TickerID);
-      } catch (error) {
+      } catch {
         // ティッカーが見つからない場合は null として扱う
         ticker = null;
       }

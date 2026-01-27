@@ -89,7 +89,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
-        <ThemeRegistry version={version}>
+        <ThemeRegistry>
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Header
               title="Tools"
