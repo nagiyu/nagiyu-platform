@@ -1,62 +1,82 @@
 /**
  * Auth Configuration のテスト
  *
- * 環境変数に基づいて正しい cookie domain が設定されることを確認します。
+ * 環境変数に基づいて正しいクッキー名と domain が設定されることを確認します。
  * auth.ts をモックして、設定値のみをテストします。
  */
 
-describe('Auth Configuration - Environment-based Cookie Domain', () => {
-  describe('Cookie Domain Logic', () => {
-    it('NODE_ENV=development の場合、isDevelopment=true, isProduction=false', () => {
+describe('Auth Configuration - Environment-based Cookie Settings', () => {
+  describe('Cookie Name Logic', () => {
+    it('NODE_ENV=development の場合、クッキー名は標準名', () => {
       const nodeEnv = 'development';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      expect(isDevelopment).toBe(true);
-      expect(isProduction).toBe(false);
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+
+      expect(cookieName).toBe('__Secure-next-auth.session-token');
     });
 
-    it('NODE_ENV=dev の場合、isDevelopment=false, isProduction=false', () => {
+    it('NODE_ENV=dev の場合、クッキー名に .dev サフィックス', () => {
       const nodeEnv = 'dev';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      expect(isDevelopment).toBe(false);
-      expect(isProduction).toBe(false);
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+
+      expect(cookieName).toBe('__Secure-next-auth.session-token.dev');
     });
 
-    it('NODE_ENV=prod の場合、isDevelopment=false, isProduction=true', () => {
+    it('NODE_ENV=prod の場合、クッキー名は標準名', () => {
       const nodeEnv = 'prod';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      expect(isDevelopment).toBe(false);
-      expect(isProduction).toBe(true);
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+
+      expect(cookieName).toBe('__Secure-next-auth.session-token');
     });
 
-    it('NODE_ENV=test の場合、isDevelopment=false, isProduction=false', () => {
+    it('NODE_ENV=test の場合、クッキー名に .dev サフィックス', () => {
       const nodeEnv = 'test';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      expect(isDevelopment).toBe(false);
-      expect(isProduction).toBe(false);
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+
+      expect(cookieName).toBe('__Secure-next-auth.session-token.dev');
     });
   });
 
   describe('Cookie Domain Configuration', () => {
-    it('isProduction=true の場合、domain は .nagiyu.com', () => {
-      const isProduction = true;
-      const domain = isProduction ? '.nagiyu.com' : undefined;
-
-      expect(domain).toBe('.nagiyu.com');
-    });
-
-    it('isProduction=false の場合、domain は undefined', () => {
-      const isProduction = false;
-      const domain = isProduction ? '.nagiyu.com' : undefined;
+    it('isDevelopment=true の場合、domain は undefined (localhost専用)', () => {
+      const isDevelopment = true;
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
 
       expect(domain).toBeUndefined();
+    });
+
+    it('isDevelopment=false の場合、domain は .nagiyu.com (SSO共有)', () => {
+      const isDevelopment = false;
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
+
+      expect(domain).toBe('.nagiyu.com');
     });
   });
 
@@ -77,72 +97,120 @@ describe('Auth Configuration - Environment-based Cookie Domain', () => {
   });
 
   describe('Environment-based Behavior Verification', () => {
-    it('development 環境: domain=undefined, secure=false', () => {
+    it('development 環境: 標準クッキー名、domain=undefined, secure=false', () => {
       const nodeEnv = 'development';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      const domain = isProduction ? '.nagiyu.com' : undefined;
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
       const secure = !isDevelopment;
 
+      expect(cookieName).toBe('__Secure-next-auth.session-token');
       expect(domain).toBeUndefined();
       expect(secure).toBe(false);
     });
 
-    it('dev 環境: domain=undefined, secure=true', () => {
+    it('dev 環境: .dev サフィックスクッキー、domain=.nagiyu.com, secure=true', () => {
       const nodeEnv = 'dev';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      const domain = isProduction ? '.nagiyu.com' : undefined;
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
       const secure = !isDevelopment;
 
-      expect(domain).toBeUndefined();
-      expect(secure).toBe(true);
-    });
-
-    it('prod 環境: domain=.nagiyu.com, secure=true', () => {
-      const nodeEnv = 'prod';
-      const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod';
-
-      const domain = isProduction ? '.nagiyu.com' : undefined;
-      const secure = !isDevelopment;
-
+      expect(cookieName).toBe('__Secure-next-auth.session-token.dev');
       expect(domain).toBe('.nagiyu.com');
       expect(secure).toBe(true);
     });
 
-    it('test 環境: domain=undefined, secure=true', () => {
+    it('prod 環境: 標準クッキー名、domain=.nagiyu.com, secure=true', () => {
+      const nodeEnv = 'prod';
+      const isDevelopment = nodeEnv === 'development';
+      const isProduction = nodeEnv === 'prod';
+
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
+      const secure = !isDevelopment;
+
+      expect(cookieName).toBe('__Secure-next-auth.session-token');
+      expect(domain).toBe('.nagiyu.com');
+      expect(secure).toBe(true);
+    });
+
+    it('test 環境: .dev サフィックスクッキー、domain=.nagiyu.com, secure=true', () => {
       const nodeEnv = 'test';
       const isDevelopment = nodeEnv === 'development';
       const isProduction = nodeEnv === 'prod';
 
-      const domain = isProduction ? '.nagiyu.com' : undefined;
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
       const secure = !isDevelopment;
 
-      expect(domain).toBeUndefined();
+      expect(cookieName).toBe('__Secure-next-auth.session-token.dev');
+      expect(domain).toBe('.nagiyu.com');
       expect(secure).toBe(true);
     });
   });
 
   describe('Security and Isolation', () => {
-    it('dev 環境ではクッキーが dev-auth.nagiyu.com のみで有効（domain未設定のため）', () => {
+    it('dev 環境では .dev サフィックスクッキーで dev-*.nagiyu.com 全体で SSO 可能', () => {
       const isProduction = false;
-      const domain = isProduction ? '.nagiyu.com' : undefined;
+      const isDevelopment = false;
 
-      // domain が undefined の場合、クッキーは現在のホストのみで有効
-      // つまり dev-auth.nagiyu.com でのみ有効で、他のサブドメインとは共有されない
-      expect(domain).toBeUndefined();
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
+
+      // dev 環境ではクッキー名が異なるため、prod 環境とクッキーが混同されない
+      expect(cookieName).toBe('__Secure-next-auth.session-token.dev');
+      // domain が .nagiyu.com なので dev-auth, dev-admin, dev-stock-tracker で SSO 可能
+      expect(domain).toBe('.nagiyu.com');
     });
 
-    it('prod 環境ではクッキーが .nagiyu.com 全体で共有される（SSO）', () => {
+    it('prod 環境では標準クッキー名で *.nagiyu.com 全体で SSO 可能', () => {
       const isProduction = true;
-      const domain = isProduction ? '.nagiyu.com' : undefined;
+      const isDevelopment = false;
 
-      // domain が .nagiyu.com の場合、auth.nagiyu.com, admin.nagiyu.com など
-      // すべてのサブドメインでクッキーが共有される（SSO 実現）
+      const cookieName = isProduction
+        ? '__Secure-next-auth.session-token'
+        : isDevelopment
+          ? '__Secure-next-auth.session-token'
+          : '__Secure-next-auth.session-token.dev';
+      const domain = isDevelopment ? undefined : '.nagiyu.com';
+
+      // prod 環境では標準クッキー名
+      expect(cookieName).toBe('__Secure-next-auth.session-token');
+      // domain が .nagiyu.com なので auth, admin, tools などで SSO 可能
       expect(domain).toBe('.nagiyu.com');
+    });
+
+    it('dev と prod でクッキー名が異なるため環境が分離される', () => {
+      const devCookieName = '__Secure-next-auth.session-token.dev';
+      const prodCookieName = '__Secure-next-auth.session-token';
+
+      // クッキー名が異なるため、同じドメインでも混同されない
+      expect(devCookieName).not.toBe(prodCookieName);
     });
   });
 });
