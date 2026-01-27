@@ -30,8 +30,12 @@ if (
 // DynamoDB を使用してユーザー情報を永続化
 const userRepository = new DynamoDBUserRepository();
 
-// 開発環境判定
+// 環境判定
+// - ローカル開発環境: NODE_ENV === 'development'
+// - dev 環境: NODE_ENV === 'dev'
+// - prod 環境: NODE_ENV === 'prod'
 const isDevelopment = process.env.NODE_ENV === 'development';
+const isProduction = process.env.NODE_ENV === 'prod';
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -58,8 +62,9 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        // ローカル開発環境では domain を設定しない
-        domain: isDevelopment ? undefined : '.nagiyu.com',
+        // ローカル開発環境とdev環境では domain を設定しない（サブドメイン共有不要）
+        // prod環境では .nagiyu.com を設定（全サブドメインでSSO共有）
+        domain: isProduction ? '.nagiyu.com' : undefined,
         // ローカル開発環境では secure を false にする
         secure: !isDevelopment,
       },

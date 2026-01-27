@@ -9,6 +9,10 @@ const config: Config = {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
+  // next-auth などの ES モジュールをトランスフォームする
+  transformIgnorePatterns: [
+    'node_modules/(?!(next-auth|@auth|oauth4webapi)/)',
+  ],
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageThreshold: {

@@ -211,12 +211,25 @@ cookies: {
       httpOnly: true,     // XSS 対策
       sameSite: 'lax',    // CSRF 対策
       path: '/',
-      secure: true,       // HTTPS のみ
-      domain: '.nagiyu.com', // サブドメイン全体で共有
+      secure: !isDevelopment,  // ローカル開発環境以外では HTTPS のみ
+      // 環境別 domain 設定:
+      // - ローカル開発環境 (NODE_ENV=development): 未設定（localhost のみ）
+      // - dev 環境 (NODE_ENV=dev): 未設定（dev-auth.nagiyu.com のみ、SSO 不要）
+      // - prod 環境 (NODE_ENV=prod): .nagiyu.com（全サブドメインで SSO 共有）
+      domain: isProduction ? '.nagiyu.com' : undefined,
     }
   }
 }
 ```
+
+**重要な設計判断:**
+
+- **dev 環境**: `domain` を未設定にすることで、クッキーは `dev-auth.nagiyu.com` のみで有効
+  - dev 環境では他のサービスとの SSO 連携は不要のため、よりセキュアな設定
+  - prod 環境とクッキーが混同されることを防ぐ
+  
+- **prod 環境**: `domain: '.nagiyu.com'` により、全サブドメインでクッキーを共有
+  - `auth.nagiyu.com`, `admin.nagiyu.com`, `tools.nagiyu.com` などで SSO を実現
 
 ### 4.4 他サービスとの認証共有 (SSO)
 
@@ -247,14 +260,18 @@ sequenceDiagram
 
 **JWT Cookie 詳細:**
 - **Cookie 名**: `nagiyu-session`
-- **Domain**: `.nagiyu.com` (全サブドメインで共有)
+- **Domain**:
+  - **ローカル開発環境** (NODE_ENV=development): 未設定（localhost のみ）
+  - **dev 環境** (NODE_ENV=dev): 未設定（dev-auth.nagiyu.com のみ、他サービスとの SSO は不要）
+  - **prod 環境** (NODE_ENV=prod): `.nagiyu.com`（全サブドメインで SSO 共有）
 - **属性**: `HttpOnly; Secure; SameSite=Lax`
 - **有効期限**: 30日
 
 **メリット:**
-- ✓ 一度のログインで全サービスにアクセス可能
+- ✓ 一度のログインで全サービスにアクセス可能（prod 環境のみ）
 - ✓ 各サービスは独立して JWT を検証（Auth Service への問い合わせ不要）
 - ✓ 認証ロジックが Auth Service に集約され保守性向上
+- ✓ dev 環境と prod 環境でクッキーが混同されない（セキュリティ向上）
 
 #### シナリオ: admin.nagiyu.com へのアクセス
 
