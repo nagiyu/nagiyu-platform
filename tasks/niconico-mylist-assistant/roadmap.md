@@ -30,7 +30,7 @@
 ## Milestone 構成
 
 ```
-Milestone 1: デプロイ基盤構築
+Milestone 1: デプロイ基盤構築（Web + Batch）
     ↓
 Milestone 2: データ基盤構築
     ↓
@@ -38,11 +38,9 @@ Milestone 3: 動画インポート機能
     ↓
 Milestone 4: 動画一覧・管理機能
     ↓
-Milestone 5: バッチ基盤構築
+Milestone 5: マイリスト自動登録機能
     ↓
-Milestone 6: マイリスト自動登録機能
-    ↓
-Milestone 7: 本番準備
+Milestone 6: 本番準備
 ```
 
 ---
@@ -360,58 +358,13 @@ Milestone 7: 本番準備
 
 ---
 
-## Milestone 5: バッチ動作検証
-
-**目標**: dev 環境で AWS Batch のダミージョブが安定して動作することを確認（[risks.md:50-57](./risks.md) 推奨対策に準拠）
-
-**前提**: Milestone 1 で AWS Batch の基盤（Dockerfile、CDK、CI/CD）は完成済み
-
-**方針**:
-- 基盤の安定性を確認してから本実装（Milestone 6）に進む
-- エラーケースの動作確認を徹底
-- 暗号化や Playwright 実装は Milestone 6 で実施
-
-### Issue 5-1: dev 環境でのバッチ動作検証
-
-**実装内容**:
-- **複数回のダミージョブ実行**:
-  - AWS コンソールまたは CLI で手動投入（3回以上）
-  - ジョブステータスの確認（SUBMITTED → RUNNING → SUCCEEDED）
-  - CloudWatch Logs でログの確認
-- **エラーケースの確認**:
-  - 存在しない環境変数を指定した場合の挙動
-  - ジョブの再実行（リトライ）の動作確認
-  - 同時実行の動作確認（複数ジョブを並行投入）
-- **リソース使用状況の確認**:
-  - vCPU/メモリ使用率の確認
-  - 実行時間の測定
-  - 必要に応じてリソース調整
-
-**完了条件**:
-- [ ] dev 環境で複数回ジョブが安定して `SUCCEEDED` で完了する
-- [ ] CloudWatch Logs でダミー処理のログが確認できる
-- [ ] 環境変数が正しく渡されている
-- [ ] エラーケースの挙動が確認できる
-- [ ] リソース使用状況が適切（必要に応じて調整済み）
-
-**🎯 Milestone 5 完了時点**:
-- AWS Batch の基盤が安定して動作することが確認できた状態
-- 本実装（Playwright、暗号化）に進む準備が整った状態
-
-**📊 リスク管理**:
-- [risks.md](./risks.md) の「リスク2: AWS Batch の初回構築と動作確認」対策として設計
-- ダミー処理での段階的検証によりリスクを軽減
-- 本実装前に基盤の安定性を確保
-
----
-
-## Milestone 6: マイリスト自動登録機能
+## Milestone 5: マイリスト自動登録機能
 
 **目標**: 条件を指定してマイリストに自動登録できる
 
-**前提**: Milestone 5 で AWS Batch の基盤が動作確認済み
+**前提**: Milestone 1 で AWS Batch の基盤が動作確認済み
 
-### Issue 6-1: core: 暗号化ユーティリティ実装
+### Issue 5-1: core: 暗号化ユーティリティ実装
 
 **実装内容**:
 - AES-256-GCM による暗号化/復号化関数
@@ -424,11 +377,9 @@ Milestone 7: 本番準備
 - [ ] Secrets Manager キーが適切に使用される
 - [ ] ユニットテストが実装される（カバレッジ 80% 以上）
 
-**注**: Milestone 5 から移動。本実装で必要になるタイミングで実装。
-
 ---
 
-### Issue 6-2: batch: Playwright 自動化スクリプト実装
+### Issue 5-2: batch: Playwright 自動化スクリプト実装
 
 **実装内容**:
 - ニコニコ動画ログイン処理
@@ -444,7 +395,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-3: web: バッチ投入 API 実装
+### Issue 5-3: web: バッチ投入 API 実装
 
 **実装内容**:
 - `POST /api/mylist/register` エンドポイント実装
@@ -459,7 +410,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-4: web: ジョブステータス確認 API 実装
+### Issue 5-4: web: ジョブステータス確認 API 実装
 
 **実装内容**:
 - `GET /api/mylist/status/:jobId` エンドポイント実装
@@ -472,7 +423,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-5: web: マイリスト登録画面 UI 実装
+### Issue 5-5: web: マイリスト登録画面 UI 実装
 
 **実装内容**:
 - 登録条件指定フォーム（最大件数、お気に入りのみ等）
@@ -486,7 +437,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-6: web: ジョブステータス表示 UI 実装
+### Issue 5-6: web: ジョブステータス表示 UI 実装
 
 **実装内容**:
 - ジョブステータスのリアルタイム表示
@@ -501,7 +452,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 6-7: dev 環境での E2E テスト
+### Issue 5-7: dev 環境での E2E テスト
 
 **実装内容**:
 - dev 環境で実際にマイリスト登録ジョブを実行
@@ -515,11 +466,11 @@ Milestone 7: 本番準備
 
 ---
 
-## Milestone 7: 本番準備
+## Milestone 6: 本番準備
 
 **目標**: 本番環境で安定稼働できる状態にする
 
-### Issue 7-1: テスト整備（core）
+### Issue 6-1: テスト整備（core）
 
 **実装内容**:
 - core パッケージのユニットテスト追加
@@ -532,7 +483,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 7-2: テスト整備（web）
+### Issue 6-2: テスト整備（web）
 
 **実装内容**:
 - API エンドポイントのテスト
@@ -545,7 +496,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 7-3: テスト整備（batch）
+### Issue 6-3: テスト整備（batch）
 
 **実装内容**:
 - Playwright スクリプトの統合テスト
@@ -558,7 +509,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 7-4: Web Push 通知実装
+### Issue 6-4: Web Push 通知実装
 
 **実装内容**:
 - VAPID キー生成・設定
@@ -572,7 +523,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 7-5: 本番環境 CDK 設定
+### Issue 6-5: 本番環境 CDK 設定
 
 **実装内容**:
 - 本番環境用 Stack 作成
@@ -585,7 +536,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 7-6: 本番環境デプロイ
+### Issue 6-6: 本番環境デプロイ
 
 **実装内容**:
 - 本番環境への CDK デプロイ
@@ -600,7 +551,7 @@ Milestone 7: 本番準備
 
 ---
 
-### Issue 7-7: 監視・ログ設定
+### Issue 6-7: 監視・ログ設定
 
 **実装内容**:
 - CloudWatch Logs 設定
@@ -623,10 +574,12 @@ graph TB
         P1[Phase 1: 最小構成]
     end
 
-    subgraph "Milestone 1: デプロイ基盤"
+    subgraph "Milestone 1: デプロイ基盤（Web + Batch）"
         M1-1[1-1: Web Dockerfile]
-        M1-2[1-2: GitHub Actions]
-        M1-3[1-3: デプロイ検証]
+        M1-2[1-2: Batch Dockerfile+ダミー]
+        M1-3[1-3: Batch CDK]
+        M1-4[1-4: GitHub Actions]
+        M1-5[1-5: デプロイ検証]
     end
 
     subgraph "Milestone 2: データ基盤"
@@ -652,39 +605,35 @@ graph TB
         M4-6[4-6: E2Eテスト]
     end
 
-    subgraph "Milestone 5: バッチ基盤"
-        M5-1[5-1: Dockerfile+ダミー]
-        M5-2[5-2: Batch CDK]
-        M5-3[5-3: ECRプッシュ]
-        M5-4[5-4: ダミージョブ確認]
+    subgraph "Milestone 5: 自動登録機能"
+        M5-1[5-1: 暗号化]
+        M5-2[5-2: Playwright]
+        M5-3[5-3: 投入API]
+        M5-4[5-4: ステータスAPI]
+        M5-5[5-5: 登録UI]
+        M5-6[5-6: ステータスUI]
+        M5-7[5-7: E2Eテスト]
     end
 
-    subgraph "Milestone 6: 自動登録機能"
-        M6-1[6-1: 暗号化]
-        M6-2[6-2: Playwright]
-        M6-3[6-3: 投入API]
-        M6-4[6-4: ステータスAPI]
-        M6-5[6-5: 登録UI]
-        M6-6[6-6: ステータスUI]
-        M6-7[6-7: E2Eテスト]
-    end
-
-    subgraph "Milestone 7: 本番準備"
-        M7-1[7-1: テスト core]
-        M7-2[7-2: テスト web]
-        M7-3[7-3: テスト batch]
-        M7-4[7-4: Push通知]
-        M7-5[7-5: 本番CDK]
-        M7-6[7-6: 本番デプロイ]
-        M7-7[7-7: 監視設定]
+    subgraph "Milestone 6: 本番準備"
+        M6-1[6-1: テスト core]
+        M6-2[6-2: テスト web]
+        M6-3[6-3: テスト batch]
+        M6-4[6-4: Push通知]
+        M6-5[6-5: 本番CDK]
+        M6-6[6-6: 本番デプロイ]
+        M6-7[6-7: 監視設定]
     end
 
     P1 --> M1-1
-    M1-1 --> M1-2
+    P1 --> M1-2
+    M1-1 --> M1-3
     M1-2 --> M1-3
+    M1-3 --> M1-4
+    M1-4 --> M1-5
 
-    M1-3 --> M2-1
-    M1-3 --> M2-2
+    M1-5 --> M2-1
+    M1-5 --> M2-2
     M2-1 --> M2-3
     M2-2 --> M2-3
     M2-3 --> M2-4
@@ -703,31 +652,25 @@ graph TB
     M4-5 --> M4-6
 
     M4-6 --> M5-1
-    M5-1 --> M5-2
+    M4-6 --> M5-2
     M5-1 --> M5-3
-    M5-2 --> M5-4
+    M5-2 --> M5-3
     M5-3 --> M5-4
+    M5-3 --> M5-5
+    M5-4 --> M5-6
+    M5-5 --> M5-6
+    M5-6 --> M5-7
 
-    M5-4 --> M6-1
-    M5-4 --> M6-2
-    M6-1 --> M6-3
-    M6-2 --> M6-3
-    M6-3 --> M6-4
+    M5-7 --> M6-1
+    M5-7 --> M6-2
+    M5-7 --> M6-3
+    M5-7 --> M6-4
+    M6-1 --> M6-5
+    M6-2 --> M6-5
     M6-3 --> M6-5
-    M6-4 --> M6-6
+    M6-4 --> M6-5
     M6-5 --> M6-6
     M6-6 --> M6-7
-
-    M6-7 --> M7-1
-    M6-7 --> M7-2
-    M6-7 --> M7-3
-    M6-7 --> M7-4
-    M7-1 --> M7-5
-    M7-2 --> M7-5
-    M7-3 --> M7-5
-    M7-4 --> M7-5
-    M7-5 --> M7-6
-    M7-6 --> M7-7
 ```
 
 ---
@@ -748,16 +691,12 @@ graph TB
 - Issue 4-4（詳細UI）と Issue 4-5（フィルター）は並列可能
 
 ### Milestone 5
-- Issue 5-2（Batch CDK）と Issue 5-3（ECR プッシュ）は並列可能
-- ただし Issue 5-1 完了後
+- Issue 5-1（暗号化）と Issue 5-2（Playwright）は並列可能
+- Issue 5-3（投入API）と Issue 5-4（ステータスAPI）は並列可能
+- Issue 5-5（登録UI）と Issue 5-6（ステータスUI）は並列可能
 
 ### Milestone 6
-- Issue 6-1（暗号化）と Issue 6-2（Playwright）は並列可能
-- Issue 6-3（投入API）と Issue 6-4（ステータスAPI）は並列可能
-- Issue 6-5（登録UI）と Issue 6-6（ステータスUI）は並列可能
-
-### Milestone 7
-- Issue 7-1〜7-4 は全て並列可能
+- Issue 6-1〜6-4 は全て並列可能
 
 ---
 
@@ -796,7 +735,7 @@ graph TB
 - [ ] ドキュメントが更新済み
 - [ ] PR がマージ済み
 
-最終完了条件（Milestone 7）：
+最終完了条件（Milestone 6）：
 
 - [ ] 本番環境で全機能が動作
 - [ ] テストが CI で自動実行される
