@@ -88,7 +88,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('取引所')).toBeVisible();
       await expect(page.getByLabel('ティッカー')).toBeVisible();
       await expect(page.getByLabel('モード')).toBeVisible();
-      await expect(page.getByLabel('条件')).toBeVisible();
+      await expect(page.getByLabel('条件タイプ')).toBeVisible();
+      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
       await expect(page.getByLabel('目標価格')).toBeVisible();
       await expect(page.getByLabel('通知頻度')).toBeVisible();
 
@@ -261,7 +262,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('取引所')).toBeVisible();
       await expect(page.getByLabel('ティッカー')).toBeVisible();
       await expect(page.getByLabel('モード')).toBeVisible();
-      await expect(page.getByLabel('条件')).toBeVisible();
+      await expect(page.getByLabel('条件タイプ')).toBeVisible();
+      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
       await expect(page.getByLabel('目標価格')).toBeVisible();
       await expect(page.getByLabel('通知頻度')).toBeVisible();
 
@@ -648,7 +650,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 初期状態は単一条件
       await expect(page.getByLabel('条件タイプ')).toHaveValue('single');
-      await expect(page.getByLabel('条件')).toBeVisible();
+      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 範囲指定に切り替え
@@ -661,7 +663,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel(/最大価格/)).toBeVisible();
 
       // 単一条件のフィールドが非表示になる
-      await expect(page.getByLabel('条件')).not.toBeVisible();
+      await expect(page.getByLabel('条件', { exact: true })).not.toBeVisible();
       await expect(page.getByLabel('目標価格')).not.toBeVisible();
 
       // 単一条件に戻す
@@ -669,7 +671,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: /単一条件/ }).click();
 
       // 単一条件のフィールドが表示される
-      await expect(page.getByLabel('条件')).toBeVisible();
+      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 範囲指定のフィールドが非表示になる
