@@ -229,11 +229,26 @@ curl https://dev-niconico-mylist-assistant.nagiyu.com/api/health
 
 ### 4.1 ワークフロー概要
 
-niconico-mylist-assistant では、以下の GitHub Actions ワークフローを使用します:
+niconico-mylist-assistant では、**2段階CI戦略** により品質とスピードのバランスを実現しています。
+
+**2段階CI戦略の比較**:
+
+| 項目 | Fast CI | Full CI |
+|------|---------|---------|
+| **トリガー** | `integration/**` ブランチへのPR | `develop` ブランチへのPR |
+| **実行時間** | 約 5-10 分 | 約 15-20 分 |
+| **E2Eテスト** | chromium-mobile のみ | 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile） |
+| **カバレッジチェック** | スキップ（test は実行） | 80%未満で失敗 |
+| **batch統合テスト** | スキップ | 実行（テスト専用アカウント使用） |
+| **目的** | 開発中の素早いフィードバック | マージ前の完全な品質保証 |
+
+**ジョブ依存関係**: 詳細なジョブ依存関係の設計については [testing.md セクション9.2](./testing.md#92-ジョブ依存関係needsの設計) を参照してください。
+
+#### GitHub Actions ワークフロー
 
 #### 1. 高速検証ワークフロー (`.github/workflows/niconico-mylist-assistant-verify-fast.yml`)
 
-**目的**: integration/\*\* ブランチへのプルリクエスト時に素早いフィードバックを提供
+**目的**: integration/\*\* ブランチへのプルリクエスト時に素早いフィードバックを提供（約 5-10 分）
 
 **トリガー条件**:
 
@@ -246,20 +261,32 @@ on:
       - 'services/niconico-mylist-assistant/**'
       - 'libs/**'
       - 'infra/niconico-mylist-assistant/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/niconico-mylist-assistant-verify-fast.yml'
 ```
 
-**ジョブ構成**:
+**標準ジョブ構成**:
 
-1. **build**: アプリケーションのビルド検証（web / batch）
-2. **docker-build**: Docker イメージのビルド検証（web / batch）
-3. **test**: 単体テストの実行（core パッケージのみ）
-4. **e2e-test**: E2E テストの実行（chromium-mobile のみ）
-5. **lint**: リントチェック
-6. **format-check**: フォーマットチェック
+| ジョブ名 | 説明 |
+|---------|------|
+| lint | ESLint によるコード品質チェック |
+| format-check | Prettier によるフォーマットチェック |
+| build-core | core パッケージのビルド検証 |
+| build-web | web パッケージのビルド検証 |
+| build-batch | batch パッケージのビルド検証 |
+| build-infra | インフラ定義のビルド検証 |
+| synth-infra | CDK スタックの synthesize |
+| docker-build-web | web の Docker イメージビルド |
+| docker-build-batch | batch の Docker イメージビルド |
+| test-core | core ユニットテスト実行 |
+| test-batch | batch ユニットテスト実行 |
+| e2e-test-web | E2E テスト（**chromium-mobile のみ**） |
+| report | 全ジョブの結果を PR にコメント |
 
 #### 2. 完全検証ワークフロー (`.github/workflows/niconico-mylist-assistant-verify-full.yml`)
 
-**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施
+**目的**: develop ブランチへのプルリクエスト時に完全な品質検証を実施（約 15-20 分）
 
 **トリガー条件**:
 
@@ -272,18 +299,35 @@ on:
       - 'services/niconico-mylist-assistant/**'
       - 'libs/**'
       - 'infra/niconico-mylist-assistant/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/niconico-mylist-assistant-verify-full.yml'
 ```
 
-**ジョブ構成**:
+**標準ジョブ構成**:
 
-1. **build**: アプリケーションのビルド検証（web / batch）
-2. **docker-build**: Docker イメージのビルド検証（web / batch）
-3. **test**: 単体テストの実行（core パッケージのみ）
-4. **coverage**: テストカバレッジチェック（80% 以上必須）
-5. **e2e-test**: E2E テストの実行（全デバイス）
-6. **integration-test**: batch 統合テスト（テスト専用アカウント使用）
-7. **lint**: リントチェック
-8. **format-check**: フォーマットチェック
+| ジョブ名 | 説明 |
+|---------|------|
+| lint | ESLint によるコード品質チェック |
+| format-check | Prettier によるフォーマットチェック |
+| build-core | core パッケージのビルド検証 |
+| build-web | web パッケージのビルド検証 |
+| build-batch | batch パッケージのビルド検証 |
+| build-infra | インフラ定義のビルド検証 |
+| synth-infra | CDK スタックの synthesize |
+| docker-build-web | web の Docker イメージビルド |
+| docker-build-batch | batch の Docker イメージビルド |
+| test-core | core ユニットテスト実行 |
+| test-batch | batch ユニットテスト実行 |
+| **coverage** | **カバレッジチェック（80%未満で失敗）** |
+| e2e-test-web | E2E テスト（**全デバイス**: chromium-desktop, chromium-mobile, webkit-mobile） |
+| test-batch-integration | batch 統合テスト（実環境、テスト専用アカウント使用） |
+| report | 全ジョブの結果を PR にコメント |
+
+**Fast CI との主な違い**:
+- ✅ **coverage** ジョブが追加され、カバレッジ80%未満で失敗
+- ✅ **e2e-test-web** が全デバイスで実行（Fast CI は chromium-mobile のみ）
+- ✅ **test-batch-integration** が追加され、実環境での統合テストを実行
 
 #### 3. デプロイワークフロー (`.github/workflows/niconico-mylist-assistant-deploy.yml`)
 

@@ -17,10 +17,23 @@
 
 本サービスは **3 パッケージ構成**（core / web / batch）を採用しており、各パッケージの特性に応じたテスト戦略を適用します。
 
+#### 基本方針
+
+- **スマホファースト**: モバイル環境でのテストを優先（Fast CI では chromium-mobile のみ）
+- **品質とスピードのバランス**: 2段階CI戦略により、開発速度と品質保証を両立
+- **自動化**: CI/CD で継続的にテストを実行（全PR で自動実行）
+
+#### パッケージ別方針
+
 - **ビジネスロジック集約**: ビジネスロジックは core パッケージに集約し、ユニットテストで品質を担保
+  - **Pure Business Logic Functions パターン** を採用し、副作用のない純粋関数（`libs/`）を重点的にテスト
+  - カバレッジ目標: **80%以上（必須）**
 - **E2E 重視**: web パッケージは E2E テストでユーザーフローをカバー
+  - 主要なユーザーシナリオを網羅
+  - 実環境（DynamoDB dev, ニコニコ動画 API）を使用
 - **実環境テスト**: batch パッケージはテスト専用アカウントを使用した実環境統合テストで品質を担保
-- **スマホファースト**: モバイル環境でのテストを優先
+  - Playwright による実際のブラウザ自動化をテスト
+  - UI 変更の早期検知
 
 ### 1.3 パッケージ別テスト戦略
 
@@ -44,17 +57,35 @@
 
 ### 2.2 テスト優先順位
 
+本サービスは **2段階CI戦略** を採用し、開発速度と品質のバランスを実現しています。
+
 #### Fast CI (高速フィードバック)
 
-- **対象**: chromium-mobile のみ
-- **目的**: 開発中の素早いフィードバック
+- **対象デバイス**: chromium-mobile のみ
+- **目的**: 開発中の素早いフィードバックループ（約 5-10 分）
 - **トリガー**: `integration/**` ブランチへの PR
+- **実行内容**:
+  - ビルド検証（全パッケージ）
+  - ユニットテスト（core, batch）
+  - E2E テスト（chromium-mobile のみ）
+  - カバレッジチェック: **スキップ**（test は実行）
+  - batch 統合テスト: **スキップ**
 
 #### Full CI (完全テスト)
 
-- **対象**: chromium-desktop, chromium-mobile, webkit-mobile
-- **目的**: マージ前の完全な品質検証
+- **対象デバイス**: chromium-desktop, chromium-mobile, webkit-mobile（全3種）
+- **目的**: マージ前の完全な品質保証（約 15-20 分）
 - **トリガー**: `develop` ブランチへの PR
+- **実行内容**:
+  - ビルド検証（全パッケージ）
+  - ユニットテスト（core, batch）
+  - E2E テスト（**全デバイス**）
+  - カバレッジチェック: **80%未満で失敗**
+  - batch 統合テスト: **実行**（テスト専用アカウント使用）
+
+#### スマホファーストの実践
+
+モバイル環境を優先してテスト。Fast CI では chromium-mobile のみを実行し、開発速度を重視しています。Full CI でデスクトップとiOS（webkit）を追加検証することで、品質とスピードのバランスを実現しています。
 
 ---
 
@@ -512,18 +543,60 @@ npm run test:integration --workspace=niconico-mylist-assistant-batch
 
 #### GitHub Actions
 
-GitHub Actions で自動実行されます:
+GitHub Actions で自動実行されます。
 
 **Fast CI** (`.github/workflows/niconico-mylist-assistant-verify-fast.yml`):
 
-- トリガー: `integration/**` ブランチへの PR
-- テスト: core ユニットテスト + E2E (chromium-mobile のみ)
+- **トリガー**: `integration/**` ブランチへの PR
+- **ブランチフィルター**: `integration/**`
+- **パスフィルター**: サービス関連ファイルのみ
+- **実行内容**:
+  - ビルド検証（core, web, batch, infra）
+  - Docker ビルド検証（web, batch）
+  - lint / format-check
+  - core ユニットテスト（カバレッジチェックなし）
+  - batch ユニットテスト
+  - E2E テスト（**chromium-mobile のみ**）
+- **実行時間**: 約 5-10 分
+- **目的**: 開発中の素早いフィードバック
 
 **Full CI** (`.github/workflows/niconico-mylist-assistant-verify-full.yml`):
 
-- トリガー: `develop` ブランチへの PR
-- テスト: core ユニットテスト + カバレッジチェック + E2E (全デバイス) + batch 統合テスト
-- カバレッジ: core パッケージで 80% 未満は失敗
+- **トリガー**: `develop` ブランチへの PR
+- **ブランチフィルター**: `develop`
+- **パスフィルター**: サービス関連ファイルのみ
+- **実行内容**:
+  - ビルド検証（core, web, batch, infra）
+  - Docker ビルド検証（web, batch）
+  - lint / format-check
+  - core ユニットテスト + **カバレッジチェック（80%以上必須）**
+  - batch ユニットテスト
+  - E2E テスト（**全デバイス**: chromium-desktop, chromium-mobile, webkit-mobile）
+  - batch 統合テスト（実環境、テスト専用アカウント使用）
+- **実行時間**: 約 15-20 分
+- **目的**: マージ前の完全な品質保証
+
+#### 標準ジョブ構成
+
+両ワークフローとも以下の標準ジョブで構成されています：
+
+| ジョブ名 | 説明 | Fast CI | Full CI |
+|---------|------|---------|---------|
+| lint | ESLint によるコード品質チェック | ✅ | ✅ |
+| format-check | Prettier によるフォーマットチェック | ✅ | ✅ |
+| build-core | core パッケージのビルド検証 | ✅ | ✅ |
+| build-web | web パッケージのビルド検証 | ✅ | ✅ |
+| build-batch | batch パッケージのビルド検証 | ✅ | ✅ |
+| build-infra | インフラ定義のビルド検証 | ✅ | ✅ |
+| synth-infra | CDK スタックの synthesize | ✅ | ✅ |
+| docker-build-web | web の Docker イメージビルド | ✅ | ✅ |
+| docker-build-batch | batch の Docker イメージビルド | ✅ | ✅ |
+| test-core | core ユニットテスト実行 | ✅ | ✅ |
+| test-batch | batch ユニットテスト実行 | ✅ | ✅ |
+| coverage | カバレッジチェック（80%未満で失敗） | - | ✅ |
+| e2e-test-web | E2E テスト（デバイス数が異なる） | ✅ (1) | ✅ (3) |
+| test-batch-integration | batch 統合テスト（実環境） | - | ✅ |
+| report | 全ジョブの結果を PR にコメント | ✅ | ✅ |
 
 #### 環境変数
 
@@ -536,8 +609,14 @@ AWS_SECRET_ACCESS_KEY=<GitHub Secrets>
 AWS_REGION=us-east-1
 
 # テスト用認証情報（AWS Secrets Manager から取得）
-# - ニコニコ動画テスト用アカウント
+# - ニコニコ動画テスト用アカウント（username, password）
 # - 暗号化キー（SHARED_SECRET_KEY）
+
+# CI フラグ（Playwright の動作制御）
+CI=true
+
+# デバイス指定（Fast CI で使用）
+PROJECT=chromium-mobile  # Fast CI のみ
 ```
 
 ---
@@ -546,44 +625,170 @@ AWS_REGION=us-east-1
 
 ### 9.1 ワークフロー構成
 
-| ワークフロー | トリガー | 実行内容 |
-|------------|---------|---------|
-| niconico-mylist-assistant-verify-fast | PR to `integration/**` | ビルド、core ユニット、E2E (chromium-mobile) |
-| niconico-mylist-assistant-verify-full | PR to `develop` | ビルド、core ユニット + カバレッジ、E2E (全デバイス)、batch 統合 |
-| niconico-mylist-assistant-deploy | Push to `develop` or `master` | デプロイ（テストは verify で完了済み） |
+本サービスは **2段階CI戦略** を採用しています。
 
-### 9.2 パスフィルター
+| ワークフロー | トリガー | 実行内容 | 目的 |
+|------------|---------|---------|------|
+| niconico-mylist-assistant-verify-fast | PR to `integration/**` | ビルド、core ユニット、E2E (chromium-mobile) | 開発中の素早いフィードバック |
+| niconico-mylist-assistant-verify-full | PR to `develop` | ビルド、core ユニット + カバレッジ、E2E (全デバイス)、batch 統合 | マージ前の完全な品質検証 |
+| niconico-mylist-assistant-deploy | Push to `develop` or `master` | デプロイ（テストは verify で完了済み） | 本番環境へのデプロイ |
+
+#### Fast CI と Full CI の違い
+
+**Fast CI (integration/** ブランチ):**
+- **E2Eテスト**: chromium-mobile のみ（スマホ環境に特化）
+- **統合テスト**: スキップ
+- **カバレッジチェック**: スキップ（test は実行）
+- **実行時間**: 約 5-10 分
+- **目的**: 開発中の素早いフィードバックループ
+
+**Full CI (develop ブランチ):**
+- **E2Eテスト**: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
+- **統合テスト**: batch パッケージの統合テストを実行
+- **カバレッジチェック**: core パッケージで 80% 未満の場合は失敗
+- **実行時間**: 約 15-20 分
+- **目的**: マージ前の完全な品質保証
+
+### 9.2 ジョブ依存関係（needs）の設計
+
+CI ワークフローでは `needs` を使ってジョブ間の依存関係を設定し、以下の効果を得ています：
+
+1. **早期失敗**: lint/format が失敗した場合、ビルド・テストをスキップ
+2. **リソース節約**: 前提ジョブが失敗すると後続ジョブが実行されない
+3. **明確な依存関係**: ビルド順序が保証される
+
+#### ジョブ依存関係グラフ（core/web/batch 構成）
+
+```mermaid
+flowchart LR
+    lint[lint]
+    format[format-check]
+    build_core[build-core]
+    synth[synth-infra]
+    build_web[build-web]
+    build_batch[build-batch]
+    test_core[test-core]
+    coverage[coverage]
+    build_infra[build-infra]
+    docker_web[docker-build-web]
+    docker_batch[docker-build-batch]
+    test_batch[test-batch]
+    e2e[e2e-test-web]
+    report[report]
+
+    lint --> build_core
+    format --> build_core
+    lint --> synth
+    format --> synth
+
+    build_core --> build_web
+    build_core --> build_batch
+    build_core --> test_core
+    build_core --> coverage
+    synth --> build_infra
+
+    build_web --> docker_web
+    build_web --> e2e
+    build_batch --> docker_batch
+    build_batch --> test_batch
+
+    docker_web --> report
+    docker_batch --> report
+    test_core --> report
+    test_batch --> report
+    coverage --> report
+    e2e --> report
+    build_infra --> report
+```
+
+#### ジョブ依存関係の詳細
+
+| ジョブ             | 依存先（needs）    | 理由                             |
+| ------------------ | ------------------ | -------------------------------- |
+| lint               | なし               | 最初に実行                       |
+| format-check       | なし               | lint と並列実行                  |
+| build-core         | lint, format-check | コード品質確認後にビルド         |
+| synth-infra        | lint, format-check | infra も lint 後に検証           |
+| build-web          | build-core         | core のビルド成果物に依存        |
+| build-batch        | build-core         | 同上                             |
+| test-core          | build-core         | ビルド成功後にテスト             |
+| coverage           | build-core         | ビルド成功後にカバレッジチェック |
+| build-infra        | synth-infra        | synth 成功後にビルド             |
+| docker-build-web   | build-web          | ビルド成功後に Docker ビルド     |
+| docker-build-batch | build-batch        | 同上                             |
+| test-batch         | build-batch        | ビルド成功後にテスト             |
+| e2e-test-web       | build-web          | ビルド成功後に E2E               |
+| report             | 全ジョブ           | 最後に結果を集約                 |
+
+**設計のポイント**:
+- **並列実行の最大化**: 依存関係のないジョブ（lint と format-check）は並列実行
+- **段階的な検証**: 品質チェック → ビルド → テスト → Docker の順で段階的に検証
+- **失敗時の無駄な実行を防止**: 前提条件が満たされない場合は後続ジョブをスキップ
+- **明示的な依存関係**: ビルド成果物を使用するジョブは明確に依存を宣言
+
+### 9.3 パスフィルター
+
+変更対象のファイルに応じて適切なワークフローのみを実行します。
 
 ```yaml
 paths:
-  - 'services/niconico-mylist-assistant/**'
-  - 'infra/niconico-mylist-assistant/**'
-  - 'libs/**'
-  - 'package.json'
-  - 'package-lock.json'
-  - '.github/workflows/niconico-mylist-assistant-verify-*.yml'
+  - 'services/niconico-mylist-assistant/**'  # サービス本体
+  - 'infra/niconico-mylist-assistant/**'     # インフラ定義
+  - 'libs/**'                                 # 共通ライブラリ
+  - 'package.json'                            # ルートパッケージ定義
+  - 'package-lock.json'                       # 依存関係ロック
+  - '.github/workflows/niconico-mylist-assistant-verify-*.yml'  # ワークフロー自体
 ```
 
-### 9.3 ブランチ保護ルール
+**パスフィルターの利点**:
+- 無関係な変更でワークフローが実行されず、CIリソースを節約
+- 変更対象に応じた適切なテストのみ実行され、高速なフィードバック
+
+### 9.4 ブランチ保護ルール
 
 #### `integration/**` ブランチ
 
 - ✅ PR 必須（直接プッシュ禁止）
 - ✅ `niconico-mylist-assistant-verify-fast` ワークフローの成功が必須
+  - ビルド検証（core, web, batch, infra）
+  - lint / format-check
+  - core ユニットテスト
+  - E2E テスト（chromium-mobile のみ）
 
 #### `develop` ブランチ
 
 - ✅ PR 必須（直接プッシュ禁止）
 - ✅ `niconico-mylist-assistant-verify-full` ワークフローの成功が必須
-- ✅ core パッケージのカバレッジ 80% 以上
+  - ビルド検証（core, web, batch, infra）
+  - Docker ビルド検証（web, batch）
+  - lint / format-check
+  - core ユニットテスト + **カバレッジチェック（80%以上）**
+  - batch ユニットテスト
+  - E2E テスト（**全デバイス**: chromium-desktop, chromium-mobile, webkit-mobile）
+  - batch 統合テスト（実環境）
+
+**カバレッジチェックの動作**:
+Jest の設定ファイル（`jest.config.ts`）で `coverageThreshold` を定義しているため、テストカバレッジが 80% を下回ると `npm run test:coverage` コマンドが非ゼロの終了コードで終了し、GitHub Actions のジョブが自動的に失敗します。これにより PR マージを防ぎます。
+
+```typescript
+// jest.config.ts
+coverageThreshold: {
+    global: {
+        branches: 80,
+        functions: 80,
+        lines: 80,
+        statements: 80,
+    },
+}
+```
 
 #### `master` ブランチ
 
 - ✅ PR 必須（直接プッシュ禁止）
 - ✅ 全ての CI/CD チェックの成功が必須
-- ✅ レビュー承認が必須
+- ✅ レビュー承認が必須（推奨）
 
-### 9.4 テスト失敗時の対応
+### 9.5 テスト失敗時の対応
 
 #### ユニットテスト失敗
 
