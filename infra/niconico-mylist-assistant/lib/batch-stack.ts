@@ -17,7 +17,13 @@ export interface BatchStackProps extends cdk.StackProps {
  *
  * Fargate を使用した AWS Batch 環境を構築します。
  * 最小リソース設定（vCPU 0.25, メモリ 512 MB）で、
- * ダミー処理を実行するための基盤を提供します。
+ * ダミー処理を実行するための基盤を提供します（Milestone 1）。
+ *
+ * Milestone 5 で実際のマイリスト登録処理に対応する際は、
+ * 以下の追加設定が必要になります:
+ * - BatchJobRole に DynamoDB と Secrets Manager の権限追加
+ * - SHARED_SECRET_KEY 環境変数の追加（Secrets Manager参照）
+ * - タイムアウトを1800秒（30分）に延長
  */
 export class BatchStack extends cdk.Stack {
   public readonly jobQueueArn: string;
@@ -83,14 +89,16 @@ export class BatchStack extends cdk.Stack {
     // Grant Batch job access to ECR
     batchEcrRepository.grantPull(batchJobExecutionRole);
 
-    // IAM Role for Batch Job (コンテナランタイム用、最小権限)
-    const batchJobRole = new BatchJobRole(this, 'BatchJobRole');
-
     // CloudWatch Log Group for Batch
     const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
       logGroupName: `/aws/batch/niconico-mylist-assistant-${env}`,
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // IAM Role for Batch Job (コンテナランタイム用、最小権限)
+    const batchJobRole = new BatchJobRole(this, 'BatchJobRole', {
+      logGroupArn: batchLogGroup.logGroupArn,
     });
 
     // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
@@ -159,12 +167,16 @@ export class BatchStack extends cdk.Stack {
             name: 'AWS_REGION',
             value: this.region,
           },
+          // Milestone 5 で追加予定:
+          // - SHARED_SECRET_KEY: Secrets Manager からの参照
         ],
       },
       retryStrategy: {
         attempts: 1, // リトライなし（初期実装）
       },
       timeout: {
+        // Milestone 1: ダミー処理用の短いタイムアウト（15分）
+        // Milestone 5: 実際のマイリスト登録処理では1800秒（30分）に延長が必要
         attemptDurationSeconds: 900, // 15分タイムアウト
       },
     });
