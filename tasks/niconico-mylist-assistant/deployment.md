@@ -184,6 +184,8 @@ docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-ass
 
 #### batch パッケージ（AWS Batch 用）
 
+**注**: multi-stage buildにより、Docker内部で依存関係のインストールとビルドが自動的に実行されます。
+
 ```bash
 # 1. イメージのビルド（モノレポルートから実行）
 docker build -t niconico-mylist-assistant-batch:latest \
