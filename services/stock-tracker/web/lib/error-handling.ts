@@ -9,7 +9,7 @@ export { ErrorBoundary, useErrorHandler } from '../components/ErrorBoundary';
 export { SnackbarProvider, useSnackbar } from '../components/SnackbarProvider';
 export { ErrorDisplay, LoadingError } from '../components/ErrorDisplay';
 
-// API Client
+// API Client（共通ライブラリから再エクスポート）
 export {
   apiRequest,
   get,
@@ -19,11 +19,11 @@ export {
   APIError,
   type APIRequestOptions,
   type RetryConfig,
-} from './api-client';
+} from '@nagiyu/common';
 
-// Error Handler
+// Error Handler（共通ライブラリから再エクスポート）
 export {
-  ERROR_MESSAGES,
+  COMMON_ERROR_MESSAGES,
   handleFetchError,
   extractErrorInfo,
   mapAPIErrorToMessage,
@@ -33,11 +33,14 @@ export {
   type APIErrorResponse,
   type ErrorInfo,
   type ErrorType,
-} from './error-handler';
+} from '@nagiyu/common';
 
-// カスタムフック
+// Stock Tracker固有のエラーメッセージ
+export { STOCK_TRACKER_ERROR_MESSAGES } from './error-messages';
+
+// カスタムフック（共通ライブラリから再エクスポート）
 export {
   useAPIRequest,
   type UseAPIRequestOptions,
   type UseAPIRequestReturn,
-} from './hooks/useAPIRequest';
+} from '@nagiyu/react';
