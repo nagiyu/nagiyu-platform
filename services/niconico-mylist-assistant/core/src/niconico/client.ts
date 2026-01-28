@@ -14,13 +14,14 @@ export interface NiconicoVideoInfo {
 }
 
 export class NiconicoAPIError extends Error {
-  constructor(
-    message: string,
-    public code?: string,
-    public videoId?: string
-  ) {
+  code?: string;
+  videoId?: string;
+
+  constructor(message: string, code?: string, videoId?: string) {
     super(message);
     this.name = 'NiconicoAPIError';
+    this.code = code;
+    this.videoId = videoId;
   }
 }
 
