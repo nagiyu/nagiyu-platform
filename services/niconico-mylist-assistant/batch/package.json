@@ -13,6 +13,6 @@
   "dependencies": {
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/browser": "*",
-    "playwright": "^1.57.0"
+    "playwright": "1.57.0"
   }
 }
