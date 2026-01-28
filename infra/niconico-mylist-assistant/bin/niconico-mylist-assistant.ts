@@ -5,6 +5,7 @@ import { DynamoDBStack } from '../lib/dynamodb-stack';
 import { WebECRStack, BatchECRStack } from '../lib/ecr-stacks';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
+import { BatchStack } from '../lib/batch-stack';
 
 const app = new cdk.App();
 
@@ -46,6 +47,16 @@ const batchEcrStack = new BatchECRStack(app, `NagiyuNiconicoMylistAssistantBatch
   env: stackEnv,
   description: `Niconico Mylist Assistant Batch ECR - ${env} environment`,
 });
+
+// Batch スタックを作成
+const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Niconico Mylist Assistant Batch - ${env} environment`,
+});
+
+// Batch は Batch ECR に依存
+batchStack.addDependency(batchEcrStack);
 
 // Lambda スタックを作成
 const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
