@@ -236,12 +236,16 @@ services/niconico-mylist-assistant/
 
 - **責務**: フレームワーク非依存の共通ビジネスロジック
 - **提供機能**:
-  - 型定義（動画基本情報、ユーザー設定、バッチジョブ等）
+  - **Entity 定義**（動画基本情報、ユーザー設定、バッチジョブ等の純粋なビジネスオブジェクト）
+  - **Repository Interface**（データアクセス層の抽象化、CRUD 操作の定義）
+  - **Mapper**（Entity ↔ DynamoDB Item 変換、バリデーション）
+  - **Repository 実装**（DynamoDB 実装、InMemory テスト実装）
   - 定数定義（待機時間、上限数等）
   - Playwright ヘルパー関数
   - ニコニコ動画 API 連携（getthumbinfo）
   - マイリスト自動化ロジック
-- **依存先**: なし（Pure TypeScript）
+- **依存先**:
+  - `@nagiyu/aws`（DynamoDB 抽象化、エラー定義、バリデーション）
 - **利用元**: web, batch
 
 ##### web パッケージ (`@nagiyu/niconico-mylist-assistant-web`)
@@ -293,6 +297,237 @@ graph TB
     style Web fill:#e3f2fd,stroke:#01579b,stroke-width:2px
     style Batch fill:#e1f5ff,stroke:#01579b,stroke-width:3px
 ```
+
+### 3.3 レイヤードアーキテクチャ
+
+core パッケージは **Repository パターン** を採用し、データアクセス層を抽象化します。これにより、ビジネスロジックとデータ永続化の実装を分離し、テスタビリティと保守性を向上させます。
+
+#### 3.3.1 レイヤー構成
+
+```mermaid
+graph TB
+    subgraph "core パッケージ内部構造"
+        subgraph "Presentation Layer (API Routes)"
+            API[API Routes<br/>Next.js]
+        end
+
+        subgraph "Application Layer"
+            UseCase[Use Cases<br/>ビジネスロジック]
+        end
+
+        subgraph "Domain Layer"
+            Entity[Entity<br/>純粋なビジネスオブジェクト]
+            RepoIF[Repository Interface<br/>データアクセスの抽象化]
+        end
+
+        subgraph "Infrastructure Layer"
+            Mapper[Mapper<br/>Entity ↔ Item 変換]
+            RepoImpl[Repository 実装<br/>DynamoDB / InMemory]
+        end
+
+        subgraph "External"
+            DDB[(DynamoDB)]
+        end
+    end
+
+    API --> UseCase
+    UseCase --> Entity
+    UseCase --> RepoIF
+    RepoIF --> RepoImpl
+    RepoImpl --> Mapper
+    RepoImpl --> DDB
+    Mapper --> Entity
+
+    style Entity fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    style RepoIF fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    style Mapper fill:#bbdefb,stroke:#1565c0,stroke-width:2px
+    style RepoImpl fill:#bbdefb,stroke:#1565c0,stroke-width:2px
+```
+
+#### 3.3.2 各レイヤーの責務
+
+##### Entity（エンティティ）
+
+**配置**: `core/src/entities/`
+
+**責務**:
+- DynamoDB の実装詳細（PK/SK など）を含まない純粋なビジネスオブジェクト
+- ドメインロジックの中核
+
+**提供する型**:
+- `XxxEntity`: エンティティ本体（CreatedAt/UpdatedAt を含む）
+- `CreateXxxInput`: 作成時の入力型（CreatedAt/UpdatedAt を除く）
+- `UpdateXxxInput`: 更新時の入力型（更新可能フィールドのみ）
+- `XxxKey`: ビジネスキー（userId, videoId など）
+
+**例**:
+```typescript
+// entities/video.entity.ts
+export interface VideoEntity {
+  VideoID: string;
+  Title: string;
+  ThumbnailUrl: string;
+  Length: string;
+  CreatedAt: number; // Unix timestamp
+}
+
+export type CreateVideoInput = Omit<VideoEntity, 'CreatedAt'>;
+
+export interface VideoKey {
+  videoId: string;
+}
+```
+
+##### Repository Interface（リポジトリインターフェース）
+
+**配置**: `core/src/repositories/`
+
+**責務**:
+- データアクセス操作の抽象化
+- CRUD 操作の定義
+- 実装詳細（DynamoDB, InMemory 等）からビジネスロジックを分離
+
+**提供するメソッド**:
+- `getById(key)`: エンティティを取得
+- `create(input)`: エンティティを作成
+- `update(key, updates)`: エンティティを更新
+- `delete(key)`: エンティティを削除
+- `getByXxx(...)`: カスタムクエリ（例: ユーザーIDで一覧取得）
+
+**例**:
+```typescript
+// repositories/video.repository.interface.ts
+export interface VideoRepository {
+  getById(key: VideoKey): Promise<VideoEntity | null>;
+  create(input: CreateVideoInput): Promise<VideoEntity>;
+  delete(key: VideoKey): Promise<void>;
+}
+```
+
+##### Mapper（マッパー）
+
+**配置**: `core/src/mappers/`
+
+**責務**:
+- Entity（ビジネスオブジェクト）と DynamoDB Item（永続化形式）の相互変換
+- フィールドのバリデーション
+- PK/SK の構築ロジック
+
+**提供するメソッド**:
+- `toEntity(item)`: DynamoDB Item → Entity
+- `toItem(entity)`: Entity → DynamoDB Item
+- `buildKeys(key)`: ビジネスキー → PK/SK
+
+**バリデーション関数の使用**:
+- `validateStringField()`, `validateNumberField()`, `validateTimestampField()` など（`@nagiyu/aws` から提供）
+
+**例**:
+```typescript
+// mappers/video.mapper.ts
+export class VideoMapper implements EntityMapper<VideoEntity, VideoKey> {
+  public toEntity(item: DynamoDBItem): VideoEntity {
+    return {
+      VideoID: validateStringField(item.VideoID, 'VideoID'),
+      Title: validateStringField(item.Title, 'Title'),
+      ThumbnailUrl: validateStringField(item.ThumbnailUrl, 'ThumbnailUrl'),
+      Length: validateStringField(item.Length, 'Length'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+    };
+  }
+
+  public toItem(entity: VideoEntity): DynamoDBItem {
+    const { pk, sk } = this.buildKeys({ videoId: entity.VideoID });
+    return {
+      PK: pk,
+      SK: sk,
+      Type: 'Video',
+      VideoID: entity.VideoID,
+      Title: entity.Title,
+      ThumbnailUrl: entity.ThumbnailUrl,
+      Length: entity.Length,
+      CreatedAt: entity.CreatedAt,
+    };
+  }
+
+  public buildKeys(key: VideoKey): { pk: string; sk: string } {
+    return {
+      pk: `VIDEO#${key.videoId}`,
+      sk: `VIDEO#${key.videoId}`,
+    };
+  }
+}
+```
+
+##### Repository 実装
+
+**配置**: `core/src/repositories/`
+
+**責務**:
+- Repository Interface の具体的な実装
+- DynamoDB 操作（GetCommand, PutCommand, UpdateCommand, DeleteCommand, QueryCommand）
+- エラーハンドリング（EntityNotFoundError, EntityAlreadyExistsError, DatabaseError）
+- Mapper を使用した Entity ↔ Item 変換
+
+**実装パターン**:
+1. **DynamoDB 実装** (`dynamodb-xxx.repository.ts`): 本番環境用
+2. **InMemory 実装** (`in-memory-xxx.repository.ts`): テスト用
+
+**例**:
+```typescript
+// repositories/dynamodb-video.repository.ts
+export class DynamoDBVideoRepository implements VideoRepository {
+  private readonly mapper: VideoMapper;
+  private readonly docClient: DynamoDBDocumentClient;
+  private readonly tableName: string;
+
+  public async getById(key: VideoKey): Promise<VideoEntity | null> {
+    const { pk, sk } = this.mapper.buildKeys(key);
+    const result = await this.docClient.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: { PK: pk, SK: sk },
+      })
+    );
+
+    if (!result.Item) {
+      return null;
+    }
+
+    return this.mapper.toEntity(result.Item as DynamoDBItem);
+  }
+
+  // create, update, delete メソッドも同様に実装...
+}
+```
+
+#### 3.3.3 Repository パターンの利点
+
+| 利点 | 説明 |
+|------|------|
+| **テスタビリティ** | ビジネスロジックを Repository Interface に依存させることで、テスト時は InMemory 実装に差し替え可能 |
+| **保守性** | データアクセスロジックを一箇所に集約し、変更時の影響範囲を最小化 |
+| **関心の分離** | ビジネスロジック（Entity）とデータ永続化（DynamoDB）を明確に分離 |
+| **型安全性** | Entity は PK/SK を持たないため、ビジネスロジックで DynamoDB の実装詳細を意識しない |
+| **再利用性** | 同じ Repository Interface を複数のパッケージ（web, batch）から利用可能 |
+
+#### 3.3.4 プラットフォーム標準ライブラリの活用
+
+本サービスは `@nagiyu/aws` パッケージが提供する以下の共通機能を活用します：
+
+| 機能 | 提供元 | 用途 |
+|------|--------|------|
+| `DynamoDBItem` 型 | `@nagiyu/aws` | DynamoDB Item の型定義 |
+| `EntityMapper<TEntity, TKey>` インターフェース | `@nagiyu/aws` | Mapper の標準インターフェース |
+| `validateStringField()` | `@nagiyu/aws` | 文字列フィールドのバリデーション |
+| `validateNumberField()` | `@nagiyu/aws` | 数値フィールドのバリデーション |
+| `validateTimestampField()` | `@nagiyu/aws` | タイムスタンプフィールドのバリデーション |
+| `EntityNotFoundError` | `@nagiyu/aws` | エンティティが存在しない場合のエラー |
+| `EntityAlreadyExistsError` | `@nagiyu/aws` | エンティティが既に存在する場合のエラー |
+| `DatabaseError` | `@nagiyu/aws` | データベースエラー |
+| `PaginationOptions` | `@nagiyu/aws` | ページネーションオプション |
+| `PaginatedResult<T>` | `@nagiyu/aws` | ページネーション結果 |
+
+**参考実装**: `services/stock-tracker/core` の Repository パターン実装を参考にしています。
 
 ---
 
@@ -485,6 +720,437 @@ interface BatchResult {
     totalCount: number;
     errorMessage?: string;
 }
+```
+
+### 4.3 Entity 定義
+
+本サービスでは、DynamoDB の実装詳細（PK/SK）を含まない純粋なビジネスオブジェクトとして Entity を定義します。これにより、ビジネスロジックをデータ永続化から分離し、テスタビリティと保守性を向上させます。
+
+#### 4.3.1 Video Entity（動画基本情報）
+
+全ユーザー共通の動画メタデータを表す Entity です。
+
+```typescript
+/**
+ * 動画エンティティ（全ユーザー共通）
+ */
+export interface VideoEntity {
+  /** 動画ID（例: sm12345678） */
+  VideoID: string;
+  /** 動画タイトル */
+  Title: string;
+  /** サムネイル画像URL */
+  ThumbnailUrl: string;
+  /** 再生時間（例: "5:30"） */
+  Length: string;
+  /** 作成日時 (Unix timestamp) */
+  CreatedAt: number;
+}
+
+/**
+ * Video 作成時の入力データ（CreatedAt を除く）
+ */
+export type CreateVideoInput = Omit<VideoEntity, 'CreatedAt'>;
+
+/**
+ * Video のビジネスキー
+ */
+export interface VideoKey {
+  videoId: string;
+}
+```
+
+**フィールド説明**:
+
+| フィールド | 型 | 説明 | 必須 |
+|-----------|-----|------|------|
+| `VideoID` | string | 動画ID（例: `sm12345678`） | ✓ |
+| `Title` | string | 動画タイトル | ✓ |
+| `ThumbnailUrl` | string | サムネイル画像URL | ✓ |
+| `Length` | string | 再生時間（例: `"5:30"`） | ✓ |
+| `CreatedAt` | number | 作成日時（Unix timestamp） | ✓ |
+
+**DynamoDB マッピング**:
+- `PK`: `VIDEO#{VideoID}`
+- `SK`: `VIDEO#{VideoID}`
+- `Type`: `"Video"`
+
+#### 4.3.2 UserSetting Entity（ユーザー設定）
+
+各ユーザーが個別に設定するメタデータ（お気に入りフラグ、スキップフラグ、メモ）を表す Entity です。
+
+```typescript
+/**
+ * ユーザー設定エンティティ（ユーザーごとに個別）
+ */
+export interface UserSettingEntity {
+  /** ユーザーID（Auth プロジェクトの UserID） */
+  UserID: string;
+  /** 動画ID */
+  VideoID: string;
+  /** お気に入りフラグ */
+  IsFavorite: boolean;
+  /** スキップフラグ */
+  IsSkip: boolean;
+  /** ユーザーのメモ（任意） */
+  Memo?: string;
+  /** 作成日時 (Unix timestamp) */
+  CreatedAt: number;
+  /** 更新日時 (Unix timestamp) */
+  UpdatedAt: number;
+}
+
+/**
+ * UserSetting 作成時の入力データ（CreatedAt/UpdatedAt を除く）
+ */
+export type CreateUserSettingInput = Omit<UserSettingEntity, 'CreatedAt' | 'UpdatedAt'>;
+
+/**
+ * UserSetting 更新時の入力データ（更新可能フィールドのみ）
+ */
+export type UpdateUserSettingInput = Partial<
+  Pick<UserSettingEntity, 'IsFavorite' | 'IsSkip' | 'Memo'>
+>;
+
+/**
+ * UserSetting のビジネスキー
+ */
+export interface UserSettingKey {
+  userId: string;
+  videoId: string;
+}
+```
+
+**フィールド説明**:
+
+| フィールド | 型 | 説明 | 必須 | デフォルト |
+|-----------|-----|------|------|-----------|
+| `UserID` | string | Auth プロジェクトの UserID | ✓ | - |
+| `VideoID` | string | 動画ID | ✓ | - |
+| `IsFavorite` | boolean | お気に入りフラグ | ✓ | `false` |
+| `IsSkip` | boolean | スキップフラグ | ✓ | `false` |
+| `Memo` | string | ユーザーのメモ | ✗ | - |
+| `CreatedAt` | number | 作成日時（Unix timestamp） | ✓ | - |
+| `UpdatedAt` | number | 更新日時（Unix timestamp） | ✓ | - |
+
+**DynamoDB マッピング**:
+- `PK`: `USER#{UserID}`
+- `SK`: `VIDEO#{VideoID}`
+- `Type`: `"UserSetting"`
+- `GSI1PK`: `{UserID}`（全件取得用、将来的に必要になった場合に追加検討）
+- `GSI1SK`: `UserSetting#{VideoID}`
+
+**注記**: 現時点では GSI を使用せず、アプリ側でフィルタリングを行います。将来的にデータ量が増加した場合（10,000件以上）は、GSI の追加を検討します。
+
+#### 4.3.3 BatchJob Entity（バッチジョブ）
+
+マイリスト登録バッチ処理のステータスを管理する Entity です。
+
+```typescript
+/**
+ * バッチジョブステータス
+ */
+export type BatchStatus = "SUBMITTED" | "RUNNING" | "SUCCEEDED" | "FAILED";
+
+/**
+ * バッチ処理結果
+ */
+export interface BatchResult {
+  /** 登録成功数 */
+  registeredCount: number;
+  /** 登録失敗数 */
+  failedCount: number;
+  /** 処理対象動画数 */
+  totalCount: number;
+  /** エラーメッセージ（失敗時のみ） */
+  errorMessage?: string;
+}
+
+/**
+ * バッチジョブエンティティ
+ */
+export interface BatchJobEntity {
+  /** ジョブID（UUID） */
+  JobID: string;
+  /** ユーザーID */
+  UserID: string;
+  /** ステータス */
+  Status: BatchStatus;
+  /** 処理結果（完了時のみ） */
+  Result?: BatchResult;
+  /** 作成日時 (Unix timestamp) */
+  CreatedAt: number;
+  /** 更新日時 (Unix timestamp) */
+  UpdatedAt: number;
+  /** TTL（7日後に自動削除） */
+  TTL: number;
+}
+
+/**
+ * BatchJob 作成時の入力データ
+ */
+export type CreateBatchJobInput = Omit<BatchJobEntity, 'CreatedAt' | 'UpdatedAt' | 'TTL'>;
+
+/**
+ * BatchJob 更新時の入力データ
+ */
+export type UpdateBatchJobInput = Partial<
+  Pick<BatchJobEntity, 'Status' | 'Result'>
+>;
+
+/**
+ * BatchJob のビジネスキー
+ */
+export interface BatchJobKey {
+  jobId: string;
+}
+```
+
+**フィールド説明**:
+
+| フィールド | 型 | 説明 | 必須 |
+|-----------|-----|------|------|
+| `JobID` | string | ジョブID（UUID） | ✓ |
+| `UserID` | string | ユーザーID | ✓ |
+| `Status` | BatchStatus | ステータス | ✓ |
+| `Result` | BatchResult | 処理結果（完了時のみ） | ✗ |
+| `CreatedAt` | number | 作成日時（Unix timestamp） | ✓ |
+| `UpdatedAt` | number | 更新日時（Unix timestamp） | ✓ |
+| `TTL` | number | TTL（7日後に自動削除） | ✓ |
+
+**DynamoDB マッピング**:
+- `PK`: `BATCHJOB#{JobID}`
+- `SK`: `BATCHJOB#{JobID}`
+- `Type`: `"BatchJob"`
+- `GSI1PK`: `{UserID}`（ユーザーのジョブ一覧取得用）
+- `GSI1SK`: `BatchJob#{CreatedAt}`
+
+**TTL 設定**:
+- 7日後に自動削除されるように、`CreatedAt + (7 * 24 * 60 * 60)` を `TTL` フィールドに設定
+
+#### 4.3.4 命名規則
+
+本サービスでは、プラットフォーム標準の命名規則に従い、以下のルールを採用します：
+
+| 対象 | 規則 | 例 |
+|------|------|-----|
+| Entity フィールド | PascalCase | `VideoID`, `IsFavorite`, `CreatedAt` |
+| ビジネスキーフィールド | camelCase | `userId`, `videoId` |
+| DynamoDB 属性 | PascalCase | `PK`, `SK`, `Type`, `VideoID` |
+| 型名 | PascalCase | `VideoEntity`, `CreateVideoInput` |
+
+**理由**: stock-tracker など他のサービスと一貫性を保つため、PascalCase を採用します。
+
+### 4.4 Repository パターン
+
+本サービスでは、Repository パターンを採用し、データアクセス層を抽象化します。これにより、ビジネスロジックとデータ永続化の実装を分離し、テスタビリティと保守性を向上させます。
+
+#### 4.4.1 Video Repository
+
+**インターフェース定義** (`repositories/video.repository.interface.ts`):
+
+```typescript
+/**
+ * Video Repository インターフェース
+ */
+export interface VideoRepository {
+  /**
+   * 動画IDで動画基本情報を取得
+   */
+  getById(key: VideoKey): Promise<VideoEntity | null>;
+
+  /**
+   * 新しい動画基本情報を作成
+   * @throws EntityAlreadyExistsError 既に同じVideoIDの動画が存在する場合
+   */
+  create(input: CreateVideoInput): Promise<VideoEntity>;
+
+  /**
+   * 動画基本情報を削除
+   * @throws EntityNotFoundError 動画が存在しない場合
+   */
+  delete(key: VideoKey): Promise<void>;
+}
+```
+
+**DynamoDB 実装** (`repositories/dynamodb-video.repository.ts`):
+
+- `GetCommand`, `PutCommand`, `DeleteCommand` を使用
+- `VideoMapper` を使用して Entity ↔ Item 変換
+- `ConditionalPut` で重複チェック（`attribute_not_exists(PK)`）
+- エラーハンドリング（`EntityAlreadyExistsError`, `EntityNotFoundError`, `DatabaseError`）
+
+**InMemory 実装** (`repositories/in-memory-video.repository.ts`):
+
+- テスト用のメモリ内実装
+- `Map<string, VideoEntity>` で動画データを管理
+
+#### 4.4.2 UserSetting Repository
+
+**インターフェース定義** (`repositories/user-setting.repository.interface.ts`):
+
+```typescript
+/**
+ * UserSetting Repository インターフェース
+ */
+export interface UserSettingRepository {
+  /**
+   * ユーザーIDと動画IDでユーザー設定を取得
+   */
+  getById(key: UserSettingKey): Promise<UserSettingEntity | null>;
+
+  /**
+   * ユーザーの全動画設定を取得
+   */
+  getByUserId(userId: string): Promise<UserSettingEntity[]>;
+
+  /**
+   * 新しいユーザー設定を作成
+   * @throws EntityAlreadyExistsError 既に同じUserID/VideoIDの設定が存在する場合
+   */
+  create(input: CreateUserSettingInput): Promise<UserSettingEntity>;
+
+  /**
+   * ユーザー設定を更新
+   * @throws EntityNotFoundError 設定が存在しない場合
+   */
+  update(key: UserSettingKey, updates: UpdateUserSettingInput): Promise<UserSettingEntity>;
+
+  /**
+   * ユーザー設定を削除
+   * @throws EntityNotFoundError 設定が存在しない場合
+   */
+  delete(key: UserSettingKey): Promise<void>;
+}
+```
+
+**DynamoDB 実装** (`repositories/dynamodb-user-setting.repository.ts`):
+
+- `GetCommand`, `QueryCommand`, `PutCommand`, `UpdateCommand`, `DeleteCommand` を使用
+- `UserSettingMapper` を使用して Entity ↔ Item 変換
+- `getByUserId()` は `Query` で `PK=USER#{userId}` を検索
+- 現時点では GSI を使用せず、フィルタリングはアプリ側で実装
+
+**アクセスパターン**:
+
+| 操作 | DynamoDB 操作 | キー条件 |
+|------|---------------|----------|
+| 特定設定取得 | `GetItem` | `PK=USER#{userId}`, `SK=VIDEO#{videoId}` |
+| ユーザー全設定取得 | `Query` | `PK=USER#{userId}` |
+| 設定作成 | `PutItem` | `ConditionExpression: attribute_not_exists(PK)` |
+| 設定更新 | `UpdateItem` | `ConditionExpression: attribute_exists(PK)` |
+| 設定削除 | `DeleteItem` | `ConditionExpression: attribute_exists(PK)` |
+
+#### 4.4.3 BatchJob Repository
+
+**インターフェース定義** (`repositories/batch-job.repository.interface.ts`):
+
+```typescript
+/**
+ * BatchJob Repository インターフェース
+ */
+export interface BatchJobRepository {
+  /**
+   * ジョブIDでバッチジョブを取得
+   */
+  getById(key: BatchJobKey): Promise<BatchJobEntity | null>;
+
+  /**
+   * ユーザーの全バッチジョブを取得（最新順）
+   */
+  getByUserId(userId: string, options?: PaginationOptions): Promise<PaginatedResult<BatchJobEntity>>;
+
+  /**
+   * 新しいバッチジョブを作成
+   */
+  create(input: CreateBatchJobInput): Promise<BatchJobEntity>;
+
+  /**
+   * バッチジョブを更新（ステータス、結果）
+   * @throws EntityNotFoundError ジョブが存在しない場合
+   */
+  update(key: BatchJobKey, updates: UpdateBatchJobInput): Promise<BatchJobEntity>;
+}
+```
+
+**DynamoDB 実装** (`repositories/dynamodb-batch-job.repository.ts`):
+
+- `GetCommand`, `QueryCommand`, `PutCommand`, `UpdateCommand` を使用
+- `BatchJobMapper` を使用して Entity ↔ Item 変換
+- `getByUserId()` は GSI1（UserIndex）で `GSI1PK={userId}` を検索、`GSI1SK` で降順ソート
+- TTL は作成時に自動設定（`CreatedAt + 7日`）
+
+**GSI1 (UserIndex) 設計**:
+- `GSI1PK`: `{UserID}`
+- `GSI1SK`: `BatchJob#{CreatedAt}`
+- ソート順: 降順（最新のジョブが先頭）
+
+#### 4.4.4 Mapper 実装
+
+各 Repository は対応する Mapper を使用して Entity ↔ Item 変換を行います。
+
+**VideoMapper** (`mappers/video.mapper.ts`):
+- `buildKeys({ videoId })` → `{ pk: "VIDEO#sm12345678", sk: "VIDEO#sm12345678" }`
+- `toEntity(item)` → `VideoEntity`（バリデーション実施）
+- `toItem(entity)` → `DynamoDBItem`
+
+**UserSettingMapper** (`mappers/user-setting.mapper.ts`):
+- `buildKeys({ userId, videoId })` → `{ pk: "USER#auth0|abc123", sk: "VIDEO#sm12345678" }`
+- `toEntity(item)` → `UserSettingEntity`（バリデーション実施）
+- `toItem(entity)` → `DynamoDBItem`（GSI1 フィールドも含む）
+
+**BatchJobMapper** (`mappers/batch-job.mapper.ts`):
+- `buildKeys({ jobId })` → `{ pk: "BATCHJOB#uuid", sk: "BATCHJOB#uuid" }`
+- `toEntity(item)` → `BatchJobEntity`（バリデーション実施）
+- `toItem(entity)` → `DynamoDBItem`（GSI1 フィールド、TTL を含む）
+
+#### 4.4.5 エラーハンドリング
+
+Repository 実装では、`@nagiyu/aws` が提供する標準エラーを使用します：
+
+| エラークラス | 発生条件 | HTTP ステータス |
+|-------------|----------|----------------|
+| `EntityNotFoundError` | エンティティが存在しない（GetItem, UpdateItem, DeleteItem） | 404 |
+| `EntityAlreadyExistsError` | エンティティが既に存在する（ConditionalPut 失敗） | 409 |
+| `DatabaseError` | データベース操作エラー（ネットワークエラー等） | 500 |
+| `InvalidEntityDataError` | エンティティデータのバリデーションエラー | 400 |
+
+**例**:
+```typescript
+try {
+  await videoRepository.create(input);
+} catch (error) {
+  if (error instanceof EntityAlreadyExistsError) {
+    // 409 Conflict: 既に存在する
+    return NextResponse.json({ error: 'Video already exists' }, { status: 409 });
+  }
+  if (error instanceof DatabaseError) {
+    // 500 Internal Server Error
+    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+  }
+  throw error;
+}
+```
+
+#### 4.4.6 テスト戦略
+
+Repository パターンにより、以下のテスト戦略を採用します：
+
+**ユニットテスト**:
+- **Mapper**: Entity ↔ Item 変換のテスト、バリデーションのテスト
+- **InMemory Repository**: メモリ内実装のテスト
+- **ビジネスロジック**: InMemory Repository を使用したモックテスト
+
+**統合テスト**:
+- **DynamoDB Repository**: 実際の DynamoDB Local を使用したテスト
+- **E2E テスト**: API Routes → Repository → DynamoDB の統合テスト
+
+**テスト用 Repository 切り替え**:
+```typescript
+// テスト時は InMemory 実装を使用
+const videoRepository: VideoRepository = isTestEnv
+  ? new InMemoryVideoRepository()
+  : new DynamoDBVideoRepository(docClient, tableName);
 ```
 
 ---
