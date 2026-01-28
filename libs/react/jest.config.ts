@@ -7,6 +7,12 @@ const config: Config.InitialOptions = {
   testMatch: ['**/*.test.ts', '**/*.test.tsx'],
   // Exclude monorepo root package.json from module resolution
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
+  // Map @nagiyu/common to its source for testing
+  moduleNameMapper: {
+    '^@nagiyu/common$': '<rootDir>/../common/src/index.ts',
+    // Support .js extensions in imports (ES modules)
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   // Transform JSX with ts-jest
   transform: {
     '^.+\\.tsx?$': [
@@ -22,7 +28,7 @@ const config: Config.InitialOptions = {
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   // Common coverage settings
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts', '!src/**/index.ts'],
   coverageThreshold: {
     global: {
       branches: 80,

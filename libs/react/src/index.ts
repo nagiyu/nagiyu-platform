@@ -6,5 +6,6 @@
  * across all React-based services.
  */
 
-// Export React hooks and utilities here
-export {};
+// Export React hooks
+export { useAPIRequest } from './hooks';
+export type { UseAPIRequestOptions, UseAPIRequestReturn } from './hooks';
