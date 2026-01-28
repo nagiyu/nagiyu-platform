@@ -13,148 +13,6 @@ on:
       - '.github/workflows/niconico-mylist-assistant-verify-fast.yml'
 
 jobs:
-  nextjs-build:
-    name: Next.js Build Verification
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Build niconico-mylist-assistant-core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Build Next.js application
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
-
-  docker-build:
-    name: Docker Build Verification
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Build Web Docker image
-        run: docker build -t niconico-mylist-assistant-web-verify-fast-test -f services/niconico-mylist-assistant/web/Dockerfile .
-
-      - name: Build Batch Docker image
-        run: docker build -t niconico-mylist-assistant-batch-verify-fast-test -f services/niconico-mylist-assistant/batch/Dockerfile .
-
-  test:
-    name: Run Unit Tests
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Build niconico-mylist-assistant-core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run core tests
-        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Run batch tests
-        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-batch
-
-  integration-test:
-    name: Run Integration Tests (chromium-mobile only)
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Build niconico-mylist-assistant-core library
-        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
-        working-directory: ./services/niconico-mylist-assistant/web
-
-      - name: Run Integration tests (chromium-mobile only)
-        env:
-          CI: true
-          PROJECT: chromium-mobile
-        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report-fast
-          path: services/niconico-mylist-assistant/web/playwright-report/
-          retention-days: 30
-
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results-fast
-          path: services/niconico-mylist-assistant/web/test-results/
-          retention-days: 30
-
   lint:
     name: Lint Check
     runs-on: ubuntu-latest
@@ -215,9 +73,10 @@ jobs:
       - name: Check batch formatting
         run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-batch
 
-  infra-format-check:
-    name: Infrastructure Format Check
+  build-core:
+    name: Build Core Package
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
 
     permissions:
       contents: read
@@ -236,12 +95,146 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check formatting
-        run: npx prettier --check "infra/niconico-mylist-assistant/**/*.{ts,js,json}"
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
 
-  infra-type-check:
-    name: Infrastructure Type Check (Build)
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+  synth-infra:
+    name: CDK Synth Infrastructure
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: CDK Synth
+        run: npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- synth --context env=dev
+
+  build-web:
+    name: Build Web Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build web application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
+
+  build-batch:
+    name: Build Batch Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build batch application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+  test-core:
+    name: Core Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Run core tests
+        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-core
+
+  build-infra:
+    name: Build Infrastructure Package
+    runs-on: ubuntu-latest
+    needs: [synth-infra]
 
     permissions:
       contents: read
@@ -266,9 +259,40 @@ jobs:
       - name: Build CDK project
         run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
 
-  infra-test:
-    name: Infrastructure Unit Tests
+  docker-build-web:
+    name: Docker Build Web
     runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Web Docker image
+        run: docker build -t niconico-mylist-assistant-web-verify-fast-test -f services/niconico-mylist-assistant/web/Dockerfile .
+
+  docker-build-batch:
+    name: Docker Build Batch
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Batch Docker image
+        run: docker build -t niconico-mylist-assistant-batch-verify-fast-test -f services/niconico-mylist-assistant/batch/Dockerfile .
+
+  test-batch:
+    name: Batch Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-batch]
 
     permissions:
       contents: read
@@ -287,11 +311,79 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
 
-      - name: Run tests
-        run: npm run test --workspace=@nagiyu/infra-niconico-mylist-assistant
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build batch application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+      - name: Run batch tests
+        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+  e2e-test-web:
+    name: E2E Tests (chromium-mobile only)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build web application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/niconico-mylist-assistant/web
+
+      - name: Run E2E tests (chromium-mobile only)
+        env:
+          CI: true
+          PROJECT: chromium-mobile
+        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-fast
+          path: services/niconico-mylist-assistant/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-fast
+          path: services/niconico-mylist-assistant/web/test-results/
+          retention-days: 30
 
   report:
     name: Report Results to PR
@@ -299,15 +391,18 @@ jobs:
     if: always()
     needs:
       [
-        nextjs-build,
-        docker-build,
-        test,
-        integration-test,
         lint,
         format-check,
-        infra-format-check,
-        infra-type-check,
-        infra-test,
+        build-core,
+        synth-infra,
+        build-web,
+        build-batch,
+        test-core,
+        build-infra,
+        docker-build-web,
+        docker-build-batch,
+        test-batch,
+        e2e-test-web,
       ]
 
     permissions:
@@ -321,15 +416,18 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const results = {
-              'Next.js Build': '${{ needs.nextjs-build.result }}',
-              'Docker Build': '${{ needs.docker-build.result }}',
-              'Unit Tests': '${{ needs.test.result }}',
-              'Integration Tests (Fast)': '${{ needs.integration-test.result }}',
-              'Lint Check': '${{ needs.lint.result }}',
+              'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
-              'Infra Format Check': '${{ needs.infra-format-check.result }}',
-              'Infra Type Check': '${{ needs.infra-type-check.result }}',
-              'Infra Tests': '${{ needs.infra-test.result }}'
+              'Build Core': '${{ needs.build-core.result }}',
+              'Synth Infra': '${{ needs.synth-infra.result }}',
+              'Build Web': '${{ needs.build-web.result }}',
+              'Build Batch': '${{ needs.build-batch.result }}',
+              'Test Core': '${{ needs.test-core.result }}',
+              'Build Infra': '${{ needs.build-infra.result }}',
+              'Docker Build Web': '${{ needs.docker-build-web.result }}',
+              'Docker Build Batch': '${{ needs.docker-build-batch.result }}',
+              'Test Batch': '${{ needs.test-batch.result }}',
+              'E2E Tests (Fast)': '${{ needs.e2e-test-web.result }}'
             };
 
             const statusEmoji = {
