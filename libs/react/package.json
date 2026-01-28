@@ -22,8 +22,5 @@
   },
   "dependencies": {
     "@nagiyu/common": "*"
-  },
-  "peerDependencies": {
-    "react": ">=18.0.0"
   }
 }
