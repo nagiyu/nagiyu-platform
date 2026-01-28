@@ -347,15 +347,23 @@ on:
     paths:
       - 'services/niconico-mylist-assistant/**'
       - 'infra/niconico-mylist-assistant/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/niconico-mylist-assistant-deploy.yml'
 ```
 
 **ジョブ構成**:
 
-1. **infrastructure**: DynamoDB, Secrets, ECR の CDK スタックデプロイ
-2. **build**: Docker イメージのビルドと ECR へのプッシュ（web / batch）
-3. **deploy**: Lambda, CloudFront, Batch の CDK デプロイ
-4. **verify**: デプロイ後のヘルスチェック
-5. **cloudfront-invalidation**: CloudFront キャッシュ無効化
+1. **prepare-infrastructure**: DynamoDB, ECR (Web/Batch) の CDK スタックデプロイ
+2. **build-web**: Web Docker イメージのビルドと ECR へのプッシュ（latest + コミットハッシュ）
+3. **build-batch**: Batch Docker イメージのビルドと ECR へのプッシュ（latest + コミットハッシュ）
+4. **deploy**: Lambda, CloudFront, Batch の CDK デプロイ + Lambda イメージ更新
+5. **verify**: デプロイ後のヘルスチェックと結果表示
+
+**バージョンタグ管理**:
+- 各イメージは `latest` タグと `<commit-sha>` タグの両方でプッシュされます
+- Lambda は常に `latest` タグを使用して更新されます
 
 ### 4.2 ブランチ戦略とデプロイフロー
 
