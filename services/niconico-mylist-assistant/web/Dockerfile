@@ -13,8 +13,7 @@ COPY services/niconico-mylist-assistant/core ./services/niconico-mylist-assistan
 COPY services/niconico-mylist-assistant/web ./services/niconico-mylist-assistant/web/
 
 # 依存関係をインストール（ソースコード存在下で実行）
-# lockファイルが不完全な場合はinstallで解決
-RUN npm install || npm ci
+RUN npm ci
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
