@@ -235,17 +235,53 @@ services/niconico-mylist-assistant/
 ##### core パッケージ (`@nagiyu/niconico-mylist-assistant-core`)
 
 - **責務**: フレームワーク非依存の共通ビジネスロジック
+
+- **ディレクトリ構造**:
+  ```
+  core/src/
+  ├── libs/                      # Pure Business Logic Functions（MUST）
+  │   ├── video-selector.ts      # 動画選択ロジック（フィルタリング、ランダム選択）
+  │   ├── formatters.ts          # データフォーマット（日時、動画情報）
+  │   ├── validators.ts          # バリデーション（動画ID、設定値）
+  │   └── constants.ts           # 定数・エラーメッセージ
+  ├── services/                  # ステートフルなサービス層
+  │   ├── niconico-api.service.ts        # ニコニコ動画 API 連携
+  │   ├── mylist-automation.service.ts   # マイリスト自動化（Playwright）
+  │   ├── encryption.service.ts          # パスワード暗号化・復号化
+  │   └── web-push.service.ts            # Web Push 通知送信
+  ├── repositories/              # データアクセス層
+  │   ├── video.repository.interface.ts
+  │   ├── dynamodb-video.repository.ts
+  │   ├── in-memory-video.repository.ts
+  │   ├── user-setting.repository.interface.ts
+  │   ├── dynamodb-user-setting.repository.ts
+  │   ├── in-memory-user-setting.repository.ts
+  │   ├── batch-job.repository.interface.ts
+  │   ├── dynamodb-batch-job.repository.ts
+  │   └── in-memory-batch-job.repository.ts
+  ├── mappers/                   # Entity ↔ DynamoDB Item 変換
+  │   ├── video.mapper.ts
+  │   ├── user-setting.mapper.ts
+  │   └── batch-job.mapper.ts
+  ├── entities/                  # Entity 定義
+  │   ├── video.entity.ts
+  │   ├── user-setting.entity.ts
+  │   └── batch-job.entity.ts
+  └── types.ts                   # 型定義
+  ```
+
 - **提供機能**:
-  - **Entity 定義**（動画基本情報、ユーザー設定、バッチジョブ等の純粋なビジネスオブジェクト）
-  - **Repository Interface**（データアクセス層の抽象化、CRUD 操作の定義）
-  - **Mapper**（Entity ↔ DynamoDB Item 変換、バリデーション）
-  - **Repository 実装**（DynamoDB 実装、InMemory テスト実装）
-  - 定数定義（待機時間、上限数等）
-  - Playwright ヘルパー関数
-  - ニコニコ動画 API 連携（getthumbinfo）
-  - マイリスト自動化ロジック
+  - **Pure Business Logic Functions**（`libs/`）: 計算ロジック、バリデーション、データ変換（副作用なし）
+  - **Entity 定義**（`entities/`）: 動画基本情報、ユーザー設定、バッチジョブ等の純粋なビジネスオブジェクト
+  - **Repository Interface**（`repositories/`）: データアクセス層の抽象化、CRUD 操作の定義
+  - **Mapper**（`mappers/`）: Entity ↔ DynamoDB Item 変換、バリデーション
+  - **Repository 実装**（`repositories/`）: DynamoDB 実装、InMemory テスト実装
+  - **ステートフルなサービス**（`services/`）: 外部 API 連携、Playwright 自動化、暗号化、Web Push 通知
+
 - **依存先**:
   - `@nagiyu/aws`（DynamoDB 抽象化、エラー定義、バリデーション）
+  - `@nagiyu/browser`（Playwright ヘルパー関数）
+
 - **利用元**: web, batch
 
 ##### web パッケージ (`@nagiyu/niconico-mylist-assistant-web`)
@@ -300,7 +336,7 @@ graph TB
 
 ### 3.3 レイヤードアーキテクチャ
 
-core パッケージは **Repository パターン** を採用し、データアクセス層を抽象化します。これにより、ビジネスロジックとデータ永続化の実装を分離し、テスタビリティと保守性を向上させます。
+core パッケージは **Repository パターン** と **Pure Business Logic Functions パターン** を組み合わせたレイヤードアーキテクチャを採用します。これにより、ビジネスロジックとデータ永続化の実装を分離し、テスタビリティと保守性を向上させます。
 
 #### 3.3.1 レイヤー構成
 
@@ -315,6 +351,10 @@ graph TB
             UseCase[Use Cases<br/>ビジネスロジック]
         end
 
+        subgraph "Pure Business Logic Layer"
+            PureFunctions[Pure Functions<br/>libs/配下<br/>計算・バリデーション・変換]
+        end
+
         subgraph "Domain Layer"
             Entity[Entity<br/>純粋なビジネスオブジェクト]
             RepoIF[Repository Interface<br/>データアクセスの抽象化]
@@ -323,28 +363,102 @@ graph TB
         subgraph "Infrastructure Layer"
             Mapper[Mapper<br/>Entity ↔ Item 変換]
             RepoImpl[Repository 実装<br/>DynamoDB / InMemory]
+            Services[Services<br/>外部API・Playwright]
         end
 
         subgraph "External"
             DDB[(DynamoDB)]
+            NicoAPI[ニコニコ動画API]
         end
     end
 
     API --> UseCase
-    UseCase --> Entity
+    UseCase --> PureFunctions
     UseCase --> RepoIF
+    UseCase --> Services
+    PureFunctions --> Entity
     RepoIF --> RepoImpl
     RepoImpl --> Mapper
     RepoImpl --> DDB
     Mapper --> Entity
+    Services --> NicoAPI
 
+    style PureFunctions fill:#fff3e0,stroke:#e65100,stroke-width:3px
     style Entity fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     style RepoIF fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
     style Mapper fill:#bbdefb,stroke:#1565c0,stroke-width:2px
     style RepoImpl fill:#bbdefb,stroke:#1565c0,stroke-width:2px
+    style Services fill:#bbdefb,stroke:#1565c0,stroke-width:2px
 ```
 
 #### 3.3.2 各レイヤーの責務
+
+##### Pure Business Logic Functions（純粋関数層）
+
+**配置**: `core/src/libs/`（MUST）
+
+**責務**:
+- 副作用のない純粋な計算ロジック
+- データ変換、フォーマット、バリデーション
+- 同じ入力に対して常に同じ出力を返す関数
+
+**本サービスで実装する純粋関数の例**:
+- `selectVideos()`: フィルタ条件に基づいて動画を選択
+- `randomSelect()`: 配列から指定数をランダムに選択
+- `filterBySettings()`: ユーザー設定でフィルタリング
+- `validateVideoId()`: 動画IDの形式チェック
+- `validateImportLimit()`: インポート上限チェック
+- `formatMylistName()`: マイリスト名のデフォルト生成
+
+**設計ルール**:
+- **MUST**: エラーメッセージは定数オブジェクトで管理
+- **MUST**: エラーは例外（throw Error）で処理
+- **MUST**: JSDoc コメント必須（@param、@returns、@throws）
+- **MUST**: テストカバレッジ 80% 以上
+
+**例**:
+```typescript
+// libs/constants.ts
+export const VIDEO_SELECTOR_ERROR_MESSAGES = {
+  INSUFFICIENT_VIDEOS: '選択可能な動画が不足しています',
+  INVALID_COUNT: '選択数が不正です',
+} as const;
+
+// libs/video-selector.ts
+/**
+ * 動画をランダムに選択
+ *
+ * @param videos - 選択対象の動画リスト
+ * @param count - 選択する動画数（1-100）
+ * @returns ランダムに選択された動画リスト
+ * @throws Error - 選択数が不正、または選択可能な動画が不足している場合
+ */
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  if (count <= 0 || count > 100) {
+    throw new Error(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+  }
+  if (videos.length < count) {
+    throw new Error(VIDEO_SELECTOR_ERROR_MESSAGES.INSUFFICIENT_VIDEOS);
+  }
+
+  // ランダム選択ロジック（副作用なし）
+  const shuffled = [...videos].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
+```
+
+**純粋関数とステートフルなサービスの分離**:
+
+| 層 | 配置 | 責務 | 副作用 |
+|----|------|------|--------|
+| **Pure Business Logic** | `core/src/libs/` | 計算、バリデーション、データ変換 | なし |
+| **Service Layer** | `core/src/services/` | API呼び出し、Playwright自動化 | あり |
+| **Repository Layer** | `core/src/repositories/` | データアクセス | あり |
+
+詳細は **Section 3.4 Pure Business Logic Functions パターン** を参照してください。
 
 ##### Entity（エンティティ）
 
@@ -500,6 +614,75 @@ export class DynamoDBVideoRepository implements VideoRepository {
 }
 ```
 
+##### Services（サービス層）
+
+**配置**: `core/src/services/`
+
+**責務**:
+- 外部APIとの連携（副作用あり）
+- ブラウザ自動化（Playwright）
+- 非同期処理の管理
+
+**本サービスで実装するサービスの例**:
+- `NiconicoApiService`: ニコニコ動画API（getthumbinfo）連携
+- `MylistAutomationService`: Playwright によるマイリスト自動登録
+- `EncryptionService`: パスワード暗号化・復号化
+- `WebPushService`: Web Push 通知送信
+
+**例**:
+```typescript
+// services/niconico-api.service.ts
+export class NiconicoApiService {
+  /**
+   * 動画情報を取得（外部API呼び出し）
+   *
+   * @param videoId - 動画ID
+   * @returns 動画情報
+   * @throws Error - API呼び出しが失敗した場合
+   */
+  public async fetchVideoInfo(videoId: string): Promise<VideoEntity> {
+    // 副作用あり（外部API呼び出し）
+    const response = await fetch(
+      `https://ext.nicovideo.jp/api/getthumbinfo/${videoId}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch video info: ${videoId}`);
+    }
+
+    const xml = await response.text();
+    // XMLをパースしてVideoEntityに変換
+    return this.parseVideoInfoXml(xml);
+  }
+}
+```
+
+**Pure Functions vs Services の使い分け**:
+
+```typescript
+// ✅ OK: 純粋関数（libs/video-selector.ts）
+export function filterBySettings(
+  videos: VideoEntity[],
+  settings: UserSettingEntity[],
+  filters: FilterConditions
+): VideoEntity[] {
+  // 副作用なし、純粋な計算ロジック
+  return videos.filter(video => {
+    const setting = settings.find(s => s.VideoID === video.VideoID);
+    if (filters.excludeSkip && setting?.IsSkip) return false;
+    if (filters.favoritesOnly && !setting?.IsFavorite) return false;
+    return true;
+  });
+}
+
+// ✅ OK: ステートフルなサービス（services/niconico-api.service.ts）
+export async function fetchVideoInfo(videoId: string): Promise<VideoEntity> {
+  // 副作用あり（外部API呼び出し）
+  const response = await fetch(`https://ext.nicovideo.jp/api/getthumbinfo/${videoId}`);
+  // ...
+}
+```
+
 #### 3.3.3 Repository パターンの利点
 
 | 利点 | 説明 |
@@ -528,6 +711,382 @@ export class DynamoDBVideoRepository implements VideoRepository {
 | `PaginatedResult<T>` | `@nagiyu/aws` | ページネーション結果 |
 
 **参考実装**: `services/stock-tracker/core` の Repository パターン実装を参考にしています。
+
+### 3.4 Pure Business Logic Functions パターン
+
+本サービスでは、プラットフォーム標準の **Pure Business Logic Functions パターン** を採用し、副作用のない純粋関数としてビジネスロジックを実装します。これにより、テスト容易性、保守性、予測可能性が向上します。
+
+#### 3.4.1 純粋関数の定義
+
+純粋関数（Pure Function）は以下の特性を持つ関数です：
+
+1. **同じ入力に対して常に同じ出力を返す**
+   - 関数の戻り値は、入力パラメータのみに依存
+   - 外部状態（グローバル変数、データベース、API等）に依存しない
+
+2. **副作用がない**
+   - 外部状態を変更しない
+   - ファイルI/O、データベース更新、API呼び出しなどを行わない
+   - 引数として受け取ったオブジェクトを変更しない（イミュータブル）
+
+#### 3.4.2 なぜ純粋関数を使用するのか
+
+##### テスト容易性
+
+- **モック不要**: 外部依存がないため、モックやスタブを用意する必要がない
+- **単純なテスト**: 入力と期待する出力を定義するだけでテストできる
+- **高速なテスト実行**: I/O操作がないため、テストが高速に実行される
+
+##### 保守性
+
+- **予測可能な動作**: 同じ入力に対して常に同じ結果が返るため、動作が予測しやすい
+- **デバッグの容易性**: 関数の入力と出力のみを確認すればよい
+- **リファクタリングの安全性**: 副作用がないため、関数の内部実装を変更しやすい
+
+##### 再利用性
+
+- **独立性**: 外部依存がないため、複数の場所から呼び出し可能
+- **型安全性**: TypeScript により、関数のインターフェースが明確
+
+#### 3.4.3 本サービスでの適用
+
+本サービスでは、以下のロジックを純粋関数として実装します：
+
+| カテゴリ | 関数名 | 配置 | 説明 |
+|---------|--------|------|------|
+| **動画選択** | `selectVideos()` | `libs/video-selector.ts` | フィルタ条件に基づいて動画を選択 |
+| **ランダム選択** | `randomSelect()` | `libs/video-selector.ts` | 配列から指定数をランダムに選択 |
+| **フィルタリング** | `filterBySettings()` | `libs/video-selector.ts` | ユーザー設定でフィルタリング |
+| **バリデーション** | `validateVideoId()` | `libs/validators.ts` | 動画IDの形式チェック |
+| **バリデーション** | `validateImportLimit()` | `libs/validators.ts` | インポート上限チェック |
+| **フォーマット** | `formatMylistName()` | `libs/formatters.ts` | マイリスト名のデフォルト生成 |
+| **フォーマット** | `formatDateTime()` | `libs/formatters.ts` | 日時フォーマット |
+
+#### 3.4.4 ディレクトリ構造
+
+**MUST**: ビジネスロジックの純粋関数は `core/src/libs/` に配置
+
+```
+core/src/
+├── libs/                      # Pure Business Logic Functions（MUST）
+│   ├── video-selector.ts      # 動画選択ロジック（フィルタリング、ランダム選択）
+│   ├── formatters.ts          # データフォーマット（日時、動画情報）
+│   ├── validators.ts          # バリデーション（動画ID、設定値）
+│   └── constants.ts           # 定数・エラーメッセージ
+├── services/                  # ステートフルなサービス層
+│   ├── niconico-api.service.ts        # ニコニコ動画 API 連携
+│   ├── mylist-automation.service.ts   # マイリスト自動化（Playwright）
+│   ├── encryption.service.ts          # パスワード暗号化・復号化
+│   └── web-push.service.ts            # Web Push 通知送信
+├── repositories/              # データアクセス層
+│   ├── video.repository.interface.ts
+│   ├── dynamodb-video.repository.ts
+│   └── in-memory-video.repository.ts
+├── mappers/                   # Entity ↔ DynamoDB Item 変換
+│   ├── video.mapper.ts
+│   ├── user-setting.mapper.ts
+│   └── batch-job.mapper.ts
+├── entities/                  # Entity 定義
+│   ├── video.entity.ts
+│   ├── user-setting.entity.ts
+│   └── batch-job.entity.ts
+└── types.ts                   # 型定義
+```
+
+#### 3.4.5 実装ガイドライン
+
+##### MUST: 同じ入力に対して常に同じ出力を返す
+
+```typescript
+// ✅ OK: 純粋関数
+export function filterBySettings(
+  videos: VideoEntity[],
+  settings: UserSettingEntity[],
+  filters: FilterConditions
+): VideoEntity[] {
+  return videos.filter(video => {
+    const setting = settings.find(s => s.VideoID === video.VideoID);
+    if (filters.excludeSkip && setting?.IsSkip) return false;
+    if (filters.favoritesOnly && !setting?.IsFavorite) return false;
+    return true;
+  });
+}
+
+// ❌ NG: 外部状態（Date.now()）に依存
+export function filterRecentVideos(videos: VideoEntity[]): VideoEntity[] {
+  const now = Date.now();
+  return videos.filter(video => video.CreatedAt > now - 86400000);
+}
+```
+
+##### MUST: 外部状態を変更しない（副作用なし）
+
+```typescript
+// ✅ OK: 新しい配列を返す（イミュータブル）
+export function shuffleVideos(videos: VideoEntity[]): VideoEntity[] {
+  return [...videos].sort(() => Math.random() - 0.5);
+}
+
+// ❌ NG: 引数の配列を変更（ミュータブル）
+export function shuffleVideos(videos: VideoEntity[]): VideoEntity[] {
+  videos.sort(() => Math.random() - 0.5); // 副作用
+  return videos;
+}
+```
+
+##### MUST: エラーメッセージは定数オブジェクトで管理
+
+```typescript
+// ✅ OK: 定数オブジェクトで管理
+export const VIDEO_SELECTOR_ERROR_MESSAGES = {
+  INSUFFICIENT_VIDEOS: '選択可能な動画が不足しています',
+  INVALID_COUNT: '選択数が不正です',
+  INVALID_FILTER: 'フィルタ条件が不正です',
+} as const;
+
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  if (count <= 0 || count > 100) {
+    throw new Error(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+  }
+  // ...
+}
+
+// ❌ NG: エラーメッセージを直接記述
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  if (count <= 0) {
+    throw new Error('選択数が不正です'); // 定数化されていない
+  }
+  // ...
+}
+```
+
+**理由**:
+- エラーメッセージの一元管理
+- テストでのエラーメッセージの検証が容易
+- メッセージ変更時の影響範囲が明確
+
+##### MUST: エラーは例外（throw Error）で処理
+
+```typescript
+// ✅ OK: 例外を投げる
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  if (count <= 0) {
+    throw new Error(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+  }
+  return videos.slice(0, count);
+}
+
+// ❌ NG: null や undefined を返す（型安全性が損なわれる）
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] | null {
+  if (count <= 0) {
+    return null;
+  }
+  return videos.slice(0, count);
+}
+```
+
+**理由**:
+- Next.js の Error Boundary と相性が良い
+- 型安全性が保たれる（戻り値の型が単純）
+- エラーハンドリングが呼び出し側で明示的になる
+
+##### MUST: JSDoc コメントの必須項目
+
+**必須項目**: 関数の説明、@param、@returns
+
+```typescript
+/**
+ * 動画をランダムに選択
+ *
+ * @param videos - 選択対象の動画リスト
+ * @param count - 選択する動画数（1-100）
+ * @returns ランダムに選択された動画リスト
+ */
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  // ...
+}
+```
+
+**推奨項目**: @throws（例外を投げる場合）
+
+```typescript
+/**
+ * 動画をランダムに選択
+ *
+ * @param videos - 選択対象の動画リスト
+ * @param count - 選択する動画数（1-100）
+ * @returns ランダムに選択された動画リスト
+ * @throws Error - 選択数が不正、または選択可能な動画が不足している場合
+ */
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  if (count <= 0 || count > 100) {
+    throw new Error(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+  }
+  if (videos.length < count) {
+    throw new Error(VIDEO_SELECTOR_ERROR_MESSAGES.INSUFFICIENT_VIDEOS);
+  }
+  // ...
+}
+```
+
+**推奨項目**: @example（使用例）
+
+```typescript
+/**
+ * 動画をランダムに選択
+ *
+ * @param videos - 選択対象の動画リスト
+ * @param count - 選択する動画数（1-100）
+ * @returns ランダムに選択された動画リスト
+ * @throws Error - 選択数が不正、または選択可能な動画が不足している場合
+ *
+ * @example
+ * selectVideos([video1, video2, video3], 2) // => [video1, video3]
+ * selectVideos([video1, video2, video3], 5) // => Error: 選択可能な動画が不足しています
+ */
+export function selectVideos(
+  videos: VideoEntity[],
+  count: number
+): VideoEntity[] {
+  // ...
+}
+```
+
+#### 3.4.6 テスト戦略
+
+##### MUST: 純粋関数のテストカバレッジは 80% 以上
+
+ビジネスロジック（`libs/` 配下）は重点的にテストを実施します。テストカバレッジ 80% 未満の場合、Full CI（develop へのPR）で自動的に失敗します。
+
+##### テストの基本パターン（AAA パターン）
+
+```typescript
+describe('selectVideos', () => {
+  it('指定数の動画をランダムに選択する', () => {
+    // Arrange: テストデータの準備
+    const videos = [video1, video2, video3, video4, video5];
+    const count = 3;
+
+    // Act: 関数の実行
+    const result = selectVideos(videos, count);
+
+    // Assert: 結果の検証
+    expect(result).toHaveLength(3);
+    expect(videos).toContain(result[0]);
+    expect(videos).toContain(result[1]);
+    expect(videos).toContain(result[2]);
+  });
+});
+```
+
+##### 一つのテストで一つの検証
+
+```typescript
+// ✅ OK: 一つのテストで一つのケースを検証
+describe('selectVideos', () => {
+  it('正常な選択数の場合、指定数の動画を返す', () => {
+    expect(selectVideos([video1, video2, video3], 2)).toHaveLength(2);
+  });
+
+  it('選択数が0以下の場合、エラーを投げる', () => {
+    expect(() => selectVideos([video1, video2], 0))
+      .toThrow(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+  });
+
+  it('選択数が100を超える場合、エラーを投げる', () => {
+    expect(() => selectVideos([video1, video2], 101))
+      .toThrow(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+  });
+
+  it('選択可能な動画が不足している場合、エラーを投げる', () => {
+    expect(() => selectVideos([video1, video2], 5))
+      .toThrow(VIDEO_SELECTOR_ERROR_MESSAGES.INSUFFICIENT_VIDEOS);
+  });
+});
+
+// ❌ NG: 一つのテストで複数のケースを検証
+describe('selectVideos', () => {
+  it('動画を正しく選択する', () => {
+    expect(selectVideos([video1, video2, video3], 2)).toHaveLength(2);
+    expect(selectVideos([video1, video2, video3], 3)).toHaveLength(3); // 複数の検証
+    expect(() => selectVideos([video1, video2], 0)).toThrow(); // 異なる種類の検証
+  });
+});
+```
+
+##### 純粋関数はモック化しない
+
+純粋関数は副作用がないため、モック化せずにそのまま実行します。
+
+```typescript
+// ✅ OK: 純粋関数をそのまま実行
+import { selectVideos } from './video-selector';
+
+describe('VideoService', () => {
+  it('動画を正しく選択する', () => {
+    const result = selectVideos([video1, video2, video3], 2);
+    expect(result).toHaveLength(2);
+  });
+});
+
+// ❌ NG: 純粋関数をモック化（不要）
+import * as videoSelector from './video-selector';
+
+describe('VideoService', () => {
+  it('動画を正しく選択する', () => {
+    jest.spyOn(videoSelector, 'selectVideos').mockReturnValue([video1, video2]);
+    // ...
+  });
+});
+```
+
+**モック化が必要なのは副作用がある処理のみ**:
+- API呼び出し（fetch, axios等）
+- データベースアクセス
+- ファイルI/O
+- 現在時刻の取得（Date.now()）
+
+#### 3.4.7 適用すべきケースと適用しないケース
+
+##### 適用すべきケース（Pure Functions）
+
+- **計算ロジック**: 動画選択、スコア計算、集計など
+- **データ変換**: フォーマット変換、正規化、マッピングなど
+- **バリデーション**: 入力チェック、ビジネスルールの検証など
+- **データ集計**: 合計、平均、フィルタリングなど
+
+##### 適用しないケース（Services）
+
+- **外部I/Oが必要**: API呼び出し、データベースアクセス、ファイル操作など
+- **副作用が必須**: 状態更新、ログ出力、イベント発行など
+- **非同期処理**: Promise、async/awaitを使用する処理
+
+これらのケースでは、純粋関数を呼び出す **Services 層** や Repository 層で副作用を扱います。
+
+#### 3.4.8 参考資料
+
+詳細なガイドラインについては、以下のドキュメントを参照してください：
+
+- [docs/development/architecture.md](../../docs/development/architecture.md) - Pure Business Logic Functions パターンの詳細
+- [docs/development/testing.md](../../docs/development/testing.md) - テスト戦略とカバレッジ要件
 
 ---
 

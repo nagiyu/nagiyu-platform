@@ -295,27 +295,75 @@ npm run test:coverage --workspace=niconico-mylist-assistant-core
 
 #### core パッケージ (core/)
 
-ビジネスロジックを集約し、重点的にユニットテストを実施します。
+ビジネスロジックを集約し、重点的にユニットテストを実施します。本パッケージは **Pure Business Logic Functions パターン** を採用し、副作用のない純粋関数（`libs/`）と副作用のあるサービス層（`services/`）を分離しています。
 
-- **型定義・定数** (`src/types/`, `src/constants/`)
-    - 動画基本情報、ユーザー設定、バッチジョブの型定義
-    - 待機時間、上限数などの定数
+##### 重点テスト対象: Pure Business Logic Functions (`src/libs/`)
 
-- **Playwright ヘルパー** (`src/playwright/`)
-    - ニコニコ動画ログイン処理
-    - マイリスト操作（作成、削除、動画登録）
-    - セレクタ定義と要素取得
+**カバレッジ目標: 80% 以上（MUST）**
 
-- **ニコニコ動画 API 連携** (`src/api/`)
-    - getthumbinfo API の呼び出し
+- **動画選択ロジック** (`libs/video-selector.ts`)
+    - 条件指定による動画フィルタリング（お気に入りのみ、スキップを除く）
+    - ランダム選択（最大100個）
+    - ユーザー設定との照合
+
+- **バリデーション** (`libs/validators.ts`)
+    - 動画 ID の形式チェック
+    - インポート上限チェック
+    - リクエストパラメータのバリデーション
+
+- **フォーマッター** (`libs/formatters.ts`)
+    - マイリスト名のデフォルト生成（日時ベース）
+    - 日時フォーマット
+    - 動画情報の正規化
+
+- **定数・エラーメッセージ** (`libs/constants.ts`)
+    - エラーメッセージ定数の定義
+    - ビジネスルール定数（待機時間、上限数）
+
+**テスト戦略**:
+- AAA パターン（Arrange, Act, Assert）で記述
+- 純粋関数はモック化しない（副作用がないため）
+- エラーメッセージは定数で検証
+- 境界値・エッジケースを重点的にテスト
+
+##### サービス層 (`src/services/`)
+
+**カバレッジ目標: 対象外（統合テスト・E2Eでカバー）**
+
+- **ニコニコ動画 API 連携** (`services/niconico-api.service.ts`)
+    - getthumbinfo API の呼び出し（外部API、副作用あり）
     - XML レスポンスのパース
 
-- **暗号化処理** (`src/crypto/`)
-    - パスワードの暗号化・復号化（AES-256-GCM）
+- **マイリスト自動化** (`services/mylist-automation.service.ts`)
+    - Playwright によるニコニコ動画自動操作（副作用あり）
+    - ログイン処理、マイリスト操作
 
-- **バリデーション** (`src/validation/`)
-    - 動画 ID の形式チェック
-    - リクエストパラメータのバリデーション
+- **暗号化処理** (`services/encryption.service.ts`)
+    - パスワードの暗号化・復号化（AES-256-GCM、副作用あり）
+
+- **Web Push 通知** (`services/web-push.service.ts`)
+    - バッチ完了通知の送信（副作用あり）
+
+**テスト戦略**:
+- 外部依存（API、Playwright）はモック化
+- 統合テストまたは E2E テストでカバー
+
+##### データアクセス層 (`src/repositories/`, `src/mappers/`, `src/entities/`)
+
+**カバレッジ目標: 対象外（E2Eでカバー、または Repository 単体テスト）**
+
+- **Entity 定義** (`entities/`)
+    - 動画基本情報、ユーザー設定、バッチジョブの型定義
+
+- **Repository Interface & 実装** (`repositories/`)
+    - DynamoDB 実装、InMemory テスト実装
+
+- **Mapper** (`mappers/`)
+    - Entity ↔ DynamoDB Item 変換、バリデーション
+
+**テスト戦略**:
+- E2E テストで実データアクセスをカバー
+- 必要に応じて Repository 単体テストを実施
 
 #### web パッケージ (web/)
 
@@ -606,24 +654,98 @@ paths:
 
 #### 原則
 
-- **純粋関数を優先**: 副作用のないテストしやすいコード
+- **Pure Business Logic Functions パターンの採用**: `libs/` 配下の純粋関数を重点的にテスト（カバレッジ 80% 以上必須）
 - **一つのテストで一つの検証**: テストケースを小さく保つ
 - **AAA パターン**: Arrange（準備）、Act（実行）、Assert（検証）
+- **純粋関数はモック化しない**: 副作用がないため、実関数をそのまま実行
+
+#### Pure Business Logic Functions のテスト
+
+**対象**: `core/src/libs/` 配下の純粋関数
+
+**テストの基本構造**:
+
+```typescript
+// libs/video-selector.ts のテスト例
+describe('selectVideos', () => {
+    // Arrange: テストデータの準備
+    const videos = [
+        { VideoID: 'sm1', Title: 'Video 1', /* ... */ },
+        { VideoID: 'sm2', Title: 'Video 2', /* ... */ },
+        { VideoID: 'sm3', Title: 'Video 3', /* ... */ },
+    ];
+
+    it('指定数の動画をランダムに選択する', () => {
+        // Act: 関数の実行
+        const result = selectVideos(videos, 2);
+
+        // Assert: 結果の検証
+        expect(result).toHaveLength(2);
+        expect(videos).toContain(result[0]);
+        expect(videos).toContain(result[1]);
+    });
+
+    it('選択数が0以下の場合、エラーを投げる', () => {
+        expect(() => selectVideos(videos, 0))
+            .toThrow(VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT);
+    });
+});
+```
+
+**重要なポイント**:
+- **純粋関数はモック化しない**: `selectVideos()` は副作用がないため、そのまま実行
+- **エラーメッセージは定数で検証**: `VIDEO_SELECTOR_ERROR_MESSAGES.INVALID_COUNT`
+- **境界値・エッジケースを網羅**: 0, 負数, 上限超過, 空配列など
+
+#### Services 層のテスト
+
+**対象**: `core/src/services/` 配下のサービス（外部依存あり）
+
+**テストの基本構造**:
+
+```typescript
+// services/niconico-api.service.ts のテスト例
+describe('NiconicoApiService', () => {
+    it('動画情報を取得できる', async () => {
+        // Arrange: 外部APIをモック化
+        const mockFetch = jest.fn().mockResolvedValue({
+            ok: true,
+            text: () => Promise.resolve('<thumb>...</thumb>'),
+        });
+        global.fetch = mockFetch;
+
+        const service = new NiconicoApiService();
+
+        // Act
+        const result = await service.fetchVideoInfo('sm12345678');
+
+        // Assert
+        expect(result.VideoID).toBe('sm12345678');
+        expect(mockFetch).toHaveBeenCalledWith(
+            'https://ext.nicovideo.jp/api/getthumbinfo/sm12345678'
+        );
+    });
+});
+```
+
+**重要なポイント**:
+- **外部依存はモック化**: fetch, DynamoDB, Playwright など
+- **統合テスト・E2Eでカバー**: Services 層は統合テストで品質保証
 
 #### 命名規則
 
 ```typescript
-describe('ニコニコ動画 API', () => {
-    describe('getVideoInfo', () => {
-        it('正常系: 動画 ID から動画情報を取得できる', () => {
+describe('動画選択ロジック', () => {
+    describe('selectVideos', () => {
+        it('正常系: 指定数の動画を選択できる', () => {
             // テストコード
         });
 
-        it('異常系: 存在しない動画 ID の場合はエラーを返す', () => {
+        it('異常系: 選択数が不正な場合はエラー', () => {
             // テストコード
         });
 
-        it('エッジケース: 空の動画 ID の場合はバリデーションエラー', () => {
+        it('エッジケース: 動画数が不足している場合はエラー', () => {
             // テストコード
         });
     });
@@ -634,9 +756,12 @@ describe('ニコニコ動画 API', () => {
 
 以下のような副作用がある処理のみモック化:
 
-- 外部 API 呼び出し（ニコニコ動画 API）
-- DynamoDB 操作
-- 暗号化キーの取得（Secrets Manager）
+- **外部 API 呼び出し**（ニコニコ動画 API） - `services/`
+- **DynamoDB 操作** - `repositories/`
+- **Playwright 操作** - `services/`
+- **暗号化キーの取得**（Secrets Manager） - `services/`
+
+**Pure Business Logic Functions（`libs/`）はモック化しない**
 
 ### 11.2 E2E テスト作成ガイドライン
 
