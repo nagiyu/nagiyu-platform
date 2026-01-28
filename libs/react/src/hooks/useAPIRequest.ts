@@ -31,7 +31,7 @@
  * ```
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiRequest, APIError, type APIRequestOptions } from '@nagiyu/common';
 
 /**
@@ -125,41 +125,83 @@ export function useAPIRequest<T = unknown>(
 
   const [lastRequest, setLastRequest] = useState<LastRequest | null>(null);
 
+  // コールバックを ref に保存して、常に最新の参照を使用
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  // コンポーネントがマウントされているかを追跡
+  const isMountedRef = useRef(true);
+
+  // リクエストIDを追跡して、最新のリクエストのみを処理
+  const requestIdRef = useRef(0);
+
+  // コールバックの参照を更新
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
+
+  // コンポーネントのマウント状態を追跡
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   /**
    * APIリクエストを実行
    */
   const execute = useCallback(
     async (url: string, requestOptions?: APIRequestOptions): Promise<T | null> => {
+      // 新しいリクエストIDを生成
+      const currentRequestId = ++requestIdRef.current;
+
       setState((prev) => ({ ...prev, loading: true, error: null }));
       setLastRequest({ url, options: requestOptions });
 
       try {
         const data = await apiRequest<T>(url, requestOptions);
+
+        // コンポーネントがアンマウントされている、または新しいリクエストが開始された場合は状態を更新しない
+        if (!isMountedRef.current || currentRequestId !== requestIdRef.current) {
+          return null;
+        }
+
         setState({ data, loading: false, error: null });
 
         // 成功時コールバックを実行
-        if (onSuccess) {
-          onSuccess(data);
+        if (onSuccessRef.current) {
+          onSuccessRef.current(data);
         }
 
         return data;
       } catch (error) {
         const apiError = error as APIError;
+
+        // コンポーネントがアンマウントされている、または新しいリクエストが開始された場合は状態を更新しない
+        if (!isMountedRef.current || currentRequestId !== requestIdRef.current) {
+          return null;
+        }
+
         setState({ data: null, loading: false, error: apiError });
 
         // エラー時コールバックを実行
-        if (onError) {
-          onError(apiError);
+        if (onErrorRef.current) {
+          onErrorRef.current(apiError);
         }
 
         return null;
       }
     },
-    [onSuccess, onError]
+    [] // 依存配列を空にして、refを使用することで常に最新の値にアクセス
   );
 
   /**
    * 状態をリセット
+   *
+   * Note: reset() を実行すると lastRequest もクリアされるため、
+   * その後 retry() を呼んでも何も実行されません。
    */
   const reset = useCallback(() => {
     setState({ data: null, loading: false, error: null });

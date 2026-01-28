@@ -200,6 +200,35 @@ describe('useAPIRequest', () => {
 
       expect(result.current.data).toEqual(mockData);
     });
+
+    it('コールバックが更新された場合に新しいコールバックが呼ばれる', async () => {
+      const mockData = { id: 1 };
+      const oldCallback = jest.fn();
+      const newCallback = jest.fn();
+
+      (global.fetch as jest.Mock).mockResolvedValue({
+        ok: true,
+        json: async () => mockData,
+      });
+
+      const { result, rerender } = renderHook(
+        ({ onSuccess }) => useAPIRequest<typeof mockData>({ onSuccess }),
+        {
+          initialProps: { onSuccess: oldCallback },
+        }
+      );
+
+      // 新しいコールバックで再レンダリング
+      rerender({ onSuccess: newCallback });
+
+      await act(async () => {
+        await result.current.execute('/api/user');
+      });
+
+      // 新しいコールバックが呼ばれ、古いコールバックは呼ばれない
+      expect(newCallback).toHaveBeenCalledWith(mockData);
+      expect(oldCallback).not.toHaveBeenCalled();
+    });
   });
 
   describe('reset関数', () => {
@@ -372,6 +401,67 @@ describe('useAPIRequest', () => {
           body: JSON.stringify(requestBody),
         })
       );
+    });
+  });
+
+  describe('並行リクエストの処理', () => {
+    it('複数の並行リクエストで最後のレスポンスのみが状態に反映される', async () => {
+      const mockData1 = { id: 1, value: 'first' };
+      const mockData2 = { id: 2, value: 'second' };
+
+      let resolveFirst: (value: unknown) => void;
+      let resolveSecond: (value: unknown) => void;
+
+      const firstPromise = new Promise((resolve) => {
+        resolveFirst = resolve;
+      });
+      const secondPromise = new Promise((resolve) => {
+        resolveSecond = resolve;
+      });
+
+      (global.fetch as jest.Mock).mockImplementation((url: string) => {
+        if (url === '/api/first') {
+          return firstPromise;
+        }
+        return secondPromise;
+      });
+
+      const { result } = renderHook(() => useAPIRequest<typeof mockData1>());
+
+      // 2つのリクエストをほぼ同時に開始
+      act(() => {
+        void result.current.execute('/api/first');
+      });
+
+      act(() => {
+        void result.current.execute('/api/second');
+      });
+
+      // 1つ目のリクエストを先に完了（遅いレスポンス）
+      act(() => {
+        resolveFirst({
+          ok: true,
+          json: async () => mockData1,
+        });
+      });
+
+      await waitFor(() => {
+        // 1つ目のレスポンスは無視される（最新のリクエストではないため）
+        expect(result.current.data).toBeNull();
+      });
+
+      // 2つ目のリクエストを完了（最新のリクエスト）
+      act(() => {
+        resolveSecond({
+          ok: true,
+          json: async () => mockData2,
+        });
+      });
+
+      await waitFor(() => {
+        // 2つ目のレスポンスのみが反映される
+        expect(result.current.data).toEqual(mockData2);
+      });
     });
   });
 });
