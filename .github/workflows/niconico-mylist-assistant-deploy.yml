@@ -85,77 +85,16 @@ jobs:
             aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.set-env.outputs.environment }}
 
-      - name: Check if DynamoDB stack exists
-        id: check-dynamodb
-        env:
-          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
-        run: |
-          if aws cloudformation describe-stacks \
-            --stack-name "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
-            --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy DynamoDB Stack
-        if: steps.check-dynamodb.outputs.exists == 'false'
+      - name: Deploy Infrastructure Stacks (DynamoDB, ECR)
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
           STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
         run: |
-          echo "Creating DynamoDB stack..."
+          # CDK deploy is idempotent - no need for existence checks
+          echo "Deploying infrastructure stacks..."
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
-            --context env=$ENVIRONMENT \
-            --require-approval never
-
-      - name: Check if Web ECR repository exists
-        id: check-web-ecr
-        env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
-        run: |
-          if aws ecr describe-repositories \
-            --repository-names niconico-mylist-assistant-web-$ENVIRONMENT \
-            --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy Web ECR Stack
-        if: steps.check-web-ecr.outputs.exists == 'false'
-        env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
-          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
-        run: |
-          echo "Creating Web ECR repository..."
-          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}" \
-            --context env=$ENVIRONMENT \
-            --require-approval never
-
-      - name: Check if Batch ECR repository exists
-        id: check-batch-ecr
-        env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
-        run: |
-          if aws ecr describe-repositories \
-            --repository-names niconico-mylist-assistant-batch-$ENVIRONMENT \
-            --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Deploy Batch ECR Stack
-        if: steps.check-batch-ecr.outputs.exists == 'false'
-        env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
-          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
-        run: |
-          echo "Creating Batch ECR repository..."
-          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}" \
             --context env=$ENVIRONMENT \
             --require-approval never
