@@ -103,8 +103,8 @@ jobs:
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 
-  synth-infra:
-    name: CDK Synth Infrastructure
+  build-infra:
+    name: Build Infrastructure Package
     runs-on: ubuntu-latest
     needs: [lint, format-check]
 
@@ -130,9 +130,6 @@ jobs:
 
       - name: Build CDK TypeScript
         run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
-
-      - name: Synthesize CDK stack
-        run: npm run synth --workspace=@nagiyu/infra-niconico-mylist-assistant -- --context env=dev
 
   build-web:
     name: Build Web Package
@@ -233,34 +230,6 @@ jobs:
 
       - name: Run core tests
         run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-core
-
-  build-infra:
-    name: Build Infrastructure Package
-    runs-on: ubuntu-latest
-    needs: [synth-infra]
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build common infrastructure package
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK project
-        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
 
   docker-build-web:
     name: Docker Build Web
@@ -397,11 +366,10 @@ jobs:
         lint,
         format-check,
         build-core,
-        synth-infra,
+        build-infra,
         build-web,
         build-batch,
         test-core,
-        build-infra,
         docker-build-web,
         docker-build-batch,
         test-batch,
@@ -422,11 +390,10 @@ jobs:
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Build Core': '${{ needs.build-core.result }}',
-              'Synth Infra': '${{ needs.synth-infra.result }}',
+              'Build Infra': '${{ needs.build-infra.result }}',
               'Build Web': '${{ needs.build-web.result }}',
               'Build Batch': '${{ needs.build-batch.result }}',
               'Test Core': '${{ needs.test-core.result }}',
-              'Build Infra': '${{ needs.build-infra.result }}',
               'Docker Build Web': '${{ needs.docker-build-web.result }}',
               'Docker Build Batch': '${{ needs.docker-build-batch.result }}',
               'Test Batch': '${{ needs.test-batch.result }}',
