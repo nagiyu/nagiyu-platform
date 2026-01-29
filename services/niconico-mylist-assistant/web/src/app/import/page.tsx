@@ -10,18 +10,16 @@ import {
   Alert,
   Card,
   CardContent,
-  List,
-  ListItem,
-  ListItemText,
   Chip,
   CircularProgress,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 
 interface ImportResult {
-  success: Array<{ videoId: string; title: string }>;
-  skipped: Array<{ videoId: string; reason: string }>;
-  failed: Array<{ videoId: string; error: string }>;
+  success: number;
+  failed: number;
+  skipped: number;
+  total: number;
 }
 
 export default function ImportPage() {
@@ -128,58 +126,32 @@ export default function ImportPage() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Chip label={`成功: ${result.success.length} 件`} color="success" />
-                  <Chip label={`スキップ: ${result.skipped.length} 件`} color="warning" />
-                  <Chip label={`失敗: ${result.failed.length} 件`} color="error" />
+                  <Chip label={`合計: ${result.total} 件`} color="default" />
+                  <Chip label={`成功: ${result.success} 件`} color="success" />
+                  <Chip label={`スキップ: ${result.skipped} 件`} color="warning" />
+                  <Chip label={`失敗: ${result.failed} 件`} color="error" />
                 </Box>
 
-                {result.success.length > 0 && (
-                  <>
-                    <Typography variant="subtitle2" gutterBottom>
-                      成功
-                    </Typography>
-                    <List dense>
-                      {result.success.map((item) => (
-                        <ListItem key={item.videoId}>
-                          <ListItemText primary={item.title} secondary={item.videoId} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </>
+                {result.success > 0 && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    {result.success} 件の動画を正常にインポートしました
+                  </Alert>
                 )}
 
-                {result.skipped.length > 0 && (
-                  <>
-                    <Typography variant="subtitle2" gutterBottom>
-                      スキップ
-                    </Typography>
-                    <List dense>
-                      {result.skipped.map((item) => (
-                        <ListItem key={item.videoId}>
-                          <ListItemText primary={item.videoId} secondary={item.reason} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </>
+                {result.skipped > 0 && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    {result.skipped} 件の動画は既に登録済みのためスキップされました
+                  </Alert>
                 )}
 
-                {result.failed.length > 0 && (
-                  <>
-                    <Typography variant="subtitle2" gutterBottom>
-                      失敗
-                    </Typography>
-                    <List dense>
-                      {result.failed.map((item) => (
-                        <ListItem key={item.videoId}>
-                          <ListItemText primary={item.videoId} secondary={item.error} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </>
+                {result.failed > 0 && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {result.failed} 件の動画のインポートに失敗しました
+                  </Alert>
                 )}
 
                 <Box sx={{ mt: 2 }}>
-                  <Button variant="outlined" onClick={() => router.push('/videos')}>
+                  <Button variant="outlined" onClick={() => router.push('/')}>
                     動画一覧を見る
                   </Button>
                 </Box>
