@@ -125,7 +125,7 @@ export default function ImportPage() {
                   インポート結果
                 </Typography>
 
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
                   <Chip label={`合計: ${result.total} 件`} color="default" />
                   <Chip label={`成功: ${result.success} 件`} color="success" />
                   <Chip label={`スキップ: ${result.skipped} 件`} color="warning" />
