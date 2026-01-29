@@ -97,7 +97,9 @@ export async function POST(request: NextRequest) {
             videoId: info.videoId,
             title: info.title,
             thumbnailUrl: info.thumbnailUrl,
-            length: info.duration ? `${Math.floor(info.duration / 60)}:${String(info.duration % 60).padStart(2, '0')}` : '0:00',
+            length: info.duration
+              ? `${Math.floor(info.duration / 60)}:${String(info.duration % 60).padStart(2, '0')}`
+              : '0:00',
           });
         } catch (error) {
           // ConditionalCheckFailedException の場合は既に存在するのでOK

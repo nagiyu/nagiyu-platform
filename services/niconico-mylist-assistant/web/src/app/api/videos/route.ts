@@ -64,13 +64,10 @@ export async function GET(request: NextRequest) {
     }
 
     // ユーザー設定を取得
-    const { settings, lastEvaluatedKey: nextKey } = await listUserVideoSettings(
-      session.user.id,
-      {
-        limit,
-        lastEvaluatedKey: decodedLastEvaluatedKey,
-      }
-    );
+    const { settings, lastEvaluatedKey: nextKey } = await listUserVideoSettings(session.user.id, {
+      limit,
+      lastEvaluatedKey: decodedLastEvaluatedKey,
+    });
 
     // フィルタリング処理
     let filteredSettings = settings;
@@ -82,8 +79,7 @@ export async function GET(request: NextRequest) {
 
     // 動画基本情報を一括取得
     const videoIds = filteredSettings.map((s) => s.videoId);
-    const basicInfos =
-      videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
+    const basicInfos = videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
 
     // 動画基本情報をマップに変換
     const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
@@ -111,9 +107,7 @@ export async function GET(request: NextRequest) {
       .filter((v) => v !== null);
 
     // nextToken のエンコード
-    const nextToken = nextKey
-      ? Buffer.from(JSON.stringify(nextKey)).toString('base64')
-      : null;
+    const nextToken = nextKey ? Buffer.from(JSON.stringify(nextKey)).toString('base64') : null;
 
     // レスポンス
     return NextResponse.json({
