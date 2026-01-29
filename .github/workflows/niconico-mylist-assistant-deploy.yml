@@ -266,11 +266,11 @@ jobs:
           # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="$ECR_REGISTRY/niconico-mylist-assistant-web-$ENVIRONMENT:latest"
+          IMAGE_URI="$ECR_REGISTRY/nagiyu-niconico-mylist-assistant-web-ecr-$ENVIRONMENT:latest"
 
           # Update Lambda function code
           aws lambda update-function-code \
-            --function-name "niconico-mylist-assistant-web-$ENVIRONMENT" \
+            --function-name "nagiyu-niconico-mylist-assistant-web-lambda-$ENVIRONMENT" \
             --image-uri "$IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
@@ -281,7 +281,7 @@ jobs:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
           aws lambda wait function-updated \
-            --function-name "niconico-mylist-assistant-web-$ENVIRONMENT" \
+            --function-name "nagiyu-niconico-mylist-assistant-web-lambda-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "Lambda function update completed"
