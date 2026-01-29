@@ -128,11 +128,11 @@ jobs:
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
 
-      - name: CDK Synth
-        env:
-          CDK_DEFAULT_ACCOUNT: '123456789012'
-          CDK_DEFAULT_REGION: 'us-east-1'
-        run: npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- synth --context env=dev
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
+
+      - name: Synthesize CDK stack
+        run: npm run synth --workspace=@nagiyu/infra-niconico-mylist-assistant -- --context env=dev
 
   build-web:
     name: Build Web Package
