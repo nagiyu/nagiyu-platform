@@ -1,4 +1,5 @@
 import { parseStringPromise } from 'xml2js';
+import { NICONICO_ERROR_MESSAGES } from './constants';
 
 export interface NiconicoVideoInfo {
   videoId: string;
@@ -30,7 +31,11 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
     const response = await fetch(`https://ext.nicovideo.jp/api/getthumbinfo/${videoId}`);
 
     if (!response.ok) {
-      throw new NiconicoAPIError(`HTTP error: ${response.status}`, 'HTTP_ERROR', videoId);
+      throw new NiconicoAPIError(
+        `${NICONICO_ERROR_MESSAGES.HTTP_ERROR}: ${response.status}`,
+        'HTTP_ERROR',
+        videoId
+      );
     }
 
     const xmlText = await response.text();
@@ -41,7 +46,11 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
       const errorCode = parsed.nicovideo_thumb_response.error?.[0]?.code?.[0];
       const errorDescription = parsed.nicovideo_thumb_response.error?.[0]?.description?.[0];
 
-      throw new NiconicoAPIError(errorDescription || 'Unknown API error', errorCode, videoId);
+      throw new NiconicoAPIError(
+        errorDescription || NICONICO_ERROR_MESSAGES.UNKNOWN_API_ERROR,
+        errorCode,
+        videoId
+      );
     }
 
     const thumb = parsed.nicovideo_thumb_response.thumb[0];
@@ -76,7 +85,7 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
     }
 
     throw new NiconicoAPIError(
-      `Failed to fetch video info: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      `${NICONICO_ERROR_MESSAGES.FETCH_ERROR}: ${error instanceof Error ? error.message : NICONICO_ERROR_MESSAGES.UNKNOWN_ERROR}`,
       'FETCH_ERROR',
       videoId
     );

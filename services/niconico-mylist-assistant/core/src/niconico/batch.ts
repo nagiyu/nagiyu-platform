@@ -1,4 +1,5 @@
 import { getVideoInfo, NiconicoAPIError, NiconicoVideoInfo } from './client';
+import { DEFAULT_BATCH_CONCURRENCY, NICONICO_ERROR_MESSAGES } from './constants';
 
 export interface VideoInfoBatchResult {
   success: NiconicoVideoInfo[];
@@ -12,7 +13,7 @@ export async function getVideoInfoBatch(
     onProgress?: (current: number, total: number) => void;
   }
 ): Promise<VideoInfoBatchResult> {
-  const concurrency = options?.concurrency || 3;
+  const concurrency = options?.concurrency || DEFAULT_BATCH_CONCURRENCY;
   const success: NiconicoVideoInfo[] = [];
   const failed: Array<{ videoId: string; error: string }> = [];
 
@@ -27,7 +28,7 @@ export async function getVideoInfoBatch(
         if (error instanceof NiconicoAPIError) {
           failed.push({ videoId, error: error.message });
         } else {
-          failed.push({ videoId, error: 'Unknown error' });
+          failed.push({ videoId, error: NICONICO_ERROR_MESSAGES.UNKNOWN_ERROR });
         }
       }
     });

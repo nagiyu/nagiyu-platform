@@ -62,7 +62,7 @@ describe('getVideoInfo', () => {
     const error = await getVideoInfo('invalid_id').catch(e => e);
     
     expect(error).toBeInstanceOf(NiconicoAPIError);
-    expect(error.message).toBe('HTTP error: 404');
+    expect(error.message).toBe('HTTP エラーが発生しました: 404');
   });
 
   it('should throw error for API error response', async () => {
@@ -168,6 +168,6 @@ describe('getVideoInfo', () => {
     const error = await getVideoInfo('test').catch(e => e);
     
     expect(error).toBeInstanceOf(NiconicoAPIError);
-    expect(error.message).toBe('Failed to fetch video info: Network error');
+    expect(error.message).toBe('動画情報の取得に失敗しました: Network error');
   });
 });
