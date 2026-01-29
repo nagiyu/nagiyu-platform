@@ -132,7 +132,7 @@ jobs:
       - name: Build, tag, and push Web Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: niconico-mylist-assistant-web-${{ needs.prepare-infrastructure.outputs.environment }}
+          ECR_REPOSITORY: niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Build and tag with commit SHA
@@ -176,7 +176,7 @@ jobs:
       - name: Build, tag, and push Batch worker Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: niconico-mylist-assistant-batch-${{ needs.prepare-infrastructure.outputs.environment }}
+          ECR_REPOSITORY: niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Build and tag with commit SHA
