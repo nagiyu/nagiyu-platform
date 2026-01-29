@@ -13,18 +13,10 @@ interface BulkImportRequest {
 }
 
 interface BulkImportResponse {
-  success: {
-    videoId: string;
-    title: string;
-  }[];
-  skipped: {
-    videoId: string;
-    reason: string;
-  }[];
-  failed: {
-    videoId: string;
-    error: string;
-  }[];
+  success: number;
+  failed: number;
+  skipped: number;
+  total: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -68,15 +60,12 @@ export async function POST(request: NextRequest) {
       body.videoIds.map((id) => getUserVideoSetting(session.user.id, id))
     );
 
-    const skipped: BulkImportResponse['skipped'] = [];
+    let skippedCount = 0;
     const videoIdsToImport: string[] = [];
 
     body.videoIds.forEach((id, index) => {
       if (existingSettings[index]) {
-        skipped.push({
-          videoId: id,
-          reason: 'Already exists',
-        });
+        skippedCount++;
       } else {
         videoIdsToImport.push(id);
       }
@@ -86,8 +75,8 @@ export async function POST(request: NextRequest) {
     const { success: videoInfos, failed: apiFailed } = await getVideoInfoBatch(videoIdsToImport);
 
     // DynamoDB に保存（Promise.allSettled でエラーハンドリング）
-    const success: BulkImportResponse['success'] = [];
-    const dbFailed: BulkImportResponse['failed'] = [];
+    let successCount = 0;
+    let dbFailedCount = 0;
 
     const saveResults = await Promise.allSettled(
       videoInfos.map(async (info) => {
@@ -122,25 +111,19 @@ export async function POST(request: NextRequest) {
     );
 
     // 保存結果の処理
-    saveResults.forEach((result, index) => {
-      const info = videoInfos[index];
+    saveResults.forEach((result) => {
       if (result.status === 'fulfilled') {
-        success.push({
-          videoId: info.videoId,
-          title: info.title,
-        });
+        successCount++;
       } else {
-        dbFailed.push({
-          videoId: info.videoId,
-          error: result.reason instanceof Error ? result.reason.message : 'Failed to save',
-        });
+        dbFailedCount++;
       }
     });
 
     const response: BulkImportResponse = {
-      success,
-      skipped,
-      failed: [...apiFailed, ...dbFailed],
+      success: successCount,
+      failed: apiFailed.length + dbFailedCount,
+      skipped: skippedCount,
+      total: body.videoIds.length,
     };
 
     return NextResponse.json(response);

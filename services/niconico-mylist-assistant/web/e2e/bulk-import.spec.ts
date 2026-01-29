@@ -85,9 +85,12 @@ test.describe('Bulk Import API with Authentication', () => {
     expect(body).toHaveProperty('success');
     expect(body).toHaveProperty('skipped');
     expect(body).toHaveProperty('failed');
-    expect(Array.isArray(body.success)).toBe(true);
-    expect(Array.isArray(body.skipped)).toBe(true);
-    expect(Array.isArray(body.failed)).toBe(true);
+    expect(body).toHaveProperty('total');
+    expect(typeof body.success).toBe('number');
+    expect(typeof body.skipped).toBe('number');
+    expect(typeof body.failed).toBe('number');
+    expect(typeof body.total).toBe('number');
+    expect(body.total).toBe(3);
   });
 
   test.skip('should skip already imported videos', async ({ request }) => {
@@ -102,10 +105,8 @@ test.describe('Bulk Import API with Authentication', () => {
 
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.skipped.length).toBeGreaterThan(0);
-    expect(body.skipped[0]).toHaveProperty('videoId');
-    expect(body.skipped[0]).toHaveProperty('reason');
-    expect(body.skipped[0].reason).toBe('Already exists');
+    expect(typeof body.skipped).toBe('number');
+    expect(body.skipped).toBeGreaterThan(0);
   });
 });
 
