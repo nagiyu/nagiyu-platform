@@ -4,7 +4,7 @@
 
 /**
  * Video - 動画基本情報（API レスポンス用）
- * 
+ *
  * ニコニコ動画から取得した動画のメタデータ。全ユーザーで共有される共通データ。
  * @see api-spec.md Section 5.1
  */
@@ -19,7 +19,7 @@ export interface Video {
 
 /**
  * UserSetting - ユーザー設定（API レスポンス用）
- * 
+ *
  * 各ユーザーが個別に設定する動画のメタデータ（お気に入りフラグ、スキップフラグ、メモ）。
  * @see api-spec.md Section 5.2
  */
@@ -34,7 +34,7 @@ export interface UserSetting {
 
 /**
  * VideoData - 動画データ（API レスポンス用）
- * 
+ *
  * 動画基本情報とユーザー設定を結合したデータ。API レスポンスで返される主要なデータモデル。
  * @see api-spec.md Section 5.3
  */
@@ -49,7 +49,7 @@ export interface VideoData {
 
 /**
  * VideoMetadata - 動画メタデータ（Video の別名）
- * 
+ *
  * @deprecated Video 型を使用してください
  */
 export type VideoMetadata = Video;
@@ -145,7 +145,7 @@ export interface BatchResult {
 
 /**
  * ErrorResponse - エラーレスポンス
- * 
+ *
  * 全 API エンドポイントで使用される標準エラーレスポンス。
  * @see api-spec.md Section 2.3
  */
@@ -159,7 +159,7 @@ export interface ErrorResponse {
 
 /**
  * HealthCheckResponse - ヘルスチェックレスポンス
- * 
+ *
  * @see api-spec.md Section 3.1.1
  */
 export interface HealthCheckResponse {
@@ -174,7 +174,7 @@ export interface HealthCheckResponse {
 
 /**
  * VideosListResponse - 動画一覧取得レスポンス
- * 
+ *
  * @see api-spec.md Section 3.2.1
  */
 export interface VideosListResponse {
@@ -186,14 +186,14 @@ export interface VideosListResponse {
 
 /**
  * VideoDetailResponse - 動画詳細取得レスポンス
- * 
+ *
  * @see api-spec.md Section 3.2.2
  */
 export type VideoDetailResponse = VideoData;
 
 /**
  * BulkImportRequest - 一括インポートリクエスト
- * 
+ *
  * @see api-spec.md Section 3.4.1
  */
 export interface BulkImportRequest {
@@ -202,7 +202,7 @@ export interface BulkImportRequest {
 
 /**
  * BulkImportResponse - 一括インポートレスポンス
- * 
+ *
  * @see api-spec.md Section 3.4.1
  */
 export interface BulkImportResponse {
@@ -214,7 +214,7 @@ export interface BulkImportResponse {
 
 /**
  * VideoSettingUpdateRequest - 動画設定更新リクエスト
- * 
+ *
  * @see api-spec.md Section 3.5.1
  */
 export interface VideoSettingUpdateRequest {
@@ -225,7 +225,7 @@ export interface VideoSettingUpdateRequest {
 
 /**
  * EstimateRequest - 登録予定動画数の見積もりリクエスト
- * 
+ *
  * @see api-spec.md Section 3.6.1
  */
 export interface EstimateRequest {
@@ -236,7 +236,7 @@ export interface EstimateRequest {
 
 /**
  * EstimateResponse - 登録予定動画数の見積もりレスポンス
- * 
+ *
  * @see api-spec.md Section 3.6.1
  */
 export interface EstimateResponse {
@@ -245,7 +245,7 @@ export interface EstimateResponse {
 
 /**
  * BatchSubmitRequest - バッチジョブ投入リクエスト
- * 
+ *
  * @see api-spec.md Section 3.6.2
  */
 export interface BatchSubmitRequest {
@@ -259,7 +259,7 @@ export interface BatchSubmitRequest {
 
 /**
  * BatchSubmitResponse - バッチジョブ投入レスポンス
- * 
+ *
  * @see api-spec.md Section 3.6.2
  */
 export interface BatchSubmitResponse {
@@ -270,7 +270,7 @@ export interface BatchSubmitResponse {
 
 /**
  * BatchStatusResponse - バッチジョブステータス取得レスポンス
- * 
+ *
  * @see api-spec.md Section 3.6.3
  */
 export interface BatchStatusResponse {
