@@ -1,5 +1,5 @@
 /**
- * 動画基本情報（VIDEO エンティティ）
+ * 動画基本情報（VIDEO エンティティ - 全ユーザー共通）
  */
 export interface VideoBasicInfo {
   videoId: string;
@@ -10,7 +10,7 @@ export interface VideoBasicInfo {
 }
 
 /**
- * ユーザー設定（USER_SETTING エンティティ）
+ * ユーザー設定（USER_SETTING エンティティ - ユーザー個別）
  */
 export interface UserVideoSetting {
   userId: string;
@@ -23,35 +23,43 @@ export interface UserVideoSetting {
 }
 
 /**
- * 動画統合型（DynamoDB格納用）
- * 動画基本情報とユーザー設定を統合
+ * DynamoDB 内部アイテム型（VIDEO エンティティ）
+ * @internal
  */
-export interface Video {
-  videoId: string;
-  title: string;
-  description?: string;
-  thumbnailUrl: string;
-  duration?: number;
-  viewCount?: number;
-  commentCount?: number;
-  mylistCount?: number;
-  uploadedAt?: string;
-  tags?: string[];
-  isFavorite: boolean;
-  isSkip: boolean;
-  memo?: string;
-  createdAt: string;
-  updatedAt: string;
+export interface VideoItem extends VideoBasicInfo {
+  PK: string; // VIDEO#{videoId}
+  SK: string; // VIDEO#{videoId}
+  entityType: 'VIDEO';
+}
+
+/**
+ * DynamoDB 内部アイテム型（USER_SETTING エンティティ）
+ * @internal
+ */
+export interface UserSettingItem extends UserVideoSetting {
+  PK: string; // USER#{userId}
+  SK: string; // VIDEO#{videoId}
+  entityType: 'USER_SETTING';
 }
 
 /**
  * 動画設定更新用型
  */
-export interface VideoSettings {
+export interface VideoSettingUpdate {
   isFavorite?: boolean;
   isSkip?: boolean;
   memo?: string;
 }
+
+/**
+ * 動画基本情報作成用型（createdAt を除く）
+ */
+export type CreateVideoBasicInfoInput = Omit<VideoBasicInfo, 'createdAt'>;
+
+/**
+ * ユーザー設定作成用型（createdAt/updatedAt を除く）
+ */
+export type CreateUserSettingInput = Omit<UserVideoSetting, 'createdAt' | 'updatedAt'>;
 
 /**
  * バッチジョブステータス
