@@ -47,7 +47,7 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
       const errorDescription = parsed.nicovideo_thumb_response.error?.[0]?.description?.[0];
 
       throw new NiconicoAPIError(
-        errorDescription || NICONICO_ERROR_MESSAGES.UNKNOWN_API_ERROR,
+        errorDescription || NICONICO_ERROR_MESSAGES.API_ERROR,
         errorCode,
         videoId
       );
@@ -84,8 +84,9 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
       throw error;
     }
 
+    const errorDetail = error instanceof Error ? error.message : 'Unknown error';
     throw new NiconicoAPIError(
-      `${NICONICO_ERROR_MESSAGES.FETCH_ERROR}: ${error instanceof Error ? error.message : NICONICO_ERROR_MESSAGES.UNKNOWN_ERROR}`,
+      `${NICONICO_ERROR_MESSAGES.FETCH_ERROR}: ${errorDetail}`,
       'FETCH_ERROR',
       videoId
     );

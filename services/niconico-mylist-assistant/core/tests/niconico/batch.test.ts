@@ -151,7 +151,7 @@ describe('getVideoInfoBatch', () => {
     expect(result.success).toHaveLength(2);
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].videoId).toBe('sm2');
-    expect(result.failed[0].error).toBe('不明なエラーが発生しました');
+    expect(result.failed[0].error).toBe('不明なエラー');
     
     mockGetVideoInfo.mockRestore();
   });

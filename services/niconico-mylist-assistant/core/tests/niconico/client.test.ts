@@ -62,7 +62,7 @@ describe('getVideoInfo', () => {
     const error = await getVideoInfo('invalid_id').catch(e => e);
     
     expect(error).toBeInstanceOf(NiconicoAPIError);
-    expect(error.message).toBe('HTTP エラーが発生しました: 404');
+    expect(error.message).toBe('HTTPエラーが発生しました: 404');
   });
 
   it('should throw error for API error response', async () => {

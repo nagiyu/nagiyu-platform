@@ -1,5 +1,5 @@
 import { getVideoInfo, NiconicoAPIError, NiconicoVideoInfo } from './client';
-import { DEFAULT_BATCH_CONCURRENCY, NICONICO_ERROR_MESSAGES } from './constants';
+import { DEFAULT_BATCH_CONCURRENCY } from './constants';
 
 export interface VideoInfoBatchResult {
   success: NiconicoVideoInfo[];
@@ -28,7 +28,7 @@ export async function getVideoInfoBatch(
         if (error instanceof NiconicoAPIError) {
           failed.push({ videoId, error: error.message });
         } else {
-          failed.push({ videoId, error: NICONICO_ERROR_MESSAGES.UNKNOWN_ERROR });
+          failed.push({ videoId, error: '不明なエラー' });
         }
       }
     });
