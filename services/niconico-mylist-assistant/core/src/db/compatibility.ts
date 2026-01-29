@@ -8,14 +8,13 @@
 import {
   getVideoBasicInfo,
   getUserVideoSetting,
-  createUserVideoSetting,
   upsertUserVideoSetting,
   updateUserVideoSetting as updateUserSetting,
   listUserVideoSettings,
   deleteUserVideoSetting,
   batchGetVideoBasicInfo,
 } from './videos';
-import type { VideoBasicInfo, UserVideoSetting, VideoSettingUpdate } from '../types';
+import type { VideoBasicInfo, VideoSettingUpdate } from '../types';
 
 /**
  * Combined video type (for backwards compatibility)
