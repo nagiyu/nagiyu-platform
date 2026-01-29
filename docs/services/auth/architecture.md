@@ -220,28 +220,29 @@ const cookieSuffix = isProduction ? '' : isDevelopment ? '' : '.dev';
 
 cookies: {
   // すべてのクッキーを環境別に分離
+  // NextAuth v5 では authjs.* がデフォルトのプレフィックス
   sessionToken: {
-    name: `__Secure-next-auth.session-token${cookieSuffix}`,
+    name: `__Secure-authjs.session-token${cookieSuffix}`,
     options: cookieOptions,
   },
   callbackUrl: {
-    name: `__Secure-next-auth.callback-url${cookieSuffix}`,
+    name: `__Secure-authjs.callback-url${cookieSuffix}`,
     options: cookieOptions,
   },
   csrfToken: {
-    name: `__Host-next-auth.csrf-token${cookieSuffix}`,
+    name: `__Host-authjs.csrf-token${cookieSuffix}`,
     options: { ...cookieOptions, domain: undefined },
   },
   state: {
-    name: `__Secure-next-auth.state${cookieSuffix}`,
+    name: `__Secure-authjs.state${cookieSuffix}`,
     options: cookieOptions,
   },
   pkceCodeVerifier: {
-    name: `__Secure-next-auth.pkce.code_verifier${cookieSuffix}`,
+    name: `__Secure-authjs.pkce.code_verifier${cookieSuffix}`,
     options: cookieOptions,
   },
   nonce: {
-    name: `__Secure-next-auth.nonce${cookieSuffix}`,
+    name: `__Secure-authjs.nonce${cookieSuffix}`,
     options: cookieOptions,
   },
 }
