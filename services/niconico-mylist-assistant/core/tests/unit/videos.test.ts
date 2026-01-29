@@ -15,6 +15,7 @@ import {
   createVideoBasicInfo,
   getVideoBasicInfo,
   batchGetVideoBasicInfo,
+  createUserVideoSetting,
   upsertUserVideoSetting,
   getUserVideoSetting,
   updateUserVideoSetting,
@@ -65,6 +66,23 @@ describe('videos', () => {
           },
           ConditionExpression: 'attribute_not_exists(PK)',
         });
+      });
+
+      it('既に存在する動画を作成しようとするとエラーになる', async () => {
+        const error = new Error('ConditionalCheckFailedException');
+        error.name = 'ConditionalCheckFailedException';
+        ddbMock.on(PutCommand).rejects(error);
+
+        const input: CreateVideoBasicInfoInput = {
+          videoId: 'sm12345678',
+          title: 'テスト動画',
+          thumbnailUrl: 'https://example.com/thumb.jpg',
+          length: '5:30',
+        };
+
+        await expect(createVideoBasicInfo(input)).rejects.toThrow(
+          'ConditionalCheckFailedException'
+        );
       });
     });
 
@@ -156,6 +174,61 @@ describe('videos', () => {
   });
 
   describe('USER_SETTING エンティティ', () => {
+    describe('createUserVideoSetting', () => {
+      it('新規ユーザー設定を作成できる', async () => {
+        ddbMock.on(PutCommand).resolves({});
+
+        const input: CreateUserSettingInput = {
+          userId: 'user123',
+          videoId: 'sm12345678',
+          isFavorite: true,
+          isSkip: false,
+        };
+
+        const result = await createUserVideoSetting(input);
+
+        expect(result.userId).toBe('user123');
+        expect(result.videoId).toBe('sm12345678');
+        expect(result.isFavorite).toBe(true);
+        expect(result.isSkip).toBe(false);
+        expect(result.createdAt).toBeDefined();
+        expect(result.updatedAt).toBeDefined();
+
+        expect(ddbMock.calls()).toHaveLength(1);
+        const call = ddbMock.call(0);
+        expect(call.args[0].input).toMatchObject({
+          TableName: 'test-table',
+          Item: {
+            PK: 'USER#user123',
+            SK: 'VIDEO#sm12345678',
+            entityType: 'USER_SETTING',
+            userId: 'user123',
+            videoId: 'sm12345678',
+            isFavorite: true,
+            isSkip: false,
+          },
+          ConditionExpression: 'attribute_not_exists(PK)',
+        });
+      });
+
+      it('既に存在する設定を作成しようとするとエラーになる', async () => {
+        const error = new Error('ConditionalCheckFailedException');
+        error.name = 'ConditionalCheckFailedException';
+        ddbMock.on(PutCommand).rejects(error);
+
+        const input: CreateUserSettingInput = {
+          userId: 'user123',
+          videoId: 'sm12345678',
+          isFavorite: true,
+          isSkip: false,
+        };
+
+        await expect(createUserVideoSetting(input)).rejects.toThrow(
+          'ConditionalCheckFailedException'
+        );
+      });
+    });
+
     describe('upsertUserVideoSetting', () => {
       it('新規ユーザー設定を作成できる', async () => {
         ddbMock.on(GetCommand).resolves({}); // 既存レコードなし
@@ -330,6 +403,20 @@ describe('videos', () => {
         await expect(
           updateUserVideoSetting('user123', 'sm12345678', {})
         ).rejects.toThrow('更新する項目が指定されていません');
+      });
+
+      it('存在しない設定を更新しようとするとエラーになる', async () => {
+        const error = new Error('ConditionalCheckFailedException');
+        error.name = 'ConditionalCheckFailedException';
+        ddbMock.on(UpdateCommand).rejects(error);
+
+        const update: VideoSettingUpdate = {
+          isFavorite: true,
+        };
+
+        await expect(
+          updateUserVideoSetting('user123', 'sm99999999', update)
+        ).rejects.toThrow('ConditionalCheckFailedException');
       });
     });
 

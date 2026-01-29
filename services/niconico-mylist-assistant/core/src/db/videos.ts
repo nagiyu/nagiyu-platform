@@ -23,7 +23,7 @@ import type {
 
 /**
  * 動画基本情報を作成
- * @throws ConditionalCheckFailedException 既に存在する場合
+ * @throws ConditionalCheckFailedException (AWS SDK) - 既に同じ videoId の動画が存在する場合
  */
 export async function createVideoBasicInfo(
   input: CreateVideoBasicInfoInput
@@ -117,7 +117,41 @@ export async function batchGetVideoBasicInfo(videoIds: string[]): Promise<VideoB
  */
 
 /**
+ * ユーザー設定を作成
+ * @throws ConditionalCheckFailedException (AWS SDK) - 既に存在する場合
+ */
+export async function createUserVideoSetting(
+  input: CreateUserSettingInput
+): Promise<UserVideoSetting> {
+  const now = new Date().toISOString();
+
+  const setting: UserVideoSetting = {
+    ...input,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const item: UserSettingItem = {
+    PK: `USER#${setting.userId}`,
+    SK: `VIDEO#${setting.videoId}`,
+    entityType: 'USER_SETTING',
+    ...setting,
+  };
+
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: item,
+      ConditionExpression: 'attribute_not_exists(PK)',
+    })
+  );
+
+  return setting;
+}
+
+/**
  * ユーザー設定を作成または更新
+ * 既存の設定がある場合は更新、ない場合は新規作成
  * @returns 作成または更新されたユーザー設定
  */
 export async function upsertUserVideoSetting(
@@ -180,7 +214,8 @@ export async function getUserVideoSetting(
 
 /**
  * ユーザー設定を更新
- * @throws Error 設定が存在しない場合
+ * @throws Error - 更新する項目が指定されていない場合
+ * @throws ConditionalCheckFailedException (AWS SDK) - 設定が存在しない場合
  */
 export async function updateUserVideoSetting(
   userId: string,
@@ -232,12 +267,8 @@ export async function updateUserVideoSetting(
     })
   );
 
-  if (!result.Attributes) {
-    throw new Error('更新に失敗しました');
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { PK, SK, entityType, ...setting } = result.Attributes;
+  const { PK, SK, entityType, ...setting } = result.Attributes!;
   return setting as UserVideoSetting;
 }
 
