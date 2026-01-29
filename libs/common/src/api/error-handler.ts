@@ -4,8 +4,8 @@
  * APIエラーを統一的に処理し、ユーザーフレンドリーなメッセージに変換する
  */
 
-import type { APIErrorResponse, ErrorInfo, ErrorType } from './types';
-import { COMMON_ERROR_MESSAGES } from './types';
+import type { APIErrorResponse, ErrorInfo, ErrorType } from './types.js';
+import { COMMON_ERROR_MESSAGES } from './types.js';
 
 /**
  * HTTPステータスコードからエラータイプを判定
