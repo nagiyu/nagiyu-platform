@@ -14,28 +14,23 @@ export interface NiconicoVideoInfo {
 }
 
 export class NiconicoAPIError extends Error {
-  constructor(
-    message: string,
-    public code?: string,
-    public videoId?: string
-  ) {
+  public code?: string;
+  public videoId?: string;
+
+  constructor(message: string, code?: string, videoId?: string) {
     super(message);
     this.name = 'NiconicoAPIError';
+    this.code = code;
+    this.videoId = videoId;
   }
 }
 
 export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> {
   try {
-    const response = await fetch(
-      `https://ext.nicovideo.jp/api/getthumbinfo/${videoId}`
-    );
+    const response = await fetch(`https://ext.nicovideo.jp/api/getthumbinfo/${videoId}`);
 
     if (!response.ok) {
-      throw new NiconicoAPIError(
-        `HTTP error: ${response.status}`,
-        'HTTP_ERROR',
-        videoId
-      );
+      throw new NiconicoAPIError(`HTTP error: ${response.status}`, 'HTTP_ERROR', videoId);
     }
 
     const xmlText = await response.text();
@@ -45,12 +40,8 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
     if (parsed.nicovideo_thumb_response.$.status !== 'ok') {
       const errorCode = parsed.nicovideo_thumb_response.error?.[0]?.code?.[0];
       const errorDescription = parsed.nicovideo_thumb_response.error?.[0]?.description?.[0];
-      
-      throw new NiconicoAPIError(
-        errorDescription || 'Unknown API error',
-        errorCode,
-        videoId
-      );
+
+      throw new NiconicoAPIError(errorDescription || 'Unknown API error', errorCode, videoId);
     }
 
     const thumb = parsed.nicovideo_thumb_response.thumb[0];

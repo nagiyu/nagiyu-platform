@@ -13,7 +13,7 @@ COPY services/niconico-mylist-assistant/core ./services/niconico-mylist-assistan
 COPY services/niconico-mylist-assistant/batch ./services/niconico-mylist-assistant/batch/
 
 # 依存関係をインストール（ソースコード存在下で実行）
-RUN npm ci
+RUN npm install --omit=optional
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=@nagiyu/common

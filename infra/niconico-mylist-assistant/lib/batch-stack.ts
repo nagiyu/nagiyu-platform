@@ -50,30 +50,27 @@ export class BatchStack extends cdk.Stack {
     const tableName = getDynamoDBTableName('niconico-mylist-assistant', env);
 
     // 共有 VPC の参照
-    const vpc = ec2.Vpc.fromLookup(this, 'SharedVpc', {
-      tags: {
-        Name: `nagiyu-${env}-vpc`,
-      },
-    });
+    // vpcId が context で指定されている場合はそれを使用、そうでなければタグで検索
+    const vpcId = this.node.tryGetContext('vpcId');
+    const vpc = vpcId
+      ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
+      : ec2.Vpc.fromLookup(this, 'SharedVpc', {
+        tags: {
+          Name: `nagiyu-${env}-vpc`,
+        },
+      });
 
     // Public Subnet の取得
     const publicSubnets = vpc.selectSubnets({
       subnetType: ec2.SubnetType.PUBLIC,
     });
 
-    // Security Group の作成（アウトバウンド HTTPS のみ）
+    // Security Group の作成
     const batchSecurityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
       vpc: vpc,
-      description: 'Security group for Batch Fargate tasks - HTTPS outbound only',
-      allowAllOutbound: false,
+      description: 'Security group for Batch Fargate tasks',
+      allowAllOutbound: true,
     });
-
-    // アウトバウンド HTTPS のみ許可
-    batchSecurityGroup.addEgressRule(
-      ec2.Peer.anyIpv4(),
-      ec2.Port.tcp(443),
-      'Allow HTTPS outbound'
-    );
 
     // IAM Role for Batch Job Execution (イメージの Pull など)
     const batchJobExecutionRole = new iam.Role(this, 'BatchJobExecutionRole', {

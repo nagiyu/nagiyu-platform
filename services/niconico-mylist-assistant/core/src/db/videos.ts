@@ -1,29 +1,39 @@
-import { PutCommand, GetCommand, UpdateCommand, DeleteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  PutCommand,
+  GetCommand,
+  UpdateCommand,
+  DeleteCommand,
+  QueryCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from './client';
 import type { Video, VideoSettings } from '../types';
 
 export async function createVideo(userId: string, video: Video): Promise<void> {
-  await docClient.send(new PutCommand({
-    TableName: TABLE_NAME,
-    Item: {
-      PK: `USER#${userId}`,
-      SK: `VIDEO#${video.videoId}`,
-      GSI1PK: `VIDEO#${video.videoId}`,
-      GSI1SK: `USER#${userId}`,
-      ...video,
-    },
-    ConditionExpression: 'attribute_not_exists(PK)',
-  }));
+  await docClient.send(
+    new PutCommand({
+      TableName: TABLE_NAME,
+      Item: {
+        PK: `USER#${userId}`,
+        SK: `VIDEO#${video.videoId}`,
+        GSI1PK: `VIDEO#${video.videoId}`,
+        GSI1SK: `USER#${userId}`,
+        ...video,
+      },
+      ConditionExpression: 'attribute_not_exists(PK)',
+    })
+  );
 }
 
 export async function getVideo(userId: string, videoId: string): Promise<Video | null> {
-  const result = await docClient.send(new GetCommand({
-    TableName: TABLE_NAME,
-    Key: {
-      PK: `USER#${userId}`,
-      SK: `VIDEO#${videoId}`,
-    },
-  }));
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: `VIDEO#${videoId}`,
+      },
+    })
+  );
 
   if (!result.Item) return null;
 
@@ -65,26 +75,30 @@ export async function updateVideoSettings(
   expressionAttributeNames['#updatedAt'] = 'updatedAt';
   expressionAttributeValues[':updatedAt'] = new Date().toISOString();
 
-  await docClient.send(new UpdateCommand({
-    TableName: TABLE_NAME,
-    Key: {
-      PK: `USER#${userId}`,
-      SK: `VIDEO#${videoId}`,
-    },
-    UpdateExpression: `SET ${updateExpressions.join(', ')}`,
-    ExpressionAttributeNames: expressionAttributeNames,
-    ExpressionAttributeValues: expressionAttributeValues,
-  }));
+  await docClient.send(
+    new UpdateCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: `VIDEO#${videoId}`,
+      },
+      UpdateExpression: `SET ${updateExpressions.join(', ')}`,
+      ExpressionAttributeNames: expressionAttributeNames,
+      ExpressionAttributeValues: expressionAttributeValues,
+    })
+  );
 }
 
 export async function deleteVideo(userId: string, videoId: string): Promise<void> {
-  await docClient.send(new DeleteCommand({
-    TableName: TABLE_NAME,
-    Key: {
-      PK: `USER#${userId}`,
-      SK: `VIDEO#${videoId}`,
-    },
-  }));
+  await docClient.send(
+    new DeleteCommand({
+      TableName: TABLE_NAME,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: `VIDEO#${videoId}`,
+      },
+    })
+  );
 }
 
 export async function listVideos(

@@ -120,9 +120,9 @@ Milestone 6: 本番準備
 - 既存の `.github/workflows/` を参考
 
 **完了条件**:
-- [ ] develop ブランチへのマージで自動デプロイが実行される
-- [ ] Web と Batch の Docker イメージが ECR にプッシュされる
-- [ ] デプロイ成功時に dev 環境が更新される
+- [x] develop ブランチへのマージで自動デプロイが実行される
+- [x] Web と Batch の Docker イメージが ECR にプッシュされる
+- [x] デプロイ成功時に dev 環境が更新される
 
 ---
 
