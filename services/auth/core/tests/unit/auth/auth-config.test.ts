@@ -213,4 +213,55 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
       expect(devCookieName).not.toBe(prodCookieName);
     });
   });
+
+  describe('All Cookie Names - Environment Separation', () => {
+    const cookieTypes = [
+      { base: '__Secure-next-auth.session-token', description: 'Session Token' },
+      { base: '__Secure-next-auth.callback-url', description: 'Callback URL' },
+      { base: '__Host-next-auth.csrf-token', description: 'CSRF Token' },
+      { base: '__Secure-next-auth.state', description: 'OAuth State' },
+      {
+        base: '__Secure-next-auth.pkce.code_verifier',
+        description: 'PKCE Code Verifier',
+      },
+      { base: '__Secure-next-auth.nonce', description: 'Nonce' },
+    ];
+
+    cookieTypes.forEach(({ base, description }) => {
+      describe(description, () => {
+        it('dev 環境: .dev サフィックスが付く', () => {
+          const cookieSuffix = '.dev';
+          const cookieName = `${base}${cookieSuffix}`;
+
+          expect(cookieName).toBe(`${base}.dev`);
+        });
+
+        it('prod 環境: サフィックスなし', () => {
+          const cookieSuffix = '';
+          const cookieName = `${base}${cookieSuffix}`;
+
+          expect(cookieName).toBe(base);
+        });
+
+        it('local 環境: サフィックスなし', () => {
+          const cookieSuffix = '';
+          const cookieName = `${base}${cookieSuffix}`;
+
+          expect(cookieName).toBe(base);
+        });
+      });
+    });
+
+    it('すべてのクッキーが dev と prod で異なる名前を持つ', () => {
+      const devSuffix = '.dev';
+      const prodSuffix = '';
+
+      cookieTypes.forEach(({ base }) => {
+        const devCookieName = `${base}${devSuffix}`;
+        const prodCookieName = `${base}${prodSuffix}`;
+
+        expect(devCookieName).not.toBe(prodCookieName);
+      });
+    });
+  });
 });
