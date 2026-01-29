@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVideo, deleteVideo } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  getVideoBasicInfo,
+  getUserVideoSetting,
+  deleteUserVideoSetting,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 
 interface RouteParams {
@@ -16,12 +20,28 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 動画取得
-    const video = await getVideo(session.user.id, id);
+    // 動画基本情報とユーザー設定を並行取得
+    const [basicInfo, setting] = await Promise.all([
+      getVideoBasicInfo(id),
+      getUserVideoSetting(session.user.id, id),
+    ]);
 
-    if (!video) {
+    if (!basicInfo) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
+
+    // 結合してレスポンス
+    const video = {
+      videoId: basicInfo.videoId,
+      title: basicInfo.title,
+      thumbnailUrl: basicInfo.thumbnailUrl,
+      length: basicInfo.length,
+      isFavorite: setting?.isFavorite ?? false,
+      isSkip: setting?.isSkip ?? false,
+      memo: setting?.memo,
+      createdAt: setting?.createdAt ?? basicInfo.createdAt,
+      updatedAt: setting?.updatedAt ?? basicInfo.createdAt,
+    };
 
     return NextResponse.json({ video });
   } catch (error) {
@@ -40,14 +60,14 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 動画存在確認
-    const video = await getVideo(session.user.id, id);
-    if (!video) {
+    // ユーザー設定の存在確認
+    const setting = await getUserVideoSetting(session.user.id, id);
+    if (!setting) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
-    // 削除
-    await deleteVideo(session.user.id, id);
+    // ユーザー設定を削除
+    await deleteUserVideoSetting(session.user.id, id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
