@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { listVideos } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  listUserVideoSettings,
+  batchGetVideoBasicInfo,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 
 /**
@@ -60,21 +63,61 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // DynamoDB から動画一覧を取得
-    const result = await listVideos(session.user.id, {
-      filter: filter || 'all',
-      limit,
-      lastEvaluatedKey: decodedLastEvaluatedKey,
-    });
+    // ユーザー設定を取得
+    const { settings, lastEvaluatedKey: nextKey } = await listUserVideoSettings(
+      session.user.id,
+      {
+        limit,
+        lastEvaluatedKey: decodedLastEvaluatedKey,
+      }
+    );
+
+    // フィルタリング処理
+    let filteredSettings = settings;
+    if (filter === 'favorite') {
+      filteredSettings = settings.filter((s) => s.isFavorite);
+    } else if (filter === 'skip') {
+      filteredSettings = settings.filter((s) => s.isSkip);
+    }
+
+    // 動画基本情報を一括取得
+    const videoIds = filteredSettings.map((s) => s.videoId);
+    const basicInfos =
+      videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
+
+    // 動画基本情報をマップに変換
+    const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
+
+    // 結合してレスポンス用の形式に変換
+    const videos = filteredSettings
+      .map((setting) => {
+        const basicInfo = basicInfoMap.get(setting.videoId);
+        if (!basicInfo) {
+          return null;
+        }
+
+        return {
+          videoId: setting.videoId,
+          title: basicInfo.title,
+          thumbnailUrl: basicInfo.thumbnailUrl,
+          length: basicInfo.length,
+          isFavorite: setting.isFavorite,
+          isSkip: setting.isSkip,
+          memo: setting.memo,
+          createdAt: setting.createdAt,
+          updatedAt: setting.updatedAt,
+        };
+      })
+      .filter((v) => v !== null);
 
     // nextToken のエンコード
-    const nextToken = result.lastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.lastEvaluatedKey)).toString('base64')
+    const nextToken = nextKey
+      ? Buffer.from(JSON.stringify(nextKey)).toString('base64')
       : null;
 
     // レスポンス
     return NextResponse.json({
-      videos: result.videos,
+      videos,
       nextToken,
     });
   } catch (error) {

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVideo, updateVideoSettings } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  getVideoBasicInfo,
+  getUserVideoSetting,
+  updateUserVideoSetting,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 
 interface RouteParams {
@@ -42,23 +46,35 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'memo must be 1000 characters or less' }, { status: 400 });
     }
 
-    // 動画存在確認
-    const video = await getVideo(session.user.id, id);
-    if (!video) {
+    // ユーザー設定の存在確認
+    const setting = await getUserVideoSetting(session.user.id, id);
+    if (!setting) {
       return NextResponse.json({ error: 'Video not found' }, { status: 404 });
     }
 
     // 設定更新
-    await updateVideoSettings(session.user.id, id, {
+    const updatedSetting = await updateUserVideoSetting(session.user.id, id, {
       isFavorite: body.isFavorite,
       isSkip: body.isSkip,
       memo: body.memo,
     });
 
-    // 更新後の動画情報を取得
-    const updatedVideo = await getVideo(session.user.id, id);
+    // 動画基本情報を取得して結合
+    const basicInfo = await getVideoBasicInfo(id);
 
-    return NextResponse.json({ video: updatedVideo });
+    const video = {
+      videoId: updatedSetting.videoId,
+      title: basicInfo?.title || '',
+      thumbnailUrl: basicInfo?.thumbnailUrl || '',
+      length: basicInfo?.length || '',
+      isFavorite: updatedSetting.isFavorite,
+      isSkip: updatedSetting.isSkip,
+      memo: updatedSetting.memo,
+      createdAt: updatedSetting.createdAt,
+      updatedAt: updatedSetting.updatedAt,
+    };
+
+    return NextResponse.json({ video });
   } catch (error) {
     console.error('Update video settings error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getVideoInfoBatch, createVideo, getVideo } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  getVideoInfoBatch,
+  createVideoBasicInfo,
+  getUserVideoSetting,
+  upsertUserVideoSetting,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -58,16 +63,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 重複チェック
-    const existingVideos = await Promise.all(
-      body.videoIds.map((id) => getVideo(session.user.id, id))
+    // 重複チェック（ユーザー設定の存在を確認）
+    const existingSettings = await Promise.all(
+      body.videoIds.map((id) => getUserVideoSetting(session.user.id, id))
     );
 
     const skipped: BulkImportResponse['skipped'] = [];
     const videoIdsToImport: string[] = [];
 
     body.videoIds.forEach((id, index) => {
-      if (existingVideos[index]) {
+      if (existingSettings[index]) {
         skipped.push({
           videoId: id,
           reason: 'Already exists',
@@ -83,26 +88,33 @@ export async function POST(request: NextRequest) {
     // DynamoDB に保存（Promise.allSettled でエラーハンドリング）
     const success: BulkImportResponse['success'] = [];
     const dbFailed: BulkImportResponse['failed'] = [];
-    const now = new Date().toISOString();
 
     const saveResults = await Promise.allSettled(
       videoInfos.map(async (info) => {
-        await createVideo(session.user.id, {
+        // 1. 動画基本情報を保存（既存の場合はスキップ）
+        try {
+          await createVideoBasicInfo({
+            videoId: info.videoId,
+            title: info.title,
+            thumbnailUrl: info.thumbnailUrl,
+            length: info.duration ? `${Math.floor(info.duration / 60)}:${String(info.duration % 60).padStart(2, '0')}` : '0:00',
+          });
+        } catch (error) {
+          // ConditionalCheckFailedException の場合は既に存在するのでOK
+          // その他のエラーは throw
+          if (error instanceof Error && !error.message.includes('ConditionalCheckFailed')) {
+            throw error;
+          }
+        }
+
+        // 2. ユーザー設定を作成
+        await upsertUserVideoSetting({
+          userId: session.user.id,
           videoId: info.videoId,
-          title: info.title,
-          description: info.description,
-          thumbnailUrl: info.thumbnailUrl,
-          duration: info.duration,
-          viewCount: info.viewCount,
-          commentCount: info.commentCount,
-          mylistCount: info.mylistCount,
-          uploadedAt: info.uploadedAt,
-          tags: info.tags,
           isFavorite: false,
           isSkip: false,
-          createdAt: now,
-          updatedAt: now,
         });
+
         return info;
       })
     );
