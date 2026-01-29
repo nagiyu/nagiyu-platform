@@ -216,15 +216,15 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
 
   describe('All Cookie Names - Environment Separation', () => {
     const cookieTypes = [
-      { base: '__Secure-next-auth.session-token', description: 'Session Token' },
-      { base: '__Secure-next-auth.callback-url', description: 'Callback URL' },
-      { base: '__Host-next-auth.csrf-token', description: 'CSRF Token' },
-      { base: '__Secure-next-auth.state', description: 'OAuth State' },
+      { base: '__Secure-authjs.session-token', description: 'Session Token' },
+      { base: '__Secure-authjs.callback-url', description: 'Callback URL' },
+      { base: '__Host-authjs.csrf-token', description: 'CSRF Token' },
+      { base: '__Secure-authjs.state', description: 'OAuth State' },
       {
-        base: '__Secure-next-auth.pkce.code_verifier',
+        base: '__Secure-authjs.pkce.code_verifier',
         description: 'PKCE Code Verifier',
       },
-      { base: '__Secure-next-auth.nonce', description: 'Nonce' },
+      { base: '__Secure-authjs.nonce', description: 'Nonce' },
     ];
 
     cookieTypes.forEach(({ base, description }) => {

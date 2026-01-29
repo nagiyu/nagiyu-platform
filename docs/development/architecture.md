@@ -540,16 +540,16 @@ NextAuth v5 (Auth.js) は以下の複数のクッキーを使用するため、*
 | dev環境      | `dev`         | 標準名 + `.dev` サフィックス | ルートドメイン     | `true`     |
 | prod環境     | `prod`        | 標準名                       | ルートドメイン     | `true`     |
 
-**クッキー名の例**:
+**クッキー名の例** (NextAuth v5 では `authjs.*` がデフォルトのプレフィックス):
 
-| クッキー種別          | prod環境                                | dev環境                                      |
-| --------------------- | --------------------------------------- | -------------------------------------------- |
-| セッショントークン    | `__Secure-next-auth.session-token`      | `__Secure-next-auth.session-token.dev`       |
-| コールバックURL       | `__Secure-next-auth.callback-url`       | `__Secure-next-auth.callback-url.dev`        |
-| CSRFトークン          | `__Host-next-auth.csrf-token`           | `__Host-next-auth.csrf-token.dev`            |
-| OAuthステート         | `__Secure-next-auth.state`              | `__Secure-next-auth.state.dev`               |
-| PKCEコードベリファイア| `__Secure-next-auth.pkce.code_verifier` | `__Secure-next-auth.pkce.code_verifier.dev`  |
-| Nonce                 | `__Secure-next-auth.nonce`              | `__Secure-next-auth.nonce.dev`               |
+| クッキー種別          | prod環境                            | dev環境                                  |
+| --------------------- | ----------------------------------- | ---------------------------------------- |
+| セッショントークン    | `__Secure-authjs.session-token`     | `__Secure-authjs.session-token.dev`      |
+| コールバックURL       | `__Secure-authjs.callback-url`      | `__Secure-authjs.callback-url.dev`       |
+| CSRFトークン          | `__Host-authjs.csrf-token`          | `__Host-authjs.csrf-token.dev`           |
+| OAuthステート         | `__Secure-authjs.state`             | `__Secure-authjs.state.dev`              |
+| PKCEコードベリファイア| `__Secure-authjs.pkce.code_verifier`| `__Secure-authjs.pkce.code_verifier.dev` |
+| Nonce                 | `__Secure-authjs.nonce`             | `__Secure-authjs.nonce.dev`              |
 
 **設計の狙い**:
 
