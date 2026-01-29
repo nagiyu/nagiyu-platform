@@ -496,9 +496,9 @@ APIエラーハンドリングは以下の3つの層で構成される：
 
 **責務**:
 
--   リトライ可能なエラーの判定
--   エクスポネンシャルバックオフによる遅延制御
--   タイムアウト制御
+- リトライ可能なエラーの判定
+- エクスポネンシャルバックオフによる遅延制御
+- タイムアウト制御
 
 **実装パッケージ**: `@nagiyu/common` (`client.ts`)
 
@@ -508,10 +508,10 @@ APIエラーハンドリングは以下の3つの層で構成される：
 
 **責務**:
 
--   HTTPステータスコードの解釈
--   エラーコードから日本語メッセージへのマッピング
--   エラー種別の判定（error / warning / info）
--   リトライ可能性の判定
+- HTTPステータスコードの解釈
+- エラーコードから日本語メッセージへのマッピング
+- エラー種別の判定（error / warning / info）
+- リトライ可能性の判定
 
 **実装パッケージ**: `@nagiyu/common` (`error-handler.ts`)
 
@@ -521,10 +521,10 @@ APIエラーハンドリングは以下の3つの層で構成される：
 
 **責務**:
 
--   トースト通知の表示
--   エラーメッセージの表示
--   リトライボタンの提供
--   ローディング状態の管理
+- トースト通知の表示
+- エラーメッセージの表示
+- リトライボタンの提供
+- ローディング状態の管理
 
 **実装パッケージ**: `@nagiyu/react` (`useAPIRequest.ts`)
 
@@ -540,10 +540,10 @@ APIエラーハンドリングは以下の3つの層で構成される：
 delay = min(initialDelay * (backoffMultiplier ^ attempt), maxDelay) + jitter
 ```
 
--   **initialDelay**: 初期遅延時間（デフォルト: 1000ms）
--   **backoffMultiplier**: バックオフ乗数（デフォルト: 2）
--   **maxDelay**: 最大遅延時間（デフォルト: 10000ms）
--   **jitter**: ランダムなゆらぎ（遅延時間の±25%）
+- **initialDelay**: 初期遅延時間（デフォルト: 1000ms）
+- **backoffMultiplier**: バックオフ乗数（デフォルト: 2）
+- **maxDelay**: 最大遅延時間（デフォルト: 10000ms）
+- **jitter**: ランダムなゆらぎ（遅延時間の±25%）
 
 #### リトライスケジュール例
 
@@ -569,15 +569,15 @@ delay = min(initialDelay * (backoffMultiplier ^ attempt), maxDelay) + jitter
 
 **HTTPステータスコードベース**:
 
--   **0**: ネットワークエラー（fetchが失敗）
--   **408**: Request Timeout（リクエストタイムアウト）
--   **429**: Too Many Requests（レート制限）
--   **500番台**: サーバーエラー（Internal Server Error, Bad Gateway等）
+- **0**: ネットワークエラー（fetchが失敗）
+- **408**: Request Timeout（リクエストタイムアウト）
+- **429**: Too Many Requests（レート制限）
+- **500番台**: サーバーエラー（Internal Server Error, Bad Gateway等）
 
 **エラー種別ベース**:
 
--   **TypeError** with "fetch": ネットワーク接続の失敗
--   **AbortError**: タイムアウトエラー
+- **TypeError** with "fetch": ネットワーク接続の失敗
+- **AbortError**: タイムアウトエラー
 
 #### リトライしないエラー（shouldRetry: false）
 
@@ -585,7 +585,7 @@ delay = min(initialDelay * (backoffMultiplier ^ attempt), maxDelay) + jitter
 
 **HTTPステータスコードベース**:
 
--   **400番台**（408, 429を除く）: クライアントエラー
+- **400番台**（408, 429を除く）: クライアントエラー
     -   401 Unauthorized（認証エラー）
     -   403 Forbidden（権限エラー）
     -   404 Not Found（リソース未発見）
@@ -593,9 +593,9 @@ delay = min(initialDelay * (backoffMultiplier ^ attempt), maxDelay) + jitter
 
 **理由**:
 
--   クライアントエラーは、リクエスト内容に問題があるため、リトライしても成功しない
--   認証エラーや権限エラーは、ユーザーの操作が必要
--   リソース未発見は、リトライしても存在しない
+- クライアントエラーは、リクエスト内容に問題があるため、リトライしても成功しない
+- 認証エラーや権限エラーは、ユーザーの操作が必要
+- リソース未発見は、リトライしても存在しない
 
 ### エラーメッセージの多段階マッピング
 
@@ -658,11 +658,11 @@ APIレスポンス { error: "TICKER_NOT_FOUND", message: "Ticker not found" }
 
 **提供機能**:
 
--   APIリクエストのコア処理（`apiRequest()`, `get()`, `post()`, `put()`, `del()`）
--   リトライ機能とエクスポネンシャルバックオフ
--   タイムアウト制御
--   エラーハンドリングとメッセージ変換
--   共通エラーメッセージの定義
+- APIリクエストのコア処理（`apiRequest()`, `get()`, `post()`, `put()`, `del()`）
+- リトライ機能とエクスポネンシャルバックオフ
+- タイムアウト制御
+- エラーハンドリングとメッセージ変換
+- 共通エラーメッセージの定義
 
 **依存関係**: なし（完全フレームワーク非依存）
 
@@ -674,10 +674,10 @@ APIレスポンス { error: "TICKER_NOT_FOUND", message: "Ticker not found" }
 
 **提供機能**:
 
--   React Hookによる状態管理（`useAPIRequest()`）
--   依存注入パターン（`onSuccess`, `onError` コールバック）
--   リトライ機能の提供
--   状態リセット機能
+- React Hookによる状態管理（`useAPIRequest()`）
+- 依存注入パターン（`onSuccess`, `onError` コールバック）
+- リトライ機能の提供
+- 状態リセット機能
 
 **依存関係**: React, `@nagiyu/common`
 
@@ -757,25 +757,25 @@ function MyComponent() {
 
 #### 信頼性の向上
 
--   一時的なネットワークエラーやサーバーエラーに対して自動リトライ
--   エクスポネンシャルバックオフによる負荷分散
+- 一時的なネットワークエラーやサーバーエラーに対して自動リトライ
+- エクスポネンシャルバックオフによる負荷分散
 
 #### ユーザー体験の向上
 
--   日本語による分かりやすいエラーメッセージ
--   リトライ可能なエラーに対する明示的なUIフィードバック
--   一貫したエラー表示
+- 日本語による分かりやすいエラーメッセージ
+- リトライ可能なエラーに対する明示的なUIフィードバック
+- 一貫したエラー表示
 
 #### 保守性の向上
 
--   エラーハンドリングロジックの一元化
--   サービス固有メッセージによる柔軟性
--   テスト容易性（各層を独立してテスト可能）
+- エラーハンドリングロジックの一元化
+- サービス固有メッセージによる柔軟性
+- テスト容易性（各層を独立してテスト可能）
 
 ### 参考
 
--   [api-client-guide.md](./api-client-guide.md): API クライアント利用ガイド
--   [shared-libraries.md](./shared-libraries.md): 共通ライブラリ設計
+- [api-client-guide.md](./api-client-guide.md): API クライアント利用ガイド
+- [shared-libraries.md](./shared-libraries.md): 共通ライブラリ設計
 
 ### コードフォーマット
 
