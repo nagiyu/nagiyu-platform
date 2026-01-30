@@ -68,7 +68,11 @@ interface ErrorResponse {
 /**
  * Alert エンティティをレスポンス形式に変換
  */
-function mapAlertToResponse(alert: AlertEntity, tickerSymbol: string, tickerName: string): AlertResponse {
+function mapAlertToResponse(
+  alert: AlertEntity,
+  tickerSymbol: string,
+  tickerName: string
+): AlertResponse {
   const response: AlertResponse = {
     alertId: alert.AlertID,
     tickerId: alert.TickerID,
@@ -81,12 +85,12 @@ function mapAlertToResponse(alert: AlertEntity, tickerSymbol: string, tickerName
     createdAt: new Date(alert.CreatedAt).toISOString(),
     updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
-  
+
   // LogicalOperator が存在する場合のみ追加
   if (alert.LogicalOperator) {
     response.logicalOperator = alert.LogicalOperator;
   }
-  
+
   return response;
 }
 
