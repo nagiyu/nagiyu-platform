@@ -141,11 +141,14 @@ export function createAlertNotificationPayload(
       throw new Error('複数条件のアラートには gte と lte が必要です');
     }
 
-    if (alert.LogicalOperator === 'AND') {
+    // LogicalOperator が未指定の場合はデフォルトで 'AND' とする（evaluateAlert の動作と一致）
+    const logicalOp = alert.LogicalOperator || 'AND';
+
+    if (logicalOp === 'AND') {
       // 範囲内アラート
       body = `現在価格 $${currentPrice.toFixed(2)} が範囲 $${gteCondition.value.toFixed(2)}〜$${lteCondition.value.toFixed(2)} 内になりました`;
       targetPrice = gteCondition.value; // 下限を代表値とする
-    } else if (alert.LogicalOperator === 'OR') {
+    } else if (logicalOp === 'OR') {
       // 範囲外アラート
       body = `現在価格 $${currentPrice.toFixed(2)} が範囲外（$${lteCondition.value.toFixed(2)} 以下 または $${gteCondition.value.toFixed(2)} 以上）になりました`;
       targetPrice = gteCondition.value; // 上限を代表値とする
