@@ -4,19 +4,13 @@ import {
   createVideoBasicInfo,
   getUserVideoSetting,
   upsertUserVideoSetting,
+  BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 interface BulkImportRequest {
   videoIds: string[];
-}
-
-interface BulkImportResponse {
-  success: number;
-  failed: number;
-  skipped: number;
-  total: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -124,6 +118,7 @@ export async function POST(request: NextRequest) {
       failed: apiFailed.length + dbFailedCount,
       skipped: skippedCount,
       total: body.videoIds.length,
+      failedDetails: apiFailed.length > 0 ? apiFailed : undefined,
     };
 
     return NextResponse.json(response);

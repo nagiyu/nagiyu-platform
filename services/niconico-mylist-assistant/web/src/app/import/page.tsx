@@ -12,7 +12,14 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
 
 interface ImportResult {
@@ -20,6 +27,10 @@ interface ImportResult {
   failed: number;
   skipped: number;
   total: number;
+  failedDetails?: Array<{
+    videoId: string;
+    error: string;
+  }>;
 }
 
 export default function ImportPage() {
@@ -148,6 +159,35 @@ export default function ImportPage() {
                   <Alert severity="error" sx={{ mb: 2 }}>
                     {result.failed} 件の動画のインポートに失敗しました
                   </Alert>
+                )}
+
+                {result.failedDetails && result.failedDetails.length > 0 && (
+                  <Accordion sx={{ mb: 2 }}>
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon />}
+                      aria-controls="failed-details-content"
+                      id="failed-details-header"
+                    >
+                      <Typography>失敗した動画の詳細を表示</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {result.failedDetails.map((item, index) => (
+                          <ListItem
+                            key={index}
+                            sx={{ flexDirection: 'column', alignItems: 'flex-start' }}
+                          >
+                            <ListItemText
+                              primary={`動画ID: ${item.videoId}`}
+                              secondary={`エラー: ${item.error}`}
+                              primaryTypographyProps={{ fontWeight: 'medium' }}
+                              secondaryTypographyProps={{ color: 'error' }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
                 )}
 
                 <Box sx={{ mt: 2 }}>
