@@ -170,7 +170,8 @@ export async function PUT(
       updates.Enabled = body.enabled;
     }
 
-    if (body.logicalOperator !== undefined) {
+    // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
+    if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
       updates.LogicalOperator = body.logicalOperator;
     }
 

@@ -129,6 +129,22 @@ export async function GET(
       );
     }
 
+    // lastKey のバリデーション（base64 形式であることを確認）
+    if (lastKeyParam) {
+      try {
+        // base64 デコードの検証（例外が発生すれば無効）
+        Buffer.from(lastKeyParam, 'base64').toString('utf-8');
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: 'lastKey の形式が不正です',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
