@@ -35,7 +35,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       alertId: entity.AlertID,
     });
 
-    return {
+    const item: DynamoDBItem = {
       PK: pk,
       SK: sk,
       Type: this.entityType,
@@ -57,6 +57,13 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
+
+    // LogicalOperator が存在する場合のみ追加
+    if (entity.LogicalOperator) {
+      item.LogicalOperator = entity.LogicalOperator;
+    }
+
+    return item;
   }
 
   /**
@@ -66,7 +73,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
    * @returns Alert Entity
    */
   public toEntity(item: DynamoDBItem): AlertEntity {
-    return {
+    const entity: AlertEntity = {
       AlertID: validateStringField(item.AlertID, 'AlertID'),
       UserID: validateStringField(item.UserID, 'UserID'),
       TickerID: validateStringField(item.TickerID, 'TickerID'),
@@ -87,6 +94,13 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
+
+    // LogicalOperator が存在する場合のみ追加
+    if (item.LogicalOperator === 'AND' || item.LogicalOperator === 'OR') {
+      entity.LogicalOperator = item.LogicalOperator;
+    }
+
+    return entity;
   }
 
   /**

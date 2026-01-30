@@ -38,6 +38,8 @@ export interface AlertEntity {
   Enabled: boolean;
   /** アラート条件リスト */
   ConditionList: AlertCondition[];
+  /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用。未指定の場合はデフォルトで 'AND' として扱われる */
+  LogicalOperator?: 'AND' | 'OR';
   /** Web Push サブスクリプションエンドポイント */
   SubscriptionEndpoint: string;
   /** Web Push 公開鍵 (p256dh) */
