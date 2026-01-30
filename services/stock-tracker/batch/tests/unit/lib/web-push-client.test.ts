@@ -297,6 +297,36 @@ describe('web-push-client', () => {
       );
     });
 
+    it('LogicalOperator が undefined の場合、デフォルトで AND として扱う', () => {
+      // Arrange
+      const alertWithoutOperator: Alert = {
+        ...mockAlert,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 110.0 },
+        ],
+        LogicalOperator: undefined,
+      };
+      const currentPrice = 105.0;
+
+      // Act
+      const payload = createAlertNotificationPayload(alertWithoutOperator, currentPrice);
+
+      // Assert
+      expect(payload).toEqual({
+        title: '売りアラート: NSDQ:AAPL',
+        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
+        icon: '/icon-192x192.png',
+        data: {
+          alertId: 'alert-1',
+          tickerId: 'NSDQ:AAPL',
+          mode: 'Sell',
+          currentPrice: 105.0,
+          targetPrice: 100.0,
+        },
+      });
+    });
+
     it('無効な LogicalOperator の場合はエラーをスローする', () => {
       // Arrange
       const invalidAlert: Alert = {
@@ -305,7 +335,7 @@ describe('web-push-client', () => {
           { field: 'price', operator: 'gte', value: 100.0 },
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
-        LogicalOperator: undefined,
+        LogicalOperator: 'INVALID' as 'AND' | 'OR',
       };
       const currentPrice = 105.0;
 
