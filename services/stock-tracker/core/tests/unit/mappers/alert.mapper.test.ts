@@ -149,7 +149,7 @@ describe('AlertMapper', () => {
       expect(item1.GSI2PK).not.toBe(item2.GSI2PK);
     });
 
-    it('LogicalOperator が指定されている場合、DynamoDBItem に含まれる', () => {
+    it('LogicalOperator が指定されている場合（AND）、DynamoDBItem に含まれる', () => {
       const entity: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -173,6 +173,32 @@ describe('AlertMapper', () => {
       const item = mapper.toItem(entity);
 
       expect(item.LogicalOperator).toBe('AND');
+    });
+
+    it('LogicalOperator が指定されている場合（OR）、DynamoDBItem に含まれる', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.LogicalOperator).toBe('OR');
     });
 
     it('LogicalOperator が未指定の場合、DynamoDBItem に含まれない', () => {
@@ -487,7 +513,7 @@ describe('AlertMapper', () => {
       expect(result).toEqual(original);
     });
 
-    it('LogicalOperator 付き Entity の往復変換', () => {
+    it('LogicalOperator 付き Entity の往復変換（AND）', () => {
       const original: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -501,6 +527,33 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'lte', value: 200.0 },
         ],
         LogicalOperator: 'AND',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
+    });
+
+    it('LogicalOperator 付き Entity の往復変換（OR）', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
         SubscriptionEndpoint: 'https://example.com/push',
         SubscriptionKeysP256dh: 'p256dh-key',
         SubscriptionKeysAuth: 'auth-secret',

@@ -69,6 +69,7 @@ export type UpdateAlertInput = Partial<
     | 'Frequency'
     | 'Enabled'
     | 'ConditionList'
+    | 'LogicalOperator'
     | 'SubscriptionEndpoint'
     | 'SubscriptionKeysP256dh'
     | 'SubscriptionKeysAuth'
