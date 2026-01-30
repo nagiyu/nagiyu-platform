@@ -210,6 +210,10 @@ export interface BulkImportResponse {
   failed: number;
   skipped: number;
   total: number;
+  failedDetails?: Array<{
+    videoId: string;
+    error: string;
+  }>;
 }
 
 /**
