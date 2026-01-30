@@ -28,12 +28,12 @@ test.describe('Privacy Policy Dialog', () => {
     const dialogTitle = dialog.getByText('プライバシーポリシー').first();
     await expect(dialogTitle).toBeVisible();
 
-    // First section (第1条「個人情報」) should be displayed
-    const firstSection = page.getByText('第1条（個人情報）');
+    // First section (第1条「広告の配信について」) should be displayed - AdSense related
+    const firstSection = page.getByText('第1条（広告の配信について）');
     await expect(firstSection).toBeVisible();
 
     // Content of first section should be visible
-    const firstSectionContent = page.getByText('「個人情報」とは，個人情報保護法にいう');
+    const firstSectionContent = page.getByText('当サイトは第三者配信の広告サービス');
     await expect(firstSectionContent).toBeVisible();
   });
 
@@ -67,8 +67,8 @@ test.describe('Privacy Policy Dialog', () => {
     // Verify that we scrolled (new position should be greater than initial)
     expect(newScrollTop).toBeGreaterThan(initialScrollTop);
 
-    // Verify that the last section (第10条「お問い合わせ窓口」) is now visible
-    const lastSection = page.getByText('第10条（お問い合わせ窓口）');
+    // Verify that the last section (第14条「お問い合わせ窓口」) is now visible - updated from 10 to 14 after adding AdSense sections
+    const lastSection = page.getByText('第14条（お問い合わせ窓口）');
     await expect(lastSection).toBeVisible();
   });
 

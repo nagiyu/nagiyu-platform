@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedTicker, CreatedExchange } from './utils/test-data-factory';
+import { TestDataFactory, CreatedTicker } from './utils/test-data-factory';
 
 /**
  * E2E-007: ティッカー管理フロー
@@ -344,7 +344,7 @@ test.describe('ティッカー管理', () => {
   });
 
   test.describe('権限チェック', () => {
-    test('stock-viewer ロールではアクセスが拒否される', async ({ page, context }) => {
+    test('stock-viewer ロールではアクセスが拒否される', async ({ page }) => {
       // Note: このテストは認証実装後に有効化
       // 現在は SKIP_AUTH_CHECK=true のため、実装されていない
       test.skip(process.env.SKIP_AUTH_CHECK === 'true', '認証スキップモードのためテストをスキップ');

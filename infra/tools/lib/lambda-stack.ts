@@ -35,7 +35,7 @@ export class LambdaStack extends LambdaStackBase {
         memorySize: 1024,
         timeout: 30,
         environment: {
-          NODE_ENV: 'production',
+          NODE_ENV: environment,
           APP_VERSION: appVersion,
         },
       },

@@ -31,8 +31,10 @@
 - [共通設定ファイル](./development/configs.md)
 - [テスト戦略](./development/testing.md)
 - [共通ライブラリ設計](./development/shared-libraries.md)
+- [バリデーション設計](./development/validation.md)
 - [サービステンプレート](./development/service-template.md)
 - [PWA設定ガイド](./development/pwa.md)
+- [データアクセス層](./development/data-access-layer.md) - DynamoDB Repository パターンの設計思想と実装ガイドライン
 
 ## サービス
 

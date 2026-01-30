@@ -12,7 +12,12 @@ export {
 } from './errors.js';
 
 // 型定義
-export type { DynamoDBItem, PaginatedResult, RepositoryConfig } from './types.js';
+export type {
+  DynamoDBItem,
+  PaginatedResult,
+  PaginationOptions,
+  RepositoryConfig,
+} from './types.js';
 
 // バリデーション関数
 export {
@@ -33,3 +38,13 @@ export {
 
 // 抽象基底クラス
 export { AbstractDynamoDBRepository } from './abstract-repository.js';
+
+// Mapper インターフェース
+export type { EntityMapper } from './mapper/entity-mapper.interface.js';
+
+// InMemory 実装
+export {
+  InMemorySingleTableStore,
+  type QueryCondition,
+  type AttributeQueryCondition,
+} from './in-memory/single-table-store.js';

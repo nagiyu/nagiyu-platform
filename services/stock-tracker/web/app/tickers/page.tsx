@@ -69,7 +69,6 @@ interface TickerFormData {
 
 export default function TickersPage() {
   // データ状態
-  const [tickers, setTickers] = useState<Ticker[]>([]);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [filteredTickers, setFilteredTickers] = useState<Ticker[]>([]);
 
@@ -148,7 +147,6 @@ export default function TickersPage() {
 
       const data = await response.json();
       const tickersList = data.tickers || [];
-      setTickers(tickersList);
       setFilteredTickers(tickersList);
     } catch (err) {
       console.error('Error fetching tickers:', err);

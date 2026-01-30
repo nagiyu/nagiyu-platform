@@ -4,17 +4,9 @@
  * リトライ機能とエラーハンドリングを統合したFetchラッパー
  */
 
-import { handleFetchError, extractErrorInfo, type ErrorInfo } from './error-handler';
-
-/**
- * リトライ設定
- */
-export interface RetryConfig {
-  maxRetries: number;
-  initialDelay: number;
-  maxDelay: number;
-  backoffMultiplier: number;
-}
+import { handleFetchError, extractErrorInfo } from './error-handler.js';
+import { APIError } from './types.js';
+import type { RetryConfig, APIRequestOptions } from './types.js';
 
 /**
  * デフォルトリトライ設定
@@ -27,31 +19,14 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 };
 
 /**
- * APIリクエストオプション
+ * デフォルトタイムアウト設定
  */
-export interface APIRequestOptions extends RequestInit {
-  retry?: Partial<RetryConfig>;
-  timeout?: number;
-}
-
-/**
- * APIエラー
- */
-export class APIError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly errorInfo: ErrorInfo,
-    message: string
-  ) {
-    super(message);
-    this.name = 'APIError';
-  }
-}
+const DEFAULT_TIMEOUT = 30000; // 30秒
 
 /**
  * エクスポネンシャルバックオフの遅延時間を計算
  */
-function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
+export function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
   const delay = Math.min(
     config.initialDelay * Math.pow(config.backoffMultiplier, attempt),
     config.maxDelay
@@ -64,18 +39,18 @@ function calculateBackoffDelay(attempt: number, config: RetryConfig): number {
 /**
  * 指定時間スリープ
  */
-function sleep(ms: number): Promise<void> {
+export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * タイムアウト付きfetch
  */
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   url: string,
   options: RequestInit & { timeout?: number }
 ): Promise<Response> {
-  const { timeout = 30000, ...fetchOptions } = options;
+  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -85,21 +60,21 @@ async function fetchWithTimeout(
       ...fetchOptions,
       signal: controller.signal,
     });
-    clearTimeout(timeoutId);
     return response;
-  } catch (error) {
+  } finally {
     clearTimeout(timeoutId);
-    throw error;
   }
 }
 
 /**
  * リトライ機能付きAPIリクエスト
+ *
+ * @template T - レスポンスデータの型（明示的に指定する必要があります）
+ * @param url - リクエストURL
+ * @param options - リクエストオプション
+ * @returns レスポンスデータ
  */
-export async function apiRequest<T = unknown>(
-  url: string,
-  options: APIRequestOptions = {}
-): Promise<T> {
+export async function apiRequest<T>(url: string, options: APIRequestOptions = {}): Promise<T> {
   const { retry, timeout, ...fetchOptions } = options;
   const retryConfig: RetryConfig = {
     ...DEFAULT_RETRY_CONFIG,
@@ -161,14 +136,17 @@ export async function apiRequest<T = unknown>(
     }
   }
 
-  // 理論上はここには到達しないが、型安全性のため
-  throw lastError || new Error('Unknown error occurred');
+  // このコードは理論上到達しないが、TypeScriptの型安全性のために存在
+  // すべてのリトライが完了した場合、ループ内でエラーがスローされる
+  throw lastError || new Error('Request failed after all retries');
 }
 
 /**
  * GETリクエスト
+ *
+ * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
-export async function get<T = unknown>(
+export async function get<T>(
   url: string,
   options: Omit<APIRequestOptions, 'method' | 'body'> = {}
 ): Promise<T> {
@@ -180,8 +158,10 @@ export async function get<T = unknown>(
 
 /**
  * POSTリクエスト
+ *
+ * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
-export async function post<T = unknown>(
+export async function post<T>(
   url: string,
   body: unknown,
   options: Omit<APIRequestOptions, 'method' | 'body'> = {}
@@ -199,8 +179,10 @@ export async function post<T = unknown>(
 
 /**
  * PUTリクエスト
+ *
+ * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
-export async function put<T = unknown>(
+export async function put<T>(
   url: string,
   body: unknown,
   options: Omit<APIRequestOptions, 'method' | 'body'> = {}
@@ -218,8 +200,10 @@ export async function put<T = unknown>(
 
 /**
  * DELETEリクエスト
+ *
+ * @template T - レスポンスデータの型（明示的に指定する必要があります）
  */
-export async function del<T = unknown>(
+export async function del<T>(
   url: string,
   options: Omit<APIRequestOptions, 'method' | 'body'> = {}
 ): Promise<T> {

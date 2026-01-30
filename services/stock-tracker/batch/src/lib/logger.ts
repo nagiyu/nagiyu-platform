@@ -25,28 +25,28 @@ export class Logger {
   /**
    * INFOレベルのログを出力
    */
-  info(message: string, context?: Record<string, unknown>): void {
+  public info(message: string, context?: Record<string, unknown>): void {
     this.log('INFO', message, context);
   }
 
   /**
    * WARNレベルのログを出力
    */
-  warn(message: string, context?: Record<string, unknown>): void {
+  public warn(message: string, context?: Record<string, unknown>): void {
     this.log('WARN', message, context);
   }
 
   /**
    * ERRORレベルのログを出力
    */
-  error(message: string, context?: Record<string, unknown>): void {
+  public error(message: string, context?: Record<string, unknown>): void {
     this.log('ERROR', message, context);
   }
 
   /**
    * DEBUGレベルのログを出力
    */
-  debug(message: string, context?: Record<string, unknown>): void {
+  public debug(message: string, context?: Record<string, unknown>): void {
     this.log('DEBUG', message, context);
   }
 

@@ -31,11 +31,6 @@ const ERROR_MESSAGES = {
   CREATE_ALERT_ERROR: 'アラートの登録に失敗しました',
 } as const;
 
-// 成功メッセージ定数
-const SUCCESS_MESSAGES = {
-  CREATE_SUCCESS: 'アラートを設定しました',
-} as const;
-
 // プロパティ型定義
 interface AlertSettingsModalProps {
   open: boolean;

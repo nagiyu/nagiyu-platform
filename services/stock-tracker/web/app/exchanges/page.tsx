@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -150,7 +150,7 @@ export default function ExchangesPage() {
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
 
   // 取引所一覧を取得
-  const fetchExchanges = async () => {
+  const fetchExchanges = useCallback(async () => {
     setLoading(true);
     setError('');
 
@@ -179,12 +179,11 @@ export default function ExchangesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchExchanges();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchExchanges]);
 
   // 新規作成モーダルを開く
   const handleCreateOpen = () => {

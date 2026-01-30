@@ -203,20 +203,64 @@ sequenceDiagram
 
 #### クッキー設定
 
+NextAuth v5 (Auth.js) は認証フロー全体で複数のクッキーを使用するため、**すべてのクッキー**を環境別に設定する必要があります：
+
 ```typescript
+const cookieOptions = {
+  httpOnly: true,     // XSS 対策
+  sameSite: 'lax',    // CSRF 対策
+  path: '/',
+  secure: !isDevelopment,  // ローカル開発環境以外では HTTPS のみ
+  // 全環境で .nagiyu.com を設定してSSO共有を実現
+  // ローカル開発環境のみ未設定（localhost専用）
+  domain: isDevelopment ? undefined : '.nagiyu.com',
+};
+
+const cookieSuffix = isProduction ? '' : isDevelopment ? '' : '.dev';
+
 cookies: {
+  // すべてのクッキーを環境別に分離
+  // NextAuth v5 では authjs.* がデフォルトのプレフィックス
   sessionToken: {
-    name: 'nagiyu-session',
-    options: {
-      httpOnly: true,     // XSS 対策
-      sameSite: 'lax',    // CSRF 対策
-      path: '/',
-      secure: true,       // HTTPS のみ
-      domain: '.nagiyu.com', // サブドメイン全体で共有
-    }
-  }
+    name: `__Secure-authjs.session-token${cookieSuffix}`,
+    options: cookieOptions,
+  },
+  callbackUrl: {
+    name: `__Secure-authjs.callback-url${cookieSuffix}`,
+    options: cookieOptions,
+  },
+  csrfToken: {
+    name: `__Host-authjs.csrf-token${cookieSuffix}`,
+    options: { ...cookieOptions, domain: undefined },
+  },
+  state: {
+    name: `__Secure-authjs.state${cookieSuffix}`,
+    options: cookieOptions,
+  },
+  pkceCodeVerifier: {
+    name: `__Secure-authjs.pkce.code_verifier${cookieSuffix}`,
+    options: cookieOptions,
+  },
+  nonce: {
+    name: `__Secure-authjs.nonce${cookieSuffix}`,
+    options: cookieOptions,
+  },
 }
 ```
+
+**重要な設計判断:**
+
+- **完全な環境分離**: **すべてのクッキー名**を環境別に変更することで分離
+  - **ローカル開発環境** (NODE_ENV=development): 標準名、`domain=undefined` (localhost専用)
+  - **dev 環境** (NODE_ENV=dev): `.dev` サフィックス付き、`domain=.nagiyu.com` (dev-*.nagiyu.com で SSO)
+  - **prod 環境** (NODE_ENV=prod): 標準名、`domain=.nagiyu.com` (*.nagiyu.com で SSO)
+
+- **SSO 機能**: dev 環境と prod 環境の両方で SSO を実現
+  - dev 環境: `dev-auth.nagiyu.com`, `dev-admin.nagiyu.com`, `dev-stock-tracker.nagiyu.com` などで SSO
+  - prod 環境: `auth.nagiyu.com`, `admin.nagiyu.com`, `tools.nagiyu.com` などで SSO
+  - **すべてのクッキー名**が異なるため、dev と prod で認証フロー全体が混同されない
+
+- **注意**: `sessionToken` だけを環境別に設定しても不十分です。`callbackUrl`、`csrfToken`、`state`、`pkceCodeVerifier`、`nonce` も環境別に設定しないと、これらのクッキーが環境間で混同され、認証フローが正常に動作しなくなります。
 
 ### 4.4 他サービスとの認証共有 (SSO)
 
@@ -246,15 +290,22 @@ sequenceDiagram
 #### SSO の仕組み
 
 **JWT Cookie 詳細:**
-- **Cookie 名**: `nagiyu-session`
-- **Domain**: `.nagiyu.com` (全サブドメインで共有)
+- **Cookie 名**:
+  - **ローカル開発環境** (NODE_ENV=development): `__Secure-next-auth.session-token` (localhost のみ)
+  - **dev 環境** (NODE_ENV=dev): `__Secure-next-auth.session-token.dev` (dev-*.nagiyu.com で SSO)
+  - **prod 環境** (NODE_ENV=prod): `__Secure-next-auth.session-token` (*.nagiyu.com で SSO)
+- **Domain**:
+  - **ローカル開発環境**: 未設定（localhost のみ）
+  - **dev 環境**: `.nagiyu.com`（dev-auth, dev-admin, dev-stock-tracker などで SSO 共有）
+  - **prod 環境**: `.nagiyu.com`（auth, admin, tools などで SSO 共有）
 - **属性**: `HttpOnly; Secure; SameSite=Lax`
 - **有効期限**: 30日
 
 **メリット:**
-- ✓ 一度のログインで全サービスにアクセス可能
+- ✓ 一度のログインで全サービスにアクセス可能（dev 環境、prod 環境それぞれで）
 - ✓ 各サービスは独立して JWT を検証（Auth Service への問い合わせ不要）
 - ✓ 認証ロジックが Auth Service に集約され保守性向上
+- ✓ クッキー名が異なるため、dev 環境と prod 環境でクッキーが混同されない（セキュリティ向上）
 
 #### シナリオ: admin.nagiyu.com へのアクセス
 

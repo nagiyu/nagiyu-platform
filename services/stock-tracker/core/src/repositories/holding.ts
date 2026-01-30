@@ -119,7 +119,7 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
    * @param lastKey - ページネーション用の最終キー
    * @returns ページネーション結果（保有株式の配列と次のページキー）
    */
-  async getByUserId(
+  public async getByUserId(
     userId: string,
     limit: number = 50,
     lastKey?: { PK: string; SK: string }
@@ -165,15 +165,15 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得（基底クラスのシグネチャ）
    */
-  async getById(key: { userId: string; tickerId: string }): Promise<Holding | null>;
+  public async getById(key: { userId: string; tickerId: string }): Promise<Holding | null>;
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得（互換性のある2パラメータ版）
    */
-  async getById(userId: string, tickerId: string): Promise<Holding | null>;
+  public async getById(userId: string, tickerId: string): Promise<Holding | null>;
   /**
    * ユーザーIDとティッカーIDで単一の保有株式を取得の実装
    */
-  async getById(
+  public async getById(
     keyOrUserId: { userId: string; tickerId: string } | string,
     tickerId?: string
   ): Promise<Holding | null> {
@@ -211,7 +211,7 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
    * @param holding - 保有株式データ（UserID, TickerID, ExchangeID, Quantity, AveragePrice, Currency）
    * @returns 作成された保有株式（CreatedAt, UpdatedAtを含む）
    */
-  async create(holding: Omit<Holding, 'CreatedAt' | 'UpdatedAt'>): Promise<Holding> {
+  public async create(holding: Omit<Holding, 'CreatedAt' | 'UpdatedAt'>): Promise<Holding> {
     try {
       return await super.create(holding);
     } catch (error) {
@@ -232,14 +232,14 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   /**
    * 保有株式を更新（基底クラスのシグネチャ）
    */
-  async update(
+  public async update(
     key: { userId: string; tickerId: string },
     updates: Partial<Holding>
   ): Promise<Holding>;
   /**
    * 保有株式を更新（互換性のある3パラメータ版）
    */
-  async update(
+  public async update(
     userId: string,
     tickerId: string,
     updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>>
@@ -247,7 +247,7 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   /**
    * 保有株式を更新の実装
    */
-  async update(
+  public async update(
     keyOrUserId: { userId: string; tickerId: string } | string,
     tickerIdOrUpdates?: string | Partial<Holding>,
     updates?: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>>
@@ -313,15 +313,15 @@ export class HoldingRepository extends AbstractDynamoDBRepository<
   /**
    * 保有株式を削除（基底クラスのシグネチャ）
    */
-  async delete(key: { userId: string; tickerId: string }): Promise<void>;
+  public async delete(key: { userId: string; tickerId: string }): Promise<void>;
   /**
    * 保有株式を削除（互換性のある2パラメータ版）
    */
-  async delete(userId: string, tickerId: string): Promise<void>;
+  public async delete(userId: string, tickerId: string): Promise<void>;
   /**
    * 保有株式を削除の実装
    */
-  async delete(
+  public async delete(
     keyOrUserId: { userId: string; tickerId: string } | string,
     tickerId?: string
   ): Promise<void> {
