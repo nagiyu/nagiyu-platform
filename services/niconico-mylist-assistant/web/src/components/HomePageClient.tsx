@@ -25,28 +25,13 @@ export default function HomePageClient({ userName, isAuthenticated }: HomePageCl
             <Typography variant="body1" gutterBottom>
               ようこそ、{userName} さん
             </Typography>
-            <Button
-              href="/register"
-              variant="contained"
-              color="primary"
-              sx={{ mt: 2, mr: 2 }}
-            >
+            <Button href="/register" variant="contained" color="primary" sx={{ mt: 2, mr: 2 }}>
               マイリスト登録
             </Button>
-            <Button
-              href="/import"
-              variant="outlined"
-              color="primary"
-              sx={{ mt: 2, mr: 2 }}
-            >
+            <Button href="/import" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
               動画インポート
             </Button>
-            <Button
-              href="/mylist"
-              variant="outlined"
-              color="primary"
-              sx={{ mt: 2 }}
-            >
+            <Button href="/mylist" variant="outlined" color="primary" sx={{ mt: 2 }}>
               動画管理
             </Button>
           </Box>
