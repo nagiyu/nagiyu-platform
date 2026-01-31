@@ -304,7 +304,11 @@ describe('minute batch handler', () => {
   describe('正常系: 空のアラートリスト', () => {
     it('アラートが0件の場合、正常に完了する', async () => {
       // Arrange
-      mockAlertRepo.getByFrequency.mockResolvedValue([]);
+      mockAlertRepo.getByFrequency.mockResolvedValue({
+        items: [],
+        nextCursor: undefined,
+        count: 0,
+      });
 
       // Act
       const response = await handler(mockEvent);
@@ -476,7 +480,11 @@ describe('minute batch handler', () => {
         UpdatedAt: Date.now(),
       };
 
-      mockAlertRepo.getByFrequency.mockResolvedValue([mockAlert1, mockAlert2]);
+      mockAlertRepo.getByFrequency.mockResolvedValue({
+        items: [mockAlert1, mockAlert2],
+        nextCursor: undefined,
+        count: 2,
+      });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
 
