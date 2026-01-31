@@ -1,5 +1,7 @@
-import { Box, Container, Paper, Typography } from '@mui/material';
-import { SignInButton } from '@/components/signin-button';
+import { signIn, auth } from '@nagiyu/auth-core';
+import { Box, Button, Container, Paper, Typography } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
+import { redirect } from 'next/navigation';
 
 interface SignInPageProps {
   searchParams: Promise<{ callbackUrl?: string }>;
@@ -8,6 +10,12 @@ interface SignInPageProps {
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
   const callbackUrl = params.callbackUrl || '/dashboard';
+
+  // 既に認証済みの場合は callbackUrl にリダイレクト
+  const session = await auth();
+  if (session) {
+    redirect(callbackUrl);
+  }
 
   return (
     <Container maxWidth="sm">
@@ -33,7 +41,24 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
             nagiyu プラットフォームにサインイン
           </Typography>
-          <SignInButton callbackUrl={callbackUrl} />
+          <form
+            action={async () => {
+              'use server';
+              await signIn('google', {
+                redirectTo: callbackUrl,
+              });
+            }}
+          >
+            <Button
+              type="submit"
+              variant="contained"
+              size="large"
+              startIcon={<GoogleIcon />}
+              fullWidth
+            >
+              Google でサインイン
+            </Button>
+          </form>
         </Paper>
       </Box>
     </Container>
