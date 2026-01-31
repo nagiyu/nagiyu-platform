@@ -16,7 +16,7 @@ export interface BatchRuntimePolicyProps {
   dynamoTableArn: string;
 
   /**
-   * CloudWatch Logs ログ グループ名
+   * CloudWatch Logs ロググループ名
    */
   logGroupName: string;
 
