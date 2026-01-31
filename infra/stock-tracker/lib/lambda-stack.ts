@@ -11,6 +11,7 @@ import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  appVersion: string;
   webEcrRepositoryName: string;
   batchEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
@@ -39,6 +40,7 @@ export class LambdaStack extends cdk.Stack {
 
     const {
       environment,
+      appVersion,
       webEcrRepositoryName,
       batchEcrRepositoryName,
       dynamoTable,
@@ -96,6 +98,7 @@ export class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         NODE_ENV: environment,
+        APP_VERSION: appVersion,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
         VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),

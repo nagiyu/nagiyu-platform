@@ -83,10 +83,19 @@ jobs:
 
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/stock-tracker/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -127,7 +136,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Build and tag with commit SHA
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/web/Dockerfile .
+          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
+            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           # Also tag as latest
@@ -239,6 +249,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          APP_VERSION: ${{ needs.build-web.outputs.app-version }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
@@ -370,14 +381,11 @@ jobs:
             --output text \
             --region "${{ env.AWS_REGION }}")
 
-          # Get Web application version
-          WEB_VERSION=$(node -p "require('./services/stock-tracker/web/package.json').version")
-
           echo ""
           echo "=== Deployment Summary ===" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
-          echo "- **App Version**: $WEB_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- **App Version**: ${{ needs.build-web.outputs.app-version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Web Image**: \`${{ needs.build-web.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Batch Image**: \`${{ needs.build-batch.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **CloudFront Domain**: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
