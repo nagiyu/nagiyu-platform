@@ -7,9 +7,34 @@ interface SignInPageProps {
   searchParams: Promise<{ callbackUrl?: string }>;
 }
 
+/**
+ * callbackUrl を検証し、安全な URL のみを許可する
+ * NextAuth の redirect callback と同じロジックを使用
+ */
+function validateCallbackUrl(callbackUrl: string, baseUrl: string): string {
+  // 同じドメインへのリダイレクトを許可
+  if (callbackUrl.startsWith(baseUrl)) {
+    return callbackUrl;
+  }
+  // 相対パスを許可
+  if (callbackUrl.startsWith('/')) {
+    return callbackUrl;
+  }
+  // プラットフォーム内のサービス (*.nagiyu.com) へのリダイレクトを許可
+  if (callbackUrl.match(/^https?:\/\/[^/]*\.nagiyu\.com/)) {
+    return callbackUrl;
+  }
+  // 外部 URL は拒否して baseUrl にフォールバック
+  return '/dashboard';
+}
+
 export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
-  const callbackUrl = params.callbackUrl || '/dashboard';
+  const rawCallbackUrl = params.callbackUrl || '/dashboard';
+  
+  // callbackUrl を検証
+  const baseUrl = process.env.NEXTAUTH_URL || 'https://dev-auth.nagiyu.com';
+  const callbackUrl = validateCallbackUrl(rawCallbackUrl, baseUrl);
 
   // 既に認証済みの場合は callbackUrl にリダイレクト
   const session = await auth();
