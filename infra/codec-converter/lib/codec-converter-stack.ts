@@ -16,8 +16,12 @@ import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
 import { DevUser } from './users/dev-user';
 
+export interface CodecConverterStackProps extends cdk.StackProps {
+  appVersion?: string;
+}
+
 export class CodecConverterStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps & { appVersion?: string }) {
+  constructor(scope: Construct, id: string, props?: CodecConverterStackProps) {
     super(scope, id, props);
 
     // Environment name (default to 'dev')
