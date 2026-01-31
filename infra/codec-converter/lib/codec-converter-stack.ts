@@ -17,11 +17,12 @@ import { BatchJobRole } from './roles/batch-job-role';
 import { DevUser } from './users/dev-user';
 
 export class CodecConverterStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps & { appVersion?: string }) {
     super(scope, id, props);
 
     // Environment name (default to 'dev')
     const envName = this.node.tryGetContext('env') || 'dev';
+    const appVersion = props?.appVersion || '1.0.0';
 
     // CORS allowed origin (configurable per environment)
     const defaultOrigin =
@@ -285,6 +286,7 @@ export class CodecConverterStack extends cdk.Stack {
         role: lambdaExecutionRole,
         logGroup: lambdaLogGroup,
         environment: {
+          APP_VERSION: appVersion,
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
           BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
