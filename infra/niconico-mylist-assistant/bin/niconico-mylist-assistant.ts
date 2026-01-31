@@ -61,10 +61,14 @@ batchStack.addDependency(dynamoStack);
 batchStack.addDependency(batchEcrStack);
 
 // 5. Lambda スタックを作成
+// NextAuth Secret（Auth サービスから取得、未指定の場合はプレースホルダー）
+const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
+
 const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
   environment: env,
   webEcrRepositoryName: webEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
+  nextAuthSecret,
   env: stackEnv,
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });

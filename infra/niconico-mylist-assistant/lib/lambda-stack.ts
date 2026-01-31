@@ -11,6 +11,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
   webEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
+  nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
 /**
@@ -28,7 +29,11 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment, webEcrRepositoryName, dynamoTable } = props;
+    const { environment, webEcrRepositoryName, dynamoTable, nextAuthSecret } = props;
+
+    // Auth URL configuration
+    const authUrl = environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
+    const appUrl = environment === 'prod' ? 'https://niconico-mylist-assistant.nagiyu.com' : 'https://dev-niconico-mylist-assistant.nagiyu.com';
 
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
@@ -70,6 +75,10 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         NODE_ENV: 'production',
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
+        AUTH_URL: authUrl,
+        NEXT_PUBLIC_AUTH_URL: authUrl,
+        APP_URL: appUrl,
+        AUTH_SECRET: nextAuthSecret,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日

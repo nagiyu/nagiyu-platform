@@ -194,16 +194,21 @@ docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/niconico-mylist-ass
 
 ### 3.6 アプリケーションリソースのデプロイ
 
+**注意**: Lambda など認証を必要とするリソースのデプロイ時には、`nextAuthSecret` コンテキストパラメータを指定する必要があります。Auth サービスで使用している AUTH_SECRET と同じ値を使用してください。
+
 ```bash
 # 開発環境（全スタック）
+# nextAuthSecret は Auth サービスの AUTH_SECRET と同じ値を指定
 npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
     --context env=dev \
+    --context nextAuthSecret=<AUTH_SECRET> \
     --all \
     --require-approval never
 
 # 本番環境（全スタック）
 npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
     --context env=prod \
+    --context nextAuthSecret=<AUTH_SECRET> \
     --all \
     --require-approval never
 ```
@@ -441,6 +446,10 @@ aws lambda update-function-code \
 | `SHARED_SECRET_KEY`    | パスワード暗号化キー       | Secrets Manager → 環境変数 |
 | `BATCH_JOB_QUEUE`      | Batch Job Queue ARN        | CDK で自動設定    |
 | `BATCH_JOB_DEFINITION` | Batch Job Definition ARN   | CDK で自動設定    |
+| `AUTH_SECRET`          | NextAuth 認証シークレット  | CDK でコンテキストパラメータから設定 |
+| `AUTH_URL`             | Auth サービス URL          | CDK で自動設定（環境別） |
+| `NEXT_PUBLIC_AUTH_URL` | Auth サービス URL（公開用）| CDK で自動設定（環境別） |
+| `APP_URL`              | アプリケーション URL       | CDK で自動設定（環境別） |
 
 #### Batch 環境変数
 
