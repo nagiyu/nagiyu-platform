@@ -64,7 +64,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
    */
   protected mapToEntity(item: Record<string, unknown>): Alert {
     try {
-      const entity: Alert = {
+      return {
         AlertID: validateStringField(item.AlertID, 'AlertID'),
         UserID: validateStringField(item.UserID, 'UserID'),
         TickerID: validateStringField(item.TickerID, 'TickerID'),
@@ -91,13 +91,6 @@ export class AlertRepository extends AbstractDynamoDBRepository<
         CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
         UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
       };
-
-      // LogicalOperator が存在する場合のみ追加
-      if (item.LogicalOperator === 'AND' || item.LogicalOperator === 'OR') {
-        entity.LogicalOperator = item.LogicalOperator;
-      }
-
-      return entity;
     } catch (error) {
       // 共通ライブラリのエラーをAlertRepositoryのエラーに変換（後方互換性のため）
       if (error instanceof InvalidEntityDataError) {
@@ -116,7 +109,7 @@ export class AlertRepository extends AbstractDynamoDBRepository<
     alert: Omit<Alert, 'CreatedAt' | 'UpdatedAt'>
   ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
     const keys = this.buildKeys({ userId: alert.UserID, alertId: alert.AlertID });
-    const item: Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> = {
+    return {
       ...keys,
       Type: this.config.entityType,
       GSI1PK: alert.UserID,
@@ -135,13 +128,6 @@ export class AlertRepository extends AbstractDynamoDBRepository<
       SubscriptionKeysP256dh: alert.SubscriptionKeysP256dh,
       SubscriptionKeysAuth: alert.SubscriptionKeysAuth,
     };
-
-    // LogicalOperator が存在する場合のみ追加
-    if (alert.LogicalOperator) {
-      item.LogicalOperator = alert.LogicalOperator;
-    }
-
-    return item;
   }
 
   /**
