@@ -120,22 +120,17 @@ aws secretsmanager create-secret \
 ```
 infra/niconico-mylist-assistant/
 ├── bin/
-│   └── app.ts
+│   └── niconico-mylist-assistant.ts
 ├── lib/
 │   ├── dynamodb-stack.ts
-│   ├── secrets-stack.ts
-│   ├── ecr-stack.ts
+│   ├── ecr-stacks.ts
 │   ├── lambda-stack.ts
 │   ├── cloudfront-stack.ts
 │   ├── batch-stack.ts
-│   ├── policies/
-│   │   ├── lambda-policy.ts        # Lambda 用ポリシー
-│   │   └── batch-policy.ts         # Batch 用ポリシー
-│   ├── roles/
-│   │   ├── lambda-execution-role.ts
-│   │   └── batch-job-role.ts
-│   └── users/
-│       └── dev-user.ts             # 開発用 IAM ユーザー
+│   ├── iam-stack.ts              # IAM スタック（開発用ユーザー）
+│   └── policies/
+│       ├── web-runtime-policy.ts   # Web 用ランタイムポリシー
+│       └── batch-runtime-policy.ts # Batch 用ランタイムポリシー
 ├── package.json
 ├── cdk.json
 └── tsconfig.json
@@ -678,19 +673,31 @@ npm run test:e2e -w niconico-mylist-assistant-web
 
 ### 10.1 IAM 構成
 
-本サービスでは、Lambda 用と Batch 用でポリシーを分離し、開発用ユーザーには両方のポリシーをアタッチする設計を採用しています。
+本サービスでは、Web と Batch で実行ロールを分離し、それぞれに専用のマネージドポリシーを割り当てる設計を採用しています。開発用ユーザーには両方のポリシーがアタッチされます。
 
-| リソース             | 命名 (dev)                                        | 用途                                    |
-| -------------------- | ------------------------------------------------- | --------------------------------------- |
-| Lambda 用ポリシー    | `niconico-mylist-assistant-lambda-policy-dev`     | DynamoDB, Batch 投入等                  |
-| Batch 用ポリシー     | `niconico-mylist-assistant-batch-policy-dev`      | DynamoDB, Secrets Manager 等            |
-| Lambda 実行ロール    | `niconico-mylist-assistant-lambda-role-dev`       | Lambda 用ポリシーをアタッチ             |
-| Batch ジョブロール   | `niconico-mylist-assistant-batch-job-role-dev`    | Batch 用ポリシーをアタッチ              |
-| 開発用 IAM ユーザー  | `niconico-mylist-assistant-dev-dev`               | Lambda 用 + Batch 用の両ポリシーをアタッチ |
+#### マネージドポリシー
+
+| ポリシー名                                             | 用途                                     | 割り当て先                               |
+| ------------------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
+| `niconico-mylist-assistant-web-runtime-{env}`          | DynamoDB 読み書き権限                    | Web Lambda 実行ロール、開発用ユーザー    |
+| `niconico-mylist-assistant-batch-runtime-{env}`        | DynamoDB 読み書き、CloudWatch Logs 書き込み | Batch ジョブロール、開発用ユーザー       |
+
+#### 実行ロール
+
+| リソース                  | 命名 (dev)                                             | アタッチされるポリシー                         |
+| ------------------------- | ------------------------------------------------------ | ---------------------------------------------- |
+| Web Lambda 実行ロール     | `niconico-mylist-assistant-web-execution-role-dev`     | `AWSLambdaBasicExecutionRole`, Web Runtime Policy |
+| Batch ジョブロール        | `niconico-mylist-assistant-batch-job-role-dev`         | Batch Runtime Policy                           |
+| 開発用 IAM ユーザー       | `niconico-mylist-assistant-dev-dev`                    | Web Runtime Policy, Batch Runtime Policy       |
+
+**ポリシー分離の目的**:
+- Web と Batch で異なる権限セットを適用（最小権限の原則）
+- 開発用ユーザーは本番環境の Lambda/Batch と同じ権限でテスト可能
+- マネージドポリシーとして定義することで、複数のリソース間で権限を共有
 
 ### 10.2 開発用 IAM ユーザーのセットアップ
 
-1. CDK デプロイにより `niconico-mylist-assistant-dev-{env}` ユーザーが作成される
+1. CDK デプロイにより `niconico-mylist-assistant-dev-{env}` ユーザーが作成される（dev 環境のみ）
 2. AWS コンソールでアクセスキーを手動発行
 3. `aws configure --profile niconico-mylist-assistant-dev` で設定
 4. `export AWS_PROFILE=niconico-mylist-assistant-dev` で使用
