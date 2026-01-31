@@ -219,10 +219,10 @@ function AlertsPageContent() {
   // 編集モーダルを開く
   const handleOpenEditModal = (alert: AlertResponse) => {
     setSelectedAlert(alert);
-    
+
     // 単一条件か範囲指定かを判定
     const isRangeCondition = alert.conditions.length === 2 && alert.logicalOperator;
-    
+
     if (isRangeCondition) {
       // 範囲指定の場合
       setFormData({
@@ -242,7 +242,7 @@ function AlertsPageContent() {
         enabled: alert.enabled,
       });
     }
-    
+
     setFormErrors({});
     setEditModalOpen(true);
   };
@@ -609,9 +609,7 @@ function AlertsPageContent() {
                   disabled
                   InputProps={{ readOnly: true }}
                   helperText={
-                    selectedAlert.logicalOperator === 'AND'
-                      ? 'この価格以上'
-                      : 'この価格以下で通知'
+                    selectedAlert.logicalOperator === 'AND' ? 'この価格以上' : 'この価格以下で通知'
                   }
                 />
 
@@ -624,9 +622,7 @@ function AlertsPageContent() {
                   disabled
                   InputProps={{ readOnly: true }}
                   helperText={
-                    selectedAlert.logicalOperator === 'AND'
-                      ? 'この価格以下'
-                      : 'この価格以上で通知'
+                    selectedAlert.logicalOperator === 'AND' ? 'この価格以下' : 'この価格以上で通知'
                   }
                 />
 
@@ -697,7 +693,10 @@ function AlertsPageContent() {
                     // 単一条件
                     const condition = selectedAlert.conditions[0];
                     return `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`;
-                  } else if (selectedAlert.conditions.length === 2 && selectedAlert.logicalOperator) {
+                  } else if (
+                    selectedAlert.conditions.length === 2 &&
+                    selectedAlert.logicalOperator
+                  ) {
                     // 2条件（範囲指定）
                     const cond1 = selectedAlert.conditions[0];
                     const cond2 = selectedAlert.conditions[1];
