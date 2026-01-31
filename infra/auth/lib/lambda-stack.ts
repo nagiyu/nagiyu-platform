@@ -28,9 +28,7 @@ export class LambdaStack extends LambdaStackBase {
 
     // NEXTAUTH_URL の構築
     const nextAuthUrl =
-      environment === 'prod'
-        ? 'https://auth.nagiyu.com'
-        : `https://${environment}-auth.nagiyu.com`;
+      environment === 'prod' ? 'https://auth.nagiyu.com' : `https://${environment}-auth.nagiyu.com`;
 
     // DynamoDB アクセス権限の定義
     const additionalPolicyStatements = [

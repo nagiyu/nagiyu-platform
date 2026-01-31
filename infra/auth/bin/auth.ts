@@ -18,9 +18,7 @@ const appVersion = process.env.APP_VERSION || '1.0.0';
 // 許可された環境値のチェック
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
-  throw new Error(
-    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
-  );
+  throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
 
 const stackEnv = {
