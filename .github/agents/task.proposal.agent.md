@@ -292,7 +292,7 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 
 ## 参考リソース
 
-- [task.implement エージェント](./.github/agents/task.implement.agent.md) - 実装を担当するエージェント
-- [コーディング規約](../docs/development/rules.md) - 実装時の必須ルール
-- [ドキュメント方針](../docs/README.md) - プロジェクトの開発方針
-- [アーキテクチャ方針](../docs/development/architecture.md) - 設計の基本方針
+- [task.implement エージェント](./task.implement.agent.md) - 実装を担当するエージェント
+- [コーディング規約](../../docs/development/rules.md) - 実装時の必須ルール
+- [ドキュメント方針](../../docs/README.md) - プロジェクトの開発方針
+- [アーキテクチャ方針](../../docs/development/architecture.md) - 設計の基本方針
