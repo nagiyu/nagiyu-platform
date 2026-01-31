@@ -6,10 +6,11 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { getEcrRepositoryName, getDynamoDBTableName } from '@nagiyu/infra-common';
-import { BatchJobRole } from './roles/batch-job-role';
+import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface BatchStackProps extends cdk.StackProps {
   environment: string;
+  dynamoTableArn: string;
 }
 
 /**
@@ -21,18 +22,19 @@ export interface BatchStackProps extends cdk.StackProps {
  *
  * Milestone 5 で実際のマイリスト登録処理に対応する際は、
  * 以下の追加設定が必要になります:
- * - BatchJobRole に DynamoDB と Secrets Manager の権限追加
+ * - BatchRuntimePolicy に Secrets Manager の権限追加
  * - SHARED_SECRET_KEY 環境変数の追加（Secrets Manager参照）
  * - タイムアウトを1800秒（30分）に延長
  */
 export class BatchStack extends cdk.Stack {
   public readonly jobQueueArn: string;
   public readonly jobDefinitionArn: string;
+  public readonly batchRuntimePolicy: iam.IManagedPolicy;
 
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
 
-    const { environment } = props;
+    const { environment, dynamoTableArn } = props;
     const env = environment as 'dev' | 'prod';
 
     // ECR リポジトリの参照
@@ -93,9 +95,21 @@ export class BatchStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
-    // IAM Role for Batch Job (コンテナランタイム用、最小権限)
-    const batchJobRole = new BatchJobRole(this, 'BatchJobRole', {
-      logGroupArn: batchLogGroup.logGroupArn,
+    // マネージドポリシーの作成
+    // Batch Job と開発用 IAM ユーザーで共有
+    this.batchRuntimePolicy = new BatchRuntimePolicy(this, 'BatchRuntimePolicy', {
+      dynamoTableName: tableName,
+      dynamoTableArn,
+      logGroupName: batchLogGroup.logGroupName,
+      envName: environment,
+    });
+
+    // IAM Role for Batch Job (コンテナランタイム用)
+    const batchJobRole = new iam.Role(this, 'BatchJobRole', {
+      roleName: `niconico-mylist-assistant-batch-job-role-${environment}`,
+      assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+      description: 'Role for Batch job container runtime',
+      managedPolicies: [this.batchRuntimePolicy],
     });
 
     // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
@@ -205,6 +219,13 @@ export class BatchStack extends cdk.Stack {
       value: batchSecurityGroup.securityGroupId,
       description: 'Security group ID for Batch tasks',
       exportName: `${this.stackName}-SecurityGroupId`,
+    });
+
+    // Runtime Policy (IAM スタックで参照するため Export)
+    new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
+      value: this.batchRuntimePolicy.managedPolicyArn,
+      description: 'Batch Runtime Managed Policy ARN',
+      exportName: `${this.stackName}-BatchRuntimePolicyArn`,
     });
 
     // タグの追加

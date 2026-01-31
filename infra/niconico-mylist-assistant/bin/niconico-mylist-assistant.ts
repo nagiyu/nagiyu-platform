@@ -6,6 +6,7 @@ import { WebECRStack, BatchECRStack } from '../lib/ecr-stacks';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { BatchStack } from '../lib/batch-stack';
+import { IAMStack } from '../lib/iam-stack';
 
 const app = new cdk.App();
 
@@ -27,48 +28,62 @@ const stackEnv = {
 
 const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
 
-// DynamoDB スタックを作成
-new DynamoDBStack(app, `NagiyuNiconicoMylistAssistantDynamoDB${envSuffix}`, {
+// 1. DynamoDB スタックを作成
+const dynamoStack = new DynamoDBStack(app, `NagiyuNiconicoMylistAssistantDynamoDB${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Niconico Mylist Assistant DynamoDB - ${env} environment`,
 });
 
-// ECR スタックを作成（web用）
+// 2. ECR スタックを作成（web用）
 const webEcrStack = new WebECRStack(app, `NagiyuNiconicoMylistAssistantWebECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Niconico Mylist Assistant Web ECR - ${env} environment`,
 });
 
-// ECR スタックを作成（batch用）
+// 3. ECR スタックを作成（batch用）
 const batchEcrStack = new BatchECRStack(app, `NagiyuNiconicoMylistAssistantBatchECR${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Niconico Mylist Assistant Batch ECR - ${env} environment`,
 });
 
-// Batch スタックを作成
+// 4. Batch スタックを作成
 const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envSuffix}`, {
   environment: env,
+  dynamoTableArn: dynamoStack.table.tableArn,
   env: stackEnv,
   description: `Niconico Mylist Assistant Batch - ${env} environment`,
 });
-
-// Batch は Batch ECR に依存
+// Batch は DynamoDB と Batch ECR に依存
+batchStack.addDependency(dynamoStack);
 batchStack.addDependency(batchEcrStack);
 
-// Lambda スタックを作成
+// 5. Lambda スタックを作成
 const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
   environment: env,
+  webEcrRepositoryName: webEcrStack.repository.repositoryName,
+  dynamoTable: dynamoStack.table,
   env: stackEnv,
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });
-
-// Lambda は Web ECR に依存
+// Lambda は DynamoDB と Web ECR に依存
+lambdaStack.addDependency(dynamoStack);
 lambdaStack.addDependency(webEcrStack);
 
-// CloudFront スタックを作成
+// 6. IAM スタック（開発用 IAM ユーザー - dev 環境のみ）
+const iamStack = new IAMStack(app, `NagiyuNiconicoMylistAssistantIAM${envSuffix}`, {
+  environment: env,
+  webRuntimePolicy: lambdaStack.webRuntimePolicy,
+  batchRuntimePolicy: batchStack.batchRuntimePolicy,
+  env: stackEnv,
+  description: `Niconico Mylist Assistant IAM Resources - ${env} environment`,
+});
+iamStack.addDependency(lambdaStack);
+iamStack.addDependency(batchStack);
+
+// 7. CloudFront スタックを作成
 if (!lambdaStack.functionUrl) {
   throw new Error('Lambda function URL is not available');
 }
