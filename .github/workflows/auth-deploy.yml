@@ -110,10 +110,19 @@ jobs:
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       environment: ${{ needs.infrastructure.outputs.environment }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/auth/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -176,7 +185,8 @@ jobs:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/web/Dockerfile .
+          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
+            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           
           # Also tag as latest
@@ -234,6 +244,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
         run: |
           echo "Deploying full Auth infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
@@ -398,6 +409,9 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
           echo "## 🚀 Auth App Deployment Summary - $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "- **App Version**: ${{ needs.build.outputs.app-version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
