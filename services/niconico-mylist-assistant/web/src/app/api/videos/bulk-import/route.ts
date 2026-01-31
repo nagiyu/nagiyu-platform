@@ -6,7 +6,7 @@ import {
   upsertUserVideoSetting,
   BulkImportResponse,
 } from '@nagiyu/niconico-mylist-assistant-core';
-import { getSession } from '@/lib/auth';
+import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 interface BulkImportRequest {
