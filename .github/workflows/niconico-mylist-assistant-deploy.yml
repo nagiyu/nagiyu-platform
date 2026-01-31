@@ -270,7 +270,7 @@ jobs:
 
           # Update Lambda function code
           aws lambda update-function-code \
-            --function-name "nagiyu-niconico-mylist-assistant-web-$ENVIRONMENT" \
+            --function-name "niconico-mylist-assistant-web-$ENVIRONMENT" \
             --image-uri "$IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
@@ -281,7 +281,7 @@ jobs:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
           aws lambda wait function-updated \
-            --function-name "nagiyu-niconico-mylist-assistant-web-$ENVIRONMENT" \
+            --function-name "niconico-mylist-assistant-web-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "Lambda function update completed"
