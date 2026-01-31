@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import ThemeRegistry from '@/components/ThemeRegistry';
+import { NextAuthProvider } from '@/components/next-auth-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,7 +21,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        <NextAuthProvider>
+          <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        </NextAuthProvider>
       </body>
     </html>
   );

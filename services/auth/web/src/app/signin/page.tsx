@@ -1,6 +1,5 @@
-import { signIn } from '@nagiyu/auth-core';
-import { Box, Button, Container, Paper, Typography } from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google';
+import { Box, Container, Paper, Typography } from '@mui/material';
+import { SignInButton } from '@/components/signin-button';
 
 interface SignInPageProps {
   searchParams: Promise<{ callbackUrl?: string }>;
@@ -34,24 +33,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
             nagiyu プラットフォームにサインイン
           </Typography>
-          <form
-            action={async () => {
-              'use server';
-              await signIn('google', {
-                redirectTo: callbackUrl,
-              });
-            }}
-          >
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              startIcon={<GoogleIcon />}
-              fullWidth
-            >
-              Google でサインイン
-            </Button>
-          </form>
+          <SignInButton callbackUrl={callbackUrl} />
         </Paper>
       </Box>
     </Container>
