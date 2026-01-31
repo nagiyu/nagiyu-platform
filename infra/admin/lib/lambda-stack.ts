@@ -6,7 +6,7 @@ import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
-  appVersion: string;
+  appVersion?: string;
 }
 
 /**
@@ -17,7 +17,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    const { environment, appVersion, ...stackProps } = props;
+    const { environment, appVersion = '1.0.0', ...stackProps } = props;
 
     // CDK context から secrets を取得
     // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）

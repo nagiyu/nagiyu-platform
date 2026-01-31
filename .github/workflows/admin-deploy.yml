@@ -240,7 +240,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
-          APP_VERSION: ${{ needs.build.outputs.app-version }}
+          APP_VERSION: ${{ needs.build.outputs.app-version }}  # CDK reads this via process.env.APP_VERSION
         run: |
           echo "Deploying full Admin infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"
