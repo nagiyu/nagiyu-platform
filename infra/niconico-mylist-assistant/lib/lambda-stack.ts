@@ -31,6 +31,10 @@ export class LambdaStack extends cdk.Stack {
 
     const { environment, webEcrRepositoryName, dynamoTable, nextAuthSecret } = props;
 
+    // Auth URL configuration
+    const authUrl = environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
+    const appUrl = environment === 'prod' ? 'https://niconico-mylist-assistant.nagiyu.com' : 'https://dev-niconico-mylist-assistant.nagiyu.com';
+
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
       this,
@@ -71,9 +75,9 @@ export class LambdaStack extends cdk.Stack {
       environment: {
         NODE_ENV: 'production',
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
-        AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
-        NEXT_PUBLIC_AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
-        APP_URL: environment === 'prod' ? 'https://niconico-mylist-assistant.nagiyu.com' : 'https://dev-niconico-mylist-assistant.nagiyu.com',
+        AUTH_URL: authUrl,
+        NEXT_PUBLIC_AUTH_URL: authUrl,
+        APP_URL: appUrl,
         AUTH_SECRET: nextAuthSecret,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
