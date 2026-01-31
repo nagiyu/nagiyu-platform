@@ -6,6 +6,15 @@ import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  /**
+   * アプリケーションのバージョン番号
+   *
+   * Lambda環境変数 APP_VERSION に設定されます。
+   * 省略時のデフォルト値: '1.0.0'
+   * 
+   * GitHub Actionsでは package.json から自動的に抽出され、
+   * process.env.APP_VERSION 経由で渡されます。
+   */
   appVersion?: string;
 }
 
