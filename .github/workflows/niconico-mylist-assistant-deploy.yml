@@ -248,6 +248,17 @@ jobs:
             --context env=$ENVIRONMENT \
             --require-approval never
 
+      - name: CDK Deploy (IAM Stack)
+        env:
+          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
+        run: |
+          echo "Deploying IAM stack..."
+          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
+            "NagiyuNiconicoMylistAssistantIAM${STACK_SUFFIX}" \
+            --context env=$ENVIRONMENT \
+            --require-approval never
+
       - name: CDK Deploy (CloudFront Stack)
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
