@@ -5,11 +5,11 @@ import { Container, Typography, Box, Button } from '@mui/material';
 interface HomePageClientProps {
   userName?: string;
   isAuthenticated: boolean;
+  appUrl: string;
 }
 
-export default function HomePageClient({ userName, isAuthenticated }: HomePageClientProps) {
+export default function HomePageClient({ userName, isAuthenticated, appUrl }: HomePageClientProps) {
   const authUrl = process.env.NEXT_PUBLIC_AUTH_URL;
-  const appUrl = process.env.APP_URL || 'http://localhost:3000';
 
   return (
     <Container maxWidth="lg">
