@@ -9,7 +9,7 @@ interface HomePageClientProps {
 
 export default function HomePageClient({ userName, isAuthenticated }: HomePageClientProps) {
   const authUrl = process.env.NEXT_PUBLIC_AUTH_URL;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
 
   return (
     <Container maxWidth="lg">
