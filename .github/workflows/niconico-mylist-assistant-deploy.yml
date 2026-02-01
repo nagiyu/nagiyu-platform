@@ -249,12 +249,13 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
           STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           echo "Deploying Lambda stack..."
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}" \
             --context env=$ENVIRONMENT \
-            --context nextAuthSecret="$NEXTAUTH_SECRET" \
+            --context nextAuthSecret="$SECRET_VALUE" \
             --require-approval never
 
       - name: CDK Deploy (IAM Stack)
