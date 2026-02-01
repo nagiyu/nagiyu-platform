@@ -1,5 +1,5 @@
-// テスト実行前にTABLE_NAMEを設定
-process.env.TABLE_NAME = 'test-table';
+// テスト実行前にDYNAMODB_TABLE_NAMEを設定
+process.env.DYNAMODB_TABLE_NAME = 'test-table';
 
 import { mockClient } from 'aws-sdk-client-mock';
 import {
