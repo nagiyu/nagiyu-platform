@@ -33,7 +33,6 @@ const cookieSuffix = isProduction ? '' : isDevelopment ? '' : '.dev';
  */
 export const authConfig: NextAuthConfig = {
   providers: [],
-  secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
   session: {
     strategy: 'jwt',
