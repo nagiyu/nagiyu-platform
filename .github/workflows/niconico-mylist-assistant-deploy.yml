@@ -226,6 +226,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch NextAuth Secret from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.prepare-infrastructure.outputs.environment }}
+          parse-json-secrets: true
+
       - name: CDK Deploy (Batch Stack)
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
@@ -246,6 +254,7 @@ jobs:
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}" \
             --context env=$ENVIRONMENT \
+            --context nextAuthSecret="$NEXTAUTH_SECRET" \
             --require-approval never
 
       - name: CDK Deploy (IAM Stack)
