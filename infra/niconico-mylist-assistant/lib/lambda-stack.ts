@@ -73,7 +73,7 @@ export class LambdaStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.seconds(30),
       environment: {
-        NODE_ENV: 'production',
+        NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         AUTH_URL: authUrl,
         NEXT_PUBLIC_AUTH_URL: authUrl,
