@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/stock-tracker-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,6 +19,7 @@
     "@aws-sdk/lib-dynamodb": "^3.975.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
+    "@nagiyu/react": "*",
     "@nagiyu/stock-tracker-core": "*",
     "@nagiyu/ui": "*",
     "echarts": "^6.0.0",
