@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       createdAt: video.createdAt,
       userSetting: video.userSetting
         ? {
-            videoId: video.userSetting.videoId,
+            videoId: video.videoId,
             isFavorite: video.userSetting.isFavorite,
             isSkip: video.userSetting.isSkip,
             memo: video.userSetting.memo,

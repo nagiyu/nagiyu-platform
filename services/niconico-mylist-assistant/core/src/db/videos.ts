@@ -340,6 +340,18 @@ export async function deleteUserVideoSetting(userId: string, videoId: string): P
  * @param userId ユーザーID
  * @param options フィルタとページネーションのオプション
  * @returns 動画データの配列と総件数
+ * 
+ * @remarks
+ * 現在の実装では、フィルタリングとoffset/limit方式のページネーションを実現するため、
+ * DynamoDBから全ユーザー設定を取得してメモリ内で処理しています。
+ * これは以下の理由によります：
+ * - DynamoDBのQueryでは複数属性での効率的なフィルタリングができない
+ * - offset/limit方式のページネーションにはフィルタ後の総件数が必要
+ * 
+ * データ量が増加した場合は、以下の対策を検討してください：
+ * - GSI（Global Secondary Index）の追加
+ * - ElasticSearchなどの検索エンジンの導入
+ * - キャッシュ層の追加
  */
 export async function listVideosWithSettings(
   userId: string,
@@ -405,9 +417,7 @@ export async function listVideosWithSettings(
         userSetting: setting,
       };
     })
-    .filter(
-      (video): video is VideoBasicInfo & { userSetting: UserVideoSetting } => video !== null
-    );
+    .filter((video) => video !== null) as Array<VideoBasicInfo & { userSetting: UserVideoSetting }>;
 
   return {
     videos,
