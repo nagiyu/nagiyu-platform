@@ -252,11 +252,6 @@ jobs:
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           echo "Deploying Lambda stack..."
-          echo "DEBUG: SECRET_VALUE length: ${#SECRET_VALUE}"
-          if [ -z "$SECRET_VALUE" ] || [ "$SECRET_VALUE" = "PLACEHOLDER" ]; then
-            echo "ERROR: SECRET_VALUE is empty or PLACEHOLDER"
-            exit 1
-          fi
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}" \
             --context env="$ENVIRONMENT" \
