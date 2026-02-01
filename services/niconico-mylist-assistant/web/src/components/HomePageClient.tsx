@@ -41,7 +41,7 @@ export default function HomePageClient({ userName, isAuthenticated }: HomePageCl
               このサービスを利用するには、ログインが必要です。
             </Typography>
             <Button
-              href={`${authUrl}/signin?callbackUrl=${encodeURIComponent(appUrl)}/register`}
+              href={`${authUrl}/signin?callbackUrl=${encodeURIComponent(appUrl)}/import`}
               variant="contained"
               color="primary"
               size="large"
