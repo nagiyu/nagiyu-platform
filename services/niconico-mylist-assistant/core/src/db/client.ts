@@ -15,4 +15,4 @@ export const docClient = DynamoDBDocumentClient.from(client, {
   },
 });
 
-export const TABLE_NAME = process.env.TABLE_NAME!;
+export const TABLE_NAME = process.env.DYNAMODB_TABLE_NAME!;
