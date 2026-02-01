@@ -234,51 +234,23 @@ jobs:
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.prepare-infrastructure.outputs.environment }}
           parse-json-secrets: true
 
-      - name: CDK Deploy (Batch Stack)
-        env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
-          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
-        run: |
-          echo "Deploying Batch stack..."
-          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
-            "NagiyuNiconicoMylistAssistantBatch${STACK_SUFFIX}" \
-            --context env=$ENVIRONMENT \
-            --require-approval never
-
-      - name: CDK Deploy (Lambda Stack)
+      - name: Deploy Application Stacks
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
           STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
-          echo "Deploying Lambda stack..."
+          echo "Deploying application infrastructure (environment: $ENVIRONMENT)..."
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
-            "NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}" \
             --context env="$ENVIRONMENT" \
             --context nextAuthSecret="${SECRET_VALUE}" \
-            --require-approval never
+            --require-approval never \
+            --all \
+            --exclude "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
+            --exclude "NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}" \
+            --exclude "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}"
 
-      - name: CDK Deploy (IAM Stack)
-        env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
-          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
-        run: |
-          echo "Deploying IAM stack..."
-          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
-            "NagiyuNiconicoMylistAssistantIAM${STACK_SUFFIX}" \
-            --context env=$ENVIRONMENT \
-            --require-approval never
-
-      - name: CDK Deploy (CloudFront Stack)
-        env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
-          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
-        run: |
-          echo "Deploying CloudFront stack..."
-          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
-            "NagiyuNiconicoMylistAssistantCloudFront${STACK_SUFFIX}" \
-            --context env=$ENVIRONMENT \
-            --require-approval never
+          echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
 
       - name: Update Lambda function code with latest image
         env:
