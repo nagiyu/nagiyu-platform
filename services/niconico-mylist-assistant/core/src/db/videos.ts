@@ -334,3 +334,93 @@ export async function deleteUserVideoSetting(userId: string, videoId: string): P
     })
   );
 }
+
+/**
+ * ユーザーの動画一覧を取得（フィルタリング・ページネーション対応）
+ * @param userId ユーザーID
+ * @param options フィルタとページネーションのオプション
+ * @returns 動画データの配列と総件数
+ *
+ * @remarks
+ * 現在の実装では、フィルタリングとoffset/limit方式のページネーションを実現するため、
+ * DynamoDBから全ユーザー設定を取得してメモリ内で処理しています。
+ * これは以下の理由によります：
+ * - DynamoDBのQueryでは複数属性での効率的なフィルタリングができない
+ * - offset/limit方式のページネーションにはフィルタ後の総件数が必要
+ *
+ * データ量が増加した場合は、以下の対策を検討してください：
+ * - GSI（Global Secondary Index）の追加
+ * - ElasticSearchなどの検索エンジンの導入
+ * - キャッシュ層の追加
+ */
+export async function listVideosWithSettings(
+  userId: string,
+  options?: {
+    limit?: number;
+    offset?: number;
+    isFavorite?: boolean;
+    isSkip?: boolean;
+  }
+): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
+  const limit = options?.limit || 50;
+  const offset = options?.offset || 0;
+
+  // DynamoDBからユーザーの全設定を取得
+  // フィルタリングのため、全件取得が必要
+  const allSettings: UserVideoSetting[] = [];
+  let lastKey: Record<string, string> | undefined;
+
+  do {
+    const result = await listUserVideoSettings(userId, {
+      limit: 100,
+      lastEvaluatedKey: lastKey,
+    });
+    allSettings.push(...result.settings);
+    lastKey = result.lastEvaluatedKey;
+  } while (lastKey);
+
+  // フィルタリング適用
+  let filteredSettings = allSettings;
+
+  if (options?.isFavorite !== undefined) {
+    filteredSettings = filteredSettings.filter(
+      (setting) => setting.isFavorite === options.isFavorite
+    );
+  }
+
+  if (options?.isSkip !== undefined) {
+    filteredSettings = filteredSettings.filter((setting) => setting.isSkip === options.isSkip);
+  }
+
+  // 総件数
+  const total = filteredSettings.length;
+
+  // ページネーション適用
+  const paginatedSettings = filteredSettings.slice(offset, offset + limit);
+
+  // 動画基本情報を一括取得
+  const videoIds = paginatedSettings.map((setting) => setting.videoId);
+  const basicInfos = videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
+
+  // 動画基本情報とユーザー設定をマージ
+  const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
+
+  const videos = paginatedSettings
+    .map((setting) => {
+      const basicInfo = basicInfoMap.get(setting.videoId);
+      if (!basicInfo) {
+        // 動画基本情報が存在しない場合はスキップ
+        return null;
+      }
+      return {
+        ...basicInfo,
+        userSetting: setting,
+      };
+    })
+    .filter((video) => video !== null) as Array<VideoBasicInfo & { userSetting: UserVideoSetting }>;
+
+  return {
+    videos,
+    total,
+  };
+}

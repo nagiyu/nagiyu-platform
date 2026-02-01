@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  listUserVideoSettings,
-  batchGetVideoBasicInfo,
+  listVideosWithSettings,
+  type VideosListResponse,
+  type VideoData,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 /**
  * 動画一覧取得 API
  *
  * ユーザーの動画データを一覧で取得します。
- * ページネーションとフィルタリング（お気に入り、スキップ）に対応しています。
+ * ページネーション（offset/limit方式）とフィルタリング（お気に入り、スキップ）に対応しています。
  *
+ * @see api-spec.md Section 3.2.1
  * @param request - Next.js リクエストオブジェクト
  * @returns 動画一覧レスポンス
  */
@@ -19,103 +22,143 @@ export async function GET(request: NextRequest) {
     // 認証チェック
     const session = await getSession();
     if (!session?.user) {
-      return NextResponse.json({ error: '認証が必要です' }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: {
+            code: 'UNAUTHORIZED',
+            message: ERROR_MESSAGES.UNAUTHORIZED,
+          },
+        },
+        { status: 401 }
+      );
     }
 
     // クエリパラメータの取得
     const searchParams = request.nextUrl.searchParams;
-    const filter = searchParams.get('filter') as 'favorite' | 'skip' | 'all' | null;
     const limitParam = searchParams.get('limit');
-    const lastEvaluatedKey = searchParams.get('lastEvaluatedKey');
+    const offsetParam = searchParams.get('offset');
+    const isFavoriteParam = searchParams.get('isFavorite');
+    const isSkipParam = searchParams.get('isSkip');
 
-    // limit のパース（デフォルト: 100）
-    const limit = limitParam ? parseInt(limitParam, 10) : 100;
-
-    // バリデーション: filter
-    if (filter && !['favorite', 'skip', 'all'].includes(filter)) {
-      return NextResponse.json(
-        { error: 'filter パラメータは "favorite", "skip", または "all" である必要があります' },
-        { status: 400 }
-      );
-    }
+    // パラメータのパース
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+    const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
 
     // バリデーション: limit
     if (isNaN(limit) || limit < 1 || limit > 100) {
       return NextResponse.json(
-        { error: 'limit パラメータは 1 から 100 の間である必要があります' },
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'リクエストが不正です',
+            details: 'limit は 1 以上 100 以下である必要があります',
+          },
+        },
         { status: 400 }
       );
     }
 
-    // lastEvaluatedKey のデコード
-    let decodedLastEvaluatedKey: Record<string, string> | undefined;
-    if (lastEvaluatedKey) {
-      try {
-        decodedLastEvaluatedKey = JSON.parse(
-          Buffer.from(lastEvaluatedKey, 'base64').toString('utf-8')
-        );
-      } catch (error) {
-        console.error('lastEvaluatedKey のデコードに失敗しました:', error);
+    // バリデーション: offset
+    if (isNaN(offset) || offset < 0) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'リクエストが不正です',
+            details: 'offset は 0 以上である必要があります',
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    // フィルタパラメータのパース
+    let isFavorite: boolean | undefined;
+    if (isFavoriteParam !== null) {
+      if (isFavoriteParam === 'true') {
+        isFavorite = true;
+      } else if (isFavoriteParam === 'false') {
+        isFavorite = false;
+      } else {
         return NextResponse.json(
-          { error: 'lastEvaluatedKey パラメータが無効です' },
+          {
+            error: {
+              code: 'INVALID_REQUEST',
+              message: 'リクエストが不正です',
+              details: 'isFavorite は true または false である必要があります',
+            },
+          },
           { status: 400 }
         );
       }
     }
 
-    // ユーザー設定を取得
-    const { settings, lastEvaluatedKey: nextKey } = await listUserVideoSettings(session.user.id, {
-      limit,
-      lastEvaluatedKey: decodedLastEvaluatedKey,
-    });
-
-    // フィルタリング処理
-    let filteredSettings = settings;
-    if (filter === 'favorite') {
-      filteredSettings = settings.filter((s) => s.isFavorite);
-    } else if (filter === 'skip') {
-      filteredSettings = settings.filter((s) => s.isSkip);
+    let isSkip: boolean | undefined;
+    if (isSkipParam !== null) {
+      if (isSkipParam === 'true') {
+        isSkip = true;
+      } else if (isSkipParam === 'false') {
+        isSkip = false;
+      } else {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'INVALID_REQUEST',
+              message: 'リクエストが不正です',
+              details: 'isSkip は true または false である必要があります',
+            },
+          },
+          { status: 400 }
+        );
+      }
     }
 
-    // 動画基本情報を一括取得
-    const videoIds = filteredSettings.map((s) => s.videoId);
-    const basicInfos = videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
+    // 動画一覧を取得
+    const { videos: rawVideos, total } = await listVideosWithSettings(session.user.id, {
+      limit,
+      offset,
+      isFavorite,
+      isSkip,
+    });
 
-    // 動画基本情報をマップに変換
-    const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
-
-    // 結合してレスポンス用の形式に変換
-    const videos = filteredSettings
-      .map((setting) => {
-        const basicInfo = basicInfoMap.get(setting.videoId);
-        if (!basicInfo) {
-          return null;
-        }
-
-        return {
-          videoId: setting.videoId,
-          title: basicInfo.title,
-          thumbnailUrl: basicInfo.thumbnailUrl,
-          length: basicInfo.length,
-          isFavorite: setting.isFavorite,
-          isSkip: setting.isSkip,
-          memo: setting.memo,
-          createdAt: setting.createdAt,
-          updatedAt: setting.updatedAt,
-        };
-      })
-      .filter((v) => v !== null);
-
-    // nextToken のエンコード
-    const nextToken = nextKey ? Buffer.from(JSON.stringify(nextKey)).toString('base64') : null;
+    // レスポンス形式に変換
+    const videos: VideoData[] = rawVideos.map((video) => ({
+      videoId: video.videoId,
+      title: video.title,
+      thumbnailUrl: video.thumbnailUrl,
+      length: video.length,
+      createdAt: video.createdAt,
+      userSetting: video.userSetting
+        ? {
+            videoId: video.videoId,
+            isFavorite: video.userSetting.isFavorite,
+            isSkip: video.userSetting.isSkip,
+            memo: video.userSetting.memo,
+            createdAt: video.userSetting.createdAt,
+            updatedAt: video.userSetting.updatedAt,
+          }
+        : undefined,
+    }));
 
     // レスポンス
-    return NextResponse.json({
+    const response: VideosListResponse = {
       videos,
-      nextToken,
-    });
+      total,
+      limit,
+      offset,
+    };
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('動画一覧取得エラー:', error);
-    return NextResponse.json({ error: 'サーバーエラーが発生しました' }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: {
+          code: 'DATABASE_ERROR',
+          message: 'データベースへのアクセスに失敗しました',
+        },
+      },
+      { status: 500 }
+    );
   }
 }
