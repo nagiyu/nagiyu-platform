@@ -41,11 +41,6 @@ export default function VideoCard({ video, onToggleFavorite, onToggleSkip }: Vid
     });
   };
 
-  const formatLength = (lengthString: string): string => {
-    // MM:SS または HH:MM:SS 形式
-    return lengthString;
-  };
-
   const handleFavoriteClick = () => {
     if (onToggleFavorite) {
       onToggleFavorite(video.videoId, !isFavorite);
@@ -101,7 +96,7 @@ export default function VideoCard({ video, onToggleFavorite, onToggleSkip }: Vid
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Chip label={formatLength(video.length)} size="small" variant="outlined" />
+          <Chip label={video.length} size="small" variant="outlined" />
           <Typography variant="caption" color="text.secondary">
             {formatDate(video.createdAt)}
           </Typography>

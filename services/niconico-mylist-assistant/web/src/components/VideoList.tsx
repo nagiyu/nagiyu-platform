@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Grid, Box, Typography, CircularProgress, Alert } from '@mui/material';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoCard from './VideoCard';
@@ -31,7 +31,7 @@ export default function VideoList() {
   const limit = 20;
 
   // 動画一覧を取得
-  const fetchVideos = async () => {
+  const fetchVideos = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -63,13 +63,12 @@ export default function VideoList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [offset, favoriteFilter, skipFilter]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
     fetchVideos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset, favoriteFilter, skipFilter]);
+  }, [fetchVideos]);
 
   // お気に入り切り替え
   const handleToggleFavorite = async (videoId: string, isFavorite: boolean) => {
