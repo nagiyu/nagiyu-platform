@@ -5,6 +5,7 @@ import {
   deleteUserVideoSetting,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 認証チェック
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
     }
 
     // 動画基本情報とユーザー設定を並行取得
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     ]);
 
     if (!basicInfo) {
-      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+      return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
     }
 
     // 結合してレスポンス
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ video });
   } catch (error) {
     console.error('Get video error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
 }
 
@@ -57,13 +58,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // 認証チェック
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
     }
 
     // ユーザー設定の存在確認
     const setting = await getUserVideoSetting(session.user.id, id);
     if (!setting) {
-      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+      return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
     }
 
     // ユーザー設定を削除
@@ -72,6 +73,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Delete video error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
 }
