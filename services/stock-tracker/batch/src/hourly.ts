@@ -8,7 +8,7 @@ import { logger } from './lib/logger.js';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import { sendNotification, createAlertNotificationPayload } from './lib/web-push-client.js';
 import { withRetry } from './lib/retry.js';
-import { AlertRepository } from '@nagiyu/stock-tracker-core';
+import { DynamoDBAlertRepository } from '@nagiyu/stock-tracker-core';
 import { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
@@ -118,7 +118,7 @@ async function processAlert(
       logger.debug('アラート条件が未達成です', {
         alertId: alert.AlertID,
         currentPrice,
-        condition: alert.ConditionList[0],
+        conditions: alert.ConditionList,
       });
       return true;
     }
@@ -126,7 +126,7 @@ async function processAlert(
     stats.conditionsMet++;
 
     // 6. 条件達成時、Web Push 通知送信
-    const payload = createAlertNotificationPayload(alert, currentPrice, alert.ConditionList[0]);
+    const payload = createAlertNotificationPayload(alert, currentPrice);
     const notificationSent = await sendNotification(alert, payload);
 
     if (notificationSent) {
@@ -136,7 +136,7 @@ async function processAlert(
         userId: alert.UserID,
         tickerId: alert.TickerID,
         currentPrice,
-        targetPrice: alert.ConditionList[0].value,
+        conditions: alert.ConditionList,
       });
     } else {
       stats.errors++;
@@ -180,11 +180,12 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     // DynamoDB クライアントとリポジトリの初期化
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
+    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
     const exchangeRepo = new ExchangeRepository(docClient, tableName);
 
     // 1. GSI2 で HOURLY_LEVEL アラート一覧を取得
-    const alerts = await alertRepo.getByFrequency('HOURLY_LEVEL');
+    const alertResult = await alertRepo.getByFrequency('HOURLY_LEVEL');
+    const alerts = alertResult.items;
     stats.totalAlerts = alerts.length;
 
     logger.info('HOURLY_LEVEL アラートを取得しました', {
