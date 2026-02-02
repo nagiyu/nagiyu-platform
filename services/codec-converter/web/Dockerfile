@@ -5,6 +5,10 @@ FROM node:22-alpine AS base
 FROM base AS builder
 WORKDIR /app
 
+# ビルド引数を受け取る
+ARG APP_VERSION=1.0.0
+ENV APP_VERSION=${APP_VERSION}
+
 # モノレポ全体のpackage.jsonとソースをコピー
 COPY package*.json ./
 COPY configs ./configs/

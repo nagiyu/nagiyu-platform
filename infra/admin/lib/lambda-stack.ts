@@ -6,6 +6,16 @@ import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  /**
+   * アプリケーションのバージョン番号
+   *
+   * Lambda環境変数 APP_VERSION に設定されます。
+   * 省略時のデフォルト値: '1.0.0'
+   * 
+   * GitHub Actionsでは package.json から自動的に抽出され、
+   * process.env.APP_VERSION 経由で渡されます。
+   */
+  appVersion?: string;
 }
 
 /**
@@ -16,7 +26,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    const { environment, ...stackProps } = props;
+    const { environment, appVersion = '1.0.0', ...stackProps } = props;
 
     // CDK context から secrets を取得
     // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
@@ -61,6 +71,7 @@ export class LambdaStack extends LambdaStackBase {
         timeout: 30,
         environment: {
           NODE_ENV: environment,
+          APP_VERSION: appVersion,
           // NextAuth v5 で使用される環境変数
           AUTH_SECRET: nextAuthSecret,
           // 自サービスのベース URL（callbackUrl 生成などに使用）
