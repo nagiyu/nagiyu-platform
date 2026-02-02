@@ -5,6 +5,7 @@ import {
   updateUserVideoSetting,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -23,33 +24,36 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // 認証チェック
     const session = await getSession();
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
     }
 
     // リクエストボディのバリデーション
     const body: UpdateSettingsRequest = await request.json();
 
     if (body.isFavorite !== undefined && typeof body.isFavorite !== 'boolean') {
-      return NextResponse.json({ error: 'isFavorite must be a boolean' }, { status: 400 });
+      return NextResponse.json(
+        { error: ERROR_MESSAGES.IS_FAVORITE_MUST_BE_BOOLEAN },
+        { status: 400 }
+      );
     }
 
     if (body.isSkip !== undefined && typeof body.isSkip !== 'boolean') {
-      return NextResponse.json({ error: 'isSkip must be a boolean' }, { status: 400 });
+      return NextResponse.json({ error: ERROR_MESSAGES.IS_SKIP_MUST_BE_BOOLEAN }, { status: 400 });
     }
 
     if (body.memo !== undefined && typeof body.memo !== 'string') {
-      return NextResponse.json({ error: 'memo must be a string' }, { status: 400 });
+      return NextResponse.json({ error: ERROR_MESSAGES.MEMO_MUST_BE_STRING }, { status: 400 });
     }
 
     // memo の長さ制限
     if (body.memo && body.memo.length > 1000) {
-      return NextResponse.json({ error: 'memo must be 1000 characters or less' }, { status: 400 });
+      return NextResponse.json({ error: ERROR_MESSAGES.MEMO_TOO_LONG }, { status: 400 });
     }
 
     // ユーザー設定の存在確認
     const setting = await getUserVideoSetting(session.user.id, id);
     if (!setting) {
-      return NextResponse.json({ error: 'Video not found' }, { status: 404 });
+      return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
     }
 
     // 設定更新
@@ -77,6 +81,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ video });
   } catch (error) {
     console.error('Update video settings error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
   }
 }
