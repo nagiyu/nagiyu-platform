@@ -422,7 +422,7 @@ ACM 証明書自体は**無料**です。
 
 `infra/shared/acm/certificate.yaml` はバックアップとして保持されていますが、今後のデプロイには使用されません。
 
-**注意:** 旧 CloudFormation スタック (`nagiyu-shared-acm-certificate`) が存在する場合、CDK スタックへの移行前に削除が必要です。詳細は [CDK 移行ガイド](../cdk-migration.md) を参照してください。
+**注意:** 旧 CloudFormation スタック (`nagiyu-shared-acm-certificate`) が存在する場合、CDK スタックへの移行前に削除が必要です。
 
 ---
 
@@ -432,4 +432,3 @@ ACM 証明書自体は**無料**です。
 - [アーキテクチャ](../architecture.md) - インフラ全体の設計
 - [初回セットアップ](../setup.md) - ACM 証明書の初期構築手順
 - [デプロイ手順](../deploy.md) - 日常的なデプロイ操作
-- [CDK 移行ガイド](../cdk-migration.md) - CloudFormation から CDK への移行戦略

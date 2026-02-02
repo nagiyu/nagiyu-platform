@@ -205,7 +205,6 @@ export function getEnvConfig(env: Environment): EnvConfig {
 
 ## 関連ドキュメント
 
-- [CDK 移行ガイド](../cdk-migration.md) - CloudFormation から CDK への移行戦略
 - [インフラアーキテクチャ](../architecture.md) - インフラ全体の設計
 - [VPC](./vpc.md) - VPC の詳細
 - [IAM](./iam.md) - IAM の詳細

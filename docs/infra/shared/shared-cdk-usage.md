@@ -172,6 +172,5 @@ aws cloudformation describe-stacks --stack-name nagiyu-shared-vpc-dev --region u
 
 ## 関連ドキュメント
 
-- [CDK 移行ガイド](../../docs/infra/cdk-migration.md)
-- [VPC 設計](../../docs/infra/shared/vpc.md)
-- [インフラアーキテクチャ](../../docs/infra/architecture.md)
+- [VPC 設計](./vpc.md)
+- [インフラアーキテクチャ](../architecture.md)
