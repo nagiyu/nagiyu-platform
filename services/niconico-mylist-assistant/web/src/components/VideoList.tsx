@@ -28,17 +28,12 @@ export default function VideoList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // URLクエリパラメータから初期値を取得
-  const favoriteFilterParam = searchParams.get('favorite') || 'all';
-  const skipFilterParam = searchParams.get('skip') || 'all';
-  const offsetParam = searchParams.get('offset') || '0';
-
   // フィルター状態
-  const [favoriteFilter, setFavoriteFilter] = useState<string>(favoriteFilterParam);
-  const [skipFilter, setSkipFilter] = useState<string>(skipFilterParam);
+  const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
+  const [skipFilter, setSkipFilter] = useState<string>('all');
 
   // ページネーション状態
-  const [offset, setOffset] = useState(parseInt(offsetParam, 10));
+  const [offset, setOffset] = useState(0);
   const limit = 20;
 
   // モーダル状態
@@ -113,16 +108,12 @@ export default function VideoList() {
     const newOffset = parseInt(searchParams.get('offset') || '0', 10);
 
     // 状態が異なる場合のみ更新（無限ループ防止）
-    if (
-      newFavoriteFilter !== favoriteFilter ||
-      newSkipFilter !== skipFilter ||
-      newOffset !== offset
-    ) {
-      setFavoriteFilter(newFavoriteFilter);
-      setSkipFilter(newSkipFilter);
-      setOffset(newOffset);
-    }
-  }, [searchParams, favoriteFilter, skipFilter, offset]);
+    // searchParamsのみに依存し、状態変数は依存配列に含めない
+    setFavoriteFilter(newFavoriteFilter);
+    setSkipFilter(newSkipFilter);
+    setOffset(newOffset);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
@@ -179,17 +170,20 @@ export default function VideoList() {
   const handleFavoriteFilterChange = (value: string) => {
     setFavoriteFilter(value);
     setOffset(0);
+    // 新しい値を直接使用してURLを更新（stateの非同期更新に依存しない）
     updateURL(value, skipFilter, 0);
   };
 
   const handleSkipFilterChange = (value: string) => {
     setSkipFilter(value);
     setOffset(0);
+    // 新しい値を直接使用してURLを更新（stateの非同期更新に依存しない）
     updateURL(favoriteFilter, value, 0);
   };
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset);
+    // 新しい値を直接使用してURLを更新（stateの非同期更新に依存しない）
     updateURL(favoriteFilter, skipFilter, newOffset);
     // ページ上部にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
