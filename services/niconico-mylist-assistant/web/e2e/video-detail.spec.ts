@@ -2,10 +2,12 @@ import { test, expect } from '@playwright/test';
 
 /**
  * API レスポンスをマッチングするヘルパー関数
+ * /api/videos/{videoId}/settings の形式にマッチするかチェック
  */
 const isVideoSettingsApiResponse = (response: Response): boolean => {
   const url = response.url();
-  return url.includes('/api/videos/') && url.includes('/settings');
+  // /api/videos/{id}/settings の形式にマッチするかチェック
+  return /\/api\/videos\/[^/]+\/settings/.test(url);
 };
 
 test.describe('Video Detail Modal', () => {

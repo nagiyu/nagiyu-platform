@@ -226,7 +226,7 @@ export default function VideoDetailModal({
     }
   };
 
-  const formatDate = (dateString: string): string => {
+  const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
@@ -300,7 +300,7 @@ export default function VideoDetailModal({
             {/* メタデータ */}
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               <Chip label={video.length} size="small" variant="outlined" />
-              <Chip label={formatDate(video.createdAt)} size="small" variant="outlined" />
+              <Chip label={formatDateTime(video.createdAt)} size="small" variant="outlined" />
             </Stack>
 
             {/* お気に入り・スキップボタン */}
