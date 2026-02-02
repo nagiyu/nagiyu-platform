@@ -196,7 +196,10 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
       return entity;
     } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('UserSetting', `userId=${input.userId}, videoId=${input.videoId}`);
+        throw new EntityAlreadyExistsError(
+          'UserSetting',
+          `userId=${input.userId}, videoId=${input.videoId}`
+        );
       }
 
       const message = error instanceof Error ? error.message : String(error);

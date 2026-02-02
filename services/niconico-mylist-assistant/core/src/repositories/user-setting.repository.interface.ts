@@ -8,7 +8,6 @@ import type {
   UserSettingEntity,
   CreateUserSettingInput,
   UpdateUserSettingInput,
-  UserSettingKey,
 } from '../entities/user-setting.entity';
 import type { PaginationOptions, PaginatedResult } from '@nagiyu/aws';
 
@@ -34,7 +33,10 @@ export interface UserSettingRepository {
    * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
-  getByUserId(userId: string, options?: PaginationOptions): Promise<PaginatedResult<UserSettingEntity>>;
+  getByUserId(
+    userId: string,
+    options?: PaginationOptions
+  ): Promise<PaginatedResult<UserSettingEntity>>;
 
   /**
    * ユーザーの動画設定を取得（フィルタリング対応）
@@ -79,7 +81,11 @@ export interface UserSettingRepository {
    * @returns 更新されたユーザー設定エンティティ
    * @throws {EntityNotFoundError} 設定が存在しない場合
    */
-  update(userId: string, videoId: string, updates: UpdateUserSettingInput): Promise<UserSettingEntity>;
+  update(
+    userId: string,
+    videoId: string,
+    updates: UpdateUserSettingInput
+  ): Promise<UserSettingEntity>;
 
   /**
    * ユーザー設定を削除

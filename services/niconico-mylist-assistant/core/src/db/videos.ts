@@ -1,11 +1,3 @@
-import {
-  PutCommand,
-  GetCommand,
-  UpdateCommand,
-  DeleteCommand,
-  QueryCommand,
-  BatchGetCommand,
-} from '@aws-sdk/lib-dynamodb';
 import { docClient, TABLE_NAME } from './client';
 import { DynamoDBVideoRepository } from '../repositories/dynamodb-video.repository';
 import { DynamoDBUserSettingRepository } from '../repositories/dynamodb-user-setting.repository';
@@ -15,8 +7,6 @@ import type {
   CreateVideoBasicInfoInput,
   CreateUserSettingInput,
   VideoSettingUpdate,
-  VideoItem,
-  UserSettingItem,
 } from '../types';
 
 // Repository インスタンスの作成

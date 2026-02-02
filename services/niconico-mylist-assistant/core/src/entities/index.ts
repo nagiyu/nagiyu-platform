@@ -2,11 +2,7 @@
  * Entities エクスポート
  */
 
-export type {
-  VideoEntity,
-  CreateVideoInput,
-  VideoKey,
-} from './video.entity';
+export type { VideoEntity, CreateVideoInput, VideoKey } from './video.entity';
 
 export type {
   UserSettingEntity,
