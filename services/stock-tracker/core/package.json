@@ -19,8 +19,8 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.975.0",
-    "@aws-sdk/lib-dynamodb": "^3.975.0",
+    "@aws-sdk/client-dynamodb": "^3.980.0",
+    "@aws-sdk/lib-dynamodb": "^3.980.0",
     "@mathieuc/tradingview": "^3.5.2",
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
@@ -30,6 +30,6 @@
   },
   "devDependencies": {
     "@types/mathieuc__tradingview": "^3.5.0",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22"
   }
 }
