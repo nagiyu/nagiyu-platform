@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Grid, Box, Typography, CircularProgress, Alert } from '@mui/material';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoCard from './VideoCard';
@@ -17,23 +18,58 @@ const ERROR_MESSAGES = {
  * 動画一覧コンポーネント
  *
  * 動画カードのグリッド表示、フィルター、ページネーション、動画詳細モーダルを統合したコンポーネント。
+ * URLクエリパラメータと状態を同期し、ブラウザバック/フォワードに対応。
  */
 export default function VideoList() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [videos, setVideos] = useState<VideosListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // URLクエリパラメータから初期値を取得
+  const favoriteFilterParam = searchParams.get('favorite') || 'all';
+  const skipFilterParam = searchParams.get('skip') || 'all';
+  const offsetParam = searchParams.get('offset') || '0';
+
   // フィルター状態
-  const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
-  const [skipFilter, setSkipFilter] = useState<string>('all');
+  const [favoriteFilter, setFavoriteFilter] = useState<string>(favoriteFilterParam);
+  const [skipFilter, setSkipFilter] = useState<string>(skipFilterParam);
 
   // ページネーション状態
-  const [offset, setOffset] = useState(0);
+  const [offset, setOffset] = useState(parseInt(offsetParam, 10));
   const limit = 20;
 
   // モーダル状態
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // URLクエリパラメータを更新する関数
+  const updateURL = useCallback(
+    (newFavoriteFilter: string, newSkipFilter: string, newOffset: number) => {
+      const params = new URLSearchParams();
+
+      if (newFavoriteFilter !== 'all') {
+        params.set('favorite', newFavoriteFilter);
+      }
+
+      if (newSkipFilter !== 'all') {
+        params.set('skip', newSkipFilter);
+      }
+
+      if (newOffset > 0) {
+        params.set('offset', newOffset.toString());
+      }
+
+      const query = params.toString();
+      const url = query ? `/mylist?${query}` : '/mylist';
+
+      // ブラウザ履歴を更新
+      router.push(url, { scroll: false });
+    },
+    [router]
+  );
 
   // 動画一覧を取得
   const fetchVideos = useCallback(async () => {
@@ -69,6 +105,24 @@ export default function VideoList() {
       setLoading(false);
     }
   }, [offset, favoriteFilter, skipFilter]);
+
+  // URLクエリパラメータの変更を監視して状態を同期
+  useEffect(() => {
+    const newFavoriteFilter = searchParams.get('favorite') || 'all';
+    const newSkipFilter = searchParams.get('skip') || 'all';
+    const newOffset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // 状態が異なる場合のみ更新（無限ループ防止）
+    if (
+      newFavoriteFilter !== favoriteFilter ||
+      newSkipFilter !== skipFilter ||
+      newOffset !== offset
+    ) {
+      setFavoriteFilter(newFavoriteFilter);
+      setSkipFilter(newSkipFilter);
+      setOffset(newOffset);
+    }
+  }, [searchParams, favoriteFilter, skipFilter, offset]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
@@ -121,19 +175,22 @@ export default function VideoList() {
     }
   };
 
-  // フィルター変更時はページをリセット
+  // フィルター変更時はページをリセットしてURLを更新
   const handleFavoriteFilterChange = (value: string) => {
     setFavoriteFilter(value);
     setOffset(0);
+    updateURL(value, skipFilter, 0);
   };
 
   const handleSkipFilterChange = (value: string) => {
     setSkipFilter(value);
     setOffset(0);
+    updateURL(favoriteFilter, value, 0);
   };
 
   const handlePageChange = (newOffset: number) => {
     setOffset(newOffset);
+    updateURL(favoriteFilter, skipFilter, newOffset);
     // ページ上部にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };

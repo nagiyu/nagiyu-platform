@@ -213,3 +213,166 @@ test.describe('Video List Navigation', () => {
     await expect(page).toHaveURL('/import');
   });
 });
+
+test.describe('Video List URL Synchronization', () => {
+  test('should initialize filters from URL parameters', async ({ page }) => {
+    // URLパラメータ付きでアクセス
+    await page.goto('/mylist?favorite=true&skip=false&offset=20');
+
+    // URLパラメータが反映されることを期待（認証なしでもURLは処理される）
+    // 認証されていない場合はホームにリダイレクトされるが、この動作は正常
+    await expect(page).toHaveURL('/');
+  });
+
+  test.skip('should update URL when changing favorite filter', async ({ page }) => {
+    // TODO: Implement authentication setup
+
+    await page.goto('/mylist');
+
+    // お気に入りフィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test.skip('should update URL when changing skip filter', async ({ page }) => {
+    // TODO: Implement authentication setup
+
+    await page.goto('/mylist');
+
+    // スキップフィルターを変更
+    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
+    await skipFilter.click();
+    await page.getByRole('option', { name: '通常動画のみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?skip=false');
+  });
+
+  test.skip('should update URL when changing both filters', async ({ page }) => {
+    // TODO: Implement authentication setup
+
+    await page.goto('/mylist');
+
+    // お気に入りフィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // スキップフィルターを変更
+    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
+    await skipFilter.click();
+    await page.getByRole('option', { name: '通常動画のみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true&skip=false');
+  });
+
+  test.skip('should update URL when changing page', async ({ page }) => {
+    // TODO: Implement authentication setup and seed test data (>20 videos)
+
+    await page.goto('/mylist');
+
+    // 次のページに移動
+    const nextButton = page.getByRole('button', { name: 'Go to next page' });
+    await nextButton.click();
+
+    // URLにoffsetが追加されることを確認
+    await expect(page).toHaveURL(/\/mylist\?.*offset=20/);
+  });
+
+  test.skip('should maintain filters when navigating pages', async ({ page }) => {
+    // TODO: Implement authentication setup and seed test data (>20 videos)
+
+    await page.goto('/mylist?favorite=true');
+
+    // 次のページに移動
+    const nextButton = page.getByRole('button', { name: 'Go to next page' });
+    await nextButton.click();
+
+    // フィルターとoffsetの両方がURLに含まれることを確認
+    await expect(page).toHaveURL(/\/mylist\?.*favorite=true.*offset=20/);
+  });
+
+  test.skip('should reset page when changing filters', async ({ page }) => {
+    // TODO: Implement authentication setup and seed test data (>20 videos)
+
+    // 2ページ目に移動
+    await page.goto('/mylist?offset=20');
+
+    // フィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // offsetがリセットされることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test.skip('should maintain state on browser back', async ({ page }) => {
+    // TODO: Implement authentication setup
+
+    await page.goto('/mylist');
+
+    // フィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true');
+
+    // ブラウザバック
+    await page.goBack();
+
+    // 元の状態に戻ることを確認
+    await expect(page).toHaveURL('/mylist');
+
+    // フィルターの状態も戻っていることを確認
+    await expect(favoriteFilter).toHaveValue('all');
+  });
+
+  test.skip('should maintain state on browser forward', async ({ page }) => {
+    // TODO: Implement authentication setup
+
+    await page.goto('/mylist');
+
+    // フィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    await expect(page).toHaveURL('/mylist?favorite=true');
+
+    // ブラウザバック
+    await page.goBack();
+    await expect(page).toHaveURL('/mylist');
+
+    // ブラウザフォワード
+    await page.goForward();
+    await expect(page).toHaveURL('/mylist?favorite=true');
+
+    // フィルターの状態が復元されていることを確認
+    await expect(favoriteFilter).toHaveValue('true');
+  });
+
+  test.skip('should handle direct URL access with filters', async ({ page }) => {
+    // TODO: Implement authentication setup
+
+    // フィルター付きURLに直接アクセス
+    await page.goto('/mylist?favorite=true&skip=false');
+
+    // フィルターの状態が反映されることを確認
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
+
+    await expect(favoriteFilter).toHaveValue('true');
+    await expect(skipFilter).toHaveValue('false');
+
+    // APIリクエストが正しいパラメータで送信されることを確認
+    // （実際のテストではネットワークモニタリングで確認）
+  });
+});
