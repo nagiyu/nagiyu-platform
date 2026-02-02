@@ -107,11 +107,17 @@ export default function VideoList() {
     const newSkipFilter = searchParams.get('skip') || 'all';
     const newOffset = parseInt(searchParams.get('offset') || '0', 10);
 
-    // 状態が異なる場合のみ更新（無限ループ防止）
+    // 状態が異なる場合のみ更新（無限ループと不要な再レンダリングを防止）
     // searchParamsのみに依存し、状態変数は依存配列に含めない
-    setFavoriteFilter(newFavoriteFilter);
-    setSkipFilter(newSkipFilter);
-    setOffset(newOffset);
+    if (newFavoriteFilter !== favoriteFilter) {
+      setFavoriteFilter(newFavoriteFilter);
+    }
+    if (newSkipFilter !== skipFilter) {
+      setSkipFilter(newSkipFilter);
+    }
+    if (newOffset !== offset) {
+      setOffset(newOffset);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
@@ -167,23 +173,19 @@ export default function VideoList() {
   };
 
   // フィルター変更時はページをリセットしてURLを更新
+  // URLが更新されると useEffect が状態を同期するため、setState は不要
   const handleFavoriteFilterChange = (value: string) => {
-    setFavoriteFilter(value);
-    setOffset(0);
-    // 新しい値を直接使用してURLを更新（stateの非同期更新に依存しない）
+    // 新しい値を直接使用してURLを更新
     updateURL(value, skipFilter, 0);
   };
 
   const handleSkipFilterChange = (value: string) => {
-    setSkipFilter(value);
-    setOffset(0);
-    // 新しい値を直接使用してURLを更新（stateの非同期更新に依存しない）
+    // 新しい値を直接使用してURLを更新
     updateURL(favoriteFilter, value, 0);
   };
 
   const handlePageChange = (newOffset: number) => {
-    setOffset(newOffset);
-    // 新しい値を直接使用してURLを更新（stateの非同期更新に依存しない）
+    // 新しい値を直接使用してURLを更新
     updateURL(favoriteFilter, skipFilter, newOffset);
     // ページ上部にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
