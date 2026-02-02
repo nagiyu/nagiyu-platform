@@ -77,12 +77,12 @@ export default function VideoCard({
         opacity: isSkip ? 0.6 : 1,
         transition: 'opacity 0.2s, transform 0.2s',
         cursor: onClick ? 'pointer' : 'default',
-        '&:hover': onClick
-          ? {
-              transform: 'translateY(-4px)',
-              boxShadow: 3,
-            }
-          : {},
+        ...(onClick && {
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: 3,
+          },
+        }),
       }}
       onClick={handleCardClick}
     >

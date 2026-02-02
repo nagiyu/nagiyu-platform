@@ -3,8 +3,10 @@ import { test, expect } from '@playwright/test';
 /**
  * API レスポンスをマッチングするヘルパー関数
  */
-const isVideoSettingsApiResponse = (response: Response): boolean =>
-  response.url().includes('/api/videos/') && response.url().includes('/settings');
+const isVideoSettingsApiResponse = (response: Response): boolean => {
+  const url = response.url();
+  return url.includes('/api/videos/') && url.includes('/settings');
+};
 
 test.describe('Video Detail Modal', () => {
   test('should redirect to home when not authenticated', async ({ page }) => {
