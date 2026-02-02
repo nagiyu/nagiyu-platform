@@ -6,6 +6,7 @@ import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core'
 import VideoCard from './VideoCard';
 import VideoListFilters from './VideoListFilters';
 import VideoListPagination from './VideoListPagination';
+import VideoDetailModal from './VideoDetailModal';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: '動画一覧の取得に失敗しました',
@@ -15,7 +16,7 @@ const ERROR_MESSAGES = {
 /**
  * 動画一覧コンポーネント
  *
- * 動画カードのグリッド表示、フィルター、ページネーションを統合したコンポーネント。
+ * 動画カードのグリッド表示、フィルター、ページネーション、動画詳細モーダルを統合したコンポーネント。
  */
 export default function VideoList() {
   const [videos, setVideos] = useState<VideosListResponse | null>(null);
@@ -29,6 +30,10 @@ export default function VideoList() {
   // ページネーション状態
   const [offset, setOffset] = useState(0);
   const limit = 20;
+
+  // モーダル状態
+  const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   // 動画一覧を取得
   const fetchVideos = useCallback(async () => {
@@ -133,6 +138,23 @@ export default function VideoList() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // 動画詳細モーダルを開く
+  const handleVideoClick = (videoId: string) => {
+    setSelectedVideoId(videoId);
+    setModalOpen(true);
+  };
+
+  // モーダルを閉じる
+  const handleModalClose = () => {
+    setModalOpen(false);
+    setSelectedVideoId(null);
+  };
+
+  // モーダルからの更新時（設定変更・削除時）
+  const handleModalChange = () => {
+    fetchVideos();
+  };
+
   if (loading && !videos) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
@@ -174,6 +196,7 @@ export default function VideoList() {
                   video={video}
                   onToggleFavorite={handleToggleFavorite}
                   onToggleSkip={handleToggleSkip}
+                  onClick={handleVideoClick}
                 />
               </Grid>
             ))}
@@ -189,6 +212,14 @@ export default function VideoList() {
           )}
         </>
       )}
+
+      <VideoDetailModal
+        videoId={selectedVideoId}
+        open={modalOpen}
+        onClose={handleModalClose}
+        onUpdate={handleModalChange}
+        onDelete={handleModalChange}
+      />
     </Box>
   );
 }
