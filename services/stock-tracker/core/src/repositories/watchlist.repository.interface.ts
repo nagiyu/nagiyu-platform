@@ -4,10 +4,7 @@
  * ウォッチリストデータの CRUD 操作インターフェース
  */
 
-import type {
-  WatchlistEntity,
-  CreateWatchlistInput,
-} from '../entities/watchlist.entity.js';
+import type { WatchlistEntity, CreateWatchlistInput } from '../entities/watchlist.entity.js';
 import type { PaginationOptions, PaginatedResult } from '@nagiyu/aws';
 
 /**
