@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Grid, Box, Typography, CircularProgress, Alert } from '@mui/material';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
@@ -39,6 +39,12 @@ export default function VideoList() {
   // モーダル状態
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // 現在の状態を追跡するref（stale closureを回避）
+  const stateRef = useRef({ favoriteFilter, skipFilter, offset });
+  useEffect(() => {
+    stateRef.current = { favoriteFilter, skipFilter, offset };
+  }, [favoriteFilter, skipFilter, offset]);
 
   // URLクエリパラメータを更新する関数
   const updateURL = useCallback(
@@ -108,17 +114,16 @@ export default function VideoList() {
     const newOffset = parseInt(searchParams.get('offset') || '0', 10);
 
     // 状態が異なる場合のみ更新（無限ループと不要な再レンダリングを防止）
-    // searchParamsのみに依存し、状態変数は依存配列に含めない
-    if (newFavoriteFilter !== favoriteFilter) {
+    // refを使用して最新の状態と比較（stale closureを回避）
+    if (newFavoriteFilter !== stateRef.current.favoriteFilter) {
       setFavoriteFilter(newFavoriteFilter);
     }
-    if (newSkipFilter !== skipFilter) {
+    if (newSkipFilter !== stateRef.current.skipFilter) {
       setSkipFilter(newSkipFilter);
     }
-    if (newOffset !== offset) {
+    if (newOffset !== stateRef.current.offset) {
       setOffset(newOffset);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
@@ -175,18 +180,22 @@ export default function VideoList() {
   // フィルター変更時はページをリセットしてURLを更新
   // URLが更新されると useEffect が状態を同期するため、setState は不要
   const handleFavoriteFilterChange = (value: string) => {
-    // 新しい値を直接使用してURLを更新
-    updateURL(value, skipFilter, 0);
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentSkipFilter = searchParams.get('skip') || 'all';
+    updateURL(value, currentSkipFilter, 0);
   };
 
   const handleSkipFilterChange = (value: string) => {
-    // 新しい値を直接使用してURLを更新
-    updateURL(favoriteFilter, value, 0);
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
+    updateURL(currentFavoriteFilter, value, 0);
   };
 
   const handlePageChange = (newOffset: number) => {
-    // 新しい値を直接使用してURLを更新
-    updateURL(favoriteFilter, skipFilter, newOffset);
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
+    const currentSkipFilter = searchParams.get('skip') || 'all';
+    updateURL(currentFavoriteFilter, currentSkipFilter, newOffset);
     // ページ上部にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
