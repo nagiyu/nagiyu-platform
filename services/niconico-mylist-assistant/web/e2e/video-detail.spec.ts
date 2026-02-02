@@ -60,16 +60,18 @@ test.describe('Video Detail Modal', () => {
     // モーダルが開く
     await expect(page.getByRole('dialog')).toBeVisible();
 
-    // お気に入りボタンをクリック
+    // お気に入りボタンをクリックして API レスポンスを待つ
     const favoriteButton = page
       .getByRole('dialog')
       .getByRole('button', { name: /お気に入り/ })
       .first();
     await expect(favoriteButton).toBeVisible();
-    await favoriteButton.click();
 
-    // 更新を待つ
-    await page.waitForTimeout(1000);
+    const responsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/videos/') && response.url().includes('/settings')
+    );
+    await favoriteButton.click();
+    await responsePromise;
 
     // ボタンの状態が変わることを確認
     // 実際の実装では API レスポンスを待つ
@@ -86,16 +88,18 @@ test.describe('Video Detail Modal', () => {
     // モーダルが開く
     await expect(page.getByRole('dialog')).toBeVisible();
 
-    // スキップボタンをクリック
+    // スキップボタンをクリックして API レスポンスを待つ
     const skipButton = page
       .getByRole('dialog')
       .getByRole('button', { name: /スキップ/ })
       .first();
     await expect(skipButton).toBeVisible();
-    await skipButton.click();
 
-    // 更新を待つ
-    await page.waitForTimeout(1000);
+    const responsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/videos/') && response.url().includes('/settings')
+    );
+    await skipButton.click();
+    await responsePromise;
   });
 
   test.skip('should save memo in modal', async ({ page }) => {
@@ -113,13 +117,15 @@ test.describe('Video Detail Modal', () => {
     const memoField = page.getByRole('dialog').getByLabel('メモ');
     await memoField.fill('これはテストメモです');
 
-    // メモを保存ボタンをクリック
+    // メモを保存ボタンをクリックして API レスポンスを待つ
     const saveButton = page.getByRole('dialog').getByRole('button', { name: 'メモを保存' });
     await expect(saveButton).toBeVisible();
-    await saveButton.click();
 
-    // 更新を待つ
-    await page.waitForTimeout(1000);
+    const responsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/videos/') && response.url().includes('/settings')
+    );
+    await saveButton.click();
+    await responsePromise;
   });
 
   test.skip('should show delete confirmation when clicking delete button', async ({ page }) => {
@@ -209,15 +215,16 @@ test.describe('Video Detail Modal', () => {
     // モーダルが開く
     await expect(page.getByRole('dialog')).toBeVisible();
 
-    // お気に入りボタンをクリック
+    // お気に入りボタンをクリックして API レスポンスを待つ
+    const responsePromise = page.waitForResponse((response) =>
+      response.url().includes('/api/videos/') && response.url().includes('/settings')
+    );
     await page
       .getByRole('dialog')
       .getByRole('button', { name: /お気に入り/ })
       .first()
       .click();
-
-    // 更新を待つ
-    await page.waitForTimeout(1000);
+    await responsePromise;
 
     // モーダルを閉じる
     await page.getByRole('dialog').getByRole('button', { name: '閉じる' }).first().click();
