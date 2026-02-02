@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Grid, Box, Typography, CircularProgress, Alert } from '@mui/material';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoCard from './VideoCard';
@@ -17,8 +18,12 @@ const ERROR_MESSAGES = {
  * 動画一覧コンポーネント
  *
  * 動画カードのグリッド表示、フィルター、ページネーション、動画詳細モーダルを統合したコンポーネント。
+ * URLクエリパラメータと状態を同期し、ブラウザバック/フォワードに対応。
  */
 export default function VideoList() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [videos, setVideos] = useState<VideosListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +39,39 @@ export default function VideoList() {
   // モーダル状態
   const [selectedVideoId, setSelectedVideoId] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+
+  // 現在の状態を追跡するref（stale closureを回避）
+  // 初期値は state のデフォルト値で、URL同期 useEffect が実行されると自動的に更新される
+  const stateRef = useRef({ favoriteFilter, skipFilter, offset });
+  useEffect(() => {
+    stateRef.current = { favoriteFilter, skipFilter, offset };
+  }, [favoriteFilter, skipFilter, offset]);
+
+  // URLクエリパラメータを更新する関数
+  const updateURL = useCallback(
+    (newFavoriteFilter: string, newSkipFilter: string, newOffset: number) => {
+      const params = new URLSearchParams();
+
+      if (newFavoriteFilter !== 'all') {
+        params.set('favorite', newFavoriteFilter);
+      }
+
+      if (newSkipFilter !== 'all') {
+        params.set('skip', newSkipFilter);
+      }
+
+      if (newOffset > 0) {
+        params.set('offset', newOffset.toString());
+      }
+
+      const query = params.toString();
+      const url = query ? `/mylist?${query}` : '/mylist';
+
+      // ブラウザ履歴を更新
+      router.push(url, { scroll: false });
+    },
+    [router]
+  );
 
   // 動画一覧を取得
   const fetchVideos = useCallback(async () => {
@@ -69,6 +107,25 @@ export default function VideoList() {
       setLoading(false);
     }
   }, [offset, favoriteFilter, skipFilter]);
+
+  // URLクエリパラメータの変更を監視して状態を同期
+  useEffect(() => {
+    const newFavoriteFilter = searchParams.get('favorite') || 'all';
+    const newSkipFilter = searchParams.get('skip') || 'all';
+    const newOffset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // 状態が異なる場合のみ更新（無限ループと不要な再レンダリングを防止）
+    // refを使用して最新の状態と比較（stale closureを回避）
+    if (newFavoriteFilter !== stateRef.current.favoriteFilter) {
+      setFavoriteFilter(newFavoriteFilter);
+    }
+    if (newSkipFilter !== stateRef.current.skipFilter) {
+      setSkipFilter(newSkipFilter);
+    }
+    if (newOffset !== stateRef.current.offset) {
+      setOffset(newOffset);
+    }
+  }, [searchParams]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
@@ -121,19 +178,25 @@ export default function VideoList() {
     }
   };
 
-  // フィルター変更時はページをリセット
+  // フィルター変更時はページをリセットしてURLを更新
+  // URLが更新されると useEffect が状態を同期するため、setState は不要
   const handleFavoriteFilterChange = (value: string) => {
-    setFavoriteFilter(value);
-    setOffset(0);
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentSkipFilter = searchParams.get('skip') || 'all';
+    updateURL(value, currentSkipFilter, 0);
   };
 
   const handleSkipFilterChange = (value: string) => {
-    setSkipFilter(value);
-    setOffset(0);
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
+    updateURL(currentFavoriteFilter, value, 0);
   };
 
   const handlePageChange = (newOffset: number) => {
-    setOffset(newOffset);
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
+    const currentSkipFilter = searchParams.get('skip') || 'all';
+    updateURL(currentFavoriteFilter, currentSkipFilter, newOffset);
     // ページ上部にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
