@@ -17,6 +17,7 @@ interface VideoCardProps {
   video: VideoData;
   onToggleFavorite?: (videoId: string, isFavorite: boolean) => void;
   onToggleSkip?: (videoId: string, isSkip: boolean) => void;
+  onClick?: (videoId: string) => void;
 }
 
 const ERROR_MESSAGES = {
@@ -27,8 +28,14 @@ const ERROR_MESSAGES = {
  * 動画カードコンポーネント
  *
  * サムネイル、タイトル、投稿日時、お気に入り・スキップ状態を表示します。
+ * カードをクリックすると動画詳細モーダルを開きます。
  */
-export default function VideoCard({ video, onToggleFavorite, onToggleSkip }: VideoCardProps) {
+export default function VideoCard({
+  video,
+  onToggleFavorite,
+  onToggleSkip,
+  onClick,
+}: VideoCardProps) {
   const isFavorite = video.userSetting?.isFavorite ?? false;
   const isSkip = video.userSetting?.isSkip ?? false;
 
@@ -41,15 +48,23 @@ export default function VideoCard({ video, onToggleFavorite, onToggleSkip }: Vid
     });
   };
 
-  const handleFavoriteClick = () => {
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onToggleFavorite) {
       onToggleFavorite(video.videoId, !isFavorite);
     }
   };
 
-  const handleSkipClick = () => {
+  const handleSkipClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onToggleSkip) {
       onToggleSkip(video.videoId, !isSkip);
+    }
+  };
+
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick(video.videoId);
     }
   };
 
@@ -60,8 +75,16 @@ export default function VideoCard({ video, onToggleFavorite, onToggleSkip }: Vid
         display: 'flex',
         flexDirection: 'column',
         opacity: isSkip ? 0.6 : 1,
-        transition: 'opacity 0.2s',
+        transition: 'opacity 0.2s, transform 0.2s',
+        cursor: onClick ? 'pointer' : 'default',
+        '&:hover': onClick
+          ? {
+              transform: 'translateY(-4px)',
+              boxShadow: 3,
+            }
+          : {},
       }}
+      onClick={handleCardClick}
     >
       <CardMedia
         component="img"
