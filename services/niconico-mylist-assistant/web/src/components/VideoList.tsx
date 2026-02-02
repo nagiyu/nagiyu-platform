@@ -150,13 +150,8 @@ export default function VideoList() {
     setSelectedVideoId(null);
   };
 
-  // モーダルからの更新時（設定変更時）
-  const handleModalUpdate = () => {
-    fetchVideos();
-  };
-
-  // モーダルからの削除時
-  const handleModalDelete = () => {
+  // モーダルからの更新時（設定変更・削除時）
+  const handleModalChange = () => {
     fetchVideos();
   };
 
@@ -222,8 +217,8 @@ export default function VideoList() {
         videoId={selectedVideoId}
         open={modalOpen}
         onClose={handleModalClose}
-        onUpdate={handleModalUpdate}
-        onDelete={handleModalDelete}
+        onUpdate={handleModalChange}
+        onDelete={handleModalChange}
       />
     </Box>
   );

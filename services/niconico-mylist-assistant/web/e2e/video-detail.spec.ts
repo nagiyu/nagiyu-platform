@@ -1,5 +1,11 @@
 import { test, expect } from '@playwright/test';
 
+/**
+ * API レスポンスをマッチングするヘルパー関数
+ */
+const isVideoSettingsApiResponse = (response: Response): boolean =>
+  response.url().includes('/api/videos/') && response.url().includes('/settings');
+
 test.describe('Video Detail Modal', () => {
   test('should redirect to home when not authenticated', async ({ page }) => {
     await page.goto('/mylist');
@@ -67,9 +73,7 @@ test.describe('Video Detail Modal', () => {
       .first();
     await expect(favoriteButton).toBeVisible();
 
-    const responsePromise = page.waitForResponse((response) =>
-      response.url().includes('/api/videos/') && response.url().includes('/settings')
-    );
+    const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await favoriteButton.click();
     await responsePromise;
 
@@ -95,9 +99,7 @@ test.describe('Video Detail Modal', () => {
       .first();
     await expect(skipButton).toBeVisible();
 
-    const responsePromise = page.waitForResponse((response) =>
-      response.url().includes('/api/videos/') && response.url().includes('/settings')
-    );
+    const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await skipButton.click();
     await responsePromise;
   });
@@ -121,9 +123,7 @@ test.describe('Video Detail Modal', () => {
     const saveButton = page.getByRole('dialog').getByRole('button', { name: 'メモを保存' });
     await expect(saveButton).toBeVisible();
 
-    const responsePromise = page.waitForResponse((response) =>
-      response.url().includes('/api/videos/') && response.url().includes('/settings')
-    );
+    const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await saveButton.click();
     await responsePromise;
   });
@@ -216,9 +216,7 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
 
     // お気に入りボタンをクリックして API レスポンスを待つ
-    const responsePromise = page.waitForResponse((response) =>
-      response.url().includes('/api/videos/') && response.url().includes('/settings')
-    );
+    const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await page
       .getByRole('dialog')
       .getByRole('button', { name: /お気に入り/ })
