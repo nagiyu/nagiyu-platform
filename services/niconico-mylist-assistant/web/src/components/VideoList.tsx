@@ -41,6 +41,7 @@ export default function VideoList() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // 現在の状態を追跡するref（stale closureを回避）
+  // 初期値は state のデフォルト値で、URL同期 useEffect が実行されると自動的に更新される
   const stateRef = useRef({ favoriteFilter, skipFilter, offset });
   useEffect(() => {
     stateRef.current = { favoriteFilter, skipFilter, offset };
