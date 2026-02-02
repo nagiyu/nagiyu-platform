@@ -969,19 +969,20 @@ function parse(input: string): ParsedData {
 <div>{userInput}</div>
 ```
 
-#### MUST NOT: dangerouslySetInnerHTML は避ける
+#### MUST NOT: dangerouslySetInnerHTML を使用しない
 
 ```typescript
-// ❌ NG
+// ❌ NG: 直接使用は禁止
 <div dangerouslySetInnerHTML={{ __html: userInput }} />
 
-// ✅ OK: どうしても必要な場合はサニタイズ
+// ✅ OK: DOMPurify経由であれば例外的に許可
 import DOMPurify from 'dompurify';
 <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userInput) }} />
 ```
 
 **理由**: XSS攻撃の防止
 **違反時の影響**: セキュリティ脆弱性
+**例外**: DOMPurify等の信頼できるサニタイザーを経由する場合のみ許可
 
 ### 6.3 環境変数
 

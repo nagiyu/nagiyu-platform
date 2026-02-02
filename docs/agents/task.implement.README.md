@@ -388,9 +388,9 @@ assignees: task.implement
 ```markdown
 ## 関連ドキュメント
 
-- [要件定義書](../docs/services/tools/requirements.md)
-- [アーキテクチャ設計書](../docs/services/tools/architecture.md)
-- [デプロイ手順書](../docs/services/tools/deployment.md)
+- [要件定義書](../services/tools/requirements.md)
+- [アーキテクチャ設計書](../services/tools/architecture.md)
+- [デプロイ手順書](../services/tools/deployment.md)
 ```
 
 ### 3. 進捗確認

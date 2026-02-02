@@ -336,7 +336,6 @@ const cloudfrontStack = new CloudFrontStackBase(app, 'ToolsCloudFrontStack', {
 
 - [初回セットアップ](./setup.md) - インフラの初期構築手順
 - [デプロイ手順](./deploy.md) - 日常的なデプロイ操作
-- [CDK 移行ガイド](./cdk-migration.md) - CloudFormation から CDK への移行戦略
 - [共有インフラ](./shared/README.md) - 共有リソースの概要とサービスパターン
 - [IAM 詳細](./shared/iam.md) - IAM リソースの詳細設計
 - [VPC 詳細](./shared/vpc.md) - VPC リソースの詳細設計
