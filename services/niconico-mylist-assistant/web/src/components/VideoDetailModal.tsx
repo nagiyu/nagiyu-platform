@@ -226,6 +226,9 @@ export default function VideoDetailModal({
     }
   };
 
+  /**
+   * 日時フォーマット（秒は省略して見やすく表示）
+   */
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('ja-JP', {
