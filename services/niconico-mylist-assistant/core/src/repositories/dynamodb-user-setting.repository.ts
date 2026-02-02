@@ -196,10 +196,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
       return entity;
     } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError(
-          `ユーザー設定 (userId=${input.userId}, videoId=${input.videoId}) は既に存在します`,
-          error
-        );
+        throw new EntityAlreadyExistsError('UserSetting', `userId=${input.userId}, videoId=${input.videoId}`);
       }
 
       const message = error instanceof Error ? error.message : String(error);
@@ -298,10 +295,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
       return this.mapper.toEntity(result.Attributes as ReturnType<UserSettingMapper['toItem']>);
     } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError(
-          `ユーザー設定 (userId=${userId}, videoId=${videoId}) が見つかりません`,
-          error
-        );
+        throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
       }
 
       const message = error instanceof Error ? error.message : String(error);

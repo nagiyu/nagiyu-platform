@@ -2,7 +2,20 @@
 export * from './types';
 
 // Repository パターン実装
-export * from './entities';
+// NOTE: Entity types are exported as separate types to avoid naming conflicts with existing types
+export type {
+  VideoEntity,
+  CreateVideoInput as CreateVideoEntityInput,
+  VideoKey,
+} from './entities/video.entity';
+
+export type {
+  UserSettingEntity,
+  CreateUserSettingInput as CreateUserSettingEntityInput,
+  UpdateUserSettingInput,
+  UserSettingKey,
+} from './entities/user-setting.entity';
+
 export * from './repositories';
 export * from './mappers';
 

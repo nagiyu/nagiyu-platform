@@ -120,10 +120,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
       return entity;
     } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError(
-          `動画 ${input.videoId} は既に存在します`,
-          error
-        );
+        throw new EntityAlreadyExistsError('Video', input.videoId);
       }
 
       const message = error instanceof Error ? error.message : String(error);
