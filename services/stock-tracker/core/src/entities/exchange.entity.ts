@@ -36,7 +36,9 @@ export type CreateExchangeInput = Omit<ExchangeEntity, 'CreatedAt' | 'UpdatedAt'
 /**
  * Exchange更新時の入力データ（更新可能なフィールドのみ）
  */
-export type UpdateExchangeInput = Partial<Pick<ExchangeEntity, 'Name' | 'Timezone' | 'Start' | 'End'>>;
+export type UpdateExchangeInput = Partial<
+  Pick<ExchangeEntity, 'Name' | 'Timezone' | 'Start' | 'End'>
+>;
 
 /**
  * Exchangeのビジネスキー
