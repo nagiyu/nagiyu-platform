@@ -21,10 +21,7 @@ import {
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { WatchlistRepository } from './watchlist.repository.interface.js';
-import type {
-  WatchlistEntity,
-  CreateWatchlistInput,
-} from '../entities/watchlist.entity.js';
+import type { WatchlistEntity, CreateWatchlistInput } from '../entities/watchlist.entity.js';
 import { WatchlistMapper } from '../mappers/watchlist.mapper.js';
 
 // カスタムエラークラス（互換性のため維持）
