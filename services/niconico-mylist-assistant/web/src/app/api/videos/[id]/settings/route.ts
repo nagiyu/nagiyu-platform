@@ -3,8 +3,6 @@ import {
   getVideoBasicInfo,
   getUserVideoSetting,
   updateUserVideoSetting,
-  toVideoAPI,
-  toUserSettingAPI,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -65,23 +63,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       memo: body.memo,
     });
 
-    // 内部型から API 型に変換
-    const settingAPI = toUserSettingAPI(updatedSetting);
-
     // 動画基本情報を取得して結合
     const basicInfo = await getVideoBasicInfo(id);
-    const videoAPI = basicInfo ? toVideoAPI(basicInfo) : null;
 
     const video = {
-      videoId: settingAPI.videoId,
-      title: videoAPI?.title || '',
-      thumbnailUrl: videoAPI?.thumbnailUrl || '',
-      length: videoAPI?.length || '',
-      isFavorite: settingAPI.isFavorite,
-      isSkip: settingAPI.isSkip,
-      memo: settingAPI.memo,
-      createdAt: settingAPI.createdAt,
-      updatedAt: settingAPI.updatedAt,
+      videoId: updatedSetting.videoId,
+      title: basicInfo?.title || '',
+      thumbnailUrl: basicInfo?.thumbnailUrl || '',
+      length: basicInfo?.length || '',
+      isFavorite: updatedSetting.isFavorite,
+      isSkip: updatedSetting.isSkip,
+      memo: updatedSetting.memo,
+      createdAt: updatedSetting.CreatedAt,
+      updatedAt: updatedSetting.UpdatedAt,
     };
 
     return NextResponse.json({ video });
