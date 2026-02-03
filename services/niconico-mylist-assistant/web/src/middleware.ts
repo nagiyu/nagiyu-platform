@@ -17,7 +17,8 @@ export default auth((req: NextAuthRequest) => {
   const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
   if (skipAuthCheck) {
     // テスト環境では認証チェックをスキップ
-    // テスト用の固定ユーザーIDは getSession() で提供される
+    // テスト用の固定ユーザーIDは lib/auth/session.ts の getSession() で提供される
+    // （getSession() が SKIP_AUTH_CHECK をチェックしてモックセッションを返す）
     return NextResponse.next();
   }
 
