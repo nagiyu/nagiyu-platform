@@ -97,7 +97,7 @@ test.describe('Bulk Import API with Authentication', () => {
   test('should import videos successfully when authenticated', async ({ request }) => {
     // このテストでは beforeEach でデータクリアが必要
     await clearTestData();
-    
+
     const response = await request.post('/api/videos/bulk-import', {
       data: {
         videoIds: ['sm9', 'sm10', 'sm11'],
@@ -120,7 +120,7 @@ test.describe('Bulk Import API with Authentication', () => {
   test('should skip already imported videos', async ({ request }) => {
     // このテストでは初期状態でクリアする
     await clearTestData();
-    
+
     // 最初のインポート - 実際にニコニコAPIを呼び出して動画を登録
     const firstResponse = await request.post('/api/videos/bulk-import', {
       data: {
@@ -130,7 +130,7 @@ test.describe('Bulk Import API with Authentication', () => {
 
     expect(firstResponse.status()).toBe(200);
     const firstBody = await firstResponse.json();
-    
+
     // NOTE: ニコニコAPIが古い動画IDを拒否する可能性があるため、
     // 実際に成功した動画数をチェックしてから再インポートをテスト
     test.skip(firstBody.success === 0, 'Niconico API rejected all video IDs');
@@ -145,7 +145,7 @@ test.describe('Bulk Import API with Authentication', () => {
     expect(secondResponse.status()).toBe(200);
     const secondBody = await secondResponse.json();
     expect(typeof secondBody.skipped).toBe('number');
-    
+
     // 最初のインポートで成功した動画はスキップされる
     expect(secondBody.skipped).toBe(firstBody.success);
     // 2回目は新規インポートがない

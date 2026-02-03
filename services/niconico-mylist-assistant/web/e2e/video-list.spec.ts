@@ -120,7 +120,7 @@ test.describe('Video List Page', () => {
     // APIレスポンスを待つ
     const response = await page.waitForResponse((res) => res.url().includes('/api/videos'));
     const body = await response.json();
-    
+
     // お気に入りのみがフィルターされていることを確認
     expect(body.total).toBe(2); // 5個中2個がお気に入り
     expect(body.videos).toHaveLength(2);

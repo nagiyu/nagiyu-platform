@@ -71,9 +71,8 @@ export async function seedVideoData(
     return [];
   }
 
-  const { createVideoBasicInfo, upsertUserVideoSetting } = await import(
-    '@nagiyu/niconico-mylist-assistant-core'
-  );
+  const { createVideoBasicInfo, upsertUserVideoSetting } =
+    await import('@nagiyu/niconico-mylist-assistant-core');
 
   const startId = options?.startId ?? 1;
   const videoIds: string[] = [];
