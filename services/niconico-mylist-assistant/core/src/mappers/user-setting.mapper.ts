@@ -8,12 +8,15 @@ import { validateStringField, validateBooleanField } from '@nagiyu/aws';
 import type { UserSettingEntity, UserSettingKey } from '../entities/user-setting.entity';
 
 /**
- * DynamoDB Item (現在のスキーマに合わせた型定義)
+ * DynamoDB Item 型 (niconico-mylist-assistant スキーマ)
+ *
+ * Note: プラットフォーム標準の DynamoDBItem は CreatedAt/UpdatedAt を Unix timestamp で定義しているが、
+ * 本サービスは ISO 8601 文字列を使用しているため、カスタム型を使用
  */
-interface UserSettingDynamoDBItem {
+interface UserSettingDynamoDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
-  entityType: string;
+  Type: string;
   userId: string;
   videoId: string;
   isFavorite: boolean;
@@ -27,6 +30,10 @@ interface UserSettingDynamoDBItem {
  * UserSetting Mapper
  *
  * UserSettingEntity と DynamoDB Item 間の変換を行う
+ *
+ * Note: EntityMapper<TEntity, TKey> インターフェースの実装は見送り
+ * 理由: プラットフォーム標準の EntityMapper は CreatedAt/UpdatedAt を Unix timestamp で要求するが、
+ * 本サービスは ISO 8601 文字列を使用しているため、型の互換性がない
  */
 export class UserSettingMapper {
   private readonly entityType = 'USER_SETTING';
@@ -37,7 +44,7 @@ export class UserSettingMapper {
    * @param entity - UserSetting Entity
    * @returns DynamoDB Item
    */
-  public toItem(entity: UserSettingEntity): UserSettingDynamoDBItem {
+  public toItem(entity: UserSettingEntity): Record<string, unknown> {
     const { pk, sk } = this.buildKeys({
       userId: entity.userId,
       videoId: entity.videoId,
@@ -46,7 +53,7 @@ export class UserSettingMapper {
     const item: UserSettingDynamoDBItem = {
       PK: pk,
       SK: sk,
-      entityType: this.entityType,
+      Type: this.entityType,
       userId: entity.userId,
       videoId: entity.videoId,
       isFavorite: entity.isFavorite,
@@ -68,7 +75,7 @@ export class UserSettingMapper {
    * @param item - DynamoDB Item
    * @returns UserSetting Entity
    */
-  public toEntity(item: UserSettingDynamoDBItem): UserSettingEntity {
+  public toEntity(item: Record<string, unknown>): UserSettingEntity {
     const entity: UserSettingEntity = {
       userId: validateStringField(item.userId, 'userId'),
       videoId: validateStringField(item.videoId, 'videoId'),

@@ -55,7 +55,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
         return null;
       }
 
-      return this.mapper.toEntity(result.Item as ReturnType<VideoMapper['toItem']>);
+      return this.mapper.toEntity(result.Item);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -89,7 +89,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
       );
 
       const items = result.Responses?.[this.tableName] || [];
-      return items.map((item) => this.mapper.toEntity(item as ReturnType<VideoMapper['toItem']>));
+      return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);

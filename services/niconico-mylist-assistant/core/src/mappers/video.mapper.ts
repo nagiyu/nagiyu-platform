@@ -8,12 +8,15 @@ import { validateStringField } from '@nagiyu/aws';
 import type { VideoEntity, VideoKey } from '../entities/video.entity';
 
 /**
- * DynamoDB Item (現在のスキーマに合わせた型定義)
+ * DynamoDB Item 型 (niconico-mylist-assistant スキーマ)
+ *
+ * Note: プラットフォーム標準の DynamoDBItem は CreatedAt/UpdatedAt を Unix timestamp で定義しているが、
+ * 本サービスは ISO 8601 文字列を使用しているため、カスタム型を使用
  */
-interface VideoDynamoDBItem {
+interface VideoDynamoDBItem extends Record<string, unknown> {
   PK: string;
   SK: string;
-  entityType: string;
+  Type: string;
   videoId: string;
   title: string;
   thumbnailUrl: string;
@@ -26,6 +29,10 @@ interface VideoDynamoDBItem {
  * Video Mapper
  *
  * VideoEntity と DynamoDB Item 間の変換を行う
+ *
+ * Note: EntityMapper<TEntity, TKey> インターフェースの実装は見送り
+ * 理由: プラットフォーム標準の EntityMapper は CreatedAt/UpdatedAt を Unix timestamp で要求するが、
+ * 本サービスは ISO 8601 文字列を使用しているため、型の互換性がない
  */
 export class VideoMapper {
   private readonly entityType = 'VIDEO';
@@ -36,7 +43,7 @@ export class VideoMapper {
    * @param entity - Video Entity
    * @returns DynamoDB Item
    */
-  public toItem(entity: VideoEntity): VideoDynamoDBItem {
+  public toItem(entity: VideoEntity): Record<string, unknown> {
     const { pk, sk } = this.buildKeys({
       videoId: entity.videoId,
     });
@@ -44,7 +51,7 @@ export class VideoMapper {
     const item: VideoDynamoDBItem = {
       PK: pk,
       SK: sk,
-      entityType: this.entityType,
+      Type: this.entityType,
       videoId: entity.videoId,
       title: entity.title,
       thumbnailUrl: entity.thumbnailUrl,
@@ -65,7 +72,7 @@ export class VideoMapper {
    * @param item - DynamoDB Item
    * @returns Video Entity
    */
-  public toEntity(item: VideoDynamoDBItem): VideoEntity {
+  public toEntity(item: Record<string, unknown>): VideoEntity {
     const entity: VideoEntity = {
       videoId: validateStringField(item.videoId, 'videoId'),
       title: validateStringField(item.title, 'title'),

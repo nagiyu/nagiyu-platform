@@ -66,7 +66,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         return null;
       }
 
-      return this.mapper.toEntity(result.Item as ReturnType<UserSettingMapper['toItem']>);
+      return this.mapper.toEntity(result.Item);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -99,9 +99,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as ReturnType<UserSettingMapper['toItem']>)
-      );
+      const items = (result.Items || []).map((item) => this.mapper.toEntity(item));
 
       const nextCursor = result.LastEvaluatedKey
         ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
@@ -295,7 +293,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
 
-      return this.mapper.toEntity(result.Attributes as ReturnType<UserSettingMapper['toItem']>);
+      return this.mapper.toEntity(result.Attributes!);
     } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
         throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
