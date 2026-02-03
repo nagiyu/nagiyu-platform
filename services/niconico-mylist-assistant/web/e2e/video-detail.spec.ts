@@ -14,6 +14,7 @@ test.describe('Video Detail Modal', () => {
   test.skip('should redirect to home when not authenticated', async ({ page }) => {
     // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
     // E2Eテスト環境では常に認証がバイパスされるため、未認証状態をテストできない
+    // 未認証時のリダイレクト動作は middleware のユニットテストで検証する
     await page.goto('/mylist');
 
     // 認証されていない場合はホームにリダイレクト
