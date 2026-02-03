@@ -139,8 +139,10 @@ export class DynamoDBWatchlistRepository implements WatchlistRepository {
         count: result.Count ?? 0,
       };
     } catch (error) {
-      if (error instanceof InvalidWatchlistDataError) {
-        throw error;
+      if (error instanceof InvalidEntityDataError) {
+        throw new InvalidWatchlistDataError(
+          error.message.replace('エンティティデータが無効です: ', '')
+        );
       }
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
