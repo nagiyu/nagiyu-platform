@@ -12,14 +12,22 @@ export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 
-// Legacy repository classes (for backward compatibility - Alert, Holding, Ticker)
+// Legacy repository classes (for backward compatibility)
 export * from './repositories/ticker.js';
 export * from './repositories/holding.js';
 export * from './repositories/alert.js';
+export { ExchangeRepository } from './repositories/exchange.js';
+export {
+  WatchlistRepository,
+  WatchlistNotFoundError,
+  InvalidWatchlistDataError,
+  WatchlistAlreadyExistsError,
+  type WatchlistQueryResult,
+} from './repositories/watchlist.js';
 
 // Repository Interfaces - Exchange and Watchlist (new)
-export * from './repositories/exchange.repository.interface.js';
-export * from './repositories/watchlist.repository.interface.js';
+export type { ExchangeRepository as IExchangeRepository } from './repositories/exchange.repository.interface.js';
+export type { WatchlistRepository as IWatchlistRepository } from './repositories/watchlist.repository.interface.js';
 
 // Entities - Exchange and Watchlist (new)
 export * from './entities/exchange.entity.js';
