@@ -18,6 +18,7 @@ RUN npm install --omit=optional
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=@nagiyu/common
 RUN npm run build --workspace=@nagiyu/browser
+RUN npm run build --workspace=@nagiyu/aws
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 RUN npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
 
@@ -40,6 +41,10 @@ COPY --from=builder /app/libs/common/dist ./libs/common/dist
 # ブラウザライブラリ
 COPY --from=builder /app/libs/browser/package*.json ./libs/browser/
 COPY --from=builder /app/libs/browser/dist ./libs/browser/dist
+
+# AWS ライブラリ
+COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
+COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 
 # Core パッケージ
 COPY --from=builder /app/services/niconico-mylist-assistant/core/package*.json ./services/niconico-mylist-assistant/core/
