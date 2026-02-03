@@ -1,6 +1,7 @@
 import { docClient, TABLE_NAME } from './client';
-import { DynamoDBVideoRepository } from '../repositories/dynamodb-video.repository';
-import { DynamoDBUserSettingRepository } from '../repositories/dynamodb-user-setting.repository';
+import { createVideoRepository, createUserSettingRepository } from '../repositories/factory';
+import type { VideoRepository } from '../repositories/video.repository.interface';
+import type { UserSettingRepository } from '../repositories/user-setting.repository.interface';
 import type {
   VideoBasicInfo,
   UserVideoSetting,
@@ -9,9 +10,24 @@ import type {
   VideoSettingUpdate,
 } from '../types';
 
-// Repository インスタンスの作成
-const videoRepository = new DynamoDBVideoRepository(docClient, TABLE_NAME);
-const userSettingRepository = new DynamoDBUserSettingRepository(docClient, TABLE_NAME);
+// Repository インスタンスの遅延作成
+// 環境変数 USE_IN_MEMORY_DB により、DynamoDB または InMemory 実装を切り替える
+let videoRepositoryInstance: VideoRepository | null = null;
+let userSettingRepositoryInstance: UserSettingRepository | null = null;
+
+function getVideoRepository(): VideoRepository {
+  if (!videoRepositoryInstance) {
+    videoRepositoryInstance = createVideoRepository(docClient, TABLE_NAME);
+  }
+  return videoRepositoryInstance;
+}
+
+function getUserSettingRepository(): UserSettingRepository {
+  if (!userSettingRepositoryInstance) {
+    userSettingRepositoryInstance = createUserSettingRepository(docClient, TABLE_NAME);
+  }
+  return userSettingRepositoryInstance;
+}
 
 /**
  * 動画基本情報（VIDEO エンティティ）の操作
@@ -24,7 +40,7 @@ const userSettingRepository = new DynamoDBUserSettingRepository(docClient, TABLE
 export async function createVideoBasicInfo(
   input: CreateVideoBasicInfoInput
 ): Promise<VideoBasicInfo> {
-  const entity = await videoRepository.create(input);
+  const entity = await getVideoRepository().create(input);
   return entity as VideoBasicInfo;
 }
 
@@ -33,7 +49,7 @@ export async function createVideoBasicInfo(
  * @returns 動画基本情報、存在しない場合は null
  */
 export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo | null> {
-  const entity = await videoRepository.getById(videoId);
+  const entity = await getVideoRepository().getById(videoId);
   return entity as VideoBasicInfo | null;
 }
 
@@ -43,7 +59,7 @@ export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo
  * @returns 動画基本情報の配列（存在するもののみ）
  */
 export async function batchGetVideoBasicInfo(videoIds: string[]): Promise<VideoBasicInfo[]> {
-  const entities = await videoRepository.batchGet(videoIds);
+  const entities = await getVideoRepository().batchGet(videoIds);
   return entities as VideoBasicInfo[];
 }
 
@@ -58,7 +74,7 @@ export async function batchGetVideoBasicInfo(videoIds: string[]): Promise<VideoB
 export async function createUserVideoSetting(
   input: CreateUserSettingInput
 ): Promise<UserVideoSetting> {
-  const entity = await userSettingRepository.create(input);
+  const entity = await getUserSettingRepository().create(input);
   return entity as UserVideoSetting;
 }
 
@@ -70,7 +86,7 @@ export async function createUserVideoSetting(
 export async function upsertUserVideoSetting(
   input: CreateUserSettingInput
 ): Promise<UserVideoSetting> {
-  const entity = await userSettingRepository.upsert(input);
+  const entity = await getUserSettingRepository().upsert(input);
   return entity as UserVideoSetting;
 }
 
@@ -82,7 +98,7 @@ export async function getUserVideoSetting(
   userId: string,
   videoId: string
 ): Promise<UserVideoSetting | null> {
-  const entity = await userSettingRepository.getById(userId, videoId);
+  const entity = await getUserSettingRepository().getById(userId, videoId);
   return entity as UserVideoSetting | null;
 }
 
@@ -96,7 +112,7 @@ export async function updateUserVideoSetting(
   videoId: string,
   update: VideoSettingUpdate
 ): Promise<UserVideoSetting> {
-  const entity = await userSettingRepository.update(userId, videoId, update);
+  const entity = await getUserSettingRepository().update(userId, videoId, update);
   return entity as UserVideoSetting;
 }
 
@@ -118,7 +134,7 @@ export async function listUserVideoSettings(
     ? Buffer.from(JSON.stringify(options.lastEvaluatedKey)).toString('base64')
     : undefined;
 
-  const result = await userSettingRepository.getByUserId(userId, {
+  const result = await getUserSettingRepository().getByUserId(userId, {
     limit,
     cursor,
   });
@@ -137,7 +153,7 @@ export async function listUserVideoSettings(
  * ユーザー設定を削除
  */
 export async function deleteUserVideoSetting(userId: string, videoId: string): Promise<void> {
-  await userSettingRepository.delete(userId, videoId);
+  await getUserSettingRepository().delete(userId, videoId);
 }
 
 /**
