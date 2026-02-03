@@ -1,15 +1,26 @@
 // 型定義のエクスポート
 export * from './types';
 
-// DynamoDB アクセス層
+// Repository パターン実装
+// NOTE: Entity types are exported as separate types to avoid naming conflicts with existing types
+export type {
+  VideoEntity,
+  CreateVideoInput as CreateVideoEntityInput,
+  VideoKey,
+} from './entities/video.entity';
+
+export type {
+  UserSettingEntity,
+  CreateUserSettingInput as CreateUserSettingEntityInput,
+  UpdateUserSettingInput,
+  UserSettingKey,
+} from './entities/user-setting.entity';
+
+export * from './repositories';
+export * from './mappers';
+
+// DynamoDB アクセス層（後方互換性のため残す）
 export * from './db';
 
-// 将来的に実装される機能のプレースホルダー
-// - ニコニコ動画 API クライアント
 // ニコニコ動画 API クライアント
 export * from './niconico';
-
-// 将来的に実装される機能のプレースホルダー
-// - DynamoDB アクセス層
-// - Playwright ヘルパー関数
-// - 暗号化ユーティリティ

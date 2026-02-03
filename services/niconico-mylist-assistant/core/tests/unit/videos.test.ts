@@ -81,7 +81,7 @@ describe('videos', () => {
         };
 
         await expect(createVideoBasicInfo(input)).rejects.toThrow(
-          'ConditionalCheckFailedException'
+          'エンティティは既に存在します'
         );
       });
     });
@@ -167,7 +167,7 @@ describe('videos', () => {
       it('100件を超える場合はエラーを返す', async () => {
         const videoIds = Array.from({ length: 101 }, (_, i) => `sm${i}`);
         await expect(batchGetVideoBasicInfo(videoIds)).rejects.toThrow(
-          'batchGetVideoBasicInfo: 最大100件まで取得可能です'
+          'batchGet: 最大100件まで取得可能です'
         );
       });
     });
@@ -224,7 +224,7 @@ describe('videos', () => {
         };
 
         await expect(createUserVideoSetting(input)).rejects.toThrow(
-          'ConditionalCheckFailedException'
+          'エンティティは既に存在します'
         );
       });
     });
@@ -402,7 +402,7 @@ describe('videos', () => {
       it('更新する項目が指定されていない場合はエラーを返す', async () => {
         await expect(
           updateUserVideoSetting('user123', 'sm12345678', {})
-        ).rejects.toThrow('更新する項目が指定されていません');
+        ).rejects.toThrow('更新するフィールドが指定されていません');
       });
 
       it('存在しない設定を更新しようとするとエラーになる', async () => {
@@ -416,7 +416,7 @@ describe('videos', () => {
 
         await expect(
           updateUserVideoSetting('user123', 'sm99999999', update)
-        ).rejects.toThrow('ConditionalCheckFailedException');
+        ).rejects.toThrow('エンティティが見つかりません');
       });
     });
 

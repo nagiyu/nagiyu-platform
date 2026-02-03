@@ -6,6 +6,10 @@ const config: Config = {
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleFileExtensions: ['ts', 'js'],
+  moduleNameMapper: {
+    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
+  },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   collectCoverageFrom: [
     'src/**/*.ts',
