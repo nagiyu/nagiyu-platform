@@ -85,6 +85,40 @@ export interface UserVideoSetting {
   UpdatedAt: number;
 }
 
+// ============================================================================
+// 変換関数: 内部型 → API型
+// ============================================================================
+
+/**
+ * VideoBasicInfo を API レスポンス用の Video 型に変換
+ */
+export function toVideoAPI(basicInfo: VideoBasicInfo): Video {
+  return {
+    videoId: basicInfo.videoId,
+    title: basicInfo.title,
+    thumbnailUrl: basicInfo.thumbnailUrl,
+    length: basicInfo.length,
+    createdAt: new Date(basicInfo.CreatedAt).toISOString(),
+    videoUpdatedAt: basicInfo.videoUpdatedAt
+      ? new Date(basicInfo.videoUpdatedAt).toISOString()
+      : undefined,
+  };
+}
+
+/**
+ * UserVideoSetting を API レスポンス用の UserSetting 型に変換
+ */
+export function toUserSettingAPI(setting: UserVideoSetting): UserSetting {
+  return {
+    videoId: setting.videoId,
+    isFavorite: setting.isFavorite,
+    isSkip: setting.isSkip,
+    memo: setting.memo,
+    createdAt: new Date(setting.CreatedAt).toISOString(),
+    updatedAt: new Date(setting.UpdatedAt).toISOString(),
+  };
+}
+
 /**
  * DynamoDB 内部アイテム型（VIDEO エンティティ）
  * @internal

@@ -3,6 +3,8 @@ import {
   listVideosWithSettings,
   type VideosListResponse,
   type VideoData,
+  toVideoAPI,
+  toUserSettingAPI,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -122,23 +124,28 @@ export async function GET(request: NextRequest) {
     });
 
     // レスポンス形式に変換
-    const videos: VideoData[] = rawVideos.map((video) => ({
-      videoId: video.videoId,
-      title: video.title,
-      thumbnailUrl: video.thumbnailUrl,
-      length: video.length,
-      createdAt: video.createdAt,
-      userSetting: video.userSetting
-        ? {
-            videoId: video.videoId,
-            isFavorite: video.userSetting.isFavorite,
-            isSkip: video.userSetting.isSkip,
-            memo: video.userSetting.memo,
-            createdAt: video.userSetting.createdAt,
-            updatedAt: video.userSetting.updatedAt,
-          }
-        : undefined,
-    }));
+    const videos: VideoData[] = rawVideos.map((video) => {
+      const videoAPI = toVideoAPI(video);
+      const settingAPI = video.userSetting ? toUserSettingAPI(video.userSetting) : undefined;
+      
+      return {
+        videoId: videoAPI.videoId,
+        title: videoAPI.title,
+        thumbnailUrl: videoAPI.thumbnailUrl,
+        length: videoAPI.length,
+        createdAt: videoAPI.createdAt,
+        userSetting: settingAPI
+          ? {
+              videoId: videoAPI.videoId,
+              isFavorite: settingAPI.isFavorite,
+              isSkip: settingAPI.isSkip,
+              memo: settingAPI.memo,
+              createdAt: settingAPI.createdAt,
+              updatedAt: settingAPI.updatedAt,
+            }
+          : undefined,
+      };
+    });
 
     // レスポンス
     const response: VideosListResponse = {
