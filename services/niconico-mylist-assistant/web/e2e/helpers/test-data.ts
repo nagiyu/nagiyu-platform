@@ -50,12 +50,11 @@ export async function clearTestData(): Promise<void> {
  * });
  * ```
  */
-export async function seedTestData(data?: {
+export async function seedTestData(_data?: {
   videos?: Array<{ videoId: string; title: string }>;
   userSettings?: Array<{ userId: string; videoId: string; isFavorite?: boolean; isSkip?: boolean }>;
 }): Promise<void> {
   // 現時点では、データのシードは実装しない
   // 各テストで必要なデータは、API経由で投入する方針
   // 将来的に共通のシードデータが必要になった場合は、ここに実装を追加する
-  void data; // unused parameter
 }
