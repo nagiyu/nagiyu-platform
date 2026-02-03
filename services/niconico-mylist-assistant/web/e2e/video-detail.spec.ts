@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { clearTestData, seedVideoData } from './helpers/test-data';
 
 /**
  * API レスポンスをマッチングするヘルパー関数
@@ -11,6 +12,11 @@ const isVideoSettingsApiResponse = (response: Response): boolean => {
 };
 
 test.describe('Video Detail Modal', () => {
+  test.beforeEach(async () => {
+    // 各テスト前にデータをクリア
+    await clearTestData();
+  });
+
   test.skip('should redirect to home when not authenticated', async ({ page }) => {
     // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
     // E2Eテスト環境では常に認証がバイパスされるため、未認証状態をテストできない
@@ -21,8 +27,9 @@ test.describe('Video Detail Modal', () => {
     await expect(page).toHaveURL('/');
   });
 
-  test.skip('should open video detail modal when clicking a video card', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should open video detail modal when clicking a video card', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -36,8 +43,9 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('heading', { name: '動画詳細' })).toBeVisible();
   });
 
-  test.skip('should display video information in modal', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should display video information in modal', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -62,8 +70,9 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog').getByLabel('メモ')).toBeVisible();
   });
 
-  test.skip('should toggle favorite in modal', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should toggle favorite in modal', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -88,8 +97,9 @@ test.describe('Video Detail Modal', () => {
     // 実際の実装では API レスポンスを待つ
   });
 
-  test.skip('should toggle skip in modal', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should toggle skip in modal', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -111,8 +121,9 @@ test.describe('Video Detail Modal', () => {
     await responsePromise;
   });
 
-  test.skip('should save memo in modal', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should save memo in modal', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -135,8 +146,9 @@ test.describe('Video Detail Modal', () => {
     await responsePromise;
   });
 
-  test.skip('should show delete confirmation when clicking delete button', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should show delete confirmation when clicking delete button', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -161,8 +173,9 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('button', { name: 'キャンセル' })).toBeVisible();
   });
 
-  test.skip('should cancel delete when clicking cancel button', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should cancel delete when clicking cancel button', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -192,8 +205,9 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 
-  test.skip('should close modal when clicking close button', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should close modal when clicking close button', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 
@@ -211,8 +225,9 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
-  test.skip('should update video list after settings change in modal', async ({ page }) => {
-    // TODO: Implement authentication setup and seed test data
+  test('should update video list after settings change in modal', async ({ page }) => {
+    // テストデータを作成
+    await seedVideoData('test-user-id', 3);
 
     await page.goto('/mylist');
 

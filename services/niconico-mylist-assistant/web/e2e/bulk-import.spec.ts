@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { clearTestData } from './helpers/test-data';
 
 test.describe('Bulk Import API', () => {
+  test.beforeEach(async () => {
+    // 各テスト前にデータをクリア
+    await clearTestData();
+  });
+
   test.skip('should return 401 when not authenticated', async ({ request }) => {
     // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
     // E2Eテスト環境では常に認証がバイパスされるため、401エラーをテストできない
@@ -17,16 +23,15 @@ test.describe('Bulk Import API', () => {
   });
 
   test('should validate videoIds is an array', async ({ request }) => {
-    // Note: In a real test, you would need to authenticate first
-    // For now, this test will fail with 401, but it demonstrates the test structure
     const response = await request.post('/api/videos/bulk-import', {
       data: {
         videoIds: 'not-an-array',
       },
     });
 
-    // This would be 400 if authenticated, but will be 401 without auth
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBeDefined();
   });
 
   test('should validate videoIds is not empty', async ({ request }) => {
@@ -36,7 +41,9 @@ test.describe('Bulk Import API', () => {
       },
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBeDefined();
   });
 
   test('should validate maximum 100 videos', async ({ request }) => {
@@ -47,7 +54,9 @@ test.describe('Bulk Import API', () => {
       },
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBeDefined();
   });
 
   test('should validate video ID format', async ({ request }) => {
@@ -57,7 +66,11 @@ test.describe('Bulk Import API', () => {
       },
     });
 
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(400);
+    const body = await response.json();
+    expect(body.error).toBeDefined();
+    expect(body.invalidIds).toContain('invalid-id');
+    expect(body.invalidIds).toContain('another-invalid');
   });
 
   test('should accept valid video IDs', async ({ request }) => {
@@ -67,16 +80,26 @@ test.describe('Bulk Import API', () => {
       },
     });
 
-    // Will be 401 without auth, but validates the API accepts the request format
-    expect([200, 401]).toContain(response.status());
+    // Note: このテストは実際のニコニコ動画APIを呼び出すため、
+    // APIエラーや404が発生する可能性がある
+    // 成功時は200、API失敗時も200だが failed カウントが含まれる
+    expect(response.status()).toBe(200);
+    const body = await response.json();
+    expect(body).toHaveProperty('success');
+    expect(body).toHaveProperty('failed');
+    expect(body).toHaveProperty('skipped');
+    expect(body).toHaveProperty('total');
+    expect(body.total).toBe(3);
   });
 });
 
 test.describe('Bulk Import API with Authentication', () => {
-  test.skip('should import videos successfully when authenticated', async ({ request }) => {
-    // TODO: Implement authentication setup
-    // This test is skipped until authentication is properly set up in the test environment
+  test.beforeEach(async () => {
+    // 各テスト前にデータをクリア
+    await clearTestData();
+  });
 
+  test('should import videos successfully when authenticated', async ({ request }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
         videoIds: ['sm9', 'sm10', 'sm11'],
@@ -96,24 +119,36 @@ test.describe('Bulk Import API with Authentication', () => {
     expect(body.total).toBe(3);
   });
 
-  test.skip('should skip already imported videos', async ({ request }) => {
-    // TODO: Implement authentication setup
-    // TODO: Import videos first, then try to import again
-
-    const response = await request.post('/api/videos/bulk-import', {
+  test('should skip already imported videos', async ({ request }) => {
+    // 最初のインポート
+    const firstResponse = await request.post('/api/videos/bulk-import', {
       data: {
         videoIds: ['sm9', 'sm10'],
       },
     });
 
-    expect(response.status()).toBe(200);
-    const body = await response.json();
+    expect(firstResponse.status()).toBe(200);
+
+    // 同じ動画を再度インポート
+    const secondResponse = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10'],
+      },
+    });
+
+    expect(secondResponse.status()).toBe(200);
+    const body = await secondResponse.json();
     expect(typeof body.skipped).toBe('number');
-    expect(body.skipped).toBeGreaterThan(0);
+    expect(body.skipped).toBe(2); // 全てスキップされる
   });
 });
 
 test.describe('Bulk Import UI', () => {
+  test.beforeEach(async () => {
+    // 各テスト前にデータをクリア
+    await clearTestData();
+  });
+
   test('should display import form', async ({ page }) => {
     await page.goto('/import');
 
@@ -191,6 +226,11 @@ test.describe('Bulk Import UI', () => {
 });
 
 test.describe('Bulk Import Navigation', () => {
+  test.beforeEach(async () => {
+    // 各テスト前にデータをクリア
+    await clearTestData();
+  });
+
   test('should have navigation links', async ({ page }) => {
     await page.goto('/import');
 
