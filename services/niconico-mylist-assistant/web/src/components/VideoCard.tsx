@@ -39,8 +39,8 @@ export default function VideoCard({
   const isFavorite = video.userSetting?.isFavorite ?? false;
   const isSkip = video.userSetting?.isSkip ?? false;
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+  const formatDate = (timestamp: number): string => {
+    const date = new Date(timestamp);
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: '2-digit',

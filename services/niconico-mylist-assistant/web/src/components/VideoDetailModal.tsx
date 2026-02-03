@@ -229,8 +229,8 @@ export default function VideoDetailModal({
   /**
    * 日時フォーマット（秒は省略して見やすく表示）
    */
-  const formatDateTime = (dateString: string): string => {
-    const date = new Date(dateString);
+  const formatDateTime = (timestamp: number): string => {
+    const date = new Date(timestamp);
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: '2-digit',
