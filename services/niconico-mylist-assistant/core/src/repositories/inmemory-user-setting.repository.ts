@@ -7,7 +7,6 @@
 import {
   InMemorySingleTableStore,
   EntityNotFoundError,
-  EntityAlreadyExistsError,
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
@@ -145,12 +144,8 @@ export class InMemoryUserSettingRepository implements UserSettingRepository {
     const item = this.mapper.toItem(entity);
 
     // DynamoDB と同じエラーを投げる（attributeNotExists 条件）
-    try {
-      this.store.put(item, { attributeNotExists: true });
-    } catch (error) {
-      // InMemorySingleTableStore が投げた EntityAlreadyExistsError をそのまま伝播
-      throw error;
-    }
+    // InMemorySingleTableStore が投げた EntityAlreadyExistsError をそのまま伝播
+    this.store.put(item, { attributeNotExists: true });
 
     return entity;
   }

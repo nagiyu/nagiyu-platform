@@ -4,7 +4,7 @@
  * テスト用のインメモリ実装
  */
 
-import { InMemorySingleTableStore, EntityAlreadyExistsError } from '@nagiyu/aws';
+import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity';
 import { VideoMapper } from '../mappers/video.mapper';
@@ -79,12 +79,8 @@ export class InMemoryVideoRepository implements VideoRepository {
     const item = this.mapper.toItem(entity);
 
     // DynamoDB と同じエラーを投げる（attributeNotExists 条件）
-    try {
-      this.store.put(item, { attributeNotExists: true });
-    } catch (error) {
-      // InMemorySingleTableStore が投げた EntityAlreadyExistsError をそのまま伝播
-      throw error;
-    }
+    // InMemorySingleTableStore が投げた EntityAlreadyExistsError をそのまま伝播
+    this.store.put(item, { attributeNotExists: true });
 
     return entity;
   }
