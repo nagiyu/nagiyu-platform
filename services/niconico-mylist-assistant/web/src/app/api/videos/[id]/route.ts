@@ -40,8 +40,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       isFavorite: setting?.isFavorite ?? false,
       isSkip: setting?.isSkip ?? false,
       memo: setting?.memo,
-      createdAt: setting?.createdAt ?? basicInfo.createdAt,
-      updatedAt: setting?.updatedAt ?? basicInfo.createdAt,
+      createdAt: setting?.CreatedAt ?? basicInfo.CreatedAt,
+      updatedAt: setting?.UpdatedAt ?? basicInfo.CreatedAt,
     };
 
     return NextResponse.json({ video });

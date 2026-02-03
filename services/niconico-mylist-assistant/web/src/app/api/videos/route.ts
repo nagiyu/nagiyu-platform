@@ -127,15 +127,15 @@ export async function GET(request: NextRequest) {
       title: video.title,
       thumbnailUrl: video.thumbnailUrl,
       length: video.length,
-      createdAt: video.createdAt,
+      createdAt: video.CreatedAt,
       userSetting: video.userSetting
         ? {
             videoId: video.videoId,
             isFavorite: video.userSetting.isFavorite,
             isSkip: video.userSetting.isSkip,
             memo: video.userSetting.memo,
-            createdAt: video.userSetting.createdAt,
-            updatedAt: video.userSetting.updatedAt,
+            createdAt: video.userSetting.CreatedAt,
+            updatedAt: video.userSetting.UpdatedAt,
           }
         : undefined,
     }));

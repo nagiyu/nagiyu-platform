@@ -18,6 +18,7 @@ import {
   DatabaseError,
   type PaginationOptions,
   type PaginatedResult,
+  type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { UserSettingRepository } from './user-setting.repository.interface';
 import type {
@@ -66,7 +67,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         return null;
       }
 
-      return this.mapper.toEntity(result.Item as ReturnType<UserSettingMapper['toItem']>);
+      return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -99,9 +100,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as ReturnType<UserSettingMapper['toItem']>)
-      );
+      const items = (result.Items || []).map((item) => this.mapper.toEntity(item as DynamoDBItem));
 
       const nextCursor = result.LastEvaluatedKey
         ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
@@ -175,11 +174,11 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
    * 新しいユーザー設定を作成
    */
   public async create(input: CreateUserSettingInput): Promise<UserSettingEntity> {
-    const now = new Date().toISOString();
+    const now = Date.now();
     const entity: UserSettingEntity = {
       ...input,
-      createdAt: now,
-      updatedAt: now,
+      CreatedAt: now,
+      UpdatedAt: now,
     };
 
     try {
@@ -211,15 +210,15 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
    * ユーザー設定を作成または更新（upsert）
    */
   public async upsert(input: CreateUserSettingInput): Promise<UserSettingEntity> {
-    const now = new Date().toISOString();
+    const now = Date.now();
 
-    // 既存レコードの取得（createdAt を保持するため）
+    // 既存レコードの取得（CreatedAt を保持するため）
     const existing = await this.getById(input.userId, input.videoId);
 
     const entity: UserSettingEntity = {
       ...input,
-      createdAt: existing?.createdAt || now,
-      updatedAt: now,
+      CreatedAt: existing?.CreatedAt || now,
+      UpdatedAt: now,
     };
 
     try {
@@ -273,9 +272,9 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
       throw new Error(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
     }
 
-    updateExpressions.push('#updatedAt = :updatedAt');
-    expressionAttributeNames['#updatedAt'] = 'updatedAt';
-    expressionAttributeValues[':updatedAt'] = new Date().toISOString();
+    updateExpressions.push('#UpdatedAt = :UpdatedAt');
+    expressionAttributeNames['#UpdatedAt'] = 'UpdatedAt';
+    expressionAttributeValues[':UpdatedAt'] = Date.now();
 
     try {
       const { pk, sk } = this.mapper.buildKeys({ userId, videoId });
@@ -295,7 +294,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
         })
       );
 
-      return this.mapper.toEntity(result.Attributes as ReturnType<UserSettingMapper['toItem']>);
+      return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
         throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);

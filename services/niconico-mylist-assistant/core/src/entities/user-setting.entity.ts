@@ -20,16 +20,16 @@ export interface UserSettingEntity {
   isSkip: boolean;
   /** メモ */
   memo?: string;
-  /** 作成日時 (ISO 8601) */
-  createdAt: string;
-  /** 更新日時 (ISO 8601) */
-  updatedAt: string;
+  /** 作成日時 (Unix timestamp) */
+  CreatedAt: number;
+  /** 更新日時 (Unix timestamp) */
+  UpdatedAt: number;
 }
 
 /**
- * UserSetting作成時の入力データ（createdAt/updatedAtを含まない）
+ * UserSetting作成時の入力データ（CreatedAt/UpdatedAtを含まない）
  */
-export type CreateUserSettingInput = Omit<UserSettingEntity, 'createdAt' | 'updatedAt'>;
+export type CreateUserSettingInput = Omit<UserSettingEntity, 'CreatedAt' | 'UpdatedAt'>;
 
 /**
  * UserSetting更新時の入力データ（更新可能なフィールドのみ）

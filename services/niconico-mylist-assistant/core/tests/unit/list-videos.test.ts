@@ -23,8 +23,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm1',
         isFavorite: true,
         isSkip: false,
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -34,8 +34,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm2',
         isFavorite: false,
         isSkip: true,
-        createdAt: '2024-01-02T00:00:00Z',
-        updatedAt: '2024-01-02T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -45,8 +45,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm3',
         isFavorite: false,
         isSkip: false,
-        createdAt: '2024-01-03T00:00:00Z',
-        updatedAt: '2024-01-03T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
     ];
 
@@ -60,7 +60,7 @@ describe('listVideosWithSettings', () => {
         title: '動画1',
         thumbnailUrl: 'https://example.com/1.jpg',
         length: '3:00',
-        createdAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
       {
         PK: 'VIDEO#sm2',
@@ -70,7 +70,7 @@ describe('listVideosWithSettings', () => {
         title: '動画2',
         thumbnailUrl: 'https://example.com/2.jpg',
         length: '4:00',
-        createdAt: '2024-01-02T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
       {
         PK: 'VIDEO#sm3',
@@ -80,7 +80,7 @@ describe('listVideosWithSettings', () => {
         title: '動画3',
         thumbnailUrl: 'https://example.com/3.jpg',
         length: '5:00',
-        createdAt: '2024-01-03T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
     ];
 
@@ -113,8 +113,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm1',
         isFavorite: true,
         isSkip: false,
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -124,8 +124,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm2',
         isFavorite: false,
         isSkip: false,
-        createdAt: '2024-01-02T00:00:00Z',
-        updatedAt: '2024-01-02T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
     ];
 
@@ -138,7 +138,7 @@ describe('listVideosWithSettings', () => {
         title: '動画1',
         thumbnailUrl: 'https://example.com/1.jpg',
         length: '3:00',
-        createdAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
     ];
 
@@ -167,8 +167,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm1',
         isFavorite: false,
         isSkip: true,
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -178,8 +178,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm2',
         isFavorite: false,
         isSkip: false,
-        createdAt: '2024-01-02T00:00:00Z',
-        updatedAt: '2024-01-02T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
     ];
 
@@ -192,7 +192,7 @@ describe('listVideosWithSettings', () => {
         title: '動画1',
         thumbnailUrl: 'https://example.com/1.jpg',
         length: '3:00',
-        createdAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
     ];
 
@@ -221,8 +221,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm1',
         isFavorite: true,
         isSkip: false,
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -232,8 +232,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm2',
         isFavorite: true,
         isSkip: true,
-        createdAt: '2024-01-02T00:00:00Z',
-        updatedAt: '2024-01-02T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -243,8 +243,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm3',
         isFavorite: false,
         isSkip: false,
-        createdAt: '2024-01-03T00:00:00Z',
-        updatedAt: '2024-01-03T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
     ];
 
@@ -257,7 +257,7 @@ describe('listVideosWithSettings', () => {
         title: '動画1',
         thumbnailUrl: 'https://example.com/1.jpg',
         length: '3:00',
-        createdAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
     ];
 
@@ -288,8 +288,8 @@ describe('listVideosWithSettings', () => {
       videoId: `sm${i + 1}`,
       isFavorite: false,
       isSkip: false,
-      createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-01T00:00:00Z',
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
     }));
 
     const mockVideos = Array.from({ length: 3 }, (_, i) => ({
@@ -300,7 +300,7 @@ describe('listVideosWithSettings', () => {
       title: `動画${i + 6}`,
       thumbnailUrl: `https://example.com/${i + 6}.jpg`,
       length: '3:00',
-      createdAt: '2024-01-01T00:00:00Z',
+      CreatedAt: 1704067200000,
     }));
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
@@ -333,8 +333,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm1',
         isFavorite: false,
         isSkip: false,
-        createdAt: '2024-01-01T00:00:00Z',
-        updatedAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
       {
         PK: 'USER#user123',
@@ -344,8 +344,8 @@ describe('listVideosWithSettings', () => {
         videoId: 'sm2',
         isFavorite: false,
         isSkip: false,
-        createdAt: '2024-01-02T00:00:00Z',
-        updatedAt: '2024-01-02T00:00:00Z',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
       },
     ];
 
@@ -359,7 +359,7 @@ describe('listVideosWithSettings', () => {
         title: '動画1',
         thumbnailUrl: 'https://example.com/1.jpg',
         length: '3:00',
-        createdAt: '2024-01-01T00:00:00Z',
+        CreatedAt: 1704067200000,
       },
     ];
 

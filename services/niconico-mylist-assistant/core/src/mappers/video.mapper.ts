@@ -4,30 +4,16 @@
  * VideoEntity ↔ DynamoDBItem の変換を担当
  */
 
-import { validateStringField } from '@nagiyu/aws';
+import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type { VideoEntity, VideoKey } from '../entities/video.entity';
-
-/**
- * DynamoDB Item (現在のスキーマに合わせた型定義)
- */
-interface VideoDynamoDBItem {
-  PK: string;
-  SK: string;
-  entityType: string;
-  videoId: string;
-  title: string;
-  thumbnailUrl: string;
-  length: string;
-  createdAt: string;
-  videoUpdatedAt?: string;
-}
 
 /**
  * Video Mapper
  *
  * VideoEntity と DynamoDB Item 間の変換を行う
  */
-export class VideoMapper {
+export class VideoMapper implements EntityMapper<VideoEntity, VideoKey> {
   private readonly entityType = 'VIDEO';
 
   /**
@@ -36,20 +22,21 @@ export class VideoMapper {
    * @param entity - Video Entity
    * @returns DynamoDB Item
    */
-  public toItem(entity: VideoEntity): VideoDynamoDBItem {
+  public toItem(entity: VideoEntity): DynamoDBItem {
     const { pk, sk } = this.buildKeys({
       videoId: entity.videoId,
     });
 
-    const item: VideoDynamoDBItem = {
+    const item: DynamoDBItem = {
       PK: pk,
       SK: sk,
-      entityType: this.entityType,
+      Type: this.entityType,
       videoId: entity.videoId,
       title: entity.title,
       thumbnailUrl: entity.thumbnailUrl,
       length: entity.length,
-      createdAt: entity.createdAt,
+      CreatedAt: entity.CreatedAt,
+      UpdatedAt: entity.CreatedAt, // Video には UpdatedAt がないため CreatedAt を使用
     };
 
     if (entity.videoUpdatedAt !== undefined) {
@@ -65,17 +52,17 @@ export class VideoMapper {
    * @param item - DynamoDB Item
    * @returns Video Entity
    */
-  public toEntity(item: VideoDynamoDBItem): VideoEntity {
+  public toEntity(item: DynamoDBItem): VideoEntity {
     const entity: VideoEntity = {
       videoId: validateStringField(item.videoId, 'videoId'),
       title: validateStringField(item.title, 'title'),
       thumbnailUrl: validateStringField(item.thumbnailUrl, 'thumbnailUrl'),
       length: validateStringField(item.length, 'length'),
-      createdAt: validateStringField(item.createdAt, 'createdAt'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
     };
 
     if (item.videoUpdatedAt !== undefined) {
-      entity.videoUpdatedAt = validateStringField(item.videoUpdatedAt, 'videoUpdatedAt');
+      entity.videoUpdatedAt = validateTimestampField(item.videoUpdatedAt, 'videoUpdatedAt');
     }
 
     return entity;

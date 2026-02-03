@@ -74,8 +74,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       isFavorite: updatedSetting.isFavorite,
       isSkip: updatedSetting.isSkip,
       memo: updatedSetting.memo,
-      createdAt: updatedSetting.createdAt,
-      updatedAt: updatedSetting.updatedAt,
+      createdAt: updatedSetting.CreatedAt,
+      updatedAt: updatedSetting.UpdatedAt,
     };
 
     return NextResponse.json({ video });

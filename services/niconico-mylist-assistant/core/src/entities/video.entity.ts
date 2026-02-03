@@ -18,16 +18,16 @@ export interface VideoEntity {
   thumbnailUrl: string;
   /** 長さ（MM:SS形式） */
   length: string;
-  /** 作成日時 (ISO 8601) */
-  createdAt: string;
-  /** 動画更新日時 (ISO 8601, オプション) */
-  videoUpdatedAt?: string;
+  /** 作成日時 (Unix timestamp) */
+  CreatedAt: number;
+  /** 動画更新日時 (Unix timestamp, オプション) */
+  videoUpdatedAt?: number;
 }
 
 /**
- * Video作成時の入力データ（createdAtを含まない）
+ * Video作成時の入力データ（CreatedAtを含まない）
  */
-export type CreateVideoInput = Omit<VideoEntity, 'createdAt'>;
+export type CreateVideoInput = Omit<VideoEntity, 'CreatedAt'>;
 
 /**
  * Videoのビジネスキー
