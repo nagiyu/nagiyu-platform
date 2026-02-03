@@ -10,8 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { AlertRepository, getAuthError } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
+import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 
 /**
@@ -153,13 +153,11 @@ export async function POST(
     // ユーザーIDを取得
     const userId = session!.user.userId;
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
 
     // ユーザーの全アラートを取得
-    const result = await alertRepo.getByUserId(userId, 100);
+    const result = await alertRepo.getByUserId(userId, { limit: 100 });
     const alerts = result.items;
 
     // 各アラートのサブスクリプション情報を更新
