@@ -18,10 +18,7 @@ import {
   validateTickerCreateData,
 } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../lib/auth';
-import {
-  createTickerRepository,
-  createExchangeRepository,
-} from '../../../lib/repository-factory';
+import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数
