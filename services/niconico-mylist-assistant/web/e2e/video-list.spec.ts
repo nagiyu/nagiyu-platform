@@ -118,10 +118,12 @@ test.describe('Video List Page', () => {
     await page.getByRole('option', { name: 'お気に入りのみ' }).click();
 
     // APIレスポンスを待つ
-    await page.waitForResponse((response) => response.url().includes('/api/videos'));
-
-    // フィルター適用後、表示される動画数が変わることを確認
-    // （正確な数のアサーションは実装に依存するため、ここではAPI呼び出しの確認のみ）
+    const response = await page.waitForResponse((res) => res.url().includes('/api/videos'));
+    const body = await response.json();
+    
+    // お気に入りのみがフィルターされていることを確認
+    expect(body.total).toBe(2); // 5個中2個がお気に入り
+    expect(body.videos).toHaveLength(2);
   });
 
   test('should filter videos by skip', async ({ page }) => {

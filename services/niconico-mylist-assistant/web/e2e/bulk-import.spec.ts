@@ -133,12 +133,7 @@ test.describe('Bulk Import API with Authentication', () => {
     
     // NOTE: ニコニコAPIが古い動画IDを拒否する可能性があるため、
     // 実際に成功した動画数をチェックしてから再インポートをテスト
-    if (firstBody.success === 0) {
-      // ニコニコAPIが全て失敗した場合、このテストをスキップ
-      // 古い動画ID (sm9, sm10) がニコニコAPIで取得できない可能性があるため
-      console.warn('Warning: Niconico API rejected all video IDs. Skipping duplicate import test.');
-      return;
-    }
+    test.skip(firstBody.success === 0, 'Niconico API rejected all video IDs');
 
     // 同じ動画を再度インポート
     const secondResponse = await request.post('/api/videos/bulk-import', {
