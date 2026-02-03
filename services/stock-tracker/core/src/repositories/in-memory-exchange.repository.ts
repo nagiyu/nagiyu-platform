@@ -94,10 +94,7 @@ export class InMemoryExchangeRepository implements ExchangeRepository {
   /**
    * 取引所を更新
    */
-  public async update(
-    exchangeId: string,
-    updates: UpdateExchangeInput
-  ): Promise<ExchangeEntity> {
+  public async update(exchangeId: string, updates: UpdateExchangeInput): Promise<ExchangeEntity> {
     // 更新するフィールドがない場合はエラー
     if (Object.keys(updates).length === 0) {
       throw new DatabaseError(ERROR_MESSAGES.NO_UPDATES_SPECIFIED);
