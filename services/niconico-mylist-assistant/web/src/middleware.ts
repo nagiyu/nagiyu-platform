@@ -16,6 +16,16 @@ export default auth((req: NextAuthRequest) => {
   // 開発・テスト環境で認証をスキップ
   const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
   if (skipAuthCheck) {
+    // テスト用の固定ユーザーIDを設定
+    // E2E テストではこのユーザーIDでデータが作成される
+    req.auth = {
+      user: {
+        id: 'test-user-id',
+        email: 'test@example.com',
+        name: 'Test User',
+      },
+      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    } as any;
     return NextResponse.next();
   }
 
