@@ -4,8 +4,6 @@
  * インメモリDBを使用したテストでのデータ管理を提供する
  */
 
-import { clearInMemoryStore } from '@nagiyu/niconico-mylist-assistant-core';
-
 /**
  * テストデータをクリアする
  *
@@ -28,6 +26,10 @@ export async function clearTestData(): Promise<void> {
     return;
   }
 
+  // 動的インポートを使用してテスト実行時にのみモジュールを読み込む
+  // Playwright の設定読み込みフェーズでは @nagiyu/aws の exports 解決に失敗するため
+  // テスト実行時（ランタイム）まで遅延させる必要がある
+  const { clearInMemoryStore } = await import('@nagiyu/niconico-mylist-assistant-core');
   clearInMemoryStore();
 }
 
