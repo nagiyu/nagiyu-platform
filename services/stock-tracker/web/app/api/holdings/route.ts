@@ -8,10 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getAuthError,
-  validateHolding,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
