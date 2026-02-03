@@ -60,4 +60,5 @@ E2E テスト実行時、以下の環境変数が自動的に設定されます�
 
 - これらのヘルパー関数はE2Eテスト専用です
 - 本番環境では使用しないでください
-- `@nagiyu/aws` パッケージの `InMemorySingleTableStore` に依存しています
+- `@nagiyu/niconico-mylist-assistant-core` パッケージの `clearInMemoryStore` 関数に依存しています
+- 内部的には `@nagiyu/aws` パッケージの `InMemorySingleTableStore` を使用しています
