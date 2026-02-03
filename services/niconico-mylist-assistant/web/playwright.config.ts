@@ -94,5 +94,11 @@ export default defineConfig({
     url: 'http://localhost:3000/api/health',
     reuseExistingServer: !process.env.CI,
     timeout: 2 * 60 * 1000, // 2 minutes
+    env: {
+      // テスト環境でインメモリDBを使用
+      USE_IN_MEMORY_DB: 'true',
+      // テスト環境で認証チェックをスキップ
+      SKIP_AUTH_CHECK: 'true',
+    },
   },
 });

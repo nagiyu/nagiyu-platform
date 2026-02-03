@@ -16,7 +16,10 @@ export default auth((req: NextAuthRequest) => {
   // 開発・テスト環境で認証をスキップ
   const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
   if (skipAuthCheck) {
-    return NextResponse.next();
+    // テスト用の固定ユーザーIDをヘッダーに設定
+    const response = NextResponse.next();
+    response.headers.set('x-user-id', 'test-user-001');
+    return response;
   }
 
   // ホームページは認証不要
