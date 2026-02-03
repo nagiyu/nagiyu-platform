@@ -13,3 +13,9 @@ export { DynamoDBUserSettingRepository } from './dynamodb-user-setting.repositor
 // InMemory Implementations
 export { InMemoryVideoRepository } from './inmemory-video.repository';
 export { InMemoryUserSettingRepository } from './inmemory-user-setting.repository';
+
+// Factory
+export { createVideoRepository, createUserSettingRepository } from './factory';
+
+// Store
+export { getInMemoryStore, clearInMemoryStore } from './store';

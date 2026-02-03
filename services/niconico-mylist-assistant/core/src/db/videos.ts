@@ -1,6 +1,5 @@
 import { docClient, TABLE_NAME } from './client';
-import { DynamoDBVideoRepository } from '../repositories/dynamodb-video.repository';
-import { DynamoDBUserSettingRepository } from '../repositories/dynamodb-user-setting.repository';
+import { createVideoRepository, createUserSettingRepository } from '../repositories/factory';
 import type {
   VideoBasicInfo,
   UserVideoSetting,
@@ -10,8 +9,9 @@ import type {
 } from '../types';
 
 // Repository インスタンスの作成
-const videoRepository = new DynamoDBVideoRepository(docClient, TABLE_NAME);
-const userSettingRepository = new DynamoDBUserSettingRepository(docClient, TABLE_NAME);
+// 環境変数 USE_IN_MEMORY_DB により、DynamoDB または InMemory 実装を切り替える
+const videoRepository = createVideoRepository(docClient, TABLE_NAME);
+const userSettingRepository = createUserSettingRepository(docClient, TABLE_NAME);
 
 /**
  * 動画基本情報（VIDEO エンティティ）の操作
