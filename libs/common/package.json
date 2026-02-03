@@ -18,5 +18,8 @@
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0"
   }
 }
