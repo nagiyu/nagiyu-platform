@@ -4,37 +4,16 @@
  * VideoEntity ↔ DynamoDBItem の変換を担当
  */
 
-import { validateStringField } from '@nagiyu/aws';
+import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import { validateStringField, validateTimestampField } from '@nagiyu/aws';
 import type { VideoEntity, VideoKey } from '../entities/video.entity';
-
-/**
- * DynamoDB Item 型 (niconico-mylist-assistant スキーマ)
- *
- * Note: プラットフォーム標準の DynamoDBItem は CreatedAt/UpdatedAt を Unix timestamp で定義しているが、
- * 本サービスは ISO 8601 文字列を使用しているため、カスタム型を使用
- */
-interface VideoDynamoDBItem extends Record<string, unknown> {
-  PK: string;
-  SK: string;
-  Type: string;
-  videoId: string;
-  title: string;
-  thumbnailUrl: string;
-  length: string;
-  createdAt: string;
-  videoUpdatedAt?: string;
-}
 
 /**
  * Video Mapper
  *
  * VideoEntity と DynamoDB Item 間の変換を行う
- *
- * Note: EntityMapper<TEntity, TKey> インターフェースの実装は見送り
- * 理由: プラットフォーム標準の EntityMapper は CreatedAt/UpdatedAt を Unix timestamp で要求するが、
- * 本サービスは ISO 8601 文字列を使用しているため、型の互換性がない
  */
-export class VideoMapper {
+export class VideoMapper implements EntityMapper<VideoEntity, VideoKey> {
   private readonly entityType = 'VIDEO';
 
   /**
@@ -43,12 +22,12 @@ export class VideoMapper {
    * @param entity - Video Entity
    * @returns DynamoDB Item
    */
-  public toItem(entity: VideoEntity): Record<string, unknown> {
+  public toItem(entity: VideoEntity): DynamoDBItem {
     const { pk, sk } = this.buildKeys({
       videoId: entity.videoId,
     });
 
-    const item: VideoDynamoDBItem = {
+    const item: DynamoDBItem = {
       PK: pk,
       SK: sk,
       Type: this.entityType,
@@ -56,7 +35,8 @@ export class VideoMapper {
       title: entity.title,
       thumbnailUrl: entity.thumbnailUrl,
       length: entity.length,
-      createdAt: entity.createdAt,
+      CreatedAt: entity.CreatedAt,
+      UpdatedAt: entity.CreatedAt, // Video には UpdatedAt がないため CreatedAt を使用
     };
 
     if (entity.videoUpdatedAt !== undefined) {
@@ -72,17 +52,17 @@ export class VideoMapper {
    * @param item - DynamoDB Item
    * @returns Video Entity
    */
-  public toEntity(item: Record<string, unknown>): VideoEntity {
+  public toEntity(item: DynamoDBItem): VideoEntity {
     const entity: VideoEntity = {
       videoId: validateStringField(item.videoId, 'videoId'),
       title: validateStringField(item.title, 'title'),
       thumbnailUrl: validateStringField(item.thumbnailUrl, 'thumbnailUrl'),
       length: validateStringField(item.length, 'length'),
-      createdAt: validateStringField(item.createdAt, 'createdAt'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
     };
 
     if (item.videoUpdatedAt !== undefined) {
-      entity.videoUpdatedAt = validateStringField(item.videoUpdatedAt, 'videoUpdatedAt');
+      entity.videoUpdatedAt = validateTimestampField(item.videoUpdatedAt, 'videoUpdatedAt');
     }
 
     return entity;

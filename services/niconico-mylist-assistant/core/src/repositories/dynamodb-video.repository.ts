@@ -11,7 +11,7 @@ import {
   BatchGetCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { EntityAlreadyExistsError, DatabaseError } from '@nagiyu/aws';
+import { EntityAlreadyExistsError, DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity';
 import { VideoMapper } from '../mappers/video.mapper';
@@ -55,7 +55,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
         return null;
       }
 
-      return this.mapper.toEntity(result.Item);
+      return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -89,7 +89,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
       );
 
       const items = result.Responses?.[this.tableName] || [];
-      return items.map((item) => this.mapper.toEntity(item));
+      return items.map((item) => this.mapper.toEntity(item as DynamoDBItem));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -100,10 +100,10 @@ export class DynamoDBVideoRepository implements VideoRepository {
    * 新しい動画を作成
    */
   public async create(input: CreateVideoInput): Promise<VideoEntity> {
-    const now = new Date().toISOString();
+    const now = Date.now();
     const entity: VideoEntity = {
       ...input,
-      createdAt: now,
+      CreatedAt: now,
     };
 
     try {

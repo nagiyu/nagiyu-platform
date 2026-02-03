@@ -4,38 +4,16 @@
  * UserSettingEntity ↔ DynamoDBItem の変換を担当
  */
 
-import { validateStringField, validateBooleanField } from '@nagiyu/aws';
+import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
+import { validateStringField, validateBooleanField, validateTimestampField } from '@nagiyu/aws';
 import type { UserSettingEntity, UserSettingKey } from '../entities/user-setting.entity';
-
-/**
- * DynamoDB Item 型 (niconico-mylist-assistant スキーマ)
- *
- * Note: プラットフォーム標準の DynamoDBItem は CreatedAt/UpdatedAt を Unix timestamp で定義しているが、
- * 本サービスは ISO 8601 文字列を使用しているため、カスタム型を使用
- */
-interface UserSettingDynamoDBItem extends Record<string, unknown> {
-  PK: string;
-  SK: string;
-  Type: string;
-  userId: string;
-  videoId: string;
-  isFavorite: boolean;
-  isSkip: boolean;
-  memo?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 /**
  * UserSetting Mapper
  *
  * UserSettingEntity と DynamoDB Item 間の変換を行う
- *
- * Note: EntityMapper<TEntity, TKey> インターフェースの実装は見送り
- * 理由: プラットフォーム標準の EntityMapper は CreatedAt/UpdatedAt を Unix timestamp で要求するが、
- * 本サービスは ISO 8601 文字列を使用しているため、型の互換性がない
  */
-export class UserSettingMapper {
+export class UserSettingMapper implements EntityMapper<UserSettingEntity, UserSettingKey> {
   private readonly entityType = 'USER_SETTING';
 
   /**
@@ -44,13 +22,13 @@ export class UserSettingMapper {
    * @param entity - UserSetting Entity
    * @returns DynamoDB Item
    */
-  public toItem(entity: UserSettingEntity): Record<string, unknown> {
+  public toItem(entity: UserSettingEntity): DynamoDBItem {
     const { pk, sk } = this.buildKeys({
       userId: entity.userId,
       videoId: entity.videoId,
     });
 
-    const item: UserSettingDynamoDBItem = {
+    const item: DynamoDBItem = {
       PK: pk,
       SK: sk,
       Type: this.entityType,
@@ -58,8 +36,8 @@ export class UserSettingMapper {
       videoId: entity.videoId,
       isFavorite: entity.isFavorite,
       isSkip: entity.isSkip,
-      createdAt: entity.createdAt,
-      updatedAt: entity.updatedAt,
+      CreatedAt: entity.CreatedAt,
+      UpdatedAt: entity.UpdatedAt,
     };
 
     if (entity.memo !== undefined) {
@@ -75,14 +53,14 @@ export class UserSettingMapper {
    * @param item - DynamoDB Item
    * @returns UserSetting Entity
    */
-  public toEntity(item: Record<string, unknown>): UserSettingEntity {
+  public toEntity(item: DynamoDBItem): UserSettingEntity {
     const entity: UserSettingEntity = {
       userId: validateStringField(item.userId, 'userId'),
       videoId: validateStringField(item.videoId, 'videoId'),
       isFavorite: validateBooleanField(item.isFavorite, 'isFavorite'),
       isSkip: validateBooleanField(item.isSkip, 'isSkip'),
-      createdAt: validateStringField(item.createdAt, 'createdAt'),
-      updatedAt: validateStringField(item.updatedAt, 'updatedAt'),
+      CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
+      UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
 
     if (item.memo !== undefined) {
