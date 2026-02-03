@@ -48,7 +48,7 @@ test.describe('E2E Test Setup Verification', () => {
     await page.goto('/');
 
     // ページが正常にロードされることを確認（認証なしでアクセス可能）
-    await expect(page).toHaveTitle(/nagiyu/i);
+    await expect(page).toHaveTitle(/niconico-mylist-assistant/i);
 
     // インポートページにアクセスして、認証が必要なページが表示されることを確認
     await page.goto('/import');
