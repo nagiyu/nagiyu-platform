@@ -14,6 +14,8 @@ import type {
   ITickerRepository,
   IExchangeRepository,
   IWatchlistRepository,
+} from '@nagiyu/stock-tracker-core';
+import {
   DynamoDBAlertRepository,
   DynamoDBHoldingRepository,
   DynamoDBTickerRepository,
@@ -85,16 +87,14 @@ export function createAlertRepository(): IAlertRepository {
   if (useInMemory) {
     // InMemory実装を使用
     const store = getOrCreateMemoryStore();
-    const { InMemoryAlertRepository } = require('@nagiyu/stock-tracker-core');
     alertRepository = new InMemoryAlertRepository(store);
   } else {
     // DynamoDB実装を使用
     try {
       const docClient = getDynamoDBClient();
       const tableName = getTableName();
-      const { DynamoDBAlertRepository } = require('@nagiyu/stock-tracker-core');
       alertRepository = new DynamoDBAlertRepository(docClient, tableName);
-    } catch (error) {
+    } catch {
       throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
     }
   }
@@ -117,16 +117,14 @@ export function createHoldingRepository(): IHoldingRepository {
   if (useInMemory) {
     // InMemory実装を使用
     const store = getOrCreateMemoryStore();
-    const { InMemoryHoldingRepository } = require('@nagiyu/stock-tracker-core');
     holdingRepository = new InMemoryHoldingRepository(store);
   } else {
     // DynamoDB実装を使用
     try {
       const docClient = getDynamoDBClient();
       const tableName = getTableName();
-      const { DynamoDBHoldingRepository } = require('@nagiyu/stock-tracker-core');
       holdingRepository = new DynamoDBHoldingRepository(docClient, tableName);
-    } catch (error) {
+    } catch {
       throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
     }
   }
@@ -149,16 +147,14 @@ export function createTickerRepository(): ITickerRepository {
   if (useInMemory) {
     // InMemory実装を使用
     const store = getOrCreateMemoryStore();
-    const { InMemoryTickerRepository } = require('@nagiyu/stock-tracker-core');
     tickerRepository = new InMemoryTickerRepository(store);
   } else {
     // DynamoDB実装を使用
     try {
       const docClient = getDynamoDBClient();
       const tableName = getTableName();
-      const { DynamoDBTickerRepository } = require('@nagiyu/stock-tracker-core');
       tickerRepository = new DynamoDBTickerRepository(docClient, tableName);
-    } catch (error) {
+    } catch {
       throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
     }
   }
@@ -181,16 +177,14 @@ export function createExchangeRepository(): IExchangeRepository {
   if (useInMemory) {
     // InMemory実装を使用
     const store = getOrCreateMemoryStore();
-    const { InMemoryExchangeRepository } = require('@nagiyu/stock-tracker-core');
     exchangeRepository = new InMemoryExchangeRepository(store);
   } else {
     // DynamoDB実装を使用
     try {
       const docClient = getDynamoDBClient();
       const tableName = getTableName();
-      const { DynamoDBExchangeRepository } = require('@nagiyu/stock-tracker-core');
       exchangeRepository = new DynamoDBExchangeRepository(docClient, tableName);
-    } catch (error) {
+    } catch {
       throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
     }
   }
@@ -213,16 +207,14 @@ export function createWatchlistRepository(): IWatchlistRepository {
   if (useInMemory) {
     // InMemory実装を使用
     const store = getOrCreateMemoryStore();
-    const { InMemoryWatchlistRepository } = require('@nagiyu/stock-tracker-core');
     watchlistRepository = new InMemoryWatchlistRepository(store);
   } else {
     // DynamoDB実装を使用
     try {
       const docClient = getDynamoDBClient();
       const tableName = getTableName();
-      const { DynamoDBWatchlistRepository } = require('@nagiyu/stock-tracker-core');
       watchlistRepository = new DynamoDBWatchlistRepository(docClient, tableName);
-    } catch (error) {
+    } catch {
       throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
     }
   }

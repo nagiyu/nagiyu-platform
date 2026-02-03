@@ -55,10 +55,7 @@ export type {
   CreateExchangeInput,
   UpdateExchangeInput,
 } from './entities/exchange.entity.js';
-export type {
-  WatchlistEntity,
-  CreateWatchlistInput,
-} from './entities/watchlist.entity.js';
+export type { WatchlistEntity, CreateWatchlistInput } from './entities/watchlist.entity.js';
 
 // Mappers
 export * from './mappers/alert.mapper.js';
