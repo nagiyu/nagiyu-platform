@@ -9,13 +9,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  TickerRepository,
   getAuthError,
   TickerNotFoundError,
   validateTickerUpdateData,
 } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
+import { createTickerRepository } from '../../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数
@@ -114,10 +113,8 @@ export async function PUT(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    // リポジトリの初期化
+    const tickerRepo = createTickerRepository();
 
     // ティッカー更新
     try {
@@ -186,10 +183,8 @@ export async function DELETE(
     // パスパラメータの取得
     const { id: tickerId } = await params;
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    // リポジトリの初期化
+    const tickerRepo = createTickerRepository();
 
     // ティッカー削除
     try {
