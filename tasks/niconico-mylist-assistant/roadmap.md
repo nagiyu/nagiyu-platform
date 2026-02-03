@@ -38,6 +38,8 @@ Milestone 3: 動画インポート機能
     ↓
 Milestone 4: 動画一覧・管理機能
     ↓
+Milestone 4.5: テスト基盤整備（E2E テスタビリティ向上）
+    ↓
 Milestone 5: マイリスト自動登録機能
     ↓
 Milestone 6: 本番準備
@@ -340,8 +342,159 @@ Milestone 6: 本番準備
 - URL クエリパラメータとの同期
 
 **完了条件**:
-- [ ] フィルターが正常に動作する
-- [ ] ブラウザバック/フォワードで状態が保持される
+- [x] フィルターが正常に動作する
+- [x] ブラウザバック/フォワードで状態が保持される
+
+---
+
+## Milestone 4.5: テスト基盤整備（E2E テスタビリティ向上）
+
+**目標**: インメモリ DB を使った E2E テスト基盤を整備し、既存実装の正確性を検証
+
+**背景**:
+- 現在 E2E テストは実 DynamoDB を使用しており、多くがスキップされている
+- 実データに左右されるため、テスタビリティが低い
+- Milestone 5 以降の複雑な機能開発の前に、テスト基盤を整備する
+
+**方針**:
+- プラットフォーム標準のデータアクセス層アーキテクチャ（`docs/development/data-access-layer.md`）に準拠
+- `@nagiyu/aws` の `InMemorySingleTableStore` を活用
+- 環境変数 `USE_IN_MEMORY_DB` でリポジトリを切り替え
+- 認証は `SKIP_AUTH_CHECK` でバイパス
+
+### Issue 4.5-1: core: Repository Interface の定義
+
+**実装内容**:
+- `IVideoRepository` インターフェースの作成
+- `IUserSettingRepository` インターフェースの作成
+- 既存の DynamoDB 実装をインターフェースに準拠させる
+  - `DynamoDBVideoRepository implements IVideoRepository`
+  - `DynamoDBUserSettingRepository implements IUserSettingRepository`
+- ビジネスキーでアクセス（PK/SK は含めない）
+
+**参考**:
+- `docs/development/data-access-layer.md` - 標準アーキテクチャ
+- Stock-Tracker サービスの実装例
+
+**完了条件**:
+- [ ] Repository Interface が定義される
+- [ ] 既存の DynamoDB 実装が Interface を implements する
+- [ ] 型チェックがパスする
+- [ ] ビジネスキーでアクセスしている（PK/SK は Interface に含まれない）
+
+---
+
+### Issue 4.5-2: core: InMemory Repository の実装
+
+**実装内容**:
+- `@nagiyu/aws` の `InMemorySingleTableStore` を使用
+- `InMemoryVideoRepository` の実装
+  - `IVideoRepository` を implements
+  - 既存の `VideoMapper` を使用
+  - DynamoDB と同じエラーを投げる（`EntityAlreadyExistsError` など）
+- `InMemoryUserSettingRepository` の実装
+  - `IUserSettingRepository` を implements
+  - 既存の `UserSettingMapper` を使用
+  - ページネーション機能の実装（全件スキャン + フィルタ）
+  - フィルタリング機能の実装（isFavorite, isSkip）
+  - 不透明トークン（Base64 エンコードした JSON）を使用
+
+**重要ポイント**:
+- **共通ストアを使用**: Video と UserSetting で `InMemorySingleTableStore` を共有
+- **同じ Mapper を使用**: DynamoDB 実装と同じ Mapper を使う
+- **同じエラーを投げる**: `EntityAlreadyExistsError`, `EntityNotFoundError` を使用
+
+**完了条件**:
+- [ ] InMemory 実装が IRepository を implements する
+- [ ] `InMemorySingleTableStore` を使用する
+- [ ] DynamoDB 実装と同じ Mapper を使用する
+- [ ] DynamoDB 実装と同じエラーを投げる
+- [ ] ページネーション・フィルタリングが動作する
+- [ ] ユニットテストがパスする
+
+---
+
+### Issue 4.5-3: core: 共通ストアと Factory Pattern の実装
+
+**実装内容**:
+- `core/src/repositories/store.ts` の作成
+  - `InMemorySingleTableStore` のシングルトンインスタンス管理
+  - `getInMemoryStore()` 関数
+  - `clearInMemoryStore()` 関数（テスト用）
+- `core/src/repositories/factory.ts` の作成
+  - `createVideoRepository()` 関数
+  - `createUserSettingRepository()` 関数
+  - 環境変数 `USE_IN_MEMORY_DB` で切り替え
+- `core/src/db/videos.ts` のリファクタリング
+  - Factory を使った Repository 生成に変更
+  - 既存の公開 API は維持（後方互換性）
+
+**完了条件**:
+- [ ] `InMemorySingleTableStore` が Video と UserSetting で共有される
+- [ ] 環境変数 `USE_IN_MEMORY_DB` で Repository を切り替えられる
+- [ ] 既存のコードが動作する（後方互換性）
+- [ ] ビルドが成功する
+
+---
+
+### Issue 4.5-4: web: E2E テスト設定の更新と認証バイパス
+
+**実装内容**:
+- `web/playwright.config.ts` の更新
+  - `USE_IN_MEMORY_DB=true` を設定
+  - `SKIP_AUTH_CHECK=true` を設定
+- `web/src/middleware.ts` の更新
+  - 環境変数 `SKIP_AUTH_CHECK` で認証をバイパス
+  - テスト用の固定ユーザーID を設定
+- テストヘルパーの作成（`web/e2e/helpers/test-data.ts`）
+  - `clearTestData()` 関数
+  - `seedTestData()` 関数
+
+**完了条件**:
+- [ ] E2E テストがインメモリ DB を使用する
+- [ ] 認証チェックがバイパスされる
+- [ ] テスト用の固定ユーザーID が使用される
+- [ ] テスト間でデータが独立している（beforeEach で clear）
+- [ ] テストが高速に実行される
+
+---
+
+### Issue 4.5-5: web: E2E テストの有効化と修正
+
+**実装内容**:
+- `web/e2e/bulk-import.spec.ts` のスキップ解除
+  - 認証周りのモック実装
+  - テストデータのセットアップ
+  - アサーションの追加
+- 新しいテストケースの追加
+  - 動画一覧のテスト
+  - フィルタリング機能のテスト
+  - ページネーションのテスト
+  - 動画設定変更のテスト
+  - エラーケースのテスト
+
+**完了条件**:
+- [ ] スキップされていたテストが全て有効化される
+- [ ] 全ての E2E テストがパスする
+- [ ] テストデータのセットアップが適切に行われる
+- [ ] カバレッジが向上する
+
+---
+
+### Issue 4.5-6: 既存実装の検証と修正
+
+**実装内容**:
+- E2E テストで発見されたバグの修正
+- API エンドポイントの動作確認
+- エラーハンドリングの改善
+- ドキュメントの更新
+  - `tasks/niconico-mylist-assistant/testing.md` にインメモリ DB を使用したテスト戦略を追記
+
+**完了条件**:
+- [ ] 全ての E2E テストがパスする
+- [ ] dev 環境でも動作することを確認（実 DynamoDB）
+- [ ] Issue 4-1 〜 4-5 の実装が正しいことを検証
+- [ ] ドキュメントが更新される
 
 ---
 
@@ -602,6 +755,15 @@ graph TB
         M4-3[4-3: 詳細API]
         M4-4[4-4: 詳細UI]
         M4-5[4-5: フィルター]
+    end
+
+    subgraph "Milestone 4.5: テスト基盤整備"
+        M45-1[4.5-1: Repository Interface]
+        M45-2[4.5-2: InMemory 実装]
+        M45-3[4.5-3: Factory Pattern]
+        M45-4[4.5-4: E2E 設定]
+        M45-5[4.5-5: テスト有効化]
+        M45-6[4.5-6: 検証と修正]
         M4-6[4-6: E2Eテスト]
     end
 
@@ -649,7 +811,14 @@ graph TB
     M4-3 --> M4-4
     M4-2 --> M4-5
     M4-4 --> M4-5
-    M4-5 --> M4-6
+
+    M4-5 --> M45-1
+    M45-1 --> M45-2
+    M45-2 --> M45-3
+    M45-3 --> M45-4
+    M45-4 --> M45-5
+    M45-5 --> M45-6
+    M45-6 --> M4-6
 
     M4-6 --> M5-1
     M4-6 --> M5-2
@@ -689,6 +858,9 @@ graph TB
 ### Milestone 4
 - Issue 4-2（一覧UI）と Issue 4-3（詳細API）は並列可能
 - Issue 4-4（詳細UI）と Issue 4-5（フィルター）は並列可能
+
+### Milestone 4.5
+- Issue 4.5-1 から 4.5-6 は順次実行が必要（依存関係あり）
 
 ### Milestone 5
 - Issue 5-1（暗号化）と Issue 5-2（Playwright）は並列可能
