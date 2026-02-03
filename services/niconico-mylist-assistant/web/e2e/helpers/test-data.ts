@@ -4,6 +4,8 @@
  * インメモリDBを使用したテストでのデータ管理を提供する
  */
 
+import { clearInMemoryStore } from '@nagiyu/niconico-mylist-assistant-core';
+
 /**
  * テストデータをクリアする
  *
@@ -26,8 +28,6 @@ export async function clearTestData(): Promise<void> {
     return;
   }
 
-  // 動的インポートを使用してテスト実行時にのみモジュールを読み込む
-  const { clearInMemoryStore } = await import('@nagiyu/niconico-mylist-assistant-core');
   clearInMemoryStore();
 }
 
