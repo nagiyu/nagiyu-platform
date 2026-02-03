@@ -41,6 +41,12 @@ export default defineConfig({
 
     /* Video on failure */
     video: 'retain-on-failure',
+
+    /* Extra HTTP headers */
+    extraHTTPHeaders: {
+      // テスト環境であることを示すヘッダー（オプション）
+      'X-Test-Mode': 'true',
+    },
   },
 
   /* Configure projects for major browsers */
