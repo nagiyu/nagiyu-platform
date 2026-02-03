@@ -136,7 +136,7 @@ export class DynamoDBWatchlistRepository implements WatchlistRepository {
       return {
         items,
         nextCursor,
-        count: result.Count,
+        count: result.Count ?? 0,
       };
     } catch (error) {
       if (error instanceof InvalidWatchlistDataError) {
@@ -184,25 +184,18 @@ export class DynamoDBWatchlistRepository implements WatchlistRepository {
    */
   public async delete(userId: string, tickerId: string): Promise<void> {
     try {
-      // 存在確認
-      const existing = await this.getById(userId, tickerId);
-      if (!existing) {
-        throw new WatchlistNotFoundError(userId, tickerId);
-      }
-
       const { pk, sk } = this.mapper.buildKeys({ userId, tickerId });
 
       await this.docClient.send(
         new DeleteCommand({
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
+          ConditionExpression: 'attribute_exists(PK)',
         })
       );
     } catch (error) {
-      if (error instanceof WatchlistNotFoundError) {
-        throw error;
-      }
-      if (error instanceof EntityNotFoundError) {
+      // 条件チェック失敗（アイテムが存在しない）
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
         throw new WatchlistNotFoundError(userId, tickerId);
       }
       const message = error instanceof Error ? error.message : String(error);
