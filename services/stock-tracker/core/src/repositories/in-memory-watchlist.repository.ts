@@ -13,7 +13,10 @@ import {
 import type { WatchlistRepository } from './watchlist.repository.interface.js';
 import type { WatchlistEntity, CreateWatchlistInput } from '../entities/watchlist.entity.js';
 import { WatchlistMapper } from '../mappers/watchlist.mapper.js';
-import { WatchlistAlreadyExistsError, WatchlistNotFoundError } from './dynamodb-watchlist.repository.js';
+import {
+  WatchlistAlreadyExistsError,
+  WatchlistNotFoundError,
+} from './dynamodb-watchlist.repository.js';
 
 /**
  * InMemory Watchlist Repository
