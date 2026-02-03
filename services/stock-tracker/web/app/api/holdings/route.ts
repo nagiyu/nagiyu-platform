@@ -117,17 +117,6 @@ export async function GET(
       );
     }
 
-    // lastKey のデコード（base64エンコードされている場合）
-    let lastKey: { PK: string; SK: string } | undefined;
-    if (lastKeyParam) {
-      try {
-        lastKey = JSON.parse(Buffer.from(lastKeyParam, 'base64').toString('utf-8'));
-      } catch {
-        // 無効な lastKey は無視
-        lastKey = undefined;
-      }
-    }
-
     // リポジトリの初期化
     const holdingRepo = createHoldingRepository();
 
@@ -135,7 +124,10 @@ export async function GET(
     const userId = session!.user.userId;
 
     // 保有株式一覧取得
-    const result = await holdingRepo.getByUserId(userId, limit, lastKey);
+    const result = await holdingRepo.getByUserId(userId, {
+      limit,
+      cursor: lastKeyParam || undefined,
+    });
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
@@ -160,17 +152,12 @@ export async function GET(
       );
     }
 
-    // lastKey をbase64エンコード
-    const encodedLastKey = result.lastKey
-      ? Buffer.from(JSON.stringify(result.lastKey)).toString('base64')
-      : undefined;
-
     // レスポンス形式に変換
     const response: HoldingsListResponse = {
       holdings,
       pagination: {
         count: holdings.length,
-        ...(encodedLastKey && { lastKey: encodedLastKey }),
+        ...(result.nextCursor && { lastKey: result.nextCursor }),
       },
     };
 
