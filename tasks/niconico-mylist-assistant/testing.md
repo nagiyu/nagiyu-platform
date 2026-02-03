@@ -999,6 +999,53 @@ test.beforeEach(async ({ context }) => {
 });
 ```
 
+#### E2E テスト環境設定
+
+**インメモリDBと認証バイパス**（Milestone 4.5 で実装）:
+
+本サービスでは、E2E テスト実行時にインメモリDBを使用し、認証チェックをバイパスすることで、高速で独立したテストを実現しています。
+
+**設定方法**:
+
+`playwright.config.ts` の `webServer.env` で環境変数を設定:
+
+```typescript
+webServer: {
+  command: 'npm run dev',
+  url: 'http://localhost:3000/api/health',
+  env: {
+    USE_IN_MEMORY_DB: 'true',    // インメモリDBを使用
+    SKIP_AUTH_CHECK: 'true',      // 認証チェックをバイパス
+  },
+}
+```
+
+**テスト用ユーザーID**:
+
+認証バイパス時、固定のテストユーザーが自動的に設定されます:
+- ユーザーID: `test-user-id`
+- メール: `test@example.com`
+- 名前: `Test User`
+
+**テストデータ管理**:
+
+各テスト前にデータをクリアして独立性を保証:
+
+```typescript
+import { clearTestData } from './helpers/test-data';
+
+test.beforeEach(async () => {
+  // テスト間でデータをクリア
+  await clearTestData();
+});
+```
+
+**利点**:
+- ✅ 実DynamoDBへの依存なし（高速実行）
+- ✅ テスト間のデータ独立性が保証される
+- ✅ 認証設定なしでテスト可能
+- ✅ CIでの安定した実行
+
 ### 11.3 統合テスト作成ガイドライン（batch）
 
 #### 原則
