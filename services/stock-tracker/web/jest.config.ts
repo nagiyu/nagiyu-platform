@@ -6,8 +6,7 @@ const config: Config = {
   roots: ['<rootDir>/lib', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
-    '^@nagiyu/stock-tracker-core$':
-      '<rootDir>/../core/src/index.ts',
+    '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
@@ -17,9 +16,7 @@ const config: Config = {
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: [
-    'lib/repository-factory.ts',
-  ],
+  collectCoverageFrom: ['lib/repository-factory.ts'],
   coverageThreshold: {
     global: {
       branches: 100,

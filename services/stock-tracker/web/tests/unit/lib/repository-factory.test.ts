@@ -13,6 +13,7 @@ import {
   clearMemoryStore,
 } from '../../../lib/repository-factory';
 import * as dynamodb from '../../../lib/dynamodb';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 // DynamoDBクライアントをモック化
 jest.mock('../../../lib/dynamodb');
@@ -29,7 +30,7 @@ describe('Repository Factory', () => {
     // デフォルトのモック動作を設定
     mockedDynamoDB.getDynamoDBClient.mockReturnValue({
       send: jest.fn(),
-    } as any);
+    } as DynamoDBDocumentClient);
     mockedDynamoDB.getTableName.mockImplementation(() => {
       const tableName = process.env.DYNAMODB_TABLE_NAME;
       if (!tableName) {
@@ -195,9 +196,7 @@ describe('Repository Factory', () => {
       expect(holdingRepo.constructor.name).toBe('DynamoDBHoldingRepository');
       expect(tickerRepo.constructor.name).toBe('DynamoDBTickerRepository');
       expect(exchangeRepo.constructor.name).toBe('DynamoDBExchangeRepository');
-      expect(watchlistRepo.constructor.name).toBe(
-        'DynamoDBWatchlistRepository',
-      );
+      expect(watchlistRepo.constructor.name).toBe('DynamoDBWatchlistRepository');
     });
   });
 
@@ -209,31 +208,19 @@ describe('Repository Factory', () => {
     });
 
     it('DYNAMODB_TABLE_NAMEが未設定の場合エラーをスローする', () => {
-      expect(() => createAlertRepository()).toThrow(
-        'DynamoDB設定が不正です',
-      );
+      expect(() => createAlertRepository()).toThrow('DynamoDB設定が不正です');
     });
 
     it('全リポジトリファクトリーがエラーをスローする', () => {
-      expect(() => createAlertRepository()).toThrow(
-        'DynamoDB設定が不正です',
-      );
+      expect(() => createAlertRepository()).toThrow('DynamoDB設定が不正です');
       clearMemoryStore(); // クリアして新しいインスタンスを作成
-      expect(() => createHoldingRepository()).toThrow(
-        'DynamoDB設定が不正です',
-      );
+      expect(() => createHoldingRepository()).toThrow('DynamoDB設定が不正です');
       clearMemoryStore();
-      expect(() => createTickerRepository()).toThrow(
-        'DynamoDB設定が不正です',
-      );
+      expect(() => createTickerRepository()).toThrow('DynamoDB設定が不正です');
       clearMemoryStore();
-      expect(() => createExchangeRepository()).toThrow(
-        'DynamoDB設定が不正です',
-      );
+      expect(() => createExchangeRepository()).toThrow('DynamoDB設定が不正です');
       clearMemoryStore();
-      expect(() => createWatchlistRepository()).toThrow(
-        'DynamoDB設定が不正です',
-      );
+      expect(() => createWatchlistRepository()).toThrow('DynamoDB設定が不正です');
     });
   });
 });
