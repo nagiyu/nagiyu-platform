@@ -60,7 +60,7 @@ describe('videos', () => {
           Item: {
             PK: 'VIDEO#sm12345678',
             SK: 'VIDEO#sm12345678',
-            entityType: 'VIDEO',
+            Type: 'VIDEO',
             videoId: 'sm12345678',
             title: 'テスト動画',
           },
@@ -91,7 +91,7 @@ describe('videos', () => {
         const mockItem = {
           PK: 'VIDEO#sm12345678',
           SK: 'VIDEO#sm12345678',
-          entityType: 'VIDEO',
+          Type: 'VIDEO',
           videoId: 'sm12345678',
           title: 'テスト動画',
           thumbnailUrl: 'https://example.com/thumb.jpg',
@@ -108,7 +108,7 @@ describe('videos', () => {
         expect(video?.title).toBe('テスト動画');
         expect(video).not.toHaveProperty('PK');
         expect(video).not.toHaveProperty('SK');
-        expect(video).not.toHaveProperty('entityType');
+        expect(video).not.toHaveProperty('Type');
       });
 
       it('存在しない動画はnullを返す', async () => {
@@ -126,7 +126,7 @@ describe('videos', () => {
           {
             PK: 'VIDEO#sm1',
             SK: 'VIDEO#sm1',
-            entityType: 'VIDEO',
+            Type: 'VIDEO',
             videoId: 'sm1',
             title: '動画1',
             thumbnailUrl: 'https://example.com/1.jpg',
@@ -136,7 +136,7 @@ describe('videos', () => {
           {
             PK: 'VIDEO#sm2',
             SK: 'VIDEO#sm2',
-            entityType: 'VIDEO',
+            Type: 'VIDEO',
             videoId: 'sm2',
             title: '動画2',
             thumbnailUrl: 'https://example.com/2.jpg',
@@ -201,7 +201,7 @@ describe('videos', () => {
           Item: {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm12345678',
             isFavorite: true,
@@ -257,7 +257,7 @@ describe('videos', () => {
           Item: {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm12345678',
             isFavorite: true,
@@ -272,7 +272,7 @@ describe('videos', () => {
           Item: {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm12345678',
             isFavorite: false,
@@ -305,7 +305,7 @@ describe('videos', () => {
         const mockItem = {
           PK: 'USER#user123',
           SK: 'VIDEO#sm12345678',
-          entityType: 'USER_SETTING',
+          Type: 'USER_SETTING',
           userId: 'user123',
           videoId: 'sm12345678',
           isFavorite: true,
@@ -326,7 +326,7 @@ describe('videos', () => {
         expect(setting?.memo).toBe('テストメモ');
         expect(setting).not.toHaveProperty('PK');
         expect(setting).not.toHaveProperty('SK');
-        expect(setting).not.toHaveProperty('entityType');
+        expect(setting).not.toHaveProperty('Type');
       });
 
       it('存在しない設定はnullを返す', async () => {
@@ -344,7 +344,7 @@ describe('videos', () => {
           Attributes: {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm12345678',
             isFavorite: true,
@@ -373,7 +373,7 @@ describe('videos', () => {
           Attributes: {
             PK: 'USER#user123',
             SK: 'VIDEO#sm12345678',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm12345678',
             isFavorite: true,
@@ -426,7 +426,7 @@ describe('videos', () => {
           {
             PK: 'USER#user123',
             SK: 'VIDEO#sm1',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm1',
             isFavorite: true,
@@ -437,7 +437,7 @@ describe('videos', () => {
           {
             PK: 'USER#user123',
             SK: 'VIDEO#sm2',
-            entityType: 'USER_SETTING',
+            Type: 'USER_SETTING',
             userId: 'user123',
             videoId: 'sm2',
             isFavorite: false,
