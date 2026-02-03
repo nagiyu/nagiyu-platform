@@ -57,4 +57,3 @@ test.describe('E2E Test Setup Verification', () => {
     await expect(page.getByRole('heading', { name: '動画一括インポート' })).toBeVisible();
   });
 });
-
