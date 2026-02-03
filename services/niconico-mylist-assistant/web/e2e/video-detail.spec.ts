@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearTestData, seedVideoData } from './helpers/test-data';
+import { clearTestData } from './helpers/test-data';
 
 /**
  * API レスポンスをマッチングするヘルパー関数
@@ -27,9 +27,13 @@ test.describe('Video Detail Modal', () => {
     await expect(page).toHaveURL('/');
   });
 
-  test('should open video detail modal when clicking a video card', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should open video detail modal when clicking a video card', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -40,12 +44,17 @@ test.describe('Video Detail Modal', () => {
 
     // モーダルが開く
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('heading', { name: '動画詳細' })).toBeVisible();
+    // ダイアログ内の見出しを正確に指定（strict mode対応）
+    await expect(page.getByRole('dialog').getByRole('heading', { name: '動画詳細', exact: true })).toBeVisible();
   });
 
-  test('should display video information in modal', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should display video information in modal', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -70,9 +79,13 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog').getByLabel('メモ')).toBeVisible();
   });
 
-  test('should toggle favorite in modal', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should toggle favorite in modal', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -97,9 +110,13 @@ test.describe('Video Detail Modal', () => {
     // 実際の実装では API レスポンスを待つ
   });
 
-  test('should toggle skip in modal', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should toggle skip in modal', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -121,9 +138,13 @@ test.describe('Video Detail Modal', () => {
     await responsePromise;
   });
 
-  test('should save memo in modal', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should save memo in modal', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -146,9 +167,13 @@ test.describe('Video Detail Modal', () => {
     await responsePromise;
   });
 
-  test('should show delete confirmation when clicking delete button', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should show delete confirmation when clicking delete button', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -173,9 +198,13 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('button', { name: 'キャンセル' })).toBeVisible();
   });
 
-  test('should cancel delete when clicking cancel button', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should cancel delete when clicking cancel button', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -205,9 +234,13 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog')).toBeVisible();
   });
 
-  test('should close modal when clicking close button', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should close modal when clicking close button', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
@@ -225,9 +258,13 @@ test.describe('Video Detail Modal', () => {
     await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
-  test('should update video list after settings change in modal', async ({ page }) => {
-    // テストデータを作成
-    await seedVideoData('test-user-id', 3);
+  test('should update video list after settings change in modal', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm9', 'sm10', 'sm11'],
+      },
+    });
 
     await page.goto('/mylist');
 
