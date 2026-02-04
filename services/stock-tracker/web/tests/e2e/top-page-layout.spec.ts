@@ -15,6 +15,13 @@ test.describe('トップ画面レイアウト', () => {
       key: 'NYSE',
     });
 
+    // NASDAQ 取引所を作成（取引所変更テスト用）
+    await factory.createExchange({
+      exchangeId: 'NASDAQ',
+      name: 'NASDAQ Stock Market',
+      key: 'NASDAQ',
+    });
+
     await page.goto('/');
 
     // 3秒待つ (TODO: 今後修正したい)
