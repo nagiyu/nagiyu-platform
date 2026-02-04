@@ -149,7 +149,8 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
     };
   } catch (error) {
     // 既知のエラーメッセージの場合はそのままスロー
-    if (error instanceof Error && Object.values(ERROR_MESSAGES).includes(error.message as any)) {
+    const errorMessages = Object.values(ERROR_MESSAGES) as readonly string[];
+    if (error instanceof Error && errorMessages.includes(error.message)) {
       throw error;
     }
     throw new Error(
@@ -214,7 +215,8 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
     }
 
     // 既知のエラーメッセージの場合はそのままスロー
-    if (error instanceof Error && Object.values(ERROR_MESSAGES).includes(error.message as any)) {
+    const errorMessages = Object.values(ERROR_MESSAGES) as readonly string[];
+    if (error instanceof Error && errorMessages.includes(error.message)) {
       throw error;
     }
 
