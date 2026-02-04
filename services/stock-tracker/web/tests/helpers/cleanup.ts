@@ -1,15 +1,19 @@
 /**
- * E2E テストクリーンアップヘルパー
+ * テストクリーンアップヘルパー（ユニットテスト用）
  *
- * E2E テスト実行前後にインメモリリポジトリの状態をリセットするヘルパー関数群
- * テスト間のデータ干渉を防ぐために使用します。
+ * ユニットテスト実行時にリポジトリファクトリーのシングルトンインスタンスをリセットするヘルパー関数群
+ * テスト間のインスタンス状態干渉を防ぐために使用します。
  *
- * @example
+ * **重要**: このヘルパーは主にユニットテスト用です。E2Eテストでは TestDataFactory の
+ * cleanup() メソッドを使用してください。E2Eテストでこのヘルパーを使用すると、
+ * モジュール解決の問題が発生する可能性があります。
+ *
+ * @example ユニットテストでの使用
  * ```typescript
  * import { cleanupRepositories } from './helpers/cleanup';
  *
- * test.describe('機能テスト', () => {
- *   test.afterEach(async () => {
+ * describe('Repository Tests', () => {
+ *   afterEach(async () => {
  *     await cleanupRepositories();
  *   });
  * });
@@ -19,9 +23,9 @@
 import { clearMemoryStore } from '../../lib/repository-factory';
 
 /**
- * 全リポジトリのデータをクリーンアップ
+ * 全リポジトリのシングルトンインスタンスをクリアンアップ
  *
- * インメモリリポジトリのストアをクリアし、全リポジトリインスタンスをリセットします。
+ * リポジトリファクトリーのシングルトンインスタンスとメモリストアをクリアします。
  * 以下のリポジトリ種別に対応:
  * - Alert
  * - Holding
@@ -32,13 +36,14 @@ import { clearMemoryStore } from '../../lib/repository-factory';
  * @returns Promise<void>
  *
  * @remarks
- * - この関数は `USE_IN_MEMORY_REPOSITORY=true` の環境でのみ効果があります
- * - DynamoDB 実装を使用している場合、この関数は何もしません
- * - テストの `afterEach` または `afterAll` フックで呼び出すことを推奨します
+ * - この関数は環境変数に関係なく常に実行されます
+ * - `USE_IN_MEMORY_REPOSITORY=true` の場合: インメモリストアとリポジトリのシングルトンインスタンスがリセットされます
+ * - DynamoDB モードの場合: リポジトリのシングルトンインスタンスのみがリセットされます
+ * - **E2Eテストでは使用しないでください**: TestDataFactory.cleanup() を使用してください
  *
- * @example
+ * @example ユニットテストでの使用
  * ```typescript
- * test.afterEach(async () => {
+ * afterEach(async () => {
  *   await cleanupRepositories();
  * });
  * ```
