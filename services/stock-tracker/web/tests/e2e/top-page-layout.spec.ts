@@ -1,11 +1,29 @@
 import { test, expect } from '@playwright/test';
+import { TestDataFactory } from './utils/test-data-factory';
 
 test.describe('トップ画面レイアウト', () => {
-  test.beforeEach(async ({ page }) => {
+  let factory: TestDataFactory;
+
+  test.beforeEach(async ({ page, request }) => {
+    // TestDataFactory を初期化してテストデータを作成
+    factory = new TestDataFactory(request);
+    
+    // テスト用の取引所を作成
+    await factory.createExchange({
+      exchangeId: 'NYSE',
+      name: 'New York Stock Exchange',
+      key: 'NYSE',
+    });
+
     await page.goto('/');
 
     // 3秒待つ (TODO: 今後修正したい)
     await page.waitForTimeout(3000);
+  });
+
+  test.afterEach(async () => {
+    // TestDataFactory でクリーンアップ
+    await factory.cleanup();
   });
 
   test('ページが正しく表示される', async ({ page }) => {
