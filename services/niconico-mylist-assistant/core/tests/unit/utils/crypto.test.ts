@@ -1,8 +1,8 @@
 import { mockClient } from 'aws-sdk-client-mock';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { randomBytes } from 'node:crypto';
-import { encrypt, decrypt, clearCache } from '../../../src/utils/crypto.js';
-import type { EncryptedData, CryptoConfig } from '../../../src/types/crypto.js';
+import { encrypt, decrypt, clearCache } from '../../../src/utils/crypto';
+import type { EncryptedData, CryptoConfig } from '../../../src/types/crypto';
 
 // Secrets Manager クライアントのモックを作成
 const secretsManagerMock = mockClient(SecretsManagerClient);

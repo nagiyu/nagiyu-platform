@@ -1,6 +1,6 @@
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import type { EncryptedData, CryptoConfig } from '../types/crypto.js';
+import type { EncryptedData, CryptoConfig } from '../types/crypto';
 
 /**
  * エラーメッセージ定数

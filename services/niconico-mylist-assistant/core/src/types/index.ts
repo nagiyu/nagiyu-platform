@@ -290,4 +290,4 @@ export interface BatchStatusResponse {
 // 暗号化関連型定義
 // ============================================================================
 
-export * from './crypto.js';
+export * from './crypto';

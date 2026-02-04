@@ -26,4 +26,4 @@ export * from './db';
 export * from './niconico';
 
 // 暗号化ユーティリティ
-export * from './utils/crypto.js';
+export * from './utils/crypto';
