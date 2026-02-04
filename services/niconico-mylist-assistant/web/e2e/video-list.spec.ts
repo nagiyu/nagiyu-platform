@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { clearTestData } from './helpers/test-data';
 
 test.describe('Video List Page', () => {
-  test.beforeEach(async () => {
-    // 各テスト前にデータをクリア
-    await clearTestData();
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
   });
 
   test.skip('should redirect to home when not authenticated', async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('Video List Page', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 
@@ -75,7 +75,7 @@ test.describe('Video List Page', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -99,7 +99,7 @@ test.describe('Video List Page', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -121,13 +121,20 @@ test.describe('Video List Page', () => {
 
   test('should filter videos by favorite', async ({ page, request }) => {
     // 最初にいくつかの動画をインポート
-    await request.post('/api/videos/bulk-import', {
+    const response = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
+    const body = await response.json();
+
+    test.skip(
+      body.success < 3,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
 
     await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
 
     // 最初の2つの動画をお気に入りに設定
     const firstCard = page.locator('[class*="MuiCard"]').first();
@@ -144,18 +151,19 @@ test.describe('Video List Page', () => {
     await page.getByRole('option', { name: 'お気に入りのみ' }).click();
 
     // APIレスポンスを待つ
-    const response = await page.waitForResponse((res) => res.url().includes('/api/videos'));
-    const body = await response.json();
+    const filterResponse = await page.waitForResponse((res) => res.url().includes('/api/videos'));
+    const filterBody = await filterResponse.json();
 
     // お気に入りのみがフィルターされていることを確認
-    expect(body.total).toBeGreaterThanOrEqual(2); // 最低2個のお気に入り
+    expect(filterBody.total).toBe(2); // 2個のお気に入りのみ
+    expect(filterBody.videos.length).toBe(2);
   });
 
   test('should filter videos by skip', async ({ page, request }) => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 
@@ -171,11 +179,19 @@ test.describe('Video List Page', () => {
   });
 
   test('should display pagination when many videos', async ({ page, request }) => {
-    // 25個の動画をインポート（ページネーション表示に必要）
-    const videoIds = Array.from({ length: 25 }, (_, i) => `sm${i + 9}`);
-    await request.post('/api/videos/bulk-import', {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    // より新しいIDを使用してAPI拒否を減らす
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
       data: { videoIds },
     });
+    const body = await response.json();
+
+    // インポートが成功した動画の数を確認
+    test.skip(
+      body.success < 20,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
 
     await page.goto('/mylist');
 
@@ -187,11 +203,17 @@ test.describe('Video List Page', () => {
   });
 
   test('should navigate to next page', async ({ page, request }) => {
-    // 25個の動画をインポート（ページネーション表示に必要）
-    const videoIds = Array.from({ length: 25 }, (_, i) => `sm${i + 9}`);
-    await request.post('/api/videos/bulk-import', {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
       data: { videoIds },
     });
+    const body = await response.json();
+
+    test.skip(
+      body.success < 20,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
 
     await page.goto('/mylist');
 
@@ -204,11 +226,17 @@ test.describe('Video List Page', () => {
   });
 
   test('should navigate to last page', async ({ page, request }) => {
-    // 25個の動画をインポート（ページネーション表示に必要）
-    const videoIds = Array.from({ length: 25 }, (_, i) => `sm${i + 9}`);
-    await request.post('/api/videos/bulk-import', {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
       data: { videoIds },
     });
+    const body = await response.json();
+
+    test.skip(
+      body.success < 20,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
 
     await page.goto('/mylist');
 
@@ -300,7 +328,7 @@ test.describe('Video List URL Synchronization', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 
@@ -319,7 +347,7 @@ test.describe('Video List URL Synchronization', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 
@@ -338,7 +366,7 @@ test.describe('Video List URL Synchronization', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 
@@ -419,7 +447,7 @@ test.describe('Video List URL Synchronization', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 
@@ -444,7 +472,7 @@ test.describe('Video List URL Synchronization', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11', 'sm12', 'sm13'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
       },
     });
 

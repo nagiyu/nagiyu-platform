@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 import { clearTestData, seedVideoData } from './helpers/test-data';
 
 test.describe('Bulk Import API', () => {
-  test.beforeEach(async () => {
-    // 各テスト前にデータをクリア
-    await clearTestData();
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
   });
 
   test.skip('should return 401 when not authenticated', async ({ request }) => {
@@ -96,11 +96,11 @@ test.describe('Bulk Import API', () => {
 test.describe('Bulk Import API with Authentication', () => {
   test('should import videos successfully when authenticated', async ({ request }) => {
     // このテストでは beforeEach でデータクリアが必要
-    await clearTestData();
+    await clearTestData(request);
 
     const response = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -119,12 +119,12 @@ test.describe('Bulk Import API with Authentication', () => {
 
   test('should skip already imported videos', async ({ request }) => {
     // このテストでは初期状態でクリアする
-    await clearTestData();
+    await clearTestData(request);
 
     // 最初のインポート - 実際にニコニコAPIを呼び出して動画を登録
     const firstResponse = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10'],
+        videoIds: ['sm40000000', 'sm40000001'],
       },
     });
 
@@ -138,7 +138,7 @@ test.describe('Bulk Import API with Authentication', () => {
     // 同じ動画を再度インポート
     const secondResponse = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10'],
+        videoIds: ['sm40000000', 'sm40000001'],
       },
     });
 
@@ -154,9 +154,9 @@ test.describe('Bulk Import API with Authentication', () => {
 });
 
 test.describe('Bulk Import UI', () => {
-  test.beforeEach(async () => {
-    // 各テスト前にデータをクリア
-    await clearTestData();
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
   });
 
   test('should display import form', async ({ page }) => {
@@ -236,9 +236,9 @@ test.describe('Bulk Import UI', () => {
 });
 
 test.describe('Bulk Import Navigation', () => {
-  test.beforeEach(async () => {
-    // 各テスト前にデータをクリア
-    await clearTestData();
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
   });
 
   test('should have navigation links', async ({ page }) => {

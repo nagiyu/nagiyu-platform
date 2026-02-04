@@ -12,9 +12,9 @@ const isVideoSettingsApiResponse = (response: Response): boolean => {
 };
 
 test.describe('Video Detail Modal', () => {
-  test.beforeEach(async () => {
-    // 各テスト前にデータをクリア
-    await clearTestData();
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
   });
 
   test.skip('should redirect to home when not authenticated', async ({ page }) => {
@@ -31,7 +31,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -54,7 +54,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -86,7 +86,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -117,7 +117,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -145,7 +145,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -174,7 +174,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -205,7 +205,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -241,7 +241,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
@@ -265,7 +265,7 @@ test.describe('Video Detail Modal', () => {
     // テストデータをAPI経由で作成
     await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
       },
     });
 
