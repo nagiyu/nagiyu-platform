@@ -24,3 +24,6 @@ export * from './db';
 
 // ニコニコ動画 API クライアント
 export * from './niconico';
+
+// 暗号化ユーティリティ
+export * from './utils/crypto';
