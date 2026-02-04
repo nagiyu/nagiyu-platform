@@ -140,11 +140,17 @@ export function validateBooleanField(value: unknown, fieldName: string): boolean
 /**
  * タイムスタンプフィールドをバリデーション
  *
- * @param value - 検証する値
+ * @param value - 検証する値（数値またはISO形式の文字列）
  * @param fieldName - フィールド名（エラーメッセージ用）
  * @param options - バリデーションオプション
  * @param options.allowFuture - 未来の日時を許可するか（デフォルト: true）
  * @throws InvalidEntityDataError バリデーション失敗時
+ * @returns Unix タイムスタンプ（ミリ秒）
+ *
+ * @remarks
+ * 文字列形式のタイムスタンプ（ISO 8601形式など）が渡された場合、
+ * 自動的にUnixタイムスタンプ（ミリ秒）に変換します。
+ * これにより、レガシーデータとの互換性を保ちます。
  */
 export function validateTimestampField(
   value: unknown,
@@ -155,25 +161,38 @@ export function validateTimestampField(
 ): number {
   const { allowFuture = true } = options;
 
-  if (typeof value !== 'number') {
+  let timestamp: number;
+
+  // 文字列形式のタイムスタンプを数値に変換
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (isNaN(parsed)) {
+      throw new InvalidEntityDataError(
+        `フィールド "${fieldName}" が有効なタイムスタンプ形式ではありません`
+      );
+    }
+    timestamp = parsed;
+  } else if (typeof value === 'number') {
+    timestamp = value;
+  } else {
     throw new InvalidEntityDataError(
-      `フィールド "${fieldName}" がタイムスタンプ（数値）ではありません`
+      `フィールド "${fieldName}" がタイムスタンプ（数値または文字列）ではありません`
     );
   }
 
-  if (!Number.isInteger(value)) {
+  if (!Number.isInteger(timestamp)) {
     throw new InvalidEntityDataError(
       `フィールド "${fieldName}" が整数のタイムスタンプではありません`
     );
   }
 
-  if (value < 0) {
+  if (timestamp < 0) {
     throw new InvalidEntityDataError(`フィールド "${fieldName}" が負の値のタイムスタンプです`);
   }
 
-  if (!allowFuture && value > Date.now()) {
+  if (!allowFuture && timestamp > Date.now()) {
     throw new InvalidEntityDataError(`フィールド "${fieldName}" が未来のタイムスタンプです`);
   }
 
-  return value;
+  return timestamp;
 }
