@@ -22,6 +22,7 @@ npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 ```
 
 **測定内容**:
+
 - Alert Repository の CRUD 操作レイテンシー
 - Holding Repository の CRUD 操作レイテンシー
 - Ticker Repository の CRUD 操作レイテンシー
@@ -30,6 +31,7 @@ npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 - メモリ使用量（3000エンティティ作成時）
 
 **出力**:
+
 - コンソール: 各操作の平均・最小・最大・中央値
 - テスト結果: Jest のテストレポート
 
@@ -59,6 +61,7 @@ node scripts/measure-e2e-performance.js compare before.json after.json
 ```
 
 **出力**:
+
 - コンソール: 実行時間のサマリー
 - ファイル: `test-results/performance/e2e-performance-*.json`
 
@@ -122,26 +125,26 @@ npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 
 ### リポジトリ操作レイテンシー
 
-| 操作 | 期待値 |
-|------|--------|
-| create | < 1.0ms |
-| getById | < 0.5ms |
+| 操作        | 期待値  |
+| ----------- | ------- |
+| create      | < 1.0ms |
+| getById     | < 0.5ms |
 | getByUserId | < 1.0ms |
-| update | < 1.0ms |
-| delete | < 0.5ms |
+| update      | < 1.0ms |
+| delete      | < 0.5ms |
 
 ### メモリ使用量
 
-| データ量 | 期待値 |
-|---------|--------|
+| データ量         | 期待値 |
+| ---------------- | ------ |
 | 3000エンティティ | < 50MB |
 
 ### E2E テスト実行時間
 
-| 項目 | 目標 |
-|------|------|
-| DynamoDB 比での改善率 | 20%以上の短縮 |
-| chromium-mobile での実行時間 | < 200秒 |
+| 項目                         | 目標          |
+| ---------------------------- | ------------- |
+| DynamoDB 比での改善率        | 20%以上の短縮 |
+| chromium-mobile での実行時間 | < 200秒       |
 
 ## トラブルシューティング
 

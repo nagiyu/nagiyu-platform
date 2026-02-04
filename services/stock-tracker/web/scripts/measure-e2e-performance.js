@@ -6,6 +6,7 @@
  * E2Eテストの実行時間を測定し、結果をJSON形式で出力
  */
 
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -23,23 +24,18 @@ async function measureE2EPerformance(project = 'chromium-mobile') {
   const startTime = Date.now();
   let exitCode = 0;
   let stdout = '';
-  let stderr = '';
 
   try {
     // E2Eテストを実行
-    stdout = execSync(
-      `npm run test:e2e -- --project=${project} --reporter=json`,
-      {
-        cwd: path.join(__dirname, '..'),
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }
-    );
-  } catch (error) {
+    stdout = execSync(`npm run test:e2e -- --project=${project} --reporter=json`, {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch (err) {
     // テスト失敗時もエラーは記録するが、測定は続行
-    exitCode = error.status || 1;
-    stdout = error.stdout || '';
-    stderr = error.stderr || '';
+    exitCode = err.status || 1;
+    stdout = err.stdout || '';
   }
 
   const endTime = Date.now();
@@ -52,7 +48,7 @@ async function measureE2EPerformance(project = 'chromium-mobile') {
   let testResults = null;
   try {
     testResults = JSON.parse(stdout);
-  } catch (error) {
+  } catch {
     console.warn('テスト結果のJSONパースに失敗しました');
   }
 
@@ -71,10 +67,7 @@ async function measureE2EPerformance(project = 'chromium-mobile') {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const outputPath = path.join(
-    outputDir,
-    `e2e-performance-${project}-${Date.now()}.json`
-  );
+  const outputPath = path.join(outputDir, `e2e-performance-${project}-${Date.now()}.json`);
   fs.writeFileSync(outputPath, JSON.stringify(result, null, 2));
   console.log(`\n結果を保存しました: ${outputPath}`);
 
@@ -103,9 +96,7 @@ async function measureAllProjects() {
   console.log('|-------------|--------------|-----------|');
 
   for (const result of results) {
-    console.log(
-      `| ${result.project} | ${result.durationSeconds} | ${result.exitCode} |`
-    );
+    console.log(`| ${result.project} | ${result.durationSeconds} | ${result.exitCode} |`);
   }
 
   // 全体の結果を保存
@@ -114,10 +105,7 @@ async function measureAllProjects() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  const summaryPath = path.join(
-    outputDir,
-    `e2e-performance-summary-${Date.now()}.json`
-  );
+  const summaryPath = path.join(outputDir, `e2e-performance-summary-${Date.now()}.json`);
   fs.writeFileSync(summaryPath, JSON.stringify(results, null, 2));
   console.log(`\nサマリーを保存しました: ${summaryPath}`);
 
@@ -141,9 +129,9 @@ function generateComparisonReport(beforeFile, afterFile) {
 
   for (let i = 0; i < before.length; i++) {
     const beforeResult = before[i];
-    const afterResult = after.find(
-      (r) => r.project === beforeResult.project
-    ) || { durationSeconds: '0' };
+    const afterResult = after.find((r) => r.project === beforeResult.project) || {
+      durationSeconds: '0',
+    };
 
     const beforeTime = parseFloat(beforeResult.durationSeconds);
     const afterTime = parseFloat(afterResult.durationSeconds);

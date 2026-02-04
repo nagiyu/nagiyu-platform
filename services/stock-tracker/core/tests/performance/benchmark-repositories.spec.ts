@@ -13,10 +13,6 @@ import {
   InMemoryExchangeRepository,
   InMemoryWatchlistRepository,
   type AlertEntity,
-  type HoldingEntity,
-  type TickerEntity,
-  type ExchangeEntity,
-  type WatchlistEntity,
 } from '@nagiyu/stock-tracker-core';
 
 // パフォーマンス測定結果の型定義
@@ -43,7 +39,7 @@ class PerformanceBenchmark {
    * @param iterations - 反復回数
    * @returns 測定結果
    */
-  async measure(
+  public async measure(
     name: string,
     repository: string,
     operation: () => Promise<void>,
@@ -88,14 +84,14 @@ class PerformanceBenchmark {
   /**
    * 全測定結果を取得
    */
-  getResults(): BenchmarkResult[] {
+  public getResults(): BenchmarkResult[] {
     return this.results;
   }
 
   /**
    * 結果をコンソールに出力
    */
-  printResults(): void {
+  public printResults(): void {
     console.log('\n=== リポジトリパフォーマンスベンチマーク結果 ===\n');
 
     for (const result of this.results) {
@@ -113,7 +109,7 @@ class PerformanceBenchmark {
   /**
    * 比較レポートを生成
    */
-  generateComparisonReport(): string {
+  public generateComparisonReport(): string {
     const report: string[] = [
       '## リポジトリパフォーマンス比較レポート',
       '',
@@ -520,8 +516,7 @@ describe('Repository Performance Benchmark', () => {
 
       const memoryIncreaseMB = {
         heapUsed: (finalMemory.heapUsed - initialMemory.heapUsed) / 1024 / 1024,
-        heapTotal:
-          (finalMemory.heapTotal - initialMemory.heapTotal) / 1024 / 1024,
+        heapTotal: (finalMemory.heapTotal - initialMemory.heapTotal) / 1024 / 1024,
         external: (finalMemory.external - initialMemory.external) / 1024 / 1024,
       };
 
