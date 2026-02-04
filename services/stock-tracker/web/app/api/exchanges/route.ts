@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthError, validateExchange } from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
 import { EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
 import { getSession } from '../../../lib/auth';
 import { createExchangeRepository } from '../../../lib/repository-factory';
@@ -48,7 +48,7 @@ export async function GET() {
 
     // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json({
-      exchanges: exchanges.map((exchange) => ({
+      exchanges: exchanges.map((exchange: ExchangeEntity) => ({
         exchangeId: exchange.ExchangeID,
         name: exchange.Name,
         key: exchange.Key,
