@@ -8,11 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getAuthError,
-  TickerNotFoundError,
-  validateTickerUpdateData,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
+import { EntityNotFoundError } from '@nagiyu/aws';
 import { getSession } from '../../../../lib/auth';
 import { createTickerRepository } from '../../../../lib/repository-factory';
 
@@ -134,7 +131,7 @@ export async function PUT(
       return NextResponse.json(response, { status: 200 });
     } catch (error) {
       // ティッカーが見つからない場合
-      if (error instanceof TickerNotFoundError) {
+      if (error instanceof EntityNotFoundError) {
         return NextResponse.json(
           {
             error: 'NOT_FOUND',
@@ -199,7 +196,7 @@ export async function DELETE(
       return NextResponse.json(response, { status: 200 });
     } catch (error) {
       // ティッカーが見つからない場合
-      if (error instanceof TickerNotFoundError) {
+      if (error instanceof EntityNotFoundError) {
         return NextResponse.json(
           {
             error: 'NOT_FOUND',

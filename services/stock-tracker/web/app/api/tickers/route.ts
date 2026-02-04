@@ -12,11 +12,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getAuthError,
-  TickerAlreadyExistsError,
-  validateTickerCreateData,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateTickerCreateData } from '@nagiyu/stock-tracker-core';
+import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import { getSession } from '../../../lib/auth';
 import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
@@ -119,14 +116,17 @@ export async function GET(
     const tickerRepo = createTickerRepository();
 
     // ティッカー一覧取得
-    let tickers;
+    let tickersResult;
     if (exchangeId) {
       // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
-      tickers = await tickerRepo.getByExchange(exchangeId);
+      tickersResult = await tickerRepo.getByExchange(exchangeId);
     } else {
       // 全ティッカー取得
-      tickers = await tickerRepo.getAll();
+      tickersResult = await tickerRepo.getAll();
     }
+
+    // PaginatedResult から items を取得
+    const tickers = tickersResult.items;
 
     // ページネーション処理
     // TODO: Phase 1 では簡易実装（全件取得後にメモリ上でページング）
@@ -238,16 +238,17 @@ export async function POST(
     }
     const exchangeKey = exchange.Key;
 
-    // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
+    // TickerID を自動生成: {Exchange.Key}:{Symbol}
+    const tickerId = `${exchangeKey}:${body.symbol}`;
+
+    // ティッカー作成
     try {
-      const createdTicker = await tickerRepo.create(
-        {
-          Symbol: body.symbol,
-          Name: body.name,
-          ExchangeID: body.exchangeId,
-        },
-        exchangeKey
-      );
+      const createdTicker = await tickerRepo.create({
+        TickerID: tickerId,
+        Symbol: body.symbol,
+        Name: body.name,
+        ExchangeID: body.exchangeId,
+      });
 
       // レスポンス形式に変換
       const response: CreateTickerResponse = {
@@ -261,7 +262,7 @@ export async function POST(
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
       // ティッカーが既に存在する場合
-      if (error instanceof TickerAlreadyExistsError) {
+      if (error instanceof EntityAlreadyExistsError) {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
