@@ -12,25 +12,12 @@ export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 
-// Legacy repository classes (for backward compatibility)
-export * from './repositories/ticker.js';
-export * from './repositories/holding.js';
-export * from './repositories/alert.js';
-export { ExchangeRepository } from './repositories/exchange.js';
-export {
-  WatchlistRepository,
-  WatchlistNotFoundError,
-  InvalidWatchlistDataError,
-  WatchlistAlreadyExistsError,
-  type WatchlistQueryResult,
-} from './repositories/watchlist.js';
-
-// Repository Interfaces (new pattern)
-export type { AlertRepository as IAlertRepository } from './repositories/alert.repository.interface.js';
-export type { HoldingRepository as IHoldingRepository } from './repositories/holding.repository.interface.js';
-export type { TickerRepository as ITickerRepository } from './repositories/ticker.repository.interface.js';
-export type { ExchangeRepository as IExchangeRepository } from './repositories/exchange.repository.interface.js';
-export type { WatchlistRepository as IWatchlistRepository } from './repositories/watchlist.repository.interface.js';
+// Repository Interfaces
+export type { AlertRepository } from './repositories/alert.repository.interface.js';
+export type { HoldingRepository } from './repositories/holding.repository.interface.js';
+export type { TickerRepository } from './repositories/ticker.repository.interface.js';
+export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';
+export type { WatchlistRepository } from './repositories/watchlist.repository.interface.js';
 
 // Entities (explicit exports to avoid conflicts with types.ts)
 export type {
