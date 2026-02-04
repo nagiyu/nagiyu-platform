@@ -394,7 +394,9 @@ describe('InMemoryAlertRepository', () => {
         SubscriptionKeysAuth: 'auth-secret',
       };
 
-      await expect(repository.create(input)).rejects.toThrow('Unexpected store error during create');
+      await expect(repository.create(input)).rejects.toThrow(
+        'Unexpected store error during create'
+      );
     });
   });
 });
