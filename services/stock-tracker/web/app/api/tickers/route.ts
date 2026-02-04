@@ -119,16 +119,16 @@ export async function GET(
     const tickerRepo = createTickerRepository();
 
     // ティッカー一覧取得
-    let result;
+    let paginatedResult;
     if (exchangeId) {
       // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
-      result = await tickerRepo.getByExchange(exchangeId);
+      paginatedResult = await tickerRepo.getByExchange(exchangeId);
     } else {
       // 全ティッカー取得
-      result = await tickerRepo.getAll();
+      paginatedResult = await tickerRepo.getAll();
     }
 
-    const tickers = result.items;
+    const tickers = paginatedResult.items;
 
     // ページネーション処理
     // TODO: Phase 1 では簡易実装（全件取得後にメモリ上でページング）
