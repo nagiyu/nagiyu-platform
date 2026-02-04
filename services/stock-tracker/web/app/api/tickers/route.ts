@@ -119,14 +119,16 @@ export async function GET(
     const tickerRepo = createTickerRepository();
 
     // ティッカー一覧取得
-    let tickers;
+    let result;
     if (exchangeId) {
       // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
-      tickers = await tickerRepo.getByExchange(exchangeId);
+      result = await tickerRepo.getByExchange(exchangeId);
     } else {
       // 全ティッカー取得
-      tickers = await tickerRepo.getAll();
+      result = await tickerRepo.getAll();
     }
+
+    const tickers = result.items;
 
     // ページネーション処理
     // TODO: Phase 1 では簡易実装（全件取得後にメモリ上でページング）
@@ -240,14 +242,12 @@ export async function POST(
 
     // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
     try {
-      const createdTicker = await tickerRepo.create(
-        {
-          Symbol: body.symbol,
-          Name: body.name,
-          ExchangeID: body.exchangeId,
-        },
-        exchangeKey
-      );
+      const createdTicker = await tickerRepo.create({
+        TickerID: `${exchangeKey}:${body.symbol}`,
+        Symbol: body.symbol,
+        Name: body.name,
+        ExchangeID: body.exchangeId,
+      });
 
       // レスポンス形式に変換
       const response: CreateTickerResponse = {
