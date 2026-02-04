@@ -8,8 +8,8 @@ import { logger } from './lib/logger.js';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import { sendNotification, createAlertNotificationPayload } from './lib/web-push-client.js';
 import { withRetry } from './lib/retry.js';
-import { AlertRepository } from '@nagiyu/stock-tracker-core';
-import { ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
 import { getCurrentPrice } from '@nagiyu/stock-tracker-core';
@@ -180,11 +180,12 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     // DynamoDB クライアントとリポジトリの初期化
     const docClient = getDynamoDBDocumentClient();
     const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
 
     // 1. GSI2 で MINUTE_LEVEL アラート一覧を取得
-    const alerts = await alertRepo.getByFrequency('MINUTE_LEVEL');
+    const alertsResult = await alertRepo.getByFrequency('MINUTE_LEVEL');
+    const alerts = alertsResult.items;
     stats.totalAlerts = alerts.length;
 
     logger.info('MINUTE_LEVEL アラートを取得しました', {
