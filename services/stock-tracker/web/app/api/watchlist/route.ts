@@ -1,9 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  getAuthError,
-  validateWatchlist,
-  type Watchlist,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateWatchlist, type Watchlist } from '@nagiyu/stock-tracker-core';
 import { createWatchlistRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 
