@@ -45,7 +45,9 @@ test.describe('Video Detail Modal', () => {
     // モーダルが開く
     await expect(page.getByRole('dialog')).toBeVisible();
     // ダイアログ内の見出しを正確に指定（strict mode対応）
-    await expect(page.getByRole('dialog').getByRole('heading', { name: '動画詳細', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('dialog').getByRole('heading', { name: '動画詳細', exact: true })
+    ).toBeVisible();
   });
 
   test('should display video information in modal', async ({ page, request }) => {
