@@ -106,10 +106,10 @@ test.describe('チャート表示機能', () => {
     // 作成したテストデータを取得
     const testExchanges = factory.exchanges;
     const testTickers = factory.tickers;
-    
+
     expect(testExchanges.length).toBeGreaterThan(0);
     expect(testTickers.length).toBeGreaterThan(0);
-    
+
     const testExchange = testExchanges[0];
     const testTicker = testTickers[0];
 
@@ -207,10 +207,10 @@ test.describe('チャート表示機能', () => {
     // 作成したテストデータを取得
     const testExchanges = factory.exchanges;
     const testTickers = factory.tickers;
-    
+
     expect(testExchanges.length).toBeGreaterThan(0);
     expect(testTickers.length).toBeGreaterThan(0);
-    
+
     const testExchange = testExchanges[0];
     const testTicker = testTickers[0];
 
