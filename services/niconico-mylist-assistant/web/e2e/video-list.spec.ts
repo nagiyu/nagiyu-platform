@@ -58,7 +58,7 @@ test.describe('Video List Page', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -87,7 +87,7 @@ test.describe('Video List Page', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -119,7 +119,7 @@ test.describe('Video List Page', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -191,7 +191,7 @@ test.describe('Video List Page', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -364,7 +364,7 @@ test.describe('Video List URL Synchronization', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -391,7 +391,7 @@ test.describe('Video List URL Synchronization', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -418,7 +418,7 @@ test.describe('Video List URL Synchronization', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -449,7 +449,7 @@ test.describe('Video List URL Synchronization', () => {
       data: { videoIds },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が20件未満の場合
     test.skip(
       body.success < 20,
@@ -474,7 +474,7 @@ test.describe('Video List URL Synchronization', () => {
       data: { videoIds },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が20件未満の場合
     test.skip(
       body.success < 20,
@@ -501,7 +501,7 @@ test.describe('Video List URL Synchronization', () => {
       data: { videoIds },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が20件未満の場合
     test.skip(
       body.success < 20,
@@ -529,7 +529,7 @@ test.describe('Video List URL Synchronization', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -562,7 +562,7 @@ test.describe('Video List URL Synchronization', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -607,7 +607,7 @@ test.describe('Video List URL Synchronization', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,

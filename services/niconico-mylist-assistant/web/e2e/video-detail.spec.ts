@@ -35,7 +35,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -66,7 +66,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -106,7 +106,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -145,7 +145,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -181,7 +181,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -218,7 +218,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -257,7 +257,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -301,7 +301,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
@@ -333,7 +333,7 @@ test.describe('Video Detail Modal', () => {
       },
     });
     const body = await response.json();
-    
+
     // テストをスキップする条件: 動画が1件も取得できなかった場合
     test.skip(
       body.success === 0,
