@@ -23,7 +23,7 @@ describe('Cleanup Helper', () => {
 
   afterEach(() => {
     // 環境変数を復元
-    process.env = originalEnv;
+    process.env.USE_IN_MEMORY_REPOSITORY = originalEnv.USE_IN_MEMORY_REPOSITORY;
   });
 
   describe('cleanupRepositories', () => {
