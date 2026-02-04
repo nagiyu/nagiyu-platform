@@ -13,14 +13,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  TickerRepository,
-  ExchangeRepository,
   getAuthError,
   TickerAlreadyExistsError,
   validateTickerCreateData,
 } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
+import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数
@@ -117,20 +115,20 @@ export async function GET(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    // リポジトリを初期化
+    const tickerRepo = createTickerRepository();
 
     // ティッカー一覧取得
-    let tickers;
+    let paginatedResult;
     if (exchangeId) {
       // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
-      tickers = await tickerRepo.getByExchange(exchangeId);
+      paginatedResult = await tickerRepo.getByExchange(exchangeId);
     } else {
       // 全ティッカー取得
-      tickers = await tickerRepo.getAll();
+      paginatedResult = await tickerRepo.getAll();
     }
+
+    const tickers = paginatedResult.items;
 
     // ページネーション処理
     // TODO: Phase 1 では簡易実装（全件取得後にメモリ上でページング）
@@ -225,11 +223,9 @@ export async function POST(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    // リポジトリの初期化
+    const exchangeRepo = createExchangeRepository();
+    const tickerRepo = createTickerRepository();
 
     // 取引所の存在確認と Key 取得
     const exchange = await exchangeRepo.getById(body.exchangeId);
@@ -246,14 +242,12 @@ export async function POST(
 
     // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
     try {
-      const createdTicker = await tickerRepo.create(
-        {
-          Symbol: body.symbol,
-          Name: body.name,
-          ExchangeID: body.exchangeId,
-        },
-        exchangeKey
-      );
+      const createdTicker = await tickerRepo.create({
+        TickerID: `${exchangeKey}:${body.symbol}`,
+        Symbol: body.symbol,
+        Name: body.name,
+        ExchangeID: body.exchangeId,
+      });
 
       // レスポンス形式に変換
       const response: CreateTickerResponse = {
