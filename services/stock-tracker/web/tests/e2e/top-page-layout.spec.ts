@@ -7,7 +7,7 @@ test.describe('トップ画面レイアウト', () => {
   test.beforeEach(async ({ page, request }) => {
     // TestDataFactory を初期化してテストデータを作成
     factory = new TestDataFactory(request);
-    
+
     // テスト用の取引所を作成
     await factory.createExchange({
       exchangeId: 'NYSE',
