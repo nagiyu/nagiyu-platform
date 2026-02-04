@@ -1,8 +1,5 @@
 import { mockClient } from 'aws-sdk-client-mock';
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from '@aws-sdk/client-secrets-manager';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { randomBytes } from 'node:crypto';
 import { encrypt, decrypt, clearCache } from '../../../src/utils/crypto.js';
 import type { EncryptedData, CryptoConfig } from '../../../src/types/crypto.js';
@@ -168,9 +165,7 @@ describe('crypto utilities', () => {
         authTag: 'test',
       };
 
-      await expect(decrypt(encryptedData, config)).rejects.toThrow(
-        '復号化する文字列が空です'
-      );
+      await expect(decrypt(encryptedData, config)).rejects.toThrow('復号化する文字列が空です');
     });
 
     it('IVが空の場合エラーになる', async () => {
@@ -192,9 +187,7 @@ describe('crypto utilities', () => {
         authTag: '',
       };
 
-      await expect(decrypt(encryptedData, config)).rejects.toThrow(
-        '認証タグが指定されていません'
-      );
+      await expect(decrypt(encryptedData, config)).rejects.toThrow('認証タグが指定されていません');
     });
 
     it('改ざんされたデータの場合エラーになる', async () => {

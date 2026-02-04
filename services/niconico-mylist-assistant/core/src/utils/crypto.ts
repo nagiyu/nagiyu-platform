@@ -102,7 +102,9 @@ async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
     if (error instanceof Error && error.message in ERROR_MESSAGES) {
       throw error;
     }
-    throw new Error(`${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -150,7 +152,9 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
     if (error instanceof Error && Object.values(ERROR_MESSAGES).includes(error.message as any)) {
       throw error;
     }
-    throw new Error(`${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
@@ -204,7 +208,7 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
     // 認証タグエラーの場合は専用メッセージ
     // decipher.final() が投げる認証エラーを検出
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
+
     if (errorMessage.includes('Unsupported state or unable to authenticate data')) {
       throw new Error(ERROR_MESSAGES.AUTHENTICATION_FAILED);
     }
@@ -214,7 +218,9 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
       throw error;
     }
 
-    throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 
