@@ -91,8 +91,7 @@ async function main() {
   console.log('========================================');
 
   try {
-    // 環境変数の読み取り
-    // const env = readEnvironmentVariables();
+    // 環境変数の読み取り（現在は表示のみ）
     readEnvironmentVariables();
 
     // ジョブパラメータの取得

@@ -66,9 +66,11 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     for (const button of deleteButtons) {
       await button.click();
       // 確認ダイアログがある場合は承認
-      await page.click('[data-testid="confirm-delete"]').catch(() => {
-        // 確認ダイアログがない場合はスキップ
-      });
+      try {
+        await page.click('[data-testid="confirm-delete"]');
+      } catch {
+        // 確認ダイアログがない場合はスキップ（ログ出力なし）
+      }
       await sleep(1000); // 削除処理の完了を待つ
     }
 
@@ -174,12 +176,9 @@ export async function registerVideosToMylist(
 
     try {
       // リトライ機能付きで動画を登録
-      await retry(
-        async () => {
-          await registerVideoToMylist(page, videoId, mylistName);
-        },
-        { maxRetries: 3, retryDelay: 2000 }
-      );
+      await retry(async () => {
+        await registerVideoToMylist(page, videoId, mylistName);
+      });
 
       successVideoIds.push(videoId);
 
@@ -203,6 +202,12 @@ export async function registerVideosToMylist(
 }
 
 /**
+ * スクリーンショット保存先ディレクトリ
+ * Docker コンテナ内では /tmp を使用
+ */
+const SCREENSHOT_DIR = '/tmp';
+
+/**
  * スクリーンショットを取得して保存する（デバッグ用）
  *
  * @param page Playwright Page オブジェクト
@@ -210,7 +215,7 @@ export async function registerVideosToMylist(
  */
 export async function takeScreenshot(page: Page, filename: string): Promise<void> {
   try {
-    const path = `/tmp/${filename}.png`;
+    const path = `${SCREENSHOT_DIR}/${filename}.png`;
     await page.screenshot({ path, fullPage: true });
     console.log(`スクリーンショット保存: ${path}`);
   } catch (error) {

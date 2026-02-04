@@ -7,9 +7,12 @@ import { DEFAULT_RETRY_CONFIG } from './constants';
 
 /**
  * 指定されたミリ秒間待機する
+ *
+ * @param ms 待機時間（ミリ秒）。負の値は0として扱う
  */
 export async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  const delay = Math.max(0, ms);
+  return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
 /**
