@@ -344,5 +344,57 @@ describe('InMemoryAlertRepository', () => {
         EntityNotFoundError
       );
     });
+
+    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
+      // storeのdeleteメソッドをモックして予期しないエラーをスローさせる
+      const unexpectedError = new Error('Unexpected store error');
+      jest.spyOn(store, 'delete').mockImplementationOnce(() => {
+        throw unexpectedError;
+      });
+
+      const input: CreateAlertInput = {
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+      };
+
+      const created = await repository.create(input);
+
+      await expect(repository.delete('user-123', created.AlertID)).rejects.toThrow(
+        'Unexpected store error'
+      );
+    });
+  });
+
+  describe('create - error handling', () => {
+    it('作成時に予期しないエラーが発生した場合は再スローする', async () => {
+      // storeのputメソッドをモックして予期しないエラーをスローさせる
+      const unexpectedError = new Error('Unexpected store error during create');
+      jest.spyOn(store, 'put').mockImplementationOnce(() => {
+        throw unexpectedError;
+      });
+
+      const input: CreateAlertInput = {
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+      };
+
+      await expect(repository.create(input)).rejects.toThrow('Unexpected store error during create');
+    });
   });
 });

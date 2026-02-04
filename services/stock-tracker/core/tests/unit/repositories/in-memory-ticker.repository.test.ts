@@ -249,5 +249,23 @@ describe('InMemoryTickerRepository', () => {
     it('存在しないティッカーを削除しようとするとEntityNotFoundErrorをスローする', async () => {
       await expect(repository.delete('NSDQ:NOTFOUND')).rejects.toThrow(EntityNotFoundError);
     });
+
+    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
+      const unexpectedError = new Error('Unexpected store error');
+      jest.spyOn(store, 'delete').mockImplementationOnce(() => {
+        throw unexpectedError;
+      });
+
+      const input: CreateTickerInput = {
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      };
+
+      await repository.create(input);
+
+      await expect(repository.delete('NSDQ:AAPL')).rejects.toThrow('Unexpected store error');
+    });
   });
 });

@@ -464,4 +464,26 @@ describe('InMemoryExchangeRepository', () => {
       expect(result).toHaveLength(100);
     });
   });
+
+  describe('delete - error handling', () => {
+    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
+      const unexpectedError = new Error('Unexpected store error');
+      jest.spyOn(store, 'delete').mockImplementationOnce(() => {
+        throw unexpectedError;
+      });
+
+      const input: CreateExchangeInput = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+      };
+
+      await repository.create(input);
+
+      await expect(repository.delete('NASDAQ')).rejects.toThrow('Unexpected store error');
+    });
+  });
 });
