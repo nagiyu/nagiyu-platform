@@ -145,9 +145,9 @@ describe('InMemoryExchangeRepository', () => {
     });
 
     it('存在しない取引所を更新しようとするとEntityNotFoundErrorをスローする', async () => {
-      await expect(
-        repository.update('NYSE', { Name: 'NYSE (Updated)' })
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.update('NYSE', { Name: 'NYSE (Updated)' })).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('更新するフィールドがない場合はDatabaseErrorをスローする', async () => {

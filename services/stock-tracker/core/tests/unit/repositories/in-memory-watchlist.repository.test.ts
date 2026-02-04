@@ -5,10 +5,7 @@
  */
 
 import { InMemoryWatchlistRepository } from '../../../src/repositories/in-memory-watchlist.repository.js';
-import {
-  InMemorySingleTableStore,
-  EntityAlreadyExistsError,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore, EntityAlreadyExistsError } from '@nagiyu/aws';
 import {
   WatchlistAlreadyExistsError,
   WatchlistNotFoundError,
