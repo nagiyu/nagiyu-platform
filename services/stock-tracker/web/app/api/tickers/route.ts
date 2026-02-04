@@ -12,10 +12,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError, validateTickerCreateData } from '@nagiyu/stock-tracker-core';
+import {
+  getAuthError,
+  validateTickerCreateData,
+  ExchangeRepository,
+} from '@nagiyu/stock-tracker-core';
 import { EntityAlreadyExistsError } from '@nagiyu/aws';
 import { getSession } from '../../../lib/auth';
-import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
+import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
+import { createTickerRepository } from '../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数
@@ -222,7 +227,9 @@ export async function POST(
     }
 
     // リポジトリの初期化
-    const exchangeRepo = createExchangeRepository();
+    const docClient = getDynamoDBClient();
+    const tableName = getTableName();
+    const exchangeRepo = new ExchangeRepository(docClient, tableName);
     const tickerRepo = createTickerRepository();
 
     // 取引所の存在確認と Key 取得
