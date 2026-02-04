@@ -6,14 +6,15 @@
 
 ### 1. リポジトリベンチマークテスト
 
-**ファイル**: `tests/performance/benchmark-repositories.spec.ts`
+**ファイル**: `services/stock-tracker/core/tests/performance/benchmark-repositories.spec.ts`
 
 **目的**: インメモリリポジトリの各操作のレイテンシーとメモリ使用量を測定
 
 **実行方法**:
 
 ```bash
-# ベンチマークテストを実行
+# ベンチマークテストを実行（coreパッケージから実行）
+cd services/stock-tracker/core
 npm run test tests/performance/benchmark-repositories.spec.ts
 
 # 詳細な結果を表示
@@ -34,7 +35,7 @@ npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 
 ### 2. E2E テスト実行時間測定スクリプト
 
-**ファイル**: `scripts/measure-e2e-performance.js`
+**ファイル**: `services/stock-tracker/web/scripts/measure-e2e-performance.js`
 
 **目的**: E2E テストの実行時間を測定し、JSON形式で保存
 
@@ -42,6 +43,7 @@ npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 
 ```bash
 # chromium-mobile での測定（デフォルト）
+cd services/stock-tracker/web
 node scripts/measure-e2e-performance.js
 
 # 特定のプロジェクトで測定
@@ -106,6 +108,7 @@ node scripts/measure-e2e-performance.js compare baseline.json in-memory.json
 
 ```bash
 # リポジトリ操作のレイテンシーとメモリ使用量を測定
+cd services/stock-tracker/core
 npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 ```
 

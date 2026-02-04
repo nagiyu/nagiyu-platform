@@ -222,7 +222,7 @@ T026 (パフォーマンス測定) タスクの成果物として作成されま
 
 ```bash
 # ベンチマークテストの実行
-cd services/stock-tracker/web
+cd services/stock-tracker/core
 npm run test tests/performance/benchmark-repositories.spec.ts
 
 # 詳細な結果を表示
@@ -231,7 +231,8 @@ npm run test tests/performance/benchmark-repositories.spec.ts -- --verbose
 
 ### 測定ファイルの場所
 
-- **ベンチマークテスト**: `services/stock-tracker/web/tests/performance/benchmark-repositories.spec.ts`
+- **ベンチマークテスト**: `services/stock-tracker/core/tests/performance/benchmark-repositories.spec.ts`
+- **E2E測定スクリプト**: `services/stock-tracker/web/scripts/measure-e2e-performance.js`
 - **パフォーマンスレポート**: 本ドキュメント
 - **E2Eテスト結果**: `services/stock-tracker/web/playwright-report/`
 
