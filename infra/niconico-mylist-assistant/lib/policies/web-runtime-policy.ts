@@ -28,7 +28,7 @@ export interface WebRuntimePolicyProps {
  * テストでき、デプロイ前に権限ミスを防ぐことができる。
  *
  * 含まれる権限:
- * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan)
+ * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
 export class WebRuntimePolicy extends iam.ManagedPolicy {
@@ -39,7 +39,7 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
         'Niconico Mylist Assistant Web runtime permissions (shared by Lambda and developers)',
     });
 
-    // DynamoDB 権限: Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan
+    // DynamoDB 権限: Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'DynamoDBTableAccess',
@@ -51,6 +51,8 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
           'dynamodb:UpdateItem',
           'dynamodb:DeleteItem',
           'dynamodb:Scan',
+          'dynamodb:BatchGetItem',
+          'dynamodb:BatchWriteItem',
         ],
         resources: [
           props.dynamoTable.tableArn,
