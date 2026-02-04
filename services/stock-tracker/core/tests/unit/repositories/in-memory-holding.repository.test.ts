@@ -295,6 +295,28 @@ describe('InMemoryHoldingRepository', () => {
     it('存在しない保有株式を削除しようとした場合はEntityNotFoundErrorをスローする', async () => {
       await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(EntityNotFoundError);
     });
+
+    it('削除時に予期しないエラーが発生した場合は再スローする', async () => {
+      const unexpectedError = new Error('Unexpected store error');
+      jest.spyOn(store, 'delete').mockImplementationOnce(() => {
+        throw unexpectedError;
+      });
+
+      const input: CreateHoldingInput = {
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Quantity: 10,
+        AveragePrice: 150,
+        Currency: 'USD',
+      };
+
+      await repository.create(input);
+
+      await expect(repository.delete('user-123', 'NSDQ:AAPL')).rejects.toThrow(
+        'Unexpected store error'
+      );
+    });
   });
 
   describe('複数リポジトリでのストア共有', () => {
