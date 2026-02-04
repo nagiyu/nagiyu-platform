@@ -407,15 +407,20 @@ E2E テスト終了時にデータをクリアする仕組み:
     - 内容: CRUD 操作が正しく動作することを検証
     - パターン: 既存の InMemory リポジトリテストに従う
 
-- [ ] T023: DynamoDB リポジトリのユニットテストを追加
+- [x] T023: DynamoDB リポジトリのユニットテストを追加（2026-02-04 完了）
     - ファイル:
         - `services/stock-tracker/core/tests/repositories/dynamodb-exchange.repository.test.ts`
         - `services/stock-tracker/core/tests/repositories/dynamodb-watchlist.repository.test.ts`
     - 内容: DynamoDB 操作のモックテスト
 
-- [ ] T024: カバレッジ確認とテスト追加
-    - カバレッジ 80% 以上を確保
-    - 不足している部分のテストを追加
+- [x] T024: カバレッジ確認とテスト追加（2026-02-04 完了）
+    - カバレッジ 80.3% を達成（目標: 80%以上）
+    - InMemoryリポジトリのエラーハンドリングテストを追加
+    - 結果:
+        - Statements: 93.88%
+        - Branches: 80.3%
+        - Functions: 100%
+        - Lines: 93.81%
 
 - [ ] T025: 既存のユニットテストを更新
     - 新しいリポジトリインターフェースに合わせてテストを調整
