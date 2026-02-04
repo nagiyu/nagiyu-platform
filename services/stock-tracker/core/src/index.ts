@@ -12,6 +12,31 @@ export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 
+// Error Classes (for backward compatibility)
+// Re-export generic error classes from @nagiyu/aws with specific names
+import { EntityNotFoundError, EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
+
+export { EntityNotFoundError as AlertNotFoundError };
+export { EntityAlreadyExistsError as AlertAlreadyExistsError };
+export { InvalidEntityDataError as InvalidAlertDataError };
+
+export { EntityNotFoundError as HoldingNotFoundError };
+export { EntityAlreadyExistsError as HoldingAlreadyExistsError };
+export { InvalidEntityDataError as InvalidHoldingDataError };
+
+export { EntityNotFoundError as TickerNotFoundError };
+export { EntityAlreadyExistsError as TickerAlreadyExistsError };
+export { InvalidEntityDataError as InvalidTickerDataError };
+
+export { EntityNotFoundError as ExchangeNotFoundError };
+
+// Watchlist errors are already exported from dynamodb-watchlist.repository.ts
+export {
+  WatchlistNotFoundError,
+  InvalidWatchlistDataError,
+  WatchlistAlreadyExistsError,
+} from './repositories/dynamodb-watchlist.repository.js';
+
 // Repository Interfaces
 export type { AlertRepository } from './repositories/alert.repository.interface.js';
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';

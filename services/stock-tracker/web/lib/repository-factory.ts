@@ -9,11 +9,11 @@
 
 import { InMemorySingleTableStore } from '@nagiyu/aws';
 import type {
-  IAlertRepository,
-  IHoldingRepository,
-  ITickerRepository,
-  IExchangeRepository,
-  IWatchlistRepository,
+  AlertRepository,
+  HoldingRepository,
+  TickerRepository,
+  ExchangeRepository,
+  WatchlistRepository,
 } from '@nagiyu/stock-tracker-core';
 import {
   DynamoDBAlertRepository,
@@ -40,11 +40,11 @@ const ERROR_MESSAGES = {
 let memoryStore: InMemorySingleTableStore | null = null;
 
 // 各リポジトリのシングルトンインスタンス
-let alertRepository: IAlertRepository | null = null;
-let holdingRepository: IHoldingRepository | null = null;
-let tickerRepository: ITickerRepository | null = null;
-let exchangeRepository: IExchangeRepository | null = null;
-let watchlistRepository: IWatchlistRepository | null = null;
+let alertRepository: AlertRepository | null = null;
+let holdingRepository: HoldingRepository | null = null;
+let tickerRepository: TickerRepository | null = null;
+let exchangeRepository: ExchangeRepository | null = null;
+let watchlistRepository: WatchlistRepository | null = null;
 
 /**
  * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
@@ -77,7 +77,7 @@ export function clearMemoryStore(): void {
  *
  * @returns AlertRepository インスタンス
  */
-export function createAlertRepository(): IAlertRepository {
+export function createAlertRepository(): AlertRepository {
   if (alertRepository) {
     return alertRepository;
   }
@@ -107,7 +107,7 @@ export function createAlertRepository(): IAlertRepository {
  *
  * @returns HoldingRepository インスタンス
  */
-export function createHoldingRepository(): IHoldingRepository {
+export function createHoldingRepository(): HoldingRepository {
   if (holdingRepository) {
     return holdingRepository;
   }
@@ -137,7 +137,7 @@ export function createHoldingRepository(): IHoldingRepository {
  *
  * @returns TickerRepository インスタンス
  */
-export function createTickerRepository(): ITickerRepository {
+export function createTickerRepository(): TickerRepository {
   if (tickerRepository) {
     return tickerRepository;
   }
@@ -167,7 +167,7 @@ export function createTickerRepository(): ITickerRepository {
  *
  * @returns ExchangeRepository インスタンス
  */
-export function createExchangeRepository(): IExchangeRepository {
+export function createExchangeRepository(): ExchangeRepository {
   if (exchangeRepository) {
     return exchangeRepository;
   }
@@ -197,7 +197,7 @@ export function createExchangeRepository(): IExchangeRepository {
  *
  * @returns WatchlistRepository インスタンス
  */
-export function createWatchlistRepository(): IWatchlistRepository {
+export function createWatchlistRepository(): WatchlistRepository {
   if (watchlistRepository) {
     return watchlistRepository;
   }

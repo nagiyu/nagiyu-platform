@@ -16,6 +16,7 @@ import {
   getAuthError,
   TickerAlreadyExistsError,
   validateTickerCreateData,
+  type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
 import { getSession } from '../../../lib/auth';
 import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
@@ -136,7 +137,7 @@ export async function GET(
     let startIndex = 0;
     if (lastKey) {
       // lastKey は前回の最後のティッカーID
-      const lastIndex = tickers.findIndex((t) => t.TickerID === lastKey);
+      const lastIndex = tickers.findIndex((t: TickerEntity) => t.TickerID === lastKey);
       if (lastIndex >= 0) {
         startIndex = lastIndex + 1;
       }
@@ -150,7 +151,7 @@ export async function GET(
 
     // レスポンス形式に変換
     const response: TickersListResponse = {
-      tickers: pagedTickers.map((ticker) => ({
+      tickers: pagedTickers.map((ticker: TickerEntity) => ({
         tickerId: ticker.TickerID,
         symbol: ticker.Symbol,
         name: ticker.Name,
