@@ -80,17 +80,92 @@ services/stock-tracker/
 ```
 
 **core パッケージ**:
-- `repositories/`: DynamoDB アクセス（Exchange, Ticker, Holding, Watchlist, Alert）
+- `repositories/`: データアクセス層
+    - インターフェース（IAlertRepository, IHoldingRepository, ITickerRepository, IExchangeRepository, IWatchlistRepository）
+    - DynamoDB 実装（DynamoDBAlertRepository, DynamoDBHoldingRepository 等）
+    - InMemory 実装（InMemoryAlertRepository, InMemoryHoldingRepository 等）
+- `entities/`: エンティティ型定義（AlertEntity, HoldingEntity 等）
+- `mappers/`: DynamoDB Item とエンティティ間の変換ロジック
 - `services/`: ビジネスロジック（アラート評価、価格計算、取引時間チェック、TradingView連携、認証）
 
 **web パッケージ**:
 - `app/`: Next.js App Router（ページ、API Routes）
 - `components/`: UI コンポーネント
 - `lib/`: クライアント側のユーティリティ
+    - `repository-factory.ts`: リポジトリファクトリー（環境変数に基づいてリポジトリインスタンスを生成）
 
 **batch パッケージ**:
 - `src/handlers/`: Lambda ハンドラー（minute/hourly/daily）
 - `src/lib/`: バッチ処理用のユーティリティ
+
+### 3.3 Repository Factory パターン
+
+Stock Tracker では、Repository Factory パターンを採用し、環境変数に基づいてリポジトリの実装を切り替えます。
+
+**設計の目的**:
+- **テスト容易性**: E2E テストでは DynamoDB への接続を回避し、インメモリリポジトリを使用
+- **依存性の注入**: API エンドポイントはリポジトリインターフェースに依存し、具体的な実装に依存しない
+- **保守性**: リポジトリの実装を変更してもエンドポイントのコードを変更する必要がない
+
+**実装パターン**:
+
+```typescript
+// lib/repository-factory.ts
+export function createAlertRepository(): IAlertRepository {
+  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
+  
+  if (useInMemory) {
+    // E2E テスト用のインメモリ実装
+    return new InMemoryAlertRepository(getOrCreateMemoryStore());
+  } else {
+    // 本番環境用の DynamoDB 実装
+    return new DynamoDBAlertRepository(getDynamoDBClient(), getTableName());
+  }
+}
+```
+
+**利用方法**:
+
+```typescript
+// app/api/alerts/route.ts
+import { createAlertRepository } from '../../../lib/repository-factory';
+
+export async function GET() {
+  const alertRepo = createAlertRepository();
+  const alerts = await alertRepo.getByUserId(userId);
+  return Response.json(alerts);
+}
+```
+
+**環境変数**:
+- `USE_IN_MEMORY_REPOSITORY=true`: インメモリリポジトリを使用（E2E テスト時）
+- `USE_IN_MEMORY_REPOSITORY` 未設定または `false`: DynamoDB リポジトリを使用（本番環境）
+
+**シングルトン管理**:
+- `InMemorySingleTableStore` は全リポジトリで共有される単一のインスタンス
+- 各リポジトリインスタンスもシングルトンとして管理され、パフォーマンスを最適化
+- テスト終了時は `clearMemoryStore()` でクリーンアップ
+
+### 3.4 リポジトリインターフェース設計
+
+すべてのリポジトリは共通のインターフェースを持ち、DynamoDB 実装とインメモリ実装が同じインターフェースを実装します。
+
+**インターフェース例**:
+
+```typescript
+export interface IAlertRepository {
+  getById(userId: string, alertId: string): Promise<AlertEntity | null>;
+  getByUserId(userId: string, options?: PaginationOptions): Promise<PaginatedResult<AlertEntity>>;
+  create(input: CreateAlertInput): Promise<AlertEntity>;
+  update(userId: string, alertId: string, updates: UpdateAlertInput): Promise<AlertEntity>;
+  delete(userId: string, alertId: string): Promise<void>;
+}
+```
+
+**実装の一貫性**:
+- すべてのリポジトリは同じパターンで実装（CRUD メソッド、ページネーション対応）
+- Mapper パターンにより、DynamoDB Item とエンティティ間の変換ロジックを分離
+- エラーハンドリングは各実装で統一（カスタムエラークラスの使用）
 
 ---
 
