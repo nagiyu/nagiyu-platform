@@ -250,9 +250,7 @@ describe('DynamoDBExchangeRepository', () => {
       const dbError = new Error('Database connection failed');
       mockDocClient.send.mockRejectedValueOnce(dbError);
 
-      await expect(repository.update('NASDAQ', { Name: 'Updated' })).rejects.toThrow(
-        DatabaseError
-      );
+      await expect(repository.update('NASDAQ', { Name: 'Updated' })).rejects.toThrow(DatabaseError);
     });
 
     it('複数のフィールドを同時に更新できる', async () => {
