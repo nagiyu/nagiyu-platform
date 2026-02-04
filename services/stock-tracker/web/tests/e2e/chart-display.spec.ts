@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
+import { cleanupRepositories } from '../helpers/cleanup';
 
 /**
  * E2E-001: チャート表示フロー
@@ -31,6 +32,8 @@ test.describe('チャート表示機能', () => {
   test.afterEach(async () => {
     // TestDataFactory でクリーンアップ
     await factory.cleanup();
+    // インメモリリポジトリのクリーンアップ
+    await cleanupRepositories();
   });
 
   test('初期状態ではチャートが表示されない', async ({ page }) => {
