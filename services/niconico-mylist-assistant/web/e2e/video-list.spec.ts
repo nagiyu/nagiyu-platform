@@ -1,0 +1,627 @@
+import { test, expect } from '@playwright/test';
+import { clearTestData } from './helpers/test-data';
+
+test.describe('Video List Page', () => {
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
+  });
+
+  test.skip('should redirect to home when not authenticated', async ({ page }) => {
+    // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
+    // E2Eテスト環境では常に認証がバイパスされるため、未認証状態をテストできない
+    // 未認証時のリダイレクト動作は middleware のユニットテストで検証する
+    await page.goto('/mylist');
+
+    // 認証されていない場合はホームにリダイレクト
+    await expect(page).toHaveURL('/');
+  });
+
+  test('should display video list page when authenticated', async ({ page }) => {
+    await page.goto('/mylist');
+
+    // タイトルの確認
+    await expect(page.getByRole('heading', { name: '動画管理' })).toBeVisible();
+
+    // 説明文の確認
+    await expect(
+      page.getByText(/動画の一覧を表示し、お気に入りやスキップの設定ができます/)
+    ).toBeVisible();
+  });
+
+  test('should display filter controls when authenticated', async ({ page }) => {
+    await page.goto('/mylist');
+
+    // お気に入りフィルター
+    await expect(page.getByRole('combobox', { name: 'お気に入り' })).toBeVisible();
+
+    // スキップフィルター
+    await expect(page.getByRole('combobox', { name: 'スキップ' })).toBeVisible();
+  });
+
+  test('should display empty state when no videos', async ({ page }) => {
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // 空の状態メッセージ
+    await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();
+    await expect(
+      page.getByText('フィルター条件を変更するか、動画をインポートしてください')
+    ).toBeVisible();
+  });
+
+  test('should display video cards when videos exist', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // 動画カードが表示される
+    const videoCards = page.locator('[class*="MuiCard"]');
+    await expect(videoCards.first()).toBeVisible();
+
+    // サムネイル画像
+    await expect(videoCards.first().locator('img')).toBeVisible();
+
+    // タイトル
+    await expect(videoCards.first().locator('h3')).toBeVisible();
+  });
+
+  test('should toggle favorite on video card', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // 最初の動画カードのお気に入りボタン
+    const favoriteButton = page
+      .locator('[class*="MuiCard"]')
+      .first()
+      .getByRole('button', { name: /お気に入り/ });
+    await expect(favoriteButton).toBeVisible();
+
+    // ボタンをクリック
+    await favoriteButton.click();
+
+    // レスポンスを待つ（適切なAPI呼び出しが行われることを確認）
+    await page.waitForResponse((response) => response.url().includes('/api/videos/'));
+  });
+
+  test('should toggle skip on video card', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // 最初の動画カードのスキップボタン
+    const skipButton = page
+      .locator('[class*="MuiCard"]')
+      .first()
+      .getByRole('button', { name: /スキップ/ });
+    await expect(skipButton).toBeVisible();
+
+    // ボタンをクリック
+    await skipButton.click();
+
+    // レスポンスを待つ
+    await page.waitForResponse((response) => response.url().includes('/api/videos/'));
+  });
+
+  test('should filter videos by favorite', async ({ page, request }) => {
+    // 最初にいくつかの動画をインポート
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    test.skip(
+      body.success < 3,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // 最初の2つの動画をお気に入りに設定
+    const firstCard = page.locator('[class*="MuiCard"]').first();
+    await firstCard.getByRole('button', { name: /お気に入り/ }).click();
+    await page.waitForResponse((res) => res.url().includes('/api/videos/'));
+
+    const secondCard = page.locator('[class*="MuiCard"]').nth(1);
+    await secondCard.getByRole('button', { name: /お気に入り/ }).click();
+    await page.waitForResponse((res) => res.url().includes('/api/videos/'));
+
+    // お気に入りフィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // APIレスポンスを待つ
+    const filterResponse = await page.waitForResponse((res) => res.url().includes('/api/videos'));
+    const filterBody = await filterResponse.json();
+
+    // お気に入りのみがフィルターされていることを確認
+    expect(filterBody.total).toBe(2); // 2個のお気に入りのみ
+    expect(filterBody.videos.length).toBe(2);
+  });
+
+  test('should filter videos by skip', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // スキップフィルターを変更
+    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
+    await skipFilter.click();
+    await page.getByRole('option', { name: '通常動画のみ' }).click();
+
+    // APIレスポンスを待つ
+    await page.waitForResponse((response) => response.url().includes('/api/videos'));
+  });
+
+  test('should display pagination when many videos', async ({ page, request }) => {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    // より新しいIDを使用してAPI拒否を減らす
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
+      data: { videoIds },
+    });
+    const body = await response.json();
+
+    // インポートが成功した動画の数を確認
+    test.skip(
+      body.success < 20,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
+
+    await page.goto('/mylist');
+
+    // ページネーションが表示される
+    await expect(page.getByRole('navigation')).toBeVisible();
+
+    // ページ情報（例: 100件中 1-20件を表示）
+    await expect(page.getByText(/件中.*件を表示/)).toBeVisible();
+  });
+
+  test('should navigate to next page', async ({ page, request }) => {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
+      data: { videoIds },
+    });
+    const body = await response.json();
+
+    test.skip(
+      body.success < 20,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
+
+    await page.goto('/mylist');
+
+    // 次のページボタンをクリック
+    const nextButton = page.getByRole('button', { name: 'Go to next page' });
+    await nextButton.click();
+
+    // APIレスポンスを待つ
+    await page.waitForResponse((response) => response.url().includes('/api/videos'));
+  });
+
+  test('should navigate to last page', async ({ page, request }) => {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
+      data: { videoIds },
+    });
+    const body = await response.json();
+
+    test.skip(
+      body.success < 20,
+      `Niconico API rejected too many videos (only ${body.success} imported)`
+    );
+
+    await page.goto('/mylist');
+
+    // 最後のページボタンをクリック
+    const lastButton = page.getByRole('button', { name: 'Go to last page' });
+    await lastButton.click();
+
+    // APIレスポンスを待つ
+    await page.waitForResponse((response) => response.url().includes('/api/videos'));
+  });
+
+  test.skip('should display loading state', async ({ page }) => {
+    // TODO: Implement authentication setup and slow network simulation
+
+    await page.goto('/mylist');
+
+    // ローディング表示
+    await expect(page.getByRole('progressbar')).toBeVisible();
+  });
+
+  test.skip('should display error message on API failure', async ({ page }) => {
+    // TODO: Implement authentication setup and mock API failure
+
+    await page.goto('/mylist');
+
+    // エラーメッセージの確認
+    await expect(page.getByRole('alert')).toBeVisible();
+  });
+});
+
+test.describe('Video List Navigation', () => {
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
+  });
+
+  test('should have navigation links', async ({ page }) => {
+    await page.goto('/mylist');
+
+    // ナビゲーションリンクの確認（AppBar内のボタンに限定）
+    const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
+    await expect(toolbar.getByRole('button', { name: 'ホーム' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: 'インポート' })).toBeVisible();
+    await expect(toolbar.getByRole('button', { name: '動画一覧' })).toBeVisible();
+  });
+
+  test('should navigate to home when clicking home button', async ({ page }) => {
+    await page.goto('/mylist');
+
+    const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
+    const homeButton = toolbar.getByRole('button', { name: 'ホーム' });
+    await homeButton.click();
+
+    // ホームページに遷移
+    await expect(page).toHaveURL('/');
+  });
+
+  test('should navigate to import when clicking import button', async ({ page }) => {
+    await page.goto('/mylist');
+
+    const toolbar = page.locator('header[class*="MuiAppBar"] [class*="MuiToolbar"]');
+    const importButton = toolbar.getByRole('button', { name: 'インポート' });
+    await importButton.click();
+
+    // インポートページに遷移
+    await expect(page).toHaveURL('/import');
+  });
+});
+
+test.describe('Video List URL Synchronization', () => {
+  test.beforeEach(async ({ request }) => {
+    // 各テスト前にデータをクリア（API経由）
+    await clearTestData(request);
+  });
+
+  test.skip('should initialize filters from URL parameters', async ({ page }) => {
+    // このテストはSKIP_AUTH_CHECK=trueの環境では実行できない
+    // E2Eテスト環境では常に認証がバイパスされるため、未認証状態でのリダイレクト動作をテストできない
+    // 未認証時のリダイレクト動作は middleware のユニットテストで検証する
+    // URLパラメータ付きでアクセス
+    await page.goto('/mylist?favorite=true&skip=false&offset=20');
+
+    // URLパラメータが反映されることを期待（認証なしでもURLは処理される）
+    // 認証されていない場合はホームにリダイレクトされるが、この動作は正常
+    await expect(page).toHaveURL('/');
+  });
+
+  test('should update URL when changing favorite filter', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // お気に入りフィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test('should update URL when changing skip filter', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // スキップフィルターを変更
+    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
+    await skipFilter.click();
+    await page.getByRole('option', { name: '通常動画のみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?skip=false');
+  });
+
+  test('should update URL when changing both filters', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // お気に入りフィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // スキップフィルターを変更
+    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
+    await skipFilter.click();
+    await page.getByRole('option', { name: '通常動画のみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true&skip=false');
+  });
+
+  test('should update URL when changing page', async ({ page, request }) => {
+    // 30個の動画をインポート（ページネーション表示に必要）
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
+      data: { videoIds },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が20件未満の場合
+    test.skip(
+      body.success < 20,
+      `Insufficient videos for pagination test (only ${body.success} imported)`
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // 次のページに移動
+    const nextButton = page.getByRole('button', { name: 'Go to next page' });
+    await nextButton.click();
+
+    // URLにoffsetが追加されることを確認
+    await expect(page).toHaveURL(/\/mylist\?.*offset=20/);
+  });
+
+  test('should maintain filters when navigating pages', async ({ page, request }) => {
+    // 30個の動画をインポート
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
+      data: { videoIds },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が20件未満の場合
+    test.skip(
+      body.success < 20,
+      `Insufficient videos for pagination test (only ${body.success} imported)`
+    );
+
+    await page.goto('/mylist?favorite=true');
+
+    // APIレスポンスを待つ
+    await page.waitForLoadState('networkidle');
+
+    // 次のページに移動
+    const nextButton = page.getByRole('button', { name: 'Go to next page' });
+    await nextButton.click();
+
+    // フィルターとoffsetの両方がURLに含まれることを確認
+    await expect(page).toHaveURL(/\/mylist\?.*favorite=true.*offset=20/);
+  });
+
+  test('should reset page when changing filters', async ({ page, request }) => {
+    // 30個の動画をインポート
+    const videoIds = Array.from({ length: 30 }, (_, i) => `sm${40000000 + i}`);
+    const response = await request.post('/api/videos/bulk-import', {
+      data: { videoIds },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が20件未満の場合
+    test.skip(
+      body.success < 20,
+      `Insufficient videos for pagination test (only ${body.success} imported)`
+    );
+
+    // 2ページ目に移動
+    await page.goto('/mylist?offset=20');
+    await page.waitForLoadState('networkidle');
+
+    // フィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // offsetがリセットされることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test('should maintain state on browser back', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // フィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    // URLが更新されることを確認
+    await expect(page).toHaveURL('/mylist?favorite=true');
+
+    // ブラウザバック
+    await page.goBack();
+
+    // 元の状態に戻ることを確認
+    await expect(page).toHaveURL('/mylist');
+  });
+
+  test('should maintain state on browser forward', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    // フィルターを変更
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+
+    await expect(page).toHaveURL('/mylist?favorite=true');
+
+    // ブラウザバック
+    await page.goBack();
+    await expect(page).toHaveURL('/mylist');
+
+    // ブラウザフォワード
+    await page.goForward();
+    await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test('should handle direct URL access with filters', async ({ page, request }) => {
+    // テストデータをAPI経由で作成
+    const response = await request.post('/api/videos/bulk-import', {
+      data: {
+        videoIds: [
+          'sm40000000',
+          'sm40000001',
+          'sm40000002',
+          'sm40000003',
+          'sm40000004',
+          'sm40000005',
+          'sm40000006',
+          'sm40000007',
+          'sm40000008',
+          'sm40000009',
+        ],
+      },
+    });
+    const body = await response.json();
+
+    // テストをスキップする条件: 動画が1件も取得できなかった場合
+    test.skip(
+      body.success === 0,
+      'Niconico API rejected all video IDs - no videos available for testing'
+    );
+
+    // フィルター付きURLに直接アクセス
+    await page.goto('/mylist?favorite=true&skip=false');
+    await page.waitForLoadState('networkidle');
+
+    // フィルターの状態が反映されることを確認
+    // Material-UI の Select コンポーネントは combobox ロールだが value を直接確認できないため、
+    // URLパラメータが正しく設定されていることを確認
+    await expect(page).toHaveURL(/favorite=true/);
+    await expect(page).toHaveURL(/skip=false/);
+  });
+});
