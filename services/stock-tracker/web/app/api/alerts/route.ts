@@ -8,14 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  DynamoDBAlertRepository,
-  getAuthError,
-  validateAlert,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateAlert } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
+import { createAlertRepository, createTickerRepository } from '../../../lib/repository-factory';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -152,7 +148,7 @@ export async function GET(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
 
     // ユーザーIDを取得
     const userId = session!.user.userId;
@@ -165,7 +161,7 @@ export async function GET(
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
 
     const alerts: AlertResponse[] = [];
     for (const alert of result.items) {
@@ -304,7 +300,7 @@ export async function POST(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
 
     // アラートを作成（新しいリポジトリの形式に合わせる）
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -313,7 +309,7 @@ export async function POST(
     const createdAlert = await alertRepo.create(alertDataForCreate);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(createdAlert.TickerID);
 
     // レスポンス形式に変換

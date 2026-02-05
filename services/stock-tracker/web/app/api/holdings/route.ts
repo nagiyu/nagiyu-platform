@@ -8,14 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  HoldingRepository,
-  getAuthError,
-  validateHolding,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
+import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import type { Holding } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -136,7 +132,7 @@ export async function GET(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const holdingRepo = new HoldingRepository(docClient, tableName);
+    const holdingRepo = createHoldingRepository(docClient, tableName);
 
     // ユーザーIDを取得
     const userId = session!.user.userId;
@@ -146,7 +142,7 @@ export async function GET(
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
 
     const holdings: HoldingResponse[] = [];
     for (const holding of result.items) {
@@ -261,7 +257,7 @@ export async function POST(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const holdingRepo = new HoldingRepository(docClient, tableName);
+    const holdingRepo = createHoldingRepository(docClient, tableName);
 
     // 保有株式を作成
     let createdHolding: Holding;
@@ -289,7 +285,7 @@ export async function POST(
     }
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(createdHolding.TickerID);
 
     // レスポンス形式に変換

@@ -8,15 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  DynamoDBAlertRepository,
-  getAuthError,
-  validateAlert,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateAlert } from '@nagiyu/stock-tracker-core';
 import { EntityNotFoundError } from '@nagiyu/aws';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
+import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -136,7 +132,7 @@ export async function PUT(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
 
     // 既存アラートを取得（部分更新用）
     const existingAlert = await alertRepo.getById(userId, alertId);
@@ -213,7 +209,7 @@ export async function PUT(
     const updatedAlert = await alertRepo.update(userId, alertId, updates);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(updatedAlert.TickerID);
 
     // レスポンス形式に変換
@@ -276,7 +272,7 @@ export async function DELETE(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
 
     // アラートを削除
     await alertRepo.delete(userId, alertId);

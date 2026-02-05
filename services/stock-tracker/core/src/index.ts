@@ -56,3 +56,8 @@ export type { HoldingRepository as IHoldingRepository } from './repositories/hol
 export { DynamoDBAlertRepository } from './repositories/dynamodb-alert.repository.js';
 export { DynamoDBTickerRepository } from './repositories/dynamodb-ticker.repository.js';
 export { DynamoDBHoldingRepository } from './repositories/dynamodb-holding.repository.js';
+
+// InMemoryリポジトリ実装（テスト用）
+export { InMemoryAlertRepository } from './repositories/in-memory-alert.repository.js';
+export { InMemoryTickerRepository } from './repositories/in-memory-ticker.repository.js';
+export { InMemoryHoldingRepository } from './repositories/in-memory-holding.repository.js';
