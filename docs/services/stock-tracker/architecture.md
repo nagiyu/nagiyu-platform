@@ -66,10 +66,28 @@ Stock Tracker は、以下のレイヤーに分離されています:
 - **UI層** (`web/app/`, `web/components/`): Next.js コンポーネント、ページ
 - **API層** (`web/app/api/`): Next.js API Routes
 - **ビジネスロジック層** (`core/src/`): フレームワーク非依存のビジネスロジック
-- **データアクセス層** (`core/src/repositories/`): DynamoDB アクセス
+- **データアクセス層** (`core/src/repositories/`): DynamoDB アクセス、リポジトリパターン
 - **バッチ処理層** (`batch/src/`): Lambda 関数（アラート処理）
 
-### 3.2 コンポーネント構成
+### 3.2 リポジトリパターン
+
+データアクセス層では、リポジトリパターンを採用し、DI（依存性注入）による実装の切り替えを可能にしています。
+
+**リポジトリの実装タイプ**:
+- **DynamoDBリポジトリ**: 本番・開発環境で使用
+- **InMemoryリポジトリ**: E2Eテスト・ユニットテストで使用
+
+**リポジトリファクトリ**:
+- 環境変数 `USE_MEMORY_REPOSITORY` に基づいて実装を動的に切り替え
+- E2Eテスト時はインメモリリポジトリを使用してDynamoDB依存を排除
+- テストの安定性と実行速度が向上
+
+**対応リポジトリ**:
+- AlertRepository: アラートデータの CRUD
+- TickerRepository: ティッカーデータの CRUD
+- HoldingRepository: 保有株式データの CRUD
+
+### 3.3 コンポーネント構成
 
 **モノレポ構成**:
 ```
