@@ -126,27 +126,28 @@ export async function GET(
     let tickers;
     if (exchangeId) {
       // 取引所IDが指定されている場合は該当取引所のティッカーのみ取得
-      tickers = await tickerRepo.getByExchange(exchangeId);
+      tickers = await tickerRepo.getByExchange(exchangeId, { limit: 100 });
     } else {
       // 全ティッカー取得
-      tickers = await tickerRepo.getAll();
+      tickers = await tickerRepo.getAll({ limit: 100 });
     }
 
     // ページネーション処理
     // TODO: Phase 1 では簡易実装（全件取得後にメモリ上でページング）
     // Phase 2 でDynamoDB側でのページネーションを実装
+    const items = tickers.items;
     let startIndex = 0;
     if (lastKey) {
       // lastKey は前回の最後のティッカーID
-      const lastIndex = tickers.findIndex((t) => t.TickerID === lastKey);
+      const lastIndex = items.findIndex((t) => t.TickerID === lastKey);
       if (lastIndex >= 0) {
         startIndex = lastIndex + 1;
       }
     }
 
-    const pagedTickers = tickers.slice(startIndex, startIndex + limit);
+    const pagedTickers = items.slice(startIndex, startIndex + limit);
     const nextLastKey =
-      pagedTickers.length === limit && startIndex + limit < tickers.length
+      pagedTickers.length === limit && startIndex + limit < items.length
         ? pagedTickers[pagedTickers.length - 1].TickerID
         : undefined;
 
@@ -246,14 +247,13 @@ export async function POST(
 
     // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
     try {
-      const createdTicker = await tickerRepo.create(
-        {
-          Symbol: body.symbol,
-          Name: body.name,
-          ExchangeID: body.exchangeId,
-        },
-        exchangeKey
-      );
+      const tickerId = `${exchangeKey}:${body.symbol}`;
+      const createdTicker = await tickerRepo.create({
+        TickerID: tickerId,
+        Symbol: body.symbol,
+        Name: body.name,
+        ExchangeID: body.exchangeId,
+      });
 
       // レスポンス形式に変換
       const response: CreateTickerResponse = {

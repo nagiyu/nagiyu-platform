@@ -160,7 +160,7 @@ export async function POST(
     const alertRepo = createAlertRepository(docClient, tableName);
 
     // ユーザーの全アラートを取得
-    const result = await alertRepo.getByUserId(userId, 100);
+    const result = await alertRepo.getByUserId(userId, { limit: 100 });
     const alerts = result.items;
 
     // 各アラートのサブスクリプション情報を更新
