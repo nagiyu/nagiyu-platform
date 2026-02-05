@@ -11,6 +11,7 @@ import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  appVersion: string;
   webEcrRepositoryName: string;
   batchEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
@@ -39,6 +40,7 @@ export class LambdaStack extends cdk.Stack {
 
     const {
       environment,
+      appVersion,
       webEcrRepositoryName,
       batchEcrRepositoryName,
       dynamoTable,
@@ -78,9 +80,7 @@ export class LambdaStack extends cdk.Stack {
       roleName: `stock-tracker-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
         this.webRuntimePolicy,
       ],
     });
@@ -97,13 +97,19 @@ export class LambdaStack extends cdk.Stack {
       memorySize: 1024,
       timeout: cdk.Duration.seconds(30),
       environment: {
-        NODE_ENV: 'production',
+        NODE_ENV: environment,
+        APP_VERSION: appVersion,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
         VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
-        AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
-        NEXT_PUBLIC_AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
-        APP_URL: environment === 'prod' ? 'https://stock-tracker.nagiyu.com' : 'https://dev-stock-tracker.nagiyu.com',
+        AUTH_URL:
+          environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
+        NEXT_PUBLIC_AUTH_URL:
+          environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
+        APP_URL:
+          environment === 'prod'
+            ? 'https://stock-tracker.nagiyu.com'
+            : 'https://dev-stock-tracker.nagiyu.com',
         AUTH_SECRET: nextAuthSecret,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
@@ -126,9 +132,7 @@ export class LambdaStack extends cdk.Stack {
       roleName: `stock-tracker-batch-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
         this.batchRuntimePolicy,
       ],
     });
@@ -146,7 +150,7 @@ export class LambdaStack extends cdk.Stack {
       memorySize: 512,
       timeout: cdk.Duration.seconds(50),
       environment: {
-        NODE_ENV: 'production',
+        NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'MINUTE',
         VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
@@ -169,7 +173,7 @@ export class LambdaStack extends cdk.Stack {
       memorySize: 512,
       timeout: cdk.Duration.minutes(5),
       environment: {
-        NODE_ENV: 'production',
+        NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'HOURLY',
         VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
@@ -192,7 +196,7 @@ export class LambdaStack extends cdk.Stack {
       memorySize: 512,
       timeout: cdk.Duration.minutes(10),
       environment: {
-        NODE_ENV: 'production',
+        NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'DAILY',
       },
@@ -201,7 +205,12 @@ export class LambdaStack extends cdk.Stack {
     });
 
     // タグの追加
-    [this.webFunction, this.batchMinuteFunction, this.batchHourlyFunction, this.batchDailyFunction].forEach((fn) => {
+    [
+      this.webFunction,
+      this.batchMinuteFunction,
+      this.batchHourlyFunction,
+      this.batchDailyFunction,
+    ].forEach((fn) => {
       cdk.Tags.of(fn).add('Application', 'nagiyu');
       cdk.Tags.of(fn).add('Service', 'stock-tracker');
       cdk.Tags.of(fn).add('Environment', environment);

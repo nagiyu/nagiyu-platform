@@ -150,7 +150,16 @@ Semantic Versioning に準拠し、`package.json` の `version` フィールド�
 - `BATCH_LEVEL`: バッチレベル（MINUTE_LEVEL / HOURLY_LEVEL / DAILY_LEVEL）
 - `TRADINGVIEW_*`: TradingView API 設定
 
-**環境変数管理の方針**: 機密情報は Secrets Manager で管理し、デプロイ時に自動注入することでセキュリティを確保
+**テスト環境専用の環境変数**:
+- `USE_IN_MEMORY_REPOSITORY`: インメモリリポジトリの使用フラグ（E2E テスト時に `true` を設定）
+    - `true`: インメモリリポジトリを使用（DynamoDB への接続なし）
+    - 未設定または `false`: DynamoDB リポジトリを使用（デフォルト）
+    - 用途: E2E テスト実行時に DynamoDB への接続を回避し、テストの高速化と安定性向上を実現
+    - 設定場所: `services/stock-tracker/web/.env.test`
+
+**環境変数管理の方針**: 
+- 機密情報は Secrets Manager で管理し、デプロイ時に自動注入することでセキュリティを確保
+- テスト環境固有の設定は `.env.test` で管理し、本番環境の設定とは分離
 
 ---
 

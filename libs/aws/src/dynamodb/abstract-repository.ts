@@ -110,7 +110,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
    * @throws DatabaseError データベースエラー発生時
    * @throws InvalidEntityDataError マッピングエラー発生時
    */
-  async getById(key: TKey): Promise<TEntity | null> {
+  public async getById(key: TKey): Promise<TEntity | null> {
     try {
       const keys = this.buildKeys(key);
       const result = await this.docClient.send(
@@ -144,7 +144,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
    * @throws EntityAlreadyExistsError エンティティが既に存在する場合
    * @throws DatabaseError データベースエラー発生時
    */
-  async create(entity: Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>): Promise<TEntity> {
+  public async create(entity: Omit<TEntity, 'CreatedAt' | 'UpdatedAt'>): Promise<TEntity> {
     try {
       const now = Date.now();
       const baseItem = this.mapToItem(entity);
@@ -190,7 +190,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
    * @throws EntityNotFoundError エンティティが存在しない場合
    * @throws DatabaseError データベースエラー発生時
    */
-  async update(key: TKey, updates: Partial<TEntity>): Promise<TEntity> {
+  public async update(key: TKey, updates: Partial<TEntity>): Promise<TEntity> {
     try {
       const keys = this.buildKeys(key);
       const now = Date.now();
@@ -272,7 +272,7 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
    * @throws EntityNotFoundError エンティティが存在しない場合
    * @throws DatabaseError データベースエラー発生時
    */
-  async delete(key: TKey): Promise<void> {
+  public async delete(key: TKey): Promise<void> {
     try {
       const keys = this.buildKeys(key);
 

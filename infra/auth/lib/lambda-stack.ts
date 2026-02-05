@@ -6,6 +6,7 @@ import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  appVersion: string;
 }
 
 /**
@@ -16,7 +17,7 @@ export interface LambdaStackProps extends cdk.StackProps {
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    const { environment, ...stackProps } = props;
+    const { environment, appVersion, ...stackProps } = props;
 
     // CDK context から secrets を取得（未指定の場合はプレースホルダーを使用）
     const googleClientId = scope.node.tryGetContext('googleClientId') || 'PLACEHOLDER_CLIENT_ID';
@@ -27,9 +28,7 @@ export class LambdaStack extends LambdaStackBase {
 
     // NEXTAUTH_URL の構築
     const nextAuthUrl =
-      environment === 'prod'
-        ? 'https://auth.nagiyu.com'
-        : `https://${environment}-auth.nagiyu.com`;
+      environment === 'prod' ? 'https://auth.nagiyu.com' : `https://${environment}-auth.nagiyu.com`;
 
     // DynamoDB アクセス権限の定義
     const additionalPolicyStatements = [
@@ -66,6 +65,7 @@ export class LambdaStack extends LambdaStackBase {
         environment: {
           NODE_ENV: environment,
           DYNAMODB_TABLE_NAME: `nagiyu-auth-users-${environment}`,
+          APP_VERSION: appVersion,
           // NextAuth v5 環境変数
           AUTH_URL: nextAuthUrl,
           AUTH_SECRET: nextAuthSecret,

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { ExchangeRepository, getAuthError, validateExchange } from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
 import { EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
-import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
+import { createExchangeRepository } from '../../../lib/repository-factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -40,19 +40,15 @@ export async function GET() {
       );
     }
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Exchange リポジトリを初期化
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    const exchangeRepo = createExchangeRepository();
 
     // 全取引所を取得
     const exchanges = await exchangeRepo.getAll();
 
     // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json({
-      exchanges: exchanges.map((exchange) => ({
+      exchanges: exchanges.map((exchange: ExchangeEntity) => ({
         exchangeId: exchange.ExchangeID,
         name: exchange.Name,
         key: exchange.Key,
@@ -129,12 +125,8 @@ export async function POST(request: Request) {
       );
     }
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Exchange リポジトリを初期化
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    const exchangeRepo = createExchangeRepository();
 
     // 取引所を作成
     const newExchange = await exchangeRepo.create({

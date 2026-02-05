@@ -8,16 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  AlertRepository,
-  getAuthError,
-  validateAlert,
-  AlertNotFoundError,
-} from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
+import { getAuthError, validateAlert, AlertNotFoundError } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -46,6 +40,7 @@ interface AlertResponse {
     operator: string;
     value: number;
   }>;
+  logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -65,8 +60,12 @@ interface ErrorResponse {
 /**
  * Alert エンティティをレスポンス形式に変換
  */
-function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: string): AlertResponse {
-  return {
+function mapAlertToResponse(
+  alert: AlertEntity,
+  tickerSymbol: string,
+  tickerName: string
+): AlertResponse {
+  const response: AlertResponse = {
     alertId: alert.AlertID,
     tickerId: alert.TickerID,
     symbol: tickerSymbol,
@@ -78,6 +77,13 @@ function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: stri
     createdAt: new Date(alert.CreatedAt).toISOString(),
     updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
+
+  // LogicalOperator が存在する場合のみ追加
+  if (alert.LogicalOperator) {
+    response.logicalOperator = alert.LogicalOperator;
+  }
+
+  return response;
 }
 
 /**
@@ -121,10 +127,9 @@ export async function PUT(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
+    const tickerRepo = createTickerRepository();
 
     // 既存アラートを取得（部分更新用）
     const existingAlert = await alertRepo.getById(userId, alertId);
@@ -139,7 +144,7 @@ export async function PUT(
     }
 
     // 更新可能なフィールドを抽出
-    const updates: Partial<Alert> = {};
+    const updates: Partial<AlertEntity> = {};
 
     if (body.conditions !== undefined) {
       // 条件の部分更新をサポート
@@ -160,6 +165,11 @@ export async function PUT(
 
     if (body.enabled !== undefined) {
       updates.Enabled = body.enabled;
+    }
+
+    // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
+    if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
+      updates.LogicalOperator = body.logicalOperator;
     }
 
     // 更新フィールドが存在しない場合
@@ -196,7 +206,6 @@ export async function PUT(
     const updatedAlert = await alertRepo.update(userId, alertId, updates);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(updatedAlert.TickerID);
 
     // レスポンス形式に変換
@@ -256,10 +265,8 @@ export async function DELETE(
     const { id: alertId } = await params;
     const userId = session!.user.userId;
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
 
     // アラートを削除
     await alertRepo.delete(userId, alertId);

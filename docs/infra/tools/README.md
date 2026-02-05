@@ -204,6 +204,5 @@ aws ecr describe-images \
 
 ## 関連ドキュメント
 
-- [CDK 移行ガイド](../cdk-migration.md)
 - [Tools サービスドキュメント](../../services/tools/)
 - [AWS CDK Developer Guide](https://docs.aws.amazon.com/cdk/v2/guide/home.html)

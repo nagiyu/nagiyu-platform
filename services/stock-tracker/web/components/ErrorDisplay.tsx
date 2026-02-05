@@ -9,7 +9,7 @@
 import React from 'react';
 import { Box, Alert, Button, Typography } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
-import type { APIError } from '../lib/api-client';
+import type { APIError } from '@nagiyu/common';
 
 /**
  * ErrorDisplay Props

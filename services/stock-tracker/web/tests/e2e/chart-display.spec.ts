@@ -103,17 +103,32 @@ test.describe('チャート表示機能', () => {
   });
 
   test('時間枠切り替えが正常に動作する', async ({ page }) => {
+    // 作成したテストデータを取得
+    const testExchanges = factory.exchanges;
+    const testTickers = factory.tickers;
+
+    expect(testExchanges.length).toBeGreaterThan(0);
+    expect(testTickers.length).toBeGreaterThan(0);
+
+    const testExchange = testExchanges[0];
+    const testTicker = testTickers[0];
+
     // 取引所とティッカーを選択
     const exchangeSelect = page.getByLabel('取引所選択');
     await exchangeSelect.click();
 
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+
+    // テスト取引所が選択肢に表示されるまで待つ
+    await exchangeOptions.filter({ hasText: testExchange.name }).waitFor({ timeout: 10000 });
+
     const exchangeCount = await exchangeOptions.count();
 
     // テストデータが作成されているので、必ず取引所が存在する
     expect(exchangeCount).toBeGreaterThanOrEqual(2);
 
-    await exchangeOptions.nth(1).click();
+    // 作成したテスト取引所を明示的に選択
+    await exchangeOptions.filter({ hasText: testExchange.name }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
     const tickerSelect = page.getByLabel('ティッカー選択');
@@ -121,13 +136,19 @@ test.describe('チャート表示機能', () => {
     await page.waitForLoadState('networkidle');
 
     await tickerSelect.click();
+
     const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+
+    // テストティッカーが選択肢に表示されるまで待つ
+    await tickerOptions.filter({ hasText: testTicker.symbol }).waitFor({ timeout: 10000 });
+
     const tickerCount = await tickerOptions.count();
 
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2);
 
-    await tickerOptions.nth(1).click();
+    // 作成したテストティッカーを明示的に選択
+    await tickerOptions.filter({ hasText: testTicker.symbol }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
     // チャート表示またはエラーを待つ（より長いタイムアウト）
@@ -183,17 +204,32 @@ test.describe('チャート表示機能', () => {
   });
 
   test('表示本数切り替えが正常に動作する', async ({ page }) => {
+    // 作成したテストデータを取得
+    const testExchanges = factory.exchanges;
+    const testTickers = factory.tickers;
+
+    expect(testExchanges.length).toBeGreaterThan(0);
+    expect(testTickers.length).toBeGreaterThan(0);
+
+    const testExchange = testExchanges[0];
+    const testTicker = testTickers[0];
+
     // 取引所とティッカーを選択
     const exchangeSelect = page.getByLabel('取引所選択');
     await exchangeSelect.click();
 
     const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+
+    // テスト取引所が選択肢に表示されるまで待つ
+    await exchangeOptions.filter({ hasText: testExchange.name }).waitFor({ timeout: 10000 });
+
     const exchangeCount = await exchangeOptions.count();
 
     // テストデータが作成されているので、必ず取引所が存在する
     expect(exchangeCount).toBeGreaterThanOrEqual(2);
 
-    await exchangeOptions.nth(1).click();
+    // 作成したテスト取引所を明示的に選択
+    await exchangeOptions.filter({ hasText: testExchange.name }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
     const tickerSelect = page.getByLabel('ティッカー選択');
@@ -201,13 +237,19 @@ test.describe('チャート表示機能', () => {
     await page.waitForLoadState('networkidle');
 
     await tickerSelect.click();
+
     const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+
+    // テストティッカーが選択肢に表示されるまで待つ
+    await tickerOptions.filter({ hasText: testTicker.symbol }).waitFor({ timeout: 10000 });
+
     const tickerCount = await tickerOptions.count();
 
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2);
 
-    await tickerOptions.nth(1).click();
+    // 作成したテストティッカーを明示的に選択
+    await tickerOptions.filter({ hasText: testTicker.symbol }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
     // チャート表示またはエラーを待つ

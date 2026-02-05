@@ -8,8 +8,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { TickerRepository, HoldingRepository, getAuthError } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
+import { getAuthError } from '@nagiyu/stock-tracker-core';
+import {
+  createHoldingRepository,
+  createTickerRepository,
+} from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
 
@@ -186,10 +189,8 @@ export async function PUT(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const holdingRepo = new HoldingRepository(docClient, tableName);
+    // リポジトリの初期化
+    const holdingRepo = createHoldingRepository();
 
     // 保有株式を更新
     let updatedHolding: Holding;
@@ -210,7 +211,7 @@ export async function PUT(
     }
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository();
     const ticker = await tickerRepo.getById(updatedHolding.TickerID);
 
     // レスポンス形式に変換
@@ -286,10 +287,8 @@ export async function DELETE(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const holdingRepo = new HoldingRepository(docClient, tableName);
+    // リポジトリの初期化
+    const holdingRepo = createHoldingRepository();
 
     // 保有株式を削除
     try {

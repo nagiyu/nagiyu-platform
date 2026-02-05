@@ -24,6 +24,9 @@ if (!allowedEnvironments.includes(env)) {
   );
 }
 
+// 環境変数からバージョンを取得（デフォルト: '1.0.0'）
+const appVersion = process.env.APP_VERSION || '1.0.0';
+
 const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
@@ -71,6 +74,7 @@ const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER'
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
+  appVersion: appVersion,
   webEcrRepositoryName: webEcrStack.repository.repositoryName,
   batchEcrRepositoryName: batchEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,

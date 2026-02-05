@@ -9,10 +9,9 @@ import MigrationDialog from '@/components/dialogs/MigrationDialog';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
-  version?: string;
 }
 
-export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
+export default function ThemeRegistry({ children }: ThemeRegistryProps) {
   return (
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>

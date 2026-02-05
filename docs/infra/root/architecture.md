@@ -734,7 +734,6 @@ aws s3 ls s3://nagiyu-alb-logs-{env}/
 
 ## 関連ドキュメント
 
-- [CDK 移行ガイド](../cdk-migration.md) - CloudFormation から CDK への移行戦略
 - [アーキテクチャ](../architecture.md) - インフラ全体の設計
 - [デプロイ手順](../deploy.md) - 日常的なデプロイ操作
 - [VPC 詳細](../shared/vpc.md) - VPC リソースの詳細設計

@@ -12,12 +12,13 @@ const app = new cdk.App();
 // 環境パラメータを取得
 const env = app.node.tryGetContext('env') || 'dev';
 
+// 環境変数からバージョンを取得（デフォルト: '1.0.0'）
+const appVersion = process.env.APP_VERSION || '1.0.0';
+
 // 許可された環境値のチェック
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
-  throw new Error(
-    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
-  );
+  throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
 
 const stackEnv = {
@@ -51,6 +52,7 @@ const ecrStack = new ECRStack(app, `NagiyuAuthECR${envSuffix}`, {
 // Lambda スタックを作成
 const lambdaStack = new LambdaStack(app, `NagiyuAuthLambda${envSuffix}`, {
   environment: env,
+  appVersion: appVersion,
   env: stackEnv,
   description: `Auth Service Lambda - ${env} environment`,
 });
