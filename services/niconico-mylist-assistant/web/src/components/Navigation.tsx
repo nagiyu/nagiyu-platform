@@ -19,7 +19,7 @@ export function Navigation() {
           インポート
         </Button>
         <Button color="inherit" onClick={() => router.push('/mylist')}>
-          動画管理
+          動画一覧
         </Button>
         <Button color="inherit" onClick={() => router.push('/mylist/register')}>
           マイリスト登録
