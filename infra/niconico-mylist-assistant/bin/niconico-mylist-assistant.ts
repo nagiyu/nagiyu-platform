@@ -69,12 +69,15 @@ const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${e
   webEcrRepositoryName: webEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
   nextAuthSecret,
+  batchJobQueueArn: batchStack.jobQueueArn,
+  batchJobDefinitionArn: batchStack.jobDefinitionArn,
   env: stackEnv,
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });
-// Lambda は DynamoDB と Web ECR に依存
+// Lambda は DynamoDB、Web ECR、Batch に依存
 lambdaStack.addDependency(dynamoStack);
 lambdaStack.addDependency(webEcrStack);
+lambdaStack.addDependency(batchStack);
 
 // 6. IAM スタック（開発用 IAM ユーザー - dev 環境のみ）
 const iamStack = new IAMStack(app, `NagiyuNiconicoMylistAssistantIAM${envSuffix}`, {

@@ -12,6 +12,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   webEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
+  batchJobQueueArn: string; // Batch Job Queue ARN
+  batchJobDefinitionArn: string; // Batch Job Definition ARN
 }
 
 /**
@@ -29,7 +31,7 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment, webEcrRepositoryName, dynamoTable, nextAuthSecret } = props;
+    const { environment, webEcrRepositoryName, dynamoTable, nextAuthSecret, batchJobQueueArn, batchJobDefinitionArn } = props;
 
     // Auth URL configuration
     const authUrl = environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
@@ -47,6 +49,8 @@ export class LambdaStack extends cdk.Stack {
     this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
       dynamoTable,
       envName: environment,
+      batchJobQueueArn,
+      batchJobDefinitionArn,
     });
 
     // Web Lambda 用の実行ロール
@@ -79,6 +83,8 @@ export class LambdaStack extends cdk.Stack {
         NEXT_PUBLIC_AUTH_URL: authUrl,
         APP_URL: appUrl,
         AUTH_SECRET: nextAuthSecret,
+        BATCH_JOB_QUEUE: batchJobQueueArn,
+        BATCH_JOB_DEFINITION: batchJobDefinitionArn,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日

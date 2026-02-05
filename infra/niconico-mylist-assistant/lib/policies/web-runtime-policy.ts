@@ -15,6 +15,16 @@ export interface WebRuntimePolicyProps {
    * 環境名 (例: 'dev', 'prod')
    */
   envName: string;
+
+  /**
+   * Batch Job Queue ARN
+   */
+  batchJobQueueArn: string;
+
+  /**
+   * Batch Job Definition ARN
+   */
+  batchJobDefinitionArn: string;
 }
 
 /**
@@ -29,6 +39,7 @@ export interface WebRuntimePolicyProps {
  *
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem)
+ * - AWS Batch: ジョブ投入 (SubmitJob)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
 export class WebRuntimePolicy extends iam.ManagedPolicy {
@@ -58,6 +69,16 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
           props.dynamoTable.tableArn,
           `${props.dynamoTable.tableArn}/index/*`, // GSI へのアクセス
         ],
+      })
+    );
+
+    // AWS Batch 権限: SubmitJob
+    this.addStatements(
+      new iam.PolicyStatement({
+        sid: 'BatchJobSubmission',
+        effect: iam.Effect.ALLOW,
+        actions: ['batch:SubmitJob'],
+        resources: [props.batchJobQueueArn, props.batchJobDefinitionArn],
       })
     );
   }
