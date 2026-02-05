@@ -6,7 +6,7 @@ import { handler } from '../../src/minute.js';
 import type { ScheduledEvent } from '../../src/minute.js';
 import * as awsClients from '../../src/lib/aws-clients.js';
 import * as webPushClient from '../../src/lib/web-push-client.js';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
