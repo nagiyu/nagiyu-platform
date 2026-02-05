@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError, validateAlert } from '@nagiyu/stock-tracker-core';
 import { createAlertRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -40,6 +40,7 @@ interface AlertResponse {
     operator: string;
     value: number;
   }>;
+  logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -62,8 +63,12 @@ interface ErrorResponse {
 /**
  * Alert エンティティをレスポンス形式に変換
  */
-function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: string): AlertResponse {
-  return {
+function mapAlertToResponse(
+  alert: AlertEntity,
+  tickerSymbol: string,
+  tickerName: string
+): AlertResponse {
+  const response: AlertResponse = {
     alertId: alert.AlertID,
     tickerId: alert.TickerID,
     symbol: tickerSymbol,
@@ -75,6 +80,13 @@ function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: stri
     createdAt: new Date(alert.CreatedAt).toISOString(),
     updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
+
+  // LogicalOperator が存在する場合のみ追加
+  if (alert.LogicalOperator) {
+    response.logicalOperator = alert.LogicalOperator;
+  }
+
+  return response;
 }
 
 /**
@@ -155,7 +167,7 @@ export async function GET(
       alerts,
       pagination: {
         count: alerts.length,
-        ...(encodedLastKey && { lastKey: encodedLastKey }),
+        ...(result.nextCursor && { lastKey: result.nextCursor }),
       },
     };
 
@@ -249,6 +261,7 @@ export async function POST(
       Frequency: body.frequency,
       Enabled: body.enabled !== undefined ? body.enabled : true,
       ConditionList: body.conditions || [],
+      LogicalOperator: body.logicalOperator,
       SubscriptionEndpoint: subscription.endpoint,
       SubscriptionKeysP256dh: subscription.keys.p256dh,
       SubscriptionKeysAuth: subscription.keys.auth,
@@ -275,7 +288,7 @@ export async function POST(
     const alertRepo = createAlertRepository();
     const tickerRepo = createTickerRepository();
 
-    // アラートを作成（バリデーション済みデータから AlertID, CreatedAt, UpdatedAt を除く）
+    // アラートを作成（新しいリポジトリの形式に合わせる）
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
 

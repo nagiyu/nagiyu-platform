@@ -118,7 +118,7 @@ async function processAlert(
       logger.debug('アラート条件が未達成です', {
         alertId: alert.AlertID,
         currentPrice,
-        condition: alert.ConditionList[0],
+        conditions: alert.ConditionList,
       });
       return true;
     }
@@ -126,7 +126,7 @@ async function processAlert(
     stats.conditionsMet++;
 
     // 6. 条件達成時、Web Push 通知送信
-    const payload = createAlertNotificationPayload(alert, currentPrice, alert.ConditionList[0]);
+    const payload = createAlertNotificationPayload(alert, currentPrice);
     const notificationSent = await sendNotification(alert, payload);
 
     if (notificationSent) {
@@ -136,7 +136,7 @@ async function processAlert(
         userId: alert.UserID,
         tickerId: alert.TickerID,
         currentPrice,
-        targetPrice: alert.ConditionList[0].value,
+        conditions: alert.ConditionList,
       });
     } else {
       stats.errors++;

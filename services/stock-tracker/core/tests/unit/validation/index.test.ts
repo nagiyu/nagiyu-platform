@@ -806,7 +806,7 @@ describe('validateAlert', () => {
       expect(result.errors).toContain('アラート条件は1つ以上指定してください');
     });
 
-    it('ConditionListが2つ以上の場合はバリデーションに失敗する', () => {
+    it('ConditionListが2つ以上でLogicalOperatorがない場合はバリデーションに失敗する', () => {
       const alert: Alert = {
         ...validAlert,
         ConditionList: [
@@ -816,7 +816,7 @@ describe('validateAlert', () => {
       };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain('Phase 1ではアラート条件は1つまでです');
+      expect(result.errors).toContain('2条件の場合は論理演算子が必須です');
     });
 
     it('条件のfieldが"price"以外の場合はバリデーションに失敗する', () => {
@@ -920,6 +920,290 @@ describe('validateAlert', () => {
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('更新日時が無効です');
+    });
+  });
+
+  describe('2条件のバリデーション', () => {
+    describe('正常系', () => {
+      it('範囲内アラート(AND): 有効な2条件でバリデーションに成功する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 100.0 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(true);
+        expect(result.errors).toBeUndefined();
+      });
+
+      it('範囲外アラート(OR): 有効な2条件でバリデーションに成功する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'OR',
+          ConditionList: [
+            { field: 'price', operator: 'lte', value: 90.0 },
+            { field: 'price', operator: 'gte', value: 120.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(true);
+        expect(result.errors).toBeUndefined();
+      });
+
+      it('範囲内アラート(AND): 条件の順序が逆でもバリデーションに成功する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'lte', value: 200.0 },
+            { field: 'price', operator: 'gte', value: 100.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(true);
+        expect(result.errors).toBeUndefined();
+      });
+
+      it('範囲内アラート(AND): 境界値ぎりぎりでバリデーションに成功する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 100.0 },
+            { field: 'price', operator: 'lte', value: 100.01 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(true);
+        expect(result.errors).toBeUndefined();
+      });
+    });
+
+    describe('LogicalOperatorのバリデーション', () => {
+      it('2条件の場合にLogicalOperatorが未定義だとバリデーションに失敗する', () => {
+        const alert = {
+          ...validAlert,
+          LogicalOperator: undefined,
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 100.0 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('2条件の場合は論理演算子が必須です');
+      });
+
+      it('2条件の場合にLogicalOperatorが不正な値だとバリデーションに失敗する', () => {
+        const alert = {
+          ...validAlert,
+          LogicalOperator: 'XOR' as unknown as 'AND' | 'OR',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 100.0 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('論理演算子は"AND"または"OR"を指定してください');
+      });
+
+      it('単一条件の場合にLogicalOperatorが設定されているとバリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [{ field: 'price', operator: 'gte', value: 100.0 }],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('単一条件の場合、論理演算子は設定できません');
+      });
+    });
+
+    describe('operator組み合わせのバリデーション', () => {
+      it('同じoperator(gte)が重複するとバリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 100.0 },
+            { field: 'price', operator: 'gte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('同じ演算子を複数指定することはできません');
+      });
+
+      it('同じoperator(lte)が重複するとバリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'OR',
+          ConditionList: [
+            { field: 'price', operator: 'lte', value: 100.0 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('同じ演算子を複数指定することはできません');
+      });
+
+      it('2条件の場合、一方がgte、もう一方がlteでない組み合わせは失敗する', () => {
+        const alert = {
+          ...validAlert,
+          LogicalOperator: 'AND' as const,
+          ConditionList: [
+            { field: 'price', operator: 'gte' as const, value: 100.0 },
+            { field: 'price', operator: 'gte' as const, value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('同じ演算子を複数指定することはできません');
+      });
+    });
+
+    describe('範囲の妥当性チェック', () => {
+      it('範囲内アラート(AND): 下限 >= 上限の場合バリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 200.0 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          '範囲内アラート(AND)の場合、下限価格は上限価格より小さい値を設定してください'
+        );
+      });
+
+      it('範囲内アラート(AND): 下限 > 上限の場合バリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 250.0 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          '範囲内アラート(AND)の場合、下限価格は上限価格より小さい値を設定してください'
+        );
+      });
+
+      it('範囲外アラート(OR): 下限 <= 上限の場合バリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'OR',
+          ConditionList: [
+            { field: 'price', operator: 'lte', value: 90.0 },
+            { field: 'price', operator: 'gte', value: 90.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain(
+          '範囲外アラート(OR)の場合、下限価格は上限価格より大きい値を設定してください'
+        );
+      });
+
+      it('範囲外アラート(OR): 下限 < 上限の場合は正しい範囲外設定なのでバリデーションに成功する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'OR',
+          ConditionList: [
+            { field: 'price', operator: 'lte', value: 80.0 },
+            { field: 'price', operator: 'gte', value: 120.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(true);
+        expect(result.errors).toBeUndefined();
+      });
+    });
+
+    describe('2条件のfield/value バリデーション', () => {
+      it('2条件のうち一方のfieldが"price"以外だとバリデーションに失敗する', () => {
+        const alert = {
+          ...validAlert,
+          LogicalOperator: 'AND' as const,
+          ConditionList: [
+            { field: 'volume' as unknown as 'price', operator: 'gte' as const, value: 100.0 },
+            { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('Phase 1ではフィールドは"price"のみ指定できます');
+      });
+
+      it('2条件のうち一方のoperatorが不正だとバリデーションに失敗する', () => {
+        const alert = {
+          ...validAlert,
+          LogicalOperator: 'AND' as const,
+          ConditionList: [
+            { field: 'price' as const, operator: 'eq' as unknown as 'gte' | 'lte', value: 100.0 },
+            { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('Phase 1では演算子は"gte"または"lte"のみ指定できます');
+      });
+
+      it('2条件のうち一方のvalueが無効だとバリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 0.009 },
+            { field: 'price', operator: 'lte', value: 200.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('条件値は0.01〜1,000,000の範囲で入力してください');
+      });
+
+      it('2条件のうち両方のvalueが無効だとバリデーションに失敗する', () => {
+        const alert: Alert = {
+          ...validAlert,
+          LogicalOperator: 'AND',
+          ConditionList: [
+            { field: 'price', operator: 'gte', value: 0.009 },
+            { field: 'price', operator: 'lte', value: 1_000_001 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('条件値は0.01〜1,000,000の範囲で入力してください');
+      });
+    });
+
+    describe('異常系: 3条件以上', () => {
+      it('3条件の場合はバリデーションに失敗する', () => {
+        const alert = {
+          ...validAlert,
+          LogicalOperator: 'AND' as const,
+          ConditionList: [
+            { field: 'price' as const, operator: 'gte' as const, value: 100.0 },
+            { field: 'price' as const, operator: 'lte' as const, value: 200.0 },
+            { field: 'price' as const, operator: 'gte' as const, value: 150.0 },
+          ],
+        };
+        const result = validateAlert(alert);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toContain('Phase 1ではアラート条件は1つまでです');
+      });
     });
   });
 });

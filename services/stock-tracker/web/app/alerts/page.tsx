@@ -59,6 +59,7 @@ interface AlertResponse {
     operator: string;
     value: number;
   }>;
+  logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -72,13 +73,19 @@ interface Exchange {
 
 // フォームデータ型
 interface AlertFormData {
-  conditionValue: string;
+  conditionMode: 'single' | 'range';
+  conditionValue: string; // 単一条件の場合のみ編集可能
+  minPrice: string; // 範囲指定の場合(表示のみ)
+  maxPrice: string; // 範囲指定の場合(表示のみ)
   enabled: boolean;
 }
 
 // 初期フォームデータ
 const INITIAL_FORM_DATA: AlertFormData = {
+  conditionMode: 'single',
   conditionValue: '',
+  minPrice: '',
+  maxPrice: '',
   enabled: true,
 };
 
@@ -193,12 +200,15 @@ function AlertsPageContent() {
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof AlertFormData, string>> = {};
 
-    if (!formData.conditionValue) {
-      errors.conditionValue = ERROR_MESSAGES.REQUIRED_FIELD;
-    } else {
-      const value = parseFloat(formData.conditionValue);
-      if (isNaN(value) || value < 0.01 || value > 1000000) {
-        errors.conditionValue = ERROR_MESSAGES.INVALID_CONDITION_VALUE;
+    // 単一条件の場合のみバリデーション（範囲指定は編集不可のため検証不要）
+    if (formData.conditionMode === 'single') {
+      if (!formData.conditionValue) {
+        errors.conditionValue = ERROR_MESSAGES.REQUIRED_FIELD;
+      } else {
+        const value = parseFloat(formData.conditionValue);
+        if (isNaN(value) || value < 0.01 || value > 1000000) {
+          errors.conditionValue = ERROR_MESSAGES.INVALID_CONDITION_VALUE;
+        }
       }
     }
 
@@ -209,10 +219,30 @@ function AlertsPageContent() {
   // 編集モーダルを開く
   const handleOpenEditModal = (alert: AlertResponse) => {
     setSelectedAlert(alert);
-    setFormData({
-      conditionValue: alert.conditions[0]?.value.toString() || '',
-      enabled: alert.enabled,
-    });
+
+    // 単一条件か範囲指定かを判定
+    const isRangeCondition = alert.conditions.length === 2 && alert.logicalOperator;
+
+    if (isRangeCondition) {
+      // 範囲指定の場合
+      setFormData({
+        conditionMode: 'range',
+        conditionValue: '',
+        minPrice: alert.conditions[0]?.value.toString() || '',
+        maxPrice: alert.conditions[1]?.value.toString() || '',
+        enabled: alert.enabled,
+      });
+    } else {
+      // 単一条件の場合
+      setFormData({
+        conditionMode: 'single',
+        conditionValue: alert.conditions[0]?.value.toString() || '',
+        minPrice: '',
+        maxPrice: '',
+        enabled: alert.enabled,
+      });
+    }
+
     setFormErrors({});
     setEditModalOpen(true);
   };
@@ -260,19 +290,30 @@ function AlertsPageContent() {
     setError('');
 
     try {
+      // 更新するデータを準備
+      const updateData: {
+        conditions?: Array<{ value: number }>;
+        enabled: boolean;
+      } = {
+        enabled: formData.enabled,
+      };
+
+      // 単一条件の場合のみ条件値を更新
+      if (formData.conditionMode === 'single') {
+        updateData.conditions = [
+          {
+            value: parseFloat(formData.conditionValue),
+          },
+        ];
+      }
+      // 範囲指定の場合は条件を更新しない（enabledのみ更新）
+
       const response = await fetch(`/api/alerts/${encodeURIComponent(selectedAlert.alertId)}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          conditions: [
-            {
-              value: parseFloat(formData.conditionValue),
-            },
-          ],
-          enabled: formData.enabled,
-        }),
+        body: JSON.stringify(updateData),
       });
 
       if (!response.ok) {
@@ -397,10 +438,24 @@ function AlertsPageContent() {
                 </TableRow>
               ) : (
                 alerts.map((alert) => {
-                  const condition = alert.conditions[0];
-                  const conditionText = condition
-                    ? `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`
-                    : '-';
+                  // 条件テキストを生成
+                  let conditionText = '-';
+                  if (alert.conditions.length === 1) {
+                    // 単一条件
+                    const condition = alert.conditions[0];
+                    conditionText = `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`;
+                  } else if (alert.conditions.length === 2 && alert.logicalOperator) {
+                    // 2条件（範囲指定）
+                    const cond1 = alert.conditions[0];
+                    const cond2 = alert.conditions[1];
+                    if (alert.logicalOperator === 'AND') {
+                      // 範囲内: price >= min AND price <= max
+                      conditionText = `価格 ${cond1.value.toLocaleString()} ～ ${cond2.value.toLocaleString()}（範囲内）`;
+                    } else {
+                      // 範囲外: price <= min OR price >= max
+                      conditionText = `価格 ${cond1.value.toLocaleString()} 以下 または ${cond2.value.toLocaleString()} 以上（範囲外）`;
+                    }
+                  }
 
                   // 取引所IDから取引所名を取得
                   const exchangeId = alert.tickerId.split(':')[0] || '';
@@ -488,31 +543,95 @@ function AlertsPageContent() {
               InputProps={{ readOnly: true }}
             />
 
-            {/* 演算子（表示のみ） */}
+            {/* 条件タイプ（表示のみ） */}
             <TextField
               fullWidth
-              label="条件"
-              value={
-                selectedAlert?.conditions[0]
-                  ? `価格 ${OPERATOR_LABELS[selectedAlert.conditions[0].operator] || selectedAlert.conditions[0].operator}`
-                  : ''
-              }
+              label="条件タイプ"
+              value={formData.conditionMode === 'single' ? '単一条件' : '範囲指定'}
               disabled
               InputProps={{ readOnly: true }}
             />
 
-            {/* 目標価格（編集可能） */}
-            <TextField
-              fullWidth
-              id="edit-condition-value"
-              label="目標価格"
-              type="number"
-              value={formData.conditionValue}
-              onChange={(e) => handleFormChange('conditionValue', e.target.value)}
-              error={!!formErrors.conditionValue}
-              helperText={formErrors.conditionValue}
-              inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
-            />
+            {/* 単一条件の場合 */}
+            {formData.conditionMode === 'single' && (
+              <>
+                {/* 演算子（表示のみ） */}
+                <TextField
+                  fullWidth
+                  label="条件"
+                  value={
+                    selectedAlert?.conditions[0]
+                      ? `価格 ${OPERATOR_LABELS[selectedAlert.conditions[0].operator] || selectedAlert.conditions[0].operator}`
+                      : ''
+                  }
+                  disabled
+                  InputProps={{ readOnly: true }}
+                />
+
+                {/* 目標価格（編集可能） */}
+                <TextField
+                  fullWidth
+                  id="edit-condition-value"
+                  label="目標価格"
+                  type="number"
+                  value={formData.conditionValue}
+                  onChange={(e) => handleFormChange('conditionValue', e.target.value)}
+                  error={!!formErrors.conditionValue}
+                  helperText={formErrors.conditionValue}
+                  inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                />
+              </>
+            )}
+
+            {/* 範囲指定の場合 */}
+            {formData.conditionMode === 'range' && selectedAlert && (
+              <>
+                {/* 範囲タイプ（表示のみ） */}
+                <TextField
+                  fullWidth
+                  label="範囲タイプ"
+                  value={selectedAlert.logicalOperator === 'AND' ? '範囲内（AND）' : '範囲外（OR）'}
+                  disabled
+                  InputProps={{ readOnly: true }}
+                  helperText={
+                    selectedAlert.logicalOperator === 'AND'
+                      ? '価格が指定範囲内になったら通知'
+                      : '価格が指定範囲外になったら通知'
+                  }
+                />
+
+                {/* 最小価格/下限価格（表示のみ） */}
+                <TextField
+                  fullWidth
+                  label={selectedAlert.logicalOperator === 'AND' ? '最小価格（下限）' : '下限価格'}
+                  type="number"
+                  value={formData.minPrice}
+                  disabled
+                  InputProps={{ readOnly: true }}
+                  helperText={
+                    selectedAlert.logicalOperator === 'AND' ? 'この価格以上' : 'この価格以下で通知'
+                  }
+                />
+
+                {/* 最大価格/上限価格（表示のみ） */}
+                <TextField
+                  fullWidth
+                  label={selectedAlert.logicalOperator === 'AND' ? '最大価格（上限）' : '上限価格'}
+                  type="number"
+                  value={formData.maxPrice}
+                  disabled
+                  InputProps={{ readOnly: true }}
+                  helperText={
+                    selectedAlert.logicalOperator === 'AND' ? 'この価格以下' : 'この価格以上で通知'
+                  }
+                />
+
+                {/* 範囲指定アラートは条件の編集ができない旨を説明 */}
+                <Alert severity="info">
+                  範囲指定アラートの条件は編集できません。条件を変更したい場合は、アラートを削除して新しく作成してください。
+                </Alert>
+              </>
+            )}
 
             {/* 頻度（表示のみ） */}
             <TextField
@@ -569,9 +688,26 @@ function AlertsPageContent() {
               </Typography>
               <Typography variant="body2">
                 <strong>条件:</strong>{' '}
-                {selectedAlert.conditions[0]
-                  ? `価格 ${OPERATOR_LABELS[selectedAlert.conditions[0].operator] || selectedAlert.conditions[0].operator} ${selectedAlert.conditions[0].value.toLocaleString()}`
-                  : '-'}
+                {(() => {
+                  if (selectedAlert.conditions.length === 1) {
+                    // 単一条件
+                    const condition = selectedAlert.conditions[0];
+                    return `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`;
+                  } else if (
+                    selectedAlert.conditions.length === 2 &&
+                    selectedAlert.logicalOperator
+                  ) {
+                    // 2条件（範囲指定）
+                    const cond1 = selectedAlert.conditions[0];
+                    const cond2 = selectedAlert.conditions[1];
+                    if (selectedAlert.logicalOperator === 'AND') {
+                      return `価格 ${cond1.value.toLocaleString()} ～ ${cond2.value.toLocaleString()}（範囲内）`;
+                    } else {
+                      return `価格 ${cond1.value.toLocaleString()} 以下 または ${cond2.value.toLocaleString()} 以上（範囲外）`;
+                    }
+                  }
+                  return '-';
+                })()}
               </Typography>
               <Typography variant="body2">
                 <strong>頻度:</strong>{' '}

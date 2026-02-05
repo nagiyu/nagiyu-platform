@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError, validateAlert, AlertNotFoundError } from '@nagiyu/stock-tracker-core';
 import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { Alert } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -40,6 +40,7 @@ interface AlertResponse {
     operator: string;
     value: number;
   }>;
+  logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
@@ -59,8 +60,12 @@ interface ErrorResponse {
 /**
  * Alert エンティティをレスポンス形式に変換
  */
-function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: string): AlertResponse {
-  return {
+function mapAlertToResponse(
+  alert: AlertEntity,
+  tickerSymbol: string,
+  tickerName: string
+): AlertResponse {
+  const response: AlertResponse = {
     alertId: alert.AlertID,
     tickerId: alert.TickerID,
     symbol: tickerSymbol,
@@ -72,6 +77,13 @@ function mapAlertToResponse(alert: Alert, tickerSymbol: string, tickerName: stri
     createdAt: new Date(alert.CreatedAt).toISOString(),
     updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
+
+  // LogicalOperator が存在する場合のみ追加
+  if (alert.LogicalOperator) {
+    response.logicalOperator = alert.LogicalOperator;
+  }
+
+  return response;
 }
 
 /**
@@ -132,7 +144,7 @@ export async function PUT(
     }
 
     // 更新可能なフィールドを抽出
-    const updates: Partial<Alert> = {};
+    const updates: Partial<AlertEntity> = {};
 
     if (body.conditions !== undefined) {
       // 条件の部分更新をサポート
@@ -153,6 +165,11 @@ export async function PUT(
 
     if (body.enabled !== undefined) {
       updates.Enabled = body.enabled;
+    }
+
+    // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
+    if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
+      updates.LogicalOperator = body.logicalOperator;
     }
 
     // 更新フィールドが存在しない場合
@@ -200,7 +217,7 @@ export async function PUT(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    if (error instanceof AlertNotFoundError) {
+    if (error instanceof EntityNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
@@ -262,7 +279,7 @@ export async function DELETE(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    if (error instanceof AlertNotFoundError) {
+    if (error instanceof EntityNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
