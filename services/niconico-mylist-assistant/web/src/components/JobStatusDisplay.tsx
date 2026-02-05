@@ -95,8 +95,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
       }
     } catch (error) {
       console.error('ジョブステータス取得エラー:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : ERROR_MESSAGES.NETWORK_ERROR;
+      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.NETWORK_ERROR;
 
       setState((prev) => ({
         ...prev,
@@ -222,18 +221,17 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
 
           {/* エラー表示 */}
           {state.error && (
-            <Alert severity="error" onClose={() => setState((prev) => ({ ...prev, error: undefined }))}>
+            <Alert
+              severity="error"
+              onClose={() => setState((prev) => ({ ...prev, error: undefined }))}
+            >
               {state.error}
             </Alert>
           )}
 
           {/* ステータス表示 */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            {state.isLoading ? (
-              <CircularProgress size={40} />
-            ) : (
-              getStatusIcon(state.status)
-            )}
+            {state.isLoading ? <CircularProgress size={40} /> : getStatusIcon(state.status)}
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="body1" gutterBottom>
                 ジョブID: {jobId}
@@ -248,9 +246,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
           </Box>
 
           {/* プログレスバー（実行中のみ） */}
-          {(state.status === 'SUBMITTED' || state.status === 'RUNNING') && (
-            <LinearProgress />
-          )}
+          {(state.status === 'SUBMITTED' || state.status === 'RUNNING') && <LinearProgress />}
 
           {/* 結果表示 */}
           {state.result && (
@@ -265,15 +261,9 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
                 <strong>処理結果</strong>
               </Typography>
               <Stack spacing={0.5}>
-                <Typography variant="body2">
-                  登録成功: {state.result.registeredCount} 件
-                </Typography>
-                <Typography variant="body2">
-                  登録失敗: {state.result.failedCount} 件
-                </Typography>
-                <Typography variant="body2">
-                  総件数: {state.result.totalCount} 件
-                </Typography>
+                <Typography variant="body2">登録成功: {state.result.registeredCount} 件</Typography>
+                <Typography variant="body2">登録失敗: {state.result.failedCount} 件</Typography>
+                <Typography variant="body2">総件数: {state.result.totalCount} 件</Typography>
                 {state.result.errorMessage && (
                   <Typography variant="body2" color="error">
                     エラー: {state.result.errorMessage}

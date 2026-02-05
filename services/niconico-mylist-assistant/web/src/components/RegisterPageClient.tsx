@@ -1,15 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Container,
-  Typography,
-  Box,
-  Paper,
-  Button,
-  Alert,
-  Snackbar,
-} from '@mui/material';
+import { Container, Typography, Box, Paper, Button, Alert, Snackbar } from '@mui/material';
 import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import JobStatusDisplay from '@/components/JobStatusDisplay';
 import type { BatchResult } from '@nagiyu/niconico-mylist-assistant-core';
