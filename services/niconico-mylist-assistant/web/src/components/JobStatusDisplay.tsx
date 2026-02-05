@@ -73,21 +73,24 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         isLoading: false,
       });
 
-      // 完了状態の場合、コールバックを実行（1回のみ）
-      if (!hasCompletedRef.current && (data.status === 'SUCCEEDED' || data.status === 'FAILED')) {
-        hasCompletedRef.current = true;
-
-        if (data.status === 'SUCCEEDED' && data.result && onComplete) {
-          onComplete(data.result);
-        } else if (data.status === 'FAILED' && onError) {
-          const errorMessage = data.result?.errorMessage || 'ジョブが失敗しました';
-          onError(errorMessage);
-        }
-
+      // 完了状態の場合、ポーリングを停止してコールバックを実行（1回のみ）
+      if (data.status === 'SUCCEEDED' || data.status === 'FAILED') {
         // ポーリングを停止
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
+        }
+
+        // コールバックを実行（1回のみ）
+        if (!hasCompletedRef.current) {
+          hasCompletedRef.current = true;
+
+          if (data.status === 'SUCCEEDED' && data.result && onComplete) {
+            onComplete(data.result);
+          } else if (data.status === 'FAILED' && onError) {
+            const errorMessage = data.result?.errorMessage || 'ジョブが失敗しました';
+            onError(errorMessage);
+          }
         }
       }
     } catch (error) {
@@ -101,15 +104,16 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
         isLoading: false,
       }));
 
-      // エラーコールバックを実行
-      if (onError) {
-        onError(errorMessage);
-      }
-
       // ポーリングを停止
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
+      }
+
+      // エラーコールバックを実行（1回のみ）
+      if (!hasCompletedRef.current && onError) {
+        hasCompletedRef.current = true;
+        onError(errorMessage);
       }
     }
   }, [jobId, onComplete, onError]);

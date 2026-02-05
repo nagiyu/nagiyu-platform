@@ -14,10 +14,6 @@ import { PlayArrow as PlayArrowIcon } from '@mui/icons-material';
 import JobStatusDisplay from '@/components/JobStatusDisplay';
 import type { BatchResult } from '@nagiyu/niconico-mylist-assistant-core';
 
-const ERROR_MESSAGES = {
-  NO_JOB_ID: 'ジョブIDが指定されていません',
-} as const;
-
 /**
  * マイリスト登録ページ（クライアントコンポーネント）
  *
@@ -107,14 +103,21 @@ export default function RegisterPageClient({ jobId }: { jobId?: string }) {
         </Paper>
 
         {/* ジョブステータス表示 */}
-        {currentJobId ? (
+        {currentJobId && (
           <JobStatusDisplay
             jobId={currentJobId}
             onComplete={handleJobComplete}
             onError={handleJobError}
           />
-        ) : (
-          <Alert severity="warning">{ERROR_MESSAGES.NO_JOB_ID}</Alert>
+        )}
+
+        {/* ジョブIDなしの案内（デモボタンを表示した後は非表示） */}
+        {!currentJobId && !jobId && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            ジョブを開始するには、上記のデモボタンをクリックしてください。
+            <br />
+            Issue 5-5 でフォーム実装後は、フォームから直接ジョブを投入できるようになります。
+          </Alert>
         )}
 
         {/* 通知（Snackbar） */}
