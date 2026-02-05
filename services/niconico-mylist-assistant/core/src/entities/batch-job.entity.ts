@@ -1,0 +1,75 @@
+/**
+ * BatchJob Entity
+ *
+ * バッチジョブのステータスと結果を管理するエンティティ
+ *
+ * @see api-spec.md Section 5.4
+ */
+
+import { BatchStatus, BatchResult } from '../types';
+
+/**
+ * BatchJob Entity
+ *
+ * DynamoDB に保存されるバッチジョブ情報の型
+ */
+export interface BatchJobEntity {
+  /**
+   * バッチジョブ ID
+   * 例: "batch-job-20260116-123456-abc123"
+   */
+  jobId: string;
+
+  /**
+   * ユーザー ID
+   * ジョブを投入したユーザー
+   */
+  userId: string;
+
+  /**
+   * ジョブステータス
+   */
+  status: BatchStatus;
+
+  /**
+   * 実行結果（完了時のみ）
+   */
+  result?: BatchResult;
+
+  /**
+   * ジョブ作成日時 (Unix timestamp)
+   */
+  CreatedAt: number;
+
+  /**
+   * ジョブ更新日時 (Unix timestamp)
+   */
+  UpdatedAt: number;
+
+  /**
+   * ジョブ完了日時 (Unix timestamp, 完了時のみ)
+   */
+  CompletedAt?: number;
+}
+
+/**
+ * BatchJob 作成用入力型
+ */
+export type CreateBatchJobInput = Omit<BatchJobEntity, 'CreatedAt' | 'UpdatedAt' | 'CompletedAt'>;
+
+/**
+ * BatchJob 更新用入力型
+ */
+export interface UpdateBatchJobInput {
+  status: BatchStatus;
+  result?: BatchResult;
+  completedAt?: number;
+}
+
+/**
+ * BatchJob キー（PK/SK 情報）
+ */
+export interface BatchJobKey {
+  jobId: string;
+  userId: string;
+}

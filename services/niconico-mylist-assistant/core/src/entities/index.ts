@@ -10,3 +10,10 @@ export type {
   UpdateUserSettingInput,
   UserSettingKey,
 } from './user-setting.entity';
+
+export type {
+  BatchJobEntity,
+  CreateBatchJobInput,
+  UpdateBatchJobInput,
+  BatchJobKey,
+} from './batch-job.entity';

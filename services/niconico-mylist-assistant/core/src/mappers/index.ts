@@ -4,3 +4,4 @@
 
 export { VideoMapper } from './video.mapper';
 export { UserSettingMapper } from './user-setting.mapper';
+export { BatchJobMapper } from './batch-job.mapper';

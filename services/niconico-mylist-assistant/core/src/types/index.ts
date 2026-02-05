@@ -248,6 +248,20 @@ export interface EstimateResponse {
 }
 
 /**
+ * BatchJobStatusResponse - バッチジョブステータスレスポンス
+ *
+ * @see api-spec.md Section 4.2
+ */
+export interface BatchJobStatusResponse {
+  jobId: string;
+  status: BatchStatus;
+  result?: BatchResult;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+/**
  * BatchSubmitRequest - バッチジョブ投入リクエスト
  *
  * @see api-spec.md Section 3.6.2
