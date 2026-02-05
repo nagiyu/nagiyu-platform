@@ -12,3 +12,4 @@ export * from './client';
 // 後方互換性のため、従来の関数をエクスポート
 // 内部実装はリポジトリパターンに移行
 export * from './videos';
+export * from './batch-jobs';
