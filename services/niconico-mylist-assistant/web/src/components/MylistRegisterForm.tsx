@@ -87,8 +87,17 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'マイリスト登録に失敗しました');
+        let errorMessage = 'マイリスト登録に失敗しました';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType?.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error?.message || errorMessage;
+          }
+        } catch {
+          // JSON パースに失敗した場合はデフォルトメッセージを使用
+        }
+        throw new Error(errorMessage);
       }
 
       const data: MylistRegisterResponse = await response.json();
@@ -138,12 +147,25 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             label="登録する最大動画数"
             type="number"
             value={formData.maxCount}
-            onChange={(e) =>
-              setFormData({
-                ...formData,
-                maxCount: Math.max(1, Math.min(50, Number(e.target.value))),
-              })
-            }
+            onChange={(e) => {
+              const value = e.target.value;
+              // 空文字の場合はそのまま許可（入力中）
+              if (value === '') {
+                setFormData({
+                  ...formData,
+                  maxCount: 1, // デフォルト値を保持
+                });
+                return;
+              }
+              // 数値に変換して範囲内にクランプ
+              const numValue = Number(value);
+              if (!isNaN(numValue)) {
+                setFormData({
+                  ...formData,
+                  maxCount: Math.max(1, Math.min(50, numValue)),
+                });
+              }
+            }}
             fullWidth
             margin="normal"
             required
@@ -202,8 +224,13 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             ニコニコアカウント
           </Typography>
 
-          <Alert severity="info" sx={{ mb: 2 }}>
-            アカウント情報は暗号化してサーバーに送信されます。
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <strong>セキュリティに関する注意</strong>
+            <br />
+            現在、アカウント情報は平文でサーバーに送信され、バッチジョブの環境変数として一時的に使用されます。
+            <br />
+            本番運用前に、暗号化機能の実装が必要です（Issue 5-1 参照）。
+            <br />
             <br />
             バッチ処理完了後、サーバー上には保存されません。
           </Alert>

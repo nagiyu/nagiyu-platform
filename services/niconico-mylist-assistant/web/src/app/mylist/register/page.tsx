@@ -2,7 +2,7 @@
 
 import { Container, Typography, Box, Alert } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MylistRegisterForm from '@/components/MylistRegisterForm';
 import type { MylistRegisterResponse } from '@/types/mylist';
 
@@ -16,13 +16,22 @@ export default function MylistRegisterPage() {
   const router = useRouter();
   const [success, setSuccess] = useState<MylistRegisterResponse | null>(null);
 
+  // 成功時のステータスページへの遷移（タイムアウトのクリーンアップ付き）
+  useEffect(() => {
+    if (!success) return;
+
+    const timeoutId = setTimeout(() => {
+      router.push(`/mylist/status/${success.jobId}`);
+    }, 3000);
+
+    // クリーンアップ関数
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [success, router]);
+
   const handleSuccess = (response: MylistRegisterResponse) => {
     setSuccess(response);
-
-    // 3秒後にステータス画面に遷移
-    setTimeout(() => {
-      router.push(`/mylist/status/${response.jobId}`);
-    }, 3000);
   };
 
   return (
