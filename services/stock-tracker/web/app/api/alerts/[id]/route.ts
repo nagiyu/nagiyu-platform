@@ -217,7 +217,7 @@ export async function PUT(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    if (error instanceof EntityNotFoundError) {
+    if (error instanceof AlertNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
@@ -279,7 +279,7 @@ export async function DELETE(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    if (error instanceof EntityNotFoundError) {
+    if (error instanceof AlertNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
