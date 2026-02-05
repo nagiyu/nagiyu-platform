@@ -6,7 +6,6 @@
 
 import { logger } from './lib/logger.js';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
-import { DynamoDBAlertRepository } from '@nagiyu/stock-tracker-core';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 

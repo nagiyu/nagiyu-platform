@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server';
-import {
-  WatchlistRepository,
-  TickerRepository,
-  getAuthError,
-  validateWatchlist,
-  type Watchlist,
-} from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
+import { getAuthError, validateWatchlist, type Watchlist } from '@nagiyu/stock-tracker-core';
+import { createWatchlistRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 
 // エラーメッセージ定数
@@ -51,21 +45,19 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
     const lastKeyParam = searchParams.get('lastKey');
-    const lastKey = lastKeyParam ? JSON.parse(lastKeyParam) : undefined;
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
+    // lastKey を cursor に変換（base64エンコード）
+    const cursor = lastKeyParam ? Buffer.from(lastKeyParam).toString('base64') : undefined;
 
     // Watchlist リポジトリを初期化
-    const watchlistRepo = new WatchlistRepository(docClient, tableName);
+    const watchlistRepo = createWatchlistRepository();
 
     // ユーザーのウォッチリスト一覧を取得
-    const result = await watchlistRepo.getByUserId(userId, limit, lastKey);
+    const result = await watchlistRepo.getByUserId(userId, { limit, cursor });
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository();
 
     const watchlistItems = [];
     for (const item of result.items) {
@@ -88,11 +80,16 @@ export async function GET(request: Request) {
     }
 
     // レスポンスを返す (API仕様に従った形式)
+    // nextCursor を lastKey に変換（base64デコード）
+    const lastKey = result.nextCursor
+      ? Buffer.from(result.nextCursor, 'base64').toString('utf-8')
+      : undefined;
+
     return NextResponse.json({
       watchlist: watchlistItems,
       pagination: {
         count: watchlistItems.length,
-        lastKey: result.lastKey ? JSON.stringify(result.lastKey) : undefined,
+        lastKey,
       },
     });
   } catch (error) {
@@ -175,18 +172,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Watchlist リポジトリを初期化
-    const watchlistRepo = new WatchlistRepository(docClient, tableName);
+    const watchlistRepo = createWatchlistRepository();
 
     // ウォッチリストを作成
     const newWatchlist = await watchlistRepo.create(watchlistData);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository();
     let ticker;
     try {
       ticker = await tickerRepo.getById(newWatchlist.TickerID);

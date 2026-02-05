@@ -8,13 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  DynamoDBAlertRepository,
-  getAuthError,
-  validateAlert,
-} from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
+import { getAuthError, validateAlert } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -133,39 +128,24 @@ export async function GET(
       );
     }
 
-    // lastKey のバリデーション（base64 形式であることを確認）
+    // lastKey のデコード（base64エンコードされている場合）
+    let cursor: string | undefined;
     if (lastKeyParam) {
-      try {
-        // base64 デコードの検証（例外が発生すれば無効）
-        Buffer.from(lastKeyParam, 'base64').toString('utf-8');
-      } catch {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: 'lastKey の形式が不正です',
-          },
-          { status: 400 }
-        );
-      }
+      cursor = lastKeyParam; // そのまま使用（base64エンコードされたcursor）
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
+    const tickerRepo = createTickerRepository();
 
     // ユーザーIDを取得
     const userId = session!.user.userId;
 
-    // アラート一覧取得（新しいリポジトリの形式に合わせる）
-    const result = await alertRepo.getByUserId(userId, {
-      limit,
-      cursor: lastKeyParam || undefined,
-    });
+    // アラート一覧取得
+    const result = await alertRepo.getByUserId(userId, { limit, cursor });
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = new TickerRepository(docClient, tableName);
 
     const alerts: AlertResponse[] = [];
     for (const alert of result.items) {
@@ -179,7 +159,10 @@ export async function GET(
       );
     }
 
-    // レスポンス形式に変換（新しいリポジトリではnextCursorが既にbase64エンコード済み）
+    // lastKey をbase64エンコード
+    const encodedLastKey = result.nextCursor;
+
+    // レスポンス形式に変換
     const response: AlertsListResponse = {
       alerts,
       pagination: {
@@ -301,10 +284,9 @@ export async function POST(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
+    const tickerRepo = createTickerRepository();
 
     // アラートを作成（新しいリポジトリの形式に合わせる）
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -313,7 +295,6 @@ export async function POST(
     const createdAlert = await alertRepo.create(alertDataForCreate);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(createdAlert.TickerID);
 
     // レスポンス形式に変換

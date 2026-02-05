@@ -8,14 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerRepository,
-  DynamoDBAlertRepository,
-  getAuthError,
-  validateAlert,
-} from '@nagiyu/stock-tracker-core';
-import { EntityNotFoundError } from '@nagiyu/aws';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
+import { getAuthError, validateAlert, AlertNotFoundError } from '@nagiyu/stock-tracker-core';
+import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -133,10 +127,9 @@ export async function PUT(
       );
     }
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
+    const tickerRepo = createTickerRepository();
 
     // 既存アラートを取得（部分更新用）
     const existingAlert = await alertRepo.getById(userId, alertId);
@@ -213,7 +206,6 @@ export async function PUT(
     const updatedAlert = await alertRepo.update(userId, alertId, updates);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
     const ticker = await tickerRepo.getById(updatedAlert.TickerID);
 
     // レスポンス形式に変換
@@ -225,7 +217,7 @@ export async function PUT(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    if (error instanceof EntityNotFoundError) {
+    if (error instanceof AlertNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
@@ -273,10 +265,8 @@ export async function DELETE(
     const { id: alertId } = await params;
     const userId = session!.user.userId;
 
-    // DynamoDBクライアントとリポジトリの初期化
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-    const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
+    // リポジトリの初期化
+    const alertRepo = createAlertRepository();
 
     // アラートを削除
     await alertRepo.delete(userId, alertId);
@@ -289,7 +279,7 @@ export async function DELETE(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    if (error instanceof EntityNotFoundError) {
+    if (error instanceof AlertNotFoundError) {
       return NextResponse.json(
         {
           error: 'NOT_FOUND',
