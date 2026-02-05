@@ -7,10 +7,13 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { VideoRepository } from './video.repository.interface';
 import type { UserSettingRepository } from './user-setting.repository.interface';
+import type { BatchJobRepository } from './batch-job.repository.interface';
 import { DynamoDBVideoRepository } from './dynamodb-video.repository';
 import { DynamoDBUserSettingRepository } from './dynamodb-user-setting.repository';
+import { DynamoDBBatchJobRepository } from './dynamodb-batch-job.repository';
 import { InMemoryVideoRepository } from './inmemory-video.repository';
 import { InMemoryUserSettingRepository } from './inmemory-user-setting.repository';
+import { InMemoryBatchJobRepository } from './inmemory-batch-job.repository';
 import { getInMemoryStore } from './store';
 
 /**
@@ -72,4 +75,36 @@ export function createUserSettingRepository(
   }
 
   return new DynamoDBUserSettingRepository(docClient, tableName);
+}
+
+/**
+ * BatchJobRepository を作成
+ *
+ * @param docClient - DynamoDB Document Client（DynamoDB実装の場合に必要）
+ * @param tableName - DynamoDB テーブル名（DynamoDB実装の場合に必要）
+ * @returns BatchJobRepository インスタンス
+ *
+ * @remarks
+ * 環境変数 `USE_IN_MEMORY_DB` が "true" の場合、InMemory実装を返す。
+ * それ以外の場合は、DynamoDB実装を返す。
+ *
+ * InMemory実装では、VideoRepository と同じ InMemorySingleTableStore を共有する。
+ * これにより、Single Table Design を正確に再現できる。
+ */
+export function createBatchJobRepository(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): BatchJobRepository {
+  const useInMemory = process.env.USE_IN_MEMORY_DB === 'true';
+
+  if (useInMemory) {
+    const store = getInMemoryStore();
+    return new InMemoryBatchJobRepository(store);
+  }
+
+  if (!docClient || !tableName) {
+    throw new Error('DynamoDB実装にはdocClientとtableNameが必要です');
+  }
+
+  return new DynamoDBBatchJobRepository(docClient, tableName);
 }
