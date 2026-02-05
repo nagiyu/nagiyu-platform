@@ -7,7 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "jest --passWithNoTests",
-    "test:integration": "jest --testPathPattern=integration --passWithNoTests",
+    "test:integration": "playwright test",
+    "test:integration:headed": "HEADLESS=false playwright test",
+    "test:integration:debug": "PWDEBUG=1 playwright test",
     "lint": "eslint src/**/*.ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\""
@@ -15,6 +17,10 @@
   "dependencies": {
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/browser": "*",
-    "playwright": "1.57.0"
+    "playwright": "1.57.0",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.57.0"
   }
 }

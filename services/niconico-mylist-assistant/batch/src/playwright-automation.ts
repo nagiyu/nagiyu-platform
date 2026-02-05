@@ -21,7 +21,7 @@ export async function login(page: Page, email: string, password: string): Promis
     // ログインページに移動
     await page.goto(NICONICO_URLS.LOGIN, {
       timeout: TIMEOUTS.NAVIGATION,
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded', // networkidle は広告等で時間がかかるため domcontentloaded に変更
     });
 
     // メールアドレス入力
@@ -31,7 +31,8 @@ export async function login(page: Page, email: string, password: string): Promis
     await page.fill('input[name="password"]', password);
 
     // ログインボタンをクリック
-    await page.click('button[type="submit"]');
+    // アクセシビリティロールベースのセレクタを使用（より堅牢）
+    await page.getByRole('button', { name: 'ログイン' }).click();
 
     // ログイン完了を待つ（URL遷移を確認）
     await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
@@ -55,26 +56,80 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // マイリストページに移動
     await page.goto(NICONICO_URLS.MYLIST, {
       timeout: TIMEOUTS.NAVIGATION,
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded', // networkidle は広告等で時間がかかるため domcontentloaded に変更
     });
 
-    // マイリストの削除ボタンを全て取得して削除
-    // 注: 実際のセレクタはニコニコ動画のHTMLに依存
-    // ここではプレースホルダーとして記述
-    const deleteButtons = await page.$$('[data-testid="mylist-delete"]');
+    // ページの JavaScript が実行されてマイリストカウントが更新されるまで待機
+    await sleep(2000);
 
-    for (const button of deleteButtons) {
-      await button.click();
-      // 確認ダイアログがある場合は承認
-      try {
-        await page.click('[data-testid="confirm-delete"]');
-      } catch {
-        // 確認ダイアログがない場合はスキップ（ログ出力なし）
+    // 現在のUIから取得したセレクタを使用
+    const MYLIST_COUNT_SELECTOR =
+      '#UserPage-app > section > section > main > div > div > div.simplebar-wrapper > div.simplebar-mask > div > div > div > ul.SubMenuLinkList.MylistSideContainer-categoryList > div > header > div > span > span.MylistPageSubMenuHeader-counterValueMylistCount';
+
+    let deletedCount = 0;
+
+    // アラートダイアログを承認するハンドラを設定（ループの外で一度だけ）
+    page.on('dialog', async (dialog) => {
+      console.log(`ダイアログ検出: ${dialog.message()}`);
+      await dialog.accept();
+      console.log('ダイアログを承認しました');
+    });
+
+    // マイリスト数が0になるまで削除を繰り返す
+    while (true) {
+      const countElement = await page.locator(MYLIST_COUNT_SELECTOR).first();
+      const countText = await countElement.textContent({ timeout: 30000 });
+
+      console.log(`現在のマイリスト数: ${countText}`);
+
+      if (countText === '0') {
+        console.log('マイリスト数が0件になりました。削除処理を終了します。');
+        break;
       }
-      await sleep(1000); // 削除処理の完了を待つ
+
+      console.log(`マイリストを削除します（残り: ${countText}件）`);
+
+      // ダウンロードした HTML から特定したセレクタを使用
+      try {
+        // Step 1: サイドバーの最初のマイリストリンクをクリックして詳細ページへ移動
+        const firstMylistLink = page.locator('.MylistSideContainer-mylistList li:first-child a');
+        await firstMylistLink.click({ timeout: 10000 });
+        console.log('マイリスト詳細ページへ移動しました');
+        await sleep(1000);
+
+        // Step 2: マイリストヘッダーの3点メニューボタンをクリック
+        const threePointMenuButton = page.locator('.NC-ThreePointMenu.MylistHeaderMenu button');
+        await threePointMenuButton.click({ timeout: 10000 });
+        console.log('3点メニューを開きました');
+        await sleep(500);
+
+        // Step 3: メニュー内の削除ボタンをクリック
+        // メニューが開いた後、削除ボタンを探す（過去実績では3番目のボタン）
+        // メニューは動的に表示されるので、.NC-ThreePointMenu-menu 内のボタンを探す
+        const deleteButton = page.locator('.NC-ThreePointMenu-menu button').nth(2);
+        await deleteButton.click({ timeout: 10000 });
+        console.log('削除ボタンをクリックしました');
+
+        // アラートダイアログの承認を待つ（dialog ハンドラが自動で処理）
+        await sleep(1000);
+      } catch (stepError) {
+        console.error('削除ステップでエラー:', stepError);
+        // エラー時のスクリーンショット
+        await takeScreenshot(page, `delete-error-${deletedCount}`);
+        throw stepError;
+      }
+
+      deletedCount++;
+
+      // ページをリロードして最新状態を取得
+      await page.goto(NICONICO_URLS.MYLIST, {
+        timeout: TIMEOUTS.NAVIGATION,
+        waitUntil: 'domcontentloaded',
+      });
+      await sleep(2000); // カウント更新待ち
     }
 
-    console.log(`${deleteButtons.length}件のマイリストを削除しました`);
+    console.log(`${deletedCount}件のマイリストを削除しました`);
   } catch (error) {
     console.error('マイリスト削除失敗:', error);
     throw new Error(ERROR_MESSAGES.MYLIST_DELETE_FAILED);
@@ -95,20 +150,27 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     if (!page.url().includes(NICONICO_URLS.MYLIST)) {
       await page.goto(NICONICO_URLS.MYLIST, {
         timeout: TIMEOUTS.NAVIGATION,
-        waitUntil: 'networkidle',
+        waitUntil: 'domcontentloaded', // networkidle は広告等で時間がかかるため domcontentloaded に変更
       });
     }
 
-    // マイリスト作成ボタンをクリック
-    await page.click('[data-testid="create-mylist"]');
+    // マイリスト作成ボタンをクリック（実際のUIから確認したXPath）
+    const createButton = page.locator(
+      'xpath=//*[@id="UserPage-app"]/section/section/main/div/div/div[1]/div[2]/div/div/div/ul[1]/div/div/button[1]'
+    );
+    await createButton.click();
 
-    // マイリスト名を入力
-    await page.fill('[data-testid="mylist-name-input"]', mylistName);
+    await sleep(2000); // モーダル表示を待つ
 
-    // 作成ボタンをクリック
-    await page.click('[data-testid="submit-create-mylist"]');
+    // マイリスト名を入力（実際のUIから確認したXPath）
+    const nameInput = page.locator('xpath=//*[@id="undefined-title"]');
+    await nameInput.fill(mylistName);
 
-    await sleep(2000); // 作成処理の完了を待つ
+    // 作成ボタンをクリック（実際のUIから確認したXPath）
+    const submitButton = page.locator('xpath=/html/body/div[13]/div/div/article/footer/button');
+    await submitButton.click();
+
+    await sleep(3000); // 作成処理の完了を待つ
 
     console.log('マイリスト作成成功');
   } catch (error) {
@@ -133,18 +195,29 @@ export async function registerVideoToMylist(
     // 動画ページに移動
     await page.goto(`${NICONICO_URLS.VIDEO}${videoId}`, {
       timeout: TIMEOUTS.NAVIGATION,
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded', // networkidle は広告等で時間がかかるため domcontentloaded に変更
     });
 
-    // マイリストボタンをクリック
-    await page.click('[data-testid="mylist-button"]', {
-      timeout: TIMEOUTS.VIDEO_REGISTRATION,
-    });
+    // 動画が読み込まれるまで少し待つ
+    await sleep(3000);
 
-    // マイリストを選択
-    await page.click(`[data-testid="mylist-option-${mylistName}"]`, {
-      timeout: TIMEOUTS.VIDEO_REGISTRATION,
-    });
+    // 3点メニューボタンをクリック（aria-label="メニュー"を使用、exact: true で完全一致）
+    const menuButton = page.getByRole('button', { name: 'メニュー', exact: true });
+    await menuButton.click({ timeout: TIMEOUTS.VIDEO_REGISTRATION });
+
+    await sleep(500);
+
+    // 「マイリストに追加」メニュー項目をクリック
+    const addToMylistButton = page.getByText('マイリストに追加');
+    await addToMylistButton.click({ timeout: TIMEOUTS.VIDEO_REGISTRATION });
+
+    await sleep(1000);
+
+    // マイリスト選択ダイアログでマイリストを選択
+    const selectMylistButton = page.getByText(mylistName);
+    await selectMylistButton.click({ timeout: TIMEOUTS.VIDEO_REGISTRATION });
+
+    await sleep(2000); // 登録処理の完了を待つ
 
     console.log(`動画 ${videoId} を登録しました`);
   } catch (error) {
