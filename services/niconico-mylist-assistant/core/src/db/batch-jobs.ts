@@ -34,10 +34,7 @@ export async function createBatchJob(input: CreateBatchJobInput): Promise<BatchJ
  * バッチジョブを取得
  * @returns バッチジョブ、存在しない場合は null
  */
-export async function getBatchJob(
-  jobId: string,
-  userId: string
-): Promise<BatchJobEntity | null> {
+export async function getBatchJob(jobId: string, userId: string): Promise<BatchJobEntity | null> {
   return await getBatchJobRepository().getById(jobId, userId);
 }
 

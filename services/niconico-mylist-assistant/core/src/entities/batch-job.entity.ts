@@ -55,10 +55,7 @@ export interface BatchJobEntity {
 /**
  * BatchJob 作成用入力型
  */
-export type CreateBatchJobInput = Omit<
-  BatchJobEntity,
-  'CreatedAt' | 'UpdatedAt' | 'CompletedAt'
->;
+export type CreateBatchJobInput = Omit<BatchJobEntity, 'CreatedAt' | 'UpdatedAt' | 'CompletedAt'>;
 
 /**
  * BatchJob 更新用入力型

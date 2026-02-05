@@ -18,7 +18,11 @@ export { InMemoryUserSettingRepository } from './inmemory-user-setting.repositor
 export { InMemoryBatchJobRepository } from './inmemory-batch-job.repository';
 
 // Factory
-export { createVideoRepository, createUserSettingRepository, createBatchJobRepository } from './factory';
+export {
+  createVideoRepository,
+  createUserSettingRepository,
+  createBatchJobRepository,
+} from './factory';
 
 // Store
 export { getInMemoryStore, clearInMemoryStore } from './store';

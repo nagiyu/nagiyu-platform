@@ -90,10 +90,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return entity;
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.name === 'ConditionalCheckFailedException'
-      ) {
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
         throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
       }
 
@@ -140,10 +137,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
 
       return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.name === 'ConditionalCheckFailedException'
-      ) {
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
         throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
       }
 

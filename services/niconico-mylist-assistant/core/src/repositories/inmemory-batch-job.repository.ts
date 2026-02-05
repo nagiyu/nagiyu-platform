@@ -4,7 +4,11 @@
  * テスト用のインメモリ実装
  */
 
-import { InMemorySingleTableStore, EntityAlreadyExistsError, EntityNotFoundError } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+} from '@nagiyu/aws';
 import type { BatchJobRepository } from './batch-job.repository.interface';
 import type {
   BatchJobEntity,
