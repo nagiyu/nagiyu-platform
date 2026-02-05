@@ -18,8 +18,11 @@ export function Navigation() {
         <Button color="inherit" onClick={() => router.push('/import')}>
           インポート
         </Button>
-        <Button color="inherit" onClick={() => router.push('/videos')}>
-          動画一覧
+        <Button color="inherit" onClick={() => router.push('/mylist')}>
+          動画管理
+        </Button>
+        <Button color="inherit" onClick={() => router.push('/register')}>
+          マイリスト登録
         </Button>
       </Toolbar>
     </AppBar>
