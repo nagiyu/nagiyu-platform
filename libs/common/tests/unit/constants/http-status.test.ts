@@ -88,9 +88,7 @@ describe('HTTP_STATUS', () => {
 
   describe('ステータスコードの分類', () => {
     it('2xxステータスコードが含まれる', () => {
-      const successCodes = Object.values(HTTP_STATUS).filter(
-        (code) => code >= 200 && code < 300
-      );
+      const successCodes = Object.values(HTTP_STATUS).filter((code) => code >= 200 && code < 300);
       expect(successCodes).toContain(200); // OK
       expect(successCodes).toContain(201); // CREATED
     });
