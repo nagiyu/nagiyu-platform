@@ -18,10 +18,14 @@ export function clearAwsClientsCache(): void {
  * AWS クライアントを取得（シングルトンパターン）
  */
 export function getAwsClients() {
-  if (!cachedDocClient || !cachedBatchClient) {
-    const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
+  const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
+
+  if (!cachedDocClient) {
     const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
     cachedDocClient = DynamoDBDocumentClient.from(dynamoClient);
+  }
+
+  if (!cachedBatchClient) {
     cachedBatchClient = new BatchClient({ region: AWS_REGION });
   }
 

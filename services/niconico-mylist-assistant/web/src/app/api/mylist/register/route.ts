@@ -51,6 +51,11 @@ function getEnvVars() {
 }
 
 /**
+ * 定数定義
+ */
+const MAX_VIDEOS_TO_FETCH = 1000; // 動画選択時に取得する最大件数
+
+/**
  * POST /api/mylist/register
  * マイリスト登録バッチジョブを投入
  *
@@ -182,7 +187,7 @@ export async function POST(
     // DynamoDBから動画を取得（全件取得してフィルタ・ランダム選択）
     const { videos } = await listVideosWithSettings(session.user.id, {
       ...filters,
-      limit: 1000, // 十分な数を取得
+      limit: MAX_VIDEOS_TO_FETCH,
       offset: 0,
     });
 
@@ -216,6 +221,16 @@ export async function POST(
     const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
+    // TODO: セキュリティ改善
+    // 現在、ニコニコアカウントの認証情報（パスワード）を環境変数として
+    // Batchジョブに渡しています。本番運用では以下のいずれかの方法で
+    // セキュリティを強化する必要があります：
+    // 1. AWS Secrets Manager を使用して認証情報を暗号化保存
+    // 2. Systems Manager Parameter Store（SecureString）を使用
+    // 3. 暗号化ユーティリティ（core/utils/crypto.ts）を使用してクライアント側で暗号化
+    //
+    // 参照: roadmap.md Issue 5-1 (暗号化ユーティリティ実装)
+
     const submitResult = await batchClient.send(
       new SubmitJobCommand({
         jobName,
@@ -235,10 +250,25 @@ export async function POST(
       })
     );
 
+    // ジョブIDの確認
+    if (!submitResult.jobId) {
+      console.error('Batch job submission returned no jobId:', submitResult);
+      return NextResponse.json(
+        {
+          error: {
+            code: 'BATCH_ERROR',
+            message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
+            details: 'ジョブIDが取得できませんでした',
+          },
+        },
+        { status: 500 }
+      );
+    }
+
     // ジョブIDを返却
     return NextResponse.json(
       {
-        jobId: submitResult.jobId!,
+        jobId: submitResult.jobId,
         selectedCount: selectedVideos.length,
       },
       { status: 200 }
