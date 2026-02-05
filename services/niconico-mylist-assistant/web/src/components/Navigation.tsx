@@ -18,7 +18,7 @@ export function Navigation() {
         <Button color="inherit" onClick={() => router.push('/import')}>
           インポート
         </Button>
-        <Button color="inherit" onClick={() => router.push('/videos')}>
+        <Button color="inherit" onClick={() => router.push('/mylist')}>
           動画一覧
         </Button>
         <Button color="inherit" onClick={() => router.push('/mylist/register')}>
