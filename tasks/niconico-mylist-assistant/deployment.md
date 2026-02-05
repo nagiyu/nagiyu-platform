@@ -688,7 +688,7 @@ npm run test:e2e -w niconico-mylist-assistant-web
 
 | ポリシー名                                             | 用途                                     | 割り当て先                               |
 | ------------------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
-| `niconico-mylist-assistant-web-runtime-{env}`          | DynamoDB 読み書き権限 (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem) | Web Lambda 実行ロール、開発用ユーザー    |
+| `niconico-mylist-assistant-web-runtime-{env}`          | DynamoDB 読み書き権限 (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem)、AWS Batch ジョブ投入権限 (SubmitJob) | Web Lambda 実行ロール、開発用ユーザー    |
 | `niconico-mylist-assistant-batch-runtime-{env}`        | DynamoDB 読み書き、CloudWatch Logs 書き込み | Batch ジョブロール、開発用ユーザー       |
 
 #### 実行ロール
