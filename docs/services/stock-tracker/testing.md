@@ -32,10 +32,12 @@ Stock Tracker サービスの品質を保証し、以下を実現する:
 ### 2.2 テスト優先順位
 
 **Fast CI (高速フィードバック)**:
+
 - 対象: chromium-mobile のみ
 - トリガー: `integration/**` ブランチへのPR
 
 **Full CI (完全テスト)**:
+
 - 対象: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
 - トリガー: `develop` ブランチへのPR
 
@@ -45,8 +47,8 @@ Stock Tracker サービスの品質を保証し、以下を実現する:
 
 ### 3.1 カバレッジ目標値
 
-| カテゴリ                | カバレッジ目標     | 測定方法      |
-| ----------------------- | ------------------ | ------------- |
+| カテゴリ                 | カバレッジ目標     | 測定方法      |
+| ------------------------ | ------------------ | ------------- |
 | ビジネスロジック (core/) | 80%以上            | Jest coverage |
 | UI コンポーネント (web/) | 任意 (E2Eでカバー) | E2E テスト    |
 
@@ -64,30 +66,33 @@ npm run test:coverage --workspace=stock-tracker-core
 
 ### 4.1 テストシナリオ一覧
 
-| シナリオID | シナリオ名   | 概要   | 優先度 | 対象デバイス          |
-| ---------- | ------------ | ------ | ------ | --------------------- |
-| E2E-001    | チャート表示フロー | 取引所・ティッカー選択→チャート表示 | 高 | 全デバイス |
-| E2E-002    | アラート設定フロー | アラート作成→条件設定→保存 | 高 | 全デバイス |
-| E2E-003    | Holding 管理フロー | Holding 登録・更新・削除 | 高 | 全デバイス |
-| E2E-004    | Watchlist 管理フロー | Watchlist 登録・削除 | 高 | 全デバイス |
-| E2E-005    | 権限チェック | stock-admin のみアクセス可能な画面 | 中 | chromium-mobile |
-| E2E-006    | 取引所管理 | 取引所CRUD操作 | 中 | chromium-mobile |
-| E2E-007    | ティッカー管理 | ティッカーCRUD操作 | 中 | chromium-mobile |
-| E2E-008    | エラーハンドリング | バリデーションエラー、APIエラーの表示 | 中 | chromium-mobile |
-| E2E-009    | ナビゲーション | 画面遷移の確認 | 低 | chromium-mobile |
+| シナリオID | シナリオ名           | 概要                                  | 優先度 | 対象デバイス    |
+| ---------- | -------------------- | ------------------------------------- | ------ | --------------- |
+| E2E-001    | チャート表示フロー   | 取引所・ティッカー選択→チャート表示   | 高     | 全デバイス      |
+| E2E-002    | アラート設定フロー   | アラート作成→条件設定→保存            | 高     | 全デバイス      |
+| E2E-003    | Holding 管理フロー   | Holding 登録・更新・削除              | 高     | 全デバイス      |
+| E2E-004    | Watchlist 管理フロー | Watchlist 登録・削除                  | 高     | 全デバイス      |
+| E2E-005    | 権限チェック         | stock-admin のみアクセス可能な画面    | 中     | chromium-mobile |
+| E2E-006    | 取引所管理           | 取引所CRUD操作                        | 中     | chromium-mobile |
+| E2E-007    | ティッカー管理       | ティッカーCRUD操作                    | 中     | chromium-mobile |
+| E2E-008    | エラーハンドリング   | バリデーションエラー、APIエラーの表示 | 中     | chromium-mobile |
+| E2E-009    | ナビゲーション       | 画面遷移の確認                        | 低     | chromium-mobile |
 
 ### 4.2 シナリオ設計方針
 
 **ユーザー視点でのテスト**:
+
 - 実際のユーザー操作フローに沿ったシナリオ設計
 - 画面遷移、データ入力、結果確認の一連の流れを検証
 
 **優先度の考え方**:
+
 - 高優先度: 主要機能（チャート表示、アラート設定、保有株式管理）は全デバイスでテスト
 - 中優先度: 管理機能（取引所・ティッカー管理）は chromium-mobile のみでテスト
 - 低優先度: ナビゲーションなど副次的な機能
 
 **モバイルファースト**:
+
 - Fast CI では chromium-mobile のみ実行（開発時の高速フィードバック重視）
 - Full CI で全デバイス実行（リリース前の完全検証）
 
@@ -98,21 +103,25 @@ npm run test:coverage --workspace=stock-tracker-core
 ### 5.1 core パッケージ（ビジネスロジック）
 
 **対象**:
+
 - `repositories/`: DynamoDB アクセスロジック
 - `services/`: ビジネスロジック（アラート評価、価格計算、取引時間チェックなど）
 
 **テスト方針**:
+
 - 純粋関数を優先的にテスト
 - 外部依存（DynamoDB、TradingView API）はモック化
 - AAA パターン（Arrange, Act, Assert）を使用
 - 一つのテストで一つの検証
 
 **モック戦略**:
+
 - DynamoDB: AWS SDK のモック（`aws-sdk-client-mock`）
 - TradingView API: モッククラス提供
 - Web Push: モッククラス提供
 
 **リポジトリテスト**:
+
 - 各リポジトリには DynamoDB実装とインメモリ実装の2種類が存在
 - ユニットテストはインメモリリポジトリを使用して高速に実行
 - E2Eテストもインメモリリポジトリを使用してDynamoDB依存を排除
@@ -120,13 +129,16 @@ npm run test:coverage --workspace=stock-tracker-core
 ### 5.2 web パッケージ（UI）
 
 **対象**:
+
 - `app/api/`: API Routes
 
 **テスト方針**:
+
 - API Routes は E2E テストでカバー
 - 複雑なロジックは core パッケージに移動してユニットテスト
 
 **E2Eテストのリポジトリ戦略**:
+
 - E2Eテストは `.env.test` で `USE_MEMORY_REPOSITORY=true` を設定
 - インメモリリポジトリを使用することでDynamoDBへの依存を排除
 - テストの安定性と実行速度が向上
@@ -164,6 +176,7 @@ npm run test:e2e:ui --workspace=stock-tracker-web
 ### 6.3 CI/CD での実行
 
 GitHub Actions ワークフローで自動実行されます:
+
 - `.github/workflows/stock-tracker-verify-fast.yml` (Fast CI)
 - `.github/workflows/stock-tracker-verify-full.yml` (Full CI)
 
@@ -174,16 +187,19 @@ GitHub Actions ワークフローで自動実行されます:
 ### 7.1 テストデータ戦略
 
 **E2Eテスト**:
+
 - インメモリリポジトリを使用（`USE_MEMORY_REPOSITORY=true`）
 - DynamoDBへの依存を排除し、テストの安定性と速度を向上
 - テスト前にシードデータを投入
 - テスト後は自動的にクリーンアップ（メモリ上のデータのみ）
 
 **ユニットテスト**:
+
 - モックデータを使用
 - `tests/fixtures/` にテストデータを定義
 
 **リポジトリの切り替え**:
+
 - 環境変数 `USE_MEMORY_REPOSITORY` で動的に切り替え
 - `true`: インメモリリポジトリ（E2Eテスト用）
 - `false` または未設定: DynamoDBリポジトリ（本番・開発環境用）
@@ -191,6 +207,7 @@ GitHub Actions ワークフローで自動実行されます:
 ### 7.2 認証情報
 
 E2Eテストでは、テスト用ユーザーの認証情報を使用します:
+
 - テストユーザー: 環境変数 `TEST_USER_EMAIL`, `TEST_USER_PASSWORD` で設定
 - テスト用 Admin ユーザー: `TEST_ADMIN_EMAIL`, `TEST_ADMIN_PASSWORD`
 - 認証スキップモード: `SKIP_AUTH_CHECK=true` で有効化

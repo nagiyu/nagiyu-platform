@@ -14,44 +14,44 @@ Stock Tracker は、株価のリアルタイム監視と条件ベースのアラ
 
 ### 2.1 フロントエンド
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
+| カテゴリ       | 技術                    | 用途                                     |
+| -------------- | ----------------------- | ---------------------------------------- |
 | フレームワーク | Next.js 15 (App Router) | サーバーサイドレンダリング、ルーティング |
-| UI ライブラリ | Material-UI v7 | UIコンポーネント |
-| チャート表示 | ECharts | インタラクティブな株価チャート |
-| 言語 | TypeScript | 型安全な開発 |
-| 通知 | Web Push API | ブラウザ通知 |
+| UI ライブラリ  | Material-UI v7          | UIコンポーネント                         |
+| チャート表示   | ECharts                 | インタラクティブな株価チャート           |
+| 言語           | TypeScript              | 型安全な開発                             |
+| 通知           | Web Push API            | ブラウザ通知                             |
 
 ### 2.2 バックエンド
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| ランタイム | Node.js 20 | Lambda 実行環境 |
-| フレームワーク | Next.js 15 (API Routes) | RESTful API エンドポイント |
-| 認証 | NextAuth.js + @nagiyu/auth-core | JWT ベース認証 |
-| AWS SDK | @aws-sdk/client-dynamodb, @aws-sdk/lib-dynamodb | DynamoDB操作 |
-| 外部API | @mathieuc/tradingview | 株価データ取得 |
-| Web Push | web-push | プッシュ通知送信 |
+| カテゴリ       | 技術                                            | 用途                       |
+| -------------- | ----------------------------------------------- | -------------------------- |
+| ランタイム     | Node.js 20                                      | Lambda 実行環境            |
+| フレームワーク | Next.js 15 (API Routes)                         | RESTful API エンドポイント |
+| 認証           | NextAuth.js + @nagiyu/auth-core                 | JWT ベース認証             |
+| AWS SDK        | @aws-sdk/client-dynamodb, @aws-sdk/lib-dynamodb | DynamoDB操作               |
+| 外部API        | @mathieuc/tradingview                           | 株価データ取得             |
+| Web Push       | web-push                                        | プッシュ通知送信           |
 
 ### 2.3 インフラ
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| コンピューティング | AWS Lambda (Web Adapter) | Next.js アプリケーション実行 |
-| バッチ処理 | AWS Lambda + EventBridge Scheduler | 定期的なアラート処理 |
-| データベース | Amazon DynamoDB | Single Table Design |
-| シークレット管理 | AWS Secrets Manager | VAPID キー保管 |
-| CDN | Amazon CloudFront | コンテンツ配信 |
-| コンテナレジストリ | Amazon ECR | Docker イメージ管理 |
-| IaC | AWS CDK (TypeScript) | インフラ定義 |
+| カテゴリ           | 技術                               | 用途                         |
+| ------------------ | ---------------------------------- | ---------------------------- |
+| コンピューティング | AWS Lambda (Web Adapter)           | Next.js アプリケーション実行 |
+| バッチ処理         | AWS Lambda + EventBridge Scheduler | 定期的なアラート処理         |
+| データベース       | Amazon DynamoDB                    | Single Table Design          |
+| シークレット管理   | AWS Secrets Manager                | VAPID キー保管               |
+| CDN                | Amazon CloudFront                  | コンテンツ配信               |
+| コンテナレジストリ | Amazon ECR                         | Docker イメージ管理          |
+| IaC                | AWS CDK (TypeScript)               | インフラ定義                 |
 
 ### 2.4 開発ツール
 
-| カテゴリ | 技術 | 用途 |
-|---------|------|------|
-| テスト | Jest, Playwright | ユニットテスト、E2Eテスト |
-| Lint | ESLint | コード品質チェック |
-| フォーマット | Prettier | コードスタイル統一 |
+| カテゴリ     | 技術             | 用途                      |
+| ------------ | ---------------- | ------------------------- |
+| テスト       | Jest, Playwright | ユニットテスト、E2Eテスト |
+| Lint         | ESLint           | コード品質チェック        |
+| フォーマット | Prettier         | コードスタイル統一        |
 
 **依存パッケージの詳細バージョンは `package.json` を参照してください。**
 
@@ -74,15 +74,18 @@ Stock Tracker は、以下のレイヤーに分離されています:
 データアクセス層では、リポジトリパターンを採用し、DI（依存性注入）による実装の切り替えを可能にしています。
 
 **リポジトリの実装タイプ**:
+
 - **DynamoDBリポジトリ**: 本番・開発環境で使用
 - **InMemoryリポジトリ**: E2Eテスト・ユニットテストで使用
 
 **リポジトリファクトリ**:
+
 - 環境変数 `USE_MEMORY_REPOSITORY` に基づいて実装を動的に切り替え
 - E2Eテスト時はインメモリリポジトリを使用してDynamoDB依存を排除
 - テストの安定性と実行速度が向上
 
 **対応リポジトリ**:
+
 - AlertRepository: アラートデータの CRUD
 - TickerRepository: ティッカーデータの CRUD
 - HoldingRepository: 保有株式データの CRUD
@@ -90,6 +93,7 @@ Stock Tracker は、以下のレイヤーに分離されています:
 ### 3.3 コンポーネント構成
 
 **モノレポ構成**:
+
 ```
 services/stock-tracker/
 ├── core/           # ビジネスロジック（フレームワーク非依存）
@@ -98,15 +102,18 @@ services/stock-tracker/
 ```
 
 **core パッケージ**:
+
 - `repositories/`: DynamoDB アクセス（Exchange, Ticker, Holding, Watchlist, Alert）
 - `services/`: ビジネスロジック（アラート評価、価格計算、取引時間チェック、TradingView連携、認証）
 
 **web パッケージ**:
+
 - `app/`: Next.js App Router（ページ、API Routes）
 - `components/`: UI コンポーネント
 - `lib/`: クライアント側のユーティリティ
 
 **batch パッケージ**:
+
 - `src/handlers/`: Lambda ハンドラー（minute/hourly/daily）
 - `src/lib/`: バッチ処理用のユーティリティ
 
@@ -121,26 +128,29 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 **テーブル名**: `nagiyu-stock-tracker-main-{env}`
 
 **キー構成**:
+
 - Partition Key: `PK` (String)
 - Sort Key: `SK` (String)
 - GSI1: `GSI1PK`, `GSI1SK` (ユーザー別クエリ用)
 
 ### 4.2 エンティティ概要
 
-| エンティティ | PK | SK | 説明 |
-|------------|----|----|------|
-| Exchange | `EXCHANGE#{ID}` | `METADATA` | 取引所 |
-| Ticker | `TICKER#{ID}` | `METADATA` | ティッカー |
-| Holding | `USER#{UserID}` | `HOLDING#{ID}` | 保有株式 |
-| Watchlist | `USER#{UserID}` | `WATCHLIST#{ID}` | ウォッチリスト |
-| Alert | `USER#{UserID}` | `ALERT#{ID}` | アラート |
+| エンティティ     | PK              | SK                | 説明                        |
+| ---------------- | --------------- | ----------------- | --------------------------- |
+| Exchange         | `EXCHANGE#{ID}` | `METADATA`        | 取引所                      |
+| Ticker           | `TICKER#{ID}`   | `METADATA`        | ティッカー                  |
+| Holding          | `USER#{UserID}` | `HOLDING#{ID}`    | 保有株式                    |
+| Watchlist        | `USER#{UserID}` | `WATCHLIST#{ID}`  | ウォッチリスト              |
+| Alert            | `USER#{UserID}` | `ALERT#{ID}`      | アラート                    |
 | PushSubscription | `USER#{UserID}` | `PUSH#{Endpoint}` | Web Push サブスクリプション |
 
 **GSI1 (ユーザー別クエリ用)**:
+
 - ユーザーの保有株式、ウォッチリスト、アラート一覧取得に使用
 - GSI1PK: `USER#{UserID}`, GSI1SK: `{EntityType}#{TickerID}`
 
 **アクセスパターンの設計思想**:
+
 - 単一テーブルで複数エンティティを管理することで、クロステーブル結合を不要にしコスト削減
 - GSI1 により、ユーザーごとのデータを効率的に取得（ユーザー画面での一覧表示を高速化）
 - PK/SK の命名規則により、エンティティタイプを明示的に識別可能
@@ -153,39 +163,47 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 5.1 AWS リソース
 
 **Lambda 関数**:
+
 - `stock-tracker-web-{env}`: Next.js アプリケーション実行
 - `stock-tracker-batch-minute-{env}`: 1分間隔のアラート処理
 - `stock-tracker-batch-hourly-{env}`: 1時間間隔のアラート処理
 - `stock-tracker-batch-daily-{env}`: 日次のデータクリーンアップ
 
 **DynamoDB**:
+
 - テーブル: `nagiyu-stock-tracker-main-{env}`
 - オンデマンドキャパシティモード
 - Point-in-Time Recovery (PITR) 有効
 
 **EventBridge Scheduler**:
+
 - `stock-tracker-batch-minute-{env}`: rate(1 minute)
 - `stock-tracker-batch-hourly-{env}`: rate(1 hour)
-- `stock-tracker-batch-daily-{env}`: cron(0 0 * * ? *)
+- `stock-tracker-batch-daily-{env}`: cron(0 0 \* _ ? _)
 
 **Secrets Manager**:
+
 - `nagiyu-stock-tracker-vapid-{env}`: Web Push 用 VAPID キー
 - `nagiyu-auth-nextauth-secret-{env}`: NextAuth Secret（Auth サービスと共有）
 
 **CloudFront**:
+
 - ディストリビューション: `stock-tracker-{env}`
 - カスタムドメイン: `dev-stock-tracker.nagiyu.com`, `stock-tracker.nagiyu.com`
 - Lambda Function URL をオリジンに設定
 
 **ECR**:
+
 - `nagiyu-stock-tracker-web-ecr-{env}`: Web Lambda 用イメージ
 - `nagiyu-stock-tracker-batch-ecr-{env}`: Batch Lambda 用イメージ
 
 **CloudWatch**:
+
 - ログ保持期間: 30日
 - アラーム: Lambda エラー率、実行時間、DynamoDB スロットリング
 
 **リソース設定の方針**:
+
 - Lambda メモリ: Web は 1024MB、Batch は 512MB（処理内容に応じて設定）
 - Lambda タイムアウト: Web は 30秒、Batch は 5分（アラート処理時間を考慮）
 - 環境変数: DynamoDB テーブル名、Secrets Manager ARN、API設定などを注入
@@ -197,11 +215,13 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 6.1 認証・認可
 
 **認証**:
+
 - Auth サービス（NextAuth.js）による JWT 認証
 - Cookie: `__Secure-next-auth.session-token`
 - 有効期限: 30日
 
 **認可**:
+
 - ロールベースアクセス制御（RBAC）
 - 権限: `stocks:read`, `stocks:write-own`, `stocks:manage-data`
 - Middleware でエンドポイントごとに権限チェック
@@ -221,12 +241,14 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 - **Secrets Manager**: Lambda からのアクセスのみ許可
 
 **セキュリティヘッダー設定方針**:
+
 - Content-Security-Policy: 信頼されたソースからのみスクリプト実行を許可
 - X-Content-Type-Options: MIME タイプスニッフィング防止
 - X-Frame-Options: クリックジャッキング防止
 - Strict-Transport-Security: HTTPS 強制
 
 **Middleware 認証フロー**:
+
 1. Cookie から JWT トークンを取得
 2. トークンの署名検証と有効期限チェック
 3. ユーザーロールから必要な権限を確認
@@ -239,6 +261,7 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 7.1 Next.js
 
 **選定理由**:
+
 - App Router による直感的なルーティング
 - Server Components によるパフォーマンス最適化
 - API Routes によるフロントエンド・バックエンド統合開発
@@ -247,6 +270,7 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 7.2 DynamoDB Single Table Design
 
 **選定理由**:
+
 - スケーラビリティ（オンデマンドキャパシティ）
 - 低レイテンシー（ミリ秒単位）
 - サーバーレスアーキテクチャとの親和性
@@ -255,6 +279,7 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 7.3 TradingView API
 
 **選定理由**:
+
 - リアルタイムな株価データ取得
 - WebSocket による自動更新
 - 複数の取引所・ティッカーに対応
@@ -263,6 +288,7 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 7.4 Web Push
 
 **選定理由**:
+
 - ブラウザネイティブ通知（追加アプリ不要）
 - Service Worker によるバックグラウンド受信
 - VAPID による安全な通知配信
@@ -281,6 +307,7 @@ DynamoDB の Single Table Design を採用し、1つのテーブルで全エン�
 ### 8.2 Phase 1 スコープ
 
 Phase 1 では以下に機能を限定:
+
 - 価格ベースのシンプルなアラート（`PRICE_ABOVE`, `PRICE_BELOW`）
 - 基本的な取引所・ティッカーマスタ管理
 - 保有株式・ウォッチリストの CRUD
