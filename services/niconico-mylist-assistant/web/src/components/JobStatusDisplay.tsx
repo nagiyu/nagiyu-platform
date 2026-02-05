@@ -253,7 +253,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
             <Box
               sx={{
                 p: 2,
-                bgcolor: state.status === 'SUCCEEDED' ? 'success.lighter' : 'error.lighter',
+                bgcolor: state.status === 'SUCCEEDED' ? 'success.light' : 'error.light',
                 borderRadius: 1,
               }}
             >
