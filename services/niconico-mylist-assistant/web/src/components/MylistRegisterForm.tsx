@@ -35,7 +35,9 @@ interface MylistRegisterFormProps {
  * マイリスト名を入力し、バッチジョブを投入します。
  */
 export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProps) {
-  const [formData, setFormData] = useState<MylistRegisterFormData>(DEFAULT_MYLIST_REGISTER_FORM_DATA);
+  const [formData, setFormData] = useState<MylistRegisterFormData>(
+    DEFAULT_MYLIST_REGISTER_FORM_DATA
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
