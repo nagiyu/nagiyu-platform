@@ -211,8 +211,7 @@ export async function POST(
 
     // AWS Batch ジョブを投入
     const { batchClient } = getAwsClients();
-    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } =
-      getEnvVars();
+    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } = getEnvVars();
 
     const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
