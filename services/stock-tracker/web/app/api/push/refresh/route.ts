@@ -10,9 +10,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { AlertRepository, getAuthError } from '@nagiyu/stock-tracker-core';
+import { getAuthError } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
+import { createAlertRepository } from '../../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数
@@ -156,7 +157,7 @@ export async function POST(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const alertRepo = new AlertRepository(docClient, tableName);
+    const alertRepo = createAlertRepository(docClient, tableName);
 
     // ユーザーの全アラートを取得
     const result = await alertRepo.getByUserId(userId, 100);

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import {
   WatchlistRepository,
-  TickerRepository,
   getAuthError,
   validateWatchlist,
   type Watchlist,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
+import { createTickerRepository } from '../../../lib/repository-factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
 
     const watchlistItems = [];
     for (const item of result.items) {
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
     const newWatchlist = await watchlistRepo.create(watchlistData);
 
     // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
     let ticker;
     try {
       ticker = await tickerRepo.getById(newWatchlist.TickerID);

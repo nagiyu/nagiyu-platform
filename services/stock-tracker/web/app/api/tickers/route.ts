@@ -13,7 +13,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  TickerRepository,
   ExchangeRepository,
   getAuthError,
   TickerAlreadyExistsError,
@@ -21,6 +20,7 @@ import {
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
+import { createTickerRepository } from '../../../lib/repository-factory';
 
 /**
  * エラーメッセージ定数
@@ -120,7 +120,7 @@ export async function GET(
     // DynamoDBクライアントとリポジトリの初期化
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
 
     // ティッカー一覧取得
     let tickers;
@@ -229,7 +229,7 @@ export async function POST(
     const docClient = getDynamoDBClient();
     const tableName = getTableName();
     const exchangeRepo = new ExchangeRepository(docClient, tableName);
-    const tickerRepo = new TickerRepository(docClient, tableName);
+    const tickerRepo = createTickerRepository(docClient, tableName);
 
     // 取引所の存在確認と Key 取得
     const exchange = await exchangeRepo.getById(body.exchangeId);
