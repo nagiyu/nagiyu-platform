@@ -21,9 +21,6 @@ export function Navigation() {
         <Button color="inherit" onClick={() => router.push('/mylist')}>
           動画管理
         </Button>
-        <Button color="inherit" onClick={() => router.push('/register')}>
-          マイリスト登録
-        </Button>
         <Button color="inherit" onClick={() => router.push('/mylist/register')}>
           マイリスト登録
         </Button>
