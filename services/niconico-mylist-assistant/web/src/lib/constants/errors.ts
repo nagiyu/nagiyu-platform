@@ -22,4 +22,16 @@ export const ERROR_MESSAGES = {
 
   // サーバーエラー
   INTERNAL_SERVER_ERROR: 'サーバーエラーが発生しました',
+
+  // バッチジョブエラー
+  MAX_COUNT_MUST_BE_NUMBER: 'maxCount は数値である必要があります',
+  MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 50 以下である必要があります',
+  MYLIST_NAME_REQUIRED: 'mylistName は必須です',
+  MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
+  NICONICO_ACCOUNT_REQUIRED: 'ニコニコアカウント情報は必須です',
+  NICONICO_EMAIL_REQUIRED: 'メールアドレスは必須です',
+  NICONICO_PASSWORD_REQUIRED: 'パスワードは必須です',
+  NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',
+  BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
+  DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
 } as const;
