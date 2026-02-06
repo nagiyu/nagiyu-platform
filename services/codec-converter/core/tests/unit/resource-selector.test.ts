@@ -153,7 +153,7 @@ describe('selectJobDefinition', () => {
     });
 
     it('不正なコーデックタイプの場合はエラーをスローする', () => {
-      // TypeScript の型チェックを回避するため、意図的に any にキャスト
+      // TypeScript の型チェックを回避するため、意図的に CodecType にキャスト
       const invalidCodec = 'invalid' as CodecType;
       expect(() => selectJobDefinition(100 * 1024 * 1024, invalidCodec)).toThrow(
         'コーデックタイプが不正です'
@@ -161,7 +161,7 @@ describe('selectJobDefinition', () => {
     });
 
     it('空文字のコーデックタイプの場合はエラーをスローする', () => {
-      // TypeScript の型チェックを回避するため、意図的に any にキャスト
+      // TypeScript の型チェックを回避するため、意図的に CodecType にキャスト
       const emptyCodec = '' as CodecType;
       expect(() => selectJobDefinition(100 * 1024 * 1024, emptyCodec)).toThrow(
         'コーデックタイプが不正です'
@@ -169,7 +169,7 @@ describe('selectJobDefinition', () => {
     });
 
     it('h265 などのサポート外コーデックの場合はエラーをスローする', () => {
-      // TypeScript の型チェックを回避するため、意図的に any にキャスト
+      // TypeScript の型チェックを回避するため、意図的に CodecType にキャスト
       const unsupportedCodec = 'h265' as CodecType;
       expect(() =>
         selectJobDefinition(100 * 1024 * 1024, unsupportedCodec)

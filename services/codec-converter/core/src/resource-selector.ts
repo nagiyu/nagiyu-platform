@@ -71,7 +71,7 @@ export function selectJobDefinition(
       case 'h264':
         return 'medium'; // 2 vCPU, 4096 MB
       case 'vp9':
-        return 'large'; // 2 vCPU, 8192 MB
+        return 'large'; // 4 vCPU, 8192 MB
       case 'av1':
         return 'large'; // 4 vCPU, 8192 MB
     }
