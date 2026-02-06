@@ -162,9 +162,175 @@ function calculateTargetPriceFromPercentage(
 ### Phase 1: 準備と調査
 
 - [x] 既存のアラート設定機能の仕様を確認
-- [ ] `AlertSettingsModal.tsx` のコード構造を理解
-- [ ] `holdings/page.tsx` から渡される `defaultTargetPrice` の仕組みを確認
-- [ ] テスト環境のセットアップ確認
+- [x] `AlertSettingsModal.tsx` のコード構造を理解
+- [x] `holdings/page.tsx` から渡される `defaultTargetPrice` の仕組みを確認
+- [x] テスト環境のセットアップ確認
+
+#### 調査結果
+
+##### 1. AlertSettingsModal.tsx のコード構造
+
+**ファイル**: `services/stock-tracker/web/components/AlertSettingsModal.tsx`
+
+**Props定義** (34-44行):
+```typescript
+interface AlertSettingsModalProps {
+  open: boolean;
+  onClose: () => void;
+  onSuccess?: () => void;
+  tickerId: string;
+  symbol: string;
+  exchangeId: string;
+  mode: 'Buy' | 'Sell';
+  defaultTargetPrice?: number;
+}
+```
+
+**FormData型定義** (47-55行):
+```typescript
+interface FormData {
+  conditionMode: 'single' | 'range';
+  operator: 'gte' | 'lte'; // 単一条件の場合のみ
+  targetPrice: string; // 単一条件の場合のみ
+  rangeType: 'inside' | 'outside'; // 範囲指定の場合のみ
+  minPrice: string; // 範囲指定の場合のみ
+  maxPrice: string; // 範囲指定の場合のみ
+  frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+}
+```
+
+**主要な状態管理**:
+- `formData`: フォームの入力データ (94行)
+- `formErrors`: バリデーションエラー (95行)
+- `submitting`: 送信中フラグ (98行)
+- `error`: エラーメッセージ (99行)
+- `subscription`: Web Push サブスクリプション (100行)
+
+**初期化ロジック** (103-113行):
+- モーダルが開いた時に `getInitialFormData()` でフォームをリセット
+- `defaultTargetPrice` が提供されている場合、`targetPrice` フィールドに設定
+- エラーとサブスクリプションをクリア
+
+**バリデーション関数** `validateForm()` (189-243行):
+- 単一条件モード: `targetPrice` が0.01～1,000,000の範囲内か検証
+- 範囲指定モード: `minPrice` と `maxPrice` が有効範囲内か、かつ `minPrice < maxPrice` か検証
+- エラーメッセージは `ERROR_MESSAGES` 定数から取得
+
+**UI構造**:
+1. **条件タイプ選択** (395-408行): 単一条件 or 範囲指定
+2. **単一条件モード** (410-449行):
+    - 条件選択 (以上/以下)
+    - 目標価格入力 (TextField)
+    - helperText に `defaultTargetPrice` から計算された推奨値を表示 (442-444行)
+3. **範囲指定モード** (451-503行):
+    - 範囲タイプ選択 (範囲内AND / 範囲外OR)
+    - 最小価格・最大価格入力 (TextField)
+4. **通知頻度選択** (505-523行)
+
+**現在の `defaultTargetPrice` の利用方法** (442-444行):
+```typescript
+helperText={
+  formErrors.targetPrice ||
+  (defaultTargetPrice && defaultTargetPrice > 0
+    ? `推奨値: ${defaultTargetPrice.toFixed(2)} (平均取得価格 × 1.2)`
+    : '')
+}
+```
+
+##### 2. holdings/page.tsx からの defaultTargetPrice の渡し方
+
+**ファイル**: `services/stock-tracker/web/app/holdings/page.tsx`
+
+**AlertSettingsModal の呼び出し** (916-925行):
+```typescript
+<AlertSettingsModal
+  open={alertModalOpen}
+  onClose={handleCloseAlertModal}
+  onSuccess={handleAlertSuccess}
+  tickerId={selectedHolding.tickerId}
+  symbol={selectedHolding.symbol}
+  exchangeId={selectedHolding.tickerId.split(':')[0] || ''}
+  mode="Sell"
+  defaultTargetPrice={selectedHolding.averagePrice * 1.2}
+/>
+```
+
+**重要な発見**:
+- `defaultTargetPrice` は保有株の平均取得価格（`averagePrice`）に1.2を掛けた値
+- これは**Sellアラート**（売りアラート）専用の推奨値として提供
+- ウォッチリストからのBuyアラートには `defaultTargetPrice` が渡されない（undefined）
+
+##### 3. ウォッチリストからのアラート設定
+
+**ファイル**: `services/stock-tracker/web/app/watchlist/page.tsx`
+
+**AlertSettingsModal の呼び出し** (515-524行):
+```typescript
+<AlertSettingsModal
+  open={alertModalOpen}
+  onClose={handleCloseAlertModal}
+  onSuccess={handleAlertSuccess}
+  tickerId={selectedWatchlistItem.tickerId}
+  symbol={selectedWatchlistItem.symbol}
+  exchangeId={selectedWatchlistItem.tickerId.split(':')[0] || ''}
+  mode="Buy"
+/>
+```
+
+- `defaultTargetPrice` prop は渡されない（undefined）
+- これは**Buyアラート**（買いアラート）専用
+
+##### 4. テスト環境の確認
+
+**ユニットテスト (Jest)**:
+- 設定ファイル: `jest.config.js` (存在確認済み)
+- テストコマンド: `npm test`
+- カバレッジ: `npm run test:coverage`
+- 現在のテストファイル:
+    - `tests/unit/lib/repository-factory.test.ts`
+    - `tests/unit/helpers/cleanup.test.ts`
+
+**E2Eテスト (Playwright)**:
+- 設定ファイル: `playwright.config.ts`
+- テストコマンド: `npm run test:e2e`
+- デバイス: chromium-mobile (Fast CI)
+- 関連テストファイル:
+    - `tests/e2e/alert-management.spec.ts` (アラート設定フロー全般)
+    - `tests/e2e/holding-management.spec.ts` (保有株管理)
+    - `tests/e2e/watchlist-management.spec.ts` (ウォッチリスト管理)
+
+**テスト環境の動作確認**:
+- ✅ 依存関係のインストール完了 (`npm install`)
+- ✅ Jest のテストリスト取得成功 (`npm test -- --listTests`)
+- ✅ Playwright のテストリスト取得成功 (`npx playwright test --list`)
+- ✅ 既存のアラート設定E2Eテストが存在（単一条件、範囲指定、バリデーション等）
+
+##### 5. Phase 2以降の実装に向けた重要事項
+
+**Props拡張の方針**:
+- 新しく `basePrice?: number` prop を追加（パーセンテージ計算の基準価格）
+- `defaultTargetPrice` は残すが、helperTextでの推奨値表示は削除
+- `holdings/page.tsx`: `basePrice={selectedHolding.averagePrice}` を渡す
+- `watchlist/page.tsx`: `basePrice` を渡さない（undefined のまま）
+
+**FormData拡張の方針**:
+- 単一条件モード用: `inputMode?: 'manual' | 'percentage'`, `percentage?: string`
+- 範囲指定モード用: `rangeInputMode?: 'manual' | 'percentage'`, `minPercentage?: string`, `maxPercentage?: string`
+
+**UI実装の方針**:
+- 既存の helperText による推奨値表示を削除
+- 各モードに「入力方式」選択ドロップダウンを追加
+- パーセンテージ選択時、計算結果をリアルタイムで表示
+
+**バリデーション追加事項**:
+- `basePrice` が undefined または 0以下の場合、パーセンテージモードを無効化
+- パーセンテージ選択時、計算結果が 0.01～1,000,000 の範囲内か検証
+- 範囲指定モードでパーセンテージ選択時、最小価格 < 最大価格の検証
+
+**テスト追加事項**:
+- パーセンテージ計算関数の単体テスト
+- 単一条件・範囲指定両方のバリデーションテスト
+- E2Eテストでパーセンテージ選択フローのテスト（alert-management.spec.ts に追加）
 
 ### Phase 2: フォームデータとインターフェースの拡張
 
