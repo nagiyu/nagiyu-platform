@@ -23,7 +23,14 @@
   "dependencies": {
     "@nagiyu/common": "*"
   },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1"
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.0",
+    "react": "^19.0.0"
   }
 }
