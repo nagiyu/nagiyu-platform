@@ -38,10 +38,7 @@ const FILE_SIZE_THRESHOLDS = {
  * selectJobDefinition(400 * 1024 * 1024, 'av1'); // 'xlarge'
  * ```
  */
-export function selectJobDefinition(
-  fileSize: number,
-  codecType: CodecType
-): JobDefinitionSize {
+export function selectJobDefinition(fileSize: number, codecType: CodecType): JobDefinitionSize {
   // バリデーション: ファイルサイズ
   if (fileSize < 0) {
     throw new Error(ERROR_MESSAGES.INVALID_FILE_SIZE);

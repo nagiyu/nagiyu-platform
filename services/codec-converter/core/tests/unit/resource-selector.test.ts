@@ -141,9 +141,7 @@ describe('selectJobDefinition', () => {
 
   describe('エラーハンドリング', () => {
     it('負のファイルサイズの場合はエラーをスローする', () => {
-      expect(() => selectJobDefinition(-1, 'h264')).toThrow(
-        'ファイルサイズが不正です'
-      );
+      expect(() => selectJobDefinition(-1, 'h264')).toThrow('ファイルサイズが不正です');
     });
 
     it('負のファイルサイズ（-100MB）の場合はエラーをスローする', () => {
@@ -171,9 +169,9 @@ describe('selectJobDefinition', () => {
     it('h265 などのサポート外コーデックの場合はエラーをスローする', () => {
       // TypeScript の型チェックを回避するため、意図的に CodecType にキャスト
       const unsupportedCodec = 'h265' as CodecType;
-      expect(() =>
-        selectJobDefinition(100 * 1024 * 1024, unsupportedCodec)
-      ).toThrow('コーデックタイプが不正です');
+      expect(() => selectJobDefinition(100 * 1024 * 1024, unsupportedCodec)).toThrow(
+        'コーデックタイプが不正です'
+      );
     });
   });
 
