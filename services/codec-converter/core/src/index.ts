@@ -22,3 +22,7 @@ export {
 
 // Format utilities
 export { formatFileSize, formatDateTime, formatJobId } from './format';
+
+// Resource selector
+export type { JobDefinitionSize } from './resource-selector';
+export { selectJobDefinition } from './resource-selector';
