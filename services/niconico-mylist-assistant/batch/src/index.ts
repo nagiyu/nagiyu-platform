@@ -4,6 +4,8 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
+import { decrypt } from '@niconico-mylist-assistant/core';
+import type { CryptoConfig } from '@niconico-mylist-assistant/core';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { ERROR_MESSAGES } from './constants.js';
 import { getTimestamp, generateDefaultMylistName } from './utils.js';
@@ -14,20 +16,25 @@ import { MylistRegistrationJobParams } from './types.js';
  */
 function readEnvironmentVariables(): {
   dynamodbTableName: string;
-  sharedSecretKey: string;
+  encryptionSecretName: string;
+  awsRegion: string;
   nodeEnv: string;
 } {
   const dynamodbTableName = process.env.DYNAMODB_TABLE_NAME || '';
-  const sharedSecretKey = process.env.SHARED_SECRET_KEY || '';
+  const encryptionSecretName = process.env.ENCRYPTION_SECRET_NAME || '';
+  const awsRegion = process.env.AWS_REGION || 'us-east-1';
   const nodeEnv = process.env.NODE_ENV || 'development';
 
   console.log('=== 環境変数 ===');
   console.log(`DYNAMODB_TABLE_NAME: ${dynamodbTableName || '(not set)'}`);
-  console.log(`SHARED_SECRET_KEY: ${sharedSecretKey ? '(set)' : '(not set)'}`);
+  console.log(
+    `ENCRYPTION_SECRET_NAME: ${encryptionSecretName ? encryptionSecretName : '(not set)'}`
+  );
+  console.log(`AWS_REGION: ${awsRegion}`);
   console.log(`NODE_ENV: ${nodeEnv}`);
   console.log('================');
 
-  return { dynamodbTableName, sharedSecretKey, nodeEnv };
+  return { dynamodbTableName, encryptionSecretName, awsRegion, nodeEnv };
 }
 
 /**
@@ -70,14 +77,32 @@ function getJobParameters(): MylistRegistrationJobParams {
 
 /**
  * パスワードを復号化する
- * 注: 将来的に実装予定（現在はプレースホルダー）
+ *
+ * @param encryptedData - 暗号化されたパスワードデータ（JSON文字列）
+ * @param config - 暗号化設定
+ * @returns 復号化されたパスワード
  */
-function decryptPassword(encryptedPassword: string): string {
-  // TODO: AES-256で復号化する実装
-  // secretKey は環境変数 SHARED_SECRET_KEY から取得予定
-  // 現在は暗号化されていない状態で受け取ることを想定
+async function decryptPassword(
+  encryptedData: string,
+  config: CryptoConfig
+): Promise<string> {
   console.log('パスワードを復号化中...');
-  return encryptedPassword;
+
+  try {
+    // JSON文字列をパースして EncryptedData オブジェクトを取得
+    const encrypted = JSON.parse(encryptedData);
+
+    // core/crypto.ts の decrypt 関数を使用して復号化
+    const password = await decrypt(encrypted, config);
+
+    console.log('パスワードの復号化に成功しました');
+    return password;
+  } catch (error) {
+    console.error('パスワードの復号化に失敗しました:', error);
+    throw new Error(
+      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 /**
@@ -91,14 +116,20 @@ async function main() {
   console.log('========================================');
 
   try {
-    // 環境変数の読み取り（現在は表示のみ）
-    readEnvironmentVariables();
+    // 環境変数の読み取り
+    const env = readEnvironmentVariables();
 
     // ジョブパラメータの取得
     const params = getJobParameters();
 
+    // 暗号化設定の作成
+    const cryptoConfig: CryptoConfig = {
+      secretName: env.encryptionSecretName,
+      region: env.awsRegion,
+    };
+
     // パスワードの復号化
-    const password = decryptPassword(params.encryptedPassword);
+    const password = await decryptPassword(params.encryptedPassword, cryptoConfig);
 
     console.log('');
     console.log('Playwright自動化処理を開始します...');

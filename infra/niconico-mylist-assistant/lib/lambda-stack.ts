@@ -51,6 +51,8 @@ export class LambdaStack extends cdk.Stack {
       envName: environment,
       batchJobQueueArn,
       batchJobDefinitionArn,
+      region: this.region,
+      accountId: this.account,
     });
 
     // Web Lambda 用の実行ロール
@@ -85,6 +87,8 @@ export class LambdaStack extends cdk.Stack {
         AUTH_SECRET: nextAuthSecret,
         BATCH_JOB_QUEUE: batchJobQueueArn,
         BATCH_JOB_DEFINITION: batchJobDefinitionArn,
+        ENCRYPTION_SECRET_NAME: 'niconico-mylist-assistant/shared-secret-key',
+        AWS_REGION_FOR_SDK: this.region,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日

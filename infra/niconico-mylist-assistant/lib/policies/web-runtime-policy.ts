@@ -25,6 +25,16 @@ export interface WebRuntimePolicyProps {
    * Batch Job Definition ARN
    */
   batchJobDefinitionArn: string;
+
+  /**
+   * AWS リージョン
+   */
+  region: string;
+
+  /**
+   * AWS アカウント ID
+   */
+  accountId: string;
 }
 
 /**
@@ -40,6 +50,7 @@ export interface WebRuntimePolicyProps {
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem)
  * - AWS Batch: ジョブ投入 (SubmitJob)
+ * - Secrets Manager: 暗号化キーの読み取り (GetSecretValue)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
 export class WebRuntimePolicy extends iam.ManagedPolicy {
@@ -79,6 +90,18 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
         effect: iam.Effect.ALLOW,
         actions: ['batch:SubmitJob'],
         resources: [props.batchJobQueueArn, props.batchJobDefinitionArn],
+      })
+    );
+
+    // Secrets Manager 権限: 暗号化キーの読み取り
+    this.addStatements(
+      new iam.PolicyStatement({
+        sid: 'SecretsManagerAccess',
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          `arn:aws:secretsmanager:${props.region}:${props.accountId}:secret:niconico-mylist-assistant/shared-secret-key-*`,
+        ],
       })
     );
   }

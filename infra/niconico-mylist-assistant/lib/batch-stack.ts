@@ -20,11 +20,10 @@ export interface BatchStackProps extends cdk.StackProps {
  * 最小リソース設定（vCPU 0.25, メモリ 512 MB）で、
  * ダミー処理を実行するための基盤を提供します（Milestone 1）。
  *
- * Milestone 5 で実際のマイリスト登録処理に対応する際は、
- * 以下の追加設定が必要になります:
- * - BatchRuntimePolicy に Secrets Manager の権限追加
- * - SHARED_SECRET_KEY 環境変数の追加（Secrets Manager参照）
- * - タイムアウトを1800秒（30分）に延長
+ * セキュリティ設定:
+ * - BatchRuntimePolicy に Secrets Manager の権限を付与
+ * - ENCRYPTION_SECRET_NAME 環境変数で暗号化キーを参照
+ * - タイムアウトは900秒（15分）に設定（Milestone 5 では1800秒に延長予定）
  */
 export class BatchStack extends cdk.Stack {
   public readonly jobQueueArn: string;
@@ -102,6 +101,8 @@ export class BatchStack extends cdk.Stack {
       dynamoTableArn,
       logGroupName: batchLogGroup.logGroupName,
       envName: environment,
+      region: this.region,
+      accountId: this.account,
     });
 
     // IAM Role for Batch Job (コンテナランタイム用)
@@ -178,8 +179,10 @@ export class BatchStack extends cdk.Stack {
             name: 'AWS_REGION',
             value: this.region,
           },
-          // Milestone 5 で追加予定:
-          // - SHARED_SECRET_KEY: Secrets Manager からの参照
+          {
+            name: 'ENCRYPTION_SECRET_NAME',
+            value: 'niconico-mylist-assistant/shared-secret-key',
+          },
         ],
       },
       retryStrategy: {
