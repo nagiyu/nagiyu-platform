@@ -5,13 +5,11 @@
  * React アプリケーションでの利用を容易にする
  */
 
-import {
-  apiRequest,
-  type APIRequestOptions,
-  type RetryConfig,
-  APIError,
-  type ErrorInfo,
-} from '@nagiyu/common';
+import { apiRequest, type APIRequestOptions } from '@nagiyu/common';
+
+// 型と定数を再エクスポート
+export type { APIRequestOptions, RetryConfig, ErrorInfo } from '@nagiyu/common';
+export { APIError } from '@nagiyu/common';
 
 /**
  * API Client クラス
@@ -35,16 +33,19 @@ import {
  * ```
  */
 export class ApiClient {
+  private readonly baseUrl: string;
+  private readonly defaultOptions: APIRequestOptions;
+
   /**
    * API Client を作成
    *
    * @param baseUrl - ベースURL（デフォルト: ''）
    * @param defaultOptions - デフォルトのリクエストオプション
    */
-  constructor(
-    private readonly baseUrl: string = '',
-    private readonly defaultOptions: APIRequestOptions = {}
-  ) {}
+  constructor(baseUrl: string = '', defaultOptions: APIRequestOptions = {}) {
+    this.baseUrl = baseUrl;
+    this.defaultOptions = defaultOptions;
+  }
 
   /**
    * APIリクエストを実行
@@ -54,7 +55,7 @@ export class ApiClient {
    * @param options - リクエストオプション
    * @returns レスポンスデータ
    */
-  async request<T = unknown>(url: string, options: APIRequestOptions = {}): Promise<T> {
+  public async request<T = unknown>(url: string, options: APIRequestOptions = {}): Promise<T> {
     const fullUrl = this.baseUrl + url;
     const mergedOptions = {
       ...this.defaultOptions,
@@ -76,7 +77,7 @@ export class ApiClient {
    * @param options - リクエストオプション（method と body は除外）
    * @returns レスポンスデータ
    */
-  async get<T = unknown>(
+  public async get<T = unknown>(
     url: string,
     options: Omit<APIRequestOptions, 'method' | 'body'> = {}
   ): Promise<T> {
@@ -92,7 +93,7 @@ export class ApiClient {
    * @param options - リクエストオプション（method と body は除外）
    * @returns レスポンスデータ
    */
-  async post<T = unknown>(
+  public async post<T = unknown>(
     url: string,
     body: unknown,
     options: Omit<APIRequestOptions, 'method' | 'body'> = {}
@@ -117,7 +118,7 @@ export class ApiClient {
    * @param options - リクエストオプション（method と body は除外）
    * @returns レスポンスデータ
    */
-  async put<T = unknown>(
+  public async put<T = unknown>(
     url: string,
     body: unknown,
     options: Omit<APIRequestOptions, 'method' | 'body'> = {}
@@ -141,14 +142,10 @@ export class ApiClient {
    * @param options - リクエストオプション（method と body は除外）
    * @returns レスポンスデータ
    */
-  async delete<T = unknown>(
+  public async delete<T = unknown>(
     url: string,
     options: Omit<APIRequestOptions, 'method' | 'body'> = {}
   ): Promise<T> {
     return this.request<T>(url, { ...options, method: 'DELETE' });
   }
 }
-
-// 型とクラスを再エクスポート
-export { APIError } from '@nagiyu/common';
-export type { APIRequestOptions, RetryConfig, ErrorInfo } from '@nagiyu/common';
