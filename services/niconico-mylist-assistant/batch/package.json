@@ -1,6 +1,7 @@
 {
   "name": "@nagiyu/niconico-mylist-assistant-batch",
   "version": "1.0.0",
+  "type": "module",
   "description": "Batch job for niconico mylist registration",
   "main": "dist/index.js",
   "scripts": {
