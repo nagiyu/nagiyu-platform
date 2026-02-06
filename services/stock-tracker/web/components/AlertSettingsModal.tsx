@@ -31,6 +31,10 @@ const ERROR_MESSAGES = {
   CREATE_ALERT_ERROR: 'アラートの登録に失敗しました',
 } as const;
 
+// パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
+
 // プロパティ型定義
 interface AlertSettingsModalProps {
   open: boolean;
@@ -41,6 +45,7 @@ interface AlertSettingsModalProps {
   exchangeId: string;
   mode: 'Buy' | 'Sell';
   defaultTargetPrice?: number;
+  basePrice?: number; // パーセンテージ計算の基準価格
 }
 
 // フォームデータ型
@@ -52,6 +57,13 @@ interface FormData {
   minPrice: string; // 範囲指定の場合のみ
   maxPrice: string; // 範囲指定の場合のみ
   frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+  // パーセンテージ選択用フィールド（単一条件モード用）
+  inputMode?: 'manual' | 'percentage';
+  percentage?: string; // -20 ～ +20
+  // パーセンテージ選択用フィールド（範囲指定モード用）
+  rangeInputMode?: 'manual' | 'percentage';
+  minPercentage?: string; // -20 ～ +20
+  maxPercentage?: string; // -20 ～ +20
 }
 
 // アラート作成リクエストボディ型
@@ -78,6 +90,12 @@ const getInitialFormData = (mode: 'Buy' | 'Sell'): FormData => ({
   minPrice: '',
   maxPrice: '',
   frequency: 'MINUTE_LEVEL',
+  // パーセンテージ選択用フィールドのデフォルト値
+  inputMode: 'manual',
+  percentage: '',
+  rangeInputMode: 'manual',
+  minPercentage: '',
+  maxPercentage: '',
 });
 
 export default function AlertSettingsModal({
@@ -89,6 +107,8 @@ export default function AlertSettingsModal({
   exchangeId,
   mode,
   defaultTargetPrice,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  basePrice,
 }: AlertSettingsModalProps) {
   // フォームデータ
   const [formData, setFormData] = useState<FormData>(getInitialFormData(mode));
