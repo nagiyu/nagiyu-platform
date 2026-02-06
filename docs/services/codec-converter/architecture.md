@@ -371,7 +371,7 @@ Phase 2以降では、ジョブの特性（ファイルサイズ、出力コー�
     - `DYNAMODB_TABLE`: `codec-converter-jobs-{env}`
     - `S3_BUCKET`: `codec-converter-storage-{env}`
     - `BATCH_JOB_QUEUE`: Batch Job Queue名
-    - `BATCH_JOB_DEFINITION`: Batch Job Definition名
+    - `BATCH_JOB_DEFINITION_PREFIX`: Batch Job Definition名のプレフィックス（動的リソース配分用）
     - `AWS_REGION`: リージョン
 
 **Function URL**:
@@ -675,8 +675,10 @@ Codec Converter には開発用 IAM ユーザー (`codec-converter-dev-{env}`) �
 | `DYNAMODB_TABLE` | DynamoDBテーブル名 | `codec-converter-jobs-dev` |
 | `S3_BUCKET` | S3バケット名 | `codec-converter-storage-dev` |
 | `BATCH_JOB_QUEUE` | Batchジョブキュー名 | `codec-converter-queue-dev` |
-| `BATCH_JOB_DEFINITION` | Batchジョブ定義名 | `codec-converter-job-dev` |
+| `BATCH_JOB_DEFINITION_PREFIX` | Batchジョブ定義名のプレフィックス | `codec-converter-dev` |
 | `AWS_REGION` | AWSリージョン | `us-east-1` |
+
+**注**: Phase 2 で `BATCH_JOB_DEFINITION_PREFIX` に変更。アプリケーションはこのプレフィックスに `-small`, `-medium`, `-large`, `-xlarge` を付加してジョブ定義を選択します。
 
 #### Batch Worker環境変数（動的、containerOverridesで渡す）
 
