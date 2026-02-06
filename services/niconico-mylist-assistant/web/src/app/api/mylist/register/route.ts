@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { listVideosWithSettings } from '@nagiyu/niconico-mylist-assistant-core';
+import { listVideosWithSettings, encrypt } from '@nagiyu/niconico-mylist-assistant-core';
+import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { getAwsClients } from '@/lib/aws-clients';
@@ -47,6 +48,8 @@ function getEnvVars() {
     BATCH_JOB_DEFINITION: process.env.BATCH_JOB_DEFINITION || '',
     DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
+    ENCRYPTION_SECRET_NAME: process.env.ENCRYPTION_SECRET_NAME || '',
+    AWS_REGION_FOR_SDK: process.env.AWS_REGION_FOR_SDK || process.env.AWS_REGION || 'us-east-1',
   };
 }
 
@@ -216,20 +219,42 @@ export async function POST(
 
     // AWS Batch ジョブを投入
     const { batchClient } = getAwsClients();
-    const { BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION, DYNAMODB_TABLE_NAME, AWS_REGION } = getEnvVars();
+    const {
+      BATCH_JOB_QUEUE,
+      BATCH_JOB_DEFINITION,
+      DYNAMODB_TABLE_NAME,
+      AWS_REGION,
+      ENCRYPTION_SECRET_NAME,
+      AWS_REGION_FOR_SDK,
+    } = getEnvVars();
 
     const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
-    // TODO: セキュリティ改善
-    // 現在、ニコニコアカウントの認証情報（パスワード）を環境変数として
-    // Batchジョブに渡しています。本番運用では以下のいずれかの方法で
-    // セキュリティを強化する必要があります：
-    // 1. AWS Secrets Manager を使用して認証情報を暗号化保存
-    // 2. Systems Manager Parameter Store（SecureString）を使用
-    // 3. 暗号化ユーティリティ（core/utils/crypto.ts）を使用してクライアント側で暗号化
-    //
-    // 参照: roadmap.md Issue 5-1 (暗号化ユーティリティ実装)
+    // パスワードの暗号化
+    // AES-256-GCM で暗号化し、Batch ジョブに安全に渡す
+    const cryptoConfig: CryptoConfig = {
+      secretName: ENCRYPTION_SECRET_NAME,
+      region: AWS_REGION_FOR_SDK,
+    };
+
+    let encryptedPasswordJson: string;
+    try {
+      const encryptedData = await encrypt(body.niconicoAccount.password, cryptoConfig);
+      encryptedPasswordJson = JSON.stringify(encryptedData);
+    } catch (error) {
+      console.error('パスワード暗号化エラー:', error);
+      return NextResponse.json(
+        {
+          error: {
+            code: 'ENCRYPTION_ERROR',
+            message: ERROR_MESSAGES.PASSWORD_ENCRYPTION_FAILED,
+            details: error instanceof Error ? error.message : String(error),
+          },
+        },
+        { status: 500 }
+      );
+    }
 
     const submitResult = await batchClient.send(
       new SubmitJobCommand({
@@ -242,7 +267,7 @@ export async function POST(
             { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
             { name: 'MYLIST_NAME', value: body.mylistName },
             { name: 'NICONICO_EMAIL', value: body.niconicoAccount.email },
-            { name: 'NICONICO_PASSWORD', value: body.niconicoAccount.password },
+            { name: 'ENCRYPTED_PASSWORD', value: encryptedPasswordJson },
             { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
             { name: 'AWS_REGION', value: AWS_REGION },
           ],
