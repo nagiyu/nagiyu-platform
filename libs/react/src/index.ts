@@ -9,3 +9,7 @@
 // Export React hooks
 export { useAPIRequest } from './hooks';
 export type { UseAPIRequestOptions, UseAPIRequestReturn } from './hooks';
+
+// Export API Client
+export { ApiClient, APIError } from './api-client';
+export type { APIRequestOptions, RetryConfig, ErrorInfo } from './api-client';
