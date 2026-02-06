@@ -13,15 +13,3 @@ export type { UseAPIRequestOptions, UseAPIRequestReturn } from './hooks';
 // Export API Client
 export { ApiClient, APIError } from './api-client';
 export type { APIRequestOptions, RetryConfig, ErrorInfo } from './api-client';
-
-// Export error handling utilities
-export {
-  getErrorTypeFromStatus,
-  parseErrorResponse,
-  handleFetchError,
-  mapAPIErrorToMessage,
-  isRetryableError,
-  extractErrorInfo,
-  COMMON_ERROR_MESSAGES,
-} from './error-handler';
-export type { ErrorType, APIErrorResponse, ErrorResponse } from './error-handler';
