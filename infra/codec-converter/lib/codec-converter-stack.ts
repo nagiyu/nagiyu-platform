@@ -172,7 +172,7 @@ export class CodecConverterStack extends cdk.Stack {
         state: 'ENABLED',
         computeResources: {
           type: 'FARGATE',
-          maxvCpus: 6, // 3 jobs × 2 vCPU each
+          maxvCpus: 16, // Supports multiple job sizes: small (1 vCPU) to xlarge (4 vCPU)
           subnets: publicSubnets.subnetIds,
           securityGroupIds: [batchSecurityGroup.securityGroupId],
         },
@@ -198,66 +198,81 @@ export class CodecConverterStack extends cdk.Stack {
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
 
-      // Batch Job Definition - L1 construct for AssignPublicIp support
+      // Batch Job Definitions - Multiple definitions for dynamic resource allocation
       const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
-      const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
-        jobDefinitionName: `codec-converter-${envName}`,
-        type: 'container',
-        platformCapabilities: ['FARGATE'],
-        containerProperties: {
-          image: `${workerEcrRepository.repositoryUri}:${workerImageTag}`,
-          resourceRequirements: [
-            {
-              type: 'VCPU',
-              value: '2',
+
+      // Define resource configurations for each job size
+      const jobDefinitions = [
+        { size: 'small', vcpu: '1', memory: '2048' },
+        { size: 'medium', vcpu: '2', memory: '4096' },
+        { size: 'large', vcpu: '4', memory: '8192' },
+        { size: 'xlarge', vcpu: '4', memory: '16384' },
+      ];
+
+      // Create job definitions using a loop (DRY principle)
+      const createdJobDefinitions = jobDefinitions.map((config) => {
+        return new batch.CfnJobDefinition(this, `JobDefinition-${config.size}`, {
+          jobDefinitionName: `codec-converter-${envName}-${config.size}`,
+          type: 'container',
+          platformCapabilities: ['FARGATE'],
+          containerProperties: {
+            image: `${workerEcrRepository.repositoryUri}:${workerImageTag}`,
+            resourceRequirements: [
+              {
+                type: 'VCPU',
+                value: config.vcpu,
+              },
+              {
+                type: 'MEMORY',
+                value: config.memory,
+              },
+            ],
+            executionRoleArn: batchJobExecutionRole.roleArn,
+            jobRoleArn: batchJobRole.roleArn,
+            networkConfiguration: {
+              assignPublicIp: 'ENABLED',
             },
-            {
-              type: 'MEMORY',
-              value: '4096',
+            logConfiguration: {
+              logDriver: 'awslogs',
+              options: {
+                'awslogs-group': batchLogGroup.logGroupName,
+                'awslogs-region': this.region,
+                'awslogs-stream-prefix': 'batch',
+              },
             },
-          ],
-          executionRoleArn: batchJobExecutionRole.roleArn,
-          jobRoleArn: batchJobRole.roleArn,
-          networkConfiguration: {
-            assignPublicIp: 'ENABLED',
+            environment: [
+              {
+                name: 'DYNAMODB_TABLE',
+                value: jobsTable.tableName,
+              },
+              {
+                name: 'S3_BUCKET',
+                value: storageBucket.bucketName,
+              },
+              {
+                name: 'AWS_REGION',
+                value: this.region,
+              },
+            ],
           },
-          logConfiguration: {
-            logDriver: 'awslogs',
-            options: {
-              'awslogs-group': batchLogGroup.logGroupName,
-              'awslogs-region': this.region,
-              'awslogs-stream-prefix': 'batch',
-            },
+          retryStrategy: {
+            attempts: 2, // 1 retry = 2 attempts total
           },
-          environment: [
-            {
-              name: 'DYNAMODB_TABLE',
-              value: jobsTable.tableName,
-            },
-            {
-              name: 'S3_BUCKET',
-              value: storageBucket.bucketName,
-            },
-            {
-              name: 'AWS_REGION',
-              value: this.region,
-            },
-          ],
-        },
-        retryStrategy: {
-          attempts: 2, // 1 retry = 2 attempts total
-        },
-        timeout: {
-          attemptDurationSeconds: 7200, // 2 hours
-        },
+          timeout: {
+            attemptDurationSeconds: 7200, // 2 hours
+          },
+        });
       });
+
+      // Keep reference to medium job definition for backward compatibility (default)
+      const jobDefinition = createdJobDefinitions[1]; // medium is at index 1
 
       // Application Runtime Policy (shared by Lambda and developers)
       const appRuntimePolicy = new AppRuntimePolicy(this, 'AppRuntimePolicy', {
         storageBucket,
         jobsTable,
         jobQueueArn: jobQueue.attrJobQueueArn,
-        jobDefinitionName: jobDefinition.jobDefinitionName!,
+        jobDefinitionPrefix: `codec-converter-${envName}`,
         envName,
       });
 
@@ -294,7 +309,7 @@ export class CodecConverterStack extends cdk.Stack {
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
           BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
-          BATCH_JOB_DEFINITION: jobDefinition.jobDefinitionName || `codec-converter-${envName}`,
+          BATCH_JOB_DEFINITION_PREFIX: `codec-converter-${envName}`, // Prefix for all job definitions (e.g., codec-converter-dev-small)
           // AWS_REGION is automatically provided by Lambda runtime
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself

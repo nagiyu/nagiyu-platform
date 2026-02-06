@@ -68,6 +68,21 @@ test('Lambda Function URL Created', () => {
   });
 });
 
+test('Lambda has correct environment variables for Batch', () => {
+  const { stack } = createTestStack();
+  const template = Template.fromStack(stack);
+
+  // Lambda should have BATCH_JOB_DEFINITION_PREFIX instead of BATCH_JOB_DEFINITION
+  template.hasResourceProperties('AWS::Lambda::Function', {
+    Environment: {
+      Variables: Match.objectLike({
+        BATCH_JOB_DEFINITION_PREFIX: Match.stringLikeRegexp('codec-converter-.*'),
+        BATCH_JOB_QUEUE: Match.stringLikeRegexp('codec-converter-.*'),
+      }),
+    },
+  });
+});
+
 test('CloudFront Distribution Created', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
@@ -102,7 +117,7 @@ test('Batch Compute Environment Created with correct configuration', () => {
   template.hasResourceProperties('AWS::Batch::ComputeEnvironment', {
     Type: 'MANAGED',
     ComputeResources: {
-      MaxvCpus: 6,
+      MaxvCpus: 16, // Updated from 6 to 16 for dynamic resource allocation
       Type: 'FARGATE',
     },
   });
@@ -117,41 +132,58 @@ test('Batch Job Queue Created', () => {
   });
 });
 
-test('Batch Job Definition Created with correct resources', () => {
+test('Batch Job Definitions Created with correct resources', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
-  // Just verify the resource exists and has basic properties
-  template.resourceCountIs('AWS::Batch::JobDefinition', 1);
+  // Should have 4 job definitions (small, medium, large, xlarge)
+  template.resourceCountIs('AWS::Batch::JobDefinition', 4);
 
-  const jobDefResource = template.findResources('AWS::Batch::JobDefinition');
-  const jobDef = Object.values(jobDefResource)[0];
+  const jobDefResources = template.findResources('AWS::Batch::JobDefinition');
+  const jobDefs = Object.values(jobDefResources);
 
-  expect(jobDef.Properties.Type).toBe('container');
-  expect(jobDef.Properties.PlatformCapabilities).toContain('FARGATE');
-  expect(jobDef.Properties.Timeout.AttemptDurationSeconds).toBe(7200);
+  // All job definitions should have common properties
+  jobDefs.forEach((jobDef) => {
+    expect(jobDef.Properties.Type).toBe('container');
+    expect(jobDef.Properties.PlatformCapabilities).toContain('FARGATE');
+    expect(jobDef.Properties.Timeout.AttemptDurationSeconds).toBe(7200);
+  });
 
-  // Check resource requirements contain both VCPU and MEMORY
-  const resourceReqs = jobDef.Properties.ContainerProperties.ResourceRequirements;
-  const vcpuReq = resourceReqs.find((r: any) => r.Type === 'VCPU');
-  const memoryReq = resourceReqs.find((r: any) => r.Type === 'MEMORY');
+  // Expected resource configurations
+  const expectedConfigs = [
+    { size: 'small', vcpu: '1', memory: '2048' },
+    { size: 'medium', vcpu: '2', memory: '4096' },
+    { size: 'large', vcpu: '4', memory: '8192' },
+    { size: 'xlarge', vcpu: '4', memory: '16384' },
+  ];
 
-  expect(vcpuReq.Value).toBe('2');
-  expect(memoryReq.Value).toBe('4096');
+  // Verify each job definition has the correct resources
+  expectedConfigs.forEach((expectedConfig) => {
+    const matchingJobDef = jobDefs.find((jobDef) => {
+      const resourceReqs = jobDef.Properties.ContainerProperties.ResourceRequirements;
+      const vcpuReq = resourceReqs.find((r: any) => r.Type === 'VCPU');
+      const memoryReq = resourceReqs.find((r: any) => r.Type === 'MEMORY');
+      return vcpuReq.Value === expectedConfig.vcpu && memoryReq.Value === expectedConfig.memory;
+    });
+
+    expect(matchingJobDef).toBeDefined();
+  });
 });
 
 test('Lambda has Batch permissions', () => {
   const { stack } = createTestStack();
   const template = Template.fromStack(stack);
 
-  // Check for Batch SubmitJob permission in ManagedPolicy
-  // Note: CDK may serialize single-item action arrays as strings
+  // Check for Batch SubmitJob permission with wildcard pattern for multiple job definitions
   template.hasResourceProperties('AWS::IAM::ManagedPolicy', {
     PolicyDocument: {
       Statement: Match.arrayWith([
         Match.objectLike({
           Action: 'batch:SubmitJob',
           Effect: 'Allow',
+          Resource: Match.arrayWith([
+            Match.stringLikeRegexp('.*job-definition/codec-converter-.*-\\*'),
+          ]),
         }),
       ]),
     },
