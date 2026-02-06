@@ -37,10 +37,7 @@ export class BatchStack extends cdk.Stack {
     const env = environment as 'dev' | 'prod';
 
     // ECR リポジトリの参照
-    const batchEcrRepositoryName = getEcrRepositoryName(
-      'niconico-mylist-assistant-batch',
-      env
-    );
+    const batchEcrRepositoryName = getEcrRepositoryName('niconico-mylist-assistant-batch', env);
     const batchEcrRepository = ecr.Repository.fromRepositoryName(
       this,
       'BatchEcrRepository',
@@ -56,10 +53,10 @@ export class BatchStack extends cdk.Stack {
     const vpc = vpcId
       ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
       : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-        tags: {
-          Name: `nagiyu-${env}-vpc`,
-        },
-      });
+          tags: {
+            Name: `nagiyu-${env}-vpc`,
+          },
+        });
 
     // Public Subnet の取得
     const publicSubnets = vpc.selectSubnets({
@@ -78,9 +75,7 @@ export class BatchStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'Execution role for Batch job tasks',
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AmazonECSTaskExecutionRolePolicy'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
       ],
     });
 

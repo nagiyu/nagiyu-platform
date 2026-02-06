@@ -82,10 +82,7 @@ function getJobParameters(): MylistRegistrationJobParams {
  * @param config - 暗号化設定
  * @returns 復号化されたパスワード
  */
-async function decryptPassword(
-  encryptedData: string,
-  config: CryptoConfig
-): Promise<string> {
+async function decryptPassword(encryptedData: string, config: CryptoConfig): Promise<string> {
   console.log('パスワードを復号化中...');
 
   try {

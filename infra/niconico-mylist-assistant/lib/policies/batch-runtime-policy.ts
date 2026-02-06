@@ -65,12 +65,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
       new iam.PolicyStatement({
         sid: 'DynamoDBTableAccess',
         effect: iam.Effect.ALLOW,
-        actions: [
-          'dynamodb:Query',
-          'dynamodb:GetItem',
-          'dynamodb:PutItem',
-          'dynamodb:UpdateItem',
-        ],
+        actions: ['dynamodb:Query', 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
         resources: [
           props.dynamoTableArn,
           `${props.dynamoTableArn}/index/*`, // GSI へのアクセス

@@ -31,11 +31,22 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment, webEcrRepositoryName, dynamoTable, nextAuthSecret, batchJobQueueArn, batchJobDefinitionArn } = props;
+    const {
+      environment,
+      webEcrRepositoryName,
+      dynamoTable,
+      nextAuthSecret,
+      batchJobQueueArn,
+      batchJobDefinitionArn,
+    } = props;
 
     // Auth URL configuration
-    const authUrl = environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
-    const appUrl = environment === 'prod' ? 'https://niconico-mylist-assistant.nagiyu.com' : 'https://dev-niconico-mylist-assistant.nagiyu.com';
+    const authUrl =
+      environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
+    const appUrl =
+      environment === 'prod'
+        ? 'https://niconico-mylist-assistant.nagiyu.com'
+        : 'https://dev-niconico-mylist-assistant.nagiyu.com';
 
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
@@ -60,9 +71,7 @@ export class LambdaStack extends cdk.Stack {
       roleName: `niconico-mylist-assistant-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
         this.webRuntimePolicy,
       ],
     });
