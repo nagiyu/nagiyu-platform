@@ -200,7 +200,7 @@ export class CodecConverterStack extends cdk.Stack {
 
       // Batch Job Definitions - Multiple definitions for dynamic resource allocation
       const workerImageTag = this.node.tryGetContext('workerImageTag') || 'latest';
-      
+
       // Define resource configurations for each job size
       const jobDefinitions = [
         { size: 'small', vcpu: '1', memory: '2048' },
@@ -210,7 +210,7 @@ export class CodecConverterStack extends cdk.Stack {
       ];
 
       // Create job definitions using a loop (DRY principle)
-      const createdJobDefinitions = jobDefinitions.map(config => {
+      const createdJobDefinitions = jobDefinitions.map((config) => {
         return new batch.CfnJobDefinition(this, `JobDefinition-${config.size}`, {
           jobDefinitionName: `codec-converter-${envName}-${config.size}`,
           type: 'container',
