@@ -90,7 +90,14 @@ async function decryptPassword(
 
   try {
     // JSON文字列をパースして EncryptedData オブジェクトを取得
-    const encrypted = JSON.parse(encryptedData);
+    let encrypted;
+    try {
+      encrypted = JSON.parse(encryptedData);
+    } catch (parseError) {
+      throw new Error(
+        `暗号化パスワードのJSON形式が不正です: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+      );
+    }
 
     // core/crypto.ts の decrypt 関数を使用して復号化
     const password = await decrypt(encrypted, config);
