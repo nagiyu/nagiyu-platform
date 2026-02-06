@@ -23,10 +23,7 @@ export const PERCENTAGE_ERROR_MESSAGES = {
  * calculateTargetPriceFromPercentage(100, -10) // 90.00
  * calculateTargetPriceFromPercentage(100, 0) // 100.00
  */
-export function calculateTargetPriceFromPercentage(
-  basePrice: number,
-  percentage: number
-): number {
+export function calculateTargetPriceFromPercentage(basePrice: number, percentage: number): number {
   // バリデーション: 基準価格は0より大きい必要がある
   if (basePrice <= 0 || !Number.isFinite(basePrice)) {
     throw new Error(PERCENTAGE_ERROR_MESSAGES.INVALID_BASE_PRICE);
