@@ -2,8 +2,8 @@
  * ユーティリティ関数
  */
 
-import { RetryConfig } from './types';
-import { DEFAULT_RETRY_CONFIG } from './constants';
+import { RetryConfig } from './types.js';
+import { DEFAULT_RETRY_CONFIG } from './constants.js';
 
 /**
  * 指定されたミリ秒間待機する
