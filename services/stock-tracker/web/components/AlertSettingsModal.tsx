@@ -17,6 +17,7 @@ import {
   Box,
   Typography,
 } from '@mui/material';
+import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -32,7 +33,6 @@ const ERROR_MESSAGES = {
 } as const;
 
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 
 // プロパティ型定義
@@ -107,7 +107,6 @@ export default function AlertSettingsModal({
   exchangeId,
   mode,
   defaultTargetPrice,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   basePrice,
 }: AlertSettingsModalProps) {
   // フォームデータ
@@ -264,7 +263,64 @@ export default function AlertSettingsModal({
 
   // フォーム入力ハンドラー
   const handleFormChange = (field: keyof FormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+
+      // パーセンテージ選択時の自動計算（単一条件モード）
+      if (field === 'inputMode' || field === 'percentage') {
+        if (newData.inputMode === 'percentage' && newData.percentage && basePrice && basePrice > 0) {
+          const percentage = parseFloat(newData.percentage);
+          if (!isNaN(percentage)) {
+            try {
+              const calculatedPrice = calculateTargetPriceFromPercentage(basePrice, percentage);
+              newData.targetPrice = calculatedPrice.toString();
+            } catch (error) {
+              console.error('Error calculating target price:', error);
+            }
+          }
+        }
+      }
+
+      // パーセンテージ選択時の自動計算（範囲指定モード）
+      if (field === 'rangeInputMode' || field === 'minPercentage' || field === 'maxPercentage') {
+        if (newData.rangeInputMode === 'percentage' && basePrice && basePrice > 0) {
+          // 最小価格の計算
+          if (newData.minPercentage) {
+            const minPercentage = parseFloat(newData.minPercentage);
+            if (!isNaN(minPercentage)) {
+              try {
+                const calculatedMinPrice = calculateTargetPriceFromPercentage(
+                  basePrice,
+                  minPercentage
+                );
+                newData.minPrice = calculatedMinPrice.toString();
+              } catch (error) {
+                console.error('Error calculating min price:', error);
+              }
+            }
+          }
+
+          // 最大価格の計算
+          if (newData.maxPercentage) {
+            const maxPercentage = parseFloat(newData.maxPercentage);
+            if (!isNaN(maxPercentage)) {
+              try {
+                const calculatedMaxPrice = calculateTargetPriceFromPercentage(
+                  basePrice,
+                  maxPercentage
+                );
+                newData.maxPrice = calculatedMaxPrice.toString();
+              } catch (error) {
+                console.error('Error calculating max price:', error);
+              }
+            }
+          }
+        }
+      }
+
+      return newData;
+    });
+
     // エラーをクリア
     if (formErrors[field]) {
       setFormErrors((prev) => {
@@ -449,22 +505,92 @@ export default function AlertSettingsModal({
                 )}
               </FormControl>
 
-              <TextField
-                fullWidth
-                id="target-price"
-                label="目標価格"
-                type="number"
-                value={formData.targetPrice}
-                onChange={(e) => handleFormChange('targetPrice', e.target.value)}
-                error={!!formErrors.targetPrice}
-                helperText={
-                  formErrors.targetPrice ||
-                  (defaultTargetPrice && defaultTargetPrice > 0
-                    ? `推奨値: ${defaultTargetPrice.toFixed(2)} (平均取得価格 × 1.2)`
-                    : '')
-                }
-                inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
-              />
+              {/* 入力方式選択 */}
+              {basePrice && basePrice > 0 && (
+                <FormControl fullWidth>
+                  <InputLabel id="input-mode-label">入力方式</InputLabel>
+                  <Select
+                    labelId="input-mode-label"
+                    id="input-mode-select"
+                    value={formData.inputMode}
+                    label="入力方式"
+                    onChange={(e) => handleFormChange('inputMode', e.target.value)}
+                  >
+                    <MenuItem value="manual">手動入力</MenuItem>
+                    <MenuItem value="percentage">パーセンテージ</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+
+              {/* 手動入力モード */}
+              {formData.inputMode === 'manual' && (
+                <TextField
+                  fullWidth
+                  id="target-price"
+                  label="目標価格"
+                  type="number"
+                  value={formData.targetPrice}
+                  onChange={(e) => handleFormChange('targetPrice', e.target.value)}
+                  error={!!formErrors.targetPrice}
+                  helperText={formErrors.targetPrice}
+                  inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                />
+              )}
+
+              {/* パーセンテージモード */}
+              {formData.inputMode === 'percentage' && basePrice && basePrice > 0 && (
+                <>
+                  <FormControl fullWidth>
+                    <InputLabel id="percentage-label">パーセンテージ</InputLabel>
+                    <Select
+                      labelId="percentage-label"
+                      id="percentage-select"
+                      value={formData.percentage}
+                      label="パーセンテージ"
+                      onChange={(e) => handleFormChange('percentage', e.target.value)}
+                    >
+                      {PERCENTAGE_OPTIONS.map((percentage) => (
+                        <MenuItem key={percentage} value={percentage.toString()}>
+                          {percentage > 0 ? '+' : ''}
+                          {percentage}%
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* 計算結果表示 */}
+                  {formData.percentage && (
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: 'background.paper',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        計算結果
+                      </Typography>
+                      <Typography variant="body1">
+                        基準価格: {formatPrice(basePrice)}円 × (1 +{' '}
+                        {parseFloat(formData.percentage) > 0 ? '+' : ''}
+                        {formData.percentage}% / 100)
+                      </Typography>
+                      <Typography variant="h6" sx={{ mt: 1 }}>
+                        = {formatPrice(parseFloat(formData.targetPrice))}円
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* エラー表示 */}
+                  {formErrors.targetPrice && (
+                    <Typography variant="caption" color="error">
+                      {formErrors.targetPrice}
+                    </Typography>
+                  )}
+                </>
+              )}
             </>
           )}
 
@@ -490,35 +616,145 @@ export default function AlertSettingsModal({
                 </Typography>
               </FormControl>
 
-              <TextField
-                fullWidth
-                id="min-price"
-                label={formData.rangeType === 'inside' ? '最小価格（下限）' : '下限価格'}
-                type="number"
-                value={formData.minPrice}
-                onChange={(e) => handleFormChange('minPrice', e.target.value)}
-                error={!!formErrors.minPrice}
-                helperText={
-                  formErrors.minPrice ||
-                  (formData.rangeType === 'inside' ? 'この価格以上' : 'この価格以下で通知')
-                }
-                inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
-              />
+              {/* 入力方式選択 */}
+              {basePrice && basePrice > 0 && (
+                <FormControl fullWidth>
+                  <InputLabel id="range-input-mode-label">入力方式</InputLabel>
+                  <Select
+                    labelId="range-input-mode-label"
+                    id="range-input-mode-select"
+                    value={formData.rangeInputMode}
+                    label="入力方式"
+                    onChange={(e) => handleFormChange('rangeInputMode', e.target.value)}
+                  >
+                    <MenuItem value="manual">手動入力</MenuItem>
+                    <MenuItem value="percentage">パーセンテージ</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
 
-              <TextField
-                fullWidth
-                id="max-price"
-                label={formData.rangeType === 'inside' ? '最大価格（上限）' : '上限価格'}
-                type="number"
-                value={formData.maxPrice}
-                onChange={(e) => handleFormChange('maxPrice', e.target.value)}
-                error={!!formErrors.maxPrice}
-                helperText={
-                  formErrors.maxPrice ||
-                  (formData.rangeType === 'inside' ? 'この価格以下' : 'この価格以上で通知')
-                }
-                inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
-              />
+              {/* 手動入力モード */}
+              {formData.rangeInputMode === 'manual' && (
+                <>
+                  <TextField
+                    fullWidth
+                    id="min-price"
+                    label={formData.rangeType === 'inside' ? '最小価格（下限）' : '下限価格'}
+                    type="number"
+                    value={formData.minPrice}
+                    onChange={(e) => handleFormChange('minPrice', e.target.value)}
+                    error={!!formErrors.minPrice}
+                    helperText={
+                      formErrors.minPrice ||
+                      (formData.rangeType === 'inside' ? 'この価格以上' : 'この価格以下で通知')
+                    }
+                    inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                  />
+
+                  <TextField
+                    fullWidth
+                    id="max-price"
+                    label={formData.rangeType === 'inside' ? '最大価格（上限）' : '上限価格'}
+                    type="number"
+                    value={formData.maxPrice}
+                    onChange={(e) => handleFormChange('maxPrice', e.target.value)}
+                    error={!!formErrors.maxPrice}
+                    helperText={
+                      formErrors.maxPrice ||
+                      (formData.rangeType === 'inside' ? 'この価格以下' : 'この価格以上で通知')
+                    }
+                    inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                  />
+                </>
+              )}
+
+              {/* パーセンテージモード */}
+              {formData.rangeInputMode === 'percentage' && basePrice && basePrice > 0 && (
+                <>
+                  <FormControl fullWidth>
+                    <InputLabel id="min-percentage-label">
+                      最小価格のパーセンテージ
+                    </InputLabel>
+                    <Select
+                      labelId="min-percentage-label"
+                      id="min-percentage-select"
+                      value={formData.minPercentage}
+                      label="最小価格のパーセンテージ"
+                      onChange={(e) => handleFormChange('minPercentage', e.target.value)}
+                    >
+                      {PERCENTAGE_OPTIONS.map((percentage) => (
+                        <MenuItem key={percentage} value={percentage.toString()}>
+                          {percentage > 0 ? '+' : ''}
+                          {percentage}%
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth>
+                    <InputLabel id="max-percentage-label">
+                      最大価格のパーセンテージ
+                    </InputLabel>
+                    <Select
+                      labelId="max-percentage-label"
+                      id="max-percentage-select"
+                      value={formData.maxPercentage}
+                      label="最大価格のパーセンテージ"
+                      onChange={(e) => handleFormChange('maxPercentage', e.target.value)}
+                    >
+                      {PERCENTAGE_OPTIONS.map((percentage) => (
+                        <MenuItem key={percentage} value={percentage.toString()}>
+                          {percentage > 0 ? '+' : ''}
+                          {percentage}%
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {/* 計算結果表示 */}
+                  {formData.minPercentage && formData.maxPercentage && (
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: 'background.paper',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        計算結果
+                      </Typography>
+                      <Typography variant="body1">
+                        基準価格: {formatPrice(basePrice)}円
+                      </Typography>
+                      <Typography variant="body1" sx={{ mt: 1 }}>
+                        最小価格: {formatPrice(basePrice)} × (1 +{' '}
+                        {parseFloat(formData.minPercentage) > 0 ? '+' : ''}
+                        {formData.minPercentage}% / 100) ={' '}
+                        {formatPrice(parseFloat(formData.minPrice))}円
+                      </Typography>
+                      <Typography variant="body1">
+                        最大価格: {formatPrice(basePrice)} × (1 +{' '}
+                        {parseFloat(formData.maxPercentage) > 0 ? '+' : ''}
+                        {formData.maxPercentage}% / 100) ={' '}
+                        {formatPrice(parseFloat(formData.maxPrice))}円
+                      </Typography>
+                      <Typography variant="h6" sx={{ mt: 1 }}>
+                        価格範囲: {formatPrice(parseFloat(formData.minPrice))}円 ～{' '}
+                        {formatPrice(parseFloat(formData.maxPrice))}円
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* エラー表示 */}
+                  {(formErrors.minPrice || formErrors.maxPrice) && (
+                    <Typography variant="caption" color="error">
+                      {formErrors.minPrice || formErrors.maxPrice}
+                    </Typography>
+                  )}
+                </>
+              )}
             </>
           )}
 
