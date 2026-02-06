@@ -268,7 +268,12 @@ export default function AlertSettingsModal({
 
       // パーセンテージ選択時の自動計算（単一条件モード）
       if (field === 'inputMode' || field === 'percentage') {
-        if (newData.inputMode === 'percentage' && newData.percentage && basePrice && basePrice > 0) {
+        if (
+          newData.inputMode === 'percentage' &&
+          newData.percentage &&
+          basePrice &&
+          basePrice > 0
+        ) {
           const percentage = parseFloat(newData.percentage);
           if (!isNaN(percentage)) {
             try {
@@ -672,9 +677,7 @@ export default function AlertSettingsModal({
               {formData.rangeInputMode === 'percentage' && basePrice && basePrice > 0 && (
                 <>
                   <FormControl fullWidth>
-                    <InputLabel id="min-percentage-label">
-                      最小価格のパーセンテージ
-                    </InputLabel>
+                    <InputLabel id="min-percentage-label">最小価格のパーセンテージ</InputLabel>
                     <Select
                       labelId="min-percentage-label"
                       id="min-percentage-select"
@@ -692,9 +695,7 @@ export default function AlertSettingsModal({
                   </FormControl>
 
                   <FormControl fullWidth>
-                    <InputLabel id="max-percentage-label">
-                      最大価格のパーセンテージ
-                    </InputLabel>
+                    <InputLabel id="max-percentage-label">最大価格のパーセンテージ</InputLabel>
                     <Select
                       labelId="max-percentage-label"
                       id="max-percentage-select"
@@ -725,9 +726,7 @@ export default function AlertSettingsModal({
                       <Typography variant="body2" color="text.secondary" gutterBottom>
                         計算結果
                       </Typography>
-                      <Typography variant="body1">
-                        基準価格: {formatPrice(basePrice)}円
-                      </Typography>
+                      <Typography variant="body1">基準価格: {formatPrice(basePrice)}円</Typography>
                       <Typography variant="body1" sx={{ mt: 1 }}>
                         最小価格: {formatPrice(basePrice)} × (1 +{' '}
                         {parseFloat(formData.minPercentage) > 0 ? '+' : ''}
