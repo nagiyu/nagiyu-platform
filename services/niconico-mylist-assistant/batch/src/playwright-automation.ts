@@ -3,9 +3,9 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { ERROR_MESSAGES, NICONICO_URLS, TIMEOUTS, VIDEO_REGISTRATION_WAIT } from './constants';
-import { MylistRegistrationResult } from './types';
-import { retry, sleep } from './utils';
+import { ERROR_MESSAGES, NICONICO_URLS, TIMEOUTS, VIDEO_REGISTRATION_WAIT } from './constants.js';
+import { MylistRegistrationResult } from './types.js';
+import { retry, sleep } from './utils.js';
 
 /**
  * ニコニコ動画にログインする

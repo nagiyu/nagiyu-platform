@@ -4,10 +4,10 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import { executeMylistRegistration } from './playwright-automation';
-import { ERROR_MESSAGES } from './constants';
-import { getTimestamp, generateDefaultMylistName } from './utils';
-import { MylistRegistrationJobParams } from './types';
+import { executeMylistRegistration } from './playwright-automation.js';
+import { ERROR_MESSAGES } from './constants.js';
+import { getTimestamp, generateDefaultMylistName } from './utils.js';
+import { MylistRegistrationJobParams } from './types.js';
 
 /**
  * 環境変数を読み取る
