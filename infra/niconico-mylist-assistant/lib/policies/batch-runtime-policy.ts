@@ -26,14 +26,9 @@ export interface BatchRuntimePolicyProps {
   envName: string;
 
   /**
-   * AWS リージョン
+   * Encryption Secret ARN
    */
-  region: string;
-
-  /**
-   * AWS アカウント ID
-   */
-  accountId: string;
+  encryptionSecretArn: string;
 }
 
 /**
@@ -89,9 +84,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
         sid: 'SecretsManagerAccess',
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          `arn:aws:secretsmanager:${props.region}:${props.accountId}:secret:niconico-mylist-assistant/shared-secret-key-*`,
-        ],
+        resources: [props.encryptionSecretArn],
       })
     );
   }

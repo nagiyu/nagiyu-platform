@@ -11,6 +11,8 @@ import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 export interface BatchStackProps extends cdk.StackProps {
   environment: string;
   dynamoTableArn: string;
+  encryptionSecretArn: string;
+  encryptionSecretName?: string; // Optional, will be extracted from ARN if not provided
 }
 
 /**
@@ -33,8 +35,14 @@ export class BatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
 
-    const { environment, dynamoTableArn } = props;
+    const { environment, dynamoTableArn, encryptionSecretArn, encryptionSecretName } = props;
     const env = environment as 'dev' | 'prod';
+
+    // Encryption secret name from props or extract from ARN
+    const secretName =
+      encryptionSecretName ||
+      encryptionSecretArn.split(':').pop()?.split('-').slice(0, -1).join('-') ||
+      `niconico-mylist-assistant/shared-secret-key-${env}`;
 
     // ECR リポジトリの参照
     const batchEcrRepositoryName = getEcrRepositoryName('niconico-mylist-assistant-batch', env);
@@ -96,8 +104,7 @@ export class BatchStack extends cdk.Stack {
       dynamoTableArn,
       logGroupName: batchLogGroup.logGroupName,
       envName: environment,
-      region: this.region,
-      accountId: this.account,
+      encryptionSecretArn,
     });
 
     // IAM Role for Batch Job (コンテナランタイム用)
@@ -176,7 +183,7 @@ export class BatchStack extends cdk.Stack {
           },
           {
             name: 'ENCRYPTION_SECRET_NAME',
-            value: 'niconico-mylist-assistant/shared-secret-key',
+            value: secretName,
           },
         ],
       },

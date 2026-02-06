@@ -14,6 +14,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
   batchJobQueueArn: string; // Batch Job Queue ARN
   batchJobDefinitionArn: string; // Batch Job Definition ARN
+  encryptionSecretArn: string; // Encryption Secret ARN
+  encryptionSecretName: string; // Encryption Secret Name
 }
 
 /**
@@ -38,6 +40,8 @@ export class LambdaStack extends cdk.Stack {
       nextAuthSecret,
       batchJobQueueArn,
       batchJobDefinitionArn,
+      encryptionSecretArn,
+      encryptionSecretName,
     } = props;
 
     // Auth URL configuration
@@ -62,8 +66,7 @@ export class LambdaStack extends cdk.Stack {
       envName: environment,
       batchJobQueueArn,
       batchJobDefinitionArn,
-      region: this.region,
-      accountId: this.account,
+      encryptionSecretArn,
     });
 
     // Web Lambda 用の実行ロール
@@ -96,7 +99,7 @@ export class LambdaStack extends cdk.Stack {
         AUTH_SECRET: nextAuthSecret,
         BATCH_JOB_QUEUE: batchJobQueueArn,
         BATCH_JOB_DEFINITION: batchJobDefinitionArn,
-        ENCRYPTION_SECRET_NAME: 'niconico-mylist-assistant/shared-secret-key',
+        ENCRYPTION_SECRET_NAME: encryptionSecretName,
         AWS_REGION_FOR_SDK: this.region,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
