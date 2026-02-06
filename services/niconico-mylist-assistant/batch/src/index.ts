@@ -4,8 +4,8 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import { decrypt } from '@niconico-mylist-assistant/core';
-import type { CryptoConfig } from '@niconico-mylist-assistant/core';
+import { decrypt } from '@nagiyu/niconico-mylist-assistant-core';
+import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { ERROR_MESSAGES } from './constants.js';
 import { getTimestamp, generateDefaultMylistName } from './utils.js';
