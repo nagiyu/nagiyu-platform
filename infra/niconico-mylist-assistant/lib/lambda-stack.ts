@@ -123,23 +123,22 @@ export class LambdaStack extends cdk.Stack {
     cdk.Tags.of(this.webFunction).add('Environment', environment);
 
     // CloudFormation Outputs
+    // Note: exportName is intentionally NOT used to allow flexible updates
+    // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,
       description: 'Web Lambda Function ARN',
-      exportName: `${this.stackName}-WebFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'FunctionUrl', {
       value: this.functionUrl.url,
       description: 'Web Lambda Function URL',
-      exportName: `${this.stackName}-FunctionUrl`,
     });
 
-    // Runtime Policy (IAM スタックで参照するため Export)
+    // Runtime Policy (IAM スタックで参照するため)
     new cdk.CfnOutput(this, 'WebRuntimePolicyArn', {
       value: this.webRuntimePolicy.managedPolicyArn,
       description: 'Web Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-WebRuntimePolicyArn`,
     });
   }
 }

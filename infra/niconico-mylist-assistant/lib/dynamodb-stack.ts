@@ -54,22 +54,21 @@ export class DynamoDBStack extends cdk.Stack {
     cdk.Tags.of(this.table).add('Environment', environment);
 
     // Outputs
+    // Note: exportName is intentionally NOT used to allow flexible updates
+    // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'TableName', {
       value: this.table.tableName,
       description: 'DynamoDB Table Name',
-      exportName: `${this.stackName}-TableName`,
     });
 
     new cdk.CfnOutput(this, 'TableArn', {
       value: this.table.tableArn,
       description: 'DynamoDB Table ARN',
-      exportName: `${this.stackName}-TableArn`,
     });
 
     new cdk.CfnOutput(this, 'GSI1IndexName', {
       value: 'GSI1',
       description: 'GSI1 Index Name',
-      exportName: `${this.stackName}-GSI1IndexName`,
     });
   }
 }

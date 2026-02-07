@@ -38,16 +38,16 @@ export class SecretsStack extends cdk.Stack {
     cdk.Tags.of(this.encryptionSecret).add('Environment', environment);
 
     // CloudFormation Outputs
+    // Note: exportName is intentionally NOT used to allow flexible updates
+    // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'EncryptionSecretArn', {
       value: this.encryptionSecret.secretArn,
       description: 'Encryption Secret ARN',
-      exportName: `${this.stackName}-EncryptionSecretArn`,
     });
 
     new cdk.CfnOutput(this, 'EncryptionSecretName', {
       value: this.encryptionSecret.secretName,
       description: 'Encryption Secret Name',
-      exportName: `${this.stackName}-EncryptionSecretName`,
     });
   }
 }
