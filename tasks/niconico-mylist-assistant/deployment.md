@@ -78,23 +78,19 @@ GitHub Actions で自動デプロイを行うには、以下の GitHub Secrets �
 
 ### 3.1 手順概要
 
-1. **Secrets Manager にシークレット作成**: 暗号化キー等を手動で作成
-2. **ECR リポジトリ作成**: コンテナイメージ格納用リポジトリの作成
+1. **Secrets Manager にシークレット作成**: テスト用アカウント情報を手動で作成（暗号化キーは CDK で自動生成）
+2. **ECR リポジトリ作成**: コンテナイメージ格納用リポジトリの作成（CDK デプロイ）
 3. **Docker イメージビルド**: web / batch のコンテナイメージを作成
 4. **インフラデプロイ**: Lambda, CloudFront, Batch などのリソースをデプロイ
 5. **動作確認**: ヘルスチェック・機能確認
 
 ### 3.2 Secrets Manager の設定
 
-以下のシークレットを AWS コンソールまたは CLI で作成してください:
+**注**: 暗号化キー（`niconico-mylist-assistant/shared-secret-key-{env}`）は SecretsStack により CDK デプロイ時に自動生成されます。手動で作成する必要はありません。
+
+テスト用ニコニコアカウント（CI 統合テスト用）のみ、以下のコマンドで手動作成してください:
 
 ```bash
-# 暗号化キー（AES-256 用、32 バイトのランダム文字列）
-aws secretsmanager create-secret \
-    --name niconico-mylist-assistant/shared-secret-key \
-    --secret-string "$(openssl rand -base64 32)" \
-    --region us-east-1
-
 # テスト用ニコニコアカウント（CI 統合テスト用）
 aws secretsmanager create-secret \
     --name niconico-mylist-assistant/test-account \
@@ -109,11 +105,13 @@ aws secretsmanager create-secret \
 | スタック名 (dev)                                | スタック名 (prod)                                | 内容                                       |
 | ----------------------------------------------- | ------------------------------------------------ | ------------------------------------------ |
 | `NagiyuNiconicoMylistAssistantDynamoDBDev`      | `NagiyuNiconicoMylistAssistantDynamoDBProd`      | DynamoDB テーブル                          |
-| `NagiyuNiconicoMylistAssistantSecretsDev`       | `NagiyuNiconicoMylistAssistantSecretsProd`       | Secrets Manager 参照                       |
-| `NagiyuNiconicoMylistAssistantECRDev`           | `NagiyuNiconicoMylistAssistantECRProd`           | ECR リポジトリ（web / batch）              |
+| `NagiyuNiconicoMylistAssistantSecretsDev`       | `NagiyuNiconicoMylistAssistantSecretsProd`       | Secrets Manager（暗号化キー自動生成）       |
+| `NagiyuNiconicoMylistAssistantWebECRDev`        | `NagiyuNiconicoMylistAssistantWebECRProd`        | ECR リポジトリ（web）                      |
+| `NagiyuNiconicoMylistAssistantBatchECRDev`      | `NagiyuNiconicoMylistAssistantBatchECRProd`      | ECR リポジトリ（batch）                    |
 | `NagiyuNiconicoMylistAssistantLambdaDev`        | `NagiyuNiconicoMylistAssistantLambdaProd`        | Lambda 関数                                |
 | `NagiyuNiconicoMylistAssistantCloudFrontDev`    | `NagiyuNiconicoMylistAssistantCloudFrontProd`    | CloudFront ディストリビューション          |
 | `NagiyuNiconicoMylistAssistantBatchDev`         | `NagiyuNiconicoMylistAssistantBatchProd`         | Batch (Compute Env, Job Queue, Job Definition, SG) |
+| `NagiyuNiconicoMylistAssistantIAMDev`           | `NagiyuNiconicoMylistAssistantIAMProd`           | IAM リソース（開発用ユーザー）             |
 
 **CDK ディレクトリ構成**:
 
@@ -123,7 +121,8 @@ infra/niconico-mylist-assistant/
 │   └── niconico-mylist-assistant.ts
 ├── lib/
 │   ├── dynamodb-stack.ts
-│   ├── ecr-stacks.ts
+│   ├── secrets-stack.ts          # Secrets Manager スタック（暗号化キー）
+│   ├── ecr-stacks.ts              # ECR スタック（web / batch）
 │   ├── lambda-stack.ts
 │   ├── cloudfront-stack.ts
 │   ├── batch-stack.ts
@@ -140,13 +139,16 @@ infra/niconico-mylist-assistant/
 
 #### DynamoDB, Secrets, ECR のデプロイ
 
+**注**: SecretsStack は暗号化キーを自動生成します。初回デプロイ時に実行してください。
+
 ```bash
 # 開発環境
 npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
     --context env=dev \
     "NagiyuNiconicoMylistAssistantDynamoDBDev" \
     "NagiyuNiconicoMylistAssistantSecretsDev" \
-    "NagiyuNiconicoMylistAssistantECRDev" \
+    "NagiyuNiconicoMylistAssistantWebECRDev" \
+    "NagiyuNiconicoMylistAssistantBatchECRDev" \
     --require-approval never
 
 # 本番環境
@@ -154,7 +156,8 @@ npm run deploy --workspace=@nagiyu/infra-niconico-mylist-assistant -- \
     --context env=prod \
     "NagiyuNiconicoMylistAssistantDynamoDBProd" \
     "NagiyuNiconicoMylistAssistantSecretsProd" \
-    "NagiyuNiconicoMylistAssistantECRProd" \
+    "NagiyuNiconicoMylistAssistantWebECRProd" \
+    "NagiyuNiconicoMylistAssistantBatchECRProd" \
     --require-approval never
 ```
 
