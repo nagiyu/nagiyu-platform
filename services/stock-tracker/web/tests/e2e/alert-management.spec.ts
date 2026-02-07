@@ -1023,9 +1023,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
     });
 
-    test('Watchlistからのアラート設定ではパーセンテージモードが無効化される', async ({
-      page,
-    }) => {
+    test('Watchlistからのアラート設定ではパーセンテージモードが無効化される', async ({ page }) => {
       // Watchlist管理画面にアクセス
       await page.goto('/watchlist');
       await page.waitForLoadState('networkidle');
@@ -1064,7 +1062,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await inputModeSelect.click();
       const percentageOption = page.getByRole('option', { name: 'パーセンテージ' });
       const hasPercentageOption = await percentageOption.isVisible().catch(() => false);
-      
+
       // パーセンテージ選択肢が存在しないことを確認
       expect(hasPercentageOption).toBe(false);
     });
