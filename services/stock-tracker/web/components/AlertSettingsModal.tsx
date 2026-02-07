@@ -30,6 +30,16 @@ const ERROR_MESSAGES = {
   NOTIFICATION_PERMISSION_DENIED: '通知の許可が拒否されました。ブラウザの設定から許可してください',
   SUBSCRIPTION_ERROR: 'Web Push通知の登録に失敗しました',
   CREATE_ALERT_ERROR: 'アラートの登録に失敗しました',
+  // パーセンテージ選択関連のエラーメッセージ
+  PERCENTAGE_REQUIRED: 'パーセンテージを選択してください',
+  BASE_PRICE_REQUIRED: '基準価格が設定されていません。パーセンテージ選択を使用できません',
+  INVALID_BASE_PRICE: '基準価格が不正です（0以下）。パーセンテージ選択を使用できません',
+  CALCULATED_PRICE_OUT_OF_RANGE:
+    '計算結果が有効な価格範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
+  CALCULATED_MIN_PRICE_OUT_OF_RANGE:
+    '計算された最小価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
+  CALCULATED_MAX_PRICE_OUT_OF_RANGE:
+    '計算された最大価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
 } as const;
 
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
@@ -210,48 +220,130 @@ export default function AlertSettingsModal({
 
     if (formData.conditionMode === 'single') {
       // 単一条件のバリデーション
-      if (!formData.targetPrice) {
-        errors.targetPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+      if (formData.inputMode === 'percentage') {
+        // パーセンテージモードの場合
+        // 1. 基準価格のチェック
+        if (basePrice === undefined || basePrice === null) {
+          errors.percentage = ERROR_MESSAGES.BASE_PRICE_REQUIRED;
+        } else if (basePrice <= 0) {
+          errors.percentage = ERROR_MESSAGES.INVALID_BASE_PRICE;
+        }
+        // 基準価格が問題ない場合のみ、以降のチェックを行う
+        else {
+          // 2. パーセンテージフィールドの必須チェック
+          if (!formData.percentage) {
+            errors.percentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+          }
+
+          // 3. 計算結果の価格範囲チェック
+          if (formData.targetPrice) {
+            const targetPrice = parseFloat(formData.targetPrice);
+            if (!isNaN(targetPrice) && (targetPrice < 0.01 || targetPrice > 1000000)) {
+              errors.percentage = ERROR_MESSAGES.CALCULATED_PRICE_OUT_OF_RANGE;
+            }
+          }
+        }
       } else {
-        const targetPrice = parseFloat(formData.targetPrice);
-        if (isNaN(targetPrice) || targetPrice < 0.01 || targetPrice > 1000000) {
-          errors.targetPrice = ERROR_MESSAGES.INVALID_TARGET_PRICE;
+        // 手動入力モードの場合（既存のバリデーション）
+        if (!formData.targetPrice) {
+          errors.targetPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+        } else {
+          const targetPrice = parseFloat(formData.targetPrice);
+          if (isNaN(targetPrice) || targetPrice < 0.01 || targetPrice > 1000000) {
+            errors.targetPrice = ERROR_MESSAGES.INVALID_TARGET_PRICE;
+          }
         }
       }
     } else {
       // 範囲指定のバリデーション
-      if (!formData.minPrice) {
-        errors.minPrice = ERROR_MESSAGES.REQUIRED_FIELD;
-      } else {
-        const minPrice = parseFloat(formData.minPrice);
-        if (isNaN(minPrice) || minPrice < 0.01 || minPrice > 1000000) {
-          errors.minPrice = ERROR_MESSAGES.INVALID_MIN_PRICE;
+      if (formData.rangeInputMode === 'percentage') {
+        // パーセンテージモードの場合
+        // 1. 基準価格のチェック
+        let basePriceError: string | undefined;
+        if (basePrice === undefined || basePrice === null) {
+          basePriceError = ERROR_MESSAGES.BASE_PRICE_REQUIRED;
+        } else if (basePrice <= 0) {
+          basePriceError = ERROR_MESSAGES.INVALID_BASE_PRICE;
         }
-      }
 
-      if (!formData.maxPrice) {
-        errors.maxPrice = ERROR_MESSAGES.REQUIRED_FIELD;
-      } else {
-        const maxPrice = parseFloat(formData.maxPrice);
-        if (isNaN(maxPrice) || maxPrice < 0.01 || maxPrice > 1000000) {
-          errors.maxPrice = ERROR_MESSAGES.INVALID_MAX_PRICE;
+        if (basePriceError) {
+          errors.minPercentage = basePriceError;
+          errors.maxPercentage = basePriceError;
         }
-      }
+        // 基準価格が問題ない場合のみ、以降のチェックを行う
+        else {
+          // 2. パーセンテージフィールドの必須チェック
+          if (!formData.minPercentage) {
+            errors.minPercentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+          }
+          if (!formData.maxPercentage) {
+            errors.maxPercentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+          }
 
-      // 範囲の妥当性チェック
-      if (formData.minPrice && formData.maxPrice) {
-        const minPrice = parseFloat(formData.minPrice);
-        const maxPrice = parseFloat(formData.maxPrice);
+          // 3. 計算結果の価格範囲チェック
+          if (formData.minPrice) {
+            const minPrice = parseFloat(formData.minPrice);
+            if (!isNaN(minPrice) && (minPrice < 0.01 || minPrice > 1000000)) {
+              errors.minPercentage = ERROR_MESSAGES.CALCULATED_MIN_PRICE_OUT_OF_RANGE;
+            }
+          }
+          if (formData.maxPrice) {
+            const maxPrice = parseFloat(formData.maxPrice);
+            if (!isNaN(maxPrice) && (maxPrice < 0.01 || maxPrice > 1000000)) {
+              errors.maxPercentage = ERROR_MESSAGES.CALCULATED_MAX_PRICE_OUT_OF_RANGE;
+            }
+          }
 
-        if (!isNaN(minPrice) && !isNaN(maxPrice)) {
-          // 両方の範囲タイプで minPrice < maxPrice が必要
-          // - 範囲内: price >= minPrice AND price <= maxPrice
-          // - 範囲外: price <= minPrice OR price >= maxPrice
-          if (minPrice >= maxPrice) {
-            errors.minPrice =
-              formData.rangeType === 'inside'
-                ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
-                : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
+          // 4. 範囲の妥当性チェック（最小価格 < 最大価格）
+          if (formData.minPrice && formData.maxPrice) {
+            const minPrice = parseFloat(formData.minPrice);
+            const maxPrice = parseFloat(formData.maxPrice);
+
+            if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+              if (minPrice >= maxPrice) {
+                errors.minPercentage =
+                  formData.rangeType === 'inside'
+                    ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                    : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
+              }
+            }
+          }
+        }
+      } else {
+        // 手動入力モードの場合（既存のバリデーション）
+        if (!formData.minPrice) {
+          errors.minPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+        } else {
+          const minPrice = parseFloat(formData.minPrice);
+          if (isNaN(minPrice) || minPrice < 0.01 || minPrice > 1000000) {
+            errors.minPrice = ERROR_MESSAGES.INVALID_MIN_PRICE;
+          }
+        }
+
+        if (!formData.maxPrice) {
+          errors.maxPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+        } else {
+          const maxPrice = parseFloat(formData.maxPrice);
+          if (isNaN(maxPrice) || maxPrice < 0.01 || maxPrice > 1000000) {
+            errors.maxPrice = ERROR_MESSAGES.INVALID_MAX_PRICE;
+          }
+        }
+
+        // 範囲の妥当性チェック
+        if (formData.minPrice && formData.maxPrice) {
+          const minPrice = parseFloat(formData.minPrice);
+          const maxPrice = parseFloat(formData.maxPrice);
+
+          if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+            // 両方の範囲タイプで minPrice < maxPrice が必要
+            // - 範囲内: price >= minPrice AND price <= maxPrice
+            // - 範囲外: price <= minPrice OR price >= maxPrice
+            if (minPrice >= maxPrice) {
+              errors.minPrice =
+                formData.rangeType === 'inside'
+                  ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                  : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
+            }
           }
         }
       }
