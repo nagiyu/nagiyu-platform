@@ -22,15 +22,7 @@
   "dependencies": {
     "@nagiyu/common": "*"
   },
-  "peerDependencies": {
-    "next": "^16.0.0",
-    "next-auth": "^4.24.0"
-  },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
-    "@types/node": "^22.10.5",
-    "next": "^16.0.0",
-    "next-auth": "^4.24.0",
-    "typescript": "^5.7.2"
+    "@types/jest": "^30.0.0"
   }
 }

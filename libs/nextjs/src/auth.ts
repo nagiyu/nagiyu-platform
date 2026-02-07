@@ -18,6 +18,11 @@ export interface AuthError {
 }
 
 /**
+ * NextAuth の auth 関数型
+ */
+export type AuthFunction = () => Promise<Session | null>;
+
+/**
  * エラーメッセージ定数
  */
 const AUTH_ERROR_MESSAGES = {
@@ -37,7 +42,7 @@ const AUTH_ERROR_MESSAGES = {
  *
  * @example
  * ```typescript
- * const session = await getOptionalSession();
+ * const session = await getOptionalSession(auth);
  * const authError = getAuthError(session, 'stocks:read');
  * if (authError) {
  *   return NextResponse.json({ error: 'UNAUTHORIZED', message: authError.message }, { status: authError.statusCode });
@@ -67,46 +72,50 @@ export function getAuthError(session: Session | null, permission: Permission): A
 /**
  * セッション取得 or エラーをスロー
  *
+ * @param auth - NextAuth の auth 関数
  * @returns セッション情報
  * @throws セッションが取得できない場合
  *
  * @example
  * ```typescript
+ * import { auth } from './auth';
+ *
  * try {
- *   const session = await getSessionOrThrow();
+ *   const session = await getSessionOrThrow(auth);
  *   // セッション情報を使用
  * } catch (error) {
  *   // エラーハンドリング
  * }
  * ```
  */
-export async function getSessionOrThrow(): Promise<Session> {
-  const { getServerSession } = await import('next-auth/next');
-  const session = await getServerSession();
+export async function getSessionOrThrow(auth: AuthFunction): Promise<Session> {
+  const session = await auth();
 
   if (!session) {
     throw new Error('UNAUTHORIZED');
   }
 
-  return session as Session;
+  return session;
 }
 
 /**
  * オプショナルなセッション取得
  *
+ * @param auth - NextAuth の auth 関数
  * @returns セッション情報、未認証の場合は null
  *
  * @example
  * ```typescript
- * const session = await getOptionalSession();
+ * import { auth } from './auth';
+ *
+ * const session = await getOptionalSession(auth);
  * if (!session) {
  *   // 未認証の処理
  * }
  * ```
  */
-export async function getOptionalSession(): Promise<Session | null> {
-  const { getServerSession } = await import('next-auth/next');
-  return (await getServerSession()) as Session | null;
+export async function getOptionalSession(auth: AuthFunction): Promise<Session | null> {
+  return await auth();
 }
 
 /**
@@ -114,25 +123,29 @@ export async function getOptionalSession(): Promise<Session | null> {
  *
  * API Route ハンドラーをラップして、認証・権限チェックを自動化します。
  *
+ * @param auth - NextAuth の auth 関数
  * @param permission - 必要な権限
  * @param handler - 元のハンドラー関数
  * @returns ラップされたハンドラー関数
  *
  * @example
  * ```typescript
- * export const GET = withAuth('stocks:read', async (session, request) => {
+ * import { auth } from './auth';
+ *
+ * export const GET = withAuth(auth, 'stocks:read', async (session, request) => {
  *   // 認証済みの処理
  *   return NextResponse.json({ data: 'success' });
  * });
  * ```
  */
 export function withAuth<T extends unknown[]>(
+  auth: AuthFunction,
   permission: Permission,
   handler: (session: Session, ...args: T) => Promise<NextResponse>
 ): (...args: T) => Promise<NextResponse> {
   return async (...args: T) => {
     try {
-      const session = await getOptionalSession();
+      const session = await getOptionalSession(auth);
       const authError = getAuthError(session, permission);
 
       if (authError) {

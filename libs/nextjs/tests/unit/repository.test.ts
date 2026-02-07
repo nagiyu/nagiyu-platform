@@ -23,12 +23,17 @@ describe('withRepository', () => {
       ) {}
     }
 
-    const mockGetClient = () => ({} as DynamoDBDocumentClient);
+    const mockGetClient = () => ({}) as DynamoDBDocumentClient;
     const mockGetTableName = () => 'test-table';
 
-    const wrapped = withRepository(mockGetClient, mockGetTableName, MockRepository, async (repo) => {
-      return NextResponse.json({ success: true });
-    });
+    const wrapped = withRepository(
+      mockGetClient,
+      mockGetTableName,
+      MockRepository,
+      async (repo) => {
+        return NextResponse.json({ success: true });
+      }
+    );
 
     expect(typeof wrapped).toBe('function');
   });
@@ -69,7 +74,7 @@ describe('withRepository', () => {
       ) {}
     }
 
-    const mockGetClient = () => ({} as DynamoDBDocumentClient);
+    const mockGetClient = () => ({}) as DynamoDBDocumentClient;
     const mockGetTableName = () => 'test-table';
 
     const handler = async (repo: MockRepository, arg1: string, arg2: number) => {
@@ -103,7 +108,7 @@ describe('withRepositories', () => {
       ) {}
     }
 
-    const mockGetClient = () => ({} as DynamoDBDocumentClient);
+    const mockGetClient = () => ({}) as DynamoDBDocumentClient;
     const mockGetTableName = () => 'test-table';
 
     const wrapped = withRepositories(
@@ -181,7 +186,7 @@ describe('withRepositories', () => {
       ) {}
     }
 
-    const mockGetClient = () => ({} as DynamoDBDocumentClient);
+    const mockGetClient = () => ({}) as DynamoDBDocumentClient;
     const mockGetTableName = () => 'test-table';
 
     const handler = async (

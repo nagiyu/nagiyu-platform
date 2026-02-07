@@ -13,10 +13,7 @@ import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 /**
  * リポジトリコンストラクタ型
  */
-export type RepositoryConstructor<T> = new (
-  client: DynamoDBDocumentClient,
-  tableName: string
-) => T;
+export type RepositoryConstructor<T> = new (client: DynamoDBDocumentClient, tableName: string) => T;
 
 /**
  * DynamoDB クライアント初期化関数型

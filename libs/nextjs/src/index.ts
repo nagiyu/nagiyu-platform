@@ -7,7 +7,7 @@
 
 // Auth module - Authentication and Authorization helpers
 export { getAuthError, getSessionOrThrow, getOptionalSession, withAuth } from './auth.js';
-export type { AuthError } from './auth.js';
+export type { AuthError, AuthFunction } from './auth.js';
 
 // Repository module - Repository initialization helpers
 export { withRepository, withRepositories } from './repository.js';

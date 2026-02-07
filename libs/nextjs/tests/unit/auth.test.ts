@@ -4,13 +4,9 @@
 
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { getAuthError, getSessionOrThrow, getOptionalSession, withAuth } from '../../src/auth';
+import type { AuthFunction } from '../../src/auth';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Session } from '@nagiyu/common';
-
-// Mock next-auth
-jest.mock('next-auth/next', () => ({
-  getServerSession: jest.fn(),
-}));
 
 describe('getAuthError', () => {
   it('セッションがnullの場合、401エラーを返す', () => {
@@ -94,10 +90,6 @@ describe('getAuthError', () => {
 });
 
 describe('getSessionOrThrow', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   it('セッションがある場合、セッションを返す', async () => {
     const mockSession: Session = {
       user: {
@@ -112,30 +104,18 @@ describe('getSessionOrThrow', () => {
       expires: '2024-12-31T23:59:59Z',
     };
 
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      mockSession as never
-    );
-
-    const session = await getSessionOrThrow();
+    const mockAuth: AuthFunction = jest.fn(async () => mockSession);
+    const session = await getSessionOrThrow(mockAuth);
     expect(session).toEqual(mockSession);
   });
 
   it('セッションがない場合、エラーをスローする', async () => {
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      null as never
-    );
-
-    await expect(getSessionOrThrow()).rejects.toThrow('UNAUTHORIZED');
+    const mockAuth: AuthFunction = jest.fn(async () => null);
+    await expect(getSessionOrThrow(mockAuth)).rejects.toThrow('UNAUTHORIZED');
   });
 });
 
 describe('getOptionalSession', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
   it('セッションがある場合、セッションを返す', async () => {
     const mockSession: Session = {
       user: {
@@ -150,22 +130,14 @@ describe('getOptionalSession', () => {
       expires: '2024-12-31T23:59:59Z',
     };
 
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      mockSession as never
-    );
-
-    const session = await getOptionalSession();
+    const mockAuth: AuthFunction = jest.fn(async () => mockSession);
+    const session = await getOptionalSession(mockAuth);
     expect(session).toEqual(mockSession);
   });
 
   it('セッションがない場合、nullを返す', async () => {
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      null as never
-    );
-
-    const session = await getOptionalSession();
+    const mockAuth: AuthFunction = jest.fn(async () => null);
+    const session = await getOptionalSession(mockAuth);
     expect(session).toBeNull();
   });
 });
@@ -174,7 +146,6 @@ describe('withAuth', () => {
   let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
@@ -196,18 +167,14 @@ describe('withAuth', () => {
       expires: '2024-12-31T23:59:59Z',
     };
 
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      mockSession as never
-    );
-
+    const mockAuth: AuthFunction = jest.fn(async () => mockSession);
     const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>(
       async (session: Session) => {
         return NextResponse.json({ success: true });
       }
     );
 
-    const wrappedHandler = withAuth('stocks:read', handler);
+    const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
     const request = new NextRequest('http://localhost/api/test');
     const response = await wrappedHandler(request);
 
@@ -216,13 +183,9 @@ describe('withAuth', () => {
   });
 
   it('未認証の場合、401エラーを返す', async () => {
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      null as never
-    );
-
+    const mockAuth: AuthFunction = jest.fn(async () => null);
     const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>();
-    const wrappedHandler = withAuth('stocks:read', handler);
+    const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
     const request = new NextRequest('http://localhost/api/test');
     const response = await wrappedHandler(request);
 
@@ -244,13 +207,9 @@ describe('withAuth', () => {
       expires: '2024-12-31T23:59:59Z',
     };
 
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      mockSession as never
-    );
-
+    const mockAuth: AuthFunction = jest.fn(async () => mockSession);
     const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>();
-    const wrappedHandler = withAuth('stocks:manage-data', handler);
+    const wrappedHandler = withAuth(mockAuth, 'stocks:manage-data', handler);
     const request = new NextRequest('http://localhost/api/test');
     const response = await wrappedHandler(request);
 
@@ -272,15 +231,11 @@ describe('withAuth', () => {
       expires: '2024-12-31T23:59:59Z',
     };
 
-    const { getServerSession } = await import('next-auth/next');
-    (getServerSession as jest.MockedFunction<typeof getServerSession>).mockResolvedValue(
-      mockSession as never
-    );
-
+    const mockAuth: AuthFunction = jest.fn(async () => mockSession);
     const handler = jest
       .fn<(session: Session, request: NextRequest) => Promise<NextResponse>>()
       .mockRejectedValue(new Error('Handler error'));
-    const wrappedHandler = withAuth('stocks:read', handler);
+    const wrappedHandler = withAuth(mockAuth, 'stocks:read', handler);
     const request = new NextRequest('http://localhost/api/test');
     const response = await wrappedHandler(request);
 
