@@ -191,8 +191,9 @@ async function main() {
         await updateBatchJob(params.jobId, params.userId, {
           status: 'SUCCEEDED',
           result: {
-            successVideoIds: result.successVideoIds,
-            failedVideoIds: result.failedVideoIds,
+            registeredCount: result.successVideoIds.length,
+            failedCount: result.failedVideoIds.length,
+            totalCount: result.successVideoIds.length + result.failedVideoIds.length,
             errorMessage: result.errorMessage,
           },
           completedAt: Date.now(),
@@ -231,8 +232,9 @@ async function main() {
         await updateBatchJob(params.jobId, params.userId, {
           status: 'FAILED',
           result: {
-            successVideoIds: [],
-            failedVideoIds: [],
+            registeredCount: 0,
+            failedCount: 0,
+            totalCount: 0,
             errorMessage: error instanceof Error ? error.message : String(error),
           },
           completedAt: Date.now(),
