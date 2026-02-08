@@ -14,8 +14,8 @@ import type {
   BatchJobEntity,
   CreateBatchJobInput,
   UpdateBatchJobInput,
-} from '../entities/batch-job.entity';
-import { BatchJobMapper } from '../mappers/batch-job.mapper';
+} from '../entities/batch-job.entity.js';
+import { BatchJobMapper } from '../mappers/batch-job.mapper.js';
 
 /**
  * InMemory BatchJob Repository

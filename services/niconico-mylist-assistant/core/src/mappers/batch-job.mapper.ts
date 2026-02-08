@@ -10,8 +10,8 @@ import type {
   BatchJobEntity,
   BatchJobKey,
   UpdateBatchJobInput,
-} from '../entities/batch-job.entity';
-import type { BatchStatus, BatchResult } from '../types';
+} from '../entities/batch-job.entity.js';
+import type { BatchStatus, BatchResult } from '../types/index.js';
 
 /**
  * BatchJob Mapper

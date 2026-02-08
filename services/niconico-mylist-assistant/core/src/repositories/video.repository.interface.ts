@@ -4,7 +4,7 @@
  * 動画データの CRUD 操作インターフェース
  */
 
-import type { VideoEntity, CreateVideoInput } from '../entities/video.entity';
+import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
 
 /**
  * Video Repository インターフェース

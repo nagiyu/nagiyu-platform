@@ -8,7 +8,7 @@ import type {
   BatchJobEntity,
   CreateBatchJobInput,
   UpdateBatchJobInput,
-} from '../entities/batch-job.entity';
+} from '../entities/batch-job.entity.js';
 
 /**
  * BatchJob Repository インターフェース

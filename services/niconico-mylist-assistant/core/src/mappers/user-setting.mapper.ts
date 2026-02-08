@@ -6,7 +6,7 @@
 
 import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
 import { validateStringField, validateBooleanField, validateTimestampField } from '@nagiyu/aws';
-import type { UserSettingEntity, UserSettingKey } from '../entities/user-setting.entity';
+import type { UserSettingEntity, UserSettingKey } from '../entities/user-setting.entity.js';
 
 /**
  * UserSetting Mapper

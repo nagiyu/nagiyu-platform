@@ -6,7 +6,7 @@
  * @see api-spec.md Section 5.4
  */
 
-import { BatchStatus, BatchResult } from '../types';
+import { BatchStatus, BatchResult } from '../types/index.js';
 
 /**
  * BatchJob Entity
