@@ -22,6 +22,7 @@ export class SecretsStack extends cdk.Stack {
 
     // 暗号化キーシークレット（自動生成）
     // AES-256-GCM で使用する32バイト（256ビット）のランダムキー
+    // 32文字以上のランダム文字列を生成し、UTF-8バイト列として先頭32バイトを使用
     this.encryptionSecret = new secretsmanager.Secret(this, 'EncryptionSecret', {
       secretName: `niconico-mylist-assistant/shared-secret-key-${environment}`,
       description: 'Shared encryption key for password encryption (AES-256-GCM)',

@@ -12,7 +12,7 @@ const ERROR_MESSAGES = {
   EMPTY_IV: '初期化ベクトルが指定されていません',
   EMPTY_AUTH_TAG: '認証タグが指定されていません',
   SECRET_NOT_FOUND: 'Secrets Manager からシークレットを取得できませんでした',
-  INVALID_SECRET_FORMAT: 'シークレットの形式が不正です（32バイトの暗号化キーが必要）',
+  INVALID_SECRET_FORMAT: 'シークレットの形式が不正です（32文字以上の暗号化キーが必要）',
   ENCRYPTION_FAILED: '暗号化処理に失敗しました',
   DECRYPTION_FAILED: '復号化処理に失敗しました',
   AUTHENTICATION_FAILED: '認証タグの検証に失敗しました（データが改ざんされている可能性があります）',
@@ -87,17 +87,22 @@ async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
       throw new Error(ERROR_MESSAGES.SECRET_NOT_FOUND);
     }
 
-    // シークレットは Base64 エンコードされた 32 バイトのキーと想定
-    const keyBuffer = Buffer.from(response.SecretString, 'base64');
+    // シークレットを UTF-8 バイト列として扱い、32バイトの暗号化キーを生成
+    // Secrets Manager が生成した文字列をそのまま UTF-8 バイトに変換
+    const keyBuffer = Buffer.from(response.SecretString, 'utf8');
 
-    if (keyBuffer.length !== 32) {
+    // 32バイト未満の場合はエラー
+    if (keyBuffer.length < 32) {
       throw new Error(ERROR_MESSAGES.INVALID_SECRET_FORMAT);
     }
 
-    // キャッシュに保存
-    cachedEncryptionKey = keyBuffer;
+    // 32バイトにトリム（32バイトを超える場合は先頭32バイトのみ使用）
+    const trimmedKey = keyBuffer.subarray(0, 32);
 
-    return keyBuffer;
+    // キャッシュに保存
+    cachedEncryptionKey = trimmedKey;
+
+    return trimmedKey;
   } catch (error) {
     if (error instanceof Error && error.message in ERROR_MESSAGES) {
       throw error;
