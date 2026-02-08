@@ -1,3 +1,3 @@
-export * from './client';
-export * from './batch';
-export * from './constants';
+export * from './client.js';
+export * from './batch.js';
+export * from './constants.js';

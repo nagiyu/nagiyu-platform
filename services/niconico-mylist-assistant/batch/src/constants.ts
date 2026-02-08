@@ -20,6 +20,9 @@ export const ERROR_MESSAGES = {
   MISSING_ENV_VARS: '必要な環境変数が設定されていません',
   INVALID_PARAMETERS: 'ジョブパラメータが不正です',
 
+  // 暗号化関連
+  DECRYPTION_FAILED: 'パスワードの復号化に失敗しました',
+
   // その他
   BROWSER_LAUNCH_FAILED: 'ブラウザの起動に失敗しました',
   SCREENSHOT_FAILED: 'スクリーンショットの取得に失敗しました',

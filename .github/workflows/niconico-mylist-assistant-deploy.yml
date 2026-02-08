@@ -2,17 +2,17 @@ name: Niconico Mylist Assistant - Deploy Infrastructure
 
 on:
   push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - "services/niconico-mylist-assistant/**"
-      - "infra/niconico-mylist-assistant/**"
-      - "libs/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/niconico-mylist-assistant-deploy.yml"
+    # branches:
+      # - develop
+      # - integration/**
+      # - master
+    # paths:
+      # - "services/niconico-mylist-assistant/**"
+      # - "infra/niconico-mylist-assistant/**"
+      # - "libs/**"
+      # - "package.json"
+      # - "package-lock.json"
+      # - ".github/workflows/niconico-mylist-assistant-deploy.yml"
   workflow_dispatch:
 
 env:
@@ -85,7 +85,7 @@ jobs:
             aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.set-env.outputs.environment }}
 
-      - name: Deploy Infrastructure Stacks (DynamoDB, ECR)
+      - name: Deploy Infrastructure Stacks (DynamoDB, Secrets, ECR)
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
           STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
@@ -94,6 +94,7 @@ jobs:
           echo "Deploying infrastructure stacks..."
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
+            "NagiyuNiconicoMylistAssistantSecrets${STACK_SUFFIX}" \
             "NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}" \
             "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}" \
             --context env=$ENVIRONMENT \
@@ -247,6 +248,7 @@ jobs:
             --require-approval never \
             --all \
             --exclude "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
+            --exclude "NagiyuNiconicoMylistAssistantSecrets${STACK_SUFFIX}" \
             --exclude "NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}" \
             --exclude "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}"
 

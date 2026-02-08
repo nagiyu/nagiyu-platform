@@ -6,7 +6,7 @@
 
 import type { DynamoDBItem, EntityMapper } from '@nagiyu/aws';
 import { validateStringField, validateTimestampField } from '@nagiyu/aws';
-import type { VideoEntity, VideoKey } from '../entities/video.entity';
+import type { VideoEntity, VideoKey } from '../entities/video.entity.js';
 
 /**
  * Video Mapper

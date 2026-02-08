@@ -88,14 +88,14 @@ describe('crypto utilities', () => {
 
     it('キーのサイズが不正な場合エラーになる', async () => {
       secretsManagerMock.reset();
-      // 16バイトのキー（本来は32バイト必要）
-      const invalidKey = randomBytes(16).toString('base64');
+      // 16文字のキー（本来は32文字以上必要）
+      const invalidKey = 'tooshortkey12345'; // 16文字
       secretsManagerMock.on(GetSecretValueCommand).resolves({
         SecretString: invalidKey,
       });
 
       await expect(encrypt('password', config)).rejects.toThrow(
-        'シークレットの形式が不正です（32バイトの暗号化キーが必要）'
+        'シークレットの形式が不正です（32文字以上の暗号化キーが必要）'
       );
     });
 

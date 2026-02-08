@@ -35,16 +35,16 @@ export class IAMStack extends cdk.Stack {
       });
 
       // CloudFormation Outputs
+      // Note: exportName is intentionally NOT used to allow flexible updates
+      // CDK handles cross-stack references automatically
       new cdk.CfnOutput(this, 'DevUserName', {
         value: this.devUser.userName,
         description: 'Development IAM User Name',
-        exportName: `${this.stackName}-DevUserName`,
       });
 
       new cdk.CfnOutput(this, 'DevUserArn', {
         value: this.devUser.userArn,
         description: 'Development IAM User ARN',
-        exportName: `${this.stackName}-DevUserArn`,
       });
     }
   }

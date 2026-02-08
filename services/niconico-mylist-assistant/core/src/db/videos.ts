@@ -1,14 +1,14 @@
-import { docClient, TABLE_NAME } from './client';
-import { createVideoRepository, createUserSettingRepository } from '../repositories/factory';
-import type { VideoRepository } from '../repositories/video.repository.interface';
-import type { UserSettingRepository } from '../repositories/user-setting.repository.interface';
+import { docClient, TABLE_NAME } from './client.js';
+import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
+import type { VideoRepository } from '../repositories/video.repository.interface.js';
+import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
 import type {
   VideoBasicInfo,
   UserVideoSetting,
   CreateVideoBasicInfoInput,
   CreateUserSettingInput,
   VideoSettingUpdate,
-} from '../types';
+} from '../types/index.js';
 
 // Repository インスタンスの遅延作成
 // 環境変数 USE_IN_MEMORY_DB により、DynamoDB または InMemory 実装を切り替える

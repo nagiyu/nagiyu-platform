@@ -24,6 +24,11 @@ export interface BatchRuntimePolicyProps {
    * 環境名 (例: 'dev', 'prod')
    */
   envName: string;
+
+  /**
+   * Encryption Secret ARN
+   */
+  encryptionSecretArn: string;
 }
 
 /**
@@ -40,9 +45,7 @@ export interface BatchRuntimePolicyProps {
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem)
  *   - DeleteItem は不可（最小権限の原則）
  * - CloudWatch Logs: ログ書き込み
- *
- * Milestone 5 での拡張予定:
- * - Secrets Manager への読み取り権限（暗号化キー取得）
+ * - Secrets Manager: 暗号化キーの読み取り (GetSecretValue)
  */
 export class BatchRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: BatchRuntimePolicyProps) {
@@ -57,12 +60,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
       new iam.PolicyStatement({
         sid: 'DynamoDBTableAccess',
         effect: iam.Effect.ALLOW,
-        actions: [
-          'dynamodb:Query',
-          'dynamodb:GetItem',
-          'dynamodb:PutItem',
-          'dynamodb:UpdateItem',
-        ],
+        actions: ['dynamodb:Query', 'dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
         resources: [
           props.dynamoTableArn,
           `${props.dynamoTableArn}/index/*`, // GSI へのアクセス
@@ -77,6 +75,16 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
         effect: iam.Effect.ALLOW,
         actions: ['logs:CreateLogStream', 'logs:PutLogEvents'],
         resources: [`arn:aws:logs:*:*:log-group:${props.logGroupName}:*`],
+      })
+    );
+
+    // Secrets Manager 権限: 暗号化キーの読み取り
+    this.addStatements(
+      new iam.PolicyStatement({
+        sid: 'SecretsManagerAccess',
+        effect: iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [props.encryptionSecretArn],
       })
     );
   }

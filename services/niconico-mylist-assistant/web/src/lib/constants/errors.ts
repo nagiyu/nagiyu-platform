@@ -34,4 +34,5 @@ export const ERROR_MESSAGES = {
   NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
+  PASSWORD_ENCRYPTION_FAILED: 'パスワードの暗号化に失敗しました',
 } as const;

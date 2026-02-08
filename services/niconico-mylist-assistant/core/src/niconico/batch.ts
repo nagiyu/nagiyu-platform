@@ -1,5 +1,5 @@
-import { getVideoInfo, NiconicoAPIError, NiconicoVideoInfo } from './client';
-import { DEFAULT_BATCH_CONCURRENCY } from './constants';
+import { getVideoInfo, NiconicoAPIError, NiconicoVideoInfo } from './client.js';
+import { DEFAULT_BATCH_CONCURRENCY } from './constants.js';
 
 export interface VideoInfoBatchResult {
   success: NiconicoVideoInfo[];

@@ -1,11 +1,11 @@
-import { docClient, TABLE_NAME } from './client';
-import { createBatchJobRepository } from '../repositories/factory';
-import type { BatchJobRepository } from '../repositories/batch-job.repository.interface';
+import { docClient, TABLE_NAME } from './client.js';
+import { createBatchJobRepository } from '../repositories/factory.js';
+import type { BatchJobRepository } from '../repositories/batch-job.repository.interface.js';
 import type {
   BatchJobEntity,
   CreateBatchJobInput,
   UpdateBatchJobInput,
-} from '../entities/batch-job.entity';
+} from '../entities/batch-job.entity.js';
 
 // Repository インスタンスの遅延作成
 // 環境変数 USE_IN_MEMORY_DB により、DynamoDB または InMemory 実装を切り替える

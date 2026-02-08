@@ -1,5 +1,5 @@
 # ベースイメージ: Playwright公式イメージ（ブラウザ含む）
-FROM mcr.microsoft.com/playwright:v1.57.0-jammy AS base
+FROM mcr.microsoft.com/playwright:v1.58.0-jammy AS base
 
 # ビルドステージ
 FROM base AS builder
