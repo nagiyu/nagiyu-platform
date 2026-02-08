@@ -723,7 +723,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
 
       // basePriceが設定されていない場合はテストをスキップ
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
@@ -758,7 +760,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
@@ -794,7 +798,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
@@ -830,7 +836,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
@@ -888,7 +896,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // パーセンテージモードに切り替え
       await inputModeSelect.click();
@@ -949,7 +959,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
@@ -990,7 +1002,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
@@ -1035,7 +1049,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
+      if (!isInputModeVisible) {
+        test.skip();
+      }
 
       // 入力方式を「パーセンテージ」に変更
       await inputModeSelect.click();
