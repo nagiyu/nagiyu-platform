@@ -6,6 +6,8 @@
  * マイリスト登録ジョブのパラメータ
  */
 export interface MylistRegistrationJobParams {
+  /** バッチジョブID (AWS Batch Job ID) */
+  jobId: string;
   /** ユーザーID */
   userId: string;
   /** ニコニコ動画のメールアドレス */

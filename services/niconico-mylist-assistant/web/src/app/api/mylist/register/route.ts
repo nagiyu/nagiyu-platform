@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { listVideosWithSettings, encrypt } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  listVideosWithSettings,
+  encrypt,
+  createBatchJob,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -270,6 +274,7 @@ export async function POST(
             { name: 'ENCRYPTED_PASSWORD', value: encryptedPasswordJson },
             { name: 'DYNAMODB_TABLE_NAME', value: DYNAMODB_TABLE_NAME },
             { name: 'AWS_REGION', value: AWS_REGION },
+            // Note: BATCH_JOB_ID will be added after job submission
           ],
         },
       })
@@ -277,13 +282,38 @@ export async function POST(
 
     // ジョブIDの確認
     if (!submitResult.jobId) {
-      console.error('Batch job submission returned no jobId:', submitResult);
+      console.error('Batch job submission returned no jobId:', submitResult.jobId);
       return NextResponse.json(
         {
           error: {
             code: 'BATCH_ERROR',
             message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
             details: 'ジョブIDが取得できませんでした',
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    // DynamoDB にバッチジョブレコードを作成
+    // Web 側でジョブステータスを照会できるようにする
+    try {
+      await createBatchJob({
+        jobId: submitResult.jobId,
+        userId: session.user.id,
+        status: 'SUBMITTED',
+      });
+      console.log(`バッチジョブレコードを作成しました: ${submitResult.jobId}`);
+    } catch (error) {
+      console.error('バッチジョブレコード作成エラー:', error);
+      // DynamoDB への保存に失敗した場合はエラーを返す
+      // ジョブステータスが照会できないため
+      return NextResponse.json(
+        {
+          error: {
+            code: 'DATABASE_ERROR',
+            message: ERROR_MESSAGES.DATABASE_ERROR,
+            details: 'ジョブステータス管理レコードの作成に失敗しました',
           },
         },
         { status: 500 }

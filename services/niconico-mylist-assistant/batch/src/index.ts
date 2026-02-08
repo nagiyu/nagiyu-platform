@@ -4,7 +4,10 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import { decrypt } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  decrypt,
+  updateBatchJob,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { ERROR_MESSAGES } from './constants.js';
@@ -47,6 +50,8 @@ function getJobParameters(): MylistRegistrationJobParams {
   const encryptedPassword = process.env.ENCRYPTED_PASSWORD || '';
   const mylistName = process.env.MYLIST_NAME || generateDefaultMylistName();
   const videoIdsJson = process.env.VIDEO_IDS || '[]';
+  // AWS Batch が自動的に設定する環境変数からジョブIDを取得
+  const jobId = process.env.AWS_BATCH_JOB_ID || '';
 
   let videoIds: string[] = [];
   try {
@@ -59,7 +64,12 @@ function getJobParameters(): MylistRegistrationJobParams {
     throw new Error(ERROR_MESSAGES.INVALID_PARAMETERS);
   }
 
+  if (!jobId) {
+    console.warn('警告: AWS_BATCH_JOB_ID が設定されていません');
+  }
+
   console.log('=== ジョブパラメータ ===');
+  console.log(`ジョブID: ${jobId || '(not set)'}`);
   console.log(`ユーザーID: ${userId}`);
   console.log(`メールアドレス: ${niconicoEmail}`);
   console.log(`マイリスト名: ${mylistName}`);
@@ -67,6 +77,7 @@ function getJobParameters(): MylistRegistrationJobParams {
   console.log('========================');
 
   return {
+    jobId,
     userId,
     niconicoEmail,
     encryptedPassword,
@@ -119,12 +130,27 @@ async function main() {
   console.log(`開始時刻: ${getTimestamp()}`);
   console.log('========================================');
 
+  let params: MylistRegistrationJobParams | null = null;
+
   try {
     // 環境変数の読み取り
     const env = readEnvironmentVariables();
 
     // ジョブパラメータの取得
-    const params = getJobParameters();
+    params = getJobParameters();
+
+    // ジョブステータスを RUNNING に更新
+    if (params.jobId) {
+      try {
+        await updateBatchJob(params.jobId, params.userId, {
+          status: 'RUNNING',
+        });
+        console.log('ジョブステータスを RUNNING に更新しました');
+      } catch (error) {
+        console.warn('ジョブステータス更新に失敗しました (RUNNING):', error);
+        // 更新失敗してもジョブは続行
+      }
+    }
 
     // 暗号化設定の作成
     const cryptoConfig: CryptoConfig = {
@@ -162,6 +188,25 @@ async function main() {
 
     console.log('================');
 
+    // ジョブステータスを SUCCEEDED に更新
+    if (params.jobId) {
+      try {
+        await updateBatchJob(params.jobId, params.userId, {
+          status: 'SUCCEEDED',
+          result: {
+            successVideoIds: result.successVideoIds,
+            failedVideoIds: result.failedVideoIds,
+            errorMessage: result.errorMessage,
+          },
+          completedAt: Date.now(),
+        });
+        console.log('ジョブステータスを SUCCEEDED に更新しました');
+      } catch (error) {
+        console.error('ジョブステータス更新に失敗しました (SUCCEEDED):', error);
+        // 更新失敗してもジョブ自体は成功
+      }
+    }
+
     // 完了ログ
     console.log('');
     console.log('========================================');
@@ -182,6 +227,25 @@ async function main() {
     console.error(`エラー時刻: ${getTimestamp()}`);
     console.error('エラー詳細:', error);
     console.error('========================================');
+
+    // ジョブステータスを FAILED に更新
+    if (params?.jobId && params?.userId) {
+      try {
+        await updateBatchJob(params.jobId, params.userId, {
+          status: 'FAILED',
+          result: {
+            successVideoIds: [],
+            failedVideoIds: [],
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+          completedAt: Date.now(),
+        });
+        console.log('ジョブステータスを FAILED に更新しました');
+      } catch (updateError) {
+        console.error('ジョブステータス更新に失敗しました (FAILED):', updateError);
+      }
+    }
+
     process.exit(1);
   }
 }
