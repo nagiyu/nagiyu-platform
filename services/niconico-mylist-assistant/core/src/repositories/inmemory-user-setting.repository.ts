@@ -10,7 +10,7 @@ import {
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
-import type { UserSettingRepository } from './user-setting.repository.interface';
+import type { UserSettingRepository } from './user-setting.repository.interface.js';
 import type {
   UserSettingEntity,
   CreateUserSettingInput,

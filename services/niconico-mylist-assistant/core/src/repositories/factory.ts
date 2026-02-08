@@ -5,16 +5,16 @@
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import type { VideoRepository } from './video.repository.interface';
-import type { UserSettingRepository } from './user-setting.repository.interface';
-import type { BatchJobRepository } from './batch-job.repository.interface';
-import { DynamoDBVideoRepository } from './dynamodb-video.repository';
-import { DynamoDBUserSettingRepository } from './dynamodb-user-setting.repository';
-import { DynamoDBBatchJobRepository } from './dynamodb-batch-job.repository';
-import { InMemoryVideoRepository } from './inmemory-video.repository';
-import { InMemoryUserSettingRepository } from './inmemory-user-setting.repository';
-import { InMemoryBatchJobRepository } from './inmemory-batch-job.repository';
-import { getInMemoryStore } from './store';
+import type { VideoRepository } from './video.repository.interface.js';
+import type { UserSettingRepository } from './user-setting.repository.interface.js';
+import type { BatchJobRepository } from './batch-job.repository.interface.js';
+import { DynamoDBVideoRepository } from './dynamodb-video.repository.js';
+import { DynamoDBUserSettingRepository } from './dynamodb-user-setting.repository.js';
+import { DynamoDBBatchJobRepository } from './dynamodb-batch-job.repository.js';
+import { InMemoryVideoRepository } from './inmemory-video.repository.js';
+import { InMemoryUserSettingRepository } from './inmemory-user-setting.repository.js';
+import { InMemoryBatchJobRepository } from './inmemory-batch-job.repository.js';
+import { getInMemoryStore } from './store.js';
 
 /**
  * VideoRepository を作成

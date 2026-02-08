@@ -7,14 +7,14 @@ export type {
   VideoEntity,
   CreateVideoInput as CreateVideoEntityInput,
   VideoKey,
-} from './entities/video.entity';
+} from './entities/video.entity.js';
 
 export type {
   UserSettingEntity,
   CreateUserSettingInput as CreateUserSettingEntityInput,
   UpdateUserSettingInput,
   UserSettingKey,
-} from './entities/user-setting.entity';
+} from './entities/user-setting.entity.js';
 
 export * from './repositories/index.js';
 export * from './mappers/index.js';
