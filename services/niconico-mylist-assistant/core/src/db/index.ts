@@ -7,9 +7,9 @@
  * 新しいコードでは、Repository を直接使用することを推奨します。
  */
 
-export * from './client';
+export * from './client.js';
 
 // 後方互換性のため、従来の関数をエクスポート
 // 内部実装はリポジトリパターンに移行
-export * from './videos';
-export * from './batch-jobs';
+export * from './videos.js';
+export * from './batch-jobs.js';
