@@ -4,10 +4,7 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import {
-  decrypt,
-  updateBatchJob,
-} from '@nagiyu/niconico-mylist-assistant-core';
+import { decrypt, updateBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { ERROR_MESSAGES } from './constants.js';
