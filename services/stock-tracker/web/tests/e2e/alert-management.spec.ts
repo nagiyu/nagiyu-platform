@@ -721,7 +721,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 入力方式ドロップダウンが表示されるか確認（basePriceが設定されている場合のみ）
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      
+
       // basePriceが設定されていない場合はテストをスキップ
       test.skip(!isInputModeVisible, 'Input mode selector not available (basePrice not set)');
 
