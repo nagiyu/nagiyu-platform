@@ -314,6 +314,8 @@ export async function takeScreenshot(page: Page, filename: string): Promise<void
     // S3 バケットが設定されている場合は S3 にアップロード
     if (SCREENSHOT_BUCKET_NAME && s3Client) {
       try {
+        // タイムスタンプをファイル名に使用するため、ISO 8601 形式の特殊文字を置換
+        // （S3 オブジェクトキーでは使用可能だが、可読性のために置換）
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const s3Key = `screenshots/${timestamp}-${filename}.png`;
 
