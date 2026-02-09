@@ -111,13 +111,18 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
       const { pk, sk } = this.mapper.buildKeys({ jobId, userId });
       const attributes = this.mapper.buildUpdateAttributes(input);
 
-      // UpdateExpression と ExpressionAttributeValues を構築
+      // UpdateExpression と ExpressionAttributeNames, ExpressionAttributeValues を構築
       const updateExpressionParts: string[] = [];
+      const expressionAttributeNames: Record<string, string> = {};
       const expressionAttributeValues: Record<string, unknown> = {};
 
       for (const [key, value] of Object.entries(attributes)) {
-        updateExpressionParts.push(`${key} = :${key}`);
-        expressionAttributeValues[`:${key}`] = value;
+        // DynamoDB の予約語を ExpressionAttributeNames でエスケープ
+        const nameToken = `#${key}`;
+        const valueToken = `:${key}`;
+        updateExpressionParts.push(`${nameToken} = ${valueToken}`);
+        expressionAttributeNames[nameToken] = key;
+        expressionAttributeValues[valueToken] = value;
       }
 
       const result = await this.docClient.send(
@@ -125,6 +130,7 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
           TableName: this.tableName,
           Key: { PK: pk, SK: sk },
           UpdateExpression: `SET ${updateExpressionParts.join(', ')}`,
+          ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: expressionAttributeValues,
           ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
           ReturnValues: 'ALL_NEW',
