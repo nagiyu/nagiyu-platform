@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withRepository, withRepositories } from '../../src/repository';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
@@ -29,14 +29,9 @@ describe('withRepository', () => {
     const mockGetClient = () => ({}) as DynamoDBDocumentClient;
     const mockGetTableName = () => 'test-table';
 
-    const wrapped = withRepository(
-      mockGetClient,
-      mockGetTableName,
-      MockRepository,
-      async () => {
-        return NextResponse.json({ success: true });
-      }
-    );
+    const wrapped = withRepository(mockGetClient, mockGetTableName, MockRepository, async () => {
+      return NextResponse.json({ success: true });
+    });
 
     expect(typeof wrapped).toBe('function');
   });
@@ -66,8 +61,7 @@ describe('withRepository', () => {
     };
 
     const wrapped = withRepository(mockGetClient, mockGetTableName, MockRepository, handler);
-    const request = new NextRequest('http://localhost/api/test');
-    const response = await wrapped(request);
+    const response = await wrapped();
 
     expect(response.status).toBe(200);
   });
@@ -183,8 +177,7 @@ describe('withRepositories', () => {
       [MockRepository1, MockRepository2],
       handler
     );
-    const request = new NextRequest('http://localhost/api/test');
-    const response = await wrapped(request);
+    const response = await wrapped();
 
     expect(response.status).toBe(200);
   });
