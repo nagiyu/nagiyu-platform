@@ -80,9 +80,7 @@ describe('videos', () => {
           length: '5:30',
         };
 
-        await expect(createVideoBasicInfo(input)).rejects.toThrow(
-          'エンティティは既に存在します'
-        );
+        await expect(createVideoBasicInfo(input)).rejects.toThrow('エンティティは既に存在します');
       });
     });
 
@@ -223,9 +221,7 @@ describe('videos', () => {
           isSkip: false,
         };
 
-        await expect(createUserVideoSetting(input)).rejects.toThrow(
-          'エンティティは既に存在します'
-        );
+        await expect(createUserVideoSetting(input)).rejects.toThrow('エンティティは既に存在します');
       });
     });
 
@@ -400,9 +396,9 @@ describe('videos', () => {
       });
 
       it('更新する項目が指定されていない場合はエラーを返す', async () => {
-        await expect(
-          updateUserVideoSetting('user123', 'sm12345678', {})
-        ).rejects.toThrow('更新するフィールドが指定されていません');
+        await expect(updateUserVideoSetting('user123', 'sm12345678', {})).rejects.toThrow(
+          '更新するフィールドが指定されていません'
+        );
       });
 
       it('存在しない設定を更新しようとするとエラーになる', async () => {
@@ -414,9 +410,9 @@ describe('videos', () => {
           isFavorite: true,
         };
 
-        await expect(
-          updateUserVideoSetting('user123', 'sm99999999', update)
-        ).rejects.toThrow('エンティティが見つかりません');
+        await expect(updateUserVideoSetting('user123', 'sm99999999', update)).rejects.toThrow(
+          'エンティティが見つかりません'
+        );
       });
     });
 

@@ -102,6 +102,13 @@ export class InMemoryBatchJobRepository implements BatchJobRepository {
       updatedEntity.CompletedAt = attributes.CompletedAt as number;
     }
 
+    if (attributes.twoFactorAuthCode !== undefined) {
+      updatedEntity.twoFactorAuthCode = attributes.twoFactorAuthCode as string;
+    } else if (input.twoFactorAuthCode === undefined && existingEntity.twoFactorAuthCode) {
+      // twoFactorAuthCode が明示的に undefined で渡された場合、削除する
+      delete updatedEntity.twoFactorAuthCode;
+    }
+
     const updatedItem = this.mapper.toItem(updatedEntity);
     this.store.put(updatedItem);
 

@@ -11,10 +11,7 @@ const config: Config = {
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {

@@ -208,11 +208,7 @@ describe('InMemoryUserSettingRepository', () => {
     });
 
     it('limitとoffsetでページネーションできる', async () => {
-      const result = await repository.getByUserIdWithFilters(
-        'user1',
-        {},
-        { limit: 2, offset: 0 }
-      );
+      const result = await repository.getByUserIdWithFilters('user1', {}, { limit: 2, offset: 0 });
 
       expect(result.settings).toHaveLength(2);
       expect(result.total).toBe(4);
@@ -284,9 +280,9 @@ describe('InMemoryUserSettingRepository', () => {
     });
 
     it('存在しない設定を更新するとEntityNotFoundErrorを投げる', async () => {
-      await expect(
-        repository.update('user99', 'sm99999', { isFavorite: true })
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.update('user99', 'sm99999', { isFavorite: true })).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('更新フィールドが指定されていないとエラーを投げる', async () => {

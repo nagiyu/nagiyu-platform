@@ -20,7 +20,7 @@ describe('InMemory Store Singleton', () => {
     it('複数回呼び出しても同じインスタンスを返す（シングルトン）', () => {
       const store1 = getInMemoryStore();
       const store2 = getInMemoryStore();
-      
+
       expect(store1).toBe(store2);
     });
 
@@ -35,7 +35,7 @@ describe('InMemory Store Singleton', () => {
 
       const store2 = getInMemoryStore();
       const item = store2.get('TEST#1', 'ITEM#1');
-      
+
       expect(item).toBeDefined();
       expect(item?.data).toBe('test-data');
     });
@@ -50,11 +50,11 @@ describe('InMemory Store Singleton', () => {
         Type: 'Test',
         data: 'test-data',
       });
-      
+
       expect(store.size()).toBe(1);
-      
+
       clearInMemoryStore();
-      
+
       // 新しいストアインスタンスが作成される
       const newStore = getInMemoryStore();
       expect(newStore.size()).toBe(0);
@@ -70,9 +70,9 @@ describe('InMemory Store Singleton', () => {
       });
 
       clearInMemoryStore();
-      
+
       const store2 = getInMemoryStore();
-      
+
       // 新しいインスタンスは空
       expect(store2.size()).toBe(0);
       // 以前のデータは取得できない
