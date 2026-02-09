@@ -8,7 +8,6 @@ import {
   NICONICO_URLS,
   TIMEOUTS,
   VIDEO_REGISTRATION_WAIT,
-  TWO_FACTOR_AUTH_POLL_INTERVAL,
 } from './constants.js';
 import { MylistRegistrationResult, LoginResult } from './types.js';
 import { retry, sleep } from './utils.js';
