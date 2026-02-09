@@ -29,6 +29,11 @@ export interface BatchRuntimePolicyProps {
    * Encryption Secret ARN
    */
   encryptionSecretArn: string;
+
+  /**
+   * S3 Screenshot Bucket ARN (オプション)
+   */
+  screenshotBucketArn?: string;
 }
 
 /**
@@ -46,6 +51,7 @@ export interface BatchRuntimePolicyProps {
  *   - DeleteItem は不可（最小権限の原則）
  * - CloudWatch Logs: ログ書き込み
  * - Secrets Manager: 暗号化キーの読み取り (GetSecretValue)
+ * - S3: スクリーンショットバケットへの書き込み (PutObject)
  */
 export class BatchRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: BatchRuntimePolicyProps) {
@@ -87,5 +93,17 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
         resources: [props.encryptionSecretArn],
       })
     );
+
+    // S3 権限: スクリーンショットバケットへの書き込み（バケットが指定されている場合のみ）
+    if (props.screenshotBucketArn) {
+      this.addStatements(
+        new iam.PolicyStatement({
+          sid: 'S3ScreenshotAccess',
+          effect: iam.Effect.ALLOW,
+          actions: ['s3:PutObject', 's3:PutObjectAcl'],
+          resources: [`${props.screenshotBucketArn}/*`],
+        })
+      );
+    }
   }
 }

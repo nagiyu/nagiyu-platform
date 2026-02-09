@@ -6,6 +6,8 @@ import { chromium, Browser, Page } from 'playwright';
 import { ERROR_MESSAGES, NICONICO_URLS, TIMEOUTS, VIDEO_REGISTRATION_WAIT } from './constants.js';
 import { MylistRegistrationResult } from './types.js';
 import { retry, sleep } from './utils.js';
+import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
+import { readFile } from 'fs/promises';
 
 /**
  * ニコニコ動画にログインする
@@ -281,7 +283,24 @@ export async function registerVideosToMylist(
 const SCREENSHOT_DIR = '/tmp';
 
 /**
+ * S3 バケット名（環境変数から取得、設定されていない場合は S3 アップロードをスキップ）
+ */
+const SCREENSHOT_BUCKET_NAME = process.env.SCREENSHOT_BUCKET_NAME;
+
+/**
+ * AWS リージョン（環境変数から取得）
+ */
+const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
+
+/**
+ * S3 クライアント（バケット名が設定されている場合のみ初期化）
+ */
+const s3Client = SCREENSHOT_BUCKET_NAME ? createS3Client({ region: AWS_REGION }) : null;
+
+/**
  * スクリーンショットを取得して保存する（デバッグ用）
+ *
+ * ローカルの /tmp に保存し、S3 バケットが設定されている場合は S3 にもアップロードする。
  *
  * @param page Playwright Page オブジェクト
  * @param filename ファイル名（拡張子なし）
@@ -291,6 +310,33 @@ export async function takeScreenshot(page: Page, filename: string): Promise<void
     const path = `${SCREENSHOT_DIR}/${filename}.png`;
     await page.screenshot({ path, fullPage: true });
     console.log(`スクリーンショット保存: ${path}`);
+
+    // S3 バケットが設定されている場合は S3 にアップロード
+    if (SCREENSHOT_BUCKET_NAME && s3Client) {
+      try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const s3Key = `screenshots/${timestamp}-${filename}.png`;
+
+        // ファイルを読み込んで S3 にアップロード
+        const fileBuffer = await readFile(path);
+        await uploadFile(s3Client, {
+          bucketName: SCREENSHOT_BUCKET_NAME,
+          key: s3Key,
+          body: fileBuffer,
+          contentType: 'image/png',
+          metadata: {
+            originalFilename: filename,
+            timestamp: timestamp,
+          },
+        });
+
+        const s3Url = getS3ObjectUrl(SCREENSHOT_BUCKET_NAME, s3Key, AWS_REGION);
+        console.log(`スクリーンショットを S3 にアップロード: ${s3Url}`);
+      } catch (s3Error) {
+        console.error('S3 アップロード失敗:', s3Error);
+        // S3 アップロードの失敗は致命的ではないため、処理は継続
+      }
+    }
   } catch (error) {
     console.error('スクリーンショット取得失敗:', error);
     // スクリーンショット取得の失敗は致命的ではないため、エラーをスローしない
