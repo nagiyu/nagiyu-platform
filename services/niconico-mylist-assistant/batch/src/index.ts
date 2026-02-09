@@ -7,7 +7,7 @@
 import { decrypt, updateBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
-import { ERROR_MESSAGES } from './constants.js';
+import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
 import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
 import { MylistRegistrationJobParams } from './types.js';
 
@@ -181,11 +181,11 @@ async function main() {
 
       // DynamoDB をポーリングして二段階認証コードを取得
       const startTime = Date.now();
-      const timeout = 300000; // 5分
+      const timeout = TIMEOUTS.TWO_FACTOR_AUTH_WAIT;
 
       while (Date.now() - startTime < timeout) {
-        // 5秒ごとにポーリング
-        await sleep(5000);
+        // 定期的にポーリング
+        await sleep(TWO_FACTOR_AUTH_POLL_INTERVAL);
 
         try {
           const job = await import('@nagiyu/niconico-mylist-assistant-core').then((m) =>

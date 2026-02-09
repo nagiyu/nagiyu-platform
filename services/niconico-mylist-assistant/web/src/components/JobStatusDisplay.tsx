@@ -24,6 +24,7 @@ import {
 import type { JobStatusDisplayProps, JobStatusState } from '@/types/job';
 import { DEFAULT_POLLING_CONFIG } from '@/types/job';
 import type { BatchStatus, BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
+import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-core';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
@@ -59,7 +60,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
    * 二段階認証コードを送信
    */
   const handleSubmit2FA = useCallback(async () => {
-    if (!/^\d{6}$/.test(twoFactorAuthCode)) {
+    if (!TWO_FACTOR_AUTH_CODE_REGEX.test(twoFactorAuthCode)) {
       setTwoFAError('6桁の数字を入力してください');
       return;
     }

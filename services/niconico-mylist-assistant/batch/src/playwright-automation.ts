@@ -52,7 +52,10 @@ export async function login(page: Page, email: string, password: string): Promis
       .getByText('メールに記載された6桁の数字を入力')
       .first()
       .isVisible({ timeout: 3000 })
-      .catch(() => false);
+      .catch((error) => {
+        console.log('二段階認証画面チェック中にエラー（正常な場合もあります）:', error.message);
+        return false;
+      });
 
     if (twoFactorAuthText) {
       console.log('二段階認証画面を検出しました');

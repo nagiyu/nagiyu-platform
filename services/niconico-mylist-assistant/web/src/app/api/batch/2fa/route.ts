@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  updateBatchJob,
+  getBatchJob,
+  TWO_FACTOR_AUTH_CODE_REGEX,
+} from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -54,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 二段階認証コードの形式チェック（6桁の数字）
-    if (!/^\d{6}$/.test(code)) {
+    if (!TWO_FACTOR_AUTH_CODE_REGEX.test(code)) {
       return NextResponse.json(
         {
           error: {
