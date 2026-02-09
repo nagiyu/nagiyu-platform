@@ -41,35 +41,13 @@ export async function login(page: Page, email: string, password: string): Promis
     await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
 
     // 二段階認証画面かどうかを確認
-    // 「メールに記載された6桁の数字を入力」というテキストがあるかチェック
-    const twoFactorAuthText = await page
-      .getByText('メールに記載された6桁の数字を入力')
-      .first()
-      .isVisible({ timeout: 3000 })
-      .catch((error) => {
-        console.log('二段階認証画面チェック中にエラー（正常な場合もあります）:', error.message);
-        return false;
-      });
+    // URLマッチで判断（https://account.nicovideo.jp/mfa で始まるURL）
+    const currentUrl = page.url();
+    const is2FAPage = currentUrl.includes('account.nicovideo.jp/mfa');
 
-    if (twoFactorAuthText) {
-      console.log('二段階認証画面を検出しました');
-      console.log('現在のURL:', page.url());
-
-      // 二段階認証の入力欄を特定（デバッグ用）
-      try {
-        const inputFields = await page.locator('input[type="text"], input[type="tel"]').all();
-        console.log(`入力欄の数: ${inputFields.length}`);
-        for (let i = 0; i < inputFields.length; i++) {
-          const field = inputFields[i];
-          const name = await field.getAttribute('name').catch(() => null);
-          const id = await field.getAttribute('id').catch(() => null);
-          const placeholder = await field.getAttribute('placeholder').catch(() => null);
-          console.log(`入力欄 ${i + 1}: name="${name}", id="${id}", placeholder="${placeholder}"`);
-        }
-      } catch (error) {
-        console.error('入力欄の特定に失敗:', error);
-      }
-
+    if (is2FAPage) {
+      console.log('二段階認証画面を検出しました（URLマッチ）');
+      console.log('現在のURL:', currentUrl);
       return { requires2FA: true };
     }
 
@@ -91,8 +69,8 @@ export async function inputTwoFactorAuthCode(page: Page, code: string): Promise<
   console.log('二段階認証コードを入力中...');
 
   try {
-    // 入力欄を特定（最初のtext/tel入力欄を使用）
-    const inputField = page.locator('input[type="text"], input[type="tel"]').first();
+    // 入力欄を特定（id="oneTimePw" を使用）
+    const inputField = page.locator('#oneTimePw');
     await inputField.fill(code);
 
     console.log('二段階認証コードを入力しました');
