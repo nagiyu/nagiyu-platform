@@ -3,12 +3,7 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import {
-  ERROR_MESSAGES,
-  NICONICO_URLS,
-  TIMEOUTS,
-  VIDEO_REGISTRATION_WAIT,
-} from './constants.js';
+import { ERROR_MESSAGES, NICONICO_URLS, TIMEOUTS, VIDEO_REGISTRATION_WAIT } from './constants.js';
 import { MylistRegistrationResult, LoginResult } from './types.js';
 import { retry, sleep } from './utils.js';
 import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
