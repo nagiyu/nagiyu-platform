@@ -8,3 +8,4 @@
 
 export * from './types.js';
 export * from './dynamodb/index.js';
+export * from './s3/index.js';

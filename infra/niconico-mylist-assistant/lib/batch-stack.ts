@@ -13,6 +13,8 @@ export interface BatchStackProps extends cdk.StackProps {
   dynamoTableArn: string;
   encryptionSecretArn: string;
   encryptionSecretName?: string; // Optional, will be extracted from ARN if not provided
+  screenshotBucketArn?: string; // Optional S3 bucket ARN for screenshots
+  screenshotBucketName?: string; // Optional S3 bucket name for screenshots
 }
 
 /**
@@ -35,7 +37,14 @@ export class BatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
 
-    const { environment, dynamoTableArn, encryptionSecretArn, encryptionSecretName } = props;
+    const {
+      environment,
+      dynamoTableArn,
+      encryptionSecretArn,
+      encryptionSecretName,
+      screenshotBucketArn,
+      screenshotBucketName,
+    } = props;
     const env = environment as 'dev' | 'prod';
 
     // Encryption secret name from props or extract from ARN
@@ -105,6 +114,7 @@ export class BatchStack extends cdk.Stack {
       logGroupName: batchLogGroup.logGroupName,
       envName: environment,
       encryptionSecretArn,
+      screenshotBucketArn,
     });
 
     // IAM Role for Batch Job (コンテナランタイム用)
@@ -185,6 +195,14 @@ export class BatchStack extends cdk.Stack {
             name: 'ENCRYPTION_SECRET_NAME',
             value: secretName,
           },
+          ...(screenshotBucketName
+            ? [
+                {
+                  name: 'SCREENSHOT_BUCKET_NAME',
+                  value: screenshotBucketName,
+                },
+              ]
+            : []),
         ],
       },
       retryStrategy: {
