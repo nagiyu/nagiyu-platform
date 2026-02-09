@@ -127,7 +127,12 @@ export type CreateUserSettingInput = Omit<UserVideoSetting, 'CreatedAt' | 'Updat
 /**
  * バッチジョブステータス
  */
-export type BatchStatus = 'SUBMITTED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+export type BatchStatus = 'SUBMITTED' | 'RUNNING' | 'WAITING_FOR_2FA' | 'SUCCEEDED' | 'FAILED';
+
+/**
+ * 二段階認証コードのバリデーション正規表現（6桁の数字）
+ */
+export const TWO_FACTOR_AUTH_CODE_REGEX = /^\d{6}$/;
 
 /**
  * バッチジョブ結果

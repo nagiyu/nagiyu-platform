@@ -7,8 +7,8 @@
 import { decrypt, updateBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
-import { ERROR_MESSAGES } from './constants.js';
-import { getTimestamp, generateDefaultMylistName } from './utils.js';
+import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
+import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
 import { MylistRegistrationJobParams } from './types.js';
 
 /**
@@ -162,18 +162,74 @@ async function main() {
     console.log('Playwright自動化処理を開始します...');
     console.log('');
 
+    // 二段階認証コード取得コールバック
+    const waitFor2FA = async (): Promise<string> => {
+      console.log('二段階認証が必要です。Web からコード入力を待機しています...');
+
+      // ジョブステータスを WAITING_FOR_2FA に更新
+      if (params?.jobId && params?.userId) {
+        try {
+          await updateBatchJob(params.jobId, params.userId, {
+            status: 'WAITING_FOR_2FA',
+          });
+          console.log('ジョブステータスを WAITING_FOR_2FA に更新しました');
+        } catch (error) {
+          console.error('ジョブステータス更新に失敗しました (WAITING_FOR_2FA):', error);
+          throw error;
+        }
+      }
+
+      // DynamoDB をポーリングして二段階認証コードを取得
+      const startTime = Date.now();
+      const timeout = TIMEOUTS.TWO_FACTOR_AUTH_WAIT;
+
+      while (Date.now() - startTime < timeout) {
+        // 定期的にポーリング
+        await sleep(TWO_FACTOR_AUTH_POLL_INTERVAL);
+
+        try {
+          const job = await import('@nagiyu/niconico-mylist-assistant-core').then((m) =>
+            m.getBatchJob(params!.jobId, params!.userId)
+          );
+
+          if (job?.twoFactorAuthCode) {
+            console.log('二段階認証コードを取得しました');
+
+            // コードを取得したら、ステータスを RUNNING に戻す
+            await updateBatchJob(params!.jobId, params!.userId, {
+              status: 'RUNNING',
+              twoFactorAuthCode: undefined, // コードをクリア
+            });
+
+            return job.twoFactorAuthCode;
+          }
+        } catch (error) {
+          console.error('バッチジョブの取得に失敗:', error);
+        }
+
+        console.log('二段階認証コード待機中...');
+      }
+
+      throw new Error(ERROR_MESSAGES.TWO_FACTOR_AUTH_TIMEOUT);
+    };
+
     // マイリスト登録処理の実行
     const result = await executeMylistRegistration(
       params.niconicoEmail,
       password,
       params.mylistName,
-      params.videoIds
+      params.videoIds,
+      waitFor2FA
     );
 
     console.log('');
     console.log('=== 登録結果 ===');
     console.log(`成功: ${result.successVideoIds.length}件`);
     console.log(`失敗: ${result.failedVideoIds.length}件`);
+
+    if (result.required2FA) {
+      console.log('二段階認証: 必要でした');
+    }
 
     if (result.failedVideoIds.length > 0) {
       console.log('失敗した動画ID:', result.failedVideoIds.join(', '));

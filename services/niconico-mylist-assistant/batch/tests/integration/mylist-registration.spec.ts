@@ -25,7 +25,7 @@ test.describe('マイリスト登録フロー', () => {
     if (!TEST_EMAIL || !TEST_PASSWORD) {
       throw new Error(
         '環境変数 NICONICO_TEST_EMAIL と NICONICO_TEST_PASSWORD が必要です。\n' +
-        '.env.local ファイルを作成して設定してください。'
+          '.env.local ファイルを作成して設定してください。'
       );
     }
 
@@ -236,9 +236,7 @@ test.describe('マイリスト登録フロー', () => {
       // });
 
       // 「マイリストが見つかりません」または「マイリストを作成」が表示されることを確認
-      const noMylistMessage = await page
-        .getByText('マイリストが見つかりません')
-        .isVisible();
+      const noMylistMessage = await page.getByText('マイリストが見つかりません').isVisible();
       const createButtonAfterDelete = await page.getByText('マイリストを作成').isVisible();
 
       if (noMylistMessage || createButtonAfterDelete) {

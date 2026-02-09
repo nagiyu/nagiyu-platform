@@ -40,7 +40,7 @@ describe('getVideoInfo', () => {
     } as Response);
 
     const info = await getVideoInfo('sm9');
-    
+
     expect(info.videoId).toBe('sm9');
     expect(info.title).toBe('新・豪血寺一族 -煩悩解放 - レッツゴー!陰陽師');
     expect(info.description).toBe('レッツゴー!陰陽師（フルコーラスバージョン）');
@@ -59,8 +59,8 @@ describe('getVideoInfo', () => {
       status: 404,
     } as Response);
 
-    const error = await getVideoInfo('invalid_id').catch(e => e);
-    
+    const error = await getVideoInfo('invalid_id').catch((e) => e);
+
     expect(error).toBeInstanceOf(NiconicoAPIError);
     expect(error.message).toBe('HTTPエラーが発生しました: 404');
   });
@@ -79,8 +79,8 @@ describe('getVideoInfo', () => {
       text: async () => mockXmlError,
     } as Response);
 
-    const error = await getVideoInfo('sm1').catch(e => e);
-    
+    const error = await getVideoInfo('sm1').catch((e) => e);
+
     expect(error).toBeInstanceOf(NiconicoAPIError);
     expect(error.message).toBe('動画が見つかりませんでした');
   });
@@ -165,8 +165,8 @@ describe('getVideoInfo', () => {
   it('should handle fetch errors', async () => {
     fetchMock.mockRejectedValueOnce(new Error('Network error'));
 
-    const error = await getVideoInfo('test').catch(e => e);
-    
+    const error = await getVideoInfo('test').catch((e) => e);
+
     expect(error).toBeInstanceOf(NiconicoAPIError);
     expect(error.message).toBe('動画情報の取得に失敗しました: Network error');
   });

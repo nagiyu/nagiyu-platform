@@ -2,7 +2,10 @@
  * Factory Pattern のテスト
  */
 
-import { createVideoRepository, createUserSettingRepository } from '../../../src/repositories/factory';
+import {
+  createVideoRepository,
+  createUserSettingRepository,
+} from '../../../src/repositories/factory';
 import { InMemoryVideoRepository } from '../../../src/repositories/inmemory-video.repository';
 import { InMemoryUserSettingRepository } from '../../../src/repositories/inmemory-user-setting.repository';
 import { DynamoDBVideoRepository } from '../../../src/repositories/dynamodb-video.repository';
@@ -81,10 +84,10 @@ describe('Repository Factory', () => {
 
       // 両リポジトリが同じストアインスタンスを使用していることを確認
       const store = getInMemoryStore();
-      
+
       // ストアのサイズを確認することで、同じストアが共有されていることを検証
       expect(store.size()).toBe(0);
-      
+
       // clearInMemoryStore() でクリアできることを確認
       clearInMemoryStore();
       expect(() => getInMemoryStore().size()).not.toThrow();
