@@ -50,6 +50,12 @@ export interface BatchJobEntity {
    * ジョブ完了日時 (Unix timestamp, 完了時のみ)
    */
   CompletedAt?: number;
+
+  /**
+   * 二段階認証コード（Web から入力される、一時的なデータ）
+   * 使用後は削除される
+   */
+  twoFactorAuthCode?: string;
 }
 
 /**
@@ -64,6 +70,7 @@ export interface UpdateBatchJobInput {
   status: BatchStatus;
   result?: BatchResult;
   completedAt?: number;
+  twoFactorAuthCode?: string;
 }
 
 /**

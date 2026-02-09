@@ -127,7 +127,7 @@ export type CreateUserSettingInput = Omit<UserVideoSetting, 'CreatedAt' | 'Updat
 /**
  * バッチジョブステータス
  */
-export type BatchStatus = 'SUBMITTED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
+export type BatchStatus = 'SUBMITTED' | 'RUNNING' | 'WAITING_FOR_2FA' | 'SUCCEEDED' | 'FAILED';
 
 /**
  * バッチジョブ結果
