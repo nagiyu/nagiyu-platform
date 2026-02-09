@@ -14,6 +14,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
   batchJobQueueArn: string; // Batch Job Queue ARN
   batchJobDefinitionArn: string; // Batch Job Definition ARN
+  encryptionSecretArn: string; // Encryption Secret ARN
+  encryptionSecretName: string; // Encryption Secret Name
 }
 
 /**
@@ -31,11 +33,24 @@ export class LambdaStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     super(scope, id, props);
 
-    const { environment, webEcrRepositoryName, dynamoTable, nextAuthSecret, batchJobQueueArn, batchJobDefinitionArn } = props;
+    const {
+      environment,
+      webEcrRepositoryName,
+      dynamoTable,
+      nextAuthSecret,
+      batchJobQueueArn,
+      batchJobDefinitionArn,
+      encryptionSecretArn,
+      encryptionSecretName,
+    } = props;
 
     // Auth URL configuration
-    const authUrl = environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
-    const appUrl = environment === 'prod' ? 'https://niconico-mylist-assistant.nagiyu.com' : 'https://dev-niconico-mylist-assistant.nagiyu.com';
+    const authUrl =
+      environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com';
+    const appUrl =
+      environment === 'prod'
+        ? 'https://niconico-mylist-assistant.nagiyu.com'
+        : 'https://dev-niconico-mylist-assistant.nagiyu.com';
 
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
@@ -51,6 +66,7 @@ export class LambdaStack extends cdk.Stack {
       envName: environment,
       batchJobQueueArn,
       batchJobDefinitionArn,
+      encryptionSecretArn,
     });
 
     // Web Lambda 用の実行ロール
@@ -58,9 +74,7 @@ export class LambdaStack extends cdk.Stack {
       roleName: `niconico-mylist-assistant-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AWSLambdaBasicExecutionRole'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
         this.webRuntimePolicy,
       ],
     });
@@ -85,6 +99,8 @@ export class LambdaStack extends cdk.Stack {
         AUTH_SECRET: nextAuthSecret,
         BATCH_JOB_QUEUE: batchJobQueueArn,
         BATCH_JOB_DEFINITION: batchJobDefinitionArn,
+        ENCRYPTION_SECRET_NAME: encryptionSecretName,
+        AWS_REGION_FOR_SDK: this.region,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
@@ -107,23 +123,22 @@ export class LambdaStack extends cdk.Stack {
     cdk.Tags.of(this.webFunction).add('Environment', environment);
 
     // CloudFormation Outputs
+    // Note: exportName is intentionally NOT used to allow flexible updates
+    // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,
       description: 'Web Lambda Function ARN',
-      exportName: `${this.stackName}-WebFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'FunctionUrl', {
       value: this.functionUrl.url,
       description: 'Web Lambda Function URL',
-      exportName: `${this.stackName}-FunctionUrl`,
     });
 
-    // Runtime Policy (IAM スタックで参照するため Export)
+    // Runtime Policy (IAM スタックで参照するため)
     new cdk.CfnOutput(this, 'WebRuntimePolicyArn', {
       value: this.webRuntimePolicy.managedPolicyArn,
       description: 'Web Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-WebRuntimePolicyArn`,
     });
   }
 }

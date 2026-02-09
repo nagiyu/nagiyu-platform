@@ -1,5 +1,5 @@
 import { parseStringPromise } from 'xml2js';
-import { NICONICO_ERROR_MESSAGES } from './constants';
+import { NICONICO_ERROR_MESSAGES } from './constants.js';
 
 export interface NiconicoVideoInfo {
   videoId: string;

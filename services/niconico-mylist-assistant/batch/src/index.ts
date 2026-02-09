@@ -4,6 +4,8 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
+import { decrypt, updateBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { ERROR_MESSAGES } from './constants.js';
 import { getTimestamp, generateDefaultMylistName } from './utils.js';
@@ -14,20 +16,25 @@ import { MylistRegistrationJobParams } from './types.js';
  */
 function readEnvironmentVariables(): {
   dynamodbTableName: string;
-  sharedSecretKey: string;
+  encryptionSecretName: string;
+  awsRegion: string;
   nodeEnv: string;
 } {
   const dynamodbTableName = process.env.DYNAMODB_TABLE_NAME || '';
-  const sharedSecretKey = process.env.SHARED_SECRET_KEY || '';
+  const encryptionSecretName = process.env.ENCRYPTION_SECRET_NAME || '';
+  const awsRegion = process.env.AWS_REGION || 'us-east-1';
   const nodeEnv = process.env.NODE_ENV || 'development';
 
   console.log('=== 環境変数 ===');
   console.log(`DYNAMODB_TABLE_NAME: ${dynamodbTableName || '(not set)'}`);
-  console.log(`SHARED_SECRET_KEY: ${sharedSecretKey ? '(set)' : '(not set)'}`);
+  console.log(
+    `ENCRYPTION_SECRET_NAME: ${encryptionSecretName ? encryptionSecretName : '(not set)'}`
+  );
+  console.log(`AWS_REGION: ${awsRegion}`);
   console.log(`NODE_ENV: ${nodeEnv}`);
   console.log('================');
 
-  return { dynamodbTableName, sharedSecretKey, nodeEnv };
+  return { dynamodbTableName, encryptionSecretName, awsRegion, nodeEnv };
 }
 
 /**
@@ -40,6 +47,8 @@ function getJobParameters(): MylistRegistrationJobParams {
   const encryptedPassword = process.env.ENCRYPTED_PASSWORD || '';
   const mylistName = process.env.MYLIST_NAME || generateDefaultMylistName();
   const videoIdsJson = process.env.VIDEO_IDS || '[]';
+  // AWS Batch が自動的に設定する環境変数からジョブIDを取得
+  const jobId = process.env.AWS_BATCH_JOB_ID || '';
 
   let videoIds: string[] = [];
   try {
@@ -52,7 +61,12 @@ function getJobParameters(): MylistRegistrationJobParams {
     throw new Error(ERROR_MESSAGES.INVALID_PARAMETERS);
   }
 
+  if (!jobId) {
+    console.warn('警告: AWS_BATCH_JOB_ID が設定されていません');
+  }
+
   console.log('=== ジョブパラメータ ===');
+  console.log(`ジョブID: ${jobId || '(not set)'}`);
   console.log(`ユーザーID: ${userId}`);
   console.log(`メールアドレス: ${niconicoEmail}`);
   console.log(`マイリスト名: ${mylistName}`);
@@ -60,6 +74,7 @@ function getJobParameters(): MylistRegistrationJobParams {
   console.log('========================');
 
   return {
+    jobId,
     userId,
     niconicoEmail,
     encryptedPassword,
@@ -70,14 +85,36 @@ function getJobParameters(): MylistRegistrationJobParams {
 
 /**
  * パスワードを復号化する
- * 注: 将来的に実装予定（現在はプレースホルダー）
+ *
+ * @param encryptedData - 暗号化されたパスワードデータ（JSON文字列）
+ * @param config - 暗号化設定
+ * @returns 復号化されたパスワード
  */
-function decryptPassword(encryptedPassword: string): string {
-  // TODO: AES-256で復号化する実装
-  // secretKey は環境変数 SHARED_SECRET_KEY から取得予定
-  // 現在は暗号化されていない状態で受け取ることを想定
+async function decryptPassword(encryptedData: string, config: CryptoConfig): Promise<string> {
   console.log('パスワードを復号化中...');
-  return encryptedPassword;
+
+  try {
+    // JSON文字列をパースして EncryptedData オブジェクトを取得
+    let encrypted;
+    try {
+      encrypted = JSON.parse(encryptedData);
+    } catch (parseError) {
+      throw new Error(
+        `暗号化パスワードのJSON形式が不正です: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+      );
+    }
+
+    // core/crypto.ts の decrypt 関数を使用して復号化
+    const password = await decrypt(encrypted, config);
+
+    console.log('パスワードの復号化に成功しました');
+    return password;
+  } catch (error) {
+    console.error('パスワードの復号化に失敗しました:', error);
+    throw new Error(
+      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 }
 
 /**
@@ -90,15 +127,36 @@ async function main() {
   console.log(`開始時刻: ${getTimestamp()}`);
   console.log('========================================');
 
+  let params: MylistRegistrationJobParams | null = null;
+
   try {
-    // 環境変数の読み取り（現在は表示のみ）
-    readEnvironmentVariables();
+    // 環境変数の読み取り
+    const env = readEnvironmentVariables();
 
     // ジョブパラメータの取得
-    const params = getJobParameters();
+    params = getJobParameters();
+
+    // ジョブステータスを RUNNING に更新
+    if (params.jobId) {
+      try {
+        await updateBatchJob(params.jobId, params.userId, {
+          status: 'RUNNING',
+        });
+        console.log('ジョブステータスを RUNNING に更新しました');
+      } catch (error) {
+        console.warn('ジョブステータス更新に失敗しました (RUNNING):', error);
+        // 更新失敗してもジョブは続行
+      }
+    }
+
+    // 暗号化設定の作成
+    const cryptoConfig: CryptoConfig = {
+      secretName: env.encryptionSecretName,
+      region: env.awsRegion,
+    };
 
     // パスワードの復号化
-    const password = decryptPassword(params.encryptedPassword);
+    const password = await decryptPassword(params.encryptedPassword, cryptoConfig);
 
     console.log('');
     console.log('Playwright自動化処理を開始します...');
@@ -127,6 +185,26 @@ async function main() {
 
     console.log('================');
 
+    // ジョブステータスを SUCCEEDED に更新
+    if (params.jobId) {
+      try {
+        await updateBatchJob(params.jobId, params.userId, {
+          status: 'SUCCEEDED',
+          result: {
+            registeredCount: result.successVideoIds.length,
+            failedCount: result.failedVideoIds.length,
+            totalCount: result.successVideoIds.length + result.failedVideoIds.length,
+            errorMessage: result.errorMessage,
+          },
+          completedAt: Date.now(),
+        });
+        console.log('ジョブステータスを SUCCEEDED に更新しました');
+      } catch (error) {
+        console.error('ジョブステータス更新に失敗しました (SUCCEEDED):', error);
+        // 更新失敗してもジョブ自体は成功
+      }
+    }
+
     // 完了ログ
     console.log('');
     console.log('========================================');
@@ -147,6 +225,26 @@ async function main() {
     console.error(`エラー時刻: ${getTimestamp()}`);
     console.error('エラー詳細:', error);
     console.error('========================================');
+
+    // ジョブステータスを FAILED に更新
+    if (params?.jobId && params?.userId) {
+      try {
+        await updateBatchJob(params.jobId, params.userId, {
+          status: 'FAILED',
+          result: {
+            registeredCount: 0,
+            failedCount: 0,
+            totalCount: 0,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          },
+          completedAt: Date.now(),
+        });
+        console.log('ジョブステータスを FAILED に更新しました');
+      } catch (updateError) {
+        console.error('ジョブステータス更新に失敗しました (FAILED):', updateError);
+      }
+    }
+
     process.exit(1);
   }
 }

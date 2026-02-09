@@ -8,7 +8,7 @@ import type {
   UserSettingEntity,
   CreateUserSettingInput,
   UpdateUserSettingInput,
-} from '../entities/user-setting.entity';
+} from '../entities/user-setting.entity.js';
 import type { PaginationOptions, PaginatedResult } from '@nagiyu/aws';
 
 /**

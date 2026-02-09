@@ -11,6 +11,8 @@ import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 export interface BatchStackProps extends cdk.StackProps {
   environment: string;
   dynamoTableArn: string;
+  encryptionSecretArn: string;
+  encryptionSecretName?: string; // Optional, will be extracted from ARN if not provided
 }
 
 /**
@@ -20,11 +22,10 @@ export interface BatchStackProps extends cdk.StackProps {
  * 最小リソース設定（vCPU 0.25, メモリ 512 MB）で、
  * ダミー処理を実行するための基盤を提供します（Milestone 1）。
  *
- * Milestone 5 で実際のマイリスト登録処理に対応する際は、
- * 以下の追加設定が必要になります:
- * - BatchRuntimePolicy に Secrets Manager の権限追加
- * - SHARED_SECRET_KEY 環境変数の追加（Secrets Manager参照）
- * - タイムアウトを1800秒（30分）に延長
+ * セキュリティ設定:
+ * - BatchRuntimePolicy に Secrets Manager の権限を付与
+ * - ENCRYPTION_SECRET_NAME 環境変数で暗号化キーを参照
+ * - タイムアウトは900秒（15分）に設定（Milestone 5 では1800秒に延長予定）
  */
 export class BatchStack extends cdk.Stack {
   public readonly jobQueueArn: string;
@@ -34,14 +35,17 @@ export class BatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
 
-    const { environment, dynamoTableArn } = props;
+    const { environment, dynamoTableArn, encryptionSecretArn, encryptionSecretName } = props;
     const env = environment as 'dev' | 'prod';
 
+    // Encryption secret name from props or extract from ARN
+    const secretName =
+      encryptionSecretName ||
+      encryptionSecretArn.split(':').pop()?.split('-').slice(0, -1).join('-') ||
+      `niconico-mylist-assistant/shared-secret-key-${env}`;
+
     // ECR リポジトリの参照
-    const batchEcrRepositoryName = getEcrRepositoryName(
-      'niconico-mylist-assistant-batch',
-      env
-    );
+    const batchEcrRepositoryName = getEcrRepositoryName('niconico-mylist-assistant-batch', env);
     const batchEcrRepository = ecr.Repository.fromRepositoryName(
       this,
       'BatchEcrRepository',
@@ -57,10 +61,10 @@ export class BatchStack extends cdk.Stack {
     const vpc = vpcId
       ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
       : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-        tags: {
-          Name: `nagiyu-${env}-vpc`,
-        },
-      });
+          tags: {
+            Name: `nagiyu-${env}-vpc`,
+          },
+        });
 
     // Public Subnet の取得
     const publicSubnets = vpc.selectSubnets({
@@ -79,9 +83,7 @@ export class BatchStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'Execution role for Batch job tasks',
       managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName(
-          'service-role/AmazonECSTaskExecutionRolePolicy'
-        ),
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonECSTaskExecutionRolePolicy'),
       ],
     });
 
@@ -102,6 +104,7 @@ export class BatchStack extends cdk.Stack {
       dynamoTableArn,
       logGroupName: batchLogGroup.logGroupName,
       envName: environment,
+      encryptionSecretArn,
     });
 
     // IAM Role for Batch Job (コンテナランタイム用)
@@ -178,8 +181,10 @@ export class BatchStack extends cdk.Stack {
             name: 'AWS_REGION',
             value: this.region,
           },
-          // Milestone 5 で追加予定:
-          // - SHARED_SECRET_KEY: Secrets Manager からの参照
+          {
+            name: 'ENCRYPTION_SECRET_NAME',
+            value: secretName,
+          },
         ],
       },
       retryStrategy: {
@@ -197,35 +202,33 @@ export class BatchStack extends cdk.Stack {
     this.jobDefinitionArn = jobDefinition.attrJobDefinitionArn;
 
     // Outputs
+    // Note: exportName is intentionally NOT used to allow flexible updates
+    // CDK handles cross-stack references automatically via Fn::GetAtt
     new cdk.CfnOutput(this, 'BatchJobQueueArn', {
       value: jobQueue.attrJobQueueArn,
       description: 'Batch job queue ARN',
-      exportName: `${this.stackName}-JobQueueArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
       value: jobDefinition.attrJobDefinitionArn,
       description: 'Batch job definition ARN',
-      exportName: `${this.stackName}-JobDefinitionArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchLogGroupName', {
       value: batchLogGroup.logGroupName,
       description: 'CloudWatch Logs group name for Batch',
-      exportName: `${this.stackName}-LogGroupName`,
     });
 
     new cdk.CfnOutput(this, 'BatchSecurityGroupId', {
       value: batchSecurityGroup.securityGroupId,
       description: 'Security group ID for Batch tasks',
-      exportName: `${this.stackName}-SecurityGroupId`,
     });
 
-    // Runtime Policy (IAM スタックで参照するため Export)
+    // Runtime Policy (IAM スタックで参照するため)
+    // Note: exportName is intentionally NOT used to allow flexible updates
     new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
       value: this.batchRuntimePolicy.managedPolicyArn,
       description: 'Batch Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-BatchRuntimePolicyArn`,
     });
 
     // タグの追加

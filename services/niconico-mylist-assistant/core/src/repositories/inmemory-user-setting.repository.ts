@@ -10,13 +10,13 @@ import {
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
-import type { UserSettingRepository } from './user-setting.repository.interface';
+import type { UserSettingRepository } from './user-setting.repository.interface.js';
 import type {
   UserSettingEntity,
   CreateUserSettingInput,
   UpdateUserSettingInput,
-} from '../entities/user-setting.entity';
-import { UserSettingMapper } from '../mappers/user-setting.mapper';
+} from '../entities/user-setting.entity.js';
+import { UserSettingMapper } from '../mappers/user-setting.mapper.js';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {

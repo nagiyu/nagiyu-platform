@@ -12,9 +12,9 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { EntityAlreadyExistsError, DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
-import type { VideoRepository } from './video.repository.interface';
-import type { VideoEntity, CreateVideoInput } from '../entities/video.entity';
-import { VideoMapper } from '../mappers/video.mapper';
+import type { VideoRepository } from './video.repository.interface.js';
+import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
+import { VideoMapper } from '../mappers/video.mapper.js';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {

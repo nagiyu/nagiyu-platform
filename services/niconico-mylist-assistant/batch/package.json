@@ -18,10 +18,10 @@
   "dependencies": {
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/browser": "*",
-    "playwright": "1.57.0",
+    "playwright": "1.58.0",
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
-    "@playwright/test": "1.57.0"
+    "@playwright/test": "1.58.0"
   }
 }
