@@ -69,21 +69,85 @@ export async function inputTwoFactorAuthCode(page: Page, code: string): Promise<
   console.log('二段階認証コードを入力中...');
 
   try {
+    // 入力前のスクリーンショット
+    await takeScreenshot(page, '2fa-before-input');
+
     // 入力欄を特定（id="oneTimePw" を使用）
     const inputField = page.locator('#oneTimePw');
     await inputField.fill(code);
 
     console.log('二段階認証コードを入力しました');
 
+    // 入力後のスクリーンショット（入力内容確認用）
+    await takeScreenshot(page, '2fa-after-input');
+
+    // デバッグ情報: 入力欄の状態を確認
+    try {
+      const inputValue = await inputField.inputValue();
+      console.log(`[DEBUG] 入力欄の値: ${inputValue}`);
+      console.log(`[DEBUG] 入力欄の値の長さ: ${inputValue.length}`);
+      console.log(`[DEBUG] 期待されるコード: ${code}`);
+      console.log(`[DEBUG] 期待されるコードの長さ: ${code.length}`);
+    } catch (debugError) {
+      console.error('[DEBUG] 入力欄の値取得に失敗:', debugError);
+    }
+
+    // デバッグ情報: ページ上の全入力欄を出力
+    try {
+      const allInputs = await page.locator('input').all();
+      console.log(`[DEBUG] ページ上の全入力欄数: ${allInputs.length}`);
+      for (let i = 0; i < allInputs.length; i++) {
+        const input = allInputs[i];
+        const id = await input.getAttribute('id');
+        const name = await input.getAttribute('name');
+        const type = await input.getAttribute('type');
+        const value = await input.inputValue().catch(() => '(取得不可)');
+        console.log(
+          `[DEBUG] 入力欄[${i}]: id="${id}", name="${name}", type="${type}", value="${value}"`
+        );
+      }
+    } catch (debugError) {
+      console.error('[DEBUG] 入力欄のデバッグ情報取得に失敗:', debugError);
+    }
+
+    // デバッグ情報: ページ上の全ボタンを出力
+    try {
+      const allButtons = await page.locator('button').all();
+      console.log(`[DEBUG] ページ上の全ボタン数: ${allButtons.length}`);
+      for (let i = 0; i < allButtons.length; i++) {
+        const button = allButtons[i];
+        const text = await button.textContent();
+        const type = await button.getAttribute('type');
+        const disabled = await button.isDisabled();
+        const visible = await button.isVisible();
+        console.log(
+          `[DEBUG] ボタン[${i}]: text="${text}", type="${type}", disabled=${disabled}, visible=${visible}`
+        );
+      }
+    } catch (debugError) {
+      console.error('[DEBUG] ボタンのデバッグ情報取得に失敗:', debugError);
+    }
+
     // ログインボタンをクリック
-    await page.getByRole('button', { name: 'ログイン' }).click();
+    const loginButton = page.getByRole('button', { name: 'ログイン' });
+    console.log('[DEBUG] ログインボタンをクリックします...');
+    await loginButton.click();
+
+    // ボタンクリック後のスクリーンショット
+    await takeScreenshot(page, '2fa-after-click');
+
+    // デバッグ情報: ボタンクリック後のURL
+    console.log(`[DEBUG] ボタンクリック後のURL: ${page.url()}`);
 
     // ログイン完了を待つ
+    console.log('[DEBUG] URL遷移を待機中...');
     await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
 
     console.log('二段階認証完了');
   } catch (error) {
     console.error('二段階認証コード入力失敗:', error);
+    // エラー時の追加デバッグ情報
+    console.error(`[DEBUG] エラー時のURL: ${page.url()}`);
     throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
   }
 }
