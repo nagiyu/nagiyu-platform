@@ -102,6 +102,7 @@ Export が他のスタックから参照されている場合、削除できま�
 
 - [IAM 詳細ドキュメント](./iam.md)
 - [VPC 詳細ドキュメント](./vpc.md)
+- [マルチリージョンVPC展開](./multi-region-vpc.md)
 - [ACM 詳細ドキュメント](./acm.md)
 - [CloudFront 詳細ドキュメント](./cloudfront.md)
 - [CDK ユーティリティ](./cdk-utils.md)
