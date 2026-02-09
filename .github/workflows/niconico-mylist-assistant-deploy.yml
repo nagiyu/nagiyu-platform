@@ -81,8 +81,14 @@ jobs:
           ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
         run: |
           # Bootstrap is idempotent - safe to run on every deployment
+          # Bootstrap us-east-1 for Web resources
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- bootstrap \
             aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
+            --context env=${{ steps.set-env.outputs.environment }}
+          
+          # Bootstrap ap-northeast-1 for Batch resources
+          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- bootstrap \
+            aws://$ACCOUNT_ID/ap-northeast-1 \
             --context env=${{ steps.set-env.outputs.environment }}
 
       - name: Deploy Infrastructure Stacks (DynamoDB, Secrets, ECR, S3)
@@ -169,7 +175,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ap-northeast-1  # Batch ECR is in Japan region
 
       - name: Login to Amazon ECR
         id: login-ecr

@@ -21,9 +21,17 @@ if (!allowedEnvironments.includes(env)) {
   throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
 
+// デフォルトリージョン設定（Web、ECR、DynamoDB、Secrets、S3 用）
 const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
+};
+
+// バッチ資材用のリージョン設定（日本リージョンを使用）
+// 理由: 海外リージョンからのニコニコ動画ログイン時に二段階認証が要求されるため
+const batchStackEnv = {
+  account: process.env.CDK_DEFAULT_ACCOUNT,
+  region: 'ap-northeast-1',
 };
 
 const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
@@ -57,13 +65,15 @@ const webEcrStack = new WebECRStack(app, `NagiyuNiconicoMylistAssistantWebECR${e
 });
 
 // 5. ECR スタックを作成（batch用）
+// バッチ資材は日本リージョンに配置
 const batchEcrStack = new BatchECRStack(app, `NagiyuNiconicoMylistAssistantBatchECR${envSuffix}`, {
   environment: env,
-  env: stackEnv,
-  description: `Niconico Mylist Assistant Batch ECR - ${env} environment`,
+  env: batchStackEnv,
+  description: `Niconico Mylist Assistant Batch ECR - ${env} environment (ap-northeast-1)`,
 });
 
 // 6. Batch スタックを作成
+// バッチ資材は日本リージョンに配置（二段階認証回避のため）
 const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envSuffix}`, {
   environment: env,
   dynamoTableArn: dynamoStack.table.tableArn,
@@ -71,8 +81,9 @@ const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envS
   encryptionSecretName: secretsStack.encryptionSecret.secretName,
   screenshotBucketArn: s3Stack.screenshotBucket.bucketArn,
   screenshotBucketName: s3Stack.screenshotBucketName,
-  env: stackEnv,
-  description: `Niconico Mylist Assistant Batch - ${env} environment`,
+  env: batchStackEnv,
+  crossRegionReferences: true, // クロスリージョン参照を有効化
+  description: `Niconico Mylist Assistant Batch - ${env} environment (ap-northeast-1)`,
 });
 // Batch は DynamoDB、Secrets、S3、Batch ECR に依存
 batchStack.addDependency(dynamoStack);
@@ -94,6 +105,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${e
   encryptionSecretArn: secretsStack.encryptionSecret.secretArn,
   encryptionSecretName: secretsStack.encryptionSecret.secretName,
   env: stackEnv,
+  crossRegionReferences: true, // Batch が ap-northeast-1 にあるためクロスリージョン参照が必要
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });
 // Lambda は DynamoDB、Secrets、Web ECR、Batch に依存
