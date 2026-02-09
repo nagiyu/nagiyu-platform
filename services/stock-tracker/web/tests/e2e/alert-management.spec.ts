@@ -773,7 +773,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: '+20%' }).click();
 
       // 計算結果が表示される（基準価格100ドル × 1.2 = 120ドル）
-      await expect(page.getByText(/基準価格.*100\.00.*目標価格.*120\.00/)).toBeVisible();
+      await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
+      await expect(page.getByText(/=.*120\.00/)).toBeVisible();
     });
 
     test('パーセンテージ選択で目標価格が自動計算される - -10%', async ({ page }) => {
@@ -811,7 +812,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: '-10%' }).click();
 
       // 計算結果が表示される（基準価格100ドル × 0.9 = 90ドル）
-      await expect(page.getByText(/基準価格.*100\.00.*目標価格.*90\.00/)).toBeVisible();
+      await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
+      await expect(page.getByText(/=.*90\.00/)).toBeVisible();
     });
 
     test('パーセンテージ選択でアラートを作成できる', async ({ page }) => {
@@ -849,7 +851,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: '+15%' }).click();
 
       // 計算結果が表示される（基準価格100ドル × 1.15 = 115ドル）
-      await expect(page.getByText(/目標価格.*115\.00/)).toBeVisible();
+      await expect(page.getByText(/=.*115\.00/)).toBeVisible();
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -1020,7 +1022,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 計算結果が表示される（基準価格100ドル → 90ドル〜110ドル）
       await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
-      await expect(page.getByText(/範囲.*90\.00.*110\.00/)).toBeVisible();
+      await expect(page.getByText(/価格範囲.*90\.00.*110\.00/)).toBeVisible();
     });
 
     test('範囲指定でパーセンテージ選択してアラートを作成できる', async ({ page }) => {
