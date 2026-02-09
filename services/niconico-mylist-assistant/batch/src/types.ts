@@ -30,6 +30,16 @@ export interface MylistRegistrationResult {
   failedVideoIds: string[];
   /** エラーメッセージ（失敗時） */
   errorMessage?: string;
+  /** 二段階認証が必要だったか */
+  required2FA?: boolean;
+}
+
+/**
+ * ログイン結果
+ */
+export interface LoginResult {
+  /** 二段階認証が必要か */
+  requires2FA: boolean;
 }
 
 /**

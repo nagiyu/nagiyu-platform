@@ -10,6 +10,8 @@ export const ERROR_MESSAGES = {
   LOGIN_FAILED: 'ニコニコ動画へのログインに失敗しました',
   LOGIN_TIMEOUT: 'ログイン処理がタイムアウトしました',
   INVALID_CREDENTIALS: 'メールアドレスまたはパスワードが正しくありません',
+  TWO_FACTOR_AUTH_REQUIRED: '二段階認証が必要です',
+  TWO_FACTOR_AUTH_TIMEOUT: '二段階認証コードの入力待機がタイムアウトしました',
 
   // マイリスト操作関連
   MYLIST_CREATE_FAILED: 'マイリストの作成に失敗しました',
@@ -53,6 +55,7 @@ export const TIMEOUTS = {
   LOGIN: 30000, // 30秒
   NAVIGATION: 30000, // 30秒
   VIDEO_REGISTRATION: 10000, // 10秒
+  TWO_FACTOR_AUTH_WAIT: 300000, // 5分（二段階認証コード入力待ち）
 } as const;
 
 /**
@@ -60,3 +63,8 @@ export const TIMEOUTS = {
  * ニコニコ動画サーバーへの配慮のため、最低2秒待機
  */
 export const VIDEO_REGISTRATION_WAIT = 2000; // 2秒
+
+/**
+ * 二段階認証コードポーリング間隔（ミリ秒）
+ */
+export const TWO_FACTOR_AUTH_POLL_INTERVAL = 5000; // 5秒

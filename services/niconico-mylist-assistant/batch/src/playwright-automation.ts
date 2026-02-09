@@ -3,8 +3,14 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { ERROR_MESSAGES, NICONICO_URLS, TIMEOUTS, VIDEO_REGISTRATION_WAIT } from './constants.js';
-import { MylistRegistrationResult } from './types.js';
+import {
+  ERROR_MESSAGES,
+  NICONICO_URLS,
+  TIMEOUTS,
+  VIDEO_REGISTRATION_WAIT,
+  TWO_FACTOR_AUTH_POLL_INTERVAL,
+} from './constants.js';
+import { MylistRegistrationResult, LoginResult } from './types.js';
 import { retry, sleep } from './utils.js';
 import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
@@ -15,8 +21,9 @@ import { readFile } from 'fs/promises';
  * @param page Playwright Page オブジェクト
  * @param email ニコニコ動画のメールアドレス
  * @param password ニコニコ動画のパスワード
+ * @returns ログイン結果（二段階認証が必要かどうか）
  */
-export async function login(page: Page, email: string, password: string): Promise<void> {
+export async function login(page: Page, email: string, password: string): Promise<LoginResult> {
   console.log('ニコニコ動画にログイン中...');
 
   try {
@@ -39,9 +46,69 @@ export async function login(page: Page, email: string, password: string): Promis
     // ログイン完了を待つ（URL遷移を確認）
     await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
 
-    console.log('ログイン成功');
+    // 二段階認証画面かどうかを確認
+    // 「メールに記載された6桁の数字を入力」というテキストがあるかチェック
+    const twoFactorAuthText = await page
+      .getByText('メールに記載された6桁の数字を入力')
+      .first()
+      .isVisible({ timeout: 3000 })
+      .catch(() => false);
+
+    if (twoFactorAuthText) {
+      console.log('二段階認証画面を検出しました');
+      console.log('現在のURL:', page.url());
+
+      // 二段階認証の入力欄を特定（デバッグ用）
+      try {
+        const inputFields = await page.locator('input[type="text"], input[type="tel"]').all();
+        console.log(`入力欄の数: ${inputFields.length}`);
+        for (let i = 0; i < inputFields.length; i++) {
+          const field = inputFields[i];
+          const name = await field.getAttribute('name').catch(() => null);
+          const id = await field.getAttribute('id').catch(() => null);
+          const placeholder = await field.getAttribute('placeholder').catch(() => null);
+          console.log(`入力欄 ${i + 1}: name="${name}", id="${id}", placeholder="${placeholder}"`);
+        }
+      } catch (error) {
+        console.error('入力欄の特定に失敗:', error);
+      }
+
+      return { requires2FA: true };
+    }
+
+    console.log('ログイン成功（二段階認証なし）');
+    return { requires2FA: false };
   } catch (error) {
     console.error('ログイン失敗:', error);
+    throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
+  }
+}
+
+/**
+ * 二段階認証コードを入力する
+ *
+ * @param page Playwright Page オブジェクト
+ * @param code 二段階認証コード（6桁）
+ */
+export async function inputTwoFactorAuthCode(page: Page, code: string): Promise<void> {
+  console.log('二段階認証コードを入力中...');
+
+  try {
+    // 入力欄を特定（最初のtext/tel入力欄を使用）
+    const inputField = page.locator('input[type="text"], input[type="tel"]').first();
+    await inputField.fill(code);
+
+    console.log('二段階認証コードを入力しました');
+
+    // ログインボタンをクリック
+    await page.getByRole('button', { name: 'ログイン' }).click();
+
+    // ログイン完了を待つ
+    await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
+
+    console.log('二段階認証完了');
+  } catch (error) {
+    console.error('二段階認証コード入力失敗:', error);
     throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
   }
 }
@@ -374,13 +441,15 @@ export async function launchBrowser(): Promise<Browser> {
  * @param password ニコニコ動画のパスワード
  * @param mylistName マイリスト名
  * @param videoIds 登録する動画IDのリスト
+ * @param onWaitFor2FA 二段階認証待ちコールバック（オプション）
  * @returns 登録結果
  */
 export async function executeMylistRegistration(
   email: string,
   password: string,
   mylistName: string,
-  videoIds: string[]
+  videoIds: string[],
+  onWaitFor2FA?: () => Promise<string>
 ): Promise<MylistRegistrationResult> {
   let browser: Browser | undefined;
   let page: Page | undefined;
@@ -391,8 +460,25 @@ export async function executeMylistRegistration(
     page = await browser.newPage();
 
     // ログイン
-    await login(page, email, password);
+    const loginResult = await login(page, email, password);
     await takeScreenshot(page, 'after-login');
+
+    // 二段階認証が必要な場合
+    if (loginResult.requires2FA) {
+      console.log('二段階認証が必要です');
+
+      if (!onWaitFor2FA) {
+        throw new Error(ERROR_MESSAGES.TWO_FACTOR_AUTH_REQUIRED);
+      }
+
+      // コールバックを呼び出して二段階認証コードを取得
+      const code = await onWaitFor2FA();
+      console.log('二段階認証コードを取得しました');
+
+      // 二段階認証コードを入力
+      await inputTwoFactorAuthCode(page, code);
+      await takeScreenshot(page, 'after-2fa');
+    }
 
     // 既存マイリストを削除
     await deleteAllMylists(page);
@@ -406,7 +492,10 @@ export async function executeMylistRegistration(
     const result = await registerVideosToMylist(page, videoIds, mylistName);
     await takeScreenshot(page, 'after-register-videos');
 
-    return result;
+    return {
+      ...result,
+      required2FA: loginResult.requires2FA,
+    };
   } catch (error) {
     // エラー時のスクリーンショット
     if (page) {
