@@ -659,8 +659,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 範囲指定のフィールドが表示される
       await expect(page.getByLabel('範囲タイプ')).toBeVisible();
-      await expect(page.getByLabel(/最小価格/)).toBeVisible();
-      await expect(page.getByLabel(/最大価格/)).toBeVisible();
+      await expect(page.locator('#min-price')).toBeVisible();
+      await expect(page.locator('#max-price')).toBeVisible();
 
       // 単一条件のフィールドが非表示になる
       await expect(page.getByLabel('条件', { exact: true })).not.toBeVisible();
@@ -676,8 +676,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 範囲指定のフィールドが非表示になる
       await expect(page.getByLabel('範囲タイプ')).not.toBeVisible();
-      await expect(page.getByLabel(/最小価格/)).not.toBeVisible();
-      await expect(page.getByLabel(/最大価格/)).not.toBeVisible();
+      await expect(page.locator('#min-price')).not.toBeVisible();
+      await expect(page.locator('#max-price')).not.toBeVisible();
     });
   });
 
@@ -955,8 +955,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 初期状態: 手動入力モードで価格入力フィールドが表示される
-      await expect(page.getByLabel(/最小価格/)).toBeVisible();
-      await expect(page.getByLabel(/最大価格/)).toBeVisible();
+      await expect(page.locator('#min-price')).toBeVisible();
+      await expect(page.locator('#max-price')).toBeVisible();
 
       // 入力方式ドロップダウンの確認
       const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
@@ -974,8 +974,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.locator('#max-percentage-select')).toBeVisible();
 
       // 価格入力フィールドは非表示になる
-      await expect(page.getByLabel(/最小価格/)).not.toBeVisible();
-      await expect(page.getByLabel(/最大価格/)).not.toBeVisible();
+      await expect(page.locator('#min-price')).not.toBeVisible();
+      await expect(page.locator('#max-price')).not.toBeVisible();
     });
 
     test('範囲指定でパーセンテージ選択すると価格範囲が自動計算される', async ({ page }) => {
