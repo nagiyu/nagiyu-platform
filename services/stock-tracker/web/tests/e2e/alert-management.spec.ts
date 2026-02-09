@@ -731,8 +731,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await inputModeSelect.click();
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
-      // パーセンテージ選択フィールドが表示される
-      await expect(page.getByLabel('パーセンテージ')).toBeVisible();
+      // パーセンテージ選択フィールドが表示される（IDで特定）
+      await expect(page.locator('#percentage-select')).toBeVisible();
 
       // 目標価格入力フィールドは非表示になる
       await expect(page.getByLabel('目標価格')).not.toBeVisible();
@@ -769,7 +769,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
       // パーセンテージで「+20%」を選択
-      await page.getByLabel('パーセンテージ').click();
+      await page.locator('#percentage-select').click();
       await page.getByRole('option', { name: '+20%' }).click();
 
       // 計算結果が表示される（基準価格100ドル × 1.2 = 120ドル）
@@ -807,7 +807,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
       // パーセンテージで「-10%」を選択
-      await page.getByLabel('パーセンテージ').click();
+      await page.locator('#percentage-select').click();
       await page.getByRole('option', { name: '-10%' }).click();
 
       // 計算結果が表示される（基準価格100ドル × 0.9 = 90ドル）
@@ -845,7 +845,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
       // パーセンテージで「+15%」を選択
-      await page.getByLabel('パーセンテージ').click();
+      await page.locator('#percentage-select').click();
       await page.getByRole('option', { name: '+15%' }).click();
 
       // 計算結果が表示される（基準価格100ドル × 1.15 = 115ドル）
@@ -903,14 +903,14 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // パーセンテージモードに切り替え
       await inputModeSelect.click();
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
-      await expect(page.getByLabel('パーセンテージ')).toBeVisible();
+      await expect(page.locator('#percentage-select')).toBeVisible();
       await expect(page.getByLabel('目標価格')).not.toBeVisible();
 
       // 手動入力モードに戻す
       await page.getByRole('combobox', { name: '入力方式' }).click();
       await page.getByRole('option', { name: '手動入力' }).click();
       await expect(page.getByLabel('目標価格')).toBeVisible();
-      await expect(page.getByLabel('パーセンテージ')).not.toBeVisible();
+      await expect(page.locator('#percentage-select')).not.toBeVisible();
     });
   });
 
@@ -968,8 +968,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
       // パーセンテージ選択フィールドが表示される
-      await expect(page.getByLabel('最小パーセンテージ')).toBeVisible();
-      await expect(page.getByLabel('最大パーセンテージ')).toBeVisible();
+      await expect(page.locator('#min-percentage-select')).toBeVisible();
+      await expect(page.locator('#max-percentage-select')).toBeVisible();
 
       // 価格入力フィールドは非表示になる
       await expect(page.getByLabel(/最小価格/)).not.toBeVisible();
@@ -1011,11 +1011,11 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
       // 最小パーセンテージで「-10%」を選択
-      await page.getByLabel('最小パーセンテージ').click();
+      await page.locator('#min-percentage-select').click();
       await page.getByRole('option', { name: '-10%' }).click();
 
       // 最大パーセンテージで「+10%」を選択
-      await page.getByLabel('最大パーセンテージ').click();
+      await page.locator('#max-percentage-select').click();
       await page.getByRole('option', { name: '+10%' }).click();
 
       // 計算結果が表示される（基準価格100ドル → 90ドル〜110ドル）
@@ -1058,11 +1058,11 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: 'パーセンテージ' }).click();
 
       // 最小パーセンテージで「-5%」を選択
-      await page.getByLabel('最小パーセンテージ').click();
+      await page.locator('#min-percentage-select').click();
       await page.getByRole('option', { name: '-5%' }).click();
 
       // 最大パーセンテージで「+5%」を選択
-      await page.getByLabel('最大パーセンテージ').click();
+      await page.locator('#max-percentage-select').click();
       await page.getByRole('option', { name: '+5%' }).click();
 
       // 保存ボタンをクリック
