@@ -85,7 +85,7 @@ jobs:
             aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.set-env.outputs.environment }}
 
-      - name: Deploy Infrastructure Stacks (DynamoDB, Secrets, ECR)
+      - name: Deploy Infrastructure Stacks (DynamoDB, Secrets, ECR, S3)
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
           STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
@@ -97,6 +97,7 @@ jobs:
             "NagiyuNiconicoMylistAssistantSecrets${STACK_SUFFIX}" \
             "NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}" \
             "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}" \
+            "NagiyuNiconicoMylistAssistantS3${STACK_SUFFIX}" \
             --context env=$ENVIRONMENT \
             --require-approval never
 
@@ -250,7 +251,8 @@ jobs:
             --exclude "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
             --exclude "NagiyuNiconicoMylistAssistantSecrets${STACK_SUFFIX}" \
             --exclude "NagiyuNiconicoMylistAssistantWebECR${STACK_SUFFIX}" \
-            --exclude "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}"
+            --exclude "NagiyuNiconicoMylistAssistantBatchECR${STACK_SUFFIX}" \
+            --exclude "NagiyuNiconicoMylistAssistantS3${STACK_SUFFIX}"
 
           echo "Application infrastructure deployed (environment: $ENVIRONMENT)"
 
