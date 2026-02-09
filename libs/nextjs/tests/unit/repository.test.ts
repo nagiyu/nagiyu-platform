@@ -17,10 +17,13 @@ describe('withRepository', () => {
 
   it('withRepositoryが関数を返す', () => {
     class MockRepository {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
     }
 
     const mockGetClient = () => ({}) as DynamoDBDocumentClient;
@@ -30,7 +33,7 @@ describe('withRepository', () => {
       mockGetClient,
       mockGetTableName,
       MockRepository,
-      async (repo) => {
+      async () => {
         return NextResponse.json({ success: true });
       }
     );
@@ -40,10 +43,13 @@ describe('withRepository', () => {
 
   it('リポジトリを初期化してハンドラーを実行する', async () => {
     class MockRepository {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
 
       public async getData() {
         return { data: 'test' };
@@ -54,7 +60,7 @@ describe('withRepository', () => {
     const mockGetClient = () => mockClient;
     const mockGetTableName = () => 'test-table';
 
-    const handler = async (repo: MockRepository, request: NextRequest) => {
+    const handler = async (repo: MockRepository) => {
       const data = await repo.getData();
       return NextResponse.json(data);
     };
@@ -68,10 +74,13 @@ describe('withRepository', () => {
 
   it('複数の引数をハンドラーに渡す', async () => {
     class MockRepository {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
     }
 
     const mockGetClient = () => ({}) as DynamoDBDocumentClient;
@@ -95,17 +104,23 @@ describe('withRepositories', () => {
 
   it('withRepositoriesが関数を返す', () => {
     class MockRepository1 {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
     }
 
     class MockRepository2 {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
     }
 
     const mockGetClient = () => ({}) as DynamoDBDocumentClient;
@@ -115,7 +130,7 @@ describe('withRepositories', () => {
       mockGetClient,
       mockGetTableName,
       [MockRepository1, MockRepository2],
-      async (repos) => {
+      async () => {
         return NextResponse.json({ success: true });
       }
     );
@@ -125,10 +140,13 @@ describe('withRepositories', () => {
 
   it('複数のリポジトリを初期化してハンドラーを実行する', async () => {
     class MockRepository1 {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
 
       public async getData1() {
         return { data: 'test1' };
@@ -136,10 +154,13 @@ describe('withRepositories', () => {
     }
 
     class MockRepository2 {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
 
       public async getData2() {
         return { data: 'test2' };
@@ -150,10 +171,7 @@ describe('withRepositories', () => {
     const mockGetClient = () => mockClient;
     const mockGetTableName = () => 'test-table';
 
-    const handler = async (
-      [repo1, repo2]: [MockRepository1, MockRepository2],
-      request: NextRequest
-    ) => {
+    const handler = async ([repo1, repo2]: [MockRepository1, MockRepository2]) => {
       const data1 = await repo1.getData1();
       const data2 = await repo2.getData2();
       return NextResponse.json({ data1, data2 });
@@ -173,17 +191,23 @@ describe('withRepositories', () => {
 
   it('複数の引数をハンドラーに渡す', async () => {
     class MockRepository1 {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
     }
 
     class MockRepository2 {
-      constructor(
-        public client: DynamoDBDocumentClient,
-        public tableName: string
-      ) {}
+      public client: DynamoDBDocumentClient;
+      public tableName: string;
+
+      constructor(client: DynamoDBDocumentClient, tableName: string) {
+        this.client = client;
+        this.tableName = tableName;
+      }
     }
 
     const mockGetClient = () => ({}) as DynamoDBDocumentClient;

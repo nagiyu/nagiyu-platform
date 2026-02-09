@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from '@jest/globals';
 import { handleApiError } from '../../src/error';
-import { ERROR_CODES } from '@nagiyu/common';
 
 describe('handleApiError', () => {
   it('NotFoundエラーを404レスポンスに変換する', () => {

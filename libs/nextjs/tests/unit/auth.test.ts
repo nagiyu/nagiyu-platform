@@ -169,7 +169,7 @@ describe('withAuth', () => {
 
     const mockAuth: AuthFunction = jest.fn(async () => mockSession);
     const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>(
-      async (session: Session) => {
+      async () => {
         return NextResponse.json({ success: true });
       }
     );
