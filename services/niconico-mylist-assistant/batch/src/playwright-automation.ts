@@ -178,9 +178,8 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // ページの JavaScript が実行されてマイリストカウントが更新されるまで待機
     await sleep(2000);
 
-    // 現在のUIから取得したセレクタを使用
-    const MYLIST_COUNT_SELECTOR =
-      '#UserPage-app > section > section > main > div > div > div.simplebar-wrapper > div.simplebar-mask > div > div > div > ul.SubMenuLinkList.MylistSideContainer-categoryList > div > header > div > span > span.MylistPageSubMenuHeader-counterValueMylistCount';
+    // シンプルなクラスベースのセレクタを使用（DOM構造変更に強い）
+    const MYLIST_COUNT_SELECTOR = 'span.MylistPageSubMenuHeader-counterValueMylistCount';
 
     let deletedCount = 0;
 
@@ -193,17 +192,31 @@ export async function deleteAllMylists(page: Page): Promise<void> {
 
     // マイリスト数が0になるまで削除を繰り返す
     while (true) {
-      const countElement = await page.locator(MYLIST_COUNT_SELECTOR).first();
-      const countText = await countElement.textContent({ timeout: 30000 });
+      try {
+        const countElement = page.locator(MYLIST_COUNT_SELECTOR).first();
+        const countText = await countElement.textContent({ timeout: 30000 });
 
-      console.log(`現在のマイリスト数: ${countText}`);
+        if (!countText || countText.trim() === '') {
+          console.error('マイリスト数を取得できませんでした。セレクタを確認してください。');
+          // デバッグ用にHTML構造を出力
+          const htmlContent = await page.content();
+          console.log('ページHTML（最初の1000文字）:', htmlContent.substring(0, 1000));
+          throw new Error('マイリスト数の取得に失敗しました');
+        }
 
-      if (countText === '0') {
-        console.log('マイリスト数が0件になりました。削除処理を終了します。');
-        break;
+        console.log(`現在のマイリスト数: ${countText}`);
+
+        if (countText === '0') {
+          console.log('マイリスト数が0件になりました。削除処理を終了します。');
+          break;
+        }
+
+        console.log(`マイリストを削除します（残り: ${countText}件）`);
+      } catch (countError) {
+        console.error('マイリスト数の取得でエラー:', countError);
+        await takeScreenshot(page, `count-error-${deletedCount}`);
+        throw countError;
       }
-
-      console.log(`マイリストを削除します（残り: ${countText}件）`);
 
       // ダウンロードした HTML から特定したセレクタを使用
       try {
