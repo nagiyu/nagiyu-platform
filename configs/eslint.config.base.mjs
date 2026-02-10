@@ -1,7 +1,9 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
-export default tseslint.config(
+// ESLint 10.x 対応: typescript-eslint が正式に ESLint 10 をサポートするまで
+// 暫定的に ESLint 10 を使用（--legacy-peer-deps でインストール）
+export default [
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -27,5 +29,5 @@ export default tseslint.config(
         },
       ],
     },
-  }
-);
+  },
+];
