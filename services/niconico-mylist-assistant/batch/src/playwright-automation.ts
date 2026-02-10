@@ -332,27 +332,47 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
       });
     }
 
-    // マイリスト作成ボタンをクリック（実際のUIから確認したXPath）
-    const createButton = page.locator(
-      'xpath=//*[@id="UserPage-app"]/section/section/main/div/div/div[1]/div[2]/div/div/div/ul[1]/div/div/button[1]'
-    );
-    await createButton.click();
+    // ページがロードされてJavaScriptが実行されるまで待機
+    await sleep(2000);
+
+    // マイリスト作成ボタンをクリック
+    // XPathではなくクラスベースのセレクタを使用（より堅牢）
+    // button要素で、MylistSideContainer-actionButton クラスを持つ最初のボタンを選択
+    const createButton = page.locator('button.MylistSideContainer-actionButton').first();
+    await createButton.waitFor({ state: 'visible', timeout: 15000 });
+    console.log('マイリスト作成ボタンが表示されました');
+    
+    await createButton.click({ timeout: 15000 });
+    console.log('マイリスト作成ボタンをクリックしました');
 
     await sleep(2000); // モーダル表示を待つ
 
-    // マイリスト名を入力（実際のUIから確認したXPath）
-    const nameInput = page.locator('xpath=//*[@id="undefined-title"]');
+    // マイリスト名を入力
+    // モーダル内のタイトル入力フィールドを探す（より汎用的なセレクタ）
+    const nameInput = page.locator('input[type="text"][placeholder*="タイトル"], input[id*="title"]');
+    await nameInput.waitFor({ state: 'visible', timeout: 10000 });
     await nameInput.fill(mylistName);
+    console.log(`マイリスト名を入力しました: ${mylistName}`);
 
-    // 作成ボタンをクリック（実際のUIから確認したXPath）
-    const submitButton = page.locator('xpath=/html/body/div[13]/div/div/article/footer/button');
-    await submitButton.click();
+    // 作成ボタンをクリック
+    // モーダルのフッター内のボタンを探す
+    const submitButton = page.locator('article footer button, div[role="dialog"] footer button').first();
+    await submitButton.waitFor({ state: 'visible', timeout: 10000 });
+    await submitButton.click({ timeout: 10000 });
+    console.log('モーダルの作成ボタンをクリックしました');
 
     await sleep(3000); // 作成処理の完了を待つ
 
     console.log('マイリスト作成成功');
   } catch (error) {
     console.error('マイリスト作成失敗:', error);
+    // エラー時のデバッグ情報を追加
+    try {
+      console.error(`[DEBUG] エラー時のURL: ${page.url()}`);
+      await takeScreenshot(page, 'create-mylist-error');
+    } catch (debugError) {
+      console.error('[DEBUG] デバッグ情報の取得に失敗:', debugError);
+    }
     throw new Error(ERROR_MESSAGES.MYLIST_CREATE_FAILED);
   }
 }
