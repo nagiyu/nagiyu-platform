@@ -134,9 +134,11 @@ export async function inputTwoFactorAuthCode(page: Page, code: string): Promise<
 
     // ナビゲーションを待機しながらクリック
     // 二段階認証ページ (account.nicovideo.jp/mfa) から離脱することを確認
+    // domcontentloaded を待つ（全リソース読み込みを待たない）
     await Promise.all([
       page.waitForURL((url) => !url.toString().includes('account.nicovideo.jp/mfa'), {
         timeout: TIMEOUTS.LOGIN,
+        waitUntil: 'domcontentloaded', // 全リソース読み込みを待たず、DOM構築完了で OK
       }),
       loginButton.click(),
     ]);
