@@ -64,11 +64,13 @@ libs/
 
 ```
 ui → browser → common
+aws → common
 ```
 
 - **一方向のみ**: 上位から下位への依存のみ許可
 - **循環依存禁止**: 下位ライブラリは上位を参照しない
 - **独立性**: common は外部依存なし
+- **aws の位置づけ**: AWS SDK 依存機能を提供し、common の汎用ユーティリティを活用
 
 #### 固有パッケージから共通ライブラリへの依存
 
@@ -93,6 +95,7 @@ flowchart TB
     subgraph libs["共通パッケージ (libs/)"]
         ui["ui<br/>(React UI)"]
         browser["browser<br/>(Browser API)"]
+        aws["aws<br/>(AWS SDK)"]
         common["common<br/>(完全非依存)"]
     end
 
@@ -105,9 +108,11 @@ flowchart TB
     batch --> common
 
     core --> common
+    core --> aws
 
     ui --> browser
     browser --> common
+    aws --> common
 ```
 
 #### 禁止パターン
@@ -236,10 +241,10 @@ AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージ
 
 ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
 
-1. 並列実行可能（依存なし）:
-    - `@nagiyu/common`
+1. `@nagiyu/common` - 依存なし
+2. 並列実行可能（`@nagiyu/common` のみに依存）:
     - `@nagiyu/aws`
-2. `@nagiyu/browser` - `@nagiyu/common` に依存
+    - `@nagiyu/browser`
 3. `@nagiyu/ui` - `@nagiyu/browser` に依存
 
 ### 正しいビルドコマンド
@@ -248,8 +253,9 @@ AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージ
 
 ```bash
 npm run build --workspace @nagiyu/common
-npm run build --workspace @nagiyu/aws
-npm run build --workspace @nagiyu/browser
+npm run build --workspace @nagiyu/aws &
+npm run build --workspace @nagiyu/browser &
+wait
 npm run build --workspace @nagiyu/ui
 ```
 
