@@ -131,17 +131,23 @@ export async function inputTwoFactorAuthCode(page: Page, code: string): Promise<
     // ログインボタンをクリック
     const loginButton = page.getByRole('button', { name: 'ログイン' });
     console.log('[DEBUG] ログインボタンをクリックします...');
-    await loginButton.click();
+
+    // ナビゲーションを待機しながらクリック
+    // 二段階認証ページ (account.nicovideo.jp/mfa) から離脱することを確認
+    await Promise.all([
+      page.waitForURL((url) => !url.toString().includes('account.nicovideo.jp/mfa'), {
+        timeout: TIMEOUTS.LOGIN,
+      }),
+      loginButton.click(),
+    ]);
+
+    console.log('[DEBUG] MFA ページから正常に離脱しました');
 
     // ボタンクリック後のスクリーンショット
     await takeScreenshot(page, '2fa-after-click');
 
     // デバッグ情報: ボタンクリック後のURL
     console.log(`[DEBUG] ボタンクリック後のURL: ${page.url()}`);
-
-    // ログイン完了を待つ
-    console.log('[DEBUG] URL遷移を待機中...');
-    await page.waitForURL('**', { timeout: TIMEOUTS.LOGIN });
 
     console.log('二段階認証完了');
   } catch (error) {
