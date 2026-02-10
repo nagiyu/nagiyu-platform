@@ -346,19 +346,45 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     await createButton.click({ timeout: 30000 });
     console.log('マイリスト作成ボタンをクリックしました');
 
-    await sleep(3000); // モーダル表示を待つ
+    // モーダルの表示を待つ - より明示的な待機
+    await sleep(3000);
+    
+    // モーダルコンテナの表示を確認
+    try {
+      const modalContainer = page.locator('div[role="dialog"], article');
+      await modalContainer.waitFor({ state: 'visible', timeout: 30000 });
+      console.log('モーダルコンテナが表示されました');
+    } catch (modalError) {
+      console.error('モーダルコンテナの表示待機でエラー:', modalError);
+      // デバッグ用: ページの全input要素を確認
+      const allInputs = await page.locator('input').all();
+      console.log(`[DEBUG] ページ上の全input要素数: ${allInputs.length}`);
+      for (let i = 0; i < Math.min(allInputs.length, 10); i++) {
+        const input = allInputs[i];
+        const type = await input.getAttribute('type').catch(() => null);
+        const id = await input.getAttribute('id').catch(() => null);
+        const placeholder = await input.getAttribute('placeholder').catch(() => null);
+        const isVisible = await input.isVisible().catch(() => false);
+        console.log(`[DEBUG] Input[${i}]: type="${type}", id="${id}", placeholder="${placeholder}", visible=${isVisible}`);
+      }
+      throw modalError;
+    }
 
     // マイリスト名を入力
-    // モーダル内のタイトル入力フィールドを探す（より汎用的なセレクタ）
-    const nameInput = page.locator('input[type="text"][placeholder*="タイトル"], input[id*="title"]');
+    // より広範なセレクタを試す（複数のパターンをカバー）
+    const nameInput = page.locator('input[type="text"], input:not([type]), textarea').first();
     await nameInput.waitFor({ state: 'visible', timeout: 30000 });
+    console.log('入力フィールドが表示されました');
+    
     await nameInput.fill(mylistName);
     console.log(`マイリスト名を入力しました: ${mylistName}`);
 
     // 作成ボタンをクリック
-    // モーダルのフッター内のボタンを探す
-    const submitButton = page.locator('article footer button, div[role="dialog"] footer button').first();
+    // モーダルのフッター内のボタンまたは送信ボタンを探す
+    const submitButton = page.locator('button[type="submit"], article footer button, div[role="dialog"] footer button, div[role="dialog"] button').first();
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
+    console.log('送信ボタンが表示されました');
+    
     await submitButton.click({ timeout: 30000 });
     console.log('モーダルの作成ボタンをクリックしました');
 
