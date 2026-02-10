@@ -257,35 +257,36 @@ export async function deleteAllMylists(page: Page): Promise<void> {
         // Step 1: サイドバーの最初のマイリストリンクをクリックして詳細ページへ移動
         // 要素が完全に表示されるまで待機
         const firstMylistLink = page.locator('.MylistSideContainer-mylistList li:first-child a');
-        await firstMylistLink.waitFor({ state: 'visible', timeout: 10000 });
+        await firstMylistLink.waitFor({ state: 'visible', timeout: 30000 });
         console.log('マイリストリンクが表示されました');
 
         // クリック可能になるまで待機してからクリック（overlayがある可能性を考慮）
-        await firstMylistLink.click({ timeout: 15000, force: false });
+        await firstMylistLink.click({ timeout: 30000, force: false });
         console.log('マイリスト詳細ページへ移動しました');
-        await sleep(2000); // ページ遷移を待つ
+        await sleep(3000); // ページ遷移とJavaScript実行を待つ
 
         // Step 2: マイリストヘッダーの3点メニューボタンをクリック
         const threePointMenuButton = page.locator('.NC-ThreePointMenu.MylistHeaderMenu button');
-        await threePointMenuButton.waitFor({ state: 'visible', timeout: 15000 });
+        await threePointMenuButton.waitFor({ state: 'visible', timeout: 30000 });
         console.log('3点メニューボタンが表示されました');
 
-        await threePointMenuButton.click({ timeout: 15000 });
+        // noWaitAfter: true でナビゲーション待機をスキップ（メニュー展開なのでナビゲーションは発生しない）
+        await threePointMenuButton.click({ timeout: 30000, noWaitAfter: true });
         console.log('3点メニューを開きました');
-        await sleep(1000); // メニューが完全に表示されるまで待機
+        await sleep(2000); // メニューが完全に表示されるまで待機
 
         // Step 3: メニュー内の削除ボタンをクリック
         // メニューが開いた後、削除ボタンを探す（過去実績では3番目のボタン）
         // メニューは動的に表示されるので、.NC-ThreePointMenu-menu 内のボタンを探す
         const menuContainer = page.locator('.NC-ThreePointMenu-menu');
-        await menuContainer.waitFor({ state: 'visible', timeout: 10000 });
+        await menuContainer.waitFor({ state: 'visible', timeout: 30000 });
         console.log('メニューコンテナが表示されました');
 
         const deleteButton = menuContainer.locator('button').nth(2);
-        await deleteButton.waitFor({ state: 'visible', timeout: 10000 });
+        await deleteButton.waitFor({ state: 'visible', timeout: 30000 });
         console.log('削除ボタンが表示されました');
 
-        await deleteButton.click({ timeout: 15000 });
+        await deleteButton.click({ timeout: 30000 });
         console.log('削除ボタンをクリックしました');
 
         // アラートダイアログの承認を待つ（dialog ハンドラが自動で処理）
@@ -333,32 +334,32 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     }
 
     // ページがロードされてJavaScriptが実行されるまで待機
-    await sleep(2000);
+    await sleep(3000);
 
     // マイリスト作成ボタンをクリック
     // XPathではなくクラスベースのセレクタを使用（より堅牢）
     // button要素で、MylistSideContainer-actionButton クラスを持つ最初のボタンを選択
     const createButton = page.locator('button.MylistSideContainer-actionButton').first();
-    await createButton.waitFor({ state: 'visible', timeout: 15000 });
+    await createButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('マイリスト作成ボタンが表示されました');
     
-    await createButton.click({ timeout: 15000 });
+    await createButton.click({ timeout: 30000 });
     console.log('マイリスト作成ボタンをクリックしました');
 
-    await sleep(2000); // モーダル表示を待つ
+    await sleep(3000); // モーダル表示を待つ
 
     // マイリスト名を入力
     // モーダル内のタイトル入力フィールドを探す（より汎用的なセレクタ）
     const nameInput = page.locator('input[type="text"][placeholder*="タイトル"], input[id*="title"]');
-    await nameInput.waitFor({ state: 'visible', timeout: 10000 });
+    await nameInput.waitFor({ state: 'visible', timeout: 30000 });
     await nameInput.fill(mylistName);
     console.log(`マイリスト名を入力しました: ${mylistName}`);
 
     // 作成ボタンをクリック
     // モーダルのフッター内のボタンを探す
     const submitButton = page.locator('article footer button, div[role="dialog"] footer button').first();
-    await submitButton.waitFor({ state: 'visible', timeout: 10000 });
-    await submitButton.click({ timeout: 10000 });
+    await submitButton.waitFor({ state: 'visible', timeout: 30000 });
+    await submitButton.click({ timeout: 30000 });
     console.log('モーダルの作成ボタンをクリックしました');
 
     await sleep(3000); // 作成処理の完了を待つ
