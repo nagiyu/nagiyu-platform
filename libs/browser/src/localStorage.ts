@@ -91,10 +91,12 @@ export function setItem<T = string>(key: string, value: T): void {
         error.code === 22)
     ) {
       console.error(`[localStorage] Storage quota exceeded for key "${key}"`);
-      throw new Error('ストレージの容量が不足しています。不要なデータを削除してください。');
+      throw new Error('ストレージの容量が不足しています。不要なデータを削除してください。', {
+        cause: error,
+      });
     }
     console.error(`[localStorage] Failed to set item "${key}":`, error);
-    throw new Error('データの保存に失敗しました。');
+    throw new Error('データの保存に失敗しました。', { cause: error });
   }
 }
 
@@ -116,6 +118,6 @@ export function removeItem(key: string): void {
     globalThis.window.localStorage.removeItem(key);
   } catch (error) {
     console.error(`[localStorage] Failed to remove item "${key}":`, error);
-    throw new Error('データの削除に失敗しました。');
+    throw new Error('データの削除に失敗しました。', { cause: error });
   }
 }
