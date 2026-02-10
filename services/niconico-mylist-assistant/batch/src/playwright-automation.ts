@@ -196,11 +196,12 @@ export async function deleteAllMylists(page: Page): Promise<void> {
         const countElement = page.locator(MYLIST_COUNT_SELECTOR).first();
         const countText = await countElement.textContent({ timeout: 30000 });
 
-        if (!countText || countText.trim() === '') {
+        if (!countText?.trim()) {
           console.error('マイリスト数を取得できませんでした。セレクタを確認してください。');
-          // デバッグ用にHTML構造を出力
-          const htmlContent = await page.content();
-          console.log('ページHTML（最初の1000文字）:', htmlContent.substring(0, 1000));
+          // デバッグ用にセレクタ周辺のDOM構造を出力（個人情報を含まないように限定）
+          const mylistContainer = await page.locator('.MylistSideContainer-categoryList').first();
+          const containerHTML = await mylistContainer.innerHTML().catch(() => 'HTML取得失敗');
+          console.log('マイリストコンテナHTML（最初の500文字）:', containerHTML.substring(0, 500));
           throw new Error('マイリスト数の取得に失敗しました');
         }
 
