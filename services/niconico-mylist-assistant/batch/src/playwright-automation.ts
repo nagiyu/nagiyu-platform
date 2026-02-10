@@ -178,9 +178,28 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // ページの JavaScript が実行されてマイリストカウントが更新されるまで待機
     await sleep(2000);
 
-    // 現在のUIから取得したセレクタを使用
-    const MYLIST_COUNT_SELECTOR =
-      '#UserPage-app > section > section > main > div > div > div.simplebar-wrapper > div.simplebar-mask > div > div > div > ul.SubMenuLinkList.MylistSideContainer-categoryList > div > header > div > span > span.MylistPageSubMenuHeader-counterValueMylistCount';
+    // マイリストコンテナが DOM に存在することを確認（マイリストがない場合も OK）
+    // これにより、動的にロードされるコンテンツの準備が完了したことを確認
+    try {
+      // マイリストコンテナまたは「マイリストがありません」メッセージを待つ
+      await Promise.race([
+        page.locator('.MylistSideContainer-mylistList').waitFor({
+          state: 'attached',
+          timeout: 10000,
+        }),
+        page.locator('text=マイリストがありません').waitFor({
+          state: 'visible',
+          timeout: 10000,
+        }),
+      ]).catch(() => {
+        console.log('マイリストコンテナの確認: タイムアウト（コンテンツが動的にロード中の可能性）');
+      });
+
+      // コンテナが表示された後、さらに少し待機してリストアイテムがレンダリングされるのを待つ
+      await sleep(1000);
+    } catch (error) {
+      console.log('マイリストコンテナの待機でエラー（続行します）:', error);
+    }
 
     let deletedCount = 0;
 
@@ -193,37 +212,80 @@ export async function deleteAllMylists(page: Page): Promise<void> {
 
     // マイリスト数が0になるまで削除を繰り返す
     while (true) {
-      const countElement = await page.locator(MYLIST_COUNT_SELECTOR).first();
-      const countText = await countElement.textContent({ timeout: 30000 });
+      try {
+        // マイリストアイテムを直接カウント（カウンター要素ではなくリストアイテムで判断）
+        const mylistItems = page.locator('.MylistSideContainer-mylistList li');
+        const mylistCount = await mylistItems.count();
 
-      console.log(`現在のマイリスト数: ${countText}`);
+        // デバッグ: コンテナの存在確認
+        const containerExists = await page.locator('.MylistSideContainer-mylistList').count();
+        console.log(`マイリストコンテナの存在: ${containerExists}個`);
+        console.log(`現在のマイリスト数（リストアイテム数）: ${mylistCount}`);
 
-      if (countText === '0') {
-        console.log('マイリスト数が0件になりました。削除処理を終了します。');
-        break;
+        if (mylistCount === 0) {
+          // マイリストが0件の場合、本当に0件なのか、まだロードされていないのかを確認
+          const noMylistMessage = await page.locator('text=マイリストがありません').count();
+          console.log(
+            `「マイリストがありません」メッセージの表示: ${noMylistMessage > 0 ? 'あり' : 'なし'}`
+          );
+
+          if (noMylistMessage > 0 || containerExists === 0) {
+            console.log('マイリスト数が0件になりました。削除処理を終了します。');
+            break;
+          } else {
+            // コンテナは存在するがアイテムが0件 = まだロード中の可能性
+            console.log('コンテナは存在するがアイテムが0件です。もう少し待機します...');
+            await sleep(2000);
+            continue; // ループを続けて再カウント
+          }
+        }
+
+        console.log(`マイリストを削除します（残り: ${mylistCount}件）`);
+      } catch (countError) {
+        console.error('マイリスト数の取得でエラー:', countError);
+        // スクリーンショット取得エラーで元のエラーコンテキストを失わないようにする
+        try {
+          await takeScreenshot(page, `count-error-${deletedCount}`);
+        } catch (screenshotError) {
+          console.error('スクリーンショット取得失敗:', screenshotError);
+        }
+        throw countError;
       }
-
-      console.log(`マイリストを削除します（残り: ${countText}件）`);
 
       // ダウンロードした HTML から特定したセレクタを使用
       try {
         // Step 1: サイドバーの最初のマイリストリンクをクリックして詳細ページへ移動
+        // 要素が完全に表示されるまで待機
         const firstMylistLink = page.locator('.MylistSideContainer-mylistList li:first-child a');
-        await firstMylistLink.click({ timeout: 10000 });
+        await firstMylistLink.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('マイリストリンクが表示されました');
+
+        // クリック可能になるまで待機してからクリック（overlayがある可能性を考慮）
+        await firstMylistLink.click({ timeout: 15000, force: false });
         console.log('マイリスト詳細ページへ移動しました');
-        await sleep(1000);
+        await sleep(2000); // ページ遷移を待つ
 
         // Step 2: マイリストヘッダーの3点メニューボタンをクリック
         const threePointMenuButton = page.locator('.NC-ThreePointMenu.MylistHeaderMenu button');
-        await threePointMenuButton.click({ timeout: 10000 });
+        await threePointMenuButton.waitFor({ state: 'visible', timeout: 15000 });
+        console.log('3点メニューボタンが表示されました');
+
+        await threePointMenuButton.click({ timeout: 15000 });
         console.log('3点メニューを開きました');
-        await sleep(500);
+        await sleep(1000); // メニューが完全に表示されるまで待機
 
         // Step 3: メニュー内の削除ボタンをクリック
         // メニューが開いた後、削除ボタンを探す（過去実績では3番目のボタン）
         // メニューは動的に表示されるので、.NC-ThreePointMenu-menu 内のボタンを探す
-        const deleteButton = page.locator('.NC-ThreePointMenu-menu button').nth(2);
-        await deleteButton.click({ timeout: 10000 });
+        const menuContainer = page.locator('.NC-ThreePointMenu-menu');
+        await menuContainer.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('メニューコンテナが表示されました');
+
+        const deleteButton = menuContainer.locator('button').nth(2);
+        await deleteButton.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('削除ボタンが表示されました');
+
+        await deleteButton.click({ timeout: 15000 });
         console.log('削除ボタンをクリックしました');
 
         // アラートダイアログの承認を待つ（dialog ハンドラが自動で処理）
