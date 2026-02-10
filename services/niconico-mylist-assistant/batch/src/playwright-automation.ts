@@ -178,6 +178,29 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // ページの JavaScript が実行されてマイリストカウントが更新されるまで待機
     await sleep(2000);
 
+    // マイリストコンテナが DOM に存在することを確認（マイリストがない場合も OK）
+    // これにより、動的にロードされるコンテンツの準備が完了したことを確認
+    try {
+      // マイリストコンテナまたは「マイリストが見つかりません」メッセージを待つ
+      await Promise.race([
+        page.locator('.MylistSideContainer-mylistList').waitFor({
+          state: 'attached',
+          timeout: 10000,
+        }),
+        page.locator('text=マイリストが見つかりません').waitFor({
+          state: 'visible',
+          timeout: 10000,
+        }),
+      ]).catch(() => {
+        console.log('マイリストコンテナの確認: タイムアウト（コンテンツが動的にロード中の可能性）');
+      });
+
+      // コンテナが表示された後、さらに少し待機してリストアイテムがレンダリングされるのを待つ
+      await sleep(1000);
+    } catch (error) {
+      console.log('マイリストコンテナの待機でエラー（続行します）:', error);
+    }
+
     let deletedCount = 0;
 
     // アラートダイアログを承認するハンドラを設定（ループの外で一度だけ）
@@ -194,11 +217,27 @@ export async function deleteAllMylists(page: Page): Promise<void> {
         const mylistItems = page.locator('.MylistSideContainer-mylistList li');
         const mylistCount = await mylistItems.count();
 
+        // デバッグ: コンテナの存在確認
+        const containerExists = await page.locator('.MylistSideContainer-mylistList').count();
+        console.log(`マイリストコンテナの存在: ${containerExists}個`);
         console.log(`現在のマイリスト数（リストアイテム数）: ${mylistCount}`);
 
         if (mylistCount === 0) {
-          console.log('マイリスト数が0件になりました。削除処理を終了します。');
-          break;
+          // マイリストが0件の場合、本当に0件なのか、まだロードされていないのかを確認
+          const noMylistMessage = await page.locator('text=マイリストが見つかりません').count();
+          console.log(
+            `「マイリストが見つかりません」メッセージの表示: ${noMylistMessage > 0 ? 'あり' : 'なし'}`
+          );
+
+          if (noMylistMessage > 0 || containerExists === 0) {
+            console.log('マイリスト数が0件になりました。削除処理を終了します。');
+            break;
+          } else {
+            // コンテナは存在するがアイテムが0件 = まだロード中の可能性
+            console.log('コンテナは存在するがアイテムが0件です。もう少し待機します...');
+            await sleep(2000);
+            continue; // ループを続けて再カウント
+          }
         }
 
         console.log(`マイリストを削除します（残り: ${mylistCount}件）`);
