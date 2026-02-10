@@ -181,13 +181,13 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // マイリストコンテナが DOM に存在することを確認（マイリストがない場合も OK）
     // これにより、動的にロードされるコンテンツの準備が完了したことを確認
     try {
-      // マイリストコンテナまたは「マイリストが見つかりません」メッセージを待つ
+      // マイリストコンテナまたは「マイリストがありません」メッセージを待つ
       await Promise.race([
         page.locator('.MylistSideContainer-mylistList').waitFor({
           state: 'attached',
           timeout: 10000,
         }),
-        page.locator('text=マイリストが見つかりません').waitFor({
+        page.locator('text=マイリストがありません').waitFor({
           state: 'visible',
           timeout: 10000,
         }),
@@ -224,9 +224,9 @@ export async function deleteAllMylists(page: Page): Promise<void> {
 
         if (mylistCount === 0) {
           // マイリストが0件の場合、本当に0件なのか、まだロードされていないのかを確認
-          const noMylistMessage = await page.locator('text=マイリストが見つかりません').count();
+          const noMylistMessage = await page.locator('text=マイリストがありません').count();
           console.log(
-            `「マイリストが見つかりません」メッセージの表示: ${noMylistMessage > 0 ? 'あり' : 'なし'}`
+            `「マイリストがありません」メッセージの表示: ${noMylistMessage > 0 ? 'あり' : 'なし'}`
           );
 
           if (noMylistMessage > 0 || containerExists === 0) {
