@@ -267,15 +267,25 @@ export async function deleteAllMylists(page: Page): Promise<void> {
 
         // Step 2: マイリストヘッダーの3点メニューボタンをクリック
         const threePointMenuButton = page.locator('.NC-ThreePointMenu.MylistHeaderMenu button');
-        await threePointMenuButton.click({ timeout: 10000 });
+        await threePointMenuButton.waitFor({ state: 'visible', timeout: 15000 });
+        console.log('3点メニューボタンが表示されました');
+
+        await threePointMenuButton.click({ timeout: 15000 });
         console.log('3点メニューを開きました');
-        await sleep(500);
+        await sleep(1000); // メニューが完全に表示されるまで待機
 
         // Step 3: メニュー内の削除ボタンをクリック
         // メニューが開いた後、削除ボタンを探す（過去実績では3番目のボタン）
         // メニューは動的に表示されるので、.NC-ThreePointMenu-menu 内のボタンを探す
-        const deleteButton = page.locator('.NC-ThreePointMenu-menu button').nth(2);
-        await deleteButton.click({ timeout: 10000 });
+        const menuContainer = page.locator('.NC-ThreePointMenu-menu');
+        await menuContainer.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('メニューコンテナが表示されました');
+
+        const deleteButton = menuContainer.locator('button').nth(2);
+        await deleteButton.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('削除ボタンが表示されました');
+
+        await deleteButton.click({ timeout: 15000 });
         console.log('削除ボタンをクリックしました');
 
         // アラートダイアログの承認を待つ（dialog ハンドラが自動で処理）
