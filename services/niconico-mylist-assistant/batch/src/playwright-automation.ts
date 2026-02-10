@@ -199,9 +199,16 @@ export async function deleteAllMylists(page: Page): Promise<void> {
         if (!countText?.trim()) {
           console.error('マイリスト数を取得できませんでした。セレクタを確認してください。');
           // デバッグ用にセレクタ周辺のDOM構造を出力（個人情報を含まないように限定）
-          const mylistContainer = await page.locator('.MylistSideContainer-categoryList').first();
-          const containerHTML = await mylistContainer.innerHTML().catch(() => 'HTML取得失敗');
-          console.log('マイリストコンテナHTML（最初の500文字）:', containerHTML.substring(0, 500));
+          try {
+            const mylistContainer = await page.locator('.MylistSideContainer-categoryList').first();
+            const containerHTML = await mylistContainer.innerHTML();
+            console.log(
+              'マイリストコンテナHTML（最初の500文字）:',
+              containerHTML.substring(0, 500)
+            );
+          } catch (htmlError) {
+            console.error('デバッグ用HTML取得失敗:', htmlError);
+          }
           throw new Error('マイリスト数の取得に失敗しました');
         }
 
@@ -215,7 +222,12 @@ export async function deleteAllMylists(page: Page): Promise<void> {
         console.log(`マイリストを削除します（残り: ${countText}件）`);
       } catch (countError) {
         console.error('マイリスト数の取得でエラー:', countError);
-        await takeScreenshot(page, `count-error-${deletedCount}`);
+        // スクリーンショット取得エラーで元のエラーコンテキストを失わないようにする
+        try {
+          await takeScreenshot(page, `count-error-${deletedCount}`);
+        } catch (screenshotError) {
+          console.error('スクリーンショット取得失敗:', screenshotError);
+        }
         throw countError;
       }
 
