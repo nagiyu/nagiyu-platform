@@ -403,6 +403,34 @@ throw new Error(ERROR_MESSAGES.EMPTY_INPUT);
 **理由**: メッセージの一元管理、変更の容易性
 **違反時の影響**: メッセージの不一致、メンテナンス性の低下
 
+#### MUST: エラーを再スローする際は cause を保持 (ESLint 10)
+
+```typescript
+// ❌ NG
+try {
+  await someOperation();
+} catch (error) {
+  throw new Error('処理に失敗しました');
+}
+
+// ✅ OK
+try {
+  await someOperation();
+} catch (error) {
+  throw new Error('処理に失敗しました', { cause: error });
+}
+```
+
+**理由**: 
+- エラーチェーンを辿ってデバッグできる
+- 元のエラー情報（スタックトレース、エラーコードなど）を保持
+- ESLint 10 の `preserve-caught-error` ルールで強制
+
+**違反時の影響**: 
+- ESLint エラー
+- デバッグが困難になる
+- エラーの根本原因が追跡できない
+
 #### SHOULD: 技術的な詳細より対処方法を優先
 
 ```typescript

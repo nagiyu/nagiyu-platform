@@ -16,12 +16,13 @@
 
 ```
 configs/
-├── tsconfig.base.json      # TypeScript基本設定
-├── eslint.config.base.mjs  # ESLint基本設定
-└── samples/                # サンプル設定ファイル
-    ├── tsconfig.core.json  # core パッケージ用サンプル
-    ├── tsconfig.web.json   # web パッケージ用サンプル
-    └── tsconfig.batch.json # batch パッケージ用サンプル
+├── tsconfig.base.json       # TypeScript基本設定
+├── eslint.config.base.mjs   # ESLint基本設定（TypeScriptプロジェクト用）
+├── eslint.config.nextjs.mjs # ESLint基本設定（Next.jsプロジェクト用）
+└── samples/                 # サンプル設定ファイル
+    ├── tsconfig.core.json   # core パッケージ用サンプル
+    ├── tsconfig.web.json    # web パッケージ用サンプル
+    └── tsconfig.batch.json  # batch パッケージ用サンプル
 ```
 
 ### モノレポルート
@@ -123,15 +124,27 @@ cp configs/samples/tsconfig.batch.json services/myservice/batch/tsconfig.json
 
 #### 含まれる設定
 
-- ESLint v9 Flat Config形式
-- Next.js公式ルールセット
-- TypeScript対応
-- PWA生成ファイルの除外
+- ESLint v10 Flat Config形式
+- TypeScript対応（typescript-eslint）
+- プロジェクト固有のルール
+
+#### ESLint 10 対応について
+
+**現状**: ESLint 10.0.0 を使用（2026年2月リリース）
+
+**互換性対応**:
+- `@eslint/compat` パッケージを使用
+- typescript-eslint が正式に ESLint 10 をサポートするまでの暫定措置
+- Next.js プロジェクトでは `fixupConfigRules()` で eslint-config-next をラップ
+
+**将来の対応**:
+- typescript-eslint が正式に ESLint 10 をサポートしたら `@eslint/compat` を削除予定
 
 #### 各サービスでの使用
 
 サービスの eslint.config.mjs で import。
 
+**TypeScriptサービス（非Next.js）**:
 ```javascript
 import baseConfig from '../../configs/eslint.config.base.mjs';
 
@@ -140,6 +153,46 @@ export default [
     // サービス固有のルール追加
 ];
 ```
+
+**Next.jsサービス**:
+```javascript
+import { defineConfig, globalIgnores } from 'eslint/config';
+import { fixupConfigRules } from '@eslint/compat';
+import baseConfig from '../../configs/eslint.config.nextjs.mjs';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTs from 'eslint-config-next/typescript';
+
+const eslintConfig = defineConfig([
+    ...baseConfig,
+    ...fixupConfigRules(nextVitals),
+    ...fixupConfigRules(nextTs),
+    globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
+]);
+
+export default eslintConfig;
+```
+
+#### 新しいルール（ESLint 10）
+
+**preserve-caught-error**: エラーを再スローする際に元のエラーを `cause` として保持
+
+```typescript
+// ❌ NG (ESLint 9)
+try {
+    // ...
+} catch (error) {
+    throw new Error('処理に失敗しました。');
+}
+
+// ✅ OK (ESLint 10)
+try {
+    // ...
+} catch (error) {
+    throw new Error('処理に失敗しました。', { cause: error });
+}
+```
+
+**理由**: デバッグ時にエラーチェーンを辿れるようにするため
 
 #### Lint対象範囲
 
