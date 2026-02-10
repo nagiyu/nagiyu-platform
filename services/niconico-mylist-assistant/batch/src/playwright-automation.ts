@@ -178,9 +178,6 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // ページの JavaScript が実行されてマイリストカウントが更新されるまで待機
     await sleep(2000);
 
-    // シンプルなクラスベースのセレクタを使用（DOM構造変更に強い）
-    const MYLIST_COUNT_SELECTOR = 'span.MylistPageSubMenuHeader-counterValueMylistCount';
-
     let deletedCount = 0;
 
     // アラートダイアログを承認するハンドラを設定（ループの外で一度だけ）
@@ -193,54 +190,18 @@ export async function deleteAllMylists(page: Page): Promise<void> {
     // マイリスト数が0になるまで削除を繰り返す
     while (true) {
       try {
-        // デバッグ: 該当するセレクタの全要素を確認
-        const allCountElements = page.locator(MYLIST_COUNT_SELECTOR);
-        const elementCount = await allCountElements.count();
-        console.log(`セレクタ ${MYLIST_COUNT_SELECTOR} に一致する要素数: ${elementCount}`);
+        // マイリストアイテムを直接カウント（カウンター要素ではなくリストアイテムで判断）
+        const mylistItems = page.locator('.MylistSideContainer-mylistList li');
+        const mylistCount = await mylistItems.count();
 
-        // 全要素のテキストを確認（デバッグ用）
-        for (let i = 0; i < elementCount; i++) {
-          const text = await allCountElements.nth(i).textContent();
-          const isVisible = await allCountElements.nth(i).isVisible();
-          console.log(`  要素[${i}]: テキスト="${text}", 表示=${isVisible}`);
-        }
+        console.log(`現在のマイリスト数（リストアイテム数）: ${mylistCount}`);
 
-        // 表示されている要素のみを取得
-        const countElement = page.locator(MYLIST_COUNT_SELECTOR).filter({ hasText: /\d+/ }); // 数字を含む要素のみ
-        const visibleCount = await countElement.count();
-        console.log(`表示されている数字を含む要素数: ${visibleCount}`);
-
-        if (visibleCount === 0) {
-          console.error('表示されているマイリスト数要素が見つかりません。');
-          // デバッグ用にセレクタ周辺のDOM構造を出力
-          try {
-            const mylistContainer = await page.locator('.MylistSideContainer-categoryList').first();
-            const containerHTML = await mylistContainer.innerHTML();
-            console.log(
-              'マイリストコンテナHTML（最初の500文字）:',
-              containerHTML.substring(0, 500)
-            );
-          } catch (htmlError) {
-            console.error('デバッグ用HTML取得失敗:', htmlError);
-          }
-          throw new Error('マイリスト数の取得に失敗しました');
-        }
-
-        const countText = await countElement.first().textContent();
-
-        if (!countText?.trim()) {
-          console.error('マイリスト数を取得できませんでした。');
-          throw new Error('マイリスト数の取得に失敗しました');
-        }
-
-        console.log(`現在のマイリスト数: ${countText}`);
-
-        if (countText === '0') {
+        if (mylistCount === 0) {
           console.log('マイリスト数が0件になりました。削除処理を終了します。');
           break;
         }
 
-        console.log(`マイリストを削除します（残り: ${countText}件）`);
+        console.log(`マイリストを削除します（残り: ${mylistCount}件）`);
       } catch (countError) {
         console.error('マイリスト数の取得でエラー:', countError);
         // スクリーンショット取得エラーで元のエラーコンテキストを失わないようにする
@@ -255,10 +216,15 @@ export async function deleteAllMylists(page: Page): Promise<void> {
       // ダウンロードした HTML から特定したセレクタを使用
       try {
         // Step 1: サイドバーの最初のマイリストリンクをクリックして詳細ページへ移動
+        // 要素が完全に表示されるまで待機
         const firstMylistLink = page.locator('.MylistSideContainer-mylistList li:first-child a');
-        await firstMylistLink.click({ timeout: 10000 });
+        await firstMylistLink.waitFor({ state: 'visible', timeout: 10000 });
+        console.log('マイリストリンクが表示されました');
+
+        // クリック可能になるまで待機してからクリック（overlayがある可能性を考慮）
+        await firstMylistLink.click({ timeout: 15000, force: false });
         console.log('マイリスト詳細ページへ移動しました');
-        await sleep(1000);
+        await sleep(2000); // ページ遷移を待つ
 
         // Step 2: マイリストヘッダーの3点メニューボタンをクリック
         const threePointMenuButton = page.locator('.NC-ThreePointMenu.MylistHeaderMenu button');
