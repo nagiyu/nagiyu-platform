@@ -252,10 +252,24 @@ AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージ
 **モノレポ全体をビルドする場合:**
 
 ```bash
+# 1. common をビルド
 npm run build --workspace @nagiyu/common
+
+# 2. aws と browser を並列ビルド（bash/zsh）
 npm run build --workspace @nagiyu/aws &
 npm run build --workspace @nagiyu/browser &
 wait
+
+# 3. ui をビルド
+npm run build --workspace @nagiyu/ui
+```
+
+**Note**: 並列実行 (`&` と `wait`) は bash/zsh で動作します。Windows の cmd.exe や PowerShell では、順次実行してください:
+
+```bash
+npm run build --workspace @nagiyu/common
+npm run build --workspace @nagiyu/aws
+npm run build --workspace @nagiyu/browser
 npm run build --workspace @nagiyu/ui
 ```
 
