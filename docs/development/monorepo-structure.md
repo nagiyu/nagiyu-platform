@@ -158,13 +158,13 @@ flowchart TB
 ```
 libs/ui → libs/browser → libs/common
 libs/react → libs/common
-libs/aws (独立、外部依存なし)
+libs/aws (モノレポ内の他ライブラリに依存しない)
 ```
 
 - `libs/ui`: `libs/browser` に依存可
 - `libs/browser`: `libs/common` に依存可
 - `libs/react`: `libs/common` に依存可
-- `libs/aws`: 独立（外部依存なし）
+- `libs/aws`: モノレポ内の他ライブラリに依存しない（AWS SDKはpeerDependencies）
 - `libs/common`: 外部依存なし
 
 ### 禁止パターン
@@ -349,7 +349,7 @@ libs/aws (独立、外部依存なし)
 
 **依存可能なパッケージ**:
 
-- なし（完全独立）
+- なし（モノレポ内の他ライブラリに依存しない。AWS SDKはpeerDependencies）
 
 **パッケージ名**: `@nagiyu/aws`
 
