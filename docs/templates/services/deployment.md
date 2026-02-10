@@ -242,28 +242,16 @@ on:
 
 ### 4.2 ブランチ戦略とデプロイフロー
 
-<!-- 記入ガイド: ブランチごとのデプロイ戦略を表形式で記述してください -->
-<!-- 参照: docs/branching.md のブランチ戦略に従ってください -->
+<!-- 記入ガイド: プラットフォームのブランチ戦略とCI/CD戦略は docs/branching.md に統一されています -->
+<!-- 記入ガイド: サービス固有の情報がない限り、リンクのみを記載してください -->
 
-```mermaid
-graph LR
-    A[feature/**] -->|PR| B[integration/**]
-    B -->|Fast CI| B
-    B -->|PR| C[develop]
-    C -->|Full CI| C
-    C -->|マージ| D[master]
-    D -->|本番デプロイ| D
+プラットフォーム共通のブランチ戦略とCI/CD戦略については、[ブランチ戦略](../../branching.md) を参照してください。
 
-    style B fill:#e1f5ff
-    style C fill:#fff4e1
-    style D fill:#ffe1e1
-```
-
-| ブランチ         | 環境 | PR検証     | 自動デプロイ |
-| ---------------- | ---- | ---------- | ------------ |
-| `develop`        | 開発 | ✅ Full CI | ✅           |
-| `integration/**` | 開発 | ✅ Fast CI | ✅           |
-| `master`         | 本番 | -          | ✅           |
+**概要**:
+- `feature/**` → `integration/**` → `develop` → `master` の順にマージ
+- `integration/**` および `develop` へのプッシュで開発環境へ自動デプロイ
+- `master` へのプッシュで本番環境へ自動デプロイ
+- PR検証は2段階（Fast CI / Full CI）
 
 ### 4.3 GitHub Secrets の設定
 

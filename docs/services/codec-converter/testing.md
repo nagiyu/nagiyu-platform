@@ -36,17 +36,12 @@ Codec Converterは**PCターゲット**のサービスです。
 
 ### 2.2 テスト優先順位
 
-#### Fast CI (高速フィードバック)
+プラットフォーム共通のCI戦略については、[ブランチ戦略 - CI/CD戦略](../../branching.md#cicd-戦略) を参照してください。
 
-- **対象**: chromium-desktop のみ
-- **目的**: 開発中の素早いフィードバック
-- **トリガー**: `integration/codec-converter` ブランチへのPR
-
-#### Full CI (完全テスト)
-
-- **対象**: chromium-desktop のみ
-- **目的**: マージ前の完全な品質検証
-- **トリガー**: `develop` ブランチへのPR
+**Codec Converter 固有の設定**:
+- **Fast CI**: `integration/codec-converter` へのPR時に chromium-desktop のみでテスト
+- **Full CI**: `develop` へのPR時に chromium-desktop のみでテストし、カバレッジ80%以上を必須とする
+- **注**: サービス特性上、モバイルデバイスはテスト対象外
 
 ---
 
