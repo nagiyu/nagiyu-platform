@@ -13,15 +13,15 @@ npm workspaces を使用してモノレポ内の各パッケージを管理す�
 - **ルートワークスペース**: リポジトリルートの `package.json` でモノレポ全体を統括
 - **パッケージワークスペース**: 各サービス・ライブラリの `package.json` で個別パッケージを定義
 
-### 共通パッケージ (libs/*)
+### 共通パッケージ (libs/\*)
 
 全サービスで共有可能なライブラリパッケージ。
 
-- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`
-- **責務**: フレームワーク・ブラウザAPIに依存した汎用機能の提供
+- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/react/`, `libs/aws/`
+- **責務**: フレームワーク・ブラウザAPI・AWS SDKに依存した汎用機能の提供
 - **バージョン管理**: 各ライブラリで独立したバージョン管理
 
-### 固有パッケージ (services/*/xxx)
+### 固有パッケージ (services/\*/xxx)
 
 特定サービス専用のパッケージ。
 
@@ -70,6 +70,7 @@ services/{service}/
 ```
 
 **命名規則**:
+
 - ハイフン区切り（`web-admin`, `batch-daily`）
 - 小文字のみ使用
 - 役割を明確に表す名前
@@ -88,7 +89,17 @@ libs/
 │   ├── tests/
 │   ├── package.json
 │   └── tsconfig.json
-└── ui/             # Next.js + Material-UI 依存
+├── ui/             # Next.js + Material-UI 依存
+│   ├── src/
+│   ├── tests/
+│   ├── package.json
+│   └── tsconfig.json
+├── react/          # React依存（React hooks等）
+│   ├── src/
+│   ├── tests/
+│   ├── package.json
+│   └── tsconfig.json
+└── aws/            # AWS SDK依存
     ├── src/
     ├── tests/
     ├── package.json
@@ -146,10 +157,14 @@ flowchart TB
 
 ```
 libs/ui → libs/browser → libs/common
+libs/react → libs/common
+libs/aws (独立、外部依存なし)
 ```
 
 - `libs/ui`: `libs/browser` に依存可
 - `libs/browser`: `libs/common` に依存可
+- `libs/react`: `libs/common` に依存可
+- `libs/aws`: 独立（外部依存なし）
 - `libs/common`: 外部依存なし
 
 ### 禁止パターン
@@ -173,11 +188,13 @@ libs/ui → libs/browser → libs/common
 - ビジネスルール
 
 **特徴**:
+
 - UI フレームワーク非依存
 - 純粋関数として実装推奨
 - Unit Test 必須（カバレッジ 80%以上）
 
 **依存可能なパッケージ**:
+
 - `libs/common`
 
 **ビルド**: 必須（Lambda 等で利用するため）
@@ -192,11 +209,13 @@ libs/ui → libs/browser → libs/common
 - UI ロジック
 
 **特徴**:
+
 - `services/{service}/core` のビジネスロジックを利用
 - E2E Test 主体（Playwright）
 - PWA 対応可能
 
 **依存可能なパッケージ**:
+
 - `services/{service}/core`
 - `libs/ui`
 - `libs/browser`
@@ -213,11 +232,13 @@ libs/ui → libs/browser → libs/common
 - 外部API連携
 
 **特徴**:
+
 - `services/{service}/core` のビジネスロジックを利用
 - Integration Test 主体
 - AWS Lambda 等で実行
 
 **依存可能なパッケージ**:
+
 - `services/{service}/core`
 - `libs/common`
 
@@ -232,6 +253,7 @@ libs/ui → libs/browser → libs/common
 - データ変換ロジック
 
 **特徴**:
+
 - 外部依存なし（Node.js標準ライブラリのみ可）
 - 純粋関数として実装
 - 高いテストカバレッジ維持
@@ -249,11 +271,13 @@ libs/ui → libs/browser → libs/common
 - その他ブラウザ固有APIの抽象化
 
 **特徴**:
+
 - SSR 対応（ブラウザ環境チェック）
 - エラーハンドリングの統一
 - テスト容易性（モック化しやすい設計）
 
 **依存可能なパッケージ**:
+
 - `libs/common`
 
 **パッケージ名**: `@nagiyu/browser`
@@ -270,15 +294,64 @@ libs/ui → libs/browser → libs/common
 - グローバルCSS
 
 **特徴**:
+
 - React Server Components 対応
 - Material-UI v7 使用
 - Next.js v16+ 対応
 
 **依存可能なパッケージ**:
+
 - `libs/browser`
 - `libs/common`
 
 **パッケージ名**: `@nagiyu/ui`
+
+**ビルド**: 必須
+
+### libs/react
+
+**責務**: React依存のユーティリティ
+
+- React hooks（`useAPIRequest` 等）
+- React コンポーネント
+- React固有の抽象化
+
+**特徴**:
+
+- React に依存
+- フレームワーク固有機能の提供
+- テスト容易性（モック化しやすい設計）
+
+**依存可能なパッケージ**:
+
+- `libs/common`
+
+**パッケージ名**: `@nagiyu/react`
+
+**ビルド**: 必須
+
+### libs/aws
+
+**責務**: AWS SDK 補助・拡張ライブラリ
+
+- DynamoDB Repository パターン実装
+- エラークラス（`RepositoryError`、`EntityNotFoundError` 等）
+- 抽象基底クラス（`AbstractDynamoDBRepository`）
+- バリデーション関数
+- ヘルパー関数
+
+**特徴**:
+
+- AWS SDK に依存（peerDependencies）
+- Single Table Design 対応
+- 型安全なマッピング
+- 日本語エラーメッセージ
+
+**依存可能なパッケージ**:
+
+- なし（完全独立）
+
+**パッケージ名**: `@nagiyu/aws`
 
 **ビルド**: 必須
 
@@ -289,6 +362,7 @@ libs/ui → libs/browser → libs/common
 **テスト種別**: Unit Test（Jest）
 
 **テスト対象**:
+
 - ビジネスロジック
 - データ変換処理
 - バリデーション
@@ -297,6 +371,7 @@ libs/ui → libs/browser → libs/common
 **カバレッジ目標**: 80%以上必須
 
 **配置**:
+
 ```
 services/{service}/core/
 └── tests/
@@ -310,16 +385,19 @@ services/{service}/core/
 **テスト種別**: E2E Test（Playwright）主体
 
 **テスト対象**:
+
 - ユーザーフロー
 - クリティカルパス
 - PWA機能（オフライン動作、インストール）
 
 **テストデバイス**:
+
 - chromium-desktop（Desktop Chrome 1920x1080）
 - chromium-mobile（モバイルChrome Pixel 5想定）
 - webkit-mobile（モバイルSafari iPhone想定）
 
 **配置**:
+
 ```
 services/{service}/web/
 └── e2e/
@@ -334,11 +412,13 @@ services/{service}/web/
 **テスト種別**: Integration Test（Jest）
 
 **テスト対象**:
+
 - バッチ処理フロー
 - 外部API連携（モック使用）
 - エラーハンドリング
 
 **配置**:
+
 ```
 services/{service}/batch/
 └── tests/
@@ -346,13 +426,14 @@ services/{service}/batch/
         └── batch.test.ts
 ```
 
-### 共通ライブラリ（libs/*）
+### 共通ライブラリ（libs/\*）
 
 **テスト種別**: Unit Test（Jest）
 
 **カバレッジ目標**: 80%以上推奨
 
 **配置**:
+
 ```
 libs/{library}/
 └── tests/
@@ -370,14 +451,9 @@ libs/{library}/
 
 ```json
 {
-    "name": "nagiyu-platform",
-    "private": true,
-    "workspaces": [
-        "services/*/core",
-        "services/*/web",
-        "services/*/batch",
-        "libs/*"
-    ]
+  "name": "nagiyu-platform",
+  "private": true,
+  "workspaces": ["services/*/core", "services/*/web", "services/*/batch", "libs/*"]
 }
 ```
 
@@ -387,21 +463,22 @@ libs/{library}/
 
 ```json
 {
-    "name": "nagiyu-platform",
-    "private": true,
-    "workspaces": [
-        "services/*/core",
-        "services/*/web",
-        "services/*/web-*",
-        "services/*/batch",
-        "services/*/batch-*",
-        "services/*/api",
-        "libs/*"
-    ]
+  "name": "nagiyu-platform",
+  "private": true,
+  "workspaces": [
+    "services/*/core",
+    "services/*/web",
+    "services/*/web-*",
+    "services/*/batch",
+    "services/*/batch-*",
+    "services/*/api",
+    "libs/*"
+  ]
 }
 ```
 
 **ポイント**:
+
 - ワイルドカード `*` で柔軟なパターンマッチング
 - `web-*`, `batch-*` で拡張パッケージに対応
 - `api` 等の追加パターンも定義可能
@@ -419,6 +496,7 @@ libs/{library}/
 モノレポでは TypeScript Project References を活用し、型チェックとビルドを効率化する。
 
 **利点**:
+
 - 増分ビルドによる高速化
 - パッケージ間の型情報の共有
 - エディタでの型補完の改善
@@ -431,15 +509,15 @@ libs/{library}/
 
 ```json
 {
-    "extends": "../../configs/tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["ES2020"],
-        "composite": true,
-        "declaration": true,
-        "outDir": "./dist"
-    },
-    "include": ["src/**/*", "tests/**/*"],
-    "exclude": ["node_modules", "dist"]
+  "extends": "../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "composite": true,
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
 ```
 
@@ -447,18 +525,16 @@ libs/{library}/
 
 ```json
 {
-    "extends": "../../configs/tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["ES2020", "DOM"],
-        "composite": true,
-        "declaration": true,
-        "outDir": "./dist"
-    },
-    "include": ["src/**/*", "tests/**/*"],
-    "exclude": ["node_modules", "dist"],
-    "references": [
-        { "path": "../common" }
-    ]
+  "extends": "../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020", "DOM"],
+    "composite": true,
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [{ "path": "../common" }]
 }
 ```
 
@@ -470,18 +546,16 @@ libs/{library}/
 
 ```json
 {
-    "extends": "../../../configs/tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["ES2020"],
-        "composite": true,
-        "declaration": true,
-        "outDir": "./dist"
-    },
-    "include": ["src/**/*", "tests/**/*"],
-    "exclude": ["node_modules", "dist"],
-    "references": [
-        { "path": "../../../libs/common" }
-    ]
+  "extends": "../../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2020"],
+    "composite": true,
+    "declaration": true,
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [{ "path": "../../../libs/common" }]
 }
 ```
 
@@ -489,27 +563,22 @@ libs/{library}/
 
 ```json
 {
-    "extends": "../../../configs/tsconfig.base.json",
-    "compilerOptions": {
-        "lib": ["DOM", "DOM.Iterable", "ES2020"],
-        "jsx": "preserve",
-        "paths": {
-            "@/*": ["./src/*"]
-        }
-    },
-    "include": [
-        "next-env.d.ts",
-        "**/*.ts",
-        "**/*.tsx",
-        ".next/types/**/*.ts"
-    ],
-    "exclude": ["node_modules"],
-    "references": [
-        { "path": "../core" },
-        { "path": "../../../libs/ui" },
-        { "path": "../../../libs/browser" },
-        { "path": "../../../libs/common" }
-    ]
+  "extends": "../../../configs/tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["DOM", "DOM.Iterable", "ES2020"],
+    "jsx": "preserve",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"],
+  "references": [
+    { "path": "../core" },
+    { "path": "../../../libs/ui" },
+    { "path": "../../../libs/browser" },
+    { "path": "../../../libs/common" }
+  ]
 }
 ```
 
@@ -526,26 +595,31 @@ libs/{library}/
 ### パッケージ名 (package.json の name フィールド)
 
 **共通ライブラリ**:
+
 - フォーマット: `@nagiyu/{library}`
 - 例: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`
 
 **サービス固有パッケージ**:
+
 - フォーマット: `{service}-{type}` または `@{service}/{type}`
 - 例: `tools-core`, `tools-web`, `tools-batch`
 - 例（スコープ付き）: `@tools/core`, `@tools/web`
 
 **拡張パッケージ**:
+
 - フォーマット: `{service}-{type}-{suffix}`
 - 例: `tools-web-admin`, `tools-batch-daily`
 
 ### ディレクトリ名
 
 **基本ルール**:
+
 - 小文字のみ使用
 - ハイフン区切り（kebab-case）
 - 役割を明確に表す名前
 
 **例**:
+
 ```
 ✅ services/tools/web-admin/
 ✅ services/tools/batch-daily/
@@ -557,15 +631,18 @@ libs/{library}/
 ### ハイフン区切りルール
 
 **標準パターン**: ハイフンなし
+
 - `core`, `web`, `batch`
 
 **拡張パターン**: ハイフン区切り
+
 - `web-admin`: 管理画面
 - `web-api`: API サーバー
 - `batch-daily`: 日次バッチ
 - `batch-hourly`: 時間毎バッチ
 
 **禁止**:
+
 - アンダースコア（`web_admin`）
 - キャメルケース（`webAdmin`）
 - パスカルケース（`WebAdmin`）
@@ -582,26 +659,27 @@ libs/{library}/
 import baseConfig from '../../../configs/eslint.config.base.mjs';
 
 export default [
-    ...baseConfig,
-    {
-        rules: {
-            'no-restricted-imports': [
-                'error',
-                {
-                    patterns: [
-                        {
-                            group: ['react', 'react-dom', 'next', 'next/*'],
-                            message: 'core パッケージでは UI フレームワークを使用できません。ビジネスロジックのみを実装してください。',
-                        },
-                        {
-                            group: ['@mui/*'],
-                            message: 'core パッケージでは Material-UI を使用できません。',
-                        },
-                    ],
-                },
-            ],
+  ...baseConfig,
+  {
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['react', 'react-dom', 'next', 'next/*'],
+              message:
+                'core パッケージでは UI フレームワークを使用できません。ビジネスロジックのみを実装してください。',
+            },
+            {
+              group: ['@mui/*'],
+              message: 'core パッケージでは Material-UI を使用できません。',
+            },
+          ],
         },
+      ],
     },
+  },
 ];
 ```
 
@@ -621,22 +699,23 @@ export default [
 import baseConfig from '../../configs/eslint.config.base.mjs';
 
 export default [
-    ...baseConfig,
-    {
-        rules: {
-            'no-restricted-imports': [
-                'error',
-                {
-                    patterns: [
-                        {
-                            group: ['react', 'next', '@mui/*', '**/browser*'],
-                            message: 'libs/common では外部フレームワークに依存できません。Node.js標準ライブラリのみ使用可能です。',
-                        },
-                    ],
-                },
-            ],
+  ...baseConfig,
+  {
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['react', 'next', '@mui/*', '**/browser*'],
+              message:
+                'libs/common では外部フレームワークに依存できません。Node.js標準ライブラリのみ使用可能です。',
+            },
+          ],
         },
+      ],
     },
+  },
 ];
 ```
 
@@ -644,14 +723,16 @@ export default [
 
 ### ビルドの必要性
 
-| パッケージ | ビルド要否 | 理由 |
-|-----------|-----------|------|
-| `services/{service}/core` | ✅ 必須 | Lambda 等で利用するため、トランスパイルが必要 |
-| `services/{service}/web` | ❌ 不要 | Next.js が実行時にビルド |
-| `services/{service}/batch` | ✅ 必須 | Lambda にデプロイするため、トランスパイルが必要 |
-| `libs/common` | ✅ 必須 | 他パッケージから参照されるため |
-| `libs/browser` | ✅ 必須 | 他パッケージから参照されるため |
-| `libs/ui` | ✅ 必須 | 他パッケージから参照されるため |
+| パッケージ                 | ビルド要否 | 理由                                            |
+| -------------------------- | ---------- | ----------------------------------------------- |
+| `services/{service}/core`  | ✅ 必須    | Lambda 等で利用するため、トランスパイルが必要   |
+| `services/{service}/web`   | ❌ 不要    | Next.js が実行時にビルド                        |
+| `services/{service}/batch` | ✅ 必須    | Lambda にデプロイするため、トランスパイルが必要 |
+| `libs/common`              | ✅ 必須    | 他パッケージから参照されるため                  |
+| `libs/browser`             | ✅ 必須    | 他パッケージから参照されるため                  |
+| `libs/ui`                  | ✅ 必須    | 他パッケージから参照されるため                  |
+| `libs/react`               | ✅ 必須    | 他パッケージから参照されるため                  |
+| `libs/aws`                 | ✅ 必須    | 他パッケージから参照されるため                  |
 
 ### CI ビルド順序
 
@@ -659,44 +740,53 @@ export default [
 
 **順序**:
 
-1. **共通ライブラリ（依存なし）**
-    ```bash
-    npm run build --workspace @nagiyu/common
-    ```
+1. **共通ライブラリ（依存なし）** - 並列実行可能
 
-2. **ブラウザライブラリ（common に依存）**
-    ```bash
-    npm run build --workspace @nagiyu/browser
-    ```
+   ```bash
+   npm run build --workspace @nagiyu/common
+   npm run build --workspace @nagiyu/aws
+   ```
+
+2. **React/ブラウザライブラリ（common に依存）** - 並列実行可能
+
+   ```bash
+   npm run build --workspace @nagiyu/react
+   npm run build --workspace @nagiyu/browser
+   ```
 
 3. **UI ライブラリ（browser に依存）**
-    ```bash
-    npm run build --workspace @nagiyu/ui
-    ```
+
+   ```bash
+   npm run build --workspace @nagiyu/ui
+   ```
 
 4. **サービス core（common に依存）**
-    ```bash
-    npm run build --workspace tools-core
-    ```
+
+   ```bash
+   npm run build --workspace tools-core
+   ```
 
 5. **サービス batch（core に依存）**
-    ```bash
-    npm run build --workspace tools-batch
-    ```
+
+   ```bash
+   npm run build --workspace tools-batch
+   ```
 
 6. **サービス web（Next.js ビルド、任意）**
-    ```bash
-    npm run build --workspace tools-web
-    ```
+   ```bash
+   npm run build --workspace tools-web
+   ```
 
 ### GitHub Actions での実装例
 
 ```yaml
 - name: Build shared libraries
   run: |
-      npm run build --workspace @nagiyu/common && \
-      npm run build --workspace @nagiyu/browser && \
-      npm run build --workspace @nagiyu/ui
+    npm run build --workspace @nagiyu/common && \
+    npm run build --workspace @nagiyu/aws && \
+    npm run build --workspace @nagiyu/react && \
+    npm run build --workspace @nagiyu/browser && \
+    npm run build --workspace @nagiyu/ui
 
 - name: Build service core
   run: npm run build --workspace tools-core
@@ -711,15 +801,19 @@ export default [
 ### 重要な注意点
 
 **並列ビルドの禁止**:
+
 ```bash
 # ❌ 依存関係の順序が保証されず、エラーになる可能性
 npm run build --workspaces
 ```
 
 **順次ビルドの実施**:
+
 ```bash
 # ✅ 依存関係の順序に従って順次ビルド
 npm run build --workspace @nagiyu/common && \
+npm run build --workspace @nagiyu/aws && \
+npm run build --workspace @nagiyu/react && \
 npm run build --workspace @nagiyu/browser && \
 npm run build --workspace @nagiyu/ui
 ```
@@ -729,7 +823,7 @@ npm run build --workspace @nagiyu/ui
 ## 参考
 
 - [アーキテクチャ方針](./architecture.md): レイヤー分離、推奨パターン
-- [共通ライブラリ設計](./shared-libraries.md): libs/* の設計方針
+- [共通ライブラリ設計](./shared-libraries.md): libs/\* の設計方針
 - [テスト戦略](./testing.md): テスト配置、デバイス、カバレッジ
 - [コーディング規約](./rules.md): TypeScript、エラーハンドリング、べからず集
 - [共通設定ファイル](./configs.md): tsconfig.base.json、eslint.config.base.mjs
