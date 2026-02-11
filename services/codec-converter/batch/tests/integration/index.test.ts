@@ -7,6 +7,7 @@ import {
   cleanup,
   processJob,
   main,
+  getECSMetadata,
 } from '../../src/index.js';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
@@ -62,6 +63,7 @@ describe('validateEnvironment', () => {
     process.env.AWS_REGION = 'ap-northeast-1';
     process.env.JOB_ID = 'test-job-id';
     process.env.OUTPUT_CODEC = 'h264';
+    process.env.JOB_DEFINITION_NAME = 'codec-converter-dev-medium';
 
     const result = validateEnvironment();
 
@@ -71,6 +73,27 @@ describe('validateEnvironment', () => {
       AWS_REGION: 'ap-northeast-1',
       JOB_ID: 'test-job-id',
       OUTPUT_CODEC: 'h264',
+      JOB_DEFINITION_NAME: 'codec-converter-dev-medium',
+    });
+  });
+
+  it('JOB_DEFINITION_NAMEが未設定でも成功する', () => {
+    process.env.S3_BUCKET = 'test-bucket';
+    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.JOB_ID = 'test-job-id';
+    process.env.OUTPUT_CODEC = 'h264';
+    delete process.env.JOB_DEFINITION_NAME;
+
+    const result = validateEnvironment();
+
+    expect(result).toEqual({
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-id',
+      OUTPUT_CODEC: 'h264',
+      JOB_DEFINITION_NAME: undefined,
     });
   });
 
@@ -100,10 +123,64 @@ describe('validateEnvironment', () => {
       process.env.AWS_REGION = 'ap-northeast-1';
       process.env.JOB_ID = 'test-job-id';
       process.env.OUTPUT_CODEC = codec;
+      process.env.JOB_DEFINITION_NAME = 'codec-converter-dev-medium';
 
       const result = validateEnvironment();
       expect(result.OUTPUT_CODEC).toBe(codec);
     });
+  });
+});
+
+describe('getECSMetadata', () => {
+  const originalEnv = process.env;
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = { ...originalEnv };
+  });
+
+  afterAll(() => {
+    process.env = originalEnv;
+    global.fetch = originalFetch;
+  });
+
+  it('ECS_CONTAINER_METADATA_URI_V4が設定されている場合はメタデータを取得', async () => {
+    process.env.ECS_CONTAINER_METADATA_URI_V4 = 'http://localhost:8080';
+
+    const mockMetadata = {
+      Limits: {
+        CPU: 2,
+        Memory: 4096,
+      },
+    };
+
+    global.fetch = jest.fn().mockResolvedValue({
+      json: jest.fn().mockResolvedValue(mockMetadata),
+    });
+
+    const result = await getECSMetadata();
+
+    expect(result).toEqual(mockMetadata);
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:8080/task');
+  });
+
+  it('ECS_CONTAINER_METADATA_URI_V4が未設定の場合は空オブジェクトを返す', async () => {
+    delete process.env.ECS_CONTAINER_METADATA_URI_V4;
+
+    const result = await getECSMetadata();
+
+    expect(result).toEqual({});
+  });
+
+  it('メタデータ取得に失敗した場合は空オブジェクトを返す', async () => {
+    process.env.ECS_CONTAINER_METADATA_URI_V4 = 'http://localhost:8080';
+
+    global.fetch = jest.fn().mockRejectedValue(new Error('Network error'));
+
+    const result = await getECSMetadata();
+
+    expect(result).toEqual({});
   });
 });
 
@@ -450,6 +527,8 @@ describe('processJob', () => {
 describe('main', () => {
   const originalEnv = process.env;
   const unlinkMock = fs.unlink as jest.MockedFunction<typeof fs.unlink>;
+  const originalFetch = global.fetch;
+  const originalConsoleLog = console.log;
 
   beforeEach(() => {
     jest.resetModules();
@@ -459,10 +538,98 @@ describe('main', () => {
     spawnMock.mockClear();
     unlinkMock.mockClear();
     unlinkMock.mockResolvedValue(undefined);
+    console.log = jest.fn();
   });
 
   afterAll(() => {
     process.env = originalEnv;
+    global.fetch = originalFetch;
+    console.log = originalConsoleLog;
+  });
+
+  it('Worker起動時にリソース情報をログ出力する', async () => {
+    process.env.S3_BUCKET = 'test-bucket';
+    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.JOB_ID = 'test-job-id';
+    process.env.OUTPUT_CODEC = 'h264';
+    process.env.JOB_DEFINITION_NAME = 'codec-converter-dev-medium';
+    process.env.ECS_CONTAINER_METADATA_URI_V4 = 'http://localhost:8080';
+
+    const mockMetadata = {
+      Limits: {
+        CPU: 2,
+        Memory: 4096,
+      },
+    };
+
+    global.fetch = jest.fn().mockResolvedValue({
+      json: jest.fn().mockResolvedValue(mockMetadata),
+    });
+
+    const mockBody = Readable.from(['test content']);
+    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
+    s3Mock.on(PutObjectCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: { on: jest.fn() },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(0);
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    await main();
+
+    // ログが正しく出力されたことを確認
+    expect(console.log).toHaveBeenCalledWith('Batch Worker started', {
+      jobId: 'test-job-id',
+      outputCodec: 'h264',
+      jobDefinitionName: 'codec-converter-dev-medium',
+      resources: {
+        cpu: 2,
+        memory: 4096,
+      },
+    });
+  });
+
+  it('JOB_DEFINITION_NAMEが未設定の場合はunknownと表示', async () => {
+    process.env.S3_BUCKET = 'test-bucket';
+    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.JOB_ID = 'test-job-id';
+    process.env.OUTPUT_CODEC = 'vp9';
+    delete process.env.JOB_DEFINITION_NAME;
+    delete process.env.ECS_CONTAINER_METADATA_URI_V4;
+
+    const mockBody = Readable.from(['test content']);
+    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
+    s3Mock.on(PutObjectCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: { on: jest.fn() },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(0);
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    await main();
+
+    // ログが正しく出力されたことを確認
+    expect(console.log).toHaveBeenCalledWith('Batch Worker started', {
+      jobId: 'test-job-id',
+      outputCodec: 'vp9',
+      jobDefinitionName: 'unknown',
+      resources: {
+        cpu: 'unknown',
+        memory: 'unknown',
+      },
+    });
   });
 
   it.skip('メイン処理が成功する', async () => {
