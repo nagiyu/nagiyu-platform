@@ -13,11 +13,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  getAuthError,
   TickerAlreadyExistsError,
   validateTickerCreateData,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
@@ -80,24 +80,8 @@ interface CreateTickerResponse {
  * GET /api/tickers
  * ティッカー一覧取得
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<TickersListResponse | ErrorResponse>> {
+export const GET = withAuth(getSession, 'stocks:read', async (_session, request: NextRequest) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:read');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // クエリパラメータの取得
     const { searchParams } = new URL(request.url);
     const exchangeId = searchParams.get('exchangeId');
@@ -165,39 +149,16 @@ export async function GET(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error fetching tickers:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
 
 /**
  * POST /api/tickers
  * ティッカー作成（stock-admin のみ）
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<CreateTickerResponse | ErrorResponse>> {
+export const POST = withAuth(getSession, 'stocks:manage-data', async (_session, request: NextRequest) => {
   try {
-    // 認証・権限チェック（stocks:manage-data 必須）
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // リクエストボディの取得
     let body: CreateTickerRequest;
     try {
@@ -274,13 +235,6 @@ export async function POST(
       throw error;
     }
   } catch (error) {
-    console.error('Error creating ticker:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.TICKER_CREATE_FAILED,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});

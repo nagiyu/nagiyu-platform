@@ -8,7 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
+import { validateHolding } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import type { Holding } from '@nagiyu/stock-tracker-core';
@@ -82,24 +83,8 @@ function mapHoldingToResponse(
  * GET /api/holdings
  * 保有株式一覧取得
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<HoldingsListResponse | ErrorResponse>> {
+export const GET = withAuth(getSession, 'stocks:read', async (session, request: NextRequest) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:read');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // クエリパラメータの取得
     const { searchParams } = new URL(request.url);
     const limitParam = searchParams.get('limit');
@@ -163,39 +148,16 @@ export async function GET(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error fetching holdings:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
 
 /**
  * POST /api/holdings
  * 保有株式登録
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<HoldingResponse | ErrorResponse>> {
+export const POST = withAuth(getSession, 'stocks:write-own', async (session, request: NextRequest) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // リクエストボディの取得
     let body;
     try {
@@ -279,13 +241,6 @@ export async function POST(
 
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    console.error('Error creating holding:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.CREATE_ERROR,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});

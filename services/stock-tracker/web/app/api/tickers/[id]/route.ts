@@ -9,10 +9,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  getAuthError,
   TickerNotFoundError,
   validateTickerUpdateData,
 } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { createTickerRepository } from '../../../../lib/repository-factory';
 
@@ -65,25 +65,8 @@ interface ErrorResponse {
  * PUT /api/tickers/{id}
  * ティッカー更新（stock-admin のみ）
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<UpdateTickerResponse | ErrorResponse>> {
+export const PUT = withAuth(getSession, 'stocks:manage-data', async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
-    // 認証・権限チェック（stocks:manage-data 必須）
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // パスパラメータの取得
     const { id: tickerId } = await params;
 
@@ -146,40 +129,16 @@ export async function PUT(
       throw error;
     }
   } catch (error) {
-    console.error('Error updating ticker:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.TICKER_UPDATE_FAILED,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
 
 /**
  * DELETE /api/tickers/{id}
  * ティッカー削除（stock-admin のみ）
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<DeleteTickerResponse | ErrorResponse>> {
+export const DELETE = withAuth(getSession, 'stocks:manage-data', async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
-    // 認証・権限チェック（stocks:manage-data 必須）
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // パスパラメータの取得
     const { id: tickerId } = await params;
 
@@ -211,13 +170,6 @@ export async function DELETE(
       throw error;
     }
   } catch (error) {
-    console.error('Error deleting ticker:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.TICKER_DELETE_FAILED,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});

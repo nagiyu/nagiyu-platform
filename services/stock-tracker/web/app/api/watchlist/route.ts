@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
-import { getAuthError, validateWatchlist, type Watchlist } from '@nagiyu/stock-tracker-core';
+import { NextRequest, NextResponse } from 'next/server';
+import { validateWatchlist, type Watchlist } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { createWatchlistRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 
@@ -22,22 +23,8 @@ const ERROR_MESSAGES = {
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export async function GET(request: Request) {
+export const GET = withAuth(getSession, 'stocks:read', async (session, request: NextRequest) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:read');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // ユーザーIDを取得
     const userId = session!.user.userId;
 
@@ -93,13 +80,9 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Error fetching watchlist:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.INTERNAL_ERROR },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
 
 /**
  * POST /api/watchlist - ウォッチリスト登録
@@ -114,22 +97,8 @@ export async function GET(request: Request) {
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export async function POST(request: Request) {
+export const POST = withAuth(getSession, 'stocks:write-own', async (session, request: NextRequest) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // ユーザーIDを取得
     const userId = session!.user.userId;
 
@@ -200,8 +169,6 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating watchlist:', error);
-
     // WatchlistAlreadyExistsError のハンドリング
     if (error instanceof Error && error.name === 'WatchlistAlreadyExistsError') {
       return NextResponse.json(
@@ -212,10 +179,6 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.INTERNAL_ERROR },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});

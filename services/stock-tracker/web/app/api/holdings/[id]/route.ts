@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
   createTickerRepository,
@@ -100,25 +100,8 @@ function parseHoldingId(holdingId: string): { userId: string; tickerId: string }
  * PUT /api/holdings/[id]
  * 保有株式更新
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<HoldingResponse | ErrorResponse>> {
+export const PUT = withAuth(getSession, 'stocks:write-own', async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // paramsを await で取得 (Next.js 15+)
     const resolvedParams = await params;
 
@@ -223,40 +206,16 @@ export async function PUT(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error updating holding:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.UPDATE_ERROR,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
 
 /**
  * DELETE /api/holdings/[id]
  * 保有株式削除
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<DeleteResponse | ErrorResponse>> {
+export const DELETE = withAuth(getSession, 'stocks:write-own', async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // paramsを await で取得 (Next.js 15+)
     const resolvedParams = await params;
 
@@ -315,13 +274,6 @@ export async function DELETE(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error deleting holding:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.DELETE_ERROR,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
