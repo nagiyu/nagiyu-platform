@@ -57,7 +57,7 @@ export async function GET(): Promise<NextResponse<VapidPublicKeyResponse | Error
     return NextResponse.json(
       {
         error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.MISSING_VAPID_KEY,
+        message: 'VAPID公開鍵の取得中にエラーが発生しました',
       },
       { status: 500 }
     );

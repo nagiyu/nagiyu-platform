@@ -169,10 +169,10 @@ const vapidKeysSecret = secretsmanager.Secret.fromSecretNameV2(
   `niconico-mylist-assistant/vapid-keys-${props.env}`
 );
 
-// Lambda 環境変数に追加
+// Lambda 環境変数に追加（安全な方法）
 environment: {
-  VAPID_PUBLIC_KEY: vapidKeysSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-  VAPID_PRIVATE_KEY: vapidKeysSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+  VAPID_PUBLIC_KEY: vapidKeysSecret.secretValueFromJson('publicKey').toString(),
+  VAPID_PRIVATE_KEY: vapidKeysSecret.secretValueFromJson('privateKey').toString(),
   // ... その他の環境変数
 }
 ```
@@ -181,6 +181,7 @@ environment: {
 - **公開鍵と秘密鍵は環境ごとに異なるものを使用**してください
 - **秘密鍵は厳重に管理**し、リポジトリにコミットしないでください
 - キーペアを紛失した場合、全ユーザーの通知サブスクリプションが無効になります
+- `secretValueFromJson().toString()` を使用することで、CloudFormation テンプレートには `{{resolve:secretsmanager:...}}` のような参照が記録され、実際の値はランタイムに解決されます
 
 ### 3.4 CDK スタック構成
 

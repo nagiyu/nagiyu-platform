@@ -13,7 +13,7 @@
  *   VAPID_PRIVATE_KEY=<秘密鍵>
  */
 
-import webpush from 'web-push';
+const webpush = require('web-push');
 
 // VAPID キーペアを生成
 const vapidKeys = webpush.generateVAPIDKeys();

@@ -132,6 +132,7 @@ async function main() {
   console.log('========================================');
 
   let params: MylistRegistrationJobParams | null = null;
+  let pushSubscription: { endpoint: string; keys: { p256dh: string; auth: string } } | undefined;
 
   try {
     // 環境変数の読み取り
@@ -139,6 +140,20 @@ async function main() {
 
     // ジョブパラメータの取得
     params = getJobParameters();
+
+    // ジョブ情報を取得（pushSubscription を取得するため）
+    if (params.jobId) {
+      try {
+        const job = await getBatchJob(params.jobId, params.userId);
+        if (job?.pushSubscription) {
+          pushSubscription = job.pushSubscription;
+          console.log('Push サブスクリプション情報を取得しました');
+        }
+      } catch (error) {
+        console.warn('ジョブ情報の取得に失敗しました:', error);
+        // Push通知情報が取得できなくてもジョブは続行
+      }
+    }
 
     // ジョブステータスを RUNNING に更新
     if (params.jobId) {
@@ -261,9 +276,8 @@ async function main() {
         console.log('ジョブステータスを SUCCEEDED に更新しました');
 
         // Web Push 通知を送信
-        try {
-          const job = await getBatchJob(params.jobId, params.userId);
-          if (job?.pushSubscription) {
+        if (pushSubscription) {
+          try {
             console.log('バッチ完了通知を送信中...');
             const notificationPayload = createBatchCompletionPayload(
               params.jobId,
@@ -272,7 +286,7 @@ async function main() {
               result.successVideoIds.length + result.failedVideoIds.length
             );
             const notificationSent = await sendNotification(
-              job.pushSubscription,
+              pushSubscription,
               notificationPayload
             );
             if (notificationSent) {
@@ -280,12 +294,12 @@ async function main() {
             } else {
               console.warn('バッチ完了通知の送信に失敗しました');
             }
-          } else {
-            console.log('Push サブスクリプション情報がないため、通知をスキップします');
+          } catch (error) {
+            console.error('バッチ完了通知の送信中にエラーが発生しました:', error);
+            // 通知送信の失敗はジョブの成否に影響しない
           }
-        } catch (error) {
-          console.error('バッチ完了通知の送信中にエラーが発生しました:', error);
-          // 通知送信の失敗はジョブの成否に影響しない
+        } else {
+          console.log('Push サブスクリプション情報がないため、通知をスキップします');
         }
       } catch (error) {
         console.error('ジョブステータス更新に失敗しました (SUCCEEDED):', error);

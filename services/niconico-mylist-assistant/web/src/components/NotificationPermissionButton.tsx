@@ -3,22 +3,7 @@
 import { useState } from 'react';
 import { Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
-
-/**
- * Base64 URL エンコードされた文字列を Uint8Array に変換
- */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
+import { urlBase64ToUint8Array } from '@/lib/utils/push';
 
 /**
  * 通知許可を求める UI コンポーネント
