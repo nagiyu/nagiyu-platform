@@ -349,9 +349,10 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     // モーダルの表示を待つ - より明示的な待機
     await sleep(3000);
     
-    // モーダルコンテナの表示を確認
+    // モーダルコンテナの表示を確認し、参照を保持
+    let modalContainer;
     try {
-      const modalContainer = page.locator('div[role="dialog"], article');
+      modalContainer = page.locator('div[role="dialog"], article').first();
       await modalContainer.waitFor({ state: 'visible', timeout: 30000 });
       console.log('モーダルコンテナが表示されました');
     } catch (modalError) {
@@ -371,8 +372,8 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     }
 
     // マイリスト名を入力
-    // より広範なセレクタを試す（複数のパターンをカバー）
-    const nameInput = page.locator('input[type="text"], input:not([type]), textarea').first();
+    // モーダルコンテナ内の入力フィールドを探す（モーダル外の要素を除外）
+    const nameInput = modalContainer.locator('input[type="text"], input:not([type]), textarea').first();
     await nameInput.waitFor({ state: 'visible', timeout: 30000 });
     console.log('入力フィールドが表示されました');
     
@@ -380,8 +381,8 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     console.log(`マイリスト名を入力しました: ${mylistName}`);
 
     // 作成ボタンをクリック
-    // モーダルのフッター内のボタンまたは送信ボタンを探す
-    const submitButton = page.locator('button[type="submit"], article footer button, div[role="dialog"] footer button, div[role="dialog"] button').first();
+    // モーダルコンテナ内の送信ボタンを探す
+    const submitButton = modalContainer.locator('button[type="submit"], footer button, button').first();
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('送信ボタンが表示されました');
     
