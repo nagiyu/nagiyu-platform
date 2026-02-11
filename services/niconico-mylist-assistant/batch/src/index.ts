@@ -7,7 +7,11 @@
 import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
-import { sendNotification, createBatchCompletionPayload } from './lib/web-push-client.js';
+import {
+  sendNotification,
+  createBatchCompletionPayload,
+  createTwoFactorAuthRequiredPayload,
+} from './lib/web-push-client.js';
 import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
 import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
 import { MylistRegistrationJobParams } from './types.js';
@@ -197,6 +201,25 @@ async function main() {
           console.error('ジョブステータス更新に失敗しました (WAITING_FOR_2FA):', error);
           throw error;
         }
+      }
+
+      // Push 通知を送信（二段階認証が必要であることを通知）
+      if (pushSubscription && params?.jobId) {
+        try {
+          console.log('二段階認証待機通知を送信中...');
+          const notificationPayload = createTwoFactorAuthRequiredPayload(params.jobId);
+          const notificationSent = await sendNotification(pushSubscription, notificationPayload);
+          if (notificationSent) {
+            console.log('二段階認証待機通知を送信しました');
+          } else {
+            console.warn('二段階認証待機通知の送信に失敗しました');
+          }
+        } catch (error) {
+          console.error('二段階認証待機通知の送信中にエラーが発生しました:', error);
+          // 通知送信の失敗は処理の継続を妨げない
+        }
+      } else {
+        console.log('Push サブスクリプション情報がないため、二段階認証待機通知をスキップします');
       }
 
       // DynamoDB をポーリングして二段階認証コードを取得

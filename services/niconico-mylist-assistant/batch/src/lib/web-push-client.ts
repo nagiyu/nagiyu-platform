@@ -150,3 +150,22 @@ export function createBatchCompletionPayload(
     },
   };
 }
+
+/**
+ * 二段階認証待機通知のペイロードを生成する
+ *
+ * @param jobId - ジョブID
+ * @returns 通知ペイロード
+ */
+export function createTwoFactorAuthRequiredPayload(jobId: string): NotificationPayload {
+  return {
+    title: '二段階認証が必要です',
+    body: 'マイリスト登録を続行するには、二段階認証コードを入力してください',
+    icon: '/icon-192x192.png',
+    data: {
+      jobId,
+      type: '2fa-required',
+      url: `/mylist/status/${jobId}`,
+    },
+  };
+}
