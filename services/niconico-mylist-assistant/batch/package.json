@@ -24,6 +24,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@playwright/test": "1.58.0"
+    "@playwright/test": "1.58.0",
+    "@types/web-push": "^3.6.4"
   }
 }
