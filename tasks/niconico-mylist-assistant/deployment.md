@@ -98,7 +98,91 @@ aws secretsmanager create-secret \
     --region us-east-1
 ```
 
-### 3.3 CDK スタック構成
+### 3.3 VAPID キーの生成と設定
+
+**Web Push 通知機能** に必要な VAPID キーペアを生成し、環境変数として設定します。
+
+#### 3.3.1 VAPID キーの生成
+
+以下のスクリプトを実行して、VAPID キーペアを生成します:
+
+```bash
+cd services/niconico-mylist-assistant
+node scripts/generate-vapid-keys.js
+```
+
+実行すると、以下のような出力が得られます:
+
+```
+=== VAPID キーが生成されました ===
+
+以下の環境変数を設定してください:
+
+VAPID_PUBLIC_KEY=BG...（公開鍵）
+VAPID_PRIVATE_KEY=ab...（秘密鍵）
+
+注意:
+- 秘密鍵は厳重に管理してください
+- 本番環境と開発環境で異なるキーを使用してください
+- キーは AWS Systems Manager Parameter Store や Secrets Manager に保存することを推奨します
+```
+
+#### 3.3.2 開発環境での設定
+
+開発環境では、`.env.local` ファイルに追加します:
+
+```bash
+# services/niconico-mylist-assistant/web/.env.local
+VAPID_PUBLIC_KEY=BG...
+VAPID_PRIVATE_KEY=ab...
+```
+
+#### 3.3.3 本番環境での設定
+
+本番環境では、CDK スタックの環境変数として設定します:
+
+1. **Secrets Manager に保存** (推奨):
+
+```bash
+# dev 環境
+aws secretsmanager create-secret \
+    --name niconico-mylist-assistant/vapid-keys-dev \
+    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
+    --region us-east-1
+
+# prod 環境
+aws secretsmanager create-secret \
+    --name niconico-mylist-assistant/vapid-keys-prod \
+    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
+    --region us-east-1
+```
+
+2. **CDK で Lambda / Batch の環境変数に設定**:
+
+Lambda Stack と Batch Stack で Secrets Manager から VAPID キーを取得して環境変数に設定します。
+
+```typescript
+// infra/niconico-mylist-assistant/lib/lambda-stack.ts
+const vapidKeysSecret = secretsmanager.Secret.fromSecretNameV2(
+  this,
+  'VapidKeysSecret',
+  `niconico-mylist-assistant/vapid-keys-${props.env}`
+);
+
+// Lambda 環境変数に追加
+environment: {
+  VAPID_PUBLIC_KEY: vapidKeysSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
+  VAPID_PRIVATE_KEY: vapidKeysSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+  // ... その他の環境変数
+}
+```
+
+**注意**:
+- **公開鍵と秘密鍵は環境ごとに異なるものを使用**してください
+- **秘密鍵は厳重に管理**し、リポジトリにコミットしないでください
+- キーペアを紛失した場合、全ユーザーの通知サブスクリプションが無効になります
+
+### 3.4 CDK スタック構成
 
 本サービスは Auth に倣い、リソースごとにスタックを分割しています。
 
@@ -453,6 +537,8 @@ aws lambda update-function-code \
 | `AUTH_URL`             | Auth サービス URL          | CDK で自動設定（環境別） |
 | `NEXT_PUBLIC_AUTH_URL` | Auth サービス URL（公開用）| CDK で自動設定（環境別） |
 | `APP_URL`              | アプリケーション URL       | CDK で自動設定（環境別） |
+| `VAPID_PUBLIC_KEY`     | Web Push 通知用 VAPID 公開鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
+| `VAPID_PRIVATE_KEY`    | Web Push 通知用 VAPID 秘密鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
 
 #### Batch 環境変数
 
@@ -460,6 +546,8 @@ aws lambda update-function-code \
 | ---------------------- | -------------------------- | ----------------- |
 | `DYNAMODB_TABLE_NAME`  | DynamoDB テーブル名        | CDK で自動設定    |
 | `SHARED_SECRET_KEY`    | パスワード復号キー         | Secrets Manager → 環境変数 |
+| `VAPID_PUBLIC_KEY`     | Web Push 通知用 VAPID 公開鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
+| `VAPID_PRIVATE_KEY`    | Web Push 通知用 VAPID 秘密鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
 
 ### 6.2 リソース設定
 
