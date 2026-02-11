@@ -100,7 +100,10 @@ export const GET = withAuth(
       const userId = session.user.userId;
 
       // アラート一覧取得
-      const result = await alertRepo.getByUserId(userId, { limit, cursor: lastKey as string | undefined });
+      const result = await alertRepo.getByUserId(userId, {
+        limit,
+        cursor: lastKey as string | undefined,
+      });
 
       // TickerリポジトリでSymbolとNameを取得
       // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化

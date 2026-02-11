@@ -31,61 +31,65 @@ type Params = {
  * @returns 見つからない (404 Not Found)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const DELETE = withAuth(getSession, 'stocks:write-own', async (session, _request: NextRequest, { params }: Params) => {
-  try {
-    // ユーザーIDを取得
-    const userId = session!.user.userId;
+export const DELETE = withAuth(
+  getSession,
+  'stocks:write-own',
+  async (session, _request: NextRequest, { params }: Params) => {
+    try {
+      // ユーザーIDを取得
+      const userId = session!.user.userId;
 
-    // パスパラメータからIDを取得
-    const { id } = await params;
+      // パスパラメータからIDを取得
+      const { id } = await params;
 
-    // IDの形式チェック（watchlistId形式: {UserID}#{TickerID}）
-    if (!id || typeof id !== 'string') {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_ID_FORMAT,
-        },
-        { status: 400 }
-      );
+      // IDの形式チェック（watchlistId形式: {UserID}#{TickerID}）
+      if (!id || typeof id !== 'string') {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_ID_FORMAT,
+          },
+          { status: 400 }
+        );
+      }
+
+      // watchlistIdからtickerIdを抽出（形式: {UserID}#{TickerID}）
+      const hashIndex = id.indexOf('#');
+      if (hashIndex === -1) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_ID_FORMAT,
+          },
+          { status: 400 }
+        );
+      }
+
+      const tickerId = id.substring(hashIndex + 1);
+
+      // Watchlist リポジトリを初期化
+      const watchlistRepo = createWatchlistRepository();
+
+      // ウォッチリストを削除
+      await watchlistRepo.delete(userId, tickerId);
+
+      // レスポンスを返す (API仕様に従った形式)
+      return NextResponse.json({
+        success: true,
+        deletedWatchlistId: `${userId}#${tickerId}`,
+      });
+    } catch (error) {
+      // WatchlistNotFoundError のハンドリング
+      if (error instanceof Error && error.name === 'WatchlistNotFoundError') {
+        return NextResponse.json(
+          {
+            error: 'NOT_FOUND',
+            message: ERROR_MESSAGES.NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+      return handleApiError(error);
     }
-
-    // watchlistIdからtickerIdを抽出（形式: {UserID}#{TickerID}）
-    const hashIndex = id.indexOf('#');
-    if (hashIndex === -1) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_ID_FORMAT,
-        },
-        { status: 400 }
-      );
-    }
-
-    const tickerId = id.substring(hashIndex + 1);
-
-    // Watchlist リポジトリを初期化
-    const watchlistRepo = createWatchlistRepository();
-
-    // ウォッチリストを削除
-    await watchlistRepo.delete(userId, tickerId);
-
-    // レスポンスを返す (API仕様に従った形式)
-    return NextResponse.json({
-      success: true,
-      deletedWatchlistId: `${userId}#${tickerId}`,
-    });
-  } catch (error) {
-    // WatchlistNotFoundError のハンドリング
-    if (error instanceof Error && error.name === 'WatchlistNotFoundError') {
-      return NextResponse.json(
-        {
-          error: 'NOT_FOUND',
-          message: ERROR_MESSAGES.NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-    return handleApiError(error);
   }
-});
+);

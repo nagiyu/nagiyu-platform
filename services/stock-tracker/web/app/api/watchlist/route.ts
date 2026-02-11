@@ -97,88 +97,92 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const POST = withAuth(getSession, 'stocks:write-own', async (session, request: NextRequest) => {
-  try {
-    // ユーザーIDを取得
-    const userId = session!.user.userId;
-
-    // リクエストボディの取得
-    const body = await request.json();
-
-    // 必須フィールドのチェック
-    if (!body.tickerId) {
-      return NextResponse.json(
-        { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.TICKER_ID_REQUIRED },
-        { status: 400 }
-      );
-    }
-
-    // ExchangeIDを抽出（TickerID形式: {Exchange.Key}:{Symbol}）
-    const tickerId = body.tickerId as string;
-    const exchangeId = tickerId.split(':')[0] || '';
-
-    // ウォッチリストオブジェクトの作成
-    const watchlistData: Omit<Watchlist, 'CreatedAt'> = {
-      UserID: userId,
-      TickerID: tickerId,
-      ExchangeID: exchangeId,
-    };
-
-    // バリデーション（CreatedAtを追加してバリデーション）
-    const watchlistForValidation: Watchlist = {
-      ...watchlistData,
-      CreatedAt: Date.now(),
-    };
-
-    const validationResult = validateWatchlist(watchlistForValidation);
-    if (!validationResult.valid) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Watchlist リポジトリを初期化
-    const watchlistRepo = createWatchlistRepository();
-
-    // ウォッチリストを作成
-    const newWatchlist = await watchlistRepo.create(watchlistData);
-
-    // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = createTickerRepository();
-    let ticker;
+export const POST = withAuth(
+  getSession,
+  'stocks:write-own',
+  async (session, request: NextRequest) => {
     try {
-      ticker = await tickerRepo.getById(newWatchlist.TickerID);
-    } catch {
-      // ティッカーが見つからない場合は null として扱う
-      ticker = null;
-    }
+      // ユーザーIDを取得
+      const userId = session!.user.userId;
 
-    // レスポンスを返す (API仕様に従った形式)
-    return NextResponse.json(
-      {
-        watchlistId: `${newWatchlist.UserID}#${newWatchlist.TickerID}`,
-        tickerId: newWatchlist.TickerID,
-        symbol: ticker?.Symbol || newWatchlist.TickerID.split(':')[1] || newWatchlist.TickerID,
-        name: ticker?.Name || '',
-        createdAt: new Date(newWatchlist.CreatedAt).toISOString(),
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    // WatchlistAlreadyExistsError のハンドリング
-    if (error instanceof Error && error.name === 'WatchlistAlreadyExistsError') {
+      // リクエストボディの取得
+      const body = await request.json();
+
+      // 必須フィールドのチェック
+      if (!body.tickerId) {
+        return NextResponse.json(
+          { error: 'INVALID_REQUEST', message: ERROR_MESSAGES.TICKER_ID_REQUIRED },
+          { status: 400 }
+        );
+      }
+
+      // ExchangeIDを抽出（TickerID形式: {Exchange.Key}:{Symbol}）
+      const tickerId = body.tickerId as string;
+      const exchangeId = tickerId.split(':')[0] || '';
+
+      // ウォッチリストオブジェクトの作成
+      const watchlistData: Omit<Watchlist, 'CreatedAt'> = {
+        UserID: userId,
+        TickerID: tickerId,
+        ExchangeID: exchangeId,
+      };
+
+      // バリデーション（CreatedAtを追加してバリデーション）
+      const watchlistForValidation: Watchlist = {
+        ...watchlistData,
+        CreatedAt: Date.now(),
+      };
+
+      const validationResult = validateWatchlist(watchlistForValidation);
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Watchlist リポジトリを初期化
+      const watchlistRepo = createWatchlistRepository();
+
+      // ウォッチリストを作成
+      const newWatchlist = await watchlistRepo.create(watchlistData);
+
+      // TickerリポジトリでSymbolとNameを取得
+      const tickerRepo = createTickerRepository();
+      let ticker;
+      try {
+        ticker = await tickerRepo.getById(newWatchlist.TickerID);
+      } catch {
+        // ティッカーが見つからない場合は null として扱う
+        ticker = null;
+      }
+
+      // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json(
         {
-          error: 'INVALID_REQUEST',
-          message: 'このティッカーは既にウォッチリストに登録されています',
+          watchlistId: `${newWatchlist.UserID}#${newWatchlist.TickerID}`,
+          tickerId: newWatchlist.TickerID,
+          symbol: ticker?.Symbol || newWatchlist.TickerID.split(':')[1] || newWatchlist.TickerID,
+          name: ticker?.Name || '',
+          createdAt: new Date(newWatchlist.CreatedAt).toISOString(),
         },
-        { status: 400 }
+        { status: 201 }
       );
+    } catch (error) {
+      // WatchlistAlreadyExistsError のハンドリング
+      if (error instanceof Error && error.name === 'WatchlistAlreadyExistsError') {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: 'このティッカーは既にウォッチリストに登録されています',
+          },
+          { status: 400 }
+        );
+      }
+      return handleApiError(error);
     }
-    return handleApiError(error);
   }
-});
+);

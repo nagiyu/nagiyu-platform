@@ -63,68 +63,72 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const POST = withAuth(getSession, 'stocks:manage-data', async (_session, request: Request) => {
-  try {
-    // リクエストボディをパース
-    const body = await request.json();
+export const POST = withAuth(
+  getSession,
+  'stocks:manage-data',
+  async (_session, request: Request) => {
+    try {
+      // リクエストボディをパース
+      const body = await request.json();
 
-    // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
-    const { exchangeId, name, key, timezone, tradingHours } = body;
+      // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
+      const { exchangeId, name, key, timezone, tradingHours } = body;
 
-    // バリデーション用の一時的な Exchange オブジェクトを作成
-    const exchangeToValidate = {
-      ExchangeID: exchangeId,
-      Name: name,
-      Key: key,
-      Timezone: timezone,
-      Start: tradingHours?.start,
-      End: tradingHours?.end,
-      CreatedAt: Date.now(), // バリデーション用の仮値
-      UpdatedAt: Date.now(), // バリデーション用の仮値
-    };
+      // バリデーション用の一時的な Exchange オブジェクトを作成
+      const exchangeToValidate = {
+        ExchangeID: exchangeId,
+        Name: name,
+        Key: key,
+        Timezone: timezone,
+        Start: tradingHours?.start,
+        End: tradingHours?.end,
+        CreatedAt: Date.now(), // バリデーション用の仮値
+        UpdatedAt: Date.now(), // バリデーション用の仮値
+      };
 
-    // バリデーション実行
-    const validationResult = validateExchange(exchangeToValidate);
+      // バリデーション実行
+      const validationResult = validateExchange(exchangeToValidate);
 
-    if (!validationResult.valid) {
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Exchange リポジトリを初期化
+      const exchangeRepo = createExchangeRepository();
+
+      // 取引所を作成
+      const newExchange = await exchangeRepo.create({
+        ExchangeID: exchangeId,
+        Name: name,
+        Key: key,
+        Timezone: timezone,
+        Start: tradingHours.start,
+        End: tradingHours.end,
+      });
+
+      // レスポンスを返す (API仕様に従った形式)
       return NextResponse.json(
         {
-          error: 'INVALID_REQUEST',
-          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
+          exchangeId: newExchange.ExchangeID,
+          name: newExchange.Name,
+          key: newExchange.Key,
+          timezone: newExchange.Timezone,
+          tradingHours: {
+            start: newExchange.Start,
+            end: newExchange.End,
+          },
+          createdAt: new Date(newExchange.CreatedAt).toISOString(),
         },
-        { status: 400 }
+        { status: 201 }
       );
+    } catch (error) {
+      return handleApiError(error);
     }
-
-    // Exchange リポジトリを初期化
-    const exchangeRepo = createExchangeRepository();
-
-    // 取引所を作成
-    const newExchange = await exchangeRepo.create({
-      ExchangeID: exchangeId,
-      Name: name,
-      Key: key,
-      Timezone: timezone,
-      Start: tradingHours.start,
-      End: tradingHours.end,
-    });
-
-    // レスポンスを返す (API仕様に従った形式)
-    return NextResponse.json(
-      {
-        exchangeId: newExchange.ExchangeID,
-        name: newExchange.Name,
-        key: newExchange.Key,
-        timezone: newExchange.Timezone,
-        tradingHours: {
-          start: newExchange.Start,
-          end: newExchange.End,
-        },
-        createdAt: new Date(newExchange.CreatedAt).toISOString(),
-      },
-      { status: 201 }
-    );
-  } catch (error) {
-    return handleApiError(error);
   }
-});
+);

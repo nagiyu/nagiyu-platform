@@ -8,10 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  TickerNotFoundError,
-  validateTickerUpdateData,
-} from '@nagiyu/stock-tracker-core';
+import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { createTickerRepository } from '../../../../lib/repository-factory';
@@ -65,111 +62,119 @@ interface ErrorResponse {
  * PUT /api/tickers/{id}
  * ティッカー更新（stock-admin のみ）
  */
-export const PUT = withAuth(getSession, 'stocks:manage-data', async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  try {
-    // パスパラメータの取得
-    const { id: tickerId } = await params;
-
-    // リクエストボディの取得
-    let body: UpdateTickerRequest;
+export const PUT = withAuth(
+  getSession,
+  'stocks:manage-data',
+  async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-        },
-        { status: 400 }
-      );
-    }
+      // パスパラメータの取得
+      const { id: tickerId } = await params;
 
-    // バリデーション
-    const validationResult = validateTickerUpdateData(body);
-    if (!validationResult.valid) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: validationResult.errors?.[0] || 'バリデーションエラー',
-        },
-        { status: 400 }
-      );
-    }
-
-    // リポジトリを初期化
-    const tickerRepo = createTickerRepository();
-
-    // ティッカー更新
-    try {
-      const updatedTicker = await tickerRepo.update(tickerId, {
-        Name: body.name,
-      });
-
-      // レスポンス形式に変換
-      const response: UpdateTickerResponse = {
-        tickerId: updatedTicker.TickerID,
-        symbol: updatedTicker.Symbol,
-        name: updatedTicker.Name,
-        exchangeId: updatedTicker.ExchangeID,
-        updatedAt: new Date(updatedTicker.UpdatedAt).toISOString(),
-      };
-
-      return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      // ティッカーが見つからない場合
-      if (error instanceof TickerNotFoundError) {
+      // リクエストボディの取得
+      let body: UpdateTickerRequest;
+      try {
+        body = await request.json();
+      } catch {
         return NextResponse.json(
           {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
           },
-          { status: 404 }
+          { status: 400 }
         );
       }
-      throw error;
+
+      // バリデーション
+      const validationResult = validateTickerUpdateData(body);
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: validationResult.errors?.[0] || 'バリデーションエラー',
+          },
+          { status: 400 }
+        );
+      }
+
+      // リポジトリを初期化
+      const tickerRepo = createTickerRepository();
+
+      // ティッカー更新
+      try {
+        const updatedTicker = await tickerRepo.update(tickerId, {
+          Name: body.name,
+        });
+
+        // レスポンス形式に変換
+        const response: UpdateTickerResponse = {
+          tickerId: updatedTicker.TickerID,
+          symbol: updatedTicker.Symbol,
+          name: updatedTicker.Name,
+          exchangeId: updatedTicker.ExchangeID,
+          updatedAt: new Date(updatedTicker.UpdatedAt).toISOString(),
+        };
+
+        return NextResponse.json(response, { status: 200 });
+      } catch (error) {
+        // ティッカーが見つからない場合
+        if (error instanceof TickerNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+    } catch (error) {
+      return handleApiError(error);
     }
-  } catch (error) {
-    return handleApiError(error);
   }
-});
+);
 
 /**
  * DELETE /api/tickers/{id}
  * ティッカー削除（stock-admin のみ）
  */
-export const DELETE = withAuth(getSession, 'stocks:manage-data', async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  try {
-    // パスパラメータの取得
-    const { id: tickerId } = await params;
-
-    // リポジトリを初期化
-    const tickerRepo = createTickerRepository();
-
-    // ティッカー削除
+export const DELETE = withAuth(
+  getSession,
+  'stocks:manage-data',
+  async (_session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      await tickerRepo.delete(tickerId);
+      // パスパラメータの取得
+      const { id: tickerId } = await params;
 
-      // レスポンス
-      const response: DeleteTickerResponse = {
-        success: true,
-        deletedTickerId: tickerId,
-      };
+      // リポジトリを初期化
+      const tickerRepo = createTickerRepository();
 
-      return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      // ティッカーが見つからない場合
-      if (error instanceof TickerNotFoundError) {
-        return NextResponse.json(
-          {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.TICKER_NOT_FOUND,
-          },
-          { status: 404 }
-        );
+      // ティッカー削除
+      try {
+        await tickerRepo.delete(tickerId);
+
+        // レスポンス
+        const response: DeleteTickerResponse = {
+          success: true,
+          deletedTickerId: tickerId,
+        };
+
+        return NextResponse.json(response, { status: 200 });
+      } catch (error) {
+        // ティッカーが見つからない場合
+        if (error instanceof TickerNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
       }
-      throw error;
+    } catch (error) {
+      return handleApiError(error);
     }
-  } catch (error) {
-    return handleApiError(error);
   }
-});
+);
