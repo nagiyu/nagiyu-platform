@@ -70,10 +70,10 @@ export class BatchStack extends cdk.Stack {
     const vpc = vpcId
       ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
       : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-          tags: {
-            Name: `nagiyu-${env}-vpc`,
-          },
-        });
+        tags: {
+          Name: `nagiyu-${env}-vpc`,
+        },
+      });
 
     // Public Subnet の取得
     const publicSubnets = vpc.selectSubnets({
@@ -132,7 +132,7 @@ export class BatchStack extends cdk.Stack {
       state: 'ENABLED',
       computeResources: {
         type: 'FARGATE',
-        maxvCpus: 1, // 最小リソース設定: 0.25 vCPU × 4 = 1 vCPU max
+        maxvCpus: 4, // 1.0 vCPU × 4 = 4 vCPU max
         subnets: publicSubnets.subnetIds,
         securityGroupIds: [batchSecurityGroup.securityGroupId],
       },
@@ -162,11 +162,11 @@ export class BatchStack extends cdk.Stack {
         resourceRequirements: [
           {
             type: 'VCPU',
-            value: '0.25', // 最小リソース設定
+            value: '1.0',
           },
           {
             type: 'MEMORY',
-            value: '512', // 最小リソース設定 (MB)
+            value: '2048', // MB
           },
         ],
         executionRoleArn: batchJobExecutionRole.roleArn,
@@ -197,11 +197,11 @@ export class BatchStack extends cdk.Stack {
           },
           ...(screenshotBucketName
             ? [
-                {
-                  name: 'SCREENSHOT_BUCKET_NAME',
-                  value: screenshotBucketName,
-                },
-              ]
+              {
+                name: 'SCREENSHOT_BUCKET_NAME',
+                value: screenshotBucketName,
+              },
+            ]
             : []),
         ],
       },
@@ -209,9 +209,7 @@ export class BatchStack extends cdk.Stack {
         attempts: 1, // リトライなし（初期実装）
       },
       timeout: {
-        // Milestone 1: ダミー処理用の短いタイムアウト（15分）
-        // Milestone 5: 実際のマイリスト登録処理では1800秒（30分）に延長が必要
-        attemptDurationSeconds: 900, // 15分タイムアウト
+        attemptDurationSeconds: 1800, // 30分タイムアウト
       },
     });
 

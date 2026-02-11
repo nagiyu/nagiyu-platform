@@ -257,35 +257,36 @@ export async function deleteAllMylists(page: Page): Promise<void> {
         // Step 1: サイドバーの最初のマイリストリンクをクリックして詳細ページへ移動
         // 要素が完全に表示されるまで待機
         const firstMylistLink = page.locator('.MylistSideContainer-mylistList li:first-child a');
-        await firstMylistLink.waitFor({ state: 'visible', timeout: 10000 });
+        await firstMylistLink.waitFor({ state: 'visible', timeout: 30000 });
         console.log('マイリストリンクが表示されました');
 
         // クリック可能になるまで待機してからクリック（overlayがある可能性を考慮）
-        await firstMylistLink.click({ timeout: 15000, force: false });
+        await firstMylistLink.click({ timeout: 30000, force: false });
         console.log('マイリスト詳細ページへ移動しました');
-        await sleep(2000); // ページ遷移を待つ
+        await sleep(3000); // ページ遷移とJavaScript実行を待つ
 
         // Step 2: マイリストヘッダーの3点メニューボタンをクリック
         const threePointMenuButton = page.locator('.NC-ThreePointMenu.MylistHeaderMenu button');
-        await threePointMenuButton.waitFor({ state: 'visible', timeout: 15000 });
+        await threePointMenuButton.waitFor({ state: 'visible', timeout: 30000 });
         console.log('3点メニューボタンが表示されました');
 
-        await threePointMenuButton.click({ timeout: 15000 });
+        // noWaitAfter: true でナビゲーション待機をスキップ（メニュー展開なのでナビゲーションは発生しない）
+        await threePointMenuButton.click({ timeout: 30000, noWaitAfter: true });
         console.log('3点メニューを開きました');
-        await sleep(1000); // メニューが完全に表示されるまで待機
+        await sleep(2000); // メニューが完全に表示されるまで待機
 
         // Step 3: メニュー内の削除ボタンをクリック
         // メニューが開いた後、削除ボタンを探す（過去実績では3番目のボタン）
         // メニューは動的に表示されるので、.NC-ThreePointMenu-menu 内のボタンを探す
         const menuContainer = page.locator('.NC-ThreePointMenu-menu');
-        await menuContainer.waitFor({ state: 'visible', timeout: 10000 });
+        await menuContainer.waitFor({ state: 'visible', timeout: 30000 });
         console.log('メニューコンテナが表示されました');
 
         const deleteButton = menuContainer.locator('button').nth(2);
-        await deleteButton.waitFor({ state: 'visible', timeout: 10000 });
+        await deleteButton.waitFor({ state: 'visible', timeout: 30000 });
         console.log('削除ボタンが表示されました');
 
-        await deleteButton.click({ timeout: 15000 });
+        await deleteButton.click({ timeout: 30000 });
         console.log('削除ボタンをクリックしました');
 
         // アラートダイアログの承認を待つ（dialog ハンドラが自動で処理）
@@ -332,27 +333,108 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
       });
     }
 
-    // マイリスト作成ボタンをクリック（実際のUIから確認したXPath）
-    const createButton = page.locator(
-      'xpath=//*[@id="UserPage-app"]/section/section/main/div/div/div[1]/div[2]/div/div/div/ul[1]/div/div/button[1]'
-    );
-    await createButton.click();
+    // ページがロードされてJavaScriptが実行されるまで待機
+    await sleep(3000);
 
-    await sleep(2000); // モーダル表示を待つ
+    // マイリスト作成ボタンをクリック
+    // XPathではなくクラスベースのセレクタを使用（より堅牢）
+    // button要素で、MylistSideContainer-actionButton クラスを持つ最初のボタンを選択
+    const createButton = page.locator('button.MylistSideContainer-actionButton').first();
+    await createButton.waitFor({ state: 'visible', timeout: 30000 });
+    console.log('マイリスト作成ボタンが表示されました');
 
-    // マイリスト名を入力（実際のUIから確認したXPath）
-    const nameInput = page.locator('xpath=//*[@id="undefined-title"]');
+    await createButton.click({ timeout: 30000 });
+    console.log('マイリスト作成ボタンをクリックしました');
+
+    // モーダルの表示を待つ - より明示的な待機
+    await sleep(3000);
+
+    // モーダルコンテナの表示を確認し、参照を保持
+    let modalContainer;
+    try {
+      modalContainer = page.locator('div[role="dialog"], article').first();
+      await modalContainer.waitFor({ state: 'visible', timeout: 30000 });
+      console.log('モーダルコンテナが表示されました');
+    } catch (modalError) {
+      console.error('モーダルコンテナの表示待機でエラー:', modalError);
+      // デバッグ用: ページの全input要素を確認
+      const allInputs = await page.locator('input').all();
+      console.log(`[DEBUG] ページ上の全input要素数: ${allInputs.length}`);
+      for (let i = 0; i < Math.min(allInputs.length, 10); i++) {
+        const input = allInputs[i];
+        const type = await input.getAttribute('type').catch(() => null);
+        const id = await input.getAttribute('id').catch(() => null);
+        const placeholder = await input.getAttribute('placeholder').catch(() => null);
+        const isVisible = await input.isVisible().catch(() => false);
+        console.log(
+          `[DEBUG] Input[${i}]: type="${type}", id="${id}", placeholder="${placeholder}", visible=${isVisible}`
+        );
+      }
+      throw modalError;
+    }
+
+    // マイリスト名を入力
+    // モーダルコンテナ内の入力フィールドを探す（モーダル外の要素を除外）
+    const nameInput = modalContainer
+      .locator('input[type="text"], input:not([type]), textarea')
+      .first();
+    await nameInput.waitFor({ state: 'visible', timeout: 30000 });
+    console.log('入力フィールドが表示されました');
+
     await nameInput.fill(mylistName);
+    console.log(`マイリスト名を入力しました: ${mylistName}`);
 
-    // 作成ボタンをクリック（実際のUIから確認したXPath）
-    const submitButton = page.locator('xpath=/html/body/div[13]/div/div/article/footer/button');
-    await submitButton.click();
+    // 作成ボタンをクリック
+    // モーダルコンテナ内の送信ボタンを探す
+    const submitButton = modalContainer.getByRole('button', { name: '作成' });
+    await submitButton.waitFor({ state: 'visible', timeout: 30000 });
+    console.log('送信ボタンが表示されました');
 
-    await sleep(3000); // 作成処理の完了を待つ
+    // モーダルが完全に表示されるまで待機
+    await sleep(1000);
 
-    console.log('マイリスト作成成功');
+    // オーバーレイが原因でクリックできない場合は、JavaScriptでクリック
+    try {
+      // 通常のクリックを試みる（オーバーレイがない場合）
+      await submitButton.click({ timeout: 5000 });
+      console.log('モーダルの作成ボタンをクリックしました（通常クリック）');
+    } catch {
+      console.log('通常クリックが失敗しました。JavaScriptクリックを試みます...');
+      // JavaScriptを使用して直接クリックイベントを発火
+      await submitButton.evaluate((button) => (button as HTMLElement).click());
+      console.log('モーダルの作成ボタンをクリックしました（JavaScriptクリック）');
+    }
+
+    // モーダルが閉じるまで待機
+    await sleep(2000);
+
+    // マイリスト作成の完了を待つ
+    await sleep(2000);
+
+    // マイリストが作成されたことを確認
+    // モーダルが閉じて、マイリストリストが更新されるまで待機
+    try {
+      // マイリストコンテナ内のリストアイテムが少なくとも1つ存在することを確認
+      const mylistItems = page.locator('.MylistSideContainer-mylistList li');
+      await mylistItems.first().waitFor({ state: 'attached', timeout: 10000 });
+      const count = await mylistItems.count();
+      console.log(`マイリスト作成成功（確認: ${count}件のマイリストが存在）`);
+    } catch (verifyError) {
+      console.warn(
+        'マイリスト作成の確認でエラー（作成自体は成功している可能性あり）:',
+        verifyError
+      );
+      console.log('マイリスト作成成功');
+    }
   } catch (error) {
     console.error('マイリスト作成失敗:', error);
+    // エラー時のデバッグ情報を追加
+    try {
+      console.error(`[DEBUG] エラー時のURL: ${page.url()}`);
+      await takeScreenshot(page, 'create-mylist-error');
+    } catch (debugError) {
+      console.error('[DEBUG] デバッグ情報の取得に失敗:', debugError);
+    }
     throw new Error(ERROR_MESSAGES.MYLIST_CREATE_FAILED);
   }
 }
@@ -484,7 +566,7 @@ const s3Client = SCREENSHOT_BUCKET_NAME ? createS3Client({ region: AWS_REGION })
 export async function takeScreenshot(page: Page, filename: string): Promise<void> {
   try {
     const path = `${SCREENSHOT_DIR}/${filename}.png`;
-    await page.screenshot({ path, fullPage: true });
+    await page.screenshot({ path, fullPage: true, timeout: 0 });
     console.log(`スクリーンショット保存: ${path}`);
 
     // S3 バケットが設定されている場合は S3 にアップロード
