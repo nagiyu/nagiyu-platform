@@ -12,9 +12,11 @@ import {
   getAuthError,
   TickerNotFoundError,
   validateTickerUpdateData,
+  DynamoDBTickerRepository,
 } from '@nagiyu/stock-tracker-core';
+import { withRepository } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
-import { createTickerRepository } from '../../../../lib/repository-factory';
+import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 
 /**
  * エラーメッセージ定数
@@ -65,159 +67,157 @@ interface ErrorResponse {
  * PUT /api/tickers/{id}
  * ティッカー更新（stock-admin のみ）
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<UpdateTickerResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック（stocks:manage-data 必須）
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // パスパラメータの取得
-    const { id: tickerId } = await params;
-
-    // リクエストボディの取得
-    let body: UpdateTickerRequest;
+export const PUT = withRepository(
+  getDynamoDBClient,
+  getTableName,
+  DynamoDBTickerRepository,
+  async (tickerRepo, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-        },
-        { status: 400 }
-      );
-    }
+      // 認証・権限チェック（stocks:manage-data 必須）
+      const session = await getSession();
+      const authError = getAuthError(session, 'stocks:manage-data');
 
-    // バリデーション
-    const validationResult = validateTickerUpdateData(body);
-    if (!validationResult.valid) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: validationResult.errors?.[0] || 'バリデーションエラー',
-        },
-        { status: 400 }
-      );
-    }
-
-    // リポジトリを初期化
-    const tickerRepo = createTickerRepository();
-
-    // ティッカー更新
-    try {
-      const updatedTicker = await tickerRepo.update(tickerId, {
-        Name: body.name,
-      });
-
-      // レスポンス形式に変換
-      const response: UpdateTickerResponse = {
-        tickerId: updatedTicker.TickerID,
-        symbol: updatedTicker.Symbol,
-        name: updatedTicker.Name,
-        exchangeId: updatedTicker.ExchangeID,
-        updatedAt: new Date(updatedTicker.UpdatedAt).toISOString(),
-      };
-
-      return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      // ティッカーが見つからない場合
-      if (error instanceof TickerNotFoundError) {
+      if (authError) {
         return NextResponse.json(
           {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
           },
-          { status: 404 }
+          { status: authError.statusCode }
         );
       }
-      throw error;
+
+      // パスパラメータの取得
+      const { id: tickerId } = await params;
+
+      // リクエストボディの取得
+      let body: UpdateTickerRequest;
+      try {
+        body = await request.json();
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+          { status: 400 }
+        );
+      }
+
+      // バリデーション
+      const validationResult = validateTickerUpdateData(body);
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: validationResult.errors?.[0] || 'バリデーションエラー',
+          },
+          { status: 400 }
+        );
+      }
+
+      // ティッカー更新
+      try {
+        const updatedTicker = await tickerRepo.update(tickerId, {
+          Name: body.name,
+        });
+
+        // レスポンス形式に変換
+        const response: UpdateTickerResponse = {
+          tickerId: updatedTicker.TickerID,
+          symbol: updatedTicker.Symbol,
+          name: updatedTicker.Name,
+          exchangeId: updatedTicker.ExchangeID,
+          updatedAt: new Date(updatedTicker.UpdatedAt).toISOString(),
+        };
+
+        return NextResponse.json(response, { status: 200 });
+      } catch (error) {
+        // ティッカーが見つからない場合
+        if (error instanceof TickerNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error updating ticker:', error);
+      return NextResponse.json(
+        {
+          error: 'INTERNAL_ERROR',
+          message: ERROR_MESSAGES.TICKER_UPDATE_FAILED,
+        },
+        { status: 500 }
+      );
     }
-  } catch (error) {
-    console.error('Error updating ticker:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.TICKER_UPDATE_FAILED,
-      },
-      { status: 500 }
-    );
   }
-}
+);
 
 /**
  * DELETE /api/tickers/{id}
  * ティッカー削除（stock-admin のみ）
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<DeleteTickerResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック（stocks:manage-data 必須）
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // パスパラメータの取得
-    const { id: tickerId } = await params;
-
-    // リポジトリを初期化
-    const tickerRepo = createTickerRepository();
-
-    // ティッカー削除
+export const DELETE = withRepository(
+  getDynamoDBClient,
+  getTableName,
+  DynamoDBTickerRepository,
+  async (tickerRepo, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      await tickerRepo.delete(tickerId);
+      // 認証・権限チェック（stocks:manage-data 必須）
+      const session = await getSession();
+      const authError = getAuthError(session, 'stocks:manage-data');
 
-      // レスポンス
-      const response: DeleteTickerResponse = {
-        success: true,
-        deletedTickerId: tickerId,
-      };
-
-      return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      // ティッカーが見つからない場合
-      if (error instanceof TickerNotFoundError) {
+      if (authError) {
         return NextResponse.json(
           {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
           },
-          { status: 404 }
+          { status: authError.statusCode }
         );
       }
-      throw error;
+
+      // パスパラメータの取得
+      const { id: tickerId } = await params;
+
+      // ティッカー削除
+      try {
+        await tickerRepo.delete(tickerId);
+
+        // レスポンス
+        const response: DeleteTickerResponse = {
+          success: true,
+          deletedTickerId: tickerId,
+        };
+
+        return NextResponse.json(response, { status: 200 });
+      } catch (error) {
+        // ティッカーが見つからない場合
+        if (error instanceof TickerNotFoundError) {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.TICKER_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting ticker:', error);
+      return NextResponse.json(
+        {
+          error: 'INTERNAL_ERROR',
+          message: ERROR_MESSAGES.TICKER_DELETE_FAILED,
+        },
+        { status: 500 }
+      );
     }
-  } catch (error) {
-    console.error('Error deleting ticker:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.TICKER_DELETE_FAILED,
-      },
-      { status: 500 }
-    );
   }
-}
+);
