@@ -35,7 +35,9 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
             <Button href="/mylist" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
               動画管理
             </Button>
-            <NotificationPermissionButton />
+            <Box component="span" sx={{ display: 'inline-block', mt: 2 }}>
+              <NotificationPermissionButton />
+            </Box>
           </Box>
         ) : (
           <Box sx={{ mt: 3 }}>
