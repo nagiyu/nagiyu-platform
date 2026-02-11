@@ -26,6 +26,16 @@ interface EnvironmentVariables {
   AWS_REGION: string;
   JOB_ID: string;
   OUTPUT_CODEC: CodecType;
+  JOB_DEFINITION_NAME?: string;
+}
+
+// ECS タスクメタデータの型定義
+interface ECSMetadata {
+  Limits?: {
+    CPU?: number;
+    Memory?: number;
+  };
+  [key: string]: unknown;
 }
 
 // FFmpegのコーデックパラメータ
@@ -75,7 +85,27 @@ export function validateEnvironment(): EnvironmentVariables {
     AWS_REGION: process.env.AWS_REGION!,
     JOB_ID: process.env.JOB_ID!,
     OUTPUT_CODEC: outputCodec,
+    JOB_DEFINITION_NAME: process.env.JOB_DEFINITION_NAME,
   };
+}
+
+/**
+ * ECS タスクメタデータエンドポイントから情報を取得
+ * https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint.html
+ */
+export async function getECSMetadata(): Promise<ECSMetadata> {
+  const metadataUri = process.env.ECS_CONTAINER_METADATA_URI_V4;
+  if (!metadataUri) {
+    return {};
+  }
+
+  try {
+    const response = await fetch(`${metadataUri}/task`);
+    return (await response.json()) as ECSMetadata;
+  } catch (error) {
+    console.warn('Failed to fetch ECS metadata:', error);
+    return {};
+  }
 }
 
 /**
@@ -328,6 +358,21 @@ export async function processJob(
  */
 export async function main(): Promise<void> {
   const env = validateEnvironment();
+
+  // 使用リソース情報をログ出力
+  const jobDefinitionName = env.JOB_DEFINITION_NAME || 'unknown';
+  const ecsMetadata = await getECSMetadata();
+  const limits = ecsMetadata.Limits || {};
+
+  console.log('Batch Worker started', {
+    jobId: env.JOB_ID,
+    outputCodec: env.OUTPUT_CODEC,
+    jobDefinitionName,
+    resources: {
+      cpu: limits.CPU || 'unknown',
+      memory: limits.Memory || 'unknown',
+    },
+  });
 
   const s3Client = new S3Client({ region: env.AWS_REGION });
   const dynamodbClient = DynamoDBDocumentClient.from(
