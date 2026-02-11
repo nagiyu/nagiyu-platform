@@ -9,9 +9,6 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "NODE_OPTIONS=--experimental-vm-modules npx jest",
-    "test:watch": "NODE_OPTIONS=--experimental-vm-modules npx jest --watch",
-    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules npx jest --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
