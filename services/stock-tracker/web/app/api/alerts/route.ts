@@ -8,8 +8,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError, validateAlert } from '@nagiyu/stock-tracker-core';
-import { createAlertRepository, createTickerRepository } from '../../../lib/repository-factory';
+import { getAuthError, validateAlert, DynamoDBAlertRepository, DynamoDBTickerRepository } from '@nagiyu/stock-tracker-core';
+import { withRepositories, withRepository } from '@nagiyu/nextjs';
+import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
 import { getSession } from '../../../lib/auth';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -93,226 +94,224 @@ function mapAlertToResponse(
  * GET /api/alerts
  * アラート一覧取得
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<AlertsListResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:read');
+export const GET = withRepositories(
+  getDynamoDBClient,
+  getTableName,
+  [DynamoDBAlertRepository, DynamoDBTickerRepository],
+  async ([alertRepo, tickerRepo], request: NextRequest): Promise<NextResponse<AlertsListResponse | ErrorResponse>> => {
+    try {
+      // 認証・権限チェック
+      const session = await getSession();
+      const authError = getAuthError(session, 'stocks:read');
 
-    if (authError) {
+      if (authError) {
+        return NextResponse.json(
+          {
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
+          },
+          { status: authError.statusCode }
+        );
+      }
+
+      // クエリパラメータの取得
+      const { searchParams } = new URL(request.url);
+      const limitParam = searchParams.get('limit');
+      const lastKeyParam = searchParams.get('lastKey');
+
+      // limit のバリデーション
+      const limit = limitParam ? parseInt(limitParam, 10) : 50;
+      if (isNaN(limit) || limit < 1 || limit > 100) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_LIMIT,
+          },
+          { status: 400 }
+        );
+      }
+
+      // lastKey のデコード（base64エンコードされている場合）
+      let cursor: string | undefined;
+      if (lastKeyParam) {
+        cursor = lastKeyParam; // そのまま使用（base64エンコードされたcursor）
+      }
+
+      // ユーザーIDを取得
+      const userId = session!.user.userId;
+
+      // アラート一覧取得
+      const result = await alertRepo.getByUserId(userId, { limit, cursor });
+
+      // TickerリポジトリでSymbolとNameを取得
+      // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
+
+      const alerts: AlertResponse[] = [];
+      for (const alert of result.items) {
+        const ticker = await tickerRepo.getById(alert.TickerID);
+        alerts.push(
+          mapAlertToResponse(
+            alert,
+            ticker?.Symbol || alert.TickerID.split(':')[1] || '',
+            ticker?.Name || ''
+          )
+        );
+      }
+
+      // lastKey をbase64エンコード
+      const encodedLastKey = result.nextCursor;
+
+      // レスポンス形式に変換
+      const response: AlertsListResponse = {
+        alerts,
+        pagination: {
+          count: alerts.length,
+          ...(result.nextCursor && { lastKey: result.nextCursor }),
+        },
+      };
+
+      return NextResponse.json(response, { status: 200 });
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
       return NextResponse.json(
         {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
+          error: 'INTERNAL_ERROR',
+          message: ERROR_MESSAGES.INTERNAL_ERROR,
         },
-        { status: authError.statusCode }
+        { status: 500 }
       );
     }
-
-    // クエリパラメータの取得
-    const { searchParams } = new URL(request.url);
-    const limitParam = searchParams.get('limit');
-    const lastKeyParam = searchParams.get('lastKey');
-
-    // limit のバリデーション
-    const limit = limitParam ? parseInt(limitParam, 10) : 50;
-    if (isNaN(limit) || limit < 1 || limit > 100) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_LIMIT,
-        },
-        { status: 400 }
-      );
-    }
-
-    // lastKey のデコード（base64エンコードされている場合）
-    let cursor: string | undefined;
-    if (lastKeyParam) {
-      cursor = lastKeyParam; // そのまま使用（base64エンコードされたcursor）
-    }
-
-    // リポジトリの初期化
-    const alertRepo = createAlertRepository();
-    const tickerRepo = createTickerRepository();
-
-    // ユーザーIDを取得
-    const userId = session!.user.userId;
-
-    // アラート一覧取得
-    const result = await alertRepo.getByUserId(userId, { limit, cursor });
-
-    // TickerリポジトリでSymbolとNameを取得
-    // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-
-    const alerts: AlertResponse[] = [];
-    for (const alert of result.items) {
-      const ticker = await tickerRepo.getById(alert.TickerID);
-      alerts.push(
-        mapAlertToResponse(
-          alert,
-          ticker?.Symbol || alert.TickerID.split(':')[1] || '',
-          ticker?.Name || ''
-        )
-      );
-    }
-
-    // lastKey をbase64エンコード
-    const encodedLastKey = result.nextCursor;
-
-    // レスポンス形式に変換
-    const response: AlertsListResponse = {
-      alerts,
-      pagination: {
-        count: alerts.length,
-        ...(result.nextCursor && { lastKey: result.nextCursor }),
-      },
-    };
-
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Error fetching alerts:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);
 
 /**
  * POST /api/alerts
  * アラート作成（Web Push サブスクリプション含む）
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<AlertResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // リクエストボディの取得
-    let body;
+export const POST = withRepositories(
+  getDynamoDBClient,
+  getTableName,
+  [DynamoDBAlertRepository, DynamoDBTickerRepository],
+  async ([alertRepo, tickerRepo], request: NextRequest): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
     try {
-      body = await request.json();
-    } catch {
+      // 認証・権限チェック
+      const session = await getSession();
+      const authError = getAuthError(session, 'stocks:write-own');
+
+      if (authError) {
+        return NextResponse.json(
+          {
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
+          },
+          { status: authError.statusCode }
+        );
+      }
+
+      // リクエストボディの取得
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+          { status: 400 }
+        );
+      }
+
+      // ユーザーIDを取得
+      const userId = session!.user.userId;
+
+      // Web Push サブスクリプション情報の確認
+      if (!body.subscription || typeof body.subscription !== 'object') {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
+          },
+          { status: 400 }
+        );
+      }
+
+      const subscription = body.subscription;
+      if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
+          },
+          { status: 400 }
+        );
+      }
+
+      // ExchangeID の自動取得（tickerId から）
+      const exchangeId = body.exchangeId || body.tickerId?.split(':')[0] || '';
+
+      // リクエストボディから Alert オブジェクトを構築
+      // Note: AlertID, CreatedAt, UpdatedAt はリポジトリで自動生成される
+      // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
+      const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
+
+      const alertData = {
+        UserID: userId,
+        TickerID: body.tickerId,
+        ExchangeID: exchangeId,
+        Mode: body.mode,
+        Frequency: body.frequency,
+        Enabled: body.enabled !== undefined ? body.enabled : true,
+        ConditionList: body.conditions || [],
+        LogicalOperator: body.logicalOperator,
+        SubscriptionEndpoint: subscription.endpoint,
+        SubscriptionKeysP256dh: subscription.keys.p256dh,
+        SubscriptionKeysAuth: subscription.keys.auth,
+        // AlertID は UUID v4 でリポジトリが自動生成
+        AlertID: VALIDATION_PLACEHOLDER_UUID,
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      // バリデーション
+      const validationResult = validateAlert(alertData);
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.VALIDATION_ERROR,
+            details: validationResult.errors,
+          },
+          { status: 400 }
+        );
+      }
+
+      // アラートを作成（新しいリポジトリの形式に合わせる）
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
+
+      const createdAlert = await alertRepo.create(alertDataForCreate);
+
+      // TickerリポジトリでSymbolとNameを取得
+      const ticker = await tickerRepo.getById(createdAlert.TickerID);
+
+      // レスポンス形式に変換
+      const response = mapAlertToResponse(
+        createdAlert,
+        ticker?.Symbol || createdAlert.TickerID.split(':')[1] || '',
+        ticker?.Name || ''
+      );
+
+      return NextResponse.json(response, { status: 201 });
+    } catch (error) {
+      console.error('Error creating alert:', error);
       return NextResponse.json(
         {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          error: 'INTERNAL_ERROR',
+          message: ERROR_MESSAGES.CREATE_ERROR,
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
-
-    // ユーザーIDを取得
-    const userId = session!.user.userId;
-
-    // Web Push サブスクリプション情報の確認
-    if (!body.subscription || typeof body.subscription !== 'object') {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-
-    const subscription = body.subscription;
-    if (!subscription.endpoint || !subscription.keys?.p256dh || !subscription.keys?.auth) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.SUBSCRIPTION_REQUIRED,
-        },
-        { status: 400 }
-      );
-    }
-
-    // ExchangeID の自動取得（tickerId から）
-    const exchangeId = body.exchangeId || body.tickerId?.split(':')[0] || '';
-
-    // リクエストボディから Alert オブジェクトを構築
-    // Note: AlertID, CreatedAt, UpdatedAt はリポジトリで自動生成される
-    // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
-    const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
-
-    const alertData = {
-      UserID: userId,
-      TickerID: body.tickerId,
-      ExchangeID: exchangeId,
-      Mode: body.mode,
-      Frequency: body.frequency,
-      Enabled: body.enabled !== undefined ? body.enabled : true,
-      ConditionList: body.conditions || [],
-      LogicalOperator: body.logicalOperator,
-      SubscriptionEndpoint: subscription.endpoint,
-      SubscriptionKeysP256dh: subscription.keys.p256dh,
-      SubscriptionKeysAuth: subscription.keys.auth,
-      // AlertID は UUID v4 でリポジトリが自動生成
-      AlertID: VALIDATION_PLACEHOLDER_UUID,
-      CreatedAt: Date.now(),
-      UpdatedAt: Date.now(),
-    };
-
-    // バリデーション
-    const validationResult = validateAlert(alertData);
-    if (!validationResult.valid) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.VALIDATION_ERROR,
-          details: validationResult.errors,
-        },
-        { status: 400 }
-      );
-    }
-
-    // リポジトリの初期化
-    const alertRepo = createAlertRepository();
-    const tickerRepo = createTickerRepository();
-
-    // アラートを作成（新しいリポジトリの形式に合わせる）
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
-
-    const createdAlert = await alertRepo.create(alertDataForCreate);
-
-    // TickerリポジトリでSymbolとNameを取得
-    const ticker = await tickerRepo.getById(createdAlert.TickerID);
-
-    // レスポンス形式に変換
-    const response = mapAlertToResponse(
-      createdAlert,
-      ticker?.Symbol || createdAlert.TickerID.split(':')[1] || '',
-      ticker?.Name || ''
-    );
-
-    return NextResponse.json(response, { status: 201 });
-  } catch (error) {
-    console.error('Error creating alert:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.CREATE_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

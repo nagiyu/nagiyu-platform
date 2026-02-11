@@ -8,8 +8,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError, validateAlert, AlertNotFoundError } from '@nagiyu/stock-tracker-core';
-import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
+import { getAuthError, validateAlert, AlertNotFoundError, DynamoDBAlertRepository, DynamoDBTickerRepository } from '@nagiyu/stock-tracker-core';
+import { withRepositories, withRepository } from '@nagiyu/nextjs';
+import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
 import type { AlertEntity } from '@nagiyu/stock-tracker-core';
 
@@ -90,212 +91,209 @@ function mapAlertToResponse(
  * PUT /api/alerts/{id}
  * アラート更新
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<AlertResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // パラメータの取得
-    const { id: alertId } = await params;
-    const userId = session!.user.userId;
-
-    // リクエストボディの取得
-    let body;
+export const PUT = withRepositories(
+  getDynamoDBClient,
+  getTableName,
+  [DynamoDBAlertRepository, DynamoDBTickerRepository],
+  async ([alertRepo, tickerRepo], request: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-        },
-        { status: 400 }
-      );
-    }
+      // 認証・権限チェック
+      const session = await getSession();
+      const authError = getAuthError(session, 'stocks:write-own');
 
-    // リポジトリの初期化
-    const alertRepo = createAlertRepository();
-    const tickerRepo = createTickerRepository();
-
-    // 既存アラートを取得（部分更新用）
-    const existingAlert = await alertRepo.getById(userId, alertId);
-    if (!existingAlert) {
-      return NextResponse.json(
-        {
-          error: 'NOT_FOUND',
-          message: ERROR_MESSAGES.ALERT_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    // 更新可能なフィールドを抽出
-    const updates: Partial<AlertEntity> = {};
-
-    if (body.conditions !== undefined) {
-      // 条件の部分更新をサポート
-      // Phase 1: 条件は1つのみなので、既存条件とマージ
-      const existingCondition = existingAlert.ConditionList[0];
-      const updateCondition = body.conditions[0];
-
-      if (updateCondition) {
-        updates.ConditionList = [
+      if (authError) {
+        return NextResponse.json(
           {
-            field: updateCondition.field ?? existingCondition.field,
-            operator: updateCondition.operator ?? existingCondition.operator,
-            value: updateCondition.value ?? existingCondition.value,
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
           },
-        ];
+          { status: authError.statusCode }
+        );
       }
-    }
 
-    if (body.enabled !== undefined) {
-      updates.Enabled = body.enabled;
-    }
+      // パラメータの取得
+      const { id: alertId } = await params;
+      const userId = session!.user.userId;
 
-    // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
-    if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
-      updates.LogicalOperator = body.logicalOperator;
-    }
+      // リクエストボディの取得
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+          { status: 400 }
+        );
+      }
 
-    // 更新フィールドが存在しない場合
-    if (Object.keys(updates).length === 0) {
+      // 既存アラートを取得（部分更新用）
+      const existingAlert = await alertRepo.getById(userId, alertId);
+      if (!existingAlert) {
+        return NextResponse.json(
+          {
+            error: 'NOT_FOUND',
+            message: ERROR_MESSAGES.ALERT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      // 更新可能なフィールドを抽出
+      const updates: Partial<AlertEntity> = {};
+
+      if (body.conditions !== undefined) {
+        // 条件の部分更新をサポート
+        // Phase 1: 条件は1つのみなので、既存条件とマージ
+        const existingCondition = existingAlert.ConditionList[0];
+        const updateCondition = body.conditions[0];
+
+        if (updateCondition) {
+          updates.ConditionList = [
+            {
+              field: updateCondition.field ?? existingCondition.field,
+              operator: updateCondition.operator ?? existingCondition.operator,
+              value: updateCondition.value ?? existingCondition.value,
+            },
+          ];
+        }
+      }
+
+      if (body.enabled !== undefined) {
+        updates.Enabled = body.enabled;
+      }
+
+      // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
+      if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
+        updates.LogicalOperator = body.logicalOperator;
+      }
+
+      // 更新フィールドが存在しない場合
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.NO_UPDATE_FIELDS,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 更新後のデータを構築してバリデーション
+      const updatedAlertData = {
+        ...existingAlert,
+        ...updates,
+        UpdatedAt: Date.now(),
+      };
+
+      const validationResult = validateAlert(updatedAlertData);
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.VALIDATION_ERROR,
+            details: validationResult.errors,
+          },
+          { status: 400 }
+        );
+      }
+
+      // アラートを更新
+      const updatedAlert = await alertRepo.update(userId, alertId, updates);
+
+      // TickerリポジトリでSymbolとNameを取得
+      const ticker = await tickerRepo.getById(updatedAlert.TickerID);
+
+      // レスポンス形式に変換
+      const response = mapAlertToResponse(
+        updatedAlert,
+        ticker?.Symbol || updatedAlert.TickerID.split(':')[1] || '',
+        ticker?.Name || ''
+      );
+
+      return NextResponse.json(response, { status: 200 });
+    } catch (error) {
+      if (error instanceof AlertNotFoundError) {
+        return NextResponse.json(
+          {
+            error: 'NOT_FOUND',
+            message: ERROR_MESSAGES.ALERT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      console.error('Error updating alert:', error);
       return NextResponse.json(
         {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.NO_UPDATE_FIELDS,
+          error: 'INTERNAL_ERROR',
+          message: ERROR_MESSAGES.UPDATE_ERROR,
         },
-        { status: 400 }
+        { status: 500 }
       );
     }
-
-    // 更新後のデータを構築してバリデーション
-    const updatedAlertData = {
-      ...existingAlert,
-      ...updates,
-      UpdatedAt: Date.now(),
-    };
-
-    const validationResult = validateAlert(updatedAlertData);
-    if (!validationResult.valid) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.VALIDATION_ERROR,
-          details: validationResult.errors,
-        },
-        { status: 400 }
-      );
-    }
-
-    // アラートを更新
-    const updatedAlert = await alertRepo.update(userId, alertId, updates);
-
-    // TickerリポジトリでSymbolとNameを取得
-    const ticker = await tickerRepo.getById(updatedAlert.TickerID);
-
-    // レスポンス形式に変換
-    const response = mapAlertToResponse(
-      updatedAlert,
-      ticker?.Symbol || updatedAlert.TickerID.split(':')[1] || '',
-      ticker?.Name || ''
-    );
-
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    if (error instanceof AlertNotFoundError) {
-      return NextResponse.json(
-        {
-          error: 'NOT_FOUND',
-          message: ERROR_MESSAGES.ALERT_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    console.error('Error updating alert:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.UPDATE_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);
 
 /**
  * DELETE /api/alerts/{id}
  * アラート削除
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<DeleteResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
+export const DELETE = withRepository(
+  getDynamoDBClient,
+  getTableName,
+  DynamoDBAlertRepository,
+  async (alertRepo, request: NextRequest, { params }: { params: Promise<{ id: string }> }): Promise<NextResponse<DeleteResponse | ErrorResponse>> => {
+    try {
+      // 認証・権限チェック
+      const session = await getSession();
+      const authError = getAuthError(session, 'stocks:write-own');
 
-    if (authError) {
+      if (authError) {
+        return NextResponse.json(
+          {
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
+          },
+          { status: authError.statusCode }
+        );
+      }
+
+      // パラメータの取得
+      const { id: alertId } = await params;
+      const userId = session!.user.userId;
+
+      // アラートを削除
+      await alertRepo.delete(userId, alertId);
+
+      // レスポンス
+      const response: DeleteResponse = {
+        success: true,
+        deletedAlertId: alertId,
+      };
+
+      return NextResponse.json(response, { status: 200 });
+    } catch (error) {
+      if (error instanceof AlertNotFoundError) {
+        return NextResponse.json(
+          {
+            error: 'NOT_FOUND',
+            message: ERROR_MESSAGES.ALERT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      console.error('Error deleting alert:', error);
       return NextResponse.json(
         {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
+          error: 'INTERNAL_ERROR',
+          message: ERROR_MESSAGES.DELETE_ERROR,
         },
-        { status: authError.statusCode }
+        { status: 500 }
       );
     }
-
-    // パラメータの取得
-    const { id: alertId } = await params;
-    const userId = session!.user.userId;
-
-    // リポジトリの初期化
-    const alertRepo = createAlertRepository();
-
-    // アラートを削除
-    await alertRepo.delete(userId, alertId);
-
-    // レスポンス
-    const response: DeleteResponse = {
-      success: true,
-      deletedAlertId: alertId,
-    };
-
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    if (error instanceof AlertNotFoundError) {
-      return NextResponse.json(
-        {
-          error: 'NOT_FOUND',
-          message: ERROR_MESSAGES.ALERT_NOT_FOUND,
-        },
-        { status: 404 }
-      );
-    }
-
-    console.error('Error deleting alert:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.DELETE_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);
