@@ -286,10 +286,7 @@ async function main() {
               result.failedVideoIds.length,
               result.successVideoIds.length + result.failedVideoIds.length
             );
-            const notificationSent = await sendNotification(
-              pushSubscription,
-              notificationPayload
-            );
+            const notificationSent = await sendNotification(pushSubscription, notificationPayload);
             if (notificationSent) {
               console.log('バッチ完了通知を送信しました');
             } else {

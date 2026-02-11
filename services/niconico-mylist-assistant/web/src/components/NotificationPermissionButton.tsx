@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Dialog, DialogTitle, DialogContent, DialogActions, Typography } from '@mui/material';
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Typography,
+} from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import { urlBase64ToUint8Array } from '@/lib/utils/push';
 
