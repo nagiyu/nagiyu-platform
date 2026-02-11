@@ -1,6 +1,7 @@
 'use client';
 
 import { Container, Typography, Box, Button } from '@mui/material';
+import NotificationPermissionButton from './NotificationPermissionButton';
 
 interface HomePageClientProps {
   userName?: string;
@@ -31,9 +32,10 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
             <Button href="/import" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
               動画インポート
             </Button>
-            <Button href="/mylist" variant="outlined" color="primary" sx={{ mt: 2 }}>
+            <Button href="/mylist" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
               動画管理
             </Button>
+            <NotificationPermissionButton />
           </Box>
         ) : (
           <Box sx={{ mt: 3 }}>
