@@ -385,7 +385,9 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('送信ボタンが表示されました');
     
-    await submitButton.click({ timeout: 30000 });
+    // force: true でオーバーレイを無視してクリック
+    // モーダル内のオーバーレイ要素がポインタイベントを遮る可能性があるため
+    await submitButton.click({ timeout: 30000, force: true });
     console.log('モーダルの作成ボタンをクリックしました');
 
     await sleep(3000); // 作成処理の完了を待つ
