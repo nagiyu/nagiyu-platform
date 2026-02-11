@@ -280,13 +280,13 @@ Phase 1（MVP）では単一のジョブ定義を使用します:
   - `JOB_ID`: ジョブID
   - `OUTPUT_CODEC`: 出力コーデック
 
-#### 動的リソース配分（Phase 2以降）
+#### 動的リソース配分
 
-Phase 2以降では、ジョブの特性（ファイルサイズ、出力コーデック）に応じて最適なリソースを動的に割り当てる機能を実装します。
+ジョブの特性（ファイルサイズ、出力コーデック）に応じて最適なリソースを動的に割り当てる機能が実装されています。
 
 **複数のジョブ定義パターン**:
 
-以下の4つのジョブ定義を作成し、ジョブ投入時に適切なものを選択します:
+以下の4つのジョブ定義が作成され、ジョブ投入時に適切なものが自動選択されます:
 
 | ジョブ定義名                   | vCPU | メモリ (MB) | 用途                             |
 | ------------------------------ | ---- | ----------- | -------------------------------- |
@@ -297,7 +297,7 @@ Phase 2以降では、ジョブの特性（ファイルサイズ、出力コー�
 
 **リソース選択ロジック**:
 
-ファイルサイズと出力コーデックに基づいて、以下のマトリクスに従ってジョブ定義を選択します:
+ファイルサイズと出力コーデックに基づいて、以下のマトリクスに従ってジョブ定義が選択されます:
 
 | ファイルサイズ | 出力コーデック | 選択するジョブ定義 | vCPU | メモリ (MB) |
 | -------------- | -------------- | ------------------ | ---- | ----------- |
@@ -305,13 +305,83 @@ Phase 2以降では、ジョブの特性（ファイルサイズ、出力コー�
 | < 100MB        | vp9            | small              | 1    | 4096        |
 | < 100MB        | av1            | medium             | 2    | 4096        |
 | 100-300MB      | h264           | medium             | 2    | 4096        |
-| 100-300MB      | vp9            | large              | 2    | 8192        |
+| 100-300MB      | vp9            | large              | 4    | 8192        |
 | 100-300MB      | av1            | large              | 4    | 8192        |
 | > 300MB        | h264           | medium             | 2    | 4096        |
 | > 300MB        | vp9            | large              | 4    | 8192        |
 | > 300MB        | av1            | xlarge             | 4    | 16384       |
 
-**注**: 上記の数値は AWS Fargate の制約に準拠しています:
+**実装詳細**:
+
+**1. リソース選択関数** (`selectJobDefinition`):
+
+```typescript
+// services/codec-converter/core/src/resource-selector.ts
+export function selectJobDefinition(fileSize: number, codecType: CodecType): JobDefinitionSize {
+  // ファイルサイズ閾値: 100MB, 300MB
+  // バリデーション: fileSize >= 0, codecType in ['h264', 'vp9', 'av1']
+  // 戻り値: 'small' | 'medium' | 'large' | 'xlarge'
+}
+```
+
+この関数は `codec-converter-core` パッケージに実装され、Lambda（Next.js API）とテストコードで共有されます。
+
+**2. API Routes での使用** (`POST /api/jobs/{jobId}/submit`):
+
+```typescript
+// ジョブ投入時にリソースを選択
+const jobDefinitionSize = selectJobDefinition(job.fileSize, job.outputCodec);
+const jobDefinitionName = `${BATCH_JOB_DEFINITION_PREFIX}-${jobDefinitionSize}`;
+
+// AWS Batch にジョブを投入
+await batchClient.send(
+  new SubmitJobCommand({
+    jobDefinition: jobDefinitionName,
+    // ...
+  })
+);
+```
+
+**エラーハンドリング**: リソース選択に失敗した場合、または指定されたジョブ定義が存在しない場合は、`medium` にフォールバックします。
+
+**3. Compute Environment の設定**:
+
+- **maxvCPUs**: 16 vCPU（従来の 6 vCPU から拡張）
+- **同時実行パターン例**:
+    - small × 16 = 16 vCPU（軽量ジョブを多数並列実行）
+    - medium × 8 = 16 vCPU（標準ジョブを並列実行）
+    - large × 4 = 16 vCPU（重量ジョブを並列実行）
+    - xlarge × 4 = 16 vCPU（最重量ジョブを並列実行）
+    - small × 4 + large × 3 = 16 vCPU（混在）
+
+**4. IAM 権限**:
+
+Lambda 実行ロールの `AppRuntimePolicy` に以下の権限が付与されています:
+
+- `batch:SubmitJob` - すべてのジョブ定義 (`codec-converter-{env}-*`) に対するジョブ投入権限
+
+**5. リソース情報のログ出力**:
+
+Batch Worker は起動時に使用リソース情報を CloudWatch Logs に出力します:
+
+```json
+{
+  "message": "Batch Worker started",
+  "jobId": "xxx",
+  "outputCodec": "av1",
+  "jobDefinitionName": "codec-converter-dev-xlarge",
+  "resources": {
+    "cpu": 4,
+    "memory": 16384
+  }
+}
+```
+
+この情報により、各ジョブがどのリソース構成で実行されているかを確認できます。
+
+**制約事項**:
+
+上記のリソース構成は AWS Fargate の制約に準拠しています:
 
 - 1 vCPU: 2048-8192 MB
 - 2 vCPU: 4096-16384 MB
@@ -319,22 +389,11 @@ Phase 2以降では、ジョブの特性（ファイルサイズ、出力コー�
 
 参考: [AWS Batch Fargate ドキュメント](https://docs.aws.amazon.com/batch/latest/userguide/fargate.html)
 
-**実装方針**:
+**今後の改善**:
 
-1. リソース選択ロジックは共通パッケージ（`@nagiyu-platform/codec-converter-common`）に実装
-2. Next.js API Routes でジョブ投入時に適切なジョブ定義を選択
-3. 選択ロジックはユニットテストでカバレッジ 80% 以上を達成
-
-**Compute Environment の調整**:
-
-- 最大vCPU を 6 → 16 に拡張
-- 軽量ジョブ（1 vCPU）を多数並列実行、または重量ジョブ（4 vCPU）を少数実行可能
-- 例: small ×4 + large ×2 = (1×4) + (4×2) = 12 vCPU
-
-**IAM 権限の拡張**:
-
-- Lambda 実行ロールに複数のジョブ定義へのアクセス権を付与
-- 既存の `batch:SubmitJob` 権限で対応可能（リソース制限を緩和）
+- 実運用データを基にファイルサイズ閾値やリソース配分を調整
+- Fargate Spot の利用によるコスト削減
+- GPU アクセラレーション（Fargate での GPU サポート待ち）
 
 #### Batch Worker 実装詳細
 
