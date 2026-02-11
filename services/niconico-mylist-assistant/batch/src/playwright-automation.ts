@@ -386,8 +386,7 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
 
     // 作成ボタンをクリック
     // モーダルコンテナ内の送信ボタンを探す
-    const submitButton = modalContainer
-      .getByRole('button', { name: '作成' });
+    const submitButton = modalContainer.getByRole('button', { name: '作成' });
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('送信ボタンが表示されました');
 
