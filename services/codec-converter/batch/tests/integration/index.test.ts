@@ -632,6 +632,53 @@ describe('main', () => {
     });
   });
 
+  it('ECSメタデータのLimitsが存在するがCPU/Memoryが未定義の場合', async () => {
+    process.env.S3_BUCKET = 'test-bucket';
+    process.env.DYNAMODB_TABLE = 'test-table';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.JOB_ID = 'test-job-id-2';
+    process.env.OUTPUT_CODEC = 'av1';
+    process.env.JOB_DEFINITION_NAME = 'codec-converter-dev-large';
+    process.env.ECS_CONTAINER_METADATA_URI_V4 = 'http://localhost:8080';
+
+    const mockMetadata = {
+      Limits: {
+        // CPU と Memory が undefined
+      },
+    };
+
+    global.fetch = jest.fn().mockResolvedValue({
+      json: jest.fn().mockResolvedValue(mockMetadata),
+    });
+
+    const mockBody = Readable.from(['test content']);
+    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
+    s3Mock.on(PutObjectCommand).resolves({});
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: { on: jest.fn() },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(0);
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    await main();
+
+    // ログが正しく出力されたことを確認
+    expect(console.log).toHaveBeenCalledWith('Batch Worker started', {
+      jobId: 'test-job-id-2',
+      outputCodec: 'av1',
+      jobDefinitionName: 'codec-converter-dev-large',
+      resources: {
+        cpu: 'unknown',
+        memory: 'unknown',
+      },
+    });
+  });
+
   it.skip('メイン処理が成功する', async () => {
     process.env.S3_BUCKET = 'test-bucket';
     process.env.DYNAMODB_TABLE = 'test-table';

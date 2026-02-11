@@ -29,6 +29,15 @@ interface EnvironmentVariables {
   JOB_DEFINITION_NAME?: string;
 }
 
+// ECS タスクメタデータの型定義
+interface ECSMetadata {
+  Limits?: {
+    CPU?: number;
+    Memory?: number;
+  };
+  [key: string]: unknown;
+}
+
 // FFmpegのコーデックパラメータ
 const CODEC_PARAMS: Record<
   CodecType,
@@ -84,7 +93,7 @@ export function validateEnvironment(): EnvironmentVariables {
  * ECS タスクメタデータエンドポイントから情報を取得
  * https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-metadata-endpoint.html
  */
-export async function getECSMetadata(): Promise<Record<string, unknown>> {
+export async function getECSMetadata(): Promise<ECSMetadata> {
   const metadataUri = process.env.ECS_CONTAINER_METADATA_URI_V4;
   if (!metadataUri) {
     return {};
@@ -92,7 +101,7 @@ export async function getECSMetadata(): Promise<Record<string, unknown>> {
 
   try {
     const response = await fetch(`${metadataUri}/task`);
-    return (await response.json()) as Record<string, unknown>;
+    return (await response.json()) as ECSMetadata;
   } catch (error) {
     console.warn('Failed to fetch ECS metadata:', error);
     return {};
@@ -353,7 +362,7 @@ export async function main(): Promise<void> {
   // 使用リソース情報をログ出力
   const jobDefinitionName = env.JOB_DEFINITION_NAME || 'unknown';
   const ecsMetadata = await getECSMetadata();
-  const limits = (ecsMetadata.Limits as Record<string, unknown> | undefined) || {};
+  const limits = ecsMetadata.Limits || {};
 
   console.log('Batch Worker started', {
     jobId: env.JOB_ID,
