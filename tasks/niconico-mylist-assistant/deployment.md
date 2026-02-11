@@ -98,83 +98,62 @@ aws secretsmanager create-secret \
     --region us-east-1
 ```
 
-### 3.3 VAPID キーの生成と設定
+### 3.3 VAPID キーの設定（CDK Placeholder パターン）
 
-**Web Push 通知機能** に必要な VAPID キーペアを生成し、環境変数として設定します。
+**Web Push 通知機能** に必要な VAPID キーは、Stock Tracker と同じパターンで CDK により Secrets Manager に PLACEHOLDER として作成されます。
 
-#### 3.3.1 VAPID キーの生成
+#### 3.3.1 CDK による自動作成
 
-以下のスクリプトを実行して、VAPID キーペアを生成します:
+CDK デプロイ時に、Secrets Manager に以下のシークレットが自動作成されます:
+
+```typescript
+// infra/niconico-mylist-assistant/lib/secrets-stack.ts
+new secretsmanager.Secret(this, 'VapidSecret', {
+  secretName: `nagiyu-niconico-mylist-assistant-vapid-${environment}`,
+  description: 'VAPID key pair for Web Push notifications',
+  secretObjectValue: {
+    publicKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+    privateKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+  },
+});
+```
+
+初回デプロイ後、AWS Console または CLI で実際の VAPID キーに上書きします。
+
+#### 3.3.2 VAPID キーの生成と設定
+
+実際の VAPID キーを生成して設定します:
 
 ```bash
-cd services/niconico-mylist-assistant
-node scripts/generate-vapid-keys.js
+# VAPID キーペアを生成（web-push ライブラリを使用）
+npx web-push generate-vapid-keys
+
+# 出力例:
+# Public Key: BG...
+# Private Key: ab...
+
+# AWS Secrets Manager に設定
+aws secretsmanager update-secret \
+    --secret-id nagiyu-niconico-mylist-assistant-vapid-dev \
+    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
+    --region us-east-1
+
+# 本番環境
+aws secretsmanager update-secret \
+    --secret-id nagiyu-niconico-mylist-assistant-vapid-prod \
+    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
+    --region us-east-1
 ```
 
-実行すると、以下のような出力が得られます:
+#### 3.3.3 開発環境での設定
 
-```
-=== VAPID キーが生成されました ===
-
-以下の環境変数を設定してください:
-
-VAPID_PUBLIC_KEY=BG...（公開鍵）
-VAPID_PRIVATE_KEY=ab...（秘密鍵）
-
-注意:
-- 秘密鍵は厳重に管理してください
-- 本番環境と開発環境で異なるキーを使用してください
-- キーは AWS Systems Manager Parameter Store や Secrets Manager に保存することを推奨します
-```
-
-#### 3.3.2 開発環境での設定
-
-開発環境では、`.env.local` ファイルに追加します:
+ローカル開発では、`.env.local` ファイルに追加します:
 
 ```bash
 # services/niconico-mylist-assistant/web/.env.local
+# services/niconico-mylist-assistant/batch/.env.local (テスト用)
 VAPID_PUBLIC_KEY=BG...
 VAPID_PRIVATE_KEY=ab...
-```
-
-#### 3.3.3 本番環境での設定
-
-本番環境では、CDK スタックの環境変数として設定します:
-
-1. **Secrets Manager に保存** (推奨):
-
-```bash
-# dev 環境
-aws secretsmanager create-secret \
-    --name niconico-mylist-assistant/vapid-keys-dev \
-    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
-    --region us-east-1
-
-# prod 環境
-aws secretsmanager create-secret \
-    --name niconico-mylist-assistant/vapid-keys-prod \
-    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
-    --region us-east-1
-```
-
-2. **CDK で Lambda / Batch の環境変数に設定**:
-
-Lambda Stack と Batch Stack で Secrets Manager から VAPID キーを取得して環境変数に設定します。
-
-```typescript
-// infra/niconico-mylist-assistant/lib/lambda-stack.ts
-const vapidKeysSecret = secretsmanager.Secret.fromSecretNameV2(
-  this,
-  'VapidKeysSecret',
-  `niconico-mylist-assistant/vapid-keys-${props.env}`
-);
-
-// Lambda 環境変数に追加（安全な方法）
-environment: {
-  VAPID_PUBLIC_KEY: vapidKeysSecret.secretValueFromJson('publicKey').toString(),
-  VAPID_PRIVATE_KEY: vapidKeysSecret.secretValueFromJson('privateKey').toString(),
-  // ... その他の環境変数
-}
 ```
 
 **注意**:
@@ -206,7 +185,7 @@ infra/niconico-mylist-assistant/
 │   └── niconico-mylist-assistant.ts
 ├── lib/
 │   ├── dynamodb-stack.ts
-│   ├── secrets-stack.ts          # Secrets Manager スタック（暗号化キー）
+│   ├── secrets-stack.ts          # Secrets Manager スタック（暗号化キー + VAPID キー）
 │   ├── ecr-stacks.ts              # ECR スタック（web / batch）
 │   ├── lambda-stack.ts
 │   ├── cloudfront-stack.ts
