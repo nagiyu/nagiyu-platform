@@ -1,6 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES modules で __dirname を取得
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // .env.local ファイルを読み込む
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
