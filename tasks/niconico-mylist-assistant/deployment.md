@@ -98,7 +98,71 @@ aws secretsmanager create-secret \
     --region us-east-1
 ```
 
-### 3.3 CDK スタック構成
+### 3.3 VAPID キーの設定（CDK Placeholder パターン）
+
+**Web Push 通知機能** に必要な VAPID キーは、Stock Tracker と同じパターンで CDK により Secrets Manager に PLACEHOLDER として作成されます。
+
+#### 3.3.1 CDK による自動作成
+
+CDK デプロイ時に、Secrets Manager に以下のシークレットが自動作成されます:
+
+```typescript
+// infra/niconico-mylist-assistant/lib/secrets-stack.ts
+new secretsmanager.Secret(this, 'VapidSecret', {
+  secretName: `nagiyu-niconico-mylist-assistant-vapid-${environment}`,
+  description: 'VAPID key pair for Web Push notifications',
+  secretObjectValue: {
+    publicKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+    privateKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+  },
+});
+```
+
+初回デプロイ後、AWS Console または CLI で実際の VAPID キーに上書きします。
+
+#### 3.3.2 VAPID キーの生成と設定
+
+実際の VAPID キーを生成して設定します:
+
+```bash
+# VAPID キーペアを生成（web-push ライブラリを使用）
+npx web-push generate-vapid-keys
+
+# 出力例:
+# Public Key: BG...
+# Private Key: ab...
+
+# AWS Secrets Manager に設定
+aws secretsmanager update-secret \
+    --secret-id nagiyu-niconico-mylist-assistant-vapid-dev \
+    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
+    --region us-east-1
+
+# 本番環境
+aws secretsmanager update-secret \
+    --secret-id nagiyu-niconico-mylist-assistant-vapid-prod \
+    --secret-string '{"publicKey":"BG...","privateKey":"ab..."}' \
+    --region us-east-1
+```
+
+#### 3.3.3 開発環境での設定
+
+ローカル開発では、`.env.local` ファイルに追加します:
+
+```bash
+# services/niconico-mylist-assistant/web/.env.local
+# services/niconico-mylist-assistant/batch/.env.local (テスト用)
+VAPID_PUBLIC_KEY=BG...
+VAPID_PRIVATE_KEY=ab...
+```
+
+**注意**:
+- **公開鍵と秘密鍵は環境ごとに異なるものを使用**してください
+- **秘密鍵は厳重に管理**し、リポジトリにコミットしないでください
+- キーペアを紛失した場合、全ユーザーの通知サブスクリプションが無効になります
+- `secretValueFromJson().toString()` を使用することで、CloudFormation テンプレートには `{{resolve:secretsmanager:...}}` のような参照が記録され、実際の値はランタイムに解決されます
+
+### 3.4 CDK スタック構成
 
 本サービスは Auth に倣い、リソースごとにスタックを分割しています。
 
@@ -121,7 +185,7 @@ infra/niconico-mylist-assistant/
 │   └── niconico-mylist-assistant.ts
 ├── lib/
 │   ├── dynamodb-stack.ts
-│   ├── secrets-stack.ts          # Secrets Manager スタック（暗号化キー）
+│   ├── secrets-stack.ts          # Secrets Manager スタック（暗号化キー + VAPID キー）
 │   ├── ecr-stacks.ts              # ECR スタック（web / batch）
 │   ├── lambda-stack.ts
 │   ├── cloudfront-stack.ts
@@ -453,6 +517,8 @@ aws lambda update-function-code \
 | `AUTH_URL`             | Auth サービス URL          | CDK で自動設定（環境別） |
 | `NEXT_PUBLIC_AUTH_URL` | Auth サービス URL（公開用）| CDK で自動設定（環境別） |
 | `APP_URL`              | アプリケーション URL       | CDK で自動設定（環境別） |
+| `VAPID_PUBLIC_KEY`     | Web Push 通知用 VAPID 公開鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
+| `VAPID_PRIVATE_KEY`    | Web Push 通知用 VAPID 秘密鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
 
 #### Batch 環境変数
 
@@ -460,6 +526,8 @@ aws lambda update-function-code \
 | ---------------------- | -------------------------- | ----------------- |
 | `DYNAMODB_TABLE_NAME`  | DynamoDB テーブル名        | CDK で自動設定    |
 | `SHARED_SECRET_KEY`    | パスワード復号キー         | Secrets Manager → 環境変数 |
+| `VAPID_PUBLIC_KEY`     | Web Push 通知用 VAPID 公開鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
+| `VAPID_PRIVATE_KEY`    | Web Push 通知用 VAPID 秘密鍵 | [セクション 3.3](#33-vapid-キーの生成と設定) 参照 |
 
 ### 6.2 リソース設定
 

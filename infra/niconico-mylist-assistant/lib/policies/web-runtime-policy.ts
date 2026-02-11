@@ -30,6 +30,11 @@ export interface WebRuntimePolicyProps {
    * Encryption Secret ARN
    */
   encryptionSecretArn: string;
+
+  /**
+   * VAPID Secret ARN
+   */
+  vapidSecretArn: string;
 }
 
 /**
@@ -45,7 +50,7 @@ export interface WebRuntimePolicyProps {
  * 含まれる権限:
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem, DeleteItem, Scan, BatchGetItem, BatchWriteItem)
  * - AWS Batch: ジョブ投入 (SubmitJob)
- * - Secrets Manager: 暗号化キーの読み取り (GetSecretValue)
+ * - Secrets Manager: 暗号化キーと VAPID キーの読み取り (GetSecretValue)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
 export class WebRuntimePolicy extends iam.ManagedPolicy {
@@ -88,13 +93,13 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
       })
     );
 
-    // Secrets Manager 権限: 暗号化キーの読み取り
+    // Secrets Manager 権限: 暗号化キーと VAPID キーの読み取り
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'SecretsManagerAccess',
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [props.encryptionSecretArn],
+        resources: [props.encryptionSecretArn, props.vapidSecretArn],
       })
     );
   }

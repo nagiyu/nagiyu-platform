@@ -22,6 +22,13 @@ interface RegisterMylistRequest {
     email: string;
     password: string;
   };
+  pushSubscription?: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
 }
 
 /**
@@ -302,6 +309,7 @@ export async function POST(
         jobId: submitResult.jobId,
         userId: session.user.id,
         status: 'SUBMITTED',
+        pushSubscription: body.pushSubscription,
       });
       console.log(`バッチジョブレコードを作成しました: ${submitResult.jobId}`);
     } catch (error) {

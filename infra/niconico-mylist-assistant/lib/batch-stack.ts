@@ -4,6 +4,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { getEcrRepositoryName, getDynamoDBTableName } from '@nagiyu/infra-common';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
@@ -15,6 +16,7 @@ export interface BatchStackProps extends cdk.StackProps {
   encryptionSecretName?: string; // Optional, will be extracted from ARN if not provided
   screenshotBucketArn?: string; // Optional S3 bucket ARN for screenshots
   screenshotBucketName?: string; // Optional S3 bucket name for screenshots
+  vapidSecretArn: string; // VAPID Secret ARN for Web Push notifications
 }
 
 /**
@@ -44,6 +46,7 @@ export class BatchStack extends cdk.Stack {
       encryptionSecretName,
       screenshotBucketArn,
       screenshotBucketName,
+      vapidSecretArn,
     } = props;
     const env = environment as 'dev' | 'prod';
 
@@ -52,6 +55,13 @@ export class BatchStack extends cdk.Stack {
       encryptionSecretName ||
       encryptionSecretArn.split(':').pop()?.split('-').slice(0, -1).join('-') ||
       `niconico-mylist-assistant/shared-secret-key-${env}`;
+
+    // VAPID Secret の参照
+    const vapidSecret = secretsmanager.Secret.fromSecretCompleteArn(
+      this,
+      'VapidSecret',
+      vapidSecretArn
+    );
 
     // ECR リポジトリの参照
     const batchEcrRepositoryName = getEcrRepositoryName('niconico-mylist-assistant-batch', env);
@@ -114,6 +124,7 @@ export class BatchStack extends cdk.Stack {
       logGroupName: batchLogGroup.logGroupName,
       envName: environment,
       encryptionSecretArn,
+      vapidSecretArn,
       screenshotBucketArn,
     });
 
@@ -194,6 +205,14 @@ export class BatchStack extends cdk.Stack {
           {
             name: 'ENCRYPTION_SECRET_NAME',
             value: secretName,
+          },
+          {
+            name: 'VAPID_PUBLIC_KEY',
+            value: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
+          },
+          {
+            name: 'VAPID_PRIVATE_KEY',
+            value: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
           },
           ...(screenshotBucketName
             ? [

@@ -56,6 +56,18 @@ export interface BatchJobEntity {
    * 使用後は削除される
    */
   twoFactorAuthCode?: string;
+
+  /**
+   * Web Push サブスクリプション情報（バッチ完了通知用）
+   * ジョブ作成時に設定される
+   */
+  pushSubscription?: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
 }
 
 /**

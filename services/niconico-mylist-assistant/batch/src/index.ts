@@ -4,9 +4,10 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import { decrypt, updateBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { executeMylistRegistration } from './playwright-automation.js';
+import { sendNotification, createBatchCompletionPayload } from './lib/web-push-client.js';
 import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
 import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
 import { MylistRegistrationJobParams } from './types.js';
@@ -128,6 +129,7 @@ async function main() {
   console.log('========================================');
 
   let params: MylistRegistrationJobParams | null = null;
+  let pushSubscription: { endpoint: string; keys: { p256dh: string; auth: string } } | undefined;
 
   try {
     // 環境変数の読み取り
@@ -135,6 +137,24 @@ async function main() {
 
     // ジョブパラメータの取得
     params = getJobParameters();
+
+    // ジョブ情報を取得（pushSubscription を取得するため）
+    // NOTE: pushSubscription は環境変数として渡さない理由:
+    // 1. AWS Batch 環境変数にはサイズ制限がある
+    // 2. Subscription エンドポイントや鍵情報は大きく、環境変数には不適切
+    // 3. DynamoDB から取得することで、最新の情報を確実に取得できる
+    if (params.jobId) {
+      try {
+        const job = await getBatchJob(params.jobId, params.userId);
+        if (job?.pushSubscription) {
+          pushSubscription = job.pushSubscription;
+          console.log('Push サブスクリプション情報を取得しました');
+        }
+      } catch (error) {
+        console.warn('ジョブ情報の取得に失敗しました:', error);
+        // Push通知情報が取得できなくてもジョブは続行
+      }
+    }
 
     // ジョブステータスを RUNNING に更新
     if (params.jobId) {
@@ -255,6 +275,30 @@ async function main() {
           completedAt: Date.now(),
         });
         console.log('ジョブステータスを SUCCEEDED に更新しました');
+
+        // Web Push 通知を送信
+        if (pushSubscription) {
+          try {
+            console.log('バッチ完了通知を送信中...');
+            const notificationPayload = createBatchCompletionPayload(
+              params.jobId,
+              result.successVideoIds.length,
+              result.failedVideoIds.length,
+              result.successVideoIds.length + result.failedVideoIds.length
+            );
+            const notificationSent = await sendNotification(pushSubscription, notificationPayload);
+            if (notificationSent) {
+              console.log('バッチ完了通知を送信しました');
+            } else {
+              console.warn('バッチ完了通知の送信に失敗しました');
+            }
+          } catch (error) {
+            console.error('バッチ完了通知の送信中にエラーが発生しました:', error);
+            // 通知送信の失敗はジョブの成否に影響しない
+          }
+        } else {
+          console.log('Push サブスクリプション情報がないため、通知をスキップします');
+        }
       } catch (error) {
         console.error('ジョブステータス更新に失敗しました (SUCCEEDED):', error);
         // 更新失敗してもジョブ自体は成功

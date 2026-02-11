@@ -4,6 +4,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
@@ -16,6 +17,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   batchJobDefinitionArn: string; // Batch Job Definition ARN
   encryptionSecretArn: string; // Encryption Secret ARN
   encryptionSecretName: string; // Encryption Secret Name
+  vapidSecretArn: string; // VAPID Secret ARN
 }
 
 /**
@@ -42,6 +44,7 @@ export class LambdaStack extends cdk.Stack {
       batchJobDefinitionArn,
       encryptionSecretArn,
       encryptionSecretName,
+      vapidSecretArn,
     } = props;
 
     // Auth URL configuration
@@ -51,6 +54,13 @@ export class LambdaStack extends cdk.Stack {
       environment === 'prod'
         ? 'https://niconico-mylist-assistant.nagiyu.com'
         : 'https://dev-niconico-mylist-assistant.nagiyu.com';
+
+    // VAPID Secret の参照
+    const vapidSecret = secretsmanager.Secret.fromSecretCompleteArn(
+      this,
+      'VapidSecret',
+      vapidSecretArn
+    );
 
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
@@ -67,6 +77,7 @@ export class LambdaStack extends cdk.Stack {
       batchJobQueueArn,
       batchJobDefinitionArn,
       encryptionSecretArn,
+      vapidSecretArn,
     });
 
     // Web Lambda 用の実行ロール
@@ -101,6 +112,8 @@ export class LambdaStack extends cdk.Stack {
         BATCH_JOB_DEFINITION: batchJobDefinitionArn,
         ENCRYPTION_SECRET_NAME: encryptionSecretName,
         AWS_REGION_FOR_SDK: this.region,
+        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
+        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日

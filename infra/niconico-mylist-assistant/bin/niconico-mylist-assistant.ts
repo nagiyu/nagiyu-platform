@@ -71,6 +71,7 @@ const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envS
   encryptionSecretName: secretsStack.encryptionSecret.secretName,
   screenshotBucketArn: s3Stack.screenshotBucket.bucketArn,
   screenshotBucketName: s3Stack.screenshotBucketName,
+  vapidSecretArn: secretsStack.vapidSecret.secretArn,
   env: stackEnv,
   description: `Niconico Mylist Assistant Batch - ${env} environment`,
 });
@@ -93,6 +94,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${e
   batchJobDefinitionArn: batchStack.jobDefinitionArn,
   encryptionSecretArn: secretsStack.encryptionSecret.secretArn,
   encryptionSecretName: secretsStack.encryptionSecret.secretName,
+  vapidSecretArn: secretsStack.vapidSecret.secretArn,
   env: stackEnv,
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });
