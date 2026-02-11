@@ -142,6 +142,10 @@ async function main() {
     params = getJobParameters();
 
     // ジョブ情報を取得（pushSubscription を取得するため）
+    // NOTE: pushSubscription は環境変数として渡さない理由:
+    // 1. AWS Batch 環境変数にはサイズ制限がある
+    // 2. Subscription エンドポイントや鍵情報は大きく、環境変数には不適切
+    // 3. DynamoDB から取得することで、最新の情報を確実に取得できる
     if (params.jobId) {
       try {
         const job = await getBatchJob(params.jobId, params.userId);

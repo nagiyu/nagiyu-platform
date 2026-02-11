@@ -6,7 +6,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'crypto';
-import webpush from 'web-push';
 
 /**
  * エラーメッセージ定数
@@ -20,14 +19,11 @@ const ERROR_MESSAGES = {
 } as const;
 
 /**
- * VAPID キーの初期化（モジュールレベル）
+ * VAPID キーの存在確認（モジュールレベル）
+ * ここでは設定は行わず、キーの存在のみをチェック
  */
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-
-if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails('mailto:noreply@nagiyu.com', vapidPublicKey, vapidPrivateKey);
-}
 
 /**
  * リクエストボディ型定義
@@ -74,8 +70,8 @@ function validateSubscription(
 
   // endpoint が有効な URL 形式であることを検証
   try {
-    // 不正な URL 文字列の場合は例外が発生する
-    new URL(sub.endpoint);
+    // URL のバリデーションのみを行う（インスタンスは使用しない）
+    void new URL(sub.endpoint);
   } catch {
     return false;
   }

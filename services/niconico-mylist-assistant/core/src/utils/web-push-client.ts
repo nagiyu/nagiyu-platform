@@ -39,7 +39,14 @@ export interface PushSubscription {
  *
  * @throws {Error} VAPID キーが未設定の場合
  */
+let vapidConfigured = false;
+
 function configureVapidKeys(): void {
+  // 既に設定済みの場合はスキップ
+  if (vapidConfigured) {
+    return;
+  }
+
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
 
@@ -48,6 +55,7 @@ function configureVapidKeys(): void {
   }
 
   webpush.setVapidDetails('mailto:noreply@nagiyu.com', publicKey, privateKey);
+  vapidConfigured = true;
 }
 
 /**
