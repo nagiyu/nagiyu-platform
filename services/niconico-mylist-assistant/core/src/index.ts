@@ -27,3 +27,7 @@ export * from './niconico/index.js';
 
 // 暗号化ユーティリティ
 export * from './utils/crypto.js';
+
+// Web Push 通知クライアント (Server-only)
+// クライアントサイドで使用する場合は、@nagiyu/niconico-mylist-assistant-core/server からインポートしてください
+// export * from './utils/web-push-client.js';

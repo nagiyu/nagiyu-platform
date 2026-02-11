@@ -6,6 +6,16 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -19,9 +29,11 @@
     "@aws-sdk/client-secrets-manager": "^3.982.0",
     "@aws-sdk/lib-dynamodb": "^3.972.0",
     "@nagiyu/aws": "*",
+    "web-push": "^3.6.7",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
+    "@types/web-push": "^3.6.4",
     "@types/xml2js": "^0.4.14",
     "aws-sdk-client-mock": "^4.1.0"
   }

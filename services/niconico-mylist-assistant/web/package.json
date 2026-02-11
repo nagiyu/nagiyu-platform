@@ -18,10 +18,13 @@
     "@aws-sdk/client-batch": "^3.975.0",
     "@aws-sdk/client-dynamodb": "^3.975.0",
     "@aws-sdk/lib-dynamodb": "^3.975.0",
-    "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/common": "*",
+    "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/ui": "*",
-    "next-auth": "^5.0.0-beta.30"
+    "next-auth": "^5.0.0-beta.30",
+    "web-push": "^3.6.7"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@types/web-push": "^3.6.4"
+  }
 }

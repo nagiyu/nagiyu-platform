@@ -4,8 +4,12 @@
  * ニコニコ動画マイリスト自動登録バッチジョブ
  */
 
-import { decrypt, updateBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
+import {
+  sendNotification,
+  createBatchCompletionPayload,
+} from '@nagiyu/niconico-mylist-assistant-core/server';
 import { executeMylistRegistration } from './playwright-automation.js';
 import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
 import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
@@ -255,6 +259,34 @@ async function main() {
           completedAt: Date.now(),
         });
         console.log('ジョブステータスを SUCCEEDED に更新しました');
+
+        // Web Push 通知を送信
+        try {
+          const job = await getBatchJob(params.jobId, params.userId);
+          if (job?.pushSubscription) {
+            console.log('バッチ完了通知を送信中...');
+            const notificationPayload = createBatchCompletionPayload(
+              params.jobId,
+              result.successVideoIds.length,
+              result.failedVideoIds.length,
+              result.successVideoIds.length + result.failedVideoIds.length
+            );
+            const notificationSent = await sendNotification(
+              job.pushSubscription,
+              notificationPayload
+            );
+            if (notificationSent) {
+              console.log('バッチ完了通知を送信しました');
+            } else {
+              console.warn('バッチ完了通知の送信に失敗しました');
+            }
+          } else {
+            console.log('Push サブスクリプション情報がないため、通知をスキップします');
+          }
+        } catch (error) {
+          console.error('バッチ完了通知の送信中にエラーが発生しました:', error);
+          // 通知送信の失敗はジョブの成否に影響しない
+        }
       } catch (error) {
         console.error('ジョブステータス更新に失敗しました (SUCCEEDED):', error);
         // 更新失敗してもジョブ自体は成功

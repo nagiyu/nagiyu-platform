@@ -16,11 +16,12 @@
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "dependencies": {
-    "@nagiyu/niconico-mylist-assistant-core": "*",
-    "@nagiyu/browser": "*",
     "@nagiyu/aws": "*",
+    "@nagiyu/browser": "*",
+    "@nagiyu/niconico-mylist-assistant-core": "*",
+    "dotenv": "^16.4.7",
     "playwright": "1.58.0",
-    "dotenv": "^16.4.7"
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.58.0"
