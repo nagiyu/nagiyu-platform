@@ -46,11 +46,7 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
       })),
     });
   } catch (error) {
-    console.error('Error fetching exchanges:', error);
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.INTERNAL_ERROR },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 });
 
