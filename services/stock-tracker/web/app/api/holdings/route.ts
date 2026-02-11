@@ -8,16 +8,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getAuthError,
-  validateHolding,
-  DynamoDBHoldingRepository,
-  DynamoDBTickerRepository,
-  type Holding,
-} from '@nagiyu/stock-tracker-core';
-import { withRepository, withRepositories } from '@nagiyu/nextjs';
+import { getAuthError, validateHolding } from '@nagiyu/stock-tracker-core';
+import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
-import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
+import type { Holding } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -88,207 +82,210 @@ function mapHoldingToResponse(
  * GET /api/holdings
  * 保有株式一覧取得
  */
-export const GET = withRepositories(
-  getDynamoDBClient,
-  getTableName,
-  [DynamoDBHoldingRepository, DynamoDBTickerRepository],
-  async ([holdingRepo, tickerRepo], request: NextRequest) => {
-    try {
-      // 認証・権限チェック
-      const session = await getSession();
-      const authError = getAuthError(session, 'stocks:read');
+export async function GET(
+  request: NextRequest
+): Promise<NextResponse<HoldingsListResponse | ErrorResponse>> {
+  try {
+    // 認証・権限チェック
+    const session = await getSession();
+    const authError = getAuthError(session, 'stocks:read');
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      // クエリパラメータの取得
-      const { searchParams } = new URL(request.url);
-      const limitParam = searchParams.get('limit');
-      const lastKeyParam = searchParams.get('lastKey');
-
-      // limit のバリデーション
-      const limit = limitParam ? parseInt(limitParam, 10) : 50;
-      if (isNaN(limit) || limit < 1 || limit > 100) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_LIMIT,
-          },
-          { status: 400 }
-        );
-      }
-
-      // ユーザーIDを取得
-      const userId = session!.user.userId;
-
-      // 保有株式一覧取得
-      const result = await holdingRepo.getByUserId(userId, {
-        limit,
-        cursor: lastKeyParam || undefined,
-      });
-
-      // TickerリポジトリでSymbolとNameを取得
-      // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-      const holdings: HoldingResponse[] = [];
-      for (const holding of result.items) {
-        // ティッカーが見つからない場合はデフォルト値を使用
-        let ticker;
-        try {
-          ticker = await tickerRepo.getById(holding.TickerID);
-        } catch {
-          // ティッカーが見つからない場合は null として扱う
-          ticker = null;
-        }
-        holdings.push(
-          mapHoldingToResponse(
-            holding,
-            ticker?.Symbol || holding.TickerID.split(':')[1] || '',
-            ticker?.Name || ''
-          )
-        );
-      }
-
-      // レスポンス形式に変換
-      const response: HoldingsListResponse = {
-        holdings,
-        pagination: {
-          count: holdings.length,
-          ...(result.nextCursor && { lastKey: result.nextCursor }),
-        },
-      };
-
-      return NextResponse.json(response, { status: 200 });
-    } catch (error) {
-      console.error('Error fetching holdings:', error);
+    if (authError) {
       return NextResponse.json(
         {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.INTERNAL_ERROR,
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
         },
-        { status: 500 }
+        { status: authError.statusCode }
       );
     }
+
+    // クエリパラメータの取得
+    const { searchParams } = new URL(request.url);
+    const limitParam = searchParams.get('limit');
+    const lastKeyParam = searchParams.get('lastKey');
+
+    // limit のバリデーション
+    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_LIMIT,
+        },
+        { status: 400 }
+      );
+    }
+
+    // リポジトリの初期化
+    const holdingRepo = createHoldingRepository();
+
+    // ユーザーIDを取得
+    const userId = session!.user.userId;
+
+    // 保有株式一覧取得
+    const result = await holdingRepo.getByUserId(userId, {
+      limit,
+      cursor: lastKeyParam || undefined,
+    });
+
+    // TickerリポジトリでSymbolとNameを取得
+    // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
+    const tickerRepo = createTickerRepository();
+
+    const holdings: HoldingResponse[] = [];
+    for (const holding of result.items) {
+      // ティッカーが見つからない場合はデフォルト値を使用
+      let ticker;
+      try {
+        ticker = await tickerRepo.getById(holding.TickerID);
+      } catch {
+        // ティッカーが見つからない場合は null として扱う
+        ticker = null;
+      }
+      holdings.push(
+        mapHoldingToResponse(
+          holding,
+          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
+          ticker?.Name || ''
+        )
+      );
+    }
+
+    // レスポンス形式に変換
+    const response: HoldingsListResponse = {
+      holdings,
+      pagination: {
+        count: holdings.length,
+        ...(result.nextCursor && { lastKey: result.nextCursor }),
+      },
+    };
+
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    console.error('Error fetching holdings:', error);
+    return NextResponse.json(
+      {
+        error: 'INTERNAL_ERROR',
+        message: ERROR_MESSAGES.INTERNAL_ERROR,
+      },
+      { status: 500 }
+    );
   }
-);
+}
 
 /**
  * POST /api/holdings
  * 保有株式登録
  */
-export const POST = withRepositories(
-  getDynamoDBClient,
-  getTableName,
-  [DynamoDBHoldingRepository, DynamoDBTickerRepository],
-  async ([holdingRepo, tickerRepo], request: NextRequest) => {
-    try {
-      // 認証・権限チェック
-      const session = await getSession();
-      const authError = getAuthError(session, 'stocks:write-own');
+export async function POST(
+  request: NextRequest
+): Promise<NextResponse<HoldingResponse | ErrorResponse>> {
+  try {
+    // 認証・権限チェック
+    const session = await getSession();
+    const authError = getAuthError(session, 'stocks:write-own');
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      // リクエストボディの取得
-      let body;
-      try {
-        body = await request.json();
-      } catch {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-          },
-          { status: 400 }
-        );
-      }
-
-      // ユーザーIDを取得
-      const userId = session!.user.userId;
-
-      // リクエストボディから Holding オブジェクトを構築
-      const holdingData = {
-        UserID: userId,
-        TickerID: body.tickerId,
-        ExchangeID: body.exchangeId || body.tickerId?.split(':')[0] || '',
-        Quantity: body.quantity,
-        AveragePrice: body.averagePrice,
-        Currency: body.currency,
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      };
-
-      // バリデーション
-      const validationResult = validateHolding(holdingData);
-      if (!validationResult.valid) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.VALIDATION_ERROR,
-            details: validationResult.errors,
-          },
-          { status: 400 }
-        );
-      }
-
-      // 保有株式を作成
-      let createdHolding: Holding;
-      try {
-        createdHolding = await holdingRepo.create({
-          UserID: userId,
-          TickerID: holdingData.TickerID,
-          ExchangeID: holdingData.ExchangeID,
-          Quantity: holdingData.Quantity,
-          AveragePrice: holdingData.AveragePrice,
-          Currency: holdingData.Currency,
-        });
-      } catch (error) {
-        // HoldingAlreadyExistsError のチェック
-        if (error instanceof Error && error.name === 'HoldingAlreadyExistsError') {
-          return NextResponse.json(
-            {
-              error: 'INVALID_REQUEST',
-              message: ERROR_MESSAGES.ALREADY_EXISTS,
-            },
-            { status: 400 }
-          );
-        }
-        throw error;
-      }
-
-      // TickerリポジトリでSymbolとNameを取得
-      const ticker = await tickerRepo.getById(createdHolding.TickerID);
-
-      // レスポンス形式に変換
-      const response = mapHoldingToResponse(
-        createdHolding,
-        ticker?.Symbol || createdHolding.TickerID.split(':')[1] || '',
-        ticker?.Name || ''
-      );
-
-      return NextResponse.json(response, { status: 201 });
-    } catch (error) {
-      console.error('Error creating holding:', error);
+    if (authError) {
       return NextResponse.json(
         {
-          error: 'INTERNAL_ERROR',
-          message: ERROR_MESSAGES.CREATE_ERROR,
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
         },
-        { status: 500 }
+        { status: authError.statusCode }
       );
     }
+
+    // リクエストボディの取得
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+        },
+        { status: 400 }
+      );
+    }
+
+    // ユーザーIDを取得
+    const userId = session!.user.userId;
+
+    // リクエストボディから Holding オブジェクトを構築
+    const holdingData = {
+      UserID: userId,
+      TickerID: body.tickerId,
+      ExchangeID: body.exchangeId || body.tickerId?.split(':')[0] || '',
+      Quantity: body.quantity,
+      AveragePrice: body.averagePrice,
+      Currency: body.currency,
+      CreatedAt: Date.now(),
+      UpdatedAt: Date.now(),
+    };
+
+    // バリデーション
+    const validationResult = validateHolding(holdingData);
+    if (!validationResult.valid) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.VALIDATION_ERROR,
+          details: validationResult.errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // リポジトリの初期化
+    const holdingRepo = createHoldingRepository();
+
+    // 保有株式を作成
+    let createdHolding: Holding;
+    try {
+      createdHolding = await holdingRepo.create({
+        UserID: userId,
+        TickerID: holdingData.TickerID,
+        ExchangeID: holdingData.ExchangeID,
+        Quantity: holdingData.Quantity,
+        AveragePrice: holdingData.AveragePrice,
+        Currency: holdingData.Currency,
+      });
+    } catch (error) {
+      // HoldingAlreadyExistsError のチェック
+      if (error instanceof Error && error.name === 'HoldingAlreadyExistsError') {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.ALREADY_EXISTS,
+          },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
+
+    // TickerリポジトリでSymbolとNameを取得
+    const tickerRepo = createTickerRepository();
+    const ticker = await tickerRepo.getById(createdHolding.TickerID);
+
+    // レスポンス形式に変換
+    const response = mapHoldingToResponse(
+      createdHolding,
+      ticker?.Symbol || createdHolding.TickerID.split(':')[1] || '',
+      ticker?.Name || ''
+    );
+
+    return NextResponse.json(response, { status: 201 });
+  } catch (error) {
+    console.error('Error creating holding:', error);
+    return NextResponse.json(
+      {
+        error: 'INTERNAL_ERROR',
+        message: ERROR_MESSAGES.CREATE_ERROR,
+      },
+      { status: 500 }
+    );
   }
-);
+}

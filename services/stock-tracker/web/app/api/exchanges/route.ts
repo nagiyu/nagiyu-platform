@@ -1,14 +1,8 @@
 import { NextResponse } from 'next/server';
-import {
-  getAuthError,
-  validateExchange,
-  type ExchangeEntity,
-  DynamoDBExchangeRepository,
-} from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
 import { EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
-import { withRepository } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
-import { getDynamoDBClient, getTableName } from '../../../lib/dynamodb';
+import { createExchangeRepository } from '../../../lib/repository-factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -17,22 +11,6 @@ const ERROR_MESSAGES = {
   INVALID_REQUEST: 'リクエストが不正です',
   EXCHANGE_ALREADY_EXISTS: '取引所は既に存在します',
 } as const;
-
-/**
- * Exchange エンティティをレスポンス形式に変換
- */
-function mapExchangeToResponse(exchange: ExchangeEntity) {
-  return {
-    exchangeId: exchange.ExchangeID,
-    name: exchange.Name,
-    key: exchange.Key,
-    timezone: exchange.Timezone,
-    tradingHours: {
-      start: exchange.Start,
-      end: exchange.End,
-    },
-  };
-}
 
 /**
  * GET /api/exchanges - 取引所一覧取得
@@ -46,11 +24,8 @@ function mapExchangeToResponse(exchange: ExchangeEntity) {
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const GET = withRepository(
-  getDynamoDBClient,
-  getTableName,
-  DynamoDBExchangeRepository,
-  async (repo) => {
+export async function GET() {
+  try {
     // 認証・権限チェック
     const session = await getSession();
     const authError = getAuthError(session, 'stocks:read');
@@ -65,12 +40,30 @@ export const GET = withRepository(
       );
     }
 
-    const exchanges = await repo.getAll();
+    // Exchange リポジトリを初期化
+    const exchangeRepo = createExchangeRepository();
+
+    // 全取引所を取得
+    const exchanges = await exchangeRepo.getAll();
+
+    // レスポンスを返す (API仕様に従った形式)
     return NextResponse.json({
-      exchanges: exchanges.map(mapExchangeToResponse),
+      exchanges: exchanges.map((exchange: ExchangeEntity) => ({
+        exchangeId: exchange.ExchangeID,
+        name: exchange.Name,
+        key: exchange.Key,
+        timezone: exchange.Timezone,
+        tradingHours: {
+          start: exchange.Start,
+          end: exchange.End,
+        },
+      })),
     });
+  } catch (error) {
+    console.error('Error fetching exchanges:', error);
+    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_ERROR }, { status: 500 });
   }
-);
+}
 
 /**
  * POST /api/exchanges - 取引所作成
@@ -85,111 +78,109 @@ export const GET = withRepository(
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const POST = withRepository(
-  getDynamoDBClient,
-  getTableName,
-  DynamoDBExchangeRepository,
-  async (repo, request: Request) => {
-    try {
-      // 認証・権限チェック
-      const session = await getSession();
-      const authError = getAuthError(session, 'stocks:manage-data');
+export async function POST(request: Request) {
+  try {
+    // 認証・権限チェック
+    const session = await getSession();
+    const authError = getAuthError(session, 'stocks:manage-data');
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      // リクエストボディをパース
-      const body = await request.json();
-
-      // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
-      const { exchangeId, name, key, timezone, tradingHours } = body;
-
-      // バリデーション用の一時的な Exchange オブジェクトを作成
-      const exchangeToValidate = {
-        ExchangeID: exchangeId,
-        Name: name,
-        Key: key,
-        Timezone: timezone,
-        Start: tradingHours?.start,
-        End: tradingHours?.end,
-        CreatedAt: Date.now(), // バリデーション用の仮値
-        UpdatedAt: Date.now(), // バリデーション用の仮値
-      };
-
-      // バリデーション実行
-      const validationResult = validateExchange(exchangeToValidate);
-
-      if (!validationResult.valid) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
-          },
-          { status: 400 }
-        );
-      }
-
-      // 取引所を作成
-      const newExchange = await repo.create({
-        ExchangeID: exchangeId,
-        Name: name,
-        Key: key,
-        Timezone: timezone,
-        Start: tradingHours.start,
-        End: tradingHours.end,
-      });
-
-      // レスポンスを返す (API仕様に従った形式)
+    if (authError) {
       return NextResponse.json(
         {
-          exchangeId: newExchange.ExchangeID,
-          name: newExchange.Name,
-          key: newExchange.Key,
-          timezone: newExchange.Timezone,
-          tradingHours: {
-            start: newExchange.Start,
-            end: newExchange.End,
-          },
-          createdAt: new Date(newExchange.CreatedAt).toISOString(),
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
         },
-        { status: 201 }
-      );
-    } catch (error) {
-      console.error('Error creating exchange:', error);
-
-      // EntityAlreadyExistsError の場合は 400
-      if (error instanceof EntityAlreadyExistsError) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.EXCHANGE_ALREADY_EXISTS,
-          },
-          { status: 400 }
-        );
-      }
-
-      // InvalidEntityDataError の場合は 400
-      if (error instanceof InvalidEntityDataError) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: error.message,
-          },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json(
-        { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.CREATE_ERROR },
-        { status: 500 }
+        { status: authError.statusCode }
       );
     }
+
+    // リクエストボディをパース
+    const body = await request.json();
+
+    // リクエストボディから Exchange オブジェクトを構築（バリデーション用）
+    const { exchangeId, name, key, timezone, tradingHours } = body;
+
+    // バリデーション用の一時的な Exchange オブジェクトを作成
+    const exchangeToValidate = {
+      ExchangeID: exchangeId,
+      Name: name,
+      Key: key,
+      Timezone: timezone,
+      Start: tradingHours?.start,
+      End: tradingHours?.end,
+      CreatedAt: Date.now(), // バリデーション用の仮値
+      UpdatedAt: Date.now(), // バリデーション用の仮値
+    };
+
+    // バリデーション実行
+    const validationResult = validateExchange(exchangeToValidate);
+
+    if (!validationResult.valid) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Exchange リポジトリを初期化
+    const exchangeRepo = createExchangeRepository();
+
+    // 取引所を作成
+    const newExchange = await exchangeRepo.create({
+      ExchangeID: exchangeId,
+      Name: name,
+      Key: key,
+      Timezone: timezone,
+      Start: tradingHours.start,
+      End: tradingHours.end,
+    });
+
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json(
+      {
+        exchangeId: newExchange.ExchangeID,
+        name: newExchange.Name,
+        key: newExchange.Key,
+        timezone: newExchange.Timezone,
+        tradingHours: {
+          start: newExchange.Start,
+          end: newExchange.End,
+        },
+        createdAt: new Date(newExchange.CreatedAt).toISOString(),
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error('Error creating exchange:', error);
+
+    // EntityAlreadyExistsError の場合は 400
+    if (error instanceof EntityAlreadyExistsError) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.EXCHANGE_ALREADY_EXISTS,
+        },
+        { status: 400 }
+      );
+    }
+
+    // InvalidEntityDataError の場合は 400
+    if (error instanceof InvalidEntityDataError) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: error.message,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.CREATE_ERROR },
+      { status: 500 }
+    );
   }
-);
+}

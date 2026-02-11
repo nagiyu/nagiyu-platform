@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getAuthError, validateExchange, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateExchange } from '@nagiyu/stock-tracker-core';
 import { EntityNotFoundError, InvalidEntityDataError } from '@nagiyu/aws';
-import { withRepository } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
+import { createExchangeRepository } from '../../../../lib/repository-factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -29,63 +28,61 @@ const ERROR_MESSAGES = {
  * @returns 取引所が見つからない (404 Not Found)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const GET = withRepository(
-  getDynamoDBClient,
-  getTableName,
-  DynamoDBExchangeRepository,
-  async (repo, request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
-      // 認証・権限チェック
-      const session = await getSession();
-      const authError = getAuthError(session, 'stocks:read');
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    // 認証・権限チェック
+    const session = await getSession();
+    const authError = getAuthError(session, 'stocks:read');
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      const { id: exchangeId } = await params;
-
-      // 取引所を取得
-      const exchange = await repo.getById(exchangeId);
-
-      if (!exchange) {
-        return NextResponse.json(
-          {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      // レスポンスを返す (API仕様に従った形式)
-      return NextResponse.json({
-        exchangeId: exchange.ExchangeID,
-        name: exchange.Name,
-        key: exchange.Key,
-        timezone: exchange.Timezone,
-        tradingHours: {
-          start: exchange.Start,
-          end: exchange.End,
-        },
-        createdAt: new Date(exchange.CreatedAt).toISOString(),
-        updatedAt: new Date(exchange.UpdatedAt).toISOString(),
-      });
-    } catch (error) {
-      console.error('Error fetching exchange:', error);
+    if (authError) {
       return NextResponse.json(
-        { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.UPDATE_ERROR },
-        { status: 500 }
+        {
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
+        },
+        { status: authError.statusCode }
       );
     }
+
+    const { id: exchangeId } = await params;
+
+    // Exchange リポジトリを初期化
+    const exchangeRepo = createExchangeRepository();
+
+    // 取引所を取得
+    const exchange = await exchangeRepo.getById(exchangeId);
+
+    if (!exchange) {
+      return NextResponse.json(
+        {
+          error: 'NOT_FOUND',
+          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json({
+      exchangeId: exchange.ExchangeID,
+      name: exchange.Name,
+      key: exchange.Key,
+      timezone: exchange.Timezone,
+      tradingHours: {
+        start: exchange.Start,
+        end: exchange.End,
+      },
+      createdAt: new Date(exchange.CreatedAt).toISOString(),
+      updatedAt: new Date(exchange.UpdatedAt).toISOString(),
+    });
+  } catch (error) {
+    console.error('Error fetching exchange:', error);
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.UPDATE_ERROR },
+      { status: 500 }
+    );
   }
-);
+}
 
 /**
  * PUT /api/exchanges/{id} - 取引所更新
@@ -103,144 +100,142 @@ export const GET = withRepository(
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const PUT = withRepository(
-  getDynamoDBClient,
-  getTableName,
-  DynamoDBExchangeRepository,
-  async (repo, request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
-      // 認証・権限チェック
-      const session = await getSession();
-      const authError = getAuthError(session, 'stocks:manage-data');
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    // 認証・権限チェック
+    const session = await getSession();
+    const authError = getAuthError(session, 'stocks:manage-data');
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      const { id: exchangeId } = await params;
-
-      // 既存の取引所を取得
-      const existingExchange = await repo.getById(exchangeId);
-      if (!existingExchange) {
-        return NextResponse.json(
-          {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      // リクエストボディをパース
-      const body = await request.json();
-
-      // 更新可能なフィールドのみ抽出
-      const updates: {
-        Name?: string;
-        Timezone?: string;
-        Start?: string;
-        End?: string;
-      } = {};
-
-      if (body.name !== undefined) {
-        updates.Name = body.name;
-      }
-
-      if (body.timezone !== undefined) {
-        updates.Timezone = body.timezone;
-      }
-
-      if (body.tradingHours?.start !== undefined) {
-        updates.Start = body.tradingHours.start;
-      }
-
-      if (body.tradingHours?.end !== undefined) {
-        updates.End = body.tradingHours.end;
-      }
-
-      // 更新フィールドが空の場合はエラー
-      if (Object.keys(updates).length === 0) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_REQUEST,
-          },
-          { status: 400 }
-        );
-      }
-
-      // 更新後のデータをバリデーション用にマージ
-      const exchangeToValidate = {
-        ...existingExchange,
-        ...updates,
-      };
-
-      // バリデーション実行
-      const validationResult = validateExchange(exchangeToValidate);
-
-      if (!validationResult.valid) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
-          },
-          { status: 400 }
-        );
-      }
-
-      // 取引所を更新
-      const updatedExchange = await repo.update(exchangeId, updates);
-
-      // レスポンスを返す (API仕様に従った形式)
-      return NextResponse.json({
-        exchangeId: updatedExchange.ExchangeID,
-        name: updatedExchange.Name,
-        key: updatedExchange.Key,
-        timezone: updatedExchange.Timezone,
-        tradingHours: {
-          start: updatedExchange.Start,
-          end: updatedExchange.End,
-        },
-        updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
-      });
-    } catch (error) {
-      console.error('Error updating exchange:', error);
-
-      // EntityNotFoundError の場合は 404
-      if (error instanceof EntityNotFoundError) {
-        return NextResponse.json(
-          {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      // InvalidEntityDataError の場合は 400
-      if (error instanceof InvalidEntityDataError) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: error.message,
-          },
-          { status: 400 }
-        );
-      }
-
+    if (authError) {
       return NextResponse.json(
-        { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.UPDATE_ERROR },
-        { status: 500 }
+        {
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
+        },
+        { status: authError.statusCode }
       );
     }
+
+    const { id: exchangeId } = await params;
+
+    // Exchange リポジトリを初期化
+    const exchangeRepo = createExchangeRepository();
+
+    // 既存の取引所を取得
+    const existingExchange = await exchangeRepo.getById(exchangeId);
+    if (!existingExchange) {
+      return NextResponse.json(
+        {
+          error: 'NOT_FOUND',
+          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
+    // リクエストボディをパース
+    const body = await request.json();
+
+    // 更新可能なフィールドのみ抽出
+    const updates: {
+      Name?: string;
+      Timezone?: string;
+      Start?: string;
+      End?: string;
+    } = {};
+
+    if (body.name !== undefined) {
+      updates.Name = body.name;
+    }
+
+    if (body.timezone !== undefined) {
+      updates.Timezone = body.timezone;
+    }
+
+    if (body.tradingHours?.start !== undefined) {
+      updates.Start = body.tradingHours.start;
+    }
+
+    if (body.tradingHours?.end !== undefined) {
+      updates.End = body.tradingHours.end;
+    }
+
+    // 更新フィールドが空の場合はエラー
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.INVALID_REQUEST,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 更新後のデータをバリデーション用にマージ
+    const exchangeToValidate = {
+      ...existingExchange,
+      ...updates,
+    };
+
+    // バリデーション実行
+    const validationResult = validateExchange(exchangeToValidate);
+
+    if (!validationResult.valid) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: validationResult.errors?.join(', ') || ERROR_MESSAGES.INVALID_REQUEST,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 取引所を更新
+    const updatedExchange = await exchangeRepo.update(exchangeId, updates);
+
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json({
+      exchangeId: updatedExchange.ExchangeID,
+      name: updatedExchange.Name,
+      key: updatedExchange.Key,
+      timezone: updatedExchange.Timezone,
+      tradingHours: {
+        start: updatedExchange.Start,
+        end: updatedExchange.End,
+      },
+      updatedAt: new Date(updatedExchange.UpdatedAt).toISOString(),
+    });
+  } catch (error) {
+    console.error('Error updating exchange:', error);
+
+    // EntityNotFoundError の場合は 404
+    if (error instanceof EntityNotFoundError) {
+      return NextResponse.json(
+        {
+          error: 'NOT_FOUND',
+          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
+    // InvalidEntityDataError の場合は 400
+    if (error instanceof InvalidEntityDataError) {
+      return NextResponse.json(
+        {
+          error: 'INVALID_REQUEST',
+          message: error.message,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.UPDATE_ERROR },
+      { status: 500 }
+    );
   }
-);
+}
 
 /**
  * DELETE /api/exchanges/{id} - 取引所削除
@@ -258,57 +253,55 @@ export const PUT = withRepository(
  * @returns 関連ティッカーあり (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export const DELETE = withRepository(
-  getDynamoDBClient,
-  getTableName,
-  DynamoDBExchangeRepository,
-  async (repo, request: Request, { params }: { params: Promise<{ id: string }> }) => {
-    try {
-      // 認証・権限チェック
-      const session = await getSession();
-      const authError = getAuthError(session, 'stocks:manage-data');
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    // 認証・権限チェック
+    const session = await getSession();
+    const authError = getAuthError(session, 'stocks:manage-data');
 
-      if (authError) {
-        return NextResponse.json(
-          {
-            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-            message: authError.message,
-          },
-          { status: authError.statusCode }
-        );
-      }
-
-      const { id: exchangeId } = await params;
-
-      // 取引所を削除
-      await repo.delete(exchangeId);
-
-      // レスポンスを返す (API仕様に従った形式)
-      return NextResponse.json({
-        success: true,
-        deletedExchangeId: exchangeId,
-      });
-    } catch (error) {
-      console.error('Error deleting exchange:', error);
-
-      // EntityNotFoundError の場合は 404
-      if (error instanceof EntityNotFoundError) {
-        return NextResponse.json(
-          {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      // TODO: 関連するティッカーが存在する場合のチェックを追加
-      // Phase 2以降で実装予定
-
+    if (authError) {
       return NextResponse.json(
-        { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.DELETE_ERROR },
-        { status: 500 }
+        {
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
+        },
+        { status: authError.statusCode }
       );
     }
+
+    const { id: exchangeId } = await params;
+
+    // Exchange リポジトリを初期化
+    const exchangeRepo = createExchangeRepository();
+
+    // 取引所を削除
+    await exchangeRepo.delete(exchangeId);
+
+    // レスポンスを返す (API仕様に従った形式)
+    return NextResponse.json({
+      success: true,
+      deletedExchangeId: exchangeId,
+    });
+  } catch (error) {
+    console.error('Error deleting exchange:', error);
+
+    // EntityNotFoundError の場合は 404
+    if (error instanceof EntityNotFoundError) {
+      return NextResponse.json(
+        {
+          error: 'NOT_FOUND',
+          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+        },
+        { status: 404 }
+      );
+    }
+
+    // TODO: 関連するティッカーが存在する場合のチェックを追加
+    // Phase 2以降で実装予定
+
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.DELETE_ERROR },
+      { status: 500 }
+    );
   }
-);
+}
