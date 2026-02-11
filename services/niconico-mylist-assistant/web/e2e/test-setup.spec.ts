@@ -10,9 +10,9 @@ import { clearTestData } from './helpers/test-data';
  * - テストヘルパーが正常に動作する
  */
 test.describe('E2E Test Setup Verification', () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ request }) => {
     // 各テスト前にデータをクリア
-    await clearTestData();
+    await clearTestData(request);
   });
 
   test('should access health endpoint without authentication', async ({ request }) => {
