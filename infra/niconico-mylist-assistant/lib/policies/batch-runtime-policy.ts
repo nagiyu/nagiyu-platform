@@ -31,6 +31,11 @@ export interface BatchRuntimePolicyProps {
   encryptionSecretArn: string;
 
   /**
+   * VAPID Secret ARN
+   */
+  vapidSecretArn: string;
+
+  /**
    * S3 Screenshot Bucket ARN (オプション)
    */
   screenshotBucketArn?: string;
@@ -50,7 +55,7 @@ export interface BatchRuntimePolicyProps {
  * - DynamoDB: テーブルへの読み書きアクセス (Query, GetItem, PutItem, UpdateItem)
  *   - DeleteItem は不可（最小権限の原則）
  * - CloudWatch Logs: ログ書き込み
- * - Secrets Manager: 暗号化キーの読み取り (GetSecretValue)
+ * - Secrets Manager: 暗号化キーと VAPID キーの読み取り (GetSecretValue)
  * - S3: スクリーンショットバケットへの書き込み (PutObject)
  */
 export class BatchRuntimePolicy extends iam.ManagedPolicy {
@@ -84,13 +89,13 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
       })
     );
 
-    // Secrets Manager 権限: 暗号化キーの読み取り
+    // Secrets Manager 権限: 暗号化キーと VAPID キーの読み取り
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'SecretsManagerAccess',
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [props.encryptionSecretArn],
+        resources: [props.encryptionSecretArn, props.vapidSecretArn],
       })
     );
 

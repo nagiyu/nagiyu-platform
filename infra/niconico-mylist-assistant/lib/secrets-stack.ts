@@ -9,11 +9,13 @@ export interface SecretsStackProps extends cdk.StackProps {
 /**
  * Niconico Mylist Assistant Secrets Stack
  *
- * パスワード暗号化用の共有キーを Secrets Manager で管理します。
- * 暗号化キーは AES-256-GCM 用の32バイトランダム値を自動生成します。
+ * パスワード暗号化用の共有キーと VAPID キーを Secrets Manager で管理します。
+ * - 暗号化キーは AES-256-GCM 用の32バイトランダム値を自動生成します。
+ * - VAPID キーは PLACEHOLDER 値で作成し、後で実際の値に上書きします。
  */
 export class SecretsStack extends cdk.Stack {
   public readonly encryptionSecret: secretsmanager.ISecret;
+  public readonly vapidSecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
     super(scope, id, props);
@@ -49,6 +51,34 @@ export class SecretsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'EncryptionSecretName', {
       value: this.encryptionSecret.secretName,
       description: 'Encryption Secret Name',
+    });
+
+    // VAPID キーシークレット（初回は PLACEHOLDER 値）
+    // Web Push 通知用の VAPID キーペア
+    // デプロイ後に実際のキーに上書きする必要があります
+    this.vapidSecret = new secretsmanager.Secret(this, 'VapidSecret', {
+      secretName: `nagiyu-niconico-mylist-assistant-vapid-${environment}`,
+      description: 'VAPID key pair for Web Push notifications',
+      secretObjectValue: {
+        publicKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+        privateKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+      },
+    });
+
+    // タグの追加
+    cdk.Tags.of(this.vapidSecret).add('Application', 'nagiyu');
+    cdk.Tags.of(this.vapidSecret).add('Service', 'niconico-mylist-assistant');
+    cdk.Tags.of(this.vapidSecret).add('Environment', environment);
+
+    // CloudFormation Outputs
+    new cdk.CfnOutput(this, 'VapidSecretArn', {
+      value: this.vapidSecret.secretArn,
+      description: 'VAPID Secret ARN',
+    });
+
+    new cdk.CfnOutput(this, 'VapidSecretName', {
+      value: this.vapidSecret.secretName,
+      description: 'VAPID Secret Name',
     });
   }
 }
