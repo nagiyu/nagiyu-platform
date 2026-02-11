@@ -2,17 +2,17 @@ name: Niconico Mylist Assistant - Deploy Infrastructure
 
 on:
   push:
-    # branches:
-    #   - develop
-    #   - integration/**
-    #   - master
-    # paths:
-    #   - "services/niconico-mylist-assistant/**"
-    #   - "infra/niconico-mylist-assistant/**"
-    #   - "libs/**"
-    #   - "package.json"
-    #   - "package-lock.json"
-    #   - ".github/workflows/niconico-mylist-assistant-deploy.yml"
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - "services/niconico-mylist-assistant/**"
+      - "infra/niconico-mylist-assistant/**"
+      - "libs/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/niconico-mylist-assistant-deploy.yml"
   workflow_dispatch:
 
 env:
