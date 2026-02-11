@@ -6,11 +6,8 @@
 
 import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
-import {
-  sendNotification,
-  createBatchCompletionPayload,
-} from '@nagiyu/niconico-mylist-assistant-core/server';
 import { executeMylistRegistration } from './playwright-automation.js';
+import { sendNotification, createBatchCompletionPayload } from './lib/web-push-client.js';
 import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
 import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
 import { MylistRegistrationJobParams } from './types.js';
