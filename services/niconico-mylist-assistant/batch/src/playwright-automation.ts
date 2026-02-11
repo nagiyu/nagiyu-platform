@@ -342,13 +342,13 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     const createButton = page.locator('button.MylistSideContainer-actionButton').first();
     await createButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('マイリスト作成ボタンが表示されました');
-    
+
     await createButton.click({ timeout: 30000 });
     console.log('マイリスト作成ボタンをクリックしました');
 
     // モーダルの表示を待つ - より明示的な待機
     await sleep(3000);
-    
+
     // モーダルコンテナの表示を確認し、参照を保持
     let modalContainer;
     try {
@@ -376,7 +376,7 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     const nameInput = modalContainer.locator('input[type="text"], input:not([type]), textarea').first();
     await nameInput.waitFor({ state: 'visible', timeout: 30000 });
     console.log('入力フィールドが表示されました');
-    
+
     await nameInput.fill(mylistName);
     console.log(`マイリスト名を入力しました: ${mylistName}`);
 
@@ -385,10 +385,12 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     const submitButton = modalContainer.locator('button[type="submit"], footer button, button').first();
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('送信ボタンが表示されました');
-    
+
     // モーダルが完全に表示されるまで待機
     await sleep(1000);
-    
+
+    await takeScreenshot(page, 'before-mylist-submit');
+
     // オーバーレイが原因でクリックできない場合は、JavaScriptでクリック
     try {
       // 通常のクリックを試みる（オーバーレイがない場合）
@@ -400,13 +402,15 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
       await submitButton.evaluate((button) => (button as HTMLElement).click());
       console.log('モーダルの作成ボタンをクリックしました（JavaScriptクリック）');
     }
-    
+
     // モーダルが閉じるまで待機
     await sleep(2000);
-    
+
     // マイリスト作成の完了を待つ
     await sleep(2000);
-    
+
+    await takeScreenshot(page, 'after-mylist-submit');
+
     // マイリストが作成されたことを確認
     // モーダルが閉じて、マイリストリストが更新されるまで待機
     try {
@@ -559,7 +563,7 @@ const s3Client = SCREENSHOT_BUCKET_NAME ? createS3Client({ region: AWS_REGION })
 export async function takeScreenshot(page: Page, filename: string): Promise<void> {
   try {
     const path = `${SCREENSHOT_DIR}/${filename}.png`;
-    await page.screenshot({ path, fullPage: true });
+    await page.screenshot({ path, fullPage: true, timeout: 0 });
     console.log(`スクリーンショット保存: ${path}`);
 
     // S3 バケットが設定されている場合は S3 にアップロード
