@@ -207,12 +207,22 @@ describe('utils', () => {
       jest.restoreAllMocks();
     });
 
-    it('呼び出すたびに異なる値を返す', async () => {
+    it('呼び出すたびに異なる値を返す', () => {
+      // Dateをモックして時間経過を再現
+      const mockDate1 = new Date(2024, 5, 15, 10, 30, 45);
+      const mockDate2 = new Date(2024, 5, 15, 10, 30, 46); // 1秒後
+
+      jest.spyOn(global, 'Date').mockImplementationOnce(() => mockDate1 as any);
       const name1 = generateDefaultMylistName();
-      await sleep(1000); // 1秒待機（秒単位の変化を確実に捉える）
+
+      jest.spyOn(global, 'Date').mockImplementationOnce(() => mockDate2 as any);
       const name2 = generateDefaultMylistName();
 
       expect(name1).not.toBe(name2);
+      expect(name1).toBe('自動登録 2024/06/15 10:30:45');
+      expect(name2).toBe('自動登録 2024/06/15 10:30:46');
+
+      jest.restoreAllMocks();
     });
   });
 });

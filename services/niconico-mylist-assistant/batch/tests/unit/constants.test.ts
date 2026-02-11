@@ -136,9 +136,9 @@ describe('constants', () => {
     });
 
     it('タイムアウト値がミリ秒単位で適切である', () => {
-      // 最短でも1秒以上
+      // 最短でも1秒以上であるべき
       expect(TIMEOUTS.VIDEO_REGISTRATION).toBeGreaterThanOrEqual(1000);
-      // 最長でも10分以下
+      // 最長でも10分以下であるべき
       expect(TIMEOUTS.TWO_FACTOR_AUTH_WAIT).toBeLessThanOrEqual(600000);
     });
   });
@@ -165,7 +165,7 @@ describe('constants', () => {
     });
 
     it('タイムアウト値より小さい', () => {
-      // ポーリング間隔は二段階認証待機タイムアウトより小さいべき
+      // ポーリング間隔は二段階認証待機タイムアウトより小さいべきである
       expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeLessThan(TIMEOUTS.TWO_FACTOR_AUTH_WAIT);
     });
   });
