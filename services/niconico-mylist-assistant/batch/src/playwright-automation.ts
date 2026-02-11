@@ -366,14 +366,18 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
         const id = await input.getAttribute('id').catch(() => null);
         const placeholder = await input.getAttribute('placeholder').catch(() => null);
         const isVisible = await input.isVisible().catch(() => false);
-        console.log(`[DEBUG] Input[${i}]: type="${type}", id="${id}", placeholder="${placeholder}", visible=${isVisible}`);
+        console.log(
+          `[DEBUG] Input[${i}]: type="${type}", id="${id}", placeholder="${placeholder}", visible=${isVisible}`
+        );
       }
       throw modalError;
     }
 
     // マイリスト名を入力
     // モーダルコンテナ内の入力フィールドを探す（モーダル外の要素を除外）
-    const nameInput = modalContainer.locator('input[type="text"], input:not([type]), textarea').first();
+    const nameInput = modalContainer
+      .locator('input[type="text"], input:not([type]), textarea')
+      .first();
     await nameInput.waitFor({ state: 'visible', timeout: 30000 });
     console.log('入力フィールドが表示されました');
 
@@ -382,7 +386,9 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
 
     // 作成ボタンをクリック
     // モーダルコンテナ内の送信ボタンを探す
-    const submitButton = modalContainer.locator('button[type="submit"], footer button, button').first();
+    const submitButton = modalContainer
+      .locator('button[type="submit"], footer button, button')
+      .first();
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('送信ボタンが表示されました');
 
@@ -420,7 +426,10 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
       const count = await mylistItems.count();
       console.log(`マイリスト作成成功（確認: ${count}件のマイリストが存在）`);
     } catch (verifyError) {
-      console.warn('マイリスト作成の確認でエラー（作成自体は成功している可能性あり）:', verifyError);
+      console.warn(
+        'マイリスト作成の確認でエラー（作成自体は成功している可能性あり）:',
+        verifyError
+      );
       console.log('マイリスト作成成功');
     }
   } catch (error) {
