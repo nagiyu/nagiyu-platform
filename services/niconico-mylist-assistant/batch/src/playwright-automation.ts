@@ -387,15 +387,12 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
     // 作成ボタンをクリック
     // モーダルコンテナ内の送信ボタンを探す
     const submitButton = modalContainer
-      .locator('button[type="submit"], footer button, button')
-      .first();
+      .getByRole('button', { name: '作成' });
     await submitButton.waitFor({ state: 'visible', timeout: 30000 });
     console.log('送信ボタンが表示されました');
 
     // モーダルが完全に表示されるまで待機
     await sleep(1000);
-
-    await takeScreenshot(page, 'before-mylist-submit');
 
     // オーバーレイが原因でクリックできない場合は、JavaScriptでクリック
     try {
@@ -414,8 +411,6 @@ export async function createMylist(page: Page, mylistName: string): Promise<void
 
     // マイリスト作成の完了を待つ
     await sleep(2000);
-
-    await takeScreenshot(page, 'after-mylist-submit');
 
     // マイリストが作成されたことを確認
     // モーダルが閉じて、マイリストリストが更新されるまで待機
