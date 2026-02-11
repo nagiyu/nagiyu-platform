@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getAuthError, validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
-import { EntityAlreadyExistsError, InvalidEntityDataError } from '@nagiyu/aws';
+import { validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { createExchangeRepository } from '../../../lib/repository-factory';
 
@@ -24,22 +24,8 @@ const ERROR_MESSAGES = {
  * @returns 権限エラー (403 Forbidden)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export async function GET() {
+export const GET = withAuth(getSession, 'stocks:read', async () => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:read');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // Exchange リポジトリを初期化
     const exchangeRepo = createExchangeRepository();
 
@@ -61,9 +47,12 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Error fetching exchanges:', error);
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_ERROR }, { status: 500 });
+    return NextResponse.json(
+      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.INTERNAL_ERROR },
+      { status: 500 }
+    );
   }
-}
+});
 
 /**
  * POST /api/exchanges - 取引所作成
@@ -78,22 +67,8 @@ export async function GET() {
  * @returns リクエスト不正 (400 Bad Request)
  * @returns サーバーエラー (500 Internal Server Error)
  */
-export async function POST(request: Request) {
+export const POST = withAuth(getSession, 'stocks:manage-data', async (_session, request: Request) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // リクエストボディをパース
     const body = await request.json();
 
@@ -154,33 +129,6 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error creating exchange:', error);
-
-    // EntityAlreadyExistsError の場合は 400
-    if (error instanceof EntityAlreadyExistsError) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.EXCHANGE_ALREADY_EXISTS,
-        },
-        { status: 400 }
-      );
-    }
-
-    // InvalidEntityDataError の場合は 400
-    if (error instanceof InvalidEntityDataError) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: error.message,
-        },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: 'INTERNAL_ERROR', message: ERROR_MESSAGES.CREATE_ERROR },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
