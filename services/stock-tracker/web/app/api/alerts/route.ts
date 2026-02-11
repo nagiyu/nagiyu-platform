@@ -117,18 +117,13 @@ export const GET = withAuth(
         );
       }
 
-      // lastKey をbase64エンコード
-      const encodedLastKey = result.nextCursor
-        ? Buffer.from(JSON.stringify(result.nextCursor)).toString('base64')
-        : undefined;
-
       // レスポンス形式に変換
       return NextResponse.json(
         {
           alerts,
           pagination: {
             count: alerts.length,
-            ...(encodedLastKey && { lastKey: encodedLastKey }),
+            ...(result.nextCursor && { lastKey: result.nextCursor }),
           },
         },
         { status: 200 }
