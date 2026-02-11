@@ -57,13 +57,8 @@ export async function POST(
 
     // AWS クライアントと環境変数の取得
     const { docClient, s3Client, batchClient } = getAwsClients();
-    const {
-      DYNAMODB_TABLE,
-      S3_BUCKET,
-      BATCH_JOB_QUEUE,
-      BATCH_JOB_DEFINITION_PREFIX,
-      AWS_REGION,
-    } = getEnvVars();
+    const { DYNAMODB_TABLE, S3_BUCKET, BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION_PREFIX, AWS_REGION } =
+      getEnvVars();
 
     // 1. DynamoDBでジョブの存在確認
     const getResult = await docClient.send(
