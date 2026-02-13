@@ -56,6 +56,10 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
       item.twoFactorAuthCode = entity.twoFactorAuthCode;
     }
 
+    if (entity.pushSubscription !== undefined) {
+      item.pushSubscription = entity.pushSubscription;
+    }
+
     // TTL を設定（7日後）
     const ttl = Math.floor(entity.CreatedAt / 1000) + 7 * 24 * 60 * 60;
     item.TTL = ttl;
@@ -88,6 +92,38 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
 
     if (item.twoFactorAuthCode !== undefined) {
       entity.twoFactorAuthCode = validateStringField(item.twoFactorAuthCode, 'twoFactorAuthCode');
+    }
+
+    if (item.pushSubscription !== undefined) {
+      // pushSubscription の型と構造をバリデーション
+      if (
+        typeof item.pushSubscription !== 'object' ||
+        item.pushSubscription === null ||
+        Array.isArray(item.pushSubscription)
+      ) {
+        throw new Error('pushSubscription must be an object');
+      }
+
+      const subscription = item.pushSubscription as Record<string, unknown>;
+
+      // keys オブジェクトの検証
+      if (
+        typeof subscription.keys !== 'object' ||
+        subscription.keys === null ||
+        Array.isArray(subscription.keys)
+      ) {
+        throw new Error('pushSubscription.keys must be an object');
+      }
+
+      const keys = subscription.keys as Record<string, unknown>;
+
+      entity.pushSubscription = {
+        endpoint: validateStringField(subscription.endpoint, 'pushSubscription.endpoint'),
+        keys: {
+          p256dh: validateStringField(keys.p256dh, 'pushSubscription.keys.p256dh'),
+          auth: validateStringField(keys.auth, 'pushSubscription.keys.auth'),
+        },
+      };
     }
 
     return entity;
