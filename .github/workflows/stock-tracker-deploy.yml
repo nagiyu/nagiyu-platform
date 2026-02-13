@@ -136,7 +136,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Build and tag with commit SHA
-          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
+          docker build --platform linux/amd64 --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
             -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
@@ -197,7 +197,7 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Build and tag with commit SHA
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .
+          docker build --platform linux/amd64 -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           # Also tag as latest
