@@ -176,7 +176,7 @@ jobs:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/web/Dockerfile .
+          docker build --platform linux/amd64 -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           
           # Also tag as latest
