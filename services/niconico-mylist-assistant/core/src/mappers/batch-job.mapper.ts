@@ -56,6 +56,10 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
       item.twoFactorAuthCode = entity.twoFactorAuthCode;
     }
 
+    if (entity.pushSubscription !== undefined) {
+      item.pushSubscription = entity.pushSubscription;
+    }
+
     // TTL を設定（7日後）
     const ttl = Math.floor(entity.CreatedAt / 1000) + 7 * 24 * 60 * 60;
     item.TTL = ttl;
@@ -88,6 +92,16 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
 
     if (item.twoFactorAuthCode !== undefined) {
       entity.twoFactorAuthCode = validateStringField(item.twoFactorAuthCode, 'twoFactorAuthCode');
+    }
+
+    if (item.pushSubscription !== undefined) {
+      entity.pushSubscription = item.pushSubscription as {
+        endpoint: string;
+        keys: {
+          p256dh: string;
+          auth: string;
+        };
+      };
     }
 
     return entity;

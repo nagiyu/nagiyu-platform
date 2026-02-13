@@ -78,6 +78,33 @@ describe('BatchJobMapper', () => {
 
       expect(item.twoFactorAuthCode).toBe('123456');
     });
+
+    it('オプショナルフィールド pushSubscription を含む Entity を変換できる', () => {
+      const entity: BatchJobEntity = {
+        jobId: 'job-123',
+        userId: 'user-456',
+        status: 'SUBMITTED',
+        pushSubscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'test-p256dh-key',
+            auth: 'test-auth-key',
+          },
+        },
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.pushSubscription).toEqual({
+        endpoint: 'https://example.com/push',
+        keys: {
+          p256dh: 'test-p256dh-key',
+          auth: 'test-auth-key',
+        },
+      });
+    });
   });
 
   describe('toEntity', () => {
@@ -152,6 +179,36 @@ describe('BatchJobMapper', () => {
       const entity = mapper.toEntity(item);
 
       expect(entity.twoFactorAuthCode).toBe('654321');
+    });
+
+    it('オプショナルフィールド pushSubscription を含む Item を変換できる', () => {
+      const item = {
+        PK: 'BATCH_JOB#job-123#user-456',
+        SK: 'BATCH_JOB#job-123#user-456',
+        Type: 'BATCH_JOB',
+        jobId: 'job-123',
+        userId: 'user-456',
+        status: 'SUBMITTED',
+        pushSubscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'test-p256dh-key',
+            auth: 'test-auth-key',
+          },
+        },
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.pushSubscription).toEqual({
+        endpoint: 'https://example.com/push',
+        keys: {
+          p256dh: 'test-p256dh-key',
+          auth: 'test-auth-key',
+        },
+      });
     });
   });
 
