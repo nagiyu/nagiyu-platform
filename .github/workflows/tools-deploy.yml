@@ -136,6 +136,7 @@ jobs:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
           APP_VERSION: ${{ steps.get-version.outputs.app-version }}
+          DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
           docker build --platform linux/amd64 --build-arg APP_VERSION="$APP_VERSION" \

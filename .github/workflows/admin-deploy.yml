@@ -171,6 +171,7 @@ jobs:
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: 0
         run: |
           docker build --platform linux/amd64 -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/admin/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
