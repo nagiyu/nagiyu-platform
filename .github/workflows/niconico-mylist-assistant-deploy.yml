@@ -136,9 +136,10 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nagiyu-niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
-          docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             -f services/niconico-mylist-assistant/web/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
@@ -180,9 +181,10 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nagiyu-niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
-          docker build --platform linux/amd64 -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             -f services/niconico-mylist-assistant/batch/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
