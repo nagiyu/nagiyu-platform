@@ -282,7 +282,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Web Docker image
-        run: docker build -t niconico-mylist-assistant-web-verify-full-test -f services/niconico-mylist-assistant/web/Dockerfile .
+        run: docker build --platform linux/amd64 -t niconico-mylist-assistant-web-verify-full-test -f services/niconico-mylist-assistant/web/Dockerfile .
 
   docker-build-batch:
     name: Docker Build Batch
@@ -297,7 +297,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Batch Docker image
-        run: docker build -t niconico-mylist-assistant-batch-verify-full-test -f services/niconico-mylist-assistant/batch/Dockerfile .
+        run: docker build --platform linux/amd64 -t niconico-mylist-assistant-batch-verify-full-test -f services/niconico-mylist-assistant/batch/Dockerfile .
 
   test-batch:
     name: Batch Unit Tests

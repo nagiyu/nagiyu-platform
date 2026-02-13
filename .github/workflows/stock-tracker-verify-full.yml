@@ -137,7 +137,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t stock-tracker-web-verify-full-test -f services/stock-tracker/web/Dockerfile .
+        run: docker build --platform linux/amd64 -t stock-tracker-web-verify-full-test -f services/stock-tracker/web/Dockerfile .
 
   docker-build-batch:
     name: Docker Build Verification (Batch)
@@ -149,7 +149,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t stock-tracker-batch-verify-full-test -f services/stock-tracker/batch/Dockerfile .
+        run: docker build --platform linux/amd64 -t stock-tracker-batch-verify-full-test -f services/stock-tracker/batch/Dockerfile .
 
   test-core:
     name: Run Core Unit Tests
