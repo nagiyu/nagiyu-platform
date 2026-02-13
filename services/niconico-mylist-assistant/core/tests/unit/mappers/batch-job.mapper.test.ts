@@ -245,7 +245,46 @@ describe('BatchJobMapper', () => {
         UpdatedAt: 1234567890000,
       };
 
-      expect(() => mapper.toEntity(item)).toThrow();
+      expect(() => mapper.toEntity(item)).toThrow('pushSubscription.endpoint');
+    });
+
+    it('pushSubscription.keys が欠けている場合はエラーをスローする', () => {
+      const item = {
+        PK: 'BATCH_JOB#job-123#user-456',
+        SK: 'BATCH_JOB#job-123#user-456',
+        Type: 'BATCH_JOB',
+        jobId: 'job-123',
+        userId: 'user-456',
+        status: 'SUBMITTED',
+        pushSubscription: {
+          endpoint: 'https://example.com/push',
+        },
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      };
+
+      expect(() => mapper.toEntity(item)).toThrow('pushSubscription.keys must be an object');
+    });
+
+    it('pushSubscription.keys.p256dh が欠けている場合はエラーをスローする', () => {
+      const item = {
+        PK: 'BATCH_JOB#job-123#user-456',
+        SK: 'BATCH_JOB#job-123#user-456',
+        Type: 'BATCH_JOB',
+        jobId: 'job-123',
+        userId: 'user-456',
+        status: 'SUBMITTED',
+        pushSubscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            auth: 'test-auth-key',
+          },
+        },
+        CreatedAt: 1234567890000,
+        UpdatedAt: 1234567890000,
+      };
+
+      expect(() => mapper.toEntity(item)).toThrow('pushSubscription.keys.p256dh');
     });
   });
 

@@ -106,17 +106,22 @@ export class BatchJobMapper implements EntityMapper<BatchJobEntity, BatchJobKey>
 
       const subscription = item.pushSubscription as Record<string, unknown>;
 
+      // keys オブジェクトの検証
+      if (
+        typeof subscription.keys !== 'object' ||
+        subscription.keys === null ||
+        Array.isArray(subscription.keys)
+      ) {
+        throw new Error('pushSubscription.keys must be an object');
+      }
+
+      const keys = subscription.keys as Record<string, unknown>;
+
       entity.pushSubscription = {
         endpoint: validateStringField(subscription.endpoint, 'pushSubscription.endpoint'),
         keys: {
-          p256dh: validateStringField(
-            (subscription.keys as Record<string, unknown>)?.p256dh,
-            'pushSubscription.keys.p256dh'
-          ),
-          auth: validateStringField(
-            (subscription.keys as Record<string, unknown>)?.auth,
-            'pushSubscription.keys.auth'
-          ),
+          p256dh: validateStringField(keys.p256dh, 'pushSubscription.keys.p256dh'),
+          auth: validateStringField(keys.auth, 'pushSubscription.keys.auth'),
         },
       };
     }
