@@ -83,7 +83,7 @@ export default function NotificationPermissionButton() {
   };
 
   // ブラウザが通知をサポートしていない場合は何も表示しない
-  if (!('Notification' in window)) {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
     return null;
   }
 
