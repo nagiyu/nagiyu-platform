@@ -137,7 +137,7 @@ jobs:
           DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
-          docker build --platform linux/amd64 --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
+          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
             -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
@@ -199,7 +199,7 @@ jobs:
           DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
-          docker build --platform linux/amd64 -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .
+          docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           # Also tag as latest

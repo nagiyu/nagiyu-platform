@@ -139,7 +139,7 @@ jobs:
           DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
-          docker build --platform linux/amd64 --build-arg APP_VERSION="$APP_VERSION" \
+          docker build --build-arg APP_VERSION="$APP_VERSION" \
             -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           
