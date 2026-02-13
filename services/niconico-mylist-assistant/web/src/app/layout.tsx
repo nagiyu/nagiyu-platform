@@ -6,6 +6,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'niconico-mylist-assistant',
   description: 'ニコニコ動画のマイリスト登録を自動化する補助ツール',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
   },
