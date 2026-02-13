@@ -43,6 +43,28 @@ test.describe('E2E Test Setup Verification', () => {
     expect(Array.isArray(body.videos)).toBe(true);
   });
 
+  test('should expose PWA manifest with icons', async ({ request }) => {
+    const response = await request.get('/manifest.json');
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('application/json');
+
+    const body = await response.json();
+    expect(body).toHaveProperty('icons');
+    expect(body.icons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          src: '/icon-192x192.png',
+          sizes: '192x192',
+        }),
+        expect.objectContaining({
+          src: '/icon-512x512.png',
+          sizes: '512x512',
+        }),
+      ])
+    );
+  });
+
   test('should use fixed test user ID in API requests', async ({ page }) => {
     // ホームページにアクセス
     await page.goto('/');
