@@ -204,18 +204,19 @@ export async function listVideosWithSettings(
 
   // ユーザー設定が存在しない場合も、全ユーザー共通の動画基本情報を返す
   if (allSettings.length === 0) {
+    if (isFavorite === true || isSkip === true) {
+      return {
+        videos: [],
+        total: 0,
+      };
+    }
+
     const allVideos = await getVideoRepository().listAll();
-    const filteredVideos = allVideos.filter(() => {
-      if (isFavorite === true || isSkip === true) {
-        return false;
-      }
-      return true;
-    });
-    const paginatedVideos = filteredVideos.slice(offset, offset + limit);
+    const paginatedVideos = allVideos.slice(offset, offset + limit);
 
     return {
       videos: paginatedVideos,
-      total: filteredVideos.length,
+      total: allVideos.length,
     };
   }
 
