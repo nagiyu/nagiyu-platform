@@ -134,6 +134,7 @@ export class LambdaStack extends cdk.Stack {
     cdk.Tags.of(this.webFunction).add('Application', 'nagiyu');
     cdk.Tags.of(this.webFunction).add('Service', 'niconico-mylist-assistant');
     cdk.Tags.of(this.webFunction).add('Environment', environment);
+    cdk.Tags.of(this.webFunction).add('Temp', 'Temp');
 
     // CloudFormation Outputs
     // Note: exportName is intentionally NOT used to allow flexible updates
