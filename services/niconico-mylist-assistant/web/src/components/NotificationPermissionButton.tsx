@@ -30,7 +30,8 @@ export default function NotificationPermissionButton() {
           const existingSubscription = await registration.pushManager.getSubscription();
           setIsSubscribed(Boolean(existingSubscription));
         }
-      } catch {
+      } catch (error) {
+        console.error('通知購読状態の確認に失敗しました:', error);
         setIsSubscribed(false);
       }
     } else {

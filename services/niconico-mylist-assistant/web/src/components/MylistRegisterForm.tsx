@@ -83,17 +83,17 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.getSubscription();
-        const subscriptionJson = subscription?.toJSON();
+        const subscriptionData = subscription?.toJSON();
         if (
-          subscriptionJson?.endpoint &&
-          subscriptionJson.keys?.p256dh &&
-          subscriptionJson.keys?.auth
+          subscriptionData?.endpoint &&
+          subscriptionData.keys?.p256dh &&
+          subscriptionData.keys?.auth
         ) {
           requestBody.pushSubscription = {
-            endpoint: subscriptionJson.endpoint,
+            endpoint: subscriptionData.endpoint,
             keys: {
-              p256dh: subscriptionJson.keys.p256dh,
-              auth: subscriptionJson.keys.auth,
+              p256dh: subscriptionData.keys.p256dh,
+              auth: subscriptionData.keys.auth,
             },
           };
         }
