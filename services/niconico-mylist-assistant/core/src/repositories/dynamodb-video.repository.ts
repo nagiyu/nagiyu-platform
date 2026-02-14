@@ -9,6 +9,7 @@ import {
   PutCommand,
   DeleteCommand,
   BatchGetCommand,
+  ScanCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import { EntityAlreadyExistsError, DatabaseError, type DynamoDBItem } from '@nagiyu/aws';
@@ -35,6 +36,39 @@ export class DynamoDBVideoRepository implements VideoRepository {
     this.docClient = docClient;
     this.tableName = tableName;
     this.mapper = new VideoMapper();
+  }
+
+  /**
+   * 全動画を取得
+   */
+  public async listAll(): Promise<VideoEntity[]> {
+    try {
+      const items: DynamoDBItem[] = [];
+      let exclusiveStartKey: DynamoDBItem | undefined;
+
+      do {
+        const result = await this.docClient.send(
+          new ScanCommand({
+            TableName: this.tableName,
+            FilterExpression: 'begins_with(PK, :videoPrefix) AND begins_with(SK, :videoPrefix)',
+            ExpressionAttributeValues: {
+              ':videoPrefix': 'VIDEO#',
+            },
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
+
+        if (result.Items) {
+          items.push(...(result.Items as DynamoDBItem[]));
+        }
+        exclusiveStartKey = result.LastEvaluatedKey as DynamoDBItem | undefined;
+      } while (exclusiveStartKey);
+
+      return items.map((item) => this.mapper.toEntity(item));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
   }
 
   /**

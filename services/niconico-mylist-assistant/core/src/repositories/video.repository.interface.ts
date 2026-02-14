@@ -13,6 +13,13 @@ import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js'
  */
 export interface VideoRepository {
   /**
+   * 全動画を取得
+   *
+   * @returns 動画エンティティの配列
+   */
+  listAll(): Promise<VideoEntity[]>;
+
+  /**
    * 動画IDで単一の動画を取得
    *
    * @param videoId - 動画ID
