@@ -46,7 +46,7 @@ export default function NotificationPermissionButton() {
 
   const handleRequestPermission = async () => {
     try {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
         throw new Error('この環境ではプッシュ通知を利用できません');
       }
 
@@ -59,8 +59,13 @@ export default function NotificationPermissionButton() {
       }
 
       // Service Worker を取得
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/sw.js');
+      }
+      if (!registration.active) {
+        registration = await navigator.serviceWorker.ready;
+      }
 
       // VAPID 公開鍵を取得
       const vapidResponse = await fetch('/api/push/vapid-public-key');
