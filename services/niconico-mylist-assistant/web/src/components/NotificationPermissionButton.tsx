@@ -46,7 +46,11 @@ export default function NotificationPermissionButton() {
 
   const handleRequestPermission = async () => {
     try {
-      if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+      if (
+        !('Notification' in window) ||
+        !('serviceWorker' in navigator) ||
+        !('PushManager' in window)
+      ) {
         throw new Error('この環境ではプッシュ通知を利用できません');
       }
 
