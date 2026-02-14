@@ -63,6 +63,13 @@ test.describe('E2E Test Setup Verification', () => {
         }),
       ])
     );
+
+    for (const icon of body.icons) {
+      if (typeof icon.src === 'string') {
+        const iconResponse = await request.get(icon.src);
+        expect(iconResponse.status()).toBe(200);
+      }
+    }
   });
 
   test('should use fixed test user ID in API requests', async ({ page }) => {
