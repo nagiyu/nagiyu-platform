@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   description: 'ニコニコ動画のマイリスト登録を自動化する補助ツール',
   manifest: '/manifest.json',
   icons: {
+    icon: '/favicon.ico',
     apple: '/icon-192x192.png',
   },
 };
