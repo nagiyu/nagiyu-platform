@@ -79,6 +79,26 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
         },
       };
 
+      // 既存の Push サブスクリプションをバッチジョブに紐付ける
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        const subscriptionData = subscription?.toJSON();
+        if (
+          subscriptionData?.endpoint &&
+          subscriptionData.keys?.p256dh &&
+          subscriptionData.keys?.auth
+        ) {
+          requestBody.pushSubscription = {
+            endpoint: subscriptionData.endpoint,
+            keys: {
+              p256dh: subscriptionData.keys.p256dh,
+              auth: subscriptionData.keys.auth,
+            },
+          };
+        }
+      }
+
       // API呼び出し
       const response = await fetch('/api/mylist/register', {
         method: 'POST',
