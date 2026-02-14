@@ -112,8 +112,8 @@ export class LambdaStack extends cdk.Stack {
         BATCH_JOB_DEFINITION: batchJobDefinitionArn,
         ENCRYPTION_SECRET_NAME: encryptionSecretName,
         AWS_REGION_FOR_SDK: this.region,
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').toString(),
+        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').toString(),
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
