@@ -44,6 +44,13 @@ export interface MylistRegisterRequest {
     email: string;
     password: string;
   };
+  pushSubscription?: {
+    endpoint: string;
+    keys: {
+      p256dh: string;
+      auth: string;
+    };
+  };
 }
 
 /**

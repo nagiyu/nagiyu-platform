@@ -21,10 +21,20 @@ export default function NotificationPermissionButton() {
   const [open, setOpen] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  const handleOpen = () => {
-    // 既に通知許可が得られているかチェック
+  const handleOpen = async () => {
+    // 既に通知許可とサブスクリプションが得られているかチェック
     if ('Notification' in window && Notification.permission === 'granted') {
-      setIsSubscribed(true);
+      try {
+        if ('serviceWorker' in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          const existingSubscription = await registration.pushManager.getSubscription();
+          setIsSubscribed(Boolean(existingSubscription));
+        }
+      } catch {
+        setIsSubscribed(false);
+      }
+    } else {
+      setIsSubscribed(false);
     }
     setOpen(true);
   };
@@ -53,11 +63,14 @@ export default function NotificationPermissionButton() {
       }
       const { publicKey } = await vapidResponse.json();
 
-      // Push 通知をサブスクライブ
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
-      });
+      // Push 通知をサブスクライブ（既存があれば再利用）
+      const existingSubscription = await registration.pushManager.getSubscription();
+      const subscription =
+        existingSubscription ||
+        (await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
+        }));
 
       // サーバーにサブスクリプション情報を送信
       const response = await fetch('/api/push/subscribe', {
