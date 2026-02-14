@@ -63,15 +63,13 @@ test.describe('E2E Test Setup Verification', () => {
         }),
       ])
     );
-  });
 
-  test('should include apple touch icon link for home screen icon', async ({ page }) => {
-    await page.goto('/');
-
-    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
-      'href',
-      '/icon-192x192.png'
-    );
+    for (const icon of body.icons) {
+      if (typeof icon.src === 'string') {
+        const iconResponse = await request.get(icon.src);
+        expect(iconResponse.status()).toBe(200);
+      }
+    }
   });
 
   test('should use fixed test user ID in API requests', async ({ page }) => {
