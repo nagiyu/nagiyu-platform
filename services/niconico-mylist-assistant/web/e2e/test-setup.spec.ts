@@ -65,6 +65,15 @@ test.describe('E2E Test Setup Verification', () => {
     );
   });
 
+  test('should include apple touch icon link for home screen icon', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute(
+      'href',
+      '/icon-192x192.png'
+    );
+  });
+
   test('should use fixed test user ID in API requests', async ({ page }) => {
     // ホームページにアクセス
     await page.goto('/');
