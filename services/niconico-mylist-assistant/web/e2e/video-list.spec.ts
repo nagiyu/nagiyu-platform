@@ -39,9 +39,14 @@ test.describe('Video List Page', () => {
     await expect(page.getByRole('combobox', { name: 'スキップ' })).toBeVisible();
   });
 
-  test('should display empty state when no videos', async ({ page }) => {
+  test('should display empty state when filter result is empty', async ({ page }) => {
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
+
+    // ユーザー設定未作成の状態では「お気に入りのみ」で0件になる
+    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
+    await favoriteFilter.click();
+    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
 
     // 空の状態メッセージ
     await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();

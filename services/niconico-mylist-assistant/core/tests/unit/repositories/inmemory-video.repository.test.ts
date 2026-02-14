@@ -84,6 +84,28 @@ describe('InMemoryVideoRepository', () => {
     });
   });
 
+  describe('listAll', () => {
+    it('登録済みの全動画を取得できる', async () => {
+      await repository.create({
+        videoId: 'sm1',
+        title: 'テスト動画1',
+        thumbnailUrl: 'https://example.com/thumb1.jpg',
+        length: '5:00',
+      });
+      await repository.create({
+        videoId: 'sm2',
+        title: 'テスト動画2',
+        thumbnailUrl: 'https://example.com/thumb2.jpg',
+        length: '3:00',
+      });
+
+      const result = await repository.listAll();
+
+      expect(result).toHaveLength(2);
+      expect(result.map((video) => video.videoId)).toEqual(expect.arrayContaining(['sm1', 'sm2']));
+    });
+  });
+
   describe('batchGet', () => {
     it('複数の動画を一括取得できる', async () => {
       await repository.create({

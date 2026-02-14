@@ -10,6 +10,7 @@ import {
   PutCommand,
   DeleteCommand,
   BatchGetCommand,
+  ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBVideoRepository } from '../../../src/repositories/dynamodb-video.repository.js';
 import { EntityAlreadyExistsError, DatabaseError } from '@nagiyu/aws';
@@ -65,6 +66,31 @@ describe('DynamoDBVideoRepository', () => {
       ddbMock.on(GetCommand).rejects(new Error('DynamoDB error'));
 
       await expect(repository.getById('sm12345')).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('listAll', () => {
+    it('全動画を取得できる', async () => {
+      ddbMock.on(ScanCommand).resolves({
+        Items: [
+          {
+            PK: 'VIDEO#sm12345',
+            SK: 'VIDEO#sm12345',
+            Type: 'VIDEO',
+            videoId: 'sm12345',
+            title: 'Video 1',
+            thumbnailUrl: 'https://example.com/thumb1.jpg',
+            length: '5:00',
+            CreatedAt: 1234567890000,
+            UpdatedAt: 1234567890000,
+          },
+        ],
+      });
+
+      const result = await repository.listAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0].videoId).toBe('sm12345');
     });
   });
 

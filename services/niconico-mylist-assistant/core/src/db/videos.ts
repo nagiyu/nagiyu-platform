@@ -185,6 +185,8 @@ export async function listVideosWithSettings(
 ): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
   const limit = options?.limit || 50;
   const offset = options?.offset || 0;
+  const isFavorite = options?.isFavorite;
+  const isSkip = options?.isSkip;
 
   // DynamoDBからユーザーの全設定を取得
   // フィルタリングのため、全件取得が必要
@@ -200,17 +202,33 @@ export async function listVideosWithSettings(
     lastKey = result.lastEvaluatedKey;
   } while (lastKey);
 
+  // ユーザー設定が存在しない場合も、全ユーザー共通の動画基本情報を返す
+  if (allSettings.length === 0) {
+    if (isFavorite === true || isSkip === true) {
+      return {
+        videos: [],
+        total: 0,
+      };
+    }
+
+    const allVideos = await getVideoRepository().listAll();
+    const paginatedVideos = allVideos.slice(offset, offset + limit);
+
+    return {
+      videos: paginatedVideos,
+      total: allVideos.length,
+    };
+  }
+
   // フィルタリング適用
   let filteredSettings = allSettings;
 
-  if (options?.isFavorite !== undefined) {
-    filteredSettings = filteredSettings.filter(
-      (setting) => setting.isFavorite === options.isFavorite
-    );
+  if (isFavorite !== undefined) {
+    filteredSettings = filteredSettings.filter((setting) => setting.isFavorite === isFavorite);
   }
 
-  if (options?.isSkip !== undefined) {
-    filteredSettings = filteredSettings.filter((setting) => setting.isSkip === options.isSkip);
+  if (isSkip !== undefined) {
+    filteredSettings = filteredSettings.filter((setting) => setting.isSkip === isSkip);
   }
 
   // 総件数

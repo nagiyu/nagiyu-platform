@@ -2,7 +2,12 @@
 process.env.DYNAMODB_TABLE_NAME = 'test-table';
 
 import { mockClient } from 'aws-sdk-client-mock';
-import { DynamoDBDocumentClient, QueryCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  QueryCommand,
+  BatchGetCommand,
+  ScanCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { listVideosWithSettings } from '../../src/db/videos';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
@@ -381,10 +386,46 @@ describe('listVideosWithSettings', () => {
 
   it('動画が存在しない場合は空配列を返す', async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(ScanCommand).resolves({ Items: [] });
 
     const result = await listVideosWithSettings('user123');
 
     expect(result.videos).toEqual([]);
     expect(result.total).toBe(0);
+  });
+
+  it('ユーザー設定が存在しない場合でも動画基本情報を取得できる', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        {
+          PK: 'VIDEO#sm1',
+          SK: 'VIDEO#sm1',
+          entityType: 'VIDEO',
+          videoId: 'sm1',
+          title: '動画1',
+          thumbnailUrl: 'https://example.com/1.jpg',
+          length: '3:00',
+          CreatedAt: 1704067200000,
+        },
+        {
+          PK: 'VIDEO#sm2',
+          SK: 'VIDEO#sm2',
+          entityType: 'VIDEO',
+          videoId: 'sm2',
+          title: '動画2',
+          thumbnailUrl: 'https://example.com/2.jpg',
+          length: '4:00',
+          CreatedAt: 1704067200000,
+        },
+      ],
+    });
+
+    const result = await listVideosWithSettings('new-user');
+
+    expect(result.videos).toHaveLength(2);
+    expect(result.total).toBe(2);
+    expect(result.videos[0].videoId).toBe('sm1');
+    expect(result.videos[0].userSetting).toBeUndefined();
   });
 });
