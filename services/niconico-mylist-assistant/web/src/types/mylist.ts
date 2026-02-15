@@ -6,7 +6,7 @@
  * マイリスト登録フォームの入力データ
  */
 export interface MylistRegisterFormData {
-  /** 登録する最大動画数（1-50） */
+  /** 登録する最大動画数（1-100） */
   maxCount: number;
   /** お気に入りのみを対象とするか */
   favoriteOnly: boolean;
@@ -24,7 +24,7 @@ export interface MylistRegisterFormData {
  * マイリスト登録フォームのデフォルト値
  */
 export const DEFAULT_MYLIST_REGISTER_FORM_DATA: MylistRegisterFormData = {
-  maxCount: 10,
+  maxCount: 100,
   favoriteOnly: false,
   excludeSkip: true,
   mylistName: '',

@@ -25,7 +25,7 @@ export const ERROR_MESSAGES = {
 
   // バッチジョブエラー
   MAX_COUNT_MUST_BE_NUMBER: 'maxCount は数値である必要があります',
-  MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 50 以下である必要があります',
+  MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 100 以下である必要があります',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
   NICONICO_ACCOUNT_REQUIRED: 'ニコニコアカウント情報は必須です',
