@@ -35,7 +35,10 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
             <Button href="/mylist" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
               動画管理
             </Button>
-            <Box component="span" sx={{ display: 'inline-block', mt: 2 }}>
+            <Box
+              component="span"
+              sx={{ display: 'inline-block', mt: 2, mr: 2, '& .MuiButton-root': { ml: 0 } }}
+            >
               <NotificationPermissionButton />
             </Box>
           </Box>
