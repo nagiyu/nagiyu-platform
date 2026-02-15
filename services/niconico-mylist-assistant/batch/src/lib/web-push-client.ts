@@ -41,6 +41,48 @@ export interface PushSubscription {
  */
 let vapidConfigured = false;
 
+/**
+ * VAPID キー文字列を正規化する
+ *
+ * 以下の形式を許容して、最終的に Web Push ライブラリへ渡せる生のキー文字列へ変換する:
+ * - 前後に空白を含む文字列
+ * - 引用符で囲まれた文字列
+ * - `{ "publicKey": "...", "privateKey": "..." }` 形式の JSON 文字列
+ *
+ * @param rawKey - 環境変数から取得した生文字列
+ * @param keyName - 抽出対象キー名（publicKey または privateKey）
+ * @returns 正規化後のキー文字列
+ */
+export function normalizeVapidKey(rawKey: string, keyName: 'publicKey' | 'privateKey'): string {
+  const trimmedKey = rawKey.trim();
+  const unquotedKey =
+    (trimmedKey.startsWith('"') && trimmedKey.endsWith('"')) ||
+    (trimmedKey.startsWith("'") && trimmedKey.endsWith("'"))
+      ? trimmedKey.slice(1, -1).trim()
+      : trimmedKey;
+
+  if (unquotedKey.startsWith('{') && unquotedKey.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(unquotedKey) as Record<string, unknown>;
+      const nestedKey = parsed[keyName];
+      if (typeof nestedKey === 'string') {
+        return nestedKey.trim();
+      }
+      console.warn('VAPID キーJSONに必要なキーが見つかりませんでした', {
+        keyName,
+        expectedFormat: '{ "publicKey": "...", "privateKey": "..." }',
+      });
+    } catch (error) {
+      // JSON として解釈できない場合は、引用符除去済みの値をそのまま利用する
+      console.warn('VAPID キーのJSON解析に失敗しました。プレーン文字列として処理します', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return unquotedKey;
+}
+
 function configureVapidKeys(): void {
   // 既に設定済みの場合はスキップ
   if (vapidConfigured) {
@@ -54,7 +96,10 @@ function configureVapidKeys(): void {
     throw new Error(ERROR_MESSAGES.VAPID_NOT_CONFIGURED);
   }
 
-  webpush.setVapidDetails('mailto:noreply@nagiyu.com', publicKey, privateKey);
+  const normalizedPublicKey = normalizeVapidKey(publicKey, 'publicKey');
+  const normalizedPrivateKey = normalizeVapidKey(privateKey, 'privateKey');
+
+  webpush.setVapidDetails('mailto:noreply@nagiyu.com', normalizedPublicKey, normalizedPrivateKey);
   vapidConfigured = true;
 }
 

@@ -5,6 +5,7 @@
 import {
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
+  normalizeVapidKey,
 } from '../../src/lib/web-push-client.js';
 
 describe('createBatchCompletionPayload', () => {
@@ -119,5 +120,21 @@ describe('createTwoFactorAuthRequiredPayload', () => {
 
     expect(completionPayload.data?.type).toBe('batch-completion');
     expect(twoFAPayload.data?.type).toBe('2fa-required');
+  });
+});
+
+describe('normalizeVapidKey', () => {
+  test('前後の空白を除去する', () => {
+    expect(normalizeVapidKey('  test-key  ', 'publicKey')).toBe('test-key');
+  });
+
+  test('引用符で囲まれた値を正規化する', () => {
+    expect(normalizeVapidKey('"test-key"', 'publicKey')).toBe('test-key');
+  });
+
+  test('JSON文字列から指定キーを抽出する', () => {
+    const raw = '{"publicKey":"public-value","privateKey":"private-value"}';
+    expect(normalizeVapidKey(raw, 'publicKey')).toBe('public-value');
+    expect(normalizeVapidKey(raw, 'privateKey')).toBe('private-value');
   });
 });
