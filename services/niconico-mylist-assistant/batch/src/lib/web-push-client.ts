@@ -41,6 +41,29 @@ export interface PushSubscription {
  */
 let vapidConfigured = false;
 
+export function normalizeVapidKey(rawKey: string, keyName: 'publicKey' | 'privateKey'): string {
+  const trimmedKey = rawKey.trim();
+  const unquotedKey =
+    (trimmedKey.startsWith('"') && trimmedKey.endsWith('"')) ||
+    (trimmedKey.startsWith("'") && trimmedKey.endsWith("'"))
+      ? trimmedKey.slice(1, -1).trim()
+      : trimmedKey;
+
+  if (unquotedKey.startsWith('{') && unquotedKey.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(unquotedKey) as Record<string, unknown>;
+      const nestedKey = parsed[keyName];
+      if (typeof nestedKey === 'string') {
+        return nestedKey.trim();
+      }
+    } catch {
+      // JSON でない場合はそのまま利用
+    }
+  }
+
+  return unquotedKey;
+}
+
 function configureVapidKeys(): void {
   // 既に設定済みの場合はスキップ
   if (vapidConfigured) {
@@ -54,7 +77,10 @@ function configureVapidKeys(): void {
     throw new Error(ERROR_MESSAGES.VAPID_NOT_CONFIGURED);
   }
 
-  webpush.setVapidDetails('mailto:noreply@nagiyu.com', publicKey, privateKey);
+  const normalizedPublicKey = normalizeVapidKey(publicKey, 'publicKey');
+  const normalizedPrivateKey = normalizeVapidKey(privateKey, 'privateKey');
+
+  webpush.setVapidDetails('mailto:noreply@nagiyu.com', normalizedPublicKey, normalizedPrivateKey);
   vapidConfigured = true;
 }
 

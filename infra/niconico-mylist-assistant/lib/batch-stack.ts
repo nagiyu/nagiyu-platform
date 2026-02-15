@@ -208,11 +208,11 @@ export class BatchStack extends cdk.Stack {
           },
           {
             name: 'VAPID_PUBLIC_KEY',
-            value: vapidSecret.secretValueFromJson('publicKey').toString(),
+            value: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
           },
           {
             name: 'VAPID_PRIVATE_KEY',
-            value: vapidSecret.secretValueFromJson('privateKey').toString(),
+            value: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
           },
           ...(screenshotBucketName
             ? [
