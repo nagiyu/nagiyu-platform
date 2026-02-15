@@ -36,6 +36,9 @@ interface RegisterMylistRequest {
  */
 interface RegisterMylistResponse {
   jobId: string;
+  status: 'SUBMITTED';
+  message: string;
+  estimatedVideos: number;
   selectedCount: number;
 }
 
@@ -59,7 +62,8 @@ function getEnvVars() {
     BATCH_JOB_DEFINITION: process.env.BATCH_JOB_DEFINITION || '',
     DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
-    ENCRYPTION_SECRET_NAME: process.env.ENCRYPTION_SECRET_NAME || '',
+    ENCRYPTION_SECRET_NAME:
+      process.env.ENCRYPTION_SECRET_NAME || process.env.SHARED_SECRET_KEY || '',
     AWS_REGION_FOR_SDK: process.env.AWS_REGION_FOR_SDK || process.env.AWS_REGION || 'us-east-1',
   };
 }
@@ -332,6 +336,9 @@ export async function POST(
     return NextResponse.json(
       {
         jobId: submitResult.jobId,
+        status: 'SUBMITTED',
+        message: 'バッチジョブを投入しました',
+        estimatedVideos: selectedVideos.length,
         selectedCount: selectedVideos.length,
       },
       { status: 200 }

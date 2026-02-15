@@ -26,7 +26,8 @@ function readEnvironmentVariables(): {
   nodeEnv: string;
 } {
   const dynamodbTableName = process.env.DYNAMODB_TABLE_NAME || '';
-  const encryptionSecretName = process.env.ENCRYPTION_SECRET_NAME || '';
+  const encryptionSecretName =
+    process.env.ENCRYPTION_SECRET_NAME || process.env.SHARED_SECRET_KEY || '';
   const awsRegion = process.env.AWS_REGION || 'us-east-1';
   const nodeEnv = process.env.NODE_ENV || 'development';
 
