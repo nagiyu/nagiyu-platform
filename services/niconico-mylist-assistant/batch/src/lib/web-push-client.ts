@@ -60,10 +60,11 @@ export function normalizeVapidKey(rawKey: string, keyName: 'publicKey' | 'privat
     (trimmedKey.startsWith("'") && trimmedKey.endsWith("'"))
       ? trimmedKey.slice(1, -1).trim()
       : trimmedKey;
+  const jsonCandidate = unquotedKey.replace(/\\"/g, '"');
 
-  if (unquotedKey.startsWith('{') && unquotedKey.endsWith('}')) {
+  if (jsonCandidate.startsWith('{') && jsonCandidate.endsWith('}')) {
     try {
-      const parsed = JSON.parse(unquotedKey) as Record<string, unknown>;
+      const parsed = JSON.parse(jsonCandidate) as Record<string, unknown>;
       const nestedKey = parsed[keyName];
       if (typeof nestedKey === 'string') {
         return nestedKey.trim();
