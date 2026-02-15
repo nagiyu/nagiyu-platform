@@ -137,4 +137,10 @@ describe('normalizeVapidKey', () => {
     expect(normalizeVapidKey(raw, 'publicKey')).toBe('public-value');
     expect(normalizeVapidKey(raw, 'privateKey')).toBe('private-value');
   });
+
+  test('エスケープされたJSON文字列から指定キーを抽出する', () => {
+    const raw = '"{\\"publicKey\\":\\"public-value\\",\\"privateKey\\":\\"private-value\\"}"';
+    expect(normalizeVapidKey(raw, 'publicKey')).toBe('public-value');
+    expect(normalizeVapidKey(raw, 'privateKey')).toBe('private-value');
+  });
 });
