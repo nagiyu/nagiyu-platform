@@ -26,11 +26,15 @@ export const ERROR_MESSAGES = {
   // バッチジョブエラー
   MAX_COUNT_MUST_BE_NUMBER: 'maxCount は数値である必要があります',
   MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 100 以下である必要があります',
+  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
   NICONICO_ACCOUNT_REQUIRED: 'ニコニコアカウント情報は必須です',
   NICONICO_EMAIL_REQUIRED: 'メールアドレスは必須です',
   NICONICO_PASSWORD_REQUIRED: 'パスワードは必須です',
+  FILTERS_REQUIRED: 'filters は必須です',
+  FILTERS_MUST_BE_BOOLEAN:
+    'filters.excludeSkip と filters.favoritesOnly は真偽値である必要があります',
   NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
