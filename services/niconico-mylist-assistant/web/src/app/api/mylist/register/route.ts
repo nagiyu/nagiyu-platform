@@ -36,6 +36,9 @@ interface RegisterMylistRequest {
  */
 interface RegisterMylistResponse {
   jobId: string;
+  status: string;
+  message: string;
+  estimatedVideos: number;
   selectedCount: number;
 }
 
@@ -59,7 +62,8 @@ function getEnvVars() {
     BATCH_JOB_DEFINITION: process.env.BATCH_JOB_DEFINITION || '',
     DYNAMODB_TABLE_NAME: process.env.DYNAMODB_TABLE_NAME || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
-    ENCRYPTION_SECRET_NAME: process.env.ENCRYPTION_SECRET_NAME || '',
+    ENCRYPTION_SECRET_NAME:
+      process.env.ENCRYPTION_SECRET_NAME || process.env.SHARED_SECRET_KEY || '',
     AWS_REGION_FOR_SDK: process.env.AWS_REGION_FOR_SDK || process.env.AWS_REGION || 'us-east-1',
   };
 }
@@ -68,6 +72,9 @@ function getEnvVars() {
  * 定数定義
  */
 const MAX_VIDEOS_TO_FETCH = 1000; // 動画選択時に取得する最大件数
+const SUCCESS_MESSAGES = {
+  BATCH_JOB_SUBMITTED: 'バッチジョブを投入しました',
+} as const;
 
 /**
  * POST /api/mylist/register
@@ -332,6 +339,9 @@ export async function POST(
     return NextResponse.json(
       {
         jobId: submitResult.jobId,
+        status: 'SUBMITTED',
+        message: SUCCESS_MESSAGES.BATCH_JOB_SUBMITTED,
+        estimatedVideos: selectedVideos.length,
         selectedCount: selectedVideos.length,
       },
       { status: 200 }
