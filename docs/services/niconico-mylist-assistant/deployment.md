@@ -2,27 +2,27 @@
 
 ## 1. 環境構成
 
-| 環境        | URL                                              | デプロイ元ブランチ          |
-| ----------- | ------------------------------------------------ | --------------------------- |
+| 環境        | URL                                                | デプロイ元ブランチ          |
+| ----------- | -------------------------------------------------- | --------------------------- |
 | dev (開発)  | `https://dev-niconico-mylist-assistant.nagiyu.com` | `develop`, `integration/**` |
 | prod (本番) | `https://niconico-mylist-assistant.nagiyu.com`     | `master`                    |
 
 ## 2. 主要リソース
 
--   **Lambda**: Next.js アプリケーション実行（VPC 外）
--   **AWS Batch (Fargate)**: マイリスト登録バッチ処理（共有 VPC）
--   **DynamoDB**: 動画基本情報・ユーザー設定・ジョブステータス
--   **ECR**: Lambda / Batch 用コンテナイメージ
--   **CloudFront**: CDN・HTTPS 終端
--   **CloudWatch Logs**: アプリケーションログ
--   **Secrets Manager**: 暗号化キー、テスト用アカウント情報
+- **Lambda**: Next.js アプリケーション実行（VPC 外）
+- **AWS Batch (Fargate)**: マイリスト登録バッチ処理（共有 VPC）
+- **DynamoDB**: 動画基本情報・ユーザー設定・ジョブステータス
+- **ECR**: Lambda / Batch 用コンテナイメージ
+- **CloudFront**: CDN・HTTPS 終端
+- **CloudWatch Logs**: アプリケーションログ
+- **Secrets Manager**: 暗号化キー、テスト用アカウント情報
 
 ## 3. 前提条件
 
 以下の共有インフラがデプロイ済みであること:
 
--   VPC: `nagiyu-{env}-vpc`
--   ACM 証明書（CloudFront 用）
+- VPC: `nagiyu-{env}-vpc`
+- ACM 証明書（CloudFront 用）
 
 ## 4. 初回セットアップ
 
@@ -88,8 +88,8 @@ npx cdk deploy --all
 
 GitHub Actions によりPRマージ時に自動デプロイが実行されます。
 
--   develop ブランチへのマージ: dev 環境に自動デプロイ
--   master ブランチへのマージ: prod 環境に自動デプロイ
+- develop ブランチへのマージ: dev 環境に自動デプロイ
+- master ブランチへのマージ: prod 環境に自動デプロイ
 
 ## 6. 運用
 
@@ -114,8 +114,8 @@ aws batch submit-job \
 
 ### 6.3 監視
 
--   CloudWatch Logs でエラーログを監視
--   Batch ジョブのステータス（SUCCEEDED / FAILED）を確認
+- CloudWatch Logs でエラーログを監視
+- Batch ジョブのステータス（SUCCEEDED / FAILED）を確認
 
 ## 7. 重要な注意事項
 
@@ -131,12 +131,12 @@ DOCKER_BUILDKIT=0 docker build -t image-name .
 
 ### 7.2 Secrets Manager の管理
 
--   暗号化キーは CDK により自動生成されるため、手動で作成しない
--   テスト用アカウント情報は手動で作成・更新
--   VAPID キーは環境ごとに異なるキーを使用
+- 暗号化キーは CDK により自動生成されるため、手動で作成しない
+- テスト用アカウント情報は手動で作成・更新
+- VAPID キーは環境ごとに異なるキーを使用
 
 ### 7.3 Batch リソースの最小構成
 
--   vCPU: 0.25
--   メモリ: 512 MB
--   最大100個の動画登録に十分なリソース
+- vCPU: 0.25
+- メモリ: 512 MB
+- 最大100個の動画登録に十分なリソース

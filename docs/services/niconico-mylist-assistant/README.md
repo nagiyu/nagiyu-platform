@@ -6,15 +6,15 @@
 
 ## ドキュメント一覧
 
-| ドキュメント                         | 説明                                   |
-| ------------------------------------ | -------------------------------------- |
-| [requirements.md](./requirements.md) | サービスの目的と設計方針               |
-| [architecture.md](./architecture.md) | アーキテクチャ設計と技術的な方針       |
-| [deployment.md](./deployment.md)     | デプロイ手順と運用                     |
-| [testing.md](./testing.md)           | テスト戦略                             |
+| ドキュメント                         | 説明                             |
+| ------------------------------------ | -------------------------------- |
+| [requirements.md](./requirements.md) | サービスの目的と設計方針         |
+| [architecture.md](./architecture.md) | アーキテクチャ設計と技術的な方針 |
+| [deployment.md](./deployment.md)     | デプロイ手順と運用               |
+| [testing.md](./testing.md)           | テスト戦略                       |
 
 ## プロジェクト情報
 
--   **プロジェクト名**: niconico-mylist-assistant
--   **リポジトリ**: nagiyu-platform monorepo
--   **バージョン**: 1.0.0
+- **プロジェクト名**: niconico-mylist-assistant
+- **リポジトリ**: nagiyu-platform monorepo
+- **バージョン**: 1.0.0
