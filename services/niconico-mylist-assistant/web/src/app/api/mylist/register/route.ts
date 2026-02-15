@@ -109,7 +109,7 @@ export async function POST(
       );
     }
 
-    if (body.maxCount < 1 || body.maxCount > 50) {
+    if (body.maxCount < 1 || body.maxCount > 100) {
       return NextResponse.json(
         {
           error: {

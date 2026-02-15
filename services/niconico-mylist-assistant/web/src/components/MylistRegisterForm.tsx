@@ -184,15 +184,15 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
               if (!isNaN(numValue)) {
                 setFormData({
                   ...formData,
-                  maxCount: Math.max(1, Math.min(50, numValue)),
+                  maxCount: Math.max(1, Math.min(100, numValue)),
                 });
               }
             }}
             fullWidth
             margin="normal"
             required
-            inputProps={{ min: 1, max: 50 }}
-            helperText="1〜50の範囲で指定してください"
+            inputProps={{ min: 1, max: 100 }}
+            helperText="1〜100の範囲で指定してください"
           />
 
           <FormControlLabel
