@@ -87,6 +87,14 @@ const ERROR_MESSAGES = {
   ALERT_CONDITION_OPERATOR_INVALID: 'Phase 1では演算子は"gte"または"lte"のみ指定できます',
   ALERT_CONDITION_VALUE_REQUIRED: '条件値は必須です',
   ALERT_CONDITION_VALUE_INVALID: '条件値は0.01〜1,000,000の範囲で入力してください',
+  ALERT_LOGICAL_OPERATOR_INVALID: '論理演算子は"AND"または"OR"を指定してください',
+  ALERT_LOGICAL_OPERATOR_REQUIRED: '2条件の場合は論理演算子が必須です',
+  ALERT_LOGICAL_OPERATOR_UNEXPECTED: '単一条件の場合、論理演算子は設定できません',
+  ALERT_CONDITION_OPERATORS_DUPLICATE: '同じ演算子を複数指定することはできません',
+  ALERT_CONDITION_RANGE_INVALID_AND:
+    '範囲内アラート(AND)の場合、下限価格は上限価格より小さい値を設定してください',
+  ALERT_CONDITION_RANGE_INVALID_OR:
+    '範囲外アラート(OR)の場合、下限価格は上限価格より大きい値を設定してください',
   ALERT_SUBSCRIPTION_ENDPOINT_REQUIRED: 'Web Pushサブスクリプションエンドポイントは必須です',
   ALERT_SUBSCRIPTION_KEYS_P256DH_REQUIRED: 'Web Push公開鍵は必須です',
   ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED: 'Web Push認証シークレットは必須です',
@@ -437,11 +445,84 @@ export function validateAlert(alert: unknown): ValidationResult {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_REQUIRED);
   } else if (alt.ConditionList.length === 0) {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_EMPTY);
-  } else if (alt.ConditionList.length > 1) {
+  } else if (alt.ConditionList.length > 2) {
     errors.push(ERROR_MESSAGES.ALERT_CONDITION_LIST_TOO_MANY);
-  } else {
-    // 条件の詳細チェック
+  } else if (alt.ConditionList.length === 2) {
+    // 2条件の場合のバリデーション
+    const [cond1, cond2] = alt.ConditionList;
+
+    // LogicalOperator のチェック
+    if (!alt.LogicalOperator) {
+      errors.push(ERROR_MESSAGES.ALERT_LOGICAL_OPERATOR_REQUIRED);
+    } else if (alt.LogicalOperator !== 'AND' && alt.LogicalOperator !== 'OR') {
+      errors.push(ERROR_MESSAGES.ALERT_LOGICAL_OPERATOR_INVALID);
+    }
+
+    // 両方とも price フィールドであることをチェック
+    if (cond1.field !== 'price' || cond2.field !== 'price') {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_FIELD_INVALID);
+    }
+
+    // operator のチェック
+    if (cond1.operator !== 'gte' && cond1.operator !== 'lte') {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_OPERATOR_INVALID);
+    }
+    if (cond2.operator !== 'gte' && cond2.operator !== 'lte') {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_OPERATOR_INVALID);
+    }
+
+    // operator の組み合わせチェック
+    if (cond1.operator === cond2.operator) {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_OPERATORS_DUPLICATE);
+    }
+
+    // 条件値のチェック
+    if (cond1.value === undefined || cond1.value === null) {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_VALUE_REQUIRED);
+    } else if (!isValidPrice(cond1.value)) {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_VALUE_INVALID);
+    }
+
+    if (cond2.value === undefined || cond2.value === null) {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_VALUE_REQUIRED);
+    } else if (!isValidPrice(cond2.value)) {
+      errors.push(ERROR_MESSAGES.ALERT_CONDITION_VALUE_INVALID);
+    }
+
+    // 範囲の妥当性チェック（AND/OR別）
+    if (
+      alt.LogicalOperator &&
+      cond1.operator !== cond2.operator &&
+      cond1.value !== undefined &&
+      cond1.value !== null &&
+      cond2.value !== undefined &&
+      cond2.value !== null &&
+      isValidPrice(cond1.value) &&
+      isValidPrice(cond2.value)
+    ) {
+      const gteCondition = cond1.operator === 'gte' ? cond1 : cond2;
+      const lteCondition = cond1.operator === 'lte' ? cond1 : cond2;
+
+      if (alt.LogicalOperator === 'AND') {
+        // 範囲内: 下限 < 上限
+        if (gteCondition.value >= lteCondition.value) {
+          errors.push(ERROR_MESSAGES.ALERT_CONDITION_RANGE_INVALID_AND);
+        }
+      } else if (alt.LogicalOperator === 'OR') {
+        // 範囲外: 下限 > 上限（つまり lte < gte）
+        if (lteCondition.value >= gteCondition.value) {
+          errors.push(ERROR_MESSAGES.ALERT_CONDITION_RANGE_INVALID_OR);
+        }
+      }
+    }
+  } else if (alt.ConditionList.length === 1) {
+    // 単一条件の場合のバリデーション
     const condition = alt.ConditionList[0];
+
+    // 単一条件の場合、LogicalOperator は未定義であるべき
+    if (alt.LogicalOperator !== undefined) {
+      errors.push(ERROR_MESSAGES.ALERT_LOGICAL_OPERATOR_UNEXPECTED);
+    }
 
     if (condition.field !== 'price') {
       errors.push(ERROR_MESSAGES.ALERT_CONDITION_FIELD_INVALID);

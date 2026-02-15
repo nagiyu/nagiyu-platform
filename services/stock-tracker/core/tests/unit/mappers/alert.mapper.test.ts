@@ -148,6 +148,80 @@ describe('AlertMapper', () => {
       expect(item2.GSI2PK).toBe('ALERT#HOURLY_LEVEL');
       expect(item1.GSI2PK).not.toBe(item2.GSI2PK);
     });
+
+    it('LogicalOperator が指定されている場合（AND）、DynamoDBItem に含まれる', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 200.0 },
+        ],
+        LogicalOperator: 'AND',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.LogicalOperator).toBe('AND');
+    });
+
+    it('LogicalOperator が指定されている場合（OR）、DynamoDBItem に含まれる', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.LogicalOperator).toBe('OR');
+    });
+
+    it('LogicalOperator が未指定の場合、DynamoDBItem に含まれない', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item).not.toHaveProperty('LogicalOperator');
+    });
   });
 
   describe('toEntity', () => {
@@ -274,6 +348,118 @@ describe('AlertMapper', () => {
 
       expect(() => mapper.toEntity(item)).toThrow('ConditionList');
     });
+
+    it('LogicalOperator が AND の場合、エンティティに含まれる', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 200.0 },
+        ],
+        LogicalOperator: 'AND',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.LogicalOperator).toBe('AND');
+    });
+
+    it('LogicalOperator が OR の場合、エンティティに含まれる', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.LogicalOperator).toBe('OR');
+    });
+
+    it('LogicalOperator が未指定の場合、エンティティに含まれない', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity).not.toHaveProperty('LogicalOperator');
+    });
+
+    it('LogicalOperator が無効な値の場合、エンティティに含まれない', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 200.0 },
+        ],
+        LogicalOperator: 'INVALID',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity).not.toHaveProperty('LogicalOperator');
+    });
   });
 
   describe('buildKeys', () => {
@@ -314,6 +500,60 @@ describe('AlertMapper', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: false,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
+    });
+
+    it('LogicalOperator 付き Entity の往復変換（AND）', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: false,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 100.0 },
+          { field: 'price', operator: 'lte', value: 200.0 },
+        ],
+        LogicalOperator: 'AND',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
+    });
+
+    it('LogicalOperator 付き Entity の往復変換（OR）', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'lte', value: 90.0 },
+          { field: 'price', operator: 'gte', value: 120.0 },
+        ],
+        LogicalOperator: 'OR',
         SubscriptionEndpoint: 'https://example.com/push',
         SubscriptionKeysP256dh: 'p256dh-key',
         SubscriptionKeysAuth: 'auth-secret',

@@ -9,14 +9,17 @@
     "lint": "eslint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.975.0",
-    "@aws-sdk/lib-dynamodb": "^3.975.0",
+    "@aws-sdk/client-dynamodb": "^3.980.0",
+    "@aws-sdk/lib-dynamodb": "^3.980.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/react": "*",
@@ -30,11 +33,13 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
+    "@jest/types": "^30.0.0",
     "@playwright/test": "^1.58.0",
     "@tailwindcss/postcss": "^4",
+    "@types/jest": "^30.0.0",
     "@types/web-push": "^3.6.4",
     "dotenv": "^17.2.3",
-    "eslint-config-next": "^16.1.4",
+    "eslint-config-next": "^16.1.6",
     "tailwindcss": "^4"
   }
 }

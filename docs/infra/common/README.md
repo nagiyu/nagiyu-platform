@@ -483,4 +483,4 @@ npm run format --workspace @nagiyu/infra-common
 ## 関連ドキュメント
 
 - [インフラストラクチャドキュメント](../README.md)
-- [開発ガイドライン](../../development/README.md)
+- [開発ガイドライン](../../README.md)

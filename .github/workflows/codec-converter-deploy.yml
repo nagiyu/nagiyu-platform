@@ -126,9 +126,20 @@ jobs:
     permissions:
       contents: read
 
+    outputs:
+      app-version: ${{ steps.get-version.outputs.app-version }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/codec-converter/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -148,7 +159,8 @@ jobs:
           IMAGE_TAG: latest
           DOCKER_BUILDKIT: 0
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/web/Dockerfile .
+          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/web/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
   build-batch:
@@ -220,6 +232,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
           STACK_NAME: ${{ needs.prepare-infrastructure.outputs.stack-name }}
+          APP_VERSION: ${{ needs.build-web.outputs.app-version }}
         run: |
           echo "Deploying full stack..."
           npm run deploy --workspace=codec-converter -- $STACK_NAME \

@@ -13,11 +13,11 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@aws-sdk/client-batch": "^3.975.0",
-    "@aws-sdk/client-dynamodb": "^3.975.0",
-    "@aws-sdk/client-s3": "^3.975.0",
-    "@aws-sdk/lib-dynamodb": "^3.975.0",
-    "@aws-sdk/s3-request-presigner": "^3.975.0",
+    "@aws-sdk/client-batch": "^3.980.0",
+    "@aws-sdk/client-dynamodb": "^3.980.0",
+    "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/lib-dynamodb": "^3.980.0",
+    "@aws-sdk/s3-request-presigner": "^3.980.0",
     "@nagiyu/browser": "*",
     "@nagiyu/ui": "*",
     "codec-converter-core": "*",

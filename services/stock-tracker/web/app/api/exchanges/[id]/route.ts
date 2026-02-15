@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { ExchangeRepository, getAuthError, validateExchange } from '@nagiyu/stock-tracker-core';
+import { getAuthError, validateExchange } from '@nagiyu/stock-tracker-core';
 import { EntityNotFoundError, InvalidEntityDataError } from '@nagiyu/aws';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
 import { getSession } from '../../../../lib/auth';
+import { createExchangeRepository } from '../../../../lib/repository-factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -46,12 +46,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const { id: exchangeId } = await params;
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Exchange リポジトリを初期化
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    const exchangeRepo = createExchangeRepository();
 
     // 取引所を取得
     const exchange = await exchangeRepo.getById(exchangeId);
@@ -122,12 +118,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const { id: exchangeId } = await params;
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Exchange リポジトリを初期化
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    const exchangeRepo = createExchangeRepository();
 
     // 既存の取引所を取得
     const existingExchange = await exchangeRepo.getById(exchangeId);
@@ -279,12 +271,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const { id: exchangeId } = await params;
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Exchange リポジトリを初期化
-    const exchangeRepo = new ExchangeRepository(docClient, tableName);
+    const exchangeRepo = createExchangeRepository();
 
     // 取引所を削除
     await exchangeRepo.delete(exchangeId);

@@ -140,6 +140,20 @@ npm run test:coverage --workspace=stock-tracker-core
 
 ### 6.2 E2Eテスト
 
+**環境設定**:
+
+E2E テストでは、インメモリリポジトリを使用してテストを実行します。これにより、DynamoDB への接続を回避し、テストの高速化と安定性向上を実現します。
+
+`.env.test` ファイルに以下の環境変数を設定:
+
+```bash
+# Repository type for E2E tests
+# インメモリリポジトリを使用することで DynamoDB への接続を回避
+USE_IN_MEMORY_REPOSITORY=true
+```
+
+**テスト実行**:
+
 ```bash
 # 全デバイスでテスト実行
 npm run test:e2e --workspace=stock-tracker-web
@@ -151,11 +165,24 @@ npm run test:e2e --workspace=stock-tracker-web -- --project=chromium-mobile
 npm run test:e2e:ui --workspace=stock-tracker-web
 ```
 
+**インメモリリポジトリのメリット**:
+- **高速化**: DynamoDB へのネットワーク接続が不要なため、テスト実行時間が短縮（目標: 20%以上の短縮）
+- **安定性**: ネットワーク接続やクラウドサービスの状態に依存しないため、テストの安定性が向上
+- **並列実行**: DynamoDB のスロットリングを気にせず、並列実行が可能
+- **データクリーンアップ**: テスト終了時にメモリをクリアするだけでデータクリーンアップが完了
+
+**注意事項**:
+- E2E テスト実行時は Playwright が自動的に `.env.test` を読み込みます（`playwright.config.ts` で設定済み）
+- テスト終了時は自動的にメモリストアがクリアされます
+- インメモリリポジトリは E2E テスト専用です。本番環境では DynamoDB を使用します
+
 ### 6.3 CI/CD での実行
 
 GitHub Actions ワークフローで自動実行されます:
 - `.github/workflows/stock-tracker-verify-fast.yml` (Fast CI)
 - `.github/workflows/stock-tracker-verify-full.yml` (Full CI)
+
+CI 環境でも `.env.test` の環境変数設定により、インメモリリポジトリを使用してテストが実行されます。
 
 ---
 

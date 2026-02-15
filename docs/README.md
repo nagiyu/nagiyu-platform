@@ -34,6 +34,7 @@
 - [バリデーション設計](./development/validation.md)
 - [サービステンプレート](./development/service-template.md)
 - [PWA設定ガイド](./development/pwa.md)
+- [データベース設計パターン](./development/database-patterns.md) - DynamoDB Single Table Design と複数テーブル設計のパターン集
 - [データアクセス層](./development/data-access-layer.md) - DynamoDB Repository パターンの設計思想と実装ガイドライン
 
 ### AIエージェント

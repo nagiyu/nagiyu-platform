@@ -189,18 +189,33 @@ test.describe('権限チェック (E2E-005)', () => {
     });
 
     test('ティッカー作成APIは stock-admin のみ実行可能', async ({ request }) => {
+      // 前提条件: 取引所を作成（stock-admin の場合のみ成功）
+      const testExchangeId = `TEST-E2E-TICKER-${Date.now()}`;
+      const exchangeResponse = await request.post('/api/exchanges', {
+        data: {
+          exchangeId: testExchangeId,
+          name: 'Test Exchange for Ticker',
+          key: 'TEST',
+          timezone: 'America/New_York',
+          tradingHours: {
+            start: '09:30',
+            end: '16:00',
+          },
+        },
+      });
+
       // ティッカー作成を試みる
       const response = await request.post('/api/tickers', {
         data: {
           symbol: 'TEST',
           name: 'Test Ticker',
-          exchangeId: 'NASDAQ',
+          exchangeId: testExchangeId,
         },
       });
 
       // stock-admin の場合は 201、それ以外は 403
-      if (response.status() === 201) {
-        // stock-admin ロールの場合: 成功
+      if (exchangeResponse.status() === 201) {
+        // stock-admin ロールの場合: ティッカー作成も成功するはず
         expect(response.status()).toBe(201);
 
         const data = await response.json();
@@ -208,6 +223,7 @@ test.describe('権限チェック (E2E-005)', () => {
 
         // クリーンアップ
         await request.delete(`/api/tickers/${tickerId}`);
+        await request.delete(`/api/exchanges/${testExchangeId}`);
       } else {
         // stock-viewer/stock-user ロールの場合: 403エラー
         expect(response.status()).toBe(403);

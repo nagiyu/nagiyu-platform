@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { WatchlistRepository, getAuthError } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from '../../../../lib/dynamodb';
+import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { createWatchlistRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 
 // エラーメッセージ定数
@@ -78,12 +78,8 @@ export async function DELETE(_request: Request, { params }: Params) {
 
     const tickerId = id.substring(hashIndex + 1);
 
-    // DynamoDB クライアントとテーブル名を取得
-    const docClient = getDynamoDBClient();
-    const tableName = getTableName();
-
     // Watchlist リポジトリを初期化
-    const watchlistRepo = new WatchlistRepository(docClient, tableName);
+    const watchlistRepo = createWatchlistRepository();
 
     // ウォッチリストを削除
     await watchlistRepo.delete(userId, tickerId);

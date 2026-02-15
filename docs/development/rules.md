@@ -480,6 +480,20 @@ tests/
 
 #### MUST: ビジネスロジックのカバレッジ 80% 以上を確保
 
+**目標値**:
+- Branches: 80%
+- Functions: 80%
+- Lines: 80%
+- Statements: 80%
+
+**対象**: 
+- サービスの `lib/` ディレクトリ配下
+- または `core` パッケージ
+
+**適用除外**: 
+- UI層（`components/`, `app/` ディレクトリ）は E2E テストでカバー可能なため、カバレッジ目標の適用外
+- 共通ライブラリ（`libs/*`）は 80% 以上を推奨（必須ではない）
+
 ```typescript
 // jest.config.ts
 coverageThreshold: {
@@ -492,7 +506,7 @@ coverageThreshold: {
 }
 ```
 
-**理由**: 品質保証、リグレッション防止
+**理由**: 品質保証、リグレッション防止、Full CI（develop へのPR）で自動チェック
 **違反時の影響**: CI失敗、品質低下
 
 #### SHOULD: UI 層は必要に応じてテスト (E2E でカバーされる部分は省略可)
@@ -969,19 +983,20 @@ function parse(input: string): ParsedData {
 <div>{userInput}</div>
 ```
 
-#### MUST NOT: dangerouslySetInnerHTML は避ける
+#### MUST NOT: dangerouslySetInnerHTML を使用しない
 
 ```typescript
-// ❌ NG
+// ❌ NG: 直接使用は禁止
 <div dangerouslySetInnerHTML={{ __html: userInput }} />
 
-// ✅ OK: どうしても必要な場合はサニタイズ
+// ✅ OK: DOMPurify経由であれば例外的に許可
 import DOMPurify from 'dompurify';
 <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userInput) }} />
 ```
 
 **理由**: XSS攻撃の防止
 **違反時の影響**: セキュリティ脆弱性
+**例外**: DOMPurify等の信頼できるサニタイザーを経由する場合のみ許可
 
 ### 6.3 環境変数
 

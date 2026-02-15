@@ -25,15 +25,14 @@ const config: Config = {
   testMatch: ['<rootDir>/tests/**/*.test.ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageDirectory: 'coverage',
-  // カバレッジ閾値はPhase 3で有効化
-  // coverageThreshold: {
-  //     global: {
-  //         branches: 80,
-  //         functions: 80,
-  //         lines: 80,
-  //         statements: 80,
-  //     },
-  // },
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
   modulePathIgnorePatterns: ['<rootDir>/../../package.json'],
 };
 
