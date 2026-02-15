@@ -36,7 +36,7 @@ interface RegisterMylistRequest {
  */
 interface RegisterMylistResponse {
   jobId: string;
-  status: 'SUBMITTED';
+  status: string;
   message: string;
   estimatedVideos: number;
   selectedCount: number;
@@ -72,6 +72,9 @@ function getEnvVars() {
  * 定数定義
  */
 const MAX_VIDEOS_TO_FETCH = 1000; // 動画選択時に取得する最大件数
+const SUCCESS_MESSAGES = {
+  BATCH_JOB_SUBMITTED: 'バッチジョブを投入しました',
+} as const;
 
 /**
  * POST /api/mylist/register
@@ -337,7 +340,7 @@ export async function POST(
       {
         jobId: submitResult.jobId,
         status: 'SUBMITTED',
-        message: 'バッチジョブを投入しました',
+        message: SUCCESS_MESSAGES.BATCH_JOB_SUBMITTED,
         estimatedVideos: selectedVideos.length,
         selectedCount: selectedVideos.length,
       },
