@@ -246,17 +246,6 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             ニコニコアカウント
           </Typography>
 
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            <strong>セキュリティに関する注意</strong>
-            <br />
-            現在、アカウント情報は平文でサーバーに送信され、バッチジョブの環境変数として一時的に使用されます。
-            <br />
-            本番運用前に、暗号化機能の実装が必要です（Issue 5-1 参照）。
-            <br />
-            <br />
-            バッチ処理完了後、サーバー上には保存されません。
-          </Alert>
-
           <TextField
             label="メールアドレス"
             type="email"
