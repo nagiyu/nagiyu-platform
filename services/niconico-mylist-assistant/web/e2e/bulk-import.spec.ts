@@ -56,27 +56,31 @@ test.describe('Bulk Import API', () => {
 
     expect(response.status()).toBe(400);
     const body = await response.json();
-    expect(body.error).toBeDefined();
+    expect(body.error).toBe('一度に登録できる動画は最大 100 件です');
   });
 
   test('should validate video ID format', async ({ request }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['invalid-id', 'sm123', 'another-invalid'],
+        videoIds: ['invalid-id', '12345', 'sm', 'sm@123', 'SM123', '', 'sm123'],
       },
     });
 
     expect(response.status()).toBe(400);
     const body = await response.json();
-    expect(body.error).toBeDefined();
+    expect(body.error).toBe('不正な動画 ID 形式が含まれています');
     expect(body.invalidIds).toContain('invalid-id');
-    expect(body.invalidIds).toContain('another-invalid');
+    expect(body.invalidIds).toContain('12345');
+    expect(body.invalidIds).toContain('sm');
+    expect(body.invalidIds).toContain('sm@123');
+    expect(body.invalidIds).toContain('SM123');
+    expect(body.invalidIds).toContain('');
   });
 
-  test('should accept valid video IDs', async ({ request }) => {
+  test('should accept valid video IDs with multiple prefixes', async ({ request }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'so12345', 'nm98765'],
+        videoIds: ['sm9', 'so12345', 'nm98765', 'abc123'],
       },
     });
 
@@ -89,7 +93,7 @@ test.describe('Bulk Import API', () => {
     expect(body).toHaveProperty('failed');
     expect(body).toHaveProperty('skipped');
     expect(body).toHaveProperty('total');
-    expect(body.total).toBe(3);
+    expect(body.total).toBe(4);
   });
 });
 
