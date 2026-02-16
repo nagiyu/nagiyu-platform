@@ -162,10 +162,33 @@ describe('validators', () => {
       expect(result).toBe(now);
     });
 
-    it('should throw error for non-number value', () => {
-      expect(() => validateTimestampField('123', 'timestamp')).toThrow(InvalidEntityDataError);
-      expect(() => validateTimestampField('123', 'timestamp')).toThrow(
-        'フィールド "timestamp" がタイムスタンプ（数値）ではありません'
+    it('should throw error for non-number and non-string value', () => {
+      expect(() => validateTimestampField({}, 'timestamp')).toThrow(InvalidEntityDataError);
+      expect(() => validateTimestampField({}, 'timestamp')).toThrow(
+        'フィールド "timestamp" がタイムスタンプ（数値または文字列）ではありません'
+      );
+    });
+
+    it('should convert ISO string to timestamp', () => {
+      const isoString = '2026-02-04T12:03:28.664Z';
+      const expectedTimestamp = Date.parse(isoString);
+      const result = validateTimestampField(isoString, 'timestamp');
+      expect(result).toBe(expectedTimestamp);
+    });
+
+    it('should convert ISO string with timezone to timestamp', () => {
+      const isoString = '2026-02-04T12:03:28.664+09:00';
+      const expectedTimestamp = Date.parse(isoString);
+      const result = validateTimestampField(isoString, 'timestamp');
+      expect(result).toBe(expectedTimestamp);
+    });
+
+    it('should throw error for invalid string format', () => {
+      expect(() => validateTimestampField('invalid-date', 'timestamp')).toThrow(
+        InvalidEntityDataError
+      );
+      expect(() => validateTimestampField('invalid-date', 'timestamp')).toThrow(
+        'フィールド "timestamp" が有効なタイムスタンプ形式ではありません'
       );
     });
 
@@ -200,6 +223,13 @@ describe('validators', () => {
     it('should allow past timestamps', () => {
       const result = validateTimestampField(past, 'timestamp', { allowFuture: false });
       expect(result).toBe(past);
+    });
+
+    it('should handle string timestamp with allowFuture option', () => {
+      const isoString = '2020-01-01T00:00:00.000Z';
+      const expectedTimestamp = Date.parse(isoString);
+      const result = validateTimestampField(isoString, 'timestamp', { allowFuture: false });
+      expect(result).toBe(expectedTimestamp);
     });
   });
 });

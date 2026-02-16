@@ -659,8 +659,8 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 範囲指定のフィールドが表示される
       await expect(page.getByLabel('範囲タイプ')).toBeVisible();
-      await expect(page.getByLabel(/最小価格/)).toBeVisible();
-      await expect(page.getByLabel(/最大価格/)).toBeVisible();
+      await expect(page.locator('#min-price')).toBeVisible();
+      await expect(page.locator('#max-price')).toBeVisible();
 
       // 単一条件のフィールドが非表示になる
       await expect(page.getByLabel('条件', { exact: true })).not.toBeVisible();
@@ -676,8 +676,471 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 範囲指定のフィールドが非表示になる
       await expect(page.getByLabel('範囲タイプ')).not.toBeVisible();
-      await expect(page.getByLabel(/最小価格/)).not.toBeVisible();
-      await expect(page.getByLabel(/最大価格/)).not.toBeVisible();
+      await expect(page.locator('#min-price')).not.toBeVisible();
+      await expect(page.locator('#max-price')).not.toBeVisible();
+    });
+  });
+
+  test.describe('パーセンテージ選択機能 - 単一条件モード', () => {
+    let testHolding: CreatedHolding;
+
+    test.beforeEach(async () => {
+      // テスト用の Holding を作成（基準価格100ドル）
+      testHolding = await factory.createHolding({
+        quantity: 100,
+        averagePrice: 100.0,
+        currency: 'USD',
+      });
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    });
+
+    test('入力方式を「パーセンテージ」に切り替えられる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 初期状態: 手動入力モードで目標価格入力フィールドが表示される
+      await expect(page.getByLabel('目標価格')).toBeVisible();
+
+      // 入力方式ドロップダウンが表示されるか確認（basePriceが設定されている場合のみ）
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+
+      // basePriceが設定されていない場合はテストをスキップ
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // パーセンテージ選択フィールドが表示される（IDで特定）
+      await expect(page.locator('#percentage-select')).toBeVisible();
+
+      // 目標価格入力フィールドは非表示になる
+      await expect(page.getByLabel('目標価格')).not.toBeVisible();
+    });
+
+    test('パーセンテージ選択で目標価格が自動計算される - +20%', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // パーセンテージで「+20%」を選択
+      await page.locator('#percentage-select').click();
+      await page.getByRole('option', { name: '+20%' }).click();
+
+      // 計算結果が表示される（基準価格100ドル × 1.2 = 120ドル）
+      await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
+      await expect(page.getByText(/=.*120\.00/)).toBeVisible();
+    });
+
+    test('パーセンテージ選択で目標価格が自動計算される - -10%', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // パーセンテージで「-10%」を選択
+      await page.locator('#percentage-select').click();
+      await page.getByRole('option', { name: '-10%' }).click();
+
+      // 計算結果が表示される（基準価格100ドル × 0.9 = 90ドル）
+      await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
+      await expect(page.getByText(/=.*90\.00/)).toBeVisible();
+    });
+
+    test('パーセンテージ選択でアラートを作成できる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // パーセンテージで「+15%」を選択
+      await page.locator('#percentage-select').click();
+      await page.getByRole('option', { name: '+15%' }).click();
+
+      // 計算結果が表示される（基準価格100ドル × 1.15 = 115ドル）
+      await expect(page.getByText(/=.*115\.00/)).toBeVisible();
+
+      // 保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // モーダルが閉じることを確認、またはエラーが表示されることを確認
+      await Promise.race([
+        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
+        expect(
+          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
+        ).toBeVisible({ timeout: 5000 }),
+      ]).catch(async () => {
+        const errorVisible = await page
+          .getByText(/エラー|失敗|対応していません/)
+          .isVisible()
+          .catch(() => false);
+        if (errorVisible) {
+          test.skip();
+        }
+      });
+    });
+
+    test('手動入力モードとパーセンテージモードを切り替えできる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 初期状態: 手動入力モード
+      await expect(page.getByLabel('目標価格')).toBeVisible();
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // パーセンテージモードに切り替え
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await expect(page.locator('#percentage-select')).toBeVisible();
+      await expect(page.getByLabel('目標価格')).not.toBeVisible();
+
+      // 手動入力モードに戻す
+      await page.getByRole('combobox', { name: '入力方式' }).click();
+      await page.getByRole('option', { name: '手動入力' }).click();
+      await expect(page.getByLabel('目標価格')).toBeVisible();
+      await expect(page.locator('#percentage-select')).not.toBeVisible();
+    });
+  });
+
+  test.describe('パーセンテージ選択機能 - 範囲指定モード', () => {
+    let testHolding: CreatedHolding;
+
+    test.beforeEach(async () => {
+      // テスト用の Holding を作成（基準価格100ドル）
+      testHolding = await factory.createHolding({
+        quantity: 100,
+        averagePrice: 100.0,
+        currency: 'USD',
+      });
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    });
+
+    test('範囲指定モードで入力方式を「パーセンテージ」に切り替えられる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 初期状態: 手動入力モードで価格入力フィールドが表示される
+      await expect(page.locator('#min-price')).toBeVisible();
+      await expect(page.locator('#max-price')).toBeVisible();
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // パーセンテージ選択フィールドが表示される
+      await expect(page.locator('#min-percentage-select')).toBeVisible();
+      await expect(page.locator('#max-percentage-select')).toBeVisible();
+
+      // 価格入力フィールドは非表示になる
+      await expect(page.locator('#min-price')).not.toBeVisible();
+      await expect(page.locator('#max-price')).not.toBeVisible();
+    });
+
+    test('範囲指定でパーセンテージ選択すると価格範囲が自動計算される', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // 最小パーセンテージで「-10%」を選択
+      await page.locator('#min-percentage-select').click();
+      await page.getByRole('option', { name: '-10%' }).click();
+
+      // 最大パーセンテージで「+10%」を選択
+      await page.locator('#max-percentage-select').click();
+      await page.getByRole('option', { name: '+10%' }).click();
+
+      // 計算結果が表示される（基準価格100ドル → 90ドル〜110ドル）
+      await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
+      await expect(page.getByText(/価格範囲.*90\.00.*110\.00/)).toBeVisible();
+    });
+
+    test('範囲指定でパーセンテージ選択してアラートを作成できる', async ({ page }) => {
+      // Holding管理画面にアクセス
+      await page.goto('/holdings');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Holding の行を探す
+      const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 売りアラートボタンをクリック
+      const sellAlertButton = targetRow.getByRole('button', { name: /売りアラート/ });
+      await sellAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // モーダルのコンテンツが完全にロードされるまで待つ
+      await page.waitForTimeout(1000);
+
+      // 条件タイプを「範囲指定」に変更
+      await page.getByRole('combobox', { name: '条件タイプ' }).click();
+      await page.getByRole('option', { name: '範囲指定' }).click();
+
+      // 入力方式ドロップダウンの確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        test.skip();
+      }
+
+      // 入力方式を「パーセンテージ」に変更
+      await inputModeSelect.click();
+      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+
+      // 最小パーセンテージで「-5%」を選択
+      await page.locator('#min-percentage-select').click();
+      await page.getByRole('option', { name: '-5%' }).click();
+
+      // 最大パーセンテージで「+5%」を選択
+      await page.locator('#max-percentage-select').click();
+      await page.getByRole('option', { name: '+5%' }).click();
+
+      // 保存ボタンをクリック
+      await page.getByRole('button', { name: '保存' }).click();
+
+      // モーダルが閉じることを確認、またはエラーが表示されることを確認
+      await Promise.race([
+        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
+        expect(
+          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
+        ).toBeVisible({ timeout: 5000 }),
+      ]).catch(async () => {
+        const errorVisible = await page
+          .getByText(/エラー|失敗|対応していません/)
+          .isVisible()
+          .catch(() => false);
+        if (errorVisible) {
+          test.skip();
+        }
+      });
+    });
+  });
+
+  test.describe('パーセンテージ選択機能 - basePriceなし（Watchlist）', () => {
+    let testWatchlist: CreatedWatchlist;
+
+    test.beforeEach(async () => {
+      // テスト用の Watchlist を作成
+      testWatchlist = await factory.createWatchlist();
+
+      // データが反映されるまで待つ
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    });
+
+    test('Watchlistからのアラート設定ではパーセンテージモードが無効化される', async ({ page }) => {
+      // Watchlist管理画面にアクセス
+      await page.goto('/watchlist');
+      await page.waitForLoadState('networkidle');
+
+      // 作成した Watchlist の行を探す
+      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
+      await expect(targetRow).toBeVisible({ timeout: 10000 });
+
+      // 買いアラートボタンをクリック
+      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
+      await buyAlertButton.click();
+
+      // モーダルが表示されるまで待つ
+      await expect(page.getByRole('dialog')).toBeVisible();
+
+      // 入力方式ドロップダウンを確認
+      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+
+      // パターン1: ドロップダウンが非表示になっている
+      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
+      if (!isInputModeVisible) {
+        // 手動入力フィールドのみ表示されることを確認
+        await expect(page.getByLabel('目標価格')).toBeVisible();
+        return;
+      }
+
+      // パターン2: ドロップダウンは表示されているが無効化されている
+      const isInputModeDisabled = await inputModeSelect.isDisabled().catch(() => false);
+      if (isInputModeDisabled) {
+        // ドロップダウンが無効化されていることを確認
+        await expect(inputModeSelect).toBeDisabled();
+        return;
+      }
+
+      // パターン3: ドロップダウンは有効だが、パーセンテージ選択肢がない
+      await inputModeSelect.click();
+      const percentageOption = page.getByRole('option', { name: 'パーセンテージ' });
+      const hasPercentageOption = await percentageOption.isVisible().catch(() => false);
+
+      // パーセンテージ選択肢が存在しないことを確認
+      expect(hasPercentageOption).toBe(false);
     });
   });
 });

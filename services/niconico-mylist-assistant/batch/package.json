@@ -1,0 +1,30 @@
+{
+  "name": "@nagiyu/niconico-mylist-assistant-batch",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Batch job for niconico mylist registration",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest --passWithNoTests",
+    "test:integration": "playwright test",
+    "test:integration:headed": "HEADLESS=false playwright test",
+    "test:integration:debug": "PWDEBUG=1 playwright test",
+    "lint": "eslint src/**/*.ts",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@nagiyu/aws": "*",
+    "@nagiyu/browser": "*",
+    "@nagiyu/niconico-mylist-assistant-core": "*",
+    "dotenv": "^16.4.7",
+    "playwright": "1.58.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.58.0",
+    "@types/web-push": "^3.6.4"
+  }
+}

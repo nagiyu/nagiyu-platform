@@ -1,0 +1,517 @@
+name: Niconico Mylist Assistant - Full Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'services/niconico-mylist-assistant/**'
+      - 'infra/niconico-mylist-assistant/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/niconico-mylist-assistant-verify-full.yml'
+
+jobs:
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint on core
+        run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Run ESLint on web
+        run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Run ESLint on batch
+        run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check core formatting
+        run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Check web formatting
+        run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Check batch formatting
+        run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+  build-core:
+    name: Build Core Package
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+  build-infra:
+    name: Build Infrastructure Package
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-niconico-mylist-assistant
+
+  build-web:
+    name: Build Web Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build web application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
+
+  build-batch:
+    name: Build Batch Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build batch application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+  test-core:
+    name: Core Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Run core tests
+        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-core
+
+  coverage:
+    name: Coverage Check (80% threshold)
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Run coverage check
+        run: npm run test:coverage --workspace=@nagiyu/niconico-mylist-assistant-core
+
+  docker-build-web:
+    name: Docker Build Web
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Web Docker image
+        env:
+          DOCKER_BUILDKIT: 0
+        run: docker build -t niconico-mylist-assistant-web-verify-full-test -f services/niconico-mylist-assistant/web/Dockerfile .
+
+  docker-build-batch:
+    name: Docker Build Batch
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Batch Docker image
+        env:
+          DOCKER_BUILDKIT: 0
+        run: docker build -t niconico-mylist-assistant-batch-verify-full-test -f services/niconico-mylist-assistant/batch/Dockerfile .
+
+  test-batch:
+    name: Batch Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build batch application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+      - name: Run batch tests
+        run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+  e2e-test-web:
+    name: E2E Tests (All Devices)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build web application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium webkit
+        working-directory: ./services/niconico-mylist-assistant/web
+
+      - name: Run E2E tests (All Devices)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full
+          path: services/niconico-mylist-assistant/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full
+          path: services/niconico-mylist-assistant/web/test-results/
+          retention-days: 30
+
+  test-batch-integration:
+    name: Batch Integration Tests
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build batch application
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-batch
+
+      - name: Run batch integration tests
+        run: npm run test:integration --workspace=@nagiyu/niconico-mylist-assistant-batch
+        continue-on-error: true
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      [
+        lint,
+        format-check,
+        build-core,
+        build-infra,
+        build-web,
+        build-batch,
+        test-core,
+        coverage,
+        docker-build-web,
+        docker-build-batch,
+        test-batch,
+        e2e-test-web,
+        test-batch-integration,
+      ]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Build Core': '${{ needs.build-core.result }}',
+              'Build Infra': '${{ needs.build-infra.result }}',
+              'Build Web': '${{ needs.build-web.result }}',
+              'Build Batch': '${{ needs.build-batch.result }}',
+              'Test Core': '${{ needs.test-core.result }}',
+              'Coverage (80%)': '${{ needs.coverage.result }}',
+              'Docker Build Web': '${{ needs.docker-build-web.result }}',
+              'Docker Build Batch': '${{ needs.docker-build-batch.result }}',
+              'Test Batch': '${{ needs.test-batch.result }}',
+              'E2E Tests (Full)': '${{ needs.e2e-test-web.result }}',
+              'Batch Integration': '${{ needs.test-batch-integration.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success');
+            const header = allSuccess
+              ? '## ✅ All Full Checks Passed'
+              : '## ❌ Some Full Checks Failed';
+
+            let body = `${header}\n\n`;
+            body += '**Niconico Mylist Assistant - Full Verification**\n\n';
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

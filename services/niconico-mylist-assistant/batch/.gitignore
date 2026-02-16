@@ -1,0 +1,26 @@
+# Build outputs
+dist/
+*.js
+*.d.ts
+*.js.map
+
+# Dependencies
+node_modules/
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
