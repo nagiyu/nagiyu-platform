@@ -161,7 +161,7 @@ Niconico Mylist Assistant の一括登録機能において、DynamoDBの総件�
 
 - [x] 問題の原因を特定
 - [x] 実装方針を決定
-- [ ] 既存の`listVideosWithSettings`の呼び出し元を確認
+- [x] 既存の`listVideosWithSettings`の呼び出し元を確認
 - [ ] Reservoir Samplingアルゴリズムの実装方法を確認
 
 ### Phase 2: 実装
@@ -300,11 +300,19 @@ function reservoirSampling<T>(items: T[], k: number): T[] {
 
 **決定**: オプション2を採用する。既存の呼び出し元への影響を確認する必要がある。
 
-**既存の呼び出し元の確認**：
+**既存の呼び出し元の確認結果（2026-02-16）**：
 
-1. `/api/videos/route.ts` - `limit`と`offset`を明示的に指定しているため、影響なし
-2. `/api/mylist/register/route.ts` - 本修正の対象箇所
-3. テストコード - `limit`を明示的に指定しているケースと未指定のケースがあるため、未指定のケースの挙動変更を確認
+1. `services/niconico-mylist-assistant/web/src/app/api/videos/route.ts:117`
+    - 呼び出し: `limit` / `offset` を明示指定
+    - 影響: なし（デフォルト値変更の影響を受けない）
+2. `services/niconico-mylist-assistant/web/src/app/api/mylist/register/route.ts:209`
+    - 呼び出し: `limit: MAX_VIDEOS_TO_FETCH` / `offset: 0` を明示指定
+    - 影響: なし（デフォルト値変更の影響を受けない）
+    - 対応: T003 で `selectRandomVideos` に置き換え予定
+3. `services/niconico-mylist-assistant/core/tests/unit/list-videos.test.ts`
+    - 呼び出し: 9箇所（明示指定1箇所、未指定8箇所）
+    - 影響: あり（未指定ケースの期待値が「50件制限あり」前提の場合は更新が必要）
+    - 対応: T005 で未指定ケースのテスト期待値を確認・必要に応じて修正
 
 ### 検討事項2: パフォーマンスの最適化
 
