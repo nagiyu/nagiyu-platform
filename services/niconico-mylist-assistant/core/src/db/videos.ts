@@ -184,7 +184,7 @@ export async function listVideosWithSettings(
     isSkip?: boolean;
   }
 ): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
-  const limit = options?.limit;
+  const limit = options?.limit ?? undefined;
   const offset = options?.offset ?? 0;
   const isFavorite = options?.isFavorite;
   const isSkip = options?.isSkip;
