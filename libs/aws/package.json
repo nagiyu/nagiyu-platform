@@ -20,7 +20,11 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.980.0",
-    "@aws-sdk/lib-dynamodb": "^3.980.0"
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.7"
   }
 }

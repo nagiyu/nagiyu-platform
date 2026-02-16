@@ -1,0 +1,397 @@
+'use client';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  Box,
+  Card,
+  CardContent,
+  Typography,
+  CircularProgress,
+  Alert,
+  LinearProgress,
+  Chip,
+  Stack,
+  TextField,
+  Button,
+} from '@mui/material';
+import {
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  HourglassEmpty as HourglassIcon,
+  PlayArrow as PlayArrowIcon,
+  Security as SecurityIcon,
+} from '@mui/icons-material';
+import type { JobStatusDisplayProps, JobStatusState } from '@/types/job';
+import { DEFAULT_POLLING_CONFIG } from '@/types/job';
+import type { BatchStatus, BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
+import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-core';
+
+const ERROR_MESSAGES = {
+  FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
+  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+  NOT_FOUND: '指定されたジョブが見つかりません',
+} as const;
+
+/**
+ * ジョブステータス表示コンポーネント
+ *
+ * バッチジョブのステータスをリアルタイムで表示し、進捗を追跡します。
+ * - 定期的にポーリングしてステータスを更新
+ * - 完了時にコールバックを実行
+ * - ステータスに応じたUIを表示
+ */
+export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStatusDisplayProps) {
+  const [state, setState] = useState<JobStatusState>({
+    status: 'SUBMITTED',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isLoading: true,
+  });
+
+  const [twoFactorAuthCode, setTwoFactorAuthCode] = useState('');
+  const [isSubmitting2FA, setIsSubmitting2FA] = useState(false);
+  const [twoFAError, setTwoFAError] = useState<string | null>(null);
+
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const attemptCountRef = useRef(0);
+  const hasCompletedRef = useRef(false);
+
+  /**
+   * 二段階認証コードを送信
+   */
+  const handleSubmit2FA = useCallback(async () => {
+    if (!TWO_FACTOR_AUTH_CODE_REGEX.test(twoFactorAuthCode)) {
+      setTwoFAError('6桁の数字を入力してください');
+      return;
+    }
+
+    setIsSubmitting2FA(true);
+    setTwoFAError(null);
+
+    try {
+      const response = await fetch('/api/batch/2fa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          jobId,
+          code: twoFactorAuthCode,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || '二段階認証コードの送信に失敗しました');
+      }
+
+      // 成功したらコードをクリア
+      setTwoFactorAuthCode('');
+      setTwoFAError(null);
+    } catch (error) {
+      console.error('二段階認証コード送信エラー:', error);
+      setTwoFAError(error instanceof Error ? error.message : '送信に失敗しました');
+    } finally {
+      setIsSubmitting2FA(false);
+    }
+  }, [jobId, twoFactorAuthCode]);
+
+  /**
+   * ジョブステータスを取得
+   */
+  const fetchJobStatus = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/batch/status/${jobId}`);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(ERROR_MESSAGES.NOT_FOUND);
+        }
+        throw new Error(ERROR_MESSAGES.FETCH_FAILED);
+      }
+
+      const data: BatchJobStatusResponse = await response.json();
+
+      setState({
+        status: data.status,
+        result: data.result,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+        completedAt: data.completedAt,
+        isLoading: false,
+      });
+
+      // 完了状態の場合、ポーリングを停止してコールバックを実行（1回のみ）
+      if (data.status === 'SUCCEEDED' || data.status === 'FAILED') {
+        // ポーリングを停止
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+
+        // コールバックを実行（1回のみ）
+        if (!hasCompletedRef.current) {
+          hasCompletedRef.current = true;
+
+          if (data.status === 'SUCCEEDED' && data.result && onComplete) {
+            onComplete(data.result);
+          } else if (data.status === 'FAILED' && onError) {
+            const errorMessage = data.result?.errorMessage || 'ジョブが失敗しました';
+            onError(errorMessage);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('ジョブステータス取得エラー:', error);
+      const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.NETWORK_ERROR;
+
+      setState((prev) => ({
+        ...prev,
+        error: errorMessage,
+        isLoading: false,
+      }));
+
+      // ポーリングを停止
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+
+      // エラーコールバックを実行（1回のみ）
+      if (!hasCompletedRef.current && onError) {
+        hasCompletedRef.current = true;
+        onError(errorMessage);
+      }
+    }
+  }, [jobId, onComplete, onError]);
+
+  /**
+   * ポーリングを開始
+   */
+  useEffect(() => {
+    // 初回取得
+    fetchJobStatus();
+
+    // ポーリング開始
+    pollingIntervalRef.current = setInterval(() => {
+      attemptCountRef.current += 1;
+
+      // 最大試行回数に達した場合、ポーリングを停止
+      if (
+        DEFAULT_POLLING_CONFIG.maxAttempts &&
+        attemptCountRef.current >= DEFAULT_POLLING_CONFIG.maxAttempts
+      ) {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
+        setState((prev) => ({
+          ...prev,
+          error: 'ジョブステータスの取得がタイムアウトしました',
+          isLoading: false,
+        }));
+        return;
+      }
+
+      fetchJobStatus();
+    }, DEFAULT_POLLING_CONFIG.intervalMs);
+
+    // クリーンアップ
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [fetchJobStatus]);
+
+  /**
+   * ステータスに応じたアイコンを返す
+   */
+  const getStatusIcon = (status: BatchStatus) => {
+    switch (status) {
+      case 'SUBMITTED':
+        return <HourglassIcon sx={{ fontSize: 40 }} />;
+      case 'RUNNING':
+        return <PlayArrowIcon sx={{ fontSize: 40 }} />;
+      case 'WAITING_FOR_2FA':
+        return <SecurityIcon sx={{ fontSize: 40, color: 'warning.main' }} />;
+      case 'SUCCEEDED':
+        return <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main' }} />;
+      case 'FAILED':
+        return <ErrorIcon sx={{ fontSize: 40, color: 'error.main' }} />;
+    }
+  };
+
+  /**
+   * ステータスに応じた色を返す
+   */
+  const getStatusColor = (
+    status: BatchStatus
+  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    switch (status) {
+      case 'SUBMITTED':
+        return 'info';
+      case 'RUNNING':
+        return 'primary';
+      case 'WAITING_FOR_2FA':
+        return 'warning';
+      case 'SUCCEEDED':
+        return 'success';
+      case 'FAILED':
+        return 'error';
+    }
+  };
+
+  /**
+   * ステータスに応じたラベルを返す
+   */
+  const getStatusLabel = (status: BatchStatus): string => {
+    switch (status) {
+      case 'SUBMITTED':
+        return '投入済み';
+      case 'RUNNING':
+        return '実行中';
+      case 'WAITING_FOR_2FA':
+        return '二段階認証待ち';
+      case 'SUCCEEDED':
+        return '完了';
+      case 'FAILED':
+        return '失敗';
+    }
+  };
+
+  return (
+    <Card sx={{ mb: 3 }}>
+      <CardContent>
+        <Stack spacing={2}>
+          {/* ヘッダー */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6" component="h2">
+              ジョブステータス
+            </Typography>
+            <Chip label={getStatusLabel(state.status)} color={getStatusColor(state.status)} />
+          </Box>
+
+          {/* エラー表示 */}
+          {state.error && (
+            <Alert
+              severity="error"
+              onClose={() => setState((prev) => ({ ...prev, error: undefined }))}
+            >
+              {state.error}
+            </Alert>
+          )}
+
+          {/* ステータス表示 */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {state.isLoading ? <CircularProgress size={40} /> : getStatusIcon(state.status)}
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="body1" gutterBottom>
+                ジョブID: {jobId}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {state.status === 'RUNNING' && 'マイリスト登録処理を実行中...'}
+                {state.status === 'SUBMITTED' && 'ジョブの実行を待機中...'}
+                {state.status === 'WAITING_FOR_2FA' &&
+                  '二段階認証が必要です。メールに送られた6桁のコードを入力してください。'}
+                {state.status === 'SUCCEEDED' && 'マイリスト登録が完了しました'}
+                {state.status === 'FAILED' && 'マイリスト登録に失敗しました'}
+              </Typography>
+            </Box>
+          </Box>
+
+          {/* プログレスバー（実行中のみ） */}
+          {(state.status === 'SUBMITTED' ||
+            state.status === 'RUNNING' ||
+            state.status === 'WAITING_FOR_2FA') && <LinearProgress />}
+
+          {/* 二段階認証コード入力フォーム */}
+          {state.status === 'WAITING_FOR_2FA' && (
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: 'warning.light',
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="body2" gutterBottom>
+                <strong>二段階認証コード入力</strong>
+              </Typography>
+              <Typography variant="body2" gutterBottom color="text.secondary">
+                メールに送られた6桁の数字を入力してください。
+              </Typography>
+              <Stack spacing={2} sx={{ mt: 2 }}>
+                <TextField
+                  label="二段階認証コード"
+                  value={twoFactorAuthCode}
+                  onChange={(e) => {
+                    setTwoFactorAuthCode(e.target.value);
+                    setTwoFAError(null);
+                  }}
+                  placeholder="000000"
+                  inputProps={{
+                    maxLength: 6,
+                    pattern: '[0-9]*',
+                    inputMode: 'numeric',
+                  }}
+                  error={!!twoFAError}
+                  helperText={twoFAError}
+                  disabled={isSubmitting2FA}
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleSubmit2FA}
+                  disabled={isSubmitting2FA || twoFactorAuthCode.length !== 6}
+                >
+                  {isSubmitting2FA ? '送信中...' : 'コードを送信'}
+                </Button>
+              </Stack>
+            </Box>
+          )}
+
+          {/* 結果表示 */}
+          {state.result && (
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: state.status === 'SUCCEEDED' ? 'success.light' : 'error.light',
+                borderRadius: 1,
+              }}
+            >
+              <Typography variant="body2" gutterBottom>
+                <strong>処理結果</strong>
+              </Typography>
+              <Stack spacing={0.5}>
+                <Typography variant="body2">登録成功: {state.result.registeredCount} 件</Typography>
+                <Typography variant="body2">登録失敗: {state.result.failedCount} 件</Typography>
+                <Typography variant="body2">総件数: {state.result.totalCount} 件</Typography>
+                {state.result.errorMessage && (
+                  <Typography variant="body2" color="error">
+                    エラー: {state.result.errorMessage}
+                  </Typography>
+                )}
+              </Stack>
+            </Box>
+          )}
+
+          {/* タイムスタンプ */}
+          <Box sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
+            <Typography variant="caption" color="text.secondary" display="block">
+              作成日時: {new Date(state.createdAt).toLocaleString('ja-JP')}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block">
+              更新日時: {new Date(state.updatedAt).toLocaleString('ja-JP')}
+            </Typography>
+            {state.completedAt && (
+              <Typography variant="caption" color="text.secondary" display="block">
+                完了日時: {new Date(state.completedAt).toLocaleString('ja-JP')}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
