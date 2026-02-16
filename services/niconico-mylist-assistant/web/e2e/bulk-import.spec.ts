@@ -77,7 +77,9 @@ test.describe('Bulk Import API', () => {
     expect(body.invalidIds).toContain('');
   });
 
-  test('should accept valid video IDs with standard and arbitrary alphabetic prefixes', async ({ request }) => {
+  test('should accept valid video IDs with standard and arbitrary alphabetic prefixes', async ({
+    request,
+  }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
         videoIds: ['sm9', 'so12345', 'nm98765', 'abc123'],
