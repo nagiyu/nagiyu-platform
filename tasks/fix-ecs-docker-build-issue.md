@@ -1,15 +1,15 @@
-# ECS 起動失敗問題の修正（Docker ビルドオプション）
+# ECS 起動失敗問題の修正（latest タグへの簡素化）
 
 ## 概要
 
-ECS に公開している Tools サービス（`nagiyu-root-service-prod`）が起動に失敗している問題を修正します。エラー内容は Docker イメージのマニフェストが見つからないというもので、Docker のビルド設定（BuildKit の無効化）が必要と考えられます。
+ECS に公開している Tools サービス（`nagiyu-root-service-prod`）が起動に失敗している問題を、**`latest` タグのみを使用するようリファクタリングすること**で根本的に解決します。
 
 ## 関連情報
 
 - Issue: #（Issue番号を記載）
-- タスクタイプ: インフラタスク（ECS + Docker ビルド設定）
+- タスクタイプ: インフラタスク（GitHub Actions ワークフロー + ECS デプロイ設定）
 - 影響サービス: Tools（`services/tools/`）
-- 影響範囲: `infra/root/` および `.github/workflows/root-deploy.yml`
+- 影響範囲: `.github/workflows/tools-deploy.yml` および `.github/workflows/root-deploy.yml`
 
 ## 問題の詳細
 
@@ -23,27 +23,20 @@ failed to resolve ref 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev
 
 ### 原因分析
 
-**重要な発見**: `tools-deploy.yml` では既に `DOCKER_BUILDKIT: 0` が設定されている（139行目）。
+**重要な発見**:
+1. `tools-deploy.yml` では既に `DOCKER_BUILDKIT: 0` が設定されている（139行目）
+2. ECS が `latest` タグと特定の digest (`@sha256:...`) の**両方**で参照しようとしているが、この組み合わせが存在しない
 
-しかし、エラーメッセージを詳しく見ると：
+**根本原因**: ECS タスク定義が古い digest をピン留めしている
 
-```
-tools-app-dev:latest@sha256:11f7794eb38212b2f186130a8facc1b94be06c2aa1d9219c664f82326a9b212a: not found
-```
+1. commit SHA タグ + `latest` タグの両方でイメージを push
+2. ECS タスク定義作成時に、`imageTags[0]` が commit SHA タグを取得する可能性
+3. または、古い `latest` digest がタスク定義にピン留めされたまま
+4. 新しい `latest` イメージ（DOCKER_BUILDKIT=0）は ECR に存在するが、ECS は古い digest を参照
 
-ECS が `latest` タグと特定の digest (`@sha256:...`) の**両方**で参照しようとしており、この組み合わせが存在しない。
-
-#### 推測される原因
-
-1.  **古い digest へのピン留め**: ECS タスク定義が作成された時点で `latest` タグが指していた古い digest が記録されている
-2.  **DOCKER_BUILDKIT=0 追加後の digest 変更**: BuildKit 無効化により新しい manifest 形式でイメージが再ビルドされ、digest が変わった
-3.  **タスク定義の未更新**: 新しい digest を持つ `latest` イメージが ECR にあるが、ECS タスク定義は古い digest を参照し続けている
-
-#### 確認事項
-
+**確認事項**:
 - Tools の本番環境（Lambda）は正常に動作している → 新しいイメージ（DOCKER_BUILDKIT=0）は存在し、動作する
-- `tools-deploy.yml` で `DOCKER_BUILDKIT: 0` は既に設定済み
-- 問題は ECS タスク定義が古い digest を参照していることに起因する可能性が高い
+- Lambda は既に `:latest` タグを直接使用している（`tools-deploy.yml` 204行目）
 
 ### 現状の構成とワークフロー設計
 
@@ -52,14 +45,12 @@ ECS が `latest` タグと特定の digest (`@sha256:...`) の**両方**で参�
 - **ECS 環境**: Fargate + ALB + CloudFront（ルートドメイン用）
 - **Lambda 環境**: Lambda + CloudFront（tools.nagiyu.com 用）
 - **ECR リポジトリ**: dev 環境の `NagiyuToolsEcrDev` を prod ECS も参照（一時的な構成として問題なし）
-- **イメージタグ戦略**: `latest` タグのみ使用
+- **イメージタグ戦略（現状）**: commit SHA タグ + `latest` タグの両方を使用
 
 #### ワークフロー責任分担
 
 - **`tools-deploy.yml`**: Docker ビルド＆プッシュ + Lambda デプロイを担当
 - **`root-deploy.yml`**: ECS デプロイのみを担当（ビルドは行わない、既存イメージを使用）
-
-この設計により、イメージビルドは `tools-deploy.yml` に集約され、`root-deploy.yml` はデプロイのみに特化します。
 
 ## 要件
 
@@ -68,122 +59,147 @@ ECS が `latest` タグと特定の digest (`@sha256:...`) の**両方**で参�
 - FR1: ECS サービスが正常に起動し、Tools アプリが利用可能になること
 - FR2: Docker イメージが ECS で正常に pull できる形式（Docker v2 マニフェスト）でビルドされること
 - FR3: `tools-deploy.yml` がビルド、`root-deploy.yml` がデプロイという責任分担を維持すること
+- FR4: イメージタグ戦略をシンプルにし、digest ピン留め問題を根本的に解決すること
 
 ### 非機能要件
 
-- NFR1: 他サービスと同様の Docker ビルド設定を適用すること（`DOCKER_BUILDKIT=0`）
-- NFR2: ワークフローの実行時間を最小限に抑えること（ビルドの重複を避ける）
+- NFR1: `DOCKER_BUILDKIT=0` 設定を維持すること
+- NFR2: ワークフローの実行時間を最小限に抑えること（不要な処理を削除）
 - NFR3: Lambda と ECS の両方で同じイメージが動作すること
 
 ## 実装方針
 
-### 確定したアプローチ
+### 新しいアプローチ: `latest` タグのみを使用
 
-`DOCKER_BUILDKIT: 0` は既に設定済みのため、問題は **ECS タスク定義が古い digest を参照していること**と判明。
+ユーザーからの提案により、**commit SHA タグを廃止し、`latest` タグのみを使用する**方向でリファクタリングします。
 
-**修正方針**:
+**メリット**:
+1. **digest ピン留め問題の根本解決**: commit SHA タグがなければ、古い digest への参照が発生しない
+2. **ワークフローの簡素化**: 複数タグの管理が不要になる
+3. **Lambda との整合性**: 既に Lambda は `:latest` を使用している
+4. **ECS との整合性**: ECS も `:latest` のみを参照するようになり、常に最新イメージを使用
 
-1. **ECS タスク定義の強制更新**: `root-deploy.yml` を実行して、現在の `latest` イメージ（新しい digest）で ECS タスク定義を再作成
-2. **CDK の IMAGE_TAG 環境変数**: `root-deploy.yml` が正しく `latest` タグを使用するよう確認
+**デメリットと対策**:
+- **ロールバックの難しさ**: 特定のバージョンに戻すことが難しくなる
+  - 対策: 必要に応じて、デプロイ時のログに commit SHA を記録
+  - 対策: 緊急時は以前の commit から再ビルド
+- **並行デプロイ**: 複数環境への同時デプロイで競合の可能性
+  - 対策: 現状は dev/prod で ECR リポジトリが分かれているため問題なし
 
 ### 実装の詳細
 
-#### 1. root-deploy.yml の IMAGE_TAG 取得ロジック確認
+#### 1. tools-deploy.yml の修正
 
-現在の `root-deploy.yml`（126-139行目）:
+**現在の処理** (137-150行目):
+```yaml
+env:
+  IMAGE_TAG: ${{ github.sha }}
+run: |
+  # Build and tag with commit SHA
+  docker build --build-arg APP_VERSION="$APP_VERSION" \
+    -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
+  docker push "$REPOSITORY_URI:$IMAGE_TAG"
+  
+  # Also tag as latest
+  docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+  docker push "$REPOSITORY_URI:latest"
+  
+  echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+```
 
+**修正後**:
+```yaml
+env:
+  IMAGE_TAG: latest
+run: |
+  # Build and push with latest tag only
+  docker build --build-arg APP_VERSION="$APP_VERSION" \
+    -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
+  docker push "$REPOSITORY_URI:$IMAGE_TAG"
+  
+  echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+  echo "commit-sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+```
+
+**変更点**:
+- `IMAGE_TAG` を `${{ github.sha }}` から `latest` に変更
+- commit SHA でのビルド・プッシュを削除
+- `latest` への tag コマンドを削除（直接 `latest` でビルド）
+- デバッグ用に `commit-sha` を output に追加（オプション）
+
+#### 2. root-deploy.yml の修正
+
+**現在の処理** (126-139行目):
 ```yaml
 # Get the most recent image tag (sorted by push date)
 IMAGE_TAG=$(aws ecr describe-images \
---repository-name "$REPOSITORY_NAME" \
---query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
---output text \
---region ${{ env.AWS_REGION }})
+  --repository-name "$REPOSITORY_NAME" \
+  --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
+  --output text \
+  --region ${{ env.AWS_REGION }})
 ```
 
-**問題**: `imageTags[0]` は最新イメージの「最初のタグ」を取得するが、それが `latest` とは限らない（commit SHA かもしれない）
-
-**解決策**: 明示的に `latest` タグを使用するよう変更、または `latest` タグが存在するか確認
-
-#### 2. ECS タスク定義の image 参照
-
-`infra/root/ecs-service-stack.ts`（161行目）:
-
-```typescript
-const imageTag = process.env.IMAGE_TAG || 'latest';
+**修正後**:
+```yaml
+# Always use latest tag for ECS
+IMAGE_TAG="latest"
+echo "Using latest tag for ECS deployment"
 ```
 
-デフォルトは `latest` だが、`root-deploy.yml` から渡される `IMAGE_TAG` が commit SHA の場合、それが使われてしまう。
-
-#### 3. repository_memories の知見
-
-```
-Docker BuildKit Lambda optimization:
-For Lambda Docker builds, use ONLY DOCKER_BUILDKIT=0.
-Do NOT use --platform linux/amd64 as it's redundant with classic builder
-on linux/amd64 runners.
-```
-
-- `DOCKER_BUILDKIT=0` は Lambda だけでなく ECS でも必要
-- `--platform linux/amd64` は不要（GitHub Actions ランナーは既に linux/amd64）
-- classic Docker builder が Lambda および ECS 互換の Docker v2 マニフェスト形式を生成
+または、IMAGE_TAG の取得自体を削除し、CDK のデフォルト値（`latest`）を使用。
 
 ## タスク
 
-### Phase 1: 現状確認と診断
+### Phase 1: tools-deploy.yml のリファクタリング
 
-- [ ] T001: ECR リポジトリ内のイメージ一覧を確認（`latest` タグが存在するか、digest は何か）
-- [ ] T002: 現在の ECS タスク定義を確認（どの image URI と digest を参照しているか）
-- [ ] T003: `root-deploy.yml` の IMAGE_TAG 取得ロジックを確認（`latest` を取得しているか、commit SHA を取得しているか）
+- [ ] T001: `.github/workflows/tools-deploy.yml` の `IMAGE_TAG` を `${{ github.sha }}` から `latest` に変更（137行目）
+- [ ] T002: commit SHA でのビルド・プッシュコメントを更新（141行目）
+- [ ] T003: `docker tag` と2回目の `docker push` を削除（146-148行目）
+- [ ] T004: デバッグ用に `commit-sha` output を追加（オプション）
 
-### Phase 2: 修正実装
+### Phase 2: root-deploy.yml の簡素化
 
-**オプション A: root-deploy.yml を修正して latest タグを明示的に使用**
+- [ ] T005: `root-deploy.yml` の IMAGE_TAG 取得ロジックを簡素化（126-139行目を削除または `latest` 固定に変更）
+- [ ] T006: CDK Deploy で IMAGE_TAG 環境変数を `latest` に固定、またはデフォルト値を使用
 
-- [ ] T004: `root-deploy.yml` の IMAGE_TAG 取得ロジックを修正または削除（常に `latest` を使用）
-- [ ] T005: CDK デプロイ時に `IMAGE_TAG=latest` を明示的に設定
+### Phase 3: 検証とテスト
 
-**オプション B: 現状のまま root-deploy.yml を再実行**
+- [ ] T007: `tools-deploy.yml` を実行して `latest` タグのみでビルド・プッシュされることを確認
+- [ ] T008: ECR リポジトリに `latest` タグのみが存在することを確認（commit SHA タグは新規作成されない）
+- [ ] T009: Lambda が正常に更新されることを確認（既に `:latest` を使用しているため問題なし）
 
-- [ ] T006: `tools-deploy.yml` を実行して最新イメージが ECR に存在することを確認
-- [ ] T007: `root-deploy.yml` を実行して ECS タスク定義を強制的に再作成（新しい digest で）
+### Phase 4: ECS デプロイとテスト
 
-### Phase 3: ECS サービス更新
-
-- [ ] T008: CDK デプロイで ECS タスク定義が新しいリビジョンとして作成されることを確認
-- [ ] T009: ECS サービスが新しいタスク定義を使用して再起動することを確認
-
-### Phase 4: 動作確認
-
-- [ ] T010: ECS タスクが正常に起動し、Running 状態になることを確認
-- [ ] T011: ALB 経由で Tools アプリのホーム画面が表示されることを確認
-- [ ] T012: CloudWatch Logs でエラーがないことを確認
+- [ ] T010: `root-deploy.yml` を実行して ECS タスク定義が `latest` タグで作成されることを確認
+- [ ] T011: ECS タスクが正常に起動し、Running 状態になることを確認
+- [ ] T012: ALB 経由で Tools アプリのホーム画面が表示されることを確認
 
 ### Phase 5: ドキュメント更新
 
-- [ ] T013: `docs/services/tools/deployment.md` に ECS の digest ピン留め問題と解決方法を記載
-- [ ] T014: repository_memories に ECS の image 参照と digest 問題に関する知見を記録
+- [ ] T013: `docs/services/tools/deployment.md` にイメージタグ戦略（`latest` のみ使用）を明記
+- [ ] T014: repository_memories にイメージタグ簡素化の知見を記録
 
 ## 受け入れ基準
 
-1.  **根本原因の特定**:
-    - [ ] ECR の `latest` タグが指す digest を確認済み
-    - [ ] ECS タスク定義が参照している digest を確認済み
-    - [ ] 両者の不一致を確認済み
+1.  **ワークフローの簡素化**:
+    - [ ] `tools-deploy.yml` が `latest` タグのみでビルド・プッシュする
+    - [ ] commit SHA タグでのビルド・プッシュが削除されている
+    - [ ] `docker tag` コマンドが不要になっている
 
 2.  **機能確認**:
+    - [ ] Lambda が正常に動作する（既に `:latest` を使用）
     - [ ] ECS タスクが正常に起動し、Running 状態になる
     - [ ] ALB 経由で Tools アプリのホーム画面が表示される（ルートドメイン経由）
-    - [ ] ALB ターゲットグループのヘルスチェックが成功する
     - [ ] エラーメッセージ「CannotPullContainerError」が解消されている
 
 3.  **設定確認**:
-    - [ ] `root-deploy.yml` が正しく `latest` タグ（または意図したタグ）を使用している
-    - [ ] ECS タスク定義が最新の digest を参照している
+    - [ ] `root-deploy.yml` が `latest` タグを使用している（または IMAGE_TAG を設定していない）
+    - [ ] ECS タスク定義が最新の `latest` digest を参照している
+    - [ ] ECR に commit SHA タグが新規作成されていない
 
 4.  **ドキュメント**:
-    - [ ] ECS の image digest ピン留めの挙動と解決方法が文書化されている
-    - [ ] `root-deploy.yml` の IMAGE_TAG 取得ロジックの改善点が記載されている
+    - [ ] イメージタグ戦略（`latest` のみ使用）が文書化されている
+    - [ ] 簡素化によるメリット・デメリットが明記されている
 
 ## 参考ドキュメント
 
@@ -191,37 +207,43 @@ on linux/amd64 runners.
 - [Tools デプロイマニュアル](../../docs/services/tools/deployment.md)
 - [インフラドキュメント](../../docs/infra/README.md)
 - [GitHub Workflows](.github/workflows/)
-  - `tools-deploy.yml` - Tools サービスのデプロイ
-  - `root-deploy.yml` - ルートドメイン（ECS）のデプロイ
-  - 他サービスの deploy.yml - Docker ビルド設定の参考
+    - `tools-deploy.yml` - Tools サービスのデプロイ
+    - `root-deploy.yml` - ルートドメイン（ECS）のデプロイ
+    - 他サービスの deploy.yml - Docker ビルド設定の参考
 
 ## 設計方針の確認事項
 
 ### ワークフローの役割分担（確定）
 
-- **`tools-deploy.yml`**: Docker ビルド＆プッシュ + Lambda デプロイを担当（**既に `DOCKER_BUILDKIT: 0` 設定済み**）
-- **`root-deploy.yml`**: ECS デプロイのみを担当（ビルドは行わない）
+- **`tools-deploy.yml`**: Docker ビルド＆プッシュ（**`latest` タグのみ使用**）+ Lambda デプロイを担当
+- **`root-deploy.yml`**: ECS デプロイのみを担当（ビルドは行わない、`latest` タグを使用）
+
+### イメージタグ戦略の変更
+
+**以前**: commit SHA タグ + `latest` タグの両方を使用
+- メリット: 特定バージョンへのロールバックが容易
+- デメリット: digest ピン留め問題、ワークフロー複雑化
+
+**新方針**: `latest` タグのみを使用
+- メリット: digest ピン留め問題の根本解決、ワークフロー簡素化、Lambda/ECS の整合性
+- デメリット: ロールバック時は commit から再ビルドが必要
 
 ### 環境とイメージ戦略（確定）
 
 - **ECR リポジトリ**: prod ECS が dev ECR（`NagiyuToolsEcrDev`）を参照する構成は問題なし（一時的な構成として許容）
-- **イメージタグ**: `latest` タグのみを使用する意図だが、`root-deploy.yml` が commit SHA を取得している可能性
+- **イメージタグ**: **`latest` タグのみを使用**（commit SHA タグは廃止）
 - **動作状況**: Tools の本番環境（Lambda）は正常に動作中 → 新しいイメージ（DOCKER_BUILDKIT=0）は存在し動作する
-
-### 実装の注意点
-
-- **DOCKER_BUILDKIT=0 は既に設定済み**: これ以上の変更は不要
-- **問題は ECS タスク定義の digest 参照**: タスク定義を再作成する必要がある
-- **root-deploy.yml の IMAGE_TAG ロジック見直し**:
-  - 現状: `imageTags[0]` で最初のタグを取得（`latest` とは限らない）
-  - 改善案1: 常に `latest` を使用（環境変数を設定しない、またはハードコード）
-  - 改善案2: タグ一覧から明示的に `latest` を検索して使用
 
 ### ECS の image digest ピン留めについて
 
-ECS がタスク定義を作成する際、`image:tag` 形式で指定しても、内部的に `image:tag@sha256:digest` 形式でピン留めされる。これにより：
+ECS がタスク定義を作成する際、`image:tag` 形式で指定しても、内部的に `image:tag@sha256:digest` 形式でピン留めされる。
 
-- **メリット**: 同じタスク定義リビジョンは常に同じイメージを使用（再現性）
-- **デメリット**: ECR の `latest` タグが新しい digest を指すように更新されても、既存のタスク定義は古い digest を参照し続ける
+**従来の問題**:
+- commit SHA タグでイメージをビルド → ECR に複数タグが存在
+- `root-deploy.yml` が `imageTags[0]` を取得 → commit SHA タグを取得する可能性
+- または、古い `latest` digest がピン留めされたまま
 
-**解決方法**: タスク定義を再作成（新しいリビジョンを作成）することで、現在の `latest` タグが指す digest を取得させる
+**新しいアプローチでの解決**:
+- `latest` タグのみでビルド → ECR には `latest` タグしか存在しない
+- `root-deploy.yml` は常に `latest` を使用 → IMAGE_TAG 取得ロジックが不要
+- タスク定義再作成時、常に最新の `latest` digest が自動的に使用される
