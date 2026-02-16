@@ -160,6 +160,7 @@ export async function deleteUserVideoSetting(userId: string, videoId: string): P
  * ユーザーの動画一覧を取得（フィルタリング・ページネーション対応）
  * @param userId ユーザーID
  * @param options フィルタとページネーションのオプション
+ * - limit 未指定時は、フィルタ後の動画を全件返します
  * @returns 動画データの配列と総件数
  *
  * @remarks
@@ -183,8 +184,8 @@ export async function listVideosWithSettings(
     isSkip?: boolean;
   }
 ): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
-  const limit = options?.limit || 50;
-  const offset = options?.offset || 0;
+  const limit = options?.limit ?? undefined;
+  const offset = options?.offset ?? 0;
   const isFavorite = options?.isFavorite;
   const isSkip = options?.isSkip;
 
@@ -212,7 +213,8 @@ export async function listVideosWithSettings(
     }
 
     const allVideos = await getVideoRepository().listAll();
-    const paginatedVideos = allVideos.slice(offset, offset + limit);
+    const paginatedVideos =
+      limit === undefined ? allVideos.slice(offset) : allVideos.slice(offset, offset + limit);
 
     return {
       videos: paginatedVideos,
@@ -235,7 +237,10 @@ export async function listVideosWithSettings(
   const total = filteredSettings.length;
 
   // ページネーション適用
-  const paginatedSettings = filteredSettings.slice(offset, offset + limit);
+  const paginatedSettings =
+    limit === undefined
+      ? filteredSettings.slice(offset)
+      : filteredSettings.slice(offset, offset + limit);
 
   // 動画基本情報を一括取得
   const videoIds = paginatedSettings.map((setting) => setting.videoId);
