@@ -24,6 +24,7 @@ failed to resolve ref 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev
 ### 原因分析
 
 **重要な発見**:
+
 1. `tools-deploy.yml` では既に `DOCKER_BUILDKIT: 0` が設定されている（139行目）
 2. ECS が `latest` タグと特定の digest (`@sha256:...`) の**両方**で参照しようとしているが、この組み合わせが存在しない
 
@@ -35,6 +36,7 @@ failed to resolve ref 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev
 4. 新しい `latest` イメージ（DOCKER_BUILDKIT=0）は ECR に存在するが、ECS は古い digest を参照
 
 **確認事項**:
+
 - Tools の本番環境（Lambda）は正常に動作している → 新しいイメージ（DOCKER_BUILDKIT=0）は存在し、動作する
 - Lambda は既に `:latest` タグを直接使用している（`tools-deploy.yml` 204行目）
 
@@ -74,12 +76,14 @@ failed to resolve ref 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev
 ユーザーからの提案により、**commit SHA タグを廃止し、`latest` タグのみを使用する**方向でリファクタリングします。
 
 **メリット**:
+
 1. **digest ピン留め問題の根本解決**: commit SHA タグがなければ、古い digest への参照が発生しない
 2. **ワークフローの簡素化**: 複数タグの管理が不要になる
 3. **Lambda との整合性**: 既に Lambda は `:latest` を使用している
 4. **ECS との整合性**: ECS も `:latest` のみを参照するようになり、常に最新イメージを使用
 
 **デメリットと対策**:
+
 - **ロールバックの難しさ**: 特定のバージョンに戻すことが難しくなる
   - 対策: 必要に応じて、デプロイ時のログに commit SHA を記録
   - 対策: 緊急時は以前の commit から再ビルド
@@ -91,6 +95,7 @@ failed to resolve ref 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev
 #### 1. tools-deploy.yml の修正
 
 **現在の処理** (137-150行目):
+
 ```yaml
 env:
   IMAGE_TAG: ${{ github.sha }}
@@ -99,15 +104,16 @@ run: |
   docker build --build-arg APP_VERSION="$APP_VERSION" \
     -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
   docker push "$REPOSITORY_URI:$IMAGE_TAG"
-  
+
   # Also tag as latest
   docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
   docker push "$REPOSITORY_URI:latest"
-  
+
   echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 ```
 
 **修正後**:
+
 ```yaml
 env:
   IMAGE_TAG: latest
@@ -116,12 +122,13 @@ run: |
   docker build --build-arg APP_VERSION="$APP_VERSION" \
     -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
   docker push "$REPOSITORY_URI:$IMAGE_TAG"
-  
+
   echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
   echo "commit-sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
 ```
 
 **変更点**:
+
 - `IMAGE_TAG` を `${{ github.sha }}` から `latest` に変更
 - commit SHA でのビルド・プッシュを削除
 - `latest` への tag コマンドを削除（直接 `latest` でビルド）
@@ -130,16 +137,18 @@ run: |
 #### 2. root-deploy.yml の修正
 
 **現在の処理** (126-139行目):
+
 ```yaml
 # Get the most recent image tag (sorted by push date)
 IMAGE_TAG=$(aws ecr describe-images \
-  --repository-name "$REPOSITORY_NAME" \
-  --query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
-  --output text \
-  --region ${{ env.AWS_REGION }})
+--repository-name "$REPOSITORY_NAME" \
+--query 'sort_by(imageDetails,& imagePushedAt)[-1].imageTags[0]' \
+--output text \
+--region ${{ env.AWS_REGION }})
 ```
 
 **修正後**:
+
 ```yaml
 # Always use latest tag for ECS
 IMAGE_TAG="latest"
@@ -207,9 +216,9 @@ echo "Using latest tag for ECS deployment"
 - [Tools デプロイマニュアル](../../docs/services/tools/deployment.md)
 - [インフラドキュメント](../../docs/infra/README.md)
 - [GitHub Workflows](.github/workflows/)
-    - `tools-deploy.yml` - Tools サービスのデプロイ
-    - `root-deploy.yml` - ルートドメイン（ECS）のデプロイ
-    - 他サービスの deploy.yml - Docker ビルド設定の参考
+  - `tools-deploy.yml` - Tools サービスのデプロイ
+  - `root-deploy.yml` - ルートドメイン（ECS）のデプロイ
+  - 他サービスの deploy.yml - Docker ビルド設定の参考
 
 ## 設計方針の確認事項
 
@@ -221,10 +230,12 @@ echo "Using latest tag for ECS deployment"
 ### イメージタグ戦略の変更
 
 **以前**: commit SHA タグ + `latest` タグの両方を使用
+
 - メリット: 特定バージョンへのロールバックが容易
 - デメリット: digest ピン留め問題、ワークフロー複雑化
 
 **新方針**: `latest` タグのみを使用
+
 - メリット: digest ピン留め問題の根本解決、ワークフロー簡素化、Lambda/ECS の整合性
 - デメリット: ロールバック時は commit から再ビルドが必要
 
@@ -239,11 +250,13 @@ echo "Using latest tag for ECS deployment"
 ECS がタスク定義を作成する際、`image:tag` 形式で指定しても、内部的に `image:tag@sha256:digest` 形式でピン留めされる。
 
 **従来の問題**:
+
 - commit SHA タグでイメージをビルド → ECR に複数タグが存在
 - `root-deploy.yml` が `imageTags[0]` を取得 → commit SHA タグを取得する可能性
 - または、古い `latest` digest がピン留めされたまま
 
 **新しいアプローチでの解決**:
+
 - `latest` タグのみでビルド → ECR には `latest` タグしか存在しない
 - `root-deploy.yml` は常に `latest` を使用 → IMAGE_TAG 取得ロジックが不要
 - タスク定義再作成時、常に最新の `latest` digest が自動的に使用される
