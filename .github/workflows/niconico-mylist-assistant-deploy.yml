@@ -115,6 +115,7 @@ jobs:
 
     outputs:
       image-tag: ${{ github.sha }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
@@ -252,6 +253,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
           STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
+          APP_VERSION: ${{ needs.build-web.outputs.app-version }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           echo "Deploying application infrastructure (environment: $ENVIRONMENT)..."
