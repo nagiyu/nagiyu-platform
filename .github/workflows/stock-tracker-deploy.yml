@@ -134,6 +134,7 @@ jobs:
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
           docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
@@ -195,6 +196,7 @@ jobs:
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
+          DOCKER_BUILDKIT: 0
         run: |
           # Build and tag with commit SHA
           docker build -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/stock-tracker/batch/Dockerfile .

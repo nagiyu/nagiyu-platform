@@ -1,6 +1,6 @@
 {
   "name": "nagiyu-platform",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "private": true,
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [

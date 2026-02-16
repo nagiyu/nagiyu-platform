@@ -922,6 +922,7 @@ export default function HoldingsPage() {
           exchangeId={selectedHolding.tickerId.split(':')[0] || ''}
           mode="Sell"
           defaultTargetPrice={selectedHolding.averagePrice * 1.2}
+          basePrice={selectedHolding.averagePrice}
         />
       )}
     </Container>

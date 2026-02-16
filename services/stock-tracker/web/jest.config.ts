@@ -16,7 +16,7 @@ const config: Config = {
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['lib/repository-factory.ts'],
+  collectCoverageFrom: ['lib/repository-factory.ts', 'lib/percentage-helper.ts'],
   coverageThreshold: {
     global: {
       branches: 100,
