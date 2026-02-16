@@ -242,9 +242,14 @@ export async function listVideosWithSettings(
       ? filteredSettings.slice(offset)
       : filteredSettings.slice(offset, offset + limit);
 
-  // 動画基本情報を一括取得
+  // 動画基本情報を一括取得（batchGet上限100件に対応）
   const videoIds = paginatedSettings.map((setting) => setting.videoId);
-  const basicInfos = videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
+  const basicInfos: VideoBasicInfo[] = [];
+  for (let i = 0; i < videoIds.length; i += 100) {
+    const chunk = videoIds.slice(i, i + 100);
+    const chunkInfos = await batchGetVideoBasicInfo(chunk);
+    basicInfos.push(...chunkInfos);
+  }
 
   // 動画基本情報とユーザー設定をマージ
   const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
@@ -299,36 +304,29 @@ export async function selectRandomVideos(params: {
     filters.isSkip = false;
   }
 
-  const PAGE_SIZE = 100;
+  const { videos } = await listVideosWithSettings(userId, {
+    ...filters,
+  });
+
+  if (videos.length <= maxCount) {
+    return [...videos];
+  }
+
   const reservoir: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = [];
-  let total = 0;
-  let offset = 0;
   let seen = 0;
 
-  do {
-    const result = await listVideosWithSettings(userId, {
-      ...filters,
-      limit: PAGE_SIZE,
-      offset,
-    });
-
-    total = result.total;
-
-    for (const video of result.videos) {
-      seen += 1;
-      if (reservoir.length < maxCount) {
-        reservoir.push(video);
-        continue;
-      }
-
-      const j = Math.floor(Math.random() * seen);
-      if (j < maxCount) {
-        reservoir[j] = video;
-      }
+  for (const video of videos) {
+    seen += 1;
+    if (reservoir.length < maxCount) {
+      reservoir.push(video);
+      continue;
     }
 
-    offset += PAGE_SIZE;
-  } while (offset < total);
+    const j = Math.floor(Math.random() * seen);
+    if (j < maxCount) {
+      reservoir[j] = video;
+    }
+  }
 
   return reservoir;
 }

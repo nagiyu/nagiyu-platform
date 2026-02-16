@@ -33,7 +33,18 @@ describe('selectRandomVideos', () => {
       UpdatedAt: 1704067200000,
     }));
 
-    ddbMock.on(QueryCommand).resolves({ Items: settings });
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({
+        Items: settings.slice(0, 100),
+        LastEvaluatedKey: {
+          PK: 'USER#user123',
+          SK: 'VIDEO#sm100',
+        },
+      })
+      .resolvesOnce({
+        Items: settings.slice(100),
+      });
     ddbMock.on(BatchGetCommand).callsFake((input) => {
       const keys = input.RequestItems?.['test-table']?.Keys ?? [];
       return {
@@ -64,6 +75,8 @@ describe('selectRandomVideos', () => {
 
     expect(result).toHaveLength(2);
     expect(result.map((video) => video.videoId)).toEqual(['sm150', 'sm2']);
+    expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(2);
+    expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
   });
 
   it('favoriteOnly と skipExclude の両方を適用できる', async () => {
