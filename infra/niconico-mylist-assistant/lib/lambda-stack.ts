@@ -10,6 +10,7 @@ import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
+  appVersion: string;
   webEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
@@ -37,6 +38,7 @@ export class LambdaStack extends cdk.Stack {
 
     const {
       environment,
+      appVersion,
       webEcrRepositoryName,
       dynamoTable,
       nextAuthSecret,
@@ -103,6 +105,7 @@ export class LambdaStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       environment: {
         NODE_ENV: environment,
+        APP_VERSION: appVersion,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         AUTH_URL: authUrl,
         NEXT_PUBLIC_AUTH_URL: authUrl,
