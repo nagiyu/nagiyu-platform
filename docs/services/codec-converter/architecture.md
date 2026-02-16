@@ -53,6 +53,49 @@ const job: Job = {
 
 **注**: このパッケージは `services/` 配下に配置されており、Codec Converter サービス専用です。プラットフォーム全体で共有するライブラリは `libs/` 配下に配置します。
 
+### プラットフォーム共有ライブラリ
+
+codec-converter-web は、プラットフォーム全体で共有される以下のライブラリを使用します：
+
+#### `@nagiyu/common`
+
+**役割**: フレームワーク非依存の共通ユーティリティライブラリ
+
+**使用方法**: 
+- `@nagiyu/ui` → `@nagiyu/browser` → `@nagiyu/common` という依存関係により、間接的に使用
+- 将来的には、構造化ログ（`logger`）、API 型定義（`api`）、バリデーション（`validation`）などを直接使用することも検討
+
+**提供機能**:
+- 構造化ログ機能（`logger`）
+- 共通バリデーション（`validation`）
+- API 型定義（`api`）
+- 認証・認可ユーティリティ（`auth`）
+
+#### `@nagiyu/browser`
+
+**役割**: ブラウザ API 依存の共通ユーティリティライブラリ
+
+**使用方法**: 
+- `@nagiyu/ui` を通じて間接的に使用
+- ブラウザ API（Clipboard、localStorage など）へのアクセスが必要な場合に使用
+
+**依存関係**: `@nagiyu/common`
+
+#### `@nagiyu/ui`
+
+**役割**: Next.js + Material-UI ベースの共通 UI コンポーネントライブラリ
+
+**使用方法**: 
+- Header、Footer、Theme などの共通 UI コンポーネントを提供
+- codec-converter-web で直接インポートして使用
+
+**使用例**:
+```typescript
+import { theme, Header, Footer } from '@nagiyu/ui';
+```
+
+**依存関係**: `@nagiyu/browser`、Next.js、Material-UI
+
 ---
 
 ## システム構成図
