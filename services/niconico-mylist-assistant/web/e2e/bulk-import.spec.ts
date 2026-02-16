@@ -62,7 +62,7 @@ test.describe('Bulk Import API', () => {
   test('should validate video ID format', async ({ request }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['invalid-id', '12345', 'sm', 'sm@123', 'SM123', '', 'sm123'],
+        videoIds: ['invalid-id', '12345', 'sm', 'sm@123', 'SM123', ''],
       },
     });
 
@@ -77,7 +77,7 @@ test.describe('Bulk Import API', () => {
     expect(body.invalidIds).toContain('');
   });
 
-  test('should accept valid video IDs with multiple prefixes', async ({ request }) => {
+  test('should accept valid video IDs with standard and arbitrary alphabetic prefixes', async ({ request }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
         videoIds: ['sm9', 'so12345', 'nm98765', 'abc123'],
