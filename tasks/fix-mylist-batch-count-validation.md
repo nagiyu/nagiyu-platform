@@ -162,7 +162,25 @@ Niconico Mylist Assistant の一括登録機能において、DynamoDBの総件�
 - [x] 問題の原因を特定
 - [x] 実装方針を決定
 - [x] 既存の`listVideosWithSettings`の呼び出し元を確認
-- [ ] Reservoir Samplingアルゴリズムの実装方法を確認
+- [x] Reservoir Samplingアルゴリズムの実装方法を確認
+
+#### 調査結果（2026-02-16）
+
+- **Algorithm R の採用方針**:
+    - 先頭 `k` 件で初期リザーバを構築し、`i = k..n-1` の各要素で `j = floor(random() * (i + 1))` を生成
+    - `j < k` の場合のみ置換することで、各要素が最終的に選ばれる確率を `k/n` に保つ
+- **TypeScript 実装案**:
+    - 関数シグネチャ: `reservoirSampling<T>(items: readonly T[], k: number, random: () => number = Math.random): T[]`
+    - `random` を引数化してテスト時の決定的検証を可能にする
+    - 返却値は新規配列とし、入力配列を破壊しない
+- **エッジケース方針**:
+    - `k <= 0` の場合は `[]` を返す（`k = 0` を含む）
+    - `items.length === 0` の場合は `[]` を返す（`n = 0`）
+    - `k >= items.length` の場合は `[...]items` を返す（`k >= n`）
+- **テスト戦略案**:
+    - `k >= n`、`k = 0`、`n = 0` の境界値テストを固定化
+    - `random` に固定シーケンスを注入して置換ロジックの分岐（`j < k` / `j >= k`）を再現
+    - 統計的性質（厳密確率）ではなく、アルゴリズム手順と返却件数・重複なしをユニットテストで保証
 
 ### Phase 2: 実装
 
