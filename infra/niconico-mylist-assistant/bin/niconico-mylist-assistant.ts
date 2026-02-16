@@ -14,6 +14,7 @@ const app = new cdk.App();
 
 // 環境パラメータを取得
 const env = app.node.tryGetContext('env') || 'dev';
+const appVersion = process.env.APP_VERSION || '1.0.0';
 
 // 許可された環境値のチェック
 const allowedEnvironments = ['dev', 'prod'];
@@ -87,6 +88,7 @@ const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER'
 
 const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
   environment: env,
+  appVersion: appVersion,
   webEcrRepositoryName: webEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
   nextAuthSecret,
