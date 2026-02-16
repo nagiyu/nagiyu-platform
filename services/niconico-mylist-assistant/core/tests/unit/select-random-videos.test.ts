@@ -132,6 +132,51 @@ describe('selectRandomVideos', () => {
     expect(result[0].videoId).toBe('sm1');
   });
 
+  it('置換条件を満たさない場合は既存のリザーバを維持する', async () => {
+    const settings = Array.from({ length: 3 }, (_, i) => ({
+      PK: 'USER#user123',
+      SK: `VIDEO#sm${i + 1}`,
+      entityType: 'USER_SETTING',
+      userId: 'user123',
+      videoId: `sm${i + 1}`,
+      isFavorite: false,
+      isSkip: false,
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    }));
+
+    ddbMock.on(QueryCommand).resolves({ Items: settings });
+    ddbMock.on(BatchGetCommand).callsFake((input) => {
+      const keys = input.RequestItems?.['test-table']?.Keys ?? [];
+      return {
+        Responses: {
+          'test-table': keys.map((key) => {
+            const videoId = String(key.PK).replace('VIDEO#', '');
+            return {
+              PK: key.PK,
+              SK: key.SK,
+              entityType: 'VIDEO',
+              videoId,
+              title: `動画${videoId}`,
+              thumbnailUrl: `https://example.com/${videoId}.jpg`,
+              length: '3:00',
+              CreatedAt: 1704067200000,
+            };
+          }),
+        },
+      };
+    });
+
+    jest.spyOn(Math, 'random').mockReturnValue(0.9);
+
+    const result = await selectRandomVideos({
+      userId: 'user123',
+      maxCount: 2,
+    });
+
+    expect(result.map((video) => video.videoId)).toEqual(['sm1', 'sm2']);
+  });
+
   it('フィルタ後に動画が0件の場合は空配列を返す', async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
 
