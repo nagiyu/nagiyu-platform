@@ -268,3 +268,67 @@ export async function listVideosWithSettings(
     total,
   };
 }
+
+/**
+ * フィルタ条件に合う動画からランダムに maxCount 件選択
+ * @param params 選択条件
+ * @returns ランダムに選択された動画配列
+ */
+export async function selectRandomVideos(params: {
+  userId: string;
+  maxCount: number;
+  favoriteOnly?: boolean;
+  skipExclude?: boolean;
+}): Promise<Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>> {
+  const { userId, maxCount, favoriteOnly, skipExclude } = params;
+
+  if (maxCount <= 0) {
+    return [];
+  }
+
+  const filters: {
+    isFavorite?: boolean;
+    isSkip?: boolean;
+  } = {};
+
+  if (favoriteOnly === true) {
+    filters.isFavorite = true;
+  }
+
+  if (skipExclude === true) {
+    filters.isSkip = false;
+  }
+
+  const PAGE_SIZE = 100;
+  const reservoir: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = [];
+  let total = 0;
+  let offset = 0;
+  let seen = 0;
+
+  do {
+    const result = await listVideosWithSettings(userId, {
+      ...filters,
+      limit: PAGE_SIZE,
+      offset,
+    });
+
+    total = result.total;
+
+    for (const video of result.videos) {
+      seen += 1;
+      if (reservoir.length < maxCount) {
+        reservoir.push(video);
+        continue;
+      }
+
+      const j = Math.floor(Math.random() * seen);
+      if (j < maxCount) {
+        reservoir[j] = video;
+      }
+    }
+
+    offset += PAGE_SIZE;
+  } while (offset < total);
+
+  return reservoir;
+}
