@@ -49,6 +49,12 @@
 ## 共通ライブラリ
 
 - [@nagiyu/common](./libs/common/README.md) - フレームワーク非依存の共通ライブラリ
+- @nagiyu/browser - ブラウザAPI依存の共通ライブラリ
+- @nagiyu/ui - Next.js + Material-UI 依存の UI コンポーネント
+- @nagiyu/react - React依存のユーティリティ
+- @nagiyu/aws - AWS SDK 補助・拡張ライブラリ
+
+詳細は[共通ライブラリ設計](./development/shared-libraries.md)を参照してください。
 
 ## インフラストラクチャ
 
