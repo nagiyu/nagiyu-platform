@@ -106,7 +106,7 @@ jobs:
       - name: Set ECR image tag
         id: get-image-tag
         run: |
-          echo "Using latest tag for ECS deployment"
+          echo "::notice::Using latest tag for ECS deployment"
           echo "image-tag=latest" >> "$GITHUB_OUTPUT"
 
       - name: CDK Deploy
