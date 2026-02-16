@@ -140,12 +140,49 @@ describe('DynamoDBVideoRepository', () => {
       expect(result).toEqual([]);
     });
 
-    it('100件を超える場合はエラーをスローする', async () => {
+    it('100件を超える場合は分割して取得できる', async () => {
       const videoIds = Array.from({ length: 101 }, (_, i) => `sm${i}`);
+      ddbMock
+        .on(BatchGetCommand)
+        .resolvesOnce({
+          Responses: {
+            [tableName]: [
+              {
+                PK: 'VIDEO#sm0',
+                SK: 'VIDEO#sm0',
+                Type: 'VIDEO',
+                videoId: 'sm0',
+                title: 'Video 0',
+                thumbnailUrl: 'https://example.com/thumb0.jpg',
+                length: '5:00',
+                CreatedAt: 1234567890000,
+                UpdatedAt: 1234567890000,
+              },
+            ],
+          },
+        })
+        .resolvesOnce({
+          Responses: {
+            [tableName]: [
+              {
+                PK: 'VIDEO#sm100',
+                SK: 'VIDEO#sm100',
+                Type: 'VIDEO',
+                videoId: 'sm100',
+                title: 'Video 100',
+                thumbnailUrl: 'https://example.com/thumb100.jpg',
+                length: '5:00',
+                CreatedAt: 1234567890000,
+                UpdatedAt: 1234567890000,
+              },
+            ],
+          },
+        });
 
-      await expect(repository.batchGet(videoIds)).rejects.toThrow(
-        'batchGet: 最大100件まで取得可能です'
-      );
+      const result = await repository.batchGet(videoIds);
+      expect(result).toHaveLength(2);
+      expect(result.map((video) => video.videoId)).toEqual(['sm0', 'sm100']);
+      expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
     });
 
     it('Responsesがundefinedの場合は空配列を返す', async () => {

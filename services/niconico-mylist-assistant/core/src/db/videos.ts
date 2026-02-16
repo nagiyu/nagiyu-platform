@@ -242,14 +242,9 @@ export async function listVideosWithSettings(
       ? filteredSettings.slice(offset)
       : filteredSettings.slice(offset, offset + limit);
 
-  // 動画基本情報を一括取得（batchGet上限100件に対応）
+  // 動画基本情報を一括取得
   const videoIds = paginatedSettings.map((setting) => setting.videoId);
-  const basicInfos: VideoBasicInfo[] = [];
-  for (let i = 0; i < videoIds.length; i += 100) {
-    const chunk = videoIds.slice(i, i + 100);
-    const chunkInfos = await batchGetVideoBasicInfo(chunk);
-    basicInfos.push(...chunkInfos);
-  }
+  const basicInfos = await batchGetVideoBasicInfo(videoIds);
 
   // 動画基本情報とユーザー設定をマージ
   const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
