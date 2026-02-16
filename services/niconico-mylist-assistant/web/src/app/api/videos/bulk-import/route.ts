@@ -36,8 +36,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_IDS_TOO_MANY }, { status: 400 });
     }
 
-    // 動画 ID のバリデーション（sm[数字] 形式）
-    const invalidIds = body.videoIds.filter((id) => !/^sm\d+$/.test(id));
+    // 動画 ID のバリデーション（英字接頭辞 + 数字 形式）
+    const invalidIds = body.videoIds.filter((id) => !/^[a-z]+\d+$/.test(id));
 
     if (invalidIds.length > 0) {
       return NextResponse.json(
