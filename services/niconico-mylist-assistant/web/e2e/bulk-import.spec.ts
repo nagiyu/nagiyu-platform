@@ -76,7 +76,7 @@ test.describe('Bulk Import API', () => {
   test('should accept valid video IDs', async ({ request }) => {
     const response = await request.post('/api/videos/bulk-import', {
       data: {
-        videoIds: ['sm9', 'sm10', 'sm11'],
+        videoIds: ['sm9', 'so12345', 'nm98765'],
       },
     });
 
@@ -167,6 +167,7 @@ test.describe('Bulk Import UI', () => {
 
     // 説明文の確認
     await expect(page.getByText(/ニコニコ動画の動画 ID/)).toBeVisible();
+    await expect(page.getByText(/sm9, so12345, nm98765/)).toBeVisible();
 
     // テキストエリアの確認
     const textarea = page.getByRole('textbox');
