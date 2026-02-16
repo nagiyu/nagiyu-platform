@@ -21,81 +21,90 @@ failed to resolve ref 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev
 166562222746.dkr.ecr.us-east-1.amazonaws.com/tools-app-dev:latest@sha256:11f7794eb38212b2f186130a8facc1b94be06c2aa1d9219c664f82326a9b212a: not found
 ```
 
-### 推測される原因
+### 原因分析
 
-1.  **Docker BuildKit の問題**: ECS は Docker v2 マニフェスト形式が必要だが、BuildKit が有効の場合に互換性のない形式で生成される可能性
-2.  **他サービスでの対応**: 他のサービス（niconico-mylist-assistant, codec-converter, auth, admin, stock-tracker など）では既に `DOCKER_BUILDKIT=0` を設定済み
-3.  **root-deploy.yml の未設定**: `root-deploy.yml` ワークフローでは Docker ビルド処理が存在しないため、ビルド設定の追加が必要
+1.  **Docker BuildKit の問題**: `tools-deploy.yml` で `DOCKER_BUILDKIT=0` が設定されていない可能性が高い
+2.  **ECS 互換性**: ECS は Docker v2 マニフェスト形式を要求するが、BuildKit 有効時に非互換形式が生成される
+3.  **他サービスでの対応実績**: 他のサービス（niconico-mylist-assistant, codec-converter, auth, admin, stock-tracker など）では既に `DOCKER_BUILDKIT=0` を設定済み
 
-### 現状の構成
+**重要な確認事項**:
 
-- **インフラ構成**: ECS Fargate + ALB + CloudFront
-- **イメージソース**: Tools サービスの dev 環境 ECR リポジトリ（`NagiyuToolsEcrDev`）を参照
-- **デプロイフロー**: `root-deploy.yml` が CDK スタックをデプロイ（ECR イメージは既存のものを使用）
+- Tools の本番環境（Lambda）は正常に動作している → ECR イメージ自体に問題はない
+- 問題は ECS が特定のマニフェスト形式を要求することに起因する可能性が高い
+
+### 現状の構成とワークフロー設計
+
+#### インフラ構成
+
+- **ECS 環境**: Fargate + ALB + CloudFront（ルートドメイン用）
+- **Lambda 環境**: Lambda + CloudFront（tools.nagiyu.com 用）
+- **ECR リポジトリ**: dev 環境の `NagiyuToolsEcrDev` を prod ECS も参照（一時的な構成として問題なし）
+- **イメージタグ戦略**: `latest` タグのみ使用
+
+#### ワークフロー責任分担
+
+- **`tools-deploy.yml`**: Docker ビルド＆プッシュ + Lambda デプロイを担当
+- **`root-deploy.yml`**: ECS デプロイのみを担当（ビルドは行わない、既存イメージを使用）
+
+この設計により、イメージビルドは `tools-deploy.yml` に集約され、`root-deploy.yml` はデプロイのみに特化します。
 
 ## 要件
 
 ### 機能要件
 
 - FR1: ECS サービスが正常に起動し、Tools アプリが利用可能になること
-- FR2: Docker イメージが ECS で正常に pull できる形式でビルドされること
-- FR3: 既存の `tools-deploy.yml` ワークフローと整合性を保つこと
+- FR2: Docker イメージが ECS で正常に pull できる形式（Docker v2 マニフェスト）でビルドされること
+- FR3: `tools-deploy.yml` がビルド、`root-deploy.yml` がデプロイという責任分担を維持すること
 
 ### 非機能要件
 
 - NFR1: 他サービスと同様の Docker ビルド設定を適用すること（`DOCKER_BUILDKIT=0`）
-- NFR2: デプロイワークフローの実行時間を最小限に抑えること
-- NFR3: Lambda デプロイとの整合性を維持すること（Tools は Lambda と ECS の両方で動作）
+- NFR2: ワークフローの実行時間を最小限に抑えること（ビルドの重複を避ける）
+- NFR3: Lambda と ECS の両方で同じイメージが動作すること
 
-## 実装のヒント
+## 実装方針
 
-### 1. Docker ビルド設定の統一
+### 確定したアプローチ
 
-他サービスのワークフローでは以下のパターンで `DOCKER_BUILDKIT=0` が設定されています:
+`tools-deploy.yml` でビルドを担当し、`root-deploy.yml` はデプロイのみを行う現在の設計を維持します。
+
+**修正箇所**: `tools-deploy.yml` の Docker ビルドステップに `DOCKER_BUILDKIT=0` を追加
+
+### 実装の詳細
+
+#### 1. tools-deploy.yml の修正
+
+現在のビルドステップ（139行目付近）:
 
 ```yaml
 - name: Build and push Docker image
+  id: build-image
   env:
-    DOCKER_BUILDKIT: 0
+    REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+    IMAGE_TAG: ${{ github.sha }}
+    APP_VERSION: ${{ steps.get-version.outputs.app-version }}
+    # ここに DOCKER_BUILDKIT: 0 を追加
   run: |
-    docker build -t $REPOSITORY_URI:$IMAGE_TAG -f path/to/Dockerfile .
-    docker push $REPOSITORY_URI:$IMAGE_TAG
+    docker build --build-arg APP_VERSION="$APP_VERSION" \
+      -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
+    docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+    docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+    docker push "$REPOSITORY_URI:latest"
 ```
 
-### 2. root-deploy.yml の構成確認
+#### 2. 他サービスの設定パターン
 
-現在の `root-deploy.yml` は以下の構成:
+他のサービスでは以下のように設定されています:
 
-1.  CDK Synth（検証）
-2.  CDK Deploy（All Stacks）
-    - ECS サービススタック（`infra/root/ecs-service-stack.ts`）をデプロイ
-    - 既存の ECR イメージ（`NagiyuToolsEcrDev` の latest）を使用
+```yaml
+env:
+  DOCKER_BUILDKIT: 0
+```
 
-### 3. 修正方針
+このパターンに従い、`tools-deploy.yml` にも同様の設定を追加します。
 
-以下のいずれかのアプローチが考えられます:
-
-#### アプローチA: tools-deploy.yml のビルド設定確認
-
-- `tools-deploy.yml` で既に `DOCKER_BUILDKIT=0` が設定されているか確認
-- 設定されている場合: ECS のタスク定義が参照しているイメージタグを確認
-- 設定されていない場合: `tools-deploy.yml` に `DOCKER_BUILDKIT=0` を追加
-
-#### アプローチB: root-deploy.yml にビルドステップ追加
-
-- `root-deploy.yml` に Docker イメージのビルド＆プッシュステップを追加
-- `tools-deploy.yml` と同様のビルド処理を実装
-- ECR リポジトリは `NagiyuToolsEcrDev` を使用
-
-#### アプローチC: ワークフローの統合検討
-
-- `root-deploy.yml` と `tools-deploy.yml` の役割を整理
-- Tools サービスのビルドは `tools-deploy.yml` に一元化
-- `root-deploy.yml` は ECS デプロイのみに特化
-
-### 4. repository_memories の活用
-
-プロジェクトのメモリには以下の重要な情報があります:
+#### 3. repository_memories の知見
 
 ```
 Docker BuildKit Lambda optimization:
@@ -104,54 +113,52 @@ Do NOT use --platform linux/amd64 as it's redundant with classic builder
 on linux/amd64 runners.
 ```
 
-- Lambda だけでなく、ECS でも同様の設定が必要
-- `--platform linux/amd64` は不要（GitHub Actions ランナーは linux/amd64）
-- classic Docker builder（BuildKit=0）が Lambda および ECS 互換の形式を生成
+- `DOCKER_BUILDKIT=0` は Lambda だけでなく ECS でも必要
+- `--platform linux/amd64` は不要（GitHub Actions ランナーは既に linux/amd64）
+- classic Docker builder が Lambda および ECS 互換の Docker v2 マニフェスト形式を生成
 
 ## タスク
 
-### Phase 1: 現状分析
+### Phase 1: 現状確認
 
-- [ ] T001: `tools-deploy.yml` の Docker ビルド設定を確認（`DOCKER_BUILDKIT=0` の有無）
-- [ ] T002: `root-deploy.yml` のイメージ参照方法を確認（どのタグを使用しているか）
-- [ ] T003: ECS タスク定義の現在のイメージタグを確認（`infra/root/ecs-service-stack.ts`）
-- [ ] T004: ECR リポジトリのイメージ一覧を確認（正しくプッシュされているか）
+- [ ] T001: `tools-deploy.yml` の Docker ビルド設定を確認（139行目付近、`DOCKER_BUILDKIT=0` の有無）
+- [ ] T002: 他サービスの設定を参考確認（niconico-mylist-assistant, codec-converter など）
 
 ### Phase 2: 修正実装
 
-- [ ] T005: `tools-deploy.yml` に `DOCKER_BUILDKIT=0` を追加（未設定の場合）
-- [ ] T006: Docker イメージの再ビルド＆プッシュ（BuildKit=0 で）
-- [ ] T007: ECS タスク定義の更新（必要に応じて）
-- [ ] T008: ECS サービスの再起動（新しいイメージを pull させる）
+- [ ] T003: `.github/workflows/tools-deploy.yml` の build-image ステップに `DOCKER_BUILDKIT: 0` を追加
+- [ ] T004: ワークフローをトリガーして Docker イメージを再ビルド（BuildKit=0 で `latest` タグを更新）
 
-### Phase 3: テスト＆検証
+### Phase 3: ECS デプロイ
 
-- [ ] T009: ECS タスクの起動確認（エラーが解消されたか）
-- [ ] T010: Tools アプリのホーム画面表示確認（正常に動作するか）
-- [ ] T011: ヘルスチェックの確認（ALB ターゲットグループのヘルスチェック）
-- [ ] T012: CloudWatch Logs の確認（エラーログがないか）
+- [ ] T005: `root-deploy.yml` を実行して ECS サービスを更新（新しい `latest` イメージを使用）
+- [ ] T006: ECS タスク定義が更新され、新しいイメージで起動することを確認
 
-### Phase 4: ドキュメント更新
+### Phase 4: 動作確認
 
-- [ ] T013: `docs/services/tools/deployment.md` の更新（Docker ビルド設定を明記）
-- [ ] T014: `docs/infra/README.md` または関連ドキュメントの更新（ECS 固有の注意事項）
-- [ ] T015: repository_memories への記録（ECS の Docker ビルド設定について）
+- [ ] T007: ECS タスクが正常に起動し、Running 状態になることを確認
+- [ ] T008: ALB 経由で Tools アプリのホーム画面が表示されることを確認
+- [ ] T009: CloudWatch Logs でエラーがないことを確認
+
+### Phase 5: ドキュメント更新
+
+- [ ] T010: `docs/services/tools/deployment.md` に Docker ビルド設定（`DOCKER_BUILDKIT=0`）を明記
+- [ ] T011: repository_memories に ECS の Docker ビルド設定に関する知見を記録
 
 ## 受け入れ基準
 
-1.  **機能確認**:
-    - [ ] ECS タスクが正常に起動し、Running 状態になる
-    - [ ] ALB 経由で Tools アプリのホーム画面が表示される
-    - [ ] ヘルスチェックが成功する
+1.  **設定確認**:
+    - [ ] `tools-deploy.yml` の build-image ステップに `DOCKER_BUILDKIT: 0` が設定されている
+    - [ ] 設定が他サービス（niconico-mylist-assistant 等）と一貫している
 
-2.  **設定確認**:
-    - [ ] `tools-deploy.yml` に `DOCKER_BUILDKIT=0` が設定されている
-    - [ ] ECR に BuildKit=0 でビルドされたイメージが存在する
-    - [ ] ECS タスク定義が正しいイメージを参照している
+2.  **機能確認**:
+    - [ ] ECS タスクが正常に起動し、Running 状態になる
+    - [ ] ALB 経由で Tools アプリのホーム画面が表示される（ルートドメイン経由）
+    - [ ] ALB ターゲットグループのヘルスチェックが成功する
 
 3.  **ドキュメント**:
-    - [ ] デプロイドキュメントに Docker ビルド設定が記載されている
-    - [ ] ECS 固有の注意事項が記載されている
+    - [ ] デプロイドキュメントに Docker ビルド設定（`DOCKER_BUILDKIT=0`）が明記されている
+    - [ ] ワークフロー責任分担（`tools-deploy.yml` = ビルド、`root-deploy.yml` = デプロイ）が明確化されている
 
 ## 参考ドキュメント
 
@@ -163,25 +170,23 @@ on linux/amd64 runners.
   - `root-deploy.yml` - ルートドメイン（ECS）のデプロイ
   - 他サービスの deploy.yml - Docker ビルド設定の参考
 
-## 備考・未決定事項
+## 設計方針の確認事項
 
-### 検討事項
+### ワークフローの役割分担（確定）
 
-1.  **ワークフローの役割分担**:
-    - `tools-deploy.yml`: Lambda 向けビルド＆デプロイ
-    - `root-deploy.yml`: ECS 向けデプロイ（イメージは tools-deploy.yml で作成されたものを使用）
-    - 現状の構成が最適か、統合が必要か検討
+- **`tools-deploy.yml`**: Docker ビルド＆プッシュ + Lambda デプロイを担当
+- **`root-deploy.yml`**: ECS デプロイのみを担当（ビルドは行わない）
 
-2.  **環境の統一**:
-    - 現在、prod の ECS は dev の ECR リポジトリを参照
-    - 将来的に prod 専用の ECR リポジトリが必要か検討
+この設計により、ビルドロジックは `tools-deploy.yml` に集約され、`root-deploy.yml` はシンプルにデプロイのみに特化します。
 
-3.  **イメージタグ戦略**:
-    - `latest` タグのみか、commit SHA ベースのタグも使用するか
-    - ECS のデプロイ頻度とイメージ管理方針を明確にする
+### 環境とイメージ戦略（確定）
 
-### 注意点
+- **ECR リポジトリ**: prod ECS が dev ECR（`NagiyuToolsEcrDev`）を参照する構成は問題なし（一時的な構成として許容）
+- **イメージタグ**: `latest` タグのみを使用（commit SHA ベースのタグは不要）
+- **動作状況**: Tools の本番環境（Lambda）は正常に動作中 → ECR イメージ自体に問題はない
 
-- **最小限の変更**: まずは `DOCKER_BUILDKIT=0` の追加のみに留め、動作確認してから追加の改善を検討
-- **他サービスとの整合性**: 既存サービスのパターンに従い、統一された設定を維持
-- **デプロイの影響**: 本番環境への影響を最小限にするため、dev 環境で十分にテストしてから適用
+### 実装の注意点
+
+- **最小限の変更**: `tools-deploy.yml` に `DOCKER_BUILDKIT: 0` を1行追加するのみ
+- **他サービスとの整合性**: 既存サービス（niconico-mylist-assistant, codec-converter 等）と同じパターンを適用
+- **検証方法**: ワークフロー実行後、ECS で新しいイメージが正常に pull できることを確認
