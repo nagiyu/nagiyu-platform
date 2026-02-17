@@ -20,10 +20,10 @@
 
 全サービスで共有可能なライブラリパッケージ。
 
-- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/aws/`
-- **責務**: フレームワーク・ブラウザAPI・AWS SDKに依存した汎用機能の提供
+- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/react/`, `libs/aws/`
+- **責務**: フレームワーク・ブラウザAPI・React・AWS SDKに依存した汎用機能の提供
 - **バージョン管理**: 各ライブラリで独立したバージョン管理
-- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `@nagiyu/aws`
+- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `@nagiyu/react`, `@nagiyu/aws`
 
 #### 固有パッケージ (services/\*/xxx)
 
@@ -54,6 +54,7 @@ services/{service}/batch → libs/common のみ
 libs/
 ├── ui/           # Next.js + Material-UI 依存
 ├── browser/      # ブラウザAPI依存
+├── react/        # React依存
 ├── aws/          # AWS SDK 依存
 └── common/       # 完全フレームワーク非依存
 ```
@@ -64,11 +65,13 @@ libs/
 
 ```
 ui → browser → common
+react → common
+aws (モノレポ内の他ライブラリに依存しない)
 ```
 
 - **一方向のみ**: 上位から下位への依存のみ許可
 - **循環依存禁止**: 下位ライブラリは上位を参照しない
-- **独立性**: common は外部依存なし
+- **独立性**: common は外部依存なし、aws はモノレポ内の他ライブラリに依存しない
 
 #### 固有パッケージから共通ライブラリへの依存
 
@@ -139,6 +142,28 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 ### 利用方法
 
 各サービスの package.json で参照。
+
+## libs/react/
+
+### 責務
+
+React依存のユーティリティ。
+
+### 含まれるもの
+
+- React hooks（`useAPIRequest` 等）
+- React コンポーネント
+- React固有の抽象化
+
+### パッケージ名
+
+`@nagiyu/react`
+
+### 設計のポイント
+
+- React に依存
+- フレームワーク固有機能の提供
+- テスト容易性（モック化しやすい設計）
 
 ## libs/browser/
 
@@ -237,9 +262,11 @@ AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージ
 ライブラリ間の依存関係により、ビルドは以下の順序で実行する必要があります:
 
 1. 並列実行可能（依存なし）:
-    - `@nagiyu/common`
-    - `@nagiyu/aws`
-2. `@nagiyu/browser` - `@nagiyu/common` に依存
+   - `@nagiyu/common`
+   - `@nagiyu/aws`
+2. 並列実行可能（`@nagiyu/common` に依存）:
+   - `@nagiyu/react`
+   - `@nagiyu/browser`
 3. `@nagiyu/ui` - `@nagiyu/browser` に依存
 
 ### 正しいビルドコマンド
@@ -249,6 +276,7 @@ AWS SDKはpeerDependenciesとして管理。各サービスが必要なバージ
 ```bash
 npm run build --workspace @nagiyu/common
 npm run build --workspace @nagiyu/aws
+npm run build --workspace @nagiyu/react
 npm run build --workspace @nagiyu/browser
 npm run build --workspace @nagiyu/ui
 ```
@@ -264,6 +292,7 @@ GitHub Actions などの CI/CD 環境でも、同じ順序でビルドを実行�
     run: |
         npm run build --workspace @nagiyu/common
         npm run build --workspace @nagiyu/aws
+        npm run build --workspace @nagiyu/react
         npm run build --workspace @nagiyu/browser
         npm run build --workspace @nagiyu/ui
 ```
@@ -294,10 +323,10 @@ Next.jsサービス（`services/{service}/web`）の package.json で必要な�
 
 ```json
 {
-    "name": "tools-core",
-    "dependencies": {
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "tools-core",
+  "dependencies": {
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -306,7 +335,7 @@ Next.jsサービス（`services/{service}/web`）の package.json で必要な�
 import { someUtil } from '@nagiyu/common';
 
 export function processData(input: string): string {
-    return someUtil(input);
+  return someUtil(input);
 }
 ```
 
@@ -316,13 +345,13 @@ Web UIパッケージでは、core パッケージと共通ライブラリを使
 
 ```json
 {
-    "name": "tools-web",
-    "dependencies": {
-        "tools-core": "workspace:*",
-        "@nagiyu/ui": "workspace:*",
-        "@nagiyu/browser": "workspace:*",
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "tools-web",
+  "dependencies": {
+    "tools-core": "workspace:*",
+    "@nagiyu/ui": "workspace:*",
+    "@nagiyu/browser": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -354,11 +383,11 @@ export default function ToolsPage() {
 
 ```json
 {
-    "name": "tools-batch",
-    "dependencies": {
-        "tools-core": "workspace:*",
-        "@nagiyu/common": "workspace:*"
-    }
+  "name": "tools-batch",
+  "dependencies": {
+    "tools-core": "workspace:*",
+    "@nagiyu/common": "workspace:*"
+  }
 }
 ```
 
@@ -368,9 +397,9 @@ import { processData } from 'tools-core';
 import { someUtil } from '@nagiyu/common';
 
 export async function dailyBatch() {
-    const data = await fetchData();
-    const processed = processData(data);
-    await saveResult(processed);
+  const data = await fetchData();
+  const processed = processData(data);
+  await saveResult(processed);
 }
 ```
 
