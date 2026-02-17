@@ -131,7 +131,8 @@ test.describe('Video Detail Modal', () => {
 
     const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await favoriteButton.click();
-    await responsePromise;
+    const settingsResponse = await responsePromise;
+    expect(settingsResponse.ok()).toBeTruthy();
 
     // ボタンの状態が変わることを確認
     // 実際の実装では API レスポンスを待つ
@@ -170,7 +171,8 @@ test.describe('Video Detail Modal', () => {
 
     const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await skipButton.click();
-    await responsePromise;
+    const settingsResponse = await responsePromise;
+    expect(settingsResponse.ok()).toBeTruthy();
   });
 
   test('should save memo in modal', async ({ page, request }) => {
@@ -207,7 +209,8 @@ test.describe('Video Detail Modal', () => {
 
     const responsePromise = page.waitForResponse(isVideoSettingsApiResponse);
     await saveButton.click();
-    await responsePromise;
+    const settingsResponse = await responsePromise;
+    expect(settingsResponse.ok()).toBeTruthy();
   });
 
   test('should show delete confirmation when clicking delete button', async ({ page, request }) => {
@@ -366,5 +369,27 @@ test.describe('Video Detail Modal', () => {
 
     // 動画一覧が更新されていることを確認
     // 実際の実装では動画カードの状態が変わることを確認
+  });
+
+  test('should create user setting when updating video without existing setting', async ({
+    request,
+  }) => {
+    const videoId = 'sm49990000';
+
+    const seedResponse = await request.post('/api/test/videos', {
+      data: { count: 1, startId: 49990000 },
+    });
+    expect(seedResponse.ok()).toBeTruthy();
+
+    const deleteResponse = await request.delete(`/api/videos/${videoId}`);
+    expect(deleteResponse.ok()).toBeTruthy();
+
+    const updateResponse = await request.put(`/api/videos/${videoId}/settings`, {
+      data: { isFavorite: true },
+    });
+    expect(updateResponse.ok()).toBeTruthy();
+
+    const body = await updateResponse.json();
+    expect(body.video.isFavorite).toBe(true);
   });
 });
