@@ -19,6 +19,7 @@ export const ERROR_MESSAGES = {
 
   // リソースエラー
   VIDEO_NOT_FOUND: '動画が見つかりませんでした',
+  TEST_ENDPOINT_NOT_AVAILABLE: 'このエンドポイントはテスト環境でのみ利用可能です',
 
   // サーバーエラー
   INTERNAL_SERVER_ERROR: 'サーバーエラーが発生しました',
@@ -26,12 +27,15 @@ export const ERROR_MESSAGES = {
   // バッチジョブエラー
   MAX_COUNT_MUST_BE_NUMBER: 'maxCount は数値である必要があります',
   MAX_COUNT_INVALID_RANGE: 'maxCount は 1 以上 100 以下である必要があります',
+  MYLIST_REGISTER_MAX_COUNT_MUST_BE_INTEGER: '登録件数は整数で指定してください',
+  MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE: '登録件数は1～100の範囲で指定してください',
   MYLIST_NAME_REQUIRED: 'mylistName は必須です',
   MYLIST_NAME_MUST_BE_STRING: 'mylistName は文字列である必要があります',
   NICONICO_ACCOUNT_REQUIRED: 'ニコニコアカウント情報は必須です',
   NICONICO_EMAIL_REQUIRED: 'メールアドレスは必須です',
   NICONICO_PASSWORD_REQUIRED: 'パスワードは必須です',
   NO_VIDEOS_AVAILABLE: '登録可能な動画が見つかりませんでした',
+  MYLIST_REGISTER_VIDEO_FETCH_FAILED: '動画情報の取得に失敗しました',
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
   PASSWORD_ENCRYPTION_FAILED: 'パスワードの暗号化に失敗しました',

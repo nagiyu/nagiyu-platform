@@ -17,11 +17,6 @@ import type { VideoRepository } from './video.repository.interface.js';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
 
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  BATCH_GET_LIMIT: 'batchGet: 最大100件まで取得可能です',
-} as const;
-
 /**
  * DynamoDB Video Repository
  *
@@ -104,25 +99,26 @@ export class DynamoDBVideoRepository implements VideoRepository {
       return [];
     }
 
-    if (videoIds.length > 100) {
-      throw new Error(ERROR_MESSAGES.BATCH_GET_LIMIT);
-    }
-
     try {
-      const result = await this.docClient.send(
-        new BatchGetCommand({
-          RequestItems: {
-            [this.tableName]: {
-              Keys: videoIds.map((videoId) => {
-                const { pk, sk } = this.mapper.buildKeys({ videoId });
-                return { PK: pk, SK: sk };
-              }),
+      const items: DynamoDBItem[] = [];
+      for (let i = 0; i < videoIds.length; i += 100) {
+        const chunk = videoIds.slice(i, i + 100);
+        const result = await this.docClient.send(
+          new BatchGetCommand({
+            RequestItems: {
+              [this.tableName]: {
+                Keys: chunk.map((videoId) => {
+                  const { pk, sk } = this.mapper.buildKeys({ videoId });
+                  return { PK: pk, SK: sk };
+                }),
+              },
             },
-          },
-        })
-      );
+          })
+        );
 
-      const items = result.Responses?.[this.tableName] || [];
+        const responseItems = result.Responses?.[this.tableName] as DynamoDBItem[] | undefined;
+        items.push(...(responseItems ?? []));
+      }
       return items.map((item) => this.mapper.toEntity(item as DynamoDBItem));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

@@ -9,11 +9,6 @@ import type { VideoRepository } from './video.repository.interface.js';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
 
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  BATCH_GET_LIMIT: 'batchGet: 最大100件まで取得可能です',
-} as const;
-
 /**
  * InMemory Video Repository
  *
@@ -72,10 +67,6 @@ export class InMemoryVideoRepository implements VideoRepository {
   public async batchGet(videoIds: string[]): Promise<VideoEntity[]> {
     if (videoIds.length === 0) {
       return [];
-    }
-
-    if (videoIds.length > 100) {
-      throw new Error(ERROR_MESSAGES.BATCH_GET_LIMIT);
     }
 
     const entities: VideoEntity[] = [];

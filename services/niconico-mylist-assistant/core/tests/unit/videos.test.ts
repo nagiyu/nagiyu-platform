@@ -162,11 +162,47 @@ describe('videos', () => {
         expect(videos).toEqual([]);
       });
 
-      it('100件を超える場合はエラーを返す', async () => {
+      it('100件を超える場合は分割して取得できる', async () => {
         const videoIds = Array.from({ length: 101 }, (_, i) => `sm${i}`);
-        await expect(batchGetVideoBasicInfo(videoIds)).rejects.toThrow(
-          'batchGet: 最大100件まで取得可能です'
-        );
+        ddbMock
+          .on(BatchGetCommand)
+          .resolvesOnce({
+            Responses: {
+              'test-table': [
+                {
+                  PK: 'VIDEO#sm0',
+                  SK: 'VIDEO#sm0',
+                  Type: 'VIDEO',
+                  videoId: 'sm0',
+                  title: '動画0',
+                  thumbnailUrl: 'https://example.com/0.jpg',
+                  length: '3:00',
+                  CreatedAt: 1704067200000,
+                },
+              ],
+            },
+          })
+          .resolvesOnce({
+            Responses: {
+              'test-table': [
+                {
+                  PK: 'VIDEO#sm100',
+                  SK: 'VIDEO#sm100',
+                  Type: 'VIDEO',
+                  videoId: 'sm100',
+                  title: '動画100',
+                  thumbnailUrl: 'https://example.com/100.jpg',
+                  length: '3:00',
+                  CreatedAt: 1704067200000,
+                },
+              ],
+            },
+          });
+
+        const videos = await batchGetVideoBasicInfo(videoIds);
+        expect(videos).toHaveLength(2);
+        expect(videos.map((video) => video.videoId)).toEqual(['sm0', 'sm100']);
+        expect(ddbMock.commandCalls(BatchGetCommand)).toHaveLength(2);
       });
     });
   });
