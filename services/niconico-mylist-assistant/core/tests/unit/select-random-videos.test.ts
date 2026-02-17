@@ -211,7 +211,7 @@ describe('selectRandomVideos', () => {
     expect(result).toHaveLength(1);
   });
 
-  it('maxCount が 100 の場合は 最大100件返す', async () => {
+  it('maxCount が 100 の場合は最大100件返す', async () => {
     const settings = createSettings(150);
     mockQuery(settings);
     mockBatchGet();
