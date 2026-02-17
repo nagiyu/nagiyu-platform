@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
   createTickerRepository,
@@ -100,228 +100,188 @@ function parseHoldingId(holdingId: string): { userId: string; tickerId: string }
  * PUT /api/holdings/[id]
  * 保有株式更新
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<HoldingResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // paramsを await で取得 (Next.js 15+)
-    const resolvedParams = await params;
-
-    // HoldingID をパース
-    const holdingId = resolvedParams.id;
-    const parsedId = parseHoldingId(holdingId);
-    if (!parsedId) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_HOLDING_ID,
-        },
-        { status: 400 }
-      );
-    }
-
-    const { userId: targetUserId, tickerId } = parsedId;
-
-    // 他ユーザーのデータへのアクセスを拒否
-    const currentUserId = session!.user.userId;
-    if (targetUserId !== currentUserId) {
-      return NextResponse.json(
-        {
-          error: 'FORBIDDEN',
-          message: ERROR_MESSAGES.FORBIDDEN_ACCESS,
-        },
-        { status: 403 }
-      );
-    }
-
-    // リクエストボディの取得
-    let body;
+export const PUT = withAuth(
+  getSession,
+  'stocks:write-own',
+  async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-        },
-        { status: 400 }
-      );
-    }
+      // paramsを await で取得 (Next.js 15+)
+      const resolvedParams = await params;
 
-    // 更新可能なフィールドのみ抽出
-    const updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>> = {};
-
-    if (body.quantity !== undefined) {
-      updates.Quantity = body.quantity;
-    }
-
-    if (body.averagePrice !== undefined) {
-      updates.AveragePrice = body.averagePrice;
-    }
-
-    if (body.currency !== undefined) {
-      updates.Currency = body.currency;
-    }
-
-    // 更新するフィールドがない場合はエラー
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: '更新するフィールドが指定されていません',
-        },
-        { status: 400 }
-      );
-    }
-
-    // リポジトリの初期化
-    const holdingRepo = createHoldingRepository();
-
-    // 保有株式を更新
-    let updatedHolding: Holding;
-    try {
-      updatedHolding = await holdingRepo.update(currentUserId, tickerId, updates);
-    } catch (error) {
-      // HoldingNotFoundError のチェック
-      if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+      // HoldingID をパース
+      const holdingId = resolvedParams.id;
+      const parsedId = parseHoldingId(holdingId);
+      if (!parsedId) {
         return NextResponse.json(
           {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.HOLDING_NOT_FOUND,
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_HOLDING_ID,
           },
-          { status: 404 }
+          { status: 400 }
         );
       }
-      throw error;
+
+      const { userId: targetUserId, tickerId } = parsedId;
+
+      // 他ユーザーのデータへのアクセスを拒否
+      const currentUserId = session!.user.userId;
+      if (targetUserId !== currentUserId) {
+        return NextResponse.json(
+          {
+            error: 'FORBIDDEN',
+            message: ERROR_MESSAGES.FORBIDDEN_ACCESS,
+          },
+          { status: 403 }
+        );
+      }
+
+      // リクエストボディの取得
+      let body;
+      try {
+        body = await request.json();
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+          { status: 400 }
+        );
+      }
+
+      // 更新可能なフィールドのみ抽出
+      const updates: Partial<Pick<Holding, 'Quantity' | 'AveragePrice' | 'Currency'>> = {};
+
+      if (body.quantity !== undefined) {
+        updates.Quantity = body.quantity;
+      }
+
+      if (body.averagePrice !== undefined) {
+        updates.AveragePrice = body.averagePrice;
+      }
+
+      if (body.currency !== undefined) {
+        updates.Currency = body.currency;
+      }
+
+      // 更新するフィールドがない場合はエラー
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: '更新するフィールドが指定されていません',
+          },
+          { status: 400 }
+        );
+      }
+
+      // リポジトリの初期化
+      const holdingRepo = createHoldingRepository();
+
+      // 保有株式を更新
+      let updatedHolding: Holding;
+      try {
+        updatedHolding = await holdingRepo.update(currentUserId, tickerId, updates);
+      } catch (error) {
+        // HoldingNotFoundError のチェック
+        if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.HOLDING_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+
+      // TickerリポジトリでSymbolとNameを取得
+      const tickerRepo = createTickerRepository();
+      const ticker = await tickerRepo.getById(updatedHolding.TickerID);
+
+      // レスポンス形式に変換
+      const response = mapHoldingToResponse(
+        updatedHolding,
+        ticker?.Symbol || updatedHolding.TickerID.split(':')[1] || '',
+        ticker?.Name || ''
+      );
+
+      return NextResponse.json(response, { status: 200 });
+    } catch (error) {
+      return handleApiError(error);
     }
-
-    // TickerリポジトリでSymbolとNameを取得
-    const tickerRepo = createTickerRepository();
-    const ticker = await tickerRepo.getById(updatedHolding.TickerID);
-
-    // レスポンス形式に変換
-    const response = mapHoldingToResponse(
-      updatedHolding,
-      ticker?.Symbol || updatedHolding.TickerID.split(':')[1] || '',
-      ticker?.Name || ''
-    );
-
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Error updating holding:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.UPDATE_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);
 
 /**
  * DELETE /api/holdings/[id]
  * 保有株式削除
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-): Promise<NextResponse<DeleteResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:write-own');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // paramsを await で取得 (Next.js 15+)
-    const resolvedParams = await params;
-
-    // HoldingID をパース
-    const holdingId = resolvedParams.id;
-    const parsedId = parseHoldingId(holdingId);
-    if (!parsedId) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_HOLDING_ID,
-        },
-        { status: 400 }
-      );
-    }
-
-    const { userId: targetUserId, tickerId } = parsedId;
-
-    // 他ユーザーのデータへのアクセスを拒否
-    const currentUserId = session!.user.userId;
-    if (targetUserId !== currentUserId) {
-      return NextResponse.json(
-        {
-          error: 'FORBIDDEN',
-          message: ERROR_MESSAGES.FORBIDDEN_ACCESS,
-        },
-        { status: 403 }
-      );
-    }
-
-    // リポジトリの初期化
-    const holdingRepo = createHoldingRepository();
-
-    // 保有株式を削除
+export const DELETE = withAuth(
+  getSession,
+  'stocks:write-own',
+  async (session, request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
-      await holdingRepo.delete(currentUserId, tickerId);
-    } catch (error) {
-      // HoldingNotFoundError のチェック
-      if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+      // paramsを await で取得 (Next.js 15+)
+      const resolvedParams = await params;
+
+      // HoldingID をパース
+      const holdingId = resolvedParams.id;
+      const parsedId = parseHoldingId(holdingId);
+      if (!parsedId) {
         return NextResponse.json(
           {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.HOLDING_NOT_FOUND,
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_HOLDING_ID,
           },
-          { status: 404 }
+          { status: 400 }
         );
       }
-      throw error;
+
+      const { userId: targetUserId, tickerId } = parsedId;
+
+      // 他ユーザーのデータへのアクセスを拒否
+      const currentUserId = session!.user.userId;
+      if (targetUserId !== currentUserId) {
+        return NextResponse.json(
+          {
+            error: 'FORBIDDEN',
+            message: ERROR_MESSAGES.FORBIDDEN_ACCESS,
+          },
+          { status: 403 }
+        );
+      }
+
+      // リポジトリの初期化
+      const holdingRepo = createHoldingRepository();
+
+      // 保有株式を削除
+      try {
+        await holdingRepo.delete(currentUserId, tickerId);
+      } catch (error) {
+        // HoldingNotFoundError のチェック
+        if (error instanceof Error && error.name === 'HoldingNotFoundError') {
+          return NextResponse.json(
+            {
+              error: 'NOT_FOUND',
+              message: ERROR_MESSAGES.HOLDING_NOT_FOUND,
+            },
+            { status: 404 }
+          );
+        }
+        throw error;
+      }
+
+      // レスポンスを返す
+      const response: DeleteResponse = {
+        success: true,
+        deletedHoldingId: holdingId,
+      };
+
+      return NextResponse.json(response, { status: 200 });
+    } catch (error) {
+      return handleApiError(error);
     }
-
-    // レスポンスを返す
-    const response: DeleteResponse = {
-      success: true,
-      deletedHoldingId: holdingId,
-    };
-
-    return NextResponse.json(response, { status: 200 });
-  } catch (error) {
-    console.error('Error deleting holding:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.DELETE_ERROR,
-      },
-      { status: 500 }
-    );
   }
-}
+);

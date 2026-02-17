@@ -22,6 +22,7 @@
     "@aws-sdk/lib-dynamodb": "^3.980.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
+    "@nagiyu/nextjs": "*",
     "@nagiyu/react": "*",
     "@nagiyu/stock-tracker-core": "*",
     "@nagiyu/ui": "*",

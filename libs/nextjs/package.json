@@ -1,7 +1,6 @@
 {
-  "name": "@nagiyu/react",
-  "version": "1.0.0",
-  "private": true,
+  "name": "@nagiyu/nextjs",
+  "version": "0.1.0",
   "type": "module",
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -16,7 +15,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.{ts,tsx} tests/**/*.{ts,tsx}",
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -24,10 +23,6 @@
     "@nagiyu/common": "*"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1",
-    "@types/jest": "^30.0.0",
-    "@types/node": "^22.10.5",
-    "@types/react": "^19.0.0",
-    "react": "^19.0.0"
+    "@types/jest": "^30.0.0"
   }
 }

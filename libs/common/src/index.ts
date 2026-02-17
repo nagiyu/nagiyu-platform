@@ -16,3 +16,8 @@ export * from './logger/index.js';
 
 // API module - Common API utilities and types
 export * from './api/index.js';
+
+// Constants module - Common constants
+export { ERROR_CODES } from './constants/error-codes.js';
+export type { ErrorCode } from './constants/error-codes.js';
+export { HTTP_STATUS } from './constants/http-status.js';
