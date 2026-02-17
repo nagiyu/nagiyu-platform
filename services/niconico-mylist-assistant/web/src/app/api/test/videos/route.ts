@@ -21,7 +21,10 @@ function isTestMode(): boolean {
 
 export async function POST(request: NextRequest) {
   if (!isTestMode()) {
-    return NextResponse.json({ error: ERROR_MESSAGES.TEST_ENDPOINT_NOT_AVAILABLE }, { status: 404 });
+    return NextResponse.json(
+      { error: ERROR_MESSAGES.TEST_ENDPOINT_NOT_AVAILABLE },
+      { status: 404 }
+    );
   }
 
   const session = await getSession();
@@ -60,7 +63,10 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   if (!isTestMode()) {
-    return NextResponse.json({ error: ERROR_MESSAGES.TEST_ENDPOINT_NOT_AVAILABLE }, { status: 404 });
+    return NextResponse.json(
+      { error: ERROR_MESSAGES.TEST_ENDPOINT_NOT_AVAILABLE },
+      { status: 404 }
+    );
   }
 
   const session = await getSession();
