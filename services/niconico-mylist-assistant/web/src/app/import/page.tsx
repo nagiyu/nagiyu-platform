@@ -94,7 +94,7 @@ export default function ImportPage() {
         </Typography>
 
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          ニコニコ動画の動画 ID（sm[数字]）を入力してください。
+          ニコニコ動画の動画 ID（sm9, so12345, nm98765 など）を入力してください。
           <br />
           改行、カンマ、スペース区切りで複数指定できます（最大 100 件）。
         </Typography>
@@ -104,7 +104,7 @@ export default function ImportPage() {
             fullWidth
             multiline
             rows={10}
-            placeholder="sm9&#10;sm10&#10;sm11"
+            placeholder="sm9&#10;so12345&#10;nm98765"
             value={videoIds}
             onChange={(e) => setVideoIds(e.target.value)}
             disabled={loading}
