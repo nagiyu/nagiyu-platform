@@ -54,6 +54,13 @@ export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo
 }
 
 /**
+ * 動画基本情報を削除
+ */
+export async function deleteVideoBasicInfo(videoId: string): Promise<void> {
+  await getVideoRepository().delete(videoId);
+}
+
+/**
  * 複数の動画基本情報を一括取得
  * @param videoIds 動画IDの配列（最大100件）
  * @returns 動画基本情報の配列（存在するもののみ）

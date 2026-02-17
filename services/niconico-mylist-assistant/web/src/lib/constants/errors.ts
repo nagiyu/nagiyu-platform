@@ -19,6 +19,7 @@ export const ERROR_MESSAGES = {
 
   // リソースエラー
   VIDEO_NOT_FOUND: '動画が見つかりませんでした',
+  TEST_ENDPOINT_NOT_AVAILABLE: 'このエンドポイントはテスト環境でのみ利用可能です',
 
   // サーバーエラー
   INTERNAL_SERVER_ERROR: 'サーバーエラーが発生しました',
