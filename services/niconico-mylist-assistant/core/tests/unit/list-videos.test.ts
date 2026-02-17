@@ -304,7 +304,7 @@ describe('listVideosWithSettings', () => {
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
     ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
-    // 6件目から3件取得（offset: 5, limit: 3）
+    // 全10件から6〜8件目を取得（offset: 5, limit: 3）
     const result = await listVideosWithSettings('user123', {
       limit: 3,
       offset: 5,
@@ -315,6 +315,8 @@ describe('listVideosWithSettings', () => {
     expect(result.videos[0].videoId).toBe('sm6');
     expect(result.videos[1].videoId).toBe('sm7');
     expect(result.videos[2].videoId).toBe('sm8');
+    expect(result.videos[0].CreatedAt).toBeGreaterThan(result.videos[1].CreatedAt);
+    expect(result.videos[1].CreatedAt).toBeGreaterThan(result.videos[2].CreatedAt);
   });
 
   it('limit未指定時はフィルタ後の動画を全件返す', async () => {
@@ -363,7 +365,7 @@ describe('listVideosWithSettings', () => {
       UpdatedAt: 1704067200000,
     }));
 
-    const mockVideos = Array.from({ length: 50 }, (_, i) => ({
+    const mockVideos = Array.from({ length: 100 }, (_, i) => ({
       PK: `VIDEO#sm${i + 1}`,
       SK: `VIDEO#sm${i + 1}`,
       entityType: 'VIDEO',
@@ -380,10 +382,10 @@ describe('listVideosWithSettings', () => {
     const result = await listVideosWithSettings('user123', { limit: 50 });
 
     expect(result.videos).toHaveLength(50);
-    expect(result.total).toBe(50);
+    expect(result.total).toBe(100);
   });
 
-  it('ユーザー設定のみ存在する動画は結果に含まれない', async () => {
+  it('動画基本情報が存在しない場合は結果に含まれない', async () => {
     const mockSettings = [
       {
         PK: 'USER#user123',

@@ -111,6 +111,10 @@ describe('selectRandomVideos', () => {
     expect(result).toHaveLength(100);
     expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(2);
     expect(ddbMock.commandCalls(ScanCommand)).toHaveLength(1);
+    expect(ddbMock.commandCalls(ScanCommand)[0].args[0].input).toMatchObject({
+      TableName: 'test-table',
+      FilterExpression: 'begins_with(PK, :videoPrefix) AND begins_with(SK, :videoPrefix)',
+    });
   });
 
   it('favoriteOnly フィルタが正しく適用される', async () => {
