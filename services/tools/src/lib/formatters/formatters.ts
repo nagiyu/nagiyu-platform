@@ -66,7 +66,7 @@ export function formatTransitRoute(
     route.routeSteps.forEach((step, index) => {
       // 駅名は常に表示（ルート詳細が有効な場合）
       const timeInfo = settings.showTimeRange && step.timeRange ? ` (${step.timeRange})` : '';
-      lines.push(`${step.station}${timeInfo}`);
+      lines.push(`■ ${step.station}${timeInfo}`);
 
       // 最後の駅以外は路線情報を表示
       if (index < route.routeSteps.length - 1) {

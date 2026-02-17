@@ -13,11 +13,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  getAuthError,
   TickerAlreadyExistsError,
   validateTickerCreateData,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
+import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { createTickerRepository, createExchangeRepository } from '../../../lib/repository-factory';
 
@@ -80,24 +80,8 @@ interface CreateTickerResponse {
  * GET /api/tickers
  * ティッカー一覧取得
  */
-export async function GET(
-  request: NextRequest
-): Promise<NextResponse<TickersListResponse | ErrorResponse>> {
+export const GET = withAuth(getSession, 'stocks:read', async (_session, request: NextRequest) => {
   try {
-    // 認証・権限チェック
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:read');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
     // クエリパラメータの取得
     const { searchParams } = new URL(request.url);
     const exchangeId = searchParams.get('exchangeId');
@@ -165,122 +149,96 @@ export async function GET(
 
     return NextResponse.json(response, { status: 200 });
   } catch (error) {
-    console.error('Error fetching tickers:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.INTERNAL_ERROR,
-      },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
-}
+});
 
 /**
  * POST /api/tickers
  * ティッカー作成（stock-admin のみ）
  */
-export async function POST(
-  request: NextRequest
-): Promise<NextResponse<CreateTickerResponse | ErrorResponse>> {
-  try {
-    // 認証・権限チェック（stocks:manage-data 必須）
-    const session = await getSession();
-    const authError = getAuthError(session, 'stocks:manage-data');
-
-    if (authError) {
-      return NextResponse.json(
-        {
-          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
-          message: authError.message,
-        },
-        { status: authError.statusCode }
-      );
-    }
-
-    // リクエストボディの取得
-    let body: CreateTickerRequest;
+export const POST = withAuth(
+  getSession,
+  'stocks:manage-data',
+  async (_session, request: NextRequest) => {
     try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
-        },
-        { status: 400 }
-      );
-    }
-
-    // バリデーション
-    const validationResult = validateTickerCreateData(body);
-    if (!validationResult.valid) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: validationResult.errors?.[0] || 'バリデーションエラー',
-        },
-        { status: 400 }
-      );
-    }
-
-    // リポジトリの初期化
-    const exchangeRepo = createExchangeRepository();
-    const tickerRepo = createTickerRepository();
-
-    // 取引所の存在確認と Key 取得
-    const exchange = await exchangeRepo.getById(body.exchangeId);
-    if (!exchange) {
-      return NextResponse.json(
-        {
-          error: 'INVALID_REQUEST',
-          message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
-        },
-        { status: 400 }
-      );
-    }
-    const exchangeKey = exchange.Key;
-
-    // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
-    try {
-      const createdTicker = await tickerRepo.create({
-        TickerID: `${exchangeKey}:${body.symbol}`,
-        Symbol: body.symbol,
-        Name: body.name,
-        ExchangeID: body.exchangeId,
-      });
-
-      // レスポンス形式に変換
-      const response: CreateTickerResponse = {
-        tickerId: createdTicker.TickerID,
-        symbol: createdTicker.Symbol,
-        name: createdTicker.Name,
-        exchangeId: createdTicker.ExchangeID,
-        createdAt: new Date(createdTicker.CreatedAt).toISOString(),
-      };
-
-      return NextResponse.json(response, { status: 201 });
-    } catch (error) {
-      // ティッカーが既に存在する場合
-      if (error instanceof TickerAlreadyExistsError) {
+      // リクエストボディの取得
+      let body: CreateTickerRequest;
+      try {
+        body = await request.json();
+      } catch {
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.TICKER_ALREADY_EXISTS,
+            message: ERROR_MESSAGES.INVALID_REQUEST_BODY,
           },
           { status: 400 }
         );
       }
-      throw error;
+
+      // バリデーション
+      const validationResult = validateTickerCreateData(body);
+      if (!validationResult.valid) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: validationResult.errors?.[0] || 'バリデーションエラー',
+          },
+          { status: 400 }
+        );
+      }
+
+      // リポジトリの初期化
+      const exchangeRepo = createExchangeRepository();
+      const tickerRepo = createTickerRepository();
+
+      // 取引所の存在確認と Key 取得
+      const exchange = await exchangeRepo.getById(body.exchangeId);
+      if (!exchange) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+          },
+          { status: 400 }
+        );
+      }
+      const exchangeKey = exchange.Key;
+
+      // ティッカー作成（TickerID は自動生成: {Exchange.Key}:{Symbol}）
+      try {
+        const createdTicker = await tickerRepo.create({
+          TickerID: `${exchangeKey}:${body.symbol}`,
+          Symbol: body.symbol,
+          Name: body.name,
+          ExchangeID: body.exchangeId,
+        });
+
+        // レスポンス形式に変換
+        const response: CreateTickerResponse = {
+          tickerId: createdTicker.TickerID,
+          symbol: createdTicker.Symbol,
+          name: createdTicker.Name,
+          exchangeId: createdTicker.ExchangeID,
+          createdAt: new Date(createdTicker.CreatedAt).toISOString(),
+        };
+
+        return NextResponse.json(response, { status: 201 });
+      } catch (error) {
+        // ティッカーが既に存在する場合
+        if (error instanceof TickerAlreadyExistsError) {
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.TICKER_ALREADY_EXISTS,
+            },
+            { status: 400 }
+          );
+        }
+        throw error;
+      }
+    } catch (error) {
+      return handleApiError(error);
     }
-  } catch (error) {
-    console.error('Error creating ticker:', error);
-    return NextResponse.json(
-      {
-        error: 'INTERNAL_ERROR',
-        message: ERROR_MESSAGES.TICKER_CREATE_FAILED,
-      },
-      { status: 500 }
-    );
   }
-}
+);

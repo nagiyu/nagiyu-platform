@@ -47,6 +47,23 @@ export interface APIErrorResponse {
 }
 
 /**
+ * APIエラーレスポンス型（標準化された型名）
+ * @alias APIErrorResponse
+ */
+export type ErrorResponse = APIErrorResponse;
+
+/**
+ * ページネーション付きレスポンス型
+ */
+export interface PaginatedResponse<T> {
+  items: T[];
+  pagination: {
+    count: number;
+    lastKey?: string; // base64エンコード済みDynamoDB lastKey
+  };
+}
+
+/**
  * APIエラー
  */
 export class APIError extends Error {

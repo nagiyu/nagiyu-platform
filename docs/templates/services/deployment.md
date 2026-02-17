@@ -114,7 +114,7 @@ aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
 # 2. イメージのビルド
-docker build -t {service}:latest -f services/{service}/Dockerfile .
+docker build --platform linux/amd64 -t {service}:latest -f services/{service}/Dockerfile .
 
 # 3. タグ付け
 docker tag {service}:latest <ECR_REGISTRY>/{service}-dev:latest
@@ -340,7 +340,7 @@ aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 
 # 2. イメージのビルド
-docker build -t {service}:latest -f services/{service}/Dockerfile .
+docker build --platform linux/amd64 -t {service}:latest -f services/{service}/Dockerfile .
 
 # 3. タグ付け & プッシュ
 docker tag {service}:latest <ECR_REGISTRY>/{service}-dev:latest
@@ -592,7 +592,7 @@ aws lambda update-function-code \
 npm run build -w {service-name}
 
 # 2. Docker ビルド検証
-docker build -t {service}-pr-test -f services/{service}/Dockerfile .
+docker build --platform linux/amd64 -t {service}-pr-test -f services/{service}/Dockerfile .
 
 # 3. E2Eテスト実行
 npm run test:e2e -w {service-name}

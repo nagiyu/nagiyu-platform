@@ -157,6 +157,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: latest
+          DOCKER_BUILDKIT: 0
         run: |
           docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
             -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/web/Dockerfile .
@@ -190,6 +191,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: latest
+          DOCKER_BUILDKIT: 0
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/batch/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG

@@ -134,19 +134,17 @@ jobs:
         id: build-image
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: latest
           APP_VERSION: ${{ steps.get-version.outputs.app-version }}
+          DOCKER_BUILDKIT: 0
         run: |
-          # Build and tag with commit SHA
+          # Build and push with latest tag only
           docker build --build-arg APP_VERSION="$APP_VERSION" \
             -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
-          
-          # Also tag as latest
-          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
-          docker push "$REPOSITORY_URI:latest"
-          
+
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit-sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
 
   infrastructure-app:
     name: Deploy Application Infrastructure
