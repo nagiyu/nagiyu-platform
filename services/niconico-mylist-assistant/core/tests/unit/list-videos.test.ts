@@ -365,6 +365,43 @@ describe('listVideosWithSettings', () => {
     expect(result.total).toBe(60);
   });
 
+  it('limit指定時は指定件数のみ返す', async () => {
+    const mockSettings = Array.from({ length: 100 }, (_, i) => ({
+      PK: 'USER#user123',
+      SK: `VIDEO#sm${i + 1}`,
+      entityType: 'USER_SETTING',
+      userId: 'user123',
+      videoId: `sm${i + 1}`,
+      isFavorite: false,
+      isSkip: false,
+      CreatedAt: 1704067200000,
+      UpdatedAt: 1704067200000,
+    }));
+
+    const mockVideos = Array.from({ length: 50 }, (_, i) => ({
+      PK: `VIDEO#sm${i + 1}`,
+      SK: `VIDEO#sm${i + 1}`,
+      entityType: 'VIDEO',
+      videoId: `sm${i + 1}`,
+      title: `動画${i + 1}`,
+      thumbnailUrl: `https://example.com/${i + 1}.jpg`,
+      length: '3:00',
+      CreatedAt: 1704067200000,
+    }));
+
+    ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
+    ddbMock.on(BatchGetCommand).resolves({
+      Responses: {
+        'test-table': mockVideos,
+      },
+    });
+
+    const result = await listVideosWithSettings('user123', { limit: 50 });
+
+    expect(result.videos).toHaveLength(50);
+    expect(result.total).toBe(100);
+  });
+
   it('動画基本情報が存在しない場合はスキップする', async () => {
     const mockSettings = [
       {
