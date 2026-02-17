@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import {
-  listVideosWithSettings,
+  selectRandomVideos,
   encrypt,
   createBatchJob,
 } from '@nagiyu/niconico-mylist-assistant-core';
@@ -71,7 +71,6 @@ function getEnvVars() {
 /**
  * 定数定義
  */
-const MAX_VIDEOS_TO_FETCH = 1000; // 動画選択時に取得する最大件数
 const SUCCESS_MESSAGES = {
   BATCH_JOB_SUBMITTED: 'バッチジョブを投入しました',
 } as const;
@@ -192,35 +191,12 @@ export async function POST(
 
     // 動画選択ロジック
     // 1. フィルタ条件に基づいて動画を取得
-    const filters: {
-      isFavorite?: boolean;
-      isSkip?: boolean;
-    } = {};
-
-    if (body.favoriteOnly === true) {
-      filters.isFavorite = true;
-    }
-
-    if (body.excludeSkip === true) {
-      filters.isSkip = false;
-    }
-
-    // DynamoDBから動画を取得（全件取得してフィルタ・ランダム選択）
-    const { videos } = await listVideosWithSettings(session.user.id, {
-      ...filters,
-      limit: MAX_VIDEOS_TO_FETCH,
-      offset: 0,
+    const selectedVideos = await selectRandomVideos({
+      userId: session.user.id,
+      maxCount: body.maxCount,
+      favoriteOnly: body.favoriteOnly,
+      skipExclude: body.excludeSkip,
     });
-
-    // 2. ランダムに選択（Fisher-Yates shuffle）
-    const shuffled = [...videos];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-
-    // 3. maxCount 件まで選択
-    const selectedVideos = shuffled.slice(0, body.maxCount);
 
     // 動画が0件の場合はエラー
     if (selectedVideos.length === 0) {
