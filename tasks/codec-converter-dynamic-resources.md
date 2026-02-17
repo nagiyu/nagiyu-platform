@@ -333,15 +333,11 @@ Next.js API Routes（`POST /api/jobs/{jobId}/submit`）でBatchジョブを投�
 
 ---
 
-## 実装結果サマリー
+## 実装結果
 
-### 実装完了日
+動的リソース配分機能が実装され、以下のリソース構成で稼働しています：
 
-2026年2月11日
-
-### 最終的なリソース構成表
-
-以下のリソース構成が実装され、本番環境で稼働しています：
+### リソース構成
 
 | ジョブ定義名                   | vCPU | メモリ (MB) | 用途                             |
 | ------------------------------ | ---- | ----------- | -------------------------------- |
@@ -350,7 +346,7 @@ Next.js API Routes（`POST /api/jobs/{jobId}/submit`）でBatchジョブを投�
 | `codec-converter-{env}-large`  | 4    | 8192        | 重量な処理（大ファイル or VP9）  |
 | `codec-converter-{env}-xlarge` | 4    | 16384       | 最重量処理（大ファイル + AV1）   |
 
-**リソース選択ロジック**:
+### リソース選択マトリクス
 
 | ファイルサイズ | 出力コーデック | 選択されるジョブ定義 |
 | -------------- | -------------- | -------------------- |
@@ -364,103 +360,16 @@ Next.js API Routes（`POST /api/jobs/{jobId}/submit`）でBatchジョブを投�
 | > 300MB        | vp9            | large                |
 | > 300MB        | av1            | xlarge               |
 
-**Compute Environment**:
-- maxvCPUs: 16 vCPU（従来の 6 vCPU から拡張）
-- 同時実行可能なジョブパターン例:
-    - small × 16 = 16 vCPU
-    - medium × 8 = 16 vCPU
-    - large × 4 = 16 vCPU
-    - xlarge × 4 = 16 vCPU
-    - small × 4 + large × 3 = 16 vCPU（混在）
+### 設計判断
 
-### 実装内容
-
-**Phase 1: 設計と準備**
-- ✅ リソース決定ロジックの詳細設計完了
-- ✅ リソース構成表の確定（上記表参照）
-- ✅ ドキュメント更新（architecture.md, requirements.md）
-
-**Phase 2: インフラ実装**
-- ✅ CDK で複数のジョブ定義を作成（small, medium, large, xlarge）
-- ✅ Compute Environment の maxvCPUs を 6 → 16 に調整
-- ✅ ジョブ定義名を環境変数として設定（JOB_DEFINITION_NAME）
-- ✅ IAM 権限の拡張（AppRuntimePolicy に複数ジョブ定義へのアクセス権を付与）
-
-**Phase 3: ロジック実装**
-- ✅ `codec-converter-core` パッケージに `selectJobDefinition()` 関数を実装
-- ✅ 型定義 `JobDefinitionSize = 'small' | 'medium' | 'large' | 'xlarge'` を追加
-- ✅ ユニットテストでカバレッジ 80%以上を達成（86.5%）
-
-**Phase 4: API更新**
-- ✅ Batch ジョブ投入 API を更新（適切なジョブ定義を選択）
-- ✅ エラーハンドリングの強化（フォールバック処理を実装）
-- ✅ Lambda 環境変数を `BATCH_JOB_DEFINITION_PREFIX` に変更
-
-**Phase 5: Worker更新**
-- ✅ Batch Worker にリソース情報のログ出力を追加
-- ✅ ECS タスクメタデータから CPU/メモリ情報を取得
-- ✅ JOB_DEFINITION_NAME を環境変数から取得してログ出力
-
-**Phase 6: デプロイと検証**
-- ✅ dev 環境へデプロイ成功
-- ✅ 各リソースパターンでの動作確認完了
-- ✅ CloudWatch Logs でリソース情報を確認
-
-**Phase 7: ドキュメント化**
-- ✅ architecture.md にリソース選択ロジックを記載
-- ✅ deployment.md にデプロイ手順を更新
-- ✅ README.md に機能追加を記載
-- ✅ 本タスクファイルに実装結果サマリーを追記
-
-### コスト影響
-
-**Phase 6 での検証結果**:
-
-動的リソース配分により、以下のコスト最適化が見込まれます：
-
-- **軽量ジョブ（small）**: 従来の 2 vCPU から 1 vCPU に削減 → 約50%のコスト削減
-- **標準ジョブ（medium）**: リソース変更なし（2 vCPU, 4096 MB）
-- **重量ジョブ（large/xlarge）**: 必要に応じて高スペックを割り当て → 処理時間短縮によるコスト削減
-
-**注意**: maxvCPUs の増加（6 → 16 vCPU）により、最大同時実行数が増加しますが、実際の使用量に応じた課金のため、通常はコスト増加にはなりません。
-
-### 処理時間の改善
-
-**Phase 6 での検証結果**:
-
-- **大ファイル + AV1**: xlarge（4 vCPU, 16384 MB）を使用することで、従来の medium（2 vCPU, 4096 MB）と比較して処理時間が短縮される見込み
-- **具体的な数値**: 実運用データの蓄積後に測定予定
+- **maxvCPUs**: 16 vCPU（6 vCPU から拡張し、複数リソースサイズの同時実行を可能に）
+- **閾値**: 100MB と 300MB を基準値として設定（実運用データで調整予定）
+- **フォールバック**: ジョブ定義が見つからない場合は medium を使用
 
 ### 今後の改善案
 
-以下の改善を検討中です（優先度順）：
+実運用データの蓄積後、以下の改善を検討：
 
-1. **閾値の調整**:
-    - 実運用データを基にファイルサイズ閾値（100MB、300MB）を最適化
-    - コーデックごとのリソース配分を調整
-
-2. **モニタリングの強化**:
-    - CloudWatch メトリクスでジョブ定義ごとの使用状況を可視化
-    - コスト分析ダッシュボードの作成
-
-3. **Fargate Spot の利用**:
-    - コスト削減のため Spot インスタンスの利用を検討
-    - 安定性とコストのトレードオフを評価
-
-4. **機械学習による自動最適化**:
-    - 過去のジョブデータをもとにリソースを予測
-    - データ蓄積と分析基盤の構築が必要
-
-5. **GPU アクセラレーション**:
-    - FFmpeg の NVENC/NVDEC 利用
-    - Fargate での GPU サポート待ち
-
-### 参考リンク
-
-- **実装 PR**: #381
-- **ドキュメント**:
-    - [アーキテクチャ設計](../docs/services/codec-converter/architecture.md)
-    - [デプロイ手順](../docs/services/codec-converter/deployment.md)
-    - [サービス概要](../docs/services/codec-converter/README.md)
-- **AWS ドキュメント**:
-    - [AWS Batch Fargate](https://docs.aws.amazon.com/batch/latest/userguide/fargate.html)
+1. ファイルサイズ閾値の最適化
+2. コーデックごとのリソース配分の調整
+3. Fargate Spot の利用検討（コスト削減）
