@@ -148,9 +148,23 @@ describe('InMemoryVideoRepository', () => {
       expect(results).toHaveLength(0);
     });
 
-    it('100件を超える配列を渡すとエラーを投げる', async () => {
+    it('100件を超える配列でも取得できる', async () => {
+      await repository.create({
+        videoId: 'sm0',
+        title: 'テスト動画0',
+        thumbnailUrl: 'https://example.com/thumb0.jpg',
+        length: '5:00',
+      });
+      await repository.create({
+        videoId: 'sm100',
+        title: 'テスト動画100',
+        thumbnailUrl: 'https://example.com/thumb100.jpg',
+        length: '5:00',
+      });
+
       const videoIds = Array.from({ length: 101 }, (_, i) => `sm${i}`);
-      await expect(repository.batchGet(videoIds)).rejects.toThrow();
+      const results = await repository.batchGet(videoIds);
+      expect(results).toHaveLength(2);
     });
   });
 
