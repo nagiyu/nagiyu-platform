@@ -179,7 +179,7 @@ Lambda と Batch Worker には以下の環境変数が自動設定されます:
 | `BATCH_JOB_DEFINITION_PREFIX` | Batch Job Definition 名のプレフィックス（動的リソース配分用） | `codec-converter-dev`                |
 | `AWS_REGION`                  | AWS リージョン                                                | `us-east-1`                          |
 
-**注**: `BATCH_JOB_DEFINITION_PREFIX` は Phase 2 で `BATCH_JOB_DEFINITION` から変更されました。アプリケーションは、このプレフィックスにサイズ（`-small`, `-medium`, `-large`, `-xlarge`）を付加して完全なジョブ定義名を構築します。
+**注**: アプリケーションは `BATCH_JOB_DEFINITION_PREFIX` にサイズ（`-small`, `-medium`, `-large`, `-xlarge`）を付加してジョブ定義名を構築します。
 
 ---
 
