@@ -212,8 +212,9 @@ Niconico Mylist Assistant の一括登録機能において、DynamoDBの総件�
 - [x] **T007**: `/api/mylist/register`のE2Eテストを実行
     - 既存のE2Eテストが引き続き成功することを確認
     - 必要に応じて、100件超のケースをテストに追加
-- [ ] **T008**: テストカバレッジの確認
+- [x] **T008**: テストカバレッジの確認
     - ビジネスロジック（`selectRandomVideos`）のカバレッジが80%以上であることを確認
+    - 実測結果（`npm run test:coverage --workspace=@nagiyu/niconico-mylist-assistant-core`）: `videos.ts` Statements 99.00%、Branches 97.61%、Functions 95.00%、Lines 98.96%（`selectRandomVideos` / `listVideosWithSettings` 呼び出しあり）、全体 Statements 97.34%
 
 ### Phase 4: 検証とデプロイ
 
