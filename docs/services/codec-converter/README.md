@@ -57,6 +57,7 @@ Codec Converterは、動画ファイルのコーデック変換を**ブラウザ
 - **データベース**: Amazon DynamoDB
 - **CDN**: CloudFront
 - **IaC**: AWS CDK (TypeScript)
+- **共有ライブラリ**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `codec-converter-core`
 
 詳細は [architecture.md](./architecture.md) を参照してください。
 

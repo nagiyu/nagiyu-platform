@@ -30,7 +30,7 @@ export interface VideoRepository {
   /**
    * 複数の動画を一括取得
    *
-   * @param videoIds - 動画IDの配列（最大100件）
+   * @param videoIds - 動画IDの配列
    * @returns 動画エンティティの配列（存在するもののみ）
    */
   batchGet(videoIds: string[]): Promise<VideoEntity[]>;

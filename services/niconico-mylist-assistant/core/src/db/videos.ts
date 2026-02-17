@@ -54,6 +54,13 @@ export async function getVideoBasicInfo(videoId: string): Promise<VideoBasicInfo
 }
 
 /**
+ * 動画基本情報を削除
+ */
+export async function deleteVideoBasicInfo(videoId: string): Promise<void> {
+  await getVideoRepository().delete(videoId);
+}
+
+/**
  * 複数の動画基本情報を一括取得
  * @param videoIds 動画IDの配列（最大100件）
  * @returns 動画基本情報の配列（存在するもののみ）
@@ -160,6 +167,7 @@ export async function deleteUserVideoSetting(userId: string, videoId: string): P
  * ユーザーの動画一覧を取得（フィルタリング・ページネーション対応）
  * @param userId ユーザーID
  * @param options フィルタとページネーションのオプション
+ * - limit 未指定時は、フィルタ後の動画を全件返します
  * @returns 動画データの配列と総件数
  *
  * @remarks
@@ -183,8 +191,8 @@ export async function listVideosWithSettings(
     isSkip?: boolean;
   }
 ): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
-  const limit = options?.limit || 50;
-  const offset = options?.offset || 0;
+  const limit = options?.limit ?? undefined;
+  const offset = options?.offset ?? 0;
   const isFavorite = options?.isFavorite;
   const isSkip = options?.isSkip;
 
@@ -212,7 +220,8 @@ export async function listVideosWithSettings(
     }
 
     const allVideos = await getVideoRepository().listAll();
-    const paginatedVideos = allVideos.slice(offset, offset + limit);
+    const paginatedVideos =
+      limit === undefined ? allVideos.slice(offset) : allVideos.slice(offset, offset + limit);
 
     return {
       videos: paginatedVideos,
@@ -235,11 +244,14 @@ export async function listVideosWithSettings(
   const total = filteredSettings.length;
 
   // ページネーション適用
-  const paginatedSettings = filteredSettings.slice(offset, offset + limit);
+  const paginatedSettings =
+    limit === undefined
+      ? filteredSettings.slice(offset)
+      : filteredSettings.slice(offset, offset + limit);
 
   // 動画基本情報を一括取得
   const videoIds = paginatedSettings.map((setting) => setting.videoId);
-  const basicInfos = videoIds.length > 0 ? await batchGetVideoBasicInfo(videoIds) : [];
+  const basicInfos = await batchGetVideoBasicInfo(videoIds);
 
   // 動画基本情報とユーザー設定をマージ
   const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
@@ -262,4 +274,61 @@ export async function listVideosWithSettings(
     videos,
     total,
   };
+}
+
+/**
+ * フィルタ条件に合う動画からランダムに maxCount 件選択
+ * @param params 選択条件
+ * @returns ランダムに選択された動画配列
+ */
+export async function selectRandomVideos(params: {
+  userId: string;
+  maxCount: number;
+  favoriteOnly?: boolean;
+  skipExclude?: boolean;
+}): Promise<Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>> {
+  const { userId, maxCount, favoriteOnly, skipExclude } = params;
+
+  if (maxCount <= 0) {
+    return [];
+  }
+
+  const filters: {
+    isFavorite?: boolean;
+    isSkip?: boolean;
+  } = {};
+
+  if (favoriteOnly === true) {
+    filters.isFavorite = true;
+  }
+
+  if (skipExclude === true) {
+    filters.isSkip = false;
+  }
+
+  const { videos } = await listVideosWithSettings(userId, {
+    ...filters,
+  });
+
+  if (videos.length <= maxCount) {
+    return [...videos];
+  }
+
+  const reservoir: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = [];
+  let seen = 0;
+
+  for (const video of videos) {
+    seen += 1;
+    if (reservoir.length < maxCount) {
+      reservoir.push(video);
+      continue;
+    }
+
+    const j = Math.floor(Math.random() * seen);
+    if (j < maxCount) {
+      reservoir[j] = video;
+    }
+  }
+
+  return reservoir;
 }
