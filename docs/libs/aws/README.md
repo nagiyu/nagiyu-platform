@@ -94,15 +94,15 @@ npm run format --workspace @nagiyu/aws
 
 ## 依存関係ルール
 
-このライブラリは依存関係階層では独立した位置にあります：
+このライブラリは依存関係階層で `@nagiyu/common` に依存します：
 
 ```
 libs/ui → libs/browser → libs/common
-libs/aws （独立）
+libs/aws → libs/common
 ```
 
-- `libs/aws` は他のlibsに依存しない
-- 他のライブラリは必要に応じて `libs/aws` に依存可能
+- `@nagiyu/aws` は `@nagiyu/common` に依存する
+- 他のライブラリは必要に応じて `@nagiyu/aws` に依存可能
 - 循環依存は厳格に禁止
 
 ---
