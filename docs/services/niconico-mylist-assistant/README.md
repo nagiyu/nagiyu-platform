@@ -12,7 +12,6 @@
 | [architecture.md](./architecture.md) | アーキテクチャ設計と技術的な方針 |
 | [deployment.md](./deployment.md)     | デプロイ手順と運用               |
 | [testing.md](./testing.md)           | テスト戦略                       |
-| [appendix/decision-log.md](./appendix/decision-log.md) | 実装方針に関する意思決定ログ      |
 
 ## プロジェクト情報
 
