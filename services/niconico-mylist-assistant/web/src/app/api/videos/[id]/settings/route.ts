@@ -80,11 +80,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       title: basicInfo?.title || '',
       thumbnailUrl: basicInfo?.thumbnailUrl || '',
       length: basicInfo?.length || '',
-      isFavorite: updatedSetting.isFavorite,
-      isSkip: updatedSetting.isSkip,
-      memo: updatedSetting.memo,
       createdAt: updatedSetting.CreatedAt,
-      updatedAt: updatedSetting.UpdatedAt,
+      userSetting: {
+        videoId: updatedSetting.videoId,
+        isFavorite: updatedSetting.isFavorite,
+        isSkip: updatedSetting.isSkip,
+        memo: updatedSetting.memo,
+        createdAt: updatedSetting.CreatedAt,
+        updatedAt: updatedSetting.UpdatedAt,
+      },
     };
 
     return NextResponse.json({ video });
