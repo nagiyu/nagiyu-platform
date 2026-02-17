@@ -5,7 +5,6 @@ import { mockClient } from 'aws-sdk-client-mock';
 import {
   DynamoDBDocumentClient,
   QueryCommand,
-  BatchGetCommand,
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { listVideosWithSettings } from '../../src/db/videos';
@@ -87,25 +86,31 @@ describe('listVideosWithSettings', () => {
         length: '5:00',
         CreatedAt: 1704067200000,
       },
+      {
+        PK: 'VIDEO#sm4',
+        SK: 'VIDEO#sm4',
+        entityType: 'VIDEO',
+        videoId: 'sm4',
+        title: '動画4',
+        thumbnailUrl: 'https://example.com/4.jpg',
+        length: '6:00',
+        CreatedAt: 1704067200000,
+      },
     ];
 
     // QueryCommandのモック（ユーザー設定取得）
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-
-    // BatchGetCommandのモック（動画基本情報取得）
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123');
 
-    expect(result.videos).toHaveLength(3);
-    expect(result.total).toBe(3);
+    expect(result.videos).toHaveLength(4);
+    expect(result.total).toBe(4);
     expect(result.videos[0].videoId).toBe('sm1');
     expect(result.videos[0].title).toBe('動画1');
     expect(result.videos[0].userSetting?.isFavorite).toBe(true);
+    expect(result.videos[3].videoId).toBe('sm4');
+    expect(result.videos[3].userSetting).toBeUndefined();
   });
 
   it('お気に入りフィルタが正しく動作する', async () => {
@@ -148,11 +153,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { isFavorite: true });
 
@@ -202,11 +203,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { isSkip: true });
 
@@ -267,11 +264,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     // お気に入り かつ スキップでない
     const result = await listVideosWithSettings('user123', {
@@ -297,23 +290,19 @@ describe('listVideosWithSettings', () => {
       UpdatedAt: 1704067200000,
     }));
 
-    const mockVideos = Array.from({ length: 3 }, (_, i) => ({
-      PK: `VIDEO#sm${i + 6}`,
-      SK: `VIDEO#sm${i + 6}`,
+    const mockVideos = Array.from({ length: 10 }, (_, i) => ({
+      PK: `VIDEO#sm${i + 1}`,
+      SK: `VIDEO#sm${i + 1}`,
       entityType: 'VIDEO',
-      videoId: `sm${i + 6}`,
-      title: `動画${i + 6}`,
-      thumbnailUrl: `https://example.com/${i + 6}.jpg`,
+      videoId: `sm${i + 1}`,
+      title: `動画${i + 1}`,
+      thumbnailUrl: `https://example.com/${i + 1}.jpg`,
       length: '3:00',
-      CreatedAt: 1704067200000,
+      CreatedAt: 1704067200000 - i,
     }));
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     // 6件目から3件取得（offset: 5, limit: 3）
     const result = await listVideosWithSettings('user123', {
@@ -353,11 +342,7 @@ describe('listVideosWithSettings', () => {
     }));
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123');
 
@@ -390,19 +375,15 @@ describe('listVideosWithSettings', () => {
     }));
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { limit: 50 });
 
     expect(result.videos).toHaveLength(50);
-    expect(result.total).toBe(100);
+    expect(result.total).toBe(50);
   });
 
-  it('動画基本情報が存在しない場合はスキップする', async () => {
+  it('ユーザー設定のみ存在する動画は結果に含まれない', async () => {
     const mockSettings = [
       {
         PK: 'USER#user123',
@@ -443,19 +424,14 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123');
 
     // 動画基本情報が存在するsm1のみ返される
     expect(result.videos).toHaveLength(1);
     expect(result.videos[0].videoId).toBe('sm1');
-    // totalは設定の総数
-    expect(result.total).toBe(2);
+    expect(result.total).toBe(1);
   });
 
   it('動画が存在しない場合は空配列を返す', async () => {
