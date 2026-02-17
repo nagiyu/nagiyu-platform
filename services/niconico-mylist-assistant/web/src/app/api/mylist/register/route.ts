@@ -53,6 +53,20 @@ interface ErrorResponse {
   };
 }
 
+const DYNAMODB_ERROR_NAMES = new Set([
+  'ResourceNotFoundException',
+  'ProvisionedThroughputExceededException',
+  'RequestLimitExceeded',
+  'InternalServerError',
+  'ThrottlingException',
+  'ValidationException',
+  'AccessDeniedException',
+]);
+
+function isDynamoDbError(error: unknown): error is Error {
+  return error instanceof Error && DYNAMODB_ERROR_NAMES.has(error.name);
+}
+
 /**
  * 環境変数を取得
  */
@@ -115,12 +129,12 @@ export async function POST(
       );
     }
 
-    if (body.maxCount < 1 || body.maxCount > 100) {
+    if (!Number.isInteger(body.maxCount) || body.maxCount < 1 || body.maxCount > 100) {
       return NextResponse.json(
         {
           error: {
             code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.MAX_COUNT_INVALID_RANGE,
+            message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE,
           },
         },
         { status: 400 }
@@ -326,12 +340,12 @@ export async function POST(
     console.error('バッチジョブ投入エラー:', error);
 
     // DynamoDB エラー
-    if (error instanceof Error && error.name === 'ResourceNotFoundException') {
+    if (isDynamoDbError(error)) {
       return NextResponse.json(
         {
           error: {
             code: 'DATABASE_ERROR',
-            message: ERROR_MESSAGES.DATABASE_ERROR,
+            message: ERROR_MESSAGES.MYLIST_REGISTER_VIDEO_FETCH_FAILED,
           },
         },
         { status: 500 }
