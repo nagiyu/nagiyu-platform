@@ -63,6 +63,12 @@ const DYNAMODB_ERROR_NAMES = new Set([
   'AccessDeniedException',
 ]);
 
+/**
+ * DynamoDB 関連の例外かどうかを判定
+ * `/api/mylist/register` で発生しうる代表的な例外名を `error.name` で判定する
+ * @param error 判定対象の例外
+ * @returns DynamoDB 関連の例外名に一致する場合は true
+ */
 function isDynamoDbError(error: unknown): error is Error {
   return error instanceof Error && DYNAMODB_ERROR_NAMES.has(error.name);
 }
@@ -129,7 +135,19 @@ export async function POST(
       );
     }
 
-    if (!Number.isInteger(body.maxCount) || body.maxCount < 1 || body.maxCount > 100) {
+    if (!Number.isInteger(body.maxCount)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_MUST_BE_INTEGER,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    if (body.maxCount < 1 || body.maxCount > 100) {
       return NextResponse.json(
         {
           error: {
@@ -205,12 +223,28 @@ export async function POST(
 
     // 動画選択ロジック
     // 1. フィルタ条件に基づいて動画を取得
-    const selectedVideos = await selectRandomVideos({
-      userId: session.user.id,
-      maxCount: body.maxCount,
-      favoriteOnly: body.favoriteOnly,
-      skipExclude: body.excludeSkip,
-    });
+    let selectedVideos: Awaited<ReturnType<typeof selectRandomVideos>>;
+    try {
+      selectedVideos = await selectRandomVideos({
+        userId: session.user.id,
+        maxCount: body.maxCount,
+        favoriteOnly: body.favoriteOnly,
+        skipExclude: body.excludeSkip,
+      });
+    } catch (error) {
+      if (isDynamoDbError(error)) {
+        return NextResponse.json(
+          {
+            error: {
+              code: 'DATABASE_ERROR',
+              message: ERROR_MESSAGES.MYLIST_REGISTER_VIDEO_FETCH_FAILED,
+            },
+          },
+          { status: 500 }
+        );
+      }
+      throw error;
+    }
 
     // 動画が0件の場合はエラー
     if (selectedVideos.length === 0) {
@@ -338,19 +372,6 @@ export async function POST(
     );
   } catch (error) {
     console.error('バッチジョブ投入エラー:', error);
-
-    // DynamoDB エラー
-    if (isDynamoDbError(error)) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'DATABASE_ERROR',
-            message: ERROR_MESSAGES.MYLIST_REGISTER_VIDEO_FETCH_FAILED,
-          },
-        },
-        { status: 500 }
-      );
-    }
 
     // AWS Batch エラー
     return NextResponse.json(
