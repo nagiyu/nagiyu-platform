@@ -37,11 +37,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       title: basicInfo.title,
       thumbnailUrl: basicInfo.thumbnailUrl,
       length: basicInfo.length,
-      isFavorite: setting?.isFavorite ?? false,
-      isSkip: setting?.isSkip ?? false,
-      memo: setting?.memo,
       createdAt: setting?.CreatedAt ?? basicInfo.CreatedAt,
-      updatedAt: setting?.UpdatedAt ?? basicInfo.CreatedAt,
+      userSetting: setting
+        ? {
+            videoId: setting.videoId,
+            isFavorite: setting.isFavorite,
+            isSkip: setting.isSkip,
+            memo: setting.memo,
+            createdAt: setting.CreatedAt,
+            updatedAt: setting.UpdatedAt,
+          }
+        : undefined,
     };
 
     return NextResponse.json({ video });

@@ -390,6 +390,6 @@ test.describe('Video Detail Modal', () => {
     expect(updateResponse.ok()).toBeTruthy();
 
     const body = await updateResponse.json();
-    expect(body.video.isFavorite).toBe(true);
+    expect(body.video.userSetting.isFavorite).toBe(true);
   });
 });
