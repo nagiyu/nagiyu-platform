@@ -1,12 +1,22 @@
 'use client';
 
-import { Box, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import {
+  Box,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  SelectChangeEvent,
+  TextField,
+} from '@mui/material';
 
 interface VideoListFiltersProps {
   favoriteFilter: string;
   skipFilter: string;
+  searchKeyword: string;
   onFavoriteFilterChange: (value: string) => void;
   onSkipFilterChange: (value: string) => void;
+  onSearchKeywordChange: (value: string) => void;
 }
 
 /**
@@ -17,8 +27,10 @@ interface VideoListFiltersProps {
 export default function VideoListFilters({
   favoriteFilter,
   skipFilter,
+  searchKeyword,
   onFavoriteFilterChange,
   onSkipFilterChange,
+  onSearchKeywordChange,
 }: VideoListFiltersProps) {
   const handleFavoriteChange = (event: SelectChangeEvent) => {
     onFavoriteFilterChange(event.target.value);
@@ -66,6 +78,14 @@ export default function VideoListFilters({
           <MenuItem value="true">スキップ動画のみ</MenuItem>
         </Select>
       </FormControl>
+
+      <TextField
+        size="small"
+        value={searchKeyword}
+        onChange={(event) => onSearchKeywordChange(event.target.value)}
+        placeholder="動画タイトルで検索"
+        sx={{ minWidth: 240 }}
+      />
     </Box>
   );
 }

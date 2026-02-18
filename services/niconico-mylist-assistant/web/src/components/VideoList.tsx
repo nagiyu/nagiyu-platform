@@ -31,6 +31,8 @@ export default function VideoList() {
   // フィルター状態
   const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
   const [skipFilter, setSkipFilter] = useState<string>('all');
+  const [searchKeyword, setSearchKeyword] = useState<string>('');
+  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState<string>('');
 
   // ページネーション状態
   const [offset, setOffset] = useState(0);
@@ -42,14 +44,19 @@ export default function VideoList() {
 
   // 現在の状態を追跡するref（stale closureを回避）
   // 初期値は state のデフォルト値で、URL同期 useEffect が実行されると自動的に更新される
-  const stateRef = useRef({ favoriteFilter, skipFilter, offset });
+  const stateRef = useRef({ favoriteFilter, skipFilter, searchKeyword, offset });
   useEffect(() => {
-    stateRef.current = { favoriteFilter, skipFilter, offset };
-  }, [favoriteFilter, skipFilter, offset]);
+    stateRef.current = { favoriteFilter, skipFilter, searchKeyword, offset };
+  }, [favoriteFilter, skipFilter, searchKeyword, offset]);
 
   // URLクエリパラメータを更新する関数
   const updateURL = useCallback(
-    (newFavoriteFilter: string, newSkipFilter: string, newOffset: number) => {
+    (
+      newFavoriteFilter: string,
+      newSkipFilter: string,
+      newSearchKeyword: string,
+      newOffset: number
+    ) => {
       const params = new URLSearchParams();
 
       if (newFavoriteFilter !== 'all') {
@@ -58,6 +65,10 @@ export default function VideoList() {
 
       if (newSkipFilter !== 'all') {
         params.set('skip', newSkipFilter);
+      }
+
+      if (newSearchKeyword.trim() !== '') {
+        params.set('search', newSearchKeyword.trim());
       }
 
       if (newOffset > 0) {
@@ -92,6 +103,10 @@ export default function VideoList() {
         params.append('isSkip', skipFilter);
       }
 
+      if (debouncedSearchKeyword.trim() !== '') {
+        params.append('search', debouncedSearchKeyword.trim());
+      }
+
       const response = await fetch(`/api/videos?${params.toString()}`);
 
       if (!response.ok) {
@@ -106,12 +121,13 @@ export default function VideoList() {
     } finally {
       setLoading(false);
     }
-  }, [offset, favoriteFilter, skipFilter]);
+  }, [offset, favoriteFilter, skipFilter, debouncedSearchKeyword]);
 
   // URLクエリパラメータの変更を監視して状態を同期
   useEffect(() => {
     const newFavoriteFilter = searchParams.get('favorite') || 'all';
     const newSkipFilter = searchParams.get('skip') || 'all';
+    const newSearchKeyword = searchParams.get('search') || '';
     const newOffset = parseInt(searchParams.get('offset') || '0', 10);
 
     // 状態が異なる場合のみ更新（無限ループと不要な再レンダリングを防止）
@@ -122,10 +138,35 @@ export default function VideoList() {
     if (newSkipFilter !== stateRef.current.skipFilter) {
       setSkipFilter(newSkipFilter);
     }
+    if (newSearchKeyword !== stateRef.current.searchKeyword) {
+      setSearchKeyword(newSearchKeyword);
+      setDebouncedSearchKeyword(newSearchKeyword);
+    }
     if (newOffset !== stateRef.current.offset) {
       setOffset(newOffset);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchKeyword(searchKeyword);
+    }, 500);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [searchKeyword]);
+
+  useEffect(() => {
+    const currentSearchKeyword = searchParams.get('search') || '';
+    if (debouncedSearchKeyword === currentSearchKeyword) {
+      return;
+    }
+
+    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
+    const currentSkipFilter = searchParams.get('skip') || 'all';
+    updateURL(currentFavoriteFilter, currentSkipFilter, debouncedSearchKeyword, 0);
+  }, [debouncedSearchKeyword, searchParams, updateURL]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
@@ -183,20 +224,23 @@ export default function VideoList() {
   const handleFavoriteFilterChange = (value: string) => {
     // 現在のURLから最新の値を取得（stale closureを回避）
     const currentSkipFilter = searchParams.get('skip') || 'all';
-    updateURL(value, currentSkipFilter, 0);
+    const currentSearchKeyword = searchParams.get('search') || '';
+    updateURL(value, currentSkipFilter, currentSearchKeyword, 0);
   };
 
   const handleSkipFilterChange = (value: string) => {
     // 現在のURLから最新の値を取得（stale closureを回避）
     const currentFavoriteFilter = searchParams.get('favorite') || 'all';
-    updateURL(currentFavoriteFilter, value, 0);
+    const currentSearchKeyword = searchParams.get('search') || '';
+    updateURL(currentFavoriteFilter, value, currentSearchKeyword, 0);
   };
 
   const handlePageChange = (newOffset: number) => {
     // 現在のURLから最新の値を取得（stale closureを回避）
     const currentFavoriteFilter = searchParams.get('favorite') || 'all';
     const currentSkipFilter = searchParams.get('skip') || 'all';
-    updateURL(currentFavoriteFilter, currentSkipFilter, newOffset);
+    const currentSearchKeyword = searchParams.get('search') || '';
+    updateURL(currentFavoriteFilter, currentSkipFilter, currentSearchKeyword, newOffset);
     // ページ上部にスクロール
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -231,8 +275,10 @@ export default function VideoList() {
       <VideoListFilters
         favoriteFilter={favoriteFilter}
         skipFilter={skipFilter}
+        searchKeyword={searchKeyword}
         onFavoriteFilterChange={handleFavoriteFilterChange}
         onSkipFilterChange={handleSkipFilterChange}
+        onSearchKeywordChange={setSearchKeyword}
       />
 
       {error && (

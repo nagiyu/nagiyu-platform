@@ -37,6 +37,9 @@ test.describe('Video List Page', () => {
 
     // スキップフィルター
     await expect(page.getByRole('combobox', { name: 'スキップ' })).toBeVisible();
+
+    // タイトル検索フィールド
+    await expect(page.getByPlaceholder('動画タイトルで検索')).toBeVisible();
   });
 
   test('should display empty state when filter result is empty', async ({ page }) => {
@@ -415,6 +418,18 @@ test.describe('Video List URL Synchronization', () => {
     await expect(page).toHaveURL('/mylist?skip=false');
   });
 
+  test('should update URL when changing search keyword', async ({ page }) => {
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByPlaceholder('動画タイトルで検索').fill('test');
+
+    await page.waitForResponse(
+      (response) => response.url().includes('/api/videos') && response.url().includes('search=test')
+    );
+    await expect(page).toHaveURL('/mylist?search=test');
+  });
+
   test('should update URL when changing both filters', async ({ page, request }) => {
     // テストデータをAPI経由で作成
     const response = await request.post('/api/videos/bulk-import', {
@@ -524,6 +539,15 @@ test.describe('Video List URL Synchronization', () => {
 
     // offsetがリセットされることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test('should reset page when changing search keyword', async ({ page }) => {
+    await page.goto('/mylist?offset=20');
+    await page.waitForLoadState('networkidle');
+
+    await page.getByPlaceholder('動画タイトルで検索').fill('keyword');
+
+    await expect(page).toHaveURL('/mylist?search=keyword');
   });
 
   test('should maintain state on browser back', async ({ page, request }) => {
