@@ -214,18 +214,18 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 ### Phase 4: UI層の実装
 
-- [ ] T011: `VideoListFilters.tsx`に検索用テキストフィールドを追加
+- [x] T011: `VideoListFilters.tsx`に検索用テキストフィールドを追加
     - ファイル: `services/niconico-mylist-assistant/web/src/components/VideoListFilters.tsx`
     - Material-UIの`TextField`コンポーネントを使用
     - Propsに`searchKeyword`と`onSearchKeywordChange`を追加
-- [ ] T012: `VideoList.tsx`で検索キーワードの状態管理を実装
+- [x] T012: `VideoList.tsx`で検索キーワードの状態管理を実装
     - ファイル: `services/niconico-mylist-assistant/web/src/components/VideoList.tsx`
     - `useState`で検索キーワードを管理
     - デバウンス処理を実装
-- [ ] T013: URLクエリパラメータとの同期を実装
+- [x] T013: URLクエリパラメータとの同期を実装
     - `updateURL`関数を拡張し、`search`パラメータをサポート
     - URL変更時に検索キーワードを復元
-- [ ] T014: `fetchVideos`関数を更新し、検索キーワードをAPIリクエストに含める
+- [x] T014: `fetchVideos`関数を更新し、検索キーワードをAPIリクエストに含める
 
 ### Phase 5: E2Eテストの作成
 
