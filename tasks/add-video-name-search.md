@@ -157,15 +157,33 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 ### Phase 1: 準備（プロジェクト理解とテスト環境の確認）
 
-- [ ] T001: 既存の動画一覧機能のコードを確認
+- [x] T001: 既存の動画一覧機能のコードを確認
     - `VideoList.tsx`, `VideoListFilters.tsx`
     - `/api/videos` API Route
     - `listVideosWithSettings` コアロジック
-- [ ] T002: 既存のテストを実行し、ベースラインを確認
+- [x] T002: 既存のテストを実行し、ベースラインを確認
     - ユニットテスト: `npm run test --workspace @nagiyu/niconico-mylist-assistant-core`
     - E2E: `npm run test:e2e --workspace @nagiyu/niconico-mylist-assistant-web`
-- [ ] T003: デバウンス処理の実装方針を決定
+- [x] T003: デバウンス処理の実装方針を決定
     - プロジェクトで既に使用しているライブラリやパターンを確認
+
+#### Phase 1 調査結果（2026-02-18）
+
+- T001 コード調査結果:
+    - `VideoList.tsx` は `favorite/skip/offset` を URL と同期し、`fetchVideos` で `/api/videos` を再取得する構成
+    - `VideoListFilters.tsx` はお気に入り/スキップの2フィルターのみを提供し、検索入力UIは未実装
+    - `/api/videos` は `limit/offset/isFavorite/isSkip` をパースして `listVideosWithSettings` に委譲
+    - `listVideosWithSettings` はユーザー設定取得後に `isFavorite/isSkip` をメモリ上で絞り込み、offset/limit でページネーション
+- T002 テストベースライン:
+    - core unit: `npm run test --workspace @nagiyu/niconico-mylist-assistant-core` は成功（16 suites / 211 tests passed）
+    - web e2e: `npm run test:e2e --workspace @nagiyu/niconico-mylist-assistant-web` は環境依存エラーで失敗
+        - 初回は `@nagiyu/niconico-mylist-assistant-core` 未解決（依存 workspace の事前 build が必要）
+        - 依存 build 後は `@nagiyu/ui` 未解決（`@nagiyu/ui` 系 workspace の事前 build が必要）
+        - Playwright ブラウザ未導入環境では `Executable doesn't exist` が発生しうるため `npx playwright install` が必要
+- T003 デバウンス方針:
+    - niconico-mylist-assistant サービス内で `lodash.debounce` / `useDebounce` の既存利用はなし
+    - 既存実装（`mylist/register/page.tsx`）に合わせ、`setTimeout + clearTimeout` を `useEffect` で管理する方針を採用
+    - Phase 4 では入力値の即時 state と API 問い合わせ用 debounced state を分離し、500ms デバウンスを実装する
 
 ### Phase 2: コアロジックの実装とテスト
 
