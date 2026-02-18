@@ -2,7 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { SSM_PARAMETERS } from '../common/src/utils/ssm';
 
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;
@@ -16,13 +18,17 @@ export class CloudFrontStack extends cdk.Stack {
 
     const { environment } = props;
 
-    // Import ACM certificate ARN from CloudFormation exports
-    const certificateArn = cdk.Fn.importValue(
-      'nagiyu-shared-acm-certificate-arn'
+    // Import ACM certificate ARN from SSM Parameter Store
+    const certificateArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ACM_CERTIFICATE_ARN
     );
 
-    // Import ALB DNS name from ALB Stack
-    const albDnsName = cdk.Fn.importValue(`nagiyu-root-alb-dns-${environment}`);
+    // Import ALB DNS name from SSM Parameter Store
+    const albDnsName = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ALB_DNS_NAME(environment as 'dev' | 'prod')
+    );
 
     // Create certificate reference from ARN
     const certificate = acm.Certificate.fromCertificateArn(
@@ -31,8 +37,11 @@ export class CloudFrontStack extends cdk.Stack {
       certificateArn
     );
 
-    // Import domain name from CloudFormation exports
-    const domainName = cdk.Fn.importValue('nagiyu-shared-acm-domain-name');
+    // Import domain name from SSM Parameter Store
+    const domainName = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ACM_DOMAIN_NAME
+    );
 
     // Create CloudFront Distribution
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
@@ -65,13 +74,11 @@ export class CloudFrontStack extends cdk.Stack {
     // Exports
     new cdk.CfnOutput(this, 'DistributionId', {
       value: this.distribution.distributionId,
-      exportName: `nagiyu-root-cloudfront-id-${environment}`,
       description: 'CloudFront Distribution ID for root domain',
     });
 
     new cdk.CfnOutput(this, 'DistributionDomainName', {
       value: this.distribution.distributionDomainName,
-      exportName: `nagiyu-root-cloudfront-domain-${environment}`,
       description: 'CloudFront Distribution domain name (d*.cloudfront.net)',
     });
 
