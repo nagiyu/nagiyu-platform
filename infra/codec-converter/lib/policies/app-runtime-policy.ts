@@ -24,9 +24,10 @@ export interface AppRuntimePolicyProps {
   jobQueueArn: string;
 
   /**
-   * AWS Batch ジョブ定義名
+   * AWS Batch ジョブ定義名のプレフィックス
+   * 例: 'codec-converter-dev' → 'codec-converter-dev-small', 'codec-converter-dev-medium' など
    */
-  jobDefinitionName: string;
+  jobDefinitionPrefix: string;
 
   /**
    * 環境名 (例: 'dev', 'prod')
@@ -85,8 +86,9 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
     );
 
     // AWS Batch 権限: ジョブ投入
-    // Note: job definition ARN は名前のみ、または名前:バージョンの形式の両方をサポート
-    const jobDefinitionArnBase = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinitionName}`;
+    // Note: 複数のジョブ定義 (small, medium, large, xlarge) をサポートするためワイルドカードを使用
+    // 例: codec-converter-dev-* → codec-converter-dev-small, codec-converter-dev-medium, etc.
+    const jobDefinitionArnPattern = `arn:aws:batch:${cdk.Stack.of(this).region}:${cdk.Stack.of(this).account}:job-definition/${props.jobDefinitionPrefix}-*`;
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'BatchSubmitJob',
@@ -94,8 +96,8 @@ export class AppRuntimePolicy extends iam.ManagedPolicy {
         actions: ['batch:SubmitJob'],
         resources: [
           props.jobQueueArn,
-          jobDefinitionArnBase, // バージョン番号なし
-          `${jobDefinitionArnBase}:*`, // バージョン番号あり
+          jobDefinitionArnPattern, // All job definitions with the prefix (without version)
+          `${jobDefinitionArnPattern}:*`, // All job definitions with the prefix (with version)
         ],
       })
     );

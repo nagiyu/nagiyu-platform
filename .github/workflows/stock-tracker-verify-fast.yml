@@ -36,6 +36,8 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
@@ -253,6 +255,8 @@ jobs:
         run: |
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 

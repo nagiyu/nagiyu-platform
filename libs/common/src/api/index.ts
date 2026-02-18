@@ -12,6 +12,8 @@ export type {
   ErrorType,
   ErrorInfo,
   APIErrorResponse,
+  ErrorResponse,
+  PaginatedResponse,
 } from './types.js';
 export { APIError, COMMON_ERROR_MESSAGES } from './types.js';
 

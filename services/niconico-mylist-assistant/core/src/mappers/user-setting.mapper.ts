@@ -64,7 +64,7 @@ export class UserSettingMapper implements EntityMapper<UserSettingEntity, UserSe
     };
 
     if (item.memo !== undefined) {
-      entity.memo = validateStringField(item.memo, 'memo');
+      entity.memo = validateStringField(item.memo, 'memo', { allowEmpty: true });
     }
 
     return entity;

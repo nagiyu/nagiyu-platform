@@ -6,7 +6,7 @@ declare global {
       readonly DYNAMODB_TABLE: string;
       readonly S3_BUCKET: string;
       readonly BATCH_JOB_QUEUE: string;
-      readonly BATCH_JOB_DEFINITION: string;
+      readonly BATCH_JOB_DEFINITION_PREFIX: string;
 
       // Next.js環境変数
       readonly NODE_ENV: 'development' | 'production' | 'test';

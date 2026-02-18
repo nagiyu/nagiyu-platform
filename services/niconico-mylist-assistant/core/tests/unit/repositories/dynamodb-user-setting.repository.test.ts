@@ -130,6 +130,31 @@ describe('DynamoDBUserSettingRepository', () => {
 
       await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
     });
+
+    it('memoが空文字でも取得できる', async () => {
+      ddbMock.on(QueryCommand).resolves({
+        Items: [
+          {
+            PK: 'USER#user-123',
+            SK: 'VIDEO#video-1',
+            Type: 'USER_SETTING',
+            userId: 'user-123',
+            videoId: 'video-1',
+            isFavorite: false,
+            isSkip: false,
+            memo: '',
+            CreatedAt: 1234567890000,
+            UpdatedAt: 1234567890000,
+          },
+        ],
+        Count: 1,
+      });
+
+      const result = await repository.getByUserId('user-123');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].memo).toBe('');
+    });
   });
 
   describe('getByUserIdWithFilters', () => {

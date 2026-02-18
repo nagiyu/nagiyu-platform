@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
+  createUserVideoSetting,
   getVideoBasicInfo,
   getUserVideoSetting,
   updateUserVideoSetting,
@@ -50,32 +51,44 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: ERROR_MESSAGES.MEMO_TOO_LONG }, { status: 400 });
     }
 
-    // ユーザー設定の存在確認
-    const setting = await getUserVideoSetting(session.user.id, id);
-    if (!setting) {
+    // 動画とユーザー設定を取得
+    const [basicInfo, setting] = await Promise.all([
+      getVideoBasicInfo(id),
+      getUserVideoSetting(session.user.id, id),
+    ]);
+    if (!basicInfo) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
     }
 
-    // 設定更新
-    const updatedSetting = await updateUserVideoSetting(session.user.id, id, {
-      isFavorite: body.isFavorite,
-      isSkip: body.isSkip,
-      memo: body.memo,
-    });
-
-    // 動画基本情報を取得して結合
-    const basicInfo = await getVideoBasicInfo(id);
+    // 設定更新（設定未作成の場合は新規作成）
+    const updatedSetting = setting
+      ? await updateUserVideoSetting(session.user.id, id, {
+          isFavorite: body.isFavorite,
+          isSkip: body.isSkip,
+          memo: body.memo,
+        })
+      : await createUserVideoSetting({
+          userId: session.user.id,
+          videoId: id,
+          isFavorite: body.isFavorite ?? false,
+          isSkip: body.isSkip ?? false,
+          memo: body.memo,
+        });
 
     const video = {
       videoId: updatedSetting.videoId,
       title: basicInfo?.title || '',
       thumbnailUrl: basicInfo?.thumbnailUrl || '',
       length: basicInfo?.length || '',
-      isFavorite: updatedSetting.isFavorite,
-      isSkip: updatedSetting.isSkip,
-      memo: updatedSetting.memo,
       createdAt: updatedSetting.CreatedAt,
-      updatedAt: updatedSetting.UpdatedAt,
+      userSetting: {
+        videoId: updatedSetting.videoId,
+        isFavorite: updatedSetting.isFavorite,
+        isSkip: updatedSetting.isSkip,
+        memo: updatedSetting.memo,
+        createdAt: updatedSetting.CreatedAt,
+        updatedAt: updatedSetting.UpdatedAt,
+      },
     };
 
     return NextResponse.json({ video });

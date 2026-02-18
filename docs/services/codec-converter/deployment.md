@@ -11,6 +11,7 @@
 Codec Converter のインフラは CDK で定義されており、以下の構成になっています:
 
 **ディレクトリ構造**:
+
 ```
 infra/codec-converter/
 ├── lib/
@@ -29,6 +30,7 @@ infra/codec-converter/
 ```
 
 **主要リソース**:
+
 - S3 バケット: 入出力ファイルのストレージ
 - DynamoDB テーブル: ジョブ管理
 - Lambda 関数: Next.js アプリケーション（Lambda Web Adapter 使用）
@@ -41,13 +43,13 @@ infra/codec-converter/
 以下がデプロイ済みであることを確認してください:
 
 1. **共有インフラ**:
-    - VPC (`nagiyu-{env}-vpc`) - `docs/infra/shared/vpc.md` 参照
-    - ACM 証明書 - `docs/infra/shared/acm.md` 参照
+   - VPC (`nagiyu-{env}-vpc`) - `docs/infra/shared/vpc.md` 参照
+   - ACM 証明書 - `docs/infra/shared/acm.md` 参照
 
 2. **ツール**:
-    - Node.js 18+
-    - AWS CLI
-    - Docker
+   - Node.js 18+
+   - AWS CLI
+   - Docker
 
 ### 1.3 デプロイ手順
 
@@ -121,6 +123,7 @@ npm run deploy -w codec-converter -- --context env=prod --context deploymentPhas
 詳細は [architecture.md の開発環境セットアップ](./architecture.md#ローカル開発用-iam-ユーザーのセットアップ) を参照してください。
 
 **概要**:
+
 1. CDK デプロイにより `codec-converter-dev-{env}` ユーザーが作成される
 2. AWS コンソールでアクセスキーを手動発行
 3. `aws configure --profile codec-converter-dev` で設定
@@ -155,26 +158,28 @@ npm run deploy -w codec-converter -- --context env=dev --context deploymentPhase
 
 ### 4.1 環境ごとのリソース名
 
-| リソース | dev 環境 | prod 環境 |
-|---------|---------|----------|
-| S3 バケット | `nagiyu-codec-converter-storage-dev` | `nagiyu-codec-converter-storage-prod` |
-| DynamoDB テーブル | `nagiyu-codec-converter-jobs-dev` | `nagiyu-codec-converter-jobs-prod` |
-| Lambda 関数 | `codec-converter-dev` | `codec-converter-prod` |
-| Batch Job Queue | `codec-converter-dev` | `codec-converter-prod` |
-| CloudFront ドメイン | `dev-codec-converter.nagiyu.com` | `codec-converter.nagiyu.com` |
-| 開発用 IAM User | `codec-converter-dev-dev` | `codec-converter-dev-prod` |
+| リソース            | dev 環境                             | prod 環境                             |
+| ------------------- | ------------------------------------ | ------------------------------------- |
+| S3 バケット         | `nagiyu-codec-converter-storage-dev` | `nagiyu-codec-converter-storage-prod` |
+| DynamoDB テーブル   | `nagiyu-codec-converter-jobs-dev`    | `nagiyu-codec-converter-jobs-prod`    |
+| Lambda 関数         | `codec-converter-dev`                | `codec-converter-prod`                |
+| Batch Job Queue     | `codec-converter-dev`                | `codec-converter-prod`                |
+| CloudFront ドメイン | `dev-codec-converter.nagiyu.com`     | `codec-converter.nagiyu.com`          |
+| 開発用 IAM User     | `codec-converter-dev-dev`            | `codec-converter-dev-prod`            |
 
 ### 4.2 環境変数
 
 Lambda と Batch Worker には以下の環境変数が自動設定されます:
 
-| 環境変数 | 説明 | 例 |
-|---------|------|-----|
-| `DYNAMODB_TABLE` | DynamoDB テーブル名 | `nagiyu-codec-converter-jobs-dev` |
-| `S3_BUCKET` | S3 バケット名 | `nagiyu-codec-converter-storage-dev` |
-| `BATCH_JOB_QUEUE` | Batch Job Queue 名 | `codec-converter-dev` |
-| `BATCH_JOB_DEFINITION` | Batch Job Definition 名 | `codec-converter-dev` |
-| `AWS_REGION` | AWS リージョン | `us-east-1` |
+| 環境変数                      | 説明                                                          | 例                                   |
+| ----------------------------- | ------------------------------------------------------------- | ------------------------------------ |
+| `DYNAMODB_TABLE`              | DynamoDB テーブル名                                           | `nagiyu-codec-converter-jobs-dev`    |
+| `S3_BUCKET`                   | S3 バケット名                                                 | `nagiyu-codec-converter-storage-dev` |
+| `BATCH_JOB_QUEUE`             | Batch Job Queue 名                                            | `codec-converter-dev`                |
+| `BATCH_JOB_DEFINITION_PREFIX` | Batch Job Definition 名のプレフィックス（動的リソース配分用） | `codec-converter-dev`                |
+| `AWS_REGION`                  | AWS リージョン                                                | `us-east-1`                          |
+
+**注**: アプリケーションは `BATCH_JOB_DEFINITION_PREFIX` にサイズ（`-small`, `-medium`, `-large`, `-xlarge`）を付加してジョブ定義名を構築します。
 
 ---
 
@@ -183,28 +188,34 @@ Lambda と Batch Worker には以下の環境変数が自動設定されます:
 ### 5.1 CloudWatch Logs
 
 **Lambda ログ**:
+
 - ロググループ: `/aws/lambda/codec-converter-{env}`
 - 保持期間: 7日
 
 **Batch Worker ログ**:
+
 - ロググループ: `/aws/batch/job`
 - 保持期間: 7日
 
 ### 5.2 CloudWatch メトリクス
 
 **Lambda**:
+
 - 実行時間
 - エラー率
 - 同時実行数
 
 **Batch**:
+
 - ジョブ数（成功/失敗）
 - 実行時間
 
 **DynamoDB**:
+
 - 読み込み/書き込みリクエスト数
 
 **S3**:
+
 - リクエスト数
 - データ転送量
 
@@ -221,6 +232,7 @@ Error: No VPCs found matching filters
 **原因**: 共有 VPC がデプロイされていない
 
 **解決方法**:
+
 ```bash
 # VPC をデプロイ
 cd infra/shared/vpc
@@ -236,6 +248,7 @@ Error: Cannot retrieve value from context provider
 **原因**: ACM 証明書がデプロイされていない、または Export が存在しない
 
 **解決方法**:
+
 ```bash
 # ACM 証明書をデプロイ
 cd infra/shared/acm
@@ -254,6 +267,7 @@ Error: no basic auth credentials
 **原因**: ECR にログインしていない
 
 **解決方法**:
+
 ```bash
 aws ecr get-login-password --region us-east-1 | \
     docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com
@@ -262,10 +276,11 @@ aws ecr get-login-password --region us-east-1 | \
 ### 6.4 Lambda が起動しない
 
 **確認事項**:
+
 1. ECR イメージが存在するか確認
-    ```bash
-    aws ecr describe-images --repository-name codec-converter-dev --region us-east-1
-    ```
+   ```bash
+   aws ecr describe-images --repository-name codec-converter-dev --region us-east-1
+   ```
 2. Lambda の環境変数が正しく設定されているか確認
 3. Lambda 実行ロールに必要な権限があるか確認
 
@@ -319,6 +334,7 @@ npm run cdk -w codec-converter -- destroy --context env=dev --context deployment
 詳細は [architecture.md の CI/CD セクション](./architecture.md#cicd-パイプライン) を参照してください。
 
 **ワークフロー**:
+
 - `codec-converter-verify-fast.yml`: PR 時の高速検証
 - `codec-converter-verify-full.yml`: 本番マージ前の完全検証
 - `codec-converter-deploy.yml`: マージ後の自動デプロイ

@@ -33,17 +33,11 @@ Admin サービスのテストは、以下の目的で実施します：
 
 ### 2.2 テスト優先順位
 
-#### Fast CI (高速フィードバック)
+プラットフォーム共通のCI戦略については、[ブランチ戦略 - CI/CD戦略](../../branching.md#cicd-戦略) を参照してください。
 
-- **対象**: chromium-mobile のみ
-- **目的**: 開発中の素早いフィードバック
-- **トリガー**: `integration/**` ブランチへのPR
-
-#### Full CI (完全テスト)
-
-- **対象**: chromium-desktop, chromium-mobile, webkit-mobile
-- **目的**: マージ前の完全な品質検証
-- **トリガー**: `develop` ブランチへのPR
+**概要**:
+- **Fast CI**: `integration/**` へのPR時に chromium-mobile のみでテスト
+- **Full CI**: `develop` へのPR時に全デバイスでテストし、カバレッジ80%以上を必須とする
 
 ---
 

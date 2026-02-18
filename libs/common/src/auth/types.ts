@@ -47,6 +47,10 @@ export interface Session {
  * - stocks:read - View charts, exchanges, and tickers
  * - stocks:write-own - Manage own alerts and holdings
  * - stocks:manage-data - Manage master data (exchanges and tickers)
+ *
+ * Auth Service permissions:
+ * - auth:read - View auth configuration and user data
+ * - auth:write - Manage auth configuration and user data
  */
 export type Permission =
   | 'users:read'
@@ -54,7 +58,9 @@ export type Permission =
   | 'roles:assign'
   | 'stocks:read'
   | 'stocks:write-own'
-  | 'stocks:manage-data';
+  | 'stocks:manage-data'
+  | 'auth:read'
+  | 'auth:write';
 
 /**
  * Valid role IDs defined in ROLES constant

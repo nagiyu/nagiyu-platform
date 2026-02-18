@@ -31,13 +31,11 @@ Stock Tracker サービスの品質を保証し、以下を実現する:
 
 ### 2.2 テスト優先順位
 
-**Fast CI (高速フィードバック)**:
-- 対象: chromium-mobile のみ
-- トリガー: `integration/**` ブランチへのPR
+プラットフォーム共通のCI戦略については、[ブランチ戦略 - CI/CD戦略](../../branching.md#cicd-戦略) を参照してください。
 
-**Full CI (完全テスト)**:
-- 対象: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
-- トリガー: `develop` ブランチへのPR
+**概要**:
+- **Fast CI**: `integration/**` へのPR時に chromium-mobile のみでテスト
+- **Full CI**: `develop` へのPR時に全デバイスでテストし、カバレッジ80%以上を必須とする
 
 ---
 
