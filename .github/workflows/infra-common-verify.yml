@@ -1,0 +1,42 @@
+name: Infra Common - Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - integration/**
+    paths:
+      - 'infra/common/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/infra-common-verify.yml'
+
+jobs:
+  verify:
+    name: Verify infra/common
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --workspace=@nagiyu/infra-common
+
+      - name: Test
+        run: npm run test --workspace=@nagiyu/infra-common
+
+      - name: Build
+        run: npm run build --workspace=@nagiyu/infra-common
