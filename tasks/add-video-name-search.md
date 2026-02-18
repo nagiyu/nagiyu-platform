@@ -187,13 +187,13 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 ### Phase 2: コアロジックの実装とテスト
 
-- [ ] T004: `listVideosWithSettings`関数に`searchKeyword`パラメータを追加
+- [x] T004: `listVideosWithSettings`関数に`searchKeyword`パラメータを追加
     - ファイル: `services/niconico-mylist-assistant/core/src/db/videos.ts`
     - 型定義も更新
-- [ ] T005: 名前検索ロジックを実装
+- [x] T005: 名前検索ロジックを実装
     - 大文字小文字を区別しない部分一致検索
     - 既存フィルターとのアンド条件
-- [ ] T006: 名前検索ロジックのユニットテストを作成
+- [x] T006: 名前検索ロジックのユニットテストを作成
     - ファイル: `services/niconico-mylist-assistant/core/tests/db/videos.test.ts`（または新規作成）
     - テストケース:
         - 検索キーワードなし → 全動画を返す
@@ -201,7 +201,7 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
         - 検索キーワードあり（不一致） → 空配列を返す
         - 大文字小文字の混在 → 正しく検索される
         - 既存フィルターとの組み合わせ → アンド条件で動作
-- [ ] T007: coreのテストカバレッジを確認（80%以上を維持）
+- [x] T007: coreのテストカバレッジを確認（80%以上を維持）
 
 ### Phase 3: API層の実装とテスト
 

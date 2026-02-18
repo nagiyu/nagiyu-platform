@@ -189,12 +189,15 @@ export async function listVideosWithSettings(
     offset?: number;
     isFavorite?: boolean;
     isSkip?: boolean;
+    searchKeyword?: string;
   }
 ): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
   const limit = options?.limit ?? undefined;
   const offset = options?.offset ?? 0;
   const isFavorite = options?.isFavorite;
   const isSkip = options?.isSkip;
+  const searchKeyword = options?.searchKeyword?.trim().toLowerCase();
+  const hasSearchKeyword = searchKeyword !== undefined && searchKeyword !== '';
 
   // DynamoDBからユーザーの全設定を取得
   // フィルタリングのため、全件取得が必要
@@ -220,12 +223,17 @@ export async function listVideosWithSettings(
     }
 
     const allVideos = await getVideoRepository().listAll();
+    const filteredVideos = hasSearchKeyword
+      ? allVideos.filter((video) => video.title.toLowerCase().includes(searchKeyword!))
+      : allVideos;
     const paginatedVideos =
-      limit === undefined ? allVideos.slice(offset) : allVideos.slice(offset, offset + limit);
+      limit === undefined
+        ? filteredVideos.slice(offset)
+        : filteredVideos.slice(offset, offset + limit);
 
     return {
       videos: paginatedVideos,
-      total: allVideos.length,
+      total: filteredVideos.length,
     };
   }
 
@@ -238,6 +246,40 @@ export async function listVideosWithSettings(
 
   if (isSkip !== undefined) {
     filteredSettings = filteredSettings.filter((setting) => setting.isSkip === isSkip);
+  }
+
+  if (hasSearchKeyword) {
+    const videoIds = filteredSettings.map((setting) => setting.videoId);
+    const basicInfos = await batchGetVideoBasicInfo(videoIds);
+    const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
+
+    const searchedVideos = filteredSettings
+      .map((setting) => {
+        const basicInfo = basicInfoMap.get(setting.videoId);
+        if (!basicInfo) {
+          return null;
+        }
+
+        if (!basicInfo.title.toLowerCase().includes(searchKeyword!)) {
+          return null;
+        }
+
+        return {
+          ...basicInfo,
+          userSetting: setting,
+        };
+      })
+      .filter((video) => video !== null) as Array<VideoBasicInfo & { userSetting: UserVideoSetting }>;
+
+    const paginatedVideos =
+      limit === undefined
+        ? searchedVideos.slice(offset)
+        : searchedVideos.slice(offset, offset + limit);
+
+    return {
+      videos: paginatedVideos,
+      total: searchedVideos.length,
+    };
   }
 
   // 総件数
