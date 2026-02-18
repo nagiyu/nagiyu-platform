@@ -131,6 +131,19 @@ describe('CloudFrontStackBase', () => {
         },
       });
     });
+
+    it('should resolve certificate ARN from SSM when certificateArn is not provided', () => {
+      const stack = new CloudFrontStackBase(app, 'TestCloudFrontStack', {
+        serviceName: 'tools',
+        environment: 'dev',
+        functionUrl: 'https://example.lambda-url.ap-northeast-1.on.aws/',
+      });
+
+      const template = Template.fromStack(stack);
+      const templateJson = JSON.stringify(template.toJSON());
+      expect(templateJson).toContain('/nagiyu/shared/acm/certificate-arn');
+      expect(templateJson).not.toContain('Fn::ImportValue');
+    });
   });
 
   describe('customization', () => {
@@ -255,6 +268,11 @@ describe('CloudFrontStackBase', () => {
       template.hasOutput('DistributionId', {});
       template.hasOutput('DistributionDomainName', {});
       template.hasOutput('CustomDomainName', {});
+
+      const outputs = template.toJSON().Outputs as Record<string, { Export?: unknown }>;
+      expect(outputs.DistributionId.Export).toBeUndefined();
+      expect(outputs.DistributionDomainName.Export).toBeUndefined();
+      expect(outputs.CustomDomainName.Export).toBeUndefined();
     });
   });
 

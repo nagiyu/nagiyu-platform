@@ -2,7 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { SSM_PARAMETERS } from '../utils/ssm';
 import { CloudFrontConfig } from '../types/cloudfront-config';
 import { Environment } from '../types/environment';
 import { getCloudFrontDomainName } from '../utils/naming';
@@ -135,7 +137,9 @@ export class CloudFrontStackBase extends cdk.Stack {
     const cleanFunctionUrlDomain = cdk.Fn.select(0, cdk.Fn.split('/', functionUrlDomain));
 
     // ACM 証明書の参照
-    const certArn = certificateArn || cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn');
+    const certArn =
+      certificateArn ||
+      ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN);
     const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certArn);
 
     // セキュリティヘッダーポリシーの作成
@@ -235,19 +239,16 @@ export class CloudFrontStackBase extends cdk.Stack {
     new cdk.CfnOutput(this, 'DistributionId', {
       value: this.distribution.distributionId,
       description: 'CloudFront Distribution ID',
-      exportName: `${this.stackName}-DistributionId`,
     });
 
     new cdk.CfnOutput(this, 'DistributionDomainName', {
       value: this.distribution.distributionDomainName,
       description: 'CloudFront Distribution Domain Name',
-      exportName: `${this.stackName}-DistributionDomainName`,
     });
 
     new cdk.CfnOutput(this, 'CustomDomainName', {
       value: domainName,
       description: 'Custom Domain Name',
-      exportName: `${this.stackName}-CustomDomainName`,
     });
   }
 }

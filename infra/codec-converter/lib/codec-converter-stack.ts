@@ -11,6 +11,8 @@ import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { SSM_PARAMETERS } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -140,22 +142,22 @@ export class CodecConverterStack extends cdk.Stack {
         jobsTable,
       });
 
-      // Import shared VPC from platform infrastructure
-      // Uses Vpc.fromLookup which queries AWS API via CDK context cache
-      // For testing: if vpcId is provided in context, lookup by explicit vpcId
-      // For deployment: lookup by Name tag to find nagiyu-{env}-vpc
-      const vpcId = this.node.tryGetContext('vpcId');
-      const vpc = vpcId
-        ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
-        : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-            tags: {
-              Name: `nagiyu-${envName}-vpc`,
-            },
-          });
-
-      // Get public subnets from VPC
-      const publicSubnets = vpc.selectSubnets({
-        subnetType: ec2.SubnetType.PUBLIC,
+      const vpcId = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.VPC_ID(envName as 'dev' | 'prod')
+      );
+      const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.PUBLIC_SUBNET_IDS(envName as 'dev' | 'prod')
+      );
+      const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
+      const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
+        vpcId,
+        availabilityZones: envName === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+        publicSubnetIds:
+          envName === 'prod'
+            ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
+            : [cdk.Fn.select(0, publicSubnetIds)],
       });
 
       // Create security group for Batch compute environment
@@ -173,7 +175,7 @@ export class CodecConverterStack extends cdk.Stack {
         computeResources: {
           type: 'FARGATE',
           maxvCpus: 16, // Supports multiple job sizes: small (1 vCPU) to xlarge (4 vCPU)
-          subnets: publicSubnets.subnetIds,
+          subnets: publicSubnetIds,
           securityGroupIds: [batchSecurityGroup.securityGroupId],
         },
       });
@@ -327,15 +329,17 @@ export class CodecConverterStack extends cdk.Stack {
         },
       });
 
-      // Import ACM certificate from CloudFormation export
       const certificate = acm.Certificate.fromCertificateArn(
         this,
         'Certificate',
-        cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn')
+        ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN)
       );
 
       // Construct domain name based on environment
-      const baseDomain = cdk.Fn.importValue('nagiyu-shared-acm-domain-name');
+      const baseDomain = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.ACM_DOMAIN_NAME
+      );
       const domainName =
         envName === 'prod'
           ? `codec-converter.${baseDomain}`
@@ -392,55 +396,46 @@ export class CodecConverterStack extends cdk.Stack {
       new cdk.CfnOutput(this, 'StorageBucketName', {
         value: storageBucket.bucketName,
         description: 'S3 bucket name for codec converter storage',
-        exportName: `CodecConverterStorageBucket-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'JobsTableName', {
         value: jobsTable.tableName,
         description: 'DynamoDB table name for codec converter jobs',
-        exportName: `CodecConverterJobsTable-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'LambdaFunctionArn', {
         value: nextjsFunction.functionArn,
         description: 'Lambda function ARN for Next.js application',
-        exportName: `CodecConverterLambdaFunctionArn-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
         value: functionUrl.url,
         description: 'Lambda Function URL',
-        exportName: `CodecConverterLambdaFunctionUrl-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
         value: distribution.distributionId,
         description: 'CloudFront distribution ID',
-        exportName: `CodecConverterCloudFrontDistributionId-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'CloudFrontDomainName', {
         value: distribution.distributionDomainName,
         description: 'CloudFront distribution domain name',
-        exportName: `CodecConverterCloudFrontDomainName-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'WorkerEcrRepositoryUri', {
         value: workerEcrRepository.repositoryUri,
         description: 'ECR repository URI for Batch worker',
-        exportName: `CodecConverterWorkerEcrRepositoryUri-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'BatchJobQueueArn', {
         value: jobQueue.attrJobQueueArn,
         description: 'Batch job queue ARN',
-        exportName: `CodecConverterBatchJobQueueArn-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
         value: jobDefinition.attrJobDefinitionArn,
         description: 'Batch job definition ARN',
-        exportName: `CodecConverterBatchJobDefinitionArn-${envName}`,
       });
     }
   }

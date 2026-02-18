@@ -5,8 +5,9 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { getEcrRepositoryName, getDynamoDBTableName } from '@nagiyu/infra-common';
+import { getEcrRepositoryName, getDynamoDBTableName, SSM_PARAMETERS } from '@nagiyu/infra-common';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -74,20 +75,22 @@ export class BatchStack extends cdk.Stack {
     // DynamoDB テーブル名の取得
     const tableName = getDynamoDBTableName('niconico-mylist-assistant', env);
 
-    // 共有 VPC の参照
-    // vpcId が context で指定されている場合はそれを使用、そうでなければタグで検索
-    const vpcId = this.node.tryGetContext('vpcId');
-    const vpc = vpcId
-      ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
-      : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-        tags: {
-          Name: `nagiyu-${env}-vpc`,
-        },
-      });
-
-    // Public Subnet の取得
-    const publicSubnets = vpc.selectSubnets({
-      subnetType: ec2.SubnetType.PUBLIC,
+    const vpcId = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.VPC_ID(env)
+    );
+    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(env)
+    );
+    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
+    const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
+      vpcId,
+      availabilityZones: env === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+      publicSubnetIds:
+        env === 'prod'
+          ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
+          : [cdk.Fn.select(0, publicSubnetIds)],
     });
 
     // Security Group の作成
@@ -144,7 +147,7 @@ export class BatchStack extends cdk.Stack {
       computeResources: {
         type: 'FARGATE',
         maxvCpus: 4, // 1.0 vCPU × 4 = 4 vCPU max
-        subnets: publicSubnets.subnetIds,
+        subnets: publicSubnetIds,
         securityGroupIds: [batchSecurityGroup.securityGroupId],
       },
     });
