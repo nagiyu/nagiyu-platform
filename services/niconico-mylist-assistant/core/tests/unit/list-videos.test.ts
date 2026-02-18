@@ -284,6 +284,272 @@ describe('listVideosWithSettings', () => {
     expect(result.videos[0].videoId).toBe('sm1');
   });
 
+  it('検索キーワードあり（一致）で該当動画のみ返す', async () => {
+    const mockSettings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm2',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm2',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: '東方アレンジメドレー',
+        thumbnailUrl: 'https://example.com/1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm2',
+        SK: 'VIDEO#sm2',
+        entityType: 'VIDEO',
+        videoId: 'sm2',
+        title: 'ボーカロイド特集',
+        thumbnailUrl: 'https://example.com/2.jpg',
+        length: '4:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
+    ddbMock.on(BatchGetCommand).resolves({
+      Responses: {
+        'test-table': mockVideos,
+      },
+    });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: '東方' });
+
+    expect(result.videos).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(result.videos[0].videoId).toBe('sm1');
+  });
+
+  it('検索キーワードあり（不一致）で空配列を返す', async () => {
+    const mockSettings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: 'ボーカロイド特集',
+        thumbnailUrl: 'https://example.com/1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
+    ddbMock.on(BatchGetCommand).resolves({
+      Responses: {
+        'test-table': mockVideos,
+      },
+    });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: '東方' });
+
+    expect(result.videos).toEqual([]);
+    expect(result.total).toBe(0);
+  });
+
+  it('検索キーワードは大文字小文字を区別せず部分一致する', async () => {
+    const mockSettings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: 'Touhou Arrange',
+        thumbnailUrl: 'https://example.com/1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
+    ddbMock.on(BatchGetCommand).resolves({
+      Responses: {
+        'test-table': mockVideos,
+      },
+    });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: 'touHOU' });
+
+    expect(result.videos).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(result.videos[0].videoId).toBe('sm1');
+  });
+
+  it('検索キーワードと既存フィルタをAND条件で適用できる', async () => {
+    const mockSettings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: true,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm2',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm2',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: '東方アレンジ',
+        thumbnailUrl: 'https://example.com/1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
+    ddbMock.on(BatchGetCommand).resolves({
+      Responses: {
+        'test-table': mockVideos,
+      },
+    });
+
+    const result = await listVideosWithSettings('user123', {
+      searchKeyword: '東方',
+      isFavorite: true,
+      isSkip: false,
+    });
+
+    expect(result.videos).toHaveLength(1);
+    expect(result.total).toBe(1);
+    expect(result.videos[0].videoId).toBe('sm1');
+    expect(result.videos[0].userSetting?.isFavorite).toBe(true);
+  });
+
+  it('空文字列・空白のみの検索キーワードは検索条件なしとして扱う', async () => {
+    const mockSettings = [
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm1',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm1',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+      {
+        PK: 'USER#user123',
+        SK: 'VIDEO#sm2',
+        entityType: 'USER_SETTING',
+        userId: 'user123',
+        videoId: 'sm2',
+        isFavorite: false,
+        isSkip: false,
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      },
+    ];
+
+    const mockVideos = [
+      {
+        PK: 'VIDEO#sm1',
+        SK: 'VIDEO#sm1',
+        entityType: 'VIDEO',
+        videoId: 'sm1',
+        title: '動画1',
+        thumbnailUrl: 'https://example.com/1.jpg',
+        length: '3:00',
+        CreatedAt: 1704067200000,
+      },
+      {
+        PK: 'VIDEO#sm2',
+        SK: 'VIDEO#sm2',
+        entityType: 'VIDEO',
+        videoId: 'sm2',
+        title: '動画2',
+        thumbnailUrl: 'https://example.com/2.jpg',
+        length: '4:00',
+        CreatedAt: 1704067200000,
+      },
+    ];
+
+    ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
+    ddbMock.on(BatchGetCommand).resolves({
+      Responses: {
+        'test-table': mockVideos,
+      },
+    });
+
+    const result = await listVideosWithSettings('user123', { searchKeyword: '   ' });
+
+    expect(result.videos).toHaveLength(2);
+    expect(result.total).toBe(2);
+  });
+
   it('ページネーションが正しく動作する（offset/limit方式）', async () => {
     const mockSettings = Array.from({ length: 10 }, (_, i) => ({
       PK: 'USER#user123',
