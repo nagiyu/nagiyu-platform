@@ -12,7 +12,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import { SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { SSM_PARAMETERS } from '../../shared/libs/utils/ssm';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -153,8 +153,7 @@ export class CodecConverterStack extends cdk.Stack {
       const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
       const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
         vpcId,
-        availabilityZones:
-          envName === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+        availabilityZones: envName === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
         publicSubnetIds:
           envName === 'prod'
             ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
