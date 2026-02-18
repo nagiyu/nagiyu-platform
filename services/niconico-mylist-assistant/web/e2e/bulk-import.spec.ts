@@ -165,6 +165,15 @@ test.describe('Bulk Import UI', () => {
     await clearTestData(request);
   });
 
+  const typeVideoIds = async (
+    page: import('@playwright/test').Page,
+    value: string
+  ): Promise<void> => {
+    const textarea = page.getByRole('textbox');
+    await textarea.click();
+    await page.keyboard.type(value);
+  };
+
   test('should display import form', async ({ page }) => {
     await page.goto('/import');
 
@@ -188,11 +197,10 @@ test.describe('Bulk Import UI', () => {
   test('should enable import button when video IDs are entered', async ({ page }) => {
     await page.goto('/import');
 
-    const textarea = page.getByRole('textbox');
     const importButton = page.getByRole('button', { name: 'インポート実行' });
 
     // 動画IDを入力
-    await textarea.fill('sm9\nsm10\nsm11');
+    await typeVideoIds(page, 'sm9\nsm10\nsm11');
 
     // ボタンが有効化される
     await expect(importButton).toBeEnabled();
@@ -214,12 +222,12 @@ test.describe('Bulk Import UI', () => {
   test('should show validation error for too many videos', async ({ page }) => {
     await page.goto('/import');
 
-    const textarea = page.getByRole('textbox');
     const importButton = page.getByRole('button', { name: 'インポート実行' });
 
     // 101個の動画IDを入力
     const videoIds = Array.from({ length: 101 }, (_, i) => `sm${i + 1}`).join('\n');
-    await textarea.fill(videoIds);
+    await typeVideoIds(page, videoIds);
+    await expect(importButton).toBeEnabled();
 
     // ボタンをクリック
     await importButton.click();
@@ -231,10 +239,8 @@ test.describe('Bulk Import UI', () => {
   test('should parse video IDs with different separators', async ({ page }) => {
     await page.goto('/import');
 
-    const textarea = page.getByRole('textbox');
-
     // 改行、カンマ、スペース混在の入力
-    await textarea.fill('sm9,sm10 sm11\nsm12');
+    await typeVideoIds(page, 'sm9,sm10 sm11\nsm12');
 
     // 4つのIDが認識されることを確認するため、ボタンが有効化される
     const importButton = page.getByRole('button', { name: 'インポート実行' });
