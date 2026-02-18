@@ -58,6 +58,52 @@ test.describe('Video List Page', () => {
     ).toBeVisible();
   });
 
+  test('should filter videos by search keyword after debounce', async ({ page, request }) => {
+    const startId = 60000000 + Math.floor(Date.now() % 100000);
+    await request.post('/api/test/videos', {
+      data: {
+        count: 3,
+        startId,
+      },
+    });
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    const searchKeyword = `${startId + 1}`;
+    await page.getByPlaceholder('動画タイトルで検索').fill(searchKeyword);
+    await page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/videos') && response.url().includes(`search=${searchKeyword}`)
+    );
+
+    const videoTitles = page.locator('[class*="MuiCard"] h3');
+    await expect(videoTitles).toHaveCount(1);
+    await expect(videoTitles.first()).toContainText(`E2E動画 ${searchKeyword}`);
+  });
+
+  test('should display empty state when search result is empty', async ({ page, request }) => {
+    const startId = 61000000 + Math.floor(Date.now() % 100000);
+    await request.post('/api/test/videos', {
+      data: {
+        count: 3,
+        startId,
+      },
+    });
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    const searchKeyword = 'no-match-keyword';
+    await page.getByPlaceholder('動画タイトルで検索').fill(searchKeyword);
+    await page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/videos') && response.url().includes(`search=${searchKeyword}`)
+    );
+
+    await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();
+  });
+
   test('should display video cards when videos exist', async ({ page, request }) => {
     // テストデータをAPI経由で作成
     const response = await request.post('/api/videos/bulk-import', {
@@ -615,6 +661,55 @@ test.describe('Video List URL Synchronization', () => {
     // ブラウザフォワード
     await page.goForward();
     await expect(page).toHaveURL('/mylist?favorite=true');
+  });
+
+  test('should restore search state on browser back and forward', async ({ page, request }) => {
+    const startId = 62000000 + Math.floor(Date.now() % 100000);
+    await request.post('/api/test/videos', {
+      data: {
+        count: 3,
+        startId,
+      },
+    });
+
+    await page.goto('/mylist');
+    await page.waitForLoadState('networkidle');
+
+    const searchKeyword = `${startId + 1}`;
+    const searchField = page.getByPlaceholder('動画タイトルで検索');
+    await searchField.fill(searchKeyword);
+    await page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/videos') && response.url().includes(`search=${searchKeyword}`)
+    );
+    await expect(page).toHaveURL(`/mylist?search=${searchKeyword}`);
+
+    await page.goBack();
+    await expect(page).toHaveURL('/mylist');
+    await expect(searchField).toHaveValue('');
+
+    await page.goForward();
+    await expect(page).toHaveURL(`/mylist?search=${searchKeyword}`);
+    await expect(searchField).toHaveValue(searchKeyword);
+  });
+
+  test('should apply search and favorite filters as AND condition', async ({ page, request }) => {
+    const startId = 63000000 + Math.floor(Date.now() % 100000);
+    await request.post('/api/test/videos', {
+      data: {
+        count: 3,
+        startId,
+        favoriteCount: 1,
+      },
+    });
+
+    await page.goto(`/mylist?favorite=true&search=${startId + 1}`);
+    await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();
+
+    await page.goto(`/mylist?favorite=true&search=${startId}`);
+    const videoTitles = page.locator('[class*="MuiCard"] h3');
+    await expect(videoTitles).toHaveCount(1);
+    await expect(videoTitles.first()).toContainText(`E2E動画 ${startId}`);
   });
 
   test('should handle direct URL access with filters', async ({ page, request }) => {
