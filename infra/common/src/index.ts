@@ -19,6 +19,17 @@ export {
   getLogGroupName,
 } from './utils/naming';
 export type { ResourceType } from './utils/naming';
+export {
+  getLambdaFunctionArn,
+  getDynamoDBTableArn,
+  getS3BucketArn,
+  getEcrRepositoryArn,
+  getIamRoleArn,
+  getIamManagedPolicyArn,
+  getSecretsManagerSecretArn,
+  getEcsClusterArn,
+} from './utils/arn';
+export { SSM_PARAMETERS } from './utils/ssm';
 
 // Default configurations
 export {
