@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
     const offsetParam = searchParams.get('offset');
     const isFavoriteParam = searchParams.get('isFavorite');
     const isSkipParam = searchParams.get('isSkip');
+    const searchKeyword = searchParams.get('search')?.trim() || undefined;
 
     // パラメータのパース
     const limit = limitParam ? parseInt(limitParam, 10) : 50;
@@ -119,6 +120,7 @@ export async function GET(request: NextRequest) {
       offset,
       isFavorite,
       isSkip,
+      searchKeyword,
     });
 
     // レスポンス形式に変換
