@@ -269,7 +269,9 @@ export async function listVideosWithSettings(
           userSetting: setting,
         };
       })
-      .filter((video) => video !== null) as Array<VideoBasicInfo & { userSetting: UserVideoSetting }>;
+      .filter((video) => video !== null) as Array<
+      VideoBasicInfo & { userSetting: UserVideoSetting }
+    >;
 
     const paginatedVideos =
       limit === undefined
