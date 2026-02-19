@@ -189,12 +189,15 @@ export async function listVideosWithSettings(
     offset?: number;
     isFavorite?: boolean;
     isSkip?: boolean;
+    searchKeyword?: string;
   }
 ): Promise<{ videos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }>; total: number }> {
   const limit = options?.limit ?? undefined;
   const offset = options?.offset ?? 0;
   const isFavorite = options?.isFavorite;
   const isSkip = options?.isSkip;
+  const searchKeyword = options?.searchKeyword?.trim().toLowerCase();
+  const hasSearchKeyword = searchKeyword !== undefined && searchKeyword !== '';
 
   // 全動画基本情報を取得（全ユーザー共通データ）
   const allVideos = await getVideoRepository().listAll();
@@ -215,7 +218,6 @@ export async function listVideosWithSettings(
   } while (lastKey);
 
   const settingMap = new Map(allSettings.map((setting) => [setting.videoId, setting]));
-
   const mergedVideos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = sortedVideos.map(
     (video) => {
       const setting = settingMap.get(video.videoId);
@@ -236,6 +238,11 @@ export async function listVideosWithSettings(
   }
   if (isSkip !== undefined) {
     filteredVideos = filteredVideos.filter((video) => video.userSetting?.isSkip === isSkip);
+  }
+  if (hasSearchKeyword) {
+    filteredVideos = filteredVideos.filter((video) =>
+      video.title.toLowerCase().includes(searchKeyword!)
+    );
   }
 
   const total = filteredVideos.length;
