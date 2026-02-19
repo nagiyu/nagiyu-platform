@@ -205,11 +205,11 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 ### Phase 3: API層の実装とテスト
 
-- [ ] T008: `/api/videos`エンドポイントに`search`クエリパラメータを追加
+- [x] T008: `/api/videos`エンドポイントに`search`クエリパラメータを追加
     - ファイル: `services/niconico-mylist-assistant/web/src/app/api/videos/route.ts`
     - クエリパラメータのパース、バリデーション、トリム
-- [ ] T009: `listVideosWithSettings`呼び出し時に`searchKeyword`を渡す
-- [ ] T010: APIのユニットテストを作成（必要に応じて）
+- [x] T009: `listVideosWithSettings`呼び出し時に`searchKeyword`を渡す
+- [x] T010: APIのユニットテストを作成（必要に応じて）
     - 既存のテストパターンに従う
 
 ### Phase 4: UI層の実装
@@ -229,7 +229,7 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 ### Phase 5: E2Eテストの作成
 
-- [ ] T015: 名前検索機能のE2Eテストを作成
+- [x] T015: 名前検索機能のE2Eテストを作成
     - ファイル: `services/niconico-mylist-assistant/web/e2e/video-list.spec.ts`
     - テストケース:
         - 検索フィールドが表示される
@@ -241,17 +241,17 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 ### Phase 6: 検証とドキュメント更新
 
-- [ ] T016: ビルドとテストを実行し、すべて成功することを確認
+- [x] T016: ビルドとテストを実行し、すべて成功することを確認
     - ビルド: `npm run build --workspace @nagiyu/niconico-mylist-assistant-web`
     - ユニットテスト: `npm run test:coverage --workspace @nagiyu/niconico-mylist-assistant-core`
     - E2Eテスト: `npm run test:e2e --workspace @nagiyu/niconico-mylist-assistant-web`
-- [ ] T017: テストカバレッジが80%以上であることを確認
-- [ ] T018: 手動テストで機能を検証
+- [x] T017: テストカバレッジが80%以上であることを確認
+- [x] T018: 手動テストで機能を検証
     - 検索フィールドへの入力
     - フィルターとの組み合わせ
     - ページネーションとの組み合わせ
     - URL同期
-- [ ] T019: ドキュメントを更新（必要に応じて）
+- [x] T019: ドキュメントを更新（必要に応じて）
     - `docs/services/niconico-mylist-assistant/architecture.md`
     - `docs/services/niconico-mylist-assistant/testing.md`
 
@@ -287,15 +287,15 @@ GET `/api/videos`エンドポイントに`search`クエリパラメータを追�
 
 本機能は以下の条件を満たした時点で完了とする:
 
-- [ ] 動画一覧画面に検索用テキストフィールドが表示される
-- [ ] 検索キーワードを入力すると、該当する動画のみが表示される
-- [ ] 検索はお気に入り・スキップフィルターとアンド条件で動作する
-- [ ] URLに検索キーワードが反映され、ブラウザバック/フォワードで復元される
-- [ ] 検索結果が0件の場合、適切な空状態メッセージが表示される
-- [ ] すべてのビルドが成功する
-- [ ] すべてのユニットテストが成功する（カバレッジ80%以上）
-- [ ] すべてのE2Eテストが成功する
-- [ ] 既存機能（フィルター、ページネーション、URL同期）に影響がない
+- [x] 動画一覧画面に検索用テキストフィールドが表示される
+- [x] 検索キーワードを入力すると、該当する動画のみが表示される
+- [x] 検索はお気に入り・スキップフィルターとアンド条件で動作する
+- [x] URLに検索キーワードが反映され、ブラウザバック/フォワードで復元される
+- [x] 検索結果が0件の場合、適切な空状態メッセージが表示される
+- [x] すべてのビルドが成功する
+- [x] すべてのユニットテストが成功する（カバレッジ80%以上）
+- [x] すべてのE2Eテストが成功する
+- [x] 既存機能（フィルター、ページネーション、URL同期）に影響がない
 
 ## 参考ドキュメント
 
