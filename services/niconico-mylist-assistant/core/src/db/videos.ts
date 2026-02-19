@@ -199,6 +199,10 @@ export async function listVideosWithSettings(
   const searchKeyword = options?.searchKeyword?.trim().toLowerCase();
   const hasSearchKeyword = searchKeyword !== undefined && searchKeyword !== '';
 
+  // 全動画基本情報を取得（全ユーザー共通データ）
+  const allVideos = await getVideoRepository().listAll();
+  const sortedVideos = [...allVideos].sort((a, b) => b.CreatedAt - a.CreatedAt);
+
   // DynamoDBからユーザーの全設定を取得
   // フィルタリングのため、全件取得が必要
   const allSettings: UserVideoSetting[] = [];
@@ -213,106 +217,39 @@ export async function listVideosWithSettings(
     lastKey = result.lastEvaluatedKey;
   } while (lastKey);
 
-  // ユーザー設定が存在しない場合も、全ユーザー共通の動画基本情報を返す
-  if (allSettings.length === 0) {
-    if (isFavorite === true || isSkip === true) {
-      return {
-        videos: [],
-        total: 0,
-      };
-    }
-
-    const allVideos = await getVideoRepository().listAll();
-    const filteredVideos = hasSearchKeyword
-      ? allVideos.filter((video) => video.title.toLowerCase().includes(searchKeyword!))
-      : allVideos;
-    const paginatedVideos =
-      limit === undefined
-        ? filteredVideos.slice(offset)
-        : filteredVideos.slice(offset, offset + limit);
-
-    return {
-      videos: paginatedVideos,
-      total: filteredVideos.length,
-    };
-  }
-
-  // フィルタリング適用
-  let filteredSettings = allSettings;
-
-  if (isFavorite !== undefined) {
-    filteredSettings = filteredSettings.filter((setting) => setting.isFavorite === isFavorite);
-  }
-
-  if (isSkip !== undefined) {
-    filteredSettings = filteredSettings.filter((setting) => setting.isSkip === isSkip);
-  }
-
-  if (hasSearchKeyword) {
-    const videoIds = filteredSettings.map((setting) => setting.videoId);
-    const basicInfos = await batchGetVideoBasicInfo(videoIds);
-    const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
-
-    const searchedVideos = filteredSettings
-      .map((setting) => {
-        const basicInfo = basicInfoMap.get(setting.videoId);
-        if (!basicInfo) {
-          return null;
-        }
-
-        if (!basicInfo.title.toLowerCase().includes(searchKeyword!)) {
-          return null;
-        }
-
-        return {
-          ...basicInfo,
-          userSetting: setting,
-        };
-      })
-      .filter((video) => video !== null) as Array<
-      VideoBasicInfo & { userSetting: UserVideoSetting }
-    >;
-
-    const paginatedVideos =
-      limit === undefined
-        ? searchedVideos.slice(offset)
-        : searchedVideos.slice(offset, offset + limit);
-
-    return {
-      videos: paginatedVideos,
-      total: searchedVideos.length,
-    };
-  }
-
-  // 総件数
-  const total = filteredSettings.length;
-
-  // ページネーション適用
-  const paginatedSettings =
-    limit === undefined
-      ? filteredSettings.slice(offset)
-      : filteredSettings.slice(offset, offset + limit);
-
-  // 動画基本情報を一括取得
-  const videoIds = paginatedSettings.map((setting) => setting.videoId);
-  const basicInfos = await batchGetVideoBasicInfo(videoIds);
-
-  // 動画基本情報とユーザー設定をマージ
-  const basicInfoMap = new Map(basicInfos.map((info) => [info.videoId, info]));
-
-  const videos = paginatedSettings
-    .map((setting) => {
-      const basicInfo = basicInfoMap.get(setting.videoId);
-      if (!basicInfo) {
-        // 動画基本情報が存在しない場合はスキップ
-        return null;
+  const settingMap = new Map(allSettings.map((setting) => [setting.videoId, setting]));
+  const mergedVideos: Array<VideoBasicInfo & { userSetting?: UserVideoSetting }> = sortedVideos.map(
+    (video) => {
+      const setting = settingMap.get(video.videoId);
+      if (!setting) {
+        return video;
       }
       return {
-        ...basicInfo,
+        ...video,
         userSetting: setting,
       };
-    })
-    .filter((video) => video !== null) as Array<VideoBasicInfo & { userSetting: UserVideoSetting }>;
+    }
+  );
+
+  // フィルタリング適用（ユーザー設定が存在する動画のみ条件判定）
+  let filteredVideos = mergedVideos;
+  if (isFavorite !== undefined) {
+    filteredVideos = filteredVideos.filter((video) => video.userSetting?.isFavorite === isFavorite);
+  }
+  if (isSkip !== undefined) {
+    filteredVideos = filteredVideos.filter((video) => video.userSetting?.isSkip === isSkip);
+  }
+  if (hasSearchKeyword) {
+    filteredVideos = filteredVideos.filter((video) =>
+      video.title.toLowerCase().includes(searchKeyword!)
+    );
+  }
+
+  const total = filteredVideos.length;
+  const videos =
+    limit === undefined
+      ? filteredVideos.slice(offset)
+      : filteredVideos.slice(offset, offset + limit);
 
   return {
     videos,
