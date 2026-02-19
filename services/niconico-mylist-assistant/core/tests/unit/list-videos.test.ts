@@ -327,11 +327,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { searchKeyword: '東方' });
 
@@ -369,11 +365,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { searchKeyword: '東方' });
 
@@ -410,11 +402,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { searchKeyword: 'touHOU' });
 
@@ -463,11 +451,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', {
       searchKeyword: '東方',
@@ -531,11 +515,7 @@ describe('listVideosWithSettings', () => {
     ];
 
     ddbMock.on(QueryCommand).resolves({ Items: mockSettings });
-    ddbMock.on(BatchGetCommand).resolves({
-      Responses: {
-        'test-table': mockVideos,
-      },
-    });
+    ddbMock.on(ScanCommand).resolves({ Items: mockVideos });
 
     const result = await listVideosWithSettings('user123', { searchKeyword: '   ' });
 
