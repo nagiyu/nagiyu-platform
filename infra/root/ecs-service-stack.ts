@@ -4,7 +4,10 @@ import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { SSM_PARAMETERS } from '../common/src/utils/ssm';
+import { getEcrRepositoryName } from '../common/src/utils/naming';
 
 export interface EcsServiceStackProps extends cdk.StackProps {
   environment: string;
@@ -19,10 +22,14 @@ export class EcsServiceStack extends cdk.Stack {
 
     const { environment } = props;
 
-    // Import VPC from CloudFormation exports
-    const vpcId = cdk.Fn.importValue(`nagiyu-${environment}-vpc-id`);
-    const publicSubnetIdsStr = cdk.Fn.importValue(
-      `nagiyu-${environment}-public-subnet-ids`
+    // Import VPC from SSM Parameter Store
+    const vpcId = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.VPC_ID(environment as 'dev' | 'prod')
+    );
+    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(environment as 'dev' | 'prod')
     );
 
     // For prod, subnet IDs are comma-separated; for dev, it's a single ID
@@ -48,9 +55,10 @@ export class EcsServiceStack extends cdk.Stack {
     // Look up existing VPC
     const vpc = ec2.Vpc.fromVpcAttributes(this, 'ImportedVpc', vpcAttributes);
 
-    // Import ECS Cluster
-    const clusterName = cdk.Fn.importValue(
-      `nagiyu-root-cluster-name-${environment}`
+    // Import ECS Cluster from SSM Parameter Store
+    const clusterName = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ECS_CLUSTER_NAME(environment as 'dev' | 'prod')
     );
     const cluster = ecs.Cluster.fromClusterAttributes(this, 'ImportedCluster', {
       clusterName: clusterName,
@@ -58,9 +66,10 @@ export class EcsServiceStack extends cdk.Stack {
       securityGroups: [],
     });
 
-    // Import ALB Security Group
-    const albSecurityGroupId = cdk.Fn.importValue(
-      `nagiyu-root-alb-sg-id-${environment}`
+    // Import ALB Security Group from SSM Parameter Store
+    const albSecurityGroupId = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ALB_SECURITY_GROUP_ID(environment as 'dev' | 'prod')
     );
     const albSecurityGroup = ec2.SecurityGroup.fromSecurityGroupId(
       this,
@@ -68,9 +77,10 @@ export class EcsServiceStack extends cdk.Stack {
       albSecurityGroupId
     );
 
-    // Import Target Group
-    const targetGroupArn = cdk.Fn.importValue(
-      `nagiyu-root-tg-arn-${environment}`
+    // Import Target Group from SSM Parameter Store
+    const targetGroupArn = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.ALB_TARGET_GROUP_ARN(environment as 'dev' | 'prod')
     );
     const targetGroup = elbv2.ApplicationTargetGroup.fromTargetGroupAttributes(
       this,
@@ -116,12 +126,8 @@ export class EcsServiceStack extends cdk.Stack {
       ],
     });
 
-    // Get ECR repository ARN for scoped permissions
-    // Fixed to dev environment ECR repository
-    const ecrStackName = 'NagiyuToolsEcrDev';
-    const ecrRepositoryArn = cdk.Fn.importValue(
-      `${ecrStackName}-RepositoryArn`
-    );
+    const ecrRepoName = getEcrRepositoryName('tools-app', environment as 'dev' | 'prod');
+    const ecrRepositoryArn = `arn:aws:ecr:${this.region}:${this.account}:repository/${ecrRepoName}`;
 
     // Add ECR permissions to Task Execution Role (scoped to specific repository)
     taskExecutionRole.addToPolicy(
@@ -151,11 +157,7 @@ export class EcsServiceStack extends cdk.Stack {
       description: 'ECS Task Role for nagiyu root domain',
     });
 
-    // Get ECR repository URI from CloudFormation export
-    // Fixed to dev environment ECR repository
-    const ecrRepositoryUri = cdk.Fn.importValue(
-      `${ecrStackName}-RepositoryUri`
-    );
+    const ecrRepositoryUri = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${ecrRepoName}`;
 
     // Get image tag from environment variable, default to 'latest'
     const imageTag = process.env.IMAGE_TAG || 'latest';
@@ -225,25 +227,21 @@ export class EcsServiceStack extends cdk.Stack {
     // Exports
     new cdk.CfnOutput(this, 'ServiceName', {
       value: this.service.serviceName,
-      exportName: `nagiyu-root-service-name-${environment}`,
       description: 'ECS Service name for root domain',
     });
 
     new cdk.CfnOutput(this, 'ServiceArn', {
       value: this.service.serviceArn,
-      exportName: `nagiyu-root-service-arn-${environment}`,
       description: 'ECS Service ARN for root domain',
     });
 
     new cdk.CfnOutput(this, 'TaskDefinitionArn', {
       value: this.taskDefinition.taskDefinitionArn,
-      exportName: `nagiyu-root-task-definition-arn-${environment}`,
       description: 'Task Definition ARN for root domain',
     });
 
     new cdk.CfnOutput(this, 'TaskSecurityGroupId', {
       value: ecsTaskSecurityGroup.securityGroupId,
-      exportName: `nagiyu-root-task-sg-id-${environment}`,
       description: 'Security Group ID for ECS Tasks',
     });
   }

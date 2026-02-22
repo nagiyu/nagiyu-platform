@@ -1,7 +1,9 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
+import { SSM_PARAMETERS } from '../common/src/utils/ssm';
 
 export interface AlbStackProps extends cdk.StackProps {
   environment: string;
@@ -17,10 +19,14 @@ export class AlbStack extends cdk.Stack {
 
     const { environment } = props;
 
-    // Import VPC from CloudFormation exports
-    const vpcId = cdk.Fn.importValue(`nagiyu-${environment}-vpc-id`);
-    const publicSubnetIdsStr = cdk.Fn.importValue(
-      `nagiyu-${environment}-public-subnet-ids`
+    // Import VPC from SSM Parameter Store
+    const vpcId = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.VPC_ID(environment as 'dev' | 'prod')
+    );
+    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(environment as 'dev' | 'prod')
     );
 
     // For prod, subnet IDs are comma-separated; for dev, it's a single ID
