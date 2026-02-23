@@ -85,12 +85,12 @@ ACM 証明書には以下のドメインを含めます:
 
 **出力値 (Outputs):**
 - `CertificateArn`: ACM 証明書の ARN
-    - Export 名: `nagiyu-shared-acm-certificate-arn`
+    - SSM パラメータ名: `/nagiyu/shared/acm/certificate-arn`
     - CloudFront スタックから参照
 - `DomainName`: プライマリドメイン名
-    - Export 名: `nagiyu-shared-acm-domain-name`
+    - SSM パラメータ名: `/nagiyu/shared/acm/domain-name`
 - `WildcardDomain`: ワイルドカードドメイン名
-    - Export 名: `nagiyu-shared-acm-wildcard-domain`
+    - CloudFormation Output のみ（exportName なし）
 
 **証明書の構成:**
 - プライマリドメイン: `*.example.com` (ワイルドカード)
@@ -404,16 +404,16 @@ ACM 証明書自体は**無料**です。
 - **移行元**: CloudFormation テンプレート (`infra/shared/acm/certificate.yaml`)
 - **移行先**: CDK スタック (`infra/shared/lib/acm-stack.ts`)
 - **スタック名**: `nagiyu-shared-acm-certificate` → `SharedAcm`
-- **Export 名**: 変更なし（既存サービスとの互換性維持）
+- **共有方法**: CloudFormation Export から SSM Parameter Store に移行
 
 ### 移行による変更点
 
 **変更なし（既存サービスへの影響なし）:**
-- Export 名は完全に維持されています
 - 証明書のリソース自体は変更されていません（DNS 検証レコードも同じ）
 - CloudFront などの既存サービスは引き続き動作します
 
 **変更点:**
+- 証明書 ARN / ドメイン名の共有方法を SSM Parameter Store に変更
 - デプロイ方法が CloudFormation CLI から CDK CLI に変更
 - スタック名が `nagiyu-shared-acm-certificate` から `SharedAcm` に変更
 - ドメイン名の指定が環境変数 `DOMAIN_NAME` または Context から取得

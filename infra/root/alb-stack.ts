@@ -116,26 +116,50 @@ export class AlbStack extends cdk.Stack {
     // Exports
     new cdk.CfnOutput(this, 'AlbDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
-      exportName: `nagiyu-root-alb-dns-${environment}`,
       description: 'ALB DNS name for root domain',
     });
 
     new cdk.CfnOutput(this, 'AlbArn', {
       value: this.loadBalancer.loadBalancerArn,
-      exportName: `nagiyu-root-alb-arn-${environment}`,
       description: 'ALB ARN for root domain',
     });
 
     new cdk.CfnOutput(this, 'TargetGroupArn', {
       value: this.targetGroup.targetGroupArn,
-      exportName: `nagiyu-root-tg-arn-${environment}`,
       description: 'Target Group ARN for root domain',
     });
 
     new cdk.CfnOutput(this, 'AlbSecurityGroupId', {
       value: albSecurityGroup.securityGroupId,
-      exportName: `nagiyu-root-alb-sg-id-${environment}`,
       description: 'Security Group ID for ALB',
+    });
+
+    new ssm.StringParameter(this, 'AlbDnsNameParam', {
+      parameterName: SSM_PARAMETERS.ALB_DNS_NAME(environment as 'dev' | 'prod'),
+      stringValue: this.loadBalancer.loadBalancerDnsName,
+      description: 'ALB DNS name for root domain',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'AlbArnParam', {
+      parameterName: SSM_PARAMETERS.ALB_ARN(environment as 'dev' | 'prod'),
+      stringValue: this.loadBalancer.loadBalancerArn,
+      description: 'ALB ARN for root domain',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'TargetGroupArnParam', {
+      parameterName: SSM_PARAMETERS.ALB_TARGET_GROUP_ARN(environment as 'dev' | 'prod'),
+      stringValue: this.targetGroup.targetGroupArn,
+      description: 'Target Group ARN for root domain',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'AlbSecurityGroupIdParam', {
+      parameterName: SSM_PARAMETERS.ALB_SECURITY_GROUP_ID(environment as 'dev' | 'prod'),
+      stringValue: albSecurityGroup.securityGroupId,
+      description: 'Security Group ID for ALB',
+      tier: ssm.ParameterTier.STANDARD,
     });
   }
 }
