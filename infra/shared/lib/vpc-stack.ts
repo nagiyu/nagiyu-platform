@@ -1,7 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { EXPORTS } from '../libs/utils/exports';
+import { SSM_PARAMETERS } from '../libs/utils/ssm';
 
 export interface VpcStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
@@ -134,7 +135,6 @@ export class VpcStack extends cdk.Stack {
     // Exports（既存の名前を維持）
     new cdk.CfnOutput(this, 'VpcId', {
       value: this.vpc.ref,
-      exportName: EXPORTS.VPC_ID(props.environment),
       description: 'VPC ID',
     });
 
@@ -143,20 +143,45 @@ export class VpcStack extends cdk.Stack {
       : publicSubnet1a.ref;
     new cdk.CfnOutput(this, 'PublicSubnetIds', {
       value: subnetIds,
-      exportName: EXPORTS.PUBLIC_SUBNET_IDS(props.environment),
       description: 'Public subnet IDs (comma-separated)',
     });
 
     new cdk.CfnOutput(this, 'InternetGatewayId', {
       value: internetGateway.ref,
-      exportName: EXPORTS.IGW_ID(props.environment),
       description: 'Internet Gateway ID',
     });
 
     new cdk.CfnOutput(this, 'VpcCidr', {
       value: this.vpc.attrCidrBlock,
-      exportName: EXPORTS.VPC_CIDR(props.environment),
       description: 'VPC CIDR block',
+    });
+
+    new ssm.StringParameter(this, 'VpcIdParam', {
+      parameterName: SSM_PARAMETERS.VPC_ID(props.environment),
+      stringValue: this.vpc.ref,
+      description: 'VPC ID',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'PublicSubnetIdsParam', {
+      parameterName: SSM_PARAMETERS.PUBLIC_SUBNET_IDS(props.environment),
+      stringValue: subnetIds,
+      description: 'Public subnet IDs (comma-separated)',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'InternetGatewayIdParam', {
+      parameterName: SSM_PARAMETERS.IGW_ID(props.environment),
+      stringValue: internetGateway.ref,
+      description: 'Internet Gateway ID',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'VpcCidrParam', {
+      parameterName: SSM_PARAMETERS.VPC_CIDR(props.environment),
+      stringValue: this.vpc.attrCidrBlock,
+      description: 'VPC CIDR block',
+      tier: ssm.ParameterTier.STANDARD,
     });
   }
 }

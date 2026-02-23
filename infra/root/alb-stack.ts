@@ -18,15 +18,16 @@ export class AlbStack extends cdk.Stack {
     super(scope, id, props);
 
     const { environment } = props;
+    const ssmEnvironment = environment as 'dev' | 'prod';
 
     // Import VPC from SSM Parameter Store
     const vpcId = ssm.StringParameter.valueForStringParameter(
       this,
-      SSM_PARAMETERS.VPC_ID(environment as 'dev' | 'prod')
+      SSM_PARAMETERS.VPC_ID(ssmEnvironment)
     );
     const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
       this,
-      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(environment as 'dev' | 'prod')
+      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(ssmEnvironment)
     );
 
     // For prod, subnet IDs are comma-separated; for dev, it's a single ID
@@ -116,26 +117,50 @@ export class AlbStack extends cdk.Stack {
     // Exports
     new cdk.CfnOutput(this, 'AlbDnsName', {
       value: this.loadBalancer.loadBalancerDnsName,
-      exportName: `nagiyu-root-alb-dns-${environment}`,
       description: 'ALB DNS name for root domain',
     });
 
     new cdk.CfnOutput(this, 'AlbArn', {
       value: this.loadBalancer.loadBalancerArn,
-      exportName: `nagiyu-root-alb-arn-${environment}`,
       description: 'ALB ARN for root domain',
     });
 
     new cdk.CfnOutput(this, 'TargetGroupArn', {
       value: this.targetGroup.targetGroupArn,
-      exportName: `nagiyu-root-tg-arn-${environment}`,
       description: 'Target Group ARN for root domain',
     });
 
     new cdk.CfnOutput(this, 'AlbSecurityGroupId', {
       value: albSecurityGroup.securityGroupId,
-      exportName: `nagiyu-root-alb-sg-id-${environment}`,
       description: 'Security Group ID for ALB',
+    });
+
+    new ssm.StringParameter(this, 'AlbDnsNameParam', {
+      parameterName: SSM_PARAMETERS.ALB_DNS_NAME(ssmEnvironment),
+      stringValue: this.loadBalancer.loadBalancerDnsName,
+      description: 'ALB DNS name for root domain',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'AlbArnParam', {
+      parameterName: SSM_PARAMETERS.ALB_ARN(ssmEnvironment),
+      stringValue: this.loadBalancer.loadBalancerArn,
+      description: 'ALB ARN for root domain',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'TargetGroupArnParam', {
+      parameterName: SSM_PARAMETERS.ALB_TARGET_GROUP_ARN(ssmEnvironment),
+      stringValue: this.targetGroup.targetGroupArn,
+      description: 'Target Group ARN for root domain',
+      tier: ssm.ParameterTier.STANDARD,
+    });
+
+    new ssm.StringParameter(this, 'AlbSecurityGroupIdParam', {
+      parameterName: SSM_PARAMETERS.ALB_SECURITY_GROUP_ID(ssmEnvironment),
+      stringValue: albSecurityGroup.securityGroupId,
+      description: 'Security Group ID for ALB',
+      tier: ssm.ParameterTier.STANDARD,
     });
   }
 }
