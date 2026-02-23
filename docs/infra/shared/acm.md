@@ -91,6 +91,7 @@ ACM 証明書には以下のドメインを含めます:
     - SSM パラメータ名: `/nagiyu/shared/acm/domain-name`
 - `WildcardDomain`: ワイルドカードドメイン名
     - CloudFormation Output のみ（exportName なし）
+    - 現在この値を参照する Consumer スタックがないため、SSM には保存しない
 
 **証明書の構成:**
 - プライマリドメイン: `*.example.com` (ワイルドカード)

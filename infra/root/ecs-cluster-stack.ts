@@ -16,6 +16,7 @@ export class EcsClusterStack extends cdk.Stack {
     super(scope, id, props);
 
     const { environment } = props;
+    const ssmEnvironment = environment as 'dev' | 'prod';
 
     // Define cluster name as a constant for consistency
     const clusterName = `nagiyu-root-cluster-${environment}`;
@@ -65,14 +66,14 @@ export class EcsClusterStack extends cdk.Stack {
     });
 
     new ssm.StringParameter(this, 'ClusterNameParam', {
-      parameterName: SSM_PARAMETERS.ECS_CLUSTER_NAME(environment as 'dev' | 'prod'),
+      parameterName: SSM_PARAMETERS.ECS_CLUSTER_NAME(ssmEnvironment),
       stringValue: this.clusterName,
       description: 'ECS Cluster name for root domain',
       tier: ssm.ParameterTier.STANDARD,
     });
 
     new ssm.StringParameter(this, 'ClusterArnParam', {
-      parameterName: SSM_PARAMETERS.ECS_CLUSTER_ARN(environment as 'dev' | 'prod'),
+      parameterName: SSM_PARAMETERS.ECS_CLUSTER_ARN(ssmEnvironment),
       stringValue: this.clusterArn,
       description: 'ECS Cluster ARN for root domain',
       tier: ssm.ParameterTier.STANDARD,
