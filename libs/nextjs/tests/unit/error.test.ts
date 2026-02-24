@@ -2,10 +2,20 @@
  * Error Handler Unit Tests
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { handleApiError } from '../../src/error';
 
 describe('handleApiError', () => {
+  // console.errorをモック化してテスト出力をクリーンに保つ
+  let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+  beforeEach(() => {
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
+  });
   it('NotFoundエラーを404レスポンスに変換する', () => {
     const error = new Error('データが見つかりません');
     error.name = 'EntityNotFoundError';
