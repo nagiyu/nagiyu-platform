@@ -19,8 +19,18 @@ test.describe('チャート表示機能', () => {
     // TestDataFactory を初期化
     factory = new TestDataFactory(request);
 
-    // テスト用データを作成
-    await factory.createTicker(); // Exchange と Ticker を自動作成
+    // チャート描画テストには実在する取引所とティッカーを使用する
+    // 架空のティッカーでは TradingView API がデータを返さずチャートが描画されないため
+    // NSDQ は TradingView API での NASDAQ の正式なキー（types.ts, tradingview-client.ts 参照）
+    const exchange = await factory.createExchange({
+      key: 'NSDQ',
+      name: 'NASDAQ Stock Market',
+    });
+    await factory.createTicker({
+      symbol: 'NVDA',
+      name: 'NVIDIA Corporation',
+      exchangeId: exchange.exchangeId,
+    });
 
     await page.goto('/');
 
