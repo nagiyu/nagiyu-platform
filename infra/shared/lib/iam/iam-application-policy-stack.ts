@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { EXPORTS } from '../../libs/utils/exports';
 
 /**
  * IAM Application Policy Stack
@@ -15,6 +14,7 @@ export class IamApplicationPolicyStack extends cdk.Stack {
     super(scope, id, props);
 
     this.policy = new iam.ManagedPolicy(this, 'Policy', {
+      managedPolicyName: 'nagiyu-deploy-policy-application',
       description:
         'nagiyu アプリケーションデプロイ権限（Lambda, S3, DynamoDB, API Gateway, CloudFront）',
       statements: [
@@ -203,7 +203,6 @@ export class IamApplicationPolicyStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ApplicationPolicyArnExport', {
       value: this.policy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_APPLICATION_ARN,
       description: 'Application deploy policy ARN for nagiyu',
     });
   }
