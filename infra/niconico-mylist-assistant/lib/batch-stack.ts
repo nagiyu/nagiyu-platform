@@ -240,7 +240,7 @@ export class BatchStack extends cdk.Stack {
     this.jobDefinitionArn = jobDefinition.attrJobDefinitionArn;
 
     // Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically via Fn::GetAtt
     new cdk.CfnOutput(this, 'BatchJobQueueArn', {
       value: jobQueue.attrJobQueueArn,
@@ -263,7 +263,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     // Runtime Policy (IAM スタックで参照するため)
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
       value: this.batchRuntimePolicy.managedPolicyArn,
       description: 'Batch Runtime Managed Policy ARN',

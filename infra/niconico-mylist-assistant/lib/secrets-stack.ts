@@ -41,7 +41,7 @@ export class SecretsStack extends cdk.Stack {
     cdk.Tags.of(this.encryptionSecret).add('Environment', environment);
 
     // CloudFormation Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'EncryptionSecretArn', {
       value: this.encryptionSecret.secretArn,
