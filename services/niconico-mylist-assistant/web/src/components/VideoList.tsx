@@ -159,14 +159,20 @@ export default function VideoList() {
 
   useEffect(() => {
     const currentSearchKeyword = searchParams.get('search') || '';
+    // URLが既に最新値を持つ場合は更新不要
     if (debouncedSearchKeyword === currentSearchKeyword) {
+      return;
+    }
+    // debouncedSearchKeyword が searchKeyword と異なる場合はデバウンスが未完了か stale な値のため無視する
+    // これにより webkit でナビゲーション中に旧タイムアウトが発火して意図しない router.push が起きることを防ぐ
+    if (debouncedSearchKeyword !== searchKeyword) {
       return;
     }
 
     const currentFavoriteFilter = searchParams.get('favorite') || 'all';
     const currentSkipFilter = searchParams.get('skip') || 'all';
     updateURL(currentFavoriteFilter, currentSkipFilter, debouncedSearchKeyword, 0);
-  }, [debouncedSearchKeyword, searchParams, updateURL]);
+  }, [debouncedSearchKeyword, searchParams, updateURL, searchKeyword]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
