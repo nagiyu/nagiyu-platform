@@ -124,19 +124,16 @@ export class EcrStackBase extends cdk.Stack {
     new cdk.CfnOutput(this, 'RepositoryUri', {
       value: this.repository.repositoryUri,
       description: 'ECR Repository URI',
-      exportName: `${this.stackName}-RepositoryUri`,
     });
 
     new cdk.CfnOutput(this, 'RepositoryArn', {
       value: this.repository.repositoryArn,
       description: 'ECR Repository ARN',
-      exportName: `${this.stackName}-RepositoryArn`,
     });
 
     new cdk.CfnOutput(this, 'RepositoryName', {
       value: this.repository.repositoryName,
       description: 'ECR Repository Name',
-      exportName: `${this.stackName}-RepositoryName`,
     });
   }
 }

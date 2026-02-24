@@ -40,13 +40,11 @@ export class SecretsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VapidSecretArn', {
       value: this.vapidSecret.secretArn,
       description: 'VAPID Secret ARN',
-      exportName: `${this.stackName}-VapidSecretArn`,
     });
 
     new cdk.CfnOutput(this, 'VapidSecretName', {
       value: this.vapidSecret.secretName,
       description: 'VAPID Secret Name',
-      exportName: `${this.stackName}-VapidSecretName`,
     });
 
     // 開発用 IAM 認証情報シークレット（dev 環境のみ）
@@ -69,13 +67,11 @@ export class SecretsStack extends cdk.Stack {
       new cdk.CfnOutput(this, 'DevCredentialsSecretArn', {
         value: this.devCredentialsSecret.secretArn,
         description: 'Development IAM Credentials Secret ARN',
-        exportName: `${this.stackName}-DevCredentialsSecretArn`,
       });
 
       new cdk.CfnOutput(this, 'DevCredentialsSecretName', {
         value: this.devCredentialsSecret.secretName,
         description: 'Development IAM Credentials Secret Name',
-        exportName: `${this.stackName}-DevCredentialsSecretName`,
       });
     }
   }

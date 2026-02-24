@@ -220,44 +220,37 @@ export class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,
       description: 'Web Lambda Function ARN',
-      exportName: `${this.stackName}-WebFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'FunctionUrl', {
       value: this.functionUrl.url,
       description: 'Web Lambda Function URL',
-      exportName: `${this.stackName}-FunctionUrl`,
     });
 
     new cdk.CfnOutput(this, 'BatchMinuteFunctionArn', {
       value: this.batchMinuteFunction.functionArn,
       description: 'Batch Minute Lambda Function ARN',
-      exportName: `${this.stackName}-BatchMinuteFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchHourlyFunctionArn', {
       value: this.batchHourlyFunction.functionArn,
       description: 'Batch Hourly Lambda Function ARN',
-      exportName: `${this.stackName}-BatchHourlyFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchDailyFunctionArn', {
       value: this.batchDailyFunction.functionArn,
       description: 'Batch Daily Lambda Function ARN',
-      exportName: `${this.stackName}-BatchDailyFunctionArn`,
     });
 
     // Runtime Policies (IAM スタックで参照するため Export)
     new cdk.CfnOutput(this, 'WebRuntimePolicyArn', {
       value: this.webRuntimePolicy.managedPolicyArn,
       description: 'Web Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-WebRuntimePolicyArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
       value: this.batchRuntimePolicy.managedPolicyArn,
       description: 'Batch Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-BatchRuntimePolicyArn`,
     });
   }
 }

@@ -51,19 +51,16 @@ export class DynamoDBStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'TableName', {
       value: this.table.tableName,
       description: 'DynamoDB Table Name',
-      exportName: `${this.stackName}-TableName`,
     });
 
     new cdk.CfnOutput(this, 'TableArn', {
       value: this.table.tableArn,
       description: 'DynamoDB Table ARN',
-      exportName: `${this.stackName}-TableArn`,
     });
 
     new cdk.CfnOutput(this, 'GoogleIdIndexName', {
       value: 'googleId-index',
       description: 'GoogleId GSI Name',
-      exportName: `${this.stackName}-GoogleIdIndexName`,
     });
   }
 }
