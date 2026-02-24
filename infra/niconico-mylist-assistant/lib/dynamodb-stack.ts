@@ -54,7 +54,7 @@ export class DynamoDBStack extends cdk.Stack {
     cdk.Tags.of(this.table).add('Environment', environment);
 
     // Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'TableName', {
       value: this.table.tableName,

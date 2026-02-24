@@ -140,7 +140,7 @@ export class LambdaStack extends cdk.Stack {
     cdk.Tags.of(this.webFunction).add('Temp', 'Temp');
 
     // CloudFormation Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,

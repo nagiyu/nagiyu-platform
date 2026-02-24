@@ -43,10 +43,6 @@ const ecsServiceStack = new EcsServiceStack(
   }
 );
 
-// Set up dependencies
-ecsServiceStack.addDependency(ecsClusterStack);
-ecsServiceStack.addDependency(albStack);
-
 // CloudFront Stack for root domain
 const cloudFrontStack = new CloudFrontStack(
   app,
@@ -57,8 +53,5 @@ const cloudFrontStack = new CloudFrontStack(
     description: `CloudFront Distribution for nagiyu root domain (${environment})`,
   }
 );
-
-// CloudFront depends on ALB
-cloudFrontStack.addDependency(albStack);
 
 app.synth();
