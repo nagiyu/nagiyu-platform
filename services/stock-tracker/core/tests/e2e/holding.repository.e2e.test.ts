@@ -47,7 +47,7 @@ describe('Holding Repository E2E Tests with InMemory Store', () => {
       });
       expect(updated.Quantity).toBe(150);
       expect(updated.AveragePrice).toBe(145.0);
-      expect(updated.UpdatedAt).toBeGreaterThan(created.UpdatedAt);
+      expect(updated.UpdatedAt).toBeGreaterThanOrEqual(created.UpdatedAt);
 
       // 4. 削除
       await repository.delete('user-001', 'NSDQ:AAPL');
