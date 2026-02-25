@@ -55,4 +55,11 @@ const cloudFrontStack = new CloudFrontStack(
   }
 );
 
+// Explicit stack dependencies (CDK does not detect SSM-based cross-stack dependencies automatically)
+// EcsService reads Cluster SSM and ALB SSM → must wait for both
+ecsServiceStack.addDependency(ecsClusterStack);
+ecsServiceStack.addDependency(albStack);
+// CloudFront reads ALB DNS SSM → must wait for ALB
+cloudFrontStack.addDependency(albStack);
+
 app.synth();

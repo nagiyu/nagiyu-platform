@@ -126,7 +126,7 @@ export class EcsServiceStack extends cdk.Stack {
       ],
     });
 
-    const ecrRepoName = getEcrRepositoryName('tools-app', environment as 'dev' | 'prod');
+    const ecrRepoName = getEcrRepositoryName('tools', environment as 'dev' | 'prod');
     const ecrRepositoryArn = `arn:aws:ecr:${this.region}:${this.account}:repository/${ecrRepoName}`;
 
     // Add ECR permissions to Task Execution Role (scoped to specific repository)
