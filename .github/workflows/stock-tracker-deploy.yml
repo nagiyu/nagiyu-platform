@@ -79,7 +79,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy ECR Stacks
+      - name: Deploy ECR and Secrets Stacks
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
           STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
@@ -87,10 +87,11 @@ jobs:
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
             NagiyuStockTrackerWebECR${STACK_SUFFIX} \
             NagiyuStockTrackerBatchECR${STACK_SUFFIX} \
+            NagiyuStockTrackerSecrets${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
             --require-approval never
 
-          echo "ECR repositories deployed (environment: $ENVIRONMENT)"
+          echo "ECR repositories and Secrets deployed (environment: $ENVIRONMENT)"
 
   build-web:
     name: Build and Push Web Docker Image
