@@ -185,14 +185,10 @@ test.describe('チャート表示機能', () => {
       // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // チャートが再読み込みされる（より長いタイムアウト）
-      await Promise.race([
-        page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-        page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-      ]).catch(() => {
-        console.log('Chart reload timed out');
-      });
+      // チャートの再読み込みが完了するまで待つ
+      // Promise.race は前回のエラーが残っている場合に即座に解決してしまうため、
+      // networkidle で API 呼び出し完了を保証する
+      await page.waitForLoadState('networkidle');
 
       // チャートまたはエラーメッセージが表示されることを確認
       const chartDisplayed = await page
@@ -203,13 +199,9 @@ test.describe('チャート表示機能', () => {
         .locator('[role="alert"]')
         .isVisible()
         .catch(() => false);
-      const loadingDisplayed = await page
-        .getByText('チャートデータを読み込み中')
-        .isVisible()
-        .catch(() => false);
 
       // いずれかの状態が表示されることを確認
-      expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
+      expect(chartDisplayed || errorDisplayed).toBeTruthy();
     }
   });
 
@@ -291,14 +283,10 @@ test.describe('チャート表示機能', () => {
       // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // チャートが再読み込みされる
-      await Promise.race([
-        page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-        page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-      ]).catch(() => {
-        console.log('Chart reload timed out');
-      });
+      // チャートの再読み込みが完了するまで待つ
+      // Promise.race は前回のエラーが残っている場合に即座に解決してしまうため、
+      // networkidle で API 呼び出し完了を保証する
+      await page.waitForLoadState('networkidle');
 
       // チャートまたはエラーメッセージが表示されることを確認
       const chartDisplayed = await page
@@ -309,13 +297,9 @@ test.describe('チャート表示機能', () => {
         .locator('[role="alert"]')
         .isVisible()
         .catch(() => false);
-      const loadingDisplayed = await page
-        .getByText('チャートデータを読み込み中')
-        .isVisible()
-        .catch(() => false);
 
       // いずれかの状態が表示されることを確認
-      expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
+      expect(chartDisplayed || errorDisplayed).toBeTruthy();
     }
   });
 
