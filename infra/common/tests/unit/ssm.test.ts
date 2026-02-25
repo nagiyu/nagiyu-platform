@@ -4,7 +4,9 @@ describe('ssm utilities', () => {
   it('should generate shared VPC parameter names', () => {
     expect(SSM_PARAMETERS.VPC_ID('dev')).toBe('/nagiyu/shared/dev/vpc/id');
     expect(SSM_PARAMETERS.VPC_CIDR('prod')).toBe('/nagiyu/shared/prod/vpc/cidr');
-    expect(SSM_PARAMETERS.PUBLIC_SUBNET_IDS('dev')).toBe('/nagiyu/shared/dev/vpc/public-subnet-ids');
+    expect(SSM_PARAMETERS.PUBLIC_SUBNET_IDS('dev')).toBe(
+      '/nagiyu/shared/dev/vpc/public-subnet-ids'
+    );
     expect(SSM_PARAMETERS.IGW_ID('prod')).toBe('/nagiyu/shared/prod/vpc/igw-id');
   });
 
@@ -16,8 +18,12 @@ describe('ssm utilities', () => {
   it('should generate root ALB parameter names', () => {
     expect(SSM_PARAMETERS.ALB_DNS_NAME('dev')).toBe('/nagiyu/root/dev/alb/dns-name');
     expect(SSM_PARAMETERS.ALB_ARN('prod')).toBe('/nagiyu/root/prod/alb/arn');
-    expect(SSM_PARAMETERS.ALB_TARGET_GROUP_ARN('dev')).toBe('/nagiyu/root/dev/alb/target-group-arn');
-    expect(SSM_PARAMETERS.ALB_SECURITY_GROUP_ID('prod')).toBe('/nagiyu/root/prod/alb/security-group-id');
+    expect(SSM_PARAMETERS.ALB_TARGET_GROUP_ARN('dev')).toBe(
+      '/nagiyu/root/dev/alb/target-group-arn'
+    );
+    expect(SSM_PARAMETERS.ALB_SECURITY_GROUP_ID('prod')).toBe(
+      '/nagiyu/root/prod/alb/security-group-id'
+    );
   });
 
   it('should generate root ECS parameter names', () => {
