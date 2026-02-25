@@ -9,6 +9,7 @@ import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { BatchStack } from '../lib/batch-stack';
 import { IAMStack } from '../lib/iam-stack';
+import { getBatchJobQueueArn, getBatchJobDefinitionArn } from '@nagiyu/infra-common';
 
 const app = new cdk.App();
 
@@ -92,14 +93,22 @@ batchStack.addDependency(batchEcrStack);
 // NextAuth Secret（Auth サービスから取得、未指定の場合はプレースホルダー）
 const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
 
+// Batch ARN を命名規則から直接計算し、CloudFormation Export/Import 依存を回避する
+// batchStack.jobQueueArn / jobDefinitionArn (Fn::GetAtt トークン) を渡すと CDK が自動的に
+// BatchStack に Export を作成し LambdaStack に Fn::ImportValue を生成する。
+// Job Definition の更新（リビジョン変更）時に Export 値が変わり CF が更新を拒否するため、
+// リテラル文字列で ARN を構築して Export/Import を使わない設計にする。
+const batchJobQueueArn = getBatchJobQueueArn(stackEnv.region, stackEnv.account!, `nagiyu-niconico-mylist-assistant-${env}`);
+const batchJobDefinitionArn = getBatchJobDefinitionArn(stackEnv.region, stackEnv.account!, `nagiyu-niconico-mylist-assistant-${env}`);
+
 const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${envSuffix}`, {
   environment: env,
   appVersion: appVersion,
   webEcrRepositoryName: webEcrStack.repository.repositoryName,
   dynamoTable: dynamoStack.table,
   nextAuthSecret,
-  batchJobQueueArn: batchStack.jobQueueArn,
-  batchJobDefinitionArn: batchStack.jobDefinitionArn,
+  batchJobQueueArn,
+  batchJobDefinitionArn,
   encryptionSecretArn: secretsStack.encryptionSecret.secretArn,
   encryptionSecretName: secretsStack.encryptionSecret.secretName,
   vapidSecretArn: secretsStack.vapidSecret.secretArn,

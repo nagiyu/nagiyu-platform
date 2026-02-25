@@ -89,7 +89,9 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
         sid: 'BatchJobSubmission',
         effect: iam.Effect.ALLOW,
         actions: ['batch:SubmitJob'],
-        resources: [props.batchJobQueueArn, props.batchJobDefinitionArn],
+        // job definition ARN はリビジョン番号なし (base ARN) を受け取るため
+        // IAM では :* ワイルドカードで全リビジョンを許可する
+        resources: [props.batchJobQueueArn, `${props.batchJobDefinitionArn}:*`],
       })
     );
 

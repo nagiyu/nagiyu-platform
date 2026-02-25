@@ -7,6 +7,8 @@ import {
   getIamManagedPolicyArn,
   getSecretsManagerSecretArn,
   getEcsClusterArn,
+  getBatchJobQueueArn,
+  getBatchJobDefinitionArn,
 } from '../../src/utils/arn';
 
 describe('arn utilities', () => {
@@ -56,6 +58,18 @@ describe('arn utilities', () => {
   it('should generate ECS cluster ARN', () => {
     expect(getEcsClusterArn(region, account, 'nagiyu-root-ecs-cluster-dev')).toBe(
       'arn:aws:ecs:ap-northeast-1:123456789012:cluster/nagiyu-root-ecs-cluster-dev'
+    );
+  });
+
+  it('should generate Batch job queue ARN', () => {
+    expect(getBatchJobQueueArn(region, account, 'nagiyu-niconico-mylist-assistant-dev')).toBe(
+      'arn:aws:batch:ap-northeast-1:123456789012:job-queue/nagiyu-niconico-mylist-assistant-dev'
+    );
+  });
+
+  it('should generate Batch job definition ARN', () => {
+    expect(getBatchJobDefinitionArn(region, account, 'nagiyu-niconico-mylist-assistant-dev')).toBe(
+      'arn:aws:batch:ap-northeast-1:123456789012:job-definition/nagiyu-niconico-mylist-assistant-dev'
     );
   });
 });

@@ -29,3 +29,11 @@ export function getSecretsManagerSecretArn(region: string, account: string, name
 export function getEcsClusterArn(region: string, account: string, name: string): string {
   return `arn:aws:ecs:${region}:${account}:cluster/${name}`;
 }
+
+export function getBatchJobQueueArn(region: string, account: string, name: string): string {
+  return `arn:aws:batch:${region}:${account}:job-queue/${name}`;
+}
+
+export function getBatchJobDefinitionArn(region: string, account: string, name: string): string {
+  return `arn:aws:batch:${region}:${account}:job-definition/${name}`;
+}

@@ -28,6 +28,8 @@ export {
   getIamManagedPolicyArn,
   getSecretsManagerSecretArn,
   getEcsClusterArn,
+  getBatchJobQueueArn,
+  getBatchJobDefinitionArn,
 } from './utils/arn';
 export { SSM_PARAMETERS } from './utils/ssm';
 
