@@ -13,6 +13,14 @@ on:
       - 'package-lock.json'
       - '.github/workflows/tools-deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   AWS_REGION: us-east-1
@@ -39,7 +47,15 @@ jobs:
       - name: Set environment
         id: set-env
         run: |
-          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+            if [[ "$ENV" == "prod" ]]; then
+              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+            else
+              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
             echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
           else
