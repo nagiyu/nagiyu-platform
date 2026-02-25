@@ -84,7 +84,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda 用の実行ロール
     const webExecutionRole = new iam.Role(this, 'WebExecutionRole', {
-      roleName: `niconico-mylist-assistant-web-execution-role-${environment}`,
+      roleName: `nagiyu-niconico-mylist-assistant-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -94,7 +94,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda Function の作成
     this.webFunction = new lambda.Function(this, 'WebFunction', {
-      functionName: `niconico-mylist-assistant-web-${environment}`,
+      functionName: `nagiyu-niconico-mylist-assistant-web-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(webRepository, {
         tagOrDigest: 'latest',

@@ -86,7 +86,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
         run: |
-          if aws ecr describe-repositories --repository-names codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
+          if aws ecr describe-repositories --repository-names nagiyu-codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -97,7 +97,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
         run: |
-          if aws ecr describe-repositories --repository-names codec-converter-ffmpeg-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
+          if aws ecr describe-repositories --repository-names nagiyu-codec-converter-ffmpeg-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
@@ -155,7 +155,7 @@ jobs:
       - name: Build, tag, and push Web Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
+          ECR_REPOSITORY: nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: latest
           DOCKER_BUILDKIT: 0
         run: |
@@ -189,7 +189,7 @@ jobs:
       - name: Build, tag, and push Batch worker Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}
+          ECR_REPOSITORY: nagiyu-codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: latest
           DOCKER_BUILDKIT: 0
         run: |
@@ -247,11 +247,11 @@ jobs:
           # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="$ECR_REGISTRY/codec-converter-$ENVIRONMENT:latest"
+          IMAGE_URI="$ECR_REGISTRY/nagiyu-codec-converter-$ENVIRONMENT:latest"
 
           # Update Lambda function code
           aws lambda update-function-code \
-            --function-name "codec-converter-$ENVIRONMENT" \
+            --function-name "nagiyu-codec-converter-$ENVIRONMENT" \
             --image-uri "$IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
@@ -262,7 +262,7 @@ jobs:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
         run: |
           aws lambda wait function-updated \
-            --function-name "codec-converter-$ENVIRONMENT" \
+            --function-name "nagiyu-codec-converter-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "Lambda function update completed"

@@ -198,11 +198,11 @@ jobs:
           # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="${ECR_REGISTRY}/tools-app-${ENVIRONMENT}:latest"
+          IMAGE_URI="${ECR_REGISTRY}/nagiyu-tools-ecr-${ENVIRONMENT}:latest"
 
           # Update Lambda function
           aws lambda update-function-code \
-            --function-name "tools-app-${ENVIRONMENT}" \
+            --function-name "nagiyu-tools-lambda-${ENVIRONMENT}" \
             --image-uri "$IMAGE_URI" \
             --region "${{ env.AWS_REGION }}"
 
@@ -214,7 +214,7 @@ jobs:
         run: |
           # Wait for function to complete updating
           aws lambda wait function-updated \
-            --function-name "tools-app-${ENVIRONMENT}" \
+            --function-name "nagiyu-tools-lambda-${ENVIRONMENT}" \
             --region "${{ env.AWS_REGION }}"
 
           echo "Lambda function update successfully"

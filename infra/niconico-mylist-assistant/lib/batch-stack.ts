@@ -55,7 +55,7 @@ export class BatchStack extends cdk.Stack {
     const secretName =
       encryptionSecretName ||
       encryptionSecretArn.split(':').pop()?.split('-').slice(0, -1).join('-') ||
-      `niconico-mylist-assistant/shared-secret-key-${env}`;
+      `nagiyu-niconico-mylist-assistant-shared-secret-key-${env}`;
 
     // VAPID Secret の参照
     const vapidSecret = secretsmanager.Secret.fromSecretCompleteArn(
@@ -114,7 +114,7 @@ export class BatchStack extends cdk.Stack {
 
     // CloudWatch Log Group for Batch
     const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
-      logGroupName: `/aws/batch/niconico-mylist-assistant-${env}`,
+      logGroupName: `/aws/batch/nagiyu-niconico-mylist-assistant-${env}`,
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
@@ -133,7 +133,7 @@ export class BatchStack extends cdk.Stack {
 
     // IAM Role for Batch Job (コンテナランタイム用)
     const batchJobRole = new iam.Role(this, 'BatchJobRole', {
-      roleName: `niconico-mylist-assistant-batch-job-role-${environment}`,
+      roleName: `nagiyu-niconico-mylist-assistant-batch-job-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'Role for Batch job container runtime',
       managedPolicies: [this.batchRuntimePolicy],
@@ -141,7 +141,7 @@ export class BatchStack extends cdk.Stack {
 
     // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
     const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
-      computeEnvironmentName: `niconico-mylist-assistant-${env}`,
+      computeEnvironmentName: `nagiyu-niconico-mylist-assistant-${env}`,
       type: 'MANAGED',
       state: 'ENABLED',
       computeResources: {
@@ -154,7 +154,7 @@ export class BatchStack extends cdk.Stack {
 
     // Batch Job Queue - L1 construct
     const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
-      jobQueueName: `niconico-mylist-assistant-${env}`,
+      jobQueueName: `nagiyu-niconico-mylist-assistant-${env}`,
       priority: 1,
       state: 'ENABLED',
       computeEnvironmentOrder: [
@@ -168,7 +168,7 @@ export class BatchStack extends cdk.Stack {
     // Batch Job Definition - L1 construct for AssignPublicIp support
     const batchImageTag = this.node.tryGetContext('batchImageTag') || 'latest';
     const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
-      jobDefinitionName: `niconico-mylist-assistant-${env}`,
+      jobDefinitionName: `nagiyu-niconico-mylist-assistant-${env}`,
       type: 'container',
       platformCapabilities: ['FARGATE'],
       containerProperties: {

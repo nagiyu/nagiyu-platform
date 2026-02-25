@@ -79,7 +79,7 @@ export class CodecConverterStack extends cdk.Stack {
 
     // ECR repository for Lambda container image
     const ecrRepositoryName =
-      this.node.tryGetContext('ecrRepositoryName') || `codec-converter-${envName}`;
+      this.node.tryGetContext('ecrRepositoryName') || `nagiyu-codec-converter-${envName}`;
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
 
     // Create or reference Web ECR repository based on deployment phase
@@ -103,7 +103,7 @@ export class CodecConverterStack extends cdk.Stack {
     const workerEcrRepository =
       deploymentPhase === 'ecr-only'
         ? new ecr.Repository(this, 'WorkerEcrRepository', {
-            repositoryName: `codec-converter-ffmpeg-${envName}`,
+            repositoryName: `nagiyu-codec-converter-ffmpeg-${envName}`,
             imageScanOnPush: true,
             lifecycleRules: [
               {
@@ -117,7 +117,7 @@ export class CodecConverterStack extends cdk.Stack {
         : ecr.Repository.fromRepositoryName(
             this,
             'WorkerEcrRepository',
-            `codec-converter-ffmpeg-${envName}`
+            `nagiyu-codec-converter-ffmpeg-${envName}`
           );
 
     // Only create Lambda, Batch, and other resources in 'full' deployment phase
@@ -169,7 +169,7 @@ export class CodecConverterStack extends cdk.Stack {
 
       // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
       const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
-        computeEnvironmentName: `codec-converter-${envName}`,
+        computeEnvironmentName: `nagiyu-codec-converter-${envName}`,
         type: 'MANAGED',
         state: 'ENABLED',
         computeResources: {
@@ -182,7 +182,7 @@ export class CodecConverterStack extends cdk.Stack {
 
       // Batch Job Queue - L1 construct
       const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
-        jobQueueName: `codec-converter-${envName}`,
+        jobQueueName: `nagiyu-codec-converter-${envName}`,
         priority: 1,
         state: 'ENABLED',
         computeEnvironmentOrder: [
@@ -195,7 +195,7 @@ export class CodecConverterStack extends cdk.Stack {
 
       // CloudWatch Log Group for Batch (created explicitly to avoid conflicts)
       const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
-        logGroupName: `/aws/batch/codec-converter-${envName}`,
+        logGroupName: `/aws/batch/nagiyu-codec-converter-${envName}`,
         retention: logs.RetentionDays.ONE_WEEK,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
@@ -214,7 +214,7 @@ export class CodecConverterStack extends cdk.Stack {
       // Create job definitions using a loop (DRY principle)
       const createdJobDefinitions = jobDefinitions.map((config) => {
         return new batch.CfnJobDefinition(this, `JobDefinition-${config.size}`, {
-          jobDefinitionName: `codec-converter-${envName}-${config.size}`,
+          jobDefinitionName: `nagiyu-codec-converter-${envName}-${config.size}`,
           type: 'container',
           platformCapabilities: ['FARGATE'],
           containerProperties: {
@@ -274,7 +274,7 @@ export class CodecConverterStack extends cdk.Stack {
         storageBucket,
         jobsTable,
         jobQueueArn: jobQueue.attrJobQueueArn,
-        jobDefinitionPrefix: `codec-converter-${envName}`,
+        jobDefinitionPrefix: `nagiyu-codec-converter-${envName}`,
         envName,
       });
 
@@ -291,14 +291,14 @@ export class CodecConverterStack extends cdk.Stack {
 
       // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
       const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
-        logGroupName: `/aws/lambda/codec-converter-${envName}`,
+        logGroupName: `/aws/lambda/nagiyu-codec-converter-${envName}`,
         retention: logs.RetentionDays.ONE_WEEK,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
 
       // Lambda Function for Next.js application
       const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
-        functionName: `codec-converter-${envName}`,
+        functionName: `nagiyu-codec-converter-${envName}`,
         code: lambda.DockerImageCode.fromEcr(ecrRepository, {
           tagOrDigest: imageTag,
         }),
@@ -310,8 +310,8 @@ export class CodecConverterStack extends cdk.Stack {
           APP_VERSION: appVersion,
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
-          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
-          BATCH_JOB_DEFINITION_PREFIX: `codec-converter-${envName}`, // Prefix for all job definitions (e.g., codec-converter-dev-small)
+          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `nagiyu-codec-converter-${envName}`,
+          BATCH_JOB_DEFINITION_PREFIX: `nagiyu-codec-converter-${envName}`, // Prefix for all job definitions (e.g., nagiyu-codec-converter-dev-small)
           // AWS_REGION is automatically provided by Lambda runtime
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself
@@ -371,7 +371,7 @@ export class CodecConverterStack extends cdk.Stack {
             origin: new origins.FunctionUrlOrigin(functionUrl),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
-              cachePolicyName: `codec-converter-next-static-${envName}`,
+              cachePolicyName: `nagiyu-codec-converter-next-static-${envName}`,
               defaultTtl: cdk.Duration.days(365),
               maxTtl: cdk.Duration.days(365),
               minTtl: cdk.Duration.days(365),
@@ -382,7 +382,7 @@ export class CodecConverterStack extends cdk.Stack {
             origin: new origins.FunctionUrlOrigin(functionUrl),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
-              cachePolicyName: `codec-converter-favicon-${envName}`,
+              cachePolicyName: `nagiyu-codec-converter-favicon-${envName}`,
               defaultTtl: cdk.Duration.days(1),
               maxTtl: cdk.Duration.days(1),
               minTtl: cdk.Duration.days(1),

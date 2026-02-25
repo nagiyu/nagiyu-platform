@@ -77,7 +77,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda 用の実行ロール
     const webExecutionRole = new iam.Role(this, 'WebExecutionRole', {
-      roleName: `stock-tracker-web-execution-role-${environment}`,
+      roleName: `nagiyu-stock-tracker-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -87,7 +87,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda Function の作成
     this.webFunction = new lambda.Function(this, 'WebFunction', {
-      functionName: `stock-tracker-web-${environment}`,
+      functionName: `nagiyu-stock-tracker-web-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(webRepository, {
         tagOrDigest: 'latest',
@@ -129,7 +129,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda 用の実行ロール
     const batchExecutionRole = new iam.Role(this, 'BatchExecutionRole', {
-      roleName: `stock-tracker-batch-execution-role-${environment}`,
+      roleName: `nagiyu-stock-tracker-batch-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -139,7 +139,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda - Minute（1分間隔、MINUTE_LEVEL アラート処理）
     this.batchMinuteFunction = new lambda.Function(this, 'BatchMinuteFunction', {
-      functionName: `stock-tracker-batch-minute-${environment}`,
+      functionName: `nagiyu-stock-tracker-batch-minute-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
@@ -162,7 +162,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda - Hourly（1時間間隔、HOURLY_LEVEL アラート処理）
     this.batchHourlyFunction = new lambda.Function(this, 'BatchHourlyFunction', {
-      functionName: `stock-tracker-batch-hourly-${environment}`,
+      functionName: `nagiyu-stock-tracker-batch-hourly-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
@@ -185,7 +185,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda - Daily（日次、データクリーンアップ）
     this.batchDailyFunction = new lambda.Function(this, 'BatchDailyFunction', {
-      functionName: `stock-tracker-batch-daily-${environment}`,
+      functionName: `nagiyu-stock-tracker-batch-daily-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',

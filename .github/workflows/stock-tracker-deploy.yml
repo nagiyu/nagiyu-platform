@@ -276,23 +276,23 @@ jobs:
 
           # Update Web Lambda function code
           aws lambda update-function-code \
-            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-web-$ENVIRONMENT" \
             --image-uri "$WEB_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
           # Update Batch Lambda functions code
           aws lambda update-function-code \
-            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-minute-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda update-function-code \
-            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-hourly-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda update-function-code \
-            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-daily-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
@@ -304,19 +304,19 @@ jobs:
         run: |
           # Wait for all functions to complete updating
           aws lambda wait function-updated \
-            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-web-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-minute-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-hourly-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-daily-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "All Lambda functions updated successfully"
