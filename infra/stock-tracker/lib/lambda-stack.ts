@@ -16,6 +16,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   batchEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
   vapidSecret: secretsmanager.ISecret;
+  vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
+  vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
@@ -45,6 +47,8 @@ export class LambdaStack extends cdk.Stack {
       batchEcrRepositoryName,
       dynamoTable,
       vapidSecret,
+      vapidPublicKey,
+      vapidPrivateKey,
       nextAuthSecret,
     } = props;
 
@@ -100,8 +104,8 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         APP_VERSION: appVersion,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
         AUTH_URL:
           environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
         NEXT_PUBLIC_AUTH_URL:
@@ -153,8 +157,8 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'MINUTE',
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -176,8 +180,8 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'HOURLY',
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,

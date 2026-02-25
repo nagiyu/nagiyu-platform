@@ -47,8 +47,21 @@ jobs:
       - name: Set environment
         id: set-env
         run: |
-          echo "environment=prod" >> "$GITHUB_OUTPUT"
-          echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+            if [[ "$ENV" == "prod" ]]; then
+              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+            else
+              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+            echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=dev" >> "$GITHUB_OUTPUT"
+            echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install dependencies
         run: npm ci

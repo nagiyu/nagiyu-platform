@@ -65,6 +65,10 @@ const batchEcrStack = new BatchECRStack(app, `NagiyuNiconicoMylistAssistantBatch
 });
 
 // 6. Batch スタックを作成
+// VAPID キー（デプロイ時に Secrets Manager から取得、未指定の場合はプレースホルダー）
+const vapidPublicKey = app.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';
+const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
+
 const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envSuffix}`, {
   environment: env,
   dynamoTableArn: dynamoStack.table.tableArn,
@@ -73,6 +77,8 @@ const batchStack = new BatchStack(app, `NagiyuNiconicoMylistAssistantBatch${envS
   screenshotBucketArn: s3Stack.screenshotBucket.bucketArn,
   screenshotBucketName: s3Stack.screenshotBucketName,
   vapidSecretArn: secretsStack.vapidSecret.secretArn,
+  vapidPublicKey,
+  vapidPrivateKey,
   env: stackEnv,
   description: `Niconico Mylist Assistant Batch - ${env} environment`,
 });
@@ -97,6 +103,8 @@ const lambdaStack = new LambdaStack(app, `NagiyuNiconicoMylistAssistantLambda${e
   encryptionSecretArn: secretsStack.encryptionSecret.secretArn,
   encryptionSecretName: secretsStack.encryptionSecret.secretName,
   vapidSecretArn: secretsStack.vapidSecret.secretArn,
+  vapidPublicKey,
+  vapidPrivateKey,
   env: stackEnv,
   description: `Niconico Mylist Assistant Lambda - ${env} environment`,
 });

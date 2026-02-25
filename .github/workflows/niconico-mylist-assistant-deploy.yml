@@ -14,6 +14,14 @@ on:
       - "package-lock.json"
       - ".github/workflows/niconico-mylist-assistant-deploy.yml"
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   AWS_REGION: us-east-1
@@ -38,7 +46,15 @@ jobs:
       - name: Set environment
         id: set-env
         run: |
-          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+            if [[ "$ENV" == "prod" ]]; then
+              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+            else
+              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
             echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
           else
@@ -241,12 +257,13 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Fetch NextAuth Secret from Secrets Manager
+      - name: Fetch secrets from Secrets Manager
         id: fetch-secrets
         uses: aws-actions/aws-secretsmanager-get-secrets@v2
         with:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.prepare-infrastructure.outputs.environment }}
+            VAPID,nagiyu-niconico-mylist-assistant-vapid-${{ needs.prepare-infrastructure.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Application Stacks
@@ -255,11 +272,15 @@ jobs:
           STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
           APP_VERSION: ${{ needs.build-web.outputs.app-version }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
+          VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
         run: |
           echo "Deploying application infrastructure (environment: $ENVIRONMENT)..."
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             --context env="$ENVIRONMENT" \
             --context nextAuthSecret="${SECRET_VALUE}" \
+            --context vapidPublicKey="$VAPID_PUBLIC" \
+            --context vapidPrivateKey="$VAPID_PRIVATE" \
             --require-approval never \
             --all \
             --exclude "NagiyuNiconicoMylistAssistantDynamoDB${STACK_SUFFIX}" \
