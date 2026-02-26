@@ -282,6 +282,7 @@ jobs:
         run: |
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
             "NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}" \
+            --exclusively \
             --context env="$ENVIRONMENT" \
             --context nextAuthSecret="${SECRET_VALUE}" \
             --context vapidPublicKey="$VAPID_PUBLIC" \
