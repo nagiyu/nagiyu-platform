@@ -56,9 +56,9 @@ test.describe('チャート表示機能', () => {
 
     // チャート描画テストには実在する取引所とティッカーを使用する
     // 架空のティッカーでは TradingView API がデータを返さずチャートが描画されないため
-    // NSDQ は TradingView API での NASDAQ の正式なキー（types.ts, tradingview-client.ts 参照）
+    // TradingView の取引所キーは NASDAQ（NSDQ ではない）
     const exchange = await factory.createExchange({
-      key: 'NSDQ',
+      key: 'NASDAQ',
       name: 'NASDAQ Stock Market',
     });
     await factory.createTicker({
