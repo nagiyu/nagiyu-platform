@@ -266,29 +266,6 @@ jobs:
             VAPID,nagiyu-niconico-mylist-assistant-vapid-${{ needs.prepare-infrastructure.outputs.environment }}
           parse-json-secrets: true
 
-      - name: Deploy Lambda Stack first
-        # Lambda を先にデプロイして BatchStack との CloudFormation Export/Import 依存を解消する。
-        # BatchStack の Job Definition 更新（リビジョン変更）時に Export 値が変わるため、
-        # 旧コードでは CF が BatchStack 更新を拒否していた。
-        # 新コードでは Lambda がリテラル ARN を使うため Import が消え、Batch を独立更新できる。
-        # Lambda → Batch の順で更新することで Import 削除 → Export 削除 の安全な順序を保証する。
-        # Lambda が最新状態なら CDK は no-op として扱うため冪等。
-        env:
-          ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
-          STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
-          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
-          VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
-          VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
-        run: |
-          npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- deploy \
-            "NagiyuNiconicoMylistAssistantLambda${STACK_SUFFIX}" \
-            --exclusively \
-            --context env="$ENVIRONMENT" \
-            --context nextAuthSecret="${SECRET_VALUE}" \
-            --context vapidPublicKey="$VAPID_PUBLIC" \
-            --context vapidPrivateKey="$VAPID_PRIVATE" \
-            --require-approval never
-
       - name: Deploy Application Stacks
         env:
           ENVIRONMENT: ${{ needs.prepare-infrastructure.outputs.environment }}
