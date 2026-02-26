@@ -1,29 +1,34 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page, type Response } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
 
-const RENDERING_TIMEOUT = 5000;
-
 /**
- * チャートまたはエラー表示が反映されるまで待機する。
+ * チャート API レスポンスを待ってから、チャートまたはエラー表示を確認する。
  *
- * 時間枠・表示本数変更直後の一時的な再レンダリング揺らぎを吸収するため、
- * 短時間ポーリングで canvas または alert の表示を確認する。
+ * ドロップダウン変更後は React の再レンダリング → useEffect → fetch の順で
+ * 非同期に進むため、networkidle だけでは fetch 開始前に解決してしまう場合がある。
+ * waitForResponse で実際の API レスポンスを捕捉し、その後にポーリングで
+ * DOM への反映を待つことで安定させる。
+ *
+ * @param responsePromise - ドロップダウン操作 **前** に
+ *   `page.waitForResponse(r => r.url().includes('/api/chart/'), ...)` で
+ *   取得した Promise を渡す。
  */
-async function waitForChartOrError(page: Page): Promise<void> {
+async function waitForChartOrError(
+  page: Page,
+  responsePromise: Promise<Response>,
+): Promise<void> {
+  // チャート API 呼び出しの完了を待つ（TradingView タイムアウト 10s + マージン）
+  await responsePromise;
+
+  // API レスポンス後のレンダリング反映を短時間ポーリングで確認
   await expect
     .poll(
       async () => {
-        const chartDisplayed = await page
-          .locator('canvas')
-          .isVisible()
-          .catch(() => false);
-        const errorDisplayed = await page
-          .locator('[role="alert"]')
-          .isVisible()
-          .catch(() => false);
-        return chartDisplayed || errorDisplayed;
+        const isChartVisible = await page.locator('canvas').isVisible().catch(() => false);
+        const isErrorVisible = await page.locator('[role="alert"]').isVisible().catch(() => false);
+        return isChartVisible || isErrorVisible;
       },
-      { timeout: RENDERING_TIMEOUT }
+      { timeout: 5000 },
     )
     .toBeTruthy();
 }
@@ -206,20 +211,20 @@ test.describe('チャート表示機能', () => {
     // 別の時間枠を選択（例: 2番目のオプション）
     const timeframeCount = await timeframeOptions.count();
     if (timeframeCount > 1) {
+      // チャート API レスポンスの待機を、クリック **前** にセットアップする
+      const chartResponse = page.waitForResponse(
+        (r) => r.url().includes('/api/chart/'),
+        { timeout: 30000 },
+      );
+
       // 現在選択されているオプションではないものを選択
       await timeframeOptions.nth(1).click();
 
       // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // チャートの再読み込みが完了するまで待つ
-      // Promise.race は前回のエラーが残っている場合に即座に解決してしまうため、
-      // networkidle で API 呼び出し完了を保証する
-      await page.waitForLoadState('networkidle');
-
-      // チャートまたはエラーメッセージが表示されることを確認
-      // レンダリング反映の揺らぎを吸収するため短時間リトライする
-      await waitForChartOrError(page);
+      // チャート API レスポンス完了を待ち、レンダリングを確認する
+      await waitForChartOrError(page, chartResponse);
     }
   });
 
@@ -295,20 +300,20 @@ test.describe('チャート表示機能', () => {
     // 別の表示本数を選択（例: 10本）
     const barCountCount = await barCountOptions.count();
     if (barCountCount > 0) {
+      // チャート API レスポンスの待機を、クリック **前** にセットアップする
+      const chartResponse = page.waitForResponse(
+        (r) => r.url().includes('/api/chart/'),
+        { timeout: 30000 },
+      );
+
       // 10本を選択（最初のオプション）
       await barCountOptions.first().click();
 
       // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // チャートの再読み込みが完了するまで待つ
-      // Promise.race は前回のエラーが残っている場合に即座に解決してしまうため、
-      // networkidle で API 呼び出し完了を保証する
-      await page.waitForLoadState('networkidle');
-
-      // チャートまたはエラーメッセージが表示されることを確認
-      // レンダリング反映の揺らぎを吸収するため短時間リトライする
-      await waitForChartOrError(page);
+      // チャート API レスポンス完了を待ち、レンダリングを確認する
+      await waitForChartOrError(page, chartResponse);
     }
   });
 
