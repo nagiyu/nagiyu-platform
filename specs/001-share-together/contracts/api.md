@@ -135,7 +135,7 @@ Auth サービスから戻ってきた際にフロントエンドが自動的に
 
 ---
 
-### `PATCH /api/lists/{listId}`
+### `PUT /api/lists/{listId}`
 
 個人 ToDo リストの名前を変更する。
 
@@ -253,7 +253,7 @@ ToDo アイテムを作成する（個人リスト専用）。
 
 ---
 
-### `PATCH /api/lists/{listId}/todos/{todoId}`
+### `PUT /api/lists/{listId}/todos/{todoId}`
 
 ToDo アイテムを更新する（タイトル変更・完了状態変更）（個人リスト専用）。
 
@@ -315,7 +315,6 @@ ToDo アイテムを削除する（個人リスト専用）。
         "name": "string",
         "ownerUserId": "string",
         "isOwner": "boolean",
-        "memberCount": "number",
         "createdAt": "string (ISO 8601)"
       }
     ]
@@ -345,7 +344,6 @@ ToDo アイテムを削除する（個人リスト専用）。
     "groupId": "string (UUID)",
     "name": "string",
     "ownerUserId": "string",
-    "memberCount": 1,
     "createdAt": "string (ISO 8601)",
     "updatedAt": "string (ISO 8601)"
   }
@@ -354,7 +352,7 @@ ToDo アイテムを削除する（個人リスト専用）。
 
 ---
 
-### `PATCH /api/groups/{groupId}`
+### `PUT /api/groups/{groupId}`
 
 グループ情報を更新する（名前変更）。オーナーのみ実行可能。
 
@@ -460,15 +458,14 @@ ToDo アイテムを削除する（個人リスト専用）。
 1. `email` または `userId` でユーザーを検索
 2. 対象ユーザーが見つからない場合は `404 NOT_FOUND`
 3. 既にメンバーまたは `PENDING` の招待が存在する場合は `409 CONFLICT`
-4. GroupMembership（`status: PENDING`）を作成
-5. InvitationNotice をユーザーの DynamoDB レコードに作成
+4. GroupMembership（`status: PENDING`、`groupName`・`inviterName` のスナップショット付き）を作成
 
 **レスポンス** `201 Created`:
 
 ```json
 {
   "data": {
-    "inviteId": "string (UUID)",
+    "groupId": "string",
     "inviteeUserId": "string",
     "inviteeName": "string",
     "status": "PENDING",
@@ -519,7 +516,6 @@ ToDo アイテムを削除する（個人リスト専用）。
   "data": {
     "invitations": [
       {
-        "inviteId": "string (UUID)",
         "groupId": "string",
         "groupName": "string",
         "inviterUserId": "string",
@@ -533,12 +529,12 @@ ToDo アイテムを削除する（個人リスト専用）。
 
 ---
 
-### `PATCH /api/invitations/{inviteId}`
+### `PUT /api/invitations/{groupId}`
 
 招待を承認または拒否する。
 
 **パスパラメータ**:
-- `inviteId`: 招待 ID
+- `groupId`: 招待対象グループ ID
 
 **リクエスト**:
 
@@ -549,12 +545,11 @@ ToDo アイテムを削除する（個人リスト専用）。
 ```
 
 **処理フロー（ACCEPT 時）**:
-1. InvitationNotice の `status` を `ACCEPTED` に更新
+1. GroupMembership（`status: PENDING`）を GSI1 経由で取得
 2. GroupMembership の `status` を `ACCEPTED` に更新
-3. Group の `memberCount` をインクリメント
 
 **処理フロー（REJECT 時）**:
-1. InvitationNotice の `status` を `REJECTED` に更新
+1. GroupMembership（`status: PENDING`）を GSI1 経由で取得
 2. GroupMembership の `status` を `REJECTED` に更新
 
 **レスポンス** `200 OK`:
@@ -562,7 +557,7 @@ ToDo アイテムを削除する（個人リスト専用）。
 ```json
 {
   "data": {
-    "inviteId": "string",
+    "groupId": "string",
     "status": "ACCEPTED | REJECTED",
     "updatedAt": "string (ISO 8601)"
   }
@@ -642,7 +637,7 @@ ToDo アイテムを削除する（個人リスト専用）。
 
 ---
 
-### `PATCH /api/groups/{groupId}/lists/{listId}`
+### `PUT /api/groups/{groupId}/lists/{listId}`
 
 グループ共有リストの名前を変更する。
 
@@ -762,7 +757,7 @@ ToDo アイテムを削除する（個人リスト専用）。
 
 ---
 
-### `PATCH /api/groups/{groupId}/lists/{listId}/todos/{todoId}`
+### `PUT /api/groups/{groupId}/lists/{listId}/todos/{todoId}`
 
 グループ共有リストの ToDo を更新する（タイトル変更・完了状態変更）。
 

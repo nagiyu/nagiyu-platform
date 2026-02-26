@@ -105,12 +105,22 @@ services/share-together/
 │       │   ├── todo.ts            # ToDo 操作ロジック
 │       │   ├── list.ts            # リスト操作ロジック
 │       │   └── group.ts           # グループ操作ロジック
-│       ├── repositories/          # データアクセス層（DynamoDB）
-│       │   ├── user-repository.ts
-│       │   ├── list-repository.ts
-│       │   ├── todo-repository.ts
-│       │   ├── group-repository.ts
-│       │   └── membership-repository.ts
+│       ├── repositories/          # データアクセス層
+│       │   ├── user-repository.interface.ts
+│       │   ├── dynamodb-user-repository.ts
+│       │   ├── in-memory-user-repository.ts
+│       │   ├── list-repository.interface.ts
+│       │   ├── dynamodb-list-repository.ts
+│       │   ├── in-memory-list-repository.ts
+│       │   ├── todo-repository.interface.ts
+│       │   ├── dynamodb-todo-repository.ts
+│       │   ├── in-memory-todo-repository.ts
+│       │   ├── group-repository.interface.ts
+│       │   ├── dynamodb-group-repository.ts
+│       │   ├── in-memory-group-repository.ts
+│       │   ├── membership-repository.interface.ts
+│       │   ├── dynamodb-membership-repository.ts
+│       │   └── in-memory-membership-repository.ts
 │       └── types/                 # 型定義
 │           └── index.ts
 │   └── tests/

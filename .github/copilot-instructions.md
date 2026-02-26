@@ -29,10 +29,6 @@ services/          # アプリケーション
 ├── stock-tracker/            # 株価トラッカー（core + web + batch）
 ├── niconico-mylist-assistant/ # ニコニコマイリスト管理（core + web + batch）
 └── share-together/           # みんなでシェアリスト（core + web）
-    # 設計ドキュメント: specs/001-share-together/
-    # 技術: Next.js + DynamoDB シングルテーブル + NextAuth v5 + PWA
-    # インフラ: infra/share-together/（CDK: DynamoDB/ECR/Lambda/IAM/CloudFront）
-    # ドメイン: dev-share-together.nagiyu.com / share-together.nagiyu.com
 ```
 
 **依存関係の一方向性**: `ui → browser → common`（循環依存禁止）
