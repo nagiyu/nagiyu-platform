@@ -192,18 +192,17 @@ test.describe('チャート表示機能', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2);
 
+    // ティッカー選択で初回チャート API が発火するので、クリック前にレスポンス待機をセットアップ
+    const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+      timeout: 30000,
+    });
+
     // 作成したテストティッカーを明示的に選択
     await tickerOptions.filter({ hasText: testTicker.symbol }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-    // チャート表示またはエラーを待つ（より長いタイムアウト）
-    await Promise.race([
-      page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-    ]).catch(() => {
-      console.log('Initial chart load timed out, continuing test');
-    });
+    // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
+    await waitForChartOrError(page, initialChartResponse);
 
     // 時間枠を変更
     const timeframeSelect = page.getByLabel('時間枠');
@@ -275,18 +274,17 @@ test.describe('チャート表示機能', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2);
 
+    // ティッカー選択で初回チャート API が発火するので、クリック前にレスポンス待機をセットアップ
+    const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+      timeout: 30000,
+    });
+
     // 作成したテストティッカーを明示的に選択
     await tickerOptions.filter({ hasText: testTicker.symbol }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-    // チャート表示またはエラーを待つ
-    await Promise.race([
-      page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-    ]).catch(() => {
-      console.log('Initial chart load timed out, continuing test');
-    });
+    // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
+    await waitForChartOrError(page, initialChartResponse);
 
     // 表示本数を変更
     const barCountSelect = page.getByLabel('表示本数');
