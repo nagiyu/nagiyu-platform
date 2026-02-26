@@ -106,21 +106,26 @@ services/share-together/
 │       │   ├── list.ts            # リスト操作ロジック
 │       │   └── group.ts           # グループ操作ロジック
 │       ├── repositories/          # データアクセス層
-│       │   ├── user-repository.interface.ts
-│       │   ├── dynamodb-user-repository.ts
-│       │   ├── in-memory-user-repository.ts
-│       │   ├── list-repository.interface.ts
-│       │   ├── dynamodb-list-repository.ts
-│       │   ├── in-memory-list-repository.ts
-│       │   ├── todo-repository.interface.ts
-│       │   ├── dynamodb-todo-repository.ts
-│       │   ├── in-memory-todo-repository.ts
-│       │   ├── group-repository.interface.ts
-│       │   ├── dynamodb-group-repository.ts
-│       │   ├── in-memory-group-repository.ts
-│       │   ├── membership-repository.interface.ts
-│       │   ├── dynamodb-membership-repository.ts
-│       │   └── in-memory-membership-repository.ts
+│       │   ├── user/
+│       │   │   ├── user-repository.interface.ts
+│       │   │   ├── dynamodb-user-repository.ts
+│       │   │   └── in-memory-user-repository.ts
+│       │   ├── list/
+│       │   │   ├── list-repository.interface.ts
+│       │   │   ├── dynamodb-list-repository.ts
+│       │   │   └── in-memory-list-repository.ts
+│       │   ├── todo/
+│       │   │   ├── todo-repository.interface.ts
+│       │   │   ├── dynamodb-todo-repository.ts
+│       │   │   └── in-memory-todo-repository.ts
+│       │   ├── group/
+│       │   │   ├── group-repository.interface.ts
+│       │   │   ├── dynamodb-group-repository.ts
+│       │   │   └── in-memory-group-repository.ts
+│       │   └── membership/
+│       │       ├── membership-repository.interface.ts
+│       │       ├── dynamodb-membership-repository.ts
+│       │       └── in-memory-membership-repository.ts
 │       └── types/                 # 型定義
 │           └── index.ts
 │   └── tests/

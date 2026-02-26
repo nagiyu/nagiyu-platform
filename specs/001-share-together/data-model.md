@@ -162,13 +162,13 @@ Auth サービスで認証されたユーザー情報。初回ログイン時に
 | `userId` | String | ✅ | ユーザー ID |
 | `role` | String | ✅ | `OWNER` または `MEMBER` |
 | `status` | String | ✅ | `PENDING`（招待中）、`ACCEPTED`（承認済み）、`REJECTED`（拒否済み） |
-| `groupName` | String | ✅ | グループ名（招待通知表示用スナップショット） |
 | `invitedBy` | String | | 招待者のユーザー ID（オーナー作成時は null） |
-| `inviterName` | String | | 招待者の表示名（招待通知表示用スナップショット） |
 | `invitedAt` | String | | 招待日時（ISO 8601） |
 | `respondedAt` | String | | 応答日時（ISO 8601） |
 | `createdAt` | String | ✅ | ISO 8601 形式 |
 | `updatedAt` | String | ✅ | ISO 8601 形式 |
+
+**注記**: 招待通知の表示に必要なグループ名（`groupName`）・招待者名（`inviterName`）は、Group エンティティおよび User エンティティを別途 GetItem して取得する。GroupMembership には持たせない（二重管理を回避）。
 
 #### バリデーションルール
 

@@ -48,6 +48,24 @@
 
 ---
 
+## ヘルスチェック API
+
+### `GET /api/health`
+
+サービスの死活監視用エンドポイント。認証不要。
+
+**レスポンス** `200 OK`:
+
+```json
+{
+  "data": {
+    "status": "ok"
+  }
+}
+```
+
+---
+
 ## ユーザー API
 
 ### `POST /api/users`
@@ -508,6 +526,11 @@ ToDo アイテムを削除する（個人リスト専用）。
 ### `GET /api/invitations`
 
 ログインユーザーへの保留中（`PENDING`）の招待通知一覧を取得する。
+
+**処理フロー**:
+1. GSI1（`USER#{userId}`）で `status = PENDING` の GroupMembership を一括取得
+2. 各レコードの `groupId` で Group エンティティを BatchGet → `groupName` を取得
+3. 各レコードの `invitedBy` で User エンティティを BatchGet → `inviterName` を取得
 
 **レスポンス** `200 OK`:
 
