@@ -6,12 +6,11 @@ import { CloudFrontStackBase, CloudFrontStackBaseProps } from '@nagiyu/infra-com
 export interface CloudFrontStackProps extends cdk.StackProps {
   environment: string;
   functionUrl: string;
-  certificateExportName?: string;
 }
 
 export class CloudFrontStack extends CloudFrontStackBase {
   constructor(scope: Construct, id: string, props: CloudFrontStackProps) {
-    const { environment, functionUrl, certificateExportName, ...stackProps } = props;
+    const { environment, functionUrl, ...stackProps } = props;
 
     const baseProps: CloudFrontStackBaseProps = {
       ...stackProps,
@@ -22,9 +21,6 @@ export class CloudFrontStack extends CloudFrontStackBase {
         // セキュリティヘッダーを有効化（新規追加）
         enableSecurityHeaders: true,
       },
-      certificateArn: certificateExportName
-        ? cdk.Fn.importValue(certificateExportName)
-        : undefined,
     };
 
     super(scope, id, baseProps);

@@ -11,13 +11,14 @@ const app = new cdk.App();
 // Environment configuration
 // Default to 'dev' to prevent accidental production deployments
 const environment = process.env.ENVIRONMENT || 'dev';
+const envSuffix = environment.charAt(0).toUpperCase() + environment.slice(1);
 const account = process.env.CDK_DEFAULT_ACCOUNT;
 const region = 'us-east-1';
 
 // ECS Cluster Stack for root domain
 const ecsClusterStack = new EcsClusterStack(
   app,
-  `nagiyu-root-ecs-cluster-${environment}`,
+  `NagiyuRootCluster${envSuffix}`,
   {
     env: { account, region },
     environment,
@@ -26,7 +27,7 @@ const ecsClusterStack = new EcsClusterStack(
 );
 
 // ALB Stack for root domain
-const albStack = new AlbStack(app, `nagiyu-root-alb-${environment}`, {
+const albStack = new AlbStack(app, `NagiyuRootAlb${envSuffix}`, {
   env: { account, region },
   environment,
   description: `Application Load Balancer for nagiyu root domain (${environment})`,
@@ -35,7 +36,7 @@ const albStack = new AlbStack(app, `nagiyu-root-alb-${environment}`, {
 // ECS Service Stack for root domain
 const ecsServiceStack = new EcsServiceStack(
   app,
-  `nagiyu-root-ecs-service-${environment}`,
+  `NagiyuRootService${envSuffix}`,
   {
     env: { account, region },
     environment,
@@ -43,14 +44,10 @@ const ecsServiceStack = new EcsServiceStack(
   }
 );
 
-// Set up dependencies
-ecsServiceStack.addDependency(ecsClusterStack);
-ecsServiceStack.addDependency(albStack);
-
 // CloudFront Stack for root domain
 const cloudFrontStack = new CloudFrontStack(
   app,
-  `nagiyu-root-cloudfront-${environment}`,
+  `NagiyuRootCloudFront${envSuffix}`,
   {
     env: { account, region },
     environment,
@@ -58,7 +55,11 @@ const cloudFrontStack = new CloudFrontStack(
   }
 );
 
-// CloudFront depends on ALB
+// Explicit stack dependencies (CDK does not detect SSM-based cross-stack dependencies automatically)
+// EcsService reads Cluster SSM and ALB SSM → must wait for both
+ecsServiceStack.addDependency(ecsClusterStack);
+ecsServiceStack.addDependency(albStack);
+// CloudFront reads ALB DNS SSM → must wait for ALB
 cloudFrontStack.addDependency(albStack);
 
 app.synth();

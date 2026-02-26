@@ -215,27 +215,23 @@ export class LambdaStackBase extends cdk.Stack {
     new cdk.CfnOutput(this, 'FunctionName', {
       value: this.lambdaFunction.functionName,
       description: 'Lambda Function Name',
-      exportName: `${this.stackName}-FunctionName`,
     });
 
     new cdk.CfnOutput(this, 'FunctionArn', {
       value: this.lambdaFunction.functionArn,
       description: 'Lambda Function ARN',
-      exportName: `${this.stackName}-FunctionArn`,
     });
 
     if (this.functionUrl) {
       new cdk.CfnOutput(this, 'FunctionUrl', {
         value: this.functionUrl.url,
         description: 'Lambda Function URL',
-        exportName: `${this.stackName}-FunctionUrl`,
       });
     }
 
     new cdk.CfnOutput(this, 'RoleArn', {
       value: this.executionRole.roleArn,
       description: 'Lambda Execution Role ARN',
-      exportName: `${this.stackName}-RoleArn`,
     });
   }
 }

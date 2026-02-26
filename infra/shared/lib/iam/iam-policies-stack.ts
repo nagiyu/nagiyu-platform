@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { EXPORTS } from '../../libs/utils/exports';
 
 /**
  * IAM Policies Stack
@@ -744,25 +743,21 @@ export class IamPoliciesStack extends cdk.Stack {
     // ==========================================
     new cdk.CfnOutput(this, 'CorePolicyArnExport', {
       value: this.corePolicy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_CORE_ARN,
       description: 'Core deploy policy ARN for nagiyu',
     });
 
     new cdk.CfnOutput(this, 'ApplicationPolicyArnExport', {
       value: this.applicationPolicy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_APPLICATION_ARN,
       description: 'Application deploy policy ARN for nagiyu',
     });
 
     new cdk.CfnOutput(this, 'ContainerPolicyArnExport', {
       value: this.containerPolicy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_CONTAINER_ARN,
       description: 'Container deploy policy ARN for nagiyu',
     });
 
     new cdk.CfnOutput(this, 'IntegrationPolicyArnExport', {
       value: this.integrationPolicy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_INTEGRATION_ARN,
       description: 'Integration and security deploy policy ARN for nagiyu',
     });
   }

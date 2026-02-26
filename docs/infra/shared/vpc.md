@@ -162,13 +162,14 @@ CloudFormation テンプレートでは以下のパラメータを使用:
 - その他の値は環境に応じて自動的に設定
 
 ### 出力値 (Outputs)
-他のスタックで参照できるように、以下の値をエクスポート:
+他のスタックで参照できるように、以下の値を SSM Parameter Store に保存:
 
-| Export 名 | 説明 | 例 |
-|----------|------|-----|
-| `nagiyu-{env}-vpc-id` | VPC ID | vpc-xxxxx |
-| `nagiyu-{env}-public-subnet-ids` | Public Subnet ID リスト | subnet-xxxxx,subnet-yyyyy |
-| `nagiyu-{env}-igw-id` | Internet Gateway ID | igw-xxxxx |
+| SSM パラメータ名 | 説明 | 例 |
+|------------------|------|-----|
+| `/nagiyu/shared/{env}/vpc/id` | VPC ID | vpc-xxxxx |
+| `/nagiyu/shared/{env}/vpc/public-subnet-ids` | Public Subnet ID リスト | subnet-xxxxx,subnet-yyyyy |
+| `/nagiyu/shared/{env}/vpc/igw-id` | Internet Gateway ID | igw-xxxxx |
+| `/nagiyu/shared/{env}/vpc/cidr` | VPC CIDR | 10.0.0.0/24 |
 
 ## 運用
 

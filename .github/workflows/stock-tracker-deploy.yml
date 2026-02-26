@@ -13,6 +13,14 @@ on:
       - 'package-lock.json'
       - '.github/workflows/stock-tracker-deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   AWS_REGION: us-east-1
@@ -39,7 +47,15 @@ jobs:
       - name: Set environment
         id: set-env
         run: |
-          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+            if [[ "$ENV" == "prod" ]]; then
+              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+            else
+              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
             echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
           else
@@ -63,7 +79,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy ECR Stacks
+      - name: Deploy ECR and Secrets Stacks
         env:
           ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
           STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
@@ -71,10 +87,11 @@ jobs:
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
             NagiyuStockTrackerWebECR${STACK_SUFFIX} \
             NagiyuStockTrackerBatchECR${STACK_SUFFIX} \
+            NagiyuStockTrackerSecrets${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
             --require-approval never
 
-          echo "ECR repositories deployed (environment: $ENVIRONMENT)"
+          echo "ECR repositories and Secrets deployed (environment: $ENVIRONMENT)"
 
   build-web:
     name: Build and Push Web Docker Image
@@ -245,6 +262,7 @@ jobs:
         with:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.infrastructure-ecr.outputs.environment }}
+            VAPID,nagiyu-stock-tracker-vapid-${{ needs.infrastructure-ecr.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Application Stacks
@@ -253,10 +271,14 @@ jobs:
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
           APP_VERSION: ${{ needs.build-web.outputs.app-version }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
+          VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
             --context env="$ENVIRONMENT" \
             --context nextAuthSecret="$SECRET_VALUE" \
+            --context vapidPublicKey="$VAPID_PUBLIC" \
+            --context vapidPrivateKey="$VAPID_PRIVATE" \
             --require-approval never \
             --all \
             --exclude "NagiyuStockTrackerWebECR${STACK_SUFFIX}" \
@@ -276,23 +298,23 @@ jobs:
 
           # Update Web Lambda function code
           aws lambda update-function-code \
-            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-web-$ENVIRONMENT" \
             --image-uri "$WEB_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
           # Update Batch Lambda functions code
           aws lambda update-function-code \
-            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-minute-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda update-function-code \
-            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-hourly-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda update-function-code \
-            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-daily-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
 
@@ -304,19 +326,19 @@ jobs:
         run: |
           # Wait for all functions to complete updating
           aws lambda wait function-updated \
-            --function-name "stock-tracker-web-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-web-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "stock-tracker-batch-minute-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-minute-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-hourly-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \
-            --function-name "stock-tracker-batch-daily-$ENVIRONMENT" \
+            --function-name "nagiyu-stock-tracker-batch-daily-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           echo "All Lambda functions updated successfully"

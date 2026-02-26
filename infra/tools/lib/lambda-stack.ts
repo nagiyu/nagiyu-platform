@@ -11,9 +11,6 @@ export interface LambdaStackProps extends cdk.StackProps {
 
 /**
  * Tools サービス用の Lambda スタック
- *
- * 既存の CloudFormation スタックとの互換性を保つため、
- * 論理ID を 'ToolsFunction' に指定しています。
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
@@ -23,15 +20,7 @@ export class LambdaStack extends LambdaStackBase {
       ...stackProps,
       serviceName: 'tools',
       environment: environment as 'dev' | 'prod',
-      ecrRepositoryName: `tools-app-${environment}`,
       lambdaConfig: {
-        // リソース名を既存の `tools-app-{env}` から統一命名規則に移行
-        // 注意: これによりリソース名が変更されます
-        // tools-app-dev -> nagiyu-tools-lambda-dev
-        functionName: `tools-app-${environment}`,
-        // 既存の CloudFormation リソースとの互換性を保つため、論理IDと実行ロール名を指定
-        logicalId: 'ToolsFunction',
-        executionRoleName: `tools-lambda-execution-role-${environment}`,
         memorySize: 1024,
         timeout: 30,
         environment: {

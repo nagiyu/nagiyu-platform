@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { EXPORTS } from '../../libs/utils/exports';
 
 /**
  * IAM Container Policy Stack
@@ -15,6 +14,7 @@ export class IamContainerPolicyStack extends cdk.Stack {
     super(scope, id, props);
 
     this.policy = new iam.ManagedPolicy(this, 'Policy', {
+      managedPolicyName: 'nagiyu-deploy-policy-container',
       description: 'nagiyu コンテナデプロイ権限（ECR, ECS, Batch）',
       statements: [
           // ECR Operations
@@ -121,7 +121,6 @@ export class IamContainerPolicyStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ContainerPolicyArnExport', {
       value: this.policy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_CONTAINER_ARN,
       description: 'Container deploy policy ARN for nagiyu',
     });
   }

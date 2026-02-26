@@ -4,7 +4,6 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
@@ -18,7 +17,9 @@ export interface LambdaStackProps extends cdk.StackProps {
   batchJobDefinitionArn: string; // Batch Job Definition ARN
   encryptionSecretArn: string; // Encryption Secret ARN
   encryptionSecretName: string; // Encryption Secret Name
-  vapidSecretArn: string; // VAPID Secret ARN
+  vapidSecretArn: string; // VAPID Secret ARN（IAM ポリシー用）
+  vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
+  vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
 }
 
 /**
@@ -47,6 +48,8 @@ export class LambdaStack extends cdk.Stack {
       encryptionSecretArn,
       encryptionSecretName,
       vapidSecretArn,
+      vapidPublicKey,
+      vapidPrivateKey,
     } = props;
 
     // Auth URL configuration
@@ -56,13 +59,6 @@ export class LambdaStack extends cdk.Stack {
       environment === 'prod'
         ? 'https://niconico-mylist-assistant.nagiyu.com'
         : 'https://dev-niconico-mylist-assistant.nagiyu.com';
-
-    // VAPID Secret の参照
-    const vapidSecret = secretsmanager.Secret.fromSecretCompleteArn(
-      this,
-      'VapidSecret',
-      vapidSecretArn
-    );
 
     // ECR リポジトリの参照
     const webRepository = ecr.Repository.fromRepositoryName(
@@ -84,7 +80,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda 用の実行ロール
     const webExecutionRole = new iam.Role(this, 'WebExecutionRole', {
-      roleName: `niconico-mylist-assistant-web-execution-role-${environment}`,
+      roleName: `nagiyu-niconico-mylist-assistant-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -94,7 +90,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda Function の作成
     this.webFunction = new lambda.Function(this, 'WebFunction', {
-      functionName: `niconico-mylist-assistant-web-${environment}`,
+      functionName: `nagiyu-niconico-mylist-assistant-web-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(webRepository, {
         tagOrDigest: 'latest',
@@ -115,8 +111,8 @@ export class LambdaStack extends cdk.Stack {
         BATCH_JOB_DEFINITION: batchJobDefinitionArn,
         ENCRYPTION_SECRET_NAME: encryptionSecretName,
         AWS_REGION_FOR_SDK: this.region,
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
@@ -140,7 +136,7 @@ export class LambdaStack extends cdk.Stack {
     cdk.Tags.of(this.webFunction).add('Temp', 'Temp');
 
     // CloudFormation Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,

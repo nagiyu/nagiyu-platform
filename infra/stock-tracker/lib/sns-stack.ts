@@ -34,13 +34,11 @@ export class SNSStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'AlarmTopicArn', {
       value: this.alarmTopic.topicArn,
       description: 'SNS Topic ARN for CloudWatch Alarms',
-      exportName: `${this.stackName}-AlarmTopicArn`,
     });
 
     new cdk.CfnOutput(this, 'AlarmTopicName', {
       value: this.alarmTopic.topicName,
       description: 'SNS Topic Name for CloudWatch Alarms',
-      exportName: `${this.stackName}-AlarmTopicName`,
     });
   }
 }

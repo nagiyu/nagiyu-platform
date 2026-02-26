@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { EXPORTS } from '../../libs/utils/exports';
 
 /**
  * IAM Integration Policy Stack
@@ -15,6 +14,7 @@ export class IamIntegrationPolicyStack extends cdk.Stack {
     super(scope, id, props);
 
     this.policy = new iam.ManagedPolicy(this, 'Policy', {
+      managedPolicyName: 'nagiyu-deploy-policy-integration',
       description:
         'nagiyu 統合・セキュリティデプロイ権限（KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling）',
       statements: [
@@ -217,7 +217,6 @@ export class IamIntegrationPolicyStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'IntegrationPolicyArnExport', {
       value: this.policy.managedPolicyArn,
-      exportName: EXPORTS.DEPLOY_POLICY_INTEGRATION_ARN,
       description: 'Integration and security deploy policy ARN for nagiyu',
     });
   }

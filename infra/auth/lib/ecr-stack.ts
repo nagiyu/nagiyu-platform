@@ -9,9 +9,6 @@ export interface ECRStackProps extends cdk.StackProps {
 
 /**
  * Auth サービス用の ECR スタック
- *
- * 既存の CloudFormation スタックとの互換性を保つため、
- * 論理ID を 'AuthRepository' に指定しています。
  */
 export class ECRStack extends EcrStackBase {
   constructor(scope: Construct, id: string, props: ECRStackProps) {
@@ -21,12 +18,6 @@ export class ECRStack extends EcrStackBase {
       ...stackProps,
       serviceName: 'auth',
       environment: environment as 'dev' | 'prod',
-      ecrConfig: {
-        // 既存のリソース名を維持: nagiyu-auth-{env}
-        repositoryName: `nagiyu-auth-${environment}`,
-        // 既存の CloudFormation リソースとの互換性を保つため、論理IDを指定
-        logicalId: 'AuthRepository',
-      },
     };
 
     super(scope, id, baseProps);

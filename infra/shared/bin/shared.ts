@@ -80,10 +80,4 @@ const usersStack = new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   description: 'Shared IAM Users for GitHub Actions and Local Development',
 });
 
-// スタック間の依存関係を明示
-usersStack.addDependency(corePolicyStack);
-usersStack.addDependency(applicationPolicyStack);
-usersStack.addDependency(containerPolicyStack);
-usersStack.addDependency(integrationPolicyStack);
-
 app.synth();
