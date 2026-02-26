@@ -1,5 +1,32 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
+
+const RENDERING_TIMEOUT = 5000;
+
+/**
+ * チャートまたはエラー表示が反映されるまで待機する。
+ *
+ * 時間枠・表示本数変更直後の一時的な再レンダリング揺らぎを吸収するため、
+ * 短時間ポーリングで canvas または alert の表示を確認する。
+ */
+async function waitForChartOrError(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const chartDisplayed = await page
+          .locator('canvas')
+          .isVisible()
+          .catch(() => false);
+        const errorDisplayed = await page
+          .locator('[role="alert"]')
+          .isVisible()
+          .catch(() => false);
+        return chartDisplayed || errorDisplayed;
+      },
+      { timeout: RENDERING_TIMEOUT }
+    )
+    .toBeTruthy();
+}
 
 /**
  * E2E-001: チャート表示フロー
@@ -191,17 +218,8 @@ test.describe('チャート表示機能', () => {
       await page.waitForLoadState('networkidle');
 
       // チャートまたはエラーメッセージが表示されることを確認
-      const chartDisplayed = await page
-        .locator('canvas')
-        .isVisible()
-        .catch(() => false);
-      const errorDisplayed = await page
-        .locator('[role="alert"]')
-        .isVisible()
-        .catch(() => false);
-
-      // いずれかの状態が表示されることを確認
-      expect(chartDisplayed || errorDisplayed).toBeTruthy();
+      // レンダリング反映の揺らぎを吸収するため短時間リトライする
+      await waitForChartOrError(page);
     }
   });
 
@@ -289,17 +307,8 @@ test.describe('チャート表示機能', () => {
       await page.waitForLoadState('networkidle');
 
       // チャートまたはエラーメッセージが表示されることを確認
-      const chartDisplayed = await page
-        .locator('canvas')
-        .isVisible()
-        .catch(() => false);
-      const errorDisplayed = await page
-        .locator('[role="alert"]')
-        .isVisible()
-        .catch(() => false);
-
-      // いずれかの状態が表示されることを確認
-      expect(chartDisplayed || errorDisplayed).toBeTruthy();
+      // レンダリング反映の揺らぎを吸収するため短時間リトライする
+      await waitForChartOrError(page);
     }
   });
 
