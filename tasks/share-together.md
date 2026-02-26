@@ -110,7 +110,6 @@ services/share-together/web/
         api/
             auth/[...nextauth]/route.ts
             health/route.ts
-            users/search/route.ts          # ユーザー検索（招待時）
             lists/
                 personal/route.ts          # 個人リスト一覧・作成
                 personal/[listId]/route.ts # 個人リスト更新・削除
@@ -323,14 +322,6 @@ POST /api/auth/[...nextauth]    NextAuth ハンドラー
 GET  /api/health                デプロイ確認用（認証不要）
 ```
 
-### ユーザー検索（招待時）
-
-```
-GET  /api/users/search?q={email|userId}
-    Response: { users: [{ userId, email, name }] }
-    認証必須。自分自身は結果に含めない
-```
-
 ### 個人 ToDo リスト
 
 ```
@@ -383,7 +374,8 @@ DELETE /api/groups/{groupId}
 
 POST   /api/groups/{groupId}/members
     Body: { userId?: string; email?: string }
-    オーナーのみ。招待を作成する
+    オーナーのみ。UserID またはメールアドレスを直接指定して招待を作成する（ユーザー検索は行わない）
+    指定された UserID またはメールアドレスに一致する User レコードが存在しない場合は 404 を返す
     Response: { invitation: Invitation }
 
 DELETE /api/groups/{groupId}/members/{userId}
@@ -736,8 +728,7 @@ verify (ヘルスチェック)
 ### フェーズ 2: Web API 実装
 
 - [ ] T201: `GET /api/health` ルート
-- [ ] T202: `GET /api/users/search` ルート（メールアドレス・ユーザーID での検索）
-- [ ] T203: 個人リスト CRUD API（`/api/lists/personal/**`）
+- [ ] T202: 個人リスト CRUD API（`/api/lists/personal/**`）
 - [ ] T204: ToDo CRUD API（個人リスト用: `/api/lists/personal/[listId]/todos/**`）
 - [ ] T205: グループ CRUD API（`/api/groups/**`）
 - [ ] T206: グループメンバー管理 API（招待送信・除外・脱退）
@@ -753,7 +744,7 @@ verify (ヘルスチェック)
 - [ ] T303: 個人リスト切り替え・管理 UI（リスト一覧サイドバーまたはドロワー）
 - [ ] T304: ToDo アイテム一覧・操作 UI（追加・完了トグル・編集・削除）
 - [ ] T305: グループ一覧ページ（`/groups`）
-- [ ] T306: グループ作成・詳細・設定 UI（メンバー一覧、招待フォーム、メンバー除外）
+- [ ] T306: グループ作成・詳細・設定 UI（メンバー一覧、招待フォーム（UserID またはメールアドレスを直接入力）、メンバー除外）
 - [ ] T307: グループ共有 ToDo リスト UI（グループリスト一覧・切り替え・ToDo 操作）
 - [ ] T308: 招待通知ページ（`/invitations`）: 招待一覧・承認・拒否 UI
 - [ ] T309: モバイルレスポンシブ対応（モバイルファーストで全ページ確認）
@@ -869,15 +860,17 @@ verify (ヘルスチェック)
 
 ## 備考・未決定事項
 
-### ユーザー検索の範囲
+### 招待時のユーザー特定方法
 
-グループ招待時のユーザー検索（`/api/users/search`）では、Auth サービスの DynamoDB テーブルへのアクセスが必要になる可能性がある。実装時は以下を検討する:
+グループ招待は、オーナーが招待したいユーザーの UserID またはメールアドレスを**事前に知っていること**を前提とする。
 
-1. Auth サービスの DynamoDB テーブルにクロスアカウントアクセスポリシーを付与する方法
-2. Auth サービスがユーザー検索 API を提供する方法
-3. Share Together 独自の User テーブルに必要な情報を複製し、初回ログイン時に同期する方法
+ユーザー一覧・検索エンドポイントは提供しない。これはプラットフォームにアクセスできるユーザーを第三者が把握できてしまうことを防ぐためである。
 
-**現時点の方針**: 方法 3（初回ログイン時に JWT クレームから User レコードを作成し、Share Together の DynamoDB に保存）を採用する。招待時はこの User テーブルを検索する。
+**招待フロー**:
+1. オーナーがグループ設定画面の招待フォームに、相手の UserID またはメールアドレスを直接入力する
+2. `POST /api/groups/{groupId}/members` に `{ userId }` または `{ email }` を送信する
+3. API は Share Together の User テーブルを検索し、一致するレコードが存在する場合のみ招待を作成する
+4. 一致するレコードが存在しない場合は 404 を返し、「指定されたユーザーが見つかりません」と表示する
 
 ### 招待通知
 
