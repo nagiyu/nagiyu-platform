@@ -13,10 +13,7 @@ import { TestDataFactory } from './utils/test-data-factory';
  *   `page.waitForResponse(r => r.url().includes('/api/chart/'), ...)` で
  *   取得した Promise を渡す。
  */
-async function waitForChartOrError(
-  page: Page,
-  responsePromise: Promise<Response>,
-): Promise<void> {
+async function waitForChartOrError(page: Page, responsePromise: Promise<Response>): Promise<void> {
   // チャート API 呼び出しの完了を待つ（TradingView タイムアウト 10s + マージン）
   await responsePromise;
 
@@ -24,11 +21,17 @@ async function waitForChartOrError(
   await expect
     .poll(
       async () => {
-        const isChartVisible = await page.locator('canvas').isVisible().catch(() => false);
-        const isErrorVisible = await page.locator('[role="alert"]').isVisible().catch(() => false);
+        const isChartVisible = await page
+          .locator('canvas')
+          .isVisible()
+          .catch(() => false);
+        const isErrorVisible = await page
+          .locator('[role="alert"]')
+          .isVisible()
+          .catch(() => false);
         return isChartVisible || isErrorVisible;
       },
-      { timeout: 5000 },
+      { timeout: 5000 }
     )
     .toBeTruthy();
 }
@@ -212,10 +215,9 @@ test.describe('チャート表示機能', () => {
     const timeframeCount = await timeframeOptions.count();
     if (timeframeCount > 1) {
       // チャート API レスポンスの待機を、クリック **前** にセットアップする
-      const chartResponse = page.waitForResponse(
-        (r) => r.url().includes('/api/chart/'),
-        { timeout: 30000 },
-      );
+      const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+        timeout: 30000,
+      });
 
       // 現在選択されているオプションではないものを選択
       await timeframeOptions.nth(1).click();
@@ -301,10 +303,9 @@ test.describe('チャート表示機能', () => {
     const barCountCount = await barCountOptions.count();
     if (barCountCount > 0) {
       // チャート API レスポンスの待機を、クリック **前** にセットアップする
-      const chartResponse = page.waitForResponse(
-        (r) => r.url().includes('/api/chart/'),
-        { timeout: 30000 },
-      );
+      const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+        timeout: 30000,
+      });
 
       // 10本を選択（最初のオプション）
       await barCountOptions.first().click();
