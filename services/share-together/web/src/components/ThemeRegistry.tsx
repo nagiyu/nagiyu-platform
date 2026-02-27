@@ -2,13 +2,22 @@
 
 import * as React from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
-import { ThemeProvider } from '@mui/material/styles';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
-import { theme } from '@nagiyu/ui';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
 }
+
+const PRIMARY_COLOR = '#1565c0';
+
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: PRIMARY_COLOR,
+    },
+  },
+});
 
 export default function ThemeRegistry({ children }: ThemeRegistryProps) {
   return (

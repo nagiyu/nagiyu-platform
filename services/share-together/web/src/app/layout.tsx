@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import ThemeRegistry from '@/components/ThemeRegistry';
 
 export const metadata: Metadata = {
   title: 'Share Together',
@@ -10,8 +11,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ServiceWorkerRegistration />
-        {children}
+        <ThemeRegistry>
+          <ServiceWorkerRegistration />
+          {children}
+        </ThemeRegistry>
       </body>
     </html>
   );
