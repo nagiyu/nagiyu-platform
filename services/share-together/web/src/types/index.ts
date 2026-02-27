@@ -8,6 +8,8 @@ import type {
 } from '@nagiyu/share-together-core';
 import type { DefaultSession } from 'next-auth';
 
+export type { TodoItem };
+
 export interface ApiError {
   code: string;
   message: string;
