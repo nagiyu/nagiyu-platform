@@ -16,6 +16,14 @@ const config: Config = {
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  coverageThreshold: {
+    global: {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+  },
   passWithNoTests: true,
 };
 
