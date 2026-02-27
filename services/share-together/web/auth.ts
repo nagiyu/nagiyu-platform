@@ -1,6 +1,6 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 
-const nodeEnv = process.env.NODE_ENV ?? '';
+const nodeEnv = String(process.env.NODE_ENV ?? '');
 const isDevelopment = nodeEnv === 'development';
 const isProduction = nodeEnv === 'production' || nodeEnv === 'prod';
 
