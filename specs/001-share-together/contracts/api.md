@@ -569,11 +569,11 @@ ToDo アイテムを削除する（個人リスト専用）。
 
 **処理フロー（ACCEPT 時）**:
 1. GroupMembership（`status: PENDING`）を GSI1 経由で取得
-2. GroupMembership の `status` を `ACCEPTED` に更新
+2. GroupMembership の `status` を `ACCEPTED` に更新、`TTL` 属性を削除（クリア）
 
 **処理フロー（REJECT 時）**:
 1. GroupMembership（`status: PENDING`）を GSI1 経由で取得
-2. GroupMembership の `status` を `REJECTED` に更新
+2. GroupMembership の `status` を `REJECTED` に更新、`TTL` 属性を削除（クリア）
 
 **レスポンス** `200 OK`:
 

@@ -171,7 +171,8 @@ services/share-together/
 │   │   │       ├── groups/[groupId]/lists/[listId]/route.ts
 │   │   │       ├── groups/[groupId]/lists/[listId]/todos/route.ts
 │   │   │       ├── groups/[groupId]/lists/[listId]/todos/[todoId]/route.ts
-│   │   │       └── invitations/route.ts
+│   │   │       ├── invitations/route.ts
+│   │   │       └── invitations/[groupId]/route.ts
 │   │   ├── components/            # React コンポーネント
 │   │   │   ├── ThemeRegistry.tsx
 │   │   │   ├── ServiceWorkerRegistration.tsx
