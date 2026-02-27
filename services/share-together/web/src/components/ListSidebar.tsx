@@ -14,12 +14,12 @@ export function ListSidebar() {
 
   return (
     <Paper component="aside" sx={{ p: 2 }}>
-      <Typography variant="h6" component="h2" gutterBottom>
+      <Typography variant="h6" component="h3" gutterBottom>
         個人リスト
       </Typography>
       <Box sx={{ mb: 2 }}>
         <Button variant="contained" fullWidth>
-          リストを作成
+          個人リストを作成
         </Button>
       </Box>
       <List disablePadding>

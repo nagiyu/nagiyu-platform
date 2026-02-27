@@ -7,7 +7,7 @@ describe('ListSidebar', () => {
     render(<ListSidebar />);
 
     expect(screen.getByRole('heading', { name: '個人リスト' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'リストを作成' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '個人リストを作成' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'デフォルトリスト' })).toHaveClass('Mui-selected');
 
     const workListButton = screen.getByRole('button', { name: '仕事' });
