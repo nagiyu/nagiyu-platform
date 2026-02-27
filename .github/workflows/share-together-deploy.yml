@@ -22,6 +22,9 @@ on:
           - dev
           - prod
 
+permissions:
+  contents: read
+
 env:
   AWS_REGION: us-east-1
 

@@ -17,7 +17,7 @@ export class IAMStack extends cdk.Stack {
 
     if (environment === 'dev') {
       this.devUser = new iam.User(this, 'DevUser', {
-        userName: `share-together-dev-${environment}`,
+        userName: 'share-together-dev',
         managedPolicies: [webRuntimePolicy],
       });
 
