@@ -197,10 +197,10 @@ jobs:
           APP_VERSION: ${{ needs.build.outputs.app-version }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-share-together -- deploy \
-            NagiyuShareTogetherLambda${STACK_SUFFIX} \
-            NagiyuShareTogetherIAM${STACK_SUFFIX} \
-            NagiyuShareTogetherCloudFront${STACK_SUFFIX} \
+            --all \
+            --exclude NagiyuShareTogetherECR${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
+            --context appVersion="$APP_VERSION" \
             --require-approval never
 
       - name: Update Lambda function with latest image

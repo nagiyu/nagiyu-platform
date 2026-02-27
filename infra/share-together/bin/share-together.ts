@@ -10,7 +10,7 @@ import { CloudFrontStack } from '../lib/cloudfront-stack';
 const app = new cdk.App();
 
 const env = app.node.tryGetContext('env') || 'dev';
-const appVersion = process.env.APP_VERSION || '0.0.0';
+const appVersion = process.env.APP_VERSION || app.node.tryGetContext('appVersion') || '0.0.0';
 
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
