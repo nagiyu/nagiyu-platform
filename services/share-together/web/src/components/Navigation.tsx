@@ -1,6 +1,7 @@
 'use client';
 
-import { AppBar, Badge, Button, Toolbar, Typography } from '@mui/material';
+import { AppBar, Button, Toolbar, Typography } from '@mui/material';
+import { InvitationBadge } from '@/components/InvitationBadge';
 
 const NAV_ITEMS = [
   { label: 'ホーム', href: '/' },
@@ -20,11 +21,7 @@ export function Navigation() {
             {item.label}
           </Button>
         ))}
-        <Button color="inherit" href="/invitations">
-          <Badge badgeContent={0} color="secondary" showZero>
-            招待
-          </Badge>
-        </Button>
+        <InvitationBadge />
       </Toolbar>
     </AppBar>
   );
