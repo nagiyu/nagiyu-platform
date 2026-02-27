@@ -129,6 +129,12 @@ const mockData: SummariesResponse = {
         },
       ],
     },
+    {
+      exchangeId: 'TSE',
+      exchangeName: 'TSE',
+      date: null,
+      summaries: [],
+    },
   ],
 };
 

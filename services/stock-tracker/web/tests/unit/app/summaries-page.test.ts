@@ -22,4 +22,9 @@ describe('SummariesPage', () => {
     expect(html).toContain('NYSE');
     expect(html).toContain('JPMorgan Chase');
   });
+
+  it('データがない取引所で空状態を表示する', () => {
+    expect(html).toContain('TSE');
+    expect(html).toContain('データがありません');
+  });
 });
