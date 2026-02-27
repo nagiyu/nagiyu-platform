@@ -11,8 +11,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ServiceWorkerRegistration />
-        <ThemeRegistry>{children}</ThemeRegistry>
+        <ThemeRegistry>
+          <ServiceWorkerRegistration />
+          {children}
+        </ThemeRegistry>
       </body>
     </html>
   );
