@@ -73,3 +73,6 @@ Thumbs.db
 cdk.out/
 infra/**/*.js
 infra/**/*.d.ts
+
+# Yarn (このプロジェクトはnpmを使用)
+yarn.lock

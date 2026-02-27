@@ -32,7 +32,6 @@ export default function VideoList() {
   const [favoriteFilter, setFavoriteFilter] = useState<string>('all');
   const [skipFilter, setSkipFilter] = useState<string>('all');
   const [searchKeyword, setSearchKeyword] = useState<string>('');
-  const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState<string>('');
 
   // ページネーション状態
   const [offset, setOffset] = useState(0);
@@ -103,8 +102,8 @@ export default function VideoList() {
         params.append('isSkip', skipFilter);
       }
 
-      if (debouncedSearchKeyword.trim() !== '') {
-        params.append('search', debouncedSearchKeyword.trim());
+      if (searchKeyword.trim() !== '') {
+        params.append('search', searchKeyword.trim());
       }
 
       const response = await fetch(`/api/videos?${params.toString()}`);
@@ -121,7 +120,7 @@ export default function VideoList() {
     } finally {
       setLoading(false);
     }
-  }, [offset, favoriteFilter, skipFilter, debouncedSearchKeyword]);
+  }, [offset, favoriteFilter, skipFilter, searchKeyword]);
 
   // URLクエリパラメータの変更を監視して状態を同期
   useEffect(() => {
@@ -140,39 +139,11 @@ export default function VideoList() {
     }
     if (newSearchKeyword !== stateRef.current.searchKeyword) {
       setSearchKeyword(newSearchKeyword);
-      setDebouncedSearchKeyword(newSearchKeyword);
     }
     if (newOffset !== stateRef.current.offset) {
       setOffset(newOffset);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchKeyword(searchKeyword);
-    }, 500);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [searchKeyword]);
-
-  useEffect(() => {
-    const currentSearchKeyword = searchParams.get('search') || '';
-    // URLが既に最新値を持つ場合は更新不要
-    if (debouncedSearchKeyword === currentSearchKeyword) {
-      return;
-    }
-    // debouncedSearchKeyword が searchKeyword と異なる場合はデバウンスが未完了か stale な値のため無視する
-    // これにより webkit でナビゲーション中に旧タイムアウトが発火して意図しない router.push が起きることを防ぐ
-    if (debouncedSearchKeyword !== searchKeyword) {
-      return;
-    }
-
-    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
-    const currentSkipFilter = searchParams.get('skip') || 'all';
-    updateURL(currentFavoriteFilter, currentSkipFilter, debouncedSearchKeyword, 0);
-  }, [debouncedSearchKeyword, searchParams, updateURL, searchKeyword]);
 
   // 初回レンダリング時とフィルター・ページネーション変更時に動画を取得
   useEffect(() => {
@@ -241,6 +212,13 @@ export default function VideoList() {
     updateURL(currentFavoriteFilter, value, currentSearchKeyword, 0);
   };
 
+  const handleSearch = (keyword: string) => {
+    // 現在のURLから最新の値を取得（stale closureを回避）
+    const currentFavoriteFilter = searchParams.get('favorite') || 'all';
+    const currentSkipFilter = searchParams.get('skip') || 'all';
+    updateURL(currentFavoriteFilter, currentSkipFilter, keyword, 0);
+  };
+
   const handlePageChange = (newOffset: number) => {
     // 現在のURLから最新の値を取得（stale closureを回避）
     const currentFavoriteFilter = searchParams.get('favorite') || 'all';
@@ -284,7 +262,7 @@ export default function VideoList() {
         searchKeyword={searchKeyword}
         onFavoriteFilterChange={handleFavoriteFilterChange}
         onSkipFilterChange={handleSkipFilterChange}
-        onSearchKeywordChange={setSearchKeyword}
+        onSearch={handleSearch}
       />
 
       {error && (

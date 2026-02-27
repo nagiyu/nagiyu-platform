@@ -1,7 +1,9 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Box,
+  Button,
   FormControl,
   InputLabel,
   Select,
@@ -16,7 +18,7 @@ interface VideoListFiltersProps {
   searchKeyword: string;
   onFavoriteFilterChange: (value: string) => void;
   onSkipFilterChange: (value: string) => void;
-  onSearchKeywordChange: (value: string) => void;
+  onSearch: (value: string) => void;
 }
 
 /**
@@ -30,14 +32,31 @@ export default function VideoListFilters({
   searchKeyword,
   onFavoriteFilterChange,
   onSkipFilterChange,
-  onSearchKeywordChange,
+  onSearch,
 }: VideoListFiltersProps) {
+  const [inputKeyword, setInputKeyword] = useState<string>(searchKeyword);
+
+  // URLからの状態復元（ブラウザバック/フォワード・直接URL入力）時に入力欄を同期する
+  useEffect(() => {
+    setInputKeyword(searchKeyword);
+  }, [searchKeyword]);
+
   const handleFavoriteChange = (event: SelectChangeEvent) => {
     onFavoriteFilterChange(event.target.value);
   };
 
   const handleSkipChange = (event: SelectChangeEvent) => {
     onSkipFilterChange(event.target.value);
+  };
+
+  const handleSearch = () => {
+    onSearch(inputKeyword);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
   };
 
   return (
@@ -79,13 +98,19 @@ export default function VideoListFilters({
         </Select>
       </FormControl>
 
-      <TextField
-        size="small"
-        value={searchKeyword}
-        onChange={(event) => onSearchKeywordChange(event.target.value)}
-        placeholder="動画タイトルで検索"
-        sx={{ minWidth: 240 }}
-      />
+      <Box sx={{ display: 'flex', gap: 1 }}>
+        <TextField
+          size="small"
+          value={inputKeyword}
+          onChange={(event) => setInputKeyword(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="動画タイトルで検索"
+          sx={{ minWidth: 240 }}
+        />
+        <Button variant="contained" size="small" onClick={handleSearch}>
+          検索
+        </Button>
+      </Box>
     </Box>
   );
 }
