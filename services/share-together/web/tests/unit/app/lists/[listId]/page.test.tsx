@@ -28,4 +28,15 @@ describe('PersonalListDetailPage', () => {
     expect(screen.getByText('ListSidebar')).toBeInTheDocument();
     expect(screen.getByText('TodoList')).toBeInTheDocument();
   });
+
+  it('未定義の listId の場合はフォールバック名を表示する', async () => {
+    render(
+      await PersonalListDetailPage({
+        params: Promise.resolve({ listId: 'unknown-list' }),
+      })
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: '個人リスト（モック）' })).toBeInTheDocument();
+    expect(screen.getByText('リストID: unknown-list')).toBeInTheDocument();
+  });
 });
