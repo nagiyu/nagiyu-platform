@@ -10,7 +10,9 @@ const MOCK_LISTS = [
 ] as const;
 
 export function ListSidebar() {
-  const [selectedListId, setSelectedListId] = useState(MOCK_LISTS[0].listId);
+  const [selectedListId, setSelectedListId] = useState<(typeof MOCK_LISTS)[number]['listId']>(
+    MOCK_LISTS[0].listId
+  );
 
   return (
     <Paper component="aside" sx={{ p: 2 }}>
