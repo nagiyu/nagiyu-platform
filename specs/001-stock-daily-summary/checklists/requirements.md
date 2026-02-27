@@ -32,6 +32,6 @@
 ## 注記
 
 - 全項目が完了しており、`/speckit.plan` または `/speckit.clarify` フェーズへ進む準備ができています
-- 既存の1時間バッチ（hourly.ts）に取引時間終了判定ロジックを追加する方針を採用しています
-- DailySummary エンティティの DynamoDB キー設計は計画フェーズで詳細化する必要があります
-- TradingView API から当日の OHLCV データを取得する方法（タイムフレームと本数の選択）は計画フェーズで具体化します
+- FR-001 に従い、日次サマリー生成専用の新規バッチ（summary.ts）を新設する。既存の1時間バッチ（hourly.ts）への統合は禁止（spec.md FR-001 MUST）
+- DailySummary エンティティの DynamoDB キー設計は計画フェーズで詳細化（→ 完了: data-model.md 参照）
+- TradingView API から当日の OHLCV データを取得する方法（タイムフレームと本数の選択）は計画フェーズで具体化（→ 完了: research.md セクション2 参照。`getChartData(tickerId, 'D', { count: 1, session: 'extended' })`）

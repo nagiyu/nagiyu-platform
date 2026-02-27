@@ -192,7 +192,6 @@ Exchange ──── Ticker
 // core/src/repositories/daily-summary.repository.interface.ts
 
 import type { DailySummaryEntity, CreateDailySummaryInput } from '../entities/daily-summary.entity.js';
-import type { PaginatedResult } from '@nagiyu/aws';
 
 export interface DailySummaryRepository {
   /**
@@ -204,11 +203,12 @@ export interface DailySummaryRepository {
    * 取引所IDで最新サマリーを取得（GSI4 使用）
    * @param exchangeId - 取引所ID
    * @param date - 対象日（YYYY-MM-DD）。省略時は最新データを取得
+   * 注意: 初版はページネーション不要（spec.md Clarification 参照）。全件を配列で返す。
    */
   getByExchange(
     exchangeId: string,
     date?: string
-  ): Promise<PaginatedResult<DailySummaryEntity>>;
+  ): Promise<DailySummaryEntity[]>;
 
   /**
    * サマリーを保存（既存の場合は上書き: Upsert）
