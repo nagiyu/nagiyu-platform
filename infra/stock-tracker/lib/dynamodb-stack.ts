@@ -13,6 +13,7 @@ export interface DynamoDBStackProps extends cdk.StackProps {
  * - GSI1 (UserIndex): ユーザーごとのデータ取得
  * - GSI2 (AlertIndex): バッチ処理用（頻度ごとのアラート一覧）
  * - GSI3 (ExchangeTickerIndex): 取引所ごとのティッカー一覧
+ * - GSI4 (ExchangeSummaryIndex): 取引所ごとの日次サマリー一覧
  */
 export class DynamoDBStack extends cdk.Stack {
   public readonly table: dynamodb.Table;
@@ -78,6 +79,20 @@ export class DynamoDBStack extends cdk.Stack {
       },
       sortKey: {
         name: 'GSI3SK',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // GSI4: ExchangeSummaryIndex（取引所ごとの日次サマリー一覧）
+    this.table.addGlobalSecondaryIndex({
+      indexName: 'ExchangeSummaryIndex',
+      partitionKey: {
+        name: 'GSI4PK',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'GSI4SK',
         type: dynamodb.AttributeType.STRING,
       },
       projectionType: dynamodb.ProjectionType.ALL,
