@@ -57,6 +57,7 @@ export interface TickerSummary {
   high: number;
   low: number;
   close: number;
+  /** ISO 8601 UTC形式の更新日時 */
   updatedAt: string;
 }
 

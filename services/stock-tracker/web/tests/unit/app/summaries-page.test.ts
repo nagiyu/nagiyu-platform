@@ -3,12 +3,22 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import SummariesPage from '../../../app/summaries/page';
 
 describe('SummariesPage', () => {
-  it('仮データの取引所グループと空状態を表示する', () => {
-    const html = renderToStaticMarkup(React.createElement(SummariesPage));
+  let html: string;
 
+  beforeAll(() => {
+    html = renderToStaticMarkup(React.createElement(SummariesPage));
+  });
+
+  it('見出しを表示する', () => {
     expect(html).toContain('日次サマリー');
+  });
+
+  it('データがある取引所の銘柄情報を表示する', () => {
     expect(html).toContain('NASDAQ');
     expect(html).toContain('Apple Inc.');
+  });
+
+  it('データがない取引所で空状態を表示する', () => {
     expect(html).toContain('データがありません');
   });
 });
