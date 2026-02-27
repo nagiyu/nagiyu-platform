@@ -162,6 +162,9 @@ jobs:
       - name: Run core tests
         run: npm run test --workspace=@nagiyu/share-together-core
 
+      - name: Run web unit tests
+        run: npm run test --workspace=@nagiyu/share-together-web
+
   e2e-test:
     name: E2E Tests (chromium-mobile only)
     runs-on: ubuntu-latest
