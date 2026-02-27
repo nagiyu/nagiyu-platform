@@ -47,14 +47,14 @@ const mockData: SummariesResponse = {
           open: 140.23,
           high: 142.57,
           low: 139.81,
-          close: 141.80,
+          close: 141.8,
           updatedAt: '2024-01-15T21:00:00.000Z',
         },
         {
           tickerId: 'NSDQ:MSFT',
           symbol: 'MSFT',
           name: 'Microsoft Corporation',
-          open: 374.50,
+          open: 374.5,
           high: 377.12,
           low: 373.08,
           close: 376.17,
@@ -64,7 +64,7 @@ const mockData: SummariesResponse = {
           tickerId: 'NSDQ:AMZN',
           symbol: 'AMZN',
           name: 'Amazon.com Inc.',
-          open: 153.20,
+          open: 153.2,
           high: 155.88,
           low: 152.64,
           close: 154.93,
@@ -74,7 +74,7 @@ const mockData: SummariesResponse = {
           tickerId: 'NSDQ:NVDA',
           symbol: 'NVDA',
           name: 'NVIDIA Corporation',
-          open: 495.30,
+          open: 495.3,
           high: 502.66,
           low: 492.14,
           close: 500.84,
@@ -91,7 +91,7 @@ const mockData: SummariesResponse = {
           tickerId: 'NYSE:JNJ',
           symbol: 'JNJ',
           name: 'Johnson & Johnson',
-          open: 158.40,
+          open: 158.4,
           high: 159.73,
           low: 157.82,
           close: 159.12,
@@ -102,7 +102,7 @@ const mockData: SummariesResponse = {
           symbol: 'JPM',
           name: 'JPMorgan Chase & Co.',
           open: 168.95,
-          high: 171.20,
+          high: 171.2,
           low: 168.12,
           close: 170.54,
           updatedAt: '2024-01-15T21:00:00.000Z',
@@ -121,7 +121,7 @@ const mockData: SummariesResponse = {
           tickerId: 'NYSE:WMT',
           symbol: 'WMT',
           name: 'Walmart Inc.',
-          open: 166.20,
+          open: 166.2,
           high: 167.95,
           low: 165.78,
           close: 167.43,
@@ -207,7 +207,9 @@ export default function SummariesPage() {
       </Box>
 
       <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <DialogTitle
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
           {selectedTicker?.symbol}
           <IconButton onClick={handleDialogClose} size="small" aria-label="閉じる">
             <CloseIcon />
