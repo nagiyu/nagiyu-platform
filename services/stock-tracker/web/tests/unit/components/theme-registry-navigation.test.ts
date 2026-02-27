@@ -4,7 +4,6 @@ import ThemeRegistry from '../../../components/ThemeRegistry';
 import { useSession } from 'next-auth/react';
 
 jest.mock('next-auth/react', () => {
-  const React = require('react');
   return {
     useSession: jest.fn(),
     signOut: jest.fn(),
@@ -14,17 +13,19 @@ jest.mock('next-auth/react', () => {
 });
 
 jest.mock('@nagiyu/ui', () => {
-  const React = require('react');
   return {
     theme: {},
     Header: ({ navigationItems }: { navigationItems: unknown }) =>
-      React.createElement('pre', { 'data-testid': 'navigation-items' }, JSON.stringify(navigationItems)),
+      React.createElement(
+        'pre',
+        { 'data-testid': 'navigation-items' },
+        JSON.stringify(navigationItems)
+      ),
     Footer: () => React.createElement('footer'),
   };
 });
 
 jest.mock('@mui/material/styles', () => {
-  const React = require('react');
   return {
     ThemeProvider: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
@@ -34,14 +35,13 @@ jest.mock('@mui/material/styles', () => {
 jest.mock('@mui/material/CssBaseline', () => () => null);
 
 jest.mock('@mui/material', () => {
-  const React = require('react');
   return {
-    Box: ({ children }: { children: React.ReactNode }) => React.createElement('div', null, children),
+    Box: ({ children }: { children: React.ReactNode }) =>
+      React.createElement('div', null, children),
   };
 });
 
 jest.mock('@mui/material-nextjs/v15-appRouter', () => {
-  const React = require('react');
   return {
     AppRouterCacheProvider: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
@@ -49,7 +49,6 @@ jest.mock('@mui/material-nextjs/v15-appRouter', () => {
 });
 
 jest.mock('../../../components/SnackbarProvider', () => {
-  const React = require('react');
   return {
     SnackbarProvider: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
@@ -57,7 +56,6 @@ jest.mock('../../../components/SnackbarProvider', () => {
 });
 
 jest.mock('../../../components/ErrorBoundary', () => {
-  const React = require('react');
   return {
     ErrorBoundary: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
