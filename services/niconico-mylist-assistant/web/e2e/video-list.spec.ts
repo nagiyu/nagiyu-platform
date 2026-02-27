@@ -58,7 +58,7 @@ test.describe('Video List Page', () => {
     ).toBeVisible();
   });
 
-  test('should filter videos by search keyword after debounce', async ({ page, request }) => {
+  test('should filter videos by search keyword after clicking search button', async ({ page, request }) => {
     const startId = 60000000 + Math.floor(Date.now() % 100000);
     await request.post('/api/test/videos', {
       data: {
@@ -72,6 +72,7 @@ test.describe('Video List Page', () => {
 
     const searchKeyword = `${startId + 1}`;
     await page.getByPlaceholder('動画タイトルで検索').fill(searchKeyword);
+    await page.getByRole('button', { name: '検索' }).click();
     await page.waitForResponse(
       (response) =>
         response.url().includes('/api/videos') && response.url().includes(`search=${searchKeyword}`)
@@ -96,6 +97,7 @@ test.describe('Video List Page', () => {
 
     const searchKeyword = 'no-match-keyword';
     await page.getByPlaceholder('動画タイトルで検索').fill(searchKeyword);
+    await page.getByRole('button', { name: '検索' }).click();
     await page.waitForResponse(
       (response) =>
         response.url().includes('/api/videos') && response.url().includes(`search=${searchKeyword}`)
@@ -469,6 +471,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByPlaceholder('動画タイトルで検索').fill('test');
+    await page.getByRole('button', { name: '検索' }).click();
 
     await page.waitForResponse(
       (response) => response.url().includes('/api/videos') && response.url().includes('search=test')
@@ -592,6 +595,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     await page.getByPlaceholder('動画タイトルで検索').fill('keyword');
+    await page.getByRole('button', { name: '検索' }).click();
 
     await expect(page).toHaveURL('/mylist?search=keyword');
   });
@@ -678,6 +682,7 @@ test.describe('Video List URL Synchronization', () => {
     const searchKeyword = `${startId + 1}`;
     const searchField = page.getByPlaceholder('動画タイトルで検索');
     await searchField.fill(searchKeyword);
+    await page.getByRole('button', { name: '検索' }).click();
     await page.waitForResponse(
       (response) =>
         response.url().includes('/api/videos') && response.url().includes(`search=${searchKeyword}`)

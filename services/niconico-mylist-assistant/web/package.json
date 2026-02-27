@@ -22,5 +22,8 @@
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "@nagiyu/ui": "*",
     "next-auth": "^5.0.0-beta.30"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
   }
 }
