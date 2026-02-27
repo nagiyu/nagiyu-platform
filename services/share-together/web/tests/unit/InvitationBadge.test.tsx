@@ -6,7 +6,10 @@ describe('InvitationBadge', () => {
   it('未処理招待数のモックバッジを表示する', () => {
     render(<InvitationBadge />);
 
-    expect(screen.getByRole('link', { name: /招待/ })).toHaveAttribute('href', '/invitations');
-    expect(screen.getByText('0')).toBeInTheDocument();
+    const invitationLink = screen.getByRole('link', { name: /招待/ });
+    const badgeCount = screen.getByText('0');
+
+    expect(invitationLink).toHaveAttribute('href', '/invitations');
+    expect(badgeCount).toBeInTheDocument();
   });
 });
