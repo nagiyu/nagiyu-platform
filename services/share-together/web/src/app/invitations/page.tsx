@@ -1,5 +1,15 @@
 import { Navigation } from '@/components/Navigation';
-import { Box, Button, Card, CardActions, CardContent, Chip, Container, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardActions,
+  CardContent,
+  Chip,
+  Container,
+  Stack,
+  Typography,
+} from '@mui/material';
 
 const MOCK_INVITATIONS = [
   {
@@ -28,7 +38,12 @@ export default function InvitationsPage() {
           {MOCK_INVITATIONS.map((invitation) => (
             <Card key={invitation.groupId}>
               <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ mb: 1 }}
+                >
                   <Typography component="h2" variant="h6">
                     {invitation.groupName}
                   </Typography>
