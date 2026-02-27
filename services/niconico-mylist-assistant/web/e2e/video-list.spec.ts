@@ -58,7 +58,10 @@ test.describe('Video List Page', () => {
     ).toBeVisible();
   });
 
-  test('should filter videos by search keyword after clicking search button', async ({ page, request }) => {
+  test('should filter videos by search keyword after clicking search button', async ({
+    page,
+    request,
+  }) => {
     const startId = 60000000 + Math.floor(Date.now() % 100000);
     await request.post('/api/test/videos', {
       data: {
