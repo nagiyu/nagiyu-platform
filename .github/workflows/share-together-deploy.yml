@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - integration/**
       - master
     paths:
       - 'services/share-together/**'
