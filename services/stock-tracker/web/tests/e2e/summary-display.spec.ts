@@ -23,4 +23,28 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page).toHaveURL('/summaries');
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
   });
+
+  test('ティッカー行をクリックするとダイアログが表示される', async ({ page }) => {
+    await page.goto('/summaries');
+
+    await page.getByRole('row', { name: /AAPL/ }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('AAPL')).toBeVisible();
+    await expect(dialog.getByText('Apple Inc.')).toBeVisible();
+  });
+
+  test('ダイアログの閉じるボタンでダイアログが閉じる', async ({ page }) => {
+    await page.goto('/summaries');
+
+    await page.getByRole('row', { name: /AAPL/ }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    await dialog.getByRole('button', { name: '閉じる' }).click();
+
+    await expect(dialog).not.toBeVisible();
+  });
 });
