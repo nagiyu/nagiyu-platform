@@ -11,7 +11,7 @@ describe('TodoItem', () => {
           title: '牛乳を買う',
           isCompleted: false,
         }}
-      />,
+      />
     );
 
     expect(screen.getByText('牛乳を買う')).toBeInTheDocument();
@@ -32,7 +32,7 @@ describe('TodoItem', () => {
         }}
         onToggleComplete={onToggleComplete}
         onDelete={onDelete}
-      />,
+      />
     );
 
     fireEvent.click(screen.getByRole('checkbox', { name: '資料を提出するの完了チェック' }));
@@ -50,7 +50,7 @@ describe('TodoItem', () => {
           title: '議事録を確認する',
           isCompleted: true,
         }}
-      />,
+      />
     );
 
     expect(screen.getByText('議事録を確認する')).toHaveStyle({ textDecoration: 'line-through' });
@@ -64,7 +64,7 @@ describe('TodoItem', () => {
           title: '掃除をする',
           isCompleted: false,
         }}
-      />,
+      />
     );
 
     expect(() => {
