@@ -68,7 +68,10 @@ export default async function GroupDetailPage({
               <List>
                 {MOCK_GROUP_LISTS.map((list) => (
                   <ListItem key={list.listId} disablePadding>
-                    <ListItemButton component={Link} href={`/groups/${groupId}/lists/${list.listId}`}>
+                    <ListItemButton
+                      component={Link}
+                      href={`/groups/${groupId}/lists/${list.listId}`}
+                    >
                       <ListItemText primary={list.name} />
                     </ListItemButton>
                   </ListItem>
