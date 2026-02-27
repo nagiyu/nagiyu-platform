@@ -1,5 +1,40 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Response } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
+
+/**
+ * チャート API レスポンスを待ってから、チャートまたはエラー表示を確認する。
+ *
+ * ドロップダウン変更後は React の再レンダリング → useEffect → fetch の順で
+ * 非同期に進むため、networkidle だけでは fetch 開始前に解決してしまう場合がある。
+ * waitForResponse で実際の API レスポンスを捕捉し、その後にポーリングで
+ * DOM への反映を待つことで安定させる。
+ *
+ * @param responsePromise - ドロップダウン操作 **前** に
+ *   `page.waitForResponse(r => r.url().includes('/api/chart/'), ...)` で
+ *   取得した Promise を渡す。
+ */
+async function waitForChartOrError(page: Page, responsePromise: Promise<Response>): Promise<void> {
+  // チャート API 呼び出しの完了を待つ（TradingView タイムアウト 10s + マージン）
+  await responsePromise;
+
+  // API レスポンス後のレンダリング反映を短時間ポーリングで確認
+  await expect
+    .poll(
+      async () => {
+        const isChartVisible = await page
+          .locator('canvas')
+          .isVisible()
+          .catch(() => false);
+        const isErrorVisible = await page
+          .locator('[role="alert"]')
+          .isVisible()
+          .catch(() => false);
+        return isChartVisible || isErrorVisible;
+      },
+      { timeout: 5000 }
+    )
+    .toBeTruthy();
+}
 
 /**
  * E2E-001: チャート表示フロー
@@ -19,8 +54,18 @@ test.describe('チャート表示機能', () => {
     // TestDataFactory を初期化
     factory = new TestDataFactory(request);
 
-    // テスト用データを作成
-    await factory.createTicker(); // Exchange と Ticker を自動作成
+    // チャート描画テストには実在する取引所とティッカーを使用する
+    // 架空のティッカーでは TradingView API がデータを返さずチャートが描画されないため
+    // TradingView の取引所キーは NASDAQ（NSDQ ではない）
+    const exchange = await factory.createExchange({
+      key: 'NASDAQ',
+      name: 'NASDAQ Stock Market',
+    });
+    await factory.createTicker({
+      symbol: 'NVDA',
+      name: 'NVIDIA Corporation',
+      exchangeId: exchange.exchangeId,
+    });
 
     await page.goto('/');
 
@@ -147,18 +192,17 @@ test.describe('チャート表示機能', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2);
 
+    // ティッカー選択で初回チャート API が発火するので、クリック前にレスポンス待機をセットアップ
+    const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+      timeout: 30000,
+    });
+
     // 作成したテストティッカーを明示的に選択
     await tickerOptions.filter({ hasText: testTicker.symbol }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-    // チャート表示またはエラーを待つ（より長いタイムアウト）
-    await Promise.race([
-      page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-    ]).catch(() => {
-      console.log('Initial chart load timed out, continuing test');
-    });
+    // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
+    await waitForChartOrError(page, initialChartResponse);
 
     // 時間枠を変更
     const timeframeSelect = page.getByLabel('時間枠');
@@ -169,37 +213,19 @@ test.describe('チャート表示機能', () => {
     // 別の時間枠を選択（例: 2番目のオプション）
     const timeframeCount = await timeframeOptions.count();
     if (timeframeCount > 1) {
+      // チャート API レスポンスの待機を、クリック **前** にセットアップする
+      const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+        timeout: 30000,
+      });
+
       // 現在選択されているオプションではないものを選択
       await timeframeOptions.nth(1).click();
 
       // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // チャートが再読み込みされる（より長いタイムアウト）
-      await Promise.race([
-        page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-        page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-      ]).catch(() => {
-        console.log('Chart reload timed out');
-      });
-
-      // チャートまたはエラーメッセージが表示されることを確認
-      const chartDisplayed = await page
-        .locator('canvas')
-        .isVisible()
-        .catch(() => false);
-      const errorDisplayed = await page
-        .locator('[role="alert"]')
-        .isVisible()
-        .catch(() => false);
-      const loadingDisplayed = await page
-        .getByText('チャートデータを読み込み中')
-        .isVisible()
-        .catch(() => false);
-
-      // いずれかの状態が表示されることを確認
-      expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
+      // チャート API レスポンス完了を待ち、レンダリングを確認する
+      await waitForChartOrError(page, chartResponse);
     }
   });
 
@@ -248,18 +274,17 @@ test.describe('チャート表示機能', () => {
     // テストデータが作成されているので、必ずティッカーが存在する
     expect(tickerCount).toBeGreaterThanOrEqual(2);
 
+    // ティッカー選択で初回チャート API が発火するので、クリック前にレスポンス待機をセットアップ
+    const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+      timeout: 30000,
+    });
+
     // 作成したテストティッカーを明示的に選択
     await tickerOptions.filter({ hasText: testTicker.symbol }).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-    // チャート表示またはエラーを待つ
-    await Promise.race([
-      page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-      page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-      page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-    ]).catch(() => {
-      console.log('Initial chart load timed out, continuing test');
-    });
+    // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
+    await waitForChartOrError(page, initialChartResponse);
 
     // 表示本数を変更
     const barCountSelect = page.getByLabel('表示本数');
@@ -275,37 +300,19 @@ test.describe('チャート表示機能', () => {
     // 別の表示本数を選択（例: 10本）
     const barCountCount = await barCountOptions.count();
     if (barCountCount > 0) {
+      // チャート API レスポンスの待機を、クリック **前** にセットアップする
+      const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+        timeout: 30000,
+      });
+
       // 10本を選択（最初のオプション）
       await barCountOptions.first().click();
 
       // リストボックスが閉じるまで待つ
       await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
-      // チャートが再読み込みされる
-      await Promise.race([
-        page.locator('canvas').waitFor({ state: 'visible', timeout: 15000 }),
-        page.locator('[role="alert"]').waitFor({ state: 'visible', timeout: 15000 }),
-        page.getByText('チャートデータを読み込み中').waitFor({ state: 'visible', timeout: 15000 }),
-      ]).catch(() => {
-        console.log('Chart reload timed out');
-      });
-
-      // チャートまたはエラーメッセージが表示されることを確認
-      const chartDisplayed = await page
-        .locator('canvas')
-        .isVisible()
-        .catch(() => false);
-      const errorDisplayed = await page
-        .locator('[role="alert"]')
-        .isVisible()
-        .catch(() => false);
-      const loadingDisplayed = await page
-        .getByText('チャートデータを読み込み中')
-        .isVisible()
-        .catch(() => false);
-
-      // いずれかの状態が表示されることを確認
-      expect(chartDisplayed || errorDisplayed || loadingDisplayed).toBeTruthy();
+      // チャート API レスポンス完了を待ち、レンダリングを確認する
+      await waitForChartOrError(page, chartResponse);
     }
   });
 

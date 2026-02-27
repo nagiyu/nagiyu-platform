@@ -182,7 +182,7 @@ test('Lambda has Batch permissions', () => {
           Action: 'batch:SubmitJob',
           Effect: 'Allow',
           Resource: Match.arrayWith([
-            Match.stringLikeRegexp('.*job-definition/codec-converter-.*-\\*'),
+            Match.stringLikeRegexp('.*job-definition/nagiyu-codec-converter-.*-\\*'),
           ]),
         }),
       ]),
