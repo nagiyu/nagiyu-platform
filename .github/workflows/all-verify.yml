@@ -7,38 +7,6 @@ on:
       - master
 
 jobs:
-  test:
-    name: Test All Workspaces
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Build service core libraries
-        run: |
-          npm run build --workspace=codec-converter-core --if-present
-          npm run build --workspace=@nagiyu/auth-core --if-present
-
-      - name: Run unit tests
-        run: npm run test
-
   lint:
     name: Lint All Workspaces
     runs-on: ubuntu-latest
@@ -85,7 +53,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [test, lint, format-check]
+    needs: [lint, format-check]
 
     permissions:
       contents: read
@@ -98,7 +66,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const results = {
-              'Unit Tests': '${{ needs.test.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}'
             };
