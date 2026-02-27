@@ -5,16 +5,15 @@ import ThemeRegistry from '@/components/ThemeRegistry';
 export const metadata: Metadata = {
   title: 'Share Together',
   description: 'みんなでシェアリスト',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
       <body>
-        <ThemeRegistry>
-          <ServiceWorkerRegistration />
-          {children}
-        </ThemeRegistry>
+        <ServiceWorkerRegistration />
+        <ThemeRegistry>{children}</ThemeRegistry>
       </body>
     </html>
   );
