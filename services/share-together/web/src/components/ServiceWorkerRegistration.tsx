@@ -2,6 +2,10 @@
 
 import { useEffect } from 'react';
 
+export const ERROR_MESSAGES = {
+  SERVICE_WORKER_REGISTRATION_FAILED: 'Service Workerの登録に失敗しました',
+};
+
 export default function ServiceWorkerRegistration() {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {
@@ -13,7 +17,7 @@ export default function ServiceWorkerRegistration() {
         const registration = await navigator.serviceWorker.register('/sw.js');
         registration.update();
       } catch (error) {
-        console.error('Service Worker registration failed:', error);
+        console.error(ERROR_MESSAGES.SERVICE_WORKER_REGISTRATION_FAILED, error);
       }
     };
 
