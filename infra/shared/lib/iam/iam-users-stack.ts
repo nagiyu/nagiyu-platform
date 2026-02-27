@@ -1,7 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
-import { EXPORTS } from '../../libs/utils/exports';
 
 export interface IamUsersStackProps extends cdk.StackProps {
   policies: {
@@ -59,26 +58,22 @@ export class IamUsersStack extends cdk.Stack {
     // GitHub Actions User
     new cdk.CfnOutput(this, 'GitHubActionsUserArnExport', {
       value: this.githubActionsUser.userArn,
-      exportName: EXPORTS.GITHUB_ACTIONS_USER_ARN,
       description: 'GitHub Actions user ARN',
     });
 
     new cdk.CfnOutput(this, 'GitHubActionsUserNameExport', {
       value: this.githubActionsUser.userName,
-      exportName: EXPORTS.GITHUB_ACTIONS_USER_NAME,
       description: 'GitHub Actions user name',
     });
 
     // Local Dev User
     new cdk.CfnOutput(this, 'LocalDevUserArnExport', {
       value: this.localDevUser.userArn,
-      exportName: EXPORTS.LOCAL_DEV_USER_ARN,
       description: 'Local developer user ARN',
     });
 
     new cdk.CfnOutput(this, 'LocalDevUserNameExport', {
       value: this.localDevUser.userName,
-      exportName: EXPORTS.LOCAL_DEV_USER_NAME,
       description: 'Local developer user name',
     });
   }

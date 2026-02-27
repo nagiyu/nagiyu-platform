@@ -13,6 +13,14 @@ on:
       - 'package-lock.json'
       - '.github/workflows/tools-deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   AWS_REGION: us-east-1
@@ -39,7 +47,15 @@ jobs:
       - name: Set environment
         id: set-env
         run: |
-          if [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+            if [[ "$ENV" == "prod" ]]; then
+              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
+            else
+              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
             echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
           else
@@ -198,11 +214,11 @@ jobs:
           # Get ECR repository URI
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="${ECR_REGISTRY}/tools-app-${ENVIRONMENT}:latest"
+          IMAGE_URI="${ECR_REGISTRY}/nagiyu-tools-ecr-${ENVIRONMENT}:latest"
 
           # Update Lambda function
           aws lambda update-function-code \
-            --function-name "tools-app-${ENVIRONMENT}" \
+            --function-name "nagiyu-tools-lambda-${ENVIRONMENT}" \
             --image-uri "$IMAGE_URI" \
             --region "${{ env.AWS_REGION }}"
 
@@ -214,7 +230,7 @@ jobs:
         run: |
           # Wait for function to complete updating
           aws lambda wait function-updated \
-            --function-name "tools-app-${ENVIRONMENT}" \
+            --function-name "nagiyu-tools-lambda-${ENVIRONMENT}" \
             --region "${{ env.AWS_REGION }}"
 
           echo "Lambda function update successfully"

@@ -11,6 +11,8 @@ import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
+import { SSM_PARAMETERS } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -77,7 +79,7 @@ export class CodecConverterStack extends cdk.Stack {
 
     // ECR repository for Lambda container image
     const ecrRepositoryName =
-      this.node.tryGetContext('ecrRepositoryName') || `codec-converter-${envName}`;
+      this.node.tryGetContext('ecrRepositoryName') || `nagiyu-codec-converter-${envName}`;
     const imageTag = this.node.tryGetContext('imageTag') || 'latest';
 
     // Create or reference Web ECR repository based on deployment phase
@@ -101,7 +103,7 @@ export class CodecConverterStack extends cdk.Stack {
     const workerEcrRepository =
       deploymentPhase === 'ecr-only'
         ? new ecr.Repository(this, 'WorkerEcrRepository', {
-            repositoryName: `codec-converter-ffmpeg-${envName}`,
+            repositoryName: `nagiyu-codec-converter-ffmpeg-${envName}`,
             imageScanOnPush: true,
             lifecycleRules: [
               {
@@ -115,7 +117,7 @@ export class CodecConverterStack extends cdk.Stack {
         : ecr.Repository.fromRepositoryName(
             this,
             'WorkerEcrRepository',
-            `codec-converter-ffmpeg-${envName}`
+            `nagiyu-codec-converter-ffmpeg-${envName}`
           );
 
     // Only create Lambda, Batch, and other resources in 'full' deployment phase
@@ -140,22 +142,22 @@ export class CodecConverterStack extends cdk.Stack {
         jobsTable,
       });
 
-      // Import shared VPC from platform infrastructure
-      // Uses Vpc.fromLookup which queries AWS API via CDK context cache
-      // For testing: if vpcId is provided in context, lookup by explicit vpcId
-      // For deployment: lookup by Name tag to find nagiyu-{env}-vpc
-      const vpcId = this.node.tryGetContext('vpcId');
-      const vpc = vpcId
-        ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
-        : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-            tags: {
-              Name: `nagiyu-${envName}-vpc`,
-            },
-          });
-
-      // Get public subnets from VPC
-      const publicSubnets = vpc.selectSubnets({
-        subnetType: ec2.SubnetType.PUBLIC,
+      const vpcId = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.VPC_ID(envName as 'dev' | 'prod')
+      );
+      const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.PUBLIC_SUBNET_IDS(envName as 'dev' | 'prod')
+      );
+      const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
+      const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
+        vpcId,
+        availabilityZones: envName === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+        publicSubnetIds:
+          envName === 'prod'
+            ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
+            : [cdk.Fn.select(0, publicSubnetIds)],
       });
 
       // Create security group for Batch compute environment
@@ -167,20 +169,20 @@ export class CodecConverterStack extends cdk.Stack {
 
       // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
       const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
-        computeEnvironmentName: `codec-converter-${envName}`,
+        computeEnvironmentName: `nagiyu-codec-converter-${envName}`,
         type: 'MANAGED',
         state: 'ENABLED',
         computeResources: {
           type: 'FARGATE',
           maxvCpus: 16, // Supports multiple job sizes: small (1 vCPU) to xlarge (4 vCPU)
-          subnets: publicSubnets.subnetIds,
+          subnets: publicSubnetIds,
           securityGroupIds: [batchSecurityGroup.securityGroupId],
         },
       });
 
       // Batch Job Queue - L1 construct
       const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
-        jobQueueName: `codec-converter-${envName}`,
+        jobQueueName: `nagiyu-codec-converter-${envName}`,
         priority: 1,
         state: 'ENABLED',
         computeEnvironmentOrder: [
@@ -193,7 +195,7 @@ export class CodecConverterStack extends cdk.Stack {
 
       // CloudWatch Log Group for Batch (created explicitly to avoid conflicts)
       const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
-        logGroupName: `/aws/batch/codec-converter-${envName}`,
+        logGroupName: `/aws/batch/nagiyu-codec-converter-${envName}`,
         retention: logs.RetentionDays.ONE_WEEK,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
@@ -212,7 +214,7 @@ export class CodecConverterStack extends cdk.Stack {
       // Create job definitions using a loop (DRY principle)
       const createdJobDefinitions = jobDefinitions.map((config) => {
         return new batch.CfnJobDefinition(this, `JobDefinition-${config.size}`, {
-          jobDefinitionName: `codec-converter-${envName}-${config.size}`,
+          jobDefinitionName: `nagiyu-codec-converter-${envName}-${config.size}`,
           type: 'container',
           platformCapabilities: ['FARGATE'],
           containerProperties: {
@@ -272,7 +274,7 @@ export class CodecConverterStack extends cdk.Stack {
         storageBucket,
         jobsTable,
         jobQueueArn: jobQueue.attrJobQueueArn,
-        jobDefinitionPrefix: `codec-converter-${envName}`,
+        jobDefinitionPrefix: `nagiyu-codec-converter-${envName}`,
         envName,
       });
 
@@ -289,14 +291,14 @@ export class CodecConverterStack extends cdk.Stack {
 
       // CloudWatch Log Group for Lambda (created explicitly to avoid conflicts)
       const lambdaLogGroup = new logs.LogGroup(this, 'LambdaLogGroup', {
-        logGroupName: `/aws/lambda/codec-converter-${envName}`,
+        logGroupName: `/aws/lambda/nagiyu-codec-converter-${envName}`,
         retention: logs.RetentionDays.ONE_WEEK,
         removalPolicy: cdk.RemovalPolicy.DESTROY,
       });
 
       // Lambda Function for Next.js application
       const nextjsFunction = new lambda.DockerImageFunction(this, 'NextjsFunction', {
-        functionName: `codec-converter-${envName}`,
+        functionName: `nagiyu-codec-converter-${envName}`,
         code: lambda.DockerImageCode.fromEcr(ecrRepository, {
           tagOrDigest: imageTag,
         }),
@@ -308,8 +310,8 @@ export class CodecConverterStack extends cdk.Stack {
           APP_VERSION: appVersion,
           DYNAMODB_TABLE: jobsTable.tableName,
           S3_BUCKET: storageBucket.bucketName,
-          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `codec-converter-${envName}`,
-          BATCH_JOB_DEFINITION_PREFIX: `codec-converter-${envName}`, // Prefix for all job definitions (e.g., codec-converter-dev-small)
+          BATCH_JOB_QUEUE: jobQueue.jobQueueName || `nagiyu-codec-converter-${envName}`,
+          BATCH_JOB_DEFINITION_PREFIX: `nagiyu-codec-converter-${envName}`, // Prefix for all job definitions (e.g., nagiyu-codec-converter-dev-small)
           // AWS_REGION is automatically provided by Lambda runtime
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself
@@ -327,15 +329,17 @@ export class CodecConverterStack extends cdk.Stack {
         },
       });
 
-      // Import ACM certificate from CloudFormation export
       const certificate = acm.Certificate.fromCertificateArn(
         this,
         'Certificate',
-        cdk.Fn.importValue('nagiyu-shared-acm-certificate-arn')
+        ssm.StringParameter.valueForStringParameter(this, SSM_PARAMETERS.ACM_CERTIFICATE_ARN)
       );
 
       // Construct domain name based on environment
-      const baseDomain = cdk.Fn.importValue('nagiyu-shared-acm-domain-name');
+      const baseDomain = ssm.StringParameter.valueForStringParameter(
+        this,
+        SSM_PARAMETERS.ACM_DOMAIN_NAME
+      );
       const domainName =
         envName === 'prod'
           ? `codec-converter.${baseDomain}`
@@ -367,7 +371,7 @@ export class CodecConverterStack extends cdk.Stack {
             origin: new origins.FunctionUrlOrigin(functionUrl),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             cachePolicy: new cloudfront.CachePolicy(this, 'NextStaticCachePolicy', {
-              cachePolicyName: `codec-converter-next-static-${envName}`,
+              cachePolicyName: `nagiyu-codec-converter-next-static-${envName}`,
               defaultTtl: cdk.Duration.days(365),
               maxTtl: cdk.Duration.days(365),
               minTtl: cdk.Duration.days(365),
@@ -378,7 +382,7 @@ export class CodecConverterStack extends cdk.Stack {
             origin: new origins.FunctionUrlOrigin(functionUrl),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
             cachePolicy: new cloudfront.CachePolicy(this, 'FaviconCachePolicy', {
-              cachePolicyName: `codec-converter-favicon-${envName}`,
+              cachePolicyName: `nagiyu-codec-converter-favicon-${envName}`,
               defaultTtl: cdk.Duration.days(1),
               maxTtl: cdk.Duration.days(1),
               minTtl: cdk.Duration.days(1),
@@ -392,55 +396,46 @@ export class CodecConverterStack extends cdk.Stack {
       new cdk.CfnOutput(this, 'StorageBucketName', {
         value: storageBucket.bucketName,
         description: 'S3 bucket name for codec converter storage',
-        exportName: `CodecConverterStorageBucket-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'JobsTableName', {
         value: jobsTable.tableName,
         description: 'DynamoDB table name for codec converter jobs',
-        exportName: `CodecConverterJobsTable-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'LambdaFunctionArn', {
         value: nextjsFunction.functionArn,
         description: 'Lambda function ARN for Next.js application',
-        exportName: `CodecConverterLambdaFunctionArn-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'LambdaFunctionUrl', {
         value: functionUrl.url,
         description: 'Lambda Function URL',
-        exportName: `CodecConverterLambdaFunctionUrl-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'CloudFrontDistributionId', {
         value: distribution.distributionId,
         description: 'CloudFront distribution ID',
-        exportName: `CodecConverterCloudFrontDistributionId-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'CloudFrontDomainName', {
         value: distribution.distributionDomainName,
         description: 'CloudFront distribution domain name',
-        exportName: `CodecConverterCloudFrontDomainName-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'WorkerEcrRepositoryUri', {
         value: workerEcrRepository.repositoryUri,
         description: 'ECR repository URI for Batch worker',
-        exportName: `CodecConverterWorkerEcrRepositoryUri-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'BatchJobQueueArn', {
         value: jobQueue.attrJobQueueArn,
         description: 'Batch job queue ARN',
-        exportName: `CodecConverterBatchJobQueueArn-${envName}`,
       });
 
       new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
         value: jobDefinition.attrJobDefinitionArn,
         description: 'Batch job definition ARN',
-        exportName: `CodecConverterBatchJobDefinitionArn-${envName}`,
       });
     }
   }

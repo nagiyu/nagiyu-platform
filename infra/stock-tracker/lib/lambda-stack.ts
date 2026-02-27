@@ -16,6 +16,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   batchEcrRepositoryName: string;
   dynamoTable: dynamodb.ITable;
   vapidSecret: secretsmanager.ISecret;
+  vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
+  vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
@@ -45,6 +47,8 @@ export class LambdaStack extends cdk.Stack {
       batchEcrRepositoryName,
       dynamoTable,
       vapidSecret,
+      vapidPublicKey,
+      vapidPrivateKey,
       nextAuthSecret,
     } = props;
 
@@ -77,7 +81,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda 用の実行ロール
     const webExecutionRole = new iam.Role(this, 'WebExecutionRole', {
-      roleName: `stock-tracker-web-execution-role-${environment}`,
+      roleName: `nagiyu-stock-tracker-web-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -87,7 +91,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Web Lambda Function の作成
     this.webFunction = new lambda.Function(this, 'WebFunction', {
-      functionName: `stock-tracker-web-${environment}`,
+      functionName: `nagiyu-stock-tracker-web-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(webRepository, {
         tagOrDigest: 'latest',
@@ -100,8 +104,8 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         APP_VERSION: appVersion,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
         AUTH_URL:
           environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
         NEXT_PUBLIC_AUTH_URL:
@@ -129,7 +133,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda 用の実行ロール
     const batchExecutionRole = new iam.Role(this, 'BatchExecutionRole', {
-      roleName: `stock-tracker-batch-execution-role-${environment}`,
+      roleName: `nagiyu-stock-tracker-batch-execution-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
       managedPolicies: [
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
@@ -139,7 +143,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda - Minute（1分間隔、MINUTE_LEVEL アラート処理）
     this.batchMinuteFunction = new lambda.Function(this, 'BatchMinuteFunction', {
-      functionName: `stock-tracker-batch-minute-${environment}`,
+      functionName: `nagiyu-stock-tracker-batch-minute-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
@@ -153,8 +157,8 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'MINUTE',
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -162,7 +166,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda - Hourly（1時間間隔、HOURLY_LEVEL アラート処理）
     this.batchHourlyFunction = new lambda.Function(this, 'BatchHourlyFunction', {
-      functionName: `stock-tracker-batch-hourly-${environment}`,
+      functionName: `nagiyu-stock-tracker-batch-hourly-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
@@ -176,8 +180,8 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'HOURLY',
-        VAPID_PUBLIC_KEY: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
-        VAPID_PRIVATE_KEY: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+        VAPID_PUBLIC_KEY: vapidPublicKey,
+        VAPID_PRIVATE_KEY: vapidPrivateKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -185,7 +189,7 @@ export class LambdaStack extends cdk.Stack {
 
     // Batch Lambda - Daily（日次、データクリーンアップ）
     this.batchDailyFunction = new lambda.Function(this, 'BatchDailyFunction', {
-      functionName: `stock-tracker-batch-daily-${environment}`,
+      functionName: `nagiyu-stock-tracker-batch-daily-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       code: lambda.Code.fromEcrImage(batchRepository, {
         tagOrDigest: 'latest',
@@ -220,44 +224,37 @@ export class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,
       description: 'Web Lambda Function ARN',
-      exportName: `${this.stackName}-WebFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'FunctionUrl', {
       value: this.functionUrl.url,
       description: 'Web Lambda Function URL',
-      exportName: `${this.stackName}-FunctionUrl`,
     });
 
     new cdk.CfnOutput(this, 'BatchMinuteFunctionArn', {
       value: this.batchMinuteFunction.functionArn,
       description: 'Batch Minute Lambda Function ARN',
-      exportName: `${this.stackName}-BatchMinuteFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchHourlyFunctionArn', {
       value: this.batchHourlyFunction.functionArn,
       description: 'Batch Hourly Lambda Function ARN',
-      exportName: `${this.stackName}-BatchHourlyFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchDailyFunctionArn', {
       value: this.batchDailyFunction.functionArn,
       description: 'Batch Daily Lambda Function ARN',
-      exportName: `${this.stackName}-BatchDailyFunctionArn`,
     });
 
     // Runtime Policies (IAM スタックで参照するため Export)
     new cdk.CfnOutput(this, 'WebRuntimePolicyArn', {
       value: this.webRuntimePolicy.managedPolicyArn,
       description: 'Web Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-WebRuntimePolicyArn`,
     });
 
     new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
       value: this.batchRuntimePolicy.managedPolicyArn,
       description: 'Batch Runtime Managed Policy ARN',
-      exportName: `${this.stackName}-BatchRuntimePolicyArn`,
     });
   }
 }

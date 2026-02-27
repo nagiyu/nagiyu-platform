@@ -67,19 +67,16 @@ export class EventBridgeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'MinuteRuleArn', {
       value: minuteRule.ruleArn,
       description: 'Minute Batch EventBridge Rule ARN',
-      exportName: `${this.stackName}-MinuteRuleArn`,
     });
 
     new cdk.CfnOutput(this, 'HourlyRuleArn', {
       value: hourlyRule.ruleArn,
       description: 'Hourly Batch EventBridge Rule ARN',
-      exportName: `${this.stackName}-HourlyRuleArn`,
     });
 
     new cdk.CfnOutput(this, 'DailyRuleArn', {
       value: dailyRule.ruleArn,
       description: 'Daily Batch EventBridge Rule ARN',
-      exportName: `${this.stackName}-DailyRuleArn`,
     });
   }
 }

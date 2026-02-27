@@ -64,8 +64,8 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 - **Network (VPC/EC2)**: VPC、Subnet、Internet Gateway、NAT Gateway、Route Table、Security Group、Network Interface の管理
 - **CloudWatch Logs**: Log Group/Stream の作成、管理
 
-**Export 値:**
-- `nagiyu-deploy-policy-core-arn`: ポリシーの ARN
+**参照方法:**
+- `arn:aws:iam::{account}:policy/nagiyu-deploy-policy-core`（`managedPolicyName` で固定）
 
 #### 1.2. Application Policy
 
@@ -82,8 +82,8 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 - **CloudFront**: ディストリビューション管理、キャッシュ無効化
 - **ACM**: 証明書管理
 
-**Export 値:**
-- `nagiyu-deploy-policy-application-arn`: ポリシーの ARN
+**参照方法:**
+- `arn:aws:iam::{account}:policy/nagiyu-deploy-policy-application`（`managedPolicyName` で固定）
 
 #### 1.3. Container Policy
 
@@ -97,8 +97,8 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 - **ECS**: クラスター、タスク定義、サービス、タスクの管理
 - **Batch**: Compute Environment、Job Queue、Job Definition の管理
 
-**Export 値:**
-- `nagiyu-deploy-policy-container-arn`: ポリシーの ARN
+**参照方法:**
+- `arn:aws:iam::{account}:policy/nagiyu-deploy-policy-container`（`managedPolicyName` で固定）
 
 #### 1.4. Integration Policy
 
@@ -116,8 +116,8 @@ IAM マネージドポリシーのサイズ制限（6144文字）により、デ
 - **EventBridge**: Event Bus、ルール、ターゲット管理
 - **Application Auto Scaling**: スケーリングターゲット、ポリシー管理
 
-**Export 値:**
-- `nagiyu-deploy-policy-integration-arn`: ポリシーの ARN
+**参照方法:**
+- `arn:aws:iam::{account}:policy/nagiyu-deploy-policy-integration`（`managedPolicyName` で固定）
 
 **デプロイコマンド:**
 ```bash
@@ -149,9 +149,9 @@ CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
 - `Application: nagiyu`
 - `Purpose: GitHub Actions CI/CD`
 
-**Export 値:**
-- `nagiyu-shared-github-actions-user-NagiyuGitHubActionsUserArn`: ユーザー ARN
-- `nagiyu-shared-github-actions-user-NagiyuGitHubActionsUserName`: ユーザー名
+**出力値（CfnOutput）:**
+- ユーザー ARN
+- ユーザー名
 
 **アクセスキー発行手順:**
 1. AWS マネジメントコンソールにログイン
@@ -183,9 +183,9 @@ CI/CD パイプライン（GitHub Actions）で使用する IAM ユーザー。
 - `Application: nagiyu`
 - `Purpose: Local developer`
 
-**Export 値:**
-- `nagiyu-shared-local-dev-user-NagiyuLocalDevUserArn`: ユーザー ARN
-- `nagiyu-shared-local-dev-user-NagiyuLocalDevUserName`: ユーザー名
+**出力値（CfnOutput）:**
+- ユーザー ARN
+- ユーザー名
 
 **アクセスキー発行手順:**
 1. AWS マネジメントコンソールにログイン
@@ -262,11 +262,11 @@ npx cdk deploy SharedIamUsers --require-approval never
 ### ステップ4: 動作確認
 
 ```bash
-# Export 確認
-aws cloudformation list-exports \
-  --query "Exports[?contains(Name, 'iam') || contains(Name, 'policy') || contains(Name, 'user')].{Name:Name,Value:Value}" \
-  --output table \
-  --region us-east-1
+# IAM ポリシー確認
+aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-core --region us-east-1
+aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-application --region us-east-1
+aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-container --region us-east-1
+aws iam get-policy --policy-arn arn:aws:iam::<account-id>:policy/nagiyu-deploy-policy-integration --region us-east-1
 ```
 
 ---
@@ -526,7 +526,7 @@ aws cloudformation deploy \
 
 ### ユーザー作成が失敗する
 
-**エラー:** `Export with name 'nagiyu-deploy-policy-xxx-arn' does not exist.`
+**エラー:** `NoSuchEntity: Policy arn:aws:iam::xxx:policy/nagiyu-deploy-policy-xxx does not exist.`
 
 **原因:** デプロイポリシーが先にデプロイされていない。
 

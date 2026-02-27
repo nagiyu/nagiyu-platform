@@ -4,9 +4,9 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { getEcrRepositoryName, getDynamoDBTableName } from '@nagiyu/infra-common';
+import { getEcrRepositoryName, getDynamoDBTableName, SSM_PARAMETERS } from '@nagiyu/infra-common';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -16,7 +16,9 @@ export interface BatchStackProps extends cdk.StackProps {
   encryptionSecretName?: string; // Optional, will be extracted from ARN if not provided
   screenshotBucketArn?: string; // Optional S3 bucket ARN for screenshots
   screenshotBucketName?: string; // Optional S3 bucket name for screenshots
-  vapidSecretArn: string; // VAPID Secret ARN for Web Push notifications
+  vapidSecretArn: string; // VAPID Secret ARN（IAM ポリシー用）
+  vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
+  vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
 }
 
 /**
@@ -47,6 +49,8 @@ export class BatchStack extends cdk.Stack {
       screenshotBucketArn,
       screenshotBucketName,
       vapidSecretArn,
+      vapidPublicKey,
+      vapidPrivateKey,
     } = props;
     const env = environment as 'dev' | 'prod';
 
@@ -54,14 +58,7 @@ export class BatchStack extends cdk.Stack {
     const secretName =
       encryptionSecretName ||
       encryptionSecretArn.split(':').pop()?.split('-').slice(0, -1).join('-') ||
-      `niconico-mylist-assistant/shared-secret-key-${env}`;
-
-    // VAPID Secret の参照
-    const vapidSecret = secretsmanager.Secret.fromSecretCompleteArn(
-      this,
-      'VapidSecret',
-      vapidSecretArn
-    );
+      `nagiyu-niconico-mylist-assistant-shared-secret-key-${env}`;
 
     // ECR リポジトリの参照
     const batchEcrRepositoryName = getEcrRepositoryName('niconico-mylist-assistant-batch', env);
@@ -74,20 +71,22 @@ export class BatchStack extends cdk.Stack {
     // DynamoDB テーブル名の取得
     const tableName = getDynamoDBTableName('niconico-mylist-assistant', env);
 
-    // 共有 VPC の参照
-    // vpcId が context で指定されている場合はそれを使用、そうでなければタグで検索
-    const vpcId = this.node.tryGetContext('vpcId');
-    const vpc = vpcId
-      ? ec2.Vpc.fromLookup(this, 'SharedVpc', { vpcId })
-      : ec2.Vpc.fromLookup(this, 'SharedVpc', {
-        tags: {
-          Name: `nagiyu-${env}-vpc`,
-        },
-      });
-
-    // Public Subnet の取得
-    const publicSubnets = vpc.selectSubnets({
-      subnetType: ec2.SubnetType.PUBLIC,
+    const vpcId = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.VPC_ID(env)
+    );
+    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(env)
+    );
+    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
+    const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
+      vpcId,
+      availabilityZones: env === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+      publicSubnetIds:
+        env === 'prod'
+          ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
+          : [cdk.Fn.select(0, publicSubnetIds)],
     });
 
     // Security Group の作成
@@ -111,7 +110,7 @@ export class BatchStack extends cdk.Stack {
 
     // CloudWatch Log Group for Batch
     const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
-      logGroupName: `/aws/batch/niconico-mylist-assistant-${env}`,
+      logGroupName: `/aws/batch/nagiyu-niconico-mylist-assistant-${env}`,
       retention: logs.RetentionDays.ONE_WEEK,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
@@ -130,7 +129,7 @@ export class BatchStack extends cdk.Stack {
 
     // IAM Role for Batch Job (コンテナランタイム用)
     const batchJobRole = new iam.Role(this, 'BatchJobRole', {
-      roleName: `niconico-mylist-assistant-batch-job-role-${environment}`,
+      roleName: `nagiyu-niconico-mylist-assistant-batch-job-role-${environment}`,
       assumedBy: new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
       description: 'Role for Batch job container runtime',
       managedPolicies: [this.batchRuntimePolicy],
@@ -138,20 +137,20 @@ export class BatchStack extends cdk.Stack {
 
     // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
     const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
-      computeEnvironmentName: `niconico-mylist-assistant-${env}`,
+      computeEnvironmentName: `nagiyu-niconico-mylist-assistant-${env}`,
       type: 'MANAGED',
       state: 'ENABLED',
       computeResources: {
         type: 'FARGATE',
         maxvCpus: 4, // 1.0 vCPU × 4 = 4 vCPU max
-        subnets: publicSubnets.subnetIds,
+        subnets: publicSubnetIds,
         securityGroupIds: [batchSecurityGroup.securityGroupId],
       },
     });
 
     // Batch Job Queue - L1 construct
     const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
-      jobQueueName: `niconico-mylist-assistant-${env}`,
+      jobQueueName: `nagiyu-niconico-mylist-assistant-${env}`,
       priority: 1,
       state: 'ENABLED',
       computeEnvironmentOrder: [
@@ -165,7 +164,7 @@ export class BatchStack extends cdk.Stack {
     // Batch Job Definition - L1 construct for AssignPublicIp support
     const batchImageTag = this.node.tryGetContext('batchImageTag') || 'latest';
     const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
-      jobDefinitionName: `niconico-mylist-assistant-${env}`,
+      jobDefinitionName: `nagiyu-niconico-mylist-assistant-${env}`,
       type: 'container',
       platformCapabilities: ['FARGATE'],
       containerProperties: {
@@ -208,11 +207,11 @@ export class BatchStack extends cdk.Stack {
           },
           {
             name: 'VAPID_PUBLIC_KEY',
-            value: vapidSecret.secretValueFromJson('publicKey').unsafeUnwrap(),
+            value: vapidPublicKey,
           },
           {
             name: 'VAPID_PRIVATE_KEY',
-            value: vapidSecret.secretValueFromJson('privateKey').unsafeUnwrap(),
+            value: vapidPrivateKey,
           },
           ...(screenshotBucketName
             ? [
@@ -237,7 +236,7 @@ export class BatchStack extends cdk.Stack {
     this.jobDefinitionArn = jobDefinition.attrJobDefinitionArn;
 
     // Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically via Fn::GetAtt
     new cdk.CfnOutput(this, 'BatchJobQueueArn', {
       value: jobQueue.attrJobQueueArn,
@@ -260,7 +259,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     // Runtime Policy (IAM スタックで参照するため)
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     new cdk.CfnOutput(this, 'BatchRuntimePolicyArn', {
       value: this.batchRuntimePolicy.managedPolicyArn,
       description: 'Batch Runtime Managed Policy ARN',

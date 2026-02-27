@@ -11,9 +11,6 @@ export interface LambdaStackProps extends cdk.StackProps {
 
 /**
  * Auth サービス用の Lambda スタック
- *
- * 既存の CloudFormation スタックとの互換性を保つため、
- * 論理ID を 'AuthFunction' に指定しています。
  */
 export class LambdaStack extends LambdaStackBase {
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
@@ -54,12 +51,7 @@ export class LambdaStack extends LambdaStackBase {
       ...stackProps,
       serviceName: 'auth',
       environment: environment as 'dev' | 'prod',
-      ecrRepositoryName: `nagiyu-auth-${environment}`,
       lambdaConfig: {
-        // 既存のリソース名を維持: nagiyu-auth-{env}
-        functionName: `nagiyu-auth-${environment}`,
-        // 既存の CloudFormation リソースとの互換性を保つため、論理IDを指定
-        logicalId: 'AuthFunction',
         memorySize: 512,
         timeout: 30,
         environment: {

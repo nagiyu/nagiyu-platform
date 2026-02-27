@@ -209,10 +209,10 @@ describe('LambdaStackBase', () => {
       const template = Template.fromStack(stack);
 
       // Check for outputs
-      template.hasOutput('FunctionName', {});
-      template.hasOutput('FunctionArn', {});
-      template.hasOutput('RoleArn', {});
-      template.hasOutput('FunctionUrl', {});
+      template.hasOutput('FunctionName', { Export: Match.absent() });
+      template.hasOutput('FunctionArn', { Export: Match.absent() });
+      template.hasOutput('RoleArn', { Export: Match.absent() });
+      template.hasOutput('FunctionUrl', { Export: Match.absent() });
     });
 
     it('should not export function URL when disabled', () => {
@@ -228,9 +228,9 @@ describe('LambdaStackBase', () => {
       const template = Template.fromStack(stack);
 
       // Check for outputs
-      template.hasOutput('FunctionName', {});
-      template.hasOutput('FunctionArn', {});
-      template.hasOutput('RoleArn', {});
+      template.hasOutput('FunctionName', { Export: Match.absent() });
+      template.hasOutput('FunctionArn', { Export: Match.absent() });
+      template.hasOutput('RoleArn', { Export: Match.absent() });
 
       // Function URL output should not exist
       expect(() => {

@@ -165,7 +165,7 @@ jobs:
           if [ -z "$REPOSITORY_URI" ]; then
             echo "Warning: Could not find ECR repository URI from stack, using default naming"
             ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-admin-$ENVIRONMENT"
+            REPOSITORY_URI="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/nagiyu-admin-ecr-$ENVIRONMENT"
           fi
 
           echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
@@ -265,7 +265,7 @@ jobs:
 
           if [ -z "$FUNCTION_ARN" ]; then
             echo "Warning: Could not find Lambda function ARN from stack"
-            FUNCTION_NAME="nagiyu-admin-$ENVIRONMENT"
+            FUNCTION_NAME="nagiyu-admin-lambda-$ENVIRONMENT"
           else
             # Extract function name from ARN
             FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')

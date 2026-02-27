@@ -54,25 +54,21 @@ export class SecretsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'GoogleOAuthSecretArn', {
       value: this.googleOAuthSecret.secretArn,
       description: 'Google OAuth Secret ARN',
-      exportName: `${this.stackName}-GoogleOAuthSecretArn`,
     });
 
     new cdk.CfnOutput(this, 'GoogleOAuthSecretName', {
       value: this.googleOAuthSecret.secretName,
       description: 'Google OAuth Secret Name',
-      exportName: `${this.stackName}-GoogleOAuthSecretName`,
     });
 
     new cdk.CfnOutput(this, 'NextAuthSecretArn', {
       value: this.nextAuthSecret.secretArn,
       description: 'NextAuth Secret ARN',
-      exportName: `${this.stackName}-NextAuthSecretArn`,
     });
 
     new cdk.CfnOutput(this, 'NextAuthSecretName', {
       value: this.nextAuthSecret.secretName,
       description: 'NextAuth Secret Name',
-      exportName: `${this.stackName}-NextAuthSecretName`,
     });
   }
 }

@@ -26,7 +26,7 @@ export class SecretsStack extends cdk.Stack {
     // AES-256-GCM で使用する32バイト（256ビット）のランダムキー
     // 32文字以上のランダム文字列を生成し、UTF-8バイト列として先頭32バイトを使用
     this.encryptionSecret = new secretsmanager.Secret(this, 'EncryptionSecret', {
-      secretName: `niconico-mylist-assistant/shared-secret-key-${environment}`,
+      secretName: `nagiyu-niconico-mylist-assistant-shared-secret-key-${environment}`,
       description: 'Shared encryption key for password encryption (AES-256-GCM)',
       generateSecretString: {
         passwordLength: 32,
@@ -41,7 +41,7 @@ export class SecretsStack extends cdk.Stack {
     cdk.Tags.of(this.encryptionSecret).add('Environment', environment);
 
     // CloudFormation Outputs
-    // Note: exportName is intentionally NOT used to allow flexible updates
+    // Note: CloudFormation export を使わず柔軟に更新できるようにする
     // CDK handles cross-stack references automatically
     new cdk.CfnOutput(this, 'EncryptionSecretArn', {
       value: this.encryptionSecret.secretArn,

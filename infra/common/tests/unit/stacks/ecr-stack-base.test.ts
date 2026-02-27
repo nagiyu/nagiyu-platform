@@ -162,9 +162,9 @@ describe('EcrStackBase', () => {
       const template = Template.fromStack(stack);
 
       // Check for outputs
-      template.hasOutput('RepositoryUri', {});
-      template.hasOutput('RepositoryArn', {});
-      template.hasOutput('RepositoryName', {});
+      template.hasOutput('RepositoryUri', { Export: Match.absent() });
+      template.hasOutput('RepositoryArn', { Export: Match.absent() });
+      template.hasOutput('RepositoryName', { Export: Match.absent() });
     });
   });
 
