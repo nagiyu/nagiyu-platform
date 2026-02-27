@@ -22,16 +22,15 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
   // ナビゲーションメニュー項目の定義
   const navigationItems: NavigationItem[] = [
     { label: 'チャート', href: '/' },
-    { label: 'サマリー', href: '/summaries' },
-    { label: '保有株式', href: '/holdings' },
-    { label: 'ウォッチリスト', href: '/watchlist' },
-    { label: 'アラート', href: '/alerts' },
     ...(session?.user &&
     'roles' in session.user &&
     Array.isArray(session.user.roles) &&
     hasPermission(session.user.roles, 'stocks:read')
       ? [{ label: 'サマリー', href: '/summaries' }]
       : []),
+    { label: '保有株式', href: '/holdings' },
+    { label: 'ウォッチリスト', href: '/watchlist' },
+    { label: 'アラート', href: '/alerts' },
     // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）
     ...(session?.user &&
     'roles' in session.user &&

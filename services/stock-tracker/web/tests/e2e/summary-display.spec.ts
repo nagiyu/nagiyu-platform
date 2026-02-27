@@ -7,7 +7,7 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
     await expect(page.getByText('NASDAQ')).toBeVisible();
     await expect(page.getByText('AAPL')).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '終値' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '終値' }).first()).toBeVisible();
     await expect.poll(async () => page.locator('tbody tr').count()).toBeGreaterThanOrEqual(1);
   });
 
