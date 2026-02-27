@@ -244,13 +244,8 @@ DailySummary は比較的シンプルな状態遷移を持つ:
 ```typescript
 // validateDailySummary(summary: DailySummary): ValidationResult
 
-// 必須チェック
+// 必須チェック（保存前のデータ整合性）
 - TickerID: 非空文字列、'{Key}:{Symbol}' 形式
 - ExchangeID: 非空文字列
 - Date: 'YYYY-MM-DD' 形式（正規表現: /^\d{4}-\d{2}-\d{2}$/）
-- Open, High, Low, Close: 正の数値（> 0）
-
-// 整合性チェック（SHOULD）
-- High >= Open, High >= Low, High >= Close
-- Low <= Open, Low <= High, Low <= Close
 ```

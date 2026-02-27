@@ -66,12 +66,12 @@ USE_IN_MEMORY_REPOSITORY=true npm run dev
 ### 3.1 バッチのビルドと実行
 
 ```bash
-cd services/stock-tracker/batch
-npm run build
+# モノレポルートで実行
+npm run build --workspace @nagiyu/stock-tracker-batch
 
 # バッチを手動実行（モック EventBridge イベント）
 node -e "
-const { handler } = await import('./dist/src/summary.js');
+const { handler } = await import('./services/stock-tracker/batch/dist/src/summary.js');
 const event = {
   version: '0', id: 'test-001', 'detail-type': 'Scheduled Event',
   source: 'aws.events', account: '123456789', time: new Date().toISOString(),
@@ -85,8 +85,7 @@ console.log(JSON.stringify(result, null, 2));
 ### 3.2 バッチのユニットテスト実行
 
 ```bash
-cd services/stock-tracker/batch
-npm run test -- --testPathPattern="summary"
+npm run test --workspace @nagiyu/stock-tracker-batch -- --testPathPattern="summary"
 ```
 
 ---
@@ -96,8 +95,7 @@ npm run test -- --testPathPattern="summary"
 ### 4.1 DailySummary リポジトリのテスト
 
 ```bash
-cd services/stock-tracker/core
-npm run test -- --testPathPattern="daily-summary"
+npm run test --workspace @nagiyu/stock-tracker-core -- --testPathPattern="daily-summary"
 ```
 
 ### 4.2 カバレッジ確認（80% 以上が目標）

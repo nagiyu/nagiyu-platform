@@ -32,7 +32,7 @@
 ## 2. TradingView `getChartData` の日次サマリー取得方法
 
 ### 決定事項
-- `getChartData(tickerId, 'D', { count: 1, session: 'regular' })` で当日または直近の日次 OHLCV を取得する
+- `getChartData(tickerId, 'D', { count: 1, session: 'extended' })` で当日または直近の日次 OHLCV を取得する
 - 返却される `ChartDataPoint[0]` の `{ open, high, low, close, time }` をそのまま DailySummary に格納する
 - `DailySummary.Date` は `ChartDataPoint.time`（ミリ秒）から UTC 日付（`YYYY-MM-DD`）に変換して設定する
 
@@ -40,14 +40,14 @@
 - `getChartData` は既存の `tradingview-client.ts` に実装済み。追加実装不要
 - タイムフレーム `'D'` は `SUPPORTED_TIMEFRAMES` に含まれており、既存バリデーションを通過する
 - `count: 1` で最新の1日足のみ取得することでレスポンスを最小化できる
-- `session: 'regular'` を使用することで取引時間内のデータのみを対象とし、拡張時間のデータを除外できる（始値・終値の正確性向上）
+- `session: 'extended'` を使用することで時間外取引データを含む OHLCV を取得できる。`tradingview-client.ts` のデフォルトも `'extended'` であり、取引所の終了時刻も時間外取引の終了タイミングで設定されているため、整合性が保たれる
 - `ChartDataPoint.time` はミリ秒 Unix タイムスタンプであり、`new Date(time).toISOString().split('T')[0]` で `YYYY-MM-DD` 変換が可能
 
 ### 検討した代替案と却下理由
 | 代替案 | 却下理由 |
 |--------|---------|
 | `count: 2` で前日データも取得 | サマリー生成時は当日データのみで十分。ストレージ節約と処理シンプル化のため不要 |
-| `session: 'extended'` | 時間外取引データを含むと始値・終値が正規取引時間外の値になる可能性があり、一般的な日次サマリーとして不適切 |
+| `session: 'regular'` | 取引所の終了時刻が時間外取引の終了タイミングで設定されているため、`regular` では期待通りのデータが取得できない |
 | TradingView 以外の API | 既存インフラが TradingView に依存しており、新規 API 統合のコストが高い |
 
 ---
