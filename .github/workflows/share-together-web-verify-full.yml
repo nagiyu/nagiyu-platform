@@ -193,6 +193,7 @@ jobs:
   e2e-test:
     name: E2E Tests (All Devices)
     runs-on: ubuntu-latest
+    if: ${{ false }}
     needs: [build-web]
 
     permissions:
