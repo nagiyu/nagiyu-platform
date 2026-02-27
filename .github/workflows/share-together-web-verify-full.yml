@@ -12,6 +12,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/share-together-web-verify-full.yml'
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Check

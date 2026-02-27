@@ -12,6 +12,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/share-together-web-verify-fast.yml'
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Check
@@ -200,8 +203,7 @@ jobs:
       - name: Run E2E tests (chromium-mobile only)
         env:
           CI: true
-          PROJECT: chromium-mobile
-        run: npm run test:e2e --workspace=@nagiyu/share-together-web
+        run: npm run test:e2e --workspace=@nagiyu/share-together-web -- --project=chromium-mobile
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
