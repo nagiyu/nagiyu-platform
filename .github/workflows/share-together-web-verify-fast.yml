@@ -196,7 +196,6 @@ jobs:
   e2e-test-web:
     name: E2E Tests (chromium-mobile only)
     runs-on: ubuntu-latest
-    if: ${{ false }}
     needs: [build-web]
 
     permissions:
