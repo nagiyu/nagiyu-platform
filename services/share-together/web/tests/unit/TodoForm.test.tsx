@@ -15,4 +15,15 @@ describe('TodoForm', () => {
     fireEvent.click(submitButton);
     expect(input).toHaveValue('');
   });
+
+  it('空白のみの入力では送信ボタンが無効になる', () => {
+    render(<TodoForm />);
+
+    const input = screen.getByRole('textbox', { name: 'タイトル' });
+    const submitButton = screen.getByRole('button', { name: '追加' });
+
+    expect(submitButton).toBeDisabled();
+    fireEvent.change(input, { target: { value: '   ' } });
+    expect(submitButton).toBeDisabled();
+  });
 });

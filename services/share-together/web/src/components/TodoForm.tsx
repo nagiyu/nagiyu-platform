@@ -5,9 +5,13 @@ import { Box, Button, TextField } from '@mui/material';
 
 export function TodoForm() {
   const [title, setTitle] = useState('');
+  const isTitleEmpty = title.trim() === '';
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (isTitleEmpty) {
+      return;
+    }
     setTitle('');
   };
 
@@ -20,7 +24,7 @@ export function TodoForm() {
         size="small"
         fullWidth
       />
-      <Button type="submit" variant="contained">
+      <Button type="submit" variant="contained" disabled={isTitleEmpty}>
         追加
       </Button>
     </Box>
