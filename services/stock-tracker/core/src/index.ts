@@ -68,6 +68,11 @@ export type {
   UpdateExchangeInput,
 } from './entities/exchange.entity.js';
 export type { WatchlistEntity, CreateWatchlistInput } from './entities/watchlist.entity.js';
+export type {
+  DailySummaryEntity,
+  CreateDailySummaryInput,
+  DailySummaryKey,
+} from './entities/daily-summary.entity.js';
 
 // Mappers
 export * from './mappers/alert.mapper.js';
