@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Navigation } from '@/components/Navigation';
 import {
   Box,
@@ -67,7 +68,7 @@ export default async function GroupDetailPage({
               <List>
                 {MOCK_GROUP_LISTS.map((list) => (
                   <ListItem key={list.listId} disablePadding>
-                    <ListItemButton component="a" href={`/groups/${groupId}/lists/${list.listId}`}>
+                    <ListItemButton component={Link} href={`/groups/${groupId}/lists/${list.listId}`}>
                       <ListItemText primary={list.name} />
                     </ListItemButton>
                   </ListItem>
@@ -83,8 +84,14 @@ export default async function GroupDetailPage({
               </Typography>
               <Box component="form">
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <TextField fullWidth label="メールアドレス" placeholder="example@nagiyu.com" />
-                  <Button type="submit" variant="contained">
+                  <TextField
+                    id="invite-email"
+                    fullWidth
+                    type="email"
+                    label="メールアドレス"
+                    placeholder="example@nagiyu.com"
+                  />
+                  <Button type="button" variant="contained">
                     招待を送信（モック）
                   </Button>
                 </Stack>
