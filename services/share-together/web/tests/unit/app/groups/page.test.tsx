@@ -8,6 +8,7 @@ describe('GroupsPage', () => {
 
     expect(screen.getByRole('heading', { name: 'グループ一覧' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'グループを作成' })).toBeInTheDocument();
+    expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(3);
     expect(screen.getByRole('link', { name: /家族/ })).toHaveAttribute(
       'href',
       '/groups/mock-family-group'
