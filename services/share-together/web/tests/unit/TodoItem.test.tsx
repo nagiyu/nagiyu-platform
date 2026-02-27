@@ -40,6 +40,36 @@ describe('TodoItem', () => {
 
     expect(onToggleComplete).toHaveBeenCalledWith('todo-2');
     expect(onDelete).toHaveBeenCalledWith('todo-2');
-    expect(screen.getByText('資料を提出する')).toHaveStyle({ textDecoration: 'line-through' });
+  });
+
+  it('完了済みアイテムは初期表示で打ち消し線になる', () => {
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-3',
+          title: '議事録を確認する',
+          isCompleted: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('議事録を確認する')).toHaveStyle({ textDecoration: 'line-through' });
+  });
+
+  it('コールバック未指定でも操作時にエラーにならない', () => {
+    render(
+      <TodoItem
+        todo={{
+          todoId: 'todo-4',
+          title: '掃除をする',
+          isCompleted: false,
+        }}
+      />,
+    );
+
+    expect(() => {
+      fireEvent.click(screen.getByRole('checkbox', { name: '掃除をするの完了チェック' }));
+      fireEvent.click(screen.getByRole('button', { name: '削除' }));
+    }).not.toThrow();
   });
 });
