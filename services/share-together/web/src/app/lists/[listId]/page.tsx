@@ -1,7 +1,6 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import { Navigation } from '@/components/Navigation';
-import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
-import { TodoList } from '@/components/TodoList';
+import { ListWorkspace } from '@/components/ListWorkspace';
 
 const MOCK_LIST_NAMES: Record<string, string> = {
   'mock-default-list': 'デフォルトリスト',
@@ -27,20 +26,7 @@ export default async function PersonalListDetailPage({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           リストID: {listId}
         </Typography>
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
-          <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
-            <ListSidebar
-              heading="個人リスト"
-              createButtonLabel="個人リストを作成"
-              selectedListId={listId}
-              lists={MOCK_PERSONAL_LISTS}
-              hrefPrefix="/lists"
-            />
-          </Box>
-          <Box sx={{ flexGrow: 1, width: '100%' }}>
-            <TodoList listId={listId} />
-          </Box>
-        </Stack>
+        <ListWorkspace initialListId={listId} />
       </Box>
     </main>
   );

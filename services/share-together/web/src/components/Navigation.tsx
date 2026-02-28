@@ -5,7 +5,7 @@ import { InvitationBadge } from '@/components/InvitationBadge';
 
 const NAV_ITEMS = [
   { label: 'ホーム', href: '/' },
-  { label: 'リスト', href: '/lists/mock-list' },
+  { label: 'リスト', href: '/lists/mock-default-list' },
   { label: 'グループ', href: '/groups' },
 ] as const;
 

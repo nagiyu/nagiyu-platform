@@ -72,6 +72,18 @@ const MOCK_TODOS_BY_SCOPE: Record<
         isCompleted: true,
       },
     ],
+    'mock-list-3': [
+      {
+        todoId: 'mock-group-3-todo-1',
+        title: 'ゴミ出し当番を確認する',
+        isCompleted: false,
+      },
+      {
+        todoId: 'mock-group-3-todo-2',
+        title: '消耗品の購入担当を決める',
+        isCompleted: true,
+      },
+    ],
   },
 };
 
