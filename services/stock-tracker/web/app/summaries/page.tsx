@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -53,7 +53,7 @@ export default function SummariesPage() {
   const [dateFilter, setDateFilter] = useState('');
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
 
-  const fetchSummaries = async (date: string) => {
+  const fetchSummaries = useCallback(async (date: string) => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
@@ -84,14 +84,14 @@ export default function SummariesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const initialDate = searchParams.get('date') ?? '';
     setDateFilter(initialDate);
     void fetchSummaries(initialDate);
-  }, []);
+  }, [fetchSummaries]);
 
   const handleDateFilterChange = (value: string) => {
     setDateFilter(value);
