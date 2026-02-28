@@ -26,7 +26,7 @@ export default async function GroupListDetailPage({
           <Button type="button" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
             更新（モック）
           </Button>
-          <TodoList />
+          <TodoList scope="group" />
         </Stack>
       </Container>
     </main>
