@@ -36,7 +36,9 @@ describe('PersonalListDetailPage', () => {
       })
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: '個人リスト（モック）' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: '個人リスト（モック）' })
+    ).toBeInTheDocument();
     expect(screen.getByText('リストID: unknown-list')).toBeInTheDocument();
   });
 });
