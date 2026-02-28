@@ -1,8 +1,10 @@
 'use client';
 
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Box, Button, Snackbar, Stack, Typography } from '@mui/material';
 import { Navigation } from '@/components/Navigation';
 import { GroupCard } from '@/components/GroupCard';
+import { CreateItemDialog } from '@/components/CreateItemDialog';
 
 const MOCK_GROUPS = [
   { groupId: 'mock-family-group', name: '家族', memberCount: 3 },
@@ -11,6 +13,13 @@ const MOCK_GROUPS = [
 ] as const;
 
 export default function GroupsPage() {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const handleCreateGroup = (name: string) => {
+    setSnackbarMessage(`グループ「${name}」を作成しました（モック）。`);
+  };
+
   return (
     <main>
       <Navigation />
@@ -19,7 +28,7 @@ export default function GroupsPage() {
           <Typography variant="h5" component="h1">
             グループ一覧
           </Typography>
-          <Button variant="contained" onClick={() => alert('グループを作成（モック）')}>
+          <Button variant="contained" onClick={() => setCreateDialogOpen(true)}>
             グループを作成
           </Button>
         </Stack>
@@ -34,6 +43,19 @@ export default function GroupsPage() {
           ))}
         </Stack>
       </Box>
+      <CreateItemDialog
+        open={createDialogOpen}
+        title="グループを作成"
+        label="グループ名"
+        onClose={() => setCreateDialogOpen(false)}
+        onCreate={handleCreateGroup}
+      />
+      <Snackbar
+        open={snackbarMessage !== null}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarMessage(null)}
+        message={snackbarMessage}
+      />
     </main>
   );
 }

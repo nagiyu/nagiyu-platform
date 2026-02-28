@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { List, Paper, Stack, Typography } from '@mui/material';
+import { List, Paper, Snackbar, Stack, Typography } from '@mui/material';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TodoForm } from '@/components/TodoForm';
 import { TodoItem } from '@/components/TodoItem';
 import type { TodoItem as TodoItemType } from '@/types';
@@ -128,6 +129,8 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
   const [todos, setTodos] = useState(
     () => todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? []
   );
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const handleToggleComplete = (todoId: string) => {
     setTodos((prev) =>
@@ -137,8 +140,20 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
     );
   };
 
-  const handleDelete = (todoId: string) => {
-    setTodos((prev) => prev.filter((todo) => todo.todoId !== todoId));
+  const handleDeleteRequest = (todoId: string) => {
+    setPendingDeleteId(todoId);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (pendingDeleteId) {
+      setTodos((prev) => prev.filter((todo) => todo.todoId !== pendingDeleteId));
+      setSnackbarMessage('ToDoを削除しました。');
+      setPendingDeleteId(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setPendingDeleteId(null);
   };
 
   const handleAdd = (title: string) => {
@@ -148,6 +163,7 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
       isCompleted: false,
     };
     setTodos((prev) => [...prev, newTodo]);
+    setSnackbarMessage('ToDoを追加しました。');
   };
 
   return (
@@ -163,11 +179,24 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
               key={todo.todoId}
               todo={todo}
               onToggleComplete={handleToggleComplete}
-              onDelete={handleDelete}
+              onDelete={handleDeleteRequest}
             />
           ))}
         </List>
       </Stack>
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="ToDoを削除"
+        description="このToDoを削除しますか？"
+        onConfirm={handleDeleteConfirm}
+        onCancel={handleDeleteCancel}
+      />
+      <Snackbar
+        open={snackbarMessage !== null}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarMessage(null)}
+        message={snackbarMessage}
+      />
     </Paper>
   );
 }

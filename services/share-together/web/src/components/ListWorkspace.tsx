@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Box, FormControl, InputLabel, MenuItem, Select, Stack } from '@mui/material';
+import { Box, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack } from '@mui/material';
+import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
 
@@ -38,6 +39,8 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
   const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
   const [selectedGroupId, setSelectedGroupId] = useState(initialSharedGroupId);
   const [selectedListId, setSelectedListId] = useState(initialListId);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
   const sharedLists = useMemo(
     () => MOCK_SHARED_LISTS_BY_GROUP[selectedGroupId] ?? [],
@@ -47,6 +50,14 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
   const sidebarLists = scope === 'personal' ? MOCK_PERSONAL_LISTS : sharedLists;
   const selectedInCurrentScope = sidebarLists.find((list) => list.listId === selectedListId);
   const currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? selectedListId;
+
+  const handleCreateList = (name: string) => {
+    setSnackbarMessage(
+      scope === 'personal'
+        ? `個人リスト「${name}」を作成しました（モック）。`
+        : `共有リスト「${name}」を作成しました（モック）。`
+    );
+  };
 
   return (
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
@@ -106,11 +117,7 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
             selectedListId={currentListId}
             lists={sidebarLists}
             hrefPrefix="/lists"
-            onCreateList={() =>
-              alert(
-                scope === 'personal' ? '個人リストを作成（モック）' : '共有リストを作成（モック）'
-              )
-            }
+            onCreateList={() => setCreateDialogOpen(true)}
           />
         </Stack>
       </Box>
@@ -121,6 +128,19 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
           listId={currentListId}
         />
       </Box>
+      <CreateItemDialog
+        open={createDialogOpen}
+        title={scope === 'personal' ? '個人リストを作成' : '共有リストを作成'}
+        label="リスト名"
+        onClose={() => setCreateDialogOpen(false)}
+        onCreate={handleCreateList}
+      />
+      <Snackbar
+        open={snackbarMessage !== null}
+        autoHideDuration={3000}
+        onClose={() => setSnackbarMessage(null)}
+        message={snackbarMessage}
+      />
     </Stack>
   );
 }
