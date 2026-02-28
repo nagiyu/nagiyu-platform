@@ -1,6 +1,12 @@
 import { Navigation } from '@/components/Navigation';
 import { TodoList } from '@/components/TodoList';
-import { Button, Container, Stack, Typography } from '@mui/material';
+import { ListSidebar } from '@/components/ListSidebar';
+import { Box, Button, Container, Stack, Typography } from '@mui/material';
+
+const MOCK_GROUP_LISTS = [
+  { listId: 'mock-list-1', name: '買い物リスト（共有）' },
+  { listId: 'mock-list-2', name: '旅行準備リスト' },
+] as const;
 
 export default async function GroupListDetailPage({
   params,
@@ -26,7 +32,20 @@ export default async function GroupListDetailPage({
           <Button type="button" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
             更新（モック）
           </Button>
-          <TodoList scope="group" />
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+            <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
+              <ListSidebar
+                heading="共有リスト"
+                createButtonLabel="共有リストを作成"
+                selectedListId={listId}
+                lists={MOCK_GROUP_LISTS}
+                hrefPrefix={`/groups/${groupId}/lists`}
+              />
+            </Box>
+            <Box sx={{ flexGrow: 1, width: '100%' }}>
+              <TodoList scope="group" listId={listId} />
+            </Box>
+          </Stack>
         </Stack>
       </Container>
     </main>
