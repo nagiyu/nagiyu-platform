@@ -96,6 +96,7 @@ export * from './repositories/in-memory-holding.repository.js';
 export * from './repositories/in-memory-ticker.repository.js';
 export * from './repositories/in-memory-exchange.repository.js';
 export * from './repositories/in-memory-watchlist.repository.js';
+export * from './repositories/in-memory-daily-summary.repository.js';
 
 // Services
 export * from './services/auth.js';
