@@ -1,6 +1,40 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('サマリー画面スモークテスト', () => {
+  test('データあり表示: サマリーの詳細が正しく表示される', async ({ page }) => {
+    await page.goto('/summaries');
+
+    const aaplRow = page
+      .locator('tbody tr')
+      .filter({ has: page.getByRole('cell', { name: 'AAPL' }) })
+      .first();
+
+    await expect(aaplRow.getByRole('cell', { name: 'Apple Inc.' })).toBeVisible();
+    await expect(aaplRow.getByRole('cell', { name: '182.15' })).toBeVisible();
+    await expect(aaplRow.getByRole('cell', { name: '183.92' })).toBeVisible();
+    await expect(aaplRow.getByRole('cell', { name: '181.44' })).toBeVisible();
+    await expect(aaplRow.getByRole('cell', { name: '183.31' })).toBeVisible();
+  });
+
+  test('データなし空状態: 空状態メッセージが表示される', async ({ page }) => {
+    await page.goto('/summaries');
+
+    await expect(page.getByRole('heading', { name: 'TSE' })).toBeVisible();
+    await expect(page.getByText('最新更新: -')).toBeVisible();
+    await expect(page.getByText('データがありません')).toBeVisible();
+  });
+
+  test('取引所グループ化: 取引所ごとにサマリーが表示される', async ({ page }) => {
+    await page.goto('/summaries');
+
+    await expect(page.getByRole('heading', { name: 'NASDAQ' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'NYSE' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'TSE' })).toBeVisible();
+    await expect(page.getByText('AAPL')).toBeVisible();
+    await expect(page.getByText('JNJ')).toBeVisible();
+    await expect.poll(async () => page.getByRole('table').count()).toBe(2);
+  });
+
   test('仮データでサマリーページが表示される', async ({ page }) => {
     await page.goto('/summaries');
 
