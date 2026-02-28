@@ -24,7 +24,7 @@ export interface LambdaStackProps extends cdk.StackProps {
 /**
  * Stock Tracker Lambda Stack
  *
- * Web Lambda（Next.js）と Batch Lambda（4関数）を作成します。
+ * Web Lambda 1関数と Batch Lambda 4関数（minute, hourly, summary, daily）の合計5関数を作成します。
  * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
  * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
  */

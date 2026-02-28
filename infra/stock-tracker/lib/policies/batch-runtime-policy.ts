@@ -35,6 +35,7 @@ export interface BatchRuntimePolicyProps {
  *
  * 含まれる権限:
  * - DynamoDB: バッチ実行に必要なアクセス (Query, Scan, GetItem, UpdateItem, PutItem)
+ *   - PutItem は日次サマリーデータ保存（Summary バッチ）で使用
  *   - DeleteItem は不可（最小権限の原則）
  * - Secrets Manager: VAPID キーの読み取り (Web Push 通知用)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
