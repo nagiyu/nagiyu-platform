@@ -1,11 +1,17 @@
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 
-jest.mock('../../../../../../auth', () => ({
-  handlers: {
-    GET: mockGet,
-    POST: mockPost,
-  },
+jest.mock('next-auth', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    handlers: {
+      GET: mockGet,
+      POST: mockPost,
+    },
+    auth: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+  })),
 }));
 
 import { GET, POST } from '@/app/api/auth/[...nextauth]/route';
