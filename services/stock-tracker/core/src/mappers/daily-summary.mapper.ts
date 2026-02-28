@@ -72,20 +72,6 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
   }
 
   /**
-   * DailySummaryEntity を DynamoDB Item に変換（互換メソッド）
-   */
-  public toDynamoDB(entity: DailySummaryEntity): DynamoDBItem {
-    return this.toItem(entity);
-  }
-
-  /**
-   * DynamoDB Item を DailySummaryEntity に変換（互換メソッド）
-   */
-  public fromDynamoDB(item: DynamoDBItem): DailySummaryEntity {
-    return this.toEntity(item);
-  }
-
-  /**
    * ビジネスキーから PK/SK を構築
    *
    * @param key - DailySummary Key

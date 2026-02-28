@@ -141,8 +141,8 @@ describe('DailySummaryMapper', () => {
     });
   });
 
-  describe('toDynamoDB / fromDynamoDB', () => {
-    it('toDynamoDB と fromDynamoDB で往復変換できる', () => {
+  describe('変換の往復', () => {
+    it('toItem と toEntity で往復変換できる', () => {
       const entity: DailySummaryEntity = {
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -155,8 +155,8 @@ describe('DailySummaryMapper', () => {
         UpdatedAt: 1708992000000,
       };
 
-      const item = mapper.toDynamoDB(entity);
-      const convertedEntity = mapper.fromDynamoDB(item);
+      const item = mapper.toItem(entity);
+      const convertedEntity = mapper.toEntity(item);
 
       expect(convertedEntity).toEqual(entity);
     });
