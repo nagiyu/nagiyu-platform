@@ -28,8 +28,8 @@ export interface DailySummaryRepository {
    * 取引所IDでサマリーを取得
    *
    * @param exchangeId - 取引所ID
-   * @param date - 対象日 (YYYY-MM-DD)。省略時は最新データを取得
-   * @returns サマリーの配列
+   * @param date - 対象日 (YYYY-MM-DD)。省略時は取引所内でデータが存在する最も新しい日付の全サマリーを取得
+   * @returns 指定日（または取引所内の最も新しい日付）のサマリー配列
    */
   getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]>;
 
