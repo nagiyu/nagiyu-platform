@@ -8,6 +8,7 @@ import { TodoList } from '@/components/TodoList';
 const MOCK_SHARED_GROUPS = [
   { groupId: 'mock-family-group', name: '家族' },
   { groupId: 'mock-roommate-group', name: 'ルームメイト' },
+  { groupId: 'mock-project-group', name: 'プロジェクトA' },
 ] as const;
 
 const MOCK_SHARED_LISTS_BY_GROUP: Record<string, readonly { listId: string; name: string }[]> = {
@@ -16,6 +17,10 @@ const MOCK_SHARED_LISTS_BY_GROUP: Record<string, readonly { listId: string; name
     { listId: 'mock-list-2', name: '旅行準備リスト' },
   ],
   'mock-roommate-group': [{ listId: 'mock-list-3', name: 'ルームメイト家事分担' }],
+  'mock-project-group': [
+    { listId: 'mock-list-4', name: 'プロジェクト進捗' },
+    { listId: 'mock-list-5', name: 'アイデア共有' },
+  ],
 };
 
 const PERSONAL_LIST_IDS = new Set<string>(MOCK_PERSONAL_LISTS.map((list) => list.listId));
@@ -101,11 +106,20 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
             selectedListId={currentListId}
             lists={sidebarLists}
             hrefPrefix="/lists"
+            onCreateList={() =>
+              alert(
+                scope === 'personal' ? '個人リストを作成（モック）' : '共有リストを作成（モック）'
+              )
+            }
           />
         </Stack>
       </Box>
       <Box sx={{ flexGrow: 1, width: '100%' }}>
-        <TodoList scope={scope === 'personal' ? 'personal' : 'group'} listId={currentListId} />
+        <TodoList
+          key={currentListId}
+          scope={scope === 'personal' ? 'personal' : 'group'}
+          listId={currentListId}
+        />
       </Box>
     </Stack>
   );

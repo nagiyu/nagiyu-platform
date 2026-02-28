@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { List, Paper, Stack, Typography } from '@mui/material';
 import { TodoForm } from '@/components/TodoForm';
 import { TodoItem } from '@/components/TodoItem';
@@ -84,6 +85,30 @@ const MOCK_TODOS_BY_SCOPE: Record<
         isCompleted: true,
       },
     ],
+    'mock-list-4': [
+      {
+        todoId: 'mock-group-4-todo-1',
+        title: 'スプリント計画を立てる',
+        isCompleted: false,
+      },
+      {
+        todoId: 'mock-group-4-todo-2',
+        title: '先週のタスクを振り返る',
+        isCompleted: true,
+      },
+    ],
+    'mock-list-5': [
+      {
+        todoId: 'mock-group-5-todo-1',
+        title: '新機能のアイデアを投稿する',
+        isCompleted: false,
+      },
+      {
+        todoId: 'mock-group-5-todo-2',
+        title: 'ユーザーフィードバックをまとめる',
+        isCompleted: false,
+      },
+    ],
   },
 };
 
@@ -100,7 +125,30 @@ type TodoListProps = {
 export function TodoList({ scope = 'personal', listId }: TodoListProps) {
   const todosByList = MOCK_TODOS_BY_SCOPE[scope];
   const fallbackListId = DEFAULT_LIST_ID_BY_SCOPE[scope];
-  const todos = todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? [];
+  const [todos, setTodos] = useState(
+    () => todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? []
+  );
+
+  const handleToggleComplete = (todoId: string) => {
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.todoId === todoId ? { ...todo, isCompleted: !todo.isCompleted } : todo
+      )
+    );
+  };
+
+  const handleDelete = (todoId: string) => {
+    setTodos((prev) => prev.filter((todo) => todo.todoId !== todoId));
+  };
+
+  const handleAdd = (title: string) => {
+    const newTodo = {
+      todoId: crypto.randomUUID(),
+      title,
+      isCompleted: false,
+    };
+    setTodos((prev) => [...prev, newTodo]);
+  };
 
   return (
     <Paper sx={{ p: 2 }}>
@@ -108,10 +156,15 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
         <Typography variant="h6" component="h2">
           ToDo
         </Typography>
-        <TodoForm />
+        <TodoForm onAdd={handleAdd} />
         <List disablePadding>
           {todos.map((todo) => (
-            <TodoItem key={todo.todoId} todo={todo} />
+            <TodoItem
+              key={todo.todoId}
+              todo={todo}
+              onToggleComplete={handleToggleComplete}
+              onDelete={handleDelete}
+            />
           ))}
         </List>
       </Stack>

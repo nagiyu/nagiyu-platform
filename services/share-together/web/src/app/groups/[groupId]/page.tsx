@@ -1,7 +1,6 @@
 import { Navigation } from '@/components/Navigation';
+import { InviteForm } from '@/components/InviteForm';
 import {
-  Box,
-  Button,
   Card,
   CardContent,
   Container,
@@ -9,7 +8,6 @@ import {
   ListItem,
   ListItemText,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
 
@@ -67,26 +65,7 @@ export default async function GroupDetailPage({
               <Typography variant="h6" component="h2" gutterBottom>
                 メンバー招待フォーム
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                {isOwner
-                  ? 'オーナーとしてメンバーを招待できます。'
-                  : 'このグループではメンバー追加はできません（オーナーのみ）。'}
-              </Typography>
-              <Box component="form">
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <TextField
-                    id="invite-email"
-                    fullWidth
-                    type="email"
-                    label="メールアドレス"
-                    placeholder="example@nagiyu.com"
-                    disabled={!isOwner}
-                  />
-                  <Button type="button" variant="contained" disabled={!isOwner}>
-                    招待を送信（モック）
-                  </Button>
-                </Stack>
-              </Box>
+              <InviteForm isOwner={isOwner} />
             </CardContent>
           </Card>
         </Stack>
