@@ -1,7 +1,7 @@
 import { Navigation } from '@/components/Navigation';
+import { MockActionButton } from '@/components/MockActionButton';
 import {
   Box,
-  Button,
   Card,
   CardActions,
   CardContent,
@@ -58,12 +58,16 @@ export default function InvitationsPage() {
               </CardContent>
               <CardActions sx={{ px: 2, pb: 2 }}>
                 <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button variant="contained" color="primary">
-                    承認
-                  </Button>
-                  <Button variant="outlined" color="inherit">
-                    拒否
-                  </Button>
+                  <MockActionButton
+                    label="承認"
+                    feedback="承認 を押下しました（モック）"
+                    buttonProps={{ variant: 'contained', color: 'primary' }}
+                  />
+                  <MockActionButton
+                    label="拒否"
+                    feedback="拒否 を押下しました（モック）"
+                    buttonProps={{ variant: 'outlined', color: 'inherit' }}
+                  />
                 </Box>
               </CardActions>
             </Card>

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import InvitationsPage from '@/app/invitations/page';
 
 jest.mock('@/components/Navigation', () => ({
@@ -16,5 +16,10 @@ describe('InvitationsPage', () => {
     expect(screen.getByText('旅行準備リスト')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: '承認' })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: '拒否' })).toHaveLength(2);
+
+    fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '拒否' })[0]);
+    expect(screen.getByText('承認 を押下しました（モック）')).toBeInTheDocument();
+    expect(screen.getByText('拒否 を押下しました（モック）')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import { Navigation } from '@/components/Navigation';
 import { GroupCard } from '@/components/GroupCard';
+import { MockActionButton } from '@/components/MockActionButton';
 
 const MOCK_GROUPS = [
   { groupId: 'mock-family-group', name: '家族', memberCount: 3 },
@@ -17,7 +18,11 @@ export default function GroupsPage() {
           <Typography variant="h5" component="h1">
             グループ一覧
           </Typography>
-          <Button variant="contained">グループを作成</Button>
+          <MockActionButton
+            label="グループを作成"
+            feedback="グループを作成 を押下しました（モック）"
+            buttonProps={{ variant: 'contained' }}
+          />
         </Stack>
         <Stack spacing={2}>
           {MOCK_GROUPS.map((group) => (

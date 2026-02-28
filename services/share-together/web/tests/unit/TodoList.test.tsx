@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { TodoList } from '@/components/TodoList';
 
 describe('TodoList', () => {
@@ -32,5 +32,26 @@ describe('TodoList', () => {
 
     expect(screen.getByText('パスポートの期限を確認する')).toBeInTheDocument();
     expect(screen.queryByText('会議用の議題を共有する')).not.toBeInTheDocument();
+  });
+
+  it('追加・完了・削除ボタン押下時に一覧表示を更新する', () => {
+    render(<TodoList listId="mock-default-list" />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'タイトル' }), {
+      target: { value: '新しいタスク' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '追加' }));
+    expect(screen.getByText('新しいタスク')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '新しいタスクの完了チェック' }));
+    expect(screen.getByRole('checkbox', { name: '新しいタスクの完了チェック' })).toBeChecked();
+
+    const deleteButton = screen
+      .getAllByRole('button', { name: '削除' })
+      .find((button) => button.closest('li')?.textContent?.includes('新しいタスク'));
+    expect(deleteButton).toBeDefined();
+
+    fireEvent.click(deleteButton!);
+    expect(screen.queryByText('新しいタスク')).not.toBeInTheDocument();
   });
 });

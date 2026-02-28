@@ -18,6 +18,10 @@ describe('ListWorkspace', () => {
     expect(screen.getByRole('combobox', { name: 'グループ' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '共有リスト' })).toBeInTheDocument();
     expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByLabelText('グループ'));
+    fireEvent.click(screen.getByRole('option', { name: 'プロジェクトA' }));
+    expect(screen.getByText('プロジェクトAタスク')).toBeInTheDocument();
     consoleWarnSpy.mockRestore();
   });
 

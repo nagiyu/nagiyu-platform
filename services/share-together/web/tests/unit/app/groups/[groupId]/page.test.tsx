@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import GroupDetailPage from '@/app/groups/[groupId]/page';
 
 describe('GroupDetailPage', () => {
@@ -18,6 +18,9 @@ describe('GroupDetailPage', () => {
     expect(screen.getByRole('button', { name: '招待を送信（モック）' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'メールアドレス' })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: '招待を送信（モック）' })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: '招待を送信（モック）' }));
+    expect(screen.getByText('招待を送信（モック）を押下しました')).toBeInTheDocument();
   });
 
   it('非オーナーのグループではメンバー招待フォームを無効化する', async () => {

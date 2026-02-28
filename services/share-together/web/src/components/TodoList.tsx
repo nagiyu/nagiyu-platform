@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { List, Paper, Stack, Typography } from '@mui/material';
 import { TodoForm } from '@/components/TodoForm';
 import { TodoItem } from '@/components/TodoItem';
@@ -84,6 +85,18 @@ const MOCK_TODOS_BY_SCOPE: Record<
         isCompleted: true,
       },
     ],
+    'mock-list-4': [
+      {
+        todoId: 'mock-group-4-todo-1',
+        title: 'リリース準備のチェック項目を確認する',
+        isCompleted: false,
+      },
+      {
+        todoId: 'mock-group-4-todo-2',
+        title: '担当タスクの進捗を共有する',
+        isCompleted: true,
+      },
+    ],
   },
 };
 
@@ -100,7 +113,14 @@ type TodoListProps = {
 export function TodoList({ scope = 'personal', listId }: TodoListProps) {
   const todosByList = MOCK_TODOS_BY_SCOPE[scope];
   const fallbackListId = DEFAULT_LIST_ID_BY_SCOPE[scope];
-  const todos = todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? [];
+  const resolvedListId = listId ?? fallbackListId;
+  const listKey = `${scope}:${resolvedListId}`;
+  const initialTodos = todosByList[resolvedListId] ?? todosByList[fallbackListId] ?? [];
+  const [todosByKey, setTodosByKey] = useState<
+    Record<string, Array<Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>>>
+  >({});
+  const nextMockTodoId = useRef(0);
+  const todos = todosByKey[listKey] ?? initialTodos;
 
   return (
     <Paper sx={{ p: 2 }}>
@@ -108,10 +128,46 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
         <Typography variant="h6" component="h2">
           ToDo
         </Typography>
-        <TodoForm />
+        <TodoForm
+          onAdd={(title) =>
+            setTodosByKey((previousTodosByKey) => ({
+              ...previousTodosByKey,
+              [listKey]: [
+                ...todos,
+                {
+                  todoId: `mock-added-${nextMockTodoId.current++}`,
+                  title,
+                  isCompleted: false,
+                },
+              ],
+            }))
+          }
+        />
         <List disablePadding>
           {todos.map((todo) => (
-            <TodoItem key={todo.todoId} todo={todo} />
+            <TodoItem
+              key={todo.todoId}
+              todo={todo}
+              onToggleComplete={(todoId) =>
+                setTodosByKey((previousTodosByKey) => ({
+                  ...previousTodosByKey,
+                  [listKey]: todos.map((previousTodo) =>
+                    previousTodo.todoId === todoId
+                      ? {
+                          ...previousTodo,
+                          isCompleted: !previousTodo.isCompleted,
+                        }
+                      : previousTodo
+                  ),
+                }))
+              }
+              onDelete={(todoId) =>
+                setTodosByKey((previousTodosByKey) => ({
+                  ...previousTodosByKey,
+                  [listKey]: todos.filter((previousTodo) => previousTodo.todoId !== todoId),
+                }))
+              }
+            />
           ))}
         </List>
       </Stack>

@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import GroupsPage from '@/app/groups/page';
 
 describe('GroupsPage', () => {
@@ -21,5 +21,8 @@ describe('GroupsPage', () => {
       'href',
       '/groups/mock-project-group'
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'グループを作成' }));
+    expect(screen.getByText('グループを作成 を押下しました（モック）')).toBeInTheDocument();
   });
 });

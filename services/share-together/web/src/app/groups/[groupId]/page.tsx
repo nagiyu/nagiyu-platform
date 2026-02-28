@@ -1,7 +1,7 @@
 import { Navigation } from '@/components/Navigation';
+import { MockActionButton } from '@/components/MockActionButton';
 import {
   Box,
-  Button,
   Card,
   CardContent,
   Container,
@@ -82,9 +82,11 @@ export default async function GroupDetailPage({
                     placeholder="example@nagiyu.com"
                     disabled={!isOwner}
                   />
-                  <Button type="button" variant="contained" disabled={!isOwner}>
-                    招待を送信（モック）
-                  </Button>
+                  <MockActionButton
+                    label="招待を送信（モック）"
+                    feedback="招待を送信（モック）を押下しました"
+                    buttonProps={{ type: 'button', variant: 'contained', disabled: !isOwner }}
+                  />
                 </Stack>
               </Box>
             </CardContent>

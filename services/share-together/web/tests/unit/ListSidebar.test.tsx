@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
 
 describe('ListSidebar', () => {
@@ -24,5 +24,8 @@ describe('ListSidebar', () => {
     const workListLink = screen.getByRole('link', { name: '仕事' });
     expect(workListLink).toHaveClass('Mui-selected');
     expect(screen.getByRole('link', { name: 'デフォルトリスト' })).not.toHaveClass('Mui-selected');
+
+    fireEvent.click(screen.getByRole('button', { name: '個人リストを作成' }));
+    expect(screen.getByText('個人リストを作成 を押下しました（モック）')).toBeInTheDocument();
   });
 });

@@ -3,15 +3,21 @@
 import { useState } from 'react';
 import { Box, Button, TextField } from '@mui/material';
 
-export function TodoForm() {
+type TodoFormProps = {
+  onAdd?: (title: string) => void;
+};
+
+export function TodoForm({ onAdd }: TodoFormProps) {
   const [title, setTitle] = useState('');
-  const isTitleEmpty = title.trim() === '';
+  const trimmedTitle = title.trim();
+  const isTitleEmpty = trimmedTitle === '';
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isTitleEmpty) {
       return;
     }
+    onAdd?.(trimmedTitle);
     setTitle('');
   };
 

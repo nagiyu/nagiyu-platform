@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import GroupListDetailPage from '@/app/groups/[groupId]/lists/[listId]/page';
 
 describe('GroupListDetailPage', () => {
@@ -24,5 +24,8 @@ describe('GroupListDetailPage', () => {
     );
     expect(screen.getByRole('heading', { name: 'ToDo' })).toBeInTheDocument();
     expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '更新（モック）' }));
+    expect(screen.getByText('更新（モック）を押下しました')).toBeInTheDocument();
   });
 });
