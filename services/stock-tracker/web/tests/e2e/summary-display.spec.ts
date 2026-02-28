@@ -16,7 +16,7 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(aaplRow.getByRole('cell', { name: '183.31' })).toBeVisible();
   });
 
-  test('データなし空状態: 空状態メッセージが表示される', async ({ page }) => {
+  test('データなし空状態: データのない取引所で空状態メッセージが表示される', async ({ page }) => {
     await page.goto('/summaries');
 
     await expect(page.getByRole('heading', { name: 'TSE' })).toBeVisible();
@@ -32,6 +32,7 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByRole('heading', { name: 'TSE' })).toBeVisible();
     await expect(page.getByText('AAPL')).toBeVisible();
     await expect(page.getByText('JNJ')).toBeVisible();
+    await expect(page.getByText('データがありません')).toBeVisible();
     await expect.poll(async () => page.getByRole('table').count()).toBe(2);
   });
 
