@@ -39,11 +39,16 @@ describe('sw.js', () => {
     await import('../../public/sw.js');
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('GETリクエスト時はキャッシュより先にネットワークを優先する', async () => {
+    const responseToCache = { status: 200, type: 'basic' };
     const networkResponse = {
       status: 200,
       type: 'basic',
-      clone: jest.fn().mockReturnValue({}),
+      clone: jest.fn().mockReturnValue(responseToCache),
     };
     fetchMock.mockResolvedValue(networkResponse);
 
@@ -58,17 +63,32 @@ describe('sw.js', () => {
   });
 
   it('ネットワーク失敗時はキャッシュをフォールバックとして返す', async () => {
-    const cachedResponse = { source: 'cache' };
+    const mockCachedResponse = { status: 200, type: 'basic' };
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     fetchMock.mockRejectedValue(new Error('network error'));
-    cacheMatchMock.mockResolvedValue(cachedResponse);
+    cacheMatchMock.mockResolvedValue(mockCachedResponse);
 
     const respondWith = jest.fn();
     const request = { method: 'GET', url: 'https://example.com/fallback' };
     listeners.fetch({ request, respondWith });
 
     const responsePromise = respondWith.mock.calls[0][0];
-    await expect(responsePromise).resolves.toBe(cachedResponse);
+    await expect(responsePromise).resolves.toBe(mockCachedResponse);
     expect(cacheMatchMock).toHaveBeenCalledWith(request);
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('ネットワーク失敗かつキャッシュ未ヒット時はundefinedを返す', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    fetchMock.mockRejectedValue(new Error('network error'));
+    cacheMatchMock.mockResolvedValue(undefined);
+
+    const respondWith = jest.fn();
+    listeners.fetch({ request: { method: 'GET', url: 'https://example.com/miss' }, respondWith });
+
+    const responsePromise = respondWith.mock.calls[0][0];
+    await expect(responsePromise).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
   });
 
   it('GET以外のリクエストはservice workerで処理しない', () => {
@@ -79,7 +99,7 @@ describe('sw.js', () => {
     expect(respondWith).not.toHaveBeenCalled();
   });
 
-  it('status=200かつbasic以外のレスポンスはキャッシュ保存しない', async () => {
+  it('status≠200またはtype≠basicのレスポンスはキャッシュ保存しない', async () => {
     fetchMock.mockResolvedValue({ status: 500, type: 'basic' });
 
     const respondWith = jest.fn();

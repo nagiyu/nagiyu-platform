@@ -3,6 +3,7 @@ const CACHE_URLS = ['/', '/manifest.json', '/icon-192x192.png', '/icon-512x512.p
 const ERROR_MESSAGES = {
   CACHE_INSTALL_FAILED: 'キャッシュのインストールに失敗しました',
   CACHE_PUT_FAILED: 'キャッシュへの保存に失敗しました',
+  NETWORK_FETCH_FAILED: 'ネットワークからの取得に失敗しました',
 };
 
 self.addEventListener('install', (event) => {
@@ -50,11 +51,14 @@ self.addEventListener('fetch', (event) => {
         caches
           .open(CACHE_NAME)
           .then((cache) => cache.put(event.request, responseToCache))
-            .catch((error) => console.error(ERROR_MESSAGES.CACHE_PUT_FAILED, error));
+          .catch((error) => console.error(ERROR_MESSAGES.CACHE_PUT_FAILED, error));
 
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch((error) => {
+        console.error(ERROR_MESSAGES.NETWORK_FETCH_FAILED, error);
+        return caches.match(event.request);
+      })
   );
 });
 
