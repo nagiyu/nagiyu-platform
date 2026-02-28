@@ -1,8 +1,4 @@
-type RequestLike = { method: string; url: string };
-type Listener = (event: {
-  request: RequestLike;
-  respondWith: (response: Promise<unknown>) => void;
-}) => void;
+type Listener = (event: unknown) => void;
 
 describe('sw.js', () => {
   const listeners: Record<string, Listener> = {};
@@ -10,6 +6,8 @@ describe('sw.js', () => {
   const cacheMatchMock = jest.fn();
   const cachePutMock = jest.fn();
   const cacheOpenMock = jest.fn().mockResolvedValue({ put: cachePutMock });
+  const cacheDeleteMock = jest.fn();
+  const cacheKeysMock = jest.fn().mockResolvedValue([]);
 
   beforeEach(async () => {
     jest.resetModules();
@@ -17,6 +15,9 @@ describe('sw.js', () => {
     cacheMatchMock.mockReset();
     cachePutMock.mockReset();
     cacheOpenMock.mockClear();
+    cacheDeleteMock.mockReset();
+    cacheKeysMock.mockReset();
+    cacheKeysMock.mockResolvedValue([]);
 
     Object.assign(globalThis, {
       self: {
@@ -30,8 +31,8 @@ describe('sw.js', () => {
       caches: {
         match: cacheMatchMock,
         open: cacheOpenMock,
-        keys: jest.fn().mockResolvedValue([]),
-        delete: jest.fn(),
+        keys: cacheKeysMock,
+        delete: cacheDeleteMock,
       },
     });
 
@@ -68,5 +69,36 @@ describe('sw.js', () => {
     const responsePromise = respondWith.mock.calls[0][0];
     await expect(responsePromise).resolves.toBe(cachedResponse);
     expect(cacheMatchMock).toHaveBeenCalledWith(request);
+  });
+
+  it('GET以外のリクエストはservice workerで処理しない', () => {
+    const respondWith = jest.fn();
+    listeners.fetch({ request: { method: 'POST', url: 'https://example.com/post' }, respondWith });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(respondWith).not.toHaveBeenCalled();
+  });
+
+  it('status=200かつbasic以外のレスポンスはキャッシュ保存しない', async () => {
+    fetchMock.mockResolvedValue({ status: 500, type: 'basic' });
+
+    const respondWith = jest.fn();
+    listeners.fetch({ request: { method: 'GET', url: 'https://example.com/error' }, respondWith });
+
+    const responsePromise = respondWith.mock.calls[0][0];
+    await expect(responsePromise).resolves.toEqual({ status: 500, type: 'basic' });
+    expect(cacheOpenMock).not.toHaveBeenCalled();
+    expect(cachePutMock).not.toHaveBeenCalled();
+  });
+
+  it('activate時に古いキャッシュのみ削除する', async () => {
+    cacheKeysMock.mockResolvedValue(['share-together-v1', 'legacy-cache']);
+
+    const waitUntil = jest.fn();
+    listeners.activate({ waitUntil });
+
+    await waitUntil.mock.calls[0][0];
+    expect(cacheDeleteMock).toHaveBeenCalledWith('legacy-cache');
+    expect(cacheDeleteMock).not.toHaveBeenCalledWith('share-together-v1');
   });
 });
