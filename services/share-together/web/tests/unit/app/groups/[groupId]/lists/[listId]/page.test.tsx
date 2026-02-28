@@ -17,5 +17,6 @@ describe('GroupListDetailPage', () => {
     expect(screen.getByText('リストID: mock-list-1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '更新（モック）' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'ToDo' })).toBeInTheDocument();
+    expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
   });
 });
