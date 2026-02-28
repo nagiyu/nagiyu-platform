@@ -8,6 +8,7 @@ export interface EventBridgeStackProps extends cdk.StackProps {
   environment: string;
   batchMinuteFunction: lambda.IFunction;
   batchHourlyFunction: lambda.IFunction;
+  batchSummaryFunction: lambda.IFunction;
   batchDailyFunction: lambda.IFunction;
 }
 
@@ -23,8 +24,13 @@ export class EventBridgeStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EventBridgeStackProps) {
     super(scope, id, props);
 
-    const { environment, batchMinuteFunction, batchHourlyFunction, batchDailyFunction } =
-      props;
+    const {
+      environment,
+      batchMinuteFunction,
+      batchHourlyFunction,
+      batchSummaryFunction,
+      batchDailyFunction,
+    } = props;
 
     // EventBridge Rule - Minute（1分間隔）
     const minuteRule = new events.Rule(this, 'BatchMinuteRule', {
@@ -42,6 +48,14 @@ export class EventBridgeStack extends cdk.Stack {
     });
     hourlyRule.addTarget(new targets.LambdaFunction(batchHourlyFunction));
 
+    // EventBridge Rule - Summary（1時間間隔、日次サマリー生成）
+    const summaryRule = new events.Rule(this, 'BatchSummaryRule', {
+      ruleName: `stock-tracker-batch-summary-${environment}`,
+      description: 'Trigger Stock Tracker Summary Batch every 1 hour',
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+    });
+    summaryRule.addTarget(new targets.LambdaFunction(batchSummaryFunction));
+
     // EventBridge Rule - Daily（日次、UTC 0:00）
     const dailyRule = new events.Rule(this, 'BatchDailyRule', {
       ruleName: `stock-tracker-batch-daily-${environment}`,
@@ -57,7 +71,7 @@ export class EventBridgeStack extends cdk.Stack {
     dailyRule.addTarget(new targets.LambdaFunction(batchDailyFunction));
 
     // タグの追加
-    [minuteRule, hourlyRule, dailyRule].forEach((rule) => {
+    [minuteRule, hourlyRule, summaryRule, dailyRule].forEach((rule) => {
       cdk.Tags.of(rule).add('Application', 'nagiyu');
       cdk.Tags.of(rule).add('Service', 'stock-tracker');
       cdk.Tags.of(rule).add('Environment', environment);
@@ -72,6 +86,11 @@ export class EventBridgeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'HourlyRuleArn', {
       value: hourlyRule.ruleArn,
       description: 'Hourly Batch EventBridge Rule ARN',
+    });
+
+    new cdk.CfnOutput(this, 'SummaryRuleArn', {
+      value: summaryRule.ruleArn,
+      description: 'Summary Batch EventBridge Rule ARN',
     });
 
     new cdk.CfnOutput(this, 'DailyRuleArn', {
