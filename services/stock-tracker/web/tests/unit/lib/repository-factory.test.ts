@@ -10,6 +10,7 @@ import {
   createTickerRepository,
   createExchangeRepository,
   createWatchlistRepository,
+  createDailySummaryRepository,
   clearMemoryStore,
 } from '../../../lib/repository-factory';
 import * as dynamodb from '../../../lib/dynamodb';
@@ -80,6 +81,12 @@ describe('Repository Factory', () => {
       expect(repo.constructor.name).toBe('InMemoryWatchlistRepository');
     });
 
+    it('createDailySummaryRepository はInMemory実装を返す', () => {
+      const repo = createDailySummaryRepository();
+      expect(repo).toBeDefined();
+      expect(repo.constructor.name).toBe('InMemoryDailySummaryRepository');
+    });
+
     it('シングルトンパターンが機能する', () => {
       const repo1 = createAlertRepository();
       const repo2 = createAlertRepository();
@@ -141,6 +148,12 @@ describe('Repository Factory', () => {
       expect(repo.constructor.name).toBe('DynamoDBWatchlistRepository');
     });
 
+    it('createDailySummaryRepository はDynamoDB実装を返す', () => {
+      const repo = createDailySummaryRepository();
+      expect(repo).toBeDefined();
+      expect(repo.constructor.name).toBe('DynamoDBDailySummaryRepository');
+    });
+
     it('シングルトンパターンが機能する - Alert', () => {
       const repo1 = createAlertRepository();
       const repo2 = createAlertRepository();
@@ -191,12 +204,14 @@ describe('Repository Factory', () => {
       const tickerRepo = createTickerRepository();
       const exchangeRepo = createExchangeRepository();
       const watchlistRepo = createWatchlistRepository();
+      const dailySummaryRepo = createDailySummaryRepository();
 
       expect(alertRepo.constructor.name).toBe('DynamoDBAlertRepository');
       expect(holdingRepo.constructor.name).toBe('DynamoDBHoldingRepository');
       expect(tickerRepo.constructor.name).toBe('DynamoDBTickerRepository');
       expect(exchangeRepo.constructor.name).toBe('DynamoDBExchangeRepository');
       expect(watchlistRepo.constructor.name).toBe('DynamoDBWatchlistRepository');
+      expect(dailySummaryRepo.constructor.name).toBe('DynamoDBDailySummaryRepository');
     });
   });
 
@@ -221,6 +236,8 @@ describe('Repository Factory', () => {
       expect(() => createExchangeRepository()).toThrow('DynamoDB設定が不正です');
       clearMemoryStore();
       expect(() => createWatchlistRepository()).toThrow('DynamoDB設定が不正です');
+      clearMemoryStore();
+      expect(() => createDailySummaryRepository()).toThrow('DynamoDB設定が不正です');
     });
   });
 });
