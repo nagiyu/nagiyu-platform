@@ -89,6 +89,7 @@ export * from './repositories/dynamodb-holding.repository.js';
 export * from './repositories/dynamodb-ticker.repository.js';
 export * from './repositories/dynamodb-exchange.repository.js';
 export * from './repositories/dynamodb-watchlist.repository.js';
+export * from './repositories/dynamodb-daily-summary.repository.js';
 
 // InMemory Implementations
 export * from './repositories/in-memory-alert.repository.js';
