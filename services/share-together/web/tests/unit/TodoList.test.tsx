@@ -22,6 +22,8 @@ describe('TodoList', () => {
 
     expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
     expect(screen.getByText('懇親会の出欠を確認する')).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: '懇親会の出欠を確認するの完了チェック' })).toBeChecked();
+    expect(
+      screen.getByRole('checkbox', { name: '懇親会の出欠を確認するの完了チェック' })
+    ).toBeChecked();
   });
 });
