@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { GET } from '../../../../app/api/summaries/route';
 import {
   createDailySummaryRepository,
@@ -92,7 +93,7 @@ describe('GET /api/summaries', () => {
       ])
       .mockResolvedValueOnce([]);
 
-    const response = await GET(new Request('http://localhost/api/summaries') as never);
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -128,9 +129,7 @@ describe('GET /api/summaries', () => {
   });
 
   it('異常系: date パラメータが不正な場合は 400 を返す', async () => {
-    const response = await GET(
-      new Request('http://localhost/api/summaries?date=2024-13-40') as never
-    );
+    const response = await GET(new NextRequest('http://localhost/api/summaries?date=2024-13-40'));
     const body = await response.json();
 
     expect(response.status).toBe(400);
@@ -141,10 +140,60 @@ describe('GET /api/summaries', () => {
     expect(mockGetAllExchanges).not.toHaveBeenCalled();
   });
 
+  it('異常系: 存在しない日付の場合は 400 を返す', async () => {
+    const response = await GET(new NextRequest('http://localhost/api/summaries?date=2024-02-30'));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_DATE',
+      message: '日付はYYYY-MM-DD形式で指定してください',
+    });
+    expect(mockGetAllExchanges).not.toHaveBeenCalled();
+  });
+
+  it('正常系: date パラメータ指定時は全取引所に同じ日付で問い合わせる', async () => {
+    mockGetAllExchanges.mockResolvedValue([
+      {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+      },
+      {
+        ExchangeID: 'NYSE',
+        Name: 'NYSE',
+      },
+    ]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries?date=2024-01-15'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockGetByExchange).toHaveBeenNthCalledWith(1, 'NASDAQ', '2024-01-15');
+    expect(mockGetByExchange).toHaveBeenNthCalledWith(2, 'NYSE', '2024-01-15');
+    expect(body).toEqual({
+      exchanges: [
+        {
+          exchangeId: 'NASDAQ',
+          exchangeName: 'NASDAQ',
+          date: '2024-01-15',
+          summaries: [],
+        },
+        {
+          exchangeId: 'NYSE',
+          exchangeName: 'NYSE',
+          date: '2024-01-15',
+          summaries: [],
+        },
+      ],
+    });
+  });
+
   it('異常系: リポジトリアクセスエラー時は 500 を返す', async () => {
     mockGetAllExchanges.mockRejectedValue(new Error('db error'));
 
-    const response = await GET(new Request('http://localhost/api/summaries') as never);
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
     const body = await response.json();
 
     expect(response.status).toBe(500);
