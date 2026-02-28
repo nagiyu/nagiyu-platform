@@ -24,7 +24,7 @@ export interface LambdaStackProps extends cdk.StackProps {
 /**
  * Stock Tracker Lambda Stack
  *
- * Web Lambda（Next.js）と Batch Lambda（3関数）を作成します。
+ * Web Lambda 1関数と Batch Lambda 4関数（minute, hourly, summary, daily）の合計5関数を作成します。
  * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
  * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
  */
@@ -32,6 +32,7 @@ export class LambdaStack extends cdk.Stack {
   public readonly webFunction: lambda.Function;
   public readonly batchMinuteFunction: lambda.Function;
   public readonly batchHourlyFunction: lambda.Function;
+  public readonly batchSummaryFunction: lambda.Function;
   public readonly batchDailyFunction: lambda.Function;
   public readonly functionUrl: lambda.FunctionUrl;
   public readonly webRuntimePolicy: iam.IManagedPolicy;
@@ -187,6 +188,27 @@ export class LambdaStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
+    // Batch Lambda - Summary（1時間間隔、日次サマリー生成）
+    this.batchSummaryFunction = new lambda.Function(this, 'BatchSummaryFunction', {
+      functionName: `nagiyu-stock-tracker-batch-summary-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/stock-tracker/batch/dist/summary.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: batchExecutionRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(5),
+      environment: {
+        NODE_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTable.tableName,
+        BATCH_TYPE: 'SUMMARY',
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
     // Batch Lambda - Daily（日次、データクリーンアップ）
     this.batchDailyFunction = new lambda.Function(this, 'BatchDailyFunction', {
       functionName: `nagiyu-stock-tracker-batch-daily-${environment}`,
@@ -213,6 +235,7 @@ export class LambdaStack extends cdk.Stack {
       this.webFunction,
       this.batchMinuteFunction,
       this.batchHourlyFunction,
+      this.batchSummaryFunction,
       this.batchDailyFunction,
     ].forEach((fn) => {
       cdk.Tags.of(fn).add('Application', 'nagiyu');
@@ -239,6 +262,11 @@ export class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BatchHourlyFunctionArn', {
       value: this.batchHourlyFunction.functionArn,
       description: 'Batch Hourly Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'BatchSummaryFunctionArn', {
+      value: this.batchSummaryFunction.functionArn,
+      description: 'Batch Summary Lambda Function ARN',
     });
 
     new cdk.CfnOutput(this, 'BatchDailyFunctionArn', {
