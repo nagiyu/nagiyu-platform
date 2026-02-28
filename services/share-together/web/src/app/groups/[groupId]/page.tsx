@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Navigation } from '@/components/Navigation';
 import {
   Box,
@@ -67,9 +68,11 @@ export default async function GroupDetailPage({
               <List>
                 {MOCK_GROUP_LISTS.map((list) => (
                   <ListItem key={list.listId} disablePadding>
-                    <ListItemButton component="a" href={`/groups/${groupId}/lists/${list.listId}`}>
-                      <ListItemText primary={list.name} />
-                    </ListItemButton>
+                    <Link href={`/groups/${groupId}/lists/${list.listId}`} passHref legacyBehavior>
+                      <ListItemButton component="a">
+                        <ListItemText primary={list.name} />
+                      </ListItemButton>
+                    </Link>
                   </ListItem>
                 ))}
               </List>
