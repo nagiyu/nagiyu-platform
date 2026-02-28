@@ -13,24 +13,7 @@ describe('SummariesPage', () => {
     expect(html).toContain('日次サマリー');
   });
 
-  it('データがある取引所の銘柄情報を表示する', () => {
-    expect(html).toContain('NASDAQ');
-    expect(html).toContain('Apple Inc.');
-  });
-
-  it('NYSE の銘柄情報を表示する', () => {
-    expect(html).toContain('NYSE');
-    expect(html).toContain('JPMorgan Chase');
-  });
-
-  it('最新更新日時を表示する', () => {
-    expect(html).toContain('最新更新:');
-    expect(html).toMatch(/\d{4}\//);
-  });
-
-  it('データがない取引所で空状態を表示する', () => {
-    expect(html).toContain('TSE');
-    expect(html).toContain('最新更新: -');
-    expect(html).toContain('データがありません');
+  it('ローディング状態を表示する', () => {
+    expect(html).toContain('読み込み中...');
   });
 });

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -18,125 +19,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
 
-const mockData: SummariesResponse = {
-  exchanges: [
-    {
-      exchangeId: 'NASDAQ',
-      exchangeName: 'NASDAQ',
-      date: '2024-01-15',
-      summaries: [
-        {
-          tickerId: 'NSDQ:AAPL',
-          symbol: 'AAPL',
-          name: 'Apple Inc.',
-          open: 182.15,
-          high: 183.92,
-          low: 181.44,
-          close: 183.31,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NSDQ:GOOGL',
-          symbol: 'GOOGL',
-          name: 'Alphabet Inc.',
-          open: 140.23,
-          high: 142.57,
-          low: 139.81,
-          close: 141.8,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NSDQ:MSFT',
-          symbol: 'MSFT',
-          name: 'Microsoft Corporation',
-          open: 374.5,
-          high: 377.12,
-          low: 373.08,
-          close: 376.17,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NSDQ:AMZN',
-          symbol: 'AMZN',
-          name: 'Amazon.com Inc.',
-          open: 153.2,
-          high: 155.88,
-          low: 152.64,
-          close: 154.93,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NSDQ:NVDA',
-          symbol: 'NVDA',
-          name: 'NVIDIA Corporation',
-          open: 495.3,
-          high: 502.66,
-          low: 492.14,
-          close: 500.84,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-      ],
-    },
-    {
-      exchangeId: 'NYSE',
-      exchangeName: 'NYSE',
-      date: '2024-01-15',
-      summaries: [
-        {
-          tickerId: 'NYSE:JNJ',
-          symbol: 'JNJ',
-          name: 'Johnson & Johnson',
-          open: 158.4,
-          high: 159.73,
-          low: 157.82,
-          close: 159.12,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NYSE:JPM',
-          symbol: 'JPM',
-          name: 'JPMorgan Chase & Co.',
-          open: 168.95,
-          high: 171.2,
-          low: 168.12,
-          close: 170.54,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NYSE:KO',
-          symbol: 'KO',
-          name: 'The Coca-Cola Company',
-          open: 59.85,
-          high: 60.42,
-          low: 59.61,
-          close: 60.18,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-        {
-          tickerId: 'NYSE:WMT',
-          symbol: 'WMT',
-          name: 'Walmart Inc.',
-          open: 166.2,
-          high: 167.95,
-          low: 165.78,
-          close: 167.43,
-          updatedAt: '2024-01-15T21:00:00.000Z',
-        },
-      ],
-    },
-    {
-      exchangeId: 'TSE',
-      exchangeName: 'TSE',
-      date: null,
-      summaries: [],
-    },
-  ],
-};
+const ERROR_MESSAGES = {
+  FETCH_FAILED: 'サマリーの取得に失敗しました',
+} as const;
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -156,7 +47,64 @@ const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
 };
 
 export default function SummariesPage() {
+  const [summaries, setSummaries] = useState<SummariesResponse>({ exchanges: [] });
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState('');
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
+
+  const fetchSummaries = async (date: string) => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      const searchParams = new URLSearchParams();
+      if (date) {
+        searchParams.set('date', date);
+      }
+
+      const query = searchParams.toString();
+      const response = await fetch(`/api/summaries${query ? `?${query}` : ''}`);
+
+      if (!response.ok) {
+        let message: string = ERROR_MESSAGES.FETCH_FAILED;
+        try {
+          const errorResponse = (await response.json()) as { message?: string };
+          message = errorResponse.message ?? message;
+        } catch {
+          // no-op
+        }
+        throw new Error(message);
+      }
+
+      const data = (await response.json()) as SummariesResponse;
+      setSummaries(data);
+    } catch (error) {
+      setSummaries({ exchanges: [] });
+      setErrorMessage(error instanceof Error ? error.message : ERROR_MESSAGES.FETCH_FAILED);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialDate = searchParams.get('date') ?? '';
+    setDateFilter(initialDate);
+    void fetchSummaries(initialDate);
+  }, []);
+
+  const handleDateFilterChange = (value: string) => {
+    setDateFilter(value);
+    const searchParams = new URLSearchParams(window.location.search);
+    if (value) {
+      searchParams.set('date', value);
+    } else {
+      searchParams.delete('date');
+    }
+    const query = searchParams.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    void fetchSummaries(value);
+  };
 
   const handleTickerClick = (ticker: TickerSummary) => {
     setSelectedTicker(ticker);
@@ -171,59 +119,78 @@ export default function SummariesPage() {
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
         日次サマリー
       </Typography>
+      <TextField
+        label="対象日"
+        type="date"
+        size="small"
+        value={dateFilter}
+        onChange={(event) => handleDateFilterChange(event.target.value)}
+        sx={{ mb: 2 }}
+        slotProps={{ inputLabel: { shrink: true } }}
+      />
+
+      {errorMessage && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {errorMessage}
+        </Alert>
+      )}
 
       <Box sx={{ display: 'grid', gap: 2 }}>
-        {mockData.exchanges.map((exchange) => (
-          <Card key={exchange.exchangeId} variant="outlined">
-            <CardContent>
-              <Typography variant="h6" component="h2">
-                {exchange.exchangeName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                対象日: {exchange.date ?? '-'}
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                最新更新: {formatLatestUpdatedAt(exchange.summaries)}
-              </Typography>
+        {isLoading ? (
+          <Typography color="text.secondary">読み込み中...</Typography>
+        ) : (
+          summaries.exchanges.map((exchange) => (
+            <Card key={exchange.exchangeId} variant="outlined">
+              <CardContent>
+                <Typography variant="h6" component="h2">
+                  {exchange.exchangeName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  対象日: {exchange.date ?? '-'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  最新更新: {formatLatestUpdatedAt(exchange.summaries)}
+                </Typography>
 
-              {exchange.summaries.length === 0 ? (
-                <Typography color="text.secondary">データがありません</Typography>
-              ) : (
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>シンボル</TableCell>
-                        <TableCell>銘柄名</TableCell>
-                        <TableCell align="right">始値</TableCell>
-                        <TableCell align="right">高値</TableCell>
-                        <TableCell align="right">安値</TableCell>
-                        <TableCell align="right">終値</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {exchange.summaries.map((summary) => (
-                        <TableRow
-                          key={summary.tickerId}
-                          hover
-                          onClick={() => handleTickerClick(summary)}
-                          sx={{ cursor: 'pointer' }}
-                        >
-                          <TableCell>{summary.symbol}</TableCell>
-                          <TableCell>{summary.name}</TableCell>
-                          <TableCell align="right">{summary.open.toFixed(2)}</TableCell>
-                          <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
-                          <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
-                          <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
+                {exchange.summaries.length === 0 ? (
+                  <Typography color="text.secondary">データがありません</Typography>
+                ) : (
+                  <TableContainer component={Paper} variant="outlined">
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>シンボル</TableCell>
+                          <TableCell>銘柄名</TableCell>
+                          <TableCell align="right">始値</TableCell>
+                          <TableCell align="right">高値</TableCell>
+                          <TableCell align="right">安値</TableCell>
+                          <TableCell align="right">終値</TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+                      </TableHead>
+                      <TableBody>
+                        {exchange.summaries.map((summary) => (
+                          <TableRow
+                            key={summary.tickerId}
+                            hover
+                            onClick={() => handleTickerClick(summary)}
+                            sx={{ cursor: 'pointer' }}
+                          >
+                            <TableCell>{summary.symbol}</TableCell>
+                            <TableCell>{summary.name}</TableCell>
+                            <TableCell align="right">{summary.open.toFixed(2)}</TableCell>
+                            <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
+                            <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
+                            <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </Box>
 
       <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="xs" fullWidth>
