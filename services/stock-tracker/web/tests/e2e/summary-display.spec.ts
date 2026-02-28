@@ -7,6 +7,10 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
     await expect(page.getByText('NASDAQ')).toBeVisible();
     await expect(page.getByText('AAPL')).toBeVisible();
+    await expect(
+      page.getByText(/最新更新:\s*\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}:\d{2}/).first()
+    ).toBeVisible();
+    await expect(page.getByText('最新更新: -')).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '終値' }).first()).toBeVisible();
     await expect.poll(async () => page.locator('tbody tr').count()).toBeGreaterThanOrEqual(1);
   });

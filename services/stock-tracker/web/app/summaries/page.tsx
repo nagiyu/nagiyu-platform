@@ -138,6 +138,23 @@ const mockData: SummariesResponse = {
   ],
 };
 
+const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
+  const latest = summaries.reduce<number | null>((currentMax, summary) => {
+    const timestamp = Date.parse(summary.updatedAt);
+    if (Number.isNaN(timestamp)) {
+      return currentMax;
+    }
+
+    if (currentMax === null || timestamp > currentMax) {
+      return timestamp;
+    }
+
+    return currentMax;
+  }, null);
+
+  return latest === null ? '-' : new Date(latest).toLocaleString('ja-JP');
+};
+
 export default function SummariesPage() {
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
 
@@ -164,6 +181,9 @@ export default function SummariesPage() {
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 対象日: {exchange.date ?? '-'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                最新更新: {formatLatestUpdatedAt(exchange.summaries)}
               </Typography>
 
               {exchange.summaries.length === 0 ? (
