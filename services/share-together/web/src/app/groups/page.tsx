@@ -1,3 +1,5 @@
+'use client';
+
 import { Box, Button, Stack, Typography } from '@mui/material';
 import { Navigation } from '@/components/Navigation';
 import { GroupCard } from '@/components/GroupCard';
@@ -17,7 +19,9 @@ export default function GroupsPage() {
           <Typography variant="h5" component="h1">
             グループ一覧
           </Typography>
-          <Button variant="contained">グループを作成</Button>
+          <Button variant="contained" onClick={() => alert('グループを作成（モック）')}>
+            グループを作成
+          </Button>
         </Stack>
         <Stack spacing={2}>
           {MOCK_GROUPS.map((group) => (

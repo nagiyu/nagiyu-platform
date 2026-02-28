@@ -20,6 +20,7 @@ type ListSidebarProps = {
   selectedListId: string;
   lists: readonly SidebarList[];
   hrefPrefix: string;
+  onCreateList?: () => void;
 };
 
 export function ListSidebar({
@@ -28,6 +29,7 @@ export function ListSidebar({
   selectedListId,
   lists,
   hrefPrefix,
+  onCreateList,
 }: ListSidebarProps) {
   return (
     <Paper component="aside" sx={{ p: 2 }}>
@@ -35,7 +37,7 @@ export function ListSidebar({
         {heading}
       </Typography>
       <Box sx={{ mb: 2 }}>
-        <Button variant="contained" fullWidth>
+        <Button variant="contained" fullWidth onClick={onCreateList}>
           {createButtonLabel}
         </Button>
       </Box>
