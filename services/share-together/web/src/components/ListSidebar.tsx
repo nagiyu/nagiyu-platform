@@ -29,7 +29,6 @@ export function ListSidebar({
   lists,
   hrefPrefix,
 }: ListSidebarProps) {
-
   return (
     <Paper component="aside" sx={{ p: 2 }}>
       <Typography variant="h6" component="h3" gutterBottom>

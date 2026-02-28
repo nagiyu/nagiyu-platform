@@ -23,8 +23,6 @@ describe('ListSidebar', () => {
 
     const workListLink = screen.getByRole('link', { name: '仕事' });
     expect(workListLink).toHaveClass('Mui-selected');
-    expect(screen.getByRole('link', { name: 'デフォルトリスト' })).not.toHaveClass(
-      'Mui-selected'
-    );
+    expect(screen.getByRole('link', { name: 'デフォルトリスト' })).not.toHaveClass('Mui-selected');
   });
 });
