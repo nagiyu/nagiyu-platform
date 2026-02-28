@@ -30,7 +30,10 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   /**
    * TickerID と Date でサマリーを取得
    */
-  public async getByTickerAndDate(tickerId: string, date: string): Promise<DailySummaryEntity | null> {
+  public async getByTickerAndDate(
+    tickerId: string,
+    date: string
+  ): Promise<DailySummaryEntity | null> {
     const { pk, sk } = this.mapper.buildKeys({ tickerId, date });
     const item = this.store.get(pk, sk);
 
