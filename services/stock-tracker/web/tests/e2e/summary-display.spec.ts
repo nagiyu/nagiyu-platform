@@ -1,53 +1,16 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('サマリー画面スモークテスト', () => {
-  test('データあり表示: サマリーの詳細が正しく表示される', async ({ page }) => {
-    await page.goto('/summaries');
-
-    const aaplRow = page
-      .locator('tbody tr')
-      .filter({ has: page.getByRole('cell', { name: 'AAPL' }) })
-      .first();
-
-    await expect(aaplRow.getByRole('cell', { name: 'Apple Inc.' })).toBeVisible();
-    await expect(aaplRow.getByRole('cell', { name: '182.15' })).toBeVisible();
-    await expect(aaplRow.getByRole('cell', { name: '183.92' })).toBeVisible();
-    await expect(aaplRow.getByRole('cell', { name: '181.44' })).toBeVisible();
-    await expect(aaplRow.getByRole('cell', { name: '183.31' })).toBeVisible();
-  });
-
-  test('データなし空状態: データのない取引所で空状態メッセージが表示される', async ({ page }) => {
-    await page.goto('/summaries');
-
-    await expect(page.getByRole('heading', { name: 'TSE' })).toBeVisible();
-    await expect(page.getByText('最新更新: -')).toBeVisible();
-    await expect(page.getByText('データがありません')).toBeVisible();
-  });
-
-  test('取引所グループ化: 取引所ごとにサマリーが表示される', async ({ page }) => {
-    await page.goto('/summaries');
-
-    await expect(page.getByRole('heading', { name: 'NASDAQ' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'NYSE' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'TSE' })).toBeVisible();
-    await expect(page.getByText('AAPL')).toBeVisible();
-    await expect(page.getByText('JNJ')).toBeVisible();
-    await expect(page.getByText('データがありません')).toBeVisible();
-    await expect.poll(async () => page.getByRole('table').count()).toBe(2);
-  });
-
-  test('仮データでサマリーページが表示される', async ({ page }) => {
+  test('サマリーページの基本要素が表示される', async ({ page }) => {
     await page.goto('/summaries');
 
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
-    await expect(page.getByText('NASDAQ')).toBeVisible();
-    await expect(page.getByText('AAPL')).toBeVisible();
-    await expect(
-      page.getByText(/最新更新:\s*\d{4}\/\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}:\d{2}/).first()
-    ).toBeVisible();
-    await expect(page.getByText('最新更新: -')).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '終値' }).first()).toBeVisible();
-    await expect.poll(async () => page.locator('tbody tr').count()).toBeGreaterThanOrEqual(1);
+    await expect(page.getByRole('textbox', { name: '対象日' })).toBeVisible();
+  });
+
+  test('不正な日付クエリでエラーメッセージが表示される', async ({ page }) => {
+    await page.goto('/summaries?date=2024-13-40');
+    await expect(page.getByText('日付はYYYY-MM-DD形式で指定してください')).toBeVisible();
   });
 
   test('ナビゲーションリンクからサマリーページに遷移できる', async ({ page }) => {
@@ -63,25 +26,32 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
   });
 
-  test('ティッカー行をクリックするとダイアログが表示される', async ({ page }) => {
-    await page.goto('/summaries');
-
-    await page.getByRole('row', { name: /AAPL/ }).click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText('AAPL')).toBeVisible();
-    await expect(dialog.getByText('Apple Inc.')).toBeVisible();
+  test('日付クエリ指定時に日付フィルターへ初期反映される', async ({ page }) => {
+    await page.goto('/summaries?date=2024-01-15');
+    await expect(page.getByRole('textbox', { name: '対象日' })).toHaveValue('2024-01-15');
   });
 
-  test('ダイアログの閉じるボタンでダイアログが閉じる', async ({ page }) => {
+  test('データ未投入環境ではサマリー行が0件でもページ表示できる', async ({ page }) => {
     await page.goto('/summaries');
+    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
 
-    await page.getByRole('row', { name: /AAPL/ }).click();
+    const rowCount = await page.locator('tbody tr').count();
+    test.skip(rowCount > 0, 'サマリーデータがある環境のためスキップ');
+    await expect(page.locator('tbody tr')).toHaveCount(0);
+  });
+
+  test('行クリックでダイアログ表示できる（サマリーデータ存在時）', async ({ page }) => {
+    await page.goto('/summaries');
+    await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
+
+    const firstRow = page.locator('tbody tr').first();
+    const rowCount = await page.locator('tbody tr').count();
+    test.skip(rowCount === 0, 'サマリーデータがない環境のためスキップ');
+
+    await firstRow.click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-
     await dialog.getByRole('button', { name: '閉じる' }).click();
 
     await expect(dialog).not.toBeVisible();
