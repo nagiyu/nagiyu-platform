@@ -19,9 +19,7 @@ const env = app.node.tryGetContext('env') || 'dev';
 // 許可された環境値のチェック
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
-  throw new Error(
-    `Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`
-  );
+  throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
 
 // 環境変数からバージョンを取得（デフォルト: '1.0.0'）
@@ -108,53 +106,42 @@ if (!lambdaStack.functionUrl) {
   throw new Error('Lambda function URL is not available');
 }
 
-const cloudFrontStack = new CloudFrontStack(
-  app,
-  `NagiyuStockTrackerCloudFront${envSuffix}`,
-  {
-    environment: env,
-    functionUrl: lambdaStack.functionUrl.url,
-    env: {
-      account: process.env.CDK_DEFAULT_ACCOUNT,
-      region: 'us-east-1', // CloudFront は us-east-1 必須
-    },
-    crossRegionReferences: true,
-    description: `Stock Tracker CloudFront - ${env} environment`,
-  }
-);
+const cloudFrontStack = new CloudFrontStack(app, `NagiyuStockTrackerCloudFront${envSuffix}`, {
+  environment: env,
+  functionUrl: lambdaStack.functionUrl.url,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: 'us-east-1', // CloudFront は us-east-1 必須
+  },
+  crossRegionReferences: true,
+  description: `Stock Tracker CloudFront - ${env} environment`,
+});
 cloudFrontStack.addDependency(lambdaStack);
 
 // 8. EventBridge スタック（バッチ処理スケジューラ）
-const eventBridgeStack = new EventBridgeStack(
-  app,
-  `NagiyuStockTrackerEventBridge${envSuffix}`,
-  {
-    environment: env,
-    batchMinuteFunction: lambdaStack.batchMinuteFunction,
-    batchHourlyFunction: lambdaStack.batchHourlyFunction,
-    batchDailyFunction: lambdaStack.batchDailyFunction,
-    env: stackEnv,
-    description: `Stock Tracker EventBridge Scheduler - ${env} environment`,
-  }
-);
+const eventBridgeStack = new EventBridgeStack(app, `NagiyuStockTrackerEventBridge${envSuffix}`, {
+  environment: env,
+  batchMinuteFunction: lambdaStack.batchMinuteFunction,
+  batchHourlyFunction: lambdaStack.batchHourlyFunction,
+  batchSummaryFunction: lambdaStack.batchSummaryFunction,
+  batchDailyFunction: lambdaStack.batchDailyFunction,
+  env: stackEnv,
+  description: `Stock Tracker EventBridge Scheduler - ${env} environment`,
+});
 eventBridgeStack.addDependency(lambdaStack);
 
 // 9. CloudWatch Alarms スタック（監視アラーム）
-const alarmsStack = new CloudWatchAlarmsStack(
-  app,
-  `NagiyuStockTrackerAlarms${envSuffix}`,
-  {
-    environment: env,
-    webFunction: lambdaStack.webFunction,
-    batchMinuteFunction: lambdaStack.batchMinuteFunction,
-    batchHourlyFunction: lambdaStack.batchHourlyFunction,
-    batchDailyFunction: lambdaStack.batchDailyFunction,
-    dynamoTable: dynamoStack.table,
-    alarmTopic: snsStack.alarmTopic,
-    env: stackEnv,
-    description: `Stock Tracker CloudWatch Alarms - ${env} environment`,
-  }
-);
+const alarmsStack = new CloudWatchAlarmsStack(app, `NagiyuStockTrackerAlarms${envSuffix}`, {
+  environment: env,
+  webFunction: lambdaStack.webFunction,
+  batchMinuteFunction: lambdaStack.batchMinuteFunction,
+  batchHourlyFunction: lambdaStack.batchHourlyFunction,
+  batchDailyFunction: lambdaStack.batchDailyFunction,
+  dynamoTable: dynamoStack.table,
+  alarmTopic: snsStack.alarmTopic,
+  env: stackEnv,
+  description: `Stock Tracker CloudWatch Alarms - ${env} environment`,
+});
 alarmsStack.addDependency(lambdaStack);
 alarmsStack.addDependency(dynamoStack);
 alarmsStack.addDependency(snsStack);
