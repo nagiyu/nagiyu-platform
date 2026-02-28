@@ -84,7 +84,8 @@ export default async function GroupDetailPage({
                   />
                   <MockActionButton
                     label="招待を送信（モック）"
-                    feedback="招待を送信（モック）を押下しました"
+                    successLabel="送信予約済み"
+                    feedback="招待メール送信キューに追加しました（モック）"
                     buttonProps={{ type: 'button', variant: 'contained', disabled: !isOwner }}
                   />
                 </Stack>

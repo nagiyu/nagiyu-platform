@@ -60,12 +60,14 @@ export default function InvitationsPage() {
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <MockActionButton
                     label="承認"
-                    feedback="承認 を押下しました（モック）"
+                    successLabel="承認済み"
+                    feedback="参加ステータスを承認に更新しました（モック）"
                     buttonProps={{ variant: 'contained', color: 'primary' }}
                   />
                   <MockActionButton
                     label="拒否"
-                    feedback="拒否 を押下しました（モック）"
+                    successLabel="拒否済み"
+                    feedback="参加ステータスを拒否に更新しました（モック）"
                     buttonProps={{ variant: 'outlined', color: 'inherit' }}
                   />
                 </Box>

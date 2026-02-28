@@ -32,7 +32,8 @@ export default async function GroupListDetailPage({
           </Typography>
           <MockActionButton
             label="更新（モック）"
-            feedback="更新（モック）を押下しました"
+            successLabel="更新済み"
+            feedback="リストを再取得しました（モック）"
             buttonProps={{ type: 'button', variant: 'outlined', sx: { alignSelf: 'flex-start' } }}
           />
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">

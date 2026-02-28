@@ -19,7 +19,9 @@ describe('InvitationsPage', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: '承認' })[0]);
     fireEvent.click(screen.getAllByRole('button', { name: '拒否' })[0]);
-    expect(screen.getByText('承認 を押下しました（モック）')).toBeInTheDocument();
-    expect(screen.getByText('拒否 を押下しました（モック）')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '承認済み' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '拒否済み' })).toBeDisabled();
+    expect(screen.getByText('参加ステータスを承認に更新しました（モック）')).toBeInTheDocument();
+    expect(screen.getByText('参加ステータスを拒否に更新しました（モック）')).toBeInTheDocument();
   });
 });

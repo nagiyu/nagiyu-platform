@@ -23,6 +23,7 @@ describe('GroupsPage', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'グループを作成' }));
-    expect(screen.getByText('グループを作成 を押下しました（モック）')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '作成フォーム表示中' })).toBeDisabled();
+    expect(screen.getByText('グループ作成フォームを表示しました（モック）')).toBeInTheDocument();
   });
 });

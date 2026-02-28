@@ -20,7 +20,8 @@ describe('GroupDetailPage', () => {
     expect(screen.getByRole('button', { name: '招待を送信（モック）' })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: '招待を送信（モック）' }));
-    expect(screen.getByText('招待を送信（モック）を押下しました')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送信予約済み' })).toBeDisabled();
+    expect(screen.getByText('招待メール送信キューに追加しました（モック）')).toBeInTheDocument();
   });
 
   it('非オーナーのグループではメンバー招待フォームを無効化する', async () => {

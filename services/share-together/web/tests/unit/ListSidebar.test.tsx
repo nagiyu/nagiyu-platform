@@ -26,6 +26,9 @@ describe('ListSidebar', () => {
     expect(screen.getByRole('link', { name: 'デフォルトリスト' })).not.toHaveClass('Mui-selected');
 
     fireEvent.click(screen.getByRole('button', { name: '個人リストを作成' }));
-    expect(screen.getByText('個人リストを作成 を押下しました（モック）')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '新規リスト（モック1）' })).toHaveAttribute(
+      'href',
+      '/lists/mock-created-list-1'
+    );
   });
 });

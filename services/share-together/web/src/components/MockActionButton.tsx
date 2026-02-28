@@ -6,19 +6,27 @@ import type { ButtonProps } from '@mui/material';
 
 type MockActionButtonProps = {
   label: string;
-  feedback: string;
+  feedback?: string;
+  successLabel?: string;
   buttonProps?: Omit<ButtonProps, 'children' | 'onClick'>;
 };
 
-export function MockActionButton({ label, feedback, buttonProps }: MockActionButtonProps) {
+export function MockActionButton({
+  label,
+  feedback,
+  successLabel,
+  buttonProps,
+}: MockActionButtonProps) {
   const [clicked, setClicked] = useState(false);
+  const { disabled, ...restButtonProps } = buttonProps ?? {};
+  const isDisabled = Boolean(disabled) || clicked;
 
   return (
     <Box>
-      <Button {...buttonProps} onClick={() => setClicked(true)}>
-        {label}
+      <Button {...restButtonProps} disabled={isDisabled} onClick={() => setClicked(true)}>
+        {clicked ? (successLabel ?? `${label}済み`) : label}
       </Button>
-      {clicked ? (
+      {clicked && feedback ? (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
           {feedback}
         </Typography>

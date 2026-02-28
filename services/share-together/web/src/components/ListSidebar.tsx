@@ -30,7 +30,18 @@ export function ListSidebar({
   lists,
   hrefPrefix,
 }: ListSidebarProps) {
-  const [createClicked, setCreateClicked] = useState(false);
+  const [createdCount, setCreatedCount] = useState(0);
+
+  const handleCreateList = () => {
+    setCreatedCount((prev) => prev + 1);
+  };
+  const mockLists = [
+    ...lists,
+    ...Array.from({ length: createdCount }, (_, index) => ({
+      listId: `mock-created-list-${index + 1}`,
+      name: `新規リスト（モック${index + 1}）`,
+    })),
+  ];
 
   return (
     <Paper component="aside" sx={{ p: 2 }}>
@@ -38,17 +49,12 @@ export function ListSidebar({
         {heading}
       </Typography>
       <Box sx={{ mb: 2 }}>
-        <Button variant="contained" fullWidth onClick={() => setCreateClicked(true)}>
+        <Button variant="contained" fullWidth onClick={handleCreateList}>
           {createButtonLabel}
         </Button>
-        {createClicked ? (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            {createButtonLabel} を押下しました（モック）
-          </Typography>
-        ) : null}
       </Box>
       <List disablePadding>
-        {lists.map((list) => (
+        {mockLists.map((list) => (
           <ListItemButton
             key={list.listId}
             selected={selectedListId === list.listId}

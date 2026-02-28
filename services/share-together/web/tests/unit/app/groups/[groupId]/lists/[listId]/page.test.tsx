@@ -26,6 +26,7 @@ describe('GroupListDetailPage', () => {
     expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '更新（モック）' }));
-    expect(screen.getByText('更新（モック）を押下しました')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '更新済み' })).toBeDisabled();
+    expect(screen.getByText('リストを再取得しました（モック）')).toBeInTheDocument();
   });
 });

@@ -20,7 +20,8 @@ export default function GroupsPage() {
           </Typography>
           <MockActionButton
             label="グループを作成"
-            feedback="グループを作成 を押下しました（モック）"
+            successLabel="作成フォーム表示中"
+            feedback="グループ作成フォームを表示しました（モック）"
             buttonProps={{ variant: 'contained' }}
           />
         </Stack>
