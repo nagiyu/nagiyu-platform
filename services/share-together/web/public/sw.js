@@ -40,11 +40,8 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((response) => {
+    fetch(event.request)
+      .then((response) => {
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
@@ -53,11 +50,11 @@ self.addEventListener('fetch', (event) => {
         caches
           .open(CACHE_NAME)
           .then((cache) => cache.put(event.request, responseToCache))
-          .catch((error) => console.error(ERROR_MESSAGES.CACHE_PUT_FAILED, error));
+            .catch((error) => console.error(ERROR_MESSAGES.CACHE_PUT_FAILED, error));
 
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
 
