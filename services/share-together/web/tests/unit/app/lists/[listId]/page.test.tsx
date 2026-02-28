@@ -6,16 +6,12 @@ jest.mock('@/components/Navigation', () => ({
   Navigation: () => <div>Navigation</div>,
 }));
 
-jest.mock('@/components/ListSidebar', () => ({
-  ListSidebar: () => <div>ListSidebar</div>,
-}));
-
-jest.mock('@/components/TodoList', () => ({
-  TodoList: () => <div>TodoList</div>,
+jest.mock('@/components/ListWorkspace', () => ({
+  ListWorkspace: () => <div>ListWorkspace</div>,
 }));
 
 describe('PersonalListDetailPage', () => {
-  it('個人リスト詳細ページに ListSidebar と TodoList をモック表示する', async () => {
+  it('リスト詳細ページに ListWorkspace をモック表示する', async () => {
     render(
       await PersonalListDetailPage({
         params: Promise.resolve({ listId: 'mock-work-list' }),
@@ -25,8 +21,7 @@ describe('PersonalListDetailPage', () => {
     expect(screen.getByText('Navigation')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: '仕事（モック）' })).toBeInTheDocument();
     expect(screen.getByText('リストID: mock-work-list')).toBeInTheDocument();
-    expect(screen.getByText('ListSidebar')).toBeInTheDocument();
-    expect(screen.getByText('TodoList')).toBeInTheDocument();
+    expect(screen.getByText('ListWorkspace')).toBeInTheDocument();
   });
 
   it('未定義の listId の場合はフォールバック名を表示する', async () => {

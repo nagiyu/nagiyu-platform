@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Navigation } from '@/components/Navigation';
 import {
   Box,
@@ -8,7 +7,6 @@ import {
   Container,
   List,
   ListItem,
-  ListItemButton,
   ListItemText,
   Stack,
   TextField,
@@ -21,10 +19,13 @@ const MOCK_MEMBERS = [
   { userId: 'user-member-2', name: 'たろう' },
 ] as const;
 
-const MOCK_GROUP_LISTS = [
-  { listId: 'mock-list-1', name: '買い物リスト（共有）' },
-  { listId: 'mock-list-2', name: '旅行準備リスト' },
-] as const;
+const CURRENT_USER_ID = 'user-owner';
+
+const GROUP_OWNERS: Record<string, string> = {
+  'mock-family-group': 'user-owner',
+  'mock-roommate-group': 'user-member-1',
+  'mock-project-group': 'user-owner',
+};
 
 export default async function GroupDetailPage({
   params,
@@ -32,6 +33,7 @@ export default async function GroupDetailPage({
   params: Promise<{ groupId: string }>;
 }) {
   const { groupId } = await params;
+  const isOwner = GROUP_OWNERS[groupId] === CURRENT_USER_ID;
 
   return (
     <main>
@@ -63,26 +65,12 @@ export default async function GroupDetailPage({
           <Card>
             <CardContent>
               <Typography variant="h6" component="h2" gutterBottom>
-                共有リスト一覧
-              </Typography>
-              <List>
-                {MOCK_GROUP_LISTS.map((list) => (
-                  <ListItem key={list.listId} disablePadding>
-                    <Link href={`/groups/${groupId}/lists/${list.listId}`} passHref legacyBehavior>
-                      <ListItemButton component="a">
-                        <ListItemText primary={list.name} />
-                      </ListItemButton>
-                    </Link>
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="h2" gutterBottom>
                 メンバー招待フォーム
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {isOwner
+                  ? 'オーナーとしてメンバーを招待できます。'
+                  : 'このグループではメンバー追加はできません（オーナーのみ）。'}
               </Typography>
               <Box component="form">
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -92,8 +80,9 @@ export default async function GroupDetailPage({
                     type="email"
                     label="メールアドレス"
                     placeholder="example@nagiyu.com"
+                    disabled={!isOwner}
                   />
-                  <Button type="button" variant="contained">
+                  <Button type="button" variant="contained" disabled={!isOwner}>
                     招待を送信（モック）
                   </Button>
                 </Stack>
