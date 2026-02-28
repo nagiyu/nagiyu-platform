@@ -80,6 +80,7 @@ export * from './mappers/holding.mapper.js';
 export * from './mappers/ticker.mapper.js';
 export * from './mappers/exchange.mapper.js';
 export * from './mappers/watchlist.mapper.js';
+export * from './mappers/daily-summary.mapper.js';
 
 // DynamoDB Implementations
 export * from './repositories/dynamodb-alert.repository.js';
