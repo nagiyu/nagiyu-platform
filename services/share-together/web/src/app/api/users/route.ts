@@ -32,6 +32,9 @@ function createInternalServerErrorResponse(): NextResponse {
 }
 
 export async function POST(): Promise<NextResponse> {
+  let requestedUserId: string | undefined;
+  let operation: 'create' | 'update' | 'unknown' = 'unknown';
+
   try {
     const sessionOrUnauthorized = await getSessionOrUnauthorized();
     if ('status' in sessionOrUnauthorized) {
@@ -54,6 +57,8 @@ export async function POST(): Promise<NextResponse> {
       return createValidationErrorResponse();
     }
 
+    requestedUserId = userId;
+
     const tableName = process.env.DYNAMODB_TABLE_NAME;
     if (!tableName) {
       throw new Error('DYNAMODB_TABLE_NAME is required');
@@ -67,6 +72,7 @@ export async function POST(): Promise<NextResponse> {
     let responseUser: User;
 
     if (existingUser) {
+      operation = 'update';
       responseUser = {
         ...existingUser,
         email,
@@ -87,6 +93,7 @@ export async function POST(): Promise<NextResponse> {
         })
       );
     } else {
+      operation = 'create';
       const defaultListId = crypto.randomUUID();
       responseUser = {
         userId,
@@ -137,7 +144,11 @@ export async function POST(): Promise<NextResponse> {
     const response: UserResponse = { data: responseUser };
     return NextResponse.json(response);
   } catch (error) {
-    console.error('ユーザー登録 API の実行に失敗しました', error);
+    console.error('ユーザー登録 API の実行に失敗しました', {
+      userId: requestedUserId,
+      operation,
+      error,
+    });
     return createInternalServerErrorResponse();
   }
 }

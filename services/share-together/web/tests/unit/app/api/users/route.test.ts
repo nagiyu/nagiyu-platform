@@ -33,24 +33,30 @@ const mockGetAwsClients = getAwsClients as jest.MockedFunction<typeof getAwsClie
 const mockDynamoDBUserRepository = DynamoDBUserRepository as jest.MockedClass<
   typeof DynamoDBUserRepository
 >;
+type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
 describe('POST /api/users', () => {
   const mockSend = jest.fn();
   const mockGetById = jest.fn();
+  let randomUuidSpy: jest.SpiedFunction<typeof crypto.randomUUID> | null = null;
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetAwsClients.mockReturnValue({ docClient: { send: mockSend } as never });
+    mockGetAwsClients.mockReturnValue({
+      docClient: { send: mockSend } as ReturnType<typeof getAwsClients>['docClient'],
+    });
     mockDynamoDBUserRepository.mockImplementation(
       () =>
         ({
           getById: mockGetById,
-        }) as never
+        }) as InstanceType<typeof DynamoDBUserRepository>
     );
   });
 
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
+    randomUuidSpy?.mockRestore();
+    randomUuidSpy = null;
     jest.clearAllMocks();
   });
 
@@ -60,7 +66,7 @@ describe('POST /api/users', () => {
       json: async () => ({
         error: { code: 'UNAUTHORIZED', message: '認証が必要です' },
       }),
-    } as never);
+    } as SessionOrUnauthorized);
 
     const response = await POST();
 
@@ -77,7 +83,7 @@ describe('POST /api/users', () => {
         name: '更新ユーザー',
         image: 'https://example.com/new.png',
       },
-    } as never);
+    } as SessionOrUnauthorized);
     mockGetById.mockResolvedValue({
       userId: 'user-1',
       email: 'before@example.com',
@@ -105,7 +111,7 @@ describe('POST /api/users', () => {
   });
 
   it('新規ユーザーの場合はユーザーとデフォルトリストを作成する', async () => {
-    const randomUuidSpy = jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('list-99');
+    randomUuidSpy = jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('list-99');
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: {
         id: 'user-new',
@@ -113,7 +119,7 @@ describe('POST /api/users', () => {
         name: '新規ユーザー',
         image: null,
       },
-    } as never);
+    } as SessionOrUnauthorized);
     mockGetById.mockResolvedValue(null);
     mockSend.mockResolvedValue({});
 
@@ -130,6 +136,5 @@ describe('POST /api/users', () => {
       }),
     });
 
-    randomUuidSpy.mockRestore();
   });
 });
