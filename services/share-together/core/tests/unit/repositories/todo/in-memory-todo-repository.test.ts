@@ -48,9 +48,9 @@ describe('InMemoryTodoRepository', () => {
   });
 
   it('存在しないToDoを更新するとエラーになる', async () => {
-    await expect(repository.update('list-1', 'todo-unknown', { title: '更新不可' })).rejects.toThrow(
-      'ToDoが見つかりません'
-    );
+    await expect(
+      repository.update('list-1', 'todo-unknown', { title: '更新不可' })
+    ).rejects.toThrow('ToDoが見つかりません');
   });
 
   it('同一リスト内で重複ToDo IDを作成するとエラーになる', async () => {

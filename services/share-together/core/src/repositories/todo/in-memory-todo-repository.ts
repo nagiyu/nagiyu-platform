@@ -41,7 +41,11 @@ export class InMemoryTodoRepository implements TodoRepository {
     return { ...todo };
   }
 
-  public async update(listId: string, todoId: string, updates: UpdateTodoItemInput): Promise<TodoItem> {
+  public async update(
+    listId: string,
+    todoId: string,
+    updates: UpdateTodoItemInput
+  ): Promise<TodoItem> {
     const todosInList = this.todosByListId.get(listId);
     if (!todosInList) {
       throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
