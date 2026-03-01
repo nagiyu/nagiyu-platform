@@ -230,18 +230,16 @@ describe('summary batch handler', () => {
       const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
         .fn()
         .mockReturnValue(false);
-      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
-        .fn()
-        .mockResolvedValue([
-          {
-            time: Date.UTC(2026, 1, 27),
-            open: 100,
-            high: 110,
-            low: 95,
-            close: 108,
-            volume: 1000,
-          },
-        ]);
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
       // 2026-02-28 (土曜日) 12:00 UTC = 07:00 ET → getLastTradingDate = "2026-02-27" (金)
       const nowFn = jest.fn(() => Date.UTC(2026, 1, 28, 12, 0, 0));
 
@@ -365,7 +363,9 @@ describe('summary batch handler', () => {
       const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
         .fn()
         .mockReturnValue(false);
-      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([]);
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
+        .fn()
+        .mockResolvedValue([]);
       const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
 
       const response = await handler(mockEvent, {
@@ -378,9 +378,7 @@ describe('summary batch handler', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(
-        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
-      ).toBeNull();
+      expect(await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')).toBeNull();
     });
   });
 
