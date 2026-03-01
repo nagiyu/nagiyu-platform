@@ -3,6 +3,10 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { TodoList } from '@/components/TodoList';
 
 describe('TodoList', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('個人向けのモック ToDo リストを表示する', () => {
     render(<TodoList listId="mock-default-list" />);
 
@@ -81,5 +85,26 @@ describe('TodoList', () => {
     expect(checkbox).not.toBeChecked();
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
+  });
+
+  it('編集ボタンからタイトルを更新できる', () => {
+    jest.spyOn(window, 'prompt').mockReturnValue('  牛乳を買う(更新)  ');
+    render(<TodoList listId="mock-default-list" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '牛乳を買うを編集' }));
+
+    expect(screen.getByText('牛乳を買う(更新)')).toBeInTheDocument();
+    expect(screen.queryByText('牛乳を買う')).not.toBeInTheDocument();
+    expect(screen.getByText('ToDoを更新しました。')).toBeInTheDocument();
+  });
+
+  it('編集ダイアログで空文字入力時はタイトルを更新しない', () => {
+    jest.spyOn(window, 'prompt').mockReturnValue('   ');
+    render(<TodoList listId="mock-default-list" />);
+
+    fireEvent.click(screen.getByRole('button', { name: '牛乳を買うを編集' }));
+
+    expect(screen.getByText('牛乳を買う')).toBeInTheDocument();
+    expect(screen.queryByText('ToDoを更新しました。')).not.toBeInTheDocument();
   });
 });

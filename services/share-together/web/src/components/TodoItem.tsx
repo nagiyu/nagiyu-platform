@@ -29,7 +29,9 @@ export function TodoItem({ todo, onToggleComplete, onEdit, onDelete }: TodoItemP
         >
           {todo.title}
         </Typography>
-        <Button onClick={() => onEdit?.(todo.todoId)}>編集</Button>
+        <Button aria-label={`${todo.title}を編集`} onClick={() => onEdit?.(todo.todoId)}>
+          編集
+        </Button>
         <Button color="error" onClick={() => onDelete?.(todo.todoId)}>
           削除
         </Button>

@@ -23,7 +23,10 @@ test.describe('個人ToDoリスト管理', () => {
       page.waitForEvent('dialog').then(async (dialog) => {
         await dialog.accept(editedTitle);
       }),
-      page.locator('li', { hasText: initialTitle }).getByRole('button', { name: '編集' }).click(),
+      page
+        .locator('li', { hasText: initialTitle })
+        .getByRole('button', { name: `${initialTitle}を編集` })
+        .click(),
     ]);
 
     await expect(page.getByText(editedTitle, { exact: true })).toBeVisible();
