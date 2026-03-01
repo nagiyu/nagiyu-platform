@@ -48,6 +48,16 @@ describe('TodoService', () => {
     expect(todoRepository.create).not.toHaveBeenCalled();
   });
 
+  it('必須パラメータが空白の場合はバリデーションエラーになる', async () => {
+    await expect(todoService.getTodosByListId('   ')).rejects.toThrow('リストIDは必須です');
+    await expect(todoService.createTodo('list-1', '有効なタイトル', '   ')).rejects.toThrow(
+      'ユーザーIDは必須です'
+    );
+    await expect(todoService.updateTodo('list-1', '   ', { title: '更新後' }, 'user-1')).rejects.toThrow(
+      'ToDo IDは必須です'
+    );
+  });
+
   it('ToDo完了時は完了ユーザーIDを設定する', async () => {
     const updatedTodo: TodoItem = {
       todoId: 'todo-1',
@@ -104,12 +114,26 @@ describe('TodoService', () => {
     ).rejects.toThrow('ToDoが見つかりません');
   });
 
+  it('存在しないToDo以外の更新エラーはそのまま送出する', async () => {
+    todoRepository.update.mockRejectedValue(new Error('更新に失敗しました'));
+
+    await expect(
+      todoService.updateTodo('list-1', 'todo-1', { title: '更新後' }, 'user-1')
+    ).rejects.toThrow('更新に失敗しました');
+  });
+
   it('存在しないToDo削除エラーを統一メッセージに変換する', async () => {
     todoRepository.delete.mockRejectedValue(new Error('指定されたToDoは存在しません'));
 
     await expect(todoService.deleteTodo('list-1', 'todo-404')).rejects.toThrow(
       'ToDoが見つかりません'
     );
+  });
+
+  it('存在しないToDo以外の削除エラーはそのまま送出する', async () => {
+    todoRepository.delete.mockRejectedValue(new Error('削除に失敗しました'));
+
+    await expect(todoService.deleteTodo('list-1', 'todo-1')).rejects.toThrow('削除に失敗しました');
   });
 
   it('リストIDでToDo一覧を取得できる', async () => {
