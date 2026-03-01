@@ -82,9 +82,23 @@ async function processExchange(
     const tickerResult = await dependencies.tickerRepository.getByExchange(exchange.ExchangeID);
     const tickers = tickerResult.items;
     stats.totalTickers += tickers.length;
+    const summaryDate = new Date(now).toISOString().slice(0, 10);
 
     for (const ticker of tickers) {
       try {
+        const existingSummary = await dependencies.dailySummaryRepository.getByTickerAndDate(
+          ticker.TickerID,
+          summaryDate
+        );
+        if (existingSummary) {
+          logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
+            exchangeId: exchange.ExchangeID,
+            tickerId: ticker.TickerID,
+            date: summaryDate,
+          });
+          continue;
+        }
+
         const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
           count: 1,
           session: 'extended',

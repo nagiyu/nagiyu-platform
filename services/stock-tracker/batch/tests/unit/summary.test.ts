@@ -139,8 +139,8 @@ describe('summary batch handler', () => {
     });
   });
 
-  describe('シナリオ3: DailySummaryRepository.upsert() が正しく呼び出される（冪等性）', () => {
-    it('同一TickerID+Dateの再実行で重複せず上書きされる', async () => {
+  describe('シナリオ3: 既存サマリーがある場合は更新をスキップする', () => {
+    it('同一TickerID+Dateの再実行で更新せずAPI呼び出しをスキップする', async () => {
       await exchangeRepository.create({
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ',
@@ -202,8 +202,9 @@ describe('summary batch handler', () => {
 
       const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-28');
       expect(summaries).toHaveLength(1);
-      expect(summaries[0].Open).toBe(101);
-      expect(summaries[0].Close).toBe(109);
+      expect(summaries[0].Open).toBe(100);
+      expect(summaries[0].Close).toBe(108);
+      expect(getChartDataFn).toHaveBeenCalledTimes(1);
     });
   });
 
