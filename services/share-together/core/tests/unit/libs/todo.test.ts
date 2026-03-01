@@ -61,12 +61,7 @@ describe('TodoService', () => {
     };
     todoRepository.update.mockResolvedValue(updatedTodo);
 
-    const todo = await todoService.updateTodo(
-      'list-1',
-      'todo-1',
-      { isCompleted: true },
-      'user-2'
-    );
+    const todo = await todoService.updateTodo('list-1', 'todo-1', { isCompleted: true }, 'user-2');
 
     expect(todo).toEqual(updatedTodo);
     expect(todoRepository.update).toHaveBeenCalledWith('list-1', 'todo-1', {

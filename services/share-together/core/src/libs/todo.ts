@@ -10,10 +10,7 @@ const ERROR_MESSAGES = {
   TODO_NOT_FOUND: 'ToDoが見つかりません',
 } as const;
 
-const TODO_NOT_FOUND_MESSAGES = new Set([
-  'ToDoが見つかりません',
-  '指定されたToDoは存在しません',
-]);
+const TODO_NOT_FOUND_MESSAGES = new Set(['ToDoが見つかりません', '指定されたToDoは存在しません']);
 
 export interface UpdateTodoInput {
   title?: string;
