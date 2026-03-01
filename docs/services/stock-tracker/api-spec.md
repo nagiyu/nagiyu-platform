@@ -89,6 +89,8 @@
 | POST | `/api/alerts` | アラート作成 | 必須 | `stocks:write-own` |
 | PUT | `/api/alerts/{id}` | アラート更新 | 必須 | `stocks:write-own` |
 | DELETE | `/api/alerts/{id}` | アラート削除 | 必須 | `stocks:write-own` |
+| GET | `/api/summaries` | 日次サマリー一覧取得 | 必須 | `stocks:read` |
+| POST | `/api/summaries/refresh` | 日次サマリーバッチ手動実行 | 必須 | `stocks:manage-data` |
 | GET | `/api/chart/{tickerId}` | チャートデータ取得 | 必須 | `stocks:read` |
 | POST | `/api/push/subscribe` | Web Push 登録 | 必須 | `stocks:write-own` |
 | DELETE | `/api/push/unsubscribe` | Web Push 解除 | 必須 | `stocks:write-own` |
@@ -169,9 +171,9 @@
 
 | 権限スコープ | 説明 | 適用エンドポイント |
 |------------|------|------------------|
-| `stocks:read` | 株価データ・マスタデータの閲覧 | GET /api/exchanges, /api/tickers, /api/holdings, /api/watchlist, /api/alerts, /api/chart |
+| `stocks:read` | 株価データ・マスタデータの閲覧 | GET /api/exchanges, /api/tickers, /api/holdings, /api/watchlist, /api/alerts, /api/summaries, /api/chart |
 | `stocks:write-own` | 自身のデータの作成・更新・削除 | POST/PUT/DELETE /api/holdings, /api/watchlist, /api/alerts, /api/push/* |
-| `stocks:manage-data` | マスタデータの管理（取引所・ティッカー） | POST/PUT/DELETE /api/exchanges, /api/tickers |
+| `stocks:manage-data` | マスタデータの管理（取引所・ティッカー）とサマリー更新 | POST/PUT/DELETE /api/exchanges, /api/tickers, POST /api/summaries/refresh |
 
 **注**: 全ユーザーに `stocks:read` と `stocks:write-own` が付与されます。`stocks:manage-data` は管理者のみです。
 

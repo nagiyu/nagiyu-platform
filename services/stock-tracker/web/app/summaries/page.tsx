@@ -4,29 +4,37 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
+  FormControl,
   Container,
   Dialog,
   DialogContent,
   DialogTitle,
   Divider,
   IconButton,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
+import { useSession } from 'next-auth/react';
+import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
+  REFRESH_FAILED: 'サマリーバッチの実行に失敗しました',
+  REFRESH_SUCCESS: 'サマリーバッチを実行しました',
 } as const;
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
@@ -47,23 +55,25 @@ const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
 };
 
 export default function SummariesPage() {
+  const { data: session } = useSession();
   const [summaries, setSummaries] = useState<SummariesResponse>({ exchanges: [] });
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState('');
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [selectedExchangeId, setSelectedExchangeId] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
+  const hasManageDataPermission =
+    !!session?.user &&
+    'roles' in session.user &&
+    Array.isArray(session.user.roles) &&
+    hasPermission(session.user.roles, 'stocks:manage-data');
 
-  const fetchSummaries = useCallback(async (date: string) => {
+  const fetchSummaries = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const searchParams = new URLSearchParams();
-      if (date) {
-        searchParams.set('date', date);
-      }
-
-      const query = searchParams.toString();
-      const response = await fetch(`/api/summaries${query ? `?${query}` : ''}`);
+      const response = await fetch('/api/summaries');
 
       if (!response.ok) {
         let message: string = ERROR_MESSAGES.FETCH_FAILED;
@@ -78,6 +88,11 @@ export default function SummariesPage() {
 
       const data = (await response.json()) as SummariesResponse;
       setSummaries(data);
+      setSelectedExchangeId((currentExchangeId) =>
+        data.exchanges.some((exchange) => exchange.exchangeId === currentExchangeId)
+          ? currentExchangeId
+          : ''
+      );
     } catch (error) {
       setSummaries({ exchanges: [] });
       setErrorMessage(error instanceof Error ? error.message : ERROR_MESSAGES.FETCH_FAILED);
@@ -87,23 +102,24 @@ export default function SummariesPage() {
   }, []);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const initialDate = searchParams.get('date') ?? '';
-    setDateFilter(initialDate);
-    void fetchSummaries(initialDate);
+    void fetchSummaries();
   }, [fetchSummaries]);
 
-  const handleDateFilterChange = (value: string) => {
-    setDateFilter(value);
-    const searchParams = new URLSearchParams(window.location.search);
-    if (value) {
-      searchParams.set('date', value);
-    } else {
-      searchParams.delete('date');
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    setRefreshMessage(null);
+    try {
+      const response = await fetch('/api/summaries/refresh', { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(ERROR_MESSAGES.REFRESH_FAILED);
+      }
+      setRefreshMessage(ERROR_MESSAGES.REFRESH_SUCCESS);
+      await fetchSummaries();
+    } catch {
+      setRefreshMessage(ERROR_MESSAGES.REFRESH_FAILED);
+    } finally {
+      setIsRefreshing(false);
     }
-    const query = searchParams.toString();
-    window.history.replaceState(null, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
-    void fetchSummaries(value);
   };
 
   const handleTickerClick = (ticker: TickerSummary) => {
@@ -113,25 +129,47 @@ export default function SummariesPage() {
   const handleDialogClose = () => {
     setSelectedTicker(null);
   };
+  const filteredExchanges = selectedExchangeId
+    ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
+    : summaries.exchanges;
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
         日次サマリー
       </Typography>
-      <TextField
-        label="対象日"
-        type="date"
-        size="small"
-        value={dateFilter}
-        onChange={(event) => handleDateFilterChange(event.target.value)}
-        sx={{ mb: 2 }}
-        slotProps={{ inputLabel: { shrink: true } }}
-      />
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel id="exchange-filter-label">取引所</InputLabel>
+          <Select
+            labelId="exchange-filter-label"
+            value={selectedExchangeId}
+            label="取引所"
+            onChange={(event) => setSelectedExchangeId(event.target.value)}
+          >
+            <MenuItem value="">すべての取引所</MenuItem>
+            {summaries.exchanges.map((exchange) => (
+              <MenuItem key={exchange.exchangeId} value={exchange.exchangeId}>
+                {exchange.exchangeName}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {hasManageDataPermission && (
+          <Button variant="contained" onClick={handleRefresh} disabled={isRefreshing}>
+            サマリー更新
+          </Button>
+        )}
+      </Box>
 
       {errorMessage && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {errorMessage}
+        </Alert>
+      )}
+      {refreshMessage && (
+        <Alert severity={refreshMessage === ERROR_MESSAGES.REFRESH_SUCCESS ? 'success' : 'error'} sx={{ mb: 2 }}>
+          {refreshMessage}
         </Alert>
       )}
 
@@ -139,7 +177,7 @@ export default function SummariesPage() {
         {isLoading ? (
           <Typography color="text.secondary">読み込み中...</Typography>
         ) : (
-          summaries.exchanges.map((exchange) => (
+          filteredExchanges.map((exchange) => (
             <Card key={exchange.exchangeId} variant="outlined">
               <CardContent>
                 <Typography variant="h6" component="h2">

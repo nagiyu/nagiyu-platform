@@ -90,5 +90,16 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
         ],
       })
     );
+
+    this.addStatements(
+      new iam.PolicyStatement({
+        sid: 'InvokeSummaryBatchFunction',
+        effect: iam.Effect.ALLOW,
+        actions: ['lambda:InvokeFunction'],
+        resources: [
+          `arn:aws:lambda:*:*:function:nagiyu-stock-tracker-batch-summary-${props.envName}`,
+        ],
+      })
+    );
   }
 }

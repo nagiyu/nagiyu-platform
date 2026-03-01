@@ -5,12 +5,7 @@ test.describe('サマリー画面スモークテスト', () => {
     await page.goto('/summaries');
 
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: '対象日' })).toBeVisible();
-  });
-
-  test('不正な日付クエリでエラーメッセージが表示される', async ({ page }) => {
-    await page.goto('/summaries?date=2024-13-40');
-    await expect(page.getByText('日付はYYYY-MM-DD形式で指定してください')).toBeVisible();
+    await expect(page.getByLabel('取引所')).toBeVisible();
   });
 
   test('ナビゲーションリンクからサマリーページに遷移できる', async ({ page }) => {
@@ -26,9 +21,14 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
   });
 
-  test('日付クエリ指定時に日付フィルターへ初期反映される', async ({ page }) => {
-    await page.goto('/summaries?date=2024-01-15');
-    await expect(page.getByRole('textbox', { name: '対象日' })).toHaveValue('2024-01-15');
+  test('stock-admin の場合にサマリー更新ボタンが表示される', async ({ page }) => {
+    await page.goto('/summaries');
+    const isAdmin = process.env.TEST_USER_ROLES?.includes('stock-admin');
+    if (isAdmin) {
+      await expect(page.getByRole('button', { name: 'サマリー更新' })).toBeVisible();
+    } else {
+      await expect(page.getByRole('button', { name: 'サマリー更新' })).toHaveCount(0);
+    }
   });
 
   test('データ未投入環境ではサマリー行が0件でもページ表示できる', async ({ page }) => {

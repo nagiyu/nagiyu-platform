@@ -7,6 +7,7 @@ import {
   Notifications as NotificationsIcon,
   Business as BusinessIcon,
   ShowChart as ShowChartIcon,
+  Summarize as SummarizeIcon,
 } from '@mui/icons-material';
 
 interface QuickActionsProps {
@@ -57,6 +58,16 @@ export default function QuickActions({ hasManageDataPermission }: QuickActionsPr
           sx={{ py: 2 }}
         >
           アラート一覧
+        </Button>
+
+        <Button
+          variant="contained"
+          size="large"
+          href="/summaries"
+          startIcon={<SummarizeIcon />}
+          sx={{ py: 2 }}
+        >
+          サマリー
         </Button>
 
         {/* 4. 取引所管理 (stock-admin のみ) */}
