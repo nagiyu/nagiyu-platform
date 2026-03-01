@@ -230,23 +230,24 @@ export class DynamoDBTodoRepository implements TodoRepository {
       return;
     }
 
-    for (let index = 0; index < keys.length; index += 25) {
-      let requests = keys.slice(index, index + 25).map((key) => ({
+    for (let batchStartIndex = 0; batchStartIndex < keys.length; batchStartIndex += 25) {
+      let pendingRequests = keys.slice(batchStartIndex, batchStartIndex + 25).map((key) => ({
         DeleteRequest: { Key: key },
       }));
 
-      while (requests.length > 0) {
+      while (pendingRequests.length > 0) {
         const batchWriteResult = await this.docClient.send(
           new BatchWriteCommand({
             RequestItems: {
-              [this.tableName]: requests,
+              [this.tableName]: pendingRequests,
             },
           })
         );
 
-        requests =
-          (batchWriteResult.UnprocessedItems?.[this.tableName] as typeof requests | undefined) ??
-          [];
+        pendingRequests =
+          (batchWriteResult.UnprocessedItems?.[this.tableName] as
+            | typeof pendingRequests
+            | undefined) ?? [];
       }
     }
   }
