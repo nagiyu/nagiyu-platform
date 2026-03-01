@@ -35,10 +35,7 @@ jest.mock('@nagiyu/share-together-core', () => ({
 }));
 
 import { DELETE, PUT } from '@/app/api/groups/[groupId]/route';
-import {
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
-} from '@nagiyu/share-together-core';
+import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 
