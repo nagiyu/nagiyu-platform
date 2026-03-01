@@ -33,9 +33,6 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const userId = sessionOrUnauthorized.user.id;
-    if (typeof userId !== 'string' || userId.length === 0) {
-      return createErrorResponse(400, 'VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR);
-    }
 
     const tableName = process.env.DYNAMODB_TABLE_NAME;
     if (!tableName) {
@@ -50,12 +47,12 @@ export async function GET(): Promise<NextResponse> {
     const acceptedMemberships = memberships.filter((membership) => membership.status === 'ACCEPTED');
     const groupIds = acceptedMemberships.map((membership) => membership.groupId);
     const groups = await groupRepository.batchGetByIds(groupIds);
-    const roleByGroupId = new Map(
-      acceptedMemberships.map((membership) => [membership.groupId, membership.role] as const)
+    const isOwnerByGroupId = new Map(
+      acceptedMemberships.map((membership) => [membership.groupId, membership.role === 'OWNER'] as const)
     );
     const groupSummaries: GroupSummary[] = groups.map((group) => ({
       ...group,
-      isOwner: roleByGroupId.get(group.groupId) === 'OWNER',
+      isOwner: isOwnerByGroupId.get(group.groupId) === true,
     }));
 
     const response: ApiSuccessResponse<{ groups: GroupSummary[] }> = {
@@ -76,9 +73,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const userId = sessionOrUnauthorized.user.id;
-    if (typeof userId !== 'string' || userId.length === 0) {
-      return createErrorResponse(400, 'VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR);
-    }
 
     const body = (await request.json()) as { name?: unknown };
     const name = typeof body.name === 'string' ? body.name.trim() : '';
