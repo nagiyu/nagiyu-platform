@@ -116,6 +116,7 @@ export class LambdaStack extends cdk.Stack {
             ? 'https://stock-tracker.nagiyu.com'
             : 'https://dev-stock-tracker.nagiyu.com',
         AUTH_SECRET: nextAuthSecret,
+        STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-summary-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
