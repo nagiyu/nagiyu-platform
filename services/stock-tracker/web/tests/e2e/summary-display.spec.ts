@@ -17,11 +17,17 @@ test.describe('サマリー画面スモークテスト', () => {
       await menuButton.click();
     }
 
-    const summaryLink = isMobileMenuVisible
-      ? page.getByRole('navigation', { name: 'ナビゲーションメニュー' }).getByRole('link', { name: 'サマリー' })
-      : page.getByRole('banner').getByRole('link', { name: 'サマリー' });
-    await expect(summaryLink).toBeVisible();
-    await summaryLink.click();
+    if (isMobileMenuVisible) {
+      const summaryLink = page
+        .getByRole('navigation', { name: 'ナビゲーションメニュー' })
+        .getByRole('link', { name: 'サマリー' });
+      await expect(summaryLink).toBeVisible();
+      await summaryLink.click();
+    } else {
+      const summaryLink = page.getByRole('banner').getByRole('link', { name: 'サマリー' });
+      await expect(summaryLink).toBeVisible();
+      await summaryLink.click();
+    }
 
     await expect(page).toHaveURL('/summaries');
     await expect(page.getByRole('heading', { name: '日次サマリー' })).toBeVisible();
