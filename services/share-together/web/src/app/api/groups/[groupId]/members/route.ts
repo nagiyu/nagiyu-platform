@@ -92,7 +92,9 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     }
 
     const memberships = await membershipRepository.getByGroupId(resolvedGroupId);
-    const acceptedMemberships = memberships.filter((membership) => membership.status === 'ACCEPTED');
+    const acceptedMemberships = memberships.filter(
+      (membership) => membership.status === 'ACCEPTED'
+    );
     const users = await Promise.all(
       acceptedMemberships.map((membership) => userRepository.getById(membership.userId))
     );
