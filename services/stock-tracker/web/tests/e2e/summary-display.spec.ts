@@ -11,9 +11,15 @@ test.describe('サマリー画面スモークテスト', () => {
   test('ナビゲーションリンクからサマリーページに遷移できる', async ({ page }) => {
     await page.goto('/');
 
-    await page.getByRole('button', { name: 'メニューを開く' }).click();
+    const menuButton = page.getByRole('button', { name: 'メニューを開く' });
+    const isMobileMenuVisible = await menuButton.isVisible();
+    if (isMobileMenuVisible) {
+      await menuButton.click();
+    }
 
-    const summaryLink = page.getByRole('dialog').getByRole('link', { name: 'サマリー' });
+    const summaryLink = isMobileMenuVisible
+      ? page.getByRole('navigation', { name: 'ナビゲーションメニュー' }).getByRole('link', { name: 'サマリー' })
+      : page.getByRole('banner').getByRole('link', { name: 'サマリー' });
     await expect(summaryLink).toBeVisible();
     await summaryLink.click();
 
