@@ -44,11 +44,15 @@ export async function GET(): Promise<NextResponse> {
     const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
 
     const memberships = await membershipRepository.getByUserId(userId);
-    const acceptedMemberships = memberships.filter((membership) => membership.status === 'ACCEPTED');
+    const acceptedMemberships = memberships.filter(
+      (membership) => membership.status === 'ACCEPTED'
+    );
     const groupIds = acceptedMemberships.map((membership) => membership.groupId);
     const groups = await groupRepository.batchGetByIds(groupIds);
     const isOwnerByGroupId = new Map(
-      acceptedMemberships.map((membership) => [membership.groupId, membership.role === 'OWNER'] as const)
+      acceptedMemberships.map(
+        (membership) => [membership.groupId, membership.role === 'OWNER'] as const
+      )
     );
     const groupSummaries: GroupSummary[] = groups.map((group) => ({
       ...group,
