@@ -31,7 +31,7 @@ describe('summary batch handler', () => {
       'detail-type': 'Scheduled Event',
       source: 'aws.events',
       account: '123456789012',
-      time: '2026-02-28T13:00:00Z',
+      time: '2026-02-27T23:00:00Z',
       region: 'ap-northeast-1',
       resources: ['arn:aws:events:ap-northeast-1:123456789012:rule/test'],
       detail: {},
@@ -60,7 +60,7 @@ describe('summary batch handler', () => {
         .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
-          time: Date.UTC(2026, 1, 28),
+          time: Date.UTC(2026, 1, 27),
           open: 100,
           high: 110,
           low: 95,
@@ -68,7 +68,8 @@ describe('summary batch handler', () => {
           volume: 1000,
         },
       ]);
-      const nowFn = jest.fn(() => Date.UTC(2026, 1, 28, 12, 0, 0));
+      // 2026-02-27 (金曜日) 23:00 UTC = 18:00 ET (取引終了後)
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
 
       const response = await handler(mockEvent, {
         exchangeRepository,
@@ -85,12 +86,12 @@ describe('summary batch handler', () => {
         session: 'extended',
       });
 
-      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-28');
+      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
       expect(summaries).toHaveLength(1);
       expect(summaries[0]).toMatchObject({
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
-        Date: '2026-02-28',
+        Date: '2026-02-27',
         Open: 100,
         High: 110,
         Low: 95,
@@ -120,7 +121,7 @@ describe('summary batch handler', () => {
         .fn()
         .mockReturnValue(true);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn();
-      const nowFn = jest.fn(() => Date.UTC(2026, 1, 28, 12, 0, 0));
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
 
       const response = await handler(mockEvent, {
         exchangeRepository,
@@ -163,7 +164,7 @@ describe('summary batch handler', () => {
         .fn()
         .mockResolvedValueOnce([
           {
-            time: Date.UTC(2026, 1, 28),
+            time: Date.UTC(2026, 1, 27),
             open: 100,
             high: 110,
             low: 95,
@@ -173,7 +174,7 @@ describe('summary batch handler', () => {
         ])
         .mockResolvedValueOnce([
           {
-            time: Date.UTC(2026, 1, 28),
+            time: Date.UTC(2026, 1, 27),
             open: 101,
             high: 111,
             low: 96,
@@ -181,6 +182,67 @@ describe('summary batch handler', () => {
             volume: 1000,
           },
         ]);
+      // 2026-02-27 (金曜日) 23:00 UTC = 18:00 ET (取引終了後)
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn,
+        getChartDataFn,
+        nowFn,
+      });
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn,
+        getChartDataFn,
+        nowFn,
+      });
+
+      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
+      expect(summaries).toHaveLength(1);
+      expect(summaries[0].Open).toBe(100);
+      expect(summaries[0].Close).toBe(108);
+      expect(getChartDataFn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('シナリオ3b: 週末実行でも既存サマリーがある場合は更新をスキップする', () => {
+    it('土曜日の再実行で金曜日サマリーを更新しない', async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+
+      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
+        .fn()
+        .mockReturnValue(false);
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
+        .fn()
+        .mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]);
+      // 2026-02-28 (土曜日) 12:00 UTC = 07:00 ET → getLastTradingDate = "2026-02-27" (金)
       const nowFn = jest.fn(() => Date.UTC(2026, 1, 28, 12, 0, 0));
 
       await handler(mockEvent, {
@@ -200,7 +262,8 @@ describe('summary batch handler', () => {
         nowFn,
       });
 
-      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-28');
+      // 金曜のサマリーが1件のみ、2回目はスキップされている
+      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-27');
       expect(summaries).toHaveLength(1);
       expect(summaries[0].Open).toBe(100);
       expect(summaries[0].Close).toBe(108);
@@ -243,7 +306,7 @@ describe('summary batch handler', () => {
 
           return [
             {
-              time: Date.UTC(2026, 1, 28),
+              time: Date.UTC(2026, 1, 27),
               open: 200,
               high: 220,
               low: 190,
@@ -252,7 +315,8 @@ describe('summary batch handler', () => {
             },
           ];
         });
-      const nowFn = jest.fn(() => Date.UTC(2026, 1, 28, 12, 0, 0));
+      // 2026-02-27 (金曜日) 23:00 UTC = 18:00 ET (取引終了後)
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
 
       const response = await handler(mockEvent, {
         exchangeRepository,
@@ -265,8 +329,8 @@ describe('summary batch handler', () => {
 
       expect(response.statusCode).toBe(200);
 
-      const aapl = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-28');
-      const nvda = await dailySummaryRepository.getByTickerAndDate('NSDQ:NVDA', '2026-02-28');
+      const aapl = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27');
+      const nvda = await dailySummaryRepository.getByTickerAndDate('NSDQ:NVDA', '2026-02-27');
 
       expect(aapl).toBeNull();
       expect(nvda).not.toBeNull();

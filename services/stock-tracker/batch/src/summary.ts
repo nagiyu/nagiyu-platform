@@ -11,6 +11,7 @@ import {
   DynamoDBTickerRepository,
   getChartData,
   isTradingHours,
+  getLastTradingDate,
 } from '@nagiyu/stock-tracker-core';
 import type {
   DailySummaryRepository,
@@ -82,7 +83,7 @@ async function processExchange(
     const tickerResult = await dependencies.tickerRepository.getByExchange(exchange.ExchangeID);
     const tickers = tickerResult.items;
     stats.totalTickers += tickers.length;
-    const summaryDate = new Date(now).toISOString().slice(0, 10);
+    const summaryDate = getLastTradingDate(exchange, now);
 
     for (const ticker of tickers) {
       try {
@@ -113,12 +114,11 @@ async function processExchange(
         }
 
         const latest = chartData[0];
-        const date = new Date(latest.time).toISOString().slice(0, 10);
 
         await dependencies.dailySummaryRepository.upsert({
           TickerID: ticker.TickerID,
           ExchangeID: exchange.ExchangeID,
-          Date: date,
+          Date: summaryDate,
           Open: latest.open,
           High: latest.high,
           Low: latest.low,
