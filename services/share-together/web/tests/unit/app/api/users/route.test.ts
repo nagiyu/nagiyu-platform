@@ -135,6 +135,5 @@ describe('POST /api/users', () => {
         defaultListId: 'list-99',
       }),
     });
-
   });
 });
