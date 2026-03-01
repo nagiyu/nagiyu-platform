@@ -61,9 +61,9 @@ describe('InMemoryListRepository', () => {
   });
 
   it('存在しない個人リストを更新するとエラーになる', async () => {
-    await expect(repository.updatePersonalList('user-1', 'unknown-list', { name: '更新後' })).rejects.toThrow(
-      '個人リストが見つかりません'
-    );
+    await expect(
+      repository.updatePersonalList('user-1', 'unknown-list', { name: '更新後' })
+    ).rejects.toThrow('個人リストが見つかりません');
   });
 
   it('個人リストを削除できる', async () => {
@@ -126,7 +126,9 @@ describe('InMemoryListRepository', () => {
       createdBy: 'user-1',
     });
 
-    const updated = await repository.updateGroupList('group-1', 'group-list-1', { name: '更新後共有リスト' });
+    const updated = await repository.updateGroupList('group-1', 'group-list-1', {
+      name: '更新後共有リスト',
+    });
     expect(updated.name).toBe('更新後共有リスト');
   });
 
@@ -147,8 +149,8 @@ describe('InMemoryListRepository', () => {
   });
 
   it('存在しないグループリストを更新するとエラーになる', async () => {
-    await expect(repository.updateGroupList('group-1', 'unknown-list', { name: '更新後' })).rejects.toThrow(
-      'グループリストが見つかりません'
-    );
+    await expect(
+      repository.updateGroupList('group-1', 'unknown-list', { name: '更新後' })
+    ).rejects.toThrow('グループリストが見つかりません');
   });
 });
