@@ -1,8 +1,5 @@
 import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
-import {
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
-} from '@nagiyu/share-together-core';
+import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
