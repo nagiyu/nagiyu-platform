@@ -47,6 +47,12 @@ describe('InMemoryTodoRepository', () => {
     expect(updatedTodo.completedBy).toBe('user-2');
   });
 
+  it('存在しないToDoを更新するとエラーになる', async () => {
+    await expect(repository.update('list-1', 'todo-unknown', { title: '更新不可' })).rejects.toThrow(
+      'ToDoが見つかりません'
+    );
+  });
+
   it('同一リスト内で重複ToDo IDを作成するとエラーになる', async () => {
     await repository.create({
       todoId: 'todo-1',
@@ -87,5 +93,19 @@ describe('InMemoryTodoRepository', () => {
 
     await expect(repository.getByListId('list-1')).resolves.toEqual([]);
     await expect(repository.getById('list-2', 'todo-2')).resolves.not.toBeNull();
+  });
+
+  it('個別のToDoを削除できる', async () => {
+    await repository.create({
+      todoId: 'todo-1',
+      listId: 'list-1',
+      title: '削除対象',
+      isCompleted: false,
+      createdBy: 'user-1',
+    });
+
+    await repository.delete('list-1', 'todo-1');
+
+    await expect(repository.getById('list-1', 'todo-1')).resolves.toBeNull();
   });
 });
