@@ -7,9 +7,14 @@ describe('Home', () => {
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    window.sessionStorage.clear();
     Object.defineProperty(globalThis, 'fetch', {
       writable: true,
-      value: jest.fn().mockResolvedValue({} as Response),
+      value: jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response),
     });
   });
 
@@ -36,6 +41,20 @@ describe('Home', () => {
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/users', { method: 'POST' });
+    });
+
+    expect(window.sessionStorage.getItem('share-together:user-registration-completed')).toBe(
+      'true'
+    );
+  });
+
+  it('登録済みフラグがある場合はユーザー登録 API を再実行しない', async () => {
+    window.sessionStorage.setItem('share-together:user-registration-completed', 'true');
+
+    render(<Home />);
+
+    await waitFor(() => {
+      expect(globalThis.fetch).not.toHaveBeenCalled();
     });
   });
 });
