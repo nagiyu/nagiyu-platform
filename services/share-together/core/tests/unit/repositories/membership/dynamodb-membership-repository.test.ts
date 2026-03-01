@@ -27,7 +27,9 @@ describe('DynamoDBMembershipRepository', () => {
     jest.clearAllMocks();
   });
 
-  const createMembershipItem = (overrides: Record<string, unknown> = {}): Record<string, unknown> => ({
+  const createMembershipItem = (
+    overrides: Record<string, unknown> = {}
+  ): Record<string, unknown> => ({
     PK: 'GROUP#group-1',
     SK: 'MEMBER#user-1',
     GSI1PK: 'USER#user-1',

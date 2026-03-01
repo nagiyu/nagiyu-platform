@@ -235,7 +235,9 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
   public async deleteByGroupId(groupId: string): Promise<void> {
     const memberships = await this.getByGroupId(groupId);
 
-    await Promise.all(memberships.map((membership) => this.delete(membership.groupId, membership.userId)));
+    await Promise.all(
+      memberships.map((membership) => this.delete(membership.groupId, membership.userId))
+    );
   }
 
   private buildGroupPk(groupId: string): string {
