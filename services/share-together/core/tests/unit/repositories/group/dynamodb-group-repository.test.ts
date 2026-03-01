@@ -222,7 +222,9 @@ describe('DynamoDBGroupRepository', () => {
       });
       expect(command.input.UpdateExpression).toContain('#updatedAt = :updatedAt');
       expect(command.input.UpdateExpression).toContain('#name = :name');
-      expect(command.input.ConditionExpression).toBe('attribute_exists(PK) AND attribute_exists(SK)');
+      expect(command.input.ConditionExpression).toBe(
+        'attribute_exists(PK) AND attribute_exists(SK)'
+      );
       expect(command.input.ReturnValues).toBe('ALL_NEW');
       expect(names['#updatedAt']).toBe('updatedAt');
       expect(names['#name']).toBe('name');
