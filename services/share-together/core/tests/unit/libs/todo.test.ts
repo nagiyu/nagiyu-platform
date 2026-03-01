@@ -39,7 +39,7 @@ describe('todo business logic', () => {
         title: '',
         createdBy: 'user-1',
       })
-    ).rejects.toBeInstanceOf(Error);
+    ).rejects.toThrow('ToDoタイトルは1文字以上200文字以下で入力してください');
     expect(repository.create).not.toHaveBeenCalled();
   });
 
