@@ -193,7 +193,9 @@ describe('DynamoDBListRepository', () => {
         },
       });
 
-      const result = await repository.updatePersonalList('user-1', 'list-1', { name: '更新後リスト' });
+      const result = await repository.updatePersonalList('user-1', 'list-1', {
+        name: '更新後リスト',
+      });
       const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
 
       expect(result).toEqual({
