@@ -23,7 +23,6 @@ jest.mock('@nagiyu/share-together-core', () => ({
   ERROR_MESSAGES: {
     MEMBERSHIP_NOT_FOUND: 'メンバーシップが見つかりません',
     OWNER_CANNOT_LEAVE: 'オーナーはグループから脱退できません',
-    INVITATION_NOT_FOUND: '招待が見つかりません',
   },
 }));
 
@@ -158,6 +157,56 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
       error: { code: 'NOT_FOUND', message: '対象のデータが見つかりません' },
+    });
+  });
+
+  it('オーナーが脱退しようとした場合は403を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockLeaveGroup.mockRejectedValue(new Error('オーナーはグループから脱退できません'));
+
+    const response = await DELETE({} as Request, {
+      params: Promise.resolve({ groupId: 'group-1', userId: 'owner-1' }),
+    });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: { code: 'OWNER_CANNOT_LEAVE', message: 'オーナーはグループを脱退できません' },
+    });
+  });
+
+  it('除外対象が存在しない場合は404を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({ role: 'OWNER' });
+    mockRemoveMember.mockRejectedValue(new Error('メンバーシップが見つかりません'));
+
+    const response = await DELETE({} as Request, {
+      params: Promise.resolve({ groupId: 'group-1', userId: 'member-2' }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: { code: 'NOT_FOUND', message: '対象のデータが見つかりません' },
+    });
+  });
+
+  it('想定外エラー時は500を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockResolvedValue({ role: 'OWNER' });
+    mockRemoveMember.mockRejectedValue(new Error('unexpected error'));
+
+    const response = await DELETE({} as Request, {
+      params: Promise.resolve({ groupId: 'group-1', userId: 'member-2' }),
+    });
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: { code: 'INTERNAL_SERVER_ERROR', message: 'サーバーエラーが発生しました' },
     });
   });
 });
