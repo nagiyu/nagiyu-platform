@@ -57,12 +57,14 @@ describe('middleware', () => {
     process.env.NEXT_PUBLIC_AUTH_URL = 'https://dev-auth.nagiyu.com';
     process.env.APP_URL = 'https://dev-share-together.nagiyu.com';
 
-    const response = middleware(createRequest({
-      auth: null,
-      href: 'https://dev-share-together.nagiyu.com/groups?tab=all',
-      pathname: '/groups',
-      search: '?tab=all',
-    }));
+    const response = middleware(
+      createRequest({
+        auth: null,
+        href: 'https://dev-share-together.nagiyu.com/groups?tab=all',
+        pathname: '/groups',
+        search: '?tab=all',
+      })
+    );
 
     expect(response).toEqual({
       type: 'redirect',
@@ -71,12 +73,14 @@ describe('middleware', () => {
   });
 
   it('認証済みユーザーはそのまま通過する', () => {
-    const response = middleware(createRequest({
-      auth: { user: { id: 'user-1' } },
-      href: 'https://dev-share-together.nagiyu.com/',
-      pathname: '/',
-      search: '',
-    }));
+    const response = middleware(
+      createRequest({
+        auth: { user: { id: 'user-1' } },
+        href: 'https://dev-share-together.nagiyu.com/',
+        pathname: '/',
+        search: '',
+      })
+    );
 
     expect(response).toEqual({ type: 'next' });
   });
@@ -84,12 +88,14 @@ describe('middleware', () => {
   it('SKIP_AUTH_CHECK=true の場合は未認証でも通過する', () => {
     process.env.SKIP_AUTH_CHECK = 'true';
 
-    const response = middleware(createRequest({
-      auth: null,
-      href: 'https://dev-share-together.nagiyu.com/groups',
-      pathname: '/groups',
-      search: '',
-    }));
+    const response = middleware(
+      createRequest({
+        auth: null,
+        href: 'https://dev-share-together.nagiyu.com/groups',
+        pathname: '/groups',
+        search: '',
+      })
+    );
 
     expect(response).toEqual({ type: 'next' });
   });
@@ -99,19 +105,23 @@ describe('middleware', () => {
     delete process.env.NEXTAUTH_URL;
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    const response = middleware(createRequest({
-      auth: null,
-      href: 'https://dev-share-together.nagiyu.com/groups',
-      pathname: '/groups',
-      search: '',
-    }));
+    const response = middleware(
+      createRequest({
+        auth: null,
+        href: 'https://dev-share-together.nagiyu.com/groups',
+        pathname: '/groups',
+        search: '',
+      })
+    );
 
     expect(response).toEqual({
       type: 'json',
       status: 500,
       body: { error: 'サーバーエラーが発生しました' },
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith('NEXT_PUBLIC_AUTH_URL または NEXTAUTH_URL が設定されていません');
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'NEXT_PUBLIC_AUTH_URL または NEXTAUTH_URL が設定されていません'
+    );
     consoleErrorSpy.mockRestore();
   });
 
@@ -119,12 +129,14 @@ describe('middleware', () => {
     process.env.NEXT_PUBLIC_AUTH_URL = 'https://dev-auth.nagiyu.com';
     delete process.env.APP_URL;
 
-    const response = middleware(createRequest({
-      auth: null,
-      href: 'https://localhost:3000/groups?tab=all',
-      pathname: '/groups',
-      search: '?tab=all',
-    }));
+    const response = middleware(
+      createRequest({
+        auth: null,
+        href: 'https://localhost:3000/groups?tab=all',
+        pathname: '/groups',
+        search: '?tab=all',
+      })
+    );
 
     expect(response).toEqual({
       type: 'redirect',
