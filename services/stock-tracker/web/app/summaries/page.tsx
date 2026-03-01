@@ -24,18 +24,22 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
+import { Close as CloseIcon, InfoOutlined as InfoIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
-import type { SummariesResponse, TickerSummary } from '@/types/stock';
+import type { PatternResult, SummariesResponse, TickerSummary } from '@/types/stock';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
   REFRESH_FAILED: 'サマリーバッチの実行に失敗しました',
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
 } as const;
+
+const countPatterns = (patterns: PatternResult[], type: 'Buy' | 'Sell'): number =>
+  patterns.filter((p) => p.type === type && p.detected).length;
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -206,6 +210,8 @@ export default function SummariesPage() {
                           <TableCell align="right">高値</TableCell>
                           <TableCell align="right">安値</TableCell>
                           <TableCell align="right">終値</TableCell>
+                          <TableCell align="right">買いパターン</TableCell>
+                          <TableCell align="right">売りパターン</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -222,6 +228,12 @@ export default function SummariesPage() {
                             <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
+                            <TableCell align="right">
+                              {countPatterns(summary.patterns, 'Buy')}
+                            </TableCell>
+                            <TableCell align="right">
+                              {countPatterns(summary.patterns, 'Sell')}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -275,6 +287,38 @@ export default function SummariesPage() {
                 更新日時
               </Typography>
               <Typography>{new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}</Typography>
+              {selectedTicker.patterns.length > 0 && (
+                <>
+                  <Divider />
+                  <Typography variant="body2" color="text.secondary">
+                    パターン分析
+                  </Typography>
+                  <Box sx={{ display: 'grid', gap: 0.5 }}>
+                    {selectedTicker.patterns.map((pattern) => (
+                      <Box key={pattern.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: pattern.detected
+                              ? pattern.type === 'Buy'
+                                ? 'success.main'
+                                : 'error.main'
+                              : 'text.disabled',
+                          }}
+                        >
+                          {pattern.detected ? '✓' : '✗'} {pattern.name}
+                        </Typography>
+                        <Tooltip title={pattern.description} arrow>
+                          <InfoIcon
+                            fontSize="small"
+                            sx={{ color: 'action.active', flexShrink: 0 }}
+                          />
+                        </Tooltip>
+                      </Box>
+                    ))}
+                  </Box>
+                </>
+              )}
             </Box>
           )}
         </DialogContent>

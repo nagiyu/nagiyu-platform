@@ -7,6 +7,7 @@ import {
   createExchangeRepository,
   createTickerRepository,
 } from '../../../lib/repository-factory';
+import type { PatternResult } from '../../../types/stock';
 
 const ERROR_MESSAGES = {
   INVALID_DATE: '日付はYYYY-MM-DD形式で指定してください',
@@ -22,6 +23,7 @@ interface TickerSummaryResponse {
   low: number;
   close: number;
   updatedAt: string;
+  patterns: PatternResult[];
 }
 
 interface ExchangeSummaryGroupResponse {
@@ -71,6 +73,7 @@ function toTickerSummaryResponse(
     low: summary.Low,
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
+    patterns: summary.Patterns ?? [],
   };
 }
 

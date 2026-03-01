@@ -12,6 +12,7 @@ import {
   getChartData,
   isTradingHours,
   getLastTradingDate,
+  analyzePatterns,
 } from '@nagiyu/stock-tracker-core';
 import type {
   DailySummaryRepository,
@@ -101,7 +102,7 @@ async function processExchange(
         }
 
         const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-          count: 1,
+          count: 50,
           session: 'extended',
         });
 
@@ -114,6 +115,7 @@ async function processExchange(
         }
 
         const latest = chartData[0];
+        const patterns = analyzePatterns(chartData);
 
         await dependencies.dailySummaryRepository.upsert({
           TickerID: ticker.TickerID,
@@ -123,6 +125,7 @@ async function processExchange(
           High: latest.high,
           Low: latest.low,
           Close: latest.close,
+          Patterns: patterns,
         });
 
         stats.summariesSaved++;

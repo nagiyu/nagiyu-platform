@@ -82,7 +82,7 @@ describe('summary batch handler', () => {
 
       expect(response.statusCode).toBe(200);
       expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
-        count: 1,
+        count: 50,
         session: 'extended',
       });
 
@@ -97,6 +97,8 @@ describe('summary batch handler', () => {
         Low: 95,
         Close: 108,
       });
+      expect(summaries[0].Patterns).toBeDefined();
+      expect(Array.isArray(summaries[0].Patterns)).toBe(true);
     });
   });
 

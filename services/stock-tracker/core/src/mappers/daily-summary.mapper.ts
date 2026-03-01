@@ -12,6 +12,7 @@ import {
   type EntityMapper,
 } from '@nagiyu/aws';
 import type { DailySummaryEntity, DailySummaryKey } from '../entities/daily-summary.entity.js';
+import type { PatternResult } from '../services/pattern-analyzer.js';
 
 /**
  * Daily Summary Mapper
@@ -46,6 +47,7 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       High: entity.High,
       Low: entity.Low,
       Close: entity.Close,
+      Patterns: entity.Patterns !== undefined ? JSON.stringify(entity.Patterns) : undefined,
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -58,6 +60,16 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
    * @returns DailySummary Entity
    */
   public toEntity(item: DynamoDBItem): DailySummaryEntity {
+    let patterns: PatternResult[] | undefined;
+    if (typeof item.Patterns === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(item.Patterns);
+        patterns = Array.isArray(parsed) ? (parsed as PatternResult[]) : undefined;
+      } catch {
+        patterns = undefined;
+      }
+    }
+
     return {
       TickerID: validateStringField(item.TickerID, 'TickerID'),
       ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
@@ -66,6 +78,7 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       High: validateNumberField(item.High, 'High'),
       Low: validateNumberField(item.Low, 'Low'),
       Close: validateNumberField(item.Close, 'Close'),
+      Patterns: patterns,
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };

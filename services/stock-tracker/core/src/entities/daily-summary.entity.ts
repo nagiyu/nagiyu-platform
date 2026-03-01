@@ -4,6 +4,8 @@
  * 日次サマリーのビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）
  */
 
+import type { PatternResult } from '../services/pattern-analyzer.js';
+
 /**
  * 日次サマリーエンティティ
  *
@@ -24,6 +26,8 @@ export interface DailySummaryEntity {
   Low: number;
   /** 終値 */
   Close: number;
+  /** パターン分析結果 */
+  Patterns?: PatternResult[];
   /** 作成日時 (Unix timestamp ms) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp ms) */

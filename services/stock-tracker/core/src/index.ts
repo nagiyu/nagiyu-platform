@@ -102,6 +102,7 @@ export * from './repositories/in-memory-daily-summary.repository.js';
 // Services
 export * from './services/auth.js';
 export * from './services/alert-evaluator.js';
+export * from './services/pattern-analyzer.js';
 export * from './services/price-calculator.js';
 export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
