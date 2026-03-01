@@ -36,7 +36,8 @@ describe('DynamoDBGroupRepository', () => {
       });
 
       const result = await repository.getById('group-1');
-      const command = mockDocClient.send.mock.calls[0]?.[0] as GetCommand;
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      const command = mockDocClient.send.mock.calls[0][0] as GetCommand;
 
       expect(result).toEqual({
         groupId: 'group-1',
