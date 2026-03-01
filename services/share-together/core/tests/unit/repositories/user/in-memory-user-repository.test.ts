@@ -35,8 +35,6 @@ describe('InMemoryUserRepository', () => {
       defaultListId: 'list-1',
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 5));
-
     const updatedUser = await repository.update('user-1', {
       email: 'after@example.com',
       name: '更新後ユーザー',
@@ -79,8 +77,11 @@ describe('InMemoryUserRepository', () => {
 
     await repository.delete('user-1');
 
-    await expect(repository.delete('user-unknown')).resolves.toBeUndefined();
     await expect(repository.getById('user-1')).resolves.toBeNull();
     await expect(repository.getByEmail('delete@example.com')).resolves.toBeNull();
+  });
+
+  it('存在しないユーザーを削除してもエラーにならない', async () => {
+    await expect(repository.delete('user-unknown')).resolves.toBeUndefined();
   });
 });
