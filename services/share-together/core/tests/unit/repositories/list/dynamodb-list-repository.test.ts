@@ -126,5 +126,13 @@ describe('DynamoDBListRepository', () => {
         },
       });
     });
+
+    it('該当リストがない場合はnullを返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
+
+      const result = await repository.getPersonalListById('user-1', 'list-404');
+
+      expect(result).toBeNull();
+    });
   });
 });
