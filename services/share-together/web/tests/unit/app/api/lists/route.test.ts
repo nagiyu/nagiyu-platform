@@ -24,6 +24,7 @@ import { DynamoDBListRepository, ListService } from '@nagiyu/share-together-core
 import { GET, POST } from '@/app/api/lists/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -169,7 +170,7 @@ describe('/api/lists route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockCreatePersonalList.mockRejectedValue(new Error('リスト名は1〜100文字で入力してください'));
+    mockCreatePersonalList.mockRejectedValue(new Error(ERROR_MESSAGES.LIST_NAME_INVALID));
 
     const response = await POST(createRequest({ name: '不正' }));
 

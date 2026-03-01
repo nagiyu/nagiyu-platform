@@ -5,7 +5,10 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
-const VALIDATION_ERROR_MESSAGES = new Set(['ユーザーIDは必須です', 'リスト名は1〜100文字で入力してください']);
+const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
+  ERROR_MESSAGES.USER_ID_REQUIRED,
+  ERROR_MESSAGES.LIST_NAME_INVALID,
+]);
 
 function createValidationErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
@@ -36,7 +39,7 @@ function isValidationError(error: unknown): boolean {
 function createListService(): ListService {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
-    throw new Error('DYNAMODB_TABLE_NAME is required');
+    throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
   const { docClient } = getAwsClients();
