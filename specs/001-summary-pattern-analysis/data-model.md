@@ -216,7 +216,7 @@ export abstract class CandlestickPattern {
   条件1: c2 が陰線 かつ 実体大 (|c2.close - c2.open| > |c2.high - c2.low| * 0.3)
   条件2: c1 が実体小 (|c1.close - c1.open| <= |c1.high - c1.low| * 0.1)
          かつ c1.open < c2.close かつ c1.close < c2.close
-         （※ 星が前日の大陰線終値より下に位置すること＝ギャップダウンを確認する典型的定義）
+         （※ 星が前々日（c2）の大陰線終値より下に位置すること＝ギャップダウンを確認する典型的定義）
   条件3: c0 が陽線 かつ 実体大
          かつ c0.close > (c2.open + c2.close) / 2
 
@@ -239,7 +239,7 @@ export abstract class CandlestickPattern {
   条件1: c2 が陽線 かつ 実体大 (|c2.close - c2.open| > |c2.high - c2.low| * 0.3)
   条件2: c1 が実体小 (|c1.close - c1.open| <= |c1.high - c1.low| * 0.1)
          かつ c1.open > c2.close かつ c1.close > c2.close
-         （※ 星が前日の大陽線終値より上に位置すること＝ギャップアップを確認する典型的定義）
+         （※ 星が前々日（c2）の大陽線終値より上に位置すること＝ギャップアップを確認する典型的定義）
   条件3: c0 が陰線 かつ 実体大
          かつ c0.close < (c2.open + c2.close) / 2
 
@@ -342,3 +342,17 @@ export interface TickerSummary {
   patternDetails: PatternDetail[];
 }
 ```
+
+---
+
+## 7. エラーハンドリング（未知 patternId の扱い）
+
+DynamoDB に保存された `PatternResults` に、現在の `PATTERN_REGISTRY` に存在しない `patternId` キーが含まれる場合（将来パターンが削除・改名された場合など）の処理方針：
+
+| 発生箇所 | 処理内容 |
+|---------|---------|
+| `DailySummaryMapper.toEntity()` | `PatternResults` をそのまま保持する（マッパーはフィルタリングしない） |
+| API レスポンス構築（`toTickerSummaryResponse()`） | `PATTERN_REGISTRY` に存在するパターンのみを `patternDetails` に含める。未知キーは無視する |
+| `BuyPatternCount` / `SellPatternCount` 再計算 | DB 保存値をそのまま使用する（バッチ更新時に正しい値が設定されているため） |
+
+この設計により、パターンの追加・削除があっても既存データが破損せず、APIレスポンスは常に現在の `PATTERN_REGISTRY` に基づいた整合性のあるデータを返す。

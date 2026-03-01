@@ -18,9 +18,14 @@
 # リポジトリルートで依存パッケージをインストール
 npm install
 
-# core パッケージをビルド（batch / web が依存するため最初にビルド）
+# 依存関係順にビルド（共通ライブラリ → core → batch / web）
+npm run build --workspace @nagiyu/common
 npm run build --workspace @nagiyu/stock-tracker-core
+npm run build --workspace @nagiyu/stock-tracker-batch
+npm run build --workspace @nagiyu/stock-tracker-web
 ```
+
+> **Note**: `batch` と `web` のビルドは開発時には省略可能。ユニットテストは `core` のビルドのみで実行できる。E2E テストや最終確認時は全パッケージのビルドが必要。
 
 ---
 
