@@ -82,8 +82,16 @@ export class InMemoryMembershipRepository implements MembershipRepository {
     }
 
     this.memberships.delete(membershipKey);
-    this.deleteMembershipIndex(this.membershipKeysByGroupId, existingMembership.groupId, membershipKey);
-    this.deleteMembershipIndex(this.membershipKeysByUserId, existingMembership.userId, membershipKey);
+    this.deleteMembershipIndex(
+      this.membershipKeysByGroupId,
+      existingMembership.groupId,
+      membershipKey
+    );
+    this.deleteMembershipIndex(
+      this.membershipKeysByUserId,
+      existingMembership.userId,
+      membershipKey
+    );
   }
 
   public async deleteByGroupId(groupId: string): Promise<void> {

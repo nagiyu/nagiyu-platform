@@ -30,11 +30,19 @@ describe('InMemoryMembershipRepository', () => {
   });
 
   it('保留中招待のみ取得できる', async () => {
-    const pendingMembership = await repository.create(createInput({ userId: 'user-1', status: 'PENDING' }));
-    await repository.create(createInput({ userId: 'user-1', groupId: 'group-2', status: 'ACCEPTED' }));
-    await repository.create(createInput({ userId: 'user-2', groupId: 'group-3', status: 'PENDING' }));
+    const pendingMembership = await repository.create(
+      createInput({ userId: 'user-1', status: 'PENDING' })
+    );
+    await repository.create(
+      createInput({ userId: 'user-1', groupId: 'group-2', status: 'ACCEPTED' })
+    );
+    await repository.create(
+      createInput({ userId: 'user-2', groupId: 'group-3', status: 'PENDING' })
+    );
 
-    await expect(repository.getPendingInvitationsByUserId('user-1')).resolves.toEqual([pendingMembership]);
+    await expect(repository.getPendingInvitationsByUserId('user-1')).resolves.toEqual([
+      pendingMembership,
+    ]);
   });
 
   it('メンバーシップを更新できる', async () => {
@@ -60,7 +68,9 @@ describe('InMemoryMembershipRepository', () => {
   it('重複したメンバーシップを作成するとエラーになる', async () => {
     await repository.create(createInput());
 
-    await expect(repository.create(createInput())).rejects.toThrow('メンバーシップは既に存在します');
+    await expect(repository.create(createInput())).rejects.toThrow(
+      'メンバーシップは既に存在します'
+    );
   });
 
   it('groupId指定削除で対象グループのメンバーシップのみ削除できる', async () => {
