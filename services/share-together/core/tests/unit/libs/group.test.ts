@@ -150,10 +150,14 @@ describe('group library', () => {
     };
     const membershipRepository: MembershipRepository = {
       getById: jest.fn().mockResolvedValue(null),
-      getByGroupId: jest.fn().mockResolvedValue([createMembership({ role: 'OWNER', userId: 'owner-1' })]),
+      getByGroupId: jest
+        .fn()
+        .mockResolvedValue([createMembership({ role: 'OWNER', userId: 'owner-1' })]),
       getByUserId: jest.fn(),
       getPendingInvitationsByUserId: jest.fn(),
-      create: jest.fn().mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-2' })),
+      create: jest
+        .fn()
+        .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-2' })),
       update: jest.fn(),
       delete: jest.fn(),
       deleteByGroupId: jest.fn(),
@@ -189,12 +193,16 @@ describe('group library', () => {
       delete: jest.fn(),
     };
     const membershipRepository: MembershipRepository = {
-      getById: jest.fn().mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-2', ttl: 1 })),
+      getById: jest
+        .fn()
+        .mockResolvedValue(createMembership({ status: 'PENDING', userId: 'user-2', ttl: 1 })),
       getByGroupId: jest.fn(),
       getByUserId: jest.fn(),
       getPendingInvitationsByUserId: jest.fn(),
       create: jest.fn(),
-      update: jest.fn().mockResolvedValue(createMembership({ status: 'ACCEPTED', userId: 'user-2' })),
+      update: jest
+        .fn()
+        .mockResolvedValue(createMembership({ status: 'ACCEPTED', userId: 'user-2' })),
       delete: jest.fn(),
       deleteByGroupId: jest.fn(),
     };
@@ -238,12 +246,15 @@ describe('group library', () => {
       deleteByGroupId: jest.fn(),
     };
 
-    await leaveGroup({ groupId: 'group-1', userId: 'user-2' }, { groupRepository, membershipRepository });
+    await leaveGroup(
+      { groupId: 'group-1', userId: 'user-2' },
+      { groupRepository, membershipRepository }
+    );
     expect(membershipRepository.delete).toHaveBeenCalledWith('group-1', 'user-2');
 
-    await expect(removeMember('group-1', 'owner-1', { groupRepository, membershipRepository })).rejects.toThrow(
-      ERROR_MESSAGES.OWNER_CANNOT_BE_REMOVED
-    );
+    await expect(
+      removeMember('group-1', 'owner-1', { groupRepository, membershipRepository })
+    ).rejects.toThrow(ERROR_MESSAGES.OWNER_CANNOT_BE_REMOVED);
   });
 
   it('グループ削除時にメンバーシップ・共有リスト・ToDoをカスケード削除する', async () => {

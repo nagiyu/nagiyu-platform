@@ -112,7 +112,10 @@ export async function inviteMember(
   const memberships = await dependencies.membershipRepository.getByGroupId(input.groupId);
   validateMemberLimit(memberships);
 
-  const existingMembership = await dependencies.membershipRepository.getById(input.groupId, input.userId);
+  const existingMembership = await dependencies.membershipRepository.getById(
+    input.groupId,
+    input.userId
+  );
   validateNoDuplicateInvitation(existingMembership);
   if (existingMembership?.status === 'ACCEPTED') {
     throw new Error(ERROR_MESSAGES.ALREADY_GROUP_MEMBER);
