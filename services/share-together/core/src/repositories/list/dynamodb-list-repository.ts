@@ -97,8 +97,11 @@ export class DynamoDBListRepository implements ListRepository {
           ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
         })
       );
-    } catch {
-      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
+    } catch (error) {
+      if (this.isConditionalCheckFailed(error)) {
+        throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
+      }
+      throw error;
     }
 
     return this.toPersonalList(item);
@@ -194,6 +197,15 @@ export class DynamoDBListRepository implements ListRepository {
 
   private buildPersonalListSk(listId: string): string {
     return `${PERSONAL_LIST_SK_PREFIX}${listId}`;
+  }
+
+  private isConditionalCheckFailed(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'name' in error &&
+      error.name === 'ConditionalCheckFailedException'
+    );
   }
 
   private toPersonalList(item: Record<string, unknown>): PersonalList {
