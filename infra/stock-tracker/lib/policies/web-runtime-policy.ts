@@ -1,3 +1,4 @@
+import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -97,7 +98,7 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
         effect: iam.Effect.ALLOW,
         actions: ['lambda:InvokeFunction'],
         resources: [
-          `arn:aws:lambda:*:*:function:nagiyu-stock-tracker-batch-summary-${props.envName}`,
+          `arn:aws:lambda:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:function:nagiyu-stock-tracker-batch-summary-${props.envName}`,
         ],
       })
     );

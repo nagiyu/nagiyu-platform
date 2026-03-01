@@ -12,7 +12,8 @@ const getSummaryBatchFunctionName = (): string => {
     return process.env.STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME;
   }
 
-  return `nagiyu-stock-tracker-batch-summary-${process.env.NODE_ENV ?? 'dev'}`;
+  const envName = process.env.NODE_ENV === 'production' ? 'prod' : 'dev';
+  return `nagiyu-stock-tracker-batch-summary-${envName}`;
 };
 
 export const POST = withAuth(getSession, 'stocks:manage-data', async () => {
@@ -22,7 +23,6 @@ export const POST = withAuth(getSession, 'stocks:manage-data', async () => {
       new InvokeCommand({
         FunctionName: getSummaryBatchFunctionName(),
         InvocationType: 'Event',
-        Payload: Buffer.from(JSON.stringify({ source: 'stock-tracker-web' })),
       })
     );
 

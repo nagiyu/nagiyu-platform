@@ -19,10 +19,22 @@ jest.mock('@aws-sdk/client-lambda', () => ({
 }));
 
 describe('POST /api/summaries/refresh', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalFunctionName = process.env.STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME;
+
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME;
     process.env.NODE_ENV = 'dev';
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalFunctionName === undefined) {
+      delete process.env.STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME;
+      return;
+    }
+    process.env.STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME = originalFunctionName;
   });
 
   it('正常系: サマリーバッチを非同期実行する', async () => {
@@ -36,7 +48,6 @@ describe('POST /api/summaries/refresh', () => {
     expect(InvokeCommand).toHaveBeenCalledWith({
       FunctionName: 'nagiyu-stock-tracker-batch-summary-dev',
       InvocationType: 'Event',
-      Payload: Buffer.from(JSON.stringify({ source: 'stock-tracker-web' })),
     });
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(body).toEqual({ message: 'サマリーバッチの実行を開始しました' });
@@ -52,7 +63,6 @@ describe('POST /api/summaries/refresh', () => {
     expect(InvokeCommand).toHaveBeenCalledWith({
       FunctionName: 'custom-summary-function',
       InvocationType: 'Event',
-      Payload: Buffer.from(JSON.stringify({ source: 'stock-tracker-web' })),
     });
   });
 
