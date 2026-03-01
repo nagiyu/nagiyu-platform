@@ -81,10 +81,7 @@ export async function DELETE(
     await removeMember(groupId, userId, dependencies);
     return createNoContentResponse();
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message === GROUP_ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND
-    ) {
+    if (error instanceof Error && error.message === GROUP_ERROR_MESSAGES.MEMBERSHIP_NOT_FOUND) {
       return createErrorResponse('NOT_FOUND', ERROR_MESSAGES.NOT_FOUND, 404);
     }
 
@@ -93,10 +90,6 @@ export async function DELETE(
     }
 
     console.error('グループメンバー除外・脱退 API の実行に失敗しました', { error });
-    return createErrorResponse(
-      'INTERNAL_SERVER_ERROR',
-      ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      500
-    );
+    return createErrorResponse('INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR, 500);
   }
 }
