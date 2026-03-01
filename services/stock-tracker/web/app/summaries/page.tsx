@@ -168,7 +168,10 @@ export default function SummariesPage() {
         </Alert>
       )}
       {refreshMessage && (
-        <Alert severity={refreshMessage === ERROR_MESSAGES.REFRESH_SUCCESS ? 'success' : 'error'} sx={{ mb: 2 }}>
+        <Alert
+          severity={refreshMessage === ERROR_MESSAGES.REFRESH_SUCCESS ? 'success' : 'error'}
+          sx={{ mb: 2 }}
+        >
           {refreshMessage}
         </Alert>
       )}
