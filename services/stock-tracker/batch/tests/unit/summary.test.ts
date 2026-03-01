@@ -344,4 +344,89 @@ describe('summary batch handler', () => {
       });
     });
   });
+
+  describe('チャートデータが空の場合', () => {
+    it('チャートデータが0件ならサマリーを保存しない', async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+
+      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
+        .fn()
+        .mockReturnValue(false);
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([]);
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
+
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn,
+        getChartDataFn,
+        nowFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toBeNull();
+    });
+  });
+
+  describe('取引所処理レベルのエラー', () => {
+    it('取引所内処理で例外が発生してもレスポンスは200で処理継続する', async () => {
+      const response = await handler(mockEvent, {
+        exchangeRepository: {
+          getAll: jest.fn().mockResolvedValue([
+            {
+              ExchangeID: 'NASDAQ',
+              Name: 'NASDAQ',
+              Key: 'NSDQ',
+              Timezone: 'America/New_York',
+              Start: '09:00',
+              End: '17:00',
+            },
+          ]),
+        } as unknown as InMemoryExchangeRepository,
+        tickerRepository: {
+          getByExchange: jest.fn().mockRejectedValue('ticker fetch failed'),
+        } as unknown as InMemoryTickerRepository,
+        dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+        isTradingHoursFn: jest.fn().mockReturnValue(false),
+        getChartDataFn: jest.fn(),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+      });
+
+      expect(response.statusCode).toBe(200);
+    });
+  });
+
+  describe('ハンドラーレベルのエラー', () => {
+    it('取引所一覧取得で例外が発生した場合は500を返す', async () => {
+      const response = await handler(mockEvent, {
+        exchangeRepository: {
+          getAll: jest.fn().mockRejectedValue('exchange fetch failed'),
+        } as unknown as InMemoryExchangeRepository,
+        tickerRepository: tickerRepository as InMemoryTickerRepository,
+        dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
+      });
+
+      expect(response.statusCode).toBe(500);
+      expect(JSON.parse(response.body)).toMatchObject({
+        message: '日次サマリー生成バッチでエラーが発生しました',
+        error: 'exchange fetch failed',
+      });
+    });
+  });
 });
