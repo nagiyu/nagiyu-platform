@@ -1,4 +1,11 @@
-import { GetCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -13,6 +20,9 @@ const PERSONAL_LIST_SK_PREFIX = 'PLIST#';
 
 const ERROR_MESSAGES = {
   INVALID_PERSONAL_LIST_DATA: '個人リスト情報の形式が不正です',
+  PERSONAL_LIST_ALREADY_EXISTS: '個人リストは既に存在します',
+  PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
+  DEFAULT_PERSONAL_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
   NOT_IMPLEMENTED: 'この操作は未実装です',
 } as const;
 
@@ -66,20 +76,92 @@ export class DynamoDBListRepository implements ListRepository {
     return this.toPersonalList(result.Item as Record<string, unknown>);
   }
 
-  public async createPersonalList(_input: CreatePersonalListInput): Promise<PersonalList> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async createPersonalList(input: CreatePersonalListInput): Promise<PersonalList> {
+    const now = new Date().toISOString();
+    const item = {
+      PK: this.buildUserPk(input.userId),
+      SK: this.buildPersonalListSk(input.listId),
+      listId: input.listId,
+      userId: input.userId,
+      name: input.name,
+      isDefault: input.isDefault,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      await this.docClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: item,
+          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+        })
+      );
+    } catch {
+      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
+    }
+
+    return this.toPersonalList(item);
   }
 
   public async updatePersonalList(
-    _userId: string,
-    _listId: string,
-    _updates: UpdatePersonalListInput
+    userId: string,
+    listId: string,
+    updates: UpdatePersonalListInput
   ): Promise<PersonalList> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+    const now = new Date().toISOString();
+    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
+    const values: Record<string, string> = { ':updatedAt': now };
+    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
+
+    if (updates.name !== undefined) {
+      names['#name'] = 'name';
+      values[':name'] = updates.name;
+      setExpressions.push('#name = :name');
+    }
+
+    const result = await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: this.buildUserPk(userId),
+          SK: this.buildPersonalListSk(listId),
+        },
+        UpdateExpression: `SET ${setExpressions.join(', ')}`,
+        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ReturnValues: 'ALL_NEW',
+      })
+    );
+
+    if (!result.Attributes) {
+      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND);
+    }
+
+    return this.toPersonalList(result.Attributes as Record<string, unknown>);
   }
 
-  public async deletePersonalList(_userId: string, _listId: string): Promise<void> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async deletePersonalList(userId: string, listId: string): Promise<void> {
+    const item = await this.getPersonalListById(userId, listId);
+
+    if (!item) {
+      return;
+    }
+
+    if (item.isDefault) {
+      throw new Error(ERROR_MESSAGES.DEFAULT_PERSONAL_LIST_NOT_DELETABLE);
+    }
+
+    await this.docClient.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: this.buildUserPk(userId),
+          SK: this.buildPersonalListSk(listId),
+        },
+      })
+    );
   }
 
   public async getGroupListsByGroupId(_groupId: string): Promise<GroupList[]> {
