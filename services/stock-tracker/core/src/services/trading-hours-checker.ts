@@ -77,6 +77,54 @@ function parseTime(timeString: string): { hours: number; minutes: number } {
  * const weekend = new Date('2024-01-14T14:00:00Z'); // 日曜日
  * isTradingHours(nasdaq, weekend) // => false
  */
+/**
+ * Date オブジェクトを YYYY-MM-DD 形式にフォーマット
+ */
+function formatYmd(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * 最新の取引日を返す
+ *
+ * 取引所のタイムゾーンと取引終了時刻をもとに、指定時刻時点での
+ * 直近の取引完了日 (YYYY-MM-DD) を算出する。
+ *
+ * - 平日かつ取引終了後 (>= End) → 今日
+ * - 平日かつ取引開始前 (< End)  → 前日の平日
+ * - 土日                         → 直前の金曜
+ *
+ * @param exchange - 取引所情報 (Timezone, End)
+ * @param now - 現在時刻 (Unix timestamp ms)
+ * @returns 最新取引日 (YYYY-MM-DD、取引所タイムゾーン基準)
+ */
+export function getLastTradingDate(exchange: Exchange, now: number): string {
+  const zonedNow = toZonedTime(new Date(now), exchange.Timezone);
+  const endTime = parseTime(exchange.End);
+  const endTotalMinutes = endTime.hours * 60 + endTime.minutes;
+  const currentTotalMinutes = zonedNow.getHours() * 60 + zonedNow.getMinutes();
+  const dayOfWeek = zonedNow.getDay();
+
+  // 今日が平日かつ取引終了後 → 今日が最新取引日
+  if (dayOfWeek !== 0 && dayOfWeek !== 6 && currentTotalMinutes >= endTotalMinutes) {
+    return formatYmd(zonedNow);
+  }
+
+  // それ以外: 1日ずつ遡り最初の平日を返す (最大3回でFridayに到達)
+  let candidateMs = now - 24 * 60 * 60 * 1000;
+  while (true) {
+    const candidate = toZonedTime(new Date(candidateMs), exchange.Timezone);
+    const dow = candidate.getDay();
+    if (dow !== 0 && dow !== 6) {
+      return formatYmd(candidate);
+    }
+    candidateMs -= 24 * 60 * 60 * 1000;
+  }
+}
+
 export function isTradingHours(exchange: Exchange, currentTime: number | Date): boolean {
   // 現在時刻の妥当性チェック
   let currentDate: Date;

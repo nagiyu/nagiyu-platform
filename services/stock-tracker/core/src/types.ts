@@ -74,6 +74,32 @@ export type Ticker = {
 };
 
 /**
+ * 日次サマリー (DailySummary)
+ *
+ * 特定ティッカーの特定日における OHLC（始値・高値・安値・終値）の日次集計データ
+ */
+export type DailySummary = {
+  /** ティッカーID (PK: SUMMARY#{TickerID}) */
+  TickerID: string;
+  /** 取引所ID */
+  ExchangeID: string;
+  /** 取引日 (YYYY-MM-DD 形式, UTC基準) */
+  Date: string;
+  /** 始値 */
+  Open: number;
+  /** 高値 */
+  High: number;
+  /** 安値 */
+  Low: number;
+  /** 終値 */
+  Close: number;
+  /** 作成日時 (Unix timestamp ms) */
+  CreatedAt: number;
+  /** 更新日時 (Unix timestamp ms) */
+  UpdatedAt: number;
+};
+
+/**
  * 保有株式 (Holding)
  *
  * ユーザーの保有株式情報
@@ -261,6 +287,13 @@ export type AlertCondition = {
  * - GSI1SK: Alert#{AlertID}
  * - GSI2PK: ALERT#{Frequency}
  * - GSI2SK: {UserID}#{AlertID}
+ *
+ * DailySummary:
+ * - PK: SUMMARY#{TickerID}
+ * - SK: DATE#{Date}
+ * - Type: DailySummary
+ * - GSI4PK: {ExchangeID}
+ * - GSI4SK: DATE#{Date}#{TickerID}
  */
 export type DynamoDBItem = {
   /** パーティションキー - エンティティごとに異なる形式 */
@@ -268,7 +301,7 @@ export type DynamoDBItem = {
   /** ソートキー - エンティティごとに異なる形式 */
   SK: string;
   /** エンティティタイプ - データの種類を識別 */
-  Type: 'Exchange' | 'Ticker' | 'Holding' | 'Watchlist' | 'Alert';
+  Type: 'Exchange' | 'Ticker' | 'Holding' | 'Watchlist' | 'Alert' | 'DailySummary';
   /** GSI1 パーティションキー (ユーザーごとのデータ取得用) - Holding/Watchlist/Alertで使用 */
   GSI1PK?: string;
   /** GSI1 ソートキー - Holding/Watchlist/Alertで使用 */
@@ -281,6 +314,10 @@ export type DynamoDBItem = {
   GSI3PK?: string;
   /** GSI3 ソートキー - Tickerのみ使用 */
   GSI3SK?: string;
+  /** GSI4 パーティションキー (取引所ごとの日次サマリー取得用) - DailySummaryのみ使用 */
+  GSI4PK?: string;
+  /** GSI4 ソートキー - DailySummaryのみ使用 */
+  GSI4SK?: string;
 };
 
 /**
