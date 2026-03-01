@@ -63,7 +63,11 @@ export class DynamoDBTodoRepository implements TodoRepository {
     throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
   }
 
-  public async update(_listId: string, _todoId: string, _updates: UpdateTodoItemInput): Promise<TodoItem> {
+  public async update(
+    _listId: string,
+    _todoId: string,
+    _updates: UpdateTodoItemInput
+  ): Promise<TodoItem> {
     throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
   }
 
