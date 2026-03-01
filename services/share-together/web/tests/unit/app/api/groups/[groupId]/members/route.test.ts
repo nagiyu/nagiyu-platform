@@ -15,21 +15,25 @@ jest.mock('@/lib/aws-clients', () => ({
   getAwsClients: jest.fn(),
 }));
 
-jest.mock('@nagiyu/share-together-core', () => ({
-  DynamoDBGroupRepository: jest.fn(),
-  DynamoDBMembershipRepository: jest.fn(),
-  DynamoDBUserRepository: jest.fn(),
-  inviteMember: jest.fn(),
-  ERROR_MESSAGES: {
-    DUPLICATE_INVITATION: '同じユーザーには重複して招待できません',
-    ALREADY_GROUP_MEMBER: 'すでにグループメンバーです',
-  },
-}));
+jest.mock('@nagiyu/share-together-core', () => {
+  const actualCore = jest.requireActual('@nagiyu/share-together-core');
+  return {
+    DynamoDBGroupRepository: jest.fn(),
+    DynamoDBMembershipRepository: jest.fn(),
+    DynamoDBUserRepository: jest.fn(),
+    inviteMember: jest.fn(),
+    ERROR_MESSAGES: {
+      DUPLICATE_INVITATION: actualCore.ERROR_MESSAGES.DUPLICATE_INVITATION,
+      ALREADY_GROUP_MEMBER: actualCore.ERROR_MESSAGES.ALREADY_GROUP_MEMBER,
+    },
+  };
+});
 
 import {
   DynamoDBGroupRepository,
   DynamoDBMembershipRepository,
   DynamoDBUserRepository,
+  ERROR_MESSAGES as GROUP_CORE_ERROR_MESSAGES,
   inviteMember,
 } from '@nagiyu/share-together-core';
 import { GET, POST } from '@/app/api/groups/[groupId]/members/route';
@@ -289,7 +293,7 @@ describe('/api/groups/[groupId]/members route', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
-    mockInviteMember.mockRejectedValue(new Error('同じユーザーには重複して招待できません'));
+    mockInviteMember.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.DUPLICATE_INVITATION));
 
     const request = {
       json: jest.fn().mockResolvedValue({ email: 'invitee@example.com' }),

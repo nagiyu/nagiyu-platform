@@ -150,7 +150,9 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     const body = (await request.json()) as InviteRequestBody;
     const userIdInput = typeof body.userId === 'string' ? body.userId.trim() : '';
     const emailInput = typeof body.email === 'string' ? body.email.trim() : '';
-    if ((userIdInput.length === 0 && emailInput.length === 0) || (userIdInput && emailInput)) {
+    const hasUserId = userIdInput.length > 0;
+    const hasEmail = emailInput.length > 0;
+    if ((!hasUserId && !hasEmail) || (hasUserId && hasEmail)) {
       return createValidationErrorResponse();
     }
 
