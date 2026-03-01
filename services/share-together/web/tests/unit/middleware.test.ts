@@ -1,5 +1,5 @@
 jest.mock('../../auth', () => ({
-  auth: (handler: unknown) => handler,
+  auth: (handler: (req: unknown) => unknown) => handler,
 }));
 
 jest.mock('next/server', () => ({
@@ -18,6 +18,28 @@ jest.mock('next/server', () => ({
 }));
 
 import middleware, { config } from '@/middleware';
+import type { NextAuthRequest } from 'next-auth';
+
+function createRequest({
+  auth,
+  href,
+  pathname,
+  search,
+}: {
+  auth: NextAuthRequest['auth'];
+  href: string;
+  pathname: string;
+  search: string;
+}): NextAuthRequest {
+  return {
+    auth,
+    nextUrl: {
+      href,
+      pathname,
+      search,
+    },
+  } as unknown as NextAuthRequest;
+}
 
 describe('middleware', () => {
   const originalEnv = process.env;
@@ -35,13 +57,12 @@ describe('middleware', () => {
     process.env.NEXT_PUBLIC_AUTH_URL = 'https://dev-auth.nagiyu.com';
     process.env.APP_URL = 'https://dev-share-together.nagiyu.com';
 
-    const response = middleware({
+    const response = middleware(createRequest({
       auth: null,
-      nextUrl: {
-        pathname: '/groups',
-        search: '?tab=all',
-      },
-    } as never);
+      href: 'https://dev-share-together.nagiyu.com/groups?tab=all',
+      pathname: '/groups',
+      search: '?tab=all',
+    }));
 
     expect(response).toEqual({
       type: 'redirect',
@@ -50,13 +71,12 @@ describe('middleware', () => {
   });
 
   it('認証済みユーザーはそのまま通過する', () => {
-    const response = middleware({
+    const response = middleware(createRequest({
       auth: { user: { id: 'user-1' } },
-      nextUrl: {
-        pathname: '/',
-        search: '',
-      },
-    } as never);
+      href: 'https://dev-share-together.nagiyu.com/',
+      pathname: '/',
+      search: '',
+    }));
 
     expect(response).toEqual({ type: 'next' });
   });
@@ -64,13 +84,12 @@ describe('middleware', () => {
   it('SKIP_AUTH_CHECK=true の場合は未認証でも通過する', () => {
     process.env.SKIP_AUTH_CHECK = 'true';
 
-    const response = middleware({
+    const response = middleware(createRequest({
       auth: null,
-      nextUrl: {
-        pathname: '/groups',
-        search: '',
-      },
-    } as never);
+      href: 'https://dev-share-together.nagiyu.com/groups',
+      pathname: '/groups',
+      search: '',
+    }));
 
     expect(response).toEqual({ type: 'next' });
   });
@@ -80,21 +99,37 @@ describe('middleware', () => {
     delete process.env.NEXTAUTH_URL;
     const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-    const response = middleware({
+    const response = middleware(createRequest({
       auth: null,
-      nextUrl: {
-        pathname: '/groups',
-        search: '',
-      },
-    } as never);
+      href: 'https://dev-share-together.nagiyu.com/groups',
+      pathname: '/groups',
+      search: '',
+    }));
 
     expect(response).toEqual({
       type: 'json',
       status: 500,
-      body: { error: 'Authentication configuration error' },
+      body: { error: 'サーバーエラーが発生しました' },
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith('NEXT_PUBLIC_AUTH_URL or NEXTAUTH_URL is not set');
+    expect(consoleErrorSpy).toHaveBeenCalledWith('NEXT_PUBLIC_AUTH_URL または NEXTAUTH_URL が設定されていません');
     consoleErrorSpy.mockRestore();
+  });
+
+  it('APP_URL 未設定時はリクエスト URL を callbackUrl に利用する', () => {
+    process.env.NEXT_PUBLIC_AUTH_URL = 'https://dev-auth.nagiyu.com';
+    delete process.env.APP_URL;
+
+    const response = middleware(createRequest({
+      auth: null,
+      href: 'https://localhost:3000/groups?tab=all',
+      pathname: '/groups',
+      search: '?tab=all',
+    }));
+
+    expect(response).toEqual({
+      type: 'redirect',
+      url: 'https://dev-auth.nagiyu.com/signin?callbackUrl=https%3A%2F%2Flocalhost%3A3000%2Fgroups%3Ftab%3Dall',
+    });
   });
 
   it('matcher が API と静的ファイルを除外している', () => {

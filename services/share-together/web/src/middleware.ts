@@ -1,6 +1,11 @@
 import { auth } from '../auth';
 import type { NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
+import { ERROR_MESSAGES } from './lib/constants/errors';
+
+const LOG_MESSAGES = {
+  AUTH_URL_NOT_SET: 'NEXT_PUBLIC_AUTH_URL または NEXTAUTH_URL が設定されていません',
+} as const;
 
 export default auth((req: NextAuthRequest) => {
   const skipAuthCheck = process.env.SKIP_AUTH_CHECK === 'true';
@@ -13,14 +18,14 @@ export default auth((req: NextAuthRequest) => {
   if (!isAuthenticated) {
     const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL;
     if (!authUrl) {
-      console.error('NEXT_PUBLIC_AUTH_URL or NEXTAUTH_URL is not set');
-      return NextResponse.json({ error: 'Authentication configuration error' }, { status: 500 });
+      console.error(LOG_MESSAGES.AUTH_URL_NOT_SET);
+      return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
     }
 
     const appUrl = process.env.APP_URL;
     const callbackUrl = appUrl
       ? `${appUrl}${req.nextUrl.pathname}${req.nextUrl.search}`
-      : req.nextUrl.pathname;
+      : req.nextUrl.href;
 
     const signInUrl = new URL(`${authUrl}/signin`);
     signInUrl.searchParams.set('callbackUrl', callbackUrl);
