@@ -48,7 +48,8 @@ export default defineConfig({
     return project.name === projectFilter;
   }),
   webServer: {
-    command: 'npm run dev',
+    command:
+      'SKIP_AUTH_CHECK=true NEXTAUTH_SECRET=test-secret NEXT_PUBLIC_AUTH_URL=http://localhost:3000 npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 2 * 60 * 1000,

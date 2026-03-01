@@ -6,10 +6,11 @@ import type { TodoItem as TodoItemType } from '@/types';
 type TodoItemProps = {
   todo: Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>;
   onToggleComplete?: (todoId: string) => void;
+  onEdit?: (todoId: string) => void;
   onDelete?: (todoId: string) => void;
 };
 
-export function TodoItem({ todo, onToggleComplete, onDelete }: TodoItemProps) {
+export function TodoItem({ todo, onToggleComplete, onEdit, onDelete }: TodoItemProps) {
   return (
     <ListItem disablePadding>
       <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
@@ -28,6 +29,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete }: TodoItemProps) {
         >
           {todo.title}
         </Typography>
+        <Button onClick={() => onEdit?.(todo.todoId)}>編集</Button>
         <Button color="error" onClick={() => onDelete?.(todo.todoId)}>
           削除
         </Button>

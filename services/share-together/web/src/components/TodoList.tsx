@@ -144,6 +144,28 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
     setPendingDeleteId(todoId);
   };
 
+  const handleEditRequest = (todoId: string) => {
+    const targetTodo = todos.find((todo) => todo.todoId === todoId);
+    if (!targetTodo) {
+      return;
+    }
+
+    const editedTitle = window.prompt('ToDoのタイトルを編集', targetTodo.title);
+    if (editedTitle === null) {
+      return;
+    }
+
+    const trimmedTitle = editedTitle.trim();
+    if (trimmedTitle === '') {
+      return;
+    }
+
+    setTodos((prev) =>
+      prev.map((todo) => (todo.todoId === todoId ? { ...todo, title: trimmedTitle } : todo))
+    );
+    setSnackbarMessage('ToDoを更新しました。');
+  };
+
   const handleDeleteConfirm = () => {
     if (pendingDeleteId) {
       setTodos((prev) => prev.filter((todo) => todo.todoId !== pendingDeleteId));
@@ -179,6 +201,7 @@ export function TodoList({ scope = 'personal', listId }: TodoListProps) {
               key={todo.todoId}
               todo={todo}
               onToggleComplete={handleToggleComplete}
+              onEdit={handleEditRequest}
               onDelete={handleDeleteRequest}
             />
           ))}
