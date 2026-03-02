@@ -10,12 +10,13 @@
 
 #### 変更概要
 
-`TickerSummaryResponse`（サーバー側）および `TickerSummary`（クライアント型）に以下3フィールドを追加する。
+`TickerSummaryResponse`（サーバー側）および `TickerSummary`（クライアント型）に以下4フィールドを追加する。
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
 | `buyPatternCount` | `number` | 買いシグナル合致数（0以上の整数） |
 | `sellPatternCount` | `number` | 売りシグナル合致数（0以上の整数） |
+| `patternAnalyzed` | `boolean` | パターン分析実行済みフラグ（false: バッチ未実行、true: 実行済み） |
 | `patternDetails` | `PatternDetailResponse[]` | パターン詳細一覧 |
 
 #### `PatternDetailResponse` 型

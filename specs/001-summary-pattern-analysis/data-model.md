@@ -201,6 +201,8 @@ export abstract class CandlestickPattern {
 
 ### パターン判定ロジック（状態遷移）
 
+> **注意**: 50本未満の日足チェック（FR-012）は `batch/src/summary.ts` で `getChartData()` 取得直後に実施する。取得件数が50本未満の場合、batch は `PatternAnalyzer` を呼ばず全パターンを `INSUFFICIENT_DATA` として保存する。各パターンの `analyze()` には50本以上のデータが渡される前提であり、`analyze()` 内の `candles.length < 3` チェックは予期せぬ異常値への安全弁として残す。
+
 #### 三川明けの明星（MorningStar）
 
 ```

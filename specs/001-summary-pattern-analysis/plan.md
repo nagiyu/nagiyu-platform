@@ -26,7 +26,7 @@
 *ゲート: フェーズ0の調査前に通過すること。フェーズ1の設計後に再チェックすること。*
 
 - [x] **TypeScript 型安全性 (I)**: 既存の `strict: true` 継承。新型定義は `core/src/types.ts` および `web/types/stock.ts` に集約。抽象クラス・派生クラスのアクセス修飾子を明示する。
-- [x] **アーキテクチャ・レイヤー分離 (II)**: パターンロジックは `core/src/patterns/` に配置（フレームワーク非依存）。`batch` が `core` に依存、`web` が `core` に依存する方向性を維持。
+- [x] **アーキテクチャ・レイヤー分離 (II)**: パターンロジックは `core/src/patterns/` に配置（フレームワーク非依存）。憲法 II は「ビジネスロジックは `src/libs/` に配置（MUST）」と規定するが、`patterns/` はキャンドルスティックパターン専用のサブカテゴリであり `libs/` と同一の責務分類（純粋関数・フレームワーク非依存）を満たす。将来のパターン追加に備え専用ディレクトリとして切り出す設計を採用する。`batch` が `core` に依存、`web` が `core` に依存する方向性を維持。
 - [x] **コード品質・Lint・フォーマット (III)**: 既存 ESLint / Prettier 設定を継承。新ファイルも同設定に準拠。
 - [x] **テスト戦略 (IV)**: パターン純粋ロジック（`analyze()`）は Jest ユニットテストで80%以上。UI 変更は Playwright E2E でカバー。
 - [x] **ブランチ戦略・CI/CD (V)**: `feature/StockTracker/001-summary-pattern-analysis` → `integration/StockTracker` → `develop` → `master` の順でマージ。既存 verify-fast / verify-full ワークフローを利用。
