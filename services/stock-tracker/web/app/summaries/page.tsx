@@ -47,11 +47,39 @@ const mockPatternDetails: PatternDetail[] = [
     status: 'MATCHED',
   },
   {
+    patternId: 'bullish-engulfing',
+    name: '包み陽線',
+    description: '買いシグナル。前日の陰線を翌日の陽線が包み込み、反転上昇を示唆する。',
+    signalType: 'BUY',
+    status: 'NOT_MATCHED',
+  },
+  {
+    patternId: 'hammer',
+    name: 'ハンマー',
+    description: '買いシグナル。下ヒゲが長いローソク足で、下落後の反発可能性を示す。',
+    signalType: 'BUY',
+    status: 'INSUFFICIENT_DATA',
+  },
+  {
     patternId: 'evening-star',
     name: '三川宵の明星',
     description: '強い売りシグナル。3本のローソク足で構成され、上昇トレンドの反転を示す。',
     signalType: 'SELL',
     status: 'INSUFFICIENT_DATA',
+  },
+  {
+    patternId: 'bearish-engulfing',
+    name: '包み陰線',
+    description: '売りシグナル。前日の陽線を翌日の陰線が包み込み、反転下落を示唆する。',
+    signalType: 'SELL',
+    status: 'MATCHED',
+  },
+  {
+    patternId: 'hanging-man',
+    name: '首吊り線',
+    description: '売りシグナル。上昇後に出現すると下落転換の警戒サインとなる。',
+    signalType: 'SELL',
+    status: 'NOT_MATCHED',
   },
 ];
 const BUY_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'BUY');

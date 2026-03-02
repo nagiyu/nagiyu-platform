@@ -102,7 +102,11 @@ test.describe('サマリー画面スモークテスト', () => {
     const buyArea = dialog.getByTestId('pattern-analysis-buy');
     const sellArea = dialog.getByTestId('pattern-analysis-sell');
     await expect(buyArea.getByText('三川明けの明星')).toBeVisible();
+    await expect(buyArea.getByText('包み陽線')).toBeVisible();
+    await expect(buyArea.getByText('ハンマー')).toBeVisible();
     await expect(sellArea.getByText('三川宵の明星')).toBeVisible();
+    await expect(sellArea.getByText('包み陰線')).toBeVisible();
+    await expect(sellArea.getByText('首吊り線')).toBeVisible();
 
     await buyArea.getByText('三川明けの明星').hover();
     await expect(page.getByRole('tooltip')).toContainText(
@@ -115,6 +119,8 @@ test.describe('サマリー画面スモークテスト', () => {
     );
 
     await expect(sellArea.getByTestId('pattern-status-evening-star')).toHaveText('判定不能');
+    await expect(buyArea.getByTestId('pattern-status-bullish-engulfing')).toHaveText('非該当');
+    await expect(sellArea.getByTestId('pattern-status-bearish-engulfing')).toHaveText('該当');
     await expect(sellArea.getByText('理由: データ不足')).toBeVisible();
   });
 
