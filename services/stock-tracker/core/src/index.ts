@@ -9,12 +9,6 @@
  */
 
 export * from './types.js';
-export type {
-  PatternStatus,
-  PatternSignalType,
-  PatternDefinition,
-  PatternResults,
-} from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
