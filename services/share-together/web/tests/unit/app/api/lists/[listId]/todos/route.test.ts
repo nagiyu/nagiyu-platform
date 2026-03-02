@@ -28,7 +28,7 @@ import {
   ListService,
   TodoService,
 } from '@nagiyu/share-together-core';
-import { GET, POST } from '@/app/api/lists/[listId]/todos/route';
+import { GET, POST, SERVICE_ERROR_MESSAGES } from '@/app/api/lists/[listId]/todos/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 
@@ -164,7 +164,9 @@ describe('/api/lists/[listId]/todos route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockGetPersonalListById.mockRejectedValue(new Error('個人リストが見つかりません'));
+    mockGetPersonalListById.mockRejectedValue(
+      new Error(SERVICE_ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND)
+    );
 
     const response = await GET({} as Request, createContext('list-unknown'));
 

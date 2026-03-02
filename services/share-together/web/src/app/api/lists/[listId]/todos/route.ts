@@ -14,7 +14,7 @@ interface RouteContext {
   params: Promise<{ listId: string }>;
 }
 
-const SERVICE_ERROR_MESSAGES = {
+export const SERVICE_ERROR_MESSAGES = {
   LIST_ID_REQUIRED: 'リストIDは必須です',
   PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
   TITLE_INVALID: 'ToDoのタイトルは1〜200文字で入力してください',
