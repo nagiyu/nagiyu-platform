@@ -60,6 +60,64 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByTestId('sell-signal-TEST:BBB')).toHaveText('2');
   });
 
+  test('詳細ダイアログでパターン分析の内訳と説明を表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 1,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('パターン分析')).toBeVisible();
+
+    const buyArea = dialog.getByTestId('pattern-analysis-buy');
+    const sellArea = dialog.getByTestId('pattern-analysis-sell');
+    await expect(buyArea.getByText('三川明けの明星')).toBeVisible();
+    await expect(sellArea.getByText('三川宵の明星')).toBeVisible();
+
+    await buyArea.getByText('三川明けの明星').hover();
+    await expect(page.getByRole('tooltip')).toContainText(
+      '強い買いシグナル。3本のローソク足で構成され、下降トレンドの反転を示す。'
+    );
+
+    await expect(sellArea.getByText('三川宵の明星')).toHaveAttribute(
+      'aria-label',
+      '強い売りシグナル。3本のローソク足で構成され、上昇トレンドの反転を示す。'
+    );
+
+    await expect(sellArea.getByTestId('pattern-status-evening-star')).toHaveText('判定不能');
+    await expect(sellArea.getByText('理由: データ不足')).toBeVisible();
+  });
+
   test('サマリーページの基本要素が表示される', async ({ page }) => {
     await page.goto('/summaries');
 

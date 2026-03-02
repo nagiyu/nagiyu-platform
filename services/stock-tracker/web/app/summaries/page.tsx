@@ -24,18 +24,38 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
-import type { SummariesResponse, TickerSummary } from '@/types/stock';
+import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
   REFRESH_FAILED: 'サマリーバッチの実行に失敗しました',
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
 } as const;
+const INSUFFICIENT_DATA_REASON = 'データ不足';
+const mockPatternDetails: PatternDetail[] = [
+  {
+    patternId: 'morning-star',
+    name: '三川明けの明星',
+    description: '強い買いシグナル。3本のローソク足で構成され、下降トレンドの反転を示す。',
+    signalType: 'BUY',
+    status: 'MATCHED',
+  },
+  {
+    patternId: 'evening-star',
+    name: '三川宵の明星',
+    description: '強い売りシグナル。3本のローソク足で構成され、上昇トレンドの反転を示す。',
+    signalType: 'SELL',
+    status: 'INSUFFICIENT_DATA',
+  },
+];
+const BUY_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'BUY');
+const SELL_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'SELL');
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -132,7 +152,6 @@ export default function SummariesPage() {
   const filteredExchanges = selectedExchangeId
     ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
     : summaries.exchanges;
-
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
@@ -286,6 +305,64 @@ export default function SummariesPage() {
                 更新日時
               </Typography>
               <Typography>{new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}</Typography>
+              <Divider />
+              <Typography variant="h6">パターン分析</Typography>
+              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
+                <Typography variant="body2" color="text.secondary">
+                  買いパターン
+                </Typography>
+                {BUY_PATTERN_DETAILS.map((pattern) => (
+                  <Box key={pattern.patternId} sx={{ display: 'grid', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                      <Tooltip title={pattern.description}>
+                        <Typography component="span" aria-label={pattern.description}>
+                          {pattern.name}
+                        </Typography>
+                      </Tooltip>
+                      <Typography data-testid={`pattern-status-${pattern.patternId}`}>
+                        {pattern.status === 'MATCHED'
+                          ? '該当'
+                          : pattern.status === 'INSUFFICIENT_DATA'
+                            ? '判定不能'
+                            : '非該当'}
+                      </Typography>
+                    </Box>
+                    {pattern.status === 'INSUFFICIENT_DATA' && (
+                      <Typography variant="caption" color="text.secondary">
+                        理由: {INSUFFICIENT_DATA_REASON}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-sell">
+                <Typography variant="body2" color="text.secondary">
+                  売りパターン
+                </Typography>
+                {SELL_PATTERN_DETAILS.map((pattern) => (
+                  <Box key={pattern.patternId} sx={{ display: 'grid', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                      <Tooltip title={pattern.description}>
+                        <Typography component="span" aria-label={pattern.description}>
+                          {pattern.name}
+                        </Typography>
+                      </Tooltip>
+                      <Typography data-testid={`pattern-status-${pattern.patternId}`}>
+                        {pattern.status === 'MATCHED'
+                          ? '該当'
+                          : pattern.status === 'INSUFFICIENT_DATA'
+                            ? '判定不能'
+                            : '非該当'}
+                      </Typography>
+                    </Box>
+                    {pattern.status === 'INSUFFICIENT_DATA' && (
+                      <Typography variant="caption" color="text.secondary">
+                        理由: {INSUFFICIENT_DATA_REASON}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              </Box>
             </Box>
           )}
         </DialogContent>
