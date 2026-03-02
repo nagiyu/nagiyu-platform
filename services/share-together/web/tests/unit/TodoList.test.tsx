@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { TodoList } from '@/components/TodoList';
 
 describe('TodoList', () => {
@@ -81,5 +81,109 @@ describe('TodoList', () => {
     expect(checkbox).not.toBeChecked();
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
+  });
+
+  it('apiEnabled が true の場合は ToDo 一覧を API から取得する', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            todos: [{ todoId: 'api-todo-1', title: 'API ToDo', isCompleted: false }],
+          },
+        }),
+      } as Response);
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+
+      render(<TodoList listId="api-list" apiEnabled />);
+
+      await waitFor(() => {
+        expect(screen.getByText('API ToDo')).toBeInTheDocument();
+      });
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos');
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
+  });
+
+  it('apiEnabled が true の場合は ToDo 追加時に API を呼び出す', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const fetchMock = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todos: [],
+            },
+          }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 201,
+          json: async () => ({
+            data: {
+              todoId: 'api-todo-2',
+              title: 'APIで追加したToDo',
+              isCompleted: false,
+            },
+          }),
+        } as Response);
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+
+      render(<TodoList listId="api-list" apiEnabled />);
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos');
+      });
+
+      fireEvent.change(screen.getByRole('textbox', { name: 'タイトル' }), {
+        target: { value: 'APIで追加したToDo' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '追加' }));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: 'APIで追加したToDo' }),
+        });
+      });
+      expect(screen.getByText('APIで追加したToDo')).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
   });
 });
