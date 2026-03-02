@@ -235,6 +235,8 @@ jobs:
         env:
           CI: true
           SKIP_AUTH_CHECK: true
+          AUTH_SECRET: test-secret-for-e2e
+          NEXTAUTH_SECRET: test-secret-for-e2e
         run: npm run test:e2e --workspace=@nagiyu/share-together-web -- --project=chromium-mobile
 
       - name: Upload test results
