@@ -196,7 +196,6 @@ jobs:
   e2e-test-web:
     name: E2E Tests (chromium-mobile only)
     runs-on: ubuntu-latest
-    if: ${{ false }}
     needs: [build-web]
 
     permissions:
@@ -235,6 +234,9 @@ jobs:
       - name: Run E2E tests (chromium-mobile only)
         env:
           CI: true
+          SKIP_AUTH_CHECK: true
+          AUTH_SECRET: test-secret-for-e2e
+          NEXTAUTH_SECRET: test-secret-for-e2e
         run: npm run test:e2e --workspace=@nagiyu/share-together-web -- --project=chromium-mobile
 
       - name: Upload test results
