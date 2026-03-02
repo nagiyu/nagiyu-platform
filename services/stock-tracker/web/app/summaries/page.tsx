@@ -227,7 +227,10 @@ export default function SummariesPage() {
                             <TableCell align="right" data-testid={`buy-signal-${summary.tickerId}`}>
                               {summary.buyPatternCount ?? 0}
                             </TableCell>
-                            <TableCell align="right" data-testid={`sell-signal-${summary.tickerId}`}>
+                            <TableCell
+                              align="right"
+                              data-testid={`sell-signal-${summary.tickerId}`}
+                            >
                               {summary.sellPatternCount ?? 0}
                             </TableCell>
                           </TableRow>
