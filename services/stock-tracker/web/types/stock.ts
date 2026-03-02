@@ -47,6 +47,17 @@ export const CHART_BAR_COUNT_LABELS: Record<ChartBarCount, string> = {
 } as const;
 
 /**
+ * パターン分析の詳細
+ */
+export interface PatternDetail {
+  patternId: string;
+  name: string;
+  description: string;
+  signalType: 'BUY' | 'SELL';
+  status: 'MATCHED' | 'NOT_MATCHED' | 'INSUFFICIENT_DATA';
+}
+
+/**
  * サマリーAPIレスポンス型
  */
 export interface TickerSummary {
@@ -59,6 +70,9 @@ export interface TickerSummary {
   close: number;
   /** ISO 8601 UTC形式の更新日時 */
   updatedAt: string;
+  buyPatternCount: number;
+  sellPatternCount: number;
+  patternDetails: PatternDetail[];
 }
 
 /**
