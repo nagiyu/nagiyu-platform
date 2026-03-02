@@ -54,6 +54,8 @@ const mockPatternDetails: PatternDetail[] = [
     status: 'INSUFFICIENT_DATA',
   },
 ];
+const BUY_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'BUY');
+const SELL_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'SELL');
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -150,9 +152,6 @@ export default function SummariesPage() {
   const filteredExchanges = selectedExchangeId
     ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
     : summaries.exchanges;
-  const buyPatterns = mockPatternDetails.filter((pattern) => pattern.signalType === 'BUY');
-  const sellPatterns = mockPatternDetails.filter((pattern) => pattern.signalType === 'SELL');
-
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
@@ -312,14 +311,20 @@ export default function SummariesPage() {
                 <Typography variant="body2" color="text.secondary">
                   買いパターン
                 </Typography>
-                {buyPatterns.map((pattern) => (
+                {BUY_PATTERN_DETAILS.map((pattern) => (
                   <Box key={pattern.patternId} sx={{ display: 'grid', gap: 0.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
                       <Tooltip title={pattern.description}>
-                        <Typography component="span">{pattern.name}</Typography>
+                        <Typography component="span" aria-label={pattern.description}>
+                          {pattern.name}
+                        </Typography>
                       </Tooltip>
                       <Typography data-testid={`pattern-status-${pattern.patternId}`}>
-                        {pattern.status === 'MATCHED' ? '該当' : '非該当'}
+                        {pattern.status === 'MATCHED'
+                          ? '該当'
+                          : pattern.status === 'INSUFFICIENT_DATA'
+                            ? '判定不能'
+                            : '非該当'}
                       </Typography>
                     </Box>
                     {pattern.status === 'INSUFFICIENT_DATA' && (
@@ -334,14 +339,20 @@ export default function SummariesPage() {
                 <Typography variant="body2" color="text.secondary">
                   売りパターン
                 </Typography>
-                {sellPatterns.map((pattern) => (
+                {SELL_PATTERN_DETAILS.map((pattern) => (
                   <Box key={pattern.patternId} sx={{ display: 'grid', gap: 0.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
                       <Tooltip title={pattern.description}>
-                        <Typography component="span">{pattern.name}</Typography>
+                        <Typography component="span" aria-label={pattern.description}>
+                          {pattern.name}
+                        </Typography>
                       </Tooltip>
                       <Typography data-testid={`pattern-status-${pattern.patternId}`}>
-                        {pattern.status === 'INSUFFICIENT_DATA' ? '判定不能' : '非該当'}
+                        {pattern.status === 'MATCHED'
+                          ? '該当'
+                          : pattern.status === 'INSUFFICIENT_DATA'
+                            ? '判定不能'
+                            : '非該当'}
                       </Typography>
                     </Box>
                     {pattern.status === 'INSUFFICIENT_DATA' && (
