@@ -54,10 +54,10 @@ test.describe('サマリー画面スモークテスト', () => {
     const rows = page.locator('tbody tr');
     await expect(rows).toHaveCount(2);
 
-    await expect(rows.nth(0).locator('td').nth(6)).toHaveText('1');
-    await expect(rows.nth(0).locator('td').nth(7)).toHaveText('0');
-    await expect(rows.nth(1).locator('td').nth(6)).toHaveText('0');
-    await expect(rows.nth(1).locator('td').nth(7)).toHaveText('2');
+    await expect(page.getByTestId('buy-signal-TEST:AAA')).toHaveText('1');
+    await expect(page.getByTestId('sell-signal-TEST:AAA')).toHaveText('0');
+    await expect(page.getByTestId('buy-signal-TEST:BBB')).toHaveText('0');
+    await expect(page.getByTestId('sell-signal-TEST:BBB')).toHaveText('2');
   });
 
   test('サマリーページの基本要素が表示される', async ({ page }) => {

@@ -224,8 +224,12 @@ export default function SummariesPage() {
                             <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
-                            <TableCell align="right">{summary.buyPatternCount ?? 0}</TableCell>
-                            <TableCell align="right">{summary.sellPatternCount ?? 0}</TableCell>
+                            <TableCell align="right" data-testid={`buy-signal-${summary.tickerId}`}>
+                              {summary.buyPatternCount ?? 0}
+                            </TableCell>
+                            <TableCell align="right" data-testid={`sell-signal-${summary.tickerId}`}>
+                              {summary.sellPatternCount ?? 0}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
