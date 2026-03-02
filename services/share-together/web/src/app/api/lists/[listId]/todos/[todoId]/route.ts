@@ -7,13 +7,13 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,
-  'リストIDは必須です',
-  'ToDo IDは必須です',
-  'ToDoのタイトルは1〜200文字で入力してください',
-  '更新内容が指定されていません',
+  ERROR_MESSAGES.LIST_ID_REQUIRED,
+  ERROR_MESSAGES.TODO_ID_REQUIRED,
+  ERROR_MESSAGES.TODO_TITLE_INVALID,
+  ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED,
 ]);
 
-const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set(['ToDoが見つかりません']);
+const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.TODO_NOT_FOUND]);
 
 interface TodoRouteParams {
   listId: string;
