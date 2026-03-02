@@ -12,6 +12,7 @@ export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
+export { EveningStar } from './patterns/evening-star.js';
 export { MorningStar } from './patterns/morning-star.js';
 export { PATTERN_REGISTRY } from './patterns/pattern-registry.js';
 
