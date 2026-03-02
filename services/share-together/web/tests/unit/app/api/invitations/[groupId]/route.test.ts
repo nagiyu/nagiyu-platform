@@ -48,7 +48,9 @@ const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
-const mockRespondToInvitation = respondToInvitation as jest.MockedFunction<typeof respondToInvitation>;
+const mockRespondToInvitation = respondToInvitation as jest.MockedFunction<
+  typeof respondToInvitation
+>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
 describe('PUT /api/invitations/[groupId]', () => {
@@ -147,7 +149,9 @@ describe('PUT /api/invitations/[groupId]', () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
     } as SessionOrUnauthorized);
-    mockRespondToInvitation.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.INVITATION_NOT_FOUND));
+    mockRespondToInvitation.mockRejectedValue(
+      new Error(GROUP_CORE_ERROR_MESSAGES.INVITATION_NOT_FOUND)
+    );
 
     const request = {
       json: jest.fn().mockResolvedValue({ action: 'REJECT' }),
