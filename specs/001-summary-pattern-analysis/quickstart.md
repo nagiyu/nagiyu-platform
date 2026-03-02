@@ -226,7 +226,7 @@ npm run build --workspace @nagiyu/stock-tracker-web
 
 ### web パッケージ
 
-- [ ] `web/types/stock.ts` - `PatternDetail`、`TickerSummary` 拡張（`patternAnalyzed` フィールド含む）
+- [ ] `web/types/stock.ts` - `PatternDetail`、`TickerSummary` 拡張（`buyPatternCount`・`sellPatternCount`・`patternDetails` フィールド追加）
 - [ ] `web/app/api/summaries/route.ts` - パターン情報をレスポンスに含める
 - [ ] `web/app/summaries/page.tsx` - 買い/売りカラム追加 + 詳細ダイアログ拡張
 - [ ] ユニットテスト更新

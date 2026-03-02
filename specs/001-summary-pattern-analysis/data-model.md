@@ -201,6 +201,8 @@ export abstract class CandlestickPattern {
 
 ### パターン判定ロジック（状態遷移）
 
+> **注意**: 50本未満の日足チェック（FR-012）は `batch/src/summary.ts` で `getChartData()` 取得直後に実施する。取得件数が50本未満の場合、batch は `PatternAnalyzer` を呼ばず全パターンを `INSUFFICIENT_DATA` として保存する。各パターンの `analyze()` には50本以上のデータが渡される前提であり、`analyze()` 内の `candles.length < 3` チェックは予期せぬ異常値への安全弁として残す。
+
 #### 三川明けの明星（MorningStar）
 
 ```
@@ -336,9 +338,7 @@ export interface TickerSummary {
   buyPatternCount: number;
   /** 売りパターン合致数（デフォルト: 0） */
   sellPatternCount: number;
-  /** パターン分析実行済みフラグ（false: バッチ未実行、true: 実行済み） */
-  patternAnalyzed: boolean;
-  /** パターン詳細（詳細ダイアログ表示用） */
+  /** パターン詳細（詳細ダイアログ表示用。空配列はバッチ未実行を示す） */
   patternDetails: PatternDetail[];
 }
 ```

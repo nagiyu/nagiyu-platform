@@ -16,7 +16,7 @@
 |-----------|-----|------|
 | `buyPatternCount` | `number` | 買いシグナル合致数（0以上の整数） |
 | `sellPatternCount` | `number` | 売りシグナル合致数（0以上の整数） |
-| `patternDetails` | `PatternDetailResponse[]` | パターン詳細一覧 |
+| `patternDetails` | `PatternDetailResponse[]` | パターン詳細一覧（空配列はバッチ未実行を示す） |
 
 #### `PatternDetailResponse` 型
 
@@ -56,8 +56,7 @@ interface TickerSummaryResponse {
   updatedAt: string;           // ISO 8601 UTC（変更なし）
   buyPatternCount: number;     // 【追加】買いシグナル合致数
   sellPatternCount: number;    // 【追加】売りシグナル合致数
-  patternAnalyzed: boolean;    // 【追加】パターン分析実行済みフラグ
-  patternDetails: PatternDetailResponse[];  // 【追加】パターン詳細
+  patternDetails: PatternDetailResponse[];  // 【追加】パターン詳細（空配列はバッチ未実行）
 }
 ```
 
@@ -82,7 +81,6 @@ interface TickerSummaryResponse {
           "updatedAt": "2026-02-28T15:00:00.000Z",
           "buyPatternCount": 1,
           "sellPatternCount": 0,
-          "patternAnalyzed": true,
           "patternDetails": [
             {
               "patternId": "morning-star",
@@ -111,7 +109,6 @@ interface TickerSummaryResponse {
           "updatedAt": "2026-02-28T15:00:00.000Z",
           "buyPatternCount": 0,
           "sellPatternCount": 0,
-          "patternAnalyzed": true,
           "patternDetails": [
             {
               "patternId": "morning-star",
@@ -142,14 +139,12 @@ interface TickerSummaryResponse {
   - `buyPatternCount: 0`
   - `sellPatternCount: 0`
   - `patternDetails: []`（空配列）
-  - `patternAnalyzed: false`（未実行を示すフラグ）
 - パターン分析が実行済みだがすべて NOT_MATCHED / INSUFFICIENT_DATA の場合:
   - `buyPatternCount: 0`
   - `sellPatternCount: 0`
   - `patternDetails: [...]`（各パターンのステータスを含む配列）
-  - `patternAnalyzed: true`
 
-`patternAnalyzed` フラグにより、クライアントは「まだ分析していない」と「分析済みだが該当なし」を区別できる。
+クライアントは `patternDetails.length > 0` で「分析済み」を判断し、空配列の場合はバッチ未実行として扱う。既存の `updatedAt` フィールドでバッチ最終実行日時を確認できる。
 
 ---
 
@@ -189,7 +184,6 @@ export interface TickerSummary {
   updatedAt: string;
   buyPatternCount: number;          // 【追加】
   sellPatternCount: number;         // 【追加】
-  patternAnalyzed: boolean;         // 【追加】true: 分析済み / false: 未実行
-  patternDetails: PatternDetail[];  // 【追加】
+  patternDetails: PatternDetail[];  // 【追加】空配列はバッチ未実行を示す
 }
 ```
