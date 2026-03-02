@@ -88,7 +88,9 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       Low: validateNumberField(item.Low, 'Low'),
       Close: validateNumberField(item.Close, 'Close'),
       PatternResults:
-        item.PatternResults && typeof item.PatternResults === 'object' && !Array.isArray(item.PatternResults)
+        item.PatternResults &&
+        typeof item.PatternResults === 'object' &&
+        !Array.isArray(item.PatternResults)
           ? (item.PatternResults as DailySummaryEntity['PatternResults'])
           : undefined,
       BuyPatternCount:
