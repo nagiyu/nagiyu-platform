@@ -20,4 +20,5 @@ export const ERROR_MESSAGES = {
   ALREADY_INVITED: '既に招待済みです',
   ALREADY_MEMBER: '既にグループメンバーです',
   ALREADY_RESPONDED: 'この招待には既に応答済みです',
+  INVALID_INVITATION_STATUS: '招待のステータスが不正です',
 } as const;

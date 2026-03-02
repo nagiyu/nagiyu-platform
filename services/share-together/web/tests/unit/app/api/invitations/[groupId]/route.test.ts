@@ -163,6 +163,37 @@ describe('PUT /api/invitations/[groupId]', () => {
     });
   });
 
+  it('REJECT時に招待を拒否して200レスポンスを返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockRespondToInvitation.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'user-1',
+      role: 'MEMBER',
+      status: 'REJECTED',
+      invitedBy: 'owner-1',
+      invitedAt: '2026-03-01T00:00:00.000Z',
+      respondedAt: '2026-03-02T00:00:00.000Z',
+      createdAt: '2026-03-01T00:00:00.000Z',
+      updatedAt: '2026-03-02T00:00:00.000Z',
+    });
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ action: 'REJECT' }),
+    } as unknown as Request;
+    const response = await PUT(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      data: {
+        groupId: 'group-1',
+        status: 'REJECTED',
+        updatedAt: '2026-03-02T00:00:00.000Z',
+      },
+    });
+  });
+
   it('既に応答済みの場合は409レスポンスを返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },

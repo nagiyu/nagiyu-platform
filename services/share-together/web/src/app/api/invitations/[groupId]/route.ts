@@ -48,6 +48,13 @@ function isInvitationAction(action: unknown): action is InvitationAction {
   return action === 'ACCEPT' || action === 'REJECT';
 }
 
+function toInvitationStatus(status: string): InvitationUpdateResponse['status'] {
+  if (status === 'ACCEPTED' || status === 'REJECTED') {
+    return status;
+  }
+  throw new Error(ERROR_MESSAGES.INVALID_INVITATION_STATUS);
+}
+
 export async function PUT(request: Request, { params }: RouteParams): Promise<NextResponse> {
   let requestedGroupId: string | undefined;
   let requestedAction: InvitationAction | undefined;
@@ -58,7 +65,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
     }
 
     const { groupId } = await params;
-    if (groupId.length === 0) {
+    if (typeof groupId !== 'string' || groupId.length === 0) {
       return createValidationErrorResponse();
     }
     requestedGroupId = groupId;
@@ -95,7 +102,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
     const response: ApiSuccessResponse<InvitationUpdateResponse> = {
       data: {
         groupId: updatedMembership.groupId,
-        status: updatedMembership.status === 'ACCEPTED' ? 'ACCEPTED' : 'REJECTED',
+        status: toInvitationStatus(updatedMembership.status),
         updatedAt: updatedMembership.updatedAt,
       },
     };
