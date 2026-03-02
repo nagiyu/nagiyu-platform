@@ -12,6 +12,22 @@ import {
   type EntityMapper,
 } from '@nagiyu/aws';
 import type { DailySummaryEntity, DailySummaryKey } from '../entities/daily-summary.entity.js';
+import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
+import type { PatternStatus } from '../types.js';
+
+export interface PatternDetailResponse {
+  patternId: string;
+  name: string;
+  description: string;
+  signalType: 'BUY' | 'SELL';
+  status: PatternStatus;
+}
+
+export interface DailySummaryPatternResponse {
+  buyPatternCount: number;
+  sellPatternCount: number;
+  patternDetails: PatternDetailResponse[];
+}
 
 /**
  * Daily Summary Mapper
@@ -46,6 +62,11 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       High: entity.High,
       Low: entity.Low,
       Close: entity.Close,
+      ...(entity.PatternResults ? { PatternResults: entity.PatternResults } : {}),
+      ...(entity.BuyPatternCount !== undefined ? { BuyPatternCount: entity.BuyPatternCount } : {}),
+      ...(entity.SellPatternCount !== undefined
+        ? { SellPatternCount: entity.SellPatternCount }
+        : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -66,8 +87,57 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       High: validateNumberField(item.High, 'High'),
       Low: validateNumberField(item.Low, 'Low'),
       Close: validateNumberField(item.Close, 'Close'),
+      PatternResults:
+        item.PatternResults && typeof item.PatternResults === 'object' && !Array.isArray(item.PatternResults)
+          ? (item.PatternResults as DailySummaryEntity['PatternResults'])
+          : undefined,
+      BuyPatternCount:
+        item.BuyPatternCount === undefined
+          ? undefined
+          : validateNumberField(item.BuyPatternCount, 'BuyPatternCount'),
+      SellPatternCount:
+        item.SellPatternCount === undefined
+          ? undefined
+          : validateNumberField(item.SellPatternCount, 'SellPatternCount'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
+    };
+  }
+
+  /**
+   * DailySummaryEntity を TickerSummary のパターン関連レスポンスに変換
+   *
+   * @param entity - DailySummary Entity
+   * @returns パターン関連のレスポンス
+   */
+  public toTickerSummaryResponse(entity: DailySummaryEntity): DailySummaryPatternResponse {
+    if (!entity.PatternResults) {
+      return {
+        buyPatternCount: 0,
+        sellPatternCount: 0,
+        patternDetails: [],
+      };
+    }
+
+    const patternDetails = PATTERN_REGISTRY.flatMap((pattern) => {
+      const status = entity.PatternResults?.[pattern.definition.patternId];
+
+      if (!status) {
+        return [];
+      }
+
+      return [
+        {
+          ...pattern.definition,
+          status,
+        },
+      ];
+    });
+
+    return {
+      buyPatternCount: entity.BuyPatternCount ?? 0,
+      sellPatternCount: entity.SellPatternCount ?? 0,
+      patternDetails,
     };
   }
 
