@@ -121,6 +121,9 @@ export interface PatternDefinition {
 
 /**
  * ティッカー単位のパターン判定結果マップ
+ *
+ * キー: patternId
+ * 値: PatternStatus
  */
 export type PatternResults = Record<string, PatternStatus>;
 
