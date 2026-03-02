@@ -53,7 +53,7 @@ test.describe('グループ管理', () => {
       await route.fulfill({
         json: {
           data: {
-            members: [{ userId: 'owner-user' }],
+            members: [{ userId: 'owner-user', name: 'オーナー' }],
           },
         },
       });
