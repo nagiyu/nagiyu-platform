@@ -7,6 +7,7 @@ import { TodoList } from '@/components/TodoList';
 import type { PersonalListsResponse } from '@/types';
 
 const REGISTRATION_COMPLETED_KEY = 'share-together:user-registration-completed';
+const MOCK_DEFAULT_LIST_ID = 'mock-default-list';
 const ERROR_MESSAGES = {
   USER_REGISTRATION_AUTO_CALL_FAILED: 'ユーザー登録 API の自動実行に失敗しました',
   PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧 API の取得に失敗しました',
@@ -18,29 +19,22 @@ export default function Home() {
   const [isListLoading, setIsListLoading] = useState(true);
 
   useEffect(() => {
-    if (window.sessionStorage.getItem(REGISTRATION_COMPLETED_KEY) === 'true') {
-      return;
-    }
-
-    void globalThis
-      .fetch('/api/users', { method: 'POST' })
-      .then((response) => {
-        if (response.ok) {
-          window.sessionStorage.setItem(REGISTRATION_COMPLETED_KEY, 'true');
-          return;
+    const initializeTodoList = async (): Promise<void> => {
+      if (window.sessionStorage.getItem(REGISTRATION_COMPLETED_KEY) !== 'true') {
+        try {
+          const userResponse = await globalThis.fetch('/api/users', { method: 'POST' });
+          if (userResponse.ok) {
+            window.sessionStorage.setItem(REGISTRATION_COMPLETED_KEY, 'true');
+          } else {
+            throw new Error(`status: ${userResponse.status}`);
+          }
+        } catch (error: unknown) {
+          console.error(ERROR_MESSAGES.USER_REGISTRATION_AUTO_CALL_FAILED, { error });
         }
+      }
 
-        throw new Error(`status: ${response.status}`);
-      })
-      .catch((error: unknown) => {
-        console.error(ERROR_MESSAGES.USER_REGISTRATION_AUTO_CALL_FAILED, { error });
-      });
-  }, []);
-
-  useEffect(() => {
-    void globalThis
-      .fetch('/api/lists')
-      .then(async (response) => {
+      try {
+        const response = await globalThis.fetch('/api/lists');
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
         }
@@ -52,14 +46,19 @@ export default function Home() {
         }
 
         setDefaultListId(defaultList.listId);
-      })
-      .catch((error: unknown) => {
+      } catch (error: unknown) {
+        setDefaultListId(null);
         console.error(ERROR_MESSAGES.PERSONAL_LISTS_FETCH_FAILED, { error });
-      })
-      .finally(() => {
+      } finally {
         setIsListLoading(false);
-      });
+      }
+    };
+
+    void initializeTodoList();
   }, []);
+
+  const isUsingMockList = !defaultListId && !isListLoading;
+  const resolvedListId = defaultListId ?? MOCK_DEFAULT_LIST_ID;
 
   return (
     <main>
@@ -68,7 +67,7 @@ export default function Home() {
         <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
           デフォルト個人リスト
         </Typography>
-        {defaultListId && <TodoList listId={defaultListId} apiEnabled />}
+        {!isListLoading && <TodoList listId={resolvedListId} apiEnabled={!isUsingMockList} />}
         {!defaultListId && isListLoading && (
           <Typography role="status" aria-live="polite">
             ToDoリストを読み込み中です...
