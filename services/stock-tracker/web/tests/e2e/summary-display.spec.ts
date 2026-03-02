@@ -118,9 +118,9 @@ test.describe('サマリー画面スモークテスト', () => {
       '強い売りシグナル。3本のローソク足で構成され、上昇トレンドの反転を示す。'
     );
 
-    await expect(sellArea.getByTestId('pattern-status-evening-star')).toHaveText('判定不能');
-    await expect(buyArea.getByTestId('pattern-status-bullish-engulfing')).toHaveText('非該当');
-    await expect(sellArea.getByTestId('pattern-status-bearish-engulfing')).toHaveText('該当');
+    await expect(sellArea.getByTestId('pattern-status-evening-star')).toHaveText('-');
+    await expect(buyArea.getByTestId('pattern-status-bullish-engulfing')).toHaveText('✗');
+    await expect(sellArea.getByTestId('pattern-status-bearish-engulfing')).toHaveText('✓');
     await expect(sellArea.getByText('理由: データ不足')).toBeVisible();
   });
 

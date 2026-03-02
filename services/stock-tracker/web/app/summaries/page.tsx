@@ -292,7 +292,7 @@ export default function SummariesPage() {
         )}
       </Box>
 
-      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="xs" fullWidth>
+      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
@@ -303,93 +303,164 @@ export default function SummariesPage() {
         </DialogTitle>
         <DialogContent dividers>
           {selectedTicker && (
-            <Box sx={{ display: 'grid', gap: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                銘柄名
-              </Typography>
-              <Typography>{selectedTicker.name}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                始値
-              </Typography>
-              <Typography>{selectedTicker.open.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                高値
-              </Typography>
-              <Typography>{selectedTicker.high.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                安値
-              </Typography>
-              <Typography>{selectedTicker.low.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                終値
-              </Typography>
-              <Typography>{selectedTicker.close.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                更新日時
-              </Typography>
-              <Typography>{new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}</Typography>
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableBody>
+                    <TableRow>
+                      <TableCell
+                        component="th"
+                        scope="row"
+                        sx={{ color: 'text.secondary', width: '40%' }}
+                      >
+                        銘柄名
+                      </TableCell>
+                      <TableCell>{selectedTicker.name}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        始値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.open.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        高値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.high.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        安値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.low.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        終値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.close.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        更新日時
+                      </TableCell>
+                      <TableCell>
+                        {new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
               <Divider />
               <Typography variant="h6">パターン分析</Typography>
               <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
-                <Typography variant="body2" color="text.secondary">
-                  買いパターン
-                </Typography>
-                {BUY_PATTERN_DETAILS.map((pattern) => (
-                  <Box key={pattern.patternId} sx={{ display: 'grid', gap: 0.5 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-                      <Tooltip title={pattern.description}>
-                        <Typography component="span" aria-label={pattern.description}>
-                          {pattern.name}
-                        </Typography>
-                      </Tooltip>
-                      <Typography data-testid={`pattern-status-${pattern.patternId}`}>
-                        {pattern.status === 'MATCHED'
-                          ? '該当'
-                          : pattern.status === 'INSUFFICIENT_DATA'
-                            ? '判定不能'
-                            : '非該当'}
-                      </Typography>
-                    </Box>
-                    {pattern.status === 'INSUFFICIENT_DATA' && (
-                      <Typography variant="caption" color="text.secondary">
-                        理由: {INSUFFICIENT_DATA_REASON}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
+                <Typography variant="subtitle2">買いパターン</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {BUY_PATTERN_DETAILS.map((pattern) => (
+                        <TableRow key={pattern.patternId}>
+                          <TableCell>
+                            <Tooltip title={pattern.description}>
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                aria-label={pattern.description}
+                                sx={{
+                                  textDecoration: 'underline',
+                                  textDecorationStyle: 'dotted',
+                                  cursor: 'help',
+                                }}
+                              >
+                                {pattern.name}
+                              </Typography>
+                            </Tooltip>
+                            {pattern.status === 'INSUFFICIENT_DATA' && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                理由: {INSUFFICIENT_DATA_REASON}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '10%' }}>
+                            <Typography
+                              component="span"
+                              data-testid={`pattern-status-${pattern.patternId}`}
+                              color={
+                                pattern.status === 'MATCHED'
+                                  ? 'success.main'
+                                  : pattern.status === 'INSUFFICIENT_DATA'
+                                    ? 'text.disabled'
+                                    : 'text.secondary'
+                              }
+                              fontWeight="bold"
+                            >
+                              {pattern.status === 'MATCHED'
+                                ? '✓'
+                                : pattern.status === 'INSUFFICIENT_DATA'
+                                  ? '-'
+                                  : '✗'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </Box>
               <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-sell">
-                <Typography variant="body2" color="text.secondary">
-                  売りパターン
-                </Typography>
-                {SELL_PATTERN_DETAILS.map((pattern) => (
-                  <Box key={pattern.patternId} sx={{ display: 'grid', gap: 0.5 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
-                      <Tooltip title={pattern.description}>
-                        <Typography component="span" aria-label={pattern.description}>
-                          {pattern.name}
-                        </Typography>
-                      </Tooltip>
-                      <Typography data-testid={`pattern-status-${pattern.patternId}`}>
-                        {pattern.status === 'MATCHED'
-                          ? '該当'
-                          : pattern.status === 'INSUFFICIENT_DATA'
-                            ? '判定不能'
-                            : '非該当'}
-                      </Typography>
-                    </Box>
-                    {pattern.status === 'INSUFFICIENT_DATA' && (
-                      <Typography variant="caption" color="text.secondary">
-                        理由: {INSUFFICIENT_DATA_REASON}
-                      </Typography>
-                    )}
-                  </Box>
-                ))}
+                <Typography variant="subtitle2">売りパターン</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {SELL_PATTERN_DETAILS.map((pattern) => (
+                        <TableRow key={pattern.patternId}>
+                          <TableCell>
+                            <Tooltip title={pattern.description}>
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                aria-label={pattern.description}
+                                sx={{
+                                  textDecoration: 'underline',
+                                  textDecorationStyle: 'dotted',
+                                  cursor: 'help',
+                                }}
+                              >
+                                {pattern.name}
+                              </Typography>
+                            </Tooltip>
+                            {pattern.status === 'INSUFFICIENT_DATA' && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                理由: {INSUFFICIENT_DATA_REASON}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '10%' }}>
+                            <Typography
+                              component="span"
+                              data-testid={`pattern-status-${pattern.patternId}`}
+                              color={
+                                pattern.status === 'MATCHED'
+                                  ? 'success.main'
+                                  : pattern.status === 'INSUFFICIENT_DATA'
+                                    ? 'text.disabled'
+                                    : 'text.secondary'
+                              }
+                              fontWeight="bold"
+                            >
+                              {pattern.status === 'MATCHED'
+                                ? '✓'
+                                : pattern.status === 'INSUFFICIENT_DATA'
+                                  ? '-'
+                                  : '✗'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </Box>
             </Box>
           )}
