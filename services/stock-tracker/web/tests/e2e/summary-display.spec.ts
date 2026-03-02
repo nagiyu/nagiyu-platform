@@ -1,6 +1,65 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('サマリー画面スモークテスト', () => {
+  test('サマリー一覧テーブルに買い/売りシグナル列と件数を表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 1,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                },
+                {
+                  tickerId: 'TEST:BBB',
+                  symbol: 'BBB',
+                  name: 'BBB株式会社',
+                  open: 200,
+                  high: 210,
+                  low: 190,
+                  close: 205,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 2,
+                  patternDetails: [],
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+
+    await expect(page.getByRole('columnheader', { name: '買いシグナル' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '売りシグナル' })).toBeVisible();
+
+    const rows = page.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+
+    await expect(page.getByTestId('buy-signal-TEST:AAA')).toHaveText('1');
+    await expect(page.getByTestId('sell-signal-TEST:AAA')).toHaveText('0');
+    await expect(page.getByTestId('buy-signal-TEST:BBB')).toHaveText('0');
+    await expect(page.getByTestId('sell-signal-TEST:BBB')).toHaveText('2');
+  });
+
   test('サマリーページの基本要素が表示される', async ({ page }) => {
     await page.goto('/summaries');
 

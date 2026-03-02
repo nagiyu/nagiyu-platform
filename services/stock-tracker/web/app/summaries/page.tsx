@@ -206,6 +206,8 @@ export default function SummariesPage() {
                           <TableCell align="right">高値</TableCell>
                           <TableCell align="right">安値</TableCell>
                           <TableCell align="right">終値</TableCell>
+                          <TableCell align="right">買いシグナル</TableCell>
+                          <TableCell align="right">売りシグナル</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -222,6 +224,15 @@ export default function SummariesPage() {
                             <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
+                            <TableCell align="right" data-testid={`buy-signal-${summary.tickerId}`}>
+                              {summary.buyPatternCount ?? 0}
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              data-testid={`sell-signal-${summary.tickerId}`}
+                            >
+                              {summary.sellPatternCount ?? 0}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
