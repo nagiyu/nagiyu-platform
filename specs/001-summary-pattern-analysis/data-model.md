@@ -338,9 +338,7 @@ export interface TickerSummary {
   buyPatternCount: number;
   /** 売りパターン合致数（デフォルト: 0） */
   sellPatternCount: number;
-  /** パターン分析実行済みフラグ（false: バッチ未実行、true: 実行済み） */
-  patternAnalyzed: boolean;
-  /** パターン詳細（詳細ダイアログ表示用） */
+  /** パターン詳細（詳細ダイアログ表示用。空配列はバッチ未実行を示す） */
   patternDetails: PatternDetail[];
 }
 ```
