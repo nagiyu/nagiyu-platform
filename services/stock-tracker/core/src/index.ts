@@ -11,6 +11,8 @@
 export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
+export { CandlestickPattern } from './patterns/candlestick-pattern.js';
+export { PATTERN_REGISTRY } from './patterns/pattern-registry.js';
 
 // Error Classes (for backward compatibility)
 // Re-export generic error classes from @nagiyu/aws with specific names
