@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
@@ -16,31 +16,59 @@ import {
   Typography,
 } from '@mui/material';
 
-const MOCK_INVITATIONS_DATA = [
-  {
-    groupId: 'mock-group-1',
-    groupName: '週末の買い出し',
-    inviterName: '田中さん',
-    invitedAt: '2026-02-20 19:30',
-  },
-  {
-    groupId: 'mock-group-2',
-    groupName: '旅行準備リスト',
-    inviterName: '佐藤さん',
-    invitedAt: '2026-02-21 08:15',
-  },
-] as const;
+type Invitation = {
+  groupId: string;
+  groupName: string;
+  inviterName: string;
+  createdAt: string;
+};
 
 export default function InvitationsPage() {
-  const [invitations, setInvitations] = useState([...MOCK_INVITATIONS_DATA]);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [rejectTarget, setRejectTarget] = useState<{ groupId: string; groupName: string } | null>(
     null
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await fetch('/api/invitations');
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+
+        const data = (await response.json()) as { data: { invitations: Invitation[] } };
+        setInvitations(data.data.invitations);
+      } catch (error: unknown) {
+        console.error('招待一覧の取得に失敗しました', { error });
+        setSnackbarMessage('招待一覧の取得に失敗しました。');
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
+
   const handleAccept = (groupId: string, groupName: string) => {
-    setInvitations((prev) => prev.filter((inv) => inv.groupId !== groupId));
-    setSnackbarMessage(`「${groupName}」への参加を承認しました（モック）。`);
+    void (async () => {
+      try {
+        const response = await fetch(`/api/invitations/${groupId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'ACCEPT' }),
+        });
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+
+        setInvitations((prev) => prev.filter((inv) => inv.groupId !== groupId));
+        setSnackbarMessage(`「${groupName}」への参加を承認しました。`);
+      } catch (error: unknown) {
+        console.error('招待の承認に失敗しました', { groupId, error });
+        setSnackbarMessage('招待の承認に失敗しました。');
+      }
+    })();
   };
 
   const handleRejectRequest = (groupId: string, groupName: string) => {
@@ -48,11 +76,28 @@ export default function InvitationsPage() {
   };
 
   const handleRejectConfirm = () => {
-    if (rejectTarget) {
-      setInvitations((prev) => prev.filter((inv) => inv.groupId !== rejectTarget.groupId));
-      setSnackbarMessage(`「${rejectTarget.groupName}」への招待を拒否しました（モック）。`);
-      setRejectTarget(null);
-    }
+    if (!rejectTarget) return;
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/invitations/${rejectTarget.groupId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'REJECT' }),
+        });
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+
+        setInvitations((prev) => prev.filter((inv) => inv.groupId !== rejectTarget.groupId));
+        setSnackbarMessage(`「${rejectTarget.groupName}」への招待を拒否しました。`);
+      } catch (error: unknown) {
+        console.error('招待の拒否に失敗しました', { groupId: rejectTarget.groupId, error });
+        setSnackbarMessage('招待の拒否に失敗しました。');
+      } finally {
+        setRejectTarget(null);
+      }
+    })();
   };
 
   const handleRejectCancel = () => {
@@ -66,7 +111,9 @@ export default function InvitationsPage() {
         <Typography component="h1" variant="h4" gutterBottom>
           招待一覧
         </Typography>
-        {invitations.length === 0 ? (
+        {isLoading ? (
+          <Typography color="text.secondary">読み込み中...</Typography>
+        ) : invitations.length === 0 ? (
           <Typography color="text.secondary">招待はありません。</Typography>
         ) : (
           <Stack spacing={2}>
@@ -88,7 +135,7 @@ export default function InvitationsPage() {
                     招待者: {invitation.inviterName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    招待日時: {invitation.invitedAt}
+                    招待日時: {invitation.createdAt}
                   </Typography>
                 </CardContent>
                 <CardActions sx={{ px: 2, pb: 2 }}>
