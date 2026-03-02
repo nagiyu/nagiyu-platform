@@ -23,8 +23,7 @@ export class MorningStar extends CandlestickPattern {
 
     const c2Body = Math.abs(c2.close - c2.open);
     const c2Range = Math.abs(c2.high - c2.low);
-    const condition1 =
-      c2.close < c2.open && c2Body > c2Range * MorningStar.LARGE_BODY_THRESHOLD;
+    const condition1 = c2.close < c2.open && c2Body > c2Range * MorningStar.LARGE_BODY_THRESHOLD;
 
     const c1Body = Math.abs(c1.close - c1.open);
     const c1Range = Math.abs(c1.high - c1.low);
