@@ -42,7 +42,10 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
     ({
       json: async () => body,
     }) as Request;
-  const createContext = (listId = 'list-1', todoId = 'todo-1'): { params: Promise<{ listId: string; todoId: string }> } => ({
+  const createContext = (
+    listId = 'list-1',
+    todoId = 'todo-1'
+  ): { params: Promise<{ listId: string; todoId: string }> } => ({
     params: Promise.resolve({ listId, todoId }),
   });
 
@@ -88,7 +91,10 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       updatedAt: '2026-01-01T01:00:00.000Z',
     });
 
-    const response = await PUT(createRequest({ title: '更新後', isCompleted: true }), createContext());
+    const response = await PUT(
+      createRequest({ title: '更新後', isCompleted: true }),
+      createContext()
+    );
 
     expect(response.status).toBe(200);
     expect(mockUpdateTodo).toHaveBeenCalledWith(

@@ -73,7 +73,9 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function parseUpdateBody(body: UpdateTodoRequestBody): { title?: string; isCompleted?: boolean } | null {
+function parseUpdateBody(
+  body: UpdateTodoRequestBody
+): { title?: string; isCompleted?: boolean } | null {
   const updates: { title?: string; isCompleted?: boolean } = {};
 
   if (body.title !== undefined) {
