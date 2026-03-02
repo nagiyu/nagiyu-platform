@@ -224,7 +224,6 @@ jobs:
   e2e-test-web:
     name: E2E Tests (All Devices)
     runs-on: ubuntu-latest
-    if: ${{ false }}
     needs: [build-web]
 
     permissions:
@@ -263,6 +262,7 @@ jobs:
       - name: Run E2E tests (All Devices)
         env:
           CI: true
+          SKIP_AUTH_CHECK: true
         run: npm run test:e2e --workspace=@nagiyu/share-together-web
 
       - name: Upload test results
