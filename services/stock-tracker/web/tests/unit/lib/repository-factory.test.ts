@@ -183,6 +183,12 @@ describe('Repository Factory', () => {
       const repo2 = createWatchlistRepository();
       expect(repo1).toBe(repo2);
     });
+
+    it('シングルトンパターンが機能する - DailySummary', () => {
+      const repo1 = createDailySummaryRepository();
+      const repo2 = createDailySummaryRepository();
+      expect(repo1).toBe(repo2);
+    });
   });
 
   describe('USE_IN_MEMORY_REPOSITORY未設定 (デフォルト: DynamoDB)', () => {
