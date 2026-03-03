@@ -2,6 +2,12 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ListWorkspace } from '@/components/ListWorkspace';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
+}));
+
 describe('ListWorkspace', () => {
   it('個人と共有を切り替え、共有ではグループ選択を表示する', () => {
     const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
