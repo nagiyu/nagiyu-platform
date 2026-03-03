@@ -83,7 +83,24 @@ test.describe('サマリー画面スモークテスト', () => {
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
-                  patternDetails: [],
+                  patternDetails: [
+                    {
+                      patternId: 'morning-star',
+                      name: '三川明けの明星',
+                      description:
+                        '強い買いシグナル。3本のローソク足で構成され、下降トレンドの反転を示す。',
+                      signalType: 'BUY',
+                      status: 'MATCHED',
+                    },
+                    {
+                      patternId: 'evening-star',
+                      name: '三川宵の明星',
+                      description:
+                        '強い売りシグナル。3本のローソク足で構成され、上昇トレンドの反転を示す。',
+                      signalType: 'SELL',
+                      status: 'INSUFFICIENT_DATA',
+                    },
+                  ],
                 },
               ],
             },
@@ -102,11 +119,9 @@ test.describe('サマリー画面スモークテスト', () => {
     const buyArea = dialog.getByTestId('pattern-analysis-buy');
     const sellArea = dialog.getByTestId('pattern-analysis-sell');
     await expect(buyArea.getByText('三川明けの明星')).toBeVisible();
-    await expect(buyArea.getByText('包み陽線')).toBeVisible();
-    await expect(buyArea.getByText('ハンマー')).toBeVisible();
     await expect(sellArea.getByText('三川宵の明星')).toBeVisible();
-    await expect(sellArea.getByText('包み陰線')).toBeVisible();
-    await expect(sellArea.getByText('首吊り線')).toBeVisible();
+    await expect(dialog.getByText('包み陽線')).toHaveCount(0);
+    await expect(dialog.getByText('包み陰線')).toHaveCount(0);
 
     await buyArea.getByText('三川明けの明星').hover();
     await expect(page.getByRole('tooltip')).toContainText(
@@ -119,8 +134,7 @@ test.describe('サマリー画面スモークテスト', () => {
     );
 
     await expect(sellArea.getByTestId('pattern-status-evening-star')).toHaveText('-');
-    await expect(buyArea.getByTestId('pattern-status-bullish-engulfing')).toHaveText('✗');
-    await expect(sellArea.getByTestId('pattern-status-bearish-engulfing')).toHaveText('✓');
+    await expect(buyArea.getByTestId('pattern-status-morning-star')).toHaveText('✓');
     await expect(sellArea.getByText('理由: データ不足')).toBeVisible();
   });
 

@@ -38,52 +38,6 @@ const ERROR_MESSAGES = {
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
 } as const;
 const INSUFFICIENT_DATA_REASON = 'データ不足';
-const mockPatternDetails: PatternDetail[] = [
-  {
-    patternId: 'morning-star',
-    name: '三川明けの明星',
-    description: '強い買いシグナル。3本のローソク足で構成され、下降トレンドの反転を示す。',
-    signalType: 'BUY',
-    status: 'MATCHED',
-  },
-  {
-    patternId: 'bullish-engulfing',
-    name: '包み陽線',
-    description: '買いシグナル。前日の陰線を翌日の陽線が包み込み、反転上昇を示唆する。',
-    signalType: 'BUY',
-    status: 'NOT_MATCHED',
-  },
-  {
-    patternId: 'hammer',
-    name: 'ハンマー',
-    description: '買いシグナル。下ヒゲが長いローソク足で、下落後の反発可能性を示す。',
-    signalType: 'BUY',
-    status: 'INSUFFICIENT_DATA',
-  },
-  {
-    patternId: 'evening-star',
-    name: '三川宵の明星',
-    description: '強い売りシグナル。3本のローソク足で構成され、上昇トレンドの反転を示す。',
-    signalType: 'SELL',
-    status: 'INSUFFICIENT_DATA',
-  },
-  {
-    patternId: 'bearish-engulfing',
-    name: '包み陰線',
-    description: '売りシグナル。前日の陽線を翌日の陰線が包み込み、反転下落を示唆する。',
-    signalType: 'SELL',
-    status: 'MATCHED',
-  },
-  {
-    patternId: 'hanging-man',
-    name: '首吊り線',
-    description: '売りシグナル。上昇後に出現すると下落転換の警戒サインとなる。',
-    signalType: 'SELL',
-    status: 'NOT_MATCHED',
-  },
-];
-const BUY_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'BUY');
-const SELL_PATTERN_DETAILS = mockPatternDetails.filter((pattern) => pattern.signalType === 'SELL');
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -180,6 +134,12 @@ export default function SummariesPage() {
   const filteredExchanges = selectedExchangeId
     ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
     : summaries.exchanges;
+  const buyPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
+    (pattern) => pattern.signalType === 'BUY'
+  );
+  const sellPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
+    (pattern) => pattern.signalType === 'SELL'
+  );
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
@@ -359,7 +319,7 @@ export default function SummariesPage() {
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {BUY_PATTERN_DETAILS.map((pattern) => (
+                      {buyPatternDetails.map((pattern) => (
                         <TableRow key={pattern.patternId}>
                           <TableCell>
                             <Tooltip title={pattern.description}>
@@ -413,7 +373,7 @@ export default function SummariesPage() {
                 <TableContainer>
                   <Table size="small">
                     <TableBody>
-                      {SELL_PATTERN_DETAILS.map((pattern) => (
+                      {sellPatternDetails.map((pattern) => (
                         <TableRow key={pattern.patternId}>
                           <TableCell>
                             <Tooltip title={pattern.description}>
