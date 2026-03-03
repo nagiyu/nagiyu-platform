@@ -14,14 +14,17 @@ import type {
   TickerRepository,
   ExchangeRepository,
   WatchlistRepository,
+  DailySummaryRepository,
 } from '@nagiyu/stock-tracker-core';
 import {
   DynamoDBAlertRepository,
+  DynamoDBDailySummaryRepository,
   DynamoDBHoldingRepository,
   DynamoDBTickerRepository,
   DynamoDBExchangeRepository,
   DynamoDBWatchlistRepository,
   InMemoryAlertRepository,
+  InMemoryDailySummaryRepository,
   InMemoryHoldingRepository,
   InMemoryTickerRepository,
   InMemoryExchangeRepository,
@@ -45,6 +48,7 @@ let holdingRepository: HoldingRepository | null = null;
 let tickerRepository: TickerRepository | null = null;
 let exchangeRepository: ExchangeRepository | null = null;
 let watchlistRepository: WatchlistRepository | null = null;
+let dailySummaryRepository: DailySummaryRepository | null = null;
 
 /**
  * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
@@ -70,6 +74,7 @@ export function clearMemoryStore(): void {
   tickerRepository = null;
   exchangeRepository = null;
   watchlistRepository = null;
+  dailySummaryRepository = null;
 }
 
 /**
@@ -220,4 +225,32 @@ export function createWatchlistRepository(): WatchlistRepository {
   }
 
   return watchlistRepository;
+}
+
+/**
+ * DailySummary Repository を作成
+ *
+ * @returns DailySummaryRepository インスタンス
+ */
+export function createDailySummaryRepository(): DailySummaryRepository {
+  if (dailySummaryRepository) {
+    return dailySummaryRepository;
+  }
+
+  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
+
+  if (useInMemory) {
+    const store = getOrCreateMemoryStore();
+    dailySummaryRepository = new InMemoryDailySummaryRepository(store);
+  } else {
+    try {
+      const docClient = getDynamoDBClient();
+      const tableName = getTableName();
+      dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
+    } catch {
+      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
+    }
+  }
+
+  return dailySummaryRepository;
 }

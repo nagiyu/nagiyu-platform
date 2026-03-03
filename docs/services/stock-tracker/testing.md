@@ -73,6 +73,7 @@ npm run test:coverage --workspace=stock-tracker-core
 | E2E-007    | ティッカー管理 | ティッカーCRUD操作 | 中 | chromium-mobile |
 | E2E-008    | エラーハンドリング | バリデーションエラー、APIエラーの表示 | 中 | chromium-mobile |
 | E2E-009    | ナビゲーション | 画面遷移の確認 | 低 | chromium-mobile |
+| E2E-010    | サマリーのパターン表示 | 一覧の売買件数表示と詳細内訳表示（判定不能理由「データ不足」を含む） | 高 | chromium-mobile |
 
 ### 4.2 シナリオ設計方針
 
@@ -98,6 +99,7 @@ npm run test:coverage --workspace=stock-tracker-core
 **対象**:
 - `repositories/`: DynamoDB アクセスロジック
 - `services/`: ビジネスロジック（アラート評価、価格計算、取引時間チェックなど）
+- `patterns/`: 日足パターン判定ロジック（成立/不成立/判定不能）
 
 **テスト方針**:
 - 純粋関数を優先的にテスト

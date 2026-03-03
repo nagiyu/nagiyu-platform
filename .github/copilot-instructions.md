@@ -23,12 +23,19 @@
 libs/
 ├── common/        # 完全フレームワーク非依存（外部依存なし）
 ├── browser/       # ブラウザAPI依存（Clipboard、localStorage等）
-└── ui/            # Next.js + Material-UI 依存
+├── ui/            # Next.js + Material-UI 依存
+├── react/         # React依存（hooks等）
+├── nextjs/        # Next.js 依存ユーティリティ
+└── aws/           # AWS SDK 依存ユーティリティ
 
 services/          # アプリケーション
 ```
 
 **依存関係の一方向性**: `ui → browser → common`（循環依存禁止）
+補足:
+
+- `react` と `nextjs` は `common` に依存
+- `aws` はモノレポ内ライブラリに依存しない
 
 ---
 
@@ -103,7 +110,7 @@ feature/**  →  integration/**  →  develop  →  master
 
 ### CI要件
 
-- **Fast CI** (integration/** へのPR): ビルド、品質チェック、テスト、E2E（chromium-mobile のみ）
+- **Fast CI** (integration/\*\* へのPR): ビルド、品質チェック、テスト、E2E（chromium-mobile のみ）
 - **Full CI** (develop へのPR): Fast CI + カバレッジチェック（80%未満で失敗）+ E2E（全デバイス）
 
 ---

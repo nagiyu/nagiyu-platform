@@ -11,6 +11,11 @@
 export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
+export { CandlestickPattern } from './patterns/candlestick-pattern.js';
+export { EveningStar } from './patterns/evening-star.js';
+export { MorningStar } from './patterns/morning-star.js';
+export { PatternAnalyzer } from './patterns/pattern-analyzer.js';
+export { PATTERN_REGISTRY } from './patterns/pattern-registry.js';
 
 // Error Classes (for backward compatibility)
 // Re-export generic error classes from @nagiyu/aws with specific names
@@ -43,6 +48,7 @@ export type { HoldingRepository } from './repositories/holding.repository.interf
 export type { TickerRepository } from './repositories/ticker.repository.interface.js';
 export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';
 export type { WatchlistRepository } from './repositories/watchlist.repository.interface.js';
+export type { DailySummaryRepository } from './repositories/daily-summary.repository.interface.js';
 
 // Entities (explicit exports to avoid conflicts with types.ts)
 export type {
@@ -68,6 +74,11 @@ export type {
   UpdateExchangeInput,
 } from './entities/exchange.entity.js';
 export type { WatchlistEntity, CreateWatchlistInput } from './entities/watchlist.entity.js';
+export type {
+  DailySummaryEntity,
+  CreateDailySummaryInput,
+  DailySummaryKey,
+} from './entities/daily-summary.entity.js';
 
 // Mappers
 export * from './mappers/alert.mapper.js';
@@ -75,6 +86,7 @@ export * from './mappers/holding.mapper.js';
 export * from './mappers/ticker.mapper.js';
 export * from './mappers/exchange.mapper.js';
 export * from './mappers/watchlist.mapper.js';
+export * from './mappers/daily-summary.mapper.js';
 
 // DynamoDB Implementations
 export * from './repositories/dynamodb-alert.repository.js';
@@ -82,6 +94,7 @@ export * from './repositories/dynamodb-holding.repository.js';
 export * from './repositories/dynamodb-ticker.repository.js';
 export * from './repositories/dynamodb-exchange.repository.js';
 export * from './repositories/dynamodb-watchlist.repository.js';
+export * from './repositories/dynamodb-daily-summary.repository.js';
 
 // InMemory Implementations
 export * from './repositories/in-memory-alert.repository.js';
@@ -89,6 +102,7 @@ export * from './repositories/in-memory-holding.repository.js';
 export * from './repositories/in-memory-ticker.repository.js';
 export * from './repositories/in-memory-exchange.repository.js';
 export * from './repositories/in-memory-watchlist.repository.js';
+export * from './repositories/in-memory-daily-summary.repository.js';
 
 // Services
 export * from './services/auth.js';

@@ -6,6 +6,7 @@
 
 import {
   isTradingHours,
+  getLastTradingDate,
   TRADING_HOURS_ERROR_MESSAGES,
 } from '../../../src/services/trading-hours-checker.js';
 import type { Exchange } from '../../../src/types.js';
@@ -236,6 +237,71 @@ describe('Trading Hours Checker Service', () => {
       // 2024-01-15 (月曜日) 09:00 EST = 2024-01-15 14:00 UTC
       const sameTime = new Date('2024-01-15T14:00:00Z');
       expect(isTradingHours(exchange, sameTime)).toBe(false);
+    });
+  });
+
+  describe('getLastTradingDate', () => {
+    // NASDAQ (America/New_York, End: 20:00) での検証
+    // EST = UTC-5 (1月は夏時間なし)
+
+    it('平日かつ取引終了後 → 当日の日付を返す', () => {
+      // 2024-01-17 (水曜日) 22:00 EST = 2024-01-18 03:00 UTC
+      // 22:00 >= End(20:00) → 今日が最新取引日
+      const now = Date.UTC(2024, 0, 18, 3, 0, 0);
+      expect(getLastTradingDate(nasdaq, now)).toBe('2024-01-17');
+    });
+
+    it('平日かつ取引開始前 → 前日の平日を返す', () => {
+      // 2024-01-17 (水曜日) 07:00 EST = 2024-01-17 12:00 UTC
+      // 07:00 < End(20:00) → 前日 = 火曜 2024-01-16
+      const now = Date.UTC(2024, 0, 17, 12, 0, 0);
+      expect(getLastTradingDate(nasdaq, now)).toBe('2024-01-16');
+    });
+
+    it('月曜かつ取引開始前 → 前週金曜を返す', () => {
+      // 2024-01-15 (月曜日) 07:00 EST = 2024-01-15 12:00 UTC
+      // 07:00 < End(20:00) → 前日(日) → 前々日(土) → 前々々日(金) = 2024-01-12
+      const now = Date.UTC(2024, 0, 15, 12, 0, 0);
+      expect(getLastTradingDate(nasdaq, now)).toBe('2024-01-12');
+    });
+
+    it('土曜日 → 前週金曜を返す', () => {
+      // 2024-01-20 (土曜日) 12:00 EST = 2024-01-20 17:00 UTC
+      const now = Date.UTC(2024, 0, 20, 17, 0, 0);
+      expect(getLastTradingDate(nasdaq, now)).toBe('2024-01-19');
+    });
+
+    it('日曜日 → 前週金曜を返す', () => {
+      // 2024-01-21 (日曜日) 12:00 EST = 2024-01-21 17:00 UTC
+      const now = Date.UTC(2024, 0, 21, 17, 0, 0);
+      expect(getLastTradingDate(nasdaq, now)).toBe('2024-01-19');
+    });
+
+    it('取引終了時刻ちょうど (End = 20:00) → 当日を返す', () => {
+      // 2024-01-17 (水曜日) 20:00 EST = 2024-01-18 01:00 UTC
+      // 20:00 >= End(20:00) → 今日が最新取引日
+      const now = Date.UTC(2024, 0, 18, 1, 0, 0);
+      expect(getLastTradingDate(nasdaq, now)).toBe('2024-01-17');
+    });
+
+    it('TSE (Asia/Tokyo) の土曜日 → 金曜を返す', () => {
+      // 2024-01-13 (土曜日) 10:00 JST = 2024-01-13 01:00 UTC
+      const now = Date.UTC(2024, 0, 13, 1, 0, 0);
+      expect(getLastTradingDate(tse, now)).toBe('2024-01-12');
+    });
+
+    it('TSE (Asia/Tokyo) 平日かつ取引終了後 → 当日を返す', () => {
+      // 2024-01-15 (月曜日) 16:00 JST = 2024-01-15 07:00 UTC
+      // 16:00 >= End(15:00) → 今日が最新取引日
+      const now = Date.UTC(2024, 0, 15, 7, 0, 0);
+      expect(getLastTradingDate(tse, now)).toBe('2024-01-15');
+    });
+
+    it('TSE (Asia/Tokyo) 月曜かつ取引開始前 → 前週金曜を返す', () => {
+      // 2024-01-15 (月曜日) 08:00 JST = 2024-01-14 23:00 UTC
+      // 08:00 < End(15:00) → 前日(日) → 前々日(土) → 前々々日(金) = 2024-01-12
+      const now = Date.UTC(2024, 0, 14, 23, 0, 0);
+      expect(getLastTradingDate(tse, now)).toBe('2024-01-12');
     });
   });
 

@@ -22,6 +22,9 @@ test.describe('クイックアクションエリア', () => {
 
     // アラート一覧ボタン
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
+
+    // サマリーボタン
+    await expect(page.locator('main').getByRole('link', { name: /サマリー/ })).toBeVisible();
   });
 
   test('各ボタンが正しいURLにリンクしている', async ({ page }) => {
@@ -36,6 +39,10 @@ test.describe('クイックアクションエリア', () => {
     // アラート一覧ボタン
     const alertsButton = page.locator('main').getByRole('link', { name: /アラート一覧/ });
     await expect(alertsButton).toHaveAttribute('href', '/alerts');
+
+    // サマリーボタン
+    const summariesButton = page.locator('main').getByRole('link', { name: /サマリー/ });
+    await expect(summariesButton).toHaveAttribute('href', '/summaries');
   });
 
   test('ボタンにアイコンが表示される', async ({ page }) => {

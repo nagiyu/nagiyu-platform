@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/stock-tracker-web",
-  "version": "1.2.0",
+  "version": "1.4.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.980.0",
+    "@aws-sdk/client-lambda": "^3.980.0",
     "@aws-sdk/lib-dynamodb": "^3.980.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",

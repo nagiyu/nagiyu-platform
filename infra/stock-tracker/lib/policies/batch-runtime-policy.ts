@@ -34,8 +34,9 @@ export interface BatchRuntimePolicyProps {
  * テストでき、デプロイ前に権限ミスを防ぐことができる。
  *
  * 含まれる権限:
- * - DynamoDB: 読み取り専用に近いアクセス (Query, Scan, GetItem, UpdateItem のみ)
- *   - PutItem, DeleteItem は不可（最小権限の原則）
+ * - DynamoDB: バッチ実行に必要なアクセス (Query, Scan, GetItem, UpdateItem, PutItem)
+ *   - PutItem は日次サマリーデータ保存（Summary バッチ）で使用
+ *   - DeleteItem は不可（最小権限の原則）
  * - Secrets Manager: VAPID キーの読み取り (Web Push 通知用)
  * - CloudWatch Logs: ログ書き込み（Lambda 実行ロールで自動付与されるため明示不要）
  */
@@ -43,11 +44,10 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: BatchRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `stock-tracker-batch-runtime-${props.envName}`,
-      description:
-        'Stock Tracker Batch runtime permissions (shared by Lambda and developers)',
+      description: 'Stock Tracker Batch runtime permissions (shared by Lambda and developers)',
     });
 
-    // DynamoDB 権限: Query, Scan, GetItem, UpdateItem のみ（最小権限）
+    // DynamoDB 権限: Query, Scan, GetItem, UpdateItem, PutItem（最小権限）
     this.addStatements(
       new iam.PolicyStatement({
         sid: 'DynamoDBTableAccess',
@@ -57,6 +57,7 @@ export class BatchRuntimePolicy extends iam.ManagedPolicy {
           'dynamodb:Scan',
           'dynamodb:GetItem',
           'dynamodb:UpdateItem',
+          'dynamodb:PutItem',
         ],
         resources: [
           props.dynamoTable.tableArn,
