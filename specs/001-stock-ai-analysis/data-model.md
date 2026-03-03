@@ -8,11 +8,11 @@
 
 | エンティティ | 変更種別 | 説明 |
 |-------------|---------|------|
-| `DailySummaryEntity` | 既存拡張 | `AiAnalysis?: string` フィールドを追加 |
+| `DailySummaryEntity` | 既存拡張 | `AiAnalysis?: string` / `AiAnalysisError?: string` フィールドを追加 |
 | `CreateDailySummaryInput` | 自動継承 | `DailySummaryEntity` の Omit 型のため自動的に含まれる |
-| `DailySummaryMapper` | 既存更新 | `AiAnalysis` フィールドの DynamoDB ↔ Entity 変換を追加 |
-| `TickerSummaryResponse` (web API) | 既存拡張 | `aiAnalysis?: string` フィールドを追加 |
-| `TickerSummary` (web UI 型) | 既存拡張 | `aiAnalysis?: string` フィールドを追加 |
+| `DailySummaryMapper` | 既存更新 | `AiAnalysis` / `AiAnalysisError` フィールドの DynamoDB ↔ Entity 変換を追加 |
+| `TickerSummaryResponse` (web API) | 既存拡張 | `aiAnalysis?: string` / `aiAnalysisError?: string` フィールドを追加 |
+| `TickerSummary` (web UI 型) | 既存拡張 | `aiAnalysis?: string` / `aiAnalysisError?: string` フィールドを追加 |
 
 ---
 
@@ -33,34 +33,37 @@ export interface DailySummaryEntity {
   BuyPatternCount?: number;           // 既存（任意）
   SellPatternCount?: number;          // 既存（任意）
   AiAnalysis?: string;                // ★ 新規追加（任意）: AI 解析テキスト（日本語）
+  AiAnalysisError?: string;           // ★ 新規追加（任意）: AI 解析生成失敗時のエラー情報
   CreatedAt: number;     // Unix timestamp ms
   UpdatedAt: number;     // Unix timestamp ms
 }
 
 export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'UpdatedAt'>;
-// → AiAnalysis が自動的に含まれる（変更不要）
+// → AiAnalysis / AiAnalysisError が自動的に含まれる（変更不要）
 ```
 
 ### バリデーションルール
 
 | フィールド | ルール |
 |-----------|--------|
-| `AiAnalysis` | 任意（undefined 可）。存在する場合は空文字不可（実質的に「未生成」は undefined で表現） |
+| `AiAnalysis` | 任意（`undefined` 可）。型は `string`。文字列の場合は空文字不可（最大 2000 文字）。`AiAnalysisError` と同時に存在しない |
+| `AiAnalysisError` | 任意（`undefined` 可）。型は `string`。AI 解析生成失敗時のエラー情報。空文字不可。`AiAnalysis` と同時に存在しない |
 
 ### 状態遷移
 
 ```
 [初回バッチ実行]
-  → AiAnalysis = undefined（AI 処理スキップまたはまだ実行前）
+  → AiAnalysis = undefined、AiAnalysisError = undefined（フィールド不在 = 未生成のデフォルト状態）
+  ※ UpdatedAt タイムスタンプで最終バッチ実行日時を補足検知可能
 
 [AI 解析生成成功]
-  → AiAnalysis = "解析テキスト..."
+  → AiAnalysis = "解析テキスト..."、AiAnalysisError = undefined（クリア）
 
 [AI 解析生成失敗]
-  → AiAnalysis = undefined のまま（ログ記録）
+  → AiAnalysis = undefined（クリア）、AiAnalysisError = "エラー情報..."（ログ記録）
 
-[次回バッチ実行 - スキップ条件]
-  → AiAnalysis が undefined または空文字の場合のみ再生成を試みる
+[次回バッチ実行 - 再生成条件]
+  → AiAnalysis が undefined の場合のみ再生成を試みる（AiAnalysisError の有無に関わらず）
 ```
 
 ---
@@ -88,7 +91,8 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 | `PatternResults` | Map | 変更なし | パターン判定結果マップ（任意） |
 | `BuyPatternCount` | Number | 変更なし | 買いシグナル合致数（任意） |
 | `SellPatternCount` | Number | 変更なし | 売りシグナル合致数（任意） |
-| `AiAnalysis` | String | **★ 新規追加** | AI 解析テキスト（日本語、任意） |
+| `AiAnalysis` | String | **★ 新規追加** | AI 解析テキスト（日本語、任意）。生成成功時のみ保存 |
+| `AiAnalysisError` | String | **★ 新規追加** | AI 解析生成失敗時のエラー情報（任意）。生成失敗時のみ保存 |
 | `CreatedAt` | Number | 変更なし | Unix timestamp ms |
 | `UpdatedAt` | Number | 変更なし | Unix timestamp ms |
 
@@ -103,16 +107,19 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 ```typescript
 // 既存フィールドの後に追加
 ...(entity.AiAnalysis !== undefined ? { AiAnalysis: entity.AiAnalysis } : {}),
+...(entity.AiAnalysisError !== undefined ? { AiAnalysisError: entity.AiAnalysisError } : {}),
 ```
 
 ### `toEntity()` への追加
 
 ```typescript
 // 既存フィールドの後に追加
-AiAnalysis:
-  item.AiAnalysis !== undefined
-    ? validateStringField(item.AiAnalysis, 'AiAnalysis')
-    : undefined,
+AiAnalysis: item.AiAnalysis !== undefined
+  ? validateStringField(item.AiAnalysis, 'AiAnalysis')
+  : undefined,
+AiAnalysisError: item.AiAnalysisError !== undefined
+  ? validateStringField(item.AiAnalysisError, 'AiAnalysisError')
+  : undefined,
 ```
 
 ### `toTickerSummaryResponse()` への追加
@@ -122,7 +129,8 @@ export interface DailySummaryPatternResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysis?: string;  // ★ 新規追加
+  aiAnalysis?: string;       // ★ 新規追加（生成成功時のみ）
+  aiAnalysisError?: string;  // ★ 新規追加（生成失敗時のみ）
 }
 
 // メソッド内で:
@@ -130,7 +138,8 @@ return {
   buyPatternCount: ...,
   sellPatternCount: ...,
   patternDetails: [...],
-  aiAnalysis: entity.AiAnalysis,  // ★ 新規追加
+  aiAnalysis: entity.AiAnalysis,         // ★ 新規追加
+  aiAnalysisError: entity.AiAnalysisError,  // ★ 新規追加
 };
 ```
 
@@ -155,7 +164,8 @@ interface TickerSummaryResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysis?: string;  // ★ 新規追加
+  aiAnalysis?: string;       // ★ 新規追加（生成成功時のみ）
+  aiAnalysisError?: string;  // ★ 新規追加（生成失敗時のみ）
 }
 ```
 
@@ -176,7 +186,8 @@ export interface TickerSummary {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetail[];
-  aiAnalysis?: string;  // ★ 新規追加
+  aiAnalysis?: string;       // ★ 新規追加（生成成功時のみ）
+  aiAnalysisError?: string;  // ★ 新規追加（生成失敗時のみ）
 }
 ```
 
