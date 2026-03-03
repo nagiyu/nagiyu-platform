@@ -16,7 +16,7 @@ jest.mock('next/headers', () => ({
 }));
 
 describe('PersonalListDetailPage', () => {
-  let originalFetch: typeof globalThis.fetch | undefined;
+  let originalFetch!: typeof globalThis.fetch;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
@@ -85,5 +85,72 @@ describe('PersonalListDetailPage', () => {
 
     expect(screen.getByRole('heading', { level: 1, name: '個人リスト' })).toBeInTheDocument();
     expect(screen.getByText('リストID: unknown-list')).toBeInTheDocument();
+  });
+
+  it('host ヘッダーが取得できない場合はフォールバック名を表示する', async () => {
+    (headers as jest.Mock).mockResolvedValue({
+      get: () => null,
+    });
+    const fetchMock = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(
+      await PersonalListDetailPage({
+        params: Promise.resolve({ listId: 'list-without-host' }),
+      })
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 1, name: '個人リスト' })).toBeInTheDocument();
+  });
+
+  it('x-forwarded ヘッダーがある場合は優先して API を呼び出す', async () => {
+    (headers as jest.Mock).mockResolvedValue({
+      get: (key: string) => {
+        if (key === 'x-forwarded-host') {
+          return 'example.com';
+        }
+        if (key === 'x-forwarded-proto') {
+          return 'https';
+        }
+        if (key === 'host') {
+          return 'localhost:3000';
+        }
+        return null;
+      },
+    });
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          listId: 'forwarded-list',
+          name: '転送ヘッダー経由リスト',
+          ownerUserId: 'user-1',
+          isDefault: false,
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(
+      await PersonalListDetailPage({
+        params: Promise.resolve({ listId: 'forwarded-list' }),
+      })
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith('https://example.com/api/lists/forwarded-list', {
+      cache: 'no-store',
+    });
+    expect(
+      screen.getByRole('heading', { level: 1, name: '転送ヘッダー経由リスト' })
+    ).toBeInTheDocument();
   });
 });

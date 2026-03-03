@@ -6,14 +6,16 @@ import type { PersonalListResponse } from '@/types';
 
 const ERROR_MESSAGES = {
   PERSONAL_LIST_FETCH_FAILED: '個人リスト詳細の取得に失敗しました',
+  API_RESPONSE_STATUS_ERROR: 'APIレスポンスのステータスが異常です',
 } as const;
+const DEFAULT_LIST_NAME = '個人リスト';
 
 async function resolveListName(listId: string): Promise<string> {
   try {
     const requestHeaders = await headers();
     const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
     if (!host) {
-      return '個人リスト';
+      return DEFAULT_LIST_NAME;
     }
 
     const protocol = requestHeaders.get('x-forwarded-proto') ?? 'http';
@@ -21,14 +23,14 @@ async function resolveListName(listId: string): Promise<string> {
       cache: 'no-store',
     });
     if (!response.ok) {
-      throw new Error(`status: ${response.status}`);
+      throw new Error(`${ERROR_MESSAGES.API_RESPONSE_STATUS_ERROR}: ${response.status}`);
     }
 
     const result = (await response.json()) as PersonalListResponse;
     return result.data.name;
   } catch (error: unknown) {
     console.error(ERROR_MESSAGES.PERSONAL_LIST_FETCH_FAILED, { listId, error });
-    return '個人リスト';
+    return DEFAULT_LIST_NAME;
   }
 }
 
