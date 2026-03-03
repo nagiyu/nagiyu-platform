@@ -122,6 +122,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(sellArea.getByText('三川宵の明星')).toBeVisible();
     await expect(dialog.getByText('包み陽線')).toHaveCount(0);
     await expect(dialog.getByText('包み陰線')).toHaveCount(0);
+    await expect(dialog.getByText('ハンマー')).toHaveCount(0);
+    await expect(dialog.getByText('首吊り線')).toHaveCount(0);
 
     await buyArea.getByText('三川明けの明星').hover();
     await expect(page.getByRole('tooltip')).toContainText(
