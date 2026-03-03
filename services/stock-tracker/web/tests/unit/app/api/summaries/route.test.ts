@@ -1,18 +1,18 @@
 import { NextRequest } from 'next/server';
-import { GET } from '../../../../app/api/summaries/route';
+import { GET } from '../../../../../app/api/summaries/route';
 import {
   createDailySummaryRepository,
   createExchangeRepository,
   createTickerRepository,
-} from '../../../../lib/repository-factory';
+} from '../../../../../lib/repository-factory';
 
-jest.mock('../../../../lib/repository-factory', () => ({
+jest.mock('../../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
   createTickerRepository: jest.fn(),
 }));
 
-jest.mock('../../../../lib/auth', () => ({
+jest.mock('../../../../../lib/auth', () => ({
   getSession: jest.fn(),
 }));
 
@@ -115,6 +115,9 @@ describe('GET /api/summaries', () => {
               low: 181.44,
               close: 183.31,
               updatedAt: '2024-01-15T21:00:00.000Z',
+              buyPatternCount: 0,
+              sellPatternCount: 0,
+              patternDetails: [],
             },
           ],
         },
@@ -126,6 +129,129 @@ describe('GET /api/summaries', () => {
         },
       ],
     });
+  });
+
+  it('正常系: PatternResults がある場合はパターン情報を返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([
+      {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+      },
+    ]);
+
+    mockGetAllTickers.mockResolvedValue({
+      items: [
+        {
+          TickerID: 'NSDQ:AAPL',
+          Symbol: 'AAPL',
+          Name: 'Apple Inc.',
+          ExchangeID: 'NASDAQ',
+          CreatedAt: 1,
+          UpdatedAt: 1,
+        },
+      ],
+    });
+
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        PatternResults: {
+          'morning-star': 'MATCHED',
+          'evening-star': 'NOT_MATCHED',
+        },
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        tickerId: 'NSDQ:AAPL',
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        open: 182.15,
+        high: 183.92,
+        low: 181.44,
+        close: 183.31,
+        updatedAt: '2024-01-15T21:00:00.000Z',
+        buyPatternCount: 1,
+        sellPatternCount: 0,
+      })
+    );
+    expect(body.exchanges[0].summaries[0].patternDetails).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          patternId: 'morning-star',
+          signalType: 'BUY',
+          status: 'MATCHED',
+        }),
+        expect.objectContaining({
+          patternId: 'evening-star',
+          signalType: 'SELL',
+          status: 'NOT_MATCHED',
+        }),
+      ])
+    );
+  });
+
+  it('正常系: PatternResults がない場合はパターン情報のデフォルト値を返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([
+      {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+      },
+    ]);
+
+    mockGetAllTickers.mockResolvedValue({
+      items: [
+        {
+          TickerID: 'NSDQ:MSFT',
+          Symbol: 'MSFT',
+          Name: 'Microsoft Corporation',
+          ExchangeID: 'NASDAQ',
+          CreatedAt: 1,
+          UpdatedAt: 1,
+        },
+      ],
+    });
+
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:MSFT',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 401.01,
+        High: 406.25,
+        Low: 399.1,
+        Close: 404.88,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        buyPatternCount: 0,
+        sellPatternCount: 0,
+        patternDetails: [],
+      })
+    );
   });
 
   it('異常系: date パラメータが不正な場合は 400 を返す', async () => {

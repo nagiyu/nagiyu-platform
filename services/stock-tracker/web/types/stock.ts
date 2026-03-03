@@ -47,6 +47,22 @@ export const CHART_BAR_COUNT_LABELS: Record<ChartBarCount, string> = {
 } as const;
 
 /**
+ * パターン分析の詳細
+ */
+export interface PatternDetail {
+  /** パターン識別子（例: morning-star） */
+  patternId: string;
+  /** パターン名（例: 三川明けの明星） */
+  name: string;
+  /** パターン説明（ツールチップ表示用） */
+  description: string;
+  /** シグナル種別（買い/売り） */
+  signalType: 'BUY' | 'SELL';
+  /** 判定結果（合致/非合致/判定不能） */
+  status: 'MATCHED' | 'NOT_MATCHED' | 'INSUFFICIENT_DATA';
+}
+
+/**
  * サマリーAPIレスポンス型
  */
 export interface TickerSummary {
@@ -59,6 +75,12 @@ export interface TickerSummary {
   close: number;
   /** ISO 8601 UTC形式の更新日時 */
   updatedAt: string;
+  /** MATCHED かつ BUY の件数 */
+  buyPatternCount: number;
+  /** MATCHED かつ SELL の件数 */
+  sellPatternCount: number;
+  /** パターン詳細一覧（空配列はバッチ未実行） */
+  patternDetails: PatternDetail[];
 }
 
 /**

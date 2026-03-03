@@ -3,6 +3,7 @@
  *
  * 日次サマリーのビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）
  */
+import type { PatternResults } from '../types.js';
 
 /**
  * 日次サマリーエンティティ
@@ -24,6 +25,12 @@ export interface DailySummaryEntity {
   Low: number;
   /** 終値 */
   Close: number;
+  /** パターン判定結果マップ */
+  PatternResults?: PatternResults;
+  /** 買いシグナル合致数 */
+  BuyPatternCount?: number;
+  /** 売りシグナル合致数 */
+  SellPatternCount?: number;
   /** 作成日時 (Unix timestamp ms) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp ms) */

@@ -100,6 +100,49 @@ export type DailySummary = {
 };
 
 /**
+ * パターン判定状態
+ */
+export type PatternStatus = 'MATCHED' | 'NOT_MATCHED' | 'INSUFFICIENT_DATA';
+
+/**
+ * パターンの売買区分
+ */
+export type PatternSignalType = 'BUY' | 'SELL';
+
+/**
+ * パターン定義
+ */
+export interface PatternDefinition {
+  patternId: string;
+  name: string;
+  description: string;
+  signalType: PatternSignalType;
+}
+
+/**
+ * ティッカー単位のパターン判定結果マップ
+ *
+ * キー: patternId
+ * 値: PatternStatus
+ */
+export type PatternResults = Record<string, PatternStatus>;
+
+/**
+ * PatternResults のデフォルト値（バッチ未実行時）
+ */
+export const DEFAULT_PATTERN_RESULTS: PatternResults = {};
+
+/**
+ * 買いシグナル合致数のデフォルト値
+ */
+export const DEFAULT_BUY_PATTERN_COUNT = 0;
+
+/**
+ * 売りシグナル合致数のデフォルト値
+ */
+export const DEFAULT_SELL_PATTERN_COUNT = 0;
+
+/**
  * 保有株式 (Holding)
  *
  * ユーザーの保有株式情報

@@ -314,6 +314,11 @@ jobs:
             --region ${{ env.AWS_REGION }}
 
           aws lambda update-function-code \
+            --function-name "nagiyu-stock-tracker-batch-summary-$ENVIRONMENT" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda update-function-code \
             --function-name "nagiyu-stock-tracker-batch-daily-$ENVIRONMENT" \
             --image-uri "$BATCH_IMAGE_URI" \
             --region ${{ env.AWS_REGION }}
@@ -335,6 +340,10 @@ jobs:
 
           aws lambda wait function-updated \
             --function-name "nagiyu-stock-tracker-batch-hourly-$ENVIRONMENT" \
+            --region ${{ env.AWS_REGION }}
+
+          aws lambda wait function-updated \
+            --function-name "nagiyu-stock-tracker-batch-summary-$ENVIRONMENT" \
             --region ${{ env.AWS_REGION }}
 
           aws lambda wait function-updated \

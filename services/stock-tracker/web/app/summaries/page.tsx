@@ -24,17 +24,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
-import type { SummariesResponse, TickerSummary } from '@/types/stock';
+import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
   REFRESH_FAILED: 'サマリーバッチの実行に失敗しました',
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
+  INSUFFICIENT_DATA_REASON: 'データ不足',
 } as const;
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
@@ -132,7 +134,12 @@ export default function SummariesPage() {
   const filteredExchanges = selectedExchangeId
     ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
     : summaries.exchanges;
-
+  const buyPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
+    (pattern) => pattern.signalType === 'BUY'
+  );
+  const sellPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
+    (pattern) => pattern.signalType === 'SELL'
+  );
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
@@ -206,6 +213,8 @@ export default function SummariesPage() {
                           <TableCell align="right">高値</TableCell>
                           <TableCell align="right">安値</TableCell>
                           <TableCell align="right">終値</TableCell>
+                          <TableCell align="right">買いシグナル</TableCell>
+                          <TableCell align="right">売りシグナル</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -222,6 +231,15 @@ export default function SummariesPage() {
                             <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
+                            <TableCell align="right" data-testid={`buy-signal-${summary.tickerId}`}>
+                              {summary.buyPatternCount ?? 0}
+                            </TableCell>
+                            <TableCell
+                              align="right"
+                              data-testid={`sell-signal-${summary.tickerId}`}
+                            >
+                              {summary.sellPatternCount ?? 0}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -234,7 +252,7 @@ export default function SummariesPage() {
         )}
       </Box>
 
-      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="xs" fullWidth>
+      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="sm" fullWidth>
         <DialogTitle
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
@@ -245,36 +263,165 @@ export default function SummariesPage() {
         </DialogTitle>
         <DialogContent dividers>
           {selectedTicker && (
-            <Box sx={{ display: 'grid', gap: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                銘柄名
-              </Typography>
-              <Typography>{selectedTicker.name}</Typography>
+            <Box sx={{ display: 'grid', gap: 2 }}>
+              <TableContainer>
+                <Table size="small">
+                  <TableBody>
+                    <TableRow>
+                      <TableCell
+                        component="th"
+                        scope="row"
+                        sx={{ color: 'text.secondary', width: '40%' }}
+                      >
+                        銘柄名
+                      </TableCell>
+                      <TableCell>{selectedTicker.name}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        始値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.open.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        高値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.high.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        安値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.low.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        終値
+                      </TableCell>
+                      <TableCell align="right">{selectedTicker.close.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        更新日時
+                      </TableCell>
+                      <TableCell>
+                        {new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
               <Divider />
-              <Typography variant="body2" color="text.secondary">
-                始値
-              </Typography>
-              <Typography>{selectedTicker.open.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                高値
-              </Typography>
-              <Typography>{selectedTicker.high.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                安値
-              </Typography>
-              <Typography>{selectedTicker.low.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                終値
-              </Typography>
-              <Typography>{selectedTicker.close.toFixed(2)}</Typography>
-              <Divider />
-              <Typography variant="body2" color="text.secondary">
-                更新日時
-              </Typography>
-              <Typography>{new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}</Typography>
+              <Typography variant="h6">パターン分析</Typography>
+              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
+                <Typography variant="subtitle2">買いパターン</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {buyPatternDetails.map((pattern) => (
+                        <TableRow key={pattern.patternId}>
+                          <TableCell>
+                            <Tooltip title={pattern.description}>
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                aria-label={pattern.description}
+                                sx={{
+                                  textDecoration: 'underline',
+                                  textDecorationStyle: 'dotted',
+                                  cursor: 'help',
+                                }}
+                              >
+                                {pattern.name}
+                              </Typography>
+                            </Tooltip>
+                            {pattern.status === 'INSUFFICIENT_DATA' && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                理由: {ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '10%' }}>
+                            <Typography
+                              component="span"
+                              data-testid={`pattern-status-${pattern.patternId}`}
+                              color={
+                                pattern.status === 'MATCHED'
+                                  ? 'success.main'
+                                  : pattern.status === 'INSUFFICIENT_DATA'
+                                    ? 'text.disabled'
+                                    : 'text.secondary'
+                              }
+                              fontWeight="bold"
+                            >
+                              {pattern.status === 'MATCHED'
+                                ? '✓'
+                                : pattern.status === 'INSUFFICIENT_DATA'
+                                  ? '-'
+                                  : '✗'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-sell">
+                <Typography variant="subtitle2">売りパターン</Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableBody>
+                      {sellPatternDetails.map((pattern) => (
+                        <TableRow key={pattern.patternId}>
+                          <TableCell>
+                            <Tooltip title={pattern.description}>
+                              <Typography
+                                component="span"
+                                variant="body2"
+                                aria-label={pattern.description}
+                                sx={{
+                                  textDecoration: 'underline',
+                                  textDecorationStyle: 'dotted',
+                                  cursor: 'help',
+                                }}
+                              >
+                                {pattern.name}
+                              </Typography>
+                            </Tooltip>
+                            {pattern.status === 'INSUFFICIENT_DATA' && (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                理由: {ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" sx={{ width: '10%' }}>
+                            <Typography
+                              component="span"
+                              data-testid={`pattern-status-${pattern.patternId}`}
+                              color={
+                                pattern.status === 'MATCHED'
+                                  ? 'success.main'
+                                  : pattern.status === 'INSUFFICIENT_DATA'
+                                    ? 'text.disabled'
+                                    : 'text.secondary'
+                              }
+                              fontWeight="bold"
+                            >
+                              {pattern.status === 'MATCHED'
+                                ? '✓'
+                                : pattern.status === 'INSUFFICIENT_DATA'
+                                  ? '-'
+                                  : '✗'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
             </Box>
           )}
         </DialogContent>
