@@ -16,6 +16,7 @@ export class LambdaStack extends LambdaStackBase {
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     const { environment, appVersion, dynamoTable, ...stackProps } = props;
+    const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
 
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
@@ -35,6 +36,7 @@ export class LambdaStack extends LambdaStackBase {
             environment === 'prod'
               ? 'https://share-together.nagiyu.com'
               : 'https://dev-share-together.nagiyu.com',
+          AUTH_SECRET: nextAuthSecret,
         },
       },
       enableFunctionUrl: true,

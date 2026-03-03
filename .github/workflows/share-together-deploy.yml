@@ -191,17 +191,26 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Fetch secrets from Secrets Manager
+        id: fetch-secrets
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+
       - name: Deploy Lambda, IAM and CloudFront Stacks
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
           APP_VERSION: ${{ needs.build.outputs.app-version }}
+          SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-share-together -- deploy \
             --all \
             --exclude NagiyuShareTogetherECR${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
             --context appVersion="$APP_VERSION" \
+            --context nextAuthSecret="$SECRET_VALUE" \
             --require-approval never
 
       - name: Update Lambda function with latest image
