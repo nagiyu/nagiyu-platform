@@ -43,6 +43,7 @@ import {
 import { DELETE, PUT } from '@/app/api/groups/[groupId]/lists/[listId]/todos/[todoId]/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -244,7 +245,7 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
       createdAt: '2026-01-01T00:00:00.000Z',
       updatedAt: '2026-01-01T00:00:00.000Z',
     });
-    mockDeleteTodo.mockRejectedValue(new Error('ToDoが見つかりません'));
+    mockDeleteTodo.mockRejectedValue(new Error(ERROR_MESSAGES.TODO_NOT_FOUND));
 
     const response = await DELETE({} as Request, createContext());
 
