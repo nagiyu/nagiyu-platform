@@ -8,6 +8,8 @@ import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,
+  PatternAnalyzer,
+  PATTERN_REGISTRY,
   DynamoDBTickerRepository,
   getChartData,
   isTradingHours,
@@ -101,7 +103,7 @@ async function processExchange(
         }
 
         const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-          count: 1,
+          count: 50,
           session: 'extended',
         });
 
@@ -114,6 +116,19 @@ async function processExchange(
         }
 
         const latest = chartData[0];
+        const patternAnalysis =
+          chartData.length < 50
+            ? {
+                patternResults: Object.fromEntries(
+                  PATTERN_REGISTRY.map((pattern) => [
+                    pattern.definition.patternId,
+                    'INSUFFICIENT_DATA',
+                  ])
+                ),
+                buyPatternCount: 0,
+                sellPatternCount: 0,
+              }
+            : new PatternAnalyzer().analyze(chartData);
 
         await dependencies.dailySummaryRepository.upsert({
           TickerID: ticker.TickerID,
@@ -123,15 +138,19 @@ async function processExchange(
           High: latest.high,
           Low: latest.low,
           Close: latest.close,
+          PatternResults: patternAnalysis.patternResults,
+          BuyPatternCount: patternAnalysis.buyPatternCount,
+          SellPatternCount: patternAnalysis.sellPatternCount,
         });
 
         stats.summariesSaved++;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        logger.error('ティッカーの日次サマリー生成に失敗しました', {
+        logger.warn('ティッカーの日足データ取得に失敗したため、前回結果を維持します', {
           exchangeId: exchange.ExchangeID,
           tickerId: ticker.TickerID,
-          error: errorMessage,
+          executionTime: new Date(now).toISOString(),
+          reason: errorMessage,
         });
         stats.errors++;
       } finally {
