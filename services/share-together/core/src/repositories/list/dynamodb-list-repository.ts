@@ -117,7 +117,7 @@ export class DynamoDBListRepository implements ListRepository {
   ): Promise<PersonalList> {
     const now = new Date().toISOString();
     const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, string> = { ':updatedAt': now };
+    const values: Record<string, unknown> = { ':updatedAt': now };
     const setExpressions: string[] = ['#updatedAt = :updatedAt'];
 
     if (updates.name !== undefined) {
@@ -249,7 +249,7 @@ export class DynamoDBListRepository implements ListRepository {
   ): Promise<GroupList> {
     const now = new Date().toISOString();
     const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, string> = { ':updatedAt': now };
+    const values: Record<string, unknown> = { ':updatedAt': now };
     const setExpressions: string[] = ['#updatedAt = :updatedAt'];
 
     if (updates.name !== undefined) {
