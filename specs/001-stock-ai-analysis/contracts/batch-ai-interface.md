@@ -56,8 +56,8 @@ export async function generateAiAnalysis(
 | 条件 | 動作 |
 |------|------|
 | 正常 | 日本語の解析テキスト文字列を返す |
-| API エラー | `Error` をスロー（呼び出し元でキャッチ） |
-| タイムアウト | `Error` をスロー（呼び出し元でキャッチ） |
+| API エラー | `Error` をスロー（呼び出し元でキャッチ、`AiAnalysis = null` として upsert） |
+| タイムアウト | `Error` をスロー（呼び出し元でキャッチ、`AiAnalysis = null` として upsert） |
 | Web 検索失敗 | OpenAI が自動フォールバック（検索なしで応答）、正常にテキストを返す |
 
 ---

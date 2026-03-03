@@ -10,7 +10,7 @@
 既存の Stock Tracker バッチ処理（日次サマリー生成）に OpenAI を用いた AI 解析ステップを追加する。バッチが OHLC データとパターン分析結果を取得した後、OpenAI Responses API（`web_search` ツール付き）を呼び出して日本語の解析テキストを生成し、`DailySummary` レコードに保存する。Web フロントエンドのサマリー詳細ダイアログに「AI 解析」セクションを追加して表示する。
 
 **技術的アプローチ**:
-- `DailySummaryEntity` に `AiAnalysis?: string` フィールドを追加（後方互換）
+- `DailySummaryEntity` に `AiAnalysis?: string | null` フィールドを追加（`null` = 生成失敗、後方互換）
 - バッチに `openai-client.ts` を新規追加
 - AI 処理は既存処理と完全分離した try/catch で囲み、失敗しても既存機能に影響しない
 - Web API レスポンスと UI 型に `aiAnalysis` フィールドを追加し、ダイアログに表示
@@ -46,7 +46,7 @@
 *フェーズ0の調査前チェック: ✅ 通過*  
 *フェーズ1の設計後チェック: ✅ 通過*
 
-- [x] **TypeScript 型安全性 (I)**: strict mode 維持、`AiAnalysis` の型定義は `core/src/entities/` に集約。`AiAnalysis?: string` として optional で型安全。アクセス修飾子はクラスメンバーに明示。
+- [x] **TypeScript 型安全性 (I)**: strict mode 維持、`AiAnalysis` の型定義は `core/src/entities/` に集約。`AiAnalysis?: string | null` として 3 値状態（`undefined` = 未生成、`null` = 生成失敗、`string` = 生成済み）を型安全に表現。アクセス修飾子はクラスメンバーに明示。
 - [x] **アーキテクチャ・レイヤー分離 (II)**: `AiAnalysisInput` 型・`generateAiAnalysis` 関数は `batch/src/lib/` に配置（core は汚染しない）。`DailySummaryEntity` への追加は core の責務として正当。`batch → core` の一方向依存を維持。`web → core` の一方向依存も維持。
 - [x] **コード品質・Lint・フォーマット (III)**: 既存の ESLint・Prettier 設定を継承。エラーメッセージは `ERROR_MESSAGES` 定数オブジェクトで管理。日本語エラーメッセージ。
 - [x] **テスト戦略 (IV)**: `openai-client.ts` のユニットテストを `batch/tests/unit/lib/` に追加。OpenAI のモックを使用。`summary.ts` のテストを更新し `generateAiAnalysisFn` をモック注入。カバレッジ 80% 以上を維持。
@@ -112,7 +112,7 @@ services/stock-tracker/
 **目的**: `DailySummaryEntity` に `AiAnalysis` フィールドを追加し、mapper・repository を更新する。
 
 **変更ファイル**:
-1. `core/src/entities/daily-summary.entity.ts` — `AiAnalysis?: string` 追加
+1. `core/src/entities/daily-summary.entity.ts` — `AiAnalysis?: string | null` 追加（`null` = 生成失敗）
 2. `core/src/mappers/daily-summary.mapper.ts` — `toItem` / `toEntity` / `toTickerSummaryResponse` 更新
 3. `core/tests/unit/entities/daily-summary.entity.test.ts` — `AiAnalysis` のテストケース追加
 4. `core/tests/unit/mappers/daily-summary.mapper.test.ts` — `AiAnalysis` のマッピングテスト追加
@@ -140,12 +140,12 @@ handler() 起動時:
 
 processExchange() 内のティッカーループ:
   2. 既存の OHLC・パターン取得・upsert を実行（変更なし）
-  3. upsert 成功後、API キーが存在かつ AiAnalysis が未設定の場合のみ:
+  3. upsert 成功後、API キーが存在かつ AiAnalysis が undefined または null の場合のみ:
      a. AiAnalysisInput を構築（OHLC + パターン情報）
      b. generateAiAnalysis() を呼び出し（Web 検索付き OpenAI）
      c. 返却テキストを AiAnalysis フィールドとして再 upsert
      d. stats.aiAnalysisGenerated++
-  4. AI 処理失敗時: logger.warn + stats.aiAnalysisSkipped++（既存処理継続）
+  4. AI 処理失敗時: AiAnalysis = null として再 upsert（失敗を明示記録）、logger.warn + stats.aiAnalysisSkipped++（既存処理継続）
 ```
 
 **完了条件**: `batch` のユニットテストが全て通過し、`npm run build` が成功する。AI 処理のエラーが既存 stats.errors に混入しないこと。
@@ -157,7 +157,7 @@ processExchange() 内のティッカーループ:
 **目的**: API レスポンスと UI 型に `aiAnalysis` フィールドを追加し、ダイアログに「AI 解析」セクションを表示する。
 
 **変更ファイル**:
-1. `web/types/stock.ts` — `TickerSummary` に `aiAnalysis?: string` 追加
+1. `web/types/stock.ts` — `TickerSummary` に `aiAnalysis?: string | null` 追加（`null` = 生成失敗）
 2. `web/app/api/summaries/route.ts` — `TickerSummaryResponse` に `aiAnalysis` 追加・マッピング追加
 3. `web/app/summaries/page.tsx` — ダイアログの「パターン分析」の後に「AI 解析」セクション追加
 4. `web/tests/unit/app/api/summaries/route.test.ts` — `aiAnalysis` のテストケース追加
@@ -172,7 +172,8 @@ processExchange() 内のティッカーループ:
   - 既存: パターン分析（買い・売り）
   - 追加: <Divider />
   - 追加: <Typography variant="h6">AI 解析</Typography>
-  - 追加: aiAnalysis が存在する場合 → <Typography variant="body2">{aiAnalysis}</Typography>
+  - 追加: aiAnalysis が string の場合 → <Typography variant="body2">{aiAnalysis}</Typography>
+  - 追加: aiAnalysis が null の場合 → <Typography color="error.main">AI 解析の取得に失敗しました</Typography>
   - 追加: aiAnalysis が undefined の場合 → <Typography color="text.secondary">AI 解析はまだ生成されていません</Typography>
 ```
 

@@ -8,11 +8,11 @@
 
 | エンティティ | 変更種別 | 説明 |
 |-------------|---------|------|
-| `DailySummaryEntity` | 既存拡張 | `AiAnalysis?: string` フィールドを追加 |
+| `DailySummaryEntity` | 既存拡張 | `AiAnalysis?: string \| null` フィールドを追加 |
 | `CreateDailySummaryInput` | 自動継承 | `DailySummaryEntity` の Omit 型のため自動的に含まれる |
 | `DailySummaryMapper` | 既存更新 | `AiAnalysis` フィールドの DynamoDB ↔ Entity 変換を追加 |
-| `TickerSummaryResponse` (web API) | 既存拡張 | `aiAnalysis?: string` フィールドを追加 |
-| `TickerSummary` (web UI 型) | 既存拡張 | `aiAnalysis?: string` フィールドを追加 |
+| `TickerSummaryResponse` (web API) | 既存拡張 | `aiAnalysis?: string \| null` フィールドを追加 |
+| `TickerSummary` (web UI 型) | 既存拡張 | `aiAnalysis?: string \| null` フィールドを追加 |
 
 ---
 
@@ -32,7 +32,7 @@ export interface DailySummaryEntity {
   PatternResults?: PatternResults;    // 既存（任意）
   BuyPatternCount?: number;           // 既存（任意）
   SellPatternCount?: number;          // 既存（任意）
-  AiAnalysis?: string;                // ★ 新規追加（任意）: AI 解析テキスト（日本語）
+  AiAnalysis?: string | null;             // ★ 新規追加（任意）: AI 解析テキスト（日本語）または null（生成失敗）
   CreatedAt: number;     // Unix timestamp ms
   UpdatedAt: number;     // Unix timestamp ms
 }
@@ -45,22 +45,23 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 
 | フィールド | ルール |
 |-----------|--------|
-| `AiAnalysis` | 任意（undefined 可）。存在する場合は空文字不可（実質的に「未生成」は undefined で表現） |
+| `AiAnalysis` | 任意（`undefined` 可）。`undefined` = 未生成、`null` = 生成失敗、`string` = 生成済み。文字列の場合は空文字不可（最大 2000 文字） |
 
 ### 状態遷移
 
 ```
 [初回バッチ実行]
   → AiAnalysis = undefined（AI 処理スキップまたはまだ実行前）
+  ※ UpdatedAt タイムスタンプで未生成かどうかを補足検知可能
 
 [AI 解析生成成功]
   → AiAnalysis = "解析テキスト..."
 
 [AI 解析生成失敗]
-  → AiAnalysis = undefined のまま（ログ記録）
+  → AiAnalysis = null（ログ記録 + 明示的失敗フラグ）
 
-[次回バッチ実行 - スキップ条件]
-  → AiAnalysis が undefined または空文字の場合のみ再生成を試みる
+[次回バッチ実行 - 再生成条件]
+  → AiAnalysis が undefined または null の場合のみ再生成を試みる
 ```
 
 ---
@@ -88,7 +89,7 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 | `PatternResults` | Map | 変更なし | パターン判定結果マップ（任意） |
 | `BuyPatternCount` | Number | 変更なし | 買いシグナル合致数（任意） |
 | `SellPatternCount` | Number | 変更なし | 売りシグナル合致数（任意） |
-| `AiAnalysis` | String | **★ 新規追加** | AI 解析テキスト（日本語、任意） |
+| `AiAnalysis` | String / Null | **★ 新規追加** | AI 解析テキスト（日本語、任意）。`null` = 生成失敗 |
 | `CreatedAt` | Number | 変更なし | Unix timestamp ms |
 | `UpdatedAt` | Number | 変更なし | Unix timestamp ms |
 
@@ -102,7 +103,7 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 
 ```typescript
 // 既存フィールドの後に追加
-...(entity.AiAnalysis !== undefined ? { AiAnalysis: entity.AiAnalysis } : {}),
+...(entity.AiAnalysis !== undefined ? { AiAnalysis: entity.AiAnalysis ?? null } : {}),
 ```
 
 ### `toEntity()` への追加
@@ -111,7 +112,7 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 // 既存フィールドの後に追加
 AiAnalysis:
   item.AiAnalysis !== undefined
-    ? validateStringField(item.AiAnalysis, 'AiAnalysis')
+    ? (item.AiAnalysis === null ? null : validateStringField(item.AiAnalysis, 'AiAnalysis'))
     : undefined,
 ```
 
@@ -122,7 +123,7 @@ export interface DailySummaryPatternResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysis?: string;  // ★ 新規追加
+  aiAnalysis?: string | null;  // ★ 新規追加（null = 生成失敗）
 }
 
 // メソッド内で:
@@ -130,7 +131,7 @@ return {
   buyPatternCount: ...,
   sellPatternCount: ...,
   patternDetails: [...],
-  aiAnalysis: entity.AiAnalysis,  // ★ 新規追加
+  aiAnalysis: entity.AiAnalysis ?? undefined,  // ★ 新規追加（nullはそのまま渡す）
 };
 ```
 
@@ -155,7 +156,7 @@ interface TickerSummaryResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysis?: string;  // ★ 新規追加
+  aiAnalysis?: string | null;  // ★ 新規追加（null = 生成失敗）
 }
 ```
 
@@ -176,7 +177,7 @@ export interface TickerSummary {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetail[];
-  aiAnalysis?: string;  // ★ 新規追加
+  aiAnalysis?: string | null;  // ★ 新規追加（null = 生成失敗）
 }
 ```
 

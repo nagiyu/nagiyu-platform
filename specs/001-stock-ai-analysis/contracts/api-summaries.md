@@ -56,7 +56,7 @@ GET /api/summaries?date={YYYY-MM-DD}
               "status": "MATCHED | NOT_MATCHED | INSUFFICIENT_DATA"
             }
           ],
-          "aiAnalysis": "string | undefined"
+          "aiAnalysis": "string | null | undefined"
         }
       ]
     }
@@ -70,9 +70,10 @@ GET /api/summaries?date={YYYY-MM-DD}
 
 | 項目 | 値 |
 |------|---|
-| 型 | `string` または `undefined` |
-| 存在条件 | バッチ処理で AI 解析が正常に生成された場合のみ含まれる |
-| 不在時の意味 | AI 解析が未生成またはエラーにより未保存 |
+| 型 | `string`、`null`、または `undefined` |
+| `string` の意味 | バッチ処理で AI 解析が正常に生成された |
+| `null` の意味 | AI 解析の生成が失敗した（UI: 「AI 解析の取得に失敗しました」と表示） |
+| `undefined` の意味 | AI 解析が未生成（バッチ未実行等）（UI: 「AI 解析はまだ生成されていません」と表示） |
 | 言語 | 日本語 |
 | 内容 | 価格動向の解釈、パターン分析の説明、関連市場情報を含む解析テキスト |
 | 最大文字数 | 約 2,000 文字（OpenAI レスポンス依存） |
