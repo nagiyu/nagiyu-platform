@@ -31,6 +31,12 @@ type GroupDetailClientProps = {
   members: readonly Member[];
 };
 
+const ERROR_MESSAGES = {
+  OPERATION_FAILED: '操作に失敗しました。',
+  LEAVE_REQUIRES_RELOAD:
+    '脱退処理を実行できませんでした。ページを再読み込みしてから再度お試しください。',
+} as const;
+
 export function GroupDetailClient({
   groupId,
   isOwner,
@@ -47,6 +53,19 @@ export function GroupDetailClient({
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const [left, setLeft] = useState(false);
   const [deleted, setDeleted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const getErrorMessage = async (response: Response): Promise<string> => {
+    try {
+      const data = (await response.json()) as { error?: { message?: string } };
+      if (typeof data.error?.message === 'string') {
+        return data.error.message;
+      }
+    } catch {
+      // noop
+    }
+    return ERROR_MESSAGES.OPERATION_FAILED;
+  };
 
   const handleDeleteMemberRequest = (userId: string, name: string) => {
     setConfirmDialog({ open: true, type: 'deleteMember', targetId: userId, targetName: name });
@@ -60,19 +79,44 @@ export function GroupDetailClient({
     setConfirmDialog({ open: true, type: 'deleteGroup' });
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const { type, targetId, targetName } = confirmDialog;
-    if (type === 'deleteMember' && targetId) {
-      setMembers((prev) => prev.filter((m) => m.userId !== targetId));
-      setSnackbarMessage(`${targetName}さんをグループから削除しました（モック）。`);
-    } else if (type === 'leaveGroup') {
-      setLeft(true);
-      setSnackbarMessage('グループから脱退しました（モック）。');
-    } else if (type === 'deleteGroup') {
-      setDeleted(true);
-      setSnackbarMessage('グループを削除しました（モック）。');
+    setIsSubmitting(true);
+    try {
+      if (type === 'deleteMember' && targetId) {
+        const response = await fetch(`/api/groups/${groupId}/members/${targetId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response));
+        }
+        setMembers((prev) => prev.filter((m) => m.userId !== targetId));
+        setSnackbarMessage(`${targetName}さんをグループから削除しました。`);
+      } else if (type === 'leaveGroup' && currentUserId.length > 0) {
+        const response = await fetch(`/api/groups/${groupId}/members/${currentUserId}`, {
+          method: 'DELETE',
+        });
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response));
+        }
+        setLeft(true);
+        setSnackbarMessage('グループから脱退しました。');
+      } else if (type === 'leaveGroup') {
+        throw new Error(ERROR_MESSAGES.LEAVE_REQUIRES_RELOAD);
+      } else if (type === 'deleteGroup') {
+        const response = await fetch(`/api/groups/${groupId}`, { method: 'DELETE' });
+        if (!response.ok) {
+          throw new Error(await getErrorMessage(response));
+        }
+        setDeleted(true);
+        setSnackbarMessage('グループを削除しました。');
+      }
+      setConfirmDialog({ open: false, type: 'deleteMember' });
+    } catch (error) {
+      setSnackbarMessage(error instanceof Error ? error.message : ERROR_MESSAGES.OPERATION_FAILED);
+    } finally {
+      setIsSubmitting(false);
     }
-    setConfirmDialog({ open: false, type: 'deleteMember' });
   };
 
   const handleCancel = () => {
@@ -105,7 +149,7 @@ export function GroupDetailClient({
   if (deleted) {
     return (
       <Alert severity="success" sx={{ mt: 2 }}>
-        グループを削除しました（モック）。
+        グループを削除しました。
       </Alert>
     );
   }
@@ -113,7 +157,7 @@ export function GroupDetailClient({
   if (left) {
     return (
       <Alert severity="success" sx={{ mt: 2 }}>
-        グループから脱退しました（モック）。
+        グループから脱退しました。
       </Alert>
     );
   }
@@ -183,8 +227,16 @@ export function GroupDetailClient({
         title={confirmProps.title}
         description={confirmProps.description}
         confirmLabel={confirmProps.confirmLabel}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
+        onConfirm={() => {
+          if (!isSubmitting) {
+            void handleConfirm();
+          }
+        }}
+        onCancel={() => {
+          if (!isSubmitting) {
+            handleCancel();
+          }
+        }}
       />
 
       <Snackbar

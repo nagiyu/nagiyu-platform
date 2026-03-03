@@ -100,6 +100,12 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
+    await page.route('**/api/invitations', async (route) => {
+      await route.fulfill({ json: { data: { success: true } } });
+    });
+    await page.route('**/api/auth/session', async (route) => {
+      await route.fulfill({ json: { user: { id: 'owner-user' } } });
+    });
 
     await page.goto(`/groups/${groupId}`);
     await expect(page.getByRole('heading', { level: 1, name: 'グループ詳細' })).toBeVisible();
@@ -206,6 +212,12 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
+    await page.route(`**/api/groups/${groupId}/members/*`, async (route) => {
+      await route.fulfill({ status: 204 });
+    });
+    await page.route('**/api/auth/session', async (route) => {
+      await route.fulfill({ json: { user: { id: 'member-user' } } });
+    });
 
     await page.goto(`/groups/${groupId}`);
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
@@ -214,7 +226,7 @@ test.describe('グループ管理', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: '脱退' }).click();
 
-    await expect(page.getByText('グループから脱退しました（モック）。')).toBeVisible();
+    await expect(page.getByText('グループから脱退しました。')).toBeVisible();
   });
 
   test('オーナーがメンバーを除外できる', async ({ page }) => {
@@ -249,6 +261,12 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
+    await page.route(`**/api/groups/${groupId}/members/*`, async (route) => {
+      await route.fulfill({ status: 204 });
+    });
+    await page.route('**/api/auth/session', async (route) => {
+      await route.fulfill({ json: { user: { id: 'owner-user' } } });
+    });
 
     await page.goto(`/groups/${groupId}`);
     await expect(page.getByRole('button', { name: 'テストメンバーを削除' })).toBeVisible();
@@ -257,9 +275,7 @@ test.describe('グループ管理', () => {
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('button', { name: '削除' }).click();
 
-    await expect(
-      page.getByText('テストメンバーさんをグループから削除しました（モック）。')
-    ).toBeVisible();
+    await expect(page.getByText('テストメンバーさんをグループから削除しました。')).toBeVisible();
     await expect(page.getByText('テストメンバー')).not.toBeVisible();
   });
 });

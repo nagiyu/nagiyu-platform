@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { GroupDetailClient } from '@/components/GroupDetailClient';
 
 const MOCK_MEMBERS = [
@@ -9,6 +9,14 @@ const MOCK_MEMBERS = [
 ];
 
 describe('GroupDetailClient', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn(async () => ({ ok: true }) as Response);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('メンバー一覧・招待フォームを表示する', () => {
     render(
       <GroupDetailClient
@@ -94,7 +102,7 @@ describe('GroupDetailClient', () => {
     expect(screen.getByText('さくらさんをグループから削除しますか？')).toBeInTheDocument();
   });
 
-  it('メンバー削除を確認するとメンバーが削除される', () => {
+  it('メンバー削除を確認するとメンバーが削除される', async () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
@@ -107,7 +115,9 @@ describe('GroupDetailClient', () => {
     fireEvent.click(screen.getByRole('button', { name: 'さくらを削除' }));
     fireEvent.click(screen.getByRole('button', { name: '削除' }));
 
-    expect(screen.queryByText('さくら')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText('さくら')).not.toBeInTheDocument();
+    });
     expect(screen.getByText('なぎゆ')).toBeInTheDocument();
     expect(screen.getByText('たろう')).toBeInTheDocument();
   });
@@ -128,7 +138,31 @@ describe('GroupDetailClient', () => {
     expect(screen.getByText('さくら')).toBeInTheDocument();
   });
 
-  it('グループ削除を確認すると削除済みメッセージを表示する', () => {
+  it('メンバー削除に失敗した場合はAPIエラーメッセージを表示する', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      json: async () => ({ error: { message: 'この操作はオーナーのみ実行できます' } }),
+    } as Response);
+
+    render(
+      <GroupDetailClient
+        groupId="mock-family-group"
+        isOwner={true}
+        currentUserId="user-owner"
+        members={MOCK_MEMBERS}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'さくらを削除' }));
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('この操作はオーナーのみ実行できます')).toBeInTheDocument();
+    });
+    expect(screen.getByText('さくら')).toBeInTheDocument();
+  });
+
+  it('グループ削除を確認すると削除済みメッセージを表示する', async () => {
     render(
       <GroupDetailClient
         groupId="mock-family-group"
@@ -145,10 +179,12 @@ describe('GroupDetailClient', () => {
 
     const dialog = screen.getByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: '削除' }));
-    expect(screen.getByText('グループを削除しました（モック）。')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('グループを削除しました。')).toBeInTheDocument();
+    });
   });
 
-  it('グループ脱退を確認すると脱退済みメッセージを表示する', () => {
+  it('グループ脱退を確認すると脱退済みメッセージを表示する', async () => {
     render(
       <GroupDetailClient
         groupId="mock-roommate-group"
@@ -162,6 +198,8 @@ describe('GroupDetailClient', () => {
     expect(screen.getByText('このグループから脱退しますか？')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '脱退' }));
-    expect(screen.getByText('グループから脱退しました（モック）。')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('グループから脱退しました。')).toBeInTheDocument();
+    });
   });
 });

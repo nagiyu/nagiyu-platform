@@ -33,17 +33,25 @@ export default function GroupDetailPage() {
 
     void (async () => {
       try {
-        const [groupsResponse, membersResponse] = await Promise.all([
+        const [groupsResponse, membersResponse, sessionResponse] = await Promise.all([
           fetch('/api/groups'),
           fetch(`/api/groups/${groupId}/members`),
+          fetch('/api/auth/session'),
         ]);
 
-        if (!groupsResponse.ok || !membersResponse.ok) {
-          throw new Error(`status: ${groupsResponse.status},${membersResponse.status}`);
+        if (!groupsResponse.ok || !membersResponse.ok || !sessionResponse.ok) {
+          throw new Error(
+            `status: ${groupsResponse.status},${membersResponse.status},${sessionResponse.status}`
+          );
         }
 
         const groupsData = (await groupsResponse.json()) as { data: { groups: GroupSummary[] } };
         const membersData = (await membersResponse.json()) as { data: { members: GroupMember[] } };
+        const sessionData = (await sessionResponse.json()) as { user?: { id?: unknown } };
+        if (typeof sessionData.user?.id !== 'string' || sessionData.user.id.length === 0) {
+          setErrorMessage('ユーザーIDが取得できませんでした。再度ログインしてください。');
+          return;
+        }
         const targetGroup = groupsData.data.groups.find((group) => group.groupId === groupId);
 
         if (!targetGroup) {
@@ -52,7 +60,7 @@ export default function GroupDetailPage() {
         }
 
         setIsOwner(targetGroup.isOwner);
-        setCurrentUserId(targetGroup.isOwner ? targetGroup.ownerUserId : '');
+        setCurrentUserId(sessionData.user.id);
         setMembers(membersData.data.members);
       } catch (error: unknown) {
         console.error('グループ詳細の取得に失敗しました', { groupId, error });
