@@ -268,7 +268,7 @@ jobs:
               : '## ❌ Some Full Checks Failed';
 
             let body = `${header}\n\n`;
-            body += '**Full Verification (All devices + Coverage)**\n\n';
+            body += '**Full Verification (All devices)**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 
