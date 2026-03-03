@@ -2,6 +2,12 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import GroupListDetailPage from '@/app/groups/[groupId]/lists/[listId]/page';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
+}));
+
 describe('GroupListDetailPage', () => {
   it('モックの共有 ToDo リスト詳細ページを表示する', async () => {
     render(
