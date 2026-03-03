@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-03-01
-**Feature**: [/home/runner/work/nagiyu-platform/nagiyu-platform/docs/services/stock-tracker/001-summary-pattern-analysis/spec.md](/home/runner/work/nagiyu-platform/nagiyu-platform/docs/services/stock-tracker/001-summary-pattern-analysis/spec.md)
+**Feature**: [spec.md](../spec.md)
 
 ## Content Quality
 
