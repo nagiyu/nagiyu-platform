@@ -57,9 +57,9 @@ describe('GroupDetailPage', () => {
     expect(screen.getByRole('heading', { name: 'メンバー招待フォーム' })).toBeInTheDocument();
     expect(screen.getByText('オーナーとしてメンバーを招待できます。')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'メールアドレス' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '招待を送信（モック）' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '招待を送信' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'メールアドレス' })).not.toBeDisabled();
-    expect(screen.getByRole('button', { name: '招待を送信（モック）' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: '招待を送信' })).not.toBeDisabled();
     expect(screen.getByRole('button', { name: 'さくらを削除' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'たろうを削除' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'グループを削除' })).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('GroupDetailPage', () => {
       screen.getByText('このグループではメンバー追加はできません（オーナーのみ）。')
     ).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'メールアドレス' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '招待を送信（モック）' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '招待を送信' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'さくらを削除' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'グループを脱退' })).toBeInTheDocument();
   });
