@@ -18,25 +18,27 @@
 ### 1. 依存パッケージの追加
 
 ```bash
-# stock-tracker-batch パッケージに追加
-cd services/stock-tracker/batch
-npm install openai @aws-sdk/client-secrets-manager
+# モノレポルートから実行
+npm install openai --workspace=@nagiyu/stock-tracker-batch
 ```
 
 ### 2. 環境変数の設定
 
 ```bash
 # services/stock-tracker/batch/.env.local（ローカル開発用）
-OPENAI_API_KEY_SECRET_NAME=nagiyu/stock-tracker/openai-api-key
-AWS_REGION=ap-northeast-1
+OPENAI_API_KEY=sk-proj-xxxx...
+AWS_REGION=us-east-1
 DYNAMODB_TABLE_NAME=<テーブル名>
 ```
 
-### 3. Secrets Manager にシークレットを登録
+### 3. インフラ側の対応（CDK デプロイ時）
+
+OpenAI API キーは AWS Secrets Manager に保管し、CDK デプロイ時に Lambda 環境変数として注入される（既存 VAPID キーと同一パターン）。
 
 ```bash
+# Secrets Manager にシークレットを登録（初回のみ）
 aws secretsmanager create-secret \
-  --name "nagiyu/stock-tracker/openai-api-key" \
+  --name "nagiyu-stock-tracker-openai-api-key-dev" \
   --secret-string "sk-proj-xxxx..."
 ```
 
@@ -44,16 +46,13 @@ aws secretsmanager create-secret \
 
 ```bash
 # coreパッケージをビルド（DailySummaryEntity変更を反映）
-cd services/stock-tracker/core
-npm run build
+npm run build --workspace=@nagiyu/stock-tracker-core
 
 # batchパッケージをビルド
-cd services/stock-tracker/batch
-npm run build
+npm run build --workspace=@nagiyu/stock-tracker-batch
 
 # webパッケージをビルド
-cd services/stock-tracker/web
-npm run build
+npm run build --workspace=@nagiyu/stock-tracker-web
 ```
 
 ---
@@ -71,10 +70,9 @@ npm run build
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `batch/src/lib/secrets-manager-client.ts` | **新規作成**: Secrets Manager から API キーを取得 |
 | `batch/src/lib/openai-client.ts` | **新規作成**: OpenAI Responses API で AI 解析テキストを生成 |
 | `batch/src/summary.ts` | `HandlerDependencies` と `BatchStatistics` 拡張、AI 処理ステップを追加 |
-| `batch/package.json` | `openai`, `@aws-sdk/client-secrets-manager` 依存追加 |
+| `batch/package.json` | `openai` 依存追加 |
 
 ### Web パッケージ（`@nagiyu/stock-tracker-web`）
 
@@ -92,28 +90,24 @@ npm run build
 
 ```bash
 # Batch
-cd services/stock-tracker/batch
-npm test
+npm test --workspace=@nagiyu/stock-tracker-batch
 
 # Core
-cd services/stock-tracker/core
-npm test
+npm test --workspace=@nagiyu/stock-tracker-core
 
 # Web
-cd services/stock-tracker/web
-npm test
+npm test --workspace=@nagiyu/stock-tracker-web
 ```
 
 ### ローカル動作確認
 
 ```bash
 # バッチを手動実行（ローカル）
-cd services/stock-tracker/batch
-npx ts-node src/summary.ts
+npm run build --workspace=@nagiyu/stock-tracker-batch
+node services/stock-tracker/batch/dist/summary.js
 
 # Web を起動してサマリー画面を確認
-cd services/stock-tracker/web
-npm run dev
+npm run dev --workspace=@nagiyu/stock-tracker-web
 # http://localhost:3000/summaries でダイアログの「AI 解析」セクションを確認
 ```
 
@@ -125,15 +119,8 @@ npm run dev
 
 ```typescript
 // summary.ts の handler() 内
-let apiKey: string | null = null;
-const secretName = process.env.OPENAI_API_KEY_SECRET_NAME;
-if (secretName) {
-  try {
-    apiKey = await resolvedDependencies.getOpenAiApiKeyFn?.(secretName) ?? null;
-  } catch (error) {
-    logger.warn('OpenAI API キーの取得に失敗しました。AI 解析をスキップします。', { error });
-  }
-}
+// summary.ts の handler() 内
+const apiKey = process.env.OPENAI_API_KEY ?? null;
 
 // processExchange 内のティッカーループで：
 // 既存の upsert() 成功後、AI 解析を試みる
@@ -156,8 +143,8 @@ if (apiKey && !existingSummary?.AiAnalysis) {
 
 ### エラーハンドリング原則
 
-- Secrets Manager 取得失敗 → 全銘柄の AI 処理をスキップ（バッチは継続）
-- OpenAI API 失敗 → 当該銘柄の AI 処理をスキップ（他銘柄の処理は継続）
+- `OPENAI_API_KEY` 未設定 → 全銘柄の AI 処理をスキップ（バッチは継続）
+- OpenAI API 失敗 → 当該銘柄の AI 処理をスキップ（`AiAnalysis` 未設定のまま保存。次回バッチで自動再生成）
 - 既存 upsert 失敗 → 既存の `stats.errors` としてカウント（変更なし）
 - AI 処理は常に既存処理の **後に** 実行し、既存処理に影響させない
 
@@ -167,7 +154,7 @@ if (apiKey && !existingSummary?.AiAnalysis) {
 
 | 症状 | 原因 | 対応 |
 |------|------|------|
-| `AI 解析をスキップ` がログに出力される | Secrets Manager アクセス失敗 | IAM ロールの権限を確認 |
+| `AI 解析をスキップ` がログに出力される | `OPENAI_API_KEY` 環境変数が未設定 | Lambda の環境変数設定を確認 |
 | AI 解析テキストが表示されない | バッチ未実行 | バッチを手動実行して再確認 |
 | `aiAnalysis` が空 | OpenAI API エラー | バッチログを確認し再実行 |
 | ビルドエラー（`AiAnalysis` 関連） | core の再ビルド忘れ | `core` → `batch` → `web` の順にビルド |

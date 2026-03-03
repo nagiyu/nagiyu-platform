@@ -62,32 +62,6 @@ export async function generateAiAnalysis(
 
 ---
 
-## モジュール: `batch/src/lib/secrets-manager-client.ts`
-
-### 型定義
-
-```typescript
-/**
- * Secrets Manager から OpenAI API キーを取得する
- *
- * @param secretName - シークレット名（環境変数 OPENAI_API_KEY_SECRET_NAME）
- * @returns API キー文字列
- * @throws {Error} シークレット取得失敗時
- */
-export async function getOpenAiApiKey(secretName: string): Promise<string>;
-```
-
-### ビヘイビア仕様
-
-| 条件 | 動作 |
-|------|------|
-| 正常 | API キー文字列を返す |
-| シークレット不存在 | `Error` をスロー |
-| IAM 権限不足 | `Error` をスロー |
-| ネットワーク障害 | `Error` をスロー |
-
----
-
 ## バッチ HandlerDependencies 拡張
 
 ```typescript
@@ -103,8 +77,6 @@ interface HandlerDependencies {
   // 新規追加
   /** AI 解析テキスト生成関数（テスト時にモック可能） */
   generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
-  /** Secrets Manager から API キーを取得する関数（テスト時にモック可能） */
-  getOpenAiApiKeyFn?: (secretName: string) => Promise<string>;
 }
 ```
 

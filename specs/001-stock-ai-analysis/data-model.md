@@ -184,14 +184,6 @@ export interface TickerSummary {
 
 ## 5. バッチ処理の新規モジュール
 
-### secrets-manager-client.ts
-
-**ファイル**: `services/stock-tracker/batch/src/lib/secrets-manager-client.ts`
-
-```typescript
-export async function getOpenAiApiKey(secretName: string): Promise<string>
-```
-
 ### openai-client.ts
 
 **ファイル**: `services/stock-tracker/batch/src/lib/openai-client.ts`
@@ -233,5 +225,5 @@ export async function generateAiAnalysis(
 
 | 環境変数名 | 説明 | 必須 |
 |-----------|------|------|
-| `OPENAI_API_KEY_SECRET_NAME` | Secrets Manager のシークレット名 | バッチ側で必須 |
-| `AWS_REGION` | 既存（未設定時は `ap-northeast-1`） | 推奨 |
+| `OPENAI_API_KEY` | OpenAI API キー（Secrets Manager から CDK デプロイ時に注入） | バッチ側で必須 |
+| `AWS_REGION` | 既存（未設定時は `us-east-1`） | 推奨 |

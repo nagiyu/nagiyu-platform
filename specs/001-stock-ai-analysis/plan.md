@@ -7,11 +7,11 @@
 
 ## 概要
 
-既存の Stock Tracker バッチ処理（日次サマリー生成）に OpenAI を用いた AI 解析ステップを追加する。バッチが OHLC データとパターン分析結果を取得した後、OpenAI Responses API（`web_search_preview` ツール付き）を呼び出して日本語の解析テキストを生成し、`DailySummary` レコードに保存する。Web フロントエンドのサマリー詳細ダイアログに「AI 解析」セクションを追加して表示する。
+既存の Stock Tracker バッチ処理（日次サマリー生成）に OpenAI を用いた AI 解析ステップを追加する。バッチが OHLC データとパターン分析結果を取得した後、OpenAI Responses API（`web_search` ツール付き）を呼び出して日本語の解析テキストを生成し、`DailySummary` レコードに保存する。Web フロントエンドのサマリー詳細ダイアログに「AI 解析」セクションを追加して表示する。
 
 **技術的アプローチ**:
 - `DailySummaryEntity` に `AiAnalysis?: string` フィールドを追加（後方互換）
-- バッチに `openai-client.ts`・`secrets-manager-client.ts` を新規追加
+- バッチに `openai-client.ts` を新規追加
 - AI 処理は既存処理と完全分離した try/catch で囲み、失敗しても既存機能に影響しない
 - Web API レスポンスと UI 型に `aiAnalysis` フィールドを追加し、ダイアログに表示
 
@@ -22,7 +22,7 @@
 **言語/バージョン**: TypeScript 5.x / Node.js 22+  
 **主要な依存関係**:
 - 既存: Next.js (App Router), React, Material-UI, DynamoDB (Single Table), `@nagiyu/stock-tracker-core`, `@nagiyu/aws`, `@nagiyu/common`, `@nagiyu/nextjs`
-- 新規追加: `openai` ^4.x, `@aws-sdk/client-secrets-manager` ^3.x
+- 新規追加: `openai` ^6.x
 
 **ストレージ**: AWS DynamoDB（既存テーブルに `AiAnalysis` フィールドを追加）  
 **テスト**: Jest（ユニット）、Playwright（E2E）  
@@ -34,7 +34,7 @@
 
 **制約**:
 - AI エンジンは OpenAI 限定
-- API キーは AWS Secrets Manager のみ（ハードコード・環境変数直接設定禁止）
+- API キーは AWS Secrets Manager に保管し、CDK デプロイ時に Lambda 環境変数（`OPENAI_API_KEY`）として注入する（ランタイムでの Secrets Manager 呼び出し不要・既存 VAPID キーと同一パターン）
 - AI 解析はバッチ処理時のみ生成（リアルタイム生成なし）
 
 **スコープ**: ウォッチリスト登録済みの全銘柄（最大数十銘柄程度を想定）
@@ -49,9 +49,9 @@
 - [x] **TypeScript 型安全性 (I)**: strict mode 維持、`AiAnalysis` の型定義は `core/src/entities/` に集約。`AiAnalysis?: string` として optional で型安全。アクセス修飾子はクラスメンバーに明示。
 - [x] **アーキテクチャ・レイヤー分離 (II)**: `AiAnalysisInput` 型・`generateAiAnalysis` 関数は `batch/src/lib/` に配置（core は汚染しない）。`DailySummaryEntity` への追加は core の責務として正当。`batch → core` の一方向依存を維持。`web → core` の一方向依存も維持。
 - [x] **コード品質・Lint・フォーマット (III)**: 既存の ESLint・Prettier 設定を継承。エラーメッセージは `ERROR_MESSAGES` 定数オブジェクトで管理。日本語エラーメッセージ。
-- [x] **テスト戦略 (IV)**: `openai-client.ts`・`secrets-manager-client.ts` のユニットテストを `batch/tests/unit/lib/` に追加。OpenAI・Secrets Manager のモックを使用。`summary.ts` のテストを更新し `generateAiAnalysisFn`・`getOpenAiApiKeyFn` をモック注入。カバレッジ 80% 以上を維持。
+- [x] **テスト戦略 (IV)**: `openai-client.ts` のユニットテストを `batch/tests/unit/lib/` に追加。OpenAI のモックを使用。`summary.ts` のテストを更新し `generateAiAnalysisFn` をモック注入。カバレッジ 80% 以上を維持。
 - [x] **ブランチ戦略・CI/CD (V)**: 既存の `verify-fast.yml` / `verify-full.yml` に追加変更なし（新規パッケージ不要のため）。
-- [x] **共通ライブラリ設計 (VI)**: `batch/src/lib/secrets-manager-client.ts` はバッチ専用に配置（`@nagiyu/aws` への追加は不要、今回の scope 外）。`batch → @nagiyu/common` 依存のみ（UI・browser 依存なし）。
+- [x] **共通ライブラリ設計 (VI)**: `batch/src/lib/openai-client.ts` はバッチ専用に配置（`@nagiyu/aws` への追加は不要、今回の scope 外）。`batch → @nagiyu/common` 依存のみ（UI・browser 依存なし）。
 - [x] **ドキュメント駆動開発 (VII)**: spec.md・plan.md・research.md・data-model.md・quickstart.md・contracts/ を日本語で作成。
 
 ---
@@ -86,10 +86,9 @@ services/stock-tracker/
 ├── batch/
 │   ├── src/
 │   │   ├── lib/
-│   │   │   ├── secrets-manager-client.ts  ★ 新規作成
 │   │   │   └── openai-client.ts           ★ 新規作成
 │   │   └── summary.ts                     ★ AI 処理ステップ追加
-│   └── package.json                       ★ openai, secrets-manager 依存追加
+│   └── package.json                       ★ openai 依存追加
 └── web/
     ├── app/
     │   └── api/
@@ -127,29 +126,26 @@ services/stock-tracker/
 **目的**: Secrets Manager から API キーを取得し、OpenAI で AI 解析を生成するモジュールを実装する。
 
 **変更ファイル**:
-1. `batch/package.json` — `openai`, `@aws-sdk/client-secrets-manager` 依存追加
-2. `batch/src/lib/secrets-manager-client.ts` — **新規作成**
-3. `batch/src/lib/openai-client.ts` — **新規作成**
-4. `batch/src/summary.ts` — `HandlerDependencies` 拡張、AI 処理ステップ追加
-5. `batch/tests/unit/lib/secrets-manager-client.test.ts` — **新規作成**
-6. `batch/tests/unit/lib/openai-client.test.ts` — **新規作成**
-7. `batch/tests/unit/summary.test.ts` — AI 処理のテストケース追加（依存注入でモック）
+1. `batch/package.json` — `openai` 依存追加
+2. `batch/src/lib/openai-client.ts` — **新規作成**
+3. `batch/src/summary.ts` — `HandlerDependencies` 拡張、AI 処理ステップ追加
+4. `batch/tests/unit/lib/openai-client.test.ts` — **新規作成**
+5. `batch/tests/unit/summary.test.ts` — AI 処理のテストケース追加（依存注入でモック）
 
 **AI 解析処理のロジック**:
 
 ```
 handler() 起動時:
-  1. 環境変数 OPENAI_API_KEY_SECRET_NAME を取得
-  2. Secrets Manager から API キーを取得（失敗時は null、全銘柄の AI をスキップ）
+  1. 環境変数 OPENAI_API_KEY を取得（未設定の場合は全銘柄の AI をスキップ）
 
 processExchange() 内のティッカーループ:
-  3. 既存の OHLC・パターン取得・upsert を実行（変更なし）
-  4. upsert 成功後、API キーが存在かつ AiAnalysis が未設定の場合のみ:
+  2. 既存の OHLC・パターン取得・upsert を実行（変更なし）
+  3. upsert 成功後、API キーが存在かつ AiAnalysis が未設定の場合のみ:
      a. AiAnalysisInput を構築（OHLC + パターン情報）
      b. generateAiAnalysis() を呼び出し（Web 検索付き OpenAI）
      c. 返却テキストを AiAnalysis フィールドとして再 upsert
      d. stats.aiAnalysisGenerated++
-  5. AI 処理失敗時: logger.warn + stats.aiAnalysisSkipped++（既存処理継続）
+  4. AI 処理失敗時: logger.warn + stats.aiAnalysisSkipped++（既存処理継続）
 ```
 
 **完了条件**: `batch` のユニットテストが全て通過し、`npm run build` が成功する。AI 処理のエラーが既存 stats.errors に混入しないこと。
@@ -188,7 +184,7 @@ processExchange() 内のティッカーループ:
 
 | リスク | 確率 | 影響 | 対策 |
 |--------|------|------|------|
-| OpenAI API レート制限 | 中 | 一部銘柄の AI 解析失敗 | ticker ループ内で try/catch し、失敗分は `aiAnalysisSkipped` にカウントして継続 |
+| OpenAI API レート制限 | 中 | 一部銘柄の AI 解析失敗 | 当該銘柄をスキップして継続。`AiAnalysis` 未設定のまま保存されるため、次回バッチで自動的に再生成される |
 | バッチタイムアウト | 低 | 一部銘柄未処理 | 既存 skip ロジックと同様、完了分は保存済み |
 | Secrets Manager 取得失敗 | 低 | 全銘柄の AI をスキップ | handler 起動時に一度だけ取得し、失敗時は null で全スキップ（既存処理は継続） |
 | OpenAI Web 検索失敗 | 低 | Web 情報なしで解析テキスト生成 | OpenAI が自動フォールバック（追加対応不要） |
@@ -209,5 +205,5 @@ processExchange() 内のティッカーループ:
 | SC-001: バッチタイムアウト内完了 | AI 処理は独立した try/catch で、失敗時はスキップして継続 |
 | SC-002: 既存機能の 100% 正常動作 | AI 処理エラーが既存 stats.errors に影響しない分離設計 |
 | SC-003: 追加ネットワークリクエストなし | API レスポンスに `aiAnalysis` を含め、ダイアログで即時表示 |
-| SC-004: 解析テキストに価格動向・パターン・市場情報を含む | `web_search_preview` 付き OpenAI プロンプトで実現 |
+| SC-004: 解析テキストに価格動向・パターン・市場情報を含む | `web_search` 付き OpenAI プロンプトで実現 |
 | SC-005: API キー取得失敗時の安全なスキップ | `apiKey = null` 時に AI 処理全体をスキップ |

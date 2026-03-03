@@ -8,8 +8,8 @@
 
 | 項目 | 状態 | 決定 |
 |------|------|------|
-| OpenAI Responses API による Web 検索 | ✅ 解決済み | `gpt-4o` + `web_search_preview` ツール |
-| AWS Secrets Manager 取得方法 | ✅ 解決済み | `@aws-sdk/client-secrets-manager` をバッチに追加 |
+| OpenAI Responses API による Web 検索 | ✅ 解決済み | `gpt-5-mini` + `web_search` ツール |
+| AWS Secrets Manager 取得方法 | ✅ 解決済み | Secrets Manager に保管し CDK デプロイ時に Lambda 環境変数として注入 |
 | `DailySummaryEntity` への AI フィールド追加 | ✅ 解決済み | `AiAnalysis?: string` を既存 entity に追加 |
 | バッチ処理のエラー分離戦略 | ✅ 解決済み | try/catch で AI 処理を完全分離、既存処理を継続 |
 | Web UI 側の表示方法 | ✅ 解決済み | 既存ダイアログに「AI 解析」セクションを追加 |
@@ -19,13 +19,13 @@
 ## 1. OpenAI API 統合
 
 ### 決定
-- **モデル**: `gpt-4o` (または `gpt-4o-mini` でコスト最適化)
+- **モデル**: `gpt-5-mini`
 - **API**: OpenAI Responses API (`POST /v1/responses`)
-- **Web 検索**: `web_search_preview` built-in ツールを使用
-- **ライブラリ**: `openai` npm パッケージ (`^4.x`)
+- **Web 検索**: `web_search` built-in ツールを使用
+- **ライブラリ**: `openai` npm パッケージ (`^6.x`)
 
 ### 根拠
-OpenAI の Responses API は built-in ツールとして `web_search_preview` を提供しており、外部検索 API を別途呼び出すことなく Web 検索結果を解析コンテキストに含められる。Chat Completions API + function calling で自前の検索を実装する代替案より、シンプルかつ確実。
+OpenAI の Responses API は built-in ツールとして `web_search` を提供しており、外部検索 API を別途呼び出すことなく Web 検索結果を解析コンテキストに含められる。Chat Completions API + function calling で自前の検索を実装する代替案より、シンプルかつ確実。GPT-5 系の Responses API では `web_search_preview` は `web_search` に統合された。
 
 ### 代替案の却下理由
 - **Perplexity API**: 別サービスへの依存が増える。OpenAI 単体で完結させる方が保守しやすい。
@@ -64,8 +64,8 @@ import OpenAI from 'openai';
 
 const client = new OpenAI({ apiKey });
 const response = await client.responses.create({
-  model: 'gpt-4o',
-  tools: [{ type: 'web_search_preview' }],
+  model: 'gpt-5-mini',
+  tools: [{ type: 'web_search' }],
   input: prompt,
 });
 // response.output_text でテキスト取得
@@ -73,37 +73,33 @@ const response = await client.responses.create({
 
 ---
 
-## 2. AWS Secrets Manager 統合
+## 2. API キー管理
 
 ### 決定
-- **SDK**: `@aws-sdk/client-secrets-manager` をバッチの `package.json` dependencies に追加
-- **取得タイミング**: Lambda Handler 起動時に一度だけ取得（ウォームスタート時はキャッシュ活用）
-- **シークレット名**: 環境変数 `OPENAI_API_KEY_SECRET_NAME` から取得
-- **場所**: `batch/src/lib/secrets-manager-client.ts` に実装
+- **管理方法**: AWS Secrets Manager にシークレットとして保管し、CDK デプロイ時に Lambda 環境変数へ注入
+- **実行時取得**: バッチコードは `process.env.OPENAI_API_KEY` を直接参照（Secrets Manager SDK 不要）
+- **SDK 不要**: 既存の VAPID キーと同一パターン（deploy workflow が Secrets Manager から取得して CDK context に渡す）
+- **シークレット名**: `nagiyu-stock-tracker-openai-api-key-${environment}`（Secrets Stack で管理）
 
 ### 根拠
-`@nagiyu/aws` ライブラリには Secrets Manager のクライアントが未実装。今回はバッチ専用の `lib/` に直接実装することで、`@nagiyu/aws` の変更影響を最小化する。将来的に複数サービスで使用するようになれば `@nagiyu/aws` に昇格させる。
+既存パターンと同様に、CDK デプロイ時にシークレット値を取得して Lambda 環境変数として設定することで、ランタイムでの Secrets Manager 呼び出し回数を抑制できる。`@aws-sdk/client-secrets-manager` を batch の runtime 依存に追加する必要がなく、コードが簡潔になる。
 
 ### 実装コード概要
 
 ```typescript
-import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-
-export async function getOpenAiApiKey(secretName: string): Promise<string> {
-  const client = new SecretsManagerClient({ region: process.env.AWS_REGION ?? 'ap-northeast-1' });
-  const command = new GetSecretValueCommand({ SecretId: secretName });
-  const response = await client.send(command);
-  if (!response.SecretString) {
-    throw new Error(`Secrets Manager からシークレット "${secretName}" の取得に失敗しました`);
-  }
-  return response.SecretString;
-}
+// batch/src/summary.ts の handler() 内
+const apiKey = process.env.OPENAI_API_KEY ?? null;
+// apiKey が null の場合は全銘柄の AI 処理をスキップ
 ```
+
+### インフラ側の対応（実装時参照）
+- `infra/stock-tracker/lib/secrets-stack.ts`: `openai-api-key` シークレットを追加
+- `infra/stock-tracker/lib/lambda-stack.ts`: `batchSummaryFunction` の environment に `OPENAI_API_KEY` を追加
+- `.github/workflows/stock-tracker-deploy.yml`: `aws-actions/aws-secretsmanager-get-secrets` でシークレットを取得し CDK context に渡す
 
 ### セキュリティ考慮事項
 - API キーはログに出力しない（MUST NOT）
-- Lambda 実行ロールに `secretsmanager:GetSecretValue` 権限が必要（インフラ設定側の対応）
-- シークレット名はハードコードせず環境変数で渡す
+- シークレット名はハードコードせず Secrets Stack で一元管理する
 
 ---
 
@@ -154,8 +150,7 @@ export async function getOpenAiApiKey(secretName: string): Promise<string> {
 
 | 技術 | バージョン | 用途 |
 |------|-----------|------|
-| `openai` | ^4.x | OpenAI API クライアント |
-| `@aws-sdk/client-secrets-manager` | ^3.x | Secrets Manager アクセス |
+| `openai` | ^6.x | OpenAI API クライアント |
 | TypeScript | 5.x | 既存に準拠 |
 | DynamoDB (Single Table) | 既存 | `AiAnalysis` フィールド追加 |
 | Next.js (App Router) | 既存 | Web UI |
