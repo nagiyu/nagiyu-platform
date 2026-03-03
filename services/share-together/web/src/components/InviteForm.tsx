@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Box, Button, Stack, TextField, Typography } from '@mui/material';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 type InviteFormProps = {
   groupId: string;
@@ -35,16 +36,16 @@ export function InviteForm({ groupId, isOwner }: InviteFormProps) {
           error?: { message?: string };
         } | null;
         setSubmitted(false);
-        setErrorMessage(body?.error?.message ?? '招待の送信に失敗しました。');
+        setErrorMessage(body?.error?.message ?? ERROR_MESSAGES.INVITATION_SEND_FAILED);
         return;
       }
 
       setSubmitted(true);
       setEmail('');
     } catch (error) {
-      console.error('メンバー招待の送信に失敗しました', { groupId, error });
+      console.error('メンバー招待の送信に失敗しました', { error });
       setSubmitted(false);
-      setErrorMessage('招待の送信に失敗しました。');
+      setErrorMessage(ERROR_MESSAGES.INVITATION_SEND_FAILED);
     } finally {
       setIsSubmitting(false);
     }
@@ -87,9 +88,7 @@ export function InviteForm({ groupId, isOwner }: InviteFormProps) {
             type="button"
             variant="contained"
             disabled={!isOwner || isSubmitting}
-            onClick={() => {
-              void handleSubmit();
-            }}
+            onClick={handleSubmit}
           >
             招待を送信
           </Button>

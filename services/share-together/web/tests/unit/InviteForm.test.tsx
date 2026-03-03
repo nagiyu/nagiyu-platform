@@ -2,8 +2,11 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { InviteForm } from '@/components/InviteForm';
 
+const originalFetch = global.fetch;
+
 describe('InviteForm', () => {
   afterEach(() => {
+    global.fetch = originalFetch;
     jest.restoreAllMocks();
   });
 
@@ -89,6 +92,39 @@ describe('InviteForm', () => {
 
     fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
       target: { value: 'another@example.com' },
+    });
+    expect(screen.queryByText('招待を送信しました。')).not.toBeInTheDocument();
+  });
+
+  it('API がエラーを返した場合はエラーメッセージを表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: { message: '既に招待済みです' } }),
+    } as Response);
+    render(<InviteForm groupId="group-1" isOwner={true} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '招待を送信' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('既に招待済みです')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('招待を送信しました。')).not.toBeInTheDocument();
+  });
+
+  it('ネットワークエラー時は汎用エラーメッセージを表示する', async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error('network error'));
+    render(<InviteForm groupId="group-1" isOwner={true} />);
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
+      target: { value: 'test@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '招待を送信' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('招待の送信に失敗しました。')).toBeInTheDocument();
     });
     expect(screen.queryByText('招待を送信しました。')).not.toBeInTheDocument();
   });
