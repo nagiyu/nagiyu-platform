@@ -45,20 +45,20 @@ export type CreateDailySummaryInput = Omit<DailySummaryEntity, 'CreatedAt' | 'Up
 
 | フィールド | ルール |
 |-----------|--------|
-| `AiAnalysis` | 任意（`undefined` 可）。`undefined` = 未生成、`null` = 生成失敗、`string` = 生成済み。文字列の場合は空文字不可（最大 2000 文字） |
+| `AiAnalysis` | 任意（`undefined` 可）。型は `string \| null`。`null` = 生成失敗（明示的に記録する唯一の特殊状態）。フィールド不在（`undefined`）= 未生成（追跡不要なデフォルト、`UpdatedAt` タイムスタンプで補足検知可能）。文字列の場合は空文字不可（最大 2000 文字） |
 
 ### 状態遷移
 
 ```
 [初回バッチ実行]
-  → AiAnalysis = undefined（AI 処理スキップまたはまだ実行前）
-  ※ UpdatedAt タイムスタンプで未生成かどうかを補足検知可能
+  → AiAnalysis = undefined（フィールド不在 = 未生成のデフォルト状態）
+  ※ UpdatedAt タイムスタンプで最終バッチ実行日時を補足検知可能
 
 [AI 解析生成成功]
   → AiAnalysis = "解析テキスト..."
 
 [AI 解析生成失敗]
-  → AiAnalysis = null（ログ記録 + 明示的失敗フラグ）
+  → AiAnalysis = null（ログ記録 + 生成失敗を明示記録）
 
 [次回バッチ実行 - 再生成条件]
   → AiAnalysis が undefined または null の場合のみ再生成を試みる

@@ -46,7 +46,7 @@
 *フェーズ0の調査前チェック: ✅ 通過*  
 *フェーズ1の設計後チェック: ✅ 通過*
 
-- [x] **TypeScript 型安全性 (I)**: strict mode 維持、`AiAnalysis` の型定義は `core/src/entities/` に集約。`AiAnalysis?: string | null` として 3 値状態（`undefined` = 未生成、`null` = 生成失敗、`string` = 生成済み）を型安全に表現。アクセス修飾子はクラスメンバーに明示。
+- [x] **TypeScript 型安全性 (I)**: strict mode 維持、`AiAnalysis` の型定義は `core/src/entities/` に集約。`AiAnalysis?: string | null` として生成失敗（`null`）を明示的に記録する型安全な設計。`null` = 生成失敗（唯一の特殊状態）、フィールド不在（`undefined`）= 未生成のデフォルト。アクセス修飾子はクラスメンバーに明示。
 - [x] **アーキテクチャ・レイヤー分離 (II)**: `AiAnalysisInput` 型・`generateAiAnalysis` 関数は `batch/src/lib/` に配置（core は汚染しない）。`DailySummaryEntity` への追加は core の責務として正当。`batch → core` の一方向依存を維持。`web → core` の一方向依存も維持。
 - [x] **コード品質・Lint・フォーマット (III)**: 既存の ESLint・Prettier 設定を継承。エラーメッセージは `ERROR_MESSAGES` 定数オブジェクトで管理。日本語エラーメッセージ。
 - [x] **テスト戦略 (IV)**: `openai-client.ts` のユニットテストを `batch/tests/unit/lib/` に追加。OpenAI のモックを使用。`summary.ts` のテストを更新し `generateAiAnalysisFn` をモック注入。カバレッジ 80% 以上を維持。
