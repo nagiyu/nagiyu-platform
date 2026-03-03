@@ -106,7 +106,7 @@ test.describe('個人リスト管理', () => {
       await route.fulfill({ json: { data: target } });
     });
 
-    await page.goto('/lists/list-default');
+    await page.goto('/lists/mock-default-list');
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeVisible();
   });
 
