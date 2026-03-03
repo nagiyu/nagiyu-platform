@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import PersonalListDetailPage from '@/app/lists/[listId]/page';
+import { headers } from 'next/headers';
 
 jest.mock('@/components/Navigation', () => ({
   Navigation: () => <div>Navigation</div>,
@@ -10,8 +11,46 @@ jest.mock('@/components/ListWorkspace', () => ({
   ListWorkspace: () => <div>ListWorkspace</div>,
 }));
 
+jest.mock('next/headers', () => ({
+  headers: jest.fn(),
+}));
+
 describe('PersonalListDetailPage', () => {
+  let originalFetch: typeof globalThis.fetch | undefined;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    (headers as jest.Mock).mockResolvedValue({
+      get: (key: string) => (key === 'host' ? 'localhost:3000' : null),
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: originalFetch,
+    });
+  });
+
   it('リスト詳細ページに ListWorkspace をモック表示する', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          listId: 'mock-work-list',
+          name: '仕事',
+          ownerUserId: 'user-1',
+          isDefault: false,
+          createdAt: '2025-01-01T00:00:00.000Z',
+        },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
     render(
       await PersonalListDetailPage({
         params: Promise.resolve({ listId: 'mock-work-list' }),
@@ -19,21 +58,32 @@ describe('PersonalListDetailPage', () => {
     );
 
     expect(screen.getByText('Navigation')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1, name: '仕事（モック）' })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('http://localhost:3000/api/lists/mock-work-list', {
+      cache: 'no-store',
+    });
+    expect(screen.getByRole('heading', { level: 1, name: '仕事' })).toBeInTheDocument();
     expect(screen.getByText('リストID: mock-work-list')).toBeInTheDocument();
     expect(screen.getByText('ListWorkspace')).toBeInTheDocument();
   });
 
-  it('未定義の listId の場合はフォールバック名を表示する', async () => {
+  it('API取得に失敗した場合はフォールバック名を表示する', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
     render(
       await PersonalListDetailPage({
         params: Promise.resolve({ listId: 'unknown-list' }),
       })
     );
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: '個人リスト（モック）' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: '個人リスト' })).toBeInTheDocument();
     expect(screen.getByText('リストID: unknown-list')).toBeInTheDocument();
   });
 });
