@@ -36,14 +36,19 @@ describe('InvitationBadge', () => {
   });
 
   it('API取得に失敗した場合はエラーログを出力する', async () => {
-    global.fetch = jest.fn(() => Promise.resolve({ ok: false, status: 500 } as Response)) as jest.Mock;
+    global.fetch = jest.fn(() =>
+      Promise.resolve({ ok: false, status: 500 } as Response)
+    ) as jest.Mock;
 
     render(<InvitationBadge />);
 
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith('招待バッジの取得に失敗しました', expect.any(Object));
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '招待バッジの取得に失敗しました',
+      expect.any(Object)
+    );
     expect(screen.getByText('0')).toBeInTheDocument();
   });
 
@@ -55,7 +60,10 @@ describe('InvitationBadge', () => {
     await waitFor(() => {
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith('招待バッジの取得に失敗しました', expect.any(Object));
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '招待バッジの取得に失敗しました',
+      expect.any(Object)
+    );
     expect(screen.getByText('0')).toBeInTheDocument();
   });
 });
