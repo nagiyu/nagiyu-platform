@@ -15,6 +15,7 @@ describe('ERROR_MESSAGES', () => {
       TODO_TITLE_INVALID: 'ToDoのタイトルは1〜200文字で入力してください',
       UPDATE_FIELDS_REQUIRED: '更新内容が指定されていません',
       TODO_NOT_FOUND: 'ToDoが見つかりません',
+      PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
       LIST_NAME_INVALID: 'リスト名は1〜100文字で入力してください',
       DYNAMODB_TABLE_NAME_REQUIRED: '環境変数 DYNAMODB_TABLE_NAME の設定が必要です',
       DEFAULT_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
