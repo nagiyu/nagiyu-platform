@@ -186,7 +186,7 @@ export async function DELETE(
 
     const todoService = createTodoService();
     await todoService.deleteTodo(listId, todoId);
-    return NextResponse.json(null, { status: 204 });
+    return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (isValidationError(error)) {
       return createValidationErrorResponse();

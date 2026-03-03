@@ -1,11 +1,28 @@
-jest.mock('next/server', () => ({
-  NextResponse: {
-    json: (body: unknown, init?: { status?: number }) => ({
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
-  },
-}));
+jest.mock('next/server', () => {
+  class MockNextResponse {
+    public status: number;
+    private readonly body: unknown;
+
+    constructor(body?: unknown, init?: { status?: number }) {
+      this.status = init?.status ?? 200;
+      this.body = body;
+    }
+
+    public static json(body: unknown, init?: { status?: number }): MockNextResponse {
+      if (init?.status === 204) {
+        throw new TypeError('Response constructor: Invalid response status code 204');
+      }
+
+      return new MockNextResponse(body, init);
+    }
+
+    public async json(): Promise<unknown> {
+      return this.body;
+    }
+  }
+
+  return { NextResponse: MockNextResponse };
+});
 
 jest.mock('@/lib/auth/session', () => ({
   getSessionOrUnauthorized: jest.fn(),
