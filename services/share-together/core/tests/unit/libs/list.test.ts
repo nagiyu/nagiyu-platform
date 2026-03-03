@@ -19,6 +19,7 @@ describe('ListService', () => {
       updateGroupList: jest.fn(),
       deleteGroupList: jest.fn(),
     };
+    listRepository.getPersonalListsByUserId.mockResolvedValue([]);
     listService = new ListService(listRepository);
   });
 
@@ -46,6 +47,31 @@ describe('ListService', () => {
   it('リスト名が空文字の場合はバリデーションエラーになる', async () => {
     await expect(listService.createPersonalList('user-1', '   ')).rejects.toThrow(
       'リスト名は1〜100文字で入力してください'
+    );
+    expect(listRepository.createPersonalList).not.toHaveBeenCalled();
+  });
+
+  it('リスト名が101文字の場合はバリデーションエラーになる', async () => {
+    await expect(listService.createPersonalList('user-1', 'あ'.repeat(101))).rejects.toThrow(
+      'リスト名は1〜100文字で入力してください'
+    );
+    expect(listRepository.createPersonalList).not.toHaveBeenCalled();
+  });
+
+  it('個人リストが100件ある場合は新規作成できない', async () => {
+    listRepository.getPersonalListsByUserId.mockResolvedValue(
+      Array.from({ length: 100 }, (_, index) => ({
+        listId: `list-${index + 1}`,
+        userId: 'user-1',
+        name: `リスト${index + 1}`,
+        isDefault: index === 0,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }))
+    );
+
+    await expect(listService.createPersonalList('user-1', '新規リスト')).rejects.toThrow(
+      '個人リストは100件まで作成できます'
     );
     expect(listRepository.createPersonalList).not.toHaveBeenCalled();
   });
