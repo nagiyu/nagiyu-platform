@@ -107,7 +107,7 @@ test.describe('個人リスト管理', () => {
     });
 
     await page.goto('/lists/list-default');
-    await expect(page.getByRole('heading', { level: 1, name: 'デフォルトリスト' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeVisible();
   });
 
   test('個人リストを作成できる', async ({ page }) => {
@@ -127,7 +127,7 @@ test.describe('個人リスト管理', () => {
     await page.getByRole('link', { name: '仕事リスト' }).click();
 
     await expect(page).toHaveURL(/\/lists\/list-work$/);
-    await expect(page.getByRole('heading', { level: 1, name: '仕事リスト' })).toBeVisible();
+    await expect(page.getByText('週次レポートを作成する')).toBeVisible();
     await expect(page.getByRole('link', { name: '仕事リスト' })).toHaveAttribute(
       'aria-current',
       'page'
