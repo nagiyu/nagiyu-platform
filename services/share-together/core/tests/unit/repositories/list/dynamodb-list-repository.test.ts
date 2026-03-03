@@ -286,4 +286,188 @@ describe('DynamoDBListRepository', () => {
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('getGroupListsByGroupId', () => {
+    it('グループIDで共有リスト一覧を取得できる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'GROUP#group-1',
+            SK: 'GLIST#list-1',
+            listId: 'list-1',
+            groupId: 'group-1',
+            name: '共有リスト1',
+            createdBy: 'user-1',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      });
+
+      const result = await repository.getGroupListsByGroupId('group-1');
+      const command = mockDocClient.send.mock.calls[0]?.[0] as QueryCommand;
+
+      expect(result).toEqual([
+        {
+          listId: 'list-1',
+          groupId: 'group-1',
+          name: '共有リスト1',
+          createdBy: 'user-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      ]);
+      expect(command.input).toEqual({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': 'GROUP#group-1',
+          ':skPrefix': 'GLIST#',
+        },
+      });
+    });
+  });
+
+  describe('getGroupListById', () => {
+    it('グループIDとリストIDで共有リストを取得できる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Item: {
+          PK: 'GROUP#group-1',
+          SK: 'GLIST#list-1',
+          listId: 'list-1',
+          groupId: 'group-1',
+          name: '共有リスト1',
+          createdBy: 'user-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+        },
+      });
+
+      const result = await repository.getGroupListById('group-1', 'list-1');
+      const command = mockDocClient.send.mock.calls[0]?.[0] as GetCommand;
+
+      expect(result).toEqual({
+        listId: 'list-1',
+        groupId: 'group-1',
+        name: '共有リスト1',
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      });
+      expect(command.input).toEqual({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: 'GROUP#group-1',
+          SK: 'GLIST#list-1',
+        },
+      });
+    });
+  });
+
+  describe('createGroupList', () => {
+    it('共有リストを作成できる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+
+      const result = await repository.createGroupList({
+        listId: 'list-3',
+        groupId: 'group-1',
+        name: '新しい共有リスト',
+        createdBy: 'user-1',
+      });
+      const command = mockDocClient.send.mock.calls[0]?.[0] as PutCommand;
+
+      expect(result).toMatchObject({
+        listId: 'list-3',
+        groupId: 'group-1',
+        name: '新しい共有リスト',
+        createdBy: 'user-1',
+      });
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        Item: {
+          PK: 'GROUP#group-1',
+          SK: 'GLIST#list-3',
+          listId: 'list-3',
+          groupId: 'group-1',
+          name: '新しい共有リスト',
+          createdBy: 'user-1',
+        },
+        ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+      });
+      expect(typeof result.createdAt).toBe('string');
+      expect(typeof result.updatedAt).toBe('string');
+    });
+  });
+
+  describe('updateGroupList', () => {
+    it('共有リスト名を更新できる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: {
+          PK: 'GROUP#group-1',
+          SK: 'GLIST#list-1',
+          listId: 'list-1',
+          groupId: 'group-1',
+          name: '更新後共有リスト',
+          createdBy: 'user-1',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-03T00:00:00.000Z',
+        },
+      });
+
+      const result = await repository.updateGroupList('group-1', 'list-1', {
+        name: '更新後共有リスト',
+      });
+      const command = mockDocClient.send.mock.calls[0]?.[0] as UpdateCommand;
+
+      expect(result).toEqual({
+        listId: 'list-1',
+        groupId: 'group-1',
+        name: '更新後共有リスト',
+        createdBy: 'user-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-03T00:00:00.000Z',
+      });
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: 'GROUP#group-1',
+          SK: 'GLIST#list-1',
+        },
+        UpdateExpression: 'SET #updatedAt = :updatedAt, #name = :name',
+        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+        ExpressionAttributeNames: {
+          '#updatedAt': 'updatedAt',
+          '#name': 'name',
+        },
+        ExpressionAttributeValues: {
+          ':name': '更新後共有リスト',
+        },
+        ReturnValues: 'ALL_NEW',
+      });
+      expect(command.input.ExpressionAttributeValues).toMatchObject({
+        ':updatedAt': expect.any(String),
+      });
+    });
+  });
+
+  describe('deleteGroupList', () => {
+    it('共有リストを削除できる', async () => {
+      mockDocClient.send.mockResolvedValueOnce({});
+
+      await repository.deleteGroupList('group-1', 'list-2');
+
+      const command = mockDocClient.send.mock.calls[0]?.[0] as DeleteCommand;
+      expect(command.input).toEqual({
+        TableName: TABLE_NAME,
+        Key: {
+          PK: 'GROUP#group-1',
+          SK: 'GLIST#list-2',
+        },
+      });
+    });
+  });
 });
