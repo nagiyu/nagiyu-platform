@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { DailySummaryEntity, ExchangeEntity, TickerEntity } from '@nagiyu/stock-tracker-core';
+import {
+  DailySummaryMapper,
+  type DailySummaryEntity,
+  type ExchangeEntity,
+  type PatternDetailResponse,
+  type TickerEntity,
+} from '@nagiyu/stock-tracker-core';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import {
@@ -22,6 +28,9 @@ interface TickerSummaryResponse {
   low: number;
   close: number;
   updatedAt: string;
+  buyPatternCount: number;
+  sellPatternCount: number;
+  patternDetails: PatternDetailResponse[];
 }
 
 interface ExchangeSummaryGroupResponse {
@@ -56,6 +65,8 @@ function resolveTicker(
   return tickerMap.get(summary.TickerID) ?? null;
 }
 
+const dailySummaryMapper = new DailySummaryMapper();
+
 function toTickerSummaryResponse(
   summary: DailySummaryEntity,
   tickerMap: Map<string, TickerEntity>
@@ -71,6 +82,7 @@ function toTickerSummaryResponse(
     low: summary.Low,
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
+    ...dailySummaryMapper.toTickerSummaryResponse(summary),
   };
 }
 
