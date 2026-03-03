@@ -31,8 +31,11 @@ libs/
 services/          # アプリケーション
 ```
 
-**依存関係の一方向性**: `ui → browser → common`（循環依存禁止）  
-補足: `react` と `nextjs` は `common` に依存、`aws` はモノレポ内ライブラリに依存しない
+**依存関係の一方向性**: `ui → browser → common`（循環依存禁止）
+補足:
+
+- `react` と `nextjs` は `common` に依存
+- `aws` はモノレポ内ライブラリに依存しない
 
 ---
 
