@@ -10,7 +10,7 @@ jest.mock('next/server', () => {
 
     public static json(body: unknown, init?: { status?: number }): MockNextResponse {
       if (init?.status === 204) {
-        throw new TypeError('Response constructor: Invalid response status code 204');
+        throw new TypeError('Response constructor: ステータスコード 204 は無効です');
       }
 
       return new MockNextResponse(body, init);

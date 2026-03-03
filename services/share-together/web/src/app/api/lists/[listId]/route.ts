@@ -9,7 +9,7 @@ interface RouteContext {
   params: Promise<{ listId: string }>;
 }
 
-const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set(['個人リストが見つかりません']);
+const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND]);
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,
   ERROR_MESSAGES.LIST_ID_REQUIRED,
