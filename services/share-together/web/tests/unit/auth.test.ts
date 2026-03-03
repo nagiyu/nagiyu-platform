@@ -37,4 +37,24 @@ describe('authConfig', () => {
       expect(reloadedAuthConfig.secret).toBe('test-auth-secret');
     });
   });
+
+  it('NODE_ENV=production の場合は .dev サフィックス付きクッキー名を利用する', () => {
+    process.env.NODE_ENV = 'production';
+
+    jest.isolateModules(() => {
+      const { authConfig: reloadedAuthConfig } =
+        jest.requireActual<typeof import('../../auth')>('../../auth');
+      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token.dev');
+    });
+  });
+
+  it('NODE_ENV=prod の場合はサフィックスなしクッキー名を利用する', () => {
+    process.env.NODE_ENV = 'prod';
+
+    jest.isolateModules(() => {
+      const { authConfig: reloadedAuthConfig } =
+        jest.requireActual<typeof import('../../auth')>('../../auth');
+      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
+    });
+  });
 });
