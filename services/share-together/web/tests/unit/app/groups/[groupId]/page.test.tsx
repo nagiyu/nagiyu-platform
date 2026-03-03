@@ -160,7 +160,9 @@ describe('GroupDetailPage', () => {
     render(<GroupDetailPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('ユーザーIDが取得できませんでした。再度ログインしてください。')).toBeInTheDocument();
+      expect(
+        screen.getByText('ユーザーIDが取得できませんでした。再度ログインしてください。')
+      ).toBeInTheDocument();
     });
   });
 });

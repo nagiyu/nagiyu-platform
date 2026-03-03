@@ -10,7 +10,7 @@ const MOCK_MEMBERS = [
 
 describe('GroupDetailClient', () => {
   beforeEach(() => {
-    global.fetch = jest.fn(async () => ({ ok: true } as Response));
+    global.fetch = jest.fn(async () => ({ ok: true }) as Response);
   });
 
   afterEach(() => {

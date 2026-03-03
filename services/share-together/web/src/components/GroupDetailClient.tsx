@@ -33,7 +33,8 @@ type GroupDetailClientProps = {
 
 const ERROR_MESSAGES = {
   OPERATION_FAILED: '操作に失敗しました。',
-  LEAVE_REQUIRES_RELOAD: '脱退処理を実行できませんでした。ページを再読み込みしてから再度お試しください。',
+  LEAVE_REQUIRES_RELOAD:
+    '脱退処理を実行できませんでした。ページを再読み込みしてから再度お試しください。',
 } as const;
 
 export function GroupDetailClient({
@@ -83,7 +84,9 @@ export function GroupDetailClient({
     setIsSubmitting(true);
     try {
       if (type === 'deleteMember' && targetId) {
-        const response = await fetch(`/api/groups/${groupId}/members/${targetId}`, { method: 'DELETE' });
+        const response = await fetch(`/api/groups/${groupId}/members/${targetId}`, {
+          method: 'DELETE',
+        });
         if (!response.ok) {
           throw new Error(await getErrorMessage(response));
         }
@@ -110,9 +113,7 @@ export function GroupDetailClient({
       }
       setConfirmDialog({ open: false, type: 'deleteMember' });
     } catch (error) {
-      setSnackbarMessage(
-        error instanceof Error ? error.message : ERROR_MESSAGES.OPERATION_FAILED
-      );
+      setSnackbarMessage(error instanceof Error ? error.message : ERROR_MESSAGES.OPERATION_FAILED);
     } finally {
       setIsSubmitting(false);
     }
