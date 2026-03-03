@@ -208,7 +208,16 @@ describe('TodoList', () => {
             },
           }),
         } as Response)
-        .mockImplementationOnce(() => deleteRequestPromise);
+        .mockImplementationOnce(() => deleteRequestPromise)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todos: [{ todoId: 'api-todo-2', title: 'API ToDo 2', isCompleted: false }],
+            },
+          }),
+        } as Response);
       Object.defineProperty(globalThis, 'fetch', {
         writable: true,
         value: fetchMock,
