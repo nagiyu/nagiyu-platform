@@ -39,9 +39,6 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
 
   const { groupId } = await params;
   const userId = sessionOrUnauthorized.user.id;
-  if (groupId.length === 0 || typeof userId !== 'string' || userId.length === 0) {
-    return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.VALIDATION_ERROR, 400);
-  }
 
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
@@ -104,14 +101,16 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       return createErrorResponse('VALIDATION_ERROR', ERROR_MESSAGES.LIST_NAME_INVALID, 400);
     }
 
-    const list: GroupList = await authorizedContextOrResponse.listRepository.createGroupList({
-      listId: crypto.randomUUID(),
-      groupId: authorizedContextOrResponse.groupId,
-      name,
-      createdBy: authorizedContextOrResponse.userId,
-    });
+    const createdList: GroupList = await authorizedContextOrResponse.listRepository.createGroupList(
+      {
+        listId: crypto.randomUUID(),
+        groupId: authorizedContextOrResponse.groupId,
+        name,
+        createdBy: authorizedContextOrResponse.userId,
+      }
+    );
 
-    return NextResponse.json({ data: list }, { status: 201 });
+    return NextResponse.json({ data: createdList }, { status: 201 });
   } catch (error) {
     console.error('グループ共有リスト作成 API の実行に失敗しました', {
       groupId: requestedGroupId,

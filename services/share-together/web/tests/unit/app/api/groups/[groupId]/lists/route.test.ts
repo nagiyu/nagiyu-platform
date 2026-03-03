@@ -35,13 +35,13 @@ const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
-type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
+type SessionOrErrorResponse = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
 describe('/api/groups/[groupId]/lists route', () => {
   const mockGetMembershipById = jest.fn();
   const mockGetGroupListsByGroupId = jest.fn();
   const mockCreateGroupList = jest.fn();
-  let randomUuidSpy: jest.SpiedFunction<typeof crypto.randomUUID> | null = null;
+  let mockRandomUUID: jest.SpiedFunction<typeof crypto.randomUUID> | undefined;
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
@@ -65,8 +65,8 @@ describe('/api/groups/[groupId]/lists route', () => {
 
   afterEach(() => {
     delete process.env.DYNAMODB_TABLE_NAME;
-    randomUuidSpy?.mockRestore();
-    randomUuidSpy = null;
+    mockRandomUUID?.mockRestore();
+    mockRandomUUID = undefined;
     jest.clearAllMocks();
   });
 
@@ -74,7 +74,7 @@ describe('/api/groups/[groupId]/lists route', () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       status: 401,
       json: async () => ({ error: { code: 'UNAUTHORIZED', message: '認証が必要です' } }),
-    } as SessionOrUnauthorized);
+    } as SessionOrErrorResponse);
 
     const response = await GET({} as Request, { params: Promise.resolve({ groupId: 'group-1' }) });
 
@@ -85,7 +85,7 @@ describe('/api/groups/[groupId]/lists route', () => {
   it('GET: 非メンバーの場合は403レスポンスを返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
-    } as SessionOrUnauthorized);
+    } as SessionOrErrorResponse);
     mockGetMembershipById.mockResolvedValue(null);
 
     const response = await GET({} as Request, { params: Promise.resolve({ groupId: 'group-1' }) });
@@ -102,7 +102,7 @@ describe('/api/groups/[groupId]/lists route', () => {
   it('GET: 共有リスト一覧を返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
-    } as SessionOrUnauthorized);
+    } as SessionOrErrorResponse);
     mockGetMembershipById.mockResolvedValue({
       groupId: 'group-1',
       userId: 'user-1',
@@ -139,10 +139,10 @@ describe('/api/groups/[groupId]/lists route', () => {
     });
   });
 
-  it('POST: name が不正な場合は400レスポンスを返す', async () => {
+  it('POST: name が空文字の場合は400レスポンスを返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
-    } as SessionOrUnauthorized);
+    } as SessionOrErrorResponse);
     mockGetMembershipById.mockResolvedValue({
       groupId: 'group-1',
       userId: 'user-1',
@@ -157,11 +157,29 @@ describe('/api/groups/[groupId]/lists route', () => {
     expect(mockCreateGroupList).not.toHaveBeenCalled();
   });
 
-  it('POST: 共有リストを作成して201レスポンスを返す', async () => {
-    randomUuidSpy = jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('list-9');
+  it('POST: name が101文字以上の場合は400レスポンスを返す', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
-    } as SessionOrUnauthorized);
+    } as SessionOrErrorResponse);
+    mockGetMembershipById.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'user-1',
+      status: 'ACCEPTED',
+    });
+
+    const response = await POST({ json: async () => ({ name: 'a'.repeat(101) }) } as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(mockCreateGroupList).not.toHaveBeenCalled();
+  });
+
+  it('POST: 共有リストを作成して201レスポンスを返す', async () => {
+    mockRandomUUID = jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('list-9');
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrErrorResponse);
     mockGetMembershipById.mockResolvedValue({
       groupId: 'group-1',
       userId: 'user-1',
