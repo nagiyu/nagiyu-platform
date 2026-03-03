@@ -1,7 +1,7 @@
 # 実装計画: Stock Tracker サマリー日足パターン分析
 
 **ブランチ**: `001-summary-pattern-analysis` | **日付**: 2026-03-01 | **仕様**: [spec.md](./spec.md)
-**入力**: `/specs/001-summary-pattern-analysis/spec.md` の機能仕様書
+**入力**: `/docs/services/stock-tracker/001-summary-pattern-analysis/spec.md` の機能仕様書
 
 ## 概要
 
@@ -38,7 +38,7 @@
 ### ドキュメント（本機能）
 
 ```text
-specs/001-summary-pattern-analysis/
+docs/services/stock-tracker/001-summary-pattern-analysis/
 ├── plan.md              # 本ファイル
 ├── research.md          # フェーズ0の出力
 ├── data-model.md        # フェーズ1の出力
