@@ -128,6 +128,21 @@ export interface PatternDefinition {
 export type PatternResults = Record<string, PatternStatus>;
 
 /**
+ * PatternResults のデフォルト値（バッチ未実行時）
+ */
+export const DEFAULT_PATTERN_RESULTS: PatternResults = {};
+
+/**
+ * 買いシグナル合致数のデフォルト値
+ */
+export const DEFAULT_BUY_PATTERN_COUNT = 0;
+
+/**
+ * 売りシグナル合致数のデフォルト値
+ */
+export const DEFAULT_SELL_PATTERN_COUNT = 0;
+
+/**
  * 保有株式 (Holding)
  *
  * ユーザーの保有株式情報

@@ -345,7 +345,7 @@ export interface TickerSummary {
 
 ---
 
-## 7. エラーハンドリング（未知 patternId の扱い）
+## 8. エラーハンドリング（未知 patternId の扱い）
 
 DynamoDB に保存された `PatternResults` に、現在の `PATTERN_REGISTRY` に存在しない `patternId` キーが含まれる場合（将来パターンが削除・改名された場合など）の処理方針：
 

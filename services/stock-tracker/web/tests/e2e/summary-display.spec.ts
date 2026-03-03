@@ -138,6 +138,22 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(sellArea.getByTestId('pattern-status-evening-star')).toHaveText('-');
     await expect(buyArea.getByTestId('pattern-status-morning-star')).toHaveText('✓');
     await expect(sellArea.getByText('理由: データ不足')).toBeVisible();
+
+    // SC-004: 一覧の買い件数とダイアログのMATCHED BUYパターン数が一致すること
+    const buyCountInList = await page.getByTestId('buy-signal-TEST:AAA').textContent();
+    const matchedBuyRows = await buyArea
+      .locator('[data-testid^="pattern-status-"]')
+      .filter({ hasText: '✓' })
+      .count();
+    expect(Number(buyCountInList ?? '0')).toBe(matchedBuyRows);
+
+    // SC-004: 一覧の売り件数とダイアログのMATCHED SELLパターン数が一致すること
+    const sellCountInList = await page.getByTestId('sell-signal-TEST:AAA').textContent();
+    const matchedSellRows = await sellArea
+      .locator('[data-testid^="pattern-status-"]')
+      .filter({ hasText: '✓' })
+      .count();
+    expect(Number(sellCountInList ?? '0')).toBe(matchedSellRows);
   });
 
   test('サマリーページの基本要素が表示される', async ({ page }) => {
