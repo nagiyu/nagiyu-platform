@@ -19,6 +19,7 @@ import type {
   DailySummaryRepository,
   ExchangeEntity,
   ExchangeRepository,
+  PatternResults,
   TickerRepository,
 } from '@nagiyu/stock-tracker-core';
 
@@ -125,7 +126,7 @@ async function processExchange(
                     pattern.definition.patternId,
                     'INSUFFICIENT_DATA',
                   ])
-                ),
+                ) as PatternResults,
                 buyPatternCount: 0,
                 sellPatternCount: 0,
               }
