@@ -5,6 +5,7 @@ const ERROR_MESSAGES = {
   USER_ID_REQUIRED: 'ユーザーIDは必須です',
   LIST_ID_REQUIRED: 'リストIDは必須です',
   LIST_NAME_INVALID: 'リスト名は1〜100文字で入力してください',
+  PERSONAL_LIST_LIMIT_EXCEEDED: '個人リストは100件まで作成できます',
   PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
   DEFAULT_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
 } as const;
@@ -45,6 +46,11 @@ export class ListService {
   ): Promise<PersonalList> {
     this.assertRequiredValue(userId, ERROR_MESSAGES.USER_ID_REQUIRED);
     const normalizedName = this.normalizeListName(name);
+    const existingLists = await this.listRepository.getPersonalListsByUserId(userId);
+
+    if (existingLists.length >= 100) {
+      throw new Error(ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED);
+    }
 
     return this.listRepository.createPersonalList({
       listId: crypto.randomUUID(),
