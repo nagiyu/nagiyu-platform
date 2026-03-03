@@ -160,13 +160,9 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isApiMode || !listId) {
-      return;
-    }
-
+  const fetchTodos = (targetListId: string) => {
     void globalThis
-      .fetch(createTodosApiPath(listId))
+      .fetch(createTodosApiPath(targetListId))
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
@@ -175,9 +171,17 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
         setTodos(result.data.todos.map(toDisplayTodo));
       })
       .catch((error: unknown) => {
-        console.error(ERROR_MESSAGES.TODOS_FETCH_FAILED, { error, listId });
+        console.error(ERROR_MESSAGES.TODOS_FETCH_FAILED, { error, listId: targetListId });
         setSnackbarMessage(ERROR_MESSAGES.TODOS_FETCH_FAILED_NOTICE);
       });
+  };
+
+  useEffect(() => {
+    if (!isApiMode || !listId) {
+      return;
+    }
+
+    fetchTodos(listId);
   }, [isApiMode, listId]);
 
   const handleToggleComplete = (todoId: string) => {
@@ -233,6 +237,7 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
               throw new Error(`status: ${response.status}`);
             }
             setTodos((prev) => prev.filter((todo) => todo.todoId !== deleteTargetId));
+            fetchTodos(listId);
             setSnackbarMessage('ToDoを削除しました。');
           })
           .catch((error: unknown) => {
