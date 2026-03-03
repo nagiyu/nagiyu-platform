@@ -224,6 +224,10 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
     if (pendingDeleteId) {
       if (isApiMode && listId) {
         const deleteTargetId = pendingDeleteId;
+        const deleteTargetIndex = todos.findIndex((todo) => todo.todoId === deleteTargetId);
+        const deletedTodo = deleteTargetIndex >= 0 ? todos[deleteTargetIndex] : null;
+        setTodos((prev) => prev.filter((todo) => todo.todoId !== deleteTargetId));
+        setPendingDeleteId(null);
         void globalThis
           .fetch(createTodosApiPath(listId, deleteTargetId), {
             method: 'DELETE',
@@ -232,7 +236,6 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
             if (!response.ok) {
               throw new Error(`status: ${response.status}`);
             }
-            setTodos((prev) => prev.filter((todo) => todo.todoId !== deleteTargetId));
             setSnackbarMessage('ToDoを削除しました。');
           })
           .catch((error: unknown) => {
@@ -241,9 +244,16 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
               listId,
               todoId: deleteTargetId,
             });
-          })
-          .finally(() => {
-            setPendingDeleteId(null);
+            if (deletedTodo) {
+              setTodos((prev) => {
+                if (prev.some((todo) => todo.todoId === deletedTodo.todoId)) {
+                  return prev;
+                }
+                const nextTodos = [...prev];
+                nextTodos.splice(Math.min(deleteTargetIndex, nextTodos.length), 0, deletedTodo);
+                return nextTodos;
+              });
+            }
           });
         return;
       }
