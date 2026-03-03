@@ -187,7 +187,7 @@ describe('TodoList', () => {
     }
   });
 
-  it('apiEnabled が true の場合は API 応答前に ToDo 削除を即時に一覧へ反映する', async () => {
+  it('apiEnabled が true の場合は ToDo 削除成功後に一覧へ反映する', async () => {
     const originalFetch = globalThis.fetch;
     let resolveDeleteRequest: ((value: Response) => void) | undefined;
     try {
@@ -227,9 +227,6 @@ describe('TodoList', () => {
       fireEvent.click(screen.getAllByRole('button', { name: '削除' })[0]);
       fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '削除' }));
 
-      expect(screen.queryByText('API ToDo 1')).not.toBeInTheDocument();
-      expect(screen.getByText('API ToDo 2')).toBeInTheDocument();
-
       resolveDeleteRequest?.({ ok: true, status: 204 } as Response);
 
       await waitFor(() => {
@@ -237,6 +234,68 @@ describe('TodoList', () => {
           method: 'DELETE',
         });
       });
+      await waitFor(() => {
+        expect(screen.queryByText('API ToDo 1')).not.toBeInTheDocument();
+      });
+      expect(screen.getByText('API ToDo 2')).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
+  });
+
+  it('apiEnabled が true の場合は ToDo 削除失敗時に一覧を変更しない', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const fetchMock = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todos: [
+                { todoId: 'api-todo-1', title: 'API ToDo 1', isCompleted: false },
+                { todoId: 'api-todo-2', title: 'API ToDo 2', isCompleted: false },
+              ],
+            },
+          }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+        } as Response);
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+
+      render(<TodoList listId="api-list" apiEnabled />);
+
+      await waitFor(() => {
+        expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getAllByRole('button', { name: '削除' })[0]);
+      fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: '削除' }));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos/api-todo-1', {
+          method: 'DELETE',
+        });
+      });
+      expect(screen.getByText('API ToDo 1')).toBeInTheDocument();
+      expect(screen.getByText('API ToDo 2')).toBeInTheDocument();
     } finally {
       Object.defineProperty(globalThis, 'fetch', {
         writable: true,
