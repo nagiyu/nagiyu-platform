@@ -52,7 +52,7 @@ export default async function PersonalListDetailPage({
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           リストID: {listId}
         </Typography>
-        <ListWorkspace initialListId={listId} />
+        <ListWorkspace initialListId={listId} enablePersonalListApi />
       </Box>
     </main>
   );

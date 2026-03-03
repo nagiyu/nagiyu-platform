@@ -28,9 +28,13 @@ const PERSONAL_LIST_IDS = new Set<string>(MOCK_PERSONAL_LISTS.map((list) => list
 
 type ListWorkspaceProps = {
   initialListId: string;
+  enablePersonalListApi?: boolean;
 };
 
-export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
+export function ListWorkspace({
+  initialListId,
+  enablePersonalListApi = false,
+}: ListWorkspaceProps) {
   const initialSharedGroupId =
     Object.entries(MOCK_SHARED_LISTS_BY_GROUP).find(([, lists]) =>
       lists.some((list) => list.listId === initialListId)
@@ -117,7 +121,12 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
             selectedListId={currentListId}
             lists={sidebarLists}
             hrefPrefix="/lists"
-            onCreateList={() => setCreateDialogOpen(true)}
+            onCreateList={
+              scope === 'personal' && enablePersonalListApi
+                ? undefined
+                : () => setCreateDialogOpen(true)
+            }
+            apiEnabled={scope === 'personal' && enablePersonalListApi}
           />
         </Stack>
       </Box>
