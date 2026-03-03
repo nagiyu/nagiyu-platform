@@ -17,13 +17,16 @@ import type {
 import type { ListRepository } from './list-repository.interface.js';
 
 const PERSONAL_LIST_SK_PREFIX = 'PLIST#';
+const GROUP_LIST_SK_PREFIX = 'GLIST#';
 
 const ERROR_MESSAGES = {
   INVALID_PERSONAL_LIST_DATA: '個人リスト情報の形式が不正です',
+  INVALID_GROUP_LIST_DATA: 'グループリスト情報の形式が不正です',
   PERSONAL_LIST_ALREADY_EXISTS: '個人リストは既に存在します',
+  GROUP_LIST_ALREADY_EXISTS: 'グループリストは既に存在します',
   PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
+  GROUP_LIST_NOT_FOUND: 'グループリストが見つかりません',
   DEFAULT_PERSONAL_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
-  NOT_IMPLEMENTED: 'この操作は未実装です',
 } as const;
 
 export class DynamoDBListRepository implements ListRepository {
@@ -114,7 +117,7 @@ export class DynamoDBListRepository implements ListRepository {
   ): Promise<PersonalList> {
     const now = new Date().toISOString();
     const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
-    const values: Record<string, string> = { ':updatedAt': now };
+    const values: Record<string, unknown> = { ':updatedAt': now };
     const setExpressions: string[] = ['#updatedAt = :updatedAt'];
 
     if (updates.name !== undefined) {
@@ -167,28 +170,126 @@ export class DynamoDBListRepository implements ListRepository {
     );
   }
 
-  public async getGroupListsByGroupId(_groupId: string): Promise<GroupList[]> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async getGroupListsByGroupId(groupId: string): Promise<GroupList[]> {
+    const result = await this.docClient.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        KeyConditionExpression: '#pk = :pk AND begins_with(#sk, :skPrefix)',
+        ExpressionAttributeNames: {
+          '#pk': 'PK',
+          '#sk': 'SK',
+        },
+        ExpressionAttributeValues: {
+          ':pk': this.buildGroupPk(groupId),
+          ':skPrefix': GROUP_LIST_SK_PREFIX,
+        },
+      })
+    );
+
+    if (!result.Items) {
+      return [];
+    }
+
+    return result.Items.map((item) => this.toGroupList(item as Record<string, unknown>));
   }
 
-  public async getGroupListById(_groupId: string, _listId: string): Promise<GroupList | null> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async getGroupListById(groupId: string, listId: string): Promise<GroupList | null> {
+    const result = await this.docClient.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: this.buildGroupPk(groupId),
+          SK: this.buildGroupListSk(listId),
+        },
+      })
+    );
+
+    if (!result.Item) {
+      return null;
+    }
+
+    return this.toGroupList(result.Item as Record<string, unknown>);
   }
 
-  public async createGroupList(_input: CreateGroupListInput): Promise<GroupList> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async createGroupList(input: CreateGroupListInput): Promise<GroupList> {
+    const now = new Date().toISOString();
+    const item = {
+      PK: this.buildGroupPk(input.groupId),
+      SK: this.buildGroupListSk(input.listId),
+      listId: input.listId,
+      groupId: input.groupId,
+      name: input.name,
+      createdBy: input.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      await this.docClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: item,
+          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+        })
+      );
+    } catch (error) {
+      if (this.isConditionalCheckFailed(error)) {
+        throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS);
+      }
+      throw error;
+    }
+
+    return this.toGroupList(item);
   }
 
   public async updateGroupList(
-    _groupId: string,
-    _listId: string,
-    _updates: UpdateGroupListInput
+    groupId: string,
+    listId: string,
+    updates: UpdateGroupListInput
   ): Promise<GroupList> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+    const now = new Date().toISOString();
+    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
+    const values: Record<string, unknown> = { ':updatedAt': now };
+    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
+
+    if (updates.name !== undefined) {
+      names['#name'] = 'name';
+      values[':name'] = updates.name;
+      setExpressions.push('#name = :name');
+    }
+
+    const result = await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: this.buildGroupPk(groupId),
+          SK: this.buildGroupListSk(listId),
+        },
+        UpdateExpression: `SET ${setExpressions.join(', ')}`,
+        ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+        ExpressionAttributeNames: names,
+        ExpressionAttributeValues: values,
+        ReturnValues: 'ALL_NEW',
+      })
+    );
+
+    if (!result.Attributes) {
+      throw new Error(ERROR_MESSAGES.GROUP_LIST_NOT_FOUND);
+    }
+
+    return this.toGroupList(result.Attributes as Record<string, unknown>);
   }
 
-  public async deleteGroupList(_groupId: string, _listId: string): Promise<void> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async deleteGroupList(groupId: string, listId: string): Promise<void> {
+    await this.docClient.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: this.buildGroupPk(groupId),
+          SK: this.buildGroupListSk(listId),
+        },
+      })
+    );
   }
 
   private buildUserPk(userId: string): string {
@@ -197,6 +298,14 @@ export class DynamoDBListRepository implements ListRepository {
 
   private buildPersonalListSk(listId: string): string {
     return `${PERSONAL_LIST_SK_PREFIX}${listId}`;
+  }
+
+  private buildGroupPk(groupId: string): string {
+    return `GROUP#${groupId}`;
+  }
+
+  private buildGroupListSk(listId: string): string {
+    return `${GROUP_LIST_SK_PREFIX}${listId}`;
   }
 
   private isConditionalCheckFailed(error: unknown): boolean {
@@ -232,6 +341,35 @@ export class DynamoDBListRepository implements ListRepository {
       userId,
       name,
       isDefault,
+      createdAt,
+      updatedAt,
+    };
+  }
+
+  private toGroupList(item: Record<string, unknown>): GroupList {
+    const listId = item['listId'];
+    const groupId = item['groupId'];
+    const name = item['name'];
+    const createdBy = item['createdBy'];
+    const createdAt = item['createdAt'];
+    const updatedAt = item['updatedAt'];
+
+    if (
+      typeof listId !== 'string' ||
+      typeof groupId !== 'string' ||
+      typeof name !== 'string' ||
+      typeof createdBy !== 'string' ||
+      typeof createdAt !== 'string' ||
+      typeof updatedAt !== 'string'
+    ) {
+      throw new Error(ERROR_MESSAGES.INVALID_GROUP_LIST_DATA);
+    }
+
+    return {
+      listId,
+      groupId,
+      name,
+      createdBy,
       createdAt,
       updatedAt,
     };
