@@ -14,6 +14,7 @@ export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
 export { EveningStar } from './patterns/evening-star.js';
 export { MorningStar } from './patterns/morning-star.js';
+export { PatternAnalyzer } from './patterns/pattern-analyzer.js';
 export { PATTERN_REGISTRY } from './patterns/pattern-registry.js';
 
 // Error Classes (for backward compatibility)
