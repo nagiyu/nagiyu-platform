@@ -372,6 +372,84 @@ describe('summary batch handler', () => {
     });
   });
 
+  describe('シナリオ3a: 既存サマリーにパターン分析結果がない場合は更新する', () => {
+    it('同一TickerID+Dateでもパターン分析未保存なら再生成して保存する', async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+      });
+
+      const analyzeSpy = jest.spyOn(PatternAnalyzer.prototype, 'analyze').mockReturnValue({
+        patternResults: {
+          'morning-star': 'MATCHED',
+          'evening-star': 'NOT_MATCHED',
+        },
+        buyPatternCount: 1,
+        sellPatternCount: 0,
+      });
+      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
+        .fn()
+        .mockReturnValue(false);
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
+        Array.from({ length: 50 }, (_, index) => ({
+          time: Date.UTC(2026, 1, 27 - index),
+          open: 100 + index,
+          high: 110 + index,
+          low: 95 + index,
+          close: 108 + index,
+          volume: 1000 + index,
+        }))
+      );
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
+
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn,
+        getChartDataFn,
+        nowFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(getChartDataFn).toHaveBeenCalledTimes(1);
+      expect(analyzeSpy).toHaveBeenCalledTimes(1);
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        Open: 100,
+        High: 110,
+        Low: 95,
+        Close: 108,
+        PatternResults: {
+          'morning-star': 'MATCHED',
+          'evening-star': 'NOT_MATCHED',
+        },
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+      });
+    });
+  });
+
   describe('シナリオ3b: 週末実行でも既存サマリーがある場合は更新をスキップする', () => {
     it('土曜日の再実行で金曜日サマリーを更新しない', async () => {
       await exchangeRepository.create({

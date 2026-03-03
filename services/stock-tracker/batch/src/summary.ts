@@ -95,7 +95,11 @@ async function processExchange(
           ticker.TickerID,
           summaryDate
         );
-        if (existingSummary) {
+        const hasPatternAnalysis =
+          existingSummary?.PatternResults !== undefined &&
+          existingSummary.BuyPatternCount !== undefined &&
+          existingSummary.SellPatternCount !== undefined;
+        if (existingSummary && hasPatternAnalysis) {
           logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
             exchangeId: exchange.ExchangeID,
             tickerId: ticker.TickerID,
