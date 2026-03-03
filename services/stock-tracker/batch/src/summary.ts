@@ -86,6 +86,7 @@ async function processExchange(
     const tickers = tickerResult.items;
     stats.totalTickers += tickers.length;
     const summaryDate = getLastTradingDate(exchange, now);
+    const patternAnalyzer = new PatternAnalyzer();
 
     for (const ticker of tickers) {
       try {
@@ -128,7 +129,7 @@ async function processExchange(
                 buyPatternCount: 0,
                 sellPatternCount: 0,
               }
-            : new PatternAnalyzer().analyze(chartData);
+            : patternAnalyzer.analyze(chartData);
 
         await dependencies.dailySummaryRepository.upsert({
           TickerID: ticker.TickerID,
