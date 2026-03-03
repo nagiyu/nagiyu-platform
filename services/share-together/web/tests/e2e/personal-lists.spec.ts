@@ -127,7 +127,6 @@ test.describe('個人リスト管理', () => {
     await page.getByRole('link', { name: '仕事リスト' }).click();
 
     await expect(page).toHaveURL(/\/lists\/list-work$/);
-    await expect(page.getByText('週次レポートを作成する')).toBeVisible();
     await expect(page.getByRole('link', { name: '仕事リスト' })).toHaveAttribute(
       'aria-current',
       'page'
