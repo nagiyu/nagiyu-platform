@@ -36,8 +36,8 @@ const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
   REFRESH_FAILED: 'サマリーバッチの実行に失敗しました',
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
+  INSUFFICIENT_DATA_REASON: 'データ不足',
 } as const;
-const INSUFFICIENT_DATA_REASON = 'データ不足';
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -338,7 +338,7 @@ export default function SummariesPage() {
                             </Tooltip>
                             {pattern.status === 'INSUFFICIENT_DATA' && (
                               <Typography variant="caption" color="text.secondary" display="block">
-                                理由: {INSUFFICIENT_DATA_REASON}
+                                理由: {ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
                               </Typography>
                             )}
                           </TableCell>
@@ -392,7 +392,7 @@ export default function SummariesPage() {
                             </Tooltip>
                             {pattern.status === 'INSUFFICIENT_DATA' && (
                               <Typography variant="caption" color="text.secondary" display="block">
-                                理由: {INSUFFICIENT_DATA_REASON}
+                                理由: {ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
                               </Typography>
                             )}
                           </TableCell>
