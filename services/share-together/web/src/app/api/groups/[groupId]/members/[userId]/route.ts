@@ -24,7 +24,7 @@ function createErrorResponse(code: string, message: string, status: number): Nex
 }
 
 function createNoContentResponse(): NextResponse {
-  return NextResponse.json(null, { status: 204 });
+  return new NextResponse(null, { status: 204 });
 }
 
 function createDependencies(tableName: string): GroupOperationDependencies & {
