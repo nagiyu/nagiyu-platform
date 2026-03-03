@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import {
@@ -48,6 +49,10 @@ const ERROR_MESSAGES = {
   LIST_DELETE_FAILED: '個人リストの削除に失敗しました',
 } as const;
 
+/**
+ * APIエラーレスポンスからユーザー表示用メッセージを抽出する。
+ * レスポンス本文がJSONでない場合や想定外形式の場合は、フォールバック文言を返す。
+ */
 async function getErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   try {
     const body = (await response.json()) as ApiErrorResponse;
@@ -70,11 +75,12 @@ export function ListSidebar({
   onCreateList,
   apiEnabled = false,
 }: ListSidebarProps) {
+  const router = useRouter();
   const [apiLists, setApiLists] = useState<readonly SidebarList[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const displayedLists = apiEnabled ? apiLists : lists;
   const navigateToList = (listId: string) => {
-    globalThis.history.pushState(null, '', `${hrefPrefix}/${listId}`);
+    router.push(`${hrefPrefix}/${listId}`);
   };
 
   useEffect(() => {
@@ -82,8 +88,10 @@ export function ListSidebar({
       return;
     }
 
+    const controller = new AbortController();
+
     void globalThis
-      .fetch('/api/lists')
+      .fetch('/api/lists', { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(await getErrorMessage(response, ERROR_MESSAGES.LISTS_FETCH_FAILED));
@@ -92,11 +100,18 @@ export function ListSidebar({
         setApiLists(result.data.lists);
       })
       .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         console.error(ERROR_MESSAGES.LISTS_FETCH_FAILED, { error });
         setSnackbarMessage(
           error instanceof Error ? error.message : ERROR_MESSAGES.LISTS_FETCH_FAILED
         );
       });
+
+    return () => {
+      controller.abort();
+    };
   }, [apiEnabled]);
 
   const handleCreateList = () => {
@@ -105,7 +120,7 @@ export function ListSidebar({
       return;
     }
 
-    const name = globalThis.prompt('新しい個人リスト名を入力してください');
+    const name = globalThis.prompt('新しい個人リスト名を入力してください。');
     if (!name?.trim()) {
       return;
     }
@@ -134,7 +149,7 @@ export function ListSidebar({
   };
 
   const handleRenameList = (list: SidebarList) => {
-    const name = globalThis.prompt('個人リスト名を入力してください', list.name);
+    const name = globalThis.prompt('個人リスト名を入力してください。', list.name);
     if (!name?.trim() || name.trim() === list.name) {
       return;
     }

@@ -2,6 +2,14 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
 
+const mockPush = jest.fn();
+
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: mockPush,
+  }),
+}));
+
 describe('ListSidebar', () => {
   let originalFetch: typeof globalThis.fetch;
   let promptSpy: jest.SpyInstance;
@@ -11,6 +19,7 @@ describe('ListSidebar', () => {
     originalFetch = globalThis.fetch;
     promptSpy = jest.spyOn(window, 'prompt');
     confirmSpy = jest.spyOn(window, 'confirm');
+    mockPush.mockReset();
   });
 
   afterEach(() => {
@@ -104,6 +113,7 @@ describe('ListSidebar', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: '新規リスト' }),
       });
+      expect(mockPush).toHaveBeenCalledWith('/lists/new-list');
     });
 
     fireEvent.click(screen.getByRole('button', { name: '仕事を編集' }));
@@ -127,5 +137,30 @@ describe('ListSidebar', () => {
     await waitFor(() => {
       expect(screen.queryByRole('link', { name: '仕事(更新)' })).not.toBeInTheDocument();
     });
+  });
+
+  it('APIモードで一覧取得に失敗した場合はエラーメッセージを表示する', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        error: { message: '一覧取得に失敗しました。' },
+      }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(
+      <ListSidebar
+        heading="個人リスト"
+        createButtonLabel="個人リストを作成"
+        selectedListId="default-list"
+        hrefPrefix="/lists"
+        apiEnabled
+      />
+    );
+
+    expect(await screen.findByText('一覧取得に失敗しました。')).toBeInTheDocument();
   });
 });
