@@ -125,6 +125,7 @@ const ERROR_MESSAGES = {
   TODO_UPDATE_FAILED: 'ToDo 更新 API の実行に失敗しました',
   TODO_DELETE_FAILED: 'ToDo 削除 API の実行に失敗しました',
   TODOS_FETCH_FAILED_NOTICE: 'ToDo一覧の取得に失敗しました。',
+  GROUP_ID_REQUIRED: 'グループIDが必要です',
 } as const;
 
 type TodoListProps = {
@@ -150,7 +151,10 @@ function createTodosApiPath(
 ) {
   const encodedListId = encodeURIComponent(listId);
   if (scope === 'group') {
-    const encodedGroupId = encodeURIComponent(groupId ?? '');
+    if (!groupId) {
+      throw new Error(ERROR_MESSAGES.GROUP_ID_REQUIRED);
+    }
+    const encodedGroupId = encodeURIComponent(groupId);
     if (!todoId) {
       return `/api/groups/${encodedGroupId}/lists/${encodedListId}/todos`;
     }
@@ -172,7 +176,10 @@ export function TodoList({
 }: TodoListProps) {
   const todosByList = MOCK_TODOS_BY_SCOPE[scope];
   const fallbackListId = DEFAULT_LIST_ID_BY_SCOPE[scope];
-  const isApiMode = apiEnabled && Boolean(listId) && (scope === 'personal' || Boolean(groupId));
+  const isApiMode =
+    apiEnabled &&
+    Boolean(listId) &&
+    (scope === 'personal' || (scope === 'group' && Boolean(groupId)));
   const [todos, setTodos] = useState(
     () => todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? []
   );
