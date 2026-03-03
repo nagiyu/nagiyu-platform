@@ -1,9 +1,21 @@
+const mockNextResponseJson = jest.fn((body: unknown, init?: { status?: number }) => ({
+  status: init?.status ?? 200,
+  json: async () => body,
+}));
+
 jest.mock('next/server', () => ({
-  NextResponse: {
-    json: (body: unknown, init?: { status?: number }) => ({
-      status: init?.status ?? 200,
-      json: async () => body,
-    }),
+  NextResponse: class MockNextResponse {
+    public status: number;
+    private body: unknown;
+
+    constructor(body: unknown, init?: { status?: number }) {
+      this.status = init?.status ?? 200;
+      this.body = body;
+    }
+
+    public json = async (): Promise<unknown> => this.body;
+
+    public static json = mockNextResponseJson;
   },
 }));
 
@@ -95,6 +107,7 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
     });
 
     expect(response.status).toBe(204);
+    expect(mockNextResponseJson).not.toHaveBeenCalled();
     expect(mockLeaveGroup).toHaveBeenCalledWith(
       { groupId: 'group-1', userId: 'member-1' },
       expect.objectContaining({
@@ -134,6 +147,7 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
     });
 
     expect(response.status).toBe(204);
+    expect(mockNextResponseJson).not.toHaveBeenCalled();
     expect(mockRemoveMember).toHaveBeenCalledWith(
       'group-1',
       'member-2',
