@@ -105,9 +105,9 @@ test.describe('グループ管理', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'グループ詳細' })).toBeVisible();
 
     await page.getByRole('textbox', { name: 'メールアドレス' }).fill('invitee@example.com');
-    await page.getByRole('button', { name: '招待を送信（モック）' }).click();
+    await page.getByRole('button', { name: '招待を送信' }).click();
 
-    await expect(page.getByText('招待を送信しました（モック）。')).toBeVisible();
+    await expect(page.getByText('招待を送信しました。')).toBeVisible();
   });
 
   test('招待を承認できる', async ({ page }) => {
