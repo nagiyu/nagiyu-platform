@@ -214,7 +214,18 @@ describe('GET /api/summaries', () => {
       },
     ]);
 
-    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetAllTickers.mockResolvedValue({
+      items: [
+        {
+          TickerID: 'NSDQ:MSFT',
+          Symbol: 'MSFT',
+          Name: 'Microsoft Corporation',
+          ExchangeID: 'NASDAQ',
+          CreatedAt: 1,
+          UpdatedAt: 1,
+        },
+      ],
+    });
 
     mockGetByExchange.mockResolvedValue([
       {
