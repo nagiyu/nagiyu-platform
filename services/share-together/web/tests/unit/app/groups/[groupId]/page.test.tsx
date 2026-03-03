@@ -41,6 +41,12 @@ describe('GroupDetailPage', () => {
           }),
         } as Response);
       }
+      if (url === '/api/auth/session') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ user: { id: 'user-owner' } }),
+        } as Response);
+      }
       return Promise.resolve({ ok: false, status: 404 } as Response);
     }) as jest.Mock;
 
@@ -92,6 +98,12 @@ describe('GroupDetailPage', () => {
           }),
         } as Response);
       }
+      if (url === '/api/auth/session') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ user: { id: 'user-member-1' } }),
+        } as Response);
+      }
       return Promise.resolve({ ok: false, status: 404 } as Response);
     }) as jest.Mock;
 
@@ -107,5 +119,48 @@ describe('GroupDetailPage', () => {
     expect(screen.getByRole('button', { name: '招待を送信' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'さくらを削除' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'グループを脱退' })).toBeInTheDocument();
+  });
+
+  it('セッションにユーザーIDがない場合はエラーメッセージを表示する', async () => {
+    mockUseParams.mockReturnValue({ groupId: 'group-member' });
+    global.fetch = jest.fn((input: string | URL | Request) => {
+      const url = input.toString();
+      if (url === '/api/groups') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              groups: [{ groupId: 'group-member', ownerUserId: 'user-owner', isOwner: false }],
+            },
+          }),
+        } as Response);
+      }
+      if (url === '/api/groups/group-member/members') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              members: [
+                { userId: 'user-owner', name: 'なぎゆ' },
+                { userId: 'user-member-1', name: 'さくら' },
+              ],
+            },
+          }),
+        } as Response);
+      }
+      if (url === '/api/auth/session') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ user: {} }),
+        } as Response);
+      }
+      return Promise.resolve({ ok: false, status: 404 } as Response);
+    }) as jest.Mock;
+
+    render(<GroupDetailPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('ユーザーIDが取得できませんでした。再度ログインしてください。')).toBeInTheDocument();
+    });
   });
 });
