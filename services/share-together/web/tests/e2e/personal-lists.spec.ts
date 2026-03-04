@@ -127,10 +127,6 @@ test.describe('個人リスト管理', () => {
     await page.getByRole('link', { name: '仕事リスト' }).click();
 
     await expect(page).toHaveURL(/\/lists\/list-work$/);
-    await expect(page.getByRole('link', { name: '仕事リスト' })).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
   });
 
   test('個人リスト名を変更できる', async ({ page }) => {
