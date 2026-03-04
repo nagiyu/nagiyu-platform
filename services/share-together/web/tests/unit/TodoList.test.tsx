@@ -122,6 +122,74 @@ describe('TodoList', () => {
     }
   });
 
+  it('scope=group かつ apiEnabled が true の場合はグループ ToDo API から取得する', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          data: {
+            todos: [{ todoId: 'group-todo-1', title: 'グループAPI ToDo', isCompleted: false }],
+          },
+        }),
+      } as Response);
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+
+      render(<TodoList scope="group" groupId="group-1" listId="list-1" apiEnabled />);
+
+      await waitFor(() => {
+        expect(screen.getByText('グループAPI ToDo')).toBeInTheDocument();
+      });
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/groups/group-1/lists/list-1/todos');
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
+  });
+
+  it('scope=group かつ groupId 未指定の場合は API 呼び出しを行わない', () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const fetchMock = jest.fn();
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+
+      render(<TodoList scope="group" listId="mock-list-1" apiEnabled />);
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
+  });
+
   it('apiEnabled が true の場合は ToDo 追加時に API を呼び出す', async () => {
     const originalFetch = globalThis.fetch;
     try {

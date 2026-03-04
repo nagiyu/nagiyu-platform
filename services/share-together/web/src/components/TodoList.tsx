@@ -125,11 +125,13 @@ const ERROR_MESSAGES = {
   TODO_UPDATE_FAILED: 'ToDo 更新 API の実行に失敗しました',
   TODO_DELETE_FAILED: 'ToDo 削除 API の実行に失敗しました',
   TODOS_FETCH_FAILED_NOTICE: 'ToDo一覧の取得に失敗しました。',
+  GROUP_ID_REQUIRED: 'グループIDが必要です',
 } as const;
 
 type TodoListProps = {
   scope?: 'personal' | 'group';
   listId?: string;
+  groupId?: string;
   apiEnabled?: boolean;
 };
 
@@ -141,8 +143,24 @@ function toDisplayTodo(todo: TodoItemType): Pick<TodoItemType, 'todoId' | 'title
   };
 }
 
-function createTodosApiPath(listId: string, todoId?: string): string {
+function createTodosApiPath(
+  scope: 'personal' | 'group',
+  listId: string,
+  groupId?: string,
+  todoId?: string
+) {
   const encodedListId = encodeURIComponent(listId);
+  if (scope === 'group') {
+    if (!groupId) {
+      throw new Error(ERROR_MESSAGES.GROUP_ID_REQUIRED);
+    }
+    const encodedGroupId = encodeURIComponent(groupId);
+    if (!todoId) {
+      return `/api/groups/${encodedGroupId}/lists/${encodedListId}/todos`;
+    }
+    return `/api/groups/${encodedGroupId}/lists/${encodedListId}/todos/${encodeURIComponent(todoId)}`;
+  }
+
   if (!todoId) {
     return `/api/lists/${encodedListId}/todos`;
   }
@@ -150,10 +168,18 @@ function createTodosApiPath(listId: string, todoId?: string): string {
   return `/api/lists/${encodedListId}/todos/${encodeURIComponent(todoId)}`;
 }
 
-export function TodoList({ scope = 'personal', listId, apiEnabled = false }: TodoListProps) {
+export function TodoList({
+  scope = 'personal',
+  listId,
+  groupId,
+  apiEnabled = false,
+}: TodoListProps) {
   const todosByList = MOCK_TODOS_BY_SCOPE[scope];
   const fallbackListId = DEFAULT_LIST_ID_BY_SCOPE[scope];
-  const isApiMode = apiEnabled && scope === 'personal' && Boolean(listId);
+  const isApiMode =
+    apiEnabled &&
+    Boolean(listId) &&
+    (scope === 'personal' || (scope === 'group' && Boolean(groupId)));
   const [todos, setTodos] = useState(
     () => todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? []
   );
@@ -162,7 +188,7 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
 
   const fetchTodos = (targetListId: string) => {
     void globalThis
-      .fetch(createTodosApiPath(targetListId))
+      .fetch(createTodosApiPath(scope, targetListId, groupId))
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
@@ -182,7 +208,7 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
     }
 
     fetchTodos(listId);
-  }, [isApiMode, listId]);
+  }, [groupId, isApiMode, listId, scope]);
 
   const handleToggleComplete = (todoId: string) => {
     if (isApiMode && listId) {
@@ -193,7 +219,7 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
 
       const nextCompleted = !targetTodo.isCompleted;
       void globalThis
-        .fetch(createTodosApiPath(listId, todoId), {
+        .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ isCompleted: nextCompleted }),
@@ -229,7 +255,7 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
       if (isApiMode && listId) {
         const deleteTargetId = pendingDeleteId;
         void globalThis
-          .fetch(createTodosApiPath(listId, deleteTargetId), {
+          .fetch(createTodosApiPath(scope, listId, groupId, deleteTargetId), {
             method: 'DELETE',
           })
           .then((response) => {
@@ -266,7 +292,7 @@ export function TodoList({ scope = 'personal', listId, apiEnabled = false }: Tod
   const handleAdd = (title: string) => {
     if (isApiMode && listId) {
       void globalThis
-        .fetch(createTodosApiPath(listId), {
+        .fetch(createTodosApiPath(scope, listId, groupId), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
