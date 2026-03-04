@@ -284,7 +284,88 @@ describe('DailySummaryMapper', () => {
         buyPatternCount: 0,
         sellPatternCount: 0,
         patternDetails: [],
+        aiAnalysis: undefined,
+        aiAnalysisError: undefined,
       });
+    });
+  });
+
+  describe('AI解析フィールドのマッピング', () => {
+    it('成功パターン: AiAnalysis あり / AiAnalysisError なし', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        AiAnalysis: 'AI解析テキスト',
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      const item = mapper.toItem(entity);
+      const convertedEntity = mapper.toEntity(item);
+      const response = mapper.toTickerSummaryResponse(entity);
+
+      expect(item.AiAnalysis).toBe('AI解析テキスト');
+      expect(item.AiAnalysisError).toBeUndefined();
+      expect(convertedEntity.AiAnalysis).toBe('AI解析テキスト');
+      expect(convertedEntity.AiAnalysisError).toBeUndefined();
+      expect(response.aiAnalysis).toBe('AI解析テキスト');
+      expect(response.aiAnalysisError).toBeUndefined();
+    });
+
+    it('失敗パターン: AiAnalysis なし / AiAnalysisError あり', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        AiAnalysisError: 'OpenAI API timeout',
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      const item = mapper.toItem(entity);
+      const convertedEntity = mapper.toEntity(item);
+      const response = mapper.toTickerSummaryResponse(entity);
+
+      expect(item.AiAnalysis).toBeUndefined();
+      expect(item.AiAnalysisError).toBe('OpenAI API timeout');
+      expect(convertedEntity.AiAnalysis).toBeUndefined();
+      expect(convertedEntity.AiAnalysisError).toBe('OpenAI API timeout');
+      expect(response.aiAnalysis).toBeUndefined();
+      expect(response.aiAnalysisError).toBe('OpenAI API timeout');
+    });
+
+    it('未生成パターン: AiAnalysis / AiAnalysisError ともになし', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      const item = mapper.toItem(entity);
+      const convertedEntity = mapper.toEntity(item);
+      const response = mapper.toTickerSummaryResponse(entity);
+
+      expect(item.AiAnalysis).toBeUndefined();
+      expect(item.AiAnalysisError).toBeUndefined();
+      expect(convertedEntity.AiAnalysis).toBeUndefined();
+      expect(convertedEntity.AiAnalysisError).toBeUndefined();
+      expect(response.aiAnalysis).toBeUndefined();
+      expect(response.aiAnalysisError).toBeUndefined();
     });
   });
 
