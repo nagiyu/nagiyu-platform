@@ -58,7 +58,8 @@ test.describe('グループ共有 ToDo 管理', () => {
     await Promise.all([
       page.waitForRequest(
         (request) =>
-          request.method() === 'GET' && request.url().includes(`/groups/${GROUP_ID}/lists/${LIST_ID}/todos`)
+          request.method() === 'GET' &&
+          request.url().includes(`/groups/${GROUP_ID}/lists/${LIST_ID}/todos`)
       ),
       page.getByRole('link', { name: '更新' }).click(),
     ]);
