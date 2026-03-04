@@ -7,7 +7,8 @@ export class ThreeWhiteSoldiers extends CandlestickPattern {
   public readonly definition: PatternDefinition = {
     patternId: 'three-white-soldiers',
     name: '赤三兵',
-    description: '強い買いシグナル。3本の連続する陽線で構成され、上昇トレンドへの転換または継続を示す。',
+    description:
+      '強い買いシグナル。3本の連続する陽線で構成され、上昇トレンドへの転換または継続を示す。',
     signalType: 'BUY',
   };
 
