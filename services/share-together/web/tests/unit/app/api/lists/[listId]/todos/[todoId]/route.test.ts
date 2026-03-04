@@ -33,26 +33,38 @@ jest.mock('@/lib/aws-clients', () => ({
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
+  DynamoDBListRepository: jest.fn(),
   DynamoDBTodoRepository: jest.fn(),
+  ListService: jest.fn(),
   TodoService: jest.fn(),
 }));
 
 import { DELETE, PUT } from '@/app/api/lists/[listId]/todos/[todoId]/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
-import { DynamoDBTodoRepository, TodoService } from '@nagiyu/share-together-core';
+import {
+  DynamoDBListRepository,
+  DynamoDBTodoRepository,
+  ListService,
+  TodoService,
+} from '@nagiyu/share-together-core';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
 const mockGetAwsClients = getAwsClients as jest.MockedFunction<typeof getAwsClients>;
+const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
+  typeof DynamoDBListRepository
+>;
 const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
   typeof DynamoDBTodoRepository
 >;
+const mockListService = ListService as jest.MockedClass<typeof ListService>;
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
 describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
+  const mockGetPersonalListById = jest.fn();
   const mockUpdateTodo = jest.fn();
   const mockDeleteTodo = jest.fn();
   const createRequest = (body: unknown): Request =>
@@ -73,9 +85,27 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       docClient: { send: jest.fn() } as ReturnType<typeof getAwsClients>['docClient'],
     });
 
+    mockDynamoDBListRepository.mockImplementation(
+      () => ({}) as InstanceType<typeof DynamoDBListRepository>
+    );
     mockDynamoDBTodoRepository.mockImplementation(
       () => ({}) as InstanceType<typeof DynamoDBTodoRepository>
     );
+
+    mockListService.mockImplementation(
+      () =>
+        ({
+          getPersonalListById: mockGetPersonalListById,
+        }) as InstanceType<typeof ListService>
+    );
+    mockGetPersonalListById.mockResolvedValue({
+      listId: 'list-1',
+      userId: 'user-1',
+      name: '個人リスト',
+      isDefault: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
 
     mockTodoService.mockImplementation(
       () =>
@@ -120,6 +150,7 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
       { title: '更新後', isCompleted: true },
       'user-1'
     );
+    expect(mockGetPersonalListById).toHaveBeenCalledWith('user-1', 'list-1');
     await expect(response.json()).resolves.toEqual({
       data: {
         todoId: 'todo-1',
@@ -160,6 +191,26 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
     expect(response.status).toBe(404);
   });
 
+  it('PUT: アクセス権限がない個人リストの場合は403を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockGetPersonalListById.mockRejectedValue(new Error('個人リストが見つかりません'));
+
+    const response = await PUT(createRequest({ isCompleted: true }), createContext());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: 'FORBIDDEN',
+        message: 'アクセス権限がありません',
+      },
+    });
+    expect(mockUpdateTodo).not.toHaveBeenCalled();
+  });
+
   it('DELETE: ToDo を削除する', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: {
@@ -171,6 +222,7 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
     const response = await DELETE({} as Request, createContext());
 
     expect(response.status).toBe(204);
+    expect(mockGetPersonalListById).toHaveBeenCalledWith('user-1', 'list-1');
     expect(mockDeleteTodo).toHaveBeenCalledWith('list-1', 'todo-1');
   });
 

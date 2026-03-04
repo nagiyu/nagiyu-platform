@@ -1,4 +1,9 @@
-import { DynamoDBTodoRepository, TodoService } from '@nagiyu/share-together-core';
+import {
+  DynamoDBListRepository,
+  DynamoDBTodoRepository,
+  ListService,
+  TodoService,
+} from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
@@ -14,6 +19,7 @@ const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
 ]);
 
 const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.TODO_NOT_FOUND]);
+const FORBIDDEN_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.PERSONAL_LIST_NOT_FOUND]);
 
 interface TodoRouteParams {
   listId: string;
@@ -47,6 +53,17 @@ function createNotFoundErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 404 });
 }
 
+function createForbiddenErrorResponse(): NextResponse {
+  const response: ApiErrorResponse = {
+    error: {
+      code: 'FORBIDDEN',
+      message: ERROR_MESSAGES.FORBIDDEN,
+    },
+  };
+
+  return NextResponse.json(response, { status: 403 });
+}
+
 function createInternalServerErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
     error: {
@@ -58,15 +75,19 @@ function createInternalServerErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 500 });
 }
 
-function createTodoService(): TodoService {
+function createServices(): { listService: ListService; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
   const { docClient } = getAwsClients();
+  const listRepository = new DynamoDBListRepository(docClient, tableName);
   const todoRepository = new DynamoDBTodoRepository(docClient, tableName);
-  return new TodoService(todoRepository);
+  return {
+    listService: new ListService(listRepository),
+    todoService: new TodoService(todoRepository),
+  };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -103,6 +124,10 @@ function isNotFoundError(error: unknown): boolean {
   return error instanceof Error && NOT_FOUND_ERROR_MESSAGES.has(error.message);
 }
 
+function isForbiddenError(error: unknown): boolean {
+  return error instanceof Error && FORBIDDEN_ERROR_MESSAGES.has(error.message);
+}
+
 export async function PUT(
   request: Request,
   context: { params: Promise<TodoRouteParams> }
@@ -134,7 +159,8 @@ export async function PUT(
       return createValidationErrorResponse();
     }
 
-    const todoService = createTodoService();
+    const { listService, todoService } = createServices();
+    await listService.getPersonalListById(userId, listId);
     const todo = await todoService.updateTodo(listId, todoId, updates, userId);
     const response: TodoResponse = {
       data: todo,
@@ -144,6 +170,9 @@ export async function PUT(
   } catch (error) {
     if (isValidationError(error) || error instanceof SyntaxError) {
       return createValidationErrorResponse();
+    }
+    if (isForbiddenError(error)) {
+      return createForbiddenErrorResponse();
     }
     if (isNotFoundError(error)) {
       return createNotFoundErrorResponse();
@@ -184,12 +213,16 @@ export async function DELETE(
     requestedListId = listId;
     requestedTodoId = todoId;
 
-    const todoService = createTodoService();
+    const { listService, todoService } = createServices();
+    await listService.getPersonalListById(userId, listId);
     await todoService.deleteTodo(listId, todoId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     if (isValidationError(error)) {
       return createValidationErrorResponse();
+    }
+    if (isForbiddenError(error)) {
+      return createForbiddenErrorResponse();
     }
     if (isNotFoundError(error)) {
       return createNotFoundErrorResponse();
