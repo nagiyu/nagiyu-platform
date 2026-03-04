@@ -19,6 +19,8 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
 } as const;
 
+const AI_ANALYSIS_SAMPLE_TEXT = 'この銘柄のAI解析サンプルテキストです。（仮データ）';
+
 interface TickerSummaryResponse {
   tickerId: string;
   symbol: string;
@@ -78,7 +80,7 @@ function toTickerSummaryResponse(
     AiAnalysis?: string;
     AiAnalysisError?: string;
   };
-  const hasAiFields =
+  const hasExplicitAiFields =
     Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysis') ||
     Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysisError');
 
@@ -92,9 +94,7 @@ function toTickerSummaryResponse(
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     ...dailySummaryMapper.toTickerSummaryResponse(summary),
-    aiAnalysis: hasAiFields
-      ? summaryWithAi.AiAnalysis
-      : 'この銘柄のAI解析サンプルテキストです。（仮データ）',
+    aiAnalysis: hasExplicitAiFields ? summaryWithAi.AiAnalysis : AI_ANALYSIS_SAMPLE_TEXT,
     aiAnalysisError: summaryWithAi.AiAnalysisError,
   };
 }

@@ -255,7 +255,7 @@ describe('GET /api/summaries', () => {
     );
   });
 
-  it('正常系: AI解析フィールド未定義時はサンプル文字列を返す', async () => {
+  it('正常系: AI解析フィールドが存在しない場合はサンプル文字列を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
