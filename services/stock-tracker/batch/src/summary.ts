@@ -159,7 +159,7 @@ async function processExchange(
 
         stats.summariesSaved++;
 
-        if (entity.AiAnalysis !== undefined) {
+        if (existingSummary?.AiAnalysis !== undefined) {
           continue;
         }
 
