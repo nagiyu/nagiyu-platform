@@ -19,6 +19,8 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
 } as const;
 
+const AI_ANALYSIS_SAMPLE_TEXT = 'この銘柄のAI解析サンプルテキストです。（仮データ）';
+
 interface TickerSummaryResponse {
   tickerId: string;
   symbol: string;
@@ -31,6 +33,8 @@ interface TickerSummaryResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
+  aiAnalysis?: string;
+  aiAnalysisError?: string;
 }
 
 interface ExchangeSummaryGroupResponse {
@@ -72,6 +76,13 @@ function toTickerSummaryResponse(
   tickerMap: Map<string, TickerEntity>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
+  const summaryWithAi = summary as DailySummaryEntity & {
+    AiAnalysis?: string;
+    AiAnalysisError?: string;
+  };
+  const hasExplicitAiFields =
+    Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysis') ||
+    Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysisError');
 
   return {
     tickerId: summary.TickerID,
@@ -83,6 +94,8 @@ function toTickerSummaryResponse(
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     ...dailySummaryMapper.toTickerSummaryResponse(summary),
+    aiAnalysis: hasExplicitAiFields ? summaryWithAi.AiAnalysis : AI_ANALYSIS_SAMPLE_TEXT,
+    aiAnalysisError: summaryWithAi.AiAnalysisError,
   };
 }
 
