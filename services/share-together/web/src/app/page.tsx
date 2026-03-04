@@ -11,6 +11,7 @@ const ERROR_MESSAGES = {
   USER_REGISTRATION_AUTO_CALL_FAILED: 'ユーザー登録 API の自動実行に失敗しました',
   PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧 API の取得に失敗しました',
   DEFAULT_LIST_NOT_FOUND: 'デフォルト個人リストが見つかりません',
+  DEFAULT_LIST_LOAD_FAILED_NOTICE: 'デフォルト個人リストの取得に失敗しました。',
 } as const;
 
 export default function Home() {
@@ -70,7 +71,7 @@ export default function Home() {
           </Typography>
         )}
         {!defaultListId && !isListLoading && (
-          <Typography color="error">デフォルト個人リストの取得に失敗しました。</Typography>
+          <Typography color="error">{ERROR_MESSAGES.DEFAULT_LIST_LOAD_FAILED_NOTICE}</Typography>
         )}
       </Box>
     </main>

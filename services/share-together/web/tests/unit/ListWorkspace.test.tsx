@@ -101,7 +101,7 @@ describe('ListWorkspace', () => {
         } as Response);
       }
 
-      throw new Error(`Unexpected fetch input: ${input}`);
+      throw new Error(`予期しないfetch呼び出し: ${input}`);
     });
     Object.defineProperty(globalThis, 'fetch', {
       writable: true,

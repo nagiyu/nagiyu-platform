@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack } from '@mui/material';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
@@ -108,7 +108,8 @@ export function ListWorkspace({
     if (matchingGroupId && !enablePersonalListApi) {
       setScope('shared');
     }
-    if (scope === 'shared' && nextLists.length > 0 && !nextLists.some((list) => list.listId === selectedListId)) {
+    const hasSelectedListInSharedScope = nextLists.some((list) => list.listId === selectedListId);
+    if (scope === 'shared' && nextLists.length > 0 && !hasSelectedListInSharedScope) {
       setSelectedListId(nextLists[0].listId);
     }
   }, [
@@ -121,17 +122,19 @@ export function ListWorkspace({
     sharedListsByGroup,
   ]);
 
-  const sharedLists = useMemo(() => sharedListsByGroup[selectedGroupId] ?? [], [selectedGroupId, sharedListsByGroup]);
+  const sharedLists = sharedListsByGroup[selectedGroupId] ?? [];
 
   const sidebarLists =
     scope === 'personal' ? (enablePersonalListApi ? [] : MOCK_PERSONAL_LISTS) : sharedLists;
   const selectedInCurrentScope = sidebarLists.find((list) => list.listId === selectedListId);
-  const currentListId =
-    scope === 'shared'
-      ? selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? ''
-      : scope === 'personal' && enablePersonalListApi
-        ? selectedListId
-        : selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? selectedListId;
+  let currentListId: string;
+  if (scope === 'shared') {
+    currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? '';
+  } else if (scope === 'personal' && enablePersonalListApi) {
+    currentListId = selectedListId;
+  } else {
+    currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? selectedListId;
+  }
 
   const handleCreateList = (name: string) => {
     setSnackbarMessage(
@@ -155,12 +158,12 @@ export function ListWorkspace({
               onChange={(event) => {
                 const nextScope = event.target.value as 'personal' | 'shared';
                 setScope(nextScope);
-                const nextLists =
-                  nextScope === 'personal'
-                    ? enablePersonalListApi
-                      ? []
-                      : MOCK_PERSONAL_LISTS
-                    : (sharedListsByGroup[selectedGroupId] ?? []);
+                let nextLists: readonly { listId: string; name: string }[] = [];
+                if (nextScope === 'personal') {
+                  nextLists = enablePersonalListApi ? [] : MOCK_PERSONAL_LISTS;
+                } else {
+                  nextLists = sharedLists;
+                }
                 if (nextScope === 'shared' && !selectedGroupId && sharedGroups.length > 0) {
                   setSelectedGroupId(sharedGroups[0].groupId);
                 }
