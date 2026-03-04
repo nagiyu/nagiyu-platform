@@ -433,7 +433,7 @@ export default function SummariesPage() {
                   value={resolveAiAnalysisText(selectedTicker)}
                   multiline
                   fullWidth
-                  rows={6}
+                  rows={10}
                   aria-labelledby="ai-analysis-heading"
                   InputProps={{
                     readOnly: true,
