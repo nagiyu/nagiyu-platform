@@ -45,4 +45,8 @@ export const STOCK_TRACKER_ERROR_MESSAGES = {
   PUSH_SUBSCRIPTION_FAILED: 'プッシュ通知の登録に失敗しました',
   PUSH_UNSUBSCRIPTION_FAILED: 'プッシュ通知の解除に失敗しました',
   VAPID_KEY_ERROR: 'VAPID公開鍵の取得に失敗しました',
+
+  // AI解析関連
+  AI_ANALYSIS_NOT_GENERATED: 'AI 解析はまだ生成されていません',
+  AI_ANALYSIS_FAILED: 'AI 解析の取得に失敗しました',
 } as const;
