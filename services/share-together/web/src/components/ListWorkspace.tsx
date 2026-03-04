@@ -32,9 +32,9 @@ export function ListWorkspace({
 }: ListWorkspaceProps) {
   const [scope, setScope] = useState<'personal' | 'shared'>('personal');
   const [sharedGroups, setSharedGroups] = useState<readonly SharedGroup[]>([]);
-  const [sharedListsByGroup, setSharedListsByGroup] = useState<Record<string, readonly SharedList[]>>(
-    {}
-  );
+  const [sharedListsByGroup, setSharedListsByGroup] = useState<
+    Record<string, readonly SharedList[]>
+  >({});
   const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [selectedListId, setSelectedListId] = useState(initialListId);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -63,7 +63,9 @@ export function ListWorkspace({
               { signal: controller.signal }
             );
             if (!listsResponse.ok) {
-              throw new Error(`${ERROR_MESSAGES.SHARED_LISTS_FETCH_FAILED}: ${listsResponse.status}`);
+              throw new Error(
+                `${ERROR_MESSAGES.SHARED_LISTS_FETCH_FAILED}: ${listsResponse.status}`
+              );
             }
             const listsResult = (await listsResponse.json()) as GroupListsResponse;
             const sharedLists = listsResult.data.lists.map((list) => ({
@@ -179,28 +181,28 @@ export function ListWorkspace({
           {scope === 'shared' ? (
             <FormControl fullWidth size="small">
               <InputLabel id="shared-group-select-label">グループ</InputLabel>
-                <Select
-                  labelId="shared-group-select-label"
-                  id="shared-group-select"
-                  label="グループ"
-                  value={selectedGroupId}
-                  onChange={(event) => {
-                    const nextGroupId = event.target.value;
-                    const nextLists = sharedListsByGroup[nextGroupId] ?? [];
-                    setSelectedGroupId(nextGroupId);
-                    if (nextLists.length > 0) {
-                      setSelectedListId(nextLists[0].listId);
-                    }
-                  }}
-                >
-                  {sharedGroups.map((group) => (
-                    <MenuItem key={group.groupId} value={group.groupId}>
-                      {group.name}
-                    </MenuItem>
-                 ))}
-               </Select>
-             </FormControl>
-           ) : null}
+              <Select
+                labelId="shared-group-select-label"
+                id="shared-group-select"
+                label="グループ"
+                value={selectedGroupId}
+                onChange={(event) => {
+                  const nextGroupId = event.target.value;
+                  const nextLists = sharedListsByGroup[nextGroupId] ?? [];
+                  setSelectedGroupId(nextGroupId);
+                  if (nextLists.length > 0) {
+                    setSelectedListId(nextLists[0].listId);
+                  }
+                }}
+              >
+                {sharedGroups.map((group) => (
+                  <MenuItem key={group.groupId} value={group.groupId}>
+                    {group.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
           <ListSidebar
             heading={scope === 'personal' ? '個人リスト' : '共有リスト'}
             createButtonLabel={scope === 'personal' ? '個人リストを作成' : '共有リストを作成'}

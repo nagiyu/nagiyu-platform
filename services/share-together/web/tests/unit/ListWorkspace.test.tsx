@@ -59,7 +59,9 @@ describe('ListWorkspace', () => {
           status: 200,
           json: async () => ({
             data: {
-              todos: [{ todoId: 'group-todo-1', title: '会議用の議題を共有する', isCompleted: false }],
+              todos: [
+                { todoId: 'group-todo-1', title: '会議用の議題を共有する', isCompleted: false },
+              ],
             },
           }),
         } as Response);
@@ -71,7 +73,9 @@ describe('ListWorkspace', () => {
           status: 200,
           json: async () => ({
             data: {
-              todos: [{ todoId: 'group-todo-2', title: 'ゴミ出し当番を確認する', isCompleted: false }],
+              todos: [
+                { todoId: 'group-todo-2', title: 'ゴミ出し当番を確認する', isCompleted: false },
+              ],
             },
           }),
         } as Response);
