@@ -85,8 +85,6 @@ describe('DailySummaryEntity 型定義', () => {
       High: 110,
       Low: 90,
       Close: 105,
-      AiAnalysis: undefined,
-      AiAnalysisError: undefined,
       CreatedAt: 1700000000000,
       UpdatedAt: 1700000000000,
     };
