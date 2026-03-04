@@ -18,6 +18,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -31,6 +32,7 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
+import { resolveAiAnalysisText } from './ai-analysis';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
@@ -421,6 +423,27 @@ export default function SummariesPage() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+              </Box>
+              <Box component="section" aria-labelledby="ai-analysis-heading">
+                <Divider sx={{ mb: 2 }} />
+                <Typography id="ai-analysis-heading" variant="h6">
+                  AI 解析
+                </Typography>
+                <TextField
+                  value={resolveAiAnalysisText(selectedTicker)}
+                  multiline
+                  fullWidth
+                  rows={10}
+                  aria-labelledby="ai-analysis-heading"
+                  InputProps={{
+                    readOnly: true,
+                    sx: {
+                      '& textarea': {
+                        overflowY: 'auto',
+                      },
+                    },
+                  }}
+                />
               </Box>
             </Box>
           )}

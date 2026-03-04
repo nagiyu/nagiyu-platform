@@ -74,6 +74,7 @@ npm run test:coverage --workspace=stock-tracker-core
 | E2E-008    | エラーハンドリング | バリデーションエラー、APIエラーの表示 | 中 | chromium-mobile |
 | E2E-009    | ナビゲーション | 画面遷移の確認 | 低 | chromium-mobile |
 | E2E-010    | サマリーのパターン表示 | 一覧の売買件数表示と詳細内訳表示（判定不能理由「データ不足」を含む） | 高 | chromium-mobile |
+| E2E-011    | サマリーのAI解析表示 | 詳細ダイアログで AI 解析の成功・未生成・失敗状態を表示 | 高 | chromium-mobile |
 
 ### 4.2 シナリオ設計方針
 

@@ -1,7 +1,9 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import SummariesPage from '../../../app/summaries/page';
+import { resolveAiAnalysisText } from '../../../app/summaries/ai-analysis';
 import { useSession } from 'next-auth/react';
+import { STOCK_TRACKER_ERROR_MESSAGES } from '../../../lib/error-messages';
 
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
@@ -30,5 +32,49 @@ describe('SummariesPage', () => {
 
   it('取引所セレクトボックスを表示する', () => {
     expect(html).toContain('取引所');
+  });
+
+  describe('resolveAiAnalysisText', () => {
+    const baseSummary = {
+      tickerId: 'TSE:7203',
+      symbol: '7203',
+      name: 'トヨタ自動車',
+      open: 1000,
+      high: 1010,
+      low: 990,
+      close: 1005,
+      updatedAt: '2026-03-01T00:00:00.000Z',
+      buyPatternCount: 0,
+      sellPatternCount: 0,
+      patternDetails: [],
+    };
+
+    it('aiAnalysis が string の場合は解析テキストを表示する', () => {
+      expect(resolveAiAnalysisText({ ...baseSummary, aiAnalysis: 'AI解析テキスト' })).toBe(
+        'AI解析テキスト'
+      );
+    });
+
+    it('aiAnalysisError が string の場合は失敗メッセージを表示する', () => {
+      expect(resolveAiAnalysisText({ ...baseSummary, aiAnalysisError: 'OpenAI timeout' })).toBe(
+        STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_FAILED
+      );
+    });
+
+    it('aiAnalysis と aiAnalysisError が両方ある場合は aiAnalysis を優先表示する', () => {
+      expect(
+        resolveAiAnalysisText({
+          ...baseSummary,
+          aiAnalysis: '優先される解析テキスト',
+          aiAnalysisError: 'OpenAI timeout',
+        })
+      ).toBe('優先される解析テキスト');
+    });
+
+    it('aiAnalysis と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
+      expect(resolveAiAnalysisText(baseSummary)).toBe(
+        STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
+      );
+    });
   });
 });
