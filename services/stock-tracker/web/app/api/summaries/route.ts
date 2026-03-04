@@ -31,6 +31,8 @@ interface TickerSummaryResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
+  aiAnalysis?: string;
+  aiAnalysisError?: string;
 }
 
 interface ExchangeSummaryGroupResponse {
@@ -72,6 +74,13 @@ function toTickerSummaryResponse(
   tickerMap: Map<string, TickerEntity>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
+  const summaryWithAi = summary as DailySummaryEntity & {
+    AiAnalysis?: string;
+    AiAnalysisError?: string;
+  };
+  const hasAiFields =
+    Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysis') ||
+    Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysisError');
 
   return {
     tickerId: summary.TickerID,
@@ -83,6 +92,10 @@ function toTickerSummaryResponse(
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     ...dailySummaryMapper.toTickerSummaryResponse(summary),
+    aiAnalysis: hasAiFields
+      ? summaryWithAi.AiAnalysis
+      : 'この銘柄のAI解析サンプルテキストです。（仮データ）',
+    aiAnalysisError: summaryWithAi.AiAnalysisError,
   };
 }
 

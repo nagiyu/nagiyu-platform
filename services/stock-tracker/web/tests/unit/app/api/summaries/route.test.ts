@@ -118,6 +118,7 @@ describe('GET /api/summaries', () => {
               buyPatternCount: 0,
               sellPatternCount: 0,
               patternDetails: [],
+              aiAnalysis: 'この銘柄のAI解析サンプルテキストです。（仮データ）',
             },
           ],
         },
@@ -252,6 +253,91 @@ describe('GET /api/summaries', () => {
         patternDetails: [],
       })
     );
+  });
+
+  it('正常系: AI解析フィールド未定義時はサンプル文字列を返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        aiAnalysis: 'この銘柄のAI解析サンプルテキストです。（仮データ）',
+      })
+    );
+  });
+
+  it('正常系: aiAnalysisError がある場合はその値を返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+        AiAnalysisError: 'AI解析の生成に失敗しました',
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        aiAnalysisError: 'AI解析の生成に失敗しました',
+      })
+    );
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysis');
+  });
+
+  it('正常系: aiAnalysis と aiAnalysisError が明示的に undefined の場合はそのまま返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+        AiAnalysis: undefined,
+        AiAnalysisError: undefined,
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysis');
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
   });
 
   it('異常系: date パラメータが不正な場合は 400 を返す', async () => {
