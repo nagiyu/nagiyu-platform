@@ -118,9 +118,6 @@ describe('GET /api/summaries', () => {
               buyPatternCount: 0,
               sellPatternCount: 0,
               patternDetails: [],
-              aiAnalysis: expect.stringContaining(
-                'この銘柄のAI解析サンプルテキストです。（仮データ）'
-              ),
             },
           ],
         },
@@ -257,7 +254,37 @@ describe('GET /api/summaries', () => {
     );
   });
 
-  it('正常系: AI解析フィールドが存在しない場合はサンプル文字列を返す', async () => {
+  it('正常系: AiAnalysis がある場合は aiAnalysis として返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+        AiAnalysis: '実データのAI解析',
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        aiAnalysis: '実データのAI解析',
+      })
+    );
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
+  });
+
+  it('正常系: AiAnalysis と AiAnalysisError がない場合は両方とも返さない', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
@@ -278,11 +305,8 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).toEqual(
-      expect.objectContaining({
-        aiAnalysis: expect.stringContaining('この銘柄のAI解析サンプルテキストです。（仮データ）'),
-      })
-    );
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysis');
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
   });
 
   it('正常系: aiAnalysisError がある場合はその値を返す', async () => {
