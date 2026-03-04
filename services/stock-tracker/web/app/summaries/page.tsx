@@ -435,9 +435,13 @@ export default function SummariesPage() {
                   </Table>
                 </TableContainer>
               </Box>
-              <Divider />
-              <Typography variant="h6">AI 解析</Typography>
-              <Typography>{resolveAiAnalysisText(selectedTicker)}</Typography>
+              <Box component="section" aria-labelledby="ai-analysis-heading">
+                <Divider sx={{ mb: 2 }} />
+                <Typography id="ai-analysis-heading" variant="h6">
+                  AI 解析
+                </Typography>
+                <Typography>{resolveAiAnalysisText(selectedTicker)}</Typography>
+              </Box>
             </Box>
           )}
         </DialogContent>

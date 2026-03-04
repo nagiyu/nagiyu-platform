@@ -60,6 +60,16 @@ describe('SummariesPage', () => {
       );
     });
 
+    it('aiAnalysis と aiAnalysisError が両方ある場合は aiAnalysis を優先表示する', () => {
+      expect(
+        resolveAiAnalysisText({
+          ...baseSummary,
+          aiAnalysis: '優先される解析テキスト',
+          aiAnalysisError: 'OpenAI timeout',
+        })
+      ).toBe('優先される解析テキスト');
+    });
+
     it('aiAnalysis と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
       expect(resolveAiAnalysisText(baseSummary)).toBe(
         STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
