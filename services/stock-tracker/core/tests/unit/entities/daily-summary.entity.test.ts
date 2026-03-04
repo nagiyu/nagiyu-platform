@@ -42,6 +42,59 @@ describe('DailySummaryEntity 型定義', () => {
     expect(input.High).toBe(110);
   });
 
+  it('AiAnalysis フィールドが string として保持できる', () => {
+    const entity: DailySummaryEntity = {
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Date: '2026-02-27',
+      Open: 100,
+      High: 110,
+      Low: 90,
+      Close: 105,
+      AiAnalysis: '本日は上昇トレンドが継続しています。',
+      CreatedAt: 1700000000000,
+      UpdatedAt: 1700000000000,
+    };
+
+    expect(entity.AiAnalysis).toBe('本日は上昇トレンドが継続しています。');
+  });
+
+  it('AiAnalysisError フィールドが string として保持できる', () => {
+    const entity: DailySummaryEntity = {
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Date: '2026-02-27',
+      Open: 100,
+      High: 110,
+      Low: 90,
+      Close: 105,
+      AiAnalysisError: 'OpenAI API 呼び出しに失敗しました',
+      CreatedAt: 1700000000000,
+      UpdatedAt: 1700000000000,
+    };
+
+    expect(entity.AiAnalysisError).toBe('OpenAI API 呼び出しに失敗しました');
+  });
+
+  it('AiAnalysis / AiAnalysisError が未生成状態として undefined を保持できる', () => {
+    const entity: DailySummaryEntity = {
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Date: '2026-02-27',
+      Open: 100,
+      High: 110,
+      Low: 90,
+      Close: 105,
+      AiAnalysis: undefined,
+      AiAnalysisError: undefined,
+      CreatedAt: 1700000000000,
+      UpdatedAt: 1700000000000,
+    };
+
+    expect(entity.AiAnalysis).toBeUndefined();
+    expect(entity.AiAnalysisError).toBeUndefined();
+  });
+
   it('DailySummaryKey が tickerId/date を保持できる', () => {
     const key: DailySummaryKey = {
       tickerId: 'NSDQ:AAPL',
