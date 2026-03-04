@@ -433,13 +433,13 @@ export default function SummariesPage() {
                   value={resolveAiAnalysisText(selectedTicker)}
                   multiline
                   fullWidth
-                  minRows={6}
-                  maxRows={6}
+                  rows={6}
+                  aria-labelledby="ai-analysis-heading"
                   InputProps={{
                     readOnly: true,
                     sx: {
                       '& textarea': {
-                        overflowY: 'auto !important',
+                        overflowY: 'auto',
                       },
                     },
                   }}
