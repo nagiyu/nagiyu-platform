@@ -156,6 +156,47 @@ test.describe('サマリー画面スモークテスト', () => {
     expect(Number(sellCountInList ?? '0')).toBe(matchedSellRows);
   });
 
+  test('詳細ダイアログでAI解析セクションを表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  aiAnalysis: 'テスト用のAI解析テキストです。',
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('AI 解析')).toBeVisible();
+    await expect(dialog.getByText('テスト用のAI解析テキストです。')).toBeVisible();
+  });
+
   test('サマリーページの基本要素が表示される', async ({ page }) => {
     await page.goto('/summaries');
 
