@@ -274,7 +274,7 @@ jobs:
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
           VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
           VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
-          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY_APIKEY }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-stock-tracker -- deploy \
             --context env="$ENVIRONMENT" \
