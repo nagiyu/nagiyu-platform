@@ -19,7 +19,11 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
 } as const;
 
-const AI_ANALYSIS_SAMPLE_TEXT = 'この銘柄のAI解析サンプルテキストです。（仮データ）';
+const AI_ANALYSIS_SAMPLE_TEXT = `この銘柄のAI解析サンプルテキストです。（仮データ）
+直近のローソク足は高値・安値のレンジ内で推移しており、短期では方向感を探る局面です。
+出来高は平均並みで急激な資金流入は見られませんが、移動平均線との乖離は限定的です。
+サポートライン付近では押し目買いが入りやすく、レジスタンス突破時は上昇継続の可能性があります。
+一方で外部要因によりボラティリティが拡大する可能性があるため、損切りラインを明確に設定してください。`;
 
 interface TickerSummaryResponse {
   tickerId: string;

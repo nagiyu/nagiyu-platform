@@ -118,7 +118,9 @@ describe('GET /api/summaries', () => {
               buyPatternCount: 0,
               sellPatternCount: 0,
               patternDetails: [],
-              aiAnalysis: 'この銘柄のAI解析サンプルテキストです。（仮データ）',
+              aiAnalysis: expect.stringContaining(
+                'この銘柄のAI解析サンプルテキストです。（仮データ）'
+              ),
             },
           ],
         },
@@ -278,7 +280,7 @@ describe('GET /api/summaries', () => {
     expect(response.status).toBe(200);
     expect(body.exchanges[0].summaries[0]).toEqual(
       expect.objectContaining({
-        aiAnalysis: 'この銘柄のAI解析サンプルテキストです。（仮データ）',
+        aiAnalysis: expect.stringContaining('この銘柄のAI解析サンプルテキストです。（仮データ）'),
       })
     );
   });
