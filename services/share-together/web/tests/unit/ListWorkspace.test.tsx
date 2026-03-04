@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ListWorkspace } from '@/components/ListWorkspace';
 
 jest.mock('next/navigation', () => ({
@@ -35,6 +35,36 @@ describe('ListWorkspace', () => {
     expect(screen.getByRole('heading', { name: '共有リスト' })).toBeInTheDocument();
     expect(screen.getByText('ルームメイト家事分担')).toBeInTheDocument();
     expect(screen.getByText('ゴミ出し当番を確認する')).toBeInTheDocument();
+  });
+
+  it('個人リストAPI有効時は未知のリストIDでも個人スコープで初期表示する', async () => {
+    const originalFetch = globalThis.fetch;
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({ data: { lists: [] } }),
+    } as Response);
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    try {
+      render(<ListWorkspace initialListId="api-personal-list-1" enablePersonalListApi />);
+
+      expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
+      expect(screen.getByRole('heading', { name: '個人リスト' })).toBeInTheDocument();
+      expect(screen.queryByRole('combobox', { name: 'グループ' })).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+      });
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
   });
 
   it('個人リスト作成ボタンをクリックするとダイアログを表示し、作成するとスナックバーを表示する', () => {

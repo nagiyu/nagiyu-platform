@@ -39,7 +39,8 @@ export function ListWorkspace({
     Object.entries(MOCK_SHARED_LISTS_BY_GROUP).find(([, lists]) =>
       lists.some((list) => list.listId === initialListId)
     )?.[0] ?? MOCK_SHARED_GROUPS[0].groupId;
-  const initialScope = PERSONAL_LIST_IDS.has(initialListId) ? 'personal' : 'shared';
+  const initialScope =
+    enablePersonalListApi || PERSONAL_LIST_IDS.has(initialListId) ? 'personal' : 'shared';
   const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
   const [selectedGroupId, setSelectedGroupId] = useState(initialSharedGroupId);
   const [selectedListId, setSelectedListId] = useState(initialListId);
