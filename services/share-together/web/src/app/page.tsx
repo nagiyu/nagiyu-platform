@@ -7,7 +7,6 @@ import { TodoList } from '@/components/TodoList';
 import type { PersonalListsResponse } from '@/types';
 
 const REGISTRATION_COMPLETED_KEY = 'share-together:user-registration-completed';
-const MOCK_DEFAULT_LIST_ID = 'mock-default-list';
 const ERROR_MESSAGES = {
   USER_REGISTRATION_AUTO_CALL_FAILED: 'ユーザー登録 API の自動実行に失敗しました',
   PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧 API の取得に失敗しました',
@@ -57,9 +56,6 @@ export default function Home() {
     void initializeTodoList();
   }, []);
 
-  const isUsingMockList = !defaultListId && !isListLoading;
-  const resolvedListId = defaultListId ?? MOCK_DEFAULT_LIST_ID;
-
   return (
     <main>
       <Navigation />
@@ -67,11 +63,14 @@ export default function Home() {
         <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
           デフォルト個人リスト
         </Typography>
-        {!isListLoading && <TodoList listId={resolvedListId} apiEnabled={!isUsingMockList} />}
+        {defaultListId && !isListLoading && <TodoList listId={defaultListId} apiEnabled />}
         {!defaultListId && isListLoading && (
           <Typography role="status" aria-live="polite">
             ToDoリストを読み込み中です...
           </Typography>
+        )}
+        {!defaultListId && !isListLoading && (
+          <Typography color="error">デフォルト個人リストの取得に失敗しました。</Typography>
         )}
       </Box>
     </main>
