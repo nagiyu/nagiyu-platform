@@ -19,12 +19,6 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
 } as const;
 
-const AI_ANALYSIS_SAMPLE_TEXT = `この銘柄のAI解析サンプルテキストです。（仮データ）
-直近のローソク足は高値・安値のレンジ内で推移しており、短期では方向感を探る局面です。
-出来高は平均並みで急激な資金流入は見られませんが、移動平均線との乖離は限定的です。
-サポートライン付近では押し目買いが入りやすく、レジスタンス突破時は上昇継続の可能性があります。
-一方で外部要因によりボラティリティが拡大する可能性があるため、損切りラインを明確に設定してください。`;
-
 interface TickerSummaryResponse {
   tickerId: string;
   symbol: string;
@@ -80,13 +74,6 @@ function toTickerSummaryResponse(
   tickerMap: Map<string, TickerEntity>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
-  const summaryWithAi = summary as DailySummaryEntity & {
-    AiAnalysis?: string;
-    AiAnalysisError?: string;
-  };
-  const hasExplicitAiFields =
-    Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysis') ||
-    Object.prototype.hasOwnProperty.call(summaryWithAi, 'AiAnalysisError');
 
   return {
     tickerId: summary.TickerID,
@@ -98,8 +85,6 @@ function toTickerSummaryResponse(
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     ...dailySummaryMapper.toTickerSummaryResponse(summary),
-    aiAnalysis: hasExplicitAiFields ? summaryWithAi.AiAnalysis : AI_ANALYSIS_SAMPLE_TEXT,
-    aiAnalysisError: summaryWithAi.AiAnalysisError,
   };
 }
 
