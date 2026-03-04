@@ -242,6 +242,7 @@ describe('DailySummaryMapper', () => {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
           'red-three-soldiers-hesitation': 'NOT_MATCHED',
+          'three-white-soldiers': 'NOT_MATCHED',
           unknown: 'MATCHED',
         },
         BuyPatternCount: 1,
@@ -265,6 +266,10 @@ describe('DailySummaryMapper', () => {
           }),
           expect.objectContaining({
             patternId: 'red-three-soldiers-hesitation',
+            status: 'NOT_MATCHED',
+          }),
+          expect.objectContaining({
+            patternId: 'three-white-soldiers',
             status: 'NOT_MATCHED',
           }),
         ])
