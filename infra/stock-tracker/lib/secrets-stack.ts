@@ -14,6 +14,7 @@ export interface SecretsStackProps extends cdk.StackProps {
  */
 export class SecretsStack extends cdk.Stack {
   public readonly vapidSecret: secretsmanager.ISecret;
+  public readonly openAiApiKeySecret: secretsmanager.ISecret;
   public readonly devCredentialsSecret?: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
@@ -31,10 +32,22 @@ export class SecretsStack extends cdk.Stack {
       },
     });
 
+    // OpenAI API キーシークレット（初回は PLACEHOLDER 値）
+    this.openAiApiKeySecret = new secretsmanager.Secret(this, 'OpenAiApiKeySecret', {
+      secretName: `nagiyu-stock-tracker-openai-api-key-${environment}`,
+      description: 'OpenAI API key for stock analysis batch processing',
+      secretObjectValue: {
+        apiKey: cdk.SecretValue.unsafePlainText('PLACEHOLDER'),
+      },
+    });
+
     // タグの追加
     cdk.Tags.of(this.vapidSecret).add('Application', 'nagiyu');
     cdk.Tags.of(this.vapidSecret).add('Service', 'stock-tracker');
     cdk.Tags.of(this.vapidSecret).add('Environment', environment);
+    cdk.Tags.of(this.openAiApiKeySecret).add('Application', 'nagiyu');
+    cdk.Tags.of(this.openAiApiKeySecret).add('Service', 'stock-tracker');
+    cdk.Tags.of(this.openAiApiKeySecret).add('Environment', environment);
 
     // CloudFormation Outputs
     new cdk.CfnOutput(this, 'VapidSecretArn', {
@@ -45,6 +58,16 @@ export class SecretsStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'VapidSecretName', {
       value: this.vapidSecret.secretName,
       description: 'VAPID Secret Name',
+    });
+
+    new cdk.CfnOutput(this, 'OpenAiApiKeySecretArn', {
+      value: this.openAiApiKeySecret.secretArn,
+      description: 'OpenAI API Key Secret ARN',
+    });
+
+    new cdk.CfnOutput(this, 'OpenAiApiKeySecretName', {
+      value: this.openAiApiKeySecret.secretName,
+      description: 'OpenAI API Key Secret Name',
     });
 
     // 開発用 IAM 認証情報シークレット（dev 環境のみ）

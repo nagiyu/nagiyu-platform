@@ -31,6 +31,8 @@ interface TickerSummaryResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
+  aiAnalysis?: string;
+  aiAnalysisError?: string;
 }
 
 interface ExchangeSummaryGroupResponse {

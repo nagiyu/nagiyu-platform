@@ -31,6 +31,10 @@ export interface DailySummaryEntity {
   BuyPatternCount?: number;
   /** 売りシグナル合致数 */
   SellPatternCount?: number;
+  /** AI 解析テキスト（日本語） */
+  AiAnalysis?: string;
+  /** AI 解析生成失敗時のエラー情報 */
+  AiAnalysisError?: string;
   /** 作成日時 (Unix timestamp ms) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp ms) */

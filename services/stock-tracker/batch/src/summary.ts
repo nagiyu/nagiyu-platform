@@ -15,6 +15,8 @@ import {
   isTradingHours,
   getLastTradingDate,
 } from '@nagiyu/stock-tracker-core';
+import { generateAiAnalysis } from './lib/openai-client.js';
+import type { AiAnalysisInput } from './lib/openai-client.js';
 import type {
   DailySummaryRepository,
   ExchangeEntity,
@@ -56,6 +58,8 @@ interface BatchStatistics {
   totalTickers: number;
   processedTickers: number;
   summariesSaved: number;
+  aiAnalysisGenerated: number;
+  aiAnalysisSkipped: number;
   errors: number;
 }
 
@@ -66,6 +70,7 @@ interface HandlerDependencies {
   isTradingHoursFn: typeof isTradingHours;
   getChartDataFn: typeof getChartData;
   nowFn: () => number;
+  generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
 }
 
 async function processExchange(
@@ -136,7 +141,7 @@ async function processExchange(
               }
             : patternAnalyzer.analyze(chartData);
 
-        await dependencies.dailySummaryRepository.upsert({
+        const entity = {
           TickerID: ticker.TickerID,
           ExchangeID: exchange.ExchangeID,
           Date: summaryDate,
@@ -147,9 +152,60 @@ async function processExchange(
           PatternResults: patternAnalysis.patternResults,
           BuyPatternCount: patternAnalysis.buyPatternCount,
           SellPatternCount: patternAnalysis.sellPatternCount,
-        });
+          AiAnalysis: existingSummary?.AiAnalysis,
+          AiAnalysisError: existingSummary?.AiAnalysisError,
+        };
+        await dependencies.dailySummaryRepository.upsert(entity);
 
         stats.summariesSaved++;
+
+        if (existingSummary?.AiAnalysis !== undefined) {
+          continue;
+        }
+
+        const openAiApiKey = process.env.OPENAI_API_KEY;
+        if (!openAiApiKey || !dependencies.generateAiAnalysisFn) {
+          stats.aiAnalysisSkipped++;
+          continue;
+        }
+
+        try {
+          const matchedPatterns = PATTERN_REGISTRY.filter(
+            (pattern) => patternAnalysis.patternResults[pattern.definition.patternId] === 'MATCHED'
+          );
+          const aiAnalysis = await dependencies.generateAiAnalysisFn(openAiApiKey, {
+            tickerId: ticker.TickerID,
+            name: ticker.Name,
+            date: summaryDate,
+            open: latest.open,
+            high: latest.high,
+            low: latest.low,
+            close: latest.close,
+            buyPatternCount: patternAnalysis.buyPatternCount,
+            sellPatternCount: patternAnalysis.sellPatternCount,
+            patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
+          });
+
+          await dependencies.dailySummaryRepository.upsert({
+            ...entity,
+            AiAnalysis: aiAnalysis,
+            AiAnalysisError: undefined,
+          });
+          stats.aiAnalysisGenerated++;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          logger.warn('AI解析の生成に失敗したため、エラー情報を保存して処理を継続します', {
+            exchangeId: exchange.ExchangeID,
+            tickerId: ticker.TickerID,
+            reason: errorMessage,
+          });
+          await dependencies.dailySummaryRepository.upsert({
+            ...entity,
+            AiAnalysis: undefined,
+            AiAnalysisError: errorMessage,
+          });
+          stats.aiAnalysisSkipped++;
+        }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.warn('ティッカーの日足データ取得に失敗したため、前回結果を維持します', {
@@ -194,6 +250,8 @@ export async function handler(
     totalTickers: 0,
     processedTickers: 0,
     summariesSaved: 0,
+    aiAnalysisGenerated: 0,
+    aiAnalysisSkipped: 0,
     errors: 0,
   };
 
@@ -211,6 +269,7 @@ export async function handler(
         isTradingHoursFn: dependencies.isTradingHoursFn ?? isTradingHours,
         getChartDataFn: dependencies.getChartDataFn ?? getChartData,
         nowFn: dependencies.nowFn ?? Date.now,
+        generateAiAnalysisFn: dependencies.generateAiAnalysisFn ?? generateAiAnalysis,
       };
     } else {
       const docClient = getDynamoDBDocumentClient();
@@ -222,6 +281,7 @@ export async function handler(
         isTradingHoursFn: dependencies?.isTradingHoursFn ?? isTradingHours,
         getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
         nowFn: dependencies?.nowFn ?? Date.now,
+        generateAiAnalysisFn: dependencies?.generateAiAnalysisFn ?? generateAiAnalysis,
       };
     }
 

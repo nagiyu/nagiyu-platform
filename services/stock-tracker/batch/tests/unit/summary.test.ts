@@ -622,6 +622,189 @@ describe('summary batch handler', () => {
     });
   });
 
+  describe('AI解析処理', () => {
+    const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
+
+    beforeEach(async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+    });
+
+    afterEach(() => {
+      if (originalOpenAiApiKey === undefined) {
+        delete process.env.OPENAI_API_KEY;
+      } else {
+        process.env.OPENAI_API_KEY = originalOpenAiApiKey;
+      }
+    });
+
+    it('generateAiAnalysisFn の成功時に aiAnalysisGenerated が増加する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn: jest.fn().mockReturnValue(false),
+        getChartDataFn: jest.fn().mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(generateAiAnalysisFn).toHaveBeenCalledTimes(1);
+      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
+        'test-api-key',
+        expect.objectContaining({
+          tickerId: 'NSDQ:AAPL',
+          name: 'Apple Inc.',
+          date: '2026-02-27',
+        })
+      );
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        AiAnalysis: 'AIによる解析結果',
+      });
+      expect(JSON.parse(response.body).statistics).toMatchObject({
+        aiAnalysisGenerated: 1,
+        aiAnalysisSkipped: 0,
+      });
+    });
+
+    it('generateAiAnalysisFn が失敗した場合に aiAnalysisSkipped が増加し AiAnalysisError を保存する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      const generateAiAnalysisFn = jest.fn().mockRejectedValue(new Error('OpenAI API Error'));
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn: jest.fn().mockReturnValue(false),
+        getChartDataFn: jest.fn().mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        AiAnalysisError: 'OpenAI API Error',
+      });
+      expect(JSON.parse(response.body).statistics).toMatchObject({
+        aiAnalysisGenerated: 0,
+        aiAnalysisSkipped: 1,
+        errors: 0,
+      });
+    });
+
+    it('OPENAI_API_KEY 未設定時は AI 解析をスキップする', async () => {
+      delete process.env.OPENAI_API_KEY;
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn: jest.fn().mockReturnValue(false),
+        getChartDataFn: jest.fn().mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(generateAiAnalysisFn).not.toHaveBeenCalled();
+      expect(JSON.parse(response.body).statistics).toMatchObject({
+        aiAnalysisGenerated: 0,
+        aiAnalysisSkipped: 1,
+      });
+    });
+
+    it('AiAnalysis が既存値ありの場合は再生成しない', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        AiAnalysis: '既存のAI解析',
+      });
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('新しいAI解析');
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        isTradingHoursFn: jest.fn().mockReturnValue(false),
+        getChartDataFn: jest.fn().mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(generateAiAnalysisFn).not.toHaveBeenCalled();
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        AiAnalysis: '既存のAI解析',
+      });
+    });
+  });
+
   describe('取引所処理レベルのエラー', () => {
     it('取引所内処理で例外が発生してもレスポンスは200で処理継続する', async () => {
       const response = await handler(mockEvent, {

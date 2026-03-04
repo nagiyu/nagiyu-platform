@@ -18,6 +18,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   vapidSecret: secretsmanager.ISecret;
   vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
   vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
+  openAiApiKey: string; // OpenAI API Key（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
@@ -50,6 +51,7 @@ export class LambdaStack extends cdk.Stack {
       vapidSecret,
       vapidPublicKey,
       vapidPrivateKey,
+      openAiApiKey,
       nextAuthSecret,
     } = props;
 
@@ -161,6 +163,7 @@ export class LambdaStack extends cdk.Stack {
         BATCH_TYPE: 'MINUTE',
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -184,6 +187,7 @@ export class LambdaStack extends cdk.Stack {
         BATCH_TYPE: 'HOURLY',
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -205,6 +209,7 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'SUMMARY',
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -226,6 +231,7 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'DAILY',
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
