@@ -47,6 +47,19 @@ describe('GroupDetailPage', () => {
           json: async () => ({ user: { id: 'user-owner' } }),
         } as Response);
       }
+      if (url === '/api/groups/group-owner/lists') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: {
+              lists: [
+                { listId: 'list-1', name: '買い物リスト' },
+                { listId: 'list-2', name: '旅行準備' },
+              ],
+            },
+          }),
+        } as Response);
+      }
       return Promise.resolve({ ok: false, status: 404 } as Response);
     }) as jest.Mock;
 
@@ -57,6 +70,11 @@ describe('GroupDetailPage', () => {
     });
     expect(screen.getByRole('heading', { name: 'グループ詳細' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'メンバー一覧' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '共有リスト' })).toBeInTheDocument();
+    expect(screen.getByText('買い物リスト')).toBeInTheDocument();
+    expect(screen.getByText('旅行準備')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: '新しい共有リスト名' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '共有リストを作成' })).toBeInTheDocument();
     expect(screen.getByText('なぎゆ')).toBeInTheDocument();
     expect(screen.getByText('さくら')).toBeInTheDocument();
     expect(screen.getByText('たろう')).toBeInTheDocument();
@@ -102,6 +120,12 @@ describe('GroupDetailPage', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ user: { id: 'user-member-1' } }),
+        } as Response);
+      }
+      if (url === '/api/groups/group-member/lists') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { lists: [] } }),
         } as Response);
       }
       return Promise.resolve({ ok: false, status: 404 } as Response);
@@ -152,6 +176,12 @@ describe('GroupDetailPage', () => {
         return Promise.resolve({
           ok: true,
           json: async () => ({ user: {} }),
+        } as Response);
+      }
+      if (url === '/api/groups/group-member/lists') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { lists: [] } }),
         } as Response);
       }
       return Promise.resolve({ ok: false, status: 404 } as Response);
