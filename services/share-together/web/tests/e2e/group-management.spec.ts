@@ -100,6 +100,9 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
+    await page.route(`**/api/groups/${groupId}/lists`, async (route) => {
+      await route.fulfill({ json: { data: { lists: [] } } });
+    });
     await page.route('**/api/invitations', async (route) => {
       await route.fulfill({ json: { data: { success: true } } });
     });
@@ -212,6 +215,9 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
+    await page.route(`**/api/groups/${groupId}/lists`, async (route) => {
+      await route.fulfill({ json: { data: { lists: [] } } });
+    });
     await page.route(`**/api/groups/${groupId}/members/*`, async (route) => {
       await route.fulfill({ status: 204 });
     });
@@ -260,6 +266,9 @@ test.describe('グループ管理', () => {
           },
         } satisfies GroupMembersResponse,
       });
+    });
+    await page.route(`**/api/groups/${groupId}/lists`, async (route) => {
+      await route.fulfill({ json: { data: { lists: [] } } });
     });
     await page.route(`**/api/groups/${groupId}/members/*`, async (route) => {
       await route.fulfill({ status: 204 });
