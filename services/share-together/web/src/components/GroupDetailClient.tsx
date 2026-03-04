@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import {
   Alert,
   Box,
@@ -13,6 +14,7 @@ import {
   ListItemText,
   Snackbar,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -29,10 +31,12 @@ type GroupDetailClientProps = {
   isOwner: boolean;
   currentUserId: string;
   members: readonly Member[];
+  groupLists?: readonly { listId: string; name: string }[];
 };
 
 const ERROR_MESSAGES = {
   OPERATION_FAILED: '操作に失敗しました。',
+  GROUP_LIST_CREATE_FAILED: '共有リストの作成に失敗しました。',
   LEAVE_REQUIRES_RELOAD:
     '脱退処理を実行できませんでした。ページを再読み込みしてから再度お試しください。',
 } as const;
@@ -42,8 +46,13 @@ export function GroupDetailClient({
   isOwner,
   currentUserId,
   members: initialMembers,
+  groupLists: initialGroupLists = [],
 }: GroupDetailClientProps) {
   const [members, setMembers] = useState<Member[]>([...initialMembers]);
+  const [groupLists, setGroupLists] = useState<{ listId: string; name: string }[]>([
+    ...initialGroupLists,
+  ]);
+  const [listName, setListName] = useState('');
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
     type: 'deleteMember' | 'leaveGroup' | 'deleteGroup';
@@ -54,6 +63,7 @@ export function GroupDetailClient({
   const [left, setLeft] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingList, setIsCreatingList] = useState(false);
 
   const getErrorMessage = async (response: Response): Promise<string> => {
     try {
@@ -121,6 +131,35 @@ export function GroupDetailClient({
 
   const handleCancel = () => {
     setConfirmDialog({ open: false, type: 'deleteMember' });
+  };
+
+  const handleCreateGroupList = async () => {
+    const trimmedName = listName.trim();
+    if (trimmedName.length === 0) {
+      return;
+    }
+
+    setIsCreatingList(true);
+    try {
+      const response = await fetch(`/api/groups/${groupId}/lists`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmedName }),
+      });
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+      const result = (await response.json()) as { data: { listId: string; name: string } };
+      setGroupLists((prev) => [...prev, result.data]);
+      setListName('');
+      setSnackbarMessage('共有リストを作成しました。');
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : ERROR_MESSAGES.GROUP_LIST_CREATE_FAILED
+      );
+    } finally {
+      setIsCreatingList(false);
+    }
   };
 
   const getConfirmDialogProps = () => {
@@ -208,6 +247,46 @@ export function GroupDetailClient({
                   グループを脱退
                 </Button>
               )}
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent>
+            <Typography variant="h6" component="h2" gutterBottom>
+              共有リスト
+            </Typography>
+            <List>
+              {groupLists.map((list) => (
+                <ListItem key={list.listId} disablePadding>
+                  <Button component={Link} href={`/groups/${groupId}/lists/${list.listId}`}>
+                    {list.name}
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
+            {groupLists.length === 0 ? (
+              <Typography color="text.secondary">共有リストはまだありません。</Typography>
+            ) : null}
+            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+              <TextField
+                size="small"
+                fullWidth
+                label="新しい共有リスト名"
+                value={listName}
+                onChange={(event) => setListName(event.target.value)}
+              />
+              <Button
+                variant="contained"
+                disabled={isCreatingList}
+                onClick={() => {
+                  if (!isCreatingList) {
+                    void handleCreateGroupList();
+                  }
+                }}
+              >
+                共有リストを作成
+              </Button>
             </Box>
           </CardContent>
         </Card>

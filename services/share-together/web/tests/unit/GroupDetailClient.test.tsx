@@ -31,7 +31,39 @@ describe('GroupDetailClient', () => {
     expect(screen.getByText('なぎゆ')).toBeInTheDocument();
     expect(screen.getByText('さくら')).toBeInTheDocument();
     expect(screen.getByText('たろう')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '共有リスト' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'メンバー招待フォーム' })).toBeInTheDocument();
+  });
+
+  it('共有リスト作成フォームでAPIから新しい共有リストを追加できる', async () => {
+    (global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: { listId: 'new-list', name: '新規共有リスト' } }),
+    } as Response);
+
+    render(
+      <GroupDetailClient
+        groupId="mock-family-group"
+        isOwner={true}
+        currentUserId="user-owner"
+        members={MOCK_MEMBERS}
+        groupLists={[]}
+      />
+    );
+
+    fireEvent.change(screen.getByRole('textbox', { name: '新しい共有リスト名' }), {
+      target: { value: '新規共有リスト' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '共有リストを作成' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('新規共有リスト')).toBeInTheDocument();
+    });
+    expect(global.fetch).toHaveBeenCalledWith('/api/groups/mock-family-group/lists', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: '新規共有リスト' }),
+    });
   });
 
   it('オーナーは自分以外のメンバーに削除ボタンを表示する', () => {

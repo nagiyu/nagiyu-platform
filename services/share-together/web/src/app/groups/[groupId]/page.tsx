@@ -17,12 +17,18 @@ type GroupMember = {
   name: string;
 };
 
+type GroupList = {
+  listId: string;
+  name: string;
+};
+
 export default function GroupDetailPage() {
   const params = useParams<{ groupId: string }>();
   const groupId = params.groupId;
   const [isOwner, setIsOwner] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('');
   const [members, setMembers] = useState<GroupMember[]>([]);
+  const [groupLists, setGroupLists] = useState<GroupList[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -33,20 +39,24 @@ export default function GroupDetailPage() {
 
     void (async () => {
       try {
-        const [groupsResponse, membersResponse, sessionResponse] = await Promise.all([
-          fetch('/api/groups'),
-          fetch(`/api/groups/${groupId}/members`),
-          fetch('/api/auth/session'),
-        ]);
+        const [groupsResponse, membersResponse, sessionResponse, listsResponse] = await Promise.all(
+          [
+            fetch('/api/groups'),
+            fetch(`/api/groups/${groupId}/members`),
+            fetch('/api/auth/session'),
+            fetch(`/api/groups/${groupId}/lists`),
+          ]
+        );
 
-        if (!groupsResponse.ok || !membersResponse.ok || !sessionResponse.ok) {
+        if (!groupsResponse.ok || !membersResponse.ok || !sessionResponse.ok || !listsResponse.ok) {
           throw new Error(
-            `status: ${groupsResponse.status},${membersResponse.status},${sessionResponse.status}`
+            `status: ${groupsResponse.status},${membersResponse.status},${sessionResponse.status},${listsResponse.status}`
           );
         }
 
         const groupsData = (await groupsResponse.json()) as { data: { groups: GroupSummary[] } };
         const membersData = (await membersResponse.json()) as { data: { members: GroupMember[] } };
+        const listsData = (await listsResponse.json()) as { data: { lists: GroupList[] } };
         const sessionData = (await sessionResponse.json()) as { user?: { id?: unknown } };
         if (typeof sessionData.user?.id !== 'string' || sessionData.user.id.length === 0) {
           setErrorMessage('ユーザーIDが取得できませんでした。再度ログインしてください。');
@@ -62,6 +72,7 @@ export default function GroupDetailPage() {
         setIsOwner(targetGroup.isOwner);
         setCurrentUserId(sessionData.user.id);
         setMembers(membersData.data.members);
+        setGroupLists(listsData.data.lists);
       } catch (error: unknown) {
         console.error('グループ詳細の取得に失敗しました', { groupId, error });
         setErrorMessage('グループ詳細の取得に失敗しました。');
@@ -88,6 +99,7 @@ export default function GroupDetailPage() {
             isOwner={isOwner}
             currentUserId={currentUserId}
             members={members}
+            groupLists={groupLists}
           />
         )}
       </Container>
