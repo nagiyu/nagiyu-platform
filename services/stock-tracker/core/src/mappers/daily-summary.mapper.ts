@@ -27,6 +27,8 @@ export interface DailySummaryPatternResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
+  aiAnalysis?: string;
+  aiAnalysisError?: string;
 }
 
 /**
@@ -67,6 +69,8 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       ...(entity.SellPatternCount !== undefined
         ? { SellPatternCount: entity.SellPatternCount }
         : {}),
+      ...(entity.AiAnalysis !== undefined ? { AiAnalysis: entity.AiAnalysis } : {}),
+      ...(entity.AiAnalysisError !== undefined ? { AiAnalysisError: entity.AiAnalysisError } : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -101,6 +105,14 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         item.SellPatternCount === undefined
           ? undefined
           : validateNumberField(item.SellPatternCount, 'SellPatternCount'),
+      AiAnalysis:
+        item.AiAnalysis === undefined
+          ? undefined
+          : validateStringField(item.AiAnalysis, 'AiAnalysis'),
+      AiAnalysisError:
+        item.AiAnalysisError === undefined
+          ? undefined
+          : validateStringField(item.AiAnalysisError, 'AiAnalysisError'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
@@ -118,6 +130,8 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         buyPatternCount: 0,
         sellPatternCount: 0,
         patternDetails: [],
+        aiAnalysis: entity.AiAnalysis,
+        aiAnalysisError: entity.AiAnalysisError,
       };
     }
 
@@ -140,6 +154,8 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       buyPatternCount: entity.BuyPatternCount ?? 0,
       sellPatternCount: entity.SellPatternCount ?? 0,
       patternDetails,
+      aiAnalysis: entity.AiAnalysis,
+      aiAnalysisError: entity.AiAnalysisError,
     };
   }
 
