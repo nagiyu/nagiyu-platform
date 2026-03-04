@@ -3,7 +3,7 @@ import { withRetry } from './retry.js';
 
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 120_000;
 
 export interface AiAnalysisInput {
   tickerId: string;
