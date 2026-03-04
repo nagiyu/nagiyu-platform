@@ -25,6 +25,7 @@ describe('パターン分析', () => {
 
       expect(result.patternResults['morning-star']).toBe('MATCHED');
       expect(result.patternResults['evening-star']).toBe('NOT_MATCHED');
+      expect(result.patternResults['red-three-soldiers-hesitation']).toBe('NOT_MATCHED');
       expect(result.buyPatternCount).toBe(1);
       expect(result.sellPatternCount).toBe(0);
     });
@@ -40,6 +41,23 @@ describe('パターン分析', () => {
 
       expect(result.patternResults['morning-star']).toBe('NOT_MATCHED');
       expect(result.patternResults['evening-star']).toBe('MATCHED');
+      expect(result.patternResults['red-three-soldiers-hesitation']).toBe('NOT_MATCHED');
+      expect(result.buyPatternCount).toBe(0);
+      expect(result.sellPatternCount).toBe(1);
+    });
+
+    it('正常系: RedThreeSoldiersHesitation が MATCHED の場合 buyPatternCount が 0 で sellPatternCount が 1 になる', () => {
+      const candles = [
+        createCandle(140, 160, 130, 141),
+        createCandle(110, 155, 105, 150),
+        createCandle(80, 130, 70, 120),
+      ];
+
+      const result = analyzer.analyze(candles);
+
+      expect(result.patternResults['morning-star']).toBe('NOT_MATCHED');
+      expect(result.patternResults['evening-star']).toBe('NOT_MATCHED');
+      expect(result.patternResults['red-three-soldiers-hesitation']).toBe('MATCHED');
       expect(result.buyPatternCount).toBe(0);
       expect(result.sellPatternCount).toBe(1);
     });
@@ -51,6 +69,7 @@ describe('パターン分析', () => {
 
       expect(result.patternResults['morning-star']).toBe('INSUFFICIENT_DATA');
       expect(result.patternResults['evening-star']).toBe('INSUFFICIENT_DATA');
+      expect(result.patternResults['red-three-soldiers-hesitation']).toBe('INSUFFICIENT_DATA');
       expect(result.buyPatternCount).toBe(0);
       expect(result.sellPatternCount).toBe(0);
     });
@@ -66,6 +85,7 @@ describe('パターン分析', () => {
 
       expect(result.patternResults['morning-star']).toBe('NOT_MATCHED');
       expect(result.patternResults['evening-star']).toBe('NOT_MATCHED');
+      expect(result.patternResults['red-three-soldiers-hesitation']).toBe('NOT_MATCHED');
       expect(result.buyPatternCount).toBe(0);
       expect(result.sellPatternCount).toBe(0);
     });
