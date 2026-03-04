@@ -74,6 +74,7 @@ const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER'
 // VAPID キー（デプロイ時に Secrets Manager から取得、未指定の場合はプレースホルダー）
 const vapidPublicKey = app.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';
 const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
+const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER';
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
@@ -84,6 +85,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`,
   vapidSecret: secretsStack.vapidSecret,
   vapidPublicKey,
   vapidPrivateKey,
+  openAiApiKey,
   nextAuthSecret,
   env: stackEnv,
   description: `Stock Tracker Lambda Functions - ${env} environment`,
