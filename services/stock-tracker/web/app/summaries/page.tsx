@@ -18,6 +18,7 @@ import {
   MenuItem,
   Paper,
   Select,
+  TextField,
   Table,
   TableBody,
   TableCell,
@@ -428,7 +429,21 @@ export default function SummariesPage() {
                 <Typography id="ai-analysis-heading" variant="h6">
                   AI 解析
                 </Typography>
-                <Typography>{resolveAiAnalysisText(selectedTicker)}</Typography>
+                <TextField
+                  value={resolveAiAnalysisText(selectedTicker)}
+                  multiline
+                  fullWidth
+                  rows={6}
+                  aria-labelledby="ai-analysis-heading"
+                  InputProps={{
+                    readOnly: true,
+                    sx: {
+                      '& textarea': {
+                        overflowY: 'auto',
+                      },
+                    },
+                  }}
+                />
               </Box>
             </Box>
           )}
