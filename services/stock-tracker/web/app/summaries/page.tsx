@@ -30,8 +30,8 @@ import {
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
-import { STOCK_TRACKER_ERROR_MESSAGES } from '../../lib/error-messages';
 import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
+import { resolveAiAnalysisText } from './ai-analysis';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
@@ -55,18 +55,6 @@ const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   }, null);
 
   return latest === null ? '-' : new Date(latest).toLocaleString('ja-JP');
-};
-
-export const resolveAiAnalysisText = (summary: TickerSummary): string => {
-  if (typeof summary.aiAnalysis === 'string') {
-    return summary.aiAnalysis;
-  }
-
-  if (typeof summary.aiAnalysisError === 'string') {
-    return STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_FAILED;
-  }
-
-  return STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED;
 };
 
 export default function SummariesPage() {

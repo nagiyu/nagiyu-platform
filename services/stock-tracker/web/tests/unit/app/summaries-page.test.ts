@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import SummariesPage, { resolveAiAnalysisText } from '../../../app/summaries/page';
+import SummariesPage from '../../../app/summaries/page';
+import { resolveAiAnalysisText } from '../../../app/summaries/ai-analysis';
 import { useSession } from 'next-auth/react';
 import { STOCK_TRACKER_ERROR_MESSAGES } from '../../../lib/error-messages';
 
