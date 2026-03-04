@@ -1,4 +1,8 @@
-import { DynamoDBTodoRepository, TodoService } from '@nagiyu/share-together-core';
+import {
+  DynamoDBListRepository,
+  DynamoDBTodoRepository,
+  TodoService,
+} from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
@@ -47,6 +51,17 @@ function createNotFoundErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 404 });
 }
 
+function createForbiddenErrorResponse(): NextResponse {
+  const response: ApiErrorResponse = {
+    error: {
+      code: 'FORBIDDEN',
+      message: ERROR_MESSAGES.FORBIDDEN,
+    },
+  };
+
+  return NextResponse.json(response, { status: 403 });
+}
+
 function createInternalServerErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
     error: {
@@ -58,15 +73,19 @@ function createInternalServerErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 500 });
 }
 
-function createTodoService(): TodoService {
+function createServices(): { listRepository: DynamoDBListRepository; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
   const { docClient } = getAwsClients();
+  const listRepository = new DynamoDBListRepository(docClient, tableName);
   const todoRepository = new DynamoDBTodoRepository(docClient, tableName);
-  return new TodoService(todoRepository);
+  return {
+    listRepository,
+    todoService: new TodoService(todoRepository),
+  };
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -134,7 +153,11 @@ export async function PUT(
       return createValidationErrorResponse();
     }
 
-    const todoService = createTodoService();
+    const { listRepository, todoService } = createServices();
+    const existingList = await listRepository.getPersonalListById(userId, listId);
+    if (!existingList) {
+      return createForbiddenErrorResponse();
+    }
     const todo = await todoService.updateTodo(listId, todoId, updates, userId);
     const response: TodoResponse = {
       data: todo,
@@ -184,7 +207,11 @@ export async function DELETE(
     requestedListId = listId;
     requestedTodoId = todoId;
 
-    const todoService = createTodoService();
+    const { listRepository, todoService } = createServices();
+    const existingList = await listRepository.getPersonalListById(userId, listId);
+    if (!existingList) {
+      return createForbiddenErrorResponse();
+    }
     await todoService.deleteTodo(listId, todoId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
