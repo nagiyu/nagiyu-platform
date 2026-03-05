@@ -20,6 +20,7 @@ import {
   DEFAULT_CHART_BAR_COUNT,
 } from '@/types/stock';
 import StockChart from './StockChart';
+import type { AlertLine } from './StockChart';
 import ErrorAlert from './ErrorAlert';
 import EmptyState from './EmptyState';
 
@@ -70,6 +71,10 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   // エラー状態の管理
   const [exchangesError, setExchangesError] = useState<string>('');
   const [tickersError, setTickersError] = useState<string>('');
+
+  // チャート追加情報の管理（保有株式・アラートライン）
+  const [holdingPrice, setHoldingPrice] = useState<number | undefined>(undefined);
+  const [alertLines, setAlertLines] = useState<AlertLine[]>([]);
 
   // 取引所一覧を取得
   useEffect(() => {
@@ -127,6 +132,56 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
     fetchTickers();
   }, [exchange]);
+
+  // ティッカー選択時に保有株式・アラート情報を取得
+  useEffect(() => {
+    if (!ticker) {
+      setHoldingPrice(undefined);
+      setAlertLines([]);
+      return;
+    }
+
+    const fetchHoldingAndAlerts = async () => {
+      // 保有株式の平均取得価格を取得（tickerId でフィルタリング）
+      try {
+        const holdingRes = await fetch(`/api/holdings?tickerId=${encodeURIComponent(ticker)}`);
+        if (holdingRes.ok) {
+          const data = await holdingRes.json();
+          const holding = (data.holdings as Array<{ tickerId: string; averagePrice: number }>)?.[0];
+          setHoldingPrice(holding?.averagePrice);
+        }
+      } catch {
+        // エラーは無視（チャートに追加情報なし）
+      }
+
+      // アラートラインを取得（最大 100 件、ティッカーでフィルタリング）
+      try {
+        const alertsRes = await fetch('/api/alerts?limit=100');
+        if (alertsRes.ok) {
+          const data = await alertsRes.json();
+          const tickerAlerts = (
+            data.alerts as Array<{
+              tickerId: string;
+              enabled: boolean;
+              conditions: Array<{ value: number; operator: string }>;
+            }>
+          )?.filter((a) => a.tickerId === ticker && a.enabled);
+          const lines: AlertLine[] =
+            tickerAlerts?.flatMap((alert) =>
+              alert.conditions.map((c) => ({
+                value: c.value,
+                operator: c.operator as 'gte' | 'lte',
+              }))
+            ) ?? [];
+          setAlertLines(lines);
+        }
+      } catch {
+        // エラーは無視（チャートに追加情報なし）
+      }
+    };
+
+    fetchHoldingAndAlerts();
+  }, [ticker]);
 
   // イベントハンドラー
   const handleExchangeChange = (event: SelectChangeEvent) => {
@@ -272,7 +327,13 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         aria-label="株価チャート"
       >
         {ticker ? (
-          <StockChart tickerId={ticker} timeframe={timeframe} count={barCount} />
+          <StockChart
+            tickerId={ticker}
+            timeframe={timeframe}
+            count={barCount}
+            holdingPrice={holdingPrice}
+            alertLines={alertLines}
+          />
         ) : (
           <EmptyState
             title="チャート表示エリア"

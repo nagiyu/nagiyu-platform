@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -29,6 +29,7 @@ import {
 } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
 import StockChart from './StockChart';
+import type { AlertLine } from './StockChart';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -76,6 +77,7 @@ interface AlertSettingsModalProps {
   editTarget?: AlertResponse;
   defaultTargetPrice?: number;
   basePrice?: number; // パーセンテージ計算の基準価格
+  holdingAveragePrice?: number; // 保有株式の平均取得価格
 }
 
 // フォームデータ型
@@ -133,6 +135,28 @@ const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   maxPercentage: '',
 });
 
+/**
+ * フォームデータからチャート用アラートラインを生成する純粋関数
+ * テストおよびコンポーネント内の useMemo から利用される
+ */
+export function computeAlertLines(
+  formData: Pick<FormData, 'conditionMode' | 'operator' | 'targetPrice' | 'minPrice' | 'maxPrice'>
+): AlertLine[] {
+  if (formData.conditionMode === 'single') {
+    const price = parseFloat(formData.targetPrice);
+    if (!isNaN(price) && price > 0) {
+      return [{ value: price, operator: formData.operator }];
+    }
+    return [];
+  }
+  const lines: AlertLine[] = [];
+  const min = parseFloat(formData.minPrice);
+  const max = parseFloat(formData.maxPrice);
+  if (!isNaN(min) && min > 0) lines.push({ value: min, operator: 'lte' });
+  if (!isNaN(max) && max > 0) lines.push({ value: max, operator: 'gte' });
+  return lines;
+}
+
 export default function AlertSettingsModal({
   open,
   onClose,
@@ -145,6 +169,7 @@ export default function AlertSettingsModal({
   editTarget,
   defaultTargetPrice,
   basePrice,
+  holdingAveragePrice,
 }: AlertSettingsModalProps) {
   const dialogTitle = `${mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (${tradeMode === 'Buy' ? '買い' : '売り'}アラート)`;
 
@@ -158,6 +183,9 @@ export default function AlertSettingsModal({
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
   const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
+
+  // フォームデータからチャート用のアラートラインを導出
+  const chartAlertLines = useMemo(() => computeAlertLines(formData), [formData]);
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
@@ -708,7 +736,13 @@ export default function AlertSettingsModal({
               </Select>
             </FormControl>
           </Box>
-          <StockChart tickerId={tickerId} timeframe={timeframe} count={chartBarCount} />
+          <StockChart
+            tickerId={tickerId}
+            timeframe={timeframe}
+            count={chartBarCount}
+            holdingPrice={holdingAveragePrice}
+            alertLines={chartAlertLines}
+          />
 
           {/* 取引所（表示のみ） */}
           <TextField

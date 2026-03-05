@@ -31,12 +31,22 @@ interface ChartData {
 }
 
 /**
+ * アラートライン型定義
+ */
+export interface AlertLine {
+  value: number;
+  operator: 'gte' | 'lte';
+}
+
+/**
  * StockChart コンポーネントのプロパティ
  */
 export interface StockChartProps {
   tickerId: string;
   timeframe: string;
   count?: number;
+  holdingPrice?: number; // 保有株式の平均取得価格
+  alertLines?: AlertLine[]; // アラートライン（上限・下限）
 }
 
 /**
@@ -62,6 +72,8 @@ export default function StockChart({
   tickerId,
   timeframe,
   count = DEFAULT_CHART_BAR_COUNT,
+  holdingPrice,
+  alertLines,
 }: StockChartProps) {
   // 状態管理
   const [loading, setLoading] = useState<boolean>(false);
@@ -135,6 +147,34 @@ export default function StockChart({
     const ohlcData = reversedData.map((item) => [item.open, item.close, item.low, item.high]);
 
     const volumeData = reversedData.map((item) => item.volume);
+
+    // markLine データ（保有株式・アラートライン）を構築
+    const markLineData: object[] = [];
+    if (holdingPrice != null) {
+      markLineData.push({
+        name: '平均取得価格',
+        yAxis: holdingPrice,
+        lineStyle: { color: '#ffa726', type: 'dashed', width: 2 },
+        label: {
+          show: true,
+          formatter: `平均: ${holdingPrice.toFixed(2)}`,
+          position: 'insideEndTop',
+        },
+      });
+    }
+    alertLines?.forEach((line) => {
+      const isUpper = line.operator === 'gte';
+      markLineData.push({
+        name: isUpper ? '上限アラート' : '下限アラート',
+        yAxis: line.value,
+        lineStyle: { color: isUpper ? '#ef5350' : '#42a5f5', type: 'dashed', width: 1.5 },
+        label: {
+          show: true,
+          formatter: `${isUpper ? '上限' : '下限'}: ${line.value.toFixed(2)}`,
+          position: 'insideEndTop',
+        },
+      });
+    });
 
     return {
       title: {
@@ -258,6 +298,13 @@ export default function StockChart({
             borderColor: '#ef5350',
             borderColor0: '#26a69a',
           },
+          ...(markLineData.length > 0 && {
+            markLine: {
+              silent: true,
+              symbol: ['none', 'none'],
+              data: markLineData,
+            },
+          }),
         },
         {
           name: '出来高',

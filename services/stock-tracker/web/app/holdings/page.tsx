@@ -924,6 +924,7 @@ export default function HoldingsPage() {
           tradeMode="Sell"
           defaultTargetPrice={selectedHolding.averagePrice * 1.2}
           basePrice={selectedHolding.averagePrice}
+          holdingAveragePrice={selectedHolding.averagePrice}
         />
       )}
     </Container>

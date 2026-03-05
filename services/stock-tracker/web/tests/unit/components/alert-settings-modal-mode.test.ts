@@ -1,13 +1,17 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import AlertSettingsModal from '../../../components/AlertSettingsModal';
+import AlertSettingsModal, { computeAlertLines } from '../../../components/AlertSettingsModal';
 import type { AlertResponse } from '../../../types/alert';
 import type { StockChartProps } from '../../../components/StockChart';
 
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
-  default: ({ tickerId, timeframe, count }: StockChartProps) =>
-    React.createElement('div', null, `StockChart:${tickerId}:${timeframe}:${count ?? ''}`),
+  default: ({ tickerId, timeframe, count, holdingPrice, alertLines }: StockChartProps) =>
+    React.createElement(
+      'div',
+      null,
+      `StockChart:${tickerId}:${timeframe}:${count ?? ''}:${holdingPrice ?? ''}:${JSON.stringify(alertLines ?? [])}`
+    ),
 }));
 
 jest.mock('@mui/material', () => {
@@ -99,5 +103,82 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('Web Push通知の許可をリクエスト');
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:100');
     expect(html).toContain('一時通知（次の取引終了まで）');
+  });
+
+  it('holdingAveragePrice が指定されたとき StockChart に holdingPrice が渡される', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'create',
+        tradeMode: 'Buy',
+        holdingAveragePrice: 150.5,
+      })
+    );
+
+    expect(html).toContain('StockChart:NASDAQ:AAPL:60:100:150.5:');
+  });
+});
+
+describe('computeAlertLines', () => {
+  it('単一条件（lte）のとき下限アラートラインを返す', () => {
+    const lines = computeAlertLines({
+      conditionMode: 'single',
+      operator: 'lte',
+      targetPrice: '180',
+      minPrice: '',
+      maxPrice: '',
+    });
+    expect(lines).toEqual([{ value: 180, operator: 'lte' }]);
+  });
+
+  it('単一条件（gte）のとき上限アラートラインを返す', () => {
+    const lines = computeAlertLines({
+      conditionMode: 'single',
+      operator: 'gte',
+      targetPrice: '250.5',
+      minPrice: '',
+      maxPrice: '',
+    });
+    expect(lines).toEqual([{ value: 250.5, operator: 'gte' }]);
+  });
+
+  it('単一条件でターゲット価格が空のとき空配列を返す', () => {
+    const lines = computeAlertLines({
+      conditionMode: 'single',
+      operator: 'lte',
+      targetPrice: '',
+      minPrice: '',
+      maxPrice: '',
+    });
+    expect(lines).toEqual([]);
+  });
+
+  it('範囲条件のとき上限・下限アラートラインを返す', () => {
+    const lines = computeAlertLines({
+      conditionMode: 'range',
+      operator: 'lte',
+      targetPrice: '',
+      minPrice: '150',
+      maxPrice: '200',
+    });
+    expect(lines).toEqual([
+      { value: 150, operator: 'lte' },
+      { value: 200, operator: 'gte' },
+    ]);
+  });
+
+  it('範囲条件で最小価格のみ有効なとき下限ラインのみ返す', () => {
+    const lines = computeAlertLines({
+      conditionMode: 'range',
+      operator: 'lte',
+      targetPrice: '',
+      minPrice: '150',
+      maxPrice: '',
+    });
+    expect(lines).toEqual([{ value: 150, operator: 'lte' }]);
   });
 });

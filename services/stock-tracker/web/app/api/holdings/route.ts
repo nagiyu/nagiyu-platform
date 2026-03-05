@@ -89,6 +89,7 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
     const { searchParams } = new URL(request.url);
     const limitParam = searchParams.get('limit');
     const lastKeyParam = searchParams.get('lastKey');
+    const tickerIdParam = searchParams.get('tickerId');
 
     // limit のバリデーション
     const limit = limitParam ? parseInt(limitParam, 10) : 50;
@@ -104,9 +105,35 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
 
     // リポジトリの初期化
     const holdingRepo = createHoldingRepository();
+    const tickerRepo = createTickerRepository();
 
     // ユーザーIDを取得
     const userId = session!.user.userId;
+
+    // tickerId が指定された場合は単一保有株式を取得
+    if (tickerIdParam) {
+      const holding = await holdingRepo.getById(userId, tickerIdParam);
+      if (!holding) {
+        return NextResponse.json({ holdings: [], pagination: { count: 0 } }, { status: 200 });
+      }
+      let ticker;
+      try {
+        ticker = await tickerRepo.getById(holding.TickerID);
+      } catch {
+        ticker = null;
+      }
+      const response: HoldingsListResponse = {
+        holdings: [
+          mapHoldingToResponse(
+            holding,
+            ticker?.Symbol || holding.TickerID.split(':')[1] || '',
+            ticker?.Name || ''
+          ),
+        ],
+        pagination: { count: 1 },
+      };
+      return NextResponse.json(response, { status: 200 });
+    }
 
     // 保有株式一覧取得
     const result = await holdingRepo.getByUserId(userId, {
@@ -116,7 +143,6 @@ export const GET = withAuth(getSession, 'stocks:read', async (session, request: 
 
     // TickerリポジトリでSymbolとNameを取得
     // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
-    const tickerRepo = createTickerRepository();
 
     const holdings: HoldingResponse[] = [];
     for (const holding of result.items) {
