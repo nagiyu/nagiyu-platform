@@ -66,8 +66,8 @@ props:
 
 一覧テーブルに「保有」列を追加し、ユーザーが当該銘柄を保有している場合に保有中であることを視覚的に示す。
 
-- 保有中: チェックマークやアイコン等で明示
-- 未保有: 空欄またはそれに準じた表示
+- 保有中: `✓`（チェック）
+- 未保有: `-`（ハイフン）
 
 #### FR2: 保有詳細の詳細ダイアログ表示
 
@@ -75,7 +75,7 @@ props:
 
 - 保有数（quantity）
 - 平均取得価格（averagePrice）
-- 当該銘柄を保有していない場合は、これらの項目を非表示または「未保有」と表示する
+- 当該銘柄を保有していない場合は、これらの項目を `-`（ハイフン）で表示する
 
 #### FR3: 買いアラートの設定
 
@@ -96,10 +96,9 @@ props:
 ### 非機能要件
 
 - **NFR1**: 保有株式データの取得失敗時はサマリー表示をブロックしない（graceful degradation）
-- **NFR2**: 保有株式 API 呼び出しはサマリー API と並列で実行し、表示遅延を最小化する
-- **NFR3**: TypeScript strict mode を維持する
-- **NFR4**: テストカバレッジ 80% 以上を維持する
-- **NFR5**: エラーメッセージは `ERROR_MESSAGES` 定数で管理する
+- **NFR2**: TypeScript strict mode を維持する
+- **NFR3**: テストカバレッジ 80% 以上を維持する
+- **NFR4**: エラーメッセージは `ERROR_MESSAGES` 定数で管理する
 
 ---
 
@@ -107,34 +106,32 @@ props:
 
 ### データ取得戦略
 
-`useEffect` でのデータ取得時に `/api/summaries` と `/api/holdings` を `Promise.all` で並列取得する。
-取得した保有株式の `tickerId` セットをフロントエンド側でインメモリ保持し、サマリーの各行に照合する。
-保有株式 API の失敗は `console.warn` を出力しつつ空セットとして扱い、保有情報は「不明」扱いとする。
+`/api/summaries` の内部ロジックで保有株式データ（`/api/holdings` 相当）を取得し、レスポンスに保有情報を含める。
+フロントエンドはサマリー API の 1 回のコールのみでサマリー + 保有情報をまとめて受け取れる。
+これにより、保有株式データ構造の変更時にビルドエラーとして影響範囲を検知できる。
 
 概念的表現:
 
 ```typescript
-// 概念的表現（擬似コード）
-[summariesData, holdingsData] = await Promise.all([
-    fetch('/api/summaries'),
-    fetch('/api/holdings').catch(() => null)  // 失敗時は null
-])
-holdingMap = Map<tickerId, { quantity, averagePrice }>
+// API レスポンス型（概念的表現）
+TickerSummary に保有情報フィールドを追加:
+  holding: { quantity: number; averagePrice: number } | null
 ```
+
+フロントエンド側の `holdingMap` は不要となり、`summary.holding` を直接参照する。
 
 ### 型拡張方針
 
-`types/stock.ts` には UI 表示用の型のみ定義する方針を維持する。
-保有情報は `TickerSummary` に追加せず、ページコンポーネント内でローカルな Map 型として管理する。
-これにより `TickerSummary` 型（API レスポンス型）の変更を不要とする。
+`types/stock.ts` の `TickerSummary` 型に `holding` フィールドを追加する。
+保有中の場合は `{ quantity: number; averagePrice: number }` を、未保有の場合は `null` とする。
+これにより TypeScript の型チェックで保有情報の取り扱い漏れをコンパイル時に検知できる。
 
 ### コンポーネント変更方針
 
 `summaries/page.tsx` に対して以下の変更を加える。
 
-- State 追加: `holdingMap: Map<string, { quantity: number; averagePrice: number }>` を追加
-- データ取得: `fetchSummaries` の内部または並列の別 `useCallback` として `fetchHoldings` を実装
-- 一覧テーブル: 「保有」列を追加し、`holdingMap.has(tickerId)` で表示を切り替える
+- データ取得: `/api/summaries` の 1 回のコールのみ（`holdingMap` State は不要）
+- 一覧テーブル: 「保有」列を追加し、`summary.holding !== null` で表示を切り替える
 - 詳細ダイアログ: 保有情報セクション（保有数・平均取得価格）を条件付き表示で追加
 - 詳細ダイアログ: アラート設定ボタンエリアを追加（買いは常時・売りは保有時のみ）
 - `AlertSettingsModal` をインポートし、買い/売りそれぞれの open 状態を State で管理する
@@ -159,54 +156,52 @@ State:
 
 ## タスク
 
-### フェーズ 1: 保有株式データの取得・状態管理
+### フェーズ 1: サマリー API への保有情報統合
 
-- [ ] T001: `summaries/page.tsx` に `holdingMap` の State を追加する
-    - 型: `Map<string, { quantity: number; averagePrice: number }>`
-    - 初期値: `new Map()`
-- [ ] T002: `/api/holdings` を呼び出す `fetchHoldings` 関数を実装する
-    - `Promise.all` でサマリー取得と並列実行する
-    - 失敗時は空の Map として扱い、エラーはサマリー表示をブロックしない
+- [ ] T001: `types/stock.ts` の `TickerSummary` 型に `holding` フィールドを追加する
+    - 型: `holding: { quantity: number; averagePrice: number } | null`
+- [ ] T002: `app/api/summaries/route.ts` の内部ロジックで保有株式データを取得し、レスポンスに `holding` を含める
+    - サマリー構築時に保有株式 DB（または `/api/holdings` 相当のロジック）を参照する
+    - 保有データ取得失敗時は `holding: null` として扱い、サマリー取得全体をブロックしない
     - `ERROR_MESSAGES` に `FETCH_HOLDINGS_FAILED` を追加する
-- [ ] T003: `useEffect` 内で `fetchSummaries` と `fetchHoldings` を並列実行するよう変更する
 
 ### フェーズ 2: 保有株式情報の表示
 
-- [ ] T004: 一覧テーブルに「保有」列ヘッダーを追加する
+- [ ] T003: 一覧テーブルに「保有」列ヘッダーを追加する
     - 位置は「銘柄名」と「始値」の間などに配置する（UX 的に自然な位置）
-- [ ] T005: 一覧の各行で `holdingMap.has(summary.tickerId)` を使い保有マークを表示する
-    - 保有中: チェックアイコン（`CheckCircle` 等の MUI アイコン）または `○`
-    - 未保有: 空欄
-- [ ] T006: 詳細ダイアログの基本情報テーブルに保有情報行を追加する
-    - `holdingMap.get(tickerId)` が存在する場合のみ以下を表示する
+- [ ] T004: 一覧の各行で `summary.holding !== null` を使い保有マークを表示する
+    - 保有中: `✓`（チェック）
+    - 未保有: `-`（ハイフン）
+- [ ] T005: 詳細ダイアログの基本情報テーブルに保有情報行を追加する
+    - `selectedTicker.holding` が非 null の場合のみ以下を表示する
         - 保有数: `quantity`（数値フォーマット）
         - 平均取得価格: `averagePrice`（小数点 2 桁表示）
-    - 存在しない場合は行自体を非表示とする
+    - 存在しない場合は `-`（ハイフン）を表示する
 
 ### フェーズ 3: アラート設定ボタンの追加
 
-- [ ] T007: `summaries/page.tsx` に `isBuyAlertOpen`, `isSellAlertOpen` の State を追加する
-- [ ] T008: `AlertSettingsModal` をインポートする
-- [ ] T009: 詳細ダイアログに「買いアラート設定」ボタンを追加する
+- [ ] T006: `summaries/page.tsx` に `isBuyAlertOpen`, `isSellAlertOpen` の State を追加する
+- [ ] T007: `AlertSettingsModal` をインポートする
+- [ ] T008: 詳細ダイアログに「買いアラート設定」ボタンを追加する
     - 全銘柄に表示する（保有有無を問わない）
     - クリックで `isBuyAlertOpen = true` にセットする
-- [ ] T010: 詳細ダイアログに「売りアラート設定」ボタンを追加する
-    - `holdingMap.has(selectedTicker.tickerId)` が true の場合のみ表示する
+- [ ] T009: 詳細ダイアログに「売りアラート設定」ボタンを追加する
+    - `selectedTicker.holding` が非 null の場合のみ売りアラートボタンを表示する
     - クリックで `isSellAlertOpen = true` にセットする
-- [ ] T011: `AlertSettingsModal` を 2 つ（Buy / Sell）配置する
+- [ ] T010: `AlertSettingsModal` を 2 つ（Buy / Sell）配置する
     - `tickerId`, `symbol`, `exchangeId`, `mode`, `defaultTargetPrice`（close 値）, `basePrice`（close 値）を渡す
     - `onClose` で対応する `isAlertOpen` を false にする
     - `onSuccess` でスナックバーやフィードバック表示を行う（任意）
 
 ### フェーズ 4: テスト追加・更新
 
-- [ ] T012: `tests/unit/app/summaries-page.test.ts` を更新する
+- [ ] T011: `tests/unit/app/summaries-page.test.ts` を更新する
     - 保有中マークが表示されることを確認するテストを追加する
     - 詳細ダイアログに保有数・平均取得価格が表示されることを確認するテストを追加する
     - 買いアラートボタンが全銘柄で表示されることを確認するテストを追加する
     - 売りアラートボタンが保有銘柄のみ表示されることを確認するテストを追加する
-- [ ] T013: `tests/e2e/summary-display.spec.ts` を更新する
-    - 保有情報の表示シナリオを追加する（holdings API モック）
+- [ ] T012: `tests/e2e/summary-display.spec.ts` を更新する
+    - 保有情報の表示シナリオを追加する（サマリー API モックに holding フィールドを含める）
     - アラート設定モーダルが開くシナリオを追加する
 
 ---
@@ -215,11 +210,11 @@ State:
 
 | ファイル | 変更種別 |
 |---|---|
+| `services/stock-tracker/web/types/stock.ts` | 変更（`TickerSummary` に `holding` フィールド追加） |
+| `services/stock-tracker/web/app/api/summaries/route.ts` | 変更（内部で保有情報を取得・付与） |
 | `services/stock-tracker/web/app/summaries/page.tsx` | 変更（主要変更先） |
 | `services/stock-tracker/web/tests/unit/app/summaries-page.test.ts` | 変更 |
 | `services/stock-tracker/web/tests/e2e/summary-display.spec.ts` | 変更 |
-
-> `types/stock.ts` および API ルート（`/api/summaries`, `/api/holdings`）の変更は不要。
 
 ---
 
@@ -236,4 +231,4 @@ State:
 - **保有列の位置**: 「銘柄名」の直後が視認性が高いが、テーブルの横幅への影響を考慮して決定する
 - **詳細ダイアログのアラートボタン配置**: AI 解析セクションの上か下かは実装時に判断する。誤操作防止のため `Divider` で区切ることを推奨する
 - **アラート設定成功後のフィードバック**: 既存の `SnackbarProvider` を使うか、簡易な `Alert` コンポーネントにするかは実装時に判断する
-- **保有株式 API のページネーション**: `GET /api/holdings` はデフォルト 50 件取得。保有銘柄が多い場合は全件取得のループが必要になるが、一般的な利用シナリオでは 50 件以内に収まると想定し、Phase 1 では簡易実装とする
+- **保有株式取得のページネーション**: 保有銘柄が多い場合は全件取得のループが必要になるが、一般的な利用シナリオでは 50 件以内に収まると想定し、Phase 1 では簡易実装とする
