@@ -1,17 +1,18 @@
 import ListsPage from '@/app/lists/page';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 
 jest.mock('next/headers', () => ({
   headers: jest.fn(),
 }));
 
 jest.mock('next/navigation', () => ({
+  notFound: jest.fn(),
   redirect: jest.fn(),
 }));
 
 describe('ListsPage', () => {
-  let originalFetch!: typeof globalThis.fetch;
+  let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
@@ -51,7 +52,7 @@ describe('ListsPage', () => {
     expect(redirect).toHaveBeenCalledWith('/lists/default-list');
   });
 
-  it('host ヘッダーがない場合はモックのデフォルトリストへリダイレクトする', async () => {
+  it('host ヘッダーがない場合は notFound を呼び出す', async () => {
     (headers as jest.Mock).mockResolvedValue({
       get: () => null,
     });
@@ -64,7 +65,8 @@ describe('ListsPage', () => {
     await ListsPage();
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(redirect).toHaveBeenCalledWith('/lists/mock-default-list');
+    expect(notFound).toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 
   it('x-forwarded ヘッダーがある場合は優先して API を呼び出す', async () => {
@@ -102,7 +104,7 @@ describe('ListsPage', () => {
     expect(redirect).toHaveBeenCalledWith('/lists/forwarded-default-list');
   });
 
-  it('API取得に失敗した場合はモックのデフォルトリストへリダイレクトする', async () => {
+  it('API取得に失敗した場合は notFound を呼び出す', async () => {
     (headers as jest.Mock).mockResolvedValue({
       get: (key: string) => (key === 'host' ? 'localhost:3000' : null),
     });
@@ -118,10 +120,11 @@ describe('ListsPage', () => {
 
     await ListsPage();
 
-    expect(redirect).toHaveBeenCalledWith('/lists/mock-default-list');
+    expect(notFound).toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 
-  it('デフォルトリストが存在しない場合はモックのデフォルトリストへリダイレクトする', async () => {
+  it('デフォルトリストが存在しない場合は notFound を呼び出す', async () => {
     (headers as jest.Mock).mockResolvedValue({
       get: (key: string) => (key === 'host' ? 'localhost:3000' : null),
     });
@@ -141,6 +144,7 @@ describe('ListsPage', () => {
 
     await ListsPage();
 
-    expect(redirect).toHaveBeenCalledWith('/lists/mock-default-list');
+    expect(notFound).toHaveBeenCalled();
+    expect(redirect).not.toHaveBeenCalled();
   });
 });

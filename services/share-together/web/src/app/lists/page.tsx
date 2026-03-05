@@ -1,5 +1,5 @@
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { PersonalListsResponse } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -35,8 +35,7 @@ async function resolveDefaultListId(): Promise<string | null> {
 export default async function ListsPage() {
   const defaultListId = await resolveDefaultListId();
   if (!defaultListId) {
-    redirect('/lists/mock-default-list');
-    return;
+    return notFound();
   }
 
   redirect(`/lists/${defaultListId}`);
