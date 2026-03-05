@@ -12,12 +12,13 @@ import {
   PATTERN_REGISTRY,
   DynamoDBTickerRepository,
   getChartData,
-  isTradingHours,
   getLastTradingDate,
 } from '@nagiyu/stock-tracker-core';
 import { generateAiAnalysis } from './lib/openai-client.js';
 import type { AiAnalysisInput } from './lib/openai-client.js';
 import type {
+  CreateDailySummaryInput,
+  DailySummaryEntity,
   DailySummaryRepository,
   ExchangeEntity,
   ExchangeRepository,
@@ -54,7 +55,6 @@ export interface HandlerResponse {
 interface BatchStatistics {
   totalExchanges: number;
   processedExchanges: number;
-  skippedTradingExchanges: number;
   totalTickers: number;
   processedTickers: number;
   summariesSaved: number;
@@ -67,10 +67,52 @@ interface HandlerDependencies {
   exchangeRepository: ExchangeRepository;
   tickerRepository: TickerRepository;
   dailySummaryRepository: DailySummaryRepository;
-  isTradingHoursFn: typeof isTradingHours;
   getChartDataFn: typeof getChartData;
   nowFn: () => number;
   generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
+}
+
+function needsStaticAnalysis(
+  existingSummary: Awaited<ReturnType<DailySummaryRepository['getByTickerAndDate']>>
+): boolean {
+  if (!existingSummary) {
+    return true;
+  }
+
+  const hasOhlc =
+    existingSummary.Open !== undefined &&
+    existingSummary.High !== undefined &&
+    existingSummary.Low !== undefined &&
+    existingSummary.Close !== undefined;
+  if (!hasOhlc) {
+    return true;
+  }
+
+  const patternResults = existingSummary.PatternResults;
+  if (!patternResults) {
+    return true;
+  }
+
+  return PATTERN_REGISTRY.some(
+    (pattern) => patternResults[pattern.definition.patternId] === undefined
+  );
+}
+
+function toCreateDailySummaryInput(summary: DailySummaryEntity): CreateDailySummaryInput {
+  return {
+    TickerID: summary.TickerID,
+    ExchangeID: summary.ExchangeID,
+    Date: summary.Date,
+    Open: summary.Open,
+    High: summary.High,
+    Low: summary.Low,
+    Close: summary.Close,
+    PatternResults: summary.PatternResults,
+    BuyPatternCount: summary.BuyPatternCount,
+    SellPatternCount: summary.SellPatternCount,
+    AiAnalysis: summary.AiAnalysis,
+    AiAnalysisError: summary.AiAnalysisError,
+  };
 }
 
 async function processExchange(
@@ -80,14 +122,6 @@ async function processExchange(
 ): Promise<void> {
   try {
     const now = dependencies.nowFn();
-    if (dependencies.isTradingHoursFn(exchange, now)) {
-      logger.debug('取引時間中のため取引所をスキップします', {
-        exchangeId: exchange.ExchangeID,
-      });
-      stats.skippedTradingExchanges++;
-      return;
-    }
-
     const tickerResult = await dependencies.tickerRepository.getByExchange(exchange.ExchangeID);
     const tickers = tickerResult.items;
     stats.totalTickers += tickers.length;
@@ -100,66 +134,65 @@ async function processExchange(
           ticker.TickerID,
           summaryDate
         );
-        const hasPatternAnalysis =
-          existingSummary?.PatternResults !== undefined &&
-          existingSummary.BuyPatternCount !== undefined &&
-          existingSummary.SellPatternCount !== undefined;
-        if (existingSummary && hasPatternAnalysis) {
+        let currentSummaryInput: CreateDailySummaryInput;
+
+        if (needsStaticAnalysis(existingSummary)) {
+          const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
+            count: 50,
+            session: 'extended',
+          });
+
+          if (chartData.length === 0) {
+            logger.warn('チャートデータが0件のためティッカーをスキップします', {
+              exchangeId: exchange.ExchangeID,
+              tickerId: ticker.TickerID,
+            });
+            continue;
+          }
+
+          const latest = chartData[0];
+          const patternAnalysis =
+            chartData.length < 50
+              ? {
+                  patternResults: Object.fromEntries(
+                    PATTERN_REGISTRY.map((pattern) => [
+                      pattern.definition.patternId,
+                      'INSUFFICIENT_DATA',
+                    ])
+                  ) as PatternResults,
+                  buyPatternCount: 0,
+                  sellPatternCount: 0,
+                }
+              : patternAnalyzer.analyze(chartData);
+
+          currentSummaryInput = {
+            TickerID: ticker.TickerID,
+            ExchangeID: exchange.ExchangeID,
+            Date: summaryDate,
+            Open: latest.open,
+            High: latest.high,
+            Low: latest.low,
+            Close: latest.close,
+            PatternResults: patternAnalysis.patternResults,
+            BuyPatternCount: patternAnalysis.buyPatternCount,
+            SellPatternCount: patternAnalysis.sellPatternCount,
+            AiAnalysis: existingSummary?.AiAnalysis,
+            AiAnalysisError: existingSummary?.AiAnalysisError,
+          };
+          await dependencies.dailySummaryRepository.upsert(currentSummaryInput);
+          stats.summariesSaved++;
+        } else if (existingSummary) {
+          currentSummaryInput = toCreateDailySummaryInput(existingSummary);
+        } else {
+          continue;
+        }
+
+        if (currentSummaryInput.AiAnalysis !== undefined) {
           logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
             exchangeId: exchange.ExchangeID,
             tickerId: ticker.TickerID,
             date: summaryDate,
           });
-          continue;
-        }
-
-        const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-          count: 50,
-          session: 'extended',
-        });
-
-        if (chartData.length === 0) {
-          logger.warn('チャートデータが0件のためティッカーをスキップします', {
-            exchangeId: exchange.ExchangeID,
-            tickerId: ticker.TickerID,
-          });
-          continue;
-        }
-
-        const latest = chartData[0];
-        const patternAnalysis =
-          chartData.length < 50
-            ? {
-                patternResults: Object.fromEntries(
-                  PATTERN_REGISTRY.map((pattern) => [
-                    pattern.definition.patternId,
-                    'INSUFFICIENT_DATA',
-                  ])
-                ) as PatternResults,
-                buyPatternCount: 0,
-                sellPatternCount: 0,
-              }
-            : patternAnalyzer.analyze(chartData);
-
-        const entity = {
-          TickerID: ticker.TickerID,
-          ExchangeID: exchange.ExchangeID,
-          Date: summaryDate,
-          Open: latest.open,
-          High: latest.high,
-          Low: latest.low,
-          Close: latest.close,
-          PatternResults: patternAnalysis.patternResults,
-          BuyPatternCount: patternAnalysis.buyPatternCount,
-          SellPatternCount: patternAnalysis.sellPatternCount,
-          AiAnalysis: existingSummary?.AiAnalysis,
-          AiAnalysisError: existingSummary?.AiAnalysisError,
-        };
-        await dependencies.dailySummaryRepository.upsert(entity);
-
-        stats.summariesSaved++;
-
-        if (existingSummary?.AiAnalysis !== undefined) {
           continue;
         }
 
@@ -171,23 +204,24 @@ async function processExchange(
 
         try {
           const matchedPatterns = PATTERN_REGISTRY.filter(
-            (pattern) => patternAnalysis.patternResults[pattern.definition.patternId] === 'MATCHED'
+            (pattern) =>
+              currentSummaryInput.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
           );
           const aiAnalysis = await dependencies.generateAiAnalysisFn(openAiApiKey, {
             tickerId: ticker.TickerID,
             name: ticker.Name,
             date: summaryDate,
-            open: latest.open,
-            high: latest.high,
-            low: latest.low,
-            close: latest.close,
-            buyPatternCount: patternAnalysis.buyPatternCount,
-            sellPatternCount: patternAnalysis.sellPatternCount,
+            open: currentSummaryInput.Open,
+            high: currentSummaryInput.High,
+            low: currentSummaryInput.Low,
+            close: currentSummaryInput.Close,
+            buyPatternCount: currentSummaryInput.BuyPatternCount ?? 0,
+            sellPatternCount: currentSummaryInput.SellPatternCount ?? 0,
             patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
           });
 
           await dependencies.dailySummaryRepository.upsert({
-            ...entity,
+            ...currentSummaryInput,
             AiAnalysis: aiAnalysis,
             AiAnalysisError: undefined,
           });
@@ -200,7 +234,7 @@ async function processExchange(
             reason: errorMessage,
           });
           await dependencies.dailySummaryRepository.upsert({
-            ...entity,
+            ...currentSummaryInput,
             AiAnalysis: undefined,
             AiAnalysisError: errorMessage,
           });
@@ -246,7 +280,6 @@ export async function handler(
   const stats: BatchStatistics = {
     totalExchanges: 0,
     processedExchanges: 0,
-    skippedTradingExchanges: 0,
     totalTickers: 0,
     processedTickers: 0,
     summariesSaved: 0,
@@ -266,7 +299,6 @@ export async function handler(
         exchangeRepository: dependencies.exchangeRepository,
         tickerRepository: dependencies.tickerRepository,
         dailySummaryRepository: dependencies.dailySummaryRepository,
-        isTradingHoursFn: dependencies.isTradingHoursFn ?? isTradingHours,
         getChartDataFn: dependencies.getChartDataFn ?? getChartData,
         nowFn: dependencies.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies.generateAiAnalysisFn ?? generateAiAnalysis,
@@ -278,7 +310,6 @@ export async function handler(
         exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
         tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
         dailySummaryRepository: new DynamoDBDailySummaryRepository(docClient, tableName),
-        isTradingHoursFn: dependencies?.isTradingHoursFn ?? isTradingHours,
         getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
         nowFn: dependencies?.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies?.generateAiAnalysisFn ?? generateAiAnalysis,
