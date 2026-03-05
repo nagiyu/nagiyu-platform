@@ -5,6 +5,11 @@ import { resolveAiAnalysisText } from '../../../app/summaries/ai-analysis';
 import { useSession } from 'next-auth/react';
 import { STOCK_TRACKER_ERROR_MESSAGES } from '../../../lib/error-messages';
 
+jest.mock('../../../components/StockChart', () => ({
+  __esModule: true,
+  default: () => React.createElement('div', null, 'StockChartMock'),
+}));
+
 jest.mock('next-auth/react', () => ({
   useSession: jest.fn(),
 }));

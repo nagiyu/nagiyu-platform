@@ -20,7 +20,15 @@ import {
   Switch,
 } from '@mui/material';
 import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
+import type { Timeframe, ChartBarCount } from '../types/stock';
+import {
+  TIMEFRAME_LABELS,
+  CHART_BAR_COUNTS,
+  CHART_BAR_COUNT_LABELS,
+  DEFAULT_CHART_BAR_COUNT,
+} from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
+import StockChart from './StockChart';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -144,6 +152,8 @@ export default function AlertSettingsModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>('60');
+  const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
@@ -179,6 +189,8 @@ export default function AlertSettingsModal({
       setFormErrors({});
       setError('');
       setSubscription(null);
+      setTimeframe('60');
+      setChartBarCount(DEFAULT_CHART_BAR_COUNT);
     }
   }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
@@ -627,8 +639,16 @@ export default function AlertSettingsModal({
     }
   };
 
+  const handleTimeframeChange = (value: string) => {
+    setTimeframe(value as Timeframe);
+  };
+
+  const handleChartBarCountChange = (value: string) => {
+    setChartBarCount(Number(value) as ChartBarCount);
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
         {error && (
@@ -638,6 +658,49 @@ export default function AlertSettingsModal({
         )}
 
         <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="h6">株価チャート</Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+            }}
+          >
+            <FormControl fullWidth size="small">
+              <InputLabel id="alert-timeframe-select-label">時間枠</InputLabel>
+              <Select
+                labelId="alert-timeframe-select-label"
+                id="alert-timeframe-select"
+                value={timeframe}
+                label="時間枠"
+                onChange={(e) => handleTimeframeChange(e.target.value)}
+              >
+                {(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => (
+                  <MenuItem key={key} value={key}>
+                    {TIMEFRAME_LABELS[key]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel id="alert-barcount-select-label">表示本数</InputLabel>
+              <Select
+                labelId="alert-barcount-select-label"
+                id="alert-barcount-select"
+                value={String(chartBarCount)}
+                label="表示本数"
+                onChange={(e) => handleChartBarCountChange(e.target.value)}
+              >
+                {CHART_BAR_COUNTS.map((count) => (
+                  <MenuItem key={count} value={String(count)}>
+                    {CHART_BAR_COUNT_LABELS[count]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <StockChart tickerId={tickerId} timeframe={timeframe} count={chartBarCount} />
+
           {/* 取引所（表示のみ） */}
           <TextField
             fullWidth

@@ -3,6 +3,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import AlertSettingsModal from '../../../components/AlertSettingsModal';
 import type { AlertResponse } from '../../../types/alert';
 
+jest.mock('../../../components/StockChart', () => ({
+  __esModule: true,
+  default: ({
+    tickerId,
+    timeframe,
+    count,
+  }: {
+    tickerId: string;
+    timeframe: string;
+    count?: number;
+  }) => React.createElement('div', null, `StockChart:${tickerId}:${timeframe}:${count ?? ''}`),
+}));
+
 jest.mock('@mui/material', () => {
   const createComponent = (tag: string) => {
     const MockComponent = ({ children, ...props }: Record<string, unknown>) =>
@@ -66,6 +79,10 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('アラートの編集');
     expect(html).not.toContain('Web Push通知の許可をリクエスト');
     expect(html).toContain('アラートを有効にする');
+    expect(html).toContain('株価チャート');
+    expect(html).toContain('時間枠');
+    expect(html).toContain('表示本数');
+    expect(html).toContain('StockChart:NASDAQ:AAPL:60:100');
   });
 
   it('mode=create のとき Web Push 説明を表示する', () => {
@@ -83,5 +100,6 @@ describe('AlertSettingsModal mode', () => {
 
     expect(html).toContain('アラート設定');
     expect(html).toContain('Web Push通知の許可をリクエスト');
+    expect(html).toContain('StockChart:NASDAQ:AAPL:60:100');
   });
 });

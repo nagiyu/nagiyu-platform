@@ -242,6 +242,73 @@ test.describe('サマリー画面スモークテスト', () => {
     expect(Number(sellCountInList ?? '0')).toBe(matchedSellRows);
   });
 
+  test('詳細ダイアログとアラート設定ダイアログでチャートを表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  holding: {
+                    quantity: 10,
+                    averagePrice: 98.5,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tickerId: 'TEST:AAA',
+          symbol: 'AAA',
+          timeframe: 'D',
+          data: [
+            { time: 1709251200000, open: 100, high: 110, low: 95, close: 105, volume: 1000000 },
+            { time: 1709164800000, open: 98, high: 108, low: 94, close: 100, volume: 950000 },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const summaryDialog = page.getByRole('dialog');
+    await expect(summaryDialog.getByText('株価チャート')).toBeVisible();
+    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+
+    await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
+    const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
+    await expect(alertDialog.getByText('株価チャート')).toBeVisible();
+    await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
+    await expect(alertDialog.getByLabel('表示本数')).toBeVisible();
+    await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+  });
+
   test('詳細ダイアログでAI解析セクションを表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
