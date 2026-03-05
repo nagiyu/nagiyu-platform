@@ -44,6 +44,8 @@ const editTarget: AlertResponse = {
   frequency: 'MINUTE_LEVEL',
   conditions: [{ field: 'price', operator: 'lte', value: 180 }],
   enabled: true,
+  temporary: true,
+  temporaryExpireDate: '2026-01-02',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -66,6 +68,7 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('アラートの編集');
     expect(html).not.toContain('Web Push通知の許可をリクエスト');
     expect(html).toContain('アラートを有効にする');
+    expect(html).toContain('一時通知（次の取引終了まで）');
   });
 
   it('mode=create のとき Web Push 説明を表示する', () => {
@@ -83,5 +86,6 @@ describe('AlertSettingsModal mode', () => {
 
     expect(html).toContain('アラート設定');
     expect(html).toContain('Web Push通知の許可をリクエスト');
+    expect(html).toContain('一時通知（次の取引終了まで）');
   });
 });

@@ -243,6 +243,10 @@ export type Alert = {
   Frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
   /** 有効/無効フラグ - 必須 */
   Enabled: boolean;
+  /** 一時通知フラグ（true: 取引終了後に自動無効化） */
+  Temporary?: boolean;
+  /** 一時通知の期限取引日（YYYY-MM-DD, 取引所タイムゾーン基準） */
+  TemporaryExpireDate?: string;
   /** アラート条件リスト (Phase 1は1条件のみ) - 必須 */
   ConditionList: AlertCondition[];
   /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用。未指定の場合はデフォルトで 'AND' として扱われる */
