@@ -1,30 +1,25 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack } from '@mui/material';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
-
-const MOCK_SHARED_GROUPS = [
-  { groupId: 'mock-family-group', name: '家族' },
-  { groupId: 'mock-roommate-group', name: 'ルームメイト' },
-  { groupId: 'mock-project-group', name: 'プロジェクトA' },
-] as const;
-
-const MOCK_SHARED_LISTS_BY_GROUP: Record<string, readonly { listId: string; name: string }[]> = {
-  'mock-family-group': [
-    { listId: 'mock-list-1', name: '買い物リスト（共有）' },
-    { listId: 'mock-list-2', name: '旅行準備リスト' },
-  ],
-  'mock-roommate-group': [{ listId: 'mock-list-3', name: 'ルームメイト家事分担' }],
-  'mock-project-group': [
-    { listId: 'mock-list-4', name: 'プロジェクト進捗' },
-    { listId: 'mock-list-5', name: 'アイデア共有' },
-  ],
+import type { GroupListsResponse, GroupsResponse } from '@/types';
+type SharedGroup = {
+  groupId: string;
+  name: string;
 };
 
-const PERSONAL_LIST_IDS = new Set<string>(MOCK_PERSONAL_LISTS.map((list) => list.listId));
+type SharedList = {
+  listId: string;
+  name: string;
+};
+
+const ERROR_MESSAGES = {
+  SHARED_GROUPS_FETCH_FAILED: '共有グループ一覧の取得に失敗しました',
+  SHARED_LISTS_FETCH_FAILED: '共有リスト一覧の取得に失敗しました',
+} as const;
 
 type ListWorkspaceProps = {
   initialListId: string;
@@ -35,26 +30,113 @@ export function ListWorkspace({
   initialListId,
   enablePersonalListApi = false,
 }: ListWorkspaceProps) {
-  const initialSharedGroupId =
-    Object.entries(MOCK_SHARED_LISTS_BY_GROUP).find(([, lists]) =>
-      lists.some((list) => list.listId === initialListId)
-    )?.[0] ?? MOCK_SHARED_GROUPS[0].groupId;
-  const initialScope =
-    enablePersonalListApi || PERSONAL_LIST_IDS.has(initialListId) ? 'personal' : 'shared';
-  const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
-  const [selectedGroupId, setSelectedGroupId] = useState(initialSharedGroupId);
+  const [scope, setScope] = useState<'personal' | 'shared'>('personal');
+  const [sharedGroups, setSharedGroups] = useState<readonly SharedGroup[]>([]);
+  const [sharedListsByGroup, setSharedListsByGroup] = useState<
+    Record<string, readonly SharedList[]>
+  >({});
+  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
   const [selectedListId, setSelectedListId] = useState(initialListId);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  const sharedLists = useMemo(
-    () => MOCK_SHARED_LISTS_BY_GROUP[selectedGroupId] ?? [],
-    [selectedGroupId]
-  );
+  useEffect(() => {
+    const controller = new AbortController();
 
-  const sidebarLists = scope === 'personal' ? MOCK_PERSONAL_LISTS : sharedLists;
+    const fetchSharedData = async (): Promise<void> => {
+      try {
+        const groupsResponse = await globalThis.fetch('/api/groups', { signal: controller.signal });
+        if (!groupsResponse.ok) {
+          throw new Error(`status: ${groupsResponse.status}`);
+        }
+        const groupsResult = (await groupsResponse.json()) as GroupsResponse;
+        const fetchedGroups = groupsResult.data.groups.map((group) => ({
+          groupId: group.groupId,
+          name: group.name,
+        }));
+        setSharedGroups(fetchedGroups);
+
+        const sharedListEntries = await Promise.all(
+          fetchedGroups.map(async (group) => {
+            const listsResponse = await globalThis.fetch(
+              `/api/groups/${encodeURIComponent(group.groupId)}/lists`,
+              { signal: controller.signal }
+            );
+            if (!listsResponse.ok) {
+              throw new Error(
+                `${ERROR_MESSAGES.SHARED_LISTS_FETCH_FAILED}: ${listsResponse.status}`
+              );
+            }
+            const listsResult = (await listsResponse.json()) as GroupListsResponse;
+            const sharedLists = listsResult.data.lists.map((list) => ({
+              listId: list.listId,
+              name: list.name,
+            }));
+            return [group.groupId, sharedLists] as const;
+          })
+        );
+
+        setSharedListsByGroup(Object.fromEntries(sharedListEntries));
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        console.error(ERROR_MESSAGES.SHARED_GROUPS_FETCH_FAILED, { error });
+      }
+    };
+
+    void fetchSharedData();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sharedGroups.length === 0) {
+      return;
+    }
+
+    const matchingGroupId = Object.entries(sharedListsByGroup).find(([, lists]) =>
+      lists.some((list) => list.listId === initialListId)
+    )?.[0];
+
+    const nextGroupId = matchingGroupId ?? (selectedGroupId || sharedGroups[0].groupId);
+    if (nextGroupId !== selectedGroupId) {
+      setSelectedGroupId(nextGroupId);
+    }
+
+    const nextLists = sharedListsByGroup[nextGroupId] ?? [];
+    if (matchingGroupId && !enablePersonalListApi) {
+      setScope('shared');
+    }
+    const hasSelectedListInSharedScope = nextLists.some((list) => list.listId === selectedListId);
+    if (scope === 'shared' && nextLists.length > 0 && !hasSelectedListInSharedScope) {
+      setSelectedListId(nextLists[0].listId);
+    }
+  }, [
+    enablePersonalListApi,
+    initialListId,
+    scope,
+    selectedGroupId,
+    selectedListId,
+    sharedGroups,
+    sharedListsByGroup,
+  ]);
+
+  const sharedLists = sharedListsByGroup[selectedGroupId] ?? [];
+
+  const sidebarLists =
+    scope === 'personal' ? (enablePersonalListApi ? [] : MOCK_PERSONAL_LISTS) : sharedLists;
   const selectedInCurrentScope = sidebarLists.find((list) => list.listId === selectedListId);
-  const currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? selectedListId;
+  let currentListId: string;
+  if (scope === 'shared') {
+    currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? '';
+  } else if (scope === 'personal' && enablePersonalListApi) {
+    currentListId = selectedListId;
+  } else {
+    currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? selectedListId;
+  }
 
   const handleCreateList = (name: string) => {
     setSnackbarMessage(
@@ -78,10 +160,15 @@ export function ListWorkspace({
               onChange={(event) => {
                 const nextScope = event.target.value as 'personal' | 'shared';
                 setScope(nextScope);
-                const nextLists =
-                  nextScope === 'personal'
-                    ? MOCK_PERSONAL_LISTS
-                    : (MOCK_SHARED_LISTS_BY_GROUP[selectedGroupId] ?? []);
+                let nextLists: readonly { listId: string; name: string }[] = [];
+                if (nextScope === 'personal') {
+                  nextLists = enablePersonalListApi ? [] : MOCK_PERSONAL_LISTS;
+                } else {
+                  nextLists = sharedLists;
+                }
+                if (nextScope === 'shared' && !selectedGroupId && sharedGroups.length > 0) {
+                  setSelectedGroupId(sharedGroups[0].groupId);
+                }
                 if (nextLists.length > 0) {
                   setSelectedListId(nextLists[0].listId);
                 }
@@ -101,14 +188,14 @@ export function ListWorkspace({
                 value={selectedGroupId}
                 onChange={(event) => {
                   const nextGroupId = event.target.value;
-                  const nextLists = MOCK_SHARED_LISTS_BY_GROUP[nextGroupId] ?? [];
+                  const nextLists = sharedListsByGroup[nextGroupId] ?? [];
                   setSelectedGroupId(nextGroupId);
                   if (nextLists.length > 0) {
                     setSelectedListId(nextLists[0].listId);
                   }
                 }}
               >
-                {MOCK_SHARED_GROUPS.map((group) => (
+                {sharedGroups.map((group) => (
                   <MenuItem key={group.groupId} value={group.groupId}>
                     {group.name}
                   </MenuItem>
@@ -121,7 +208,7 @@ export function ListWorkspace({
             createButtonLabel={scope === 'personal' ? '個人リストを作成' : '共有リストを作成'}
             selectedListId={currentListId}
             lists={sidebarLists}
-            hrefPrefix="/lists"
+            hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={
               scope === 'personal' && enablePersonalListApi
                 ? undefined
@@ -132,11 +219,15 @@ export function ListWorkspace({
         </Stack>
       </Box>
       <Box sx={{ flexGrow: 1, width: '100%' }}>
-        <TodoList
-          key={currentListId}
-          scope={scope === 'personal' ? 'personal' : 'group'}
-          listId={currentListId}
-        />
+        {currentListId ? (
+          <TodoList
+            key={currentListId}
+            scope={scope === 'personal' ? 'personal' : 'group'}
+            listId={currentListId}
+            groupId={scope === 'shared' ? selectedGroupId : undefined}
+            apiEnabled={scope === 'personal' ? enablePersonalListApi : true}
+          />
+        ) : null}
       </Box>
       <CreateItemDialog
         open={createDialogOpen}
