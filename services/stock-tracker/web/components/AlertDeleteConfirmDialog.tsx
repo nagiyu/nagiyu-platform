@@ -38,12 +38,18 @@ const MODE_LABELS: Record<string, string> = {
 const getConditionText = (alert: AlertResponse): string => {
   if (alert.conditions.length === 1) {
     const condition = alert.conditions[0];
+    if (!condition) {
+      return '-';
+    }
     return `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`;
   }
 
   if (alert.conditions.length === 2 && alert.logicalOperator) {
     const cond1 = alert.conditions[0];
     const cond2 = alert.conditions[1];
+    if (!cond1 || !cond2) {
+      return '-';
+    }
     if (alert.logicalOperator === 'AND') {
       return `価格 ${cond1.value.toLocaleString()} ～ ${cond2.value.toLocaleString()}（範囲内）`;
     }

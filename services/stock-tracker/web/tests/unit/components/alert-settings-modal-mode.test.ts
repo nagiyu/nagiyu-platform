@@ -58,7 +58,7 @@ describe('AlertSettingsModal mode', () => {
         symbol: 'AAPL',
         exchangeId: 'NASDAQ',
         mode: 'edit',
-        alertMode: 'Buy',
+        tradeMode: 'Buy',
         editTarget,
       })
     );
@@ -77,7 +77,7 @@ describe('AlertSettingsModal mode', () => {
         symbol: 'AAPL',
         exchangeId: 'NASDAQ',
         mode: 'create',
-        alertMode: 'Buy',
+        tradeMode: 'Buy',
       })
     );
 

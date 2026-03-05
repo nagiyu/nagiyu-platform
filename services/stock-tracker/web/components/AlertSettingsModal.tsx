@@ -63,7 +63,7 @@ interface AlertSettingsModalProps {
   symbol: string;
   exchangeId: string;
   mode: 'create' | 'edit';
-  alertMode: AlertMode;
+  tradeMode: AlertMode;
   editTarget?: AlertResponse;
   defaultTargetPrice?: number;
   basePrice?: number; // パーセンテージ計算の基準価格
@@ -104,9 +104,9 @@ interface CreateAlertRequest {
 }
 
 // 初期フォームデータ
-const getInitialFormData = (alertMode: AlertMode): FormData => ({
+const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   conditionMode: 'single',
-  operator: alertMode === 'Sell' ? 'gte' : 'lte',
+  operator: tradeMode === 'Sell' ? 'gte' : 'lte',
   targetPrice: '',
   rangeType: 'inside',
   minPrice: '',
@@ -129,13 +129,15 @@ export default function AlertSettingsModal({
   symbol,
   exchangeId,
   mode,
-  alertMode,
+  tradeMode,
   editTarget,
   defaultTargetPrice,
   basePrice,
 }: AlertSettingsModalProps) {
+  const dialogTitle = `${mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (${tradeMode === 'Buy' ? '買い' : '売り'}アラート)`;
+
   // フォームデータ
-  const [formData, setFormData] = useState<FormData>(getInitialFormData(alertMode));
+  const [formData, setFormData] = useState<FormData>(getInitialFormData(tradeMode));
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
   // 状態管理
@@ -151,7 +153,7 @@ export default function AlertSettingsModal({
 
         if (isRangeCondition) {
           setFormData({
-            ...getInitialFormData(alertMode),
+            ...getInitialFormData(tradeMode),
             conditionMode: 'range',
             minPrice: editTarget.conditions[0]?.value.toString() || '',
             maxPrice: editTarget.conditions[1]?.value.toString() || '',
@@ -160,7 +162,7 @@ export default function AlertSettingsModal({
           });
         } else {
           setFormData({
-            ...getInitialFormData(alertMode),
+            ...getInitialFormData(tradeMode),
             conditionMode: 'single',
             operator: editTarget.conditions[0]?.operator === 'gte' ? 'gte' : 'lte',
             targetPrice: editTarget.conditions[0]?.value.toString() || '',
@@ -170,7 +172,7 @@ export default function AlertSettingsModal({
         }
       } else {
         setFormData({
-          ...getInitialFormData(alertMode),
+          ...getInitialFormData(tradeMode),
           targetPrice: defaultTargetPrice ? defaultTargetPrice.toString() : '',
         });
       }
@@ -178,7 +180,7 @@ export default function AlertSettingsModal({
       setError('');
       setSubscription(null);
     }
-  }, [open, mode, alertMode, editTarget, defaultTargetPrice]);
+  }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
   // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
@@ -483,6 +485,11 @@ export default function AlertSettingsModal({
   };
 
   const handleSubmit = async () => {
+    if (mode === 'edit' && !editTarget) {
+      setError(ERROR_MESSAGES.UPDATE_ALERT_ERROR);
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -492,10 +499,6 @@ export default function AlertSettingsModal({
 
     try {
       if (mode === 'edit') {
-        if (!editTarget) {
-          throw new Error(ERROR_MESSAGES.UPDATE_ALERT_ERROR);
-        }
-
         const updateData: {
           conditions?: Array<{ value: number }>;
           enabled: boolean;
@@ -571,7 +574,7 @@ export default function AlertSettingsModal({
         const requestBody: CreateAlertRequest = {
           tickerId,
           exchangeId,
-          mode: alertMode,
+          mode: tradeMode,
           frequency: formData.frequency,
           conditions,
           subscription: sub.toJSON(),
@@ -603,7 +606,7 @@ export default function AlertSettingsModal({
 
       onClose();
     } catch (err) {
-      console.error('Error submitting alert:', err);
+      console.error(mode === 'edit' ? 'Error updating alert:' : 'Error creating alert:', err);
       setError(
         err instanceof Error
           ? err.message
@@ -618,10 +621,7 @@ export default function AlertSettingsModal({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (
-        {alertMode === 'Buy' ? '買い' : '売り'}アラート)
-      </DialogTitle>
+      <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -652,7 +652,7 @@ export default function AlertSettingsModal({
           <TextField
             fullWidth
             label="モード"
-            value={alertMode === 'Buy' ? '買いアラート' : '売りアラート'}
+            value={tradeMode === 'Buy' ? '買いアラート' : '売りアラート'}
             disabled
             InputProps={{ readOnly: true }}
           />

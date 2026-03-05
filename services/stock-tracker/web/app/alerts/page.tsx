@@ -374,7 +374,7 @@ function AlertsPageContent() {
           symbol={selectedAlert.symbol}
           exchangeId={selectedAlert.tickerId.split(':')[0] || ''}
           mode="edit"
-          alertMode={selectedAlert.mode}
+          tradeMode={selectedAlert.mode}
           editTarget={selectedAlert}
         />
       )}
