@@ -1,11 +1,11 @@
 import { test, expect, Page } from '@playwright/test';
-import { TestDataFactory, CreatedHolding, CreatedWatchlist } from './utils/test-data-factory';
+import { TestDataFactory, CreatedHolding } from './utils/test-data-factory';
 
 /**
  * E2E-002: アラート設定フロー (一部)
  *
  * このテストは以下を検証します:
- * - Holding/Watchlistからのアラート設定のE2Eテスト
+ * - Holdingからのアラート設定のE2Eテスト
  * - Web Push通知許可のテスト
  * - アラート設定後のボタン状態変化
  *
@@ -212,173 +212,6 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // ボタンが「アラート設定済」に変化していることを確認
       const updatedRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
-      await expect(updatedRow.getByRole('button', { name: /アラート設定済/ })).toBeVisible();
-    });
-  });
-
-  test.describe('Watchlistからの買いアラート設定', () => {
-    let testWatchlist: CreatedWatchlist;
-
-    test.beforeEach(async () => {
-      // テスト用の Watchlist を作成
-      testWatchlist = await factory.createWatchlist();
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    });
-
-    test('買いアラート設定ボタンが表示される', async ({ page }) => {
-      // Watchlist管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // 作成した Watchlist の行を探す
-      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
-      await expect(targetRow).toBeVisible({ timeout: 10000 });
-
-      // 買いアラートボタンが表示される
-      const alertButton = targetRow.getByRole('button', { name: /買いアラート|アラート設定済/ });
-      await expect(alertButton).toBeVisible();
-    });
-
-    test('アラート設定モーダルが正しく開く', async ({ page }) => {
-      // Watchlist管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // 作成した Watchlist の行を探す
-      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
-      await expect(targetRow).toBeVisible({ timeout: 10000 });
-
-      // 買いアラートボタンをクリック
-      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
-      await buyAlertButton.click();
-
-      // アラート設定モーダルが表示される
-      await expect(page.getByRole('dialog')).toBeVisible();
-      await expect(page.getByRole('heading', { name: /アラート設定.*買いアラート/ })).toBeVisible();
-
-      // 必要なフィールドが表示される
-      await expect(page.getByLabel('取引所')).toBeVisible();
-      await expect(page.getByLabel('ティッカー')).toBeVisible();
-      await expect(page.getByLabel('モード')).toBeVisible();
-      await expect(page.getByLabel('条件タイプ')).toBeVisible();
-      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
-      await expect(page.getByLabel('目標価格')).toBeVisible();
-      await expect(page.getByLabel('通知頻度')).toBeVisible();
-
-      // 取引所とティッカーは変更不可（disabled）
-      await expect(page.getByLabel('取引所')).toBeDisabled();
-      await expect(page.getByLabel('ティッカー')).toBeDisabled();
-      await expect(page.getByLabel('モード')).toBeDisabled();
-    });
-
-    test('アラートを設定できる', async ({ page }) => {
-      // Watchlist管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // 作成した Watchlist の行を探す
-      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
-      await expect(targetRow).toBeVisible({ timeout: 10000 });
-
-      // 買いアラートボタンをクリック
-      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
-      await buyAlertButton.click();
-
-      // モーダルが表示されるまで待つ
-      await expect(page.getByRole('dialog')).toBeVisible();
-
-      // 目標価格を入力
-      const targetPriceInput = page.getByLabel('目標価格');
-      await targetPriceInput.fill('50');
-
-      // 保存ボタンをクリック
-      await page.getByRole('button', { name: '保存' }).click();
-
-      // モーダルが閉じることを確認、またはエラーが表示されることを確認
-      // テスト環境でVAPID鍵が設定されていない場合はエラーが表示される
-      await Promise.race([
-        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
-        expect(
-          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
-        ).toBeVisible({ timeout: 5000 }),
-      ]).catch(async () => {
-        // エラーメッセージが表示されている場合はテストをスキップ
-        const errorVisible = await page
-          .getByText(/エラー|失敗|対応していません/)
-          .isVisible()
-          .catch(() => false);
-        if (errorVisible) {
-          test.skip();
-        }
-      });
-
-      // モーダルが閉じた場合のみ成功メッセージを確認
-      const modalClosed = await page
-        .getByRole('dialog')
-        .isVisible()
-        .then((visible) => !visible)
-        .catch(() => false);
-      if (modalClosed) {
-        // 成功メッセージが表示される
-        await expect(page.getByText(/アラートを設定しました/)).toBeVisible();
-      }
-    });
-
-    test('アラート設定後、ボタンが「アラート設定済」に変化する', async ({ page }) => {
-      // Watchlist管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // 作成した Watchlist の行を探す
-      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
-      await expect(targetRow).toBeVisible({ timeout: 10000 });
-
-      // 買いアラートボタンをクリック
-      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
-      await buyAlertButton.click();
-
-      // モーダルが表示されるまで待つ
-      await expect(page.getByRole('dialog')).toBeVisible();
-
-      // 目標価格を入力
-      await page.getByLabel('目標価格').fill('50');
-      await page.getByRole('button', { name: '保存' }).click();
-
-      // モーダルが閉じることを確認、またはエラーが表示されることを確認
-      await Promise.race([
-        expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 5000 }),
-        expect(
-          page.getByText(/VAPID公開鍵が設定されていません|VAPID公開鍵の取得に失敗しました/)
-        ).toBeVisible({ timeout: 5000 }),
-      ]).catch(async () => {
-        const errorVisible = await page
-          .getByText(/エラー|失敗|対応していません/)
-          .isVisible()
-          .catch(() => false);
-        if (errorVisible) {
-          test.skip();
-        }
-      });
-
-      // モーダルが閉じたか確認
-      const modalClosed = await page
-        .getByRole('dialog')
-        .isVisible()
-        .then((visible) => !visible)
-        .catch(() => false);
-
-      if (!modalClosed) {
-        test.skip();
-      }
-
-      // ページをリロードして状態を確認
-      await page.reload();
-      await page.waitForLoadState('networkidle');
-
-      // ボタンが「アラート設定済」に変化していることを確認
-      const updatedRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
       await expect(updatedRow.getByRole('button', { name: /アラート設定済/ })).toBeVisible();
     });
   });
@@ -1085,62 +918,6 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
           test.skip();
         }
       });
-    });
-  });
-
-  test.describe('パーセンテージ選択機能 - basePriceなし（Watchlist）', () => {
-    let testWatchlist: CreatedWatchlist;
-
-    test.beforeEach(async () => {
-      // テスト用の Watchlist を作成
-      testWatchlist = await factory.createWatchlist();
-
-      // データが反映されるまで待つ
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    });
-
-    test('Watchlistからのアラート設定ではパーセンテージモードが無効化される', async ({ page }) => {
-      // Watchlist管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // 作成した Watchlist の行を探す
-      const targetRow = page.locator(`tr:has-text("${testWatchlist.ticker.symbol}")`);
-      await expect(targetRow).toBeVisible({ timeout: 10000 });
-
-      // 買いアラートボタンをクリック
-      const buyAlertButton = targetRow.getByRole('button', { name: /買いアラート/ });
-      await buyAlertButton.click();
-
-      // モーダルが表示されるまで待つ
-      await expect(page.getByRole('dialog')).toBeVisible();
-
-      // 入力方式ドロップダウンを確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
-
-      // パターン1: ドロップダウンが非表示になっている
-      const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
-      if (!isInputModeVisible) {
-        // 手動入力フィールドのみ表示されることを確認
-        await expect(page.getByLabel('目標価格')).toBeVisible();
-        return;
-      }
-
-      // パターン2: ドロップダウンは表示されているが無効化されている
-      const isInputModeDisabled = await inputModeSelect.isDisabled().catch(() => false);
-      if (isInputModeDisabled) {
-        // ドロップダウンが無効化されていることを確認
-        await expect(inputModeSelect).toBeDisabled();
-        return;
-      }
-
-      // パターン3: ドロップダウンは有効だが、パーセンテージ選択肢がない
-      await inputModeSelect.click();
-      const percentageOption = page.getByRole('option', { name: 'パーセンテージ' });
-      const hasPercentageOption = await percentageOption.isVisible().catch(() => false);
-
-      // パーセンテージ選択肢が存在しないことを確認
-      expect(hasPercentageOption).toBe(false);
     });
   });
 });

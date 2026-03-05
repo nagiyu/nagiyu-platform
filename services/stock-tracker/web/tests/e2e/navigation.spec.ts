@@ -31,24 +31,6 @@ test.describe('ナビゲーション (E2E-009)', () => {
       });
     });
 
-    test('トップ画面からウォッチリスト管理画面に遷移できる', async ({ page }) => {
-      // トップ画面にアクセス
-      await page.goto('/');
-      await page.waitForLoadState('networkidle');
-
-      // ウォッチリストへのリンクをクリック
-      const watchlistLink = page
-        .locator('a[href="/watchlist"], button:has-text("ウォッチリスト")')
-        .first();
-      await watchlistLink.click();
-
-      // ウォッチリスト管理画面に遷移
-      await expect(page).toHaveURL('/watchlist');
-      await expect(page.getByRole('heading', { name: 'ウォッチリスト' })).toBeVisible({
-        timeout: 10000,
-      });
-    });
-
     test('トップ画面からアラート一覧画面に遷移できる', async ({ page }) => {
       // トップ画面にアクセス
       await page.goto('/');
@@ -77,22 +59,6 @@ test.describe('ナビゲーション (E2E-009)', () => {
       // アラート一覧画面に遷移
       await expect(page).toHaveURL('/alerts');
       await expect(page.getByRole('heading', { name: 'アラート一覧' })).toBeVisible({
-        timeout: 10000,
-      });
-    });
-
-    test('ウォッチリスト管理画面から保有株式管理画面に遷移できる', async ({ page }) => {
-      // ウォッチリスト管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // 保有株式へのリンクをクリック
-      const holdingLink = page.locator('a[href="/holdings"], button:has-text("保有株式")').first();
-      await holdingLink.click();
-
-      // 保有株式管理画面に遷移
-      await expect(page).toHaveURL('/holdings');
-      await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible({
         timeout: 10000,
       });
     });
@@ -256,20 +222,6 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await holdingLink.click();
       await expect(page).toHaveURL('/holdings');
 
-      // ウォッチリスト管理画面に遷移
-      const watchlistLink = page
-        .locator('a[href="/watchlist"], button:has-text("ウォッチリスト")')
-        .first();
-      await watchlistLink.click();
-      await expect(page).toHaveURL('/watchlist');
-
-      // ブラウザバックで保有株式管理画面に戻る
-      await page.goBack();
-      await expect(page).toHaveURL('/holdings');
-      await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible({
-        timeout: 10000,
-      });
-
       // ブラウザバックでトップ画面に戻る
       await page.goBack();
       await expect(page).toHaveURL('/');
@@ -277,14 +229,10 @@ test.describe('ナビゲーション (E2E-009)', () => {
       // ブラウザ進むボタンで保有株式管理画面に戻る
       await page.goForward();
       await expect(page).toHaveURL('/holdings');
-
-      // ブラウザ進むボタンでウォッチリスト管理画面に戻る
-      await page.goForward();
-      await expect(page).toHaveURL('/watchlist');
     });
 
     test('複数画面を遷移した後のブラウザバック', async ({ page }) => {
-      // トップ画面 → 保有株式 → アラート → ウォッチリストの順に遷移
+      // トップ画面 → 保有株式 → アラートの順に遷移
       await page.goto('/');
       await page.waitForLoadState('networkidle');
 
@@ -298,17 +246,7 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await alertLink.click();
       await expect(page).toHaveURL('/alerts');
 
-      // ウォッチリスト管理画面
-      const watchlistLink = page
-        .locator('a[href="/watchlist"], button:has-text("ウォッチリスト")')
-        .first();
-      await watchlistLink.click();
-      await expect(page).toHaveURL('/watchlist');
-
       // 逆順でブラウザバック
-      await page.goBack();
-      await expect(page).toHaveURL('/alerts');
-
       await page.goBack();
       await expect(page).toHaveURL('/holdings');
 
@@ -324,14 +262,6 @@ test.describe('ナビゲーション (E2E-009)', () => {
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveURL('/holdings');
       await expect(page.getByRole('heading', { name: '保有株式管理' })).toBeVisible({
-        timeout: 10000,
-      });
-
-      // ウォッチリスト管理画面
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-      await expect(page).toHaveURL('/watchlist');
-      await expect(page.getByRole('heading', { name: 'ウォッチリスト' })).toBeVisible({
         timeout: 10000,
       });
 

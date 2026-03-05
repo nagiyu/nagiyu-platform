@@ -41,14 +41,6 @@ export interface CreateHoldingOptions {
 }
 
 /**
- * Watchlist 作成オプション
- * tickerId を省略すると、新しい Ticker（と Exchange）が自動作成される。
- */
-export interface CreateWatchlistOptions {
-  tickerId?: string;
-}
-
-/**
  * Alert 作成オプション
  * tickerId を省略すると、新しい Ticker（と Exchange）が自動作成される。
  */
@@ -113,15 +105,6 @@ export interface CreatedHolding {
 }
 
 /**
- * 作成された Watchlist（関連エンティティを含む）
- */
-export interface CreatedWatchlist {
-  watchlistId: string;
-  tickerId: string;
-  ticker: CreatedTicker;
-}
-
-/**
  * 作成された Alert（関連エンティティを含む）
  */
 export interface CreatedAlert {
@@ -146,7 +129,6 @@ interface TrackedData {
   exchanges: Map<string, CreatedExchange>;
   tickers: Map<string, CreatedTicker>;
   holdings: Map<string, CreatedHolding>;
-  watchlists: Map<string, CreatedWatchlist>;
   alerts: Map<string, CreatedAlert>;
 }
 
@@ -200,7 +182,6 @@ export class TestDataFactory {
       exchanges: new Map(),
       tickers: new Map(),
       holdings: new Map(),
-      watchlists: new Map(),
       alerts: new Map(),
     };
   }
@@ -404,60 +385,6 @@ export class TestDataFactory {
   }
 
   /**
-   * Watchlist を作成
-   * tickerId を省略すると、新しい Ticker（と Exchange）が自動作成される。
-   *
-   * @param options - 作成オプション
-   * @returns 作成された Watchlist（関連エンティティを含む）
-   */
-  public async createWatchlist(options: CreateWatchlistOptions = {}): Promise<CreatedWatchlist> {
-    let ticker: CreatedTicker;
-    if (options.tickerId) {
-      const existing = this.trackedData.tickers.get(options.tickerId);
-      if (existing) {
-        ticker = existing;
-      } else {
-        ticker = await this.createTicker();
-      }
-    } else {
-      ticker = await this.createTicker();
-    }
-
-    const watchlistData = {
-      tickerId: ticker.tickerId,
-    };
-
-    const response = await this.request.post('/api/watchlist', {
-      data: watchlistData,
-    });
-
-    let watchlistId: string;
-    if (!response.ok()) {
-      const errorData = await response.json().catch(() => ({}));
-      if (!JSON.stringify(errorData).includes('既に')) {
-        throw new Error(`Failed to create watchlist: ${JSON.stringify(errorData)}`);
-      }
-      // 既に登録されている場合も、正しい形式の watchlistId を使用
-      // APIが期待する形式: {UserID}#{TickerID}
-      watchlistId = `${this.testUserId}#${ticker.tickerId}`;
-    } else {
-      const responseData = await response.json().catch(() => ({}));
-      // APIレスポンスから watchlistId を取得、なければ正しい形式で生成
-      watchlistId = responseData.watchlistId || `${this.testUserId}#${ticker.tickerId}`;
-    }
-
-    const createdWatchlist: CreatedWatchlist = {
-      watchlistId,
-      tickerId: ticker.tickerId,
-      ticker,
-    };
-
-    this.trackedData.watchlists.set(watchlistId, createdWatchlist);
-
-    return createdWatchlist;
-  }
-
-  /**
    * Alert を作成
    * tickerId を省略すると、新しい Ticker（と Exchange）が自動作成される。
    *
@@ -533,52 +460,12 @@ export class TestDataFactory {
   }
 
   // ==========================================================================
-  // 便利メソッド（複合データ作成）
-  // ==========================================================================
-
-  /**
-   * Alert 付きの完全なテストセットを作成
-   * Holding または Watchlist も一緒に作成する
-   *
-   * @param withHolding - Holding も作成する場合は true、Watchlist を作成する場合は false
-   * @param alertOptions - Alert のオプション
-   * @returns 作成結果
-   */
-  public async createAlertWithDependencies(
-    withHolding: boolean = true,
-    alertOptions: CreateAlertOptions = {}
-  ): Promise<{
-    holding?: CreatedHolding;
-    watchlist?: CreatedWatchlist;
-    alert: CreatedAlert;
-  }> {
-    let holding: CreatedHolding | undefined;
-    let watchlist: CreatedWatchlist | undefined;
-    let tickerId: string;
-
-    if (withHolding) {
-      holding = await this.createHolding();
-      tickerId = holding.tickerId;
-    } else {
-      watchlist = await this.createWatchlist();
-      tickerId = watchlist.tickerId;
-    }
-
-    const alert = await this.createAlert({
-      ...alertOptions,
-      tickerId,
-    });
-
-    return { holding, watchlist, alert };
-  }
-
-  // ==========================================================================
   // クリーンアップ
   // ==========================================================================
 
   /**
    * 作成した全データを削除
-   * 依存関係の逆順で削除: Alert -> Watchlist -> Holding -> Ticker -> Exchange
+   * 依存関係の逆順で削除: Alert -> Holding -> Ticker -> Exchange
    */
   public async cleanup(): Promise<void> {
     // 1. Alert を削除
@@ -591,17 +478,7 @@ export class TestDataFactory {
     }
     this.trackedData.alerts.clear();
 
-    // 2. Watchlist を削除
-    for (const [watchlistId] of this.trackedData.watchlists) {
-      try {
-        await this.request.delete(`/api/watchlist/${encodeURIComponent(watchlistId)}`);
-      } catch (error) {
-        console.warn(`Warning: Failed to delete watchlist ${watchlistId}:`, error);
-      }
-    }
-    this.trackedData.watchlists.clear();
-
-    // 3. Holding を削除
+    // 2. Holding を削除
     for (const [holdingId] of this.trackedData.holdings) {
       try {
         await this.request.delete(`/api/holdings/${encodeURIComponent(holdingId)}`);
@@ -611,7 +488,7 @@ export class TestDataFactory {
     }
     this.trackedData.holdings.clear();
 
-    // 4. Ticker を削除
+    // 3. Ticker を削除
     for (const [tickerId] of this.trackedData.tickers) {
       try {
         await this.request.delete(`/api/tickers/${encodeURIComponent(tickerId)}`);
@@ -621,7 +498,7 @@ export class TestDataFactory {
     }
     this.trackedData.tickers.clear();
 
-    // 5. Exchange を削除
+    // 4. Exchange を削除
     for (const [exchangeId] of this.trackedData.exchanges) {
       try {
         await this.request.delete(`/api/exchanges/${encodeURIComponent(exchangeId)}`);
@@ -646,10 +523,6 @@ export class TestDataFactory {
 
   public get holdings(): CreatedHolding[] {
     return Array.from(this.trackedData.holdings.values());
-  }
-
-  public get watchlists(): CreatedWatchlist[] {
-    return Array.from(this.trackedData.watchlists.values());
   }
 
   public get alerts(): CreatedAlert[] {
