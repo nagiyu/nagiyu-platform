@@ -85,6 +85,11 @@ export interface TickerSummary {
   aiAnalysis?: string;
   /** AI 解析生成失敗時のエラー情報 */
   aiAnalysisError?: string;
+  /** 保有情報（未保有の場合は null） */
+  holding: {
+    quantity: number;
+    averagePrice: number;
+  } | null;
 }
 
 /**

@@ -47,6 +47,7 @@ describe('SummariesPage', () => {
       buyPatternCount: 0,
       sellPatternCount: 0,
       patternDetails: [],
+      holding: null,
     };
 
     it('aiAnalysis が string の場合は解析テキストを表示する', () => {
