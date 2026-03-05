@@ -59,6 +59,11 @@ const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   return latest === null ? '-' : new Date(latest).toLocaleString('ja-JP');
 };
 
+const extractExchangeId = (tickerId: string): string => {
+  const [exchangeId, symbol] = tickerId.split(':');
+  return exchangeId && symbol ? exchangeId : '';
+};
+
 export default function SummariesPage() {
   const { data: session } = useSession();
   const [summaries, setSummaries] = useState<SummariesResponse>({ exchanges: [] });
@@ -147,6 +152,7 @@ export default function SummariesPage() {
   const sellPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
     (pattern) => pattern.signalType === 'SELL'
   );
+  const selectedTickerExchangeId = selectedTicker ? extractExchangeId(selectedTicker.tickerId) : '';
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
@@ -492,7 +498,7 @@ export default function SummariesPage() {
             onClose={() => setIsBuyAlertOpen(false)}
             tickerId={selectedTicker.tickerId}
             symbol={selectedTicker.symbol}
-            exchangeId={selectedTicker.tickerId.split(':')[0] ?? ''}
+            exchangeId={selectedTickerExchangeId}
             mode="create"
             tradeMode="Buy"
             defaultTargetPrice={selectedTicker.close}
@@ -503,7 +509,7 @@ export default function SummariesPage() {
             onClose={() => setIsSellAlertOpen(false)}
             tickerId={selectedTicker.tickerId}
             symbol={selectedTicker.symbol}
-            exchangeId={selectedTicker.tickerId.split(':')[0] ?? ''}
+            exchangeId={selectedTickerExchangeId}
             mode="create"
             tradeMode="Sell"
             defaultTargetPrice={selectedTicker.close}

@@ -20,6 +20,10 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
   FETCH_HOLDINGS_FAILED: '保有株式情報の取得に失敗しました',
 } as const;
+// サマリーAPIでは保有情報取得を1回のレスポンスで完結させるため、初期実装は100件を上限とする。
+// getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
+// レスポンス遅延や過剰なDBアクセスを抑制する。
+const MAX_HOLDINGS_PER_USER = 100;
 
 interface HoldingSummaryResponse {
   quantity: number;
@@ -102,7 +106,9 @@ function toTickerSummaryResponse(
 async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSummaryResponse>> {
   try {
     const holdingRepository = createHoldingRepository();
-    const holdingsResult = await holdingRepository.getByUserId(userId, { limit: 100 });
+    const holdingsResult = await holdingRepository.getByUserId(userId, {
+      limit: MAX_HOLDINGS_PER_USER,
+    });
     return new Map(
       holdingsResult.items.map((holding) => [
         holding.TickerID,
@@ -112,8 +118,9 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
         },
       ])
     );
-  } catch {
-    throw new Error(ERROR_MESSAGES.FETCH_HOLDINGS_FAILED);
+  } catch (error) {
+    console.error(ERROR_MESSAGES.FETCH_HOLDINGS_FAILED, error);
+    return new Map<string, HoldingSummaryResponse>();
   }
 }
 
@@ -165,9 +172,7 @@ export const GET = withAuth(
         exchangeRepository.getAll(),
         tickerRepository.getAll(),
       ]);
-      const holdingMap = await fetchHoldingMap(session.user.userId).catch(
-        () => new Map<string, HoldingSummaryResponse>()
-      );
+      const holdingMap = await fetchHoldingMap(session.user.userId);
 
       const tickerMap = new Map(tickersResult.items.map((ticker) => [ticker.TickerID, ticker]));
       const exchangeSummaryGroups = await Promise.all(
