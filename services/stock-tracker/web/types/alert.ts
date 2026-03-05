@@ -6,6 +6,8 @@ export interface AlertCondition {
   field: 'price';
   operator: 'gte' | 'lte';
   value: number;
+  isPercentage?: boolean;
+  percentageValue?: number;
 }
 
 export interface AlertResponse {

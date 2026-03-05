@@ -14,6 +14,10 @@ export interface AlertCondition {
   operator: 'gte' | 'lte';
   /** 比較値 */
   value: number;
+  /** パーセンテージ指定フラグ（true: パーセンテージで設定された条件） */
+  isPercentage?: boolean;
+  /** パーセンテージ値（isPercentage が true の場合のみ有効、基準価格からの変動率） */
+  percentageValue?: number;
 }
 
 /**
