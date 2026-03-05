@@ -20,6 +20,7 @@
 - FR3: アラート編集時、パーセンテージで作成された条件の場合は入力方式を「パーセンテージ」に復元して表示する
 - FR4: アラート編集時、パーセンテージ条件の場合はパーセンテージ値を変更できる
 - FR5: 範囲指定アラートでもパーセンテージ情報を保持・復元する
+- FR6: アラート編集時、単一条件・範囲指定を問わず、手動入力とパーセンテージの入力方式を自由に切替えて編集できる
 
 ### 非機能要件
 
@@ -69,20 +70,26 @@
 
 現状の調査（コードレビュー）で以下の未対応箇所を確認。
 
-### 根本原因: `basePrice` が編集モーダルに渡されていない
+### 単一条件モードでも `basePrice` 未渡しでパーセンテージが表示・編集できない
 
 `alerts/page.tsx` の編集モーダルに `basePrice` が渡されていないため、
 パーセンテージUIが全く表示されない（`{basePrice && basePrice > 0 && (...)}` 条件で非表示）。
+これは単一条件・範囲指定の両方に影響する。
 新規作成モーダル（summaries/page.tsx, holdings/page.tsx）は正しく `basePrice` を渡している。
+
+### 単一条件モードで手動 → パーセンテージへの切替が禁止されている
+
+編集モーダルで単一条件アラートを開いた場合:
+- 入力方式の Select が `disabled={mode === 'edit' && formData.inputMode !== 'percentage'}` となっており、
+  **手動入力で作成されたアラートはパーセンテージへ切替不可**
+- パーセンテージで作成されたアラートは切替可能だが、`basePrice` が渡されないため UI が表示されない
 
 ### 範囲指定モードのパーセンテージ編集が無効
 
 編集モーダルで範囲指定アラートを開いた場合:
-- 入力方式の Select が `disabled={mode === 'edit'}` で完全に無効化されている
+- 入力方式の Select が `disabled={mode === 'edit'}` で完全に無効化されている（手動↔パーセンテージ切替不可）
 - パーセンテージ Select（最小・最大）も `disabled={mode === 'edit'}` で変更不可
 - 「範囲指定アラートの条件は編集できません」という Info メッセージが表示される
-
-単一条件と同様に、パーセンテージで作成されたアラートはパーセンテージ変更を許可すべき。
 
 ### PUT API が範囲条件（2条件）の更新に未対応
 
@@ -93,19 +100,23 @@
 
 - [ ] T011: `alerts/page.tsx` の編集モーダルに `basePrice` を渡す
     - `isPercentage=true` の条件がある場合は `value / (1 + percentageValue / 100)` で逆算
-    - `isPercentage=false` または情報なしの場合は `basePrice` を渡さない（現状維持）
-- [ ] T012: `AlertSettingsModal.tsx` の範囲指定モードでパーセンテージ変更を可能にする
-    - 入力方式 Select の `disabled` を `mode === 'edit' && formData.rangeInputMode !== 'percentage'` に変更
+    - パーセンテージ情報がない場合でも、最新の株価を取得して渡すことで手動→パーセンテージへの切替を可能にする
+- [ ] T012: `AlertSettingsModal.tsx` の単一条件モードで入力方式を自由に切替えられるようにする
+    - `disabled={mode === 'edit' && formData.inputMode !== 'percentage'}` を削除し、常に切替可能にする
+    - `basePrice` があれば手動作成のアラートでもパーセンテージモードへ切替えて再設定可能にする
+- [ ] T013: `AlertSettingsModal.tsx` の範囲指定モードで入力方式・パーセンテージ値を編集可能にする
+    - 入力方式 Select の `disabled={mode === 'edit'}` を削除
     - 最小・最大パーセンテージ Select の `disabled={mode === 'edit'}` を解除
-    - 「範囲指定アラートの条件は編集できません」の Info メッセージをパーセンテージ変更が可能になった場合は表示しないように修正
-- [ ] T013: `AlertSettingsModal.tsx` の handleSubmit で範囲指定モードの条件更新に対応
+    - 「範囲指定アラートの条件は編集できません」の Info メッセージを削除
+- [ ] T014: `AlertSettingsModal.tsx` の handleSubmit で範囲指定モードの条件更新に対応
     - `formData.conditionMode === 'range'` の場合も `updateData.conditions` をセット
-    - パーセンテージモードの場合は各条件に `isPercentage`/`percentageValue` を含める
-- [ ] T014: `[id]/route.ts` の PUT 処理で範囲条件（2条件）のマージに対応
+    - 手動モードは minPrice/maxPrice を、パーセンテージモードは計算済み価格を含める
+    - 各条件に `isPercentage`/`percentageValue` を適切に含める
+- [ ] T015: `[id]/route.ts` の PUT 処理で範囲条件（2条件）のマージに対応
     - `existingAlert.ConditionList` の全条件と `body.conditions` をインデックス対応でマージ
-- [ ] T015: 上記変更に対するユニットテストを追加
+- [ ] T016: 上記変更に対するユニットテストを追加
     - `alerts/page.tsx` の basePrice 逆算ロジックのテスト
-    - `AlertSettingsModal` 範囲指定パーセンテージ編集のテスト
+    - `AlertSettingsModal` 単一条件・範囲指定の入力方式切替テスト
     - PUT API 範囲条件マージのテスト
 
 ## 参考ドキュメント
