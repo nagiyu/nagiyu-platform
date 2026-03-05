@@ -2,7 +2,7 @@
 
 ## 1. システム概要
 
-Stock Tracker は、株価のリアルタイム監視と条件ベースのアラート通知を提供するサービスです。TradingView API から株価データを取得し、ユーザーが設定した条件（価格閾値など）を満たした場合に Web Push 通知を送信します。また、保有株式の管理とウォッチリスト機能により、投資判断を支援します。
+Stock Tracker は、株価のリアルタイム監視と条件ベースのアラート通知を提供するサービスです。TradingView API から株価データを取得し、ユーザーが設定した条件（価格閾値など）を満たした場合に Web Push 通知を送信します。また、保有株式の管理により、投資判断を支援します。
 
 ### 1.1 全体構成図
 
@@ -83,7 +83,7 @@ services/stock-tracker/
 **core パッケージ**:
 
 - `repositories/`: データアクセス層
-  - インターフェース（IAlertRepository, IHoldingRepository, ITickerRepository, IExchangeRepository, IWatchlistRepository）
+  - インターフェース（IAlertRepository, IHoldingRepository, ITickerRepository, IExchangeRepository）
   - DynamoDB 実装（DynamoDBAlertRepository, DynamoDBHoldingRepository 等）
   - InMemory 実装（InMemoryAlertRepository, InMemoryHoldingRepository 等）
 - `entities/`: エンティティ型定義（AlertEntity, HoldingEntity 等）
@@ -216,11 +216,11 @@ Stock Tracker における Single Table Design の採用は、以下の要因に
 
 1. **アクセスパターンの明確性**:
    - 本サービスのクエリは主に「ユーザー中心」のアクセスパターンに集中しています
-   - ユーザーごとに保有株式、ウォッチリスト、アラートをまとめて取得するケースが大半
+   - ユーザーごとに保有株式とアラートをまとめて取得するケースが大半
    - このようなユーザー中心のデータモデルでは、Single Table Design が最も効率的です
 
 2. **エンティティ間の関係性**:
-   - 保有株式、ウォッチリスト、アラートは全て「ユーザーに紐づく」という共通の特性を持ちます
+   - 保有株式とアラートは「ユーザーに紐づく」という共通の特性を持ちます
    - 取引所・ティッカーはマスタデータであり、他のエンティティから参照されます
    - これらのエンティティは密接に関連しており、同一テーブルで管理することで整合性を保ちやすくなります
 
@@ -259,7 +259,6 @@ Single Table Design はこれらの要件を全て満たしており、Stock Tra
 | Exchange         | `EXCHANGE#{ID}` | `METADATA`        | -                                        | -                                      | -                                       | -                                            | 取引所マスタ                |
 | Ticker           | `TICKER#{ID}`   | `METADATA`        | -                                        | -                                      | `EXCHANGE#{ExchangeID}` / `TICKER#{ID}` | -                                            | ティッカーマスタ            |
 | Holding          | `USER#{UserID}` | `HOLDING#{ID}`    | `USER#{UserID}` / `HOLDING#{TickerID}`   | -                                      | -                                       | -                                            | 保有株式                    |
-| Watchlist        | `USER#{UserID}` | `WATCHLIST#{ID}`  | `USER#{UserID}` / `WATCHLIST#{TickerID}` | -                                      | -                                       | -                                            | ウォッチリスト              |
 | Alert            | `USER#{UserID}` | `ALERT#{ID}`      | `USER#{UserID}` / `ALERT#{TickerID}`     | `FREQUENCY#{Frequency}` / `ALERT#{ID}` | -                                       | -                                            | アラート                    |
 | PushSubscription | `USER#{UserID}` | `PUSH#{Endpoint}` | `USER#{UserID}` / `PUSH#{Endpoint}`      | -                                      | -                                       | -                                            | Web Push サブスクリプション |
 | DailySummary     | `SUMMARY#{TickerID}` | `DATE#{Date}` | -                                       | -                                      | -                                       | `{ExchangeID}` / `DATE#{Date}#{TickerID}`    | 日次サマリー                |
@@ -268,7 +267,7 @@ Single Table Design はこれらの要件を全て満たしており、Stock Tra
 
 Stock Tracker のデータモデルは、以下の関係性を持ちます：
 
-1. **ユーザー ↔ 保有株式・ウォッチリスト・アラート**:
+1. **ユーザー ↔ 保有株式・アラート**:
    - 1対多の関係（1ユーザーが複数のエンティティを所有）
    - PK に `USER#{UserID}` を使用することで、ユーザーのデータを効率的に取得可能
    - SK にエンティティタイプとIDを組み合わせることで、エンティティを一意に識別
@@ -305,7 +304,7 @@ Stock Tracker のデータモデルは、以下の関係性を持ちます：
 Stock Tracker では、3つの GSI を使用しています：
 
 1. **GSI1 (UserIndex) - ユーザー別クエリ**:
-   - **役割**: ユーザーに紐づく全エンティティ（保有株式、ウォッチリスト、アラート）を効率的に取得
+   - **役割**: ユーザーに紐づく全エンティティ（保有株式、アラート）を効率的に取得
    - **GSI1PK**: `USER#{UserID}` - ユーザーIDでパーティション
    - **GSI1SK**: `{EntityType}#{TickerID}` - エンティティタイプとティッカーIDでソート
    - **ユースケース**: ユーザー画面での一覧表示、ティッカー別のエンティティ取得
@@ -347,13 +346,12 @@ Stock Tracker では、3つの GSI を使用しています：
 Stock Tracker のアクセスパターンは、「ユーザーが自分のデータにアクセスする」という要件が中心です：
 
 1. **なぜユーザー別の取得が重要か**:
-   - ユーザーは自分の保有株式、ウォッチリスト、アラートのみを閲覧・編集します
+   - ユーザーは自分の保有株式とアラートのみを閲覧・編集します
    - 他のユーザーのデータにアクセスすることはありません（プライバシーの観点からも重要）
    - この特性により、PK を `USER#{UserID}` とすることで、自然なパーティショニングが実現されます
 
 2. **GSI1 によるユーザー中心クエリの最適化**:
    - ユーザーの全保有株式を取得: `GSI1PK = USER#{UserID}`, `GSI1SK begins_with HOLDING#`
-   - ユーザーの全ウォッチリストを取得: `GSI1PK = USER#{UserID}`, `GSI1SK begins_with WATCHLIST#`
    - ユーザーの全アラートを取得: `GSI1PK = USER#{UserID}`, `GSI1SK begins_with ALERT#`
    - これらのクエリは単一のクエリ操作で完了し、低レイテンシーを実現します
 
@@ -713,7 +711,7 @@ Phase 1 では以下に機能を限定:
 
 - 価格ベースのシンプルなアラート（`PRICE_ABOVE`, `PRICE_BELOW`）
 - 基本的な取引所・ティッカーマスタ管理
-- 保有株式・ウォッチリストの CRUD
+- 保有株式の CRUD
 
 Phase 2 以降でテクニカル指標や追加パターン認識などを実装予定。
 

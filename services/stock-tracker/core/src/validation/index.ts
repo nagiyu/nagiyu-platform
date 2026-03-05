@@ -7,7 +7,7 @@
 
 import type { ValidationResult } from '@nagiyu/common';
 import { isNonEmptyString, isValidTimestamp } from '@nagiyu/common';
-import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../types.js';
+import type { Exchange, Ticker, Holding, Alert } from '../types.js';
 import { isValidPrice, isValidQuantity } from './helpers.js';
 
 /**
@@ -61,13 +61,6 @@ const ERROR_MESSAGES = {
   HOLDING_CREATED_AT_INVALID: '作成日時が無効です',
   HOLDING_UPDATED_AT_REQUIRED: '更新日時は必須です',
   HOLDING_UPDATED_AT_INVALID: '更新日時が無効です',
-
-  // Watchlist
-  WATCHLIST_USER_ID_REQUIRED: 'ユーザーIDは必須です',
-  WATCHLIST_TICKER_ID_REQUIRED: 'ティッカーIDは必須です',
-  WATCHLIST_EXCHANGE_ID_REQUIRED: '取引所IDは必須です',
-  WATCHLIST_CREATED_AT_REQUIRED: '作成日時は必須です',
-  WATCHLIST_CREATED_AT_INVALID: '作成日時が無効です',
 
   // Alert
   ALERT_ID_REQUIRED: 'アラートIDは必須です',
@@ -320,55 +313,6 @@ export function validateHolding(holding: unknown): ValidationResult {
     errors.push(ERROR_MESSAGES.HOLDING_UPDATED_AT_REQUIRED);
   } else if (!isValidTimestamp(hld.UpdatedAt)) {
     errors.push(ERROR_MESSAGES.HOLDING_UPDATED_AT_INVALID);
-  }
-
-  return errors.length === 0 ? { valid: true } : { valid: false, errors };
-}
-
-/**
- * ウォッチリストのバリデーション
- *
- * @param watchlist - ウォッチリストオブジェクト
- * @returns バリデーション結果
- */
-export function validateWatchlist(watchlist: unknown): ValidationResult {
-  const errors: string[] = [];
-
-  // null/undefined チェック
-  if (watchlist === null || watchlist === undefined) {
-    return {
-      valid: false,
-      errors: ['ウォッチリストデータが指定されていません'],
-    };
-  }
-
-  // 型チェック
-  if (typeof watchlist !== 'object') {
-    return { valid: false, errors: ['ウォッチリストデータが不正です'] };
-  }
-
-  const wl = watchlist as Partial<Watchlist>;
-
-  // UserID
-  if (!wl.UserID || !isNonEmptyString(wl.UserID)) {
-    errors.push(ERROR_MESSAGES.WATCHLIST_USER_ID_REQUIRED);
-  }
-
-  // TickerID
-  if (!wl.TickerID || !isNonEmptyString(wl.TickerID)) {
-    errors.push(ERROR_MESSAGES.WATCHLIST_TICKER_ID_REQUIRED);
-  }
-
-  // ExchangeID
-  if (!wl.ExchangeID || !isNonEmptyString(wl.ExchangeID)) {
-    errors.push(ERROR_MESSAGES.WATCHLIST_EXCHANGE_ID_REQUIRED);
-  }
-
-  // CreatedAt
-  if (wl.CreatedAt === undefined || wl.CreatedAt === null) {
-    errors.push(ERROR_MESSAGES.WATCHLIST_CREATED_AT_REQUIRED);
-  } else if (!isValidTimestamp(wl.CreatedAt)) {
-    errors.push(ERROR_MESSAGES.WATCHLIST_CREATED_AT_INVALID);
   }
 
   return errors.length === 0 ? { valid: true } : { valid: false, errors };

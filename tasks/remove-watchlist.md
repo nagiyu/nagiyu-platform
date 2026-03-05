@@ -110,16 +110,16 @@
 
 ## タスク
 
--   [ ] T001: UI 削除 - `app/watchlist/page.tsx` ディレクトリ、`QuickActions.tsx` のウォッチリストボタン、`ThemeRegistry.tsx` のナビゲーション項目を削除
--   [ ] T002: API 削除 - `app/api/watchlist/route.ts` および `app/api/watchlist/[id]/route.ts` を削除
--   [ ] T003: Web ライブラリ修正 - `lib/repository-factory.ts` の `createWatchlistRepository` 削除、`lib/error-messages.ts` のウォッチリスト関連エラーメッセージ削除
--   [ ] T004: Core 削除 - `entities/watchlist.entity.ts`、`repositories/watchlist.repository.interface.ts`、`repositories/dynamodb-watchlist.repository.ts`、`repositories/in-memory-watchlist.repository.ts`、`mappers/watchlist.mapper.ts` を削除
--   [ ] T005: Core 修正 - `types.ts` から `Watchlist` 型削除、`validation/index.ts` から `validateWatchlist` 削除、`index.ts` から watchlist export 削除
--   [ ] T006: E2E テスト修正 - `watchlist-management.spec.ts` 削除、`alert-management.spec.ts` のウォッチリスト関連テスト削除、`quick-actions.spec.ts` のウォッチリスト参照削除、`navigation.spec.ts` のウォッチリスト参照削除
--   [ ] T007: テストヘルパー修正 - `test-data-factory.ts` のウォッチリスト関連コードを全削除（`createWatchlist` メソッド・`CreatedWatchlist` 型・`CreateWatchlistOptions` 型・`TrackedData.watchlists` フィールドを削除）、`createAlertWithDependencies` メソッドは `withHolding` 引数を廃止しシンプルな `createAlert` 直呼び出しで代替できるよう**メソッド全体を見直し・削除**、`repository-factory.test.ts` の `createWatchlistRepository` 関連テストケースを削除
--   [ ] T008: ユニットテスト削除 - `dynamodb-watchlist.repository.test.ts`、`in-memory-watchlist.repository.test.ts`、`watchlist.mapper.test.ts` を削除、`validation/index.test.ts` のウォッチリストテスト削除
--   [ ] T009: ビルド・テスト検証 - 全 workspace のビルド成功と型エラーなしを確認
--   [ ] T010: ドキュメント更新 - `requirements.md`、`architecture.md`、`api-spec.md`、`testing.md`、`database-patterns.md` を更新
+-   [x] T001: UI 削除 - `app/watchlist/page.tsx` ディレクトリ、`QuickActions.tsx` のウォッチリストボタン、`ThemeRegistry.tsx` のナビゲーション項目を削除
+-   [x] T002: API 削除 - `app/api/watchlist/route.ts` および `app/api/watchlist/[id]/route.ts` を削除
+-   [x] T003: Web ライブラリ修正 - `lib/repository-factory.ts` の `createWatchlistRepository` 削除、`lib/error-messages.ts` のウォッチリスト関連エラーメッセージ削除
+-   [x] T004: Core 削除 - `entities/watchlist.entity.ts`、`repositories/watchlist.repository.interface.ts`、`repositories/dynamodb-watchlist.repository.ts`、`repositories/in-memory-watchlist.repository.ts`、`mappers/watchlist.mapper.ts` を削除
+-   [x] T005: Core 修正 - `types.ts` から `Watchlist` 型削除、`validation/index.ts` から `validateWatchlist` 削除、`index.ts` から watchlist export 削除
+-   [x] T006: E2E テスト修正 - `watchlist-management.spec.ts` 削除、`alert-management.spec.ts` のウォッチリスト関連テスト削除、`quick-actions.spec.ts` のウォッチリスト参照削除、`navigation.spec.ts` のウォッチリスト参照削除
+-   [x] T007: テストヘルパー修正 - `test-data-factory.ts` のウォッチリスト関連コードを全削除（`createWatchlist` メソッド・`CreatedWatchlist` 型・`CreateWatchlistOptions` 型・`TrackedData.watchlists` フィールドを削除）、`createAlertWithDependencies` メソッドは `withHolding` 引数を廃止しシンプルな `createAlert` 直呼び出しで代替できるよう**メソッド全体を見直し・削除**、`repository-factory.test.ts` の `createWatchlistRepository` 関連テストケースを削除
+-   [x] T008: ユニットテスト削除 - `dynamodb-watchlist.repository.test.ts`、`in-memory-watchlist.repository.test.ts`、`watchlist.mapper.test.ts` を削除、`validation/index.test.ts` のウォッチリストテスト削除
+-   [x] T009: ビルド・テスト検証 - 全 workspace のビルド成功と型エラーなしを確認
+-   [x] T010: ドキュメント更新 - `requirements.md`、`architecture.md`、`api-spec.md`、`testing.md`、`database-patterns.md` を更新
 
 ## 参考ドキュメント
 
