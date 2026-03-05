@@ -88,6 +88,18 @@ function formatYmd(date: Date): string {
 }
 
 /**
+ * YYYY-MM-DD の翌平日を返す
+ */
+function getNextWeekday(dateYmd: string): string {
+  const base = new Date(`${dateYmd}T00:00:00Z`);
+  let candidate = new Date(base.getTime() + 24 * 60 * 60 * 1000);
+  while (candidate.getUTCDay() === 0 || candidate.getUTCDay() === 6) {
+    candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000);
+  }
+  return formatYmd(candidate);
+}
+
+/**
  * 最新の取引日を返す
  *
  * 取引所のタイムゾーンと取引終了時刻をもとに、指定時刻時点での
@@ -123,6 +135,20 @@ export function getLastTradingDate(exchange: Exchange, now: number): string {
     }
     candidateMs -= 24 * 60 * 60 * 1000;
   }
+}
+
+/**
+ * 一時通知の期限取引日を算出する
+ *
+ * - 取引時間内: 当日を期限にする
+ * - 取引時間外: 最新取引日の翌平日を期限にする
+ */
+export function calculateTemporaryExpireDate(exchange: Exchange, now: number): string {
+  if (isTradingHours(exchange, now)) {
+    return formatYmd(toZonedTime(new Date(now), exchange.Timezone));
+  }
+  const lastTradingDate = getLastTradingDate(exchange, now);
+  return getNextWeekday(lastTradingDate);
 }
 
 export function isTradingHours(exchange: Exchange, currentTime: number | Date): boolean {

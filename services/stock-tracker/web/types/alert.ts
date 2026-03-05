@@ -18,6 +18,8 @@ export interface AlertResponse {
   conditions: AlertCondition[];
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
+  temporary?: boolean;
+  temporaryExpireDate?: string;
   createdAt: string;
   updatedAt: string;
 }

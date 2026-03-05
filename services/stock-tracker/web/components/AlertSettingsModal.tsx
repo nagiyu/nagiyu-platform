@@ -88,6 +88,7 @@ interface FormData {
   maxPrice: string; // 範囲指定の場合のみ
   frequency: AlertFrequency;
   enabled: boolean;
+  temporary: boolean;
   // パーセンテージ選択用フィールド（単一条件モード用）
   inputMode?: 'manual' | 'percentage';
   percentage?: string; // -20 ～ +20
@@ -110,6 +111,7 @@ interface CreateAlertRequest {
   }>;
   subscription: PushSubscriptionJSON;
   logicalOperator?: 'AND' | 'OR';
+  temporary?: boolean;
 }
 
 // 初期フォームデータ
@@ -122,6 +124,7 @@ const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   maxPrice: '',
   frequency: 'MINUTE_LEVEL',
   enabled: true,
+  temporary: false,
   // パーセンテージ選択用フィールドのデフォルト値
   inputMode: 'manual',
   percentage: '',
@@ -170,6 +173,7 @@ export default function AlertSettingsModal({
             maxPrice: editTarget.conditions[1]?.value.toString() || '',
             frequency: editTarget.frequency,
             enabled: editTarget.enabled,
+            temporary: editTarget.temporary === true,
           });
         } else {
           setFormData({
@@ -179,6 +183,7 @@ export default function AlertSettingsModal({
             targetPrice: editTarget.conditions[0]?.value.toString() || '',
             frequency: editTarget.frequency,
             enabled: editTarget.enabled,
+            temporary: editTarget.temporary === true,
           });
         }
       } else {
@@ -520,8 +525,10 @@ export default function AlertSettingsModal({
         const updateData: {
           conditions?: Array<{ value: number }>;
           enabled: boolean;
+          temporary: boolean;
         } = {
           enabled: formData.enabled,
+          temporary: formData.temporary,
         };
 
         if (formData.conditionMode === 'single') {
@@ -599,6 +606,7 @@ export default function AlertSettingsModal({
           frequency: formData.frequency,
           conditions,
           subscription: sub.toJSON(),
+          temporary: formData.temporary,
         };
 
         // LogicalOperatorを追加（範囲指定の場合のみ）
@@ -1091,6 +1099,22 @@ export default function AlertSettingsModal({
                 </Typography>
               )}
             </FormControl>
+          )}
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.temporary}
+                onChange={(e) => handleFormChange('temporary', e.target.checked)}
+                color="primary"
+              />
+            }
+            label="一時通知（次の取引終了まで）"
+          />
+          {formData.temporary && (
+            <Typography variant="caption" color="text.secondary">
+              取引時間終了後に自動で無効化されます。
+            </Typography>
           )}
 
           {mode === 'edit' && (

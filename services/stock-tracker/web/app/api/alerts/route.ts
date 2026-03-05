@@ -8,11 +8,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateAlert } from '@nagiyu/stock-tracker-core';
+import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
 import { withAuth, parsePagination, handleApiError } from '@nagiyu/nextjs';
-import { createAlertRepository, createTickerRepository } from '../../../lib/repository-factory';
+import {
+  createAlertRepository,
+  createTickerRepository,
+  createExchangeRepository,
+} from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
-import type { AlertEntity } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -22,6 +26,7 @@ const ERROR_MESSAGES = {
   VALIDATION_ERROR: '入力データが不正です',
   CREATE_ERROR: 'アラートの登録に失敗しました',
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
+  EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
 } as const;
 
 /**
@@ -41,6 +46,8 @@ interface AlertResponse {
   }>;
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
+  temporary?: boolean;
+  temporaryExpireDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,6 +75,8 @@ function mapAlertToResponse(
     frequency: alert.Frequency,
     conditions: alert.ConditionList,
     enabled: alert.Enabled,
+    temporary: alert.Temporary,
+    temporaryExpireDate: alert.TemporaryExpireDate,
     createdAt: new Date(alert.CreatedAt).toISOString(),
     updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
@@ -193,7 +202,7 @@ export const POST = withAuth(
       // バリデーション用プレースホルダー（実際のIDはリポジトリで生成）
       const VALIDATION_PLACEHOLDER_UUID = '00000000-0000-4000-8000-000000000000';
 
-      const alertData = {
+      const alertData: AlertEntity = {
         UserID: userId,
         TickerID: body.tickerId,
         ExchangeID: exchangeId,
@@ -202,6 +211,8 @@ export const POST = withAuth(
         Enabled: body.enabled !== undefined ? body.enabled : true,
         ConditionList: body.conditions || [],
         LogicalOperator: body.logicalOperator,
+        Temporary: body.temporary === true ? true : undefined,
+        TemporaryExpireDate: undefined,
         SubscriptionEndpoint: subscription.endpoint,
         SubscriptionKeysP256dh: subscription.keys.p256dh,
         SubscriptionKeysAuth: subscription.keys.auth,
@@ -227,12 +238,29 @@ export const POST = withAuth(
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
+      const exchangeRepo = createExchangeRepository();
 
       // アラートを作成（新しいリポジトリの形式に合わせる）
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { AlertID, CreatedAt, UpdatedAt, ...alertDataForCreate } = alertData;
+      const createInput: CreateAlertInput = { ...alertDataForCreate };
 
-      const createdAlert = await alertRepo.create(alertDataForCreate);
+      if (body.temporary === true) {
+        const exchange = await exchangeRepo.getById(exchangeId);
+        if (!exchange) {
+          return NextResponse.json(
+            {
+              error: 'INVALID_REQUEST',
+              message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+            },
+            { status: 400 }
+          );
+        }
+        createInput.Temporary = true;
+        createInput.TemporaryExpireDate = calculateTemporaryExpireDate(exchange, Date.now());
+      }
+
+      const createdAlert = await alertRepo.create(createInput);
 
       // TickerリポジトリでSymbolとNameを取得
       const ticker = await tickerRepo.getById(createdAlert.TickerID);

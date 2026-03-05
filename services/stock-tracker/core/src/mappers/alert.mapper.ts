@@ -62,6 +62,12 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
     if (entity.LogicalOperator) {
       item.LogicalOperator = entity.LogicalOperator;
     }
+    if (entity.Temporary === true) {
+      item.Temporary = true;
+      if (entity.TemporaryExpireDate) {
+        item.TemporaryExpireDate = entity.TemporaryExpireDate;
+      }
+    }
 
     return item;
   }
@@ -98,6 +104,12 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
     // LogicalOperator が存在する場合のみ追加
     if (item.LogicalOperator === 'AND' || item.LogicalOperator === 'OR') {
       entity.LogicalOperator = item.LogicalOperator;
+    }
+    if (item.Temporary === true) {
+      entity.Temporary = true;
+    }
+    if (typeof item.TemporaryExpireDate === 'string' && item.TemporaryExpireDate.length > 0) {
+      entity.TemporaryExpireDate = item.TemporaryExpireDate;
     }
 
     return entity;
