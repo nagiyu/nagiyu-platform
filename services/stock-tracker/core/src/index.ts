@@ -12,10 +12,18 @@ export * from './types.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';
+export { AscendingTriangle } from './patterns/ascending-triangle.js';
+export { BearFlag } from './patterns/bear-flag.js';
+export { BullFlag } from './patterns/bull-flag.js';
+export { DoubleTop } from './patterns/double-top.js';
 export { EveningStar } from './patterns/evening-star.js';
+export { HeadAndShoulders } from './patterns/head-and-shoulders.js';
+export { InverseHeadAndShoulders } from './patterns/inverse-head-and-shoulders.js';
 export { MorningStar } from './patterns/morning-star.js';
 export { PatternAnalyzer } from './patterns/pattern-analyzer.js';
 export { PATTERN_REGISTRY } from './patterns/pattern-registry.js';
+export { RisingDoubleBottom } from './patterns/rising-double-bottom.js';
+export { RisingWedge } from './patterns/rising-wedge.js';
 
 // Error Classes (for backward compatibility)
 // Re-export generic error classes from @nagiyu/aws with specific names

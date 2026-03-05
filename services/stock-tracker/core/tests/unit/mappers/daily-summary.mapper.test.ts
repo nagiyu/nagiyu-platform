@@ -253,7 +253,7 @@ describe('DailySummaryMapper', () => {
 
       expect(response.buyPatternCount).toBe(1);
       expect(response.sellPatternCount).toBe(0);
-      expect(response.patternDetails).toHaveLength(PATTERN_REGISTRY.length);
+      expect(response.patternDetails).toHaveLength(4);
       expect(response.patternDetails).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
