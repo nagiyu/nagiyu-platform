@@ -42,7 +42,7 @@
 - **NFR1**: TypeScript strict mode を維持する
 - **NFR2**: テストカバレッジ 80% 以上を維持する
 - **NFR3**: 各パターンクラスは他のパターンクラスへの依存を持たない（単体で完結する）
-- **NFR4**: バッチは既存の 50 本取得（`count: 50`）の範囲内で判定可能とする
+- **NFR4**: バッチの日足取得本数を三尊・逆三尊等の複雑なパターン（最大 35 本程度）に対応できるよう拡張する（50 本 → 100 本への変更を想定）
 
 ## 実装方針
 
@@ -128,7 +128,7 @@ core/src/patterns/
 - 新パターンはすべて多数のローソク足データを使用するため、局所的な極値（スウィング高値・安値）の検出ロジックが共通して必要になる
 - 「極値の近似判定」（2 つの高値・安値が"同程度"とみなす閾値）はパターンクラスの `private static readonly` 定数として保持する
 - 極値検出の汎用ロジックが複数クラスで重複する場合、`core/src/patterns/` 配下にユーティリティ関数として切り出すことを検討する（ただし分離が不要な場合は各クラス内に実装しても構わない）
-- バッチが取得する日足データは最大 50 本。各パターンの `INSUFFICIENT_DATA` 判定の閾値はこの制約に収まるよう設定する
+- バッチの日足データ取得本数は 100 本に拡張する（T020 参照）。各パターンの `INSUFFICIENT_DATA` 判定閾値はこの上限内に収まるよう設定する
 
 ## タスク
 
@@ -157,6 +157,11 @@ core/src/patterns/
     - ファイル: `services/stock-tracker/core/src/patterns/pattern-registry.ts`
 - [ ] T010: `core/src/index.ts` に 8 パターンクラスのエクスポートを追加する
     - ファイル: `services/stock-tracker/core/src/index.ts`
+- [ ] T020: バッチの日足データ取得本数を 50 本から 100 本に拡張する
+    - ファイル: `services/stock-tracker/batch/src/summary.ts`
+    - `count: 50` → `count: 100` に変更する
+    - `chartData.length < 50` の INSUFFICIENT_DATA 判定閾値も合わせて更新する
+    - バッチの既存テスト（`summary.test.ts`）を更新し、新しい取得本数・閾値でテストが通ることを確認する
 
 ### Phase 3: テスト作成
 
@@ -199,13 +204,14 @@ core/src/patterns/
 | `services/stock-tracker/core/src/patterns/head-and-shoulders.ts` | 新規 |
 | `services/stock-tracker/core/src/patterns/pattern-registry.ts` | 変更 |
 | `services/stock-tracker/core/src/index.ts` | 変更 |
+| `services/stock-tracker/batch/src/summary.ts` | 変更（日足取得本数 50 → 100）|
 | `services/stock-tracker/core/tests/unit/patterns/*.test.ts` | 新規（8 ファイル）|
 | `services/stock-tracker/core/tests/unit/patterns/pattern-analyzer.test.ts` | 変更 |
+| `services/stock-tracker/batch/tests/unit/summary.test.ts` | 変更（取得本数変更に伴うテスト更新）|
 
-> **注意**: `batch/src/summary.ts`・Web アプリ・`DailySummaryMapper` は `PATTERN_REGISTRY` を動的に参照する設計のため、変更不要。
+> **注意**: Web アプリ・`DailySummaryMapper` は `PATTERN_REGISTRY` を動的に参照する設計のため、変更不要。`batch/src/summary.ts` は T020 で取得本数を変更する（→ 影響範囲参照）。
 
 ## 備考・未決定事項
 
-- **ベアフラッグの判定アルゴリズムの精度**: 今回追加するパターンはすべて複数スウィングを必要とするチャートパターンであり、判定アルゴリズムの実装難度が既存パターンより高い。フォールスポジティブ（誤検知）を抑えるため、各閾値は保守的に設定することを推奨する
+- **判定アルゴリズムの精度**: 今回追加するパターンはすべて複数スウィングを必要とするチャートパターンであり、判定アルゴリズムの実装難度が既存パターンより高い。フォールスポジティブ（誤検知）を抑えるため、各閾値は保守的に設定することを推奨する
 - **極値検出ユーティリティ**: 複数パターンで局所的な高値・安値を検出するロジックが共通化できる場合、`core/src/patterns/pattern-utils.ts` 等にユーティリティ関数を切り出すことで保守性が向上する
-- **バッチのチャートデータ取得本数**: 現状 50 本取得しているが、三尊・逆三尊などの複雑なパターンは 50 本では不足する場合がある。必要に応じてバッチの取得本数見直しも検討すること
