@@ -45,7 +45,7 @@ describe('summary batch handler', () => {
   });
 
   describe('シナリオ1: 取引時間終了済み取引所のサマリーが生成される', () => {
-    it('count:50 で取得し PatternAnalyzer の結果を保存する', async () => {
+    it('count:100 で取得し PatternAnalyzer の結果を保存する', async () => {
       await exchangeRepository.create({
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ',
@@ -70,7 +70,7 @@ describe('summary batch handler', () => {
         sellPatternCount: 0,
       });
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
-        Array.from({ length: 50 }, (_, index) => ({
+        Array.from({ length: 100 }, (_, index) => ({
           time: Date.UTC(2026, 1, 27 - index),
           open: 100 + index,
           high: 110 + index,
@@ -92,7 +92,7 @@ describe('summary batch handler', () => {
 
       expect(response.statusCode).toBe(200);
       expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
-        count: 50,
+        count: 100,
         session: 'extended',
       });
       expect(analyzeSpy).toHaveBeenCalledTimes(1);
@@ -117,7 +117,7 @@ describe('summary batch handler', () => {
     });
   });
 
-  describe('シナリオ1b: 取得件数が50本未満の場合', () => {
+  describe('シナリオ1b: 取得件数が100本未満の場合', () => {
     it('PatternAnalyzer を呼ばず全パターンを INSUFFICIENT_DATA として保存する', async () => {
       await exchangeRepository.create({
         ExchangeID: 'NASDAQ',
@@ -393,7 +393,7 @@ describe('summary batch handler', () => {
         sellPatternCount: 0,
       });
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
-        Array.from({ length: 50 }, (_, index) => ({
+        Array.from({ length: 100 }, (_, index) => ({
           time: Date.UTC(2026, 1, 27 - index),
           open: 100 + index,
           high: 110 + index,
@@ -477,7 +477,7 @@ describe('summary batch handler', () => {
         sellPatternCount: 0,
       });
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
-        Array.from({ length: 50 }, (_, index) => ({
+        Array.from({ length: 100 }, (_, index) => ({
           time: Date.UTC(2026, 1, 27 - index),
           open: 100 + index,
           high: 110 + index,

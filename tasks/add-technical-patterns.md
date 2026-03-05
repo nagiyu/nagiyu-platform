@@ -134,30 +134,30 @@ core/src/patterns/
 
 ### Phase 1: パターンクラスの作成
 
-- [ ] T001: `ascending-triangle.ts` を新規作成する
+- [x] T001: `ascending-triangle.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/ascending-triangle.ts`
-- [ ] T002: `bear-flag.ts` を新規作成する
+- [x] T002: `bear-flag.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/bear-flag.ts`
-- [ ] T003: `bull-flag.ts` を新規作成する
+- [x] T003: `bull-flag.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/bull-flag.ts`
-- [ ] T004: `double-top.ts` を新規作成する
+- [x] T004: `double-top.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/double-top.ts`
-- [ ] T005: `inverse-head-and-shoulders.ts` を新規作成する
+- [x] T005: `inverse-head-and-shoulders.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/inverse-head-and-shoulders.ts`
-- [ ] T006: `rising-double-bottom.ts` を新規作成する
+- [x] T006: `rising-double-bottom.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/rising-double-bottom.ts`
-- [ ] T007: `rising-wedge.ts` を新規作成する
+- [x] T007: `rising-wedge.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/rising-wedge.ts`
-- [ ] T008: `head-and-shoulders.ts` を新規作成する
+- [x] T008: `head-and-shoulders.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/src/patterns/head-and-shoulders.ts`
 
 ### Phase 2: レジストリ・エクスポートの更新
 
-- [ ] T009: `PATTERN_REGISTRY` に 8 パターンを追加する
+- [x] T009: `PATTERN_REGISTRY` に 8 パターンを追加する
     - ファイル: `services/stock-tracker/core/src/patterns/pattern-registry.ts`
-- [ ] T010: `core/src/index.ts` に 8 パターンクラスのエクスポートを追加する
+- [x] T010: `core/src/index.ts` に 8 パターンクラスのエクスポートを追加する
     - ファイル: `services/stock-tracker/core/src/index.ts`
-- [ ] T020: バッチの日足データ取得本数を 50 本から 100 本に拡張する
+- [x] T020: バッチの日足データ取得本数を 50 本から 100 本に拡張する
     - ファイル: `services/stock-tracker/batch/src/summary.ts`
     - `count: 50` → `count: 100` に変更する
     - `chartData.length < 50` の INSUFFICIENT_DATA 判定閾値も合わせて更新する
@@ -165,24 +165,24 @@ core/src/patterns/
 
 ### Phase 3: テスト作成
 
-- [ ] T011: `ascending-triangle.test.ts` を新規作成する
+- [x] T011: `ascending-triangle.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/ascending-triangle.test.ts`
     - MATCHED / NOT_MATCHED / INSUFFICIENT_DATA の各ケースを網羅する
-- [ ] T012: `bear-flag.test.ts` を新規作成する
+- [x] T012: `bear-flag.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/bear-flag.test.ts`
-- [ ] T013: `bull-flag.test.ts` を新規作成する
+- [x] T013: `bull-flag.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/bull-flag.test.ts`
-- [ ] T014: `double-top.test.ts` を新規作成する
+- [x] T014: `double-top.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/double-top.test.ts`
-- [ ] T015: `inverse-head-and-shoulders.test.ts` を新規作成する
+- [x] T015: `inverse-head-and-shoulders.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/inverse-head-and-shoulders.test.ts`
-- [ ] T016: `rising-double-bottom.test.ts` を新規作成する
+- [x] T016: `rising-double-bottom.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/rising-double-bottom.test.ts`
-- [ ] T017: `rising-wedge.test.ts` を新規作成する
+- [x] T017: `rising-wedge.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/rising-wedge.test.ts`
-- [ ] T018: `head-and-shoulders.test.ts` を新規作成する
+- [x] T018: `head-and-shoulders.test.ts` を新規作成する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/head-and-shoulders.test.ts`
-- [ ] T019: `pattern-analyzer.test.ts` を更新し、新パターンの COUNT が正しく加算されることを確認するテストを追加する
+- [x] T019: `pattern-analyzer.test.ts` を更新し、新パターンの COUNT が正しく加算されることを確認するテストを追加する
     - ファイル: `services/stock-tracker/core/tests/unit/patterns/pattern-analyzer.test.ts`
 
 ## 参考ドキュメント

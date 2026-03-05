@@ -72,6 +72,8 @@ interface HandlerDependencies {
   generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
 }
 
+const REQUIRED_CHART_DATA_COUNT = 100;
+
 function needsStaticAnalysis(
   existingSummary: Awaited<ReturnType<DailySummaryRepository['getByTickerAndDate']>>
 ): boolean {
@@ -138,7 +140,7 @@ async function processExchange(
 
         if (needsStaticAnalysis(existingSummary)) {
           const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
-            count: 50,
+            count: REQUIRED_CHART_DATA_COUNT,
             session: 'extended',
           });
 
@@ -152,7 +154,7 @@ async function processExchange(
 
           const latest = chartData[0];
           const patternAnalysis =
-            chartData.length < 50
+            chartData.length < REQUIRED_CHART_DATA_COUNT
               ? {
                   patternResults: Object.fromEntries(
                     PATTERN_REGISTRY.map((pattern) => [

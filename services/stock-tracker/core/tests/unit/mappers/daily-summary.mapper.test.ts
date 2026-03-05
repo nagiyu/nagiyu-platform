@@ -230,6 +230,9 @@ describe('DailySummaryMapper', () => {
 
   describe('toTickerSummaryResponse', () => {
     it('PatternResults がある場合は PATTERN_REGISTRY に存在するパターンのみ patternDetails に含める', () => {
+      const patternResults = Object.fromEntries(
+        PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+      );
       const response = mapper.toTickerSummaryResponse({
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -239,10 +242,8 @@ describe('DailySummaryMapper', () => {
         Low: 181.44,
         Close: 183.31,
         PatternResults: {
+          ...patternResults,
           'morning-star': 'MATCHED',
-          'evening-star': 'NOT_MATCHED',
-          'red-three-soldiers-hesitation': 'NOT_MATCHED',
-          'three-white-soldiers': 'NOT_MATCHED',
           unknown: 'MATCHED',
         },
         BuyPatternCount: 1,
