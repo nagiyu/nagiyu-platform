@@ -499,6 +499,11 @@ export default function AlertSettingsModal({
 
     try {
       if (mode === 'edit') {
+        const currentEditTarget = editTarget;
+        if (!currentEditTarget) {
+          throw new Error(ERROR_MESSAGES.UPDATE_ALERT_ERROR);
+        }
+
         const updateData: {
           conditions?: Array<{ value: number }>;
           enabled: boolean;
@@ -510,13 +515,16 @@ export default function AlertSettingsModal({
           updateData.conditions = [{ value: parseFloat(formData.targetPrice) }];
         }
 
-        const response = await fetch(`/api/alerts/${encodeURIComponent(editTarget.alertId)}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updateData),
-        });
+        const response = await fetch(
+          `/api/alerts/${encodeURIComponent(currentEditTarget.alertId)}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData),
+          }
+        );
 
         if (!response.ok) {
           const errorData = await response.json();
