@@ -8,7 +8,7 @@ describe('Navigation', () => {
 
     expect(screen.getByText('Share Together')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'ホーム' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'リスト' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'リスト' })).toHaveAttribute('href', '/lists');
     expect(screen.getByRole('link', { name: 'グループ' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /招待/ })).toBeInTheDocument();
     expect(screen.getByText('0')).toBeInTheDocument();
