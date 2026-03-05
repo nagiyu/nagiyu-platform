@@ -111,11 +111,11 @@ async function processExchange(
 
     for (const ticker of tickers) {
       try {
-        let latestSummary = await dependencies.dailySummaryRepository.getByTickerAndDate(
+        let currentSummary = await dependencies.dailySummaryRepository.getByTickerAndDate(
           ticker.TickerID,
           summaryDate
         );
-        if (needsStaticAnalysis(latestSummary)) {
+        if (needsStaticAnalysis(currentSummary)) {
           const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
             count: 50,
             session: 'extended',
@@ -144,7 +144,7 @@ async function processExchange(
                 }
               : patternAnalyzer.analyze(chartData);
 
-          latestSummary = {
+          currentSummary = {
             TickerID: ticker.TickerID,
             ExchangeID: exchange.ExchangeID,
             Date: summaryDate,
@@ -155,14 +155,14 @@ async function processExchange(
             PatternResults: patternAnalysis.patternResults,
             BuyPatternCount: patternAnalysis.buyPatternCount,
             SellPatternCount: patternAnalysis.sellPatternCount,
-            AiAnalysis: latestSummary?.AiAnalysis,
-            AiAnalysisError: latestSummary?.AiAnalysisError,
+            AiAnalysis: currentSummary?.AiAnalysis,
+            AiAnalysisError: currentSummary?.AiAnalysisError,
           };
-          await dependencies.dailySummaryRepository.upsert(latestSummary);
+          await dependencies.dailySummaryRepository.upsert(currentSummary);
           stats.summariesSaved++;
         }
 
-        if (!latestSummary || latestSummary.AiAnalysis !== undefined) {
+        if (currentSummary.AiAnalysis !== undefined) {
           logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
             exchangeId: exchange.ExchangeID,
             tickerId: ticker.TickerID,
@@ -179,23 +179,23 @@ async function processExchange(
 
         try {
           const matchedPatterns = PATTERN_REGISTRY.filter(
-            (pattern) => latestSummary.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
+            (pattern) => currentSummary.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
           );
           const aiAnalysis = await dependencies.generateAiAnalysisFn(openAiApiKey, {
             tickerId: ticker.TickerID,
             name: ticker.Name,
             date: summaryDate,
-            open: latestSummary.Open,
-            high: latestSummary.High,
-            low: latestSummary.Low,
-            close: latestSummary.Close,
-            buyPatternCount: latestSummary.BuyPatternCount ?? 0,
-            sellPatternCount: latestSummary.SellPatternCount ?? 0,
+            open: currentSummary.Open,
+            high: currentSummary.High,
+            low: currentSummary.Low,
+            close: currentSummary.Close,
+            buyPatternCount: currentSummary.BuyPatternCount ?? 0,
+            sellPatternCount: currentSummary.SellPatternCount ?? 0,
             patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
           });
 
           await dependencies.dailySummaryRepository.upsert({
-            ...latestSummary,
+            ...currentSummary,
             AiAnalysis: aiAnalysis,
             AiAnalysisError: undefined,
           });
@@ -208,7 +208,7 @@ async function processExchange(
             reason: errorMessage,
           });
           await dependencies.dailySummaryRepository.upsert({
-            ...latestSummary,
+            ...currentSummary,
             AiAnalysis: undefined,
             AiAnalysisError: errorMessage,
           });

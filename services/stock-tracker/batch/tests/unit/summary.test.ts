@@ -449,8 +449,12 @@ describe('summary batch handler', () => {
         ExchangeID: 'NASDAQ',
       });
 
+      // 最後の1パターンを意図的に欠損させる
       const incompletePatternResults = Object.fromEntries(
-        PATTERN_REGISTRY.slice(1).map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        PATTERN_REGISTRY.slice(0, -1).map((pattern) => [
+          pattern.definition.patternId,
+          'NOT_MATCHED',
+        ])
       );
       await dailySummaryRepository.upsert({
         TickerID: 'NSDQ:AAPL',
