@@ -33,6 +33,7 @@ import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
 import { resolveAiAnalysisText } from './ai-analysis';
+import AlertSettingsModal from '../../components/AlertSettingsModal';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
@@ -67,6 +68,8 @@ export default function SummariesPage() {
   const [selectedExchangeId, setSelectedExchangeId] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
+  const [isBuyAlertOpen, setIsBuyAlertOpen] = useState(false);
+  const [isSellAlertOpen, setIsSellAlertOpen] = useState(false);
   const hasManageDataPermission =
     !!session?.user &&
     'roles' in session.user &&
@@ -131,6 +134,8 @@ export default function SummariesPage() {
   };
 
   const handleDialogClose = () => {
+    setIsBuyAlertOpen(false);
+    setIsSellAlertOpen(false);
     setSelectedTicker(null);
   };
   const filteredExchanges = selectedExchangeId
@@ -211,6 +216,7 @@ export default function SummariesPage() {
                         <TableRow>
                           <TableCell>シンボル</TableCell>
                           <TableCell>銘柄名</TableCell>
+                          <TableCell align="center">保有</TableCell>
                           <TableCell align="right">始値</TableCell>
                           <TableCell align="right">高値</TableCell>
                           <TableCell align="right">安値</TableCell>
@@ -229,6 +235,7 @@ export default function SummariesPage() {
                           >
                             <TableCell>{summary.symbol}</TableCell>
                             <TableCell>{summary.name}</TableCell>
+                            <TableCell align="center">{summary.holding ? '✓' : '-'}</TableCell>
                             <TableCell align="right">{summary.open.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
                             <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
@@ -305,6 +312,24 @@ export default function SummariesPage() {
                     </TableRow>
                     <TableRow>
                       <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        保有数
+                      </TableCell>
+                      <TableCell>
+                        {selectedTicker.holding?.quantity.toLocaleString('ja-JP') ?? '-'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        平均取得価格
+                      </TableCell>
+                      <TableCell>
+                        {selectedTicker.holding
+                          ? selectedTicker.holding.averagePrice.toFixed(2)
+                          : '-'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
                         更新日時
                       </TableCell>
                       <TableCell>
@@ -314,6 +339,17 @@ export default function SummariesPage() {
                   </TableBody>
                 </Table>
               </TableContainer>
+              <Divider />
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button variant="outlined" onClick={() => setIsBuyAlertOpen(true)}>
+                  買いアラート設定
+                </Button>
+                {selectedTicker.holding && (
+                  <Button variant="outlined" onClick={() => setIsSellAlertOpen(true)}>
+                    売りアラート設定
+                  </Button>
+                )}
+              </Box>
               <Divider />
               <Typography variant="h6">パターン分析</Typography>
               <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
@@ -449,6 +485,32 @@ export default function SummariesPage() {
           )}
         </DialogContent>
       </Dialog>
+      {selectedTicker && (
+        <>
+          <AlertSettingsModal
+            open={isBuyAlertOpen}
+            onClose={() => setIsBuyAlertOpen(false)}
+            tickerId={selectedTicker.tickerId}
+            symbol={selectedTicker.symbol}
+            exchangeId={selectedTicker.tickerId.split(':')[0] ?? ''}
+            mode="create"
+            tradeMode="Buy"
+            defaultTargetPrice={selectedTicker.close}
+            basePrice={selectedTicker.close}
+          />
+          <AlertSettingsModal
+            open={isSellAlertOpen}
+            onClose={() => setIsSellAlertOpen(false)}
+            tickerId={selectedTicker.tickerId}
+            symbol={selectedTicker.symbol}
+            exchangeId={selectedTicker.tickerId.split(':')[0] ?? ''}
+            mode="create"
+            tradeMode="Sell"
+            defaultTargetPrice={selectedTicker.close}
+            basePrice={selectedTicker.close}
+          />
+        </>
+      )}
     </Container>
   );
 }

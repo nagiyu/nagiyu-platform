@@ -158,21 +158,21 @@ State:
 
 ### フェーズ 1: サマリー API への保有情報統合
 
-- [ ] T001: `types/stock.ts` の `TickerSummary` 型に `holding` フィールドを追加する
+- [x] T001: `types/stock.ts` の `TickerSummary` 型に `holding` フィールドを追加する
     - 型: `holding: { quantity: number; averagePrice: number } | null`
-- [ ] T002: `app/api/summaries/route.ts` の内部ロジックで保有株式データを取得し、レスポンスに `holding` を含める
+- [x] T002: `app/api/summaries/route.ts` の内部ロジックで保有株式データを取得し、レスポンスに `holding` を含める
     - サマリー構築時に保有株式 DB（または `/api/holdings` 相当のロジック）を参照する
     - 保有データ取得失敗時は `holding: null` として扱い、サマリー取得全体をブロックしない
     - `ERROR_MESSAGES` に `FETCH_HOLDINGS_FAILED` を追加する
 
 ### フェーズ 2: 保有株式情報の表示
 
-- [ ] T003: 一覧テーブルに「保有」列ヘッダーを追加する
+- [x] T003: 一覧テーブルに「保有」列ヘッダーを追加する
     - 位置は「銘柄名」と「始値」の間などに配置する（UX 的に自然な位置）
-- [ ] T004: 一覧の各行で `summary.holding !== null` を使い保有マークを表示する
+- [x] T004: 一覧の各行で `summary.holding !== null` を使い保有マークを表示する
     - 保有中: `✓`（チェック）
     - 未保有: `-`（ハイフン）
-- [ ] T005: 詳細ダイアログの基本情報テーブルに保有情報行を追加する
+- [x] T005: 詳細ダイアログの基本情報テーブルに保有情報行を追加する
     - `selectedTicker.holding` が非 null の場合のみ以下を表示する
         - 保有数: `quantity`（数値フォーマット）
         - 平均取得価格: `averagePrice`（小数点 2 桁表示）
@@ -180,27 +180,27 @@ State:
 
 ### フェーズ 3: アラート設定ボタンの追加
 
-- [ ] T006: `summaries/page.tsx` に `isBuyAlertOpen`, `isSellAlertOpen` の State を追加する
-- [ ] T007: `AlertSettingsModal` をインポートする
-- [ ] T008: 詳細ダイアログに「買いアラート設定」ボタンを追加する
+- [x] T006: `summaries/page.tsx` に `isBuyAlertOpen`, `isSellAlertOpen` の State を追加する
+- [x] T007: `AlertSettingsModal` をインポートする
+- [x] T008: 詳細ダイアログに「買いアラート設定」ボタンを追加する
     - 全銘柄に表示する（保有有無を問わない）
     - クリックで `isBuyAlertOpen = true` にセットする
-- [ ] T009: 詳細ダイアログに「売りアラート設定」ボタンを追加する
+- [x] T009: 詳細ダイアログに「売りアラート設定」ボタンを追加する
     - `selectedTicker.holding` が非 null の場合のみ売りアラートボタンを表示する
     - クリックで `isSellAlertOpen = true` にセットする
-- [ ] T010: `AlertSettingsModal` を 2 つ（Buy / Sell）配置する
+- [x] T010: `AlertSettingsModal` を 2 つ（Buy / Sell）配置する
     - `tickerId`, `symbol`, `exchangeId`, `mode`, `defaultTargetPrice`（close 値）, `basePrice`（close 値）を渡す
     - `onClose` で対応する `isAlertOpen` を false にする
     - `onSuccess` でスナックバーやフィードバック表示を行う（任意）
 
 ### フェーズ 4: テスト追加・更新
 
-- [ ] T011: `tests/unit/app/summaries-page.test.ts` を更新する
+- [x] T011: `tests/unit/app/summaries-page.test.ts` を更新する
     - 保有中マークが表示されることを確認するテストを追加する
     - 詳細ダイアログに保有数・平均取得価格が表示されることを確認するテストを追加する
     - 買いアラートボタンが全銘柄で表示されることを確認するテストを追加する
     - 売りアラートボタンが保有銘柄のみ表示されることを確認するテストを追加する
-- [ ] T012: `tests/e2e/summary-display.spec.ts` を更新する
+- [x] T012: `tests/e2e/summary-display.spec.ts` を更新する
     - 保有情報の表示シナリオを追加する（サマリー API モックに holding フィールドを含める）
     - アラート設定モーダルが開くシナリオを追加する
 

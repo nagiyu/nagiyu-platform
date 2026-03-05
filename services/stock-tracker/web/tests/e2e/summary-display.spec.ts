@@ -25,6 +25,10 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 1,
                   sellPatternCount: 0,
                   patternDetails: [],
+                  holding: {
+                    quantity: 10,
+                    averagePrice: 98.5,
+                  },
                 },
                 {
                   tickerId: 'TEST:BBB',
@@ -38,6 +42,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 2,
                   patternDetails: [],
+                  holding: null,
                 },
               ],
             },
@@ -58,6 +63,83 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByTestId('sell-signal-TEST:AAA')).toHaveText('0');
     await expect(page.getByTestId('buy-signal-TEST:BBB')).toHaveText('0');
     await expect(page.getByTestId('sell-signal-TEST:BBB')).toHaveText('2');
+  });
+
+  test('保有情報と買い/売りアラート設定ボタンを条件に応じて表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 1,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  holding: {
+                    quantity: 123,
+                    averagePrice: 99.5,
+                  },
+                },
+                {
+                  tickerId: 'TEST:BBB',
+                  symbol: 'BBB',
+                  name: 'BBB株式会社',
+                  open: 200,
+                  high: 210,
+                  low: 190,
+                  close: 205,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 2,
+                  patternDetails: [],
+                  holding: null,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await expect(page.getByRole('columnheader', { name: '保有' })).toBeVisible();
+
+    const firstRow = page.locator('tbody tr').nth(0);
+    const secondRow = page.locator('tbody tr').nth(1);
+    await expect(firstRow.locator('td').nth(2)).toHaveText('✓');
+    await expect(secondRow.locator('td').nth(2)).toHaveText('-');
+
+    await firstRow.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('保有数')).toBeVisible();
+    await expect(dialog.getByText('123')).toBeVisible();
+    await expect(dialog.getByText('99.50')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toBeVisible();
+
+    await dialog.getByRole('button', { name: '買いアラート設定' }).click();
+    await expect(page.getByRole('heading', { name: 'アラート設定 (買いアラート)' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'アラート設定 (買いアラート)' })).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: '閉じる' }).click();
+    await secondRow.click();
+    await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toHaveCount(0);
   });
 
   test('詳細ダイアログでパターン分析の内訳と説明を表示できる', async ({ page }) => {
@@ -101,6 +183,10 @@ test.describe('サマリー画面スモークテスト', () => {
                       status: 'INSUFFICIENT_DATA',
                     },
                   ],
+                  holding: {
+                    quantity: 20,
+                    averagePrice: 101.25,
+                  },
                 },
               ],
             },
@@ -181,6 +267,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   sellPatternCount: 0,
                   patternDetails: [],
                   aiAnalysis: 'テスト用のAI解析テキストです。',
+                  holding: null,
                 },
               ],
             },
@@ -227,6 +314,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   sellPatternCount: 0,
                   patternDetails: [],
                   aiAnalysis: '更新後のAI解析テキストです。',
+                  holding: null,
                 },
               ],
             },
