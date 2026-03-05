@@ -49,8 +49,8 @@ AlertResponse {
 
 ### 保有株価の取得経路
 
-- **ホームページ（HomePageClient.tsx）**: 銘柄選択時に `/api/holdings` から取得、または
-  現在価格取得時の OHLC データから保有情報を別途参照する必要がある
+- **ホームページ（HomePageClient.tsx）**: チャート API（`/api/chart/{tickerId}`）の
+  レスポンスに保有情報（`holdingAveragePrice`）を含める形で取得する
 - **サマリー画面（summaries/page.tsx）**: `TickerSummary.holding.averagePrice` として
   すでに API レスポンスに含まれている
 - **アラート設定ダイアログ（AlertSettingsModal.tsx）**: 現状 `basePrice` prop が存在するが
@@ -132,14 +132,16 @@ export function computeAlertLines(conditions: AlertCondition[]): AlertLine[]
 
 ### ホームページでの保有価格取得
 
-`HomePageClient.tsx` では現在 `/api/holdings` などの保有情報取得は行っていない可能性がある。
-ティッカー選択後に保有価格を取得する方法として、以下を検討する:
+チャート API（`/api/chart/{tickerId}`）のレスポンスに保有情報（`holdingAveragePrice?: number`）を
+追加し、`HomePageClient.tsx` でチャートデータ取得と同時に保有価格を取得する方式を採用する。
+この API 変更は本 Issue のスコープに含める。
 
-- `/api/holdings` を追加で呼び出し、選択ティッカーの保有情報を探す
-- または、現在価格取得エンドポイントのレスポンスに保有情報を含める（API 変更が必要な場合は別 Issue）
-
-最もシンプルな実装として、`HomePageClient.tsx` の既存 state や API 呼び出しに
-`/api/holdings?tickerId=...` の呼び出しを追加し、`averagePrice` を取得する方法を推奨する。
+- チャート API レスポンスに `holdingAveragePrice?: number` フィールドを追加する
+- バックエンド（`/app/api/chart/[tickerId]/route.ts`）で保有情報リポジトリから
+  該当ティッカーの保有平均価格を取得してレスポンスに含める
+- 保有情報がない場合は `holdingAveragePrice` を含めない（`undefined` または省略）
+- `HomePageClient.tsx` はチャートデータ取得後に `holdingAveragePrice` を
+  `StockChart` の `holdingPrice` prop に渡す
 
 ## タスク
 
@@ -168,9 +170,11 @@ export function computeAlertLines(conditions: AlertCondition[]): AlertLine[]
 
 ### Phase 4: ホームページへの組み込み
 
-- [ ] T006: `HomePageClient.tsx` でティッカー選択時に対象ティッカーの保有情報を取得する
-    - `/api/holdings` を利用して `averagePrice` を取得する
+- [ ] T006: チャート API（`/api/chart/{tickerId}`）のレスポンスに `holdingAveragePrice?: number` を追加する
+    - `app/api/chart/[tickerId]/route.ts` で保有情報リポジトリから平均取得価格を取得する
+    - 保有情報がない場合はフィールドを省略する
 - [ ] T007: `HomePageClient.tsx` の `StockChart` 呼び出しに `holdingPrice` を渡す
+    - チャートデータ取得後に `holdingAveragePrice` を `holdingPrice` prop に渡す
     - 保有情報がない場合は `holdingPrice` を渡さない
 
 ### Phase 5: サマリー画面への組み込み（チャートが表示されている場合）
@@ -205,10 +209,7 @@ export function computeAlertLines(conditions: AlertCondition[]): AlertLine[]
 
 ## 備考・未決定事項
 
-- ホームページでのアラートラインは「現在表示中のアラート」をすべて表示するか、
-  最後に編集したアラートのみ表示するかを決定する必要がある（Issue では「アラートを設定するとき」
-  とあるため、`AlertSettingsModal` の表示中のみアラートラインを表示する解釈が自然）
-- `AlertSettingsModal` が複数アラートに対応しており、ホームページのチャートにアラートラインを
-  常時表示する場合は、別途 API で有効なアラートを取得する処理が必要になる
+- `/api/chart/{tickerId}` レスポンスへの `holdingAveragePrice` 追加に伴い、
+  チャートデータ型（`ChartData` interface）を更新する必要がある
 - `/api/holdings` エンドポイントが tickerId フィルタリングをサポートしていない場合は、
-  全保有データを取得してクライアント側でフィルタリングする
+  チャート API 側で全保有データを取得してクライアント側でフィルタリングする
