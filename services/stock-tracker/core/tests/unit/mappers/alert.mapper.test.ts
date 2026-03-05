@@ -667,5 +667,32 @@ describe('AlertMapper', () => {
 
       expect(result).toEqual(original);
     });
+
+    it('isPercentage と percentageValue を持つ条件の往復変換', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [
+          { field: 'price', operator: 'gte', value: 210.0, isPercentage: true, percentageValue: 5 },
+        ],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
+      expect(result.ConditionList[0].isPercentage).toBe(true);
+      expect(result.ConditionList[0].percentageValue).toBe(5);
+    });
   });
 });

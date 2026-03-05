@@ -57,6 +57,21 @@ const editTarget: AlertResponse = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
+const editTargetWithPercentage: AlertResponse = {
+  alertId: 'alert-2',
+  tickerId: 'NASDAQ:AAPL',
+  symbol: 'AAPL',
+  name: 'Apple',
+  mode: 'Sell',
+  frequency: 'MINUTE_LEVEL',
+  conditions: [
+    { field: 'price', operator: 'gte', value: 210, isPercentage: true, percentageValue: 5 },
+  ],
+  enabled: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
 describe('AlertSettingsModal mode', () => {
   it('mode=edit のとき編集タイトルを表示し Web Push 説明を表示しない', () => {
     const html = renderToStaticMarkup(
@@ -99,5 +114,25 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('Web Push通知の許可をリクエスト');
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:100');
     expect(html).toContain('一時通知（次の取引終了まで）');
+  });
+
+  it('mode=edit で isPercentage=true の条件を持つアラートのとき、パーセンテージ選択UIを表示する', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'edit',
+        tradeMode: 'Sell',
+        editTarget: editTargetWithPercentage,
+        basePrice: 200,
+      })
+    );
+
+    expect(html).toContain('アラートの編集');
+    expect(html).toContain('パーセンテージ');
+    expect(html).toContain('入力方式');
   });
 });

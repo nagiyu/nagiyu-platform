@@ -108,6 +108,8 @@ interface CreateAlertRequest {
     field: 'price';
     operator: 'gte' | 'lte';
     value: number;
+    isPercentage?: boolean;
+    percentageValue?: number;
   }>;
   subscription: PushSubscriptionJSON;
   logicalOperator?: 'AND' | 'OR';
@@ -166,24 +168,39 @@ export default function AlertSettingsModal({
         const isRangeCondition = editTarget.conditions.length === 2 && !!editTarget.logicalOperator;
 
         if (isRangeCondition) {
+          const minCond = editTarget.conditions[0];
+          const maxCond = editTarget.conditions[1];
+          const isRangePercentage =
+            minCond?.isPercentage === true && maxCond?.isPercentage === true;
           setFormData({
             ...getInitialFormData(tradeMode),
             conditionMode: 'range',
-            minPrice: editTarget.conditions[0]?.value.toString() || '',
-            maxPrice: editTarget.conditions[1]?.value.toString() || '',
+            minPrice: minCond?.value.toString() || '',
+            maxPrice: maxCond?.value.toString() || '',
             frequency: editTarget.frequency,
             enabled: editTarget.enabled,
             temporary: editTarget.temporary === true,
+            ...(isRangePercentage && {
+              rangeInputMode: 'percentage',
+              minPercentage: minCond?.percentageValue?.toString() || '',
+              maxPercentage: maxCond?.percentageValue?.toString() || '',
+            }),
           });
         } else {
+          const singleCond = editTarget.conditions[0];
+          const isSinglePercentage = singleCond?.isPercentage === true;
           setFormData({
             ...getInitialFormData(tradeMode),
             conditionMode: 'single',
-            operator: editTarget.conditions[0]?.operator === 'gte' ? 'gte' : 'lte',
-            targetPrice: editTarget.conditions[0]?.value.toString() || '',
+            operator: singleCond?.operator === 'gte' ? 'gte' : 'lte',
+            targetPrice: singleCond?.value.toString() || '',
             frequency: editTarget.frequency,
             enabled: editTarget.enabled,
             temporary: editTarget.temporary === true,
+            ...(isSinglePercentage && {
+              inputMode: 'percentage',
+              percentage: singleCond?.percentageValue?.toString() || '',
+            }),
           });
         }
       } else {
@@ -279,12 +296,31 @@ export default function AlertSettingsModal({
 
     if (mode === 'edit') {
       if (formData.conditionMode === 'single') {
-        if (!formData.targetPrice) {
-          errors.targetPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+        if (formData.inputMode === 'percentage') {
+          // パーセンテージモードのバリデーション
+          if (basePrice === undefined || basePrice === null) {
+            errors.percentage = ERROR_MESSAGES.BASE_PRICE_REQUIRED;
+          } else if (basePrice <= 0) {
+            errors.percentage = ERROR_MESSAGES.INVALID_BASE_PRICE;
+          } else {
+            if (!formData.percentage) {
+              errors.percentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+            }
+            if (formData.targetPrice) {
+              const targetPrice = parseFloat(formData.targetPrice);
+              if (!isNaN(targetPrice) && (targetPrice < 0.01 || targetPrice > 1000000)) {
+                errors.percentage = ERROR_MESSAGES.CALCULATED_PRICE_OUT_OF_RANGE;
+              }
+            }
+          }
         } else {
-          const targetPrice = parseFloat(formData.targetPrice);
-          if (isNaN(targetPrice) || targetPrice < 0.01 || targetPrice > 1000000) {
-            errors.targetPrice = ERROR_MESSAGES.INVALID_TARGET_PRICE;
+          if (!formData.targetPrice) {
+            errors.targetPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+          } else {
+            const targetPrice = parseFloat(formData.targetPrice);
+            if (isNaN(targetPrice) || targetPrice < 0.01 || targetPrice > 1000000) {
+              errors.targetPrice = ERROR_MESSAGES.INVALID_TARGET_PRICE;
+            }
           }
         }
       }
@@ -523,7 +559,11 @@ export default function AlertSettingsModal({
         }
 
         const updateData: {
-          conditions?: Array<{ value: number }>;
+          conditions?: Array<{
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+          }>;
           enabled: boolean;
           temporary: boolean;
         } = {
@@ -532,7 +572,16 @@ export default function AlertSettingsModal({
         };
 
         if (formData.conditionMode === 'single') {
-          updateData.conditions = [{ value: parseFloat(formData.targetPrice) }];
+          const condition: { value: number; isPercentage?: boolean; percentageValue?: number } = {
+            value: parseFloat(formData.targetPrice),
+          };
+          if (formData.inputMode === 'percentage' && formData.percentage) {
+            condition.isPercentage = true;
+            condition.percentageValue = parseFloat(formData.percentage);
+          } else {
+            condition.isPercentage = false;
+          }
+          updateData.conditions = [condition];
         }
 
         const response = await fetch(
@@ -569,13 +618,22 @@ export default function AlertSettingsModal({
 
         if (formData.conditionMode === 'single') {
           // 単一条件
-          conditions = [
-            {
-              field: 'price' as const,
-              operator: formData.operator,
-              value: parseFloat(formData.targetPrice),
-            },
-          ];
+          const singleCondition: {
+            field: 'price';
+            operator: 'gte' | 'lte';
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+          } = {
+            field: 'price' as const,
+            operator: formData.operator,
+            value: parseFloat(formData.targetPrice),
+          };
+          if (formData.inputMode === 'percentage' && formData.percentage) {
+            singleCondition.isPercentage = true;
+            singleCondition.percentageValue = parseFloat(formData.percentage);
+          }
+          conditions = [singleCondition];
         } else {
           // 範囲指定
           const minPrice = parseFloat(formData.minPrice);
@@ -584,15 +642,43 @@ export default function AlertSettingsModal({
           if (formData.rangeType === 'inside') {
             // 範囲内（AND）: minPrice 以上、maxPrice 以下
             conditions = [
-              { field: 'price' as const, operator: 'gte' as const, value: minPrice },
-              { field: 'price' as const, operator: 'lte' as const, value: maxPrice },
+              {
+                field: 'price' as const,
+                operator: 'gte' as const,
+                value: minPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.minPercentage
+                  ? { isPercentage: true, percentageValue: parseFloat(formData.minPercentage) }
+                  : {}),
+              },
+              {
+                field: 'price' as const,
+                operator: 'lte' as const,
+                value: maxPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.maxPercentage
+                  ? { isPercentage: true, percentageValue: parseFloat(formData.maxPercentage) }
+                  : {}),
+              },
             ];
             logicalOperator = 'AND';
           } else {
             // 範囲外（OR）: minPrice 以下、maxPrice 以上
             conditions = [
-              { field: 'price' as const, operator: 'lte' as const, value: minPrice },
-              { field: 'price' as const, operator: 'gte' as const, value: maxPrice },
+              {
+                field: 'price' as const,
+                operator: 'lte' as const,
+                value: minPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.minPercentage
+                  ? { isPercentage: true, percentageValue: parseFloat(formData.minPercentage) }
+                  : {}),
+              },
+              {
+                field: 'price' as const,
+                operator: 'gte' as const,
+                value: maxPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.maxPercentage
+                  ? { isPercentage: true, percentageValue: parseFloat(formData.maxPercentage) }
+                  : {}),
+              },
             ];
             logicalOperator = 'OR';
           }
@@ -795,7 +881,8 @@ export default function AlertSettingsModal({
               )}
 
               {/* 入力方式選択 */}
-              {mode === 'create' && basePrice && basePrice > 0 && (
+              {/* 編集時: パーセンテージ作成の場合はパーセンテージ変更・手動切替を許可、手動作成の場合は手動入力のみ許可 */}
+              {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="input-mode-label">入力方式</InputLabel>
                   <Select
@@ -804,6 +891,7 @@ export default function AlertSettingsModal({
                     value={formData.inputMode}
                     label="入力方式"
                     onChange={(e) => handleFormChange('inputMode', e.target.value)}
+                    disabled={mode === 'edit' && formData.inputMode !== 'percentage'}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -812,7 +900,7 @@ export default function AlertSettingsModal({
               )}
 
               {/* 手動入力モード */}
-              {(mode === 'edit' || formData.inputMode === 'manual') && (
+              {formData.inputMode !== 'percentage' && (
                 <TextField
                   fullWidth
                   id="target-price"
@@ -827,62 +915,59 @@ export default function AlertSettingsModal({
               )}
 
               {/* パーセンテージモード */}
-              {mode === 'create' &&
-                formData.inputMode === 'percentage' &&
-                basePrice &&
-                basePrice > 0 && (
-                  <>
-                    <FormControl fullWidth>
-                      <InputLabel id="percentage-label">パーセンテージ</InputLabel>
-                      <Select
-                        labelId="percentage-label"
-                        id="percentage-select"
-                        value={formData.percentage}
-                        label="パーセンテージ"
-                        onChange={(e) => handleFormChange('percentage', e.target.value)}
-                      >
-                        {PERCENTAGE_OPTIONS.map((percentage) => (
-                          <MenuItem key={percentage} value={percentage.toString()}>
-                            {percentage > 0 ? '+' : ''}
-                            {percentage}%
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+              {formData.inputMode === 'percentage' && basePrice && basePrice > 0 && (
+                <>
+                  <FormControl fullWidth>
+                    <InputLabel id="percentage-label">パーセンテージ</InputLabel>
+                    <Select
+                      labelId="percentage-label"
+                      id="percentage-select"
+                      value={formData.percentage}
+                      label="パーセンテージ"
+                      onChange={(e) => handleFormChange('percentage', e.target.value)}
+                    >
+                      {PERCENTAGE_OPTIONS.map((percentage) => (
+                        <MenuItem key={percentage} value={percentage.toString()}>
+                          {percentage > 0 ? '+' : ''}
+                          {percentage}%
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-                    {/* 計算結果表示 */}
-                    {formData.percentage && (
-                      <Box
-                        sx={{
-                          p: 2,
-                          bgcolor: 'background.paper',
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          計算結果
-                        </Typography>
-                        <Typography variant="body1">
-                          基準価格: {formatPrice(basePrice)}円 × (1 +{' '}
-                          {parseFloat(formData.percentage) > 0 ? '+' : ''}
-                          {formData.percentage}% / 100)
-                        </Typography>
-                        <Typography variant="h6" sx={{ mt: 1 }}>
-                          = {formatPrice(parseFloat(formData.targetPrice))}円
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {/* エラー表示 */}
-                    {formErrors.targetPrice && (
-                      <Typography variant="caption" color="error">
-                        {formErrors.targetPrice}
+                  {/* 計算結果表示 */}
+                  {formData.percentage && (
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: 'background.paper',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        計算結果
                       </Typography>
-                    )}
-                  </>
-                )}
+                      <Typography variant="body1">
+                        基準価格: {formatPrice(basePrice)}円 × (1 +{' '}
+                        {parseFloat(formData.percentage) > 0 ? '+' : ''}
+                        {formData.percentage}% / 100)
+                      </Typography>
+                      <Typography variant="h6" sx={{ mt: 1 }}>
+                        = {formatPrice(parseFloat(formData.targetPrice))}円
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* エラー表示 */}
+                  {formErrors.percentage && (
+                    <Typography variant="caption" color="error">
+                      {formErrors.percentage}
+                    </Typography>
+                  )}
+                </>
+              )}
             </>
           )}
 
@@ -923,8 +1008,8 @@ export default function AlertSettingsModal({
                 </FormControl>
               )}
 
-              {/* 入力方式選択 */}
-              {mode === 'create' && basePrice && basePrice > 0 && (
+              {/* 入力方式選択（範囲指定は条件全体が読み取り専用のため常に無効化） */}
+              {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="range-input-mode-label">入力方式</InputLabel>
                   <Select
@@ -933,6 +1018,7 @@ export default function AlertSettingsModal({
                     value={formData.rangeInputMode}
                     label="入力方式"
                     onChange={(e) => handleFormChange('rangeInputMode', e.target.value)}
+                    disabled={mode === 'edit'}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -941,7 +1027,7 @@ export default function AlertSettingsModal({
               )}
 
               {/* 手動入力モード */}
-              {(mode === 'edit' || formData.rangeInputMode === 'manual') && (
+              {formData.rangeInputMode !== 'percentage' && (
                 <>
                   <TextField
                     fullWidth
@@ -978,91 +1064,88 @@ export default function AlertSettingsModal({
               )}
 
               {/* パーセンテージモード */}
-              {mode === 'create' &&
-                formData.rangeInputMode === 'percentage' &&
-                basePrice &&
-                basePrice > 0 && (
-                  <>
-                    <FormControl fullWidth>
-                      <InputLabel id="min-percentage-label">最小価格のパーセンテージ</InputLabel>
-                      <Select
-                        labelId="min-percentage-label"
-                        id="min-percentage-select"
-                        value={formData.minPercentage}
-                        label="最小価格のパーセンテージ"
-                        onChange={(e) => handleFormChange('minPercentage', e.target.value)}
-                      >
-                        {PERCENTAGE_OPTIONS.map((percentage) => (
-                          <MenuItem key={percentage} value={percentage.toString()}>
-                            {percentage > 0 ? '+' : ''}
-                            {percentage}%
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+              {formData.rangeInputMode === 'percentage' && basePrice && basePrice > 0 && (
+                <>
+                  <FormControl fullWidth>
+                    <InputLabel id="min-percentage-label">最小価格のパーセンテージ</InputLabel>
+                    <Select
+                      labelId="min-percentage-label"
+                      id="min-percentage-select"
+                      value={formData.minPercentage}
+                      label="最小価格のパーセンテージ"
+                      onChange={(e) => handleFormChange('minPercentage', e.target.value)}
+                      disabled={mode === 'edit'}
+                    >
+                      {PERCENTAGE_OPTIONS.map((percentage) => (
+                        <MenuItem key={percentage} value={percentage.toString()}>
+                          {percentage > 0 ? '+' : ''}
+                          {percentage}%
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-                    <FormControl fullWidth>
-                      <InputLabel id="max-percentage-label">最大価格のパーセンテージ</InputLabel>
-                      <Select
-                        labelId="max-percentage-label"
-                        id="max-percentage-select"
-                        value={formData.maxPercentage}
-                        label="最大価格のパーセンテージ"
-                        onChange={(e) => handleFormChange('maxPercentage', e.target.value)}
-                      >
-                        {PERCENTAGE_OPTIONS.map((percentage) => (
-                          <MenuItem key={percentage} value={percentage.toString()}>
-                            {percentage > 0 ? '+' : ''}
-                            {percentage}%
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                  <FormControl fullWidth>
+                    <InputLabel id="max-percentage-label">最大価格のパーセンテージ</InputLabel>
+                    <Select
+                      labelId="max-percentage-label"
+                      id="max-percentage-select"
+                      value={formData.maxPercentage}
+                      label="最大価格のパーセンテージ"
+                      onChange={(e) => handleFormChange('maxPercentage', e.target.value)}
+                      disabled={mode === 'edit'}
+                    >
+                      {PERCENTAGE_OPTIONS.map((percentage) => (
+                        <MenuItem key={percentage} value={percentage.toString()}>
+                          {percentage > 0 ? '+' : ''}
+                          {percentage}%
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
 
-                    {/* 計算結果表示 */}
-                    {formData.minPercentage && formData.maxPercentage && (
-                      <Box
-                        sx={{
-                          p: 2,
-                          bgcolor: 'background.paper',
-                          border: 1,
-                          borderColor: 'divider',
-                          borderRadius: 1,
-                        }}
-                      >
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          計算結果
-                        </Typography>
-                        <Typography variant="body1">
-                          基準価格: {formatPrice(basePrice)}円
-                        </Typography>
-                        <Typography variant="body1" sx={{ mt: 1 }}>
-                          最小価格: {formatPrice(basePrice)} × (1 +{' '}
-                          {parseFloat(formData.minPercentage) > 0 ? '+' : ''}
-                          {formData.minPercentage}% / 100) ={' '}
-                          {formatPrice(parseFloat(formData.minPrice))}円
-                        </Typography>
-                        <Typography variant="body1">
-                          最大価格: {formatPrice(basePrice)} × (1 +{' '}
-                          {parseFloat(formData.maxPercentage) > 0 ? '+' : ''}
-                          {formData.maxPercentage}% / 100) ={' '}
-                          {formatPrice(parseFloat(formData.maxPrice))}円
-                        </Typography>
-                        <Typography variant="h6" sx={{ mt: 1 }}>
-                          価格範囲: {formatPrice(parseFloat(formData.minPrice))}円 ～{' '}
-                          {formatPrice(parseFloat(formData.maxPrice))}円
-                        </Typography>
-                      </Box>
-                    )}
-
-                    {/* エラー表示 */}
-                    {(formErrors.minPrice || formErrors.maxPrice) && (
-                      <Typography variant="caption" color="error">
-                        {formErrors.minPrice || formErrors.maxPrice}
+                  {/* 計算結果表示 */}
+                  {formData.minPercentage && formData.maxPercentage && (
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: 'background.paper',
+                        border: 1,
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        計算結果
                       </Typography>
-                    )}
-                  </>
-                )}
+                      <Typography variant="body1">基準価格: {formatPrice(basePrice)}円</Typography>
+                      <Typography variant="body1" sx={{ mt: 1 }}>
+                        最小価格: {formatPrice(basePrice)} × (1 +{' '}
+                        {parseFloat(formData.minPercentage) > 0 ? '+' : ''}
+                        {formData.minPercentage}% / 100) ={' '}
+                        {formatPrice(parseFloat(formData.minPrice))}円
+                      </Typography>
+                      <Typography variant="body1">
+                        最大価格: {formatPrice(basePrice)} × (1 +{' '}
+                        {parseFloat(formData.maxPercentage) > 0 ? '+' : ''}
+                        {formData.maxPercentage}% / 100) ={' '}
+                        {formatPrice(parseFloat(formData.maxPrice))}円
+                      </Typography>
+                      <Typography variant="h6" sx={{ mt: 1 }}>
+                        価格範囲: {formatPrice(parseFloat(formData.minPrice))}円 ～{' '}
+                        {formatPrice(parseFloat(formData.maxPrice))}円
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* エラー表示 */}
+                  {(formErrors.minPercentage || formErrors.maxPercentage) && (
+                    <Typography variant="caption" color="error">
+                      {formErrors.minPercentage || formErrors.maxPercentage}
+                    </Typography>
+                  )}
+                </>
+              )}
               {mode === 'edit' && (
                 <Alert severity="info">
                   範囲指定アラートの条件は編集できません。条件を変更したい場合は、アラートを削除して新しく作成してください。

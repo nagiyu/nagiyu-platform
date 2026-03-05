@@ -61,6 +61,7 @@ export type { DailySummaryRepository } from './repositories/daily-summary.reposi
 // Entities (explicit exports to avoid conflicts with types.ts)
 export type {
   AlertEntity,
+  AlertCondition,
   CreateAlertInput,
   UpdateAlertInput,
   AlertKey,

@@ -43,6 +43,8 @@ interface AlertResponse {
     field: string;
     operator: string;
     value: number;
+    isPercentage?: boolean;
+    percentageValue?: number;
   }>;
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;

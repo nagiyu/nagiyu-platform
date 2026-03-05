@@ -16,7 +16,7 @@ import {
   createExchangeRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { AlertEntity } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity, AlertCondition } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -45,6 +45,8 @@ interface AlertResponse {
     field: string;
     operator: string;
     value: number;
+    isPercentage?: boolean;
+    percentageValue?: number;
   }>;
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
@@ -154,13 +156,23 @@ export const PUT = withAuth(
         const updateCondition = body.conditions[0];
 
         if (updateCondition) {
-          updates.ConditionList = [
-            {
-              field: updateCondition.field ?? existingCondition.field,
-              operator: updateCondition.operator ?? existingCondition.operator,
-              value: updateCondition.value ?? existingCondition.value,
-            },
-          ];
+          const mergedCondition: AlertCondition = {
+            field: updateCondition.field ?? existingCondition.field,
+            operator: updateCondition.operator ?? existingCondition.operator,
+            value: updateCondition.value ?? existingCondition.value,
+          };
+
+          if (updateCondition.isPercentage === true) {
+            mergedCondition.isPercentage = true;
+            if (typeof updateCondition.percentageValue === 'number') {
+              mergedCondition.percentageValue = updateCondition.percentageValue;
+            }
+          } else if (updateCondition.isPercentage === false) {
+            // 明示的に false が指定された場合はパーセンテージ情報をクリア
+            mergedCondition.isPercentage = false;
+          }
+
+          updates.ConditionList = [mergedCondition];
         }
       }
 
