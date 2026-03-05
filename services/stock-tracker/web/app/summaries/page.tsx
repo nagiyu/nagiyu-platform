@@ -34,6 +34,7 @@ import { hasPermission } from '@nagiyu/common';
 import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
 import { resolveAiAnalysisText } from './ai-analysis';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
+import StockChart from '../../components/StockChart';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
@@ -267,7 +268,7 @@ export default function SummariesPage() {
         )}
       </Box>
 
-      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="sm" fullWidth>
+      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="md" fullWidth>
         <DialogTitle
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
@@ -279,6 +280,9 @@ export default function SummariesPage() {
         <DialogContent dividers>
           {selectedTicker && (
             <Box sx={{ display: 'grid', gap: 2 }}>
+              <Typography variant="h6">株価チャート</Typography>
+              <StockChart tickerId={selectedTicker.tickerId} timeframe="D" count={50} />
+              <Divider />
               <TableContainer>
                 <Table size="small">
                   <TableBody>
