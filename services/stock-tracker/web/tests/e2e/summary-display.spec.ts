@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+const MOCK_CHART_DATE_2024_03_01 = 1709251200000;
+const MOCK_CHART_DATE_2024_02_29 = 1709164800000;
+
 test.describe('サマリー画面スモークテスト', () => {
   test('サマリー一覧テーブルに買い/売りシグナル列と件数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
@@ -287,8 +290,22 @@ test.describe('サマリー画面スモークテスト', () => {
           symbol: 'AAA',
           timeframe: 'D',
           data: [
-            { time: 1709251200000, open: 100, high: 110, low: 95, close: 105, volume: 1000000 },
-            { time: 1709164800000, open: 98, high: 108, low: 94, close: 100, volume: 950000 },
+            {
+              time: MOCK_CHART_DATE_2024_03_01,
+              open: 100,
+              high: 110,
+              low: 95,
+              close: 105,
+              volume: 1000000,
+            },
+            {
+              time: MOCK_CHART_DATE_2024_02_29,
+              open: 98,
+              high: 108,
+              low: 94,
+              close: 100,
+              volume: 950000,
+            },
           ],
         }),
       });

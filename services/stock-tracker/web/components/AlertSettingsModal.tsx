@@ -61,6 +61,7 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
+const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -152,7 +153,7 @@ export default function AlertSettingsModal({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>('60');
+  const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
   const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
 
   // モーダルが開いた時にフォームをリセット
@@ -189,7 +190,7 @@ export default function AlertSettingsModal({
       setFormErrors({});
       setError('');
       setSubscription(null);
-      setTimeframe('60');
+      setTimeframe(DEFAULT_CHART_TIMEFRAME);
       setChartBarCount(DEFAULT_CHART_BAR_COUNT);
     }
   }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);

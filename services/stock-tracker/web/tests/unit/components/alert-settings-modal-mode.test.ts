@@ -2,18 +2,12 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import AlertSettingsModal from '../../../components/AlertSettingsModal';
 import type { AlertResponse } from '../../../types/alert';
+import type { StockChartProps } from '../../../components/StockChart';
 
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
-  default: ({
-    tickerId,
-    timeframe,
-    count,
-  }: {
-    tickerId: string;
-    timeframe: string;
-    count?: number;
-  }) => React.createElement('div', null, `StockChart:${tickerId}:${timeframe}:${count ?? ''}`),
+  default: ({ tickerId, timeframe, count }: StockChartProps) =>
+    React.createElement('div', null, `StockChart:${tickerId}:${timeframe}:${count ?? ''}`),
 }));
 
 jest.mock('@mui/material', () => {
