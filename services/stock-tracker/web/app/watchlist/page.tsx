@@ -519,7 +519,8 @@ export default function WatchlistPage() {
           tickerId={selectedWatchlistItem.tickerId}
           symbol={selectedWatchlistItem.symbol}
           exchangeId={selectedWatchlistItem.tickerId.split(':')[0] || ''}
-          mode="Buy"
+          mode="create"
+          tradeMode="Buy"
         />
       )}
     </Container>

@@ -15,13 +15,6 @@ import {
   Paper,
   Alert,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  FormControlLabel,
-  Switch,
   Chip,
 } from '@mui/material';
 import {
@@ -30,14 +23,14 @@ import {
   ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
+import AlertSettingsModal from '../../components/AlertSettingsModal';
+import AlertDeleteConfirmDialog from '../../components/AlertDeleteConfirmDialog';
+import type { AlertResponse } from '../../types/alert';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
   FETCH_ALERTS_ERROR: 'アラート一覧の取得に失敗しました',
-  UPDATE_ALERT_ERROR: 'アラートの更新に失敗しました',
   DELETE_ALERT_ERROR: 'アラートの削除に失敗しました',
-  INVALID_CONDITION_VALUE: '目標価格は0.01以上、1,000,000以下で入力してください',
-  REQUIRED_FIELD: 'この項目は必須です',
 } as const;
 
 // 成功メッセージ定数
@@ -46,48 +39,11 @@ const SUCCESS_MESSAGES = {
   DELETE_SUCCESS: 'アラートを削除しました',
 } as const;
 
-// API レスポンス型定義
-interface AlertResponse {
-  alertId: string;
-  tickerId: string;
-  symbol: string;
-  name: string;
-  mode: string;
-  frequency: string;
-  conditions: Array<{
-    field: string;
-    operator: string;
-    value: number;
-  }>;
-  logicalOperator?: 'AND' | 'OR';
-  enabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 interface Exchange {
   exchangeId: string;
   name: string;
   key: string;
 }
-
-// フォームデータ型
-interface AlertFormData {
-  conditionMode: 'single' | 'range';
-  conditionValue: string; // 単一条件の場合のみ編集可能
-  minPrice: string; // 範囲指定の場合(表示のみ)
-  maxPrice: string; // 範囲指定の場合(表示のみ)
-  enabled: boolean;
-}
-
-// 初期フォームデータ
-const INITIAL_FORM_DATA: AlertFormData = {
-  conditionMode: 'single',
-  conditionValue: '',
-  minPrice: '',
-  maxPrice: '',
-  enabled: true,
-};
 
 // 演算子のラベル
 const OPERATOR_LABELS: Record<string, string> = {
@@ -129,10 +85,6 @@ function AlertsPageContent() {
   // モーダル状態
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
-
-  // フォームデータ
-  const [formData, setFormData] = useState<AlertFormData>(INITIAL_FORM_DATA);
-  const [formErrors, setFormErrors] = useState<Partial<Record<keyof AlertFormData, string>>>({});
 
   // 編集対象・削除対象
   const [selectedAlert, setSelectedAlert] = useState<AlertResponse | null>(null);
@@ -196,54 +148,9 @@ function AlertsPageContent() {
     }
   };
 
-  // フォームのバリデーション
-  const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof AlertFormData, string>> = {};
-
-    // 単一条件の場合のみバリデーション（範囲指定は編集不可のため検証不要）
-    if (formData.conditionMode === 'single') {
-      if (!formData.conditionValue) {
-        errors.conditionValue = ERROR_MESSAGES.REQUIRED_FIELD;
-      } else {
-        const value = parseFloat(formData.conditionValue);
-        if (isNaN(value) || value < 0.01 || value > 1000000) {
-          errors.conditionValue = ERROR_MESSAGES.INVALID_CONDITION_VALUE;
-        }
-      }
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
   // 編集モーダルを開く
   const handleOpenEditModal = (alert: AlertResponse) => {
     setSelectedAlert(alert);
-
-    // 単一条件か範囲指定かを判定
-    const isRangeCondition = alert.conditions.length === 2 && alert.logicalOperator;
-
-    if (isRangeCondition) {
-      // 範囲指定の場合
-      setFormData({
-        conditionMode: 'range',
-        conditionValue: '',
-        minPrice: alert.conditions[0]?.value.toString() || '',
-        maxPrice: alert.conditions[1]?.value.toString() || '',
-        enabled: alert.enabled,
-      });
-    } else {
-      // 単一条件の場合
-      setFormData({
-        conditionMode: 'single',
-        conditionValue: alert.conditions[0]?.value.toString() || '',
-        minPrice: '',
-        maxPrice: '',
-        enabled: alert.enabled,
-      });
-    }
-
-    setFormErrors({});
     setEditModalOpen(true);
   };
 
@@ -251,8 +158,6 @@ function AlertsPageContent() {
   const handleCloseEditModal = () => {
     setEditModalOpen(false);
     setSelectedAlert(null);
-    setFormData(INITIAL_FORM_DATA);
-    setFormErrors({});
   };
 
   // 削除確認ダイアログを開く
@@ -267,74 +172,14 @@ function AlertsPageContent() {
     setSelectedAlert(null);
   };
 
-  // フォーム入力ハンドラー
-  const handleFormChange = (field: keyof AlertFormData, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-    // エラーをクリア
-    if (formErrors[field]) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
-  };
+  const handleEditSuccess = async () => {
+    setSuccessMessage(SUCCESS_MESSAGES.UPDATE_SUCCESS);
+    handleCloseEditModal();
+    await fetchAlerts();
 
-  // アラートを更新
-  const handleUpdate = async () => {
-    if (!selectedAlert || !validateForm()) {
-      return;
-    }
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      // 更新するデータを準備
-      const updateData: {
-        conditions?: Array<{ value: number }>;
-        enabled: boolean;
-      } = {
-        enabled: formData.enabled,
-      };
-
-      // 単一条件の場合のみ条件値を更新
-      if (formData.conditionMode === 'single') {
-        updateData.conditions = [
-          {
-            value: parseFloat(formData.conditionValue),
-          },
-        ];
-      }
-      // 範囲指定の場合は条件を更新しない（enabledのみ更新）
-
-      const response = await fetch(`/api/alerts/${encodeURIComponent(selectedAlert.alertId)}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updateData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || ERROR_MESSAGES.UPDATE_ALERT_ERROR);
-      }
-
-      setSuccessMessage(SUCCESS_MESSAGES.UPDATE_SUCCESS);
-      handleCloseEditModal();
-      await fetchAlerts();
-
-      // 成功メッセージを3秒後に消す
-      setTimeout(() => {
-        setSuccessMessage('');
-      }, 3000);
-    } catch (err) {
-      console.error('Error updating alert:', err);
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.UPDATE_ALERT_ERROR);
-    } finally {
-      setSubmitting(false);
-    }
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   };
 
   // アラートを削除
@@ -520,214 +365,27 @@ function AlertsPageContent() {
         </TableContainer>
       )}
 
-      {/* 編集モーダル */}
-      <Dialog open={editModalOpen} onClose={handleCloseEditModal} maxWidth="sm" fullWidth>
-        <DialogTitle>アラートの編集</DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* モード（表示のみ） */}
-            <TextField
-              fullWidth
-              label="モード"
-              value={selectedAlert ? MODE_LABELS[selectedAlert.mode] || selectedAlert.mode : ''}
-              disabled
-              InputProps={{ readOnly: true }}
-            />
+      {selectedAlert && (
+        <AlertSettingsModal
+          open={editModalOpen}
+          onClose={handleCloseEditModal}
+          onSuccess={handleEditSuccess}
+          tickerId={selectedAlert.tickerId}
+          symbol={selectedAlert.symbol}
+          exchangeId={selectedAlert.tickerId.split(':')[0] || ''}
+          mode="edit"
+          tradeMode={selectedAlert.mode}
+          editTarget={selectedAlert}
+        />
+      )}
 
-            {/* ティッカー（表示のみ） */}
-            <TextField
-              fullWidth
-              label="ティッカー"
-              value={selectedAlert ? `${selectedAlert.symbol} - ${selectedAlert.name}` : ''}
-              disabled
-              InputProps={{ readOnly: true }}
-            />
-
-            {/* 条件タイプ（表示のみ） */}
-            <TextField
-              fullWidth
-              label="条件タイプ"
-              value={formData.conditionMode === 'single' ? '単一条件' : '範囲指定'}
-              disabled
-              InputProps={{ readOnly: true }}
-            />
-
-            {/* 単一条件の場合 */}
-            {formData.conditionMode === 'single' && (
-              <>
-                {/* 演算子（表示のみ） */}
-                <TextField
-                  fullWidth
-                  label="条件"
-                  value={
-                    selectedAlert?.conditions[0]
-                      ? `価格 ${OPERATOR_LABELS[selectedAlert.conditions[0].operator] || selectedAlert.conditions[0].operator}`
-                      : ''
-                  }
-                  disabled
-                  InputProps={{ readOnly: true }}
-                />
-
-                {/* 目標価格（編集可能） */}
-                <TextField
-                  fullWidth
-                  id="edit-condition-value"
-                  label="目標価格"
-                  type="number"
-                  value={formData.conditionValue}
-                  onChange={(e) => handleFormChange('conditionValue', e.target.value)}
-                  error={!!formErrors.conditionValue}
-                  helperText={formErrors.conditionValue}
-                  inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
-                />
-              </>
-            )}
-
-            {/* 範囲指定の場合 */}
-            {formData.conditionMode === 'range' && selectedAlert && (
-              <>
-                {/* 範囲タイプ（表示のみ） */}
-                <TextField
-                  fullWidth
-                  label="範囲タイプ"
-                  value={selectedAlert.logicalOperator === 'AND' ? '範囲内（AND）' : '範囲外（OR）'}
-                  disabled
-                  InputProps={{ readOnly: true }}
-                  helperText={
-                    selectedAlert.logicalOperator === 'AND'
-                      ? '価格が指定範囲内になったら通知'
-                      : '価格が指定範囲外になったら通知'
-                  }
-                />
-
-                {/* 最小価格/下限価格（表示のみ） */}
-                <TextField
-                  fullWidth
-                  label={selectedAlert.logicalOperator === 'AND' ? '最小価格（下限）' : '下限価格'}
-                  type="number"
-                  value={formData.minPrice}
-                  disabled
-                  InputProps={{ readOnly: true }}
-                  helperText={
-                    selectedAlert.logicalOperator === 'AND' ? 'この価格以上' : 'この価格以下で通知'
-                  }
-                />
-
-                {/* 最大価格/上限価格（表示のみ） */}
-                <TextField
-                  fullWidth
-                  label={selectedAlert.logicalOperator === 'AND' ? '最大価格（上限）' : '上限価格'}
-                  type="number"
-                  value={formData.maxPrice}
-                  disabled
-                  InputProps={{ readOnly: true }}
-                  helperText={
-                    selectedAlert.logicalOperator === 'AND' ? 'この価格以下' : 'この価格以上で通知'
-                  }
-                />
-
-                {/* 範囲指定アラートは条件の編集ができない旨を説明 */}
-                <Alert severity="info">
-                  範囲指定アラートの条件は編集できません。条件を変更したい場合は、アラートを削除して新しく作成してください。
-                </Alert>
-              </>
-            )}
-
-            {/* 頻度（表示のみ） */}
-            <TextField
-              fullWidth
-              label="通知頻度"
-              value={
-                selectedAlert
-                  ? FREQUENCY_LABELS[selectedAlert.frequency] || selectedAlert.frequency
-                  : ''
-              }
-              disabled
-              InputProps={{ readOnly: true }}
-            />
-
-            {/* 有効/無効（編集可能） */}
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={formData.enabled}
-                  onChange={(e) => handleFormChange('enabled', e.target.checked)}
-                  color="primary"
-                />
-              }
-              label="アラートを有効にする"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseEditModal} disabled={submitting}>
-            キャンセル
-          </Button>
-          <Button onClick={handleUpdate} variant="contained" color="primary" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 削除確認ダイアログ */}
-      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>アラートの削除</DialogTitle>
-        <DialogContent>
-          <Typography>
-            以下のアラートを削除してもよろしいですか？
-            <br />
-            この操作は取り消せません。
-          </Typography>
-          {selectedAlert && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="body2">
-                <strong>モード:</strong> {MODE_LABELS[selectedAlert.mode] || selectedAlert.mode}
-              </Typography>
-              <Typography variant="body2">
-                <strong>ティッカー:</strong> {selectedAlert.symbol} - {selectedAlert.name}
-              </Typography>
-              <Typography variant="body2">
-                <strong>条件:</strong>{' '}
-                {(() => {
-                  if (selectedAlert.conditions.length === 1) {
-                    // 単一条件
-                    const condition = selectedAlert.conditions[0];
-                    return `価格 ${OPERATOR_LABELS[condition.operator] || condition.operator} ${condition.value.toLocaleString()}`;
-                  } else if (
-                    selectedAlert.conditions.length === 2 &&
-                    selectedAlert.logicalOperator
-                  ) {
-                    // 2条件（範囲指定）
-                    const cond1 = selectedAlert.conditions[0];
-                    const cond2 = selectedAlert.conditions[1];
-                    if (selectedAlert.logicalOperator === 'AND') {
-                      return `価格 ${cond1.value.toLocaleString()} ～ ${cond2.value.toLocaleString()}（範囲内）`;
-                    } else {
-                      return `価格 ${cond1.value.toLocaleString()} 以下 または ${cond2.value.toLocaleString()} 以上（範囲外）`;
-                    }
-                  }
-                  return '-';
-                })()}
-              </Typography>
-              <Typography variant="body2">
-                <strong>頻度:</strong>{' '}
-                {FREQUENCY_LABELS[selectedAlert.frequency] || selectedAlert.frequency}
-              </Typography>
-              <Typography variant="body2">
-                <strong>状態:</strong> {selectedAlert.enabled ? '有効' : '無効'}
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={submitting}>
-            キャンセル
-          </Button>
-          <Button onClick={handleDelete} variant="contained" color="error" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '削除'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <AlertDeleteConfirmDialog
+        open={deleteDialogOpen}
+        alert={selectedAlert}
+        submitting={submitting}
+        onClose={handleCloseDeleteDialog}
+        onConfirm={handleDelete}
+      />
     </Container>
   );
 }
