@@ -135,4 +135,23 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('パーセンテージ');
     expect(html).toContain('入力方式');
   });
+
+  it('mode=edit の単一条件で入力方式 Select が無効化されない', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'edit',
+        tradeMode: 'Buy',
+        editTarget,
+        basePrice: 180,
+      })
+    );
+
+    expect(html).toContain('id="input-mode-select"');
+    expect(html).not.toMatch(/id="input-mode-select"[^>]*disabled/);
+  });
 });

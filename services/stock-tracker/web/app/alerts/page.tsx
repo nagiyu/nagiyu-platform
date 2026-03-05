@@ -26,6 +26,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
 import AlertDeleteConfirmDialog from '../../components/AlertDeleteConfirmDialog';
 import type { AlertResponse } from '../../types/alert';
+import {
+  calculateBasePriceFromConditions,
+  findTickerCloseFromSummaries,
+} from '../../lib/alert-base-price';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -88,6 +92,7 @@ function AlertsPageContent() {
 
   // 編集対象・削除対象
   const [selectedAlert, setSelectedAlert] = useState<AlertResponse | null>(null);
+  const [editBasePrice, setEditBasePrice] = useState<number | undefined>(undefined);
 
   // アラート一覧を取得
   useEffect(() => {
@@ -149,15 +154,40 @@ function AlertsPageContent() {
   };
 
   // 編集モーダルを開く
-  const handleOpenEditModal = (alert: AlertResponse) => {
+  const handleOpenEditModal = async (alert: AlertResponse) => {
     setSelectedAlert(alert);
-    setEditModalOpen(true);
+    const basePriceFromConditions = calculateBasePriceFromConditions(alert.conditions);
+    setEditBasePrice(basePriceFromConditions);
+
+    if (basePriceFromConditions !== undefined) {
+      setEditModalOpen(true);
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/summaries');
+      if (!response.ok) {
+        console.error('Failed to fetch summaries for edit base price');
+        return;
+      }
+
+      const summariesData = await response.json();
+      const latestClose = findTickerCloseFromSummaries(summariesData, alert.tickerId);
+      if (latestClose !== undefined) {
+        setEditBasePrice(latestClose);
+      }
+    } catch (err) {
+      console.error('Error fetching summaries for edit base price:', err);
+    } finally {
+      setEditModalOpen(true);
+    }
   };
 
   // 編集モーダルを閉じる
   const handleCloseEditModal = () => {
     setEditModalOpen(false);
     setSelectedAlert(null);
+    setEditBasePrice(undefined);
   };
 
   // 削除確認ダイアログを開く
@@ -376,6 +406,7 @@ function AlertsPageContent() {
           mode="edit"
           tradeMode={selectedAlert.mode}
           editTarget={selectedAlert}
+          basePrice={editBasePrice}
         />
       )}
 

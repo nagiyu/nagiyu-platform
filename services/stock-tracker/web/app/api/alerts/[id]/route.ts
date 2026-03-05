@@ -16,7 +16,8 @@ import {
   createExchangeRepository,
 } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { AlertEntity, AlertCondition } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity } from '@nagiyu/stock-tracker-core';
+import { mergeAlertConditions } from '../../../../lib/alert-condition-merge';
 
 /**
  * エラーメッセージ定数
@@ -149,31 +150,8 @@ export const PUT = withAuth(
       // 更新可能なフィールドを抽出
       const updates: Partial<AlertEntity> = {};
 
-      if (body.conditions !== undefined) {
-        // 条件の部分更新をサポート
-        // Phase 1: 条件は1つのみなので、既存条件とマージ
-        const existingCondition = existingAlert.ConditionList[0];
-        const updateCondition = body.conditions[0];
-
-        if (updateCondition) {
-          const mergedCondition: AlertCondition = {
-            field: updateCondition.field ?? existingCondition.field,
-            operator: updateCondition.operator ?? existingCondition.operator,
-            value: updateCondition.value ?? existingCondition.value,
-          };
-
-          if (updateCondition.isPercentage === true) {
-            mergedCondition.isPercentage = true;
-            if (typeof updateCondition.percentageValue === 'number') {
-              mergedCondition.percentageValue = updateCondition.percentageValue;
-            }
-          } else if (updateCondition.isPercentage === false) {
-            // 明示的に false が指定された場合はパーセンテージ情報をクリア
-            mergedCondition.isPercentage = false;
-          }
-
-          updates.ConditionList = [mergedCondition];
-        }
+      if (Array.isArray(body.conditions) && body.conditions.length > 0) {
+        updates.ConditionList = mergeAlertConditions(existingAlert.ConditionList, body.conditions);
       }
 
       if (body.enabled !== undefined) {

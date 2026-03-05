@@ -582,6 +582,27 @@ export default function AlertSettingsModal({
             condition.isPercentage = false;
           }
           updateData.conditions = [condition];
+        } else {
+          const minCondition: { value: number; isPercentage?: boolean; percentageValue?: number } =
+            {
+              value: parseFloat(formData.minPrice),
+            };
+          const maxCondition: { value: number; isPercentage?: boolean; percentageValue?: number } =
+            {
+              value: parseFloat(formData.maxPrice),
+            };
+
+          if (formData.rangeInputMode === 'percentage') {
+            minCondition.isPercentage = true;
+            minCondition.percentageValue = parseFloat(formData.minPercentage);
+            maxCondition.isPercentage = true;
+            maxCondition.percentageValue = parseFloat(formData.maxPercentage);
+          } else {
+            minCondition.isPercentage = false;
+            maxCondition.isPercentage = false;
+          }
+
+          updateData.conditions = [minCondition, maxCondition];
         }
 
         const response = await fetch(
@@ -881,7 +902,6 @@ export default function AlertSettingsModal({
               )}
 
               {/* 入力方式選択 */}
-              {/* 編集時: パーセンテージ作成の場合はパーセンテージ変更・手動切替を許可、手動作成の場合は手動入力のみ許可 */}
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="input-mode-label">入力方式</InputLabel>
@@ -891,7 +911,6 @@ export default function AlertSettingsModal({
                     value={formData.inputMode}
                     label="入力方式"
                     onChange={(e) => handleFormChange('inputMode', e.target.value)}
-                    disabled={mode === 'edit' && formData.inputMode !== 'percentage'}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -1008,7 +1027,7 @@ export default function AlertSettingsModal({
                 </FormControl>
               )}
 
-              {/* 入力方式選択（範囲指定は条件全体が読み取り専用のため常に無効化） */}
+              {/* 入力方式選択 */}
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="range-input-mode-label">入力方式</InputLabel>
@@ -1018,7 +1037,6 @@ export default function AlertSettingsModal({
                     value={formData.rangeInputMode}
                     label="入力方式"
                     onChange={(e) => handleFormChange('rangeInputMode', e.target.value)}
-                    disabled={mode === 'edit'}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -1036,7 +1054,6 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.minPrice}
                     onChange={(e) => handleFormChange('minPrice', e.target.value)}
-                    disabled={mode === 'edit'}
                     error={!!formErrors.minPrice}
                     helperText={
                       formErrors.minPrice ||
@@ -1052,7 +1069,6 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.maxPrice}
                     onChange={(e) => handleFormChange('maxPrice', e.target.value)}
-                    disabled={mode === 'edit'}
                     error={!!formErrors.maxPrice}
                     helperText={
                       formErrors.maxPrice ||
@@ -1074,7 +1090,6 @@ export default function AlertSettingsModal({
                       value={formData.minPercentage}
                       label="最小価格のパーセンテージ"
                       onChange={(e) => handleFormChange('minPercentage', e.target.value)}
-                      disabled={mode === 'edit'}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1093,7 +1108,6 @@ export default function AlertSettingsModal({
                       value={formData.maxPercentage}
                       label="最大価格のパーセンテージ"
                       onChange={(e) => handleFormChange('maxPercentage', e.target.value)}
-                      disabled={mode === 'edit'}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1145,11 +1159,6 @@ export default function AlertSettingsModal({
                     </Typography>
                   )}
                 </>
-              )}
-              {mode === 'edit' && (
-                <Alert severity="info">
-                  範囲指定アラートの条件は編集できません。条件を変更したい場合は、アラートを削除して新しく作成してください。
-                </Alert>
               )}
             </>
           )}
