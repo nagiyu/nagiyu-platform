@@ -17,6 +17,8 @@ import {
 import { generateAiAnalysis } from './lib/openai-client.js';
 import type { AiAnalysisInput } from './lib/openai-client.js';
 import type {
+  CreateDailySummaryInput,
+  DailySummaryEntity,
   DailySummaryRepository,
   ExchangeEntity,
   ExchangeRepository,
@@ -96,6 +98,23 @@ function needsStaticAnalysis(
   );
 }
 
+function toCreateDailySummaryInput(summary: DailySummaryEntity): CreateDailySummaryInput {
+  return {
+    TickerID: summary.TickerID,
+    ExchangeID: summary.ExchangeID,
+    Date: summary.Date,
+    Open: summary.Open,
+    High: summary.High,
+    Low: summary.Low,
+    Close: summary.Close,
+    PatternResults: summary.PatternResults,
+    BuyPatternCount: summary.BuyPatternCount,
+    SellPatternCount: summary.SellPatternCount,
+    AiAnalysis: summary.AiAnalysis,
+    AiAnalysisError: summary.AiAnalysisError,
+  };
+}
+
 async function processExchange(
   exchange: ExchangeEntity,
   dependencies: HandlerDependencies,
@@ -111,11 +130,13 @@ async function processExchange(
 
     for (const ticker of tickers) {
       try {
-        let currentSummary = await dependencies.dailySummaryRepository.getByTickerAndDate(
+        const existingSummary = await dependencies.dailySummaryRepository.getByTickerAndDate(
           ticker.TickerID,
           summaryDate
         );
-        if (needsStaticAnalysis(currentSummary)) {
+        let currentSummaryInput: CreateDailySummaryInput;
+
+        if (needsStaticAnalysis(existingSummary)) {
           const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
             count: 50,
             session: 'extended',
@@ -144,7 +165,7 @@ async function processExchange(
                 }
               : patternAnalyzer.analyze(chartData);
 
-          currentSummary = {
+          currentSummaryInput = {
             TickerID: ticker.TickerID,
             ExchangeID: exchange.ExchangeID,
             Date: summaryDate,
@@ -155,14 +176,18 @@ async function processExchange(
             PatternResults: patternAnalysis.patternResults,
             BuyPatternCount: patternAnalysis.buyPatternCount,
             SellPatternCount: patternAnalysis.sellPatternCount,
-            AiAnalysis: currentSummary?.AiAnalysis,
-            AiAnalysisError: currentSummary?.AiAnalysisError,
+            AiAnalysis: existingSummary?.AiAnalysis,
+            AiAnalysisError: existingSummary?.AiAnalysisError,
           };
-          await dependencies.dailySummaryRepository.upsert(currentSummary);
+          await dependencies.dailySummaryRepository.upsert(currentSummaryInput);
           stats.summariesSaved++;
+        } else if (existingSummary) {
+          currentSummaryInput = toCreateDailySummaryInput(existingSummary);
+        } else {
+          continue;
         }
 
-        if (currentSummary.AiAnalysis !== undefined) {
+        if (currentSummaryInput.AiAnalysis !== undefined) {
           logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
             exchangeId: exchange.ExchangeID,
             tickerId: ticker.TickerID,
@@ -179,23 +204,24 @@ async function processExchange(
 
         try {
           const matchedPatterns = PATTERN_REGISTRY.filter(
-            (pattern) => currentSummary.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
+            (pattern) =>
+              currentSummaryInput.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
           );
           const aiAnalysis = await dependencies.generateAiAnalysisFn(openAiApiKey, {
             tickerId: ticker.TickerID,
             name: ticker.Name,
             date: summaryDate,
-            open: currentSummary.Open,
-            high: currentSummary.High,
-            low: currentSummary.Low,
-            close: currentSummary.Close,
-            buyPatternCount: currentSummary.BuyPatternCount ?? 0,
-            sellPatternCount: currentSummary.SellPatternCount ?? 0,
+            open: currentSummaryInput.Open,
+            high: currentSummaryInput.High,
+            low: currentSummaryInput.Low,
+            close: currentSummaryInput.Close,
+            buyPatternCount: currentSummaryInput.BuyPatternCount ?? 0,
+            sellPatternCount: currentSummaryInput.SellPatternCount ?? 0,
             patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
           });
 
           await dependencies.dailySummaryRepository.upsert({
-            ...currentSummary,
+            ...currentSummaryInput,
             AiAnalysis: aiAnalysis,
             AiAnalysisError: undefined,
           });
@@ -208,7 +234,7 @@ async function processExchange(
             reason: errorMessage,
           });
           await dependencies.dailySummaryRepository.upsert({
-            ...currentSummary,
+            ...currentSummaryInput,
             AiAnalysis: undefined,
             AiAnalysisError: errorMessage,
           });
