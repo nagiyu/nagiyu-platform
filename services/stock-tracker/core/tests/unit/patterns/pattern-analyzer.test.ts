@@ -97,10 +97,10 @@ describe('パターン分析', () => {
       });
 
       const matchedBuyPattern = PATTERN_REGISTRY.find(
-        (pattern) => pattern.definition.patternId === 'bull-flag'
+        (pattern) => pattern.definition.signalType === 'BUY'
       );
       const matchedSellPattern = PATTERN_REGISTRY.find(
-        (pattern) => pattern.definition.patternId === 'head-and-shoulders'
+        (pattern) => pattern.definition.signalType === 'SELL'
       );
       if (!matchedBuyPattern || !matchedSellPattern) {
         throw new Error('検証対象パターンが PATTERN_REGISTRY に存在しません');
@@ -110,8 +110,8 @@ describe('パターン分析', () => {
 
       const result = analyzer.analyze([createCandle(100, 110, 90, 100)]);
 
-      expect(result.patternResults['bull-flag']).toBe('MATCHED');
-      expect(result.patternResults['head-and-shoulders']).toBe('MATCHED');
+      expect(result.patternResults[matchedBuyPattern.definition.patternId]).toBe('MATCHED');
+      expect(result.patternResults[matchedSellPattern.definition.patternId]).toBe('MATCHED');
       expect(result.buyPatternCount).toBe(1);
       expect(result.sellPatternCount).toBe(1);
       expect(Object.keys(result.patternResults)).toHaveLength(PATTERN_REGISTRY.length);
