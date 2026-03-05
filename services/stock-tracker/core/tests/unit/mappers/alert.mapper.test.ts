@@ -222,6 +222,54 @@ describe('AlertMapper', () => {
 
       expect(item).not.toHaveProperty('LogicalOperator');
     });
+
+    it('Temporary=true の場合、Temporary と TemporaryExpireDate を DynamoDBItem に含める', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-06',
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.Temporary).toBe(true);
+      expect(item.TemporaryExpireDate).toBe('2026-03-06');
+    });
+
+    it('Temporary 未指定の場合、DynamoDBItem に Temporary を含めない', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item).not.toHaveProperty('Temporary');
+      expect(item).not.toHaveProperty('TemporaryExpireDate');
+    });
   });
 
   describe('toEntity', () => {
@@ -459,6 +507,59 @@ describe('AlertMapper', () => {
       const entity = mapper.toEntity(item);
 
       expect(entity).not.toHaveProperty('LogicalOperator');
+    });
+
+    it('Temporary=true の場合、エンティティで true として復元される', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-06',
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.Temporary).toBe(true);
+      expect(entity.TemporaryExpireDate).toBe('2026-03-06');
+    });
+
+    it('Temporary が未設定の場合、エンティティに Temporary は含まれない', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+      expect(entity).not.toHaveProperty('Temporary');
+      expect(entity).not.toHaveProperty('TemporaryExpireDate');
     });
   });
 

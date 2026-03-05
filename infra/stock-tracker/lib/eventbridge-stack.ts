@@ -10,6 +10,7 @@ export interface EventBridgeStackProps extends cdk.StackProps {
   batchHourlyFunction: lambda.IFunction;
   batchSummaryFunction: lambda.IFunction;
   batchDailyFunction: lambda.IFunction;
+  batchTemporaryAlertExpiryFunction: lambda.IFunction;
 }
 
 /**
@@ -18,6 +19,7 @@ export interface EventBridgeStackProps extends cdk.StackProps {
  * バッチ処理の定期実行スケジュールを管理します。
  * - Minute: 1分間隔（MINUTE_LEVEL アラート処理）
  * - Hourly: 1時間間隔（HOURLY_LEVEL アラート処理）
+ * - Temporary Alert Expiry: 1時間間隔（一時通知アラートの期限切れ無効化）
  * - Daily: 日次（データクリーンアップ）
  */
 export class EventBridgeStack extends cdk.Stack {
@@ -30,6 +32,7 @@ export class EventBridgeStack extends cdk.Stack {
       batchHourlyFunction,
       batchSummaryFunction,
       batchDailyFunction,
+      batchTemporaryAlertExpiryFunction,
     } = props;
 
     // EventBridge Rule - Minute（1分間隔）
@@ -56,6 +59,14 @@ export class EventBridgeStack extends cdk.Stack {
     });
     summaryRule.addTarget(new targets.LambdaFunction(batchSummaryFunction));
 
+    // EventBridge Rule - Temporary Alert Expiry（1時間間隔、一時通知の期限切れ無効化）
+    const temporaryAlertExpiryRule = new events.Rule(this, 'BatchTemporaryAlertExpiryRule', {
+      ruleName: `stock-tracker-batch-temporary-alert-expiry-${environment}`,
+      description: 'Trigger Stock Tracker Temporary Alert Expiry Batch every 1 hour',
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+    });
+    temporaryAlertExpiryRule.addTarget(new targets.LambdaFunction(batchTemporaryAlertExpiryFunction));
+
     // EventBridge Rule - Daily（日次、UTC 0:00）
     const dailyRule = new events.Rule(this, 'BatchDailyRule', {
       ruleName: `stock-tracker-batch-daily-${environment}`,
@@ -71,7 +82,7 @@ export class EventBridgeStack extends cdk.Stack {
     dailyRule.addTarget(new targets.LambdaFunction(batchDailyFunction));
 
     // タグの追加
-    [minuteRule, hourlyRule, summaryRule, dailyRule].forEach((rule) => {
+    [minuteRule, hourlyRule, summaryRule, temporaryAlertExpiryRule, dailyRule].forEach((rule) => {
       cdk.Tags.of(rule).add('Application', 'nagiyu');
       cdk.Tags.of(rule).add('Service', 'stock-tracker');
       cdk.Tags.of(rule).add('Environment', environment);
@@ -91,6 +102,11 @@ export class EventBridgeStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'SummaryRuleArn', {
       value: summaryRule.ruleArn,
       description: 'Summary Batch EventBridge Rule ARN',
+    });
+
+    new cdk.CfnOutput(this, 'TemporaryAlertExpiryRuleArn', {
+      value: temporaryAlertExpiryRule.ruleArn,
+      description: 'Temporary Alert Expiry Batch EventBridge Rule ARN',
     });
 
     new cdk.CfnOutput(this, 'DailyRuleArn', {

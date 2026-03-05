@@ -25,7 +25,7 @@ export interface LambdaStackProps extends cdk.StackProps {
 /**
  * Stock Tracker Lambda Stack
  *
- * Web Lambda 1関数と Batch Lambda 4関数（minute, hourly, summary, daily）の合計5関数を作成します。
+ * Web Lambda 1関数と Batch Lambda 5関数（minute, hourly, summary, daily, temporary-alert-expiry）の合計6関数を作成します。
  * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
  * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
  */
@@ -35,6 +35,7 @@ export class LambdaStack extends cdk.Stack {
   public readonly batchHourlyFunction: lambda.Function;
   public readonly batchSummaryFunction: lambda.Function;
   public readonly batchDailyFunction: lambda.Function;
+  public readonly batchTemporaryAlertExpiryFunction: lambda.Function;
   public readonly functionUrl: lambda.FunctionUrl;
   public readonly webRuntimePolicy: iam.IManagedPolicy;
   public readonly batchRuntimePolicy: iam.IManagedPolicy;
@@ -237,6 +238,32 @@ export class LambdaStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
 
+    // Batch Lambda - Temporary Alert Expiry（1時間間隔、一時通知の期限切れ無効化）
+    this.batchTemporaryAlertExpiryFunction = new lambda.Function(
+      this,
+      'BatchTemporaryAlertExpiryFunction',
+      {
+        functionName: `nagiyu-stock-tracker-batch-temporary-alert-expiry-${environment}`,
+        runtime: lambda.Runtime.FROM_IMAGE,
+        code: lambda.Code.fromEcrImage(batchRepository, {
+          tagOrDigest: 'latest',
+          cmd: ['services/stock-tracker/batch/dist/temporary-alert-expiry.handler'],
+        }),
+        handler: lambda.Handler.FROM_IMAGE,
+        role: batchExecutionRole,
+        memorySize: 512,
+        timeout: cdk.Duration.minutes(5),
+        environment: {
+          NODE_ENV: environment,
+          DYNAMODB_TABLE_NAME: dynamoTable.tableName,
+          BATCH_TYPE: 'TEMPORARY_ALERT_EXPIRY',
+          OPENAI_API_KEY: openAiApiKey,
+        },
+        tracing: lambda.Tracing.ACTIVE,
+        logRetention: logs.RetentionDays.ONE_MONTH,
+      }
+    );
+
     // タグの追加
     [
       this.webFunction,
@@ -244,6 +271,7 @@ export class LambdaStack extends cdk.Stack {
       this.batchHourlyFunction,
       this.batchSummaryFunction,
       this.batchDailyFunction,
+      this.batchTemporaryAlertExpiryFunction,
     ].forEach((fn) => {
       cdk.Tags.of(fn).add('Application', 'nagiyu');
       cdk.Tags.of(fn).add('Service', 'stock-tracker');
@@ -279,6 +307,11 @@ export class LambdaStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BatchDailyFunctionArn', {
       value: this.batchDailyFunction.functionArn,
       description: 'Batch Daily Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'BatchTemporaryAlertExpiryFunctionArn', {
+      value: this.batchTemporaryAlertExpiryFunction.functionArn,
+      description: 'Batch Temporary Alert Expiry Lambda Function ARN',
     });
 
     // Runtime Policies (IAM スタックで参照するため Export)
