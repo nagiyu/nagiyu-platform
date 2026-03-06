@@ -30,7 +30,7 @@ export function createChartImageBase64(historicalData: ChartOhlcData[]): string 
     chart.setOption({
       animation: false,
       title: {
-        text: '過去50日間のローソク足チャート',
+        text: `過去${sortedData.length}日間のローソク足チャート`,
         left: 'center',
       },
       grid: {

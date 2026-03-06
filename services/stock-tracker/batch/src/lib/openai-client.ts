@@ -77,6 +77,7 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
 
 function createPrompt(input: AiAnalysisInput): string {
   const historicalDataLines = formatHistoricalData(input.historicalData);
+  const historicalDataHeader = `【過去価格推移（取得件数: ${input.historicalData.length}件）】`;
 
   return [
     'あなたは株式分析の専門家です。以下の情報を基に日本語で2000文字以内の解析を作成してください。',
@@ -94,7 +95,7 @@ function createPrompt(input: AiAnalysisInput): string {
     `売りシグナル合致数: ${input.sellPatternCount}`,
     `合致パターン: ${input.patternSummary || 'なし'}`,
     '',
-    '【過去50日間の価格推移】',
+    historicalDataHeader,
     '日付, 始値, 高値, 安値, 終値',
     ...historicalDataLines,
   ].join('\n');

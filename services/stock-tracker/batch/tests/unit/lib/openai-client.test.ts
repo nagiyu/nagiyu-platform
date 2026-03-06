@@ -81,7 +81,7 @@ describe('generateAiAnalysis', () => {
             content: [
               {
                 type: 'input_text',
-                text: expect.stringContaining('【過去50日間の価格推移】'),
+                text: expect.stringContaining('【過去価格推移（取得件数: 2件）】'),
               },
             ],
           },
