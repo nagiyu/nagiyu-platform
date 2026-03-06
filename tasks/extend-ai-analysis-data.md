@@ -145,20 +145,25 @@ chartImageBase64?: string  // 省略可能（生成失敗時は渡さない）
 
 #### OpenAI API 呼び出し形式の変更
 
-現在: `client.responses.create` でテキストプロンプトのみ
-変更後: vision 対応の messages 形式
+現在: `client.responses.create` の `input` にテキスト文字列のみ渡している  
+変更後: Responses API の multimodal input 形式でテキスト＋画像を渡す
 
 ```
-messages: [
+// Responses API の multimodal input 形式（公式ドキュメント準拠）
+// 参考: https://developers.openai.com/api/docs/guides/images-vision
+input: [
   {
     role: 'user',
     content: [
-      { type: 'text', text: createPrompt(input) },
-      { type: 'image_url', image_url: { url: 'data:image/png;base64,...' } }  // 画像がある場合
+      { type: 'input_text', text: createPrompt(input) },
+      { type: 'input_image', image_url: 'data:image/png;base64,...' }  // 画像がある場合のみ追加
     ]
   }
 ]
 ```
+
+> **注意**: Chat Completions API の `messages` 形式（`type: 'image_url'`, `image_url: { url: '...' }`）とは異なる。
+> Responses API では `type: 'input_image'` と `image_url` に文字列を直接指定する。
 
 影響ファイル:
 - `services/stock-tracker/batch/src/lib/openai-client.ts`
