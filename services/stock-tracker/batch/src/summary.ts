@@ -249,6 +249,8 @@ async function processExchange(
                   reason: errorMessage,
                 }
               );
+              stats.aiAnalysisSkipped++;
+              continue;
             }
           }
 

@@ -845,7 +845,7 @@ describe('summary batch handler', () => {
       );
     });
 
-    it('AI解析用chartData取得失敗時は空配列でAI解析を継続する', async () => {
+    it('AI解析用chartData取得失敗時はAI解析をスキップする', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       await dailySummaryRepository.upsert({
@@ -875,13 +875,12 @@ describe('summary batch handler', () => {
         generateAiAnalysisFn,
       });
 
-      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
-        'test-api-key',
-        expect.objectContaining({
-          historicalData: [],
-          chartImageBase64: undefined,
-        })
-      );
+      expect(generateAiAnalysisFn).not.toHaveBeenCalled();
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        AiAnalysis: undefined,
+      });
     });
 
     it('チャート画像生成失敗時は画像なしで AI 解析を継続する', async () => {
