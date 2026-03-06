@@ -11,13 +11,24 @@ import { getSession } from '../../../lib/auth';
 import {
   createDailySummaryRepository,
   createExchangeRepository,
+  createHoldingRepository,
   createTickerRepository,
 } from '../../../lib/repository-factory';
 
 const ERROR_MESSAGES = {
   INVALID_DATE: '日付はYYYY-MM-DD形式で指定してください',
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
+  FETCH_HOLDINGS_FAILED: '保有株式情報の取得に失敗しました',
 } as const;
+// サマリーAPIでは保有情報取得を1回のレスポンスで完結させるため、初期実装は100件を上限とする。
+// getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
+// レスポンス遅延や過剰なDBアクセスを抑制する。
+const MAX_HOLDINGS_PER_USER = 100;
+
+interface HoldingSummaryResponse {
+  quantity: number;
+  averagePrice: number;
+}
 
 interface TickerSummaryResponse {
   tickerId: string;
@@ -33,6 +44,7 @@ interface TickerSummaryResponse {
   patternDetails: PatternDetailResponse[];
   aiAnalysis?: string;
   aiAnalysisError?: string;
+  holding: HoldingSummaryResponse | null;
 }
 
 interface ExchangeSummaryGroupResponse {
@@ -71,9 +83,11 @@ const dailySummaryMapper = new DailySummaryMapper();
 
 function toTickerSummaryResponse(
   summary: DailySummaryEntity,
-  tickerMap: Map<string, TickerEntity>
+  tickerMap: Map<string, TickerEntity>,
+  holdingMap: Map<string, HoldingSummaryResponse>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
+  const holding = holdingMap.get(summary.TickerID) ?? null;
 
   return {
     tickerId: summary.TickerID,
@@ -84,14 +98,37 @@ function toTickerSummaryResponse(
     low: summary.Low,
     close: summary.Close,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
+    holding,
     ...dailySummaryMapper.toTickerSummaryResponse(summary),
   };
+}
+
+async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSummaryResponse>> {
+  try {
+    const holdingRepository = createHoldingRepository();
+    const holdingsResult = await holdingRepository.getByUserId(userId, {
+      limit: MAX_HOLDINGS_PER_USER,
+    });
+    return new Map(
+      holdingsResult.items.map((holding) => [
+        holding.TickerID,
+        {
+          quantity: holding.Quantity,
+          averagePrice: holding.AveragePrice,
+        },
+      ])
+    );
+  } catch (error) {
+    console.error(ERROR_MESSAGES.FETCH_HOLDINGS_FAILED, error);
+    return new Map<string, HoldingSummaryResponse>();
+  }
 }
 
 async function buildExchangeSummaryGroup(
   exchange: ExchangeEntity,
   date: string | null,
-  tickerMap: Map<string, TickerEntity>
+  tickerMap: Map<string, TickerEntity>,
+  holdingMap: Map<string, HoldingSummaryResponse>
 ): Promise<ExchangeSummaryGroupResponse> {
   const dailySummaryRepository = createDailySummaryRepository();
   const summaries = await dailySummaryRepository.getByExchange(
@@ -103,7 +140,7 @@ async function buildExchangeSummaryGroup(
     exchangeId: exchange.ExchangeID,
     exchangeName: exchange.Name,
     date: date ?? summaries[0]?.Date ?? null,
-    summaries: summaries.map((summary) => toTickerSummaryResponse(summary, tickerMap)),
+    summaries: summaries.map((summary) => toTickerSummaryResponse(summary, tickerMap, holdingMap)),
   };
 }
 
@@ -111,7 +148,7 @@ export const GET = withAuth(
   getSession,
   'stocks:read',
   async (
-    _session,
+    session,
     request: NextRequest
   ): Promise<NextResponse<SummariesResponse | ErrorResponse>> => {
     try {
@@ -135,10 +172,13 @@ export const GET = withAuth(
         exchangeRepository.getAll(),
         tickerRepository.getAll(),
       ]);
+      const holdingMap = await fetchHoldingMap(session.user.userId);
 
       const tickerMap = new Map(tickersResult.items.map((ticker) => [ticker.TickerID, ticker]));
       const exchangeSummaryGroups = await Promise.all(
-        exchanges.map((exchange) => buildExchangeSummaryGroup(exchange, date, tickerMap))
+        exchanges.map((exchange) =>
+          buildExchangeSummaryGroup(exchange, date, tickerMap, holdingMap)
+        )
       );
 
       return NextResponse.json({ exchanges: exchangeSummaryGroups }, { status: 200 });

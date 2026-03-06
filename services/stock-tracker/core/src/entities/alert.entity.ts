@@ -14,6 +14,12 @@ export interface AlertCondition {
   operator: 'gte' | 'lte';
   /** 比較値 */
   value: number;
+  /** パーセンテージ指定フラグ（true: パーセンテージで設定された条件） */
+  isPercentage?: boolean;
+  /** パーセンテージ値（isPercentage が true の場合のみ有効、基準価格からの変動率） */
+  percentageValue?: number;
+  /** パーセンテージ計算時の基準価格（isPercentage が true の場合に保存） */
+  basePrice?: number;
 }
 
 /**
@@ -36,6 +42,10 @@ export interface AlertEntity {
   Frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
   /** 有効/無効フラグ */
   Enabled: boolean;
+  /** 一時通知フラグ（true: 取引終了後に自動無効化） */
+  Temporary?: boolean;
+  /** 一時通知の期限取引日（YYYY-MM-DD, 取引所タイムゾーン基準） */
+  TemporaryExpireDate?: string;
   /** アラート条件リスト */
   ConditionList: AlertCondition[];
   /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用。未指定の場合はデフォルトで 'AND' として扱われる */
@@ -68,6 +78,8 @@ export type UpdateAlertInput = Partial<
     | 'Mode'
     | 'Frequency'
     | 'Enabled'
+    | 'Temporary'
+    | 'TemporaryExpireDate'
     | 'ConditionList'
     | 'LogicalOperator'
     | 'SubscriptionEndpoint'

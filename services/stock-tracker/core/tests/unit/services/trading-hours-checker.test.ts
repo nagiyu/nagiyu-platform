@@ -7,6 +7,7 @@
 import {
   isTradingHours,
   getLastTradingDate,
+  calculateTemporaryExpireDate,
   TRADING_HOURS_ERROR_MESSAGES,
 } from '../../../src/services/trading-hours-checker.js';
 import type { Exchange } from '../../../src/types.js';
@@ -302,6 +303,28 @@ describe('Trading Hours Checker Service', () => {
       // 08:00 < End(15:00) → 前日(日) → 前々日(土) → 前々々日(金) = 2024-01-12
       const now = Date.UTC(2024, 0, 14, 23, 0, 0);
       expect(getLastTradingDate(tse, now)).toBe('2024-01-12');
+    });
+  });
+
+  describe('calculateTemporaryExpireDate', () => {
+    it('取引時間内は当日を返す', () => {
+      // 2024-01-17 (水) 10:00 EST = 2024-01-17 15:00 UTC
+      const now = Date.UTC(2024, 0, 17, 15, 0, 0);
+      expect(calculateTemporaryExpireDate(nasdaq, now)).toBe('2024-01-17');
+    });
+
+    it('取引時間外（平日夜）は翌平日を返す', () => {
+      // 2024-01-17 (水) 21:00 EST = 2024-01-18 02:00 UTC
+      // 最新取引日: 2024-01-17 → 期限: 2024-01-18
+      const now = Date.UTC(2024, 0, 18, 2, 0, 0);
+      expect(calculateTemporaryExpireDate(nasdaq, now)).toBe('2024-01-18');
+    });
+
+    it('取引時間外（月曜開始前）は当週火曜ではなく当日月曜を返す', () => {
+      // 2024-01-15 (月) 03:00 EST = 2024-01-15 08:00 UTC
+      // 最新取引日: 前週金曜 2024-01-12 → 期限: 2024-01-15
+      const now = Date.UTC(2024, 0, 15, 8, 0, 0);
+      expect(calculateTemporaryExpireDate(nasdaq, now)).toBe('2024-01-15');
     });
   });
 

@@ -29,7 +29,6 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
       ? [{ label: 'サマリー', href: '/summaries' }]
       : []),
     { label: '保有株式', href: '/holdings' },
-    { label: 'ウォッチリスト', href: '/watchlist' },
     { label: 'アラート', href: '/alerts' },
     // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）
     ...(session?.user &&
