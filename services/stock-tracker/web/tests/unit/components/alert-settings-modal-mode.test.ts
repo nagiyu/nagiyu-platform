@@ -65,8 +65,46 @@ const editTargetWithPercentage: AlertResponse = {
   mode: 'Sell',
   frequency: 'MINUTE_LEVEL',
   conditions: [
-    { field: 'price', operator: 'gte', value: 210, isPercentage: true, percentageValue: 5 },
+    {
+      field: 'price',
+      operator: 'gte',
+      value: 210,
+      isPercentage: true,
+      percentageValue: 5,
+      basePrice: 200,
+    },
   ],
+  enabled: true,
+  createdAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
+};
+
+const editTargetRange: AlertResponse = {
+  alertId: 'alert-3',
+  tickerId: 'NASDAQ:AAPL',
+  symbol: 'AAPL',
+  name: 'Apple',
+  mode: 'Buy',
+  frequency: 'MINUTE_LEVEL',
+  conditions: [
+    {
+      field: 'price',
+      operator: 'gte',
+      value: 190,
+      isPercentage: true,
+      percentageValue: -5,
+      basePrice: 200,
+    },
+    {
+      field: 'price',
+      operator: 'lte',
+      value: 220,
+      isPercentage: true,
+      percentageValue: 10,
+      basePrice: 200,
+    },
+  ],
+  logicalOperator: 'AND',
   enabled: true,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
@@ -134,5 +172,44 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('アラートの編集');
     expect(html).toContain('パーセンテージ');
     expect(html).toContain('入力方式');
+  });
+
+  it('mode=edit のとき範囲指定アラートを編集できること（「条件は編集できません」メッセージを表示しない）', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'edit',
+        tradeMode: 'Buy',
+        editTarget: editTargetRange,
+        basePrice: 200,
+      })
+    );
+
+    expect(html).toContain('アラートの編集');
+    expect(html).not.toContain('範囲指定アラートの条件は編集できません');
+    expect(html).toContain('入力方式');
+    expect(html).toContain('パーセンテージ');
+  });
+
+  it('mode=edit で basePrice なしのとき、入力方式選択 UI を表示しない', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'edit',
+        tradeMode: 'Buy',
+        editTarget,
+      })
+    );
+
+    expect(html).toContain('アラートの編集');
+    expect(html).not.toContain('入力方式');
   });
 });

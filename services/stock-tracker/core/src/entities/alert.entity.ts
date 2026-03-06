@@ -18,6 +18,8 @@ export interface AlertCondition {
   isPercentage?: boolean;
   /** パーセンテージ値（isPercentage が true の場合のみ有効、基準価格からの変動率） */
   percentageValue?: number;
+  /** パーセンテージ計算時の基準価格（isPercentage が true の場合に保存） */
+  basePrice?: number;
 }
 
 /**

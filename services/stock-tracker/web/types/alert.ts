@@ -8,6 +8,7 @@ export interface AlertCondition {
   value: number;
   isPercentage?: boolean;
   percentageValue?: number;
+  basePrice?: number;
 }
 
 export interface AlertResponse {
