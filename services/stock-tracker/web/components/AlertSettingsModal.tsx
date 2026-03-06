@@ -110,6 +110,7 @@ interface CreateAlertRequest {
     value: number;
     isPercentage?: boolean;
     percentageValue?: number;
+    basePrice?: number;
   }>;
   subscription: PushSubscriptionJSON;
   logicalOperator?: 'AND' | 'OR';
@@ -320,6 +321,77 @@ export default function AlertSettingsModal({
             const targetPrice = parseFloat(formData.targetPrice);
             if (isNaN(targetPrice) || targetPrice < 0.01 || targetPrice > 1000000) {
               errors.targetPrice = ERROR_MESSAGES.INVALID_TARGET_PRICE;
+            }
+          }
+        }
+      } else {
+        // 範囲指定モードのバリデーション（編集モードでも通常と同じバリデーションを適用）
+        if (formData.rangeInputMode === 'percentage') {
+          let basePriceError: string | undefined;
+          if (basePrice === undefined || basePrice === null) {
+            basePriceError = ERROR_MESSAGES.BASE_PRICE_REQUIRED;
+          } else if (basePrice <= 0) {
+            basePriceError = ERROR_MESSAGES.INVALID_BASE_PRICE;
+          }
+
+          if (basePriceError) {
+            errors.minPercentage = basePriceError;
+            errors.maxPercentage = basePriceError;
+          } else {
+            if (!formData.minPercentage) {
+              errors.minPercentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+            }
+            if (!formData.maxPercentage) {
+              errors.maxPercentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+            }
+            if (formData.minPrice) {
+              const minPrice = parseFloat(formData.minPrice);
+              if (!isNaN(minPrice) && (minPrice < 0.01 || minPrice > 1000000)) {
+                errors.minPercentage = ERROR_MESSAGES.CALCULATED_MIN_PRICE_OUT_OF_RANGE;
+              }
+            }
+            if (formData.maxPrice) {
+              const maxPrice = parseFloat(formData.maxPrice);
+              if (!isNaN(maxPrice) && (maxPrice < 0.01 || maxPrice > 1000000)) {
+                errors.maxPercentage = ERROR_MESSAGES.CALCULATED_MAX_PRICE_OUT_OF_RANGE;
+              }
+            }
+            if (formData.minPrice && formData.maxPrice) {
+              const minPrice = parseFloat(formData.minPrice);
+              const maxPrice = parseFloat(formData.maxPrice);
+              if (!isNaN(minPrice) && !isNaN(maxPrice) && minPrice >= maxPrice) {
+                errors.minPercentage =
+                  formData.rangeType === 'inside'
+                    ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                    : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
+              }
+            }
+          }
+        } else {
+          if (!formData.minPrice) {
+            errors.minPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+          } else {
+            const minPrice = parseFloat(formData.minPrice);
+            if (isNaN(minPrice) || minPrice < 0.01 || minPrice > 1000000) {
+              errors.minPrice = ERROR_MESSAGES.INVALID_MIN_PRICE;
+            }
+          }
+          if (!formData.maxPrice) {
+            errors.maxPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+          } else {
+            const maxPrice = parseFloat(formData.maxPrice);
+            if (isNaN(maxPrice) || maxPrice < 0.01 || maxPrice > 1000000) {
+              errors.maxPrice = ERROR_MESSAGES.INVALID_MAX_PRICE;
+            }
+          }
+          if (formData.minPrice && formData.maxPrice) {
+            const minPrice = parseFloat(formData.minPrice);
+            const maxPrice = parseFloat(formData.maxPrice);
+            if (!isNaN(minPrice) && !isNaN(maxPrice) && minPrice >= maxPrice) {
+              errors.minPrice =
+                formData.rangeType === 'inside'
+                  ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                  : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
             }
           }
         }
@@ -563,6 +635,7 @@ export default function AlertSettingsModal({
             value: number;
             isPercentage?: boolean;
             percentageValue?: number;
+            basePrice?: number;
           }>;
           enabled: boolean;
           temporary: boolean;
@@ -572,16 +645,66 @@ export default function AlertSettingsModal({
         };
 
         if (formData.conditionMode === 'single') {
-          const condition: { value: number; isPercentage?: boolean; percentageValue?: number } = {
+          const condition: {
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = {
             value: parseFloat(formData.targetPrice),
           };
           if (formData.inputMode === 'percentage' && formData.percentage) {
             condition.isPercentage = true;
             condition.percentageValue = parseFloat(formData.percentage);
+            if (basePrice && basePrice > 0) {
+              condition.basePrice = basePrice;
+            }
           } else {
             condition.isPercentage = false;
           }
           updateData.conditions = [condition];
+        } else {
+          // 範囲指定モードの条件更新
+          const minPrice = parseFloat(formData.minPrice);
+          const maxPrice = parseFloat(formData.maxPrice);
+          const isRangePercentage =
+            formData.rangeInputMode === 'percentage' &&
+            formData.minPercentage &&
+            formData.maxPercentage;
+
+          const minCondition: {
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = { value: minPrice };
+          const maxCondition: {
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = { value: maxPrice };
+
+          if (isRangePercentage) {
+            const minPctVal = parseFloat(formData.minPercentage!);
+            const maxPctVal = parseFloat(formData.maxPercentage!);
+            minCondition.isPercentage = true;
+            if (!isNaN(minPctVal)) {
+              minCondition.percentageValue = minPctVal;
+            }
+            maxCondition.isPercentage = true;
+            if (!isNaN(maxPctVal)) {
+              maxCondition.percentageValue = maxPctVal;
+            }
+            if (basePrice && basePrice > 0) {
+              minCondition.basePrice = basePrice;
+              maxCondition.basePrice = basePrice;
+            }
+          } else {
+            minCondition.isPercentage = false;
+            maxCondition.isPercentage = false;
+          }
+          updateData.conditions = [minCondition, maxCondition];
         }
 
         const response = await fetch(
@@ -624,6 +747,7 @@ export default function AlertSettingsModal({
             value: number;
             isPercentage?: boolean;
             percentageValue?: number;
+            basePrice?: number;
           } = {
             field: 'price' as const,
             operator: formData.operator,
@@ -632,6 +756,9 @@ export default function AlertSettingsModal({
           if (formData.inputMode === 'percentage' && formData.percentage) {
             singleCondition.isPercentage = true;
             singleCondition.percentageValue = parseFloat(formData.percentage);
+            if (basePrice && basePrice > 0) {
+              singleCondition.basePrice = basePrice;
+            }
           }
           conditions = [singleCondition];
         } else {
@@ -647,7 +774,11 @@ export default function AlertSettingsModal({
                 operator: 'gte' as const,
                 value: minPrice,
                 ...(formData.rangeInputMode === 'percentage' && formData.minPercentage
-                  ? { isPercentage: true, percentageValue: parseFloat(formData.minPercentage) }
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.minPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
                   : {}),
               },
               {
@@ -655,7 +786,11 @@ export default function AlertSettingsModal({
                 operator: 'lte' as const,
                 value: maxPrice,
                 ...(formData.rangeInputMode === 'percentage' && formData.maxPercentage
-                  ? { isPercentage: true, percentageValue: parseFloat(formData.maxPercentage) }
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.maxPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
                   : {}),
               },
             ];
@@ -668,7 +803,11 @@ export default function AlertSettingsModal({
                 operator: 'lte' as const,
                 value: minPrice,
                 ...(formData.rangeInputMode === 'percentage' && formData.minPercentage
-                  ? { isPercentage: true, percentageValue: parseFloat(formData.minPercentage) }
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.minPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
                   : {}),
               },
               {
@@ -676,7 +815,11 @@ export default function AlertSettingsModal({
                 operator: 'gte' as const,
                 value: maxPrice,
                 ...(formData.rangeInputMode === 'percentage' && formData.maxPercentage
-                  ? { isPercentage: true, percentageValue: parseFloat(formData.maxPercentage) }
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.maxPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
                   : {}),
               },
             ];
@@ -881,7 +1024,6 @@ export default function AlertSettingsModal({
               )}
 
               {/* 入力方式選択 */}
-              {/* 編集時: パーセンテージ作成の場合はパーセンテージ変更・手動切替を許可、手動作成の場合は手動入力のみ許可 */}
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="input-mode-label">入力方式</InputLabel>
@@ -891,7 +1033,6 @@ export default function AlertSettingsModal({
                     value={formData.inputMode}
                     label="入力方式"
                     onChange={(e) => handleFormChange('inputMode', e.target.value)}
-                    disabled={mode === 'edit' && formData.inputMode !== 'percentage'}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -1008,7 +1149,7 @@ export default function AlertSettingsModal({
                 </FormControl>
               )}
 
-              {/* 入力方式選択（範囲指定は条件全体が読み取り専用のため常に無効化） */}
+              {/* 入力方式選択（範囲指定） */}
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="range-input-mode-label">入力方式</InputLabel>
@@ -1018,7 +1159,6 @@ export default function AlertSettingsModal({
                     value={formData.rangeInputMode}
                     label="入力方式"
                     onChange={(e) => handleFormChange('rangeInputMode', e.target.value)}
-                    disabled={mode === 'edit'}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -1036,7 +1176,6 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.minPrice}
                     onChange={(e) => handleFormChange('minPrice', e.target.value)}
-                    disabled={mode === 'edit'}
                     error={!!formErrors.minPrice}
                     helperText={
                       formErrors.minPrice ||
@@ -1052,7 +1191,6 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.maxPrice}
                     onChange={(e) => handleFormChange('maxPrice', e.target.value)}
-                    disabled={mode === 'edit'}
                     error={!!formErrors.maxPrice}
                     helperText={
                       formErrors.maxPrice ||
@@ -1074,7 +1212,6 @@ export default function AlertSettingsModal({
                       value={formData.minPercentage}
                       label="最小価格のパーセンテージ"
                       onChange={(e) => handleFormChange('minPercentage', e.target.value)}
-                      disabled={mode === 'edit'}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1093,7 +1230,6 @@ export default function AlertSettingsModal({
                       value={formData.maxPercentage}
                       label="最大価格のパーセンテージ"
                       onChange={(e) => handleFormChange('maxPercentage', e.target.value)}
-                      disabled={mode === 'edit'}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1145,11 +1281,6 @@ export default function AlertSettingsModal({
                     </Typography>
                   )}
                 </>
-              )}
-              {mode === 'edit' && (
-                <Alert severity="info">
-                  範囲指定アラートの条件は編集できません。条件を変更したい場合は、アラートを削除して新しく作成してください。
-                </Alert>
               )}
             </>
           )}

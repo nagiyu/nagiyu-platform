@@ -45,6 +45,7 @@ interface AlertResponse {
     value: number;
     isPercentage?: boolean;
     percentageValue?: number;
+    basePrice?: number;
   }>;
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;

@@ -47,6 +47,7 @@ interface AlertResponse {
     value: number;
     isPercentage?: boolean;
     percentageValue?: number;
+    basePrice?: number;
   }>;
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
@@ -151,29 +152,36 @@ export const PUT = withAuth(
 
       if (body.conditions !== undefined) {
         // 条件の部分更新をサポート
-        // Phase 1: 条件は1つのみなので、既存条件とマージ
-        const existingCondition = existingAlert.ConditionList[0];
-        const updateCondition = body.conditions[0];
+        // 既存条件とインデックス対応でマージ（単一・範囲指定の両方に対応）
+        const updatedConditions: AlertCondition[] = existingAlert.ConditionList.map(
+          (existingCondition, index) => {
+            const updateCondition = body.conditions[index];
+            if (!updateCondition) return existingCondition;
 
-        if (updateCondition) {
-          const mergedCondition: AlertCondition = {
-            field: updateCondition.field ?? existingCondition.field,
-            operator: updateCondition.operator ?? existingCondition.operator,
-            value: updateCondition.value ?? existingCondition.value,
-          };
+            const mergedCondition: AlertCondition = {
+              field: updateCondition.field ?? existingCondition.field,
+              operator: updateCondition.operator ?? existingCondition.operator,
+              value: updateCondition.value ?? existingCondition.value,
+            };
 
-          if (updateCondition.isPercentage === true) {
-            mergedCondition.isPercentage = true;
-            if (typeof updateCondition.percentageValue === 'number') {
-              mergedCondition.percentageValue = updateCondition.percentageValue;
+            if (updateCondition.isPercentage === true) {
+              mergedCondition.isPercentage = true;
+              if (typeof updateCondition.percentageValue === 'number') {
+                mergedCondition.percentageValue = updateCondition.percentageValue;
+              }
+              if (typeof updateCondition.basePrice === 'number') {
+                mergedCondition.basePrice = updateCondition.basePrice;
+              }
+            } else if (updateCondition.isPercentage === false) {
+              // 明示的に false が指定された場合はパーセンテージ情報をクリア
+              mergedCondition.isPercentage = false;
             }
-          } else if (updateCondition.isPercentage === false) {
-            // 明示的に false が指定された場合はパーセンテージ情報をクリア
-            mergedCondition.isPercentage = false;
-          }
 
-          updates.ConditionList = [mergedCondition];
-        }
+            return mergedCondition;
+          }
+        );
+
+        updates.ConditionList = updatedConditions;
       }
 
       if (body.enabled !== undefined) {

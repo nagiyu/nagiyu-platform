@@ -15,8 +15,8 @@
 
 ### 機能要件
 
-- FR1: アラート条件をパーセンテージで設定した場合、`isPercentage` フラグと `percentageValue` を保持する
-- FR2: アラート一覧・詳細 API がパーセンテージ情報を返す
+- FR1: アラート条件をパーセンテージで設定した場合、`isPercentage` フラグ・`percentageValue`・`basePrice` を保持する
+- FR2: アラート一覧・詳細 API がパーセンテージ情報（`basePrice` を含む）を返す
 - FR3: アラート編集時、パーセンテージで作成された条件の場合は入力方式を「パーセンテージ」に復元して表示する
 - FR4: アラート編集時、パーセンテージ条件の場合はパーセンテージ値を変更できる
 - FR5: 範囲指定アラートでもパーセンテージ情報を保持・復元する
@@ -27,31 +27,41 @@
 - NFR1: 既存の手動入力アラートの動作に影響しない
 - NFR2: テストカバレッジ 80% 以上を維持する
 
-## 実装の概要
+## 実装方針
 
-### 変更対象ファイル
+### `basePrice` を condition に持つ方式（シンプル設計）
+
+パーセンテージ編集の基準価格を `AlertCondition.basePrice` に保持する。
+こうすることで：
+
+- `alerts/page.tsx` から基準価格の取得や計算が不要になる
+- サマリーの最新 close へのフォールバックが不要になる
+- 条件自体が基準価格を持つためシンプルに復元できる
+
+`alerts/page.tsx` では `condition.basePrice` を参照し、後方互換として
+`isPercentage=true` かつ `percentageValue` がある場合は `value / (1 + percentageValue / 100)` で逆算する。
+
+## 変更対象ファイル
 
 1. `services/stock-tracker/core/src/entities/alert.entity.ts`
-    - `AlertCondition` に `isPercentage?: boolean` と `percentageValue?: number` フィールドを追加
-2. `services/stock-tracker/core/src/index.ts`
-    - `AlertCondition` 型を公開エクスポートに追加
-3. `services/stock-tracker/web/types/alert.ts`
-    - Web 側の `AlertCondition` 型に同様のフィールドを追加
-4. `services/stock-tracker/web/app/api/alerts/route.ts`
-    - `AlertResponse` のconditions型にパーセンテージフィールドを追加
-5. `services/stock-tracker/web/app/api/alerts/[id]/route.ts`
-    - `AlertResponse` の conditions 型更新
-    - PUT エンドポイントの条件マージ処理にパーセンテージフィールドを対応
-6. `services/stock-tracker/web/components/AlertSettingsModal.tsx`
-    - 作成時: パーセンテージモードの場合に `isPercentage`/`percentageValue` を API リクエストに含める
-    - 編集時: `isPercentage=true` の条件を入力方式「パーセンテージ」で復元
-    - 編集時: パーセンテージ値の変更を可能にする
-
-### データ永続化
-
-`AlertMapper` は `ConditionList` を DynamoDB にそのまま保存するため、
-`AlertCondition` に追加したオプションフィールドは自動的に保持される。
-マッパー本体の変更は不要。
+    - `AlertCondition` に `basePrice?: number` フィールドを追加
+2. `services/stock-tracker/web/types/alert.ts`
+    - Web 側の `AlertCondition` 型に `basePrice?: number` を追加
+3. `services/stock-tracker/web/app/api/alerts/route.ts`
+    - `AlertResponse` の conditions 型に `basePrice` を追加
+4. `services/stock-tracker/web/app/api/alerts/[id]/route.ts`
+    - `AlertResponse` の conditions 型に `basePrice` を追加
+    - PUT エンドポイントで全条件（単一・範囲）をインデックス対応でマージ
+    - マージ時に `basePrice` を対応
+5. `services/stock-tracker/web/components/AlertSettingsModal.tsx`
+    - 作成時: パーセンテージモードの場合に `basePrice` を条件に含める
+    - 編集時（単一）: 入力方式の自由切替を可能にする（`disabled` 制約を削除）
+    - 編集時（範囲）: 入力方式・パーセンテージ・価格フィールドの `disabled` 制約を削除
+    - 編集時（範囲）: 「条件は編集できません」Info メッセージを削除
+    - `handleSubmit` 編集時: 範囲指定モードの条件更新に対応
+    - 編集モードのバリデーション: 範囲指定モードにも対応
+6. `services/stock-tracker/web/app/alerts/page.tsx`
+    - 編集モーダルに `basePrice` を渡す（`condition.basePrice` 参照、後方互換逆算あり）
 
 ## タスク
 
@@ -65,61 +75,17 @@
 - [x] T008: `AlertSettingsModal` の編集モードで単一条件のパーセンテージ変更を可能にする
 - [x] T009: mapper テストにパーセンテージ往復変換テストを追加
 - [x] T010: AlertSettingsModal モードテストにパーセンテージ編集復元テストを追加
-
-## 未対応の問題（追加タスク）
-
-現状の調査（コードレビュー）で以下の未対応箇所を確認。
-
-### 単一条件モードでも `basePrice` 未渡しでパーセンテージが表示・編集できない
-
-`alerts/page.tsx` の編集モーダルに `basePrice` が渡されていないため、
-パーセンテージUIが全く表示されない（`{basePrice && basePrice > 0 && (...)}` 条件で非表示）。
-これは単一条件・範囲指定の両方に影響する。
-新規作成モーダル（summaries/page.tsx, holdings/page.tsx）は正しく `basePrice` を渡している。
-
-### 単一条件モードで手動 → パーセンテージへの切替が禁止されている
-
-編集モーダルで単一条件アラートを開いた場合:
-- 入力方式の Select が `disabled={mode === 'edit' && formData.inputMode !== 'percentage'}` となっており、
-  **手動入力で作成されたアラートはパーセンテージへ切替不可**
-- パーセンテージで作成されたアラートは切替可能だが、`basePrice` が渡されないため UI が表示されない
-
-### 範囲指定モードのパーセンテージ編集が無効
-
-編集モーダルで範囲指定アラートを開いた場合:
-- 入力方式の Select が `disabled={mode === 'edit'}` で完全に無効化されている（手動↔パーセンテージ切替不可）
-- パーセンテージ Select（最小・最大）も `disabled={mode === 'edit'}` で変更不可
-- 「範囲指定アラートの条件は編集できません」という Info メッセージが表示される
-
-### PUT API が範囲条件（2条件）の更新に未対応
-
-`[id]/route.ts` の PUT 処理は `ConditionList[0]` の単一条件のみマージしており、
-範囲指定アラート（2条件）の更新ができない。
-
-### 追加タスク
-
-- [ ] T011: `alerts/page.tsx` の編集モーダルに `basePrice` を渡す
-    - `isPercentage=true` の条件がある場合は `value / (1 + percentageValue / 100)` で逆算
-    - パーセンテージ情報がない場合でも、最新の株価を取得して渡すことで手動→パーセンテージへの切替を可能にする
-- [ ] T012: `AlertSettingsModal.tsx` の単一条件モードで入力方式を自由に切替えられるようにする
-    - `disabled={mode === 'edit' && formData.inputMode !== 'percentage'}` を削除し、常に切替可能にする
-    - `basePrice` があれば手動作成のアラートでもパーセンテージモードへ切替えて再設定可能にする
-- [ ] T013: `AlertSettingsModal.tsx` の範囲指定モードで入力方式・パーセンテージ値を編集可能にする
-    - 入力方式 Select の `disabled={mode === 'edit'}` を削除
-    - 最小・最大パーセンテージ Select の `disabled={mode === 'edit'}` を解除
-    - 「範囲指定アラートの条件は編集できません」の Info メッセージを削除
-- [ ] T014: `AlertSettingsModal.tsx` の handleSubmit で範囲指定モードの条件更新に対応
-    - `formData.conditionMode === 'range'` の場合も `updateData.conditions` をセット
-    - 手動モードは minPrice/maxPrice を、パーセンテージモードは計算済み価格を含める
-    - 各条件に `isPercentage`/`percentageValue` を適切に含める
-- [ ] T015: `[id]/route.ts` の PUT 処理で範囲条件（2条件）のマージに対応
-    - `existingAlert.ConditionList` の全条件と `body.conditions` をインデックス対応でマージ
-- [ ] T016: 上記変更に対するユニットテストを追加
-    - `alerts/page.tsx` の basePrice 逆算ロジックのテスト
-    - `AlertSettingsModal` 単一条件・範囲指定の入力方式切替テスト
-    - PUT API 範囲条件マージのテスト
+- [x] T011: `AlertCondition` に `basePrice` フィールドを追加し作成時に保存する
+- [x] T012: `alerts/page.tsx` の編集モーダルに `basePrice` を渡す（条件から取得）
+- [x] T013: `AlertSettingsModal.tsx` の単一条件モードで入力方式を自由に切替えられるようにする
+- [x] T014: `AlertSettingsModal.tsx` の範囲指定モードで入力方式・価格・パーセンテージ値を編集可能にする
+- [x] T015: `AlertSettingsModal.tsx` の handleSubmit で範囲指定モードの条件更新に対応
+- [x] T016: `AlertSettingsModal.tsx` の編集モードバリデーションで範囲指定に対応
+- [x] T017: `[id]/route.ts` の PUT 処理で全条件（範囲含む）のマージと `basePrice` に対応
+- [x] T018: ユニットテストを追加・更新（mapper `basePrice` 往復変換、モーダル範囲編集テスト）
 
 ## 参考ドキュメント
 
 - `docs/development/rules.md`
 - `docs/development/architecture.md`
+

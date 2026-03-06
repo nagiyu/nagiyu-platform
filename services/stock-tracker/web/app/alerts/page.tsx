@@ -148,6 +148,20 @@ function AlertsPageContent() {
     }
   };
 
+  // 編集対象のアラートから basePrice を取得（パーセンテージ編集に使用）
+  const getBasePriceForEdit = (alert: AlertResponse): number | undefined => {
+    const firstCond = alert.conditions[0];
+    if (!firstCond) return undefined;
+    // 条件に basePrice が保存されている場合はそれを使用
+    if (firstCond.basePrice && firstCond.basePrice > 0) return firstCond.basePrice;
+    // 後方互換: isPercentage=true で percentageValue がある場合は逆算
+    if (firstCond.isPercentage === true && typeof firstCond.percentageValue === 'number') {
+      const computed = firstCond.value / (1 + firstCond.percentageValue / 100);
+      if (computed > 0) return Math.round(computed * 100) / 100;
+    }
+    return undefined;
+  };
+
   // 編集モーダルを開く
   const handleOpenEditModal = (alert: AlertResponse) => {
     setSelectedAlert(alert);
@@ -376,6 +390,7 @@ function AlertsPageContent() {
           mode="edit"
           tradeMode={selectedAlert.mode}
           editTarget={selectedAlert}
+          basePrice={getBasePriceForEdit(selectedAlert)}
         />
       )}
 
