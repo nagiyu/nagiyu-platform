@@ -165,66 +165,6 @@ describe('DynamoDBDailySummaryRepository', () => {
     });
   });
 
-  describe('getRecentByTicker', () => {
-    it('PK固定・SK範囲・降順・Limitでクエリできる', async () => {
-      mockDocClient.send.mockResolvedValueOnce({
-        Items: [
-          {
-            PK: 'SUMMARY#NSDQ:AAPL',
-            SK: 'DATE#2026-02-27',
-            Type: 'DailySummary',
-            GSI4PK: 'NASDAQ',
-            GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
-            TickerID: 'NSDQ:AAPL',
-            ExchangeID: 'NASDAQ',
-            Date: '2026-02-27',
-            Open: 182.15,
-            High: 183.92,
-            Low: 181.44,
-            Close: 183.31,
-            CreatedAt: 1708992000000,
-            UpdatedAt: 1708992000000,
-          },
-        ],
-      });
-
-      const result = await repository.getRecentByTicker('NSDQ:AAPL', '2026-02-27', 50);
-
-      expect(result).toHaveLength(1);
-      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
-      expect(command.input).toMatchObject({
-        TableName: TABLE_NAME,
-        KeyConditionExpression: '#pk = :pk AND #sk BETWEEN :fromSk AND :toSk',
-        ExpressionAttributeNames: {
-          '#pk': 'PK',
-          '#sk': 'SK',
-        },
-        ExpressionAttributeValues: {
-          ':pk': 'SUMMARY#NSDQ:AAPL',
-          ':fromSk': 'DATE#0000-00-00',
-          ':toSk': 'DATE#2026-02-27',
-        },
-        ScanIndexForward: false,
-        Limit: 50,
-      });
-    });
-
-    it('count が 0 以下なら空配列を返す', async () => {
-      const result = await repository.getRecentByTicker('NSDQ:AAPL', '2026-02-27', 0);
-
-      expect(result).toEqual([]);
-      expect(mockDocClient.send).not.toHaveBeenCalled();
-    });
-
-    it('データベースエラー時にDatabaseErrorをスローする', async () => {
-      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
-
-      await expect(repository.getRecentByTicker('NSDQ:AAPL', '2026-02-27', 50)).rejects.toThrow(
-        DatabaseError
-      );
-    });
-  });
-
   describe('upsert', () => {
     it('PutItem でサマリーを upsert できる', async () => {
       const now = 1708992000000;

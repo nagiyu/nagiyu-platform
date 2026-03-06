@@ -75,32 +75,6 @@ export class InMemoryDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
-   * ティッカーIDをキーに終了日以前の新しい順サマリーを取得
-   */
-  public async getRecentByTicker(
-    tickerId: string,
-    endDate: string,
-    count: number
-  ): Promise<DailySummaryEntity[]> {
-    if (count <= 0) {
-      return [];
-    }
-
-    const result = this.store.query({
-      pk: `SUMMARY#${tickerId}`,
-      sk: {
-        operator: 'between',
-        value: ['DATE#0000-00-00', `DATE#${endDate}`],
-      },
-    });
-
-    return result.items
-      .map((item) => this.mapper.toEntity(item))
-      .sort((a, b) => b.Date.localeCompare(a.Date))
-      .slice(0, count);
-  }
-
-  /**
    * サマリーを保存（既存の場合は上書き）
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {

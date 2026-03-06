@@ -34,20 +34,6 @@ export interface DailySummaryRepository {
   getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]>;
 
   /**
-   * ティッカーIDをキーに終了日以前の新しい順サマリーを取得
-   *
-   * @param tickerId - ティッカーID
-   * @param endDate - 終了日 (YYYY-MM-DD)
-   * @param count - 取得件数
-   * @returns 日付降順のサマリー配列
-   */
-  getRecentByTicker(
-    tickerId: string,
-    endDate: string,
-    count: number
-  ): Promise<DailySummaryEntity[]>;
-
-  /**
    * サマリーを保存（既存の場合は上書き）
    *
    * @param input - 日次サマリーデータ
