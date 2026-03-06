@@ -34,6 +34,12 @@ export interface AiAnalysisInput {
   chartImageBase64?: string;
 }
 
+type OpenAiImageInput = {
+  type: 'input_image';
+  image_url: string;
+  detail: 'auto';
+};
+
 export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput): Promise<string> {
   const client = new OpenAI({
     apiKey,
@@ -74,9 +80,7 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
   return outputText;
 }
 
-function toSupportedImageInput(chartImageBase64: string | undefined):
-  | { type: 'input_image'; image_url: string; detail: 'auto' }
-  | undefined {
+function toSupportedImageInput(chartImageBase64: string | undefined): OpenAiImageInput | undefined {
   if (!chartImageBase64) {
     return undefined;
   }
