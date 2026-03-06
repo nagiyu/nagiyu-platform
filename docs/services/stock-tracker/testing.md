@@ -67,7 +67,6 @@ npm run test:coverage --workspace=stock-tracker-core
 | E2E-001    | チャート表示フロー | 取引所・ティッカー選択→チャート表示 | 高 | 全デバイス |
 | E2E-002    | アラート設定フロー | アラート作成→条件設定→保存 | 高 | 全デバイス |
 | E2E-003    | Holding 管理フロー | Holding 登録・更新・削除 | 高 | 全デバイス |
-| E2E-004    | Watchlist 管理フロー | Watchlist 登録・削除 | 高 | 全デバイス |
 | E2E-005    | 権限チェック | stock-admin のみアクセス可能な画面 | 中 | chromium-mobile |
 | E2E-006    | 取引所管理 | 取引所CRUD操作 | 中 | chromium-mobile |
 | E2E-007    | ティッカー管理 | ティッカーCRUD操作 | 中 | chromium-mobile |

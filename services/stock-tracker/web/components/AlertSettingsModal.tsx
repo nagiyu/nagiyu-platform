@@ -16,8 +16,20 @@ import {
   CircularProgress,
   Box,
   Typography,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
+import type { Timeframe, ChartBarCount } from '../types/stock';
+import {
+  TIMEFRAME_LABELS,
+  CHART_BAR_COUNTS,
+  CHART_BAR_COUNT_LABELS,
+  DEFAULT_CHART_BAR_COUNT,
+} from '../types/stock';
+import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
+import { computeAlertLines, getChartAlertConditions } from '../lib/chart-overlay-lines';
+import StockChart from './StockChart';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -40,10 +52,17 @@ const ERROR_MESSAGES = {
     '計算された最小価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
   CALCULATED_MAX_PRICE_OUT_OF_RANGE:
     '計算された最大価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
+  UPDATE_ALERT_ERROR: 'アラートの更新に失敗しました',
 } as const;
+
+const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
+  MINUTE_LEVEL: '1分間隔',
+  HOURLY_LEVEL: '1時間間隔',
+};
 
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
+const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -53,7 +72,9 @@ interface AlertSettingsModalProps {
   tickerId: string;
   symbol: string;
   exchangeId: string;
-  mode: 'Buy' | 'Sell';
+  mode: 'create' | 'edit';
+  tradeMode: AlertMode;
+  editTarget?: AlertResponse;
   defaultTargetPrice?: number;
   basePrice?: number; // パーセンテージ計算の基準価格
 }
@@ -66,7 +87,9 @@ interface FormData {
   rangeType: 'inside' | 'outside'; // 範囲指定の場合のみ
   minPrice: string; // 範囲指定の場合のみ
   maxPrice: string; // 範囲指定の場合のみ
-  frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+  frequency: AlertFrequency;
+  enabled: boolean;
+  temporary: boolean;
   // パーセンテージ選択用フィールド（単一条件モード用）
   inputMode?: 'manual' | 'percentage';
   percentage?: string; // -20 ～ +20
@@ -80,26 +103,32 @@ interface FormData {
 interface CreateAlertRequest {
   tickerId: string;
   exchangeId: string;
-  mode: 'Buy' | 'Sell';
-  frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+  mode: AlertMode;
+  frequency: AlertFrequency;
   conditions: Array<{
     field: 'price';
     operator: 'gte' | 'lte';
     value: number;
+    isPercentage?: boolean;
+    percentageValue?: number;
+    basePrice?: number;
   }>;
   subscription: PushSubscriptionJSON;
   logicalOperator?: 'AND' | 'OR';
+  temporary?: boolean;
 }
 
 // 初期フォームデータ
-const getInitialFormData = (mode: 'Buy' | 'Sell'): FormData => ({
+const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   conditionMode: 'single',
-  operator: mode === 'Sell' ? 'gte' : 'lte',
+  operator: tradeMode === 'Sell' ? 'gte' : 'lte',
   targetPrice: '',
   rangeType: 'inside',
   minPrice: '',
   maxPrice: '',
   frequency: 'MINUTE_LEVEL',
+  enabled: true,
+  temporary: false,
   // パーセンテージ選択用フィールドのデフォルト値
   inputMode: 'manual',
   percentage: '',
@@ -116,30 +145,81 @@ export default function AlertSettingsModal({
   symbol,
   exchangeId,
   mode,
+  tradeMode,
+  editTarget,
   defaultTargetPrice,
   basePrice,
 }: AlertSettingsModalProps) {
+  const dialogTitle = `${mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (${tradeMode === 'Buy' ? '買い' : '売り'}アラート)`;
+
   // フォームデータ
-  const [formData, setFormData] = useState<FormData>(getInitialFormData(mode));
+  const [formData, setFormData] = useState<FormData>(getInitialFormData(tradeMode));
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
   // 状態管理
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
+  const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
+
+  const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
     if (open) {
-      setFormData({
-        ...getInitialFormData(mode),
-        targetPrice: defaultTargetPrice ? defaultTargetPrice.toString() : '',
-      });
+      if (mode === 'edit' && editTarget) {
+        const isRangeCondition = editTarget.conditions.length === 2 && !!editTarget.logicalOperator;
+
+        if (isRangeCondition) {
+          const minCond = editTarget.conditions[0];
+          const maxCond = editTarget.conditions[1];
+          const isRangePercentage =
+            minCond?.isPercentage === true && maxCond?.isPercentage === true;
+          setFormData({
+            ...getInitialFormData(tradeMode),
+            conditionMode: 'range',
+            minPrice: minCond?.value.toString() || '',
+            maxPrice: maxCond?.value.toString() || '',
+            frequency: editTarget.frequency,
+            enabled: editTarget.enabled,
+            temporary: editTarget.temporary === true,
+            ...(isRangePercentage && {
+              rangeInputMode: 'percentage',
+              minPercentage: minCond?.percentageValue?.toString() || '',
+              maxPercentage: maxCond?.percentageValue?.toString() || '',
+            }),
+          });
+        } else {
+          const singleCond = editTarget.conditions[0];
+          const isSinglePercentage = singleCond?.isPercentage === true;
+          setFormData({
+            ...getInitialFormData(tradeMode),
+            conditionMode: 'single',
+            operator: singleCond?.operator === 'gte' ? 'gte' : 'lte',
+            targetPrice: singleCond?.value.toString() || '',
+            frequency: editTarget.frequency,
+            enabled: editTarget.enabled,
+            temporary: editTarget.temporary === true,
+            ...(isSinglePercentage && {
+              inputMode: 'percentage',
+              percentage: singleCond?.percentageValue?.toString() || '',
+            }),
+          });
+        }
+      } else {
+        setFormData({
+          ...getInitialFormData(tradeMode),
+          targetPrice: defaultTargetPrice ? defaultTargetPrice.toString() : '',
+        });
+      }
       setFormErrors({});
       setError('');
       setSubscription(null);
+      setTimeframe(DEFAULT_CHART_TIMEFRAME);
+      setChartBarCount(DEFAULT_CHART_BAR_COUNT);
     }
-  }, [open, mode, defaultTargetPrice]);
+  }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
   // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
@@ -217,6 +297,111 @@ export default function AlertSettingsModal({
   // フォームのバリデーション
   const validateForm = (): boolean => {
     const errors: Partial<Record<keyof FormData, string>> = {};
+
+    if (mode === 'edit') {
+      if (formData.conditionMode === 'single') {
+        if (formData.inputMode === 'percentage') {
+          // パーセンテージモードのバリデーション
+          if (basePrice === undefined || basePrice === null) {
+            errors.percentage = ERROR_MESSAGES.BASE_PRICE_REQUIRED;
+          } else if (basePrice <= 0) {
+            errors.percentage = ERROR_MESSAGES.INVALID_BASE_PRICE;
+          } else {
+            if (!formData.percentage) {
+              errors.percentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+            }
+            if (formData.targetPrice) {
+              const targetPrice = parseFloat(formData.targetPrice);
+              if (!isNaN(targetPrice) && (targetPrice < 0.01 || targetPrice > 1000000)) {
+                errors.percentage = ERROR_MESSAGES.CALCULATED_PRICE_OUT_OF_RANGE;
+              }
+            }
+          }
+        } else {
+          if (!formData.targetPrice) {
+            errors.targetPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+          } else {
+            const targetPrice = parseFloat(formData.targetPrice);
+            if (isNaN(targetPrice) || targetPrice < 0.01 || targetPrice > 1000000) {
+              errors.targetPrice = ERROR_MESSAGES.INVALID_TARGET_PRICE;
+            }
+          }
+        }
+      } else {
+        // 範囲指定モードのバリデーション（編集モードでも通常と同じバリデーションを適用）
+        if (formData.rangeInputMode === 'percentage') {
+          let basePriceError: string | undefined;
+          if (basePrice === undefined || basePrice === null) {
+            basePriceError = ERROR_MESSAGES.BASE_PRICE_REQUIRED;
+          } else if (basePrice <= 0) {
+            basePriceError = ERROR_MESSAGES.INVALID_BASE_PRICE;
+          }
+
+          if (basePriceError) {
+            errors.minPercentage = basePriceError;
+            errors.maxPercentage = basePriceError;
+          } else {
+            if (!formData.minPercentage) {
+              errors.minPercentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+            }
+            if (!formData.maxPercentage) {
+              errors.maxPercentage = ERROR_MESSAGES.PERCENTAGE_REQUIRED;
+            }
+            if (formData.minPrice) {
+              const minPrice = parseFloat(formData.minPrice);
+              if (!isNaN(minPrice) && (minPrice < 0.01 || minPrice > 1000000)) {
+                errors.minPercentage = ERROR_MESSAGES.CALCULATED_MIN_PRICE_OUT_OF_RANGE;
+              }
+            }
+            if (formData.maxPrice) {
+              const maxPrice = parseFloat(formData.maxPrice);
+              if (!isNaN(maxPrice) && (maxPrice < 0.01 || maxPrice > 1000000)) {
+                errors.maxPercentage = ERROR_MESSAGES.CALCULATED_MAX_PRICE_OUT_OF_RANGE;
+              }
+            }
+            if (formData.minPrice && formData.maxPrice) {
+              const minPrice = parseFloat(formData.minPrice);
+              const maxPrice = parseFloat(formData.maxPrice);
+              if (!isNaN(minPrice) && !isNaN(maxPrice) && minPrice >= maxPrice) {
+                errors.minPercentage =
+                  formData.rangeType === 'inside'
+                    ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                    : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
+              }
+            }
+          }
+        } else {
+          if (!formData.minPrice) {
+            errors.minPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+          } else {
+            const minPrice = parseFloat(formData.minPrice);
+            if (isNaN(minPrice) || minPrice < 0.01 || minPrice > 1000000) {
+              errors.minPrice = ERROR_MESSAGES.INVALID_MIN_PRICE;
+            }
+          }
+          if (!formData.maxPrice) {
+            errors.maxPrice = ERROR_MESSAGES.REQUIRED_FIELD;
+          } else {
+            const maxPrice = parseFloat(formData.maxPrice);
+            if (isNaN(maxPrice) || maxPrice < 0.01 || maxPrice > 1000000) {
+              errors.maxPrice = ERROR_MESSAGES.INVALID_MAX_PRICE;
+            }
+          }
+          if (formData.minPrice && formData.maxPrice) {
+            const minPrice = parseFloat(formData.minPrice);
+            const maxPrice = parseFloat(formData.maxPrice);
+            if (!isNaN(minPrice) && !isNaN(maxPrice) && minPrice >= maxPrice) {
+              errors.minPrice =
+                formData.rangeType === 'inside'
+                  ? ERROR_MESSAGES.INVALID_RANGE_INSIDE
+                  : ERROR_MESSAGES.INVALID_RANGE_OUTSIDE;
+            }
+          }
+        }
+      }
+      setFormErrors(errors);
+      return Object.keys(errors).length === 0;
+    }
 
     if (formData.conditionMode === 'single') {
       // 単一条件のバリデーション
@@ -354,7 +539,7 @@ export default function AlertSettingsModal({
   };
 
   // フォーム入力ハンドラー
-  const handleFormChange = (field: keyof FormData, value: string) => {
+  const handleFormChange = (field: keyof FormData, value: string | boolean) => {
     setFormData((prev) => {
       const newData = { ...prev, [field]: value };
 
@@ -428,8 +613,12 @@ export default function AlertSettingsModal({
     }
   };
 
-  // アラートを作成
-  const handleCreate = async () => {
+  const handleSubmit = async () => {
+    if (mode === 'edit' && !editTarget) {
+      setError(ERROR_MESSAGES.UPDATE_ALERT_ERROR);
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -438,79 +627,237 @@ export default function AlertSettingsModal({
     setError('');
 
     try {
-      // Web Push通知許可をリクエスト（まだ取得していない場合）
-      let sub = subscription;
-      if (!sub) {
-        sub = await requestNotificationPermission();
-        if (!sub) {
-          // エラーメッセージは requestNotificationPermission 内で設定済み
-          setSubmitting(false);
-          return;
+      if (mode === 'edit') {
+        const currentEditTarget = editTarget;
+        if (!currentEditTarget) {
+          throw new Error(ERROR_MESSAGES.UPDATE_ALERT_ERROR);
         }
-        setSubscription(sub);
-      }
 
-      // 条件配列とLogicalOperatorを構築
-      let conditions;
-      let logicalOperator: 'AND' | 'OR' | undefined;
+        const updateData: {
+          conditions?: Array<{
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          }>;
+          enabled: boolean;
+          temporary: boolean;
+        } = {
+          enabled: formData.enabled,
+          temporary: formData.temporary,
+        };
 
-      if (formData.conditionMode === 'single') {
-        // 単一条件
-        conditions = [
+        if (formData.conditionMode === 'single') {
+          const condition: {
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = {
+            value: parseFloat(formData.targetPrice),
+          };
+          if (formData.inputMode === 'percentage' && formData.percentage) {
+            condition.isPercentage = true;
+            condition.percentageValue = parseFloat(formData.percentage);
+            if (basePrice && basePrice > 0) {
+              condition.basePrice = basePrice;
+            }
+          } else {
+            condition.isPercentage = false;
+          }
+          updateData.conditions = [condition];
+        } else {
+          // 範囲指定モードの条件更新
+          const minPrice = parseFloat(formData.minPrice);
+          const maxPrice = parseFloat(formData.maxPrice);
+          const isRangePercentage =
+            formData.rangeInputMode === 'percentage' &&
+            formData.minPercentage &&
+            formData.maxPercentage;
+
+          const minCondition: {
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = { value: minPrice };
+          const maxCondition: {
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = { value: maxPrice };
+
+          if (isRangePercentage) {
+            const minPctVal = parseFloat(formData.minPercentage!);
+            const maxPctVal = parseFloat(formData.maxPercentage!);
+            minCondition.isPercentage = true;
+            if (!isNaN(minPctVal)) {
+              minCondition.percentageValue = minPctVal;
+            }
+            maxCondition.isPercentage = true;
+            if (!isNaN(maxPctVal)) {
+              maxCondition.percentageValue = maxPctVal;
+            }
+            if (basePrice && basePrice > 0) {
+              minCondition.basePrice = basePrice;
+              maxCondition.basePrice = basePrice;
+            }
+          } else {
+            minCondition.isPercentage = false;
+            maxCondition.isPercentage = false;
+          }
+          updateData.conditions = [minCondition, maxCondition];
+        }
+
+        const response = await fetch(
+          `/api/alerts/${encodeURIComponent(currentEditTarget.alertId)}`,
           {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updateData),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || ERROR_MESSAGES.UPDATE_ALERT_ERROR);
+        }
+      } else {
+        // Web Push通知許可をリクエスト（まだ取得していない場合）
+        let sub = subscription;
+        if (!sub) {
+          sub = await requestNotificationPermission();
+          if (!sub) {
+            // エラーメッセージは requestNotificationPermission 内で設定済み
+            setSubmitting(false);
+            return;
+          }
+          setSubscription(sub);
+        }
+
+        // 条件配列とLogicalOperatorを構築
+        let conditions;
+        let logicalOperator: 'AND' | 'OR' | undefined;
+
+        if (formData.conditionMode === 'single') {
+          // 単一条件
+          const singleCondition: {
+            field: 'price';
+            operator: 'gte' | 'lte';
+            value: number;
+            isPercentage?: boolean;
+            percentageValue?: number;
+            basePrice?: number;
+          } = {
             field: 'price' as const,
             operator: formData.operator,
             value: parseFloat(formData.targetPrice),
-          },
-        ];
-      } else {
-        // 範囲指定
-        const minPrice = parseFloat(formData.minPrice);
-        const maxPrice = parseFloat(formData.maxPrice);
-
-        if (formData.rangeType === 'inside') {
-          // 範囲内（AND）: minPrice 以上、maxPrice 以下
-          conditions = [
-            { field: 'price' as const, operator: 'gte' as const, value: minPrice },
-            { field: 'price' as const, operator: 'lte' as const, value: maxPrice },
-          ];
-          logicalOperator = 'AND';
+          };
+          if (formData.inputMode === 'percentage' && formData.percentage) {
+            singleCondition.isPercentage = true;
+            singleCondition.percentageValue = parseFloat(formData.percentage);
+            if (basePrice && basePrice > 0) {
+              singleCondition.basePrice = basePrice;
+            }
+          }
+          conditions = [singleCondition];
         } else {
-          // 範囲外（OR）: minPrice 以下、maxPrice 以上
-          conditions = [
-            { field: 'price' as const, operator: 'lte' as const, value: minPrice },
-            { field: 'price' as const, operator: 'gte' as const, value: maxPrice },
-          ];
-          logicalOperator = 'OR';
+          // 範囲指定
+          const minPrice = parseFloat(formData.minPrice);
+          const maxPrice = parseFloat(formData.maxPrice);
+
+          if (formData.rangeType === 'inside') {
+            // 範囲内（AND）: minPrice 以上、maxPrice 以下
+            conditions = [
+              {
+                field: 'price' as const,
+                operator: 'gte' as const,
+                value: minPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.minPercentage
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.minPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
+                  : {}),
+              },
+              {
+                field: 'price' as const,
+                operator: 'lte' as const,
+                value: maxPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.maxPercentage
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.maxPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
+                  : {}),
+              },
+            ];
+            logicalOperator = 'AND';
+          } else {
+            // 範囲外（OR）: minPrice 以下、maxPrice 以上
+            conditions = [
+              {
+                field: 'price' as const,
+                operator: 'lte' as const,
+                value: minPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.minPercentage
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.minPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
+                  : {}),
+              },
+              {
+                field: 'price' as const,
+                operator: 'gte' as const,
+                value: maxPrice,
+                ...(formData.rangeInputMode === 'percentage' && formData.maxPercentage
+                  ? {
+                      isPercentage: true,
+                      percentageValue: parseFloat(formData.maxPercentage),
+                      ...(basePrice && basePrice > 0 ? { basePrice } : {}),
+                    }
+                  : {}),
+              },
+            ];
+            logicalOperator = 'OR';
+          }
         }
-      }
 
-      // アラートを作成
-      const requestBody: CreateAlertRequest = {
-        tickerId,
-        exchangeId,
-        mode,
-        frequency: formData.frequency,
-        conditions,
-        subscription: sub.toJSON(),
-      };
+        // アラートを作成
+        const requestBody: CreateAlertRequest = {
+          tickerId,
+          exchangeId,
+          mode: tradeMode,
+          frequency: formData.frequency,
+          conditions,
+          subscription: sub.toJSON(),
+          temporary: formData.temporary,
+        };
 
-      // LogicalOperatorを追加（範囲指定の場合のみ）
-      if (logicalOperator) {
-        requestBody.logicalOperator = logicalOperator;
-      }
+        // LogicalOperatorを追加（範囲指定の場合のみ）
+        if (logicalOperator) {
+          requestBody.logicalOperator = logicalOperator;
+        }
 
-      const response = await fetch('/api/alerts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+        const response = await fetch('/api/alerts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || ERROR_MESSAGES.CREATE_ALERT_ERROR);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || ERROR_MESSAGES.CREATE_ALERT_ERROR);
+        }
       }
 
       // 成功時の処理
@@ -520,16 +867,30 @@ export default function AlertSettingsModal({
 
       onClose();
     } catch (err) {
-      console.error('Error creating alert:', err);
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.CREATE_ALERT_ERROR);
+      console.error(mode === 'edit' ? 'Error updating alert:' : 'Error creating alert:', err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : mode === 'edit'
+            ? ERROR_MESSAGES.UPDATE_ALERT_ERROR
+            : ERROR_MESSAGES.CREATE_ALERT_ERROR
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleTimeframeChange = (value: string) => {
+    setTimeframe(value as Timeframe);
+  };
+
+  const handleChartBarCountChange = (value: string) => {
+    setChartBarCount(Number(value) as ChartBarCount);
+  };
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>アラート設定 ({mode === 'Buy' ? '買い' : '売り'}アラート)</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -538,6 +899,54 @@ export default function AlertSettingsModal({
         )}
 
         <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="h6">株価チャート</Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+            }}
+          >
+            <FormControl fullWidth size="small">
+              <InputLabel id="alert-timeframe-select-label">時間枠</InputLabel>
+              <Select
+                labelId="alert-timeframe-select-label"
+                id="alert-timeframe-select"
+                value={timeframe}
+                label="時間枠"
+                onChange={(e) => handleTimeframeChange(e.target.value)}
+              >
+                {(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => (
+                  <MenuItem key={key} value={key}>
+                    {TIMEFRAME_LABELS[key]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel id="alert-barcount-select-label">表示本数</InputLabel>
+              <Select
+                labelId="alert-barcount-select-label"
+                id="alert-barcount-select"
+                value={String(chartBarCount)}
+                label="表示本数"
+                onChange={(e) => handleChartBarCountChange(e.target.value)}
+              >
+                {CHART_BAR_COUNTS.map((count) => (
+                  <MenuItem key={count} value={String(count)}>
+                    {CHART_BAR_COUNT_LABELS[count]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Box>
+          <StockChart
+            tickerId={tickerId}
+            timeframe={timeframe}
+            count={chartBarCount}
+            alertLines={chartAlertLines}
+          />
+
           {/* 取引所（表示のみ） */}
           <TextField
             fullWidth
@@ -560,47 +969,67 @@ export default function AlertSettingsModal({
           <TextField
             fullWidth
             label="モード"
-            value={mode === 'Buy' ? '買いアラート' : '売りアラート'}
+            value={tradeMode === 'Buy' ? '買いアラート' : '売りアラート'}
             disabled
             InputProps={{ readOnly: true }}
           />
 
-          {/* 条件タイプ選択 */}
-          <FormControl fullWidth>
-            <InputLabel id="condition-mode-label">条件タイプ</InputLabel>
-            <Select
-              labelId="condition-mode-label"
-              id="condition-mode-select"
-              value={formData.conditionMode}
+          {/* 条件タイプ */}
+          {mode === 'edit' ? (
+            <TextField
+              fullWidth
               label="条件タイプ"
-              onChange={(e) => handleFormChange('conditionMode', e.target.value)}
-            >
-              <MenuItem value="single">単一条件（以上または以下）</MenuItem>
-              <MenuItem value="range">範囲指定</MenuItem>
-            </Select>
-          </FormControl>
+              value={formData.conditionMode === 'single' ? '単一条件' : '範囲指定'}
+              disabled
+              InputProps={{ readOnly: true }}
+            />
+          ) : (
+            <FormControl fullWidth>
+              <InputLabel id="condition-mode-label">条件タイプ</InputLabel>
+              <Select
+                labelId="condition-mode-label"
+                id="condition-mode-select"
+                value={formData.conditionMode}
+                label="条件タイプ"
+                onChange={(e) => handleFormChange('conditionMode', e.target.value)}
+              >
+                <MenuItem value="single">単一条件（以上または以下）</MenuItem>
+                <MenuItem value="range">範囲指定</MenuItem>
+              </Select>
+            </FormControl>
+          )}
 
           {/* 単一条件モード */}
           {formData.conditionMode === 'single' && (
             <>
-              <FormControl fullWidth error={!!formErrors.operator}>
-                <InputLabel id="operator-label">条件</InputLabel>
-                <Select
-                  labelId="operator-label"
-                  id="operator-select"
-                  value={formData.operator}
+              {mode === 'edit' ? (
+                <TextField
+                  fullWidth
                   label="条件"
-                  onChange={(e) => handleFormChange('operator', e.target.value)}
-                >
-                  <MenuItem value="gte">以上 (≥)</MenuItem>
-                  <MenuItem value="lte">以下 (≤)</MenuItem>
-                </Select>
-                {formErrors.operator && (
-                  <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                    {formErrors.operator}
-                  </Typography>
-                )}
-              </FormControl>
+                  value={formData.operator === 'gte' ? '価格 以上 (≥)' : '価格 以下 (≤)'}
+                  disabled
+                  InputProps={{ readOnly: true }}
+                />
+              ) : (
+                <FormControl fullWidth error={!!formErrors.operator}>
+                  <InputLabel id="operator-label">条件</InputLabel>
+                  <Select
+                    labelId="operator-label"
+                    id="operator-select"
+                    value={formData.operator}
+                    label="条件"
+                    onChange={(e) => handleFormChange('operator', e.target.value)}
+                  >
+                    <MenuItem value="gte">以上 (≥)</MenuItem>
+                    <MenuItem value="lte">以下 (≤)</MenuItem>
+                  </Select>
+                  {formErrors.operator && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                      {formErrors.operator}
+                    </Typography>
+                  )}
+                </FormControl>
+              )}
 
               {/* 入力方式選択 */}
               {basePrice && basePrice > 0 && (
@@ -620,7 +1049,7 @@ export default function AlertSettingsModal({
               )}
 
               {/* 手動入力モード */}
-              {formData.inputMode === 'manual' && (
+              {formData.inputMode !== 'percentage' && (
                 <TextField
                   fullWidth
                   id="target-price"
@@ -681,9 +1110,9 @@ export default function AlertSettingsModal({
                   )}
 
                   {/* エラー表示 */}
-                  {formErrors.targetPrice && (
+                  {formErrors.percentage && (
                     <Typography variant="caption" color="error">
-                      {formErrors.targetPrice}
+                      {formErrors.percentage}
                     </Typography>
                   )}
                 </>
@@ -694,26 +1123,41 @@ export default function AlertSettingsModal({
           {/* 範囲指定モード */}
           {formData.conditionMode === 'range' && (
             <>
-              <FormControl fullWidth>
-                <InputLabel id="range-type-label">範囲タイプ</InputLabel>
-                <Select
-                  labelId="range-type-label"
-                  id="range-type-select"
-                  value={formData.rangeType}
+              {mode === 'edit' ? (
+                <TextField
+                  fullWidth
                   label="範囲タイプ"
-                  onChange={(e) => handleFormChange('rangeType', e.target.value)}
-                >
-                  <MenuItem value="inside">範囲内（AND）</MenuItem>
-                  <MenuItem value="outside">範囲外（OR）</MenuItem>
-                </Select>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
-                  {formData.rangeType === 'inside'
-                    ? '価格が指定範囲内になったら通知'
-                    : '価格が指定範囲外になったら通知'}
-                </Typography>
-              </FormControl>
+                  value={formData.rangeType === 'inside' ? '範囲内（AND）' : '範囲外（OR）'}
+                  disabled
+                  InputProps={{ readOnly: true }}
+                  helperText={
+                    formData.rangeType === 'inside'
+                      ? '価格が指定範囲内になったら通知'
+                      : '価格が指定範囲外になったら通知'
+                  }
+                />
+              ) : (
+                <FormControl fullWidth>
+                  <InputLabel id="range-type-label">範囲タイプ</InputLabel>
+                  <Select
+                    labelId="range-type-label"
+                    id="range-type-select"
+                    value={formData.rangeType}
+                    label="範囲タイプ"
+                    onChange={(e) => handleFormChange('rangeType', e.target.value)}
+                  >
+                    <MenuItem value="inside">範囲内（AND）</MenuItem>
+                    <MenuItem value="outside">範囲外（OR）</MenuItem>
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
+                    {formData.rangeType === 'inside'
+                      ? '価格が指定範囲内になったら通知'
+                      : '価格が指定範囲外になったら通知'}
+                  </Typography>
+                </FormControl>
+              )}
 
-              {/* 入力方式選択 */}
+              {/* 入力方式選択（範囲指定） */}
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="range-input-mode-label">入力方式</InputLabel>
@@ -731,7 +1175,7 @@ export default function AlertSettingsModal({
               )}
 
               {/* 手動入力モード */}
-              {formData.rangeInputMode === 'manual' && (
+              {formData.rangeInputMode !== 'percentage' && (
                 <>
                   <TextField
                     fullWidth
@@ -839,9 +1283,9 @@ export default function AlertSettingsModal({
                   )}
 
                   {/* エラー表示 */}
-                  {(formErrors.minPrice || formErrors.maxPrice) && (
+                  {(formErrors.minPercentage || formErrors.maxPercentage) && (
                     <Typography variant="caption" color="error">
-                      {formErrors.minPrice || formErrors.maxPrice}
+                      {formErrors.minPercentage || formErrors.maxPercentage}
                     </Typography>
                   )}
                 </>
@@ -850,37 +1294,78 @@ export default function AlertSettingsModal({
           )}
 
           {/* 通知頻度 */}
-          <FormControl fullWidth error={!!formErrors.frequency}>
-            <InputLabel id="frequency-label">通知頻度</InputLabel>
-            <Select
-              labelId="frequency-label"
-              id="frequency-select"
-              value={formData.frequency}
+          {mode === 'edit' ? (
+            <TextField
+              fullWidth
               label="通知頻度"
-              onChange={(e) => handleFormChange('frequency', e.target.value)}
-            >
-              <MenuItem value="MINUTE_LEVEL">1分間隔</MenuItem>
-              <MenuItem value="HOURLY_LEVEL">1時間間隔</MenuItem>
-            </Select>
-            {formErrors.frequency && (
-              <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                {formErrors.frequency}
-              </Typography>
-            )}
-          </FormControl>
+              value={FREQUENCY_LABELS[formData.frequency]}
+              disabled
+              InputProps={{ readOnly: true }}
+            />
+          ) : (
+            <FormControl fullWidth error={!!formErrors.frequency}>
+              <InputLabel id="frequency-label">通知頻度</InputLabel>
+              <Select
+                labelId="frequency-label"
+                id="frequency-select"
+                value={formData.frequency}
+                label="通知頻度"
+                onChange={(e) => handleFormChange('frequency', e.target.value)}
+              >
+                <MenuItem value="MINUTE_LEVEL">1分間隔</MenuItem>
+                <MenuItem value="HOURLY_LEVEL">1時間間隔</MenuItem>
+              </Select>
+              {formErrors.frequency && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                  {formErrors.frequency}
+                </Typography>
+              )}
+            </FormControl>
+          )}
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.temporary}
+                onChange={(e) => handleFormChange('temporary', e.target.checked)}
+                color="primary"
+              />
+            }
+            label="一時通知（次の取引終了まで）"
+          />
+          {formData.temporary && (
+            <Typography variant="caption" color="text.secondary">
+              取引時間終了後に自動で無効化されます。
+            </Typography>
+          )}
+
+          {mode === 'edit' && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formData.enabled}
+                  onChange={(e) => handleFormChange('enabled', e.target.checked)}
+                  color="primary"
+                />
+              }
+              label="アラートを有効にする"
+            />
+          )}
 
           {/* Web Push通知の説明 */}
-          <Alert severity="info" sx={{ mt: 1 }}>
-            アラートを設定すると、Web Push通知の許可をリクエストします。
-            通知を受け取るには、ブラウザの通知を許可してください。
-          </Alert>
+          {mode === 'create' && (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              アラートを設定すると、Web Push通知の許可をリクエストします。
+              通知を受け取るには、ブラウザの通知を許可してください。
+            </Alert>
+          )}
         </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={submitting}>
           キャンセル
         </Button>
-        <Button onClick={handleCreate} variant="contained" color="primary" disabled={submitting}>
+        <Button onClick={handleSubmit} variant="contained" color="primary" disabled={submitting}>
           {submitting ? <CircularProgress size={24} /> : '保存'}
         </Button>
       </DialogActions>

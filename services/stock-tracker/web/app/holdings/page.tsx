@@ -920,7 +920,8 @@ export default function HoldingsPage() {
           tickerId={selectedHolding.tickerId}
           symbol={selectedHolding.symbol}
           exchangeId={selectedHolding.tickerId.split(':')[0] || ''}
-          mode="Sell"
+          mode="create"
+          tradeMode="Sell"
           defaultTargetPrice={selectedHolding.averagePrice * 1.2}
           basePrice={selectedHolding.averagePrice}
         />

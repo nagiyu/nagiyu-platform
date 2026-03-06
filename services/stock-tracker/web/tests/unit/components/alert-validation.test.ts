@@ -35,6 +35,7 @@ interface FormData {
   minPrice: string;
   maxPrice: string;
   frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+  temporary?: boolean;
   inputMode?: 'manual' | 'percentage';
   percentage?: string;
   rangeInputMode?: 'manual' | 'percentage';

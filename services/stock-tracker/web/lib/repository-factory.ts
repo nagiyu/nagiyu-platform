@@ -13,7 +13,6 @@ import type {
   HoldingRepository,
   TickerRepository,
   ExchangeRepository,
-  WatchlistRepository,
   DailySummaryRepository,
 } from '@nagiyu/stock-tracker-core';
 import {
@@ -22,13 +21,11 @@ import {
   DynamoDBHoldingRepository,
   DynamoDBTickerRepository,
   DynamoDBExchangeRepository,
-  DynamoDBWatchlistRepository,
   InMemoryAlertRepository,
   InMemoryDailySummaryRepository,
   InMemoryHoldingRepository,
   InMemoryTickerRepository,
   InMemoryExchangeRepository,
-  InMemoryWatchlistRepository,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from './dynamodb';
 
@@ -47,7 +44,6 @@ let alertRepository: AlertRepository | null = null;
 let holdingRepository: HoldingRepository | null = null;
 let tickerRepository: TickerRepository | null = null;
 let exchangeRepository: ExchangeRepository | null = null;
-let watchlistRepository: WatchlistRepository | null = null;
 let dailySummaryRepository: DailySummaryRepository | null = null;
 
 /**
@@ -73,7 +69,6 @@ export function clearMemoryStore(): void {
   holdingRepository = null;
   tickerRepository = null;
   exchangeRepository = null;
-  watchlistRepository = null;
   dailySummaryRepository = null;
 }
 
@@ -195,36 +190,6 @@ export function createExchangeRepository(): ExchangeRepository {
   }
 
   return exchangeRepository;
-}
-
-/**
- * Watchlist Repository を作成
- *
- * @returns WatchlistRepository インスタンス
- */
-export function createWatchlistRepository(): WatchlistRepository {
-  if (watchlistRepository) {
-    return watchlistRepository;
-  }
-
-  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
-
-  if (useInMemory) {
-    // InMemory実装を使用
-    const store = getOrCreateMemoryStore();
-    watchlistRepository = new InMemoryWatchlistRepository(store);
-  } else {
-    // DynamoDB実装を使用
-    try {
-      const docClient = getDynamoDBClient();
-      const tableName = getTableName();
-      watchlistRepository = new DynamoDBWatchlistRepository(docClient, tableName);
-    } catch {
-      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
-    }
-  }
-
-  return watchlistRepository;
 }
 
 /**

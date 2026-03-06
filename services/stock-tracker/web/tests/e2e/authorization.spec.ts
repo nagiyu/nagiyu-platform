@@ -132,20 +132,6 @@ test.describe('権限チェック (E2E-005)', () => {
       await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
     });
 
-    test('ウォッチリスト管理画面にはすべてのロールでアクセスできる', async ({ page }) => {
-      // ウォッチリスト管理画面にアクセス
-      await page.goto('/watchlist');
-      await page.waitForLoadState('networkidle');
-
-      // ページが正しく表示される
-      await expect(page.getByRole('heading', { name: 'ウォッチリスト' })).toBeVisible({
-        timeout: 10000,
-      });
-
-      // 新規登録ボタンが表示される
-      await expect(page.getByRole('button', { name: /新規登録/ })).toBeVisible();
-    });
-
     test('アラート一覧画面にはすべてのロールでアクセスできる', async ({ page }) => {
       // アラート一覧画面にアクセス
       await page.goto('/alerts');

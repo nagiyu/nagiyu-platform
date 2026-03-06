@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
 
+const MOCK_CHART_DATE_2024_03_01 = 1709251200000;
+const MOCK_CHART_DATE_2024_02_29 = 1709164800000;
+
 test.describe('サマリー画面スモークテスト', () => {
   test('サマリー一覧テーブルに買い/売りシグナル列と件数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
@@ -25,6 +28,10 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 1,
                   sellPatternCount: 0,
                   patternDetails: [],
+                  holding: {
+                    quantity: 10,
+                    averagePrice: 98.5,
+                  },
                 },
                 {
                   tickerId: 'TEST:BBB',
@@ -38,6 +45,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 2,
                   patternDetails: [],
+                  holding: null,
                 },
               ],
             },
@@ -58,6 +66,83 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByTestId('sell-signal-TEST:AAA')).toHaveText('0');
     await expect(page.getByTestId('buy-signal-TEST:BBB')).toHaveText('0');
     await expect(page.getByTestId('sell-signal-TEST:BBB')).toHaveText('2');
+  });
+
+  test('保有情報と買い/売りアラート設定ボタンを条件に応じて表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 1,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  holding: {
+                    quantity: 123,
+                    averagePrice: 99.5,
+                  },
+                },
+                {
+                  tickerId: 'TEST:BBB',
+                  symbol: 'BBB',
+                  name: 'BBB株式会社',
+                  open: 200,
+                  high: 210,
+                  low: 190,
+                  close: 205,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 2,
+                  patternDetails: [],
+                  holding: null,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await expect(page.getByRole('columnheader', { name: '保有' })).toBeVisible();
+
+    const firstRow = page.locator('tbody tr').nth(0);
+    const secondRow = page.locator('tbody tr').nth(1);
+    await expect(firstRow.locator('td').nth(2)).toHaveText('✓');
+    await expect(secondRow.locator('td').nth(2)).toHaveText('-');
+
+    await firstRow.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText('保有数')).toBeVisible();
+    await expect(dialog.getByText('123')).toBeVisible();
+    await expect(dialog.getByText('99.50')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toBeVisible();
+
+    await dialog.getByRole('button', { name: '買いアラート設定' }).click();
+    await expect(page.getByRole('heading', { name: 'アラート設定 (買いアラート)' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('heading', { name: 'アラート設定 (買いアラート)' })).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: '閉じる' }).click();
+    await secondRow.click();
+    await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toHaveCount(0);
   });
 
   test('詳細ダイアログでパターン分析の内訳と説明を表示できる', async ({ page }) => {
@@ -101,6 +186,10 @@ test.describe('サマリー画面スモークテスト', () => {
                       status: 'INSUFFICIENT_DATA',
                     },
                   ],
+                  holding: {
+                    quantity: 20,
+                    averagePrice: 101.25,
+                  },
                 },
               ],
             },
@@ -156,6 +245,87 @@ test.describe('サマリー画面スモークテスト', () => {
     expect(Number(sellCountInList ?? '0')).toBe(matchedSellRows);
   });
 
+  test('詳細ダイアログとアラート設定ダイアログでチャートを表示できる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  holding: {
+                    quantity: 10,
+                    averagePrice: 98.5,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tickerId: 'TEST:AAA',
+          symbol: 'AAA',
+          timeframe: 'D',
+          data: [
+            {
+              time: MOCK_CHART_DATE_2024_03_01,
+              open: 100,
+              high: 110,
+              low: 95,
+              close: 105,
+              volume: 1000000,
+            },
+            {
+              time: MOCK_CHART_DATE_2024_02_29,
+              open: 98,
+              high: 108,
+              low: 94,
+              close: 100,
+              volume: 950000,
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const summaryDialog = page.getByRole('dialog');
+    await expect(summaryDialog.getByText('株価チャート')).toBeVisible();
+    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+
+    await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
+    const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
+    await expect(alertDialog.getByText('株価チャート')).toBeVisible();
+    await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
+    await expect(alertDialog.getByLabel('表示本数')).toBeVisible();
+    await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+  });
+
   test('詳細ダイアログでAI解析セクションを表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
@@ -181,6 +351,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   sellPatternCount: 0,
                   patternDetails: [],
                   aiAnalysis: 'テスト用のAI解析テキストです。',
+                  holding: null,
                 },
               ],
             },
@@ -227,6 +398,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   sellPatternCount: 0,
                   patternDetails: [],
                   aiAnalysis: '更新後のAI解析テキストです。',
+                  holding: null,
                 },
               ],
             },

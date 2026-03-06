@@ -1,5 +1,6 @@
 import type { ChartDataPoint } from '../../../src/types.js';
 import { PatternAnalyzer } from '../../../src/patterns/pattern-analyzer.js';
+import { PATTERN_REGISTRY } from '../../../src/patterns/pattern-registry.js';
 
 const createCandle = (open: number, high: number, low: number, close: number): ChartDataPoint => ({
   time: Date.now(),
@@ -88,6 +89,32 @@ describe('パターン分析', () => {
       expect(result.patternResults['red-three-soldiers-hesitation']).toBe('NOT_MATCHED');
       expect(result.buyPatternCount).toBe(0);
       expect(result.sellPatternCount).toBe(0);
+    });
+
+    it('正常系: 追加パターンを含めた MATCHED 件数を BUY/SELL で正しく加算する', () => {
+      PATTERN_REGISTRY.forEach((pattern) => {
+        jest.spyOn(pattern, 'analyze').mockReturnValue('NOT_MATCHED');
+      });
+
+      const matchedBuyPattern = PATTERN_REGISTRY.find(
+        (pattern) => pattern.definition.signalType === 'BUY'
+      );
+      const matchedSellPattern = PATTERN_REGISTRY.find(
+        (pattern) => pattern.definition.signalType === 'SELL'
+      );
+      if (!matchedBuyPattern || !matchedSellPattern) {
+        throw new Error('検証対象パターンが PATTERN_REGISTRY に存在しません');
+      }
+      jest.spyOn(matchedBuyPattern, 'analyze').mockReturnValue('MATCHED');
+      jest.spyOn(matchedSellPattern, 'analyze').mockReturnValue('MATCHED');
+
+      const result = analyzer.analyze([createCandle(100, 110, 90, 100)]);
+
+      expect(result.patternResults[matchedBuyPattern.definition.patternId]).toBe('MATCHED');
+      expect(result.patternResults[matchedSellPattern.definition.patternId]).toBe('MATCHED');
+      expect(result.buyPatternCount).toBe(1);
+      expect(result.sellPatternCount).toBe(1);
+      expect(Object.keys(result.patternResults)).toHaveLength(PATTERN_REGISTRY.length);
     });
   });
 });

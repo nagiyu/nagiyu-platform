@@ -8,11 +8,15 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { validateAlert } from '@nagiyu/stock-tracker-core';
+import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
-import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
+import {
+  createAlertRepository,
+  createTickerRepository,
+  createExchangeRepository,
+} from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
-import type { AlertEntity } from '@nagiyu/stock-tracker-core';
+import type { AlertEntity, AlertCondition } from '@nagiyu/stock-tracker-core';
 
 /**
  * エラーメッセージ定数
@@ -24,6 +28,7 @@ const ERROR_MESSAGES = {
   UPDATE_ERROR: 'アラートの更新に失敗しました',
   DELETE_ERROR: 'アラートの削除に失敗しました',
   NO_UPDATE_FIELDS: '更新する内容を指定してください',
+  EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
 } as const;
 
 /**
@@ -40,9 +45,14 @@ interface AlertResponse {
     field: string;
     operator: string;
     value: number;
+    isPercentage?: boolean;
+    percentageValue?: number;
+    basePrice?: number;
   }>;
   logicalOperator?: 'AND' | 'OR';
   enabled: boolean;
+  temporary?: boolean;
+  temporaryExpireDate?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -75,6 +85,8 @@ function mapAlertToResponse(
     frequency: alert.Frequency,
     conditions: alert.ConditionList,
     enabled: alert.Enabled,
+    temporary: alert.Temporary,
+    temporaryExpireDate: alert.TemporaryExpireDate,
     createdAt: new Date(alert.CreatedAt).toISOString(),
     updatedAt: new Date(alert.UpdatedAt).toISOString(),
   };
@@ -121,6 +133,7 @@ export const PUT = withAuth(
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
+      const exchangeRepo = createExchangeRepository();
 
       // 既存アラートを取得（部分更新用）
       const existingAlert = await alertRepo.getById(userId, alertId);
@@ -139,23 +152,56 @@ export const PUT = withAuth(
 
       if (body.conditions !== undefined) {
         // 条件の部分更新をサポート
-        // Phase 1: 条件は1つのみなので、既存条件とマージ
-        const existingCondition = existingAlert.ConditionList[0];
-        const updateCondition = body.conditions[0];
+        // 既存条件とインデックス対応でマージ（単一・範囲指定の両方に対応）
+        const updatedConditions: AlertCondition[] = existingAlert.ConditionList.map(
+          (existingCondition, index) => {
+            const updateCondition = body.conditions[index];
+            if (!updateCondition) return existingCondition;
 
-        if (updateCondition) {
-          updates.ConditionList = [
-            {
+            const mergedCondition: AlertCondition = {
               field: updateCondition.field ?? existingCondition.field,
               operator: updateCondition.operator ?? existingCondition.operator,
               value: updateCondition.value ?? existingCondition.value,
-            },
-          ];
-        }
+            };
+
+            if (updateCondition.isPercentage === true) {
+              mergedCondition.isPercentage = true;
+              if (typeof updateCondition.percentageValue === 'number') {
+                mergedCondition.percentageValue = updateCondition.percentageValue;
+              }
+              if (typeof updateCondition.basePrice === 'number') {
+                mergedCondition.basePrice = updateCondition.basePrice;
+              }
+            } else if (updateCondition.isPercentage === false) {
+              // 明示的に false が指定された場合はパーセンテージ情報をクリア
+              mergedCondition.isPercentage = false;
+            }
+
+            return mergedCondition;
+          }
+        );
+
+        updates.ConditionList = updatedConditions;
       }
 
       if (body.enabled !== undefined) {
         updates.Enabled = body.enabled;
+      }
+      if (body.temporary !== undefined) {
+        updates.Temporary = body.temporary === true;
+        if (body.temporary === true) {
+          const exchange = await exchangeRepo.getById(existingAlert.ExchangeID);
+          if (!exchange) {
+            return NextResponse.json(
+              {
+                error: 'INVALID_REQUEST',
+                message: ERROR_MESSAGES.EXCHANGE_NOT_FOUND,
+              },
+              { status: 400 }
+            );
+          }
+          updates.TemporaryExpireDate = calculateTemporaryExpireDate(exchange, Date.now());
+        }
       }
 
       // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）

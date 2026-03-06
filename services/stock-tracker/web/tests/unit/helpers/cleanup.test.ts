@@ -10,7 +10,6 @@ import {
   createHoldingRepository,
   createTickerRepository,
   createExchangeRepository,
-  createWatchlistRepository,
 } from '../../../lib/repository-factory';
 
 describe('Cleanup Helper', () => {
@@ -33,7 +32,6 @@ describe('Cleanup Helper', () => {
       const holding1 = createHoldingRepository();
       const ticker1 = createTickerRepository();
       const exchange1 = createExchangeRepository();
-      const watchlist1 = createWatchlistRepository();
 
       // クリーンアップを実行
       await cleanupRepositories();
@@ -43,14 +41,12 @@ describe('Cleanup Helper', () => {
       const holding2 = createHoldingRepository();
       const ticker2 = createTickerRepository();
       const exchange2 = createExchangeRepository();
-      const watchlist2 = createWatchlistRepository();
 
       // 異なるインスタンスが返されることを確認
       expect(alert1).not.toBe(alert2);
       expect(holding1).not.toBe(holding2);
       expect(ticker1).not.toBe(ticker2);
       expect(exchange1).not.toBe(exchange2);
-      expect(watchlist1).not.toBe(watchlist2);
     });
 
     it('複数回呼び出してもエラーが発生しない', async () => {
@@ -76,7 +72,6 @@ describe('Cleanup Helper', () => {
       expect(() => createHoldingRepository()).not.toThrow();
       expect(() => createTickerRepository()).not.toThrow();
       expect(() => createExchangeRepository()).not.toThrow();
-      expect(() => createWatchlistRepository()).not.toThrow();
     });
 
     it('全リポジトリ種別のインスタンスがクリアされる', async () => {
@@ -85,7 +80,6 @@ describe('Cleanup Helper', () => {
       const holding1 = createHoldingRepository();
       const ticker1 = createTickerRepository();
       const exchange1 = createExchangeRepository();
-      const watchlist1 = createWatchlistRepository();
 
       // 全てのリポジトリがインメモリ実装であることを確認
       // Note: 実装の詳細に依存しないように、型チェックではなく存在確認を行う
@@ -93,7 +87,6 @@ describe('Cleanup Helper', () => {
       expect(holding1).toBeDefined();
       expect(ticker1).toBeDefined();
       expect(exchange1).toBeDefined();
-      expect(watchlist1).toBeDefined();
 
       // クリーンアップ
       await cleanupRepositories();
@@ -103,7 +96,6 @@ describe('Cleanup Helper', () => {
       const holding2 = createHoldingRepository();
       const ticker2 = createTickerRepository();
       const exchange2 = createExchangeRepository();
-      const watchlist2 = createWatchlistRepository();
 
       // 全てのリポジトリで新しいインスタンスが作成されていることを確認
       // シングルトンがリセットされたため、参照が異なるはず
@@ -111,7 +103,6 @@ describe('Cleanup Helper', () => {
       expect(holding1).not.toBe(holding2);
       expect(ticker1).not.toBe(ticker2);
       expect(exchange1).not.toBe(exchange2);
-      expect(watchlist1).not.toBe(watchlist2);
     });
   });
 });

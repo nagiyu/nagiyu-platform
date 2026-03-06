@@ -16,7 +16,7 @@
 **主要リソース**:
 
 - **Lambda (Web)**: Next.js アプリケーション実行
-- **Lambda (Batch)**: 定期実行バッチ処理（3関数: minute/hourly/daily）
+- **Lambda (Batch)**: 定期実行バッチ処理（5関数: minute/hourly/summary/temporary-alert-expiry/daily）
 - **DynamoDB**: Single Table Design
 - **CloudFront**: CDN 配信
 - **ECR**: Docker イメージ格納（Web/Batch の2リポジトリ）

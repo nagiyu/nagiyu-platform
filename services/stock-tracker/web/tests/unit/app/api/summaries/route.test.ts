@@ -3,12 +3,14 @@ import { GET } from '../../../../../app/api/summaries/route';
 import {
   createDailySummaryRepository,
   createExchangeRepository,
+  createHoldingRepository,
   createTickerRepository,
 } from '../../../../../lib/repository-factory';
 
 jest.mock('../../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
+  createHoldingRepository: jest.fn(),
   createTickerRepository: jest.fn(),
 }));
 
@@ -25,16 +27,19 @@ jest.mock('@nagiyu/nextjs', () => ({
 type MockedCreateExchangeRepository = jest.MockedFunction<typeof createExchangeRepository>;
 type MockedCreateTickerRepository = jest.MockedFunction<typeof createTickerRepository>;
 type MockedCreateDailySummaryRepository = jest.MockedFunction<typeof createDailySummaryRepository>;
+type MockedCreateHoldingRepository = jest.MockedFunction<typeof createHoldingRepository>;
 
 describe('GET /api/summaries', () => {
   const mockedCreateExchangeRepository = createExchangeRepository as MockedCreateExchangeRepository;
   const mockedCreateTickerRepository = createTickerRepository as MockedCreateTickerRepository;
   const mockedCreateDailySummaryRepository =
     createDailySummaryRepository as MockedCreateDailySummaryRepository;
+  const mockedCreateHoldingRepository = createHoldingRepository as MockedCreateHoldingRepository;
 
   const mockGetAllExchanges = jest.fn();
   const mockGetAllTickers = jest.fn();
   const mockGetByExchange = jest.fn();
+  const mockGetHoldingsByUserId = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -50,6 +55,10 @@ describe('GET /api/summaries', () => {
     mockedCreateDailySummaryRepository.mockReturnValue({
       getByExchange: mockGetByExchange,
     } as ReturnType<typeof createDailySummaryRepository>);
+
+    mockedCreateHoldingRepository.mockReturnValue({
+      getByUserId: mockGetHoldingsByUserId,
+    } as ReturnType<typeof createHoldingRepository>);
   });
 
   it('正常系: 取引所ごとにサマリーを返す', async () => {
@@ -92,6 +101,7 @@ describe('GET /api/summaries', () => {
         },
       ])
       .mockResolvedValueOnce([]);
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
 
     const response = await GET(new NextRequest('http://localhost/api/summaries'));
     const body = await response.json();
@@ -118,6 +128,7 @@ describe('GET /api/summaries', () => {
               buyPatternCount: 0,
               sellPatternCount: 0,
               patternDetails: [],
+              holding: null,
             },
           ],
         },
@@ -171,6 +182,7 @@ describe('GET /api/summaries', () => {
         UpdatedAt: 1705352400000,
       },
     ]);
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
 
     const response = await GET(new NextRequest('http://localhost/api/summaries'));
     const body = await response.json();
@@ -240,6 +252,7 @@ describe('GET /api/summaries', () => {
         UpdatedAt: 1705352400000,
       },
     ]);
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
 
     const response = await GET(new NextRequest('http://localhost/api/summaries'));
     const body = await response.json();
@@ -257,6 +270,7 @@ describe('GET /api/summaries', () => {
   it('正常系: AiAnalysis がある場合は aiAnalysis として返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -287,6 +301,7 @@ describe('GET /api/summaries', () => {
   it('正常系: AiAnalysis と AiAnalysisError がない場合は両方とも返さない', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -312,6 +327,7 @@ describe('GET /api/summaries', () => {
   it('正常系: aiAnalysisError がある場合はその値を返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -342,6 +358,7 @@ describe('GET /api/summaries', () => {
   it('正常系: aiAnalysis と aiAnalysisError が明示的に undefined の場合はそのまま返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([
       {
         TickerID: 'NSDQ:AAPL',
@@ -402,6 +419,7 @@ describe('GET /api/summaries', () => {
       },
     ]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
     mockGetByExchange.mockResolvedValue([]);
 
     const response = await GET(new NextRequest('http://localhost/api/summaries?date=2024-01-15'));
@@ -439,5 +457,79 @@ describe('GET /api/summaries', () => {
       error: 'INTERNAL_ERROR',
       message: 'サマリーの取得に失敗しました',
     });
+  });
+
+  it('正常系: 保有株式情報がある場合は summaries に holding を含める', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+      },
+    ]);
+    mockGetHoldingsByUserId.mockResolvedValue({
+      items: [
+        {
+          UserID: 'test-user-id',
+          TickerID: 'NSDQ:AAPL',
+          ExchangeID: 'NASDAQ',
+          Quantity: 100,
+          AveragePrice: 170.5,
+          Currency: 'USD',
+          CreatedAt: 1705276800000,
+          UpdatedAt: 1705352400000,
+        },
+      ],
+    });
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        holding: {
+          quantity: 100,
+          averagePrice: 170.5,
+        },
+      })
+    );
+  });
+
+  it('正常系: 保有株式情報の取得に失敗してもサマリー取得を継続する', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({ items: [] });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+      },
+    ]);
+    mockGetHoldingsByUserId.mockRejectedValue(new Error('holding db error'));
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        holding: null,
+      })
+    );
   });
 });

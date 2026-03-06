@@ -5,6 +5,8 @@ import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
 import { Box, Typography } from '@mui/material';
 import { DEFAULT_CHART_BAR_COUNT } from '@/types/stock';
+import type { AlertLine } from '../types/alert';
+import { buildChartMarkLines } from '../lib/chart-overlay-lines';
 import ErrorAlert from './ErrorAlert';
 import LoadingState from './LoadingState';
 
@@ -28,6 +30,7 @@ interface ChartData {
   symbol: string;
   timeframe: string;
   data: ChartDataPoint[];
+  holdingAveragePrice?: number;
 }
 
 /**
@@ -37,6 +40,8 @@ export interface StockChartProps {
   tickerId: string;
   timeframe: string;
   count?: number;
+  holdingPrice?: number;
+  alertLines?: AlertLine[];
 }
 
 /**
@@ -62,6 +67,8 @@ export default function StockChart({
   tickerId,
   timeframe,
   count = DEFAULT_CHART_BAR_COUNT,
+  holdingPrice,
+  alertLines,
 }: StockChartProps) {
   // 状態管理
   const [loading, setLoading] = useState<boolean>(false);
@@ -135,6 +142,10 @@ export default function StockChart({
     const ohlcData = reversedData.map((item) => [item.open, item.close, item.low, item.high]);
 
     const volumeData = reversedData.map((item) => item.volume);
+    const markLineData = buildChartMarkLines(
+      holdingPrice ?? chartData.holdingAveragePrice,
+      alertLines
+    );
 
     return {
       title: {
@@ -258,6 +269,21 @@ export default function StockChart({
             borderColor: '#ef5350',
             borderColor0: '#26a69a',
           },
+          ...(markLineData.length > 0 && {
+            markLine: {
+              symbol: 'none',
+              lineStyle: {
+                type: 'dashed',
+                width: 1,
+              },
+              label: {
+                show: true,
+                fontSize: 10,
+                formatter: '{b}',
+              },
+              data: markLineData,
+            },
+          }),
         },
         {
           name: '出来高',

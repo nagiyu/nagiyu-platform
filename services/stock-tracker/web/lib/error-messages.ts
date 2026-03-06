@@ -22,11 +22,6 @@ export const STOCK_TRACKER_ERROR_MESSAGES = {
   PRICE_DATA_ERROR: '価格データの取得に失敗しました',
   HISTORICAL_DATA_ERROR: '過去データの取得に失敗しました',
 
-  // ウォッチリスト関連
-  WATCHLIST_NOT_FOUND: 'ウォッチリストが見つかりませんでした',
-  WATCHLIST_LIMIT_EXCEEDED: 'ウォッチリストの登録上限に達しています',
-  TICKER_ALREADY_IN_WATCHLIST: 'このティッカーは既にウォッチリストに登録されています',
-
   // ホールディング関連
   HOLDING_NOT_FOUND: 'ホールディングが見つかりませんでした',
   INVALID_QUANTITY: '無効な数量です',

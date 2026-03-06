@@ -13,7 +13,6 @@ import {
 import { handler } from '../../src/summary.js';
 import type { ScheduledEvent } from '../../src/summary.js';
 import { getChartData } from '@nagiyu/stock-tracker-core';
-import { isTradingHours } from '@nagiyu/stock-tracker-core';
 import { logger } from '../../src/lib/logger.js';
 
 describe('summary batch handler', () => {
@@ -46,7 +45,7 @@ describe('summary batch handler', () => {
   });
 
   describe('シナリオ1: 取引時間終了済み取引所のサマリーが生成される', () => {
-    it('count:50 で取得し PatternAnalyzer の結果を保存する', async () => {
+    it('count:100 で取得し PatternAnalyzer の結果を保存する', async () => {
       await exchangeRepository.create({
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ',
@@ -70,11 +69,8 @@ describe('summary batch handler', () => {
         buyPatternCount: 1,
         sellPatternCount: 0,
       });
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
-        Array.from({ length: 50 }, (_, index) => ({
+        Array.from({ length: 100 }, (_, index) => ({
           time: Date.UTC(2026, 1, 27 - index),
           open: 100 + index,
           high: 110 + index,
@@ -90,14 +86,13 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
 
       expect(response.statusCode).toBe(200);
       expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
-        count: 50,
+        count: 100,
         session: 'extended',
       });
       expect(analyzeSpy).toHaveBeenCalledTimes(1);
@@ -122,7 +117,7 @@ describe('summary batch handler', () => {
     });
   });
 
-  describe('シナリオ1b: 取得件数が50本未満の場合', () => {
+  describe('シナリオ1b: 取得件数が100本未満の場合', () => {
     it('PatternAnalyzer を呼ばず全パターンを INSUFFICIENT_DATA として保存する', async () => {
       await exchangeRepository.create({
         ExchangeID: 'NASDAQ',
@@ -140,9 +135,6 @@ describe('summary batch handler', () => {
       });
 
       const analyzeSpy = jest.spyOn(PatternAnalyzer.prototype, 'analyze');
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
           time: Date.UTC(2026, 1, 27),
@@ -159,7 +151,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -212,9 +203,6 @@ describe('summary batch handler', () => {
       });
 
       const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
         .fn()
         .mockRejectedValue(new Error('TradingView API Error'));
@@ -229,7 +217,6 @@ describe('summary batch handler', () => {
           exchangeRepository,
           tickerRepository,
           dailySummaryRepository,
-          isTradingHoursFn,
           getChartDataFn,
           nowFn,
         }
@@ -262,8 +249,8 @@ describe('summary batch handler', () => {
     });
   });
 
-  describe('シナリオ2: 取引中の取引所がスキップされる', () => {
-    it('取引中の取引所ではサマリーを生成しない', async () => {
+  describe('シナリオ2: 取引時間中でも前回取引日のサマリーは生成される', () => {
+    it('取引時間中は getLastTradingDate で算出された前回取引日でサマリーを生成する', async () => {
       await exchangeRepository.create({
         ExchangeID: 'NASDAQ',
         Name: 'NASDAQ',
@@ -278,27 +265,32 @@ describe('summary batch handler', () => {
         Name: 'Apple Inc.',
         ExchangeID: 'NASDAQ',
       });
-
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(true);
-      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn();
-      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0));
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 26),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
+      // 2026-02-27 15:00 UTC = 10:00 ET（取引時間中） -> 前回取引日 2026-02-26
+      const nowFn = jest.fn(() => Date.UTC(2026, 1, 27, 15, 0, 0));
 
       const response = await handler(mockEvent, {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
 
       expect(response.statusCode).toBe(200);
-      expect(getChartDataFn).not.toHaveBeenCalled();
+      expect(getChartDataFn).toHaveBeenCalledTimes(1);
 
-      const summaries = await dailySummaryRepository.getByExchange('NASDAQ');
-      expect(summaries).toHaveLength(0);
+      const summaries = await dailySummaryRepository.getByExchange('NASDAQ', '2026-02-26');
+      expect(summaries).toHaveLength(1);
     });
   });
 
@@ -318,10 +310,6 @@ describe('summary batch handler', () => {
         Name: 'Apple Inc.',
         ExchangeID: 'NASDAQ',
       });
-
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
         .fn()
         .mockResolvedValueOnce([
@@ -351,7 +339,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -359,7 +346,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -406,11 +392,8 @@ describe('summary batch handler', () => {
         buyPatternCount: 1,
         sellPatternCount: 0,
       });
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
-        Array.from({ length: 50 }, (_, index) => ({
+        Array.from({ length: 100 }, (_, index) => ({
           time: Date.UTC(2026, 1, 27 - index),
           open: 100 + index,
           high: 110 + index,
@@ -425,7 +408,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -450,6 +432,82 @@ describe('summary batch handler', () => {
     });
   });
 
+  describe('シナリオ3c: 既存サマリーに一部パターン結果が欠ける場合は更新する', () => {
+    it('PATTERN_REGISTRY のいずれかが欠損していれば再解析して保存する', async () => {
+      await exchangeRepository.create({
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '09:00',
+        End: '17:00',
+      });
+      await tickerRepository.create({
+        TickerID: 'NSDQ:AAPL',
+        Symbol: 'AAPL',
+        Name: 'Apple Inc.',
+        ExchangeID: 'NASDAQ',
+      });
+
+      // 最後の1パターンを意図的に欠損させる
+      const incompletePatternResults = Object.fromEntries(
+        PATTERN_REGISTRY.slice(0, -1).map((pattern) => [
+          pattern.definition.patternId,
+          'NOT_MATCHED',
+        ])
+      );
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: incompletePatternResults,
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
+      });
+
+      const analyzeSpy = jest.spyOn(PatternAnalyzer.prototype, 'analyze').mockReturnValue({
+        patternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        buyPatternCount: 0,
+        sellPatternCount: 0,
+      });
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue(
+        Array.from({ length: 100 }, (_, index) => ({
+          time: Date.UTC(2026, 1, 27 - index),
+          open: 100 + index,
+          high: 110 + index,
+          low: 95 + index,
+          close: 108 + index,
+          volume: 1000 + index,
+        }))
+      );
+
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(getChartDataFn).toHaveBeenCalledTimes(1);
+      expect(analyzeSpy).toHaveBeenCalledTimes(1);
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+      });
+    });
+  });
+
   describe('シナリオ3b: 週末実行でも既存サマリーがある場合は更新をスキップする', () => {
     it('土曜日の再実行で金曜日サマリーを更新しない', async () => {
       await exchangeRepository.create({
@@ -466,10 +524,6 @@ describe('summary batch handler', () => {
         Name: 'Apple Inc.',
         ExchangeID: 'NASDAQ',
       });
-
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
           time: Date.UTC(2026, 1, 27),
@@ -487,7 +541,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -495,7 +548,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -531,10 +583,6 @@ describe('summary batch handler', () => {
         Name: 'NVIDIA Corp.',
         ExchangeID: 'NASDAQ',
       });
-
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
         .fn()
         .mockImplementation(async (tickerId) => {
@@ -560,7 +608,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -599,10 +646,6 @@ describe('summary batch handler', () => {
         Name: 'Apple Inc.',
         ExchangeID: 'NASDAQ',
       });
-
-      const isTradingHoursFn: jest.MockedFunction<typeof isTradingHours> = jest
-        .fn()
-        .mockReturnValue(false);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
         .fn()
         .mockResolvedValue([]);
@@ -612,7 +655,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn,
         getChartDataFn,
         nowFn,
       });
@@ -658,7 +700,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn: jest.fn().mockReturnValue(false),
         getChartDataFn: jest.fn().mockResolvedValue([
           {
             time: Date.UTC(2026, 1, 27),
@@ -694,6 +735,188 @@ describe('summary batch handler', () => {
       });
     });
 
+    it('静的解析時は chartData から過去データを作成して AI 入力に含める', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const createChartImageBase64Fn = jest
+        .fn()
+        .mockReturnValue('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA');
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn: jest.fn().mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]),
+        createChartImageBase64Fn,
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(createChartImageBase64Fn).toHaveBeenCalledWith([
+        {
+          date: '2026-02-27',
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+        },
+      ]);
+      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
+        'test-api-key',
+        expect.objectContaining({
+          historicalData: expect.arrayContaining([
+            expect.objectContaining({
+              date: '2026-02-27',
+            }),
+          ]),
+          chartImageBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA',
+        })
+      );
+    });
+
+    it('既存サマリー再利用時でもchartDataから過去データを取得する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
+      });
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        createChartImageBase64Fn: jest.fn().mockReturnValue(undefined),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
+        count: 50,
+        session: 'extended',
+      });
+      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
+        'test-api-key',
+        expect.objectContaining({
+          historicalData: [
+            {
+              date: '2026-02-27',
+              open: 100,
+              high: 110,
+              low: 95,
+              close: 108,
+            },
+          ],
+          chartImageBase64: undefined,
+        })
+      );
+    });
+
+    it('AI解析用chartData取得失敗時はAI解析をスキップする', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
+      });
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn: jest.fn().mockRejectedValue(new Error('chart api error')),
+        createChartImageBase64Fn: jest.fn().mockReturnValue(undefined),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(generateAiAnalysisFn).not.toHaveBeenCalled();
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        AiAnalysis: undefined,
+      });
+    });
+
+    it('チャート画像生成失敗時は画像なしで AI 解析を継続する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn: jest.fn().mockResolvedValue([
+          {
+            time: Date.UTC(2026, 1, 27),
+            open: 100,
+            high: 110,
+            low: 95,
+            close: 108,
+            volume: 1000,
+          },
+        ]),
+        createChartImageBase64Fn: jest.fn(() => {
+          throw new Error('chart render error');
+        }),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
+        'test-api-key',
+        expect.objectContaining({
+          chartImageBase64: undefined,
+        })
+      );
+    });
+
     it('generateAiAnalysisFn が失敗した場合に aiAnalysisSkipped が増加し AiAnalysisError を保存する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
@@ -702,7 +925,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn: jest.fn().mockReturnValue(false),
         getChartDataFn: jest.fn().mockResolvedValue([
           {
             time: Date.UTC(2026, 1, 27),
@@ -738,7 +960,6 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn: jest.fn().mockReturnValue(false),
         getChartDataFn: jest.fn().mockResolvedValue([
           {
             time: Date.UTC(2026, 1, 27),
@@ -772,35 +993,97 @@ describe('summary batch handler', () => {
         High: 95,
         Low: 88,
         Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
         AiAnalysis: '既存のAI解析',
       });
 
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('新しいAI解析');
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
       const response = await handler(mockEvent, {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        isTradingHoursFn: jest.fn().mockReturnValue(false),
-        getChartDataFn: jest.fn().mockResolvedValue([
-          {
-            time: Date.UTC(2026, 1, 27),
-            open: 100,
-            high: 110,
-            low: 95,
-            close: 108,
-            volume: 1000,
-          },
-        ]),
+        getChartDataFn,
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
         generateAiAnalysisFn,
       });
 
       expect(response.statusCode).toBe(200);
+      expect(getChartDataFn).not.toHaveBeenCalled();
       expect(generateAiAnalysisFn).not.toHaveBeenCalled();
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
       ).toMatchObject({
         AiAnalysis: '既存のAI解析',
+      });
+    });
+
+    it('静的解析済みかつ AiAnalysis 未設定なら AI 解析のみ実行する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
+      });
+
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIのみ再解析');
+
+      const response = await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
+        count: 50,
+        session: 'extended',
+      });
+      expect(generateAiAnalysisFn).toHaveBeenCalledTimes(1);
+      expect(
+        await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
+      ).toMatchObject({
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        AiAnalysis: 'AIのみ再解析',
       });
     });
   });
@@ -824,7 +1107,6 @@ describe('summary batch handler', () => {
           getByExchange: jest.fn().mockRejectedValue('ticker fetch failed'),
         } as unknown as InMemoryTickerRepository,
         dailySummaryRepository: dailySummaryRepository as InMemoryDailySummaryRepository,
-        isTradingHoursFn: jest.fn().mockReturnValue(false),
         getChartDataFn: jest.fn(),
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
       });
