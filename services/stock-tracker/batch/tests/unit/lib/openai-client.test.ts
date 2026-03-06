@@ -32,6 +32,22 @@ const testInput = {
   buyPatternCount: 2,
   sellPatternCount: 1,
   patternSummary: 'ゴールデンクロス, RSI買いシグナル',
+  historicalData: [
+    {
+      date: '2026-03-03',
+      open: 99,
+      high: 105,
+      low: 97,
+      close: 103,
+    },
+    {
+      date: '2026-03-04',
+      open: 100,
+      high: 120,
+      low: 95,
+      close: 110,
+    },
+  ],
 };
 
 describe('generateAiAnalysis', () => {
@@ -59,6 +75,47 @@ describe('generateAiAnalysis', () => {
       expect.objectContaining({
         model: 'gpt-5-mini',
         tools: [{ type: 'web_search' }],
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: expect.stringContaining('【過去価格推移（取得件数: 2件）】'),
+              },
+            ],
+          },
+        ],
+      })
+    );
+  });
+
+  it('チャート画像がある場合は input_image を付与する', async () => {
+    mockCreate.mockResolvedValue({ output_text: '画像付き解析テキスト' });
+
+    await generateAiAnalysis('test-api-key', {
+      ...testInput,
+      chartImageBase64: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: expect.any(String),
+              },
+              {
+                type: 'input_image',
+                image_url: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+                detail: 'auto',
+              },
+            ],
+          },
+        ],
       })
     );
   });
