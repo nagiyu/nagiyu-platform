@@ -739,7 +739,7 @@ describe('summary batch handler', () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
-      const getRecentByTickerFn = jest.fn().mockResolvedValue([]);
+      const getRecentByTickerFn = jest.fn();
       const createChartImageBase64Fn = jest
         .fn()
         .mockReturnValue('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
@@ -807,18 +807,20 @@ describe('summary batch handler', () => {
 
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
       const getRecentByTickerFn = jest.fn().mockRejectedValue(new Error('dynamodb error'));
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn();
 
       await handler(mockEvent, {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        getChartDataFn: jest.fn(),
+        getChartDataFn,
         getRecentByTickerFn,
         createChartImageBase64Fn: jest.fn().mockReturnValue(undefined),
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
         generateAiAnalysisFn,
       });
 
+      expect(getChartDataFn).not.toHaveBeenCalled();
       expect(generateAiAnalysisFn).toHaveBeenCalledWith(
         'test-api-key',
         expect.objectContaining({

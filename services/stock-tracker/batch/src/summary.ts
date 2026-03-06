@@ -81,6 +81,10 @@ const AI_ANALYSIS_HISTORY_COUNT = 50;
 function toHistoricalDataFromChartData(
   chartData: Awaited<ReturnType<typeof getChartData>>
 ): AiAnalysisInput['historicalData'] {
+  if (chartData.length === 0) {
+    return [];
+  }
+
   return chartData.slice(0, AI_ANALYSIS_HISTORY_COUNT).map((point) => ({
     date: new Date(point.time).toISOString().slice(0, 10),
     open: point.open,
