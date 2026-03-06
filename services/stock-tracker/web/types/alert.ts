@@ -10,6 +10,12 @@ export interface AlertCondition {
   percentageValue?: number;
 }
 
+export interface AlertLine {
+  price: number;
+  label: string;
+  type: 'upper' | 'lower';
+}
+
 export interface AlertResponse {
   alertId: string;
   tickerId: string;

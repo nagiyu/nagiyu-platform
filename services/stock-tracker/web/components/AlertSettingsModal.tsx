@@ -27,7 +27,8 @@ import {
   CHART_BAR_COUNT_LABELS,
   DEFAULT_CHART_BAR_COUNT,
 } from '../types/stock';
-import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
+import type { AlertResponse, AlertFrequency, AlertMode, AlertCondition } from '../types/alert';
+import { computeAlertLines } from '../lib/chart-overlay-lines';
 import StockChart from './StockChart';
 
 // エラーメッセージ定数
@@ -62,6 +63,7 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
+export { computeAlertLines };
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -160,6 +162,37 @@ export default function AlertSettingsModal({
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
   const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
+
+  const getChartAlertConditions = (): AlertCondition[] => {
+    if (formData.conditionMode === 'single') {
+      const targetPrice = parseFloat(formData.targetPrice);
+      if (!Number.isFinite(targetPrice)) {
+        return [];
+      }
+      return [{ field: 'price', operator: formData.operator, value: targetPrice }];
+    }
+
+    const minPrice = parseFloat(formData.minPrice);
+    const maxPrice = parseFloat(formData.maxPrice);
+
+    if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice)) {
+      return [];
+    }
+
+    if (formData.rangeType === 'inside') {
+      return [
+        { field: 'price', operator: 'gte', value: minPrice },
+        { field: 'price', operator: 'lte', value: maxPrice },
+      ];
+    }
+
+    return [
+      { field: 'price', operator: 'lte', value: minPrice },
+      { field: 'price', operator: 'gte', value: maxPrice },
+    ];
+  };
+
+  const chartAlertLines = computeAlertLines(getChartAlertConditions());
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
@@ -794,7 +827,12 @@ export default function AlertSettingsModal({
               </Select>
             </FormControl>
           </Box>
-          <StockChart tickerId={tickerId} timeframe={timeframe} count={chartBarCount} />
+          <StockChart
+            tickerId={tickerId}
+            timeframe={timeframe}
+            count={chartBarCount}
+            alertLines={chartAlertLines}
+          />
 
           {/* 取引所（表示のみ） */}
           <TextField
