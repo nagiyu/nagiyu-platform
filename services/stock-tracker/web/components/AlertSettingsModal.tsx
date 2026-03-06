@@ -594,9 +594,9 @@ export default function AlertSettingsModal({
 
           if (formData.rangeInputMode === 'percentage') {
             minCondition.isPercentage = true;
-            minCondition.percentageValue = parseFloat(formData.minPercentage);
+            minCondition.percentageValue = parseFloat(formData.minPercentage ?? '');
             maxCondition.isPercentage = true;
-            maxCondition.percentageValue = parseFloat(formData.maxPercentage);
+            maxCondition.percentageValue = parseFloat(formData.maxPercentage ?? '');
           } else {
             minCondition.isPercentage = false;
             maxCondition.isPercentage = false;
