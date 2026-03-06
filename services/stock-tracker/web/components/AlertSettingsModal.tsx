@@ -28,6 +28,7 @@ import {
   DEFAULT_CHART_BAR_COUNT,
 } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
+import { computeAlertLines, getChartAlertConditions } from '../lib/chart-overlay-lines';
 import StockChart from './StockChart';
 
 // エラーメッセージ定数
@@ -161,6 +162,8 @@ export default function AlertSettingsModal({
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
   const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
+
+  const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
@@ -937,7 +940,12 @@ export default function AlertSettingsModal({
               </Select>
             </FormControl>
           </Box>
-          <StockChart tickerId={tickerId} timeframe={timeframe} count={chartBarCount} />
+          <StockChart
+            tickerId={tickerId}
+            timeframe={timeframe}
+            count={chartBarCount}
+            alertLines={chartAlertLines}
+          />
 
           {/* 取引所（表示のみ） */}
           <TextField

@@ -379,4 +379,6 @@ export type ChartData = {
   timeframe: string;
   /** チャートデータポイントの配列 */
   data: ChartDataPoint[];
+  /** 保有平均価格（保有がある場合のみ） */
+  holdingAveragePrice?: number;
 };

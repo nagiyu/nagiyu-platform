@@ -281,7 +281,12 @@ export default function SummariesPage() {
           {selectedTicker && (
             <Box sx={{ display: 'grid', gap: 2 }}>
               <Typography variant="h6">株価チャート</Typography>
-              <StockChart tickerId={selectedTicker.tickerId} timeframe="D" count={50} />
+              <StockChart
+                tickerId={selectedTicker.tickerId}
+                timeframe="D"
+                count={50}
+                holdingPrice={selectedTicker.holding?.averagePrice}
+              />
               <Divider />
               <TableContainer>
                 <Table size="small">

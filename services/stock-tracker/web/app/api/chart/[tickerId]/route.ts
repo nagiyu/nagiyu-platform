@@ -15,6 +15,7 @@ import {
   TRADINGVIEW_ERROR_MESSAGES,
 } from '@nagiyu/stock-tracker-core';
 import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
+import { createHoldingRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 
 /**
@@ -26,6 +27,7 @@ const ERROR_MESSAGES = {
   INVALID_COUNT: 'count は 1 から 500 の間で指定してください',
   INTERNAL_ERROR: 'チャートデータの取得に失敗しました',
   NOT_FOUND: 'ティッカーが見つかりません',
+  FETCH_HOLDING_FAILED: '保有情報の取得に失敗しました',
 } as const;
 
 /**
@@ -203,6 +205,20 @@ export async function GET(
     // tickerId が "EXCHANGE:SYMBOL" 形式であることは上記のバリデーションで保証されている
     const parts = tickerId.split(':');
     const symbol = parts.length >= 2 ? parts[1] : tickerId;
+    let holdingAveragePrice: number | undefined;
+
+    if (session?.user.userId) {
+      try {
+        const holdingRepository = createHoldingRepository();
+        const holding = await holdingRepository.getById(session.user.userId, tickerId);
+
+        if (holding && holding.Quantity > 0) {
+          holdingAveragePrice = holding.AveragePrice;
+        }
+      } catch (error) {
+        console.error(ERROR_MESSAGES.FETCH_HOLDING_FAILED, error);
+      }
+    }
 
     // レスポンス形式に変換
     const response: ChartData = {
@@ -210,6 +226,7 @@ export async function GET(
       symbol,
       timeframe,
       data: chartDataPoints,
+      ...(holdingAveragePrice !== undefined && { holdingAveragePrice }),
     };
 
     return NextResponse.json(response, { status: 200 });
