@@ -16,6 +16,7 @@ import {
 } from '@nagiyu/stock-tracker-core';
 import { generateAiAnalysis } from './lib/openai-client.js';
 import type { AiAnalysisInput } from './lib/openai-client.js';
+import { createChartImageBase64 } from './lib/chart-renderer.js';
 import type {
   CreateDailySummaryInput,
   DailySummaryEntity,
@@ -68,11 +69,14 @@ interface HandlerDependencies {
   tickerRepository: TickerRepository;
   dailySummaryRepository: DailySummaryRepository;
   getChartDataFn: typeof getChartData;
+  getRecentByTickerFn: DailySummaryRepository['getRecentByTicker'];
+  createChartImageBase64Fn: typeof createChartImageBase64;
   nowFn: () => number;
   generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
 }
 
 const REQUIRED_CHART_DATA_COUNT = 100;
+const AI_ANALYSIS_HISTORY_COUNT = 50;
 
 function needsStaticAnalysis(
   existingSummary: Awaited<ReturnType<DailySummaryRepository['getByTickerAndDate']>>
@@ -209,6 +213,45 @@ async function processExchange(
             (pattern) =>
               currentSummaryInput.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
           );
+          let historicalData: AiAnalysisInput['historicalData'] = [];
+          try {
+            historicalData = (
+              await dependencies.getRecentByTickerFn(
+                ticker.TickerID,
+                summaryDate,
+                AI_ANALYSIS_HISTORY_COUNT
+              )
+            ).map((summary) => ({
+              date: summary.Date,
+              open: summary.Open,
+              high: summary.High,
+              low: summary.Low,
+              close: summary.Close,
+            }));
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.warn(
+              '過去日次サマリーの取得に失敗したため、当日データのみでAI解析を継続します',
+              {
+                exchangeId: exchange.ExchangeID,
+                tickerId: ticker.TickerID,
+                reason: errorMessage,
+              }
+            );
+          }
+
+          let chartImageBase64: string | undefined;
+          try {
+            chartImageBase64 = dependencies.createChartImageBase64Fn(historicalData);
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.warn('チャート画像生成に失敗したため、画像なしでAI解析を継続します', {
+              exchangeId: exchange.ExchangeID,
+              tickerId: ticker.TickerID,
+              reason: errorMessage,
+            });
+          }
+
           const aiAnalysis = await dependencies.generateAiAnalysisFn(openAiApiKey, {
             tickerId: ticker.TickerID,
             name: ticker.Name,
@@ -220,6 +263,8 @@ async function processExchange(
             buyPatternCount: currentSummaryInput.BuyPatternCount ?? 0,
             sellPatternCount: currentSummaryInput.SellPatternCount ?? 0,
             patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
+            historicalData,
+            chartImageBase64,
           });
 
           await dependencies.dailySummaryRepository.upsert({
@@ -302,17 +347,28 @@ export async function handler(
         tickerRepository: dependencies.tickerRepository,
         dailySummaryRepository: dependencies.dailySummaryRepository,
         getChartDataFn: dependencies.getChartDataFn ?? getChartData,
+        getRecentByTickerFn:
+          dependencies.getRecentByTickerFn ??
+          dependencies.dailySummaryRepository.getRecentByTicker.bind(
+            dependencies.dailySummaryRepository
+          ),
+        createChartImageBase64Fn: dependencies.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies.generateAiAnalysisFn ?? generateAiAnalysis,
       };
     } else {
       const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
+      const dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
       resolvedDependencies = {
         exchangeRepository: new DynamoDBExchangeRepository(docClient, tableName),
         tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
-        dailySummaryRepository: new DynamoDBDailySummaryRepository(docClient, tableName),
+        dailySummaryRepository,
         getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
+        getRecentByTickerFn:
+          dependencies?.getRecentByTickerFn ??
+          dailySummaryRepository.getRecentByTicker.bind(dailySummaryRepository),
+        createChartImageBase64Fn: dependencies?.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies?.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies?.generateAiAnalysisFn ?? generateAiAnalysis,
       };

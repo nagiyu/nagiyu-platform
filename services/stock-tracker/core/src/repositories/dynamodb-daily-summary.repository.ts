@@ -113,6 +113,46 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
   }
 
   /**
+   * ティッカーIDをキーに終了日以前の新しい順サマリーを取得
+   */
+  public async getRecentByTicker(
+    tickerId: string,
+    endDate: string,
+    count: number
+  ): Promise<DailySummaryEntity[]> {
+    if (count <= 0) {
+      return [];
+    }
+
+    try {
+      const result = await this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: '#pk = :pk AND #sk BETWEEN :fromSk AND :toSk',
+          ExpressionAttributeNames: {
+            '#pk': 'PK',
+            '#sk': 'SK',
+          },
+          ExpressionAttributeValues: {
+            ':pk': `SUMMARY#${tickerId}`,
+            ':fromSk': 'DATE#0000-00-00',
+            ':toSk': `DATE#${endDate}`,
+          },
+          ScanIndexForward: false,
+          Limit: count,
+        })
+      );
+
+      return (result.Items || []).map((item) =>
+        this.mapper.toEntity(item as unknown as DynamoDBItem)
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
    * サマリーを保存（既存の場合は上書き）
    */
   public async upsert(input: CreateDailySummaryInput): Promise<DailySummaryEntity> {

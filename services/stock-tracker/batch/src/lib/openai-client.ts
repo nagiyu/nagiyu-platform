@@ -5,6 +5,14 @@ const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 
+export interface HistoricalPriceData {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
 export interface AiAnalysisInput {
   tickerId: string;
   name: string;
@@ -16,6 +24,8 @@ export interface AiAnalysisInput {
   buyPatternCount: number;
   sellPatternCount: number;
   patternSummary: string;
+  historicalData: HistoricalPriceData[];
+  chartImageBase64?: string;
 }
 
 export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput): Promise<string> {
@@ -29,8 +39,28 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
       withTimeout(
         client.responses.create({
           model: OPENAI_MODEL,
+          stream: false,
           tools: [{ type: 'web_search' }],
-          input: createPrompt(input),
+          input: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: createPrompt(input),
+                },
+                ...(input.chartImageBase64
+                  ? [
+                      {
+                        type: 'input_image' as const,
+                        image_url: input.chartImageBase64,
+                        detail: 'auto' as const,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+          ],
         }),
         REQUEST_TIMEOUT_MS
       ),
@@ -46,6 +76,8 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
 }
 
 function createPrompt(input: AiAnalysisInput): string {
+  const historicalDataLines = formatHistoricalData(input.historicalData);
+
   return [
     'あなたは株式分析の専門家です。以下の情報を基に日本語で2000文字以内の解析を作成してください。',
     '- 価格動向の解釈',
@@ -61,7 +93,21 @@ function createPrompt(input: AiAnalysisInput): string {
     `買いシグナル合致数: ${input.buyPatternCount}`,
     `売りシグナル合致数: ${input.sellPatternCount}`,
     `合致パターン: ${input.patternSummary || 'なし'}`,
+    '',
+    '【過去50日間の価格推移】',
+    '日付, 始値, 高値, 安値, 終値',
+    ...historicalDataLines,
   ].join('\n');
+}
+
+function formatHistoricalData(historicalData: HistoricalPriceData[]): string[] {
+  if (historicalData.length === 0) {
+    return ['データなし'];
+  }
+
+  return [...historicalData]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((point) => `${point.date}, ${point.open}, ${point.high}, ${point.low}, ${point.close}`);
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
