@@ -741,7 +741,7 @@ describe('summary batch handler', () => {
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
       const createChartImageBase64Fn = jest
         .fn()
-        .mockReturnValue('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
+        .mockReturnValue('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA');
 
       await handler(mockEvent, {
         exchangeRepository,
@@ -779,7 +779,7 @@ describe('summary batch handler', () => {
               date: '2026-02-27',
             }),
           ]),
-          chartImageBase64: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
+          chartImageBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA',
         })
       );
     });

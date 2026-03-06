@@ -12,7 +12,7 @@ describe('createChartImageBase64', () => {
     expect(result).toBeUndefined();
   });
 
-  it('チャート画像を base64 data URL で返す', () => {
+  it('チャート画像を PNG の base64 data URL で返す', () => {
     const result = createChartImageBase64([
       {
         date: '2026-03-05',
@@ -30,10 +30,10 @@ describe('createChartImageBase64', () => {
       },
     ]);
 
-    expect(result).toMatch(/^data:image\/svg\+xml;base64,/);
-    const encoded = result?.replace(/^data:image\/svg\+xml;base64,/, '') ?? '';
-    const svg = Buffer.from(encoded, 'base64').toString('utf-8');
-    expect(svg).toContain('<svg');
+    expect(result).toMatch(/^data:image\/png;base64,/);
+    const encoded = result?.replace(/^data:image\/png;base64,/, '') ?? '';
+    const pngBuffer = Buffer.from(encoded, 'base64');
+    expect(pngBuffer.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
   });
 
   it('ECharts の例外時は undefined を返す', () => {

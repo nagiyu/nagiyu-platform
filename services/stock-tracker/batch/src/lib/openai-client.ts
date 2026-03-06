@@ -4,12 +4,7 @@ import { withRetry } from './retry.js';
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
-const SUPPORTED_IMAGE_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-]);
+const SUPPORTED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
 export interface HistoricalPriceData {
   date: string;
