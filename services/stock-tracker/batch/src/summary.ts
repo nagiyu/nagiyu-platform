@@ -78,6 +78,18 @@ interface HandlerDependencies {
 const REQUIRED_CHART_DATA_COUNT = 100;
 const AI_ANALYSIS_HISTORY_COUNT = 50;
 
+function toHistoricalDataFromChartData(
+  chartData: Awaited<ReturnType<typeof getChartData>>
+): AiAnalysisInput['historicalData'] {
+  return chartData.slice(0, AI_ANALYSIS_HISTORY_COUNT).map((point) => ({
+    date: new Date(point.time).toISOString().slice(0, 10),
+    open: point.open,
+    high: point.high,
+    low: point.low,
+    close: point.close,
+  }));
+}
+
 function needsStaticAnalysis(
   existingSummary: Awaited<ReturnType<DailySummaryRepository['getByTickerAndDate']>>
 ): boolean {
@@ -141,6 +153,7 @@ async function processExchange(
           summaryDate
         );
         let currentSummaryInput: CreateDailySummaryInput;
+        let historicalDataForAiFromChart: AiAnalysisInput['historicalData'] | undefined;
 
         if (needsStaticAnalysis(existingSummary)) {
           const chartData = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
@@ -185,6 +198,7 @@ async function processExchange(
             AiAnalysis: existingSummary?.AiAnalysis,
             AiAnalysisError: existingSummary?.AiAnalysisError,
           };
+          historicalDataForAiFromChart = toHistoricalDataFromChartData(chartData);
           await dependencies.dailySummaryRepository.upsert(currentSummaryInput);
           stats.summariesSaved++;
         } else if (existingSummary) {
@@ -213,31 +227,34 @@ async function processExchange(
             (pattern) =>
               currentSummaryInput.PatternResults?.[pattern.definition.patternId] === 'MATCHED'
           );
-          let historicalData: AiAnalysisInput['historicalData'] = [];
-          try {
-            historicalData = (
-              await dependencies.getRecentByTickerFn(
-                ticker.TickerID,
-                summaryDate,
-                AI_ANALYSIS_HISTORY_COUNT
-              )
-            ).map((summary) => ({
-              date: summary.Date,
-              open: summary.Open,
-              high: summary.High,
-              low: summary.Low,
-              close: summary.Close,
-            }));
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            logger.warn(
-              '過去日次サマリーの取得に失敗したため、当日データのみでAI解析を継続します',
-              {
-                exchangeId: exchange.ExchangeID,
-                tickerId: ticker.TickerID,
-                reason: errorMessage,
-              }
-            );
+          let historicalData: AiAnalysisInput['historicalData'] =
+            historicalDataForAiFromChart ?? [];
+          if (historicalDataForAiFromChart === undefined) {
+            try {
+              historicalData = (
+                await dependencies.getRecentByTickerFn(
+                  ticker.TickerID,
+                  summaryDate,
+                  AI_ANALYSIS_HISTORY_COUNT
+                )
+              ).map((summary) => ({
+                date: summary.Date,
+                open: summary.Open,
+                high: summary.High,
+                low: summary.Low,
+                close: summary.Close,
+              }));
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              logger.warn(
+                '過去日次サマリーの取得に失敗したため、当日データのみでAI解析を継続します',
+                {
+                  exchangeId: exchange.ExchangeID,
+                  tickerId: ticker.TickerID,
+                  reason: errorMessage,
+                }
+              );
+            }
           }
 
           let chartImageBase64: string | undefined;

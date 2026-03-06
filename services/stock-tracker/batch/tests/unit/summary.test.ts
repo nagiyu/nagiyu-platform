@@ -735,34 +735,11 @@ describe('summary batch handler', () => {
       });
     });
 
-    it('過去50日データとチャート画像を AI 入力に含める', async () => {
+    it('静的解析時は chartData から過去データを作成して AI 入力に含める', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
-      const getRecentByTickerFn = jest.fn().mockResolvedValue([
-        {
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Date: '2026-02-27',
-          Open: 100,
-          High: 110,
-          Low: 95,
-          Close: 108,
-          CreatedAt: Date.now(),
-          UpdatedAt: Date.now(),
-        },
-        {
-          TickerID: 'NSDQ:AAPL',
-          ExchangeID: 'NASDAQ',
-          Date: '2026-02-26',
-          Open: 98,
-          High: 106,
-          Low: 94,
-          Close: 101,
-          CreatedAt: Date.now(),
-          UpdatedAt: Date.now(),
-        },
-      ]);
+      const getRecentByTickerFn = jest.fn().mockResolvedValue([]);
       const createChartImageBase64Fn = jest
         .fn()
         .mockReturnValue('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
@@ -787,7 +764,7 @@ describe('summary batch handler', () => {
         generateAiAnalysisFn,
       });
 
-      expect(getRecentByTickerFn).toHaveBeenCalledWith('NSDQ:AAPL', '2026-02-27', 50);
+      expect(getRecentByTickerFn).not.toHaveBeenCalled();
       expect(createChartImageBase64Fn).toHaveBeenCalledWith([
         {
           date: '2026-02-27',
@@ -795,13 +772,6 @@ describe('summary batch handler', () => {
           high: 110,
           low: 95,
           close: 108,
-        },
-        {
-          date: '2026-02-26',
-          open: 98,
-          high: 106,
-          low: 94,
-          close: 101,
         },
       ]);
       expect(generateAiAnalysisFn).toHaveBeenCalledWith(
@@ -820,6 +790,21 @@ describe('summary batch handler', () => {
     it('過去データ取得失敗時は空配列で AI 解析を継続する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
+      });
+
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
       const getRecentByTickerFn = jest.fn().mockRejectedValue(new Error('dynamodb error'));
 
@@ -827,16 +812,7 @@ describe('summary batch handler', () => {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
-        getChartDataFn: jest.fn().mockResolvedValue([
-          {
-            time: Date.UTC(2026, 1, 27),
-            open: 100,
-            high: 110,
-            low: 95,
-            close: 108,
-            volume: 1000,
-          },
-        ]),
+        getChartDataFn: jest.fn(),
         getRecentByTickerFn,
         createChartImageBase64Fn: jest.fn().mockReturnValue(undefined),
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
