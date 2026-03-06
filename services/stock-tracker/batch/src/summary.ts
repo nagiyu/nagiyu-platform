@@ -69,7 +69,6 @@ interface HandlerDependencies {
   tickerRepository: TickerRepository;
   dailySummaryRepository: DailySummaryRepository;
   getChartDataFn: typeof getChartData;
-  getRecentByTickerFn: DailySummaryRepository['getRecentByTicker'];
   createChartImageBase64Fn: typeof createChartImageBase64;
   nowFn: () => number;
   generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
@@ -235,23 +234,15 @@ async function processExchange(
             historicalDataForAiFromChart ?? [];
           if (historicalDataForAiFromChart === undefined) {
             try {
-              historicalData = (
-                await dependencies.getRecentByTickerFn(
-                  ticker.TickerID,
-                  summaryDate,
-                  AI_ANALYSIS_HISTORY_COUNT
-                )
-              ).map((summary) => ({
-                date: summary.Date,
-                open: summary.Open,
-                high: summary.High,
-                low: summary.Low,
-                close: summary.Close,
-              }));
+              const chartDataForAi = await dependencies.getChartDataFn(ticker.TickerID, 'D', {
+                count: AI_ANALYSIS_HISTORY_COUNT,
+                session: 'extended',
+              });
+              historicalData = toHistoricalDataFromChartData(chartDataForAi);
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
               logger.warn(
-                '過去日次サマリーの取得に失敗したため、当日データのみでAI解析を継続します',
+                'AI解析用チャートデータの取得に失敗したため、当日データのみでAI解析を継続します',
                 {
                   exchangeId: exchange.ExchangeID,
                   tickerId: ticker.TickerID,
@@ -368,11 +359,6 @@ export async function handler(
         tickerRepository: dependencies.tickerRepository,
         dailySummaryRepository: dependencies.dailySummaryRepository,
         getChartDataFn: dependencies.getChartDataFn ?? getChartData,
-        getRecentByTickerFn:
-          dependencies.getRecentByTickerFn ??
-          dependencies.dailySummaryRepository.getRecentByTicker.bind(
-            dependencies.dailySummaryRepository
-          ),
         createChartImageBase64Fn: dependencies.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies.generateAiAnalysisFn ?? generateAiAnalysis,
@@ -386,9 +372,6 @@ export async function handler(
         tickerRepository: new DynamoDBTickerRepository(docClient, tableName),
         dailySummaryRepository,
         getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
-        getRecentByTickerFn:
-          dependencies?.getRecentByTickerFn ??
-          dailySummaryRepository.getRecentByTicker.bind(dailySummaryRepository),
         createChartImageBase64Fn: dependencies?.createChartImageBase64Fn ?? createChartImageBase64,
         nowFn: dependencies?.nowFn ?? Date.now,
         generateAiAnalysisFn: dependencies?.generateAiAnalysisFn ?? generateAiAnalysis,

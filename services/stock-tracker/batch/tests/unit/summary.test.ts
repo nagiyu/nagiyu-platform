@@ -739,7 +739,6 @@ describe('summary batch handler', () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
-      const getRecentByTickerFn = jest.fn();
       const createChartImageBase64Fn = jest
         .fn()
         .mockReturnValue('data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=');
@@ -758,13 +757,11 @@ describe('summary batch handler', () => {
             volume: 1000,
           },
         ]),
-        getRecentByTickerFn,
         createChartImageBase64Fn,
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
         generateAiAnalysisFn,
       });
 
-      expect(getRecentByTickerFn).not.toHaveBeenCalled();
       expect(createChartImageBase64Fn).toHaveBeenCalledWith([
         {
           date: '2026-02-27',
@@ -787,7 +784,7 @@ describe('summary batch handler', () => {
       );
     });
 
-    it('過去データ取得失敗時は空配列で AI 解析を継続する', async () => {
+    it('既存サマリー再利用時でもchartDataから過去データを取得する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       await dailySummaryRepository.upsert({
@@ -806,21 +803,78 @@ describe('summary batch handler', () => {
       });
 
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
-      const getRecentByTickerFn = jest.fn().mockRejectedValue(new Error('dynamodb error'));
-      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn();
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
 
       await handler(mockEvent, {
         exchangeRepository,
         tickerRepository,
         dailySummaryRepository,
         getChartDataFn,
-        getRecentByTickerFn,
         createChartImageBase64Fn: jest.fn().mockReturnValue(undefined),
         nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
         generateAiAnalysisFn,
       });
 
-      expect(getChartDataFn).not.toHaveBeenCalled();
+      expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
+        count: 50,
+        session: 'extended',
+      });
+      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
+        'test-api-key',
+        expect.objectContaining({
+          historicalData: [
+            {
+              date: '2026-02-27',
+              open: 100,
+              high: 110,
+              low: 95,
+              close: 108,
+            },
+          ],
+          chartImageBase64: undefined,
+        })
+      );
+    });
+
+    it('AI解析用chartData取得失敗時は空配列でAI解析を継続する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [pattern.definition.patternId, 'NOT_MATCHED'])
+        ),
+        BuyPatternCount: 0,
+        SellPatternCount: 0,
+      });
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn: jest.fn().mockRejectedValue(new Error('chart api error')),
+        createChartImageBase64Fn: jest.fn().mockReturnValue(undefined),
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
       expect(generateAiAnalysisFn).toHaveBeenCalledWith(
         'test-api-key',
         expect.objectContaining({
@@ -849,7 +903,6 @@ describe('summary batch handler', () => {
             volume: 1000,
           },
         ]),
-        getRecentByTickerFn: jest.fn().mockResolvedValue([]),
         createChartImageBase64Fn: jest.fn(() => {
           throw new Error('chart render error');
         }),
@@ -997,7 +1050,16 @@ describe('summary batch handler', () => {
         SellPatternCount: 0,
       });
 
-      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn();
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
+        {
+          time: Date.UTC(2026, 1, 27),
+          open: 100,
+          high: 110,
+          low: 95,
+          close: 108,
+          volume: 1000,
+        },
+      ]);
       const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIのみ再解析');
 
       const response = await handler(mockEvent, {
@@ -1010,7 +1072,10 @@ describe('summary batch handler', () => {
       });
 
       expect(response.statusCode).toBe(200);
-      expect(getChartDataFn).not.toHaveBeenCalled();
+      expect(getChartDataFn).toHaveBeenCalledWith('NSDQ:AAPL', 'D', {
+        count: 50,
+        session: 'extended',
+      });
       expect(generateAiAnalysisFn).toHaveBeenCalledTimes(1);
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
