@@ -1,4 +1,5 @@
 import * as echarts from 'echarts';
+import { Resvg } from '@resvg/resvg-js';
 
 export interface ChartOhlcData {
   date: string;
@@ -55,7 +56,9 @@ export function createChartImageBase64(historicalData: ChartOhlcData[]): string 
     });
 
     const svg = chart.renderToSVGString();
-    return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+    const resvg = new Resvg(svg);
+    const pngBuffer = Buffer.from(resvg.render().asPng());
+    return `data:image/png;base64,${pngBuffer.toString('base64')}`;
   } catch {
     return undefined;
   } finally {
