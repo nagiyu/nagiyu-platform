@@ -90,8 +90,38 @@ describe('generateAiAnalysis', () => {
     );
   });
 
-  it('チャート画像がある場合は input_image を付与する', async () => {
+  it('対応形式のチャート画像がある場合は input_image を付与する', async () => {
     mockCreate.mockResolvedValue({ output_text: '画像付き解析テキスト' });
+
+    await generateAiAnalysis('test-api-key', {
+      ...testInput,
+      chartImageBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA',
+    });
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: expect.any(String),
+              },
+              {
+                type: 'input_image',
+                image_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA',
+                detail: 'auto',
+              },
+            ],
+          },
+        ],
+      })
+    );
+  });
+
+  it('非対応形式のチャート画像は input_image に含めない', async () => {
+    mockCreate.mockResolvedValue({ output_text: 'テキスト解析テキスト' });
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
@@ -107,11 +137,6 @@ describe('generateAiAnalysis', () => {
               {
                 type: 'input_text',
                 text: expect.any(String),
-              },
-              {
-                type: 'input_image',
-                image_url: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
-                detail: 'auto',
               },
             ],
           },

@@ -4,6 +4,12 @@ import { withRetry } from './retry.js';
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
+const SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+]);
 
 export interface HistoricalPriceData {
   date: string;
@@ -33,6 +39,7 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
     apiKey,
     maxRetries: 0,
   });
+  const imageInput = toSupportedImageInput(input.chartImageBase64);
 
   const response = await withRetry(
     async () =>
@@ -49,15 +56,7 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
                   type: 'input_text',
                   text: createPrompt(input),
                 },
-                ...(input.chartImageBase64
-                  ? [
-                      {
-                        type: 'input_image' as const,
-                        image_url: input.chartImageBase64,
-                        detail: 'auto' as const,
-                      },
-                    ]
-                  : []),
+                ...(imageInput ? [imageInput] : []),
               ],
             },
           ],
@@ -73,6 +72,30 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
   }
 
   return outputText;
+}
+
+function toSupportedImageInput(chartImageBase64: string | undefined):
+  | { type: 'input_image'; image_url: string; detail: 'auto' }
+  | undefined {
+  if (!chartImageBase64) {
+    return undefined;
+  }
+
+  const dataUrlMatch = /^data:([^;]+);base64,/.exec(chartImageBase64);
+  if (!dataUrlMatch) {
+    return undefined;
+  }
+
+  const mimeType = dataUrlMatch[1];
+  if (!SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
+    return undefined;
+  }
+
+  return {
+    type: 'input_image',
+    image_url: chartImageBase64,
+    detail: 'auto',
+  };
 }
 
 function createPrompt(input: AiAnalysisInput): string {
