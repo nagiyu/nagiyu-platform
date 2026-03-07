@@ -31,8 +31,8 @@ export class TweezerBottom extends CandlestickPattern {
     const hasBodies =
       c0Body > c0Range * TweezerBottom.SMALL_BODY_THRESHOLD &&
       c1Body > c1Range * TweezerBottom.SMALL_BODY_THRESHOLD;
-    const hasReversal = c1.close < c1.open && c0.close > c0.open;
+    const hasBottomReversal = c1.close < c1.open && c0.close > c0.open;
 
-    return lowsAreClose && hasBodies && hasReversal ? 'MATCHED' : 'NOT_MATCHED';
+    return lowsAreClose && hasBodies && hasBottomReversal ? 'MATCHED' : 'NOT_MATCHED';
   }
 }
