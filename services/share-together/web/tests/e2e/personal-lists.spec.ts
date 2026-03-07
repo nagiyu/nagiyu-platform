@@ -106,7 +106,11 @@ test.describe('個人リスト管理', () => {
       await route.fulfill({ json: { data: target } });
     });
 
-    await page.goto('/lists/mock-default-list');
+    await page.route('**/api/lists/*/todos', async (route) => {
+      await route.fulfill({ json: { data: { todos: [] } } });
+    });
+
+    await page.goto('/lists?listId=mock-default-list');
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeVisible();
   });
 
@@ -120,13 +124,19 @@ test.describe('個人リスト管理', () => {
 
     await expect(page.getByText('旅行リスト')).toBeVisible();
     await expect(page.getByText('個人リストを作成しました。')).toBeVisible();
-    await expect(page).toHaveURL(/\/lists\/list-3$/);
+    await expect(page.getByRole('button', { name: '旅行リスト' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   });
 
   test('個人リストを切り替えできる', async ({ page }) => {
     await page.getByRole('link', { name: '仕事リスト' }).click();
 
-    await expect(page).toHaveURL(/\/lists\/list-work$/);
+    await expect(page.getByRole('button', { name: '仕事リスト' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   });
 
   test('個人リスト名を変更できる', async ({ page }) => {
