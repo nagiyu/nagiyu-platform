@@ -45,6 +45,7 @@
 ## サービス
 
 - [Tools アプリ](./services/tools/README.md)
+- [Share Together アプリ](./services/share-together/README.md)
 
 ## 共通ライブラリ
 
