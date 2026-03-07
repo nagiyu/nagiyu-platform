@@ -64,6 +64,14 @@ export function GroupDetailClient({
   const [deleted, setDeleted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreatingList, setIsCreatingList] = useState(false);
+  const createSharedListHref = (listId: string) => {
+    const query = new URLSearchParams({
+      scope: 'shared',
+      groupId,
+      listId,
+    });
+    return `/lists?${query.toString()}`;
+  };
 
   const getErrorMessage = async (response: Response): Promise<string> => {
     try {
@@ -259,7 +267,7 @@ export function GroupDetailClient({
             <List>
               {groupLists.map((list) => (
                 <ListItem key={list.listId} disablePadding>
-                  <Button component={Link} href="/lists">
+                  <Button component={Link} href={createSharedListHref(list.listId)}>
                     {list.name}
                   </Button>
                 </ListItem>

@@ -23,15 +23,21 @@ const ERROR_MESSAGES = {
 
 type ListWorkspaceProps = {
   initialListId: string;
+  initialScope?: 'personal' | 'shared';
+  initialGroupId?: string;
 };
 
-export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
-  const [scope, setScope] = useState<'personal' | 'shared'>('personal');
+export function ListWorkspace({
+  initialListId,
+  initialScope = 'personal',
+  initialGroupId = '',
+}: ListWorkspaceProps) {
+  const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
   const [sharedGroups, setSharedGroups] = useState<readonly SharedGroup[]>([]);
   const [sharedListsByGroup, setSharedListsByGroup] = useState<
     Record<string, readonly SharedList[]>
   >({});
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(initialGroupId);
   const [selectedListId, setSelectedListId] = useState(initialListId);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
@@ -97,7 +103,12 @@ export function ListWorkspace({ initialListId }: ListWorkspaceProps) {
       lists.some((list) => list.listId === initialListId)
     )?.[0];
 
-    const nextGroupId = matchingGroupId ?? (selectedGroupId || sharedGroups[0].groupId);
+    const nextGroupId =
+      (selectedGroupId && sharedGroups.some((group) => group.groupId === selectedGroupId)
+        ? selectedGroupId
+        : undefined) ??
+      matchingGroupId ??
+      sharedGroups[0].groupId;
     if (nextGroupId !== selectedGroupId) {
       setSelectedGroupId(nextGroupId);
     }

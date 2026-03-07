@@ -253,15 +253,26 @@ export function ListSidebar({
               ) : undefined
             }
           >
-            <ListItemButton
-              selected={selectedListId === list.listId}
-              aria-current={selectedListId === list.listId ? 'page' : undefined}
-              component={onListSelect ? 'button' : Link}
-              href={onListSelect ? undefined : `${hrefPrefix}/${list.listId}`}
-              onClick={() => navigateToList(list.listId)}
-            >
-              <ListItemText primary={list.name} />
-            </ListItemButton>
+            {onListSelect ? (
+              <ListItemButton
+                selected={selectedListId === list.listId}
+                aria-current={selectedListId === list.listId ? 'page' : undefined}
+                component="button"
+                type="button"
+                onClick={() => navigateToList(list.listId)}
+              >
+                <ListItemText primary={list.name} />
+              </ListItemButton>
+            ) : (
+              <ListItemButton
+                selected={selectedListId === list.listId}
+                aria-current={selectedListId === list.listId ? 'page' : undefined}
+                component={Link}
+                href={`${hrefPrefix}/${list.listId}`}
+              >
+                <ListItemText primary={list.name} />
+              </ListItemButton>
+            )}
           </ListItem>
         ))}
       </List>

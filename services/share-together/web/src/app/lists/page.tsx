@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
+import { useSearchParams } from 'next/navigation';
 import { Navigation } from '@/components/Navigation';
 import { ListWorkspace } from '@/components/ListWorkspace';
 import type { PersonalListsResponse } from '@/types';
@@ -13,10 +14,19 @@ const ERROR_MESSAGES = {
 } as const;
 
 export default function ListsPage() {
+  const searchParams = useSearchParams();
+  const scope = searchParams.get('scope') === 'shared' ? 'shared' : 'personal';
+  const initialGroupId = searchParams.get('groupId') ?? '';
+  const listIdFromQuery = searchParams.get('listId') ?? '';
+  const hasListIdFromQuery = listIdFromQuery.length > 0;
   const [defaultListId, setDefaultListId] = useState<string>('');
-  const [isListLoading, setIsListLoading] = useState(true);
+  const [isListLoading, setIsListLoading] = useState(!hasListIdFromQuery);
 
   useEffect(() => {
+    if (hasListIdFromQuery) {
+      return;
+    }
+
     const controller = new AbortController();
 
     void globalThis
@@ -34,7 +44,7 @@ export default function ListsPage() {
         setDefaultListId(defaultList.listId);
       })
       .catch((error: unknown) => {
-        if (error instanceof Error && error.name === 'AbortError') {
+        if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
         console.error(ERROR_MESSAGES.PERSONAL_LISTS_FETCH_FAILED, { error });
@@ -46,7 +56,10 @@ export default function ListsPage() {
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [hasListIdFromQuery]);
+
+  const isLoading = hasListIdFromQuery ? false : isListLoading;
+  const resolvedListId = hasListIdFromQuery ? listIdFromQuery : defaultListId;
 
   return (
     <main>
@@ -55,12 +68,16 @@ export default function ListsPage() {
         <Typography variant="h5" component="h1" gutterBottom>
           リスト
         </Typography>
-        {isListLoading ? (
+        {isLoading ? (
           <Typography role="status" aria-live="polite">
             リストを読み込み中です...
           </Typography>
-        ) : defaultListId ? (
-          <ListWorkspace initialListId={defaultListId} />
+        ) : resolvedListId ? (
+          <ListWorkspace
+            initialListId={resolvedListId}
+            initialScope={scope}
+            initialGroupId={initialGroupId}
+          />
         ) : (
           <Typography color="error">{ERROR_MESSAGES.DEFAULT_LIST_LOAD_FAILED_NOTICE}</Typography>
         )}

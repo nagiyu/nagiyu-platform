@@ -45,8 +45,6 @@ describe('UserRegistrationInitializer', () => {
 
     render(<UserRegistrationInitializer />);
 
-    await waitFor(() => {
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
