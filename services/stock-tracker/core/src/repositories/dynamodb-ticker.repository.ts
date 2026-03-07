@@ -127,6 +127,41 @@ export class DynamoDBTickerRepository implements TickerRepository {
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     try {
+      const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
+
+      if (!usePagination) {
+        const allItems: TickerEntity[] = [];
+        let exclusiveStartKey: Record<string, unknown> | undefined;
+
+        do {
+          const result = await this.docClient.send(
+            new ScanCommand({
+              TableName: this.tableName,
+              FilterExpression: '#type = :type',
+              ExpressionAttributeNames: {
+                '#type': 'Type',
+              },
+              ExpressionAttributeValues: {
+                ':type': 'Ticker',
+              },
+              ExclusiveStartKey: exclusiveStartKey,
+            })
+          );
+
+          const pageItems = (result.Items || []).map((item) =>
+            this.mapper.toEntity(item as unknown as DynamoDBItem)
+          );
+          allItems.push(...pageItems);
+          exclusiveStartKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+        } while (exclusiveStartKey);
+
+        return {
+          items: allItems,
+          nextCursor: undefined,
+          count: allItems.length,
+        };
+      }
+
       const limit = options?.limit || 50;
       const exclusiveStartKey = options?.cursor
         ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))

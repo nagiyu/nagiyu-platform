@@ -186,6 +186,42 @@ describe('InMemoryTickerRepository', () => {
 
       expect(result.items).toHaveLength(0);
     });
+
+    it('options未指定時は100件を超えていても全件を返す', async () => {
+      const totalCount = 120;
+      for (let i = 0; i < totalCount; i++) {
+        await repository.create({
+          TickerID: `NSDQ:TEST${i}`,
+          Symbol: `TEST${i}`,
+          Name: `Test ${i}`,
+          ExchangeID: 'NASDAQ',
+        });
+      }
+
+      const result = await repository.getAll();
+
+      expect(result.items).toHaveLength(totalCount);
+      expect(result.count).toBe(totalCount);
+      expect(result.nextCursor).toBeUndefined();
+    });
+
+    it('options指定時はページネーションを維持する', async () => {
+      for (let i = 0; i < 5; i++) {
+        await repository.create({
+          TickerID: `NSDQ:PAGED${i}`,
+          Symbol: `PAGED${i}`,
+          Name: `Paged ${i}`,
+          ExchangeID: 'NASDAQ',
+        });
+      }
+
+      const firstPage = await repository.getAll({ limit: 2 });
+      const secondPage = await repository.getAll({ limit: 2, cursor: firstPage.nextCursor });
+
+      expect(firstPage.items).toHaveLength(2);
+      expect(firstPage.nextCursor).toBeDefined();
+      expect(secondPage.items).toHaveLength(2);
+    });
   });
 
   describe('update', () => {

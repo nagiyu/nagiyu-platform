@@ -82,12 +82,13 @@ export class InMemoryTickerRepository implements TickerRepository {
    * 全ティッカー取得
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
+    const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
     const result = this.store.queryByAttribute(
       {
         attributeName: 'Type',
         attributeValue: 'Ticker',
       },
-      options
+      usePagination ? options : { limit: Number.MAX_SAFE_INTEGER }
     );
 
     const items = result.items.map((item) => this.mapper.toEntity(item));
