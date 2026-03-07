@@ -22,10 +22,10 @@ type GroupMembersResponse = {
 
 test.describe('グループ管理', () => {
   test.beforeEach(async ({ page }) => {
-    await page.route('**/api/invitations', async (route) => {
+    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { invitations: [] } } });
     });
-    await page.route('**/api/auth/session**', async (route) => {
+    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { user: { id: 'owner-user' } } });
     });
   });
@@ -41,7 +41,7 @@ test.describe('グループ管理', () => {
       },
     ];
 
-    await page.route('**/api/groups', async (route) => {
+    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         const requestBody = route.request().postDataJSON() as { name: string };
         const createdGroup = {
@@ -58,7 +58,7 @@ test.describe('グループ管理', () => {
       await route.fulfill({ json: { data: { groups } } });
     });
 
-    await page.route('**/api/groups/*/members', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -68,7 +68,7 @@ test.describe('グループ管理', () => {
       });
     });
 
-    await page.route('**/api/groups/*/lists', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { lists: [] } } });
     });
 
@@ -87,7 +87,7 @@ test.describe('グループ管理', () => {
   test('オーナーがメンバー招待を送信できる', async ({ page }) => {
     const groupId = 'group-owner';
 
-    await page.route('**/api/groups', async (route) => {
+    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -104,7 +104,7 @@ test.describe('グループ管理', () => {
       });
     });
 
-    await page.route('**/api/groups/*/members**', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -113,17 +113,17 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
-    await page.route('**/api/groups/*/lists**', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { lists: [] } } });
     });
-    await page.route('**/api/invitations**', async (route) => {
+    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({ json: { data: { success: true } } });
         return;
       }
       await route.fulfill({ json: { data: { invitations: [] } } });
     });
-    await page.route('**/api/auth/session**', async (route) => {
+    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { user: { id: 'owner-user' } } });
     });
 
@@ -140,7 +140,7 @@ test.describe('グループ管理', () => {
   });
 
   test('招待を承認できる', async ({ page }) => {
-    await page.route('**/api/invitations', async (route) => {
+    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -157,7 +157,7 @@ test.describe('グループ管理', () => {
       });
     });
 
-    await page.route('**/api/invitations/*', async (route) => {
+    await page.route(/\/api\/invitations\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { success: true } } });
     });
 
@@ -171,7 +171,7 @@ test.describe('グループ管理', () => {
   });
 
   test('招待を拒否できる', async ({ page }) => {
-    await page.route('**/api/invitations', async (route) => {
+    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -188,7 +188,7 @@ test.describe('グループ管理', () => {
       });
     });
 
-    await page.route('**/api/invitations/*', async (route) => {
+    await page.route(/\/api\/invitations\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { success: true } } });
     });
 
@@ -206,7 +206,7 @@ test.describe('グループ管理', () => {
   test('メンバーがグループから脱退できる', async ({ page }) => {
     const groupId = 'group-member';
 
-    await page.route('**/api/groups', async (route) => {
+    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -223,7 +223,7 @@ test.describe('グループ管理', () => {
       });
     });
 
-    await page.route('**/api/groups/*/members**', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -235,19 +235,21 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
-    await page.route('**/api/groups/*/lists**', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { lists: [] } } });
     });
-    await page.route('**/api/groups/*/members/*', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/members\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ status: 204 });
     });
-    await page.route('**/api/auth/session**', async (route) => {
+    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { user: { id: 'member-user' } } });
     });
 
     await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: '参加中グループ' }).click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
     await expect(page.getByText('グループ詳細を読み込み中...')).not.toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'メンバー一覧' })).toBeVisible();
 
     await page.getByRole('button', { name: 'グループを脱退' }).click();
     const dialog = page.getByRole('dialog');
@@ -259,7 +261,7 @@ test.describe('グループ管理', () => {
   test('オーナーがメンバーを除外できる', async ({ page }) => {
     const groupId = 'group-owner';
 
-    await page.route('**/api/groups', async (route) => {
+    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -276,7 +278,7 @@ test.describe('グループ管理', () => {
       });
     });
 
-    await page.route('**/api/groups/*/members**', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
           data: {
@@ -288,18 +290,20 @@ test.describe('グループ管理', () => {
         } satisfies GroupMembersResponse,
       });
     });
-    await page.route('**/api/groups/*/lists**', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { lists: [] } } });
     });
-    await page.route('**/api/groups/*/members/*', async (route) => {
+    await page.route(/\/api\/groups\/[^/]+\/members\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ status: 204 });
     });
-    await page.route('**/api/auth/session**', async (route) => {
+    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { user: { id: 'owner-user' } } });
     });
 
     await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: '管理グループ' }).click();
     await expect(page.getByRole('button', { name: 'テストメンバーを削除' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'メンバー一覧' })).toBeVisible();
 
     await page.getByRole('button', { name: 'テストメンバーを削除' }).click();
     const dialog = page.getByRole('dialog');
