@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
+import { ListSidebar } from '@/components/ListSidebar';
 
 const mockPush = jest.fn();
 
@@ -32,26 +32,31 @@ describe('ListSidebar', () => {
   });
 
   it('モックの個人リスト一覧と作成ボタンを表示し、選択中リストを強調してリンク表示する', () => {
+    const handleSelect = jest.fn();
     render(
       <ListSidebar
         heading="個人リスト"
         createButtonLabel="個人リストを作成"
         selectedListId="mock-work-list"
-        lists={MOCK_PERSONAL_LISTS}
+        lists={[
+          { listId: 'mock-default-list', name: 'デフォルトリスト' },
+          { listId: 'mock-work-list', name: '仕事' },
+          { listId: 'mock-shopping-list', name: '買い物' },
+        ]}
         hrefPrefix="/lists"
+        onListSelect={handleSelect}
       />
     );
 
     expect(screen.getByRole('heading', { name: '個人リスト' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '個人リストを作成' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'デフォルトリスト' })).toHaveAttribute(
-      'href',
-      '/lists/mock-default-list'
-    );
+    expect(screen.getByRole('button', { name: 'デフォルトリスト' })).toBeInTheDocument();
 
-    const workListLink = screen.getByRole('link', { name: '仕事' });
-    expect(workListLink).toHaveClass('Mui-selected');
-    expect(screen.getByRole('link', { name: 'デフォルトリスト' })).not.toHaveClass('Mui-selected');
+    const workListButton = screen.getByRole('button', { name: '仕事' });
+    expect(workListButton).toHaveClass('Mui-selected');
+    expect(screen.getByRole('button', { name: 'デフォルトリスト' })).not.toHaveClass('Mui-selected');
+    fireEvent.click(screen.getByRole('button', { name: 'デフォルトリスト' }));
+    expect(handleSelect).toHaveBeenCalledWith('mock-default-list');
   });
 
   it('APIモードで一覧取得・作成・名称変更・削除を実行できる', async () => {

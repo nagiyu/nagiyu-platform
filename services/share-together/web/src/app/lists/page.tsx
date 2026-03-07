@@ -1,42 +1,70 @@
-import { headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Box, Typography } from '@mui/material';
+import { Navigation } from '@/components/Navigation';
+import { ListWorkspace } from '@/components/ListWorkspace';
 import type { PersonalListsResponse } from '@/types';
 
-export const dynamic = 'force-dynamic';
-
 const ERROR_MESSAGES = {
-  PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧の取得に失敗しました',
-  API_RESPONSE_STATUS_ERROR: 'APIレスポンスのステータスが異常です',
+  PERSONAL_LISTS_FETCH_FAILED: '個人リスト一覧 API の取得に失敗しました',
+  DEFAULT_LIST_NOT_FOUND: 'デフォルト個人リストが見つかりません',
+  DEFAULT_LIST_LOAD_FAILED_NOTICE: 'デフォルト個人リストの取得に失敗しました。',
 } as const;
 
-async function resolveDefaultListId(): Promise<string | null> {
-  try {
-    const requestHeaders = await headers();
-    const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-    if (!host) {
-      return null;
-    }
+export default function ListsPage() {
+  const [defaultListId, setDefaultListId] = useState<string>('');
+  const [isListLoading, setIsListLoading] = useState(true);
 
-    const protocol = requestHeaders.get('x-forwarded-proto') ?? 'http';
-    const response = await fetch(`${protocol}://${host}/api/lists`, { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`${ERROR_MESSAGES.API_RESPONSE_STATUS_ERROR}: ${response.status}`);
-    }
+  useEffect(() => {
+    const controller = new AbortController();
 
-    const result = (await response.json()) as PersonalListsResponse;
-    const defaultListId = result.data.lists.find((list) => list.isDefault)?.listId;
-    return defaultListId ?? null;
-  } catch (error: unknown) {
-    console.error(ERROR_MESSAGES.PERSONAL_LISTS_FETCH_FAILED, { error });
-    return null;
-  }
-}
+    void globalThis
+      .fetch('/api/lists', { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
 
-export default async function ListsPage() {
-  const defaultListId = await resolveDefaultListId();
-  if (!defaultListId) {
-    return notFound();
-  }
+        const result = (await response.json()) as PersonalListsResponse;
+        const defaultList = result.data.lists.find((list) => list.isDefault);
+        if (!defaultList) {
+          throw new Error(ERROR_MESSAGES.DEFAULT_LIST_NOT_FOUND);
+        }
+        setDefaultListId(defaultList.listId);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+        console.error(ERROR_MESSAGES.PERSONAL_LISTS_FETCH_FAILED, { error });
+      })
+      .finally(() => {
+        setIsListLoading(false);
+      });
 
-  redirect(`/lists/${defaultListId}`);
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  return (
+    <main>
+      <Navigation />
+      <Box component="section" sx={{ p: 2, maxWidth: 1080, mx: 'auto' }}>
+        <Typography variant="h5" component="h1" gutterBottom>
+          リスト
+        </Typography>
+        {isListLoading ? (
+          <Typography role="status" aria-live="polite">
+            リストを読み込み中です...
+          </Typography>
+        ) : defaultListId ? (
+          <ListWorkspace initialListId={defaultListId} />
+        ) : (
+          <Typography color="error">{ERROR_MESSAGES.DEFAULT_LIST_LOAD_FAILED_NOTICE}</Typography>
+        )}
+      </Box>
+    </main>
+  );
 }

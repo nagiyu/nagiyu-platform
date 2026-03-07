@@ -20,12 +20,6 @@ import {
 } from '@mui/material';
 import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
 
-export const MOCK_PERSONAL_LISTS = [
-  { listId: 'mock-default-list', name: 'デフォルトリスト' },
-  { listId: 'mock-work-list', name: '仕事' },
-  { listId: 'mock-shopping-list', name: '買い物' },
-] as const;
-
 type SidebarList = {
   listId: string;
   name: string;
@@ -39,6 +33,7 @@ type ListSidebarProps = {
   lists?: readonly SidebarList[];
   hrefPrefix: string;
   onCreateList?: () => void;
+  onListSelect?: (listId: string) => void;
   apiEnabled?: boolean;
 };
 
@@ -73,6 +68,7 @@ export function ListSidebar({
   lists = [],
   hrefPrefix,
   onCreateList,
+  onListSelect,
   apiEnabled = false,
 }: ListSidebarProps) {
   const router = useRouter();
@@ -80,6 +76,10 @@ export function ListSidebar({
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const displayedLists = apiEnabled ? apiLists : lists;
   const navigateToList = (listId: string) => {
+    if (onListSelect) {
+      onListSelect(listId);
+      return;
+    }
     router.push(`${hrefPrefix}/${listId}`);
   };
 
@@ -256,8 +256,9 @@ export function ListSidebar({
             <ListItemButton
               selected={selectedListId === list.listId}
               aria-current={selectedListId === list.listId ? 'page' : undefined}
-              component={Link}
-              href={`${hrefPrefix}/${list.listId}`}
+              component={onListSelect ? 'button' : Link}
+              href={onListSelect ? undefined : `${hrefPrefix}/${list.listId}`}
+              onClick={() => navigateToList(list.listId)}
             >
               <ListItemText primary={list.name} />
             </ListItemButton>

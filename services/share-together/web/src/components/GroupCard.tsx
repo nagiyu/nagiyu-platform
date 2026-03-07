@@ -6,13 +6,19 @@ import Link from 'next/link';
 type GroupCardProps = {
   name: string;
   memberCount: number;
-  href: string;
+  href?: string;
+  onClick?: () => void;
 };
 
-export function GroupCard({ name, memberCount, href }: GroupCardProps) {
+export function GroupCard({ name, memberCount, href, onClick }: GroupCardProps) {
+  const actionProps =
+    href !== undefined
+      ? { component: Link, href }
+      : { component: 'button' as const, onClick, type: 'button' as const };
+
   return (
     <Card>
-      <CardActionArea component={Link} href={href}>
+      <CardActionArea {...actionProps}>
         <CardContent>
           <Typography variant="h6" component="h2">
             {name}

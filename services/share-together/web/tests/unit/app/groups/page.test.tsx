@@ -12,8 +12,8 @@ describe('GroupsPage', () => {
           json: async () => ({
             data: {
               groups: [
-                { groupId: 'group-1', name: '家族', ownerUserId: 'user-1' },
-                { groupId: 'group-2', name: 'ルームメイト', ownerUserId: 'user-2' },
+                { groupId: 'group-1', name: '家族', ownerUserId: 'user-1', isOwner: true },
+                { groupId: 'group-2', name: 'ルームメイト', ownerUserId: 'user-2', isOwner: false },
               ],
             },
           }),
@@ -28,7 +28,25 @@ describe('GroupsPage', () => {
       if (url === '/api/groups/group-2/members') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { members: [{ userId: 'user-2' }] } }),
+          json: async () => ({ data: { members: [{ userId: 'user-2', name: 'ルームメイトユーザー' }] } }),
+        } as Response);
+      }
+      if (url === '/api/groups/group-1/lists') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { lists: [{ listId: 'list-1', name: '共有リストA' }] } }),
+        } as Response);
+      }
+      if (url === '/api/groups/group-2/lists') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: { lists: [] } }),
+        } as Response);
+      }
+      if (url === '/api/auth/session') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ user: { id: 'user-1' } }),
         } as Response);
       }
       return Promise.resolve({ ok: false, status: 404 } as Response);
@@ -42,15 +60,16 @@ describe('GroupsPage', () => {
   it('APIから取得したグループ一覧とグループ作成ボタンを表示する', async () => {
     render(<GroupsPage />);
 
-    expect(screen.getByRole('heading', { name: 'グループ一覧' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'グループ' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'グループを作成' })).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getAllByRole('heading', { level: 2 })).toHaveLength(2);
+      expect(screen.getByRole('heading', { level: 2, name: '家族' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 2, name: 'ルームメイト' })).toBeInTheDocument();
     });
-    expect(screen.getByRole('link', { name: /家族/ })).toHaveAttribute('href', '/groups/group-1');
-    expect(screen.getByRole('link', { name: /ルームメイト/ })).toHaveAttribute(
-      'href',
-      '/groups/group-2'
-    );
+    expect(screen.getByRole('button', { name: /家族/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ルームメイト/ })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'メンバー一覧' })).toBeInTheDocument();
+    });
   });
 });

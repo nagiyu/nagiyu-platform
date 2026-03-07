@@ -259,7 +259,7 @@ export function GroupDetailClient({
             <List>
               {groupLists.map((list) => (
                 <ListItem key={list.listId} disablePadding>
-                  <Button component={Link} href={`/groups/${groupId}/lists/${list.listId}`}>
+                  <Button component={Link} href="/lists">
                     {list.name}
                   </Button>
                 </ListItem>

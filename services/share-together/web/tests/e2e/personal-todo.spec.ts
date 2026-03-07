@@ -113,7 +113,7 @@ test.describe('個人 ToDo 管理', () => {
       await route.continue();
     });
 
-    await page.goto(`/lists/${listId}`);
+    await page.goto('/lists');
     await expect(page.getByRole('textbox', { name: 'タイトル' })).toBeVisible();
   });
 
