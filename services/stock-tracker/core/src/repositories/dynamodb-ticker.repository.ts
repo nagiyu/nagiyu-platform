@@ -12,6 +12,7 @@ import {
   QueryCommand,
   ScanCommand,
   type DynamoDBDocumentClient,
+  type ScanCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import {
   EntityNotFoundError,
@@ -127,6 +128,43 @@ export class DynamoDBTickerRepository implements TickerRepository {
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
     try {
+      const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
+
+      if (!usePagination) {
+        const allItems: TickerEntity[] = [];
+        let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
+
+        do {
+          const result = await this.docClient.send(
+            new ScanCommand({
+              TableName: this.tableName,
+              FilterExpression: '#type = :type',
+              ExpressionAttributeNames: {
+                '#type': 'Type',
+              },
+              ExpressionAttributeValues: {
+                ':type': 'Ticker',
+              },
+              ExclusiveStartKey: exclusiveStartKey,
+            })
+          );
+
+          const pageItems = (result.Items || []).map((item) =>
+            this.mapper.toEntity(item as unknown as DynamoDBItem)
+          );
+          for (const pageItem of pageItems) {
+            allItems.push(pageItem);
+          }
+          exclusiveStartKey = result.LastEvaluatedKey;
+        } while (exclusiveStartKey);
+
+        return {
+          items: allItems,
+          nextCursor: undefined,
+          count: allItems.length,
+        };
+      }
+
       const limit = options?.limit || 50;
       const exclusiveStartKey = options?.cursor
         ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
