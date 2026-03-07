@@ -118,14 +118,7 @@ export function ListWorkspace({
     if (scope === 'shared' && nextLists.length > 0 && !hasSelectedListInSharedScope) {
       setSelectedListId(nextLists[0].listId);
     }
-  }, [
-    initialListId,
-    scope,
-    selectedGroupId,
-    selectedListId,
-    sharedGroups,
-    sharedListsByGroup,
-  ]);
+  }, [initialListId, scope, selectedGroupId, selectedListId, sharedGroups, sharedListsByGroup]);
 
   const sharedLists = sharedListsByGroup[selectedGroupId] ?? [];
 

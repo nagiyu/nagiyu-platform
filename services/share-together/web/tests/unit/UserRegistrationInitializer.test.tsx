@@ -32,7 +32,9 @@ describe('UserRegistrationInitializer', () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith('/api/users', { method: 'POST' });
     });
-    expect(window.sessionStorage.getItem('share-together:user-registration-completed')).toBe('true');
+    expect(window.sessionStorage.getItem('share-together:user-registration-completed')).toBe(
+      'true'
+    );
   });
 
   it('登録済みフラグがある場合は API を呼ばない', async () => {

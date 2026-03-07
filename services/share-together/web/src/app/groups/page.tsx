@@ -76,12 +76,14 @@ export default function GroupsPage() {
 
     void (async () => {
       try {
-        const [groupsResponse, membersResponse, sessionResponse, listsResponse] = await Promise.all([
-          fetch('/api/groups'),
-          fetch(`/api/groups/${selectedGroupId}/members`),
-          fetch('/api/auth/session'),
-          fetch(`/api/groups/${selectedGroupId}/lists`),
-        ]);
+        const [groupsResponse, membersResponse, sessionResponse, listsResponse] = await Promise.all(
+          [
+            fetch('/api/groups'),
+            fetch(`/api/groups/${selectedGroupId}/members`),
+            fetch('/api/auth/session'),
+            fetch(`/api/groups/${selectedGroupId}/lists`),
+          ]
+        );
 
         if (!groupsResponse.ok || !membersResponse.ok || !sessionResponse.ok || !listsResponse.ok) {
           throw new Error(
@@ -101,7 +103,9 @@ export default function GroupsPage() {
           setSelectedGroupError('ユーザーIDが取得できませんでした。再度ログインしてください。');
           return;
         }
-        const targetGroup = groupsData.data.groups.find((group) => group.groupId === selectedGroupId);
+        const targetGroup = groupsData.data.groups.find(
+          (group) => group.groupId === selectedGroupId
+        );
         if (!targetGroup) {
           setSelectedGroupError('対象のグループが見つかりません。');
           return;

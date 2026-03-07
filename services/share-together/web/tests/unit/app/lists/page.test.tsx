@@ -63,7 +63,10 @@ describe('ListsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('ListWorkspace: default-list:personal:')).toBeInTheDocument();
     });
-    expect(fetchMock).toHaveBeenCalledWith('/api/lists', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/lists',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it('デフォルトリストがない場合はエラーメッセージを表示する', async () => {
@@ -83,7 +86,9 @@ describe('ListsPage', () => {
 
     render(<ListsPage />);
 
-    expect(await screen.findByText('デフォルト個人リストの取得に失敗しました。')).toBeInTheDocument();
+    expect(
+      await screen.findByText('デフォルト個人リストの取得に失敗しました。')
+    ).toBeInTheDocument();
   });
 
   it('共有リスト指定のクエリがある場合は API 取得を行わず初期値として反映する', async () => {

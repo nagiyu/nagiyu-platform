@@ -99,7 +99,9 @@ describe('ListWorkspace', () => {
           status: 200,
           json: async () => ({
             data: {
-              todos: [{ todoId: 'mock-personal-todo-1', title: '個人ToDo(初期)', isCompleted: false }],
+              todos: [
+                { todoId: 'mock-personal-todo-1', title: '個人ToDo(初期)', isCompleted: false },
+              ],
             },
           }),
         } as Response);

@@ -54,7 +54,9 @@ describe('ListSidebar', () => {
 
     const workListButton = screen.getByRole('button', { name: '仕事' });
     expect(workListButton).toHaveClass('Mui-selected');
-    expect(screen.getByRole('button', { name: 'デフォルトリスト' })).not.toHaveClass('Mui-selected');
+    expect(screen.getByRole('button', { name: 'デフォルトリスト' })).not.toHaveClass(
+      'Mui-selected'
+    );
     fireEvent.click(screen.getByRole('button', { name: 'デフォルトリスト' }));
     expect(handleSelect).toHaveBeenCalledWith('mock-default-list');
   });

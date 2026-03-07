@@ -28,7 +28,9 @@ describe('GroupsPage', () => {
       if (url === '/api/groups/group-2/members') {
         return Promise.resolve({
           ok: true,
-          json: async () => ({ data: { members: [{ userId: 'user-2', name: 'ルームメイトユーザー' }] } }),
+          json: async () => ({
+            data: { members: [{ userId: 'user-2', name: 'ルームメイトユーザー' }] },
+          }),
         } as Response);
       }
       if (url === '/api/groups/group-1/lists') {
