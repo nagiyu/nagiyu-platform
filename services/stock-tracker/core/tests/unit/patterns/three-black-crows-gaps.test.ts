@@ -33,9 +33,9 @@ describe('パターン分析', () => {
     });
 
     it('エッジケース: データが2本の場合 INSUFFICIENT_DATA を返す', () => {
-      expect(
-        pattern.analyze([createCandle(94, 95, 88, 89), createCandle(101, 102, 94, 95)])
-      ).toBe('INSUFFICIENT_DATA');
+      expect(pattern.analyze([createCandle(94, 95, 88, 89), createCandle(101, 102, 94, 95)])).toBe(
+        'INSUFFICIENT_DATA'
+      );
     });
   });
 });

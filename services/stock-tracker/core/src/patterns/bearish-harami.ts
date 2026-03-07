@@ -21,15 +21,11 @@ export class BearishHarami extends CandlestickPattern {
 
     const c1Body = Math.abs(c1.close - c1.open);
     const c1Range = Math.abs(c1.high - c1.low);
-    const condition1 =
-      c1.close > c1.open && c1Body > c1Range * BearishHarami.LARGE_BODY_THRESHOLD;
+    const condition1 = c1.close > c1.open && c1Body > c1Range * BearishHarami.LARGE_BODY_THRESHOLD;
 
     const c0BodyLow = Math.min(c0.open, c0.close);
     const c0BodyHigh = Math.max(c0.open, c0.close);
-    const condition2 =
-      c0.close < c0.open &&
-      c0BodyLow > c1.open &&
-      c0BodyHigh < c1.close;
+    const condition2 = c0.close < c0.open && c0BodyLow > c1.open && c0BodyHigh < c1.close;
 
     return condition1 && condition2 ? 'MATCHED' : 'NOT_MATCHED';
   }

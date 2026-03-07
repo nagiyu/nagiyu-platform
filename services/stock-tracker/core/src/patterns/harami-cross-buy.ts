@@ -23,8 +23,7 @@ export class HaramiCrossBuy extends CandlestickPattern {
 
     const c1Body = Math.abs(c1.close - c1.open);
     const c1Range = Math.abs(c1.high - c1.low);
-    const condition1 =
-      c1.close < c1.open && c1Body > c1Range * HaramiCrossBuy.LARGE_BODY_THRESHOLD;
+    const condition1 = c1.close < c1.open && c1Body > c1Range * HaramiCrossBuy.LARGE_BODY_THRESHOLD;
 
     const c0Body = Math.abs(c0.close - c0.open);
     const c0Range = Math.abs(c0.high - c0.low);

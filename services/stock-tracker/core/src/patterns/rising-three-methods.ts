@@ -45,7 +45,8 @@ export class RisingThreeMethods extends CandlestickPattern {
       );
     };
 
-    const condition2 = isSmallBearishInBody(c3) && isSmallBearishInBody(c2) && isSmallBearishInBody(c1);
+    const condition2 =
+      isSmallBearishInBody(c3) && isSmallBearishInBody(c2) && isSmallBearishInBody(c1);
 
     const c0Body = Math.abs(c0.close - c0.open);
     const c0Range = Math.abs(c0.high - c0.low);

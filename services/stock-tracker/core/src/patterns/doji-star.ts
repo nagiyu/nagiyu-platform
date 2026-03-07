@@ -26,7 +26,8 @@ export class DojiStar extends CandlestickPattern {
 
     const c0Body = Math.abs(c0.close - c0.open);
     const c0Range = Math.abs(c0.high - c0.low);
-    const condition2 = c0Body <= c0Range * DojiStar.DOJI_THRESHOLD && c0.open > c1.close && c0.close > c1.close;
+    const condition2 =
+      c0Body <= c0Range * DojiStar.DOJI_THRESHOLD && c0.open > c1.close && c0.close > c1.close;
 
     return condition1 && condition2 ? 'MATCHED' : 'NOT_MATCHED';
   }

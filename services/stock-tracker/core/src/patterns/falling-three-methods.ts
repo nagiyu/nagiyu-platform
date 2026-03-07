@@ -45,7 +45,8 @@ export class FallingThreeMethods extends CandlestickPattern {
       );
     };
 
-    const condition2 = isSmallBullishInBody(c3) && isSmallBullishInBody(c2) && isSmallBullishInBody(c1);
+    const condition2 =
+      isSmallBullishInBody(c3) && isSmallBullishInBody(c2) && isSmallBullishInBody(c1);
 
     const c0Body = Math.abs(c0.close - c0.open);
     const c0Range = Math.abs(c0.high - c0.low);
