@@ -3,7 +3,7 @@
 ## 概要
 
 Stock Tracker のサマリー画面で表示するローソク足テクニカル分析パターンを追加する。
-買いシグナル 5 パターン・売りシグナル 9 パターンの計 14 パターンを新規実装し、`PATTERN_REGISTRY` に登録する。
+買いシグナル 5 パターン・売りシグナル 10 パターンの計 15 パターンを新規実装し、`PATTERN_REGISTRY` に登録する。
 
 ---
 
@@ -30,7 +30,7 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
 | `bullish-engulfing` | 陽のつつみ線 | Bullish Engulfing | 2 | 国際的に認知されたパターン。実装可能。 |
 | `harami-cross-buy` | 抱きの一本立ち | Bullish Harami Cross | 2 | はらみの特殊形（十字線）。実装可能。 |
 
-### 実装するパターン（SELL: 9 パターン）
+### 実装するパターン（SELL: 10 パターン）
 
 | patternId | 日本語名 | 英語名（参考） | 必要本数 | 判定根拠 |
 |-----------|---------|--------------|---------|---------|
@@ -40,9 +40,10 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
 | `three-black-crows` | 黒三兵 | Three Black Crows | 3 | 既存の `three-white-soldiers` の売り版。実装可能。 |
 | `doji-star` | 星 | Doji Star | 2 | 国際的に認知されたパターン。実装可能。 |
 | `bearish-harami` | はらみ | Bearish Harami | 2 | 上昇後の大陽線内に小陰線。実装可能。 |
-| `bearish-engulfing` | つつみ | Bearish Engulfing | 2 | 大陰線が前の陽線を包む。実装可能。 |
+| `bearish-engulfing` | つつみ | Bearish Engulfing | 2 | 大陰線の実体が前の陽線の実体を包む。実装可能。 |
 | `three-black-crows-gaps` | 陰の三つ星 | Three Black Crows with Gaps | 3 | ギャップを伴う 3 連続陰線。`three-black-crows` とは別パターン。実装可能。 |
 | `bullish-harami-top` | 陽の両はらみ | Bullish Harami (Reversal) | 2 | 高値圏で大陰線内に陽線が収まる反転シグナル。実装可能。 |
+| `bearish-full-engulfing` | 陰の両つつみ | Bearish Full Engulfing | 2 | 陰線の高値・安値が前の陽線の高値・安値を完全に包む（実体だけでなく影も含めて包み込む点が `bearish-engulfing` と異なる）。実装可能。 |
 
 ### スキップするパターン
 
@@ -53,12 +54,6 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
 | 小石崩れ | 日本特有で国際的な文献に判定基準が見当たらない |
 | 鷹かえし | 日本特有で国際的な文献に判定基準が見当たらない |
 | 仕掛け花火 | 「流れ星」（Shooting Star）と同一パターンのため、`shooting-star` として実装される（統合）。 |
-
-### 保留パターン（実装見送り・要確認）
-
-| 日本語名 | 保留理由 |
-|---------|--------|
-| 陰の両つつみ | Issue では BUY カテゴリーに記載されているが、一般的には Bearish Engulfing として SELL シグナルとして使用される。シグナル区分を確認後に実装を検討すること。 |
 
 ---
 
@@ -162,6 +157,13 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
 - `candles[0]`: 陽線（`open < close`）で、実体が `candles[1]` の実体内に収まる（`c1.close < open < close < c1.open`）
 - 高値圏での反転シグナルとして SELL
 
+#### `bearish-full-engulfing`（陰の両つつみ）
+
+- `candles[1]`: 陽線（`open < close`）
+- `candles[0]`: 陰線（`open > close`）で、高値と安値が `candles[1]` の高値・安値を完全に包む（`high >= c1.high`、`low <= c1.low`）
+- 既存の `bearish-engulfing` と異なり、実体だけでなく影（ヒゲ）も含めた全体を包み込む点が特徴
+- `bullish-engulfing`（陽のつつみ線）の完全版売りシグナルとして実装
+
 ---
 
 ## 要件
@@ -198,7 +200,7 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
 - [ ] T005: `services/stock-tracker/core/src/patterns/harami-cross-buy.ts` を作成する
     - [ ] `tests/unit/patterns/harami-cross-buy.test.ts` を作成する
 
-### Phase 2: SELL パターンの実装（9 パターン）
+### Phase 2: SELL パターンの実装（10 パターン）
 
 - [ ] T006: `services/stock-tracker/core/src/patterns/shooting-star.ts` を作成する（流れ星・仕掛け花火を統合）
     - [ ] `tests/unit/patterns/shooting-star.test.ts` を作成する
@@ -218,12 +220,14 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
     - [ ] `tests/unit/patterns/three-black-crows-gaps.test.ts` を作成する
 - [ ] T014: `services/stock-tracker/core/src/patterns/bullish-harami-top.ts` を作成する
     - [ ] `tests/unit/patterns/bullish-harami-top.test.ts` を作成する
+- [ ] T015: `services/stock-tracker/core/src/patterns/bearish-full-engulfing.ts` を作成する（陰の両つつみ）
+    - [ ] `tests/unit/patterns/bearish-full-engulfing.test.ts` を作成する
 
 ### Phase 3: パターン登録・検証
 
-- [ ] T015: `services/stock-tracker/core/src/patterns/pattern-registry.ts` に T001〜T014 の全パターンを追加する
+- [ ] T016: `services/stock-tracker/core/src/patterns/pattern-registry.ts` に T001〜T015 の全パターンを追加する
     - import 文と `PATTERN_REGISTRY` 配列への追記
-- [ ] T016: 全テストが通過することを確認する（`npm test` or 相当のコマンド）
+- [ ] T017: 全テストが通過することを確認する（`npm test` or 相当のコマンド）
 
 ---
 
@@ -269,6 +273,6 @@ Stock Tracker のサマリー画面で表示するローソク足テクニカル
 
 ## 備考・未決定事項
 
-- **陰の両つつみの扱い**: Issue では BUY カテゴリーに分類されているが、一般的な Bearish Engulfing は SELL シグナルであるため、シグナル区分の意図を確認した上で実装可否を判断すること。
 - **スキップパターンの再検討**: 「岡時三羽」「小石崩れ」「鷹かえし」「つばめ返し」については、日本語ローソク足分析の専門文献等で定義が確認できた場合は追加実装を検討してよい。
 - **「陰の三つ星」と「黒三兵」の差別化**: `three-black-crows-gaps`（ギャップあり）と `three-black-crows`（ギャップなし）として区別して実装する。テスト時にギャップの有無で明確に結果が分岐することを確認すること。
+- **`bearish-full-engulfing` と `bearish-engulfing` の差別化**: `bearish-full-engulfing` は高値・安値（影を含む全体）が包まれる条件、`bearish-engulfing` は実体のみが包まれる条件で区別する。テスト時に両者の違いが明確になるケースを用意すること。
