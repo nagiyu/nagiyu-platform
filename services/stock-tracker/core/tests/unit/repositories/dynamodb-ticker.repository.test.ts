@@ -219,6 +219,98 @@ describe('DynamoDBTickerRepository', () => {
 
       await expect(repository.getAll()).rejects.toThrow(DatabaseError);
     });
+
+    it('options未指定時はLastEvaluatedKeyがなくなるまで全ページを取得する', async () => {
+      const page1Items = [
+        {
+          PK: 'TICKER#NSDQ:AAPL',
+          SK: 'METADATA',
+          Type: 'Ticker',
+          TickerID: 'NSDQ:AAPL',
+          Symbol: 'AAPL',
+          Name: 'Apple Inc.',
+          ExchangeID: 'NASDAQ',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        },
+      ];
+      const page2Items = [
+        {
+          PK: 'TICKER#NYSE:IBM',
+          SK: 'METADATA',
+          Type: 'Ticker',
+          TickerID: 'NYSE:IBM',
+          Symbol: 'IBM',
+          Name: 'IBM',
+          ExchangeID: 'NYSE',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        },
+      ];
+
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: page1Items,
+          Count: 1,
+          LastEvaluatedKey: {
+            PK: 'TICKER#NSDQ:AAPL',
+            SK: 'METADATA',
+          },
+        })
+        .mockResolvedValueOnce({
+          Items: page2Items,
+          Count: 1,
+        });
+
+      const result = await repository.getAll();
+
+      expect(result.items).toHaveLength(2);
+      expect(result.count).toBe(2);
+      expect(result.nextCursor).toBeUndefined();
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+
+      const firstScanCommand = mockDocClient.send.mock.calls[0][0];
+      const secondScanCommand = mockDocClient.send.mock.calls[1][0];
+
+      expect(firstScanCommand.input.Limit).toBeUndefined();
+      expect(secondScanCommand.input.ExclusiveStartKey).toEqual({
+        PK: 'TICKER#NSDQ:AAPL',
+        SK: 'METADATA',
+      });
+    });
+
+    it('options指定時は従来どおりページネーション結果を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'TICKER#NSDQ:AAPL',
+            SK: 'METADATA',
+            Type: 'Ticker',
+            TickerID: 'NSDQ:AAPL',
+            Symbol: 'AAPL',
+            Name: 'Apple Inc.',
+            ExchangeID: 'NASDAQ',
+            CreatedAt: 1704067200000,
+            UpdatedAt: 1704067200000,
+          },
+        ],
+        Count: 1,
+        LastEvaluatedKey: {
+          PK: 'TICKER#NSDQ:AAPL',
+          SK: 'METADATA',
+        },
+      });
+
+      const result = await repository.getAll({ limit: 1 });
+
+      expect(result.items).toHaveLength(1);
+      expect(result.count).toBe(1);
+      expect(result.nextCursor).toBeDefined();
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+
+      const scanCommand = mockDocClient.send.mock.calls[0][0];
+      expect(scanCommand.input.Limit).toBe(1);
+    });
   });
 
   describe('update', () => {
