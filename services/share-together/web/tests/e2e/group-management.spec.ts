@@ -21,13 +21,25 @@ type GroupMembersResponse = {
 };
 
 test.describe('グループ管理', () => {
+  // Service WorkerがFetchを先に処理してpage.route()モックをバイパスするのを防ぐため、Service Workerをブロックする
+  test.use({ serviceWorkers: 'block' });
+
   test.beforeEach(async ({ page }) => {
     await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({ json: { data: { invitations: [] } } });
     });
-    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { user: { id: 'owner-user' } } });
-    });
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/users'),
+      async (route) => {
+        await route.fulfill({ status: 201, json: { data: { success: true } } });
+      }
+    );
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/auth/session'),
+      async (route) => {
+        await route.fulfill({ json: { user: { id: 'owner-user' } } });
+      }
+    );
   });
 
   test('グループを作成できる', async ({ page }) => {
@@ -87,35 +99,47 @@ test.describe('グループ管理', () => {
   test('オーナーがメンバー招待を送信できる', async ({ page }) => {
     const groupId = 'group-owner';
 
-    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            groups: [
-              {
-                groupId,
-                name: 'E2E グループ',
-                ownerUserId: 'owner-user',
-                isOwner: true,
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
+      async (route) => {
+        const pathname = new URL(route.request().url()).pathname;
+        if (pathname === '/api/groups' || pathname === '/api/groups/') {
+          await route.fulfill({
+            json: {
+              data: {
+                groups: [
+                  {
+                    groupId,
+                    name: 'E2E グループ',
+                    ownerUserId: 'owner-user',
+                    isOwner: true,
+                  },
+                ],
               },
-            ],
-          },
-        } satisfies GroupSummaryResponse,
-      });
-    });
+            } satisfies GroupSummaryResponse,
+          });
+          return;
+        }
 
-    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            members: [{ userId: 'owner-user', name: 'オーナー' }],
-          },
-        } satisfies GroupMembersResponse,
-      });
-    });
-    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { lists: [] } } });
-    });
+        if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
+          await route.fulfill({
+            json: {
+              data: {
+                members: [{ userId: 'owner-user', name: 'オーナー' }],
+              },
+            } satisfies GroupMembersResponse,
+          });
+          return;
+        }
+
+        if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
+          await route.fulfill({ json: { data: { lists: [] } } });
+          return;
+        }
+
+        await route.continue();
+      }
+    );
     await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({ json: { data: { success: true } } });
@@ -123,10 +147,6 @@ test.describe('グループ管理', () => {
       }
       await route.fulfill({ json: { data: { invitations: [] } } });
     });
-    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { user: { id: 'owner-user' } } });
-    });
-
     await page.goto('/groups');
     await expect(
       page.getByRole('heading', { level: 2, name: 'メンバー招待フォーム' })
@@ -206,45 +226,55 @@ test.describe('グループ管理', () => {
   test('メンバーがグループから脱退できる', async ({ page }) => {
     const groupId = 'group-member';
 
-    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            groups: [
-              {
-                groupId,
-                name: '参加中グループ',
-                ownerUserId: 'owner-user',
-                isOwner: false,
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
+      async (route) => {
+        const pathname = new URL(route.request().url()).pathname;
+        if (pathname === '/api/groups' || pathname === '/api/groups/') {
+          await route.fulfill({
+            json: {
+              data: {
+                groups: [
+                  {
+                    groupId,
+                    name: '参加中グループ',
+                    ownerUserId: 'owner-user',
+                    isOwner: false,
+                  },
+                ],
               },
-            ],
-          },
-        } satisfies GroupSummaryResponse,
-      });
-    });
+            } satisfies GroupSummaryResponse,
+          });
+          return;
+        }
 
-    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            members: [
-              { userId: 'owner-user', name: 'オーナー' },
-              { userId: 'member-user', name: 'メンバー' },
-            ],
-          },
-        } satisfies GroupMembersResponse,
-      });
-    });
-    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { lists: [] } } });
-    });
-    await page.route(/\/api\/groups\/[^/]+\/members\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 204 });
-    });
-    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { user: { id: 'member-user' } } });
-    });
+        if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
+          await route.fulfill({
+            json: {
+              data: {
+                members: [
+                  { userId: 'owner-user', name: 'オーナー' },
+                  { userId: 'member-user', name: 'メンバー' },
+                ],
+              },
+            } satisfies GroupMembersResponse,
+          });
+          return;
+        }
 
+        if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
+          await route.fulfill({ json: { data: { lists: [] } } });
+          return;
+        }
+
+        if (/^\/api\/groups\/[^/]+\/members\/[^/]+\/?$/.test(pathname)) {
+          await route.fulfill({ status: 204 });
+          return;
+        }
+
+        await route.continue();
+      }
+    );
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '参加中グループ' }).click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
@@ -261,45 +291,55 @@ test.describe('グループ管理', () => {
   test('オーナーがメンバーを除外できる', async ({ page }) => {
     const groupId = 'group-owner';
 
-    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            groups: [
-              {
-                groupId,
-                name: '管理グループ',
-                ownerUserId: 'owner-user',
-                isOwner: true,
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
+      async (route) => {
+        const pathname = new URL(route.request().url()).pathname;
+        if (pathname === '/api/groups' || pathname === '/api/groups/') {
+          await route.fulfill({
+            json: {
+              data: {
+                groups: [
+                  {
+                    groupId,
+                    name: '管理グループ',
+                    ownerUserId: 'owner-user',
+                    isOwner: true,
+                  },
+                ],
               },
-            ],
-          },
-        } satisfies GroupSummaryResponse,
-      });
-    });
+            } satisfies GroupSummaryResponse,
+          });
+          return;
+        }
 
-    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            members: [
-              { userId: 'owner-user', name: 'オーナー' },
-              { userId: 'member-user', name: 'テストメンバー' },
-            ],
-          },
-        } satisfies GroupMembersResponse,
-      });
-    });
-    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { lists: [] } } });
-    });
-    await page.route(/\/api\/groups\/[^/]+\/members\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ status: 204 });
-    });
-    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { user: { id: 'owner-user' } } });
-    });
+        if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
+          await route.fulfill({
+            json: {
+              data: {
+                members: [
+                  { userId: 'owner-user', name: 'オーナー' },
+                  { userId: 'member-user', name: 'テストメンバー' },
+                ],
+              },
+            } satisfies GroupMembersResponse,
+          });
+          return;
+        }
 
+        if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
+          await route.fulfill({ json: { data: { lists: [] } } });
+          return;
+        }
+
+        if (/^\/api\/groups\/[^/]+\/members\/[^/]+\/?$/.test(pathname)) {
+          await route.fulfill({ status: 204 });
+          return;
+        }
+
+        await route.continue();
+      }
+    );
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '管理グループ' }).click();
     await expect(page.getByRole('button', { name: 'テストメンバーを削除' })).toBeVisible();
