@@ -57,86 +57,75 @@ FilterExpression はスキャン後に適用されるため、Limit=50 でスキ
 
 ### getAll() の修正方針
 
-DynamoDB の `ScanCommand` で `FilterExpression` を使う場合、`Limit` を省略するか、`LastEvaluatedKey` がなくなるまでループしてページをすべて収集する「全件取得ループ」パターンが適切。
+`getAll()` は「全件取得」を意図したメソッド名であるため、メソッド自体を `LastEvaluatedKey` がなくなるまでループする実装に修正する。
+`PaginatedResult<T>` を返す既存のシグネチャ（ページネーションオプション対応）は **残しつつ**、オプション未指定時（または特定条件下）に全件を返すよう変更することで API 後方互換を維持する。
 
-なお、`Limit` を省略すると DynamoDB は最大 1MB 分をスキャンして返すため、件数が多い場合はループが必要になる点は同様。ループ回数を減らしたい場合は、Limit を大きめ（例: 500 や 1000）に設定してループ回数を削減する方法もある。
+なお、`options` が指定された場合（`limit` や `cursor` あり）は従来通りのページネーション動作とし、`options` が指定されない場合に全件取得ループを行う設計が現実的。
 
-全件取得ループの概念:
+**既存の参考実装**: `services/niconico-mylist-assistant/core/src/repositories/dynamodb-video.repository.ts` の `listAll()` メソッドに、`do-while` + `LastEvaluatedKey` を使った全件スキャンパターンが実装されている。また、`services/niconico-mylist-assistant/core/src/db/videos.ts` の `listVideosWithSettings()` でも同様のループが使用されている。これらを参考にする。
+
+全件取得ループの概念（`do-while` パターン）:
 ```
 アイテム配列 = []
-カーソル = undefined
-繰り返し:
-    結果 = scan(cursor=カーソル)
-    アイテム配列 += 結果.items
-    カーソル = 結果.nextCursor
-    カーソルが undefined ならループ終了
+exclusiveStartKey = undefined
+do:
+    結果 = scan(ExclusiveStartKey=exclusiveStartKey)
+    アイテム配列 += 結果.Items
+    exclusiveStartKey = 結果.LastEvaluatedKey
+while exclusiveStartKey が存在する
 ```
 
-### API 層のページネーション修正方針
+### API 層の修正方針
 
-2つのアプローチが考えられる:
+`getAll()` が全件を返すよう修正されることで、呼び出し側の変更は最小限となる。
 
-**アプローチ A（推奨）: コア層に全件取得メソッドを追加**
-- `TickerRepository` インターフェースに `getAllItems(): Promise<TickerEntity[]>` を追加し、内部でループ処理する
-- `GET /api/tickers` のページネーションは引き続きメモリ上で行い、全件取得後にスライス
-- `GET /api/summaries` はこの新メソッドを使い `tickerMap` を完全構築
-
-**アプローチ B: API 層でカーソルベースの DynamoDB ページネーションを活用**
-- `getAll(options)` の `cursor` を API 層で受け取り DynamoDB に転送する
-- フロントエンドも DynamoDB カーソルを保持してページ送りを行う
-- 実装コストが高く、Scan + FilterExpression での lastKey 互換性の問題もある
-
-**アプローチ A が推奨**である理由:
-- ティッカー数は数百件程度を想定しており、全件メモリ取得で十分な規模
-- 既存の API レスポンス形式（`lastKey` によるメモリページネーション）を変更しなくて済む
-- サマリー画面でも全件 tickerMap の構築が容易
+- `GET /api/tickers`（`route.ts`）: `tickerRepo.getAll()` を引数なしで呼び出すことで全件取得し、メモリ上でスライスするページネーションはそのまま維持する
+- `GET /api/summaries`（`route.ts`）: `tickerRepository.getAll()` で全ティッカーを取得して `tickerMap` を完全構築する（既存の呼び出しコードの変更不要）
 
 ### summaries API の修正方針
 
-`getAllItems()` を使い、全ティッカーを一度に取得して `tickerMap` を構築する。
+`getAll()` の修正により、`tickerRepository.getAll()` が全件を返すようになるため、`tickerMap` の構築が自動的に正しく動作するようになる。
 
 ## タスク
 
 ### Phase 1: コア層の修正
 
-- [ ] **T001**: `DynamoDBTickerRepository` に `getAllItems(): Promise<TickerEntity[]>` を実装する（ループで全ページを取得）
-- [ ] **T002**: `TickerRepository` インターフェースに `getAllItems()` を追加する
-- [ ] **T003**: `InMemoryTickerRepository` にも `getAllItems()` を実装する（テスト用）
-- [ ] **T004**: `getAllItems()` のユニットテストを追加する
+- [ ] **T001**: `DynamoDBTickerRepository.getAll()` を、`options` 未指定時に `do-while` + `LastEvaluatedKey` ループで全件を取得する実装に変更する（`services/niconico-mylist-assistant/core/src/repositories/dynamodb-video.repository.ts` の `listAll()` を参考）
+- [ ] **T002**: `InMemoryTickerRepository.getAll()` も全件を返すよう実装を合わせる
+- [ ] **T003**: `getAll()` のユニットテストを修正・追加する（複数ページにまたがるシナリオのテストを含む）
 
 ### Phase 2: API 層の修正
 
-- [ ] **T005**: `GET /api/tickers`（`services/stock-tracker/web/app/api/tickers/route.ts`）で `tickerRepo.getAllItems()` を使うよう変更し、全件取得後にメモリページングを行う
-- [ ] **T006**: `GET /api/summaries`（`services/stock-tracker/web/app/api/summaries/route.ts`）で `tickerRepository.getAllItems()` を使い `tickerMap` を完全構築する
-- [ ] **T007**: API 層のユニットテストを修正・追加する
+- [ ] **T004**: `GET /api/tickers`（`services/stock-tracker/web/app/api/tickers/route.ts`）の動作を確認し、`getAll()` の修正で全件取得されることを確認する（API 呼び出し側のコード変更は不要なはずだが確認する）
+- [ ] **T005**: `GET /api/summaries`（`services/stock-tracker/web/app/api/summaries/route.ts`）も同様に確認する
+- [ ] **T006**: API 層のユニットテストを確認・修正する
 
 ### Phase 3: 動作確認とテスト
 
-- [ ] **T008**: ティッカーが50件以上存在するシナリオのユニットテストを追加（`getAll()` が複数ページになるケース）
-- [ ] **T009**: ビルドが通ることを確認（`npm run build --workspace=@nagiyu/stock-tracker-core`、`@nagiyu/stock-tracker-web`）
-- [ ] **T010**: E2E テストがパスすることを確認
+- [ ] **T007**: ティッカーが50件以上存在するシナリオのユニットテストを追加（複数ページにまたがるケース）
+- [ ] **T008**: ビルドが通ることを確認（`npm run build --workspace=@nagiyu/stock-tracker-core`、`@nagiyu/stock-tracker-web`）
+- [ ] **T009**: E2E テストがパスすることを確認
 
 ## 影響ファイル
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `services/stock-tracker/core/src/repositories/ticker.repository.interface.ts` | `getAllItems()` メソッドの追加 |
-| `services/stock-tracker/core/src/repositories/dynamodb-ticker.repository.ts` | `getAllItems()` の実装（ループスキャン） |
-| `services/stock-tracker/core/src/repositories/in-memory-ticker.repository.ts` | `getAllItems()` の実装 |
-| `services/stock-tracker/web/app/api/tickers/route.ts` | `getAllItems()` を使った全件取得に変更 |
-| `services/stock-tracker/web/app/api/summaries/route.ts` | `getAllItems()` を使った tickerMap 構築に変更 |
-| `services/stock-tracker/core/tests/unit/repositories/dynamodb-ticker.repository.test.ts` | `getAllItems()` のテスト追加 |
+| `services/stock-tracker/core/src/repositories/dynamodb-ticker.repository.ts` | `getAll()` を全件取得ループに変更 |
+| `services/stock-tracker/core/src/repositories/in-memory-ticker.repository.ts` | `getAll()` を全件返却に合わせて修正 |
+| `services/stock-tracker/core/tests/unit/repositories/dynamodb-ticker.repository.test.ts` | `getAll()` の複数ページシナリオテスト追加 |
 
 ## 参考ドキュメント
 
 - `docs/development/rules.md` - コーディング規約
 - `docs/development/architecture.md` - アーキテクチャ方針
 - `services/stock-tracker/core/src/repositories/ticker.repository.interface.ts` - リポジトリインターフェース
-- `services/stock-tracker/core/src/repositories/dynamodb-ticker.repository.ts` - DynamoDB 実装
+- `services/stock-tracker/core/src/repositories/dynamodb-ticker.repository.ts` - DynamoDB 実装（修正対象）
 - `services/stock-tracker/web/app/api/tickers/route.ts` - ティッカー API
 - `services/stock-tracker/web/app/api/summaries/route.ts` - サマリー API
+- `services/niconico-mylist-assistant/core/src/repositories/dynamodb-video.repository.ts` - `do-while` + `LastEvaluatedKey` 全件スキャンの参考実装（`listAll()` メソッド）
+- `services/niconico-mylist-assistant/core/src/db/videos.ts` - `listVideosWithSettings()` での同パターン利用例
 
 ## 備考・未決定事項
 
-- `getAll()` メソッドはそのまま残し、`getAllItems()` を新設する方針とするか、`getAll()` 自体の動作を変更するかは実装者の判断に委ねる。ただし、既存テストへの影響を最小化するため **新設が推奨**。
+- `getAll()` に `options` を渡した場合（`limit`/`cursor` あり）は従来通りのページネーション動作を維持するか、全件取得のみに統一するかは実装者の判断に委ねる。ただし既存テストへの影響を考慮し、シグネチャ変更は最小限にとどめること。
 - 将来的にティッカー数が数千件を超える規模になった場合は、Scan ベースの全件取得からより効率的なアクセスパターンへの移行（例: GSI 活用）を検討する。
