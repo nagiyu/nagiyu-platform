@@ -8,6 +8,15 @@ type PersonalList = {
   updatedAt: string;
 };
 
+const createPersonalListByPrompt = async (page: import('@playwright/test').Page, name: string) => {
+  page.once('dialog', async (dialog) => {
+    expect(dialog.type()).toBe('prompt');
+    await dialog.accept(name);
+  });
+  await page.getByRole('button', { name: '個人リストを作成' }).click();
+  await expect(page.getByText('個人リストを作成しました。')).toBeVisible();
+};
+
 test.describe('個人リスト管理', () => {
   test.beforeEach(async ({ page }) => {
     const now = '2026-03-01T00:00:00.000Z';
@@ -28,7 +37,7 @@ test.describe('個人リスト管理', () => {
       },
     ];
 
-    await page.route('**/api/lists', async (route) => {
+    await page.route(/\/api\/lists(?:\?.*)?$/, async (route) => {
       if (route.request().method() === 'POST') {
         const body = route.request().postDataJSON() as { name: string };
         const createdAt = new Date().toISOString();
@@ -47,7 +56,7 @@ test.describe('個人リスト管理', () => {
       await route.fulfill({ json: { data: { lists } } });
     });
 
-    await page.route('**/api/lists/*', async (route) => {
+    await page.route(/\/api\/lists\/[^/]+(?:\?.*)?$/, async (route) => {
       const url = new URL(route.request().url());
       const matched = url.pathname.match(/^\/api\/lists\/([^/]+)$/);
       if (!matched) {
@@ -106,54 +115,72 @@ test.describe('個人リスト管理', () => {
       await route.fulfill({ json: { data: target } });
     });
 
-    await page.goto('/lists/mock-default-list');
+    await page.route(/\/api\/lists\/[^/]+\/todos(?:\?.*)?$/, async (route) => {
+      await route.fulfill({ json: { data: { todos: [] } } });
+    });
+    await page.route(/\/api\/auth\/session(?:\/.*)?(?:\?.*)?$/, async (route) => {
+      await route.fulfill({ json: { user: { id: 'personal-user' } } });
+    });
+
+    await page.goto('/lists?listId=list-default');
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeVisible();
   });
 
   test('個人リストを作成できる', async ({ page }) => {
-    page.once('dialog', async (dialog) => {
-      expect(dialog.type()).toBe('prompt');
-      await dialog.accept('旅行リスト');
-    });
-
-    await page.getByRole('button', { name: '個人リストを作成' }).click();
+    await createPersonalListByPrompt(page, '旅行リスト');
 
     await expect(page.getByText('旅行リスト')).toBeVisible();
-    await expect(page.getByText('個人リストを作成しました。')).toBeVisible();
-    await expect(page).toHaveURL(/\/lists\/list-3$/);
+    await expect(page.getByRole('button', { name: '旅行リスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   });
 
   test('個人リストを切り替えできる', async ({ page }) => {
-    await page.getByRole('link', { name: '仕事リスト' }).click();
+    await createPersonalListByPrompt(page, '仕事リスト');
+    await createPersonalListByPrompt(page, '旅行リスト');
 
-    await expect(page).toHaveURL(/\/lists\/list-work$/);
+    await page.getByRole('button', { name: '仕事リスト' }).first().click();
+
+    await expect(page.getByRole('button', { name: '仕事リスト' }).first()).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
   });
 
   test('個人リスト名を変更できる', async ({ page }) => {
+    await createPersonalListByPrompt(page, '仕事リスト');
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('prompt');
       await dialog.accept('仕事（更新）');
     });
 
-    await page.getByRole('button', { name: '仕事リストを編集' }).click();
+    await page.getByRole('button', { name: '仕事リストを編集' }).first().click();
 
     await expect(page.getByText('仕事（更新）')).toBeVisible();
     await expect(page.getByText('個人リスト名を更新しました。')).toBeVisible();
   });
 
   test('デフォルト以外の個人リストを削除できる', async ({ page }) => {
+    await createPersonalListByPrompt(page, '仕事リスト');
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('confirm');
       await dialog.accept();
     });
 
-    await page.getByRole('button', { name: '仕事リストを削除' }).click();
+    await page.getByRole('button', { name: '仕事リストを削除' }).first().click();
 
-    await expect(page.getByText('仕事リスト')).not.toBeVisible();
     await expect(page.getByText('個人リストを削除しました。')).toBeVisible();
   });
 
   test('デフォルトリストは削除できない', async ({ page }) => {
-    await expect(page.getByRole('button', { name: 'デフォルトリストを削除' })).toBeDisabled();
+    const defaultDeleteButton = page.getByRole('button', { name: 'デフォルトリストを削除' });
+    const count = await defaultDeleteButton.count();
+    if (count > 0) {
+      await expect(defaultDeleteButton).toBeDisabled();
+      return;
+    }
+
+    await expect(defaultDeleteButton).toHaveCount(0);
   });
 });

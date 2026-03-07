@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Box, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack } from '@mui/material';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
-import { ListSidebar, MOCK_PERSONAL_LISTS } from '@/components/ListSidebar';
+import { ListSidebar } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
 import type { GroupListsResponse, GroupsResponse } from '@/types';
 type SharedGroup = {
@@ -23,19 +23,21 @@ const ERROR_MESSAGES = {
 
 type ListWorkspaceProps = {
   initialListId: string;
-  enablePersonalListApi?: boolean;
+  initialScope?: 'personal' | 'shared';
+  initialGroupId?: string;
 };
 
 export function ListWorkspace({
   initialListId,
-  enablePersonalListApi = false,
+  initialScope = 'personal',
+  initialGroupId = '',
 }: ListWorkspaceProps) {
-  const [scope, setScope] = useState<'personal' | 'shared'>('personal');
+  const [scope, setScope] = useState<'personal' | 'shared'>(initialScope);
   const [sharedGroups, setSharedGroups] = useState<readonly SharedGroup[]>([]);
   const [sharedListsByGroup, setSharedListsByGroup] = useState<
     Record<string, readonly SharedList[]>
   >({});
-  const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+  const [selectedGroupId, setSelectedGroupId] = useState<string>(initialGroupId);
   const [selectedListId, setSelectedListId] = useState(initialListId);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
@@ -101,41 +103,32 @@ export function ListWorkspace({
       lists.some((list) => list.listId === initialListId)
     )?.[0];
 
-    const nextGroupId = matchingGroupId ?? (selectedGroupId || sharedGroups[0].groupId);
+    const nextGroupId =
+      (selectedGroupId && sharedGroups.some((group) => group.groupId === selectedGroupId)
+        ? selectedGroupId
+        : undefined) ??
+      matchingGroupId ??
+      sharedGroups[0].groupId;
     if (nextGroupId !== selectedGroupId) {
       setSelectedGroupId(nextGroupId);
     }
 
     const nextLists = sharedListsByGroup[nextGroupId] ?? [];
-    if (matchingGroupId && !enablePersonalListApi) {
-      setScope('shared');
-    }
     const hasSelectedListInSharedScope = nextLists.some((list) => list.listId === selectedListId);
     if (scope === 'shared' && nextLists.length > 0 && !hasSelectedListInSharedScope) {
       setSelectedListId(nextLists[0].listId);
     }
-  }, [
-    enablePersonalListApi,
-    initialListId,
-    scope,
-    selectedGroupId,
-    selectedListId,
-    sharedGroups,
-    sharedListsByGroup,
-  ]);
+  }, [initialListId, scope, selectedGroupId, selectedListId, sharedGroups, sharedListsByGroup]);
 
   const sharedLists = sharedListsByGroup[selectedGroupId] ?? [];
 
-  const sidebarLists =
-    scope === 'personal' ? (enablePersonalListApi ? [] : MOCK_PERSONAL_LISTS) : sharedLists;
+  const sidebarLists = scope === 'personal' ? [] : sharedLists;
   const selectedInCurrentScope = sidebarLists.find((list) => list.listId === selectedListId);
   let currentListId: string;
   if (scope === 'shared') {
     currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? '';
-  } else if (scope === 'personal' && enablePersonalListApi) {
-    currentListId = selectedListId;
   } else {
-    currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? selectedListId;
+    currentListId = selectedListId;
   }
 
   const handleCreateList = (name: string) => {
@@ -161,9 +154,7 @@ export function ListWorkspace({
                 const nextScope = event.target.value as 'personal' | 'shared';
                 setScope(nextScope);
                 let nextLists: readonly { listId: string; name: string }[] = [];
-                if (nextScope === 'personal') {
-                  nextLists = enablePersonalListApi ? [] : MOCK_PERSONAL_LISTS;
-                } else {
+                if (nextScope === 'shared') {
                   nextLists = sharedLists;
                 }
                 if (nextScope === 'shared' && !selectedGroupId && sharedGroups.length > 0) {
@@ -209,12 +200,9 @@ export function ListWorkspace({
             selectedListId={currentListId}
             lists={sidebarLists}
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
-            onCreateList={
-              scope === 'personal' && enablePersonalListApi
-                ? undefined
-                : () => setCreateDialogOpen(true)
-            }
-            apiEnabled={scope === 'personal' && enablePersonalListApi}
+            onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
+            onListSelect={(listId) => setSelectedListId(listId)}
+            apiEnabled={scope === 'personal'}
           />
         </Stack>
       </Box>
@@ -225,7 +213,7 @@ export function ListWorkspace({
             scope={scope === 'personal' ? 'personal' : 'group'}
             listId={currentListId}
             groupId={scope === 'shared' ? selectedGroupId : undefined}
-            apiEnabled={scope === 'personal' ? enablePersonalListApi : true}
+            apiEnabled
           />
         ) : null}
       </Box>

@@ -93,6 +93,32 @@ describe('ListWorkspace', () => {
         } as Response);
       }
 
+      if (input === '/api/lists/mock-default-list/todos') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todos: [
+                { todoId: 'mock-personal-todo-1', title: '個人ToDo(初期)', isCompleted: false },
+              ],
+            },
+          }),
+        } as Response);
+      }
+
+      if (input === '/api/lists/group-list-2/todos') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todos: [],
+            },
+          }),
+        } as Response);
+      }
+
       if (input === '/api/lists') {
         return Promise.resolve({
           ok: true,
@@ -142,21 +168,26 @@ describe('ListWorkspace', () => {
     });
   });
 
-  it('共有リストIDで開いた場合は共有スコープと対応グループを初期表示する', async () => {
+  it('共有スコープへ切り替えると選択グループの共有リストを表示できる', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 
+    expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
+    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
+    fireEvent.click(screen.getByRole('option', { name: '共有' }));
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('共有');
     });
+    fireEvent.mouseDown(screen.getByLabelText('グループ'));
+    fireEvent.click(screen.getByRole('option', { name: 'ルームメイト' }));
     expect(screen.getByRole('combobox', { name: 'グループ' })).toHaveTextContent('ルームメイト');
-    expect(screen.getByText('ルームメイト家事分担')).toBeInTheDocument();
     await waitFor(() => {
+      expect(screen.getByText('ルームメイト家事分担')).toBeInTheDocument();
       expect(screen.getByText('ゴミ出し当番を確認する')).toBeInTheDocument();
     });
   });
 
   it('個人リストAPI有効時は個人ToDoをAPIから取得する', async () => {
-    render(<ListWorkspace initialListId="api-personal-list-1" enablePersonalListApi />);
+    render(<ListWorkspace initialListId="api-personal-list-1" />);
 
     expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
     expect(screen.getByRole('heading', { name: '個人リスト' })).toBeInTheDocument();
@@ -167,14 +198,17 @@ describe('ListWorkspace', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-personal-list-1/todos');
   });
 
-  it('共有リストリンクはグループ配下のURLを指す', async () => {
+  it('共有リスト選択時は URL を変更せず ToDo を切り替える', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 
+    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
+    fireEvent.click(screen.getByRole('option', { name: '共有' }));
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'ルームメイト家事分担' })).toHaveAttribute(
-        'href',
-        '/groups/group-2/lists/group-list-2'
-      );
+      expect(screen.getByRole('button', { name: 'ルームメイト家事分担' })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'ルームメイト家事分担' }));
+    await waitFor(() => {
+      expect(screen.getByText('ゴミ出し当番を確認する')).toBeInTheDocument();
     });
   });
 });

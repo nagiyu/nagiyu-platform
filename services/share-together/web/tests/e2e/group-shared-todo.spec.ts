@@ -17,12 +17,35 @@ const LIST_ID = 'group-list-e2e';
 const GROUP_TODOS_ROUTE = /\/api\/groups\/[^/]+\/lists\/[^/]+\/todos\/?(?:\?.*)?$/;
 
 test.describe('グループ共有 ToDo 管理', () => {
+  // Service WorkerがFetchを先に処理してpage.route()モックをバイパスするのを防ぐため、Service Workerをブロックする
+  test.use({ serviceWorkers: 'block' });
+
+  test.beforeEach(async ({ page }) => {
+    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
+      await route.fulfill({ json: { data: { invitations: [] } } });
+    });
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/users'),
+      async (route) => {
+        await route.fulfill({ status: 201, json: { data: { success: true } } });
+      }
+    );
+    await page.route(
+      (url) => new URL(url.toString()).pathname.startsWith('/api/auth/session'),
+      async (route) => {
+        await route.fulfill({ json: { user: { id: 'owner-user' } } });
+      }
+    );
+  });
+
   test('共有リストを作成できる', async ({ page }) => {
     const lists: GroupList[] = [{ listId: LIST_ID, name: '既存共有リスト' }];
 
     await setupGroupDetailRoutes(page, { lists });
-    await page.goto(`/groups/${GROUP_ID}`);
-    await expect(page.getByRole('heading', { level: 1, name: 'グループ詳細' })).toBeVisible();
+    await page.goto('/groups');
+    await expect(page.getByRole('heading', { level: 1, name: 'グループ' })).toBeVisible();
+    await page.getByRole('heading', { level: 2, name: 'E2E 共有グループ' }).click();
+    await expect(page.getByRole('heading', { level: 2, name: '共有リスト' })).toBeVisible();
 
     const createdListName = `E2E 共有リスト ${Date.now()}`;
     await page.getByRole('textbox', { name: '新しい共有リスト名' }).fill(createdListName);
@@ -36,7 +59,7 @@ test.describe('グループ共有 ToDo 管理', () => {
     const todos: Todo[] = [{ todoId: 'todo-initial', title: '既存タスク', isCompleted: false }];
 
     await setupGroupTodosRoutes(page, { todos });
-    await page.goto(`/groups/${GROUP_ID}/lists/${LIST_ID}`);
+    await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
     await expect(page.getByRole('heading', { level: 2, name: 'ToDo' })).toBeVisible();
 
     const todoTitle = `E2E 共有ToDo ${Date.now()}`;
@@ -52,24 +75,15 @@ test.describe('グループ共有 ToDo 管理', () => {
     await setupGroupTodosRoutes(page, {
       todos: [{ todoId: 'todo-shared', title: sharedTodoTitle, isCompleted: false }],
     });
-    await page.goto(`/groups/${GROUP_ID}/lists/${LIST_ID}`);
+    await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
 
     await expect(page.getByText(sharedTodoTitle)).toBeVisible();
-    await Promise.all([
-      page.waitForRequest(
-        (request) =>
-          request.method() === 'GET' &&
-          request.url().includes(`/groups/${GROUP_ID}/lists/${LIST_ID}/todos`)
-      ),
-      page.getByRole('link', { name: '更新' }).click(),
-    ]);
-
     await expect(page.getByRole('heading', { level: 2, name: 'ToDo' })).toBeVisible();
     await expect(page.getByText(sharedTodoTitle)).toBeVisible();
   });
 
   test('非メンバーはグループにアクセスできない', async ({ page }) => {
-    await page.route('**/api/groups', async (route) => {
+    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 403,
         json: {
@@ -80,75 +94,109 @@ test.describe('グループ共有 ToDo 管理', () => {
         },
       });
     });
-    await page.route(`**/api/groups/${GROUP_ID}/members`, async (route) => {
-      await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN' } } });
-    });
-    await page.route(`**/api/groups/${GROUP_ID}/lists`, async (route) => {
-      await route.fulfill({ status: 403, json: { error: { code: 'FORBIDDEN' } } });
-    });
-    await page.route('**/api/auth/session', async (route) => {
-      await route.fulfill({ json: { user: { id: 'non-member-user' } } });
-    });
+    await page.goto('/groups');
 
-    await page.goto(`/groups/${GROUP_ID}`);
-
-    await expect(page.getByText('グループ詳細の取得に失敗しました。')).toBeVisible();
+    await expect(page.getByText('グループ一覧の取得に失敗しました。')).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: 'メンバー一覧' })).not.toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: '共有リスト' })).not.toBeVisible();
   });
 });
 
 async function setupGroupDetailRoutes(page: Page, options: { lists: GroupList[] }) {
-  await page.route('**/api/groups', async (route) => {
-    await route.fulfill({
-      json: {
-        data: {
-          groups: [
-            {
-              groupId: GROUP_ID,
-              ownerUserId: 'owner-user',
-              isOwner: true,
+  await page.route(
+    (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
+    async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === '/api/groups' || pathname === '/api/groups/') {
+        await route.fulfill({
+          json: {
+            data: {
+              groups: [
+                {
+                  groupId: GROUP_ID,
+                  name: 'E2E 共有グループ',
+                  ownerUserId: 'owner-user',
+                  isOwner: true,
+                },
+              ],
             },
-          ],
-        },
-      },
-    });
-  });
+          },
+        });
+        return;
+      }
 
-  await page.route(`**/api/groups/${GROUP_ID}/members`, async (route) => {
-    await route.fulfill({
-      json: {
-        data: {
-          members: [
-            { userId: 'owner-user', name: 'オーナー' },
-            { userId: 'member-user', name: 'メンバー' },
-          ],
-        },
-      },
-    });
-  });
+      if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
+        await route.fulfill({
+          json: {
+            data: {
+              members: [
+                { userId: 'owner-user', name: 'オーナー' },
+                { userId: 'member-user', name: 'メンバー' },
+              ],
+            },
+          },
+        });
+        return;
+      }
 
-  await page.route(`**/api/groups/${GROUP_ID}/lists`, async (route) => {
-    if (route.request().method() === 'POST') {
-      const body = route.request().postDataJSON() as { name: string };
-      const created: GroupList = {
-        listId: `group-list-${Date.now()}`,
-        name: body.name,
-      };
-      options.lists.push(created);
-      await route.fulfill({ status: 201, json: { data: created } });
-      return;
+      if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
+        if (route.request().method() === 'POST') {
+          const body = route.request().postDataJSON() as { name: string };
+          const created: GroupList = {
+            listId: `group-list-${Date.now()}`,
+            name: body.name,
+          };
+          options.lists.push(created);
+          await route.fulfill({ status: 201, json: { data: created } });
+          return;
+        }
+        await route.fulfill({ json: { data: { lists: options.lists } } });
+        return;
+      }
+
+      await route.continue();
     }
-
-    await route.fulfill({ json: { data: { lists: options.lists } } });
-  });
-
-  await page.route('**/api/auth/session', async (route) => {
-    await route.fulfill({ json: { user: { id: 'owner-user' } } });
-  });
+  );
 }
 
 async function setupGroupTodosRoutes(page: Page, options: { todos: Todo[] }) {
+  await page.route(
+    (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
+    async (route) => {
+      const pathname = new URL(route.request().url()).pathname;
+      if (pathname === '/api/groups' || pathname === '/api/groups/') {
+        await route.fulfill({
+          json: {
+            data: {
+              groups: [
+                {
+                  groupId: GROUP_ID,
+                  name: 'E2E 共有グループ',
+                  ownerUserId: 'owner-user',
+                  isOwner: true,
+                },
+              ],
+            },
+          },
+        });
+        return;
+      }
+
+      if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
+        await route.fulfill({
+          json: {
+            data: {
+              lists: [{ listId: LIST_ID, name: '既存共有リスト' }],
+            },
+          },
+        });
+        return;
+      }
+
+      await route.continue();
+    }
+  );
+
   await page.route(GROUP_TODOS_ROUTE, async (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as { title: string };

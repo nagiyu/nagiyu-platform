@@ -13,12 +13,17 @@ jest.mock('@/components/ThemeRegistry', () => ({
   default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+jest.mock('@/components/UserRegistrationInitializer', () => ({
+  __esModule: true,
+  default: () => <div>UserRegistrationInitializer</div>,
+}));
+
 describe('RootLayout', () => {
   it('manifest.json をメタデータに設定する', () => {
     expect(metadata.manifest).toBe('/manifest.json');
   });
 
-  it('ServiceWorkerRegistration と子要素を描画する', () => {
+  it('ServiceWorkerRegistration・UserRegistrationInitializer と子要素を描画する', () => {
     const html = renderToStaticMarkup(
       <RootLayout>
         <div>RootLayout Child</div>
@@ -26,6 +31,7 @@ describe('RootLayout', () => {
     );
 
     expect(html).toContain('ServiceWorkerRegistration');
+    expect(html).toContain('UserRegistrationInitializer');
     expect(html).toContain('RootLayout Child');
   });
 });
