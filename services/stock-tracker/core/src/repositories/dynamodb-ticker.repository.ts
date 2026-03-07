@@ -12,6 +12,7 @@ import {
   QueryCommand,
   ScanCommand,
   type DynamoDBDocumentClient,
+  type ScanCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import {
   EntityNotFoundError,
@@ -131,7 +132,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
 
       if (!usePagination) {
         const allItems: TickerEntity[] = [];
-        let exclusiveStartKey: Record<string, unknown> | undefined;
+        let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
 
         do {
           const result = await this.docClient.send(
@@ -151,8 +152,10 @@ export class DynamoDBTickerRepository implements TickerRepository {
           const pageItems = (result.Items || []).map((item) =>
             this.mapper.toEntity(item as unknown as DynamoDBItem)
           );
-          allItems.push(...pageItems);
-          exclusiveStartKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+          for (const pageItem of pageItems) {
+            allItems.push(pageItem);
+          }
+          exclusiveStartKey = result.LastEvaluatedKey;
         } while (exclusiveStartKey);
 
         return {

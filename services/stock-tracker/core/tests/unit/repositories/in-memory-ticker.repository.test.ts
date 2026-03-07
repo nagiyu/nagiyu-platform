@@ -13,6 +13,8 @@ import {
 } from '@nagiyu/aws';
 import type { CreateTickerInput } from '../../../src/entities/ticker.entity.js';
 
+const ITEMS_EXCEEDING_DEFAULT_LIMIT = 120;
+
 describe('InMemoryTickerRepository', () => {
   let repository: InMemoryTickerRepository;
   let store: InMemorySingleTableStore;
@@ -188,7 +190,7 @@ describe('InMemoryTickerRepository', () => {
     });
 
     it('options未指定時は100件を超えていても全件を返す', async () => {
-      const totalCount = 120;
+      const totalCount = ITEMS_EXCEEDING_DEFAULT_LIMIT;
       for (let i = 0; i < totalCount; i++) {
         await repository.create({
           TickerID: `NSDQ:TEST${i}`,
