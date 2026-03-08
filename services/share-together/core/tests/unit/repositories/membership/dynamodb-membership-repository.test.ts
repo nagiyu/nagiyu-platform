@@ -92,7 +92,7 @@ describe('DynamoDBMembershipRepository', () => {
     });
   });
 
-  it('getByGroupId はメンバー一覧を取得し、空配列も扱える', async () => {
+  it('getByGroupId はメンバー一覧を取得する', async () => {
     mockDocClient.send.mockResolvedValueOnce({
       Items: [createMembershipItem(), createMembershipItem({ userId: 'user-2', SK: 'MEMBER#user-2' })],
     });
@@ -113,8 +113,11 @@ describe('DynamoDBMembershipRepository', () => {
         ':memberSkPrefix': 'MEMBER#',
       },
     });
+  });
 
+  it('getByGroupId は対象がない場合に空配列を返す', async () => {
     mockDocClient.send.mockResolvedValueOnce({});
+
     await expect(repository.getByGroupId('group-1')).resolves.toEqual([]);
   });
 
@@ -138,6 +141,32 @@ describe('DynamoDBMembershipRepository', () => {
         ':gsi1pk': 'USER#user-1',
       },
     });
+  });
+
+  it('getByUserId は対象がない場合に空配列を返す', async () => {
+    mockDocClient.send.mockResolvedValueOnce({});
+
+    await expect(repository.getByUserId('user-404')).resolves.toEqual([]);
+  });
+
+  it('getByGroupId は不正データを含む場合にエラーを投げる', async () => {
+    mockDocClient.send.mockResolvedValueOnce({
+      Items: [createMembershipItem({ status: 'INVALID_STATUS' })],
+    });
+
+    await expect(repository.getByGroupId('group-1')).rejects.toThrow(
+      'メンバーシップ情報の形式が不正です'
+    );
+  });
+
+  it('getByUserId は不正データを含む場合にエラーを投げる', async () => {
+    mockDocClient.send.mockResolvedValueOnce({
+      Items: [createMembershipItem({ role: 'INVALID_ROLE' })],
+    });
+
+    await expect(repository.getByUserId('user-1')).rejects.toThrow(
+      'メンバーシップ情報の形式が不正です'
+    );
   });
 
   it('getPendingInvitationsByUserId は PENDING フィルタを含む GSI1 クエリを実行する', async () => {
@@ -242,21 +271,25 @@ describe('DynamoDBMembershipRepository', () => {
     );
   });
 
-  it('不正なメンバーシップデータは取得時にエラーを投げる', async () => {
+  it('不正な role を含むメンバーシップ取得時にエラーを投げる', async () => {
     mockDocClient.send.mockResolvedValueOnce({
       Item: createMembershipItem({ role: 'INVALID_ROLE' }),
     });
     await expect(repository.getById('group-1', 'user-1')).rejects.toThrow(
       'メンバーシップ情報の形式が不正です'
     );
+  });
 
+  it('不正な status を含むメンバーシップ取得時にエラーを投げる', async () => {
     mockDocClient.send.mockResolvedValueOnce({
       Item: createMembershipItem({ status: 'INVALID_STATUS' }),
     });
     await expect(repository.getById('group-1', 'user-1')).rejects.toThrow(
       'メンバーシップ情報の形式が不正です'
     );
+  });
 
+  it('不正な optional 項目型を含むメンバーシップ取得時にエラーを投げる', async () => {
     mockDocClient.send.mockResolvedValueOnce({
       Item: createMembershipItem({ invitedBy: 123 }),
     });
