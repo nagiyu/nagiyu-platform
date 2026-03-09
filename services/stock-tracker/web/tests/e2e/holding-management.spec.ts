@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedTicker, CreatedHolding } from './utils/test-data-factory';
+import {
+  TestDataFactory,
+  CreatedTicker,
+  CreatedHolding,
+  CreatedAlert,
+} from './utils/test-data-factory';
 
 /**
  * E2E-003: Holding 管理フロー
@@ -346,6 +351,51 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
       const finalRowCount = await rows.count();
       expect(finalRowCount).toBeLessThanOrEqual(initialRowCount);
     }
+  });
+
+  test('保有株式削除ダイアログで売りアラートが表示され、削除時に売りアラートも削除される', async ({
+    page,
+    request,
+  }) => {
+    const testHolding = await factory.createHolding({
+      tickerId: testTicker.tickerId,
+      quantity: 50,
+      averagePrice: 120,
+      currency: 'USD',
+    });
+    const sellAlert: CreatedAlert = await factory.createAlert({
+      tickerId: testHolding.tickerId,
+      mode: 'Sell',
+      conditions: [{ field: 'price', operator: 'gte', value: 180 }],
+    });
+    const buyAlert: CreatedAlert = await factory.createAlert({
+      tickerId: testHolding.tickerId,
+      mode: 'Buy',
+      conditions: [{ field: 'price', operator: 'lte', value: 90 }],
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    const targetRow = page.locator(`tr:has-text("${testHolding.ticker.symbol}")`);
+    await targetRow.getByRole('button', { name: '削除' }).click();
+
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByText('以下の売りアラートも合わせて削除されます。')).toBeVisible();
+    await expect(page.getByText(`${testHolding.ticker.symbol}（価格 180 以上）`)).toBeVisible();
+
+    await page.getByRole('button', { name: '削除' }).last().click();
+    await expect(page.getByText('保有株式を削除しました')).toBeVisible({ timeout: 5000 });
+
+    const alertsResponse = await request.get('/api/alerts');
+    expect(alertsResponse.ok()).toBeTruthy();
+    const alertsBody = await alertsResponse.json();
+    const remainingAlertIds = (alertsBody.alerts || []).map(
+      (alert: { alertId: string }) => alert.alertId
+    );
+
+    expect(remainingAlertIds).not.toContain(sellAlert.alertId);
+    expect(remainingAlertIds).toContain(buyAlert.alertId);
   });
 
   test('アラート設定ボタンが表示される', async ({ page }) => {

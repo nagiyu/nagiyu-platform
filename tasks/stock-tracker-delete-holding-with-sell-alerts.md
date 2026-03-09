@@ -73,19 +73,19 @@ Stock Tracker にて、保有株式を削除する際に、同一ティッカー
 
 ### Phase 1: ダイアログ表示の更新
 
-- [ ] T001: `holdings/page.tsx` の `handleOpenDeleteDialog` に売りアラート事前取得を追加する
+- [x] T001: `holdings/page.tsx` の `handleOpenDeleteDialog` に売りアラート事前取得を追加する
     - 対象ファイル: `services/stock-tracker/web/app/holdings/page.tsx`
     - `GET /api/alerts` を呼び出し、`tickerId` と `mode === 'Sell'` でフィルタリングする
     - 結果を `pendingSellAlerts` 等の state に格納する
     - 取得中は submitting 相当のローディングを表示する
-- [ ] T002: 削除確認ダイアログのUIを更新する
+- [x] T002: 削除確認ダイアログのUIを更新する
     - 対象ファイル: `services/stock-tracker/web/app/holdings/page.tsx`
     - 売りアラートが 1 件以上ある場合、売りアラート一覧（シンボル、条件）を追加表示する
     - 「以下の売りアラートも合わせて削除されます」等の警告文を追加する
 
 ### Phase 2: 削除処理の更新
 
-- [ ] T003: `handleDelete` に売りアラートの連動削除を追加する
+- [x] T003: `handleDelete` に売りアラートの連動削除を追加する
     - 対象ファイル: `services/stock-tracker/web/app/holdings/page.tsx`
     - 保有株式削除後、`pendingSellAlerts` の各アラートを `DELETE /api/alerts/[id]` で削除する
     - エラーハンドリングを追加する（アラート削除失敗時もユーザーに通知）
@@ -99,7 +99,7 @@ Stock Tracker にて、保有株式を削除する際に、同一ティッカー
 - [ ] T005: `handleDelete` のテストを追加・更新する
     - 売りアラートが存在する場合に連動削除が呼ばれることを確認する
     - 売りアラートが存在しない場合に保有株式のみ削除されることを確認する
-- [ ] T006: E2E テストを更新する（対象: `services/stock-tracker/web/tests/e2e/`）
+- [x] T006: E2E テストを更新する（対象: `services/stock-tracker/web/tests/e2e/`）
     - 売りアラートが存在する場合の削除ダイアログ表示を確認する
 
 ## 参考ドキュメント
