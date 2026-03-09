@@ -12,6 +12,8 @@ export const ERROR_MESSAGES = {
   VIDEO_IDS_EMPTY: 'videoIds を指定してください',
   VIDEO_IDS_TOO_MANY: '一度に登録できる動画は最大 100 件です',
   INVALID_VIDEO_ID_FORMAT: '不正な動画 ID 形式が含まれています',
+  SEARCH_KEYWORD_REQUIRED: '検索キーワードを入力してください',
+  SEARCH_KEYWORD_TOO_LONG: '検索キーワードは 100 文字以内で入力してください',
   IS_FAVORITE_MUST_BE_BOOLEAN: 'isFavorite は真偽値である必要があります',
   IS_SKIP_MUST_BE_BOOLEAN: 'isSkip は真偽値である必要があります',
   MEMO_MUST_BE_STRING: 'memo は文字列である必要があります',
