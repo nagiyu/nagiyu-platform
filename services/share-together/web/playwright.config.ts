@@ -4,6 +4,15 @@ import { resolve } from 'path';
 
 config({ path: resolve(__dirname, '.env.test') });
 
+process.env.USE_IN_MEMORY_DB ??= 'true';
+process.env.SKIP_AUTH_CHECK ??= 'true';
+process.env.TEST_USER_ID ??= 'test-user-id';
+process.env.TEST_USER_EMAIL ??= 'test@example.com';
+process.env.TEST_USER_NAME ??= 'Test User';
+process.env.NEXTAUTH_URL ??= 'http://localhost:3000';
+process.env.NEXT_PUBLIC_AUTH_URL ??= 'http://localhost:3001';
+process.env.NEXTAUTH_SECRET ??= 'test-secret-key-for-e2e-testing-only';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
