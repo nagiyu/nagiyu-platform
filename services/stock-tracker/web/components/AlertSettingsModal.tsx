@@ -179,6 +179,7 @@ export default function AlertSettingsModal({
           setFormData({
             ...getInitialFormData(tradeMode),
             conditionMode: 'range',
+            rangeType: editTarget.logicalOperator === 'OR' ? 'outside' : 'inside',
             minPrice: minCond?.value.toString() || '',
             maxPrice: maxCond?.value.toString() || '',
             frequency: editTarget.frequency,
