@@ -1,7 +1,4 @@
-import {
-  type ListRepository,
-  type TodoRepository,
-} from '@nagiyu/share-together-core';
+import { type ListRepository, type TodoRepository } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, TodoResponse, TodosResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';

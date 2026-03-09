@@ -1,7 +1,4 @@
-import {
-  type ListRepository,
-  type GroupList,
-} from '@nagiyu/share-together-core';
+import { type ListRepository, type GroupList } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, GroupListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';

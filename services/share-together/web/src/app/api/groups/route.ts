@@ -1,7 +1,4 @@
-import {
-  createGroup,
-  type Group,
-} from '@nagiyu/share-together-core';
+import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';

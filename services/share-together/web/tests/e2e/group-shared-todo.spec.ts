@@ -35,7 +35,9 @@ test.describe('グループ共有 ToDo 管理', () => {
           respondedAt: new Date().toISOString(),
         },
       ],
-      groupLists: [{ listId: LIST_ID, groupId: GROUP_ID, name: '既存共有リスト', createdBy: TEST_USER.userId }],
+      groupLists: [
+        { listId: LIST_ID, groupId: GROUP_ID, name: '既存共有リスト', createdBy: TEST_USER.userId },
+      ],
       todos: [
         {
           todoId: 'todo-initial',
