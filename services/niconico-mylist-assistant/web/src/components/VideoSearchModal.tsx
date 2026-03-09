@@ -17,16 +17,12 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
   open: boolean;
   onClose: () => void;
 }
-
-const ERROR_MESSAGES = {
-  SEARCH_FAILED: '動画検索に失敗しました',
-  ADD_FAILED: '動画の追加に失敗しました',
-} as const;
 
 type AddStatus = 'added' | 'already-added';
 
@@ -44,15 +40,16 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
     setAddStatusById({});
 
     try {
-      const response = await fetch(`/api/videos/search?q=${encodeURIComponent(keyword.trim())}`);
+      const params = new URLSearchParams({ q: keyword.trim() });
+      const response = await fetch(`/api/videos/search?${params.toString()}`);
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || ERROR_MESSAGES.SEARCH_FAILED);
+        throw new Error(data.error || ERROR_MESSAGES.VIDEO_SEARCH_FAILED);
       }
 
       setVideos(data.videos);
     } catch (searchError) {
-      setError(searchError instanceof Error ? searchError.message : ERROR_MESSAGES.SEARCH_FAILED);
+      setError(searchError instanceof Error ? searchError.message : ERROR_MESSAGES.VIDEO_SEARCH_FAILED);
     } finally {
       setLoading(false);
     }
@@ -68,13 +65,13 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || ERROR_MESSAGES.ADD_FAILED);
+        throw new Error(data.error || ERROR_MESSAGES.VIDEO_ADD_FAILED);
       }
 
       const status: AddStatus = data.skipped > 0 ? 'already-added' : 'added';
       setAddStatusById((prev) => ({ ...prev, [videoId]: status }));
     } catch (addError) {
-      setError(addError instanceof Error ? addError.message : ERROR_MESSAGES.ADD_FAILED);
+      setError(addError instanceof Error ? addError.message : ERROR_MESSAGES.VIDEO_ADD_FAILED);
     }
   };
 

@@ -14,6 +14,8 @@ export const ERROR_MESSAGES = {
   INVALID_VIDEO_ID_FORMAT: '不正な動画 ID 形式が含まれています',
   SEARCH_KEYWORD_REQUIRED: '検索キーワードを入力してください',
   SEARCH_KEYWORD_TOO_LONG: '検索キーワードは 100 文字以内で入力してください',
+  VIDEO_SEARCH_FAILED: '動画検索に失敗しました',
+  VIDEO_ADD_FAILED: '動画の追加に失敗しました',
   IS_FAVORITE_MUST_BE_BOOLEAN: 'isFavorite は真偽値である必要があります',
   IS_SKIP_MUST_BE_BOOLEAN: 'isSkip は真偽値である必要があります',
   MEMO_MUST_BE_STRING: 'memo は文字列である必要があります',
@@ -41,4 +43,8 @@ export const ERROR_MESSAGES = {
   BATCH_JOB_SUBMISSION_FAILED: 'バッチジョブの投入に失敗しました',
   DATABASE_ERROR: 'データベースへのアクセスに失敗しました',
   PASSWORD_ENCRYPTION_FAILED: 'パスワードの暗号化に失敗しました',
+} as const;
+
+export const VALIDATION_LIMITS = {
+  SEARCH_KEYWORD_MAX_LENGTH: 100,
 } as const;

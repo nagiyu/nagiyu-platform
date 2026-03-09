@@ -4,12 +4,11 @@ import {
   NICONICO_ERROR_MESSAGES,
   NICONICO_SEARCH_URL_BASE,
   SEARCH_RESULT_LIMIT,
+  SEARCH_VIDEO_ID_PATTERN,
 } from './constants.js';
 
-const VIDEO_ID_PATTERN = /\b(?:sm|nm|so)\d+\b/g;
-
 export function extractVideoIdsFromHtml(html: string): string[] {
-  const matchedIds = html.match(VIDEO_ID_PATTERN) ?? [];
+  const matchedIds = html.match(SEARCH_VIDEO_ID_PATTERN) ?? [];
   return [...new Set(matchedIds)];
 }
 
