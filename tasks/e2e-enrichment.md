@@ -4,7 +4,7 @@
 
 `specs/001-share-together/spec.md` で定義された機能要件に対し、Share Together の E2E テストカバレッジを向上させる。
 認証系（実 OAuth フロー）は E2E での検証が困難なため除外し、それ以外の機能については
-`page.route()` モックを活用して E2E での検証を充実させる。
+`page.route()` モックとインメモリリポジトリ起動の 2 方式を組み合わせて E2E での検証を充実させる。
 
 本ドキュメントは現状分析と充実計画をまとめ、以降の実装タスクの基盤とする。
 
@@ -62,15 +62,38 @@ specs の機能要件と照合したギャップを以下に示す。
 
 ## E2E テスト戦略
 
-### `page.route()` モック方式（採用）
+Share Together では以下の 2 つのアプローチを組み合わせる。
 
-Share Together web は認証セッションのモックが必要なため、`page.route()` モック方式を採用する。
+### アプローチ A: `page.route()` モック方式（既存・継続）
 
 - `page.route()` で API レスポンスをモック
 - セッション情報（`/api/auth/session`）を固定ユーザーで返す
 - テスト内で状態配列（`let todos: Todo[]`）を管理し、CRUD 操作をモックで再現
 - **利点**: 外部依存なし、高速、実装が簡潔
-- **適用済み**: Share Together の全既存 E2E テスト
+- **適用済み**: Share Together の全既存 E2E テスト（personal-todo・personal-lists・group-management・group-shared-todo）
+- **適用場面**: UI インタラクションの確認、エラーレスポンス時の UI 挙動検証
+
+### アプローチ B: インメモリ DB 起動方式（新規導入・要実装）
+
+niconico-mylist-assistant が採用している方式を Share Together にも導入する。
+
+- `USE_IN_MEMORY_DB=true` 環境変数でアプリを起動し、API ルートがインメモリリポジトリを使用するよう切り替える
+- `SKIP_AUTH_CHECK=true` で認証をバイパスし、`TEST_USER_ID` 等の環境変数で固定テストユーザーを使用する
+- テストデータは API 経由（`/api/test/reset` 等）で `beforeEach` にセットアップ・クリーンアップ
+- **利点**: 実際の API ルートとビジネスロジックを通した検証ができる（`page.route()` ではスタブの精度に依存）
+- **適用場面**: 複数エンティティ間の整合性検証（グループ削除後のメンバーシップ・共有リスト等）、バリデーションロジックの検証
+
+#### 導入に必要な実装（T000 系として追加）
+
+Share Together web の API ルートは現在 `DynamoDBListRepository` 等を直接インスタンス化しており、
+niconico のようなファクトリーパターンが未実装。以下の整備が前提となる。
+
+| 実装項目 | 現状 | 必要な変更 |
+| --- | --- | --- |
+| リポジトリファクトリ | なし（API ルートで直接 DynamoDB リポジトリをインスタンス化） | `USE_IN_MEMORY_DB` で切り替えるファクトリ関数を core に追加 |
+| セッションモック | `middleware.ts` は `SKIP_AUTH_CHECK=true` 対応済み、`getSessionOrUnauthorized` は未対応 | niconico の `getSession` 相当のモック返却ロジックを追加 |
+| `.env.test` | なし | `USE_IN_MEMORY_DB=true`, `SKIP_AUTH_CHECK=true`, `TEST_USER_*` を記載 |
+| テストデータ API | なし | `/api/test/reset` エンドポイント（`USE_IN_MEMORY_DB=true` 時のみ有効）を追加 |
 
 ### 認証系テストの扱い方針
 
@@ -84,6 +107,23 @@ Share Together web は認証セッションのモックが必要なため、`pag
 ---
 
 ## タスクリスト
+
+**【前提】インメモリ DB 起動方式の導入（アプローチ B の基盤整備）**
+
+- [ ] T000a: `services/share-together/core/` にリポジトリファクトリを追加する
+    - niconico の `factory.ts` を参考に、`USE_IN_MEMORY_DB=true` の場合にインメモリリポジトリを返す
+      ファクトリ関数（`createListRepository`, `createTodoRepository`, `createGroupRepository` 等）を実装する
+    - すべてのエンティティ（List, Todo, Group, User, Membership）のファクトリを追加する
+- [ ] T000b: `services/share-together/web/src/lib/auth/session.ts` に `SKIP_AUTH_CHECK` 対応を追加する
+    - `SKIP_AUTH_CHECK=true` の場合、`TEST_USER_ID` / `TEST_USER_EMAIL` / `TEST_USER_NAME` 環境変数から
+      固定セッションを返すよう `getSessionOrUnauthorized` を更新する（niconico の `getSession` 相当）
+- [ ] T000c: `services/share-together/web/src/app/api/` の全ルートをファクトリ経由に切り替える
+    - `DynamoDBListRepository` 等の直接インスタンス化をファクトリ関数呼び出しに置き換える
+- [ ] T000d: `services/share-together/web/.env.test` を作成する
+    - `USE_IN_MEMORY_DB=true`, `SKIP_AUTH_CHECK=true`, `TEST_USER_ID=test-user-id` 等を記載する
+- [ ] T000e: `/api/test/reset` エンドポイントを `services/share-together/web/src/app/api/test/` に追加する
+    - `USE_IN_MEMORY_DB=true` のときのみ有効なリセットエンドポイントを追加する
+    - niconico の `/api/test/videos` を参考に実装する
 
 **個人 ToDo 管理（FR-008）**
 
@@ -138,7 +178,7 @@ Share Together web は認証セッションのモックが必要なため、`pag
 
 ## 実装方針・注意事項
 
-### `page.route()` モックの管理
+### `page.route()` モックの管理（アプローチ A）
 
 - テスト内でミュータブルな配列（`let items: Item[]`）を状態として管理し、
   POST/PUT/DELETE の結果を配列に反映することで CRUD の連続操作をシミュレートする
@@ -146,10 +186,16 @@ Share Together web は認証セッションのモックが必要なため、`pag
 - Service Worker が `page.route()` のモックをバイパスする場合は
   `test.use({ serviceWorkers: 'block' })` を設定する（グループ系は適用済み）
 
+### インメモリ DB 起動方式の留意点（アプローチ B）
+
+- `beforeEach` で `/api/test/reset` を呼び出してインメモリストアをクリアし、テスト間の独立性を確保する
+- E2E テストはアプリサーバーを `USE_IN_MEMORY_DB=true` で起動した状態で実行する
+- niconico の `.env.test` と同じパターンで `services/share-together/web/.env.test` を管理する
+
 ### 認証のモック方法
 
-- `/api/auth/session` を `page.route()` でモックし、固定ユーザー ID を返す
-- ロールに依存するテストでは、セッションレスポンスにロール情報を含める
+- アプローチ A: `/api/auth/session` を `page.route()` でモックし、固定ユーザー ID を返す
+- アプローチ B: `SKIP_AUTH_CHECK=true` + `TEST_USER_ID` 環境変数で middleware と API ルートの両方をバイパス
 
 ---
 
