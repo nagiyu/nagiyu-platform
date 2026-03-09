@@ -92,6 +92,17 @@ interface SellAlertSummary {
   conditions: AlertResponse['conditions'];
 }
 
+const getOperatorLabel = (operator: string): string => {
+  switch (operator) {
+    case 'gte':
+      return '以上';
+    case 'lte':
+      return '以下';
+    default:
+      return '条件不明';
+  }
+};
+
 // フォームデータ型
 interface HoldingFormData {
   exchangeId: string;
@@ -607,8 +618,13 @@ export default function HoldingsPage() {
       </Box>
 
       {deleteDialogLoading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }} role="status" aria-live="polite">
-          <CircularProgress size={20} aria-label="売りアラートを読み込んでいます" />
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <CircularProgress size={20} />
           <Typography variant="body2" color="text.secondary">
             削除対象の売りアラートを確認しています...
           </Typography>
@@ -970,10 +986,10 @@ export default function HoldingsPage() {
               <Alert severity="warning" sx={{ mb: 1 }}>
                 以下の売りアラートも合わせて削除されます。
               </Alert>
-              <Box sx={{ p: 2, backgroundColor: 'warning.50', borderRadius: 1 }}>
+              <Box sx={{ p: 2, backgroundColor: 'warning.light', borderRadius: 1 }}>
                 {pendingSellAlerts.map((sellAlert, index) => {
                   const conditionLabels = sellAlert.conditions.map((condition) => {
-                    const operatorLabel = condition.operator === 'gte' ? '以上' : '以下';
+                    const operatorLabel = getOperatorLabel(condition.operator);
                     return `価格 ${condition.value.toLocaleString()} ${operatorLabel}`;
                   });
 
