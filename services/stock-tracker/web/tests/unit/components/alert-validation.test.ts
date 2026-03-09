@@ -581,3 +581,22 @@ describe('AlertSettingsModal Validation', () => {
     });
   });
 });
+
+// 範囲タイプ初期化ロジック（AlertSettingsModal.tsx の useEffect から抽出）
+function resolveRangeType(logicalOperator?: 'AND' | 'OR'): 'inside' | 'outside' {
+  return logicalOperator === 'OR' ? 'outside' : 'inside';
+}
+
+describe('resolveRangeType', () => {
+  it('logicalOperator が OR のとき outside を返す', () => {
+    expect(resolveRangeType('OR')).toBe('outside');
+  });
+
+  it('logicalOperator が AND のとき inside を返す', () => {
+    expect(resolveRangeType('AND')).toBe('inside');
+  });
+
+  it('logicalOperator が undefined のとき inside を返す（デフォルト）', () => {
+    expect(resolveRangeType(undefined)).toBe('inside');
+  });
+});
