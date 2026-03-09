@@ -17,7 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
   open: boolean;
@@ -86,8 +86,21 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             disabled={loading}
+            slotProps={{
+              input: {
+                inputProps: { maxLength: VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH },
+              },
+            }}
           />
-          <Button variant="contained" onClick={handleSearch} disabled={loading || !keyword.trim()}>
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            disabled={
+              loading ||
+              !keyword.trim() ||
+              keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
+            }
+          >
             検索
           </Button>
         </Stack>

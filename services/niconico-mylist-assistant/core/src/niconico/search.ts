@@ -27,6 +27,7 @@ export async function searchVideos(keyword: string): Promise<NiconicoVideoInfo[]
   }
 
   const html = await response.text();
+  // 検索結果の表示・API呼び出し負荷を抑えるため、上位件数のみ取得する
   const videoIds = extractVideoIdsFromHtml(html).slice(0, SEARCH_RESULT_LIMIT);
   if (videoIds.length === 0) {
     return [];
