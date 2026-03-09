@@ -20,13 +20,8 @@ import {
   Switch,
 } from '@mui/material';
 import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
-import type { Timeframe, ChartBarCount } from '../types/stock';
-import {
-  TIMEFRAME_LABELS,
-  CHART_BAR_COUNTS,
-  CHART_BAR_COUNT_LABELS,
-  DEFAULT_CHART_BAR_COUNT,
-} from '../types/stock';
+import type { Timeframe } from '../types/stock';
+import { TIMEFRAME_LABELS } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
 import { computeAlertLines, getChartAlertConditions } from '../lib/chart-overlay-lines';
 import StockChart from './StockChart';
@@ -63,6 +58,7 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
+const FIXED_CHART_BAR_COUNT = 50;
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -161,7 +157,6 @@ export default function AlertSettingsModal({
   const [error, setError] = useState<string>('');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
-  const [chartBarCount, setChartBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
 
   const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
 
@@ -217,7 +212,6 @@ export default function AlertSettingsModal({
       setError('');
       setSubscription(null);
       setTimeframe(DEFAULT_CHART_TIMEFRAME);
-      setChartBarCount(DEFAULT_CHART_BAR_COUNT);
     }
   }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
@@ -884,10 +878,6 @@ export default function AlertSettingsModal({
     setTimeframe(value as Timeframe);
   };
 
-  const handleChartBarCountChange = (value: string) => {
-    setChartBarCount(Number(value) as ChartBarCount);
-  };
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{dialogTitle}</DialogTitle>
@@ -923,27 +913,11 @@ export default function AlertSettingsModal({
                 ))}
               </Select>
             </FormControl>
-            <FormControl fullWidth size="small">
-              <InputLabel id="alert-barcount-select-label">表示本数</InputLabel>
-              <Select
-                labelId="alert-barcount-select-label"
-                id="alert-barcount-select"
-                value={String(chartBarCount)}
-                label="表示本数"
-                onChange={(e) => handleChartBarCountChange(e.target.value)}
-              >
-                {CHART_BAR_COUNTS.map((count) => (
-                  <MenuItem key={count} value={String(count)}>
-                    {CHART_BAR_COUNT_LABELS[count]}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
           </Box>
           <StockChart
             tickerId={tickerId}
             timeframe={timeframe}
-            count={chartBarCount}
+            count={FIXED_CHART_BAR_COUNT}
             alertLines={chartAlertLines}
           />
 

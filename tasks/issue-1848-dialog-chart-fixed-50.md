@@ -41,13 +41,13 @@ Stock Tracker のダイアログ（AlertSettingsModal）内に表示されるチ
 
 ## タスク
 
-- [ ] T001: `AlertSettingsModal.tsx` の `chartBarCount` state を削除する
-- [ ] T002: `AlertSettingsModal.tsx` の `handleChartBarCountChange` 関数を削除する
-- [ ] T003: `AlertSettingsModal.tsx` のバー数選択 Select UI（ラベル含む）を削除する
-- [ ] T004: `<StockChart>` の `count` prop に `50` を直接渡すよう変更する
-- [ ] T005: 不要になった `DEFAULT_CHART_BAR_COUNT`・`CHART_BAR_COUNTS`・`CHART_BAR_COUNT_LABELS` のインポートを削除する
-- [ ] T006: ユニットテスト（`AlertSettingsModal` 関連）を修正・確認する
-- [ ] T007: lint・build・test を通過させる
+- [x] T001: `AlertSettingsModal.tsx` の `chartBarCount` state を削除する
+- [x] T002: `AlertSettingsModal.tsx` の `handleChartBarCountChange` 関数を削除する
+- [x] T003: `AlertSettingsModal.tsx` のバー数選択 Select UI（ラベル含む）を削除する
+- [x] T004: `<StockChart>` の `count` prop に `50` を直接渡すよう変更する
+- [x] T005: 不要になった `DEFAULT_CHART_BAR_COUNT`・`CHART_BAR_COUNTS`・`CHART_BAR_COUNT_LABELS` のインポートを削除する
+- [x] T006: ユニットテスト（`AlertSettingsModal` 関連）を修正・確認する
+- [x] T007: lint・build・test を通過させる
 
 ## 参考ドキュメント
 
