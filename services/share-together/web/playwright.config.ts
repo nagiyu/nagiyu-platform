@@ -10,8 +10,8 @@ process.env.TEST_USER_ID ??= 'test-user-id';
 process.env.TEST_USER_EMAIL ??= 'test@example.com';
 process.env.TEST_USER_NAME ??= 'Test User';
 process.env.NEXTAUTH_URL ??= 'http://localhost:3000';
-process.env.NEXT_PUBLIC_AUTH_URL ??= 'http://localhost:3001';
-process.env.NEXTAUTH_SECRET ??= 'test-secret-key-for-e2e-testing-only';
+process.env.NEXT_PUBLIC_AUTH_URL ??= process.env.NEXTAUTH_URL;
+process.env.NEXTAUTH_SECRET ??= 'INSECURE-TEST-ONLY-SECRET-DO-NOT-USE-IN-PRODUCTION-32chars';
 
 export default defineConfig({
   testDir: './tests/e2e',
