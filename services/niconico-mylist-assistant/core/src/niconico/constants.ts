@@ -15,4 +15,5 @@ export const NICONICO_ERROR_MESSAGES = {
 export const DEFAULT_BATCH_CONCURRENCY = 3;
 export const NICONICO_SEARCH_URL_BASE = 'https://www.nicovideo.jp/search/';
 export const SEARCH_RESULT_LIMIT = 10;
+// ニコニコ動画IDの代表的な接頭辞（sm/nm/so）を抽出対象にする
 export const SEARCH_VIDEO_ID_PATTERN = /\b(?:sm|nm|so)\d+\b/g;

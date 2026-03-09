@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Video Search API', () => {
-  test.skip('should return 401 when not authenticated', async ({ request }) => {
+  test('should return 401 when not authenticated', async ({ request }) => {
+    test.skip(
+      process.env.SKIP_AUTH_CHECK === 'true',
+      'SKIP_AUTH_CHECK=true のE2E環境では未認証ケースを再現できないため'
+    );
     const response = await request.get('/api/videos/search?q=test');
     expect(response.status()).toBe(401);
   });
