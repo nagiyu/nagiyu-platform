@@ -20,10 +20,10 @@
 
 全サービスで共有可能なライブラリパッケージ。
 
-- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/react/`, `libs/aws/`
-- **責務**: フレームワーク・ブラウザAPI・React・AWS SDKに依存した汎用機能の提供
+- **対象**: `libs/common/`, `libs/browser/`, `libs/ui/`, `libs/react/`, `libs/nextjs/`, `libs/aws/`
+- **責務**: フレームワーク・ブラウザAPI・React・Next.js・AWS SDKに依存した汎用機能の提供
 - **バージョン管理**: 各ライブラリで独立したバージョン管理
-- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `@nagiyu/react`, `@nagiyu/aws`
+- **パッケージ名**: `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui`, `@nagiyu/react`, `@nagiyu/nextjs`, `@nagiyu/aws`
 
 #### 固有パッケージ (services/\*/xxx)
 
@@ -55,6 +55,7 @@ libs/
 ├── ui/           # Next.js + Material-UI 依存
 ├── browser/      # ブラウザAPI依存
 ├── react/        # React依存
+├── nextjs/       # Next.js依存（APIルートヘルパー等）
 ├── aws/          # AWS SDK 依存
 └── common/       # 完全フレームワーク非依存
 ```
@@ -66,6 +67,7 @@ libs/
 ```
 ui → browser → common
 react → common
+nextjs → common
 aws (モノレポ内の他ライブラリに依存しない)
 ```
 
@@ -163,6 +165,29 @@ React依存のユーティリティ。
 
 - React に依存
 - フレームワーク固有機能の提供
+- テスト容易性（モック化しやすい設計）
+
+## libs/nextjs/
+
+### 責務
+
+Next.js に依存するユーティリティ。
+
+### 含まれるもの
+
+- APIルート認証ヘルパー（`withAuth`）
+- リポジトリ初期化ヘルパー
+- ページネーション
+- エラーハンドリング
+
+### パッケージ名
+
+`@nagiyu/nextjs`
+
+### 設計のポイント
+
+- Next.js API Route 専用
+- `@nagiyu/common` のみに依存
 - テスト容易性（モック化しやすい設計）
 
 ## libs/browser/
