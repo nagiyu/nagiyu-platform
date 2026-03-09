@@ -49,7 +49,9 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
 
       setVideos(data.videos);
     } catch (searchError) {
-      setError(searchError instanceof Error ? searchError.message : ERROR_MESSAGES.VIDEO_SEARCH_FAILED);
+      setError(
+        searchError instanceof Error ? searchError.message : ERROR_MESSAGES.VIDEO_SEARCH_FAILED
+      );
     } finally {
       setLoading(false);
     }
