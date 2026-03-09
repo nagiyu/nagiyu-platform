@@ -115,9 +115,9 @@ nextjs → common
 
 ## タスク
 
-- [ ] T001: `docs/development/rules.md` の共通ライブラリカバレッジ記述を修正する（「推奨（必須ではない）」→「必須」）
-- [ ] T002: `docs/development/shared-libraries.md` に `@nagiyu/nextjs` の記述を追加する
-- [ ] T003: `docs/README.md` の共通ライブラリ一覧に `@nagiyu/nextjs` を追加する
+- [x] T001: `docs/development/rules.md` の共通ライブラリカバレッジ記述を修正する（「推奨（必須ではない）」→「必須」）
+- [x] T002: `docs/development/shared-libraries.md` に `@nagiyu/nextjs` の記述を追加する
+- [x] T003: `docs/README.md` の共通ライブラリ一覧に `@nagiyu/nextjs` を追加する
 
 ## 参考ドキュメント
 
