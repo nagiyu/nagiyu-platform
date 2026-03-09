@@ -19,7 +19,6 @@
   "dependencies": {
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
-    "@nagiyu/ui": "*",
-    "next-pwa": "^5.6.0"
+    "@nagiyu/ui": "*"
   }
 }
