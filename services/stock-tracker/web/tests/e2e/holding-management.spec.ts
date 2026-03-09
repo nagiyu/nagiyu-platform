@@ -1,5 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { TestDataFactory, CreatedTicker, CreatedHolding, CreatedAlert } from './utils/test-data-factory';
+import {
+  TestDataFactory,
+  CreatedTicker,
+  CreatedHolding,
+  CreatedAlert,
+} from './utils/test-data-factory';
 
 /**
  * E2E-003: Holding 管理フロー
@@ -385,7 +390,9 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
     const alertsResponse = await request.get('/api/alerts');
     expect(alertsResponse.ok()).toBeTruthy();
     const alertsBody = await alertsResponse.json();
-    const remainingAlertIds = (alertsBody.alerts || []).map((alert: { alertId: string }) => alert.alertId);
+    const remainingAlertIds = (alertsBody.alerts || []).map(
+      (alert: { alertId: string }) => alert.alertId
+    );
 
     expect(remainingAlertIds).not.toContain(sellAlert.alertId);
     expect(remainingAlertIds).toContain(buyAlert.alertId);

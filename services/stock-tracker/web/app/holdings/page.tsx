@@ -513,9 +513,12 @@ export default function HoldingsPage() {
 
       let sellAlertDeleteFailed = false;
       for (const sellAlert of pendingSellAlerts) {
-        const alertDeleteResponse = await fetch(`/api/alerts/${encodeURIComponent(sellAlert.alertId)}`, {
-          method: 'DELETE',
-        });
+        const alertDeleteResponse = await fetch(
+          `/api/alerts/${encodeURIComponent(sellAlert.alertId)}`,
+          {
+            method: 'DELETE',
+          }
+        );
         if (!alertDeleteResponse.ok) {
           sellAlertDeleteFailed = true;
           console.error(ERROR_MESSAGES.DELETE_SELL_ALERT_ERROR, sellAlert.alertId);
