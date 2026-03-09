@@ -58,7 +58,6 @@ const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
 // パーセンテージ選択肢の定数配列（-20 ～ +20、5%刻み）
 const PERCENTAGE_OPTIONS = [-20, -15, -10, -5, 0, 5, 10, 15, 20] as const;
 const DEFAULT_CHART_TIMEFRAME: Timeframe = '60';
-const FIXED_CHART_BAR_COUNT = 50;
 
 // プロパティ型定義
 interface AlertSettingsModalProps {
@@ -917,7 +916,7 @@ export default function AlertSettingsModal({
           <StockChart
             tickerId={tickerId}
             timeframe={timeframe}
-            count={FIXED_CHART_BAR_COUNT}
+            count={50}
             alertLines={chartAlertLines}
           />
 
