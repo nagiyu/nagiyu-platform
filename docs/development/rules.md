@@ -492,7 +492,7 @@ tests/
 
 **適用除外**: 
 - UI層（`components/`, `app/` ディレクトリ）は E2E テストでカバー可能なため、カバレッジ目標の適用外
-- 共通ライブラリ（`libs/*`）は 80% 以上を推奨（必須ではない）
+- 共通ライブラリ（`libs/*`）も 80% 以上必須（`coverageThreshold` 設定により自動チェック）
 
 ```typescript
 // jest.config.ts
