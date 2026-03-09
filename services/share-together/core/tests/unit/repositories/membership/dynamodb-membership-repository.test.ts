@@ -94,7 +94,10 @@ describe('DynamoDBMembershipRepository', () => {
 
   it('getByGroupId はメンバー一覧を取得する', async () => {
     mockDocClient.send.mockResolvedValueOnce({
-      Items: [createMembershipItem(), createMembershipItem({ userId: 'user-2', SK: 'MEMBER#user-2' })],
+      Items: [
+        createMembershipItem(),
+        createMembershipItem({ userId: 'user-2', SK: 'MEMBER#user-2' }),
+      ],
     });
 
     const result = await repository.getByGroupId('group-1');
@@ -316,7 +319,10 @@ describe('DynamoDBMembershipRepository', () => {
   it('deleteByGroupId は取得したメンバーを順に削除する', async () => {
     mockDocClient.send
       .mockResolvedValueOnce({
-        Items: [createMembershipItem(), createMembershipItem({ userId: 'user-2', SK: 'MEMBER#user-2' })],
+        Items: [
+          createMembershipItem(),
+          createMembershipItem({ userId: 'user-2', SK: 'MEMBER#user-2' }),
+        ],
       })
       .mockResolvedValueOnce({})
       .mockResolvedValueOnce({});
