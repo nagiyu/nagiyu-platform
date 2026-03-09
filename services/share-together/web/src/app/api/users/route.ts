@@ -1,12 +1,11 @@
-import { PutCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
-import { DynamoDBUserRepository, type User } from '@nagiyu/share-together-core';
+import type { User } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, UserResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository, createUserRepository } from '@/lib/repositories';
 
-const USER_META_SK = '#META#';
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
 
 function createValidationErrorResponse(): NextResponse {
@@ -64,81 +63,38 @@ export async function POST(): Promise<NextResponse> {
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const { docClient } = getAwsClients();
-    const userRepository = new DynamoDBUserRepository(docClient, tableName);
+    const useInMemoryDb = process.env.USE_IN_MEMORY_DB === 'true';
+    const docClient = useInMemoryDb ? undefined : getAwsClients().docClient;
+    const userRepository = createUserRepository(docClient, tableName);
+    const listRepository = createListRepository(docClient, tableName);
     const existingUser = await userRepository.getById(userId);
-    const now = new Date().toISOString();
 
     let responseUser: User;
 
     if (existingUser) {
       operation = 'update';
-      responseUser = {
-        ...existingUser,
+      responseUser = await userRepository.update(userId, {
         email,
         name,
         image,
-        updatedAt: now,
-      };
-
-      await docClient.send(
-        new PutCommand({
-          TableName: tableName,
-          Item: {
-            PK: `USER#${responseUser.userId}`,
-            SK: USER_META_SK,
-            GSI2PK: `EMAIL#${responseUser.email}`,
-            ...responseUser,
-          },
-        })
-      );
+      });
     } else {
       operation = 'create';
       const defaultListId = crypto.randomUUID();
-      responseUser = {
+      responseUser = await userRepository.create({
         userId,
         email,
         name,
         image,
         defaultListId,
-        createdAt: now,
-        updatedAt: now,
-      };
+      });
 
-      await docClient.send(
-        new TransactWriteCommand({
-          TransactItems: [
-            {
-              Put: {
-                TableName: tableName,
-                Item: {
-                  PK: `USER#${userId}`,
-                  SK: USER_META_SK,
-                  GSI2PK: `EMAIL#${email}`,
-                  ...responseUser,
-                },
-                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-              },
-            },
-            {
-              Put: {
-                TableName: tableName,
-                Item: {
-                  PK: `USER#${userId}`,
-                  SK: `PLIST#${defaultListId}`,
-                  listId: defaultListId,
-                  userId,
-                  name: DEFAULT_LIST_NAME,
-                  isDefault: true,
-                  createdAt: now,
-                  updatedAt: now,
-                },
-                ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
-              },
-            },
-          ],
-        })
-      );
+      await listRepository.createPersonalList({
+        listId: defaultListId,
+        userId,
+        name: DEFAULT_LIST_NAME,
+        isDefault: true,
+      });
     }
 
     const response: UserResponse = { data: responseUser };

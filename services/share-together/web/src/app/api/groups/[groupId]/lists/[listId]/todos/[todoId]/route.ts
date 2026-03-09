@@ -1,7 +1,5 @@
 import {
-  DynamoDBListRepository,
-  DynamoDBMembershipRepository,
-  DynamoDBTodoRepository,
+  type ListRepository,
   TodoService,
 } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
@@ -9,6 +7,11 @@ import type { ApiErrorResponse, TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import {
+  createListRepository,
+  createMembershipRepository,
+  createTodoRepository,
+} from '@/lib/repositories';
 
 interface TodoRouteParams {
   groupId: string;
@@ -86,7 +89,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
       listId: string;
       todoId: string;
       userId: string;
-      listRepository: DynamoDBListRepository;
+      listRepository: ListRepository;
       todoService: TodoService;
     }
   | NextResponse
@@ -113,20 +116,20 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
   }
 
   const { docClient } = getAwsClients();
-  const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
+  const membershipRepository = createMembershipRepository(docClient, tableName);
   const membership = await membershipRepository.getById(groupId, userId);
   if (!membership || membership.status !== 'ACCEPTED') {
     return createErrorResponse('FORBIDDEN', ERROR_MESSAGES.FORBIDDEN, 403);
   }
 
-  const todoRepository = new DynamoDBTodoRepository(docClient, tableName);
+  const todoRepository = createTodoRepository(docClient, tableName);
 
   return {
     groupId,
     listId,
     todoId,
     userId,
-    listRepository: new DynamoDBListRepository(docClient, tableName),
+    listRepository: createListRepository(docClient, tableName),
     todoService: new TodoService(todoRepository),
   };
 }

@@ -1,9 +1,10 @@
-import { DynamoDBListRepository, ListService } from '@nagiyu/share-together-core';
+import { ListService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository } from '@/lib/repositories';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,
@@ -43,7 +44,7 @@ function createListService(): ListService {
   }
 
   const { docClient } = getAwsClients();
-  const listRepository = new DynamoDBListRepository(docClient, tableName);
+  const listRepository = createListRepository(docClient, tableName);
   return new ListService(listRepository);
 }
 

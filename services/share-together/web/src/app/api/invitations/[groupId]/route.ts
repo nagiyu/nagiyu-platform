@@ -1,6 +1,4 @@
 import {
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
   ERROR_MESSAGES as GROUP_ERROR_MESSAGES,
   respondToInvitation,
 } from '@nagiyu/share-together-core';
@@ -9,6 +7,7 @@ import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -87,8 +86,8 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
     }
 
     const { docClient } = getAwsClients();
-    const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
-    const groupRepository = new DynamoDBGroupRepository(docClient, tableName);
+    const membershipRepository = createMembershipRepository(docClient, tableName);
+    const groupRepository = createGroupRepository(docClient, tableName);
     const updatedMembership = await respondToInvitation(
       {
         groupId,
