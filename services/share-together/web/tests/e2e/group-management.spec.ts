@@ -83,6 +83,36 @@ test.describe('グループ管理', () => {
     await expect(page.getByText('招待を送信しました。')).toBeVisible();
   });
 
+  test('同じユーザーには重複して招待を送信できない', async ({ page, request }) => {
+    const groupId = 'group-duplicate-invite';
+    await resetTestData(request, {
+      users: [OWNER_USER, INVITEE_USER],
+      groups: [{ groupId, name: '重複招待テストグループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: '重複招待テストグループ' }).click();
+    const emailField = page.getByRole('textbox', { name: 'メールアドレス' });
+    const submitButton = page.getByRole('button', { name: '招待を送信' });
+
+    await emailField.fill(INVITEE_USER.email);
+    await submitButton.click();
+    await expect(page.getByText('招待を送信しました。')).toBeVisible();
+
+    await emailField.fill(INVITEE_USER.email);
+    await submitButton.click();
+    await expect(page.getByText('既に招待済みです')).toBeVisible();
+  });
+
   test('招待を承認できる', async ({ page, request }) => {
     await resetTestData(request, {
       users: [TEST_USER, OTHER_OWNER_USER],
