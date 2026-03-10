@@ -196,6 +196,58 @@ describe('DynamoDBExchangeRepository', () => {
       expect(result).toHaveLength(0);
     });
 
+    it('DynamoDBのページネーション（LastEvaluatedKey）を処理して全取引所を取得できる', async () => {
+      const mockItemsPage1 = [
+        {
+          PK: 'EXCHANGE#NASDAQ',
+          SK: 'METADATA',
+          Type: 'Exchange',
+          ExchangeID: 'NASDAQ',
+          Name: 'NASDAQ',
+          Key: 'NASDAQ',
+          Timezone: 'America/New_York',
+          Start: '09:30',
+          End: '16:00',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        },
+      ];
+      const mockItemsPage2 = [
+        {
+          PK: 'EXCHANGE#NYSE',
+          SK: 'METADATA',
+          Type: 'Exchange',
+          ExchangeID: 'NYSE',
+          Name: 'New York Stock Exchange',
+          Key: 'NYSE',
+          Timezone: 'America/New_York',
+          Start: '09:30',
+          End: '16:00',
+          CreatedAt: 1704067200000,
+          UpdatedAt: 1704067200000,
+        },
+      ];
+
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: mockItemsPage1,
+          Count: 1,
+          LastEvaluatedKey: { PK: 'EXCHANGE#NASDAQ', SK: 'METADATA' },
+        })
+        .mockResolvedValueOnce({
+          Items: mockItemsPage2,
+          Count: 1,
+          LastEvaluatedKey: undefined,
+        });
+
+      const result = await repository.getAll();
+
+      expect(result).toHaveLength(2);
+      expect(result[0].ExchangeID).toBe('NASDAQ');
+      expect(result[1].ExchangeID).toBe('NYSE');
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+    });
+
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
       const dbError = new Error('Database connection failed');
       mockDocClient.send.mockRejectedValueOnce(dbError);
