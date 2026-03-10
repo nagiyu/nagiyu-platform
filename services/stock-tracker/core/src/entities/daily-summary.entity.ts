@@ -4,6 +4,7 @@
  * 日次サマリーのビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）
  */
 import type { PatternResults } from '../types.js';
+import type { AiAnalysisResult } from '../ai-analysis-result.js';
 
 /**
  * 日次サマリーエンティティ
@@ -33,8 +34,8 @@ export interface DailySummaryEntity {
   BuyPatternCount?: number;
   /** 売りシグナル合致数 */
   SellPatternCount?: number;
-  /** AI 解析テキスト（日本語） */
-  AiAnalysis?: string;
+  /** AI 解析結果（構造化） */
+  AiAnalysisResult?: AiAnalysisResult;
   /** AI 解析生成失敗時のエラー情報 */
   AiAnalysisError?: string;
   /** 作成日時 (Unix timestamp ms) */

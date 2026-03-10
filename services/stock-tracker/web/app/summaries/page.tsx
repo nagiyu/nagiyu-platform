@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   CardContent,
+  Chip,
   FormControl,
   Container,
   Dialog,
@@ -18,7 +19,6 @@ import {
   MenuItem,
   Paper,
   Select,
-  TextField,
   Table,
   TableBody,
   TableCell,
@@ -32,7 +32,7 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
-import { resolveAiAnalysisText } from './ai-analysis';
+import { resolveAiAnalysisFallbackMessage, resolveInvestmentSignalLabel } from './ai-analysis';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
 import StockChart from '../../components/StockChart';
 
@@ -492,21 +492,81 @@ export default function SummariesPage() {
                 <Typography id="ai-analysis-heading" variant="h6">
                   AI 解析
                 </Typography>
-                <TextField
-                  value={resolveAiAnalysisText(selectedTicker)}
-                  multiline
-                  fullWidth
-                  rows={10}
-                  aria-labelledby="ai-analysis-heading"
-                  InputProps={{
-                    readOnly: true,
-                    sx: {
-                      '& textarea': {
-                        overflowY: 'auto',
-                      },
-                    },
-                  }}
-                />
+                {selectedTicker.aiAnalysisResult ? (
+                  <Box sx={{ mt: 2, display: 'grid', gap: 2 }}>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        当日の値動き分析
+                      </Typography>
+                      <Typography>
+                        {selectedTicker.aiAnalysisResult.priceMovementAnalysis}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        パターン分析
+                      </Typography>
+                      <Typography>{selectedTicker.aiAnalysisResult.patternAnalysis}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        サポートレベル
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {selectedTicker.aiAnalysisResult.supportLevels.map((level, index) => (
+                          <Chip key={`support-${level}-${index}`} label={`${level}`} size="small" />
+                        ))}
+                      </Box>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        レジスタンスレベル
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {selectedTicker.aiAnalysisResult.resistanceLevels.map((level, index) => (
+                          <Chip
+                            key={`resistance-${level}-${index}`}
+                            label={`${level}`}
+                            size="small"
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        関連市場・セクター動向
+                      </Typography>
+                      <Typography>{selectedTicker.aiAnalysisResult.relatedMarketTrend}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        投資判断
+                      </Typography>
+                      <Chip
+                        label={resolveInvestmentSignalLabel(
+                          selectedTicker.aiAnalysisResult.investmentJudgment.signal
+                        )}
+                        color={
+                          selectedTicker.aiAnalysisResult.investmentJudgment.signal === 'BULLISH'
+                            ? 'success'
+                            : selectedTicker.aiAnalysisResult.investmentJudgment.signal ===
+                                'BEARISH'
+                              ? 'error'
+                              : 'default'
+                        }
+                        size="small"
+                        sx={{ mb: 1 }}
+                      />
+                      <Typography>
+                        {selectedTicker.aiAnalysisResult.investmentJudgment.reason}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Typography sx={{ mt: 2 }} color="text.secondary">
+                    {resolveAiAnalysisFallbackMessage(selectedTicker)}
+                  </Typography>
+                )}
               </Box>
             </Box>
           )}
