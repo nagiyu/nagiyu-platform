@@ -17,6 +17,7 @@ describe('ERROR_MESSAGES', () => {
       TODO_NOT_FOUND: 'ToDoが見つかりません',
       PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
       LIST_NAME_INVALID: 'リスト名は1〜100文字で入力してください',
+      PERSONAL_LIST_LIMIT_EXCEEDED: '個人リストは100件まで作成できます',
       DYNAMODB_TABLE_NAME_REQUIRED: '環境変数 DYNAMODB_TABLE_NAME の設定が必要です',
       DEFAULT_LIST_NOT_DELETABLE: 'デフォルトリストは削除できません',
       OWNER_ONLY: 'この操作はオーナーのみ実行できます',
