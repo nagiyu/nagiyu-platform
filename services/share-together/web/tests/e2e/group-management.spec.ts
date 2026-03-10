@@ -216,7 +216,9 @@ test.describe('グループ管理', () => {
           respondedAt: new Date().toISOString(),
         },
       ],
-      groupLists: [{ listId: 'group-list-delete', groupId, name: '共有リスト', createdBy: OWNER_USER.userId }],
+      groupLists: [
+        { listId: 'group-list-delete', groupId, name: '共有リスト', createdBy: OWNER_USER.userId },
+      ],
       todos: [
         {
           todoId: 'group-todo-delete',
@@ -232,7 +234,9 @@ test.describe('グループ管理', () => {
     await page.getByRole('heading', { level: 2, name: '削除対象グループ' }).click();
     await page.getByRole('button', { name: 'グループを削除' }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByText('このグループを削除しますか？この操作は元に戻せません。')).toBeVisible();
+    await expect(
+      page.getByText('このグループを削除しますか？この操作は元に戻せません。')
+    ).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
     await expect(page.getByText('グループを削除しました。')).toBeVisible();
 
@@ -283,7 +287,13 @@ test.describe('グループ管理', () => {
     const nonOwnerGroupId = 'group-rename-non-owner';
     await resetTestData(request, {
       users: [TEST_USER, OTHER_OWNER_USER],
-      groups: [{ groupId: nonOwnerGroupId, name: '非オーナー閲覧グループ', ownerUserId: OTHER_OWNER_USER.userId }],
+      groups: [
+        {
+          groupId: nonOwnerGroupId,
+          name: '非オーナー閲覧グループ',
+          ownerUserId: OTHER_OWNER_USER.userId,
+        },
+      ],
       memberships: [
         {
           groupId: nonOwnerGroupId,
@@ -320,7 +330,13 @@ test.describe('グループ管理', () => {
   test('グループオーナーはグループを脱退できない', async ({ page, request }) => {
     await resetTestData(request, {
       users: [OWNER_USER],
-      groups: [{ groupId: 'group-owner-cannot-leave', name: 'オーナーグループ', ownerUserId: OWNER_USER.userId }],
+      groups: [
+        {
+          groupId: 'group-owner-cannot-leave',
+          name: 'オーナーグループ',
+          ownerUserId: OWNER_USER.userId,
+        },
+      ],
       memberships: [
         {
           groupId: 'group-owner-cannot-leave',
