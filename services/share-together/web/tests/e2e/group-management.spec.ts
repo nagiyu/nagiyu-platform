@@ -190,6 +190,147 @@ test.describe('グループ管理', () => {
     await expect(page.getByText('グループから脱退しました。')).toBeVisible();
   });
 
+  test('オーナーはグループを削除でき、削除後は関連情報にアクセスできない', async ({
+    page,
+    request,
+  }) => {
+    const groupId = 'group-delete-target';
+    await resetTestData(request, {
+      users: [OWNER_USER, MEMBER_USER],
+      groups: [{ groupId, name: '削除対象グループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId,
+          userId: MEMBER_USER.userId,
+          role: 'MEMBER',
+          status: 'ACCEPTED',
+          invitedBy: OWNER_USER.userId,
+          invitedAt: new Date().toISOString(),
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+      groupLists: [{ listId: 'group-list-delete', groupId, name: '共有リスト', createdBy: OWNER_USER.userId }],
+      todos: [
+        {
+          todoId: 'group-todo-delete',
+          listId: 'group-list-delete',
+          title: '削除される共有ToDo',
+          isCompleted: false,
+          createdBy: OWNER_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: '削除対象グループ' }).click();
+    await page.getByRole('button', { name: 'グループを削除' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
+    await expect(page.getByText('グループを削除しました。')).toBeVisible();
+
+    const groupsResponse = await request.get('/api/groups');
+    expect(groupsResponse.ok()).toBeTruthy();
+    const groupsData = (await groupsResponse.json()) as {
+      data: { groups: Array<{ groupId: string }> };
+    };
+    expect(groupsData.data.groups.some((group) => group.groupId === groupId)).toBeFalsy();
+
+    const membersResponse = await request.get(`/api/groups/${groupId}/members`);
+    expect(membersResponse.status()).toBe(403);
+    const listsResponse = await request.get(`/api/groups/${groupId}/lists`);
+    expect(listsResponse.status()).toBe(403);
+  });
+
+  test('オーナーのみがグループ名を変更できる', async ({ page, request }) => {
+    const ownerGroupId = 'group-rename-owner';
+    await resetTestData(request, {
+      users: [OWNER_USER, OTHER_OWNER_USER],
+      groups: [{ groupId: ownerGroupId, name: '更新前グループ名', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId: ownerGroupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
+    const ownerUpdateResponse = await request.put(`/api/groups/${ownerGroupId}`, {
+      data: { name: '更新後グループ名' },
+    });
+
+    expect(ownerUpdateResponse.ok()).toBeTruthy();
+    const ownerUpdateData = (await ownerUpdateResponse.json()) as {
+      data: { name: string };
+    };
+    expect(ownerUpdateData.data.name).toBe('更新後グループ名');
+
+    await page.goto('/groups');
+    await expect(page.getByText('更新後グループ名')).toBeVisible();
+
+    const nonOwnerGroupId = 'group-rename-non-owner';
+    await resetTestData(request, {
+      users: [TEST_USER, OTHER_OWNER_USER],
+      groups: [{ groupId: nonOwnerGroupId, name: '非オーナー閲覧グループ', ownerUserId: OTHER_OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId: nonOwnerGroupId,
+          userId: OTHER_OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId: nonOwnerGroupId,
+          userId: TEST_USER.userId,
+          role: 'MEMBER',
+          status: 'ACCEPTED',
+          invitedBy: OTHER_OWNER_USER.userId,
+          invitedAt: new Date().toISOString(),
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    const nonOwnerUpdateResponse = await request.put(`/api/groups/${nonOwnerGroupId}`, {
+      data: { name: '更新不可' },
+    });
+    expect(nonOwnerUpdateResponse.status()).toBe(403);
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: '非オーナー閲覧グループ' }).click();
+    await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'グループを削除' })).toHaveCount(0);
+  });
+
+  test('グループオーナーはグループを脱退できない', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [OWNER_USER],
+      groups: [{ groupId: 'group-owner-cannot-leave', name: 'オーナーグループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId: 'group-owner-cannot-leave',
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: 'オーナーグループ' }).click();
+    await expect(page.getByRole('button', { name: 'グループを脱退' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'グループを削除' })).toBeVisible();
+  });
+
   test('オーナーがメンバーを除外できる', async ({ page, request }) => {
     await resetTestData(request, {
       users: [OWNER_USER, MEMBER_USER],
