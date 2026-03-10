@@ -294,7 +294,7 @@ test.describe('Bulk Import UI', () => {
     await keywordInput.fill('陰陽師');
     await page.getByRole('button', { name: '検索' }).click();
 
-    await expect(page.getByText('レッツゴー!陰陽師')).toBeVisible();
+    await expect(page.getByText(/レッツゴー[!！]陰陽師/)).toBeVisible();
     await page.getByRole('button', { name: '追加' }).click();
     await expect(page.getByRole('button', { name: '追加済み' })).toBeVisible();
   });
