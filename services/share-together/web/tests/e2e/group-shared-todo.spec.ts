@@ -3,6 +3,8 @@ import { resetTestData, TEST_USER } from './helpers/test-data';
 
 const GROUP_ID = 'group-shared-e2e';
 const LIST_ID = 'group-list-e2e';
+const EXISTING_LIST_NAME = '既存共有リスト';
+const EXISTING_TODO_TITLE = '既存タスク';
 
 test.describe('グループ共有 ToDo 管理', () => {
   test.beforeEach(async ({ request }) => {
@@ -36,13 +38,18 @@ test.describe('グループ共有 ToDo 管理', () => {
         },
       ],
       groupLists: [
-        { listId: LIST_ID, groupId: GROUP_ID, name: '既存共有リスト', createdBy: TEST_USER.userId },
+        {
+          listId: LIST_ID,
+          groupId: GROUP_ID,
+          name: EXISTING_LIST_NAME,
+          createdBy: TEST_USER.userId,
+        },
       ],
       todos: [
         {
           todoId: 'todo-initial',
           listId: LIST_ID,
-          title: '既存タスク',
+          title: EXISTING_TODO_TITLE,
           isCompleted: false,
           createdBy: TEST_USER.userId,
         },
@@ -73,9 +80,67 @@ test.describe('グループ共有 ToDo 管理', () => {
     await expect(page.getByText('ToDoを追加しました。')).toBeVisible();
   });
 
+  test('共有リストの ToDo を完了にできる', async ({ page }) => {
+    await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
+
+    const checkbox = page.getByRole('checkbox', { name: `${EXISTING_TODO_TITLE}の完了チェック` });
+    await expect(checkbox).not.toBeChecked();
+    await checkbox.click();
+    await expect(checkbox).toBeChecked();
+  });
+
+  test('共有リストの ToDo を編集できる', async ({ page }) => {
+    await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
+
+    const updatedTitle = `編集後の共有タスク ${Date.now()}`;
+    const todoRow = page.getByRole('listitem').filter({ hasText: EXISTING_TODO_TITLE });
+    await todoRow.getByRole('button', { name: '編集' }).click();
+    await page.getByRole('textbox', { name: 'タイトルを編集' }).fill(updatedTitle);
+    await page.getByRole('button', { name: '保存' }).click();
+
+    await expect(page.getByText(updatedTitle)).toBeVisible();
+    await expect(page.getByText(EXISTING_TODO_TITLE)).toHaveCount(0);
+    await expect(page.getByText('ToDoを更新しました。')).toBeVisible();
+  });
+
+  test('共有リストの ToDo を削除できる', async ({ page }) => {
+    await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
+
+    const todoRow = page.getByRole('listitem').filter({ hasText: EXISTING_TODO_TITLE });
+    await todoRow.getByRole('button', { name: '削除' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
+
+    await expect(page.getByText(EXISTING_TODO_TITLE)).toHaveCount(0);
+    await expect(page.getByText('ToDoを削除しました。')).toBeVisible();
+  });
+
+  test('共有リスト名を変更できる', async ({ page, request }) => {
+    const updatedListName = `更新後共有リスト ${Date.now()}`;
+    const response = await request.put(`/api/groups/${GROUP_ID}/lists/${LIST_ID}`, {
+      data: { name: updatedListName },
+    });
+    expect(response.status()).toBe(200);
+
+    await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
+    const updatedListButton = page.getByRole('button', { name: updatedListName });
+    await expect(updatedListButton).toHaveCount(1);
+    await expect(updatedListButton).toBeVisible();
+    await expect(page.getByRole('button', { name: EXISTING_LIST_NAME })).toHaveCount(0);
+  });
+
+  test('共有リストを削除できる', async ({ page, request }) => {
+    const response = await request.delete(`/api/groups/${GROUP_ID}/lists/${LIST_ID}`);
+    expect(response.status()).toBe(204);
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: 'E2E 共有グループ' }).click();
+    await expect(page.getByRole('button', { name: EXISTING_LIST_NAME })).toHaveCount(0);
+    await expect(page.getByText('共有リストはまだありません。')).toBeVisible();
+  });
+
   test('他メンバーの変更を更新操作で確認できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    await expect(page.getByText('既存タスク')).toBeVisible();
+    await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
   });
 
   test('非メンバーはグループ共有ToDoにアクセスできない', async ({ page, request }) => {
