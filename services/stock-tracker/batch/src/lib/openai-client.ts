@@ -5,6 +5,7 @@ const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const UNSET_VALUE_DISPLAY = '-';
 
 export interface HistoricalPriceData {
   date: string;
@@ -115,7 +116,7 @@ function createPrompt(input: AiAnalysisInput): string {
     `高値: ${input.high}`,
     `安値: ${input.low}`,
     `終値: ${input.close}`,
-    `出来高: ${input.volume ?? '-'}`,
+    `出来高: ${input.volume ?? UNSET_VALUE_DISPLAY}`,
     `買いシグナル合致数: ${input.buyPatternCount}`,
     `売りシグナル合致数: ${input.sellPatternCount}`,
     `合致パターン: ${input.patternSummary || 'なし'}`,
@@ -135,7 +136,7 @@ function formatHistoricalData(historicalData: HistoricalPriceData[]): string[] {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(
       (point) =>
-        `${point.date}, ${point.open}, ${point.high}, ${point.low}, ${point.close}, ${point.volume ?? '-'}`
+        `${point.date}, ${point.open}, ${point.high}, ${point.low}, ${point.close}, ${point.volume ?? UNSET_VALUE_DISPLAY}`
     );
 }
 

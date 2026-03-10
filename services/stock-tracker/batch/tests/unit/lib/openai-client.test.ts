@@ -91,9 +91,33 @@ describe('generateAiAnalysis', () => {
         ],
       })
     );
-    expect(mockCreate.mock.calls[0][0].input[0].content[0].text).toContain(
-      '日付, 始値, 高値, 安値, 終値, 出来高'
-    );
+    const promptText = mockCreate.mock.calls[0][0].input[0].content[0].text;
+    expect(promptText).toContain('日付, 始値, 高値, 安値, 終値, 出来高');
+    expect(promptText).toContain('2026-03-03, 99, 105, 97, 103, 1800000');
+    expect(promptText).toContain('2026-03-04, 100, 120, 95, 110, 2000000');
+  });
+
+  it('出来高未設定時は当日データと過去データで "-" を出力する', async () => {
+    mockCreate.mockResolvedValue({ output_text: '出来高未設定の解析テキスト' });
+
+    await generateAiAnalysis('test-api-key', {
+      ...testInput,
+      volume: undefined,
+      historicalData: [
+        {
+          date: '2026-03-03',
+          open: 99,
+          high: 105,
+          low: 97,
+          close: 103,
+          volume: undefined,
+        },
+      ],
+    });
+
+    const promptText = mockCreate.mock.calls[0][0].input[0].content[0].text;
+    expect(promptText).toContain('出来高: -');
+    expect(promptText).toContain('2026-03-03, 99, 105, 97, 103, -');
   });
 
   it('対応形式のチャート画像がある場合は input_image を付与する', async () => {
