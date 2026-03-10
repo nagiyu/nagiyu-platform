@@ -231,6 +231,8 @@ test.describe('グループ管理', () => {
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '削除対象グループ' }).click();
     await page.getByRole('button', { name: 'グループを削除' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByText('このグループを削除しますか？この操作は元に戻せません。')).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
     await expect(page.getByText('グループを削除しました。')).toBeVisible();
 
@@ -247,10 +249,10 @@ test.describe('グループ管理', () => {
     expect(listsResponse.status()).toBe(403);
   });
 
-  test('オーナーのみがグループ名を変更できる', async ({ page, request }) => {
+  test('オーナーはAPI経由でグループ名を変更できる', async ({ page, request }) => {
     const ownerGroupId = 'group-rename-owner';
     await resetTestData(request, {
-      users: [OWNER_USER, OTHER_OWNER_USER],
+      users: [OWNER_USER],
       groups: [{ groupId: ownerGroupId, name: '更新前グループ名', ownerUserId: OWNER_USER.userId }],
       memberships: [
         {
@@ -274,7 +276,10 @@ test.describe('グループ管理', () => {
 
     await page.goto('/groups');
     await expect(page.getByText('更新後グループ名')).toBeVisible();
+    await expect(page.getByText('更新前グループ名')).toHaveCount(0);
+  });
 
+  test('非オーナーはAPI経由でグループ名を変更できない', async ({ page, request }) => {
     const nonOwnerGroupId = 'group-rename-non-owner';
     await resetTestData(request, {
       users: [TEST_USER, OTHER_OWNER_USER],
@@ -308,6 +313,8 @@ test.describe('グループ管理', () => {
     await page.getByRole('heading', { level: 2, name: '非オーナー閲覧グループ' }).click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'グループを削除' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'グループ名を変更' })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'グループ名' })).toHaveCount(0);
   });
 
   test('グループオーナーはグループを脱退できない', async ({ page, request }) => {
