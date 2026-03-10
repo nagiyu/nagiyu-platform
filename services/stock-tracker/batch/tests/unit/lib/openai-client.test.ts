@@ -153,7 +153,14 @@ describe('generateAiAnalysis', () => {
 
   it('出来高未設定時は当日データと過去データで "-" を出力する', async () => {
     mockParse.mockResolvedValue({
-      output_parsed: { priceMovementAnalysis: '出来高未設定の解析テキスト' },
+      output_parsed: {
+        priceMovementAnalysis: '出来高未設定の解析テキスト',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '市場動向',
+        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+      },
     });
 
     await generateAiAnalysis('test-api-key', {
