@@ -100,10 +100,14 @@ test.describe('Accessibility Tests - Transit Converter @a11y', () => {
     await inputField.fill(validInput);
 
     const convertButton = page.getByRole('button', { name: '乗り換え案内テキストを変換する' });
+    const copyButton = page.getByRole('button', { name: '変換結果をクリップボードにコピーする' });
     await convertButton.click();
 
     // Wait for conversion to complete
     await expect(page.locator('text=変換が完了しました')).toBeVisible({ timeout: 10000 });
+    await expect(convertButton).toBeEnabled();
+    await expect(copyButton).toBeEnabled();
+    await expect(page.locator('text=変換が完了しました')).toBeHidden({ timeout: 10000 });
 
     const accessibilityScanResults = await makeAxeBuilder().analyze();
 
