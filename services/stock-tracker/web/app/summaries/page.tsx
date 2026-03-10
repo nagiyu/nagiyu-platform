@@ -502,7 +502,7 @@ export default function SummariesPage() {
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {selectedTicker.aiAnalysisResult.supportLevels.map((level, index) => (
-                          <Chip key={`support-${index}`} label={`${level}`} size="small" />
+                          <Chip key={`support-${level}-${index}`} label={`${level}`} size="small" />
                         ))}
                       </Box>
                     </Box>
@@ -512,7 +512,11 @@ export default function SummariesPage() {
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {selectedTicker.aiAnalysisResult.resistanceLevels.map((level, index) => (
-                          <Chip key={`resistance-${index}`} label={`${level}`} size="small" />
+                          <Chip
+                            key={`resistance-${level}-${index}`}
+                            label={`${level}`}
+                            size="small"
+                          />
                         ))}
                       </Box>
                     </Box>
