@@ -278,8 +278,10 @@ test.describe('サマリー画面スモークテスト', () => {
       });
     });
 
+    // webkit-mobile では TradingView 側タイムアウト時に 504 が返ることがあるため、
+    // ステータスに依存せず /api/chart のレスポンス到達を待ってからUI表示を検証する。
     const summaryChartResponsePromise = page.waitForResponse(
-      (response) => response.url().includes('/api/chart/'),
+      (response) => new URL(response.url()).pathname.startsWith('/api/chart/'),
       { timeout: 30000 }
     );
 
@@ -292,14 +294,10 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect
       .poll(
         async () => {
-          const isChartVisible = await summaryDialog
-            .getByLabel('AAA の株価チャート')
-            .isVisible()
-            .catch(() => false);
+          const isChartVisible = await summaryDialog.getByLabel('AAA の株価チャート').isVisible();
           const isChartErrorVisible = await summaryDialog
             .getByText('チャート読み込みエラー')
-            .isVisible()
-            .catch(() => false);
+            .isVisible();
           return isChartVisible || isChartErrorVisible;
         },
         { timeout: 10000 }
@@ -307,7 +305,7 @@ test.describe('サマリー画面スモークテスト', () => {
       .toBeTruthy();
 
     const alertChartResponsePromise = page.waitForResponse(
-      (response) => response.url().includes('/api/chart/'),
+      (response) => new URL(response.url()).pathname.startsWith('/api/chart/'),
       { timeout: 30000 }
     );
     await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
@@ -318,14 +316,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect
       .poll(
         async () => {
-          const isChartVisible = await alertDialog
-            .getByLabel('AAA の株価チャート')
-            .isVisible()
-            .catch(() => false);
-          const isChartErrorVisible = await alertDialog
-            .getByText('チャート読み込みエラー')
-            .isVisible()
-            .catch(() => false);
+          const isChartVisible = await alertDialog.getByLabel('AAA の株価チャート').isVisible();
+          const isChartErrorVisible = await alertDialog.getByText('チャート読み込みエラー').isVisible();
           return isChartVisible || isChartErrorVisible;
         },
         { timeout: 10000 }
