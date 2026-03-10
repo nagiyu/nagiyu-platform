@@ -317,7 +317,9 @@ test.describe('サマリー画面スモークテスト', () => {
       .poll(
         async () => {
           const isChartVisible = await alertDialog.getByLabel('AAA の株価チャート').isVisible();
-          const isChartErrorVisible = await alertDialog.getByText('チャート読み込みエラー').isVisible();
+          const isChartErrorVisible = await alertDialog
+            .getByText('チャート読み込みエラー')
+            .isVisible();
           return isChartVisible || isChartErrorVisible;
         },
         { timeout: 10000 }
