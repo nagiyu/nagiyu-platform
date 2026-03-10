@@ -79,32 +79,21 @@ export default function GroupsPage() {
 
     void (async () => {
       try {
-        const [groupsResponse, membersResponse, listsResponse] = await Promise.all([
-          fetch('/api/groups'),
+        const [membersResponse, listsResponse] = await Promise.all([
           fetch(`/api/groups/${selectedGroupId}/members`),
           fetch(`/api/groups/${selectedGroupId}/lists`),
         ]);
 
-        if (!groupsResponse.ok || !membersResponse.ok || !listsResponse.ok) {
-          throw new Error(
-            `status: ${groupsResponse.status},${membersResponse.status},${listsResponse.status}`
-          );
+        if (!membersResponse.ok || !listsResponse.ok) {
+          throw new Error(`status: ${membersResponse.status},${listsResponse.status}`);
         }
 
-        const groupsData = (await groupsResponse.json()) as { data: { groups: GroupSummary[] } };
         const membersData = (await membersResponse.json()) as {
           data: { members: Array<{ userId: string; name: string }> };
         };
         const listsData = (await listsResponse.json()) as {
           data: { lists: Array<{ listId: string; name: string }> };
         };
-        const targetGroup = groupsData.data.groups.find(
-          (group) => group.groupId === selectedGroupId
-        );
-        if (!targetGroup) {
-          setSelectedGroupError('対象のグループが見つかりません。');
-          return;
-        }
 
         setMembers(membersData.data.members);
         setGroupLists(listsData.data.lists);
