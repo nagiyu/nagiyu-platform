@@ -1,15 +1,14 @@
-import {
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
-  DynamoDBUserRepository,
-  ERROR_MESSAGES as GROUP_ERROR_MESSAGES,
-  inviteMember,
-} from '@nagiyu/share-together-core';
+import { ERROR_MESSAGES as GROUP_ERROR_MESSAGES, inviteMember } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import {
+  createGroupRepository,
+  createMembershipRepository,
+  createUserRepository,
+} from '@/lib/repositories';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -83,8 +82,8 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     }
 
     const { docClient } = getAwsClients();
-    const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
-    const userRepository = new DynamoDBUserRepository(docClient, tableName);
+    const membershipRepository = createMembershipRepository(docClient, tableName);
+    const userRepository = createUserRepository(docClient, tableName);
 
     const requesterMembership = await membershipRepository.getById(resolvedGroupId, userId);
     if (!requesterMembership || requesterMembership.status !== 'ACCEPTED') {
@@ -164,9 +163,9 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
     }
 
     const { docClient } = getAwsClients();
-    const groupRepository = new DynamoDBGroupRepository(docClient, tableName);
-    const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
-    const userRepository = new DynamoDBUserRepository(docClient, tableName);
+    const groupRepository = createGroupRepository(docClient, tableName);
+    const membershipRepository = createMembershipRepository(docClient, tableName);
+    const userRepository = createUserRepository(docClient, tableName);
 
     const group = await groupRepository.getById(resolvedGroupId);
     if (!group) {

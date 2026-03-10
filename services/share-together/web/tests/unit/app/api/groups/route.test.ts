@@ -122,6 +122,7 @@ describe('/api/groups route', () => {
     expect(mockBatchGetByIds).toHaveBeenCalledWith(['group-1', 'group-2']);
     await expect(response.json()).resolves.toEqual({
       data: {
+        currentUserId: 'user-1',
         groups: [
           expect.objectContaining({ groupId: 'group-1', isOwner: true }),
           expect.objectContaining({ groupId: 'group-2', isOwner: false }),

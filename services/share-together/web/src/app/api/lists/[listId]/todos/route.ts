@@ -1,14 +1,10 @@
-import {
-  DynamoDBListRepository,
-  DynamoDBTodoRepository,
-  ListService,
-  TodoService,
-} from '@nagiyu/share-together-core';
+import { ListService, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, TodoResponse, TodosResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository, createTodoRepository } from '@/lib/repositories';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
@@ -74,8 +70,8 @@ function createServices(): { listService: ListService; todoService: TodoService 
   }
 
   const { docClient } = getAwsClients();
-  const listRepository = new DynamoDBListRepository(docClient, tableName);
-  const todoRepository = new DynamoDBTodoRepository(docClient, tableName);
+  const listRepository = createListRepository(docClient, tableName);
+  const todoRepository = createTodoRepository(docClient, tableName);
 
   return {
     listService: new ListService(listRepository),

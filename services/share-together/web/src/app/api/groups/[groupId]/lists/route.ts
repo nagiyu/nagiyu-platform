@@ -1,13 +1,10 @@
-import {
-  DynamoDBListRepository,
-  DynamoDBMembershipRepository,
-  type GroupList,
-} from '@nagiyu/share-together-core';
+import { type ListRepository, type GroupList } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, GroupListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository, createMembershipRepository } from '@/lib/repositories';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -28,7 +25,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
   | {
       groupId: string;
       userId: string;
-      listRepository: DynamoDBListRepository;
+      listRepository: ListRepository;
     }
   | NextResponse
 > {
@@ -46,7 +43,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
   }
 
   const { docClient } = getAwsClients();
-  const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
+  const membershipRepository = createMembershipRepository(docClient, tableName);
   const membership = await membershipRepository.getById(groupId, userId);
   if (!membership || membership.status !== 'ACCEPTED') {
     return createErrorResponse('FORBIDDEN', ERROR_MESSAGES.FORBIDDEN, 403);
@@ -55,7 +52,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
   return {
     groupId,
     userId,
-    listRepository: new DynamoDBListRepository(docClient, tableName),
+    listRepository: createListRepository(docClient, tableName),
   };
 }
 

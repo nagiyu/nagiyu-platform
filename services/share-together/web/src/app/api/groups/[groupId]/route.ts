@@ -1,13 +1,14 @@
 import {
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
   type Group,
+  type GroupRepository,
+  type MembershipRepository,
 } from '@nagiyu/share-together-core';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { ApiErrorResponse, GroupResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
 const CORE_ERROR_MESSAGES = {
   GROUP_NOT_FOUND: 'グループが見つかりません',
@@ -55,8 +56,8 @@ function toNotFoundIfGroupMissing(error: unknown): NextResponse | null {
 async function getOwnedGroup(groupId: string): Promise<
   | {
       group: Group;
-      groupRepository: DynamoDBGroupRepository;
-      membershipRepository: DynamoDBMembershipRepository;
+      groupRepository: GroupRepository;
+      membershipRepository: MembershipRepository;
     }
   | NextResponse
 > {
@@ -76,8 +77,8 @@ async function getOwnedGroup(groupId: string): Promise<
   }
 
   const { docClient } = getAwsClients();
-  const groupRepository = new DynamoDBGroupRepository(docClient, tableName);
-  const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
+  const groupRepository = createGroupRepository(docClient, tableName);
+  const membershipRepository = createMembershipRepository(docClient, tableName);
   const group = await groupRepository.getById(groupId);
 
   if (!group) {

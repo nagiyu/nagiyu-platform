@@ -1,16 +1,16 @@
 import {
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
   ERROR_MESSAGES as GROUP_ERROR_MESSAGES,
   leaveGroup,
   removeMember,
   type GroupOperationDependencies,
+  type MembershipRepository,
 } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
 function createErrorResponse(code: string, message: string, status: number): NextResponse {
   const response: ApiErrorResponse = {
@@ -28,13 +28,13 @@ function createNoContentResponse(): NextResponse {
 }
 
 function createDependencies(tableName: string): GroupOperationDependencies & {
-  membershipRepository: DynamoDBMembershipRepository;
+  membershipRepository: MembershipRepository;
 } {
   const { docClient } = getAwsClients();
 
   return {
-    groupRepository: new DynamoDBGroupRepository(docClient, tableName),
-    membershipRepository: new DynamoDBMembershipRepository(docClient, tableName),
+    groupRepository: createGroupRepository(docClient, tableName),
+    membershipRepository: createMembershipRepository(docClient, tableName),
   };
 }
 

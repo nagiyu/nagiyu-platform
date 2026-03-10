@@ -1,13 +1,10 @@
-import {
-  DynamoDBListRepository,
-  DynamoDBTodoRepository,
-  TodoService,
-} from '@nagiyu/share-together-core';
+import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createListRepository, createTodoRepository } from '@/lib/repositories';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,
@@ -73,15 +70,15 @@ function createInternalServerErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 500 });
 }
 
-function createServices(): { listRepository: DynamoDBListRepository; todoService: TodoService } {
+function createServices(): { listRepository: ListRepository; todoService: TodoService } {
   const tableName = process.env.DYNAMODB_TABLE_NAME;
   if (!tableName) {
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
   const { docClient } = getAwsClients();
-  const listRepository = new DynamoDBListRepository(docClient, tableName);
-  const todoRepository = new DynamoDBTodoRepository(docClient, tableName);
+  const listRepository = createListRepository(docClient, tableName);
+  const todoRepository = createTodoRepository(docClient, tableName);
   return {
     listRepository,
     todoService: new TodoService(todoRepository),

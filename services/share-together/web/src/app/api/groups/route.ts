@@ -1,14 +1,10 @@
-import {
-  createGroup,
-  DynamoDBGroupRepository,
-  DynamoDBMembershipRepository,
-  type Group,
-} from '@nagiyu/share-together-core';
+import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
 interface GroupSummary extends Group {
   isOwner: boolean;
@@ -40,8 +36,8 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const { docClient } = getAwsClients();
-    const groupRepository = new DynamoDBGroupRepository(docClient, tableName);
-    const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
+    const groupRepository = createGroupRepository(docClient, tableName);
+    const membershipRepository = createMembershipRepository(docClient, tableName);
 
     const memberships = await membershipRepository.getByUserId(userId);
     const acceptedMemberships = memberships.filter(
@@ -59,8 +55,8 @@ export async function GET(): Promise<NextResponse> {
       isOwner: isOwnerByGroupId.get(group.groupId) === true,
     }));
 
-    const response: ApiSuccessResponse<{ groups: GroupSummary[] }> = {
-      data: { groups: groupSummaries },
+    const response: ApiSuccessResponse<{ groups: GroupSummary[]; currentUserId: string }> = {
+      data: { groups: groupSummaries, currentUserId: userId },
     };
     return NextResponse.json(response);
   } catch (error) {
@@ -90,8 +86,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
 
     const { docClient } = getAwsClients();
-    const groupRepository = new DynamoDBGroupRepository(docClient, tableName);
-    const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
+    const groupRepository = createGroupRepository(docClient, tableName);
+    const membershipRepository = createMembershipRepository(docClient, tableName);
     const groupId = crypto.randomUUID();
     const { group } = await createGroup(
       {

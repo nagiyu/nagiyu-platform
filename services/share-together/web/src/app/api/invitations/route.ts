@@ -1,10 +1,14 @@
 import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
-import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import {
+  createGroupRepository,
+  createMembershipRepository,
+  createUserRepository,
+} from '@/lib/repositories';
 
 const USER_META_SK = '#META#';
 
@@ -56,8 +60,8 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const { docClient } = getAwsClients();
-    const membershipRepository = new DynamoDBMembershipRepository(docClient, tableName);
-    const groupRepository = new DynamoDBGroupRepository(docClient, tableName);
+    const membershipRepository = createMembershipRepository(docClient, tableName);
+    const groupRepository = createGroupRepository(docClient, tableName);
 
     const pendingInvitations = await membershipRepository.getPendingInvitationsByUserId(userId);
     if (pendingInvitations.length === 0) {
@@ -114,6 +118,18 @@ async function getInviterNames(
 ): Promise<Map<string, string>> {
   if (inviterUserIds.length === 0) {
     return new Map();
+  }
+
+  if (process.env.USE_IN_MEMORY_DB === 'true') {
+    const userRepository = createUserRepository();
+    const inviterNames = new Map<string, string>();
+    for (const inviterUserId of inviterUserIds) {
+      const user = await userRepository.getById(inviterUserId);
+      if (user) {
+        inviterNames.set(inviterUserId, user.name);
+      }
+    }
+    return inviterNames;
   }
 
   const result = await docClient.send(

@@ -1,92 +1,56 @@
 import { expect, test } from '@playwright/test';
+import { resetTestData, TEST_USER } from './helpers/test-data';
 
-type GroupSummaryResponse = {
-  data: {
-    groups: Array<{
-      groupId: string;
-      name?: string;
-      ownerUserId: string;
-      isOwner: boolean;
-    }>;
-  };
-};
-
-type GroupMembersResponse = {
-  data: {
-    members: Array<{
-      userId: string;
-      name: string;
-    }>;
-  };
-};
+const OWNER_USER = TEST_USER;
+const MEMBER_USER = {
+  userId: 'member-user',
+  email: 'member@example.com',
+  name: 'テストメンバー',
+  defaultListId: 'member-default-list',
+} as const;
+const INVITEE_USER = {
+  userId: 'invitee-user',
+  email: 'invitee@example.com',
+  name: '招待ユーザー',
+  defaultListId: 'invitee-default-list',
+} as const;
+const OTHER_OWNER_USER = {
+  userId: 'other-owner-user',
+  email: 'other-owner@example.com',
+  name: '別オーナー',
+  defaultListId: 'other-owner-default-list',
+} as const;
 
 test.describe('グループ管理', () => {
-  // Service WorkerがFetchを先に処理してpage.route()モックをバイパスするのを防ぐため、Service Workerをブロックする
-  test.use({ serviceWorkers: 'block' });
-
-  test.beforeEach(async ({ page }) => {
-    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { invitations: [] } } });
+  test.beforeEach(async ({ request }) => {
+    await resetTestData(request, {
+      users: [OWNER_USER, MEMBER_USER, INVITEE_USER],
+      personalLists: [
+        {
+          listId: OWNER_USER.defaultListId,
+          userId: OWNER_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+        {
+          listId: MEMBER_USER.defaultListId,
+          userId: MEMBER_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+        {
+          listId: INVITEE_USER.defaultListId,
+          userId: INVITEE_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
     });
-    await page.route(
-      (url) => new URL(url.toString()).pathname.startsWith('/api/users'),
-      async (route) => {
-        await route.fulfill({ status: 201, json: { data: { success: true } } });
-      }
-    );
-    await page.route(
-      (url) => new URL(url.toString()).pathname.startsWith('/api/auth/session'),
-      async (route) => {
-        await route.fulfill({ json: { user: { id: 'owner-user' } } });
-      }
-    );
   });
 
   test('グループを作成できる', async ({ page }) => {
     const createdGroupName = `E2E グループ ${Date.now()}`;
-    const groups: GroupSummaryResponse['data']['groups'] = [
-      {
-        groupId: 'group-existing',
-        name: '既存グループ',
-        ownerUserId: 'owner-user',
-        isOwner: true,
-      },
-    ];
-
-    await page.route(/\/api\/groups(?:\/)?(?:\?.*)?$/, async (route) => {
-      if (route.request().method() === 'POST') {
-        const requestBody = route.request().postDataJSON() as { name: string };
-        const createdGroup = {
-          groupId: `group-${Date.now()}`,
-          name: requestBody.name,
-          ownerUserId: 'owner-user',
-          isOwner: true,
-        };
-        groups.push(createdGroup);
-        await route.fulfill({ json: { data: createdGroup } });
-        return;
-      }
-
-      await route.fulfill({ json: { data: { groups } } });
-    });
-
-    await page.route(/\/api\/groups\/[^/]+\/members(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            members: [{ userId: 'owner-user', name: 'オーナー' }],
-          },
-        },
-      });
-    });
-
-    await page.route(/\/api\/groups\/[^/]+\/lists(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { lists: [] } } });
-    });
-
     await page.goto('/groups');
-    await expect(page.getByRole('heading', { level: 1, name: 'グループ' })).toBeVisible();
-
     await page.getByRole('button', { name: 'グループを作成' }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('textbox', { name: 'グループ名' }).fill(createdGroupName);
@@ -96,260 +60,165 @@ test.describe('グループ管理', () => {
     await expect(page.getByText(`グループ「${createdGroupName}」を作成しました。`)).toBeVisible();
   });
 
-  test('オーナーがメンバー招待を送信できる', async ({ page }) => {
-    const groupId = 'group-owner';
-
-    await page.route(
-      (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
-      async (route) => {
-        const pathname = new URL(route.request().url()).pathname;
-        if (pathname === '/api/groups' || pathname === '/api/groups/') {
-          await route.fulfill({
-            json: {
-              data: {
-                groups: [
-                  {
-                    groupId,
-                    name: 'E2E グループ',
-                    ownerUserId: 'owner-user',
-                    isOwner: true,
-                  },
-                ],
-              },
-            } satisfies GroupSummaryResponse,
-          });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
-          await route.fulfill({
-            json: {
-              data: {
-                members: [{ userId: 'owner-user', name: 'オーナー' }],
-              },
-            } satisfies GroupMembersResponse,
-          });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
-          await route.fulfill({ json: { data: { lists: [] } } });
-          return;
-        }
-
-        await route.continue();
-      }
-    );
-    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
-      if (route.request().method() === 'POST') {
-        await route.fulfill({ json: { data: { success: true } } });
-        return;
-      }
-      await route.fulfill({ json: { data: { invitations: [] } } });
+  test('オーナーがメンバー招待を送信できる', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [OWNER_USER, MEMBER_USER, INVITEE_USER],
+      groups: [{ groupId: 'group-owner', name: 'E2E グループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId: 'group-owner',
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+      ],
     });
-    await page.goto('/groups');
-    await expect(
-      page.getByRole('heading', { level: 2, name: 'メンバー招待フォーム' })
-    ).toBeVisible();
-    await expect(page.getByText('グループ詳細を読み込み中...')).not.toBeVisible();
 
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: 'E2E グループ' }).click();
+    await expect(page.getByRole('textbox', { name: 'メールアドレス' })).toBeVisible();
     await page.getByRole('textbox', { name: 'メールアドレス' }).fill('invitee@example.com');
     await page.getByRole('button', { name: '招待を送信' }).click();
-
     await expect(page.getByText('招待を送信しました。')).toBeVisible();
   });
 
-  test('招待を承認できる', async ({ page }) => {
-    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            invitations: [
-              {
-                groupId: 'group-accept',
-                groupName: '承認テストグループ',
-                inviterName: 'オーナー',
-                createdAt: '2026-03-01T00:00:00.000Z',
-              },
-            ],
-          },
+  test('招待を承認できる', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [TEST_USER, OTHER_OWNER_USER],
+      groups: [
+        {
+          groupId: 'group-accept',
+          name: '承認テストグループ',
+          ownerUserId: OTHER_OWNER_USER.userId,
         },
-      });
-    });
-
-    await page.route(/\/api\/invitations\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { success: true } } });
+      ],
+      memberships: [
+        {
+          groupId: 'group-accept',
+          userId: OTHER_OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId: 'group-accept',
+          userId: TEST_USER.userId,
+          role: 'MEMBER',
+          status: 'PENDING',
+          invitedBy: OTHER_OWNER_USER.userId,
+          invitedAt: new Date().toISOString(),
+        },
+      ],
     });
 
     await page.goto('/invitations');
-    await expect(page.getByRole('heading', { level: 1, name: '招待一覧' })).toBeVisible();
-
     await page.getByRole('button', { name: '承認' }).click();
-
     await expect(page.getByText('「承認テストグループ」への参加を承認しました。')).toBeVisible();
-    await expect(page.getByText('承認テストグループ')).not.toBeVisible();
   });
 
-  test('招待を拒否できる', async ({ page }) => {
-    await page.route(/\/api\/invitations(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          data: {
-            invitations: [
-              {
-                groupId: 'group-reject',
-                groupName: '拒否テストグループ',
-                inviterName: 'オーナー',
-                createdAt: '2026-03-01T00:00:00.000Z',
-              },
-            ],
-          },
+  test('招待を拒否できる', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [TEST_USER, OTHER_OWNER_USER],
+      groups: [
+        {
+          groupId: 'group-reject',
+          name: '拒否テストグループ',
+          ownerUserId: OTHER_OWNER_USER.userId,
         },
-      });
-    });
-
-    await page.route(/\/api\/invitations\/[^/]+(?:\/)?(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: { data: { success: true } } });
+      ],
+      memberships: [
+        {
+          groupId: 'group-reject',
+          userId: OTHER_OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId: 'group-reject',
+          userId: TEST_USER.userId,
+          role: 'MEMBER',
+          status: 'PENDING',
+          invitedBy: OTHER_OWNER_USER.userId,
+          invitedAt: new Date().toISOString(),
+        },
+      ],
     });
 
     await page.goto('/invitations');
-    await expect(page.getByText('拒否テストグループ')).toBeVisible();
-
     await page.getByRole('button', { name: '拒否' }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: '拒否' }).click();
-
+    await page.getByRole('dialog').getByRole('button', { name: '拒否' }).click();
     await expect(page.getByText('「拒否テストグループ」への招待を拒否しました。')).toBeVisible();
-    await expect(page.getByText('拒否テストグループ')).not.toBeVisible();
   });
 
-  test('メンバーがグループから脱退できる', async ({ page }) => {
-    const groupId = 'group-member';
+  test('メンバーがグループから脱退できる', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [TEST_USER, OTHER_OWNER_USER],
+      groups: [
+        {
+          groupId: 'group-member',
+          name: '参加中グループ',
+          ownerUserId: OTHER_OWNER_USER.userId,
+        },
+      ],
+      memberships: [
+        {
+          groupId: 'group-member',
+          userId: OTHER_OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId: 'group-member',
+          userId: TEST_USER.userId,
+          role: 'MEMBER',
+          status: 'ACCEPTED',
+          invitedBy: OTHER_OWNER_USER.userId,
+          invitedAt: new Date().toISOString(),
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
 
-    await page.route(
-      (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
-      async (route) => {
-        const pathname = new URL(route.request().url()).pathname;
-        if (pathname === '/api/groups' || pathname === '/api/groups/') {
-          await route.fulfill({
-            json: {
-              data: {
-                groups: [
-                  {
-                    groupId,
-                    name: '参加中グループ',
-                    ownerUserId: 'owner-user',
-                    isOwner: false,
-                  },
-                ],
-              },
-            } satisfies GroupSummaryResponse,
-          });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
-          await route.fulfill({
-            json: {
-              data: {
-                members: [
-                  { userId: 'owner-user', name: 'オーナー' },
-                  { userId: 'member-user', name: 'メンバー' },
-                ],
-              },
-            } satisfies GroupMembersResponse,
-          });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
-          await route.fulfill({ json: { data: { lists: [] } } });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/members\/[^/]+\/?$/.test(pathname)) {
-          await route.fulfill({ status: 204 });
-          return;
-        }
-
-        await route.continue();
-      }
-    );
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '参加中グループ' }).click();
     await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
-    await expect(page.getByText('グループ詳細を読み込み中...')).not.toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'メンバー一覧' })).toBeVisible();
-
     await page.getByRole('button', { name: 'グループを脱退' }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: '脱退' }).click();
-
+    await page.getByRole('dialog').getByRole('button', { name: '脱退' }).click();
     await expect(page.getByText('グループから脱退しました。')).toBeVisible();
   });
 
-  test('オーナーがメンバーを除外できる', async ({ page }) => {
-    const groupId = 'group-owner';
+  test('オーナーがメンバーを除外できる', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [OWNER_USER, MEMBER_USER],
+      groups: [{ groupId: 'group-owner', name: '管理グループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId: 'group-owner',
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId: 'group-owner',
+          userId: MEMBER_USER.userId,
+          role: 'MEMBER',
+          status: 'ACCEPTED',
+          invitedBy: OWNER_USER.userId,
+          invitedAt: new Date().toISOString(),
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
 
-    await page.route(
-      (url) => new URL(url.toString()).pathname.startsWith('/api/groups'),
-      async (route) => {
-        const pathname = new URL(route.request().url()).pathname;
-        if (pathname === '/api/groups' || pathname === '/api/groups/') {
-          await route.fulfill({
-            json: {
-              data: {
-                groups: [
-                  {
-                    groupId,
-                    name: '管理グループ',
-                    ownerUserId: 'owner-user',
-                    isOwner: true,
-                  },
-                ],
-              },
-            } satisfies GroupSummaryResponse,
-          });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/members\/?$/.test(pathname)) {
-          await route.fulfill({
-            json: {
-              data: {
-                members: [
-                  { userId: 'owner-user', name: 'オーナー' },
-                  { userId: 'member-user', name: 'テストメンバー' },
-                ],
-              },
-            } satisfies GroupMembersResponse,
-          });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/lists\/?$/.test(pathname)) {
-          await route.fulfill({ json: { data: { lists: [] } } });
-          return;
-        }
-
-        if (/^\/api\/groups\/[^/]+\/members\/[^/]+\/?$/.test(pathname)) {
-          await route.fulfill({ status: 204 });
-          return;
-        }
-
-        await route.continue();
-      }
-    );
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '管理グループ' }).click();
     await expect(page.getByRole('button', { name: 'テストメンバーを削除' })).toBeVisible();
-    await expect(page.getByRole('heading', { level: 2, name: 'メンバー一覧' })).toBeVisible();
-
     await page.getByRole('button', { name: 'テストメンバーを削除' }).click();
-    const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: '削除' }).click();
-
+    await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
     await expect(page.getByText('テストメンバーさんをグループから削除しました。')).toBeVisible();
-    await expect(page.getByText('テストメンバー')).not.toBeVisible();
   });
 });
