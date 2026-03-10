@@ -78,4 +78,50 @@ test.describe('個人リスト管理', () => {
 
     await expect(defaultDeleteButton).toHaveCount(0);
   });
+
+  test('他ユーザーの個人リストにはアクセスできない', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [
+        TEST_USER,
+        {
+          userId: 'other-user-id',
+          email: 'other-user@example.com',
+          name: 'Other User',
+          defaultListId: 'other-default-list',
+        },
+      ],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+        {
+          listId: 'other-default-list',
+          userId: 'other-user-id',
+          name: '他ユーザーのリスト',
+          isDefault: true,
+        },
+      ],
+      todos: [
+        {
+          todoId: 'other-secret-todo',
+          listId: 'other-default-list',
+          title: '他ユーザー専用ToDo',
+          isCompleted: false,
+          createdBy: 'other-user-id',
+        },
+      ],
+    });
+
+    const forbiddenResponse = await request.put('/api/lists/other-default-list/todos/other-secret-todo', {
+      data: { isCompleted: true },
+    });
+    expect(forbiddenResponse.status()).toBe(403);
+
+    await page.goto('/lists?listId=other-default-list');
+    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).toBeVisible();
+    await expect(page.getByText('他ユーザー専用ToDo')).toHaveCount(0);
+  });
 });
