@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
+import VideoSearchModal from '@/components/VideoSearchModal';
 
 interface ImportResult {
   success: number;
@@ -39,6 +40,7 @@ export default function ImportPage() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
 
   const handleImport = async () => {
     setLoading(true);
@@ -112,6 +114,14 @@ export default function ImportPage() {
         </Box>
 
         <Box sx={{ mt: 2 }}>
+          <Button
+            variant="outlined"
+            size="large"
+            sx={{ mr: 2 }}
+            onClick={() => setSearchModalOpen(true)}
+          >
+            動画を検索して追加
+          </Button>
           <Button
             variant="contained"
             size="large"
@@ -200,6 +210,7 @@ export default function ImportPage() {
           </Box>
         )}
       </Box>
+      <VideoSearchModal open={searchModalOpen} onClose={() => setSearchModalOpen(false)} />
     </Container>
   );
 }

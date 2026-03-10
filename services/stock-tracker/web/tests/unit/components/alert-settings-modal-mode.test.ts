@@ -130,8 +130,8 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('アラートを有効にする');
     expect(html).toContain('株価チャート');
     expect(html).toContain('時間枠');
-    expect(html).toContain('表示本数');
-    expect(html).toContain('StockChart:NASDAQ:AAPL:60:100');
+    expect(html).not.toContain('表示本数');
+    expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
   });
 
@@ -150,7 +150,7 @@ describe('AlertSettingsModal mode', () => {
 
     expect(html).toContain('アラート設定');
     expect(html).toContain('Web Push通知の許可をリクエスト');
-    expect(html).toContain('StockChart:NASDAQ:AAPL:60:100');
+    expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
   });
 

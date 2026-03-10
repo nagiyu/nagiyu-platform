@@ -246,6 +246,56 @@ test.describe('Bulk Import UI', () => {
     const importButton = page.getByRole('button', { name: 'インポート実行' });
     await expect(importButton).toBeEnabled();
   });
+
+  test('should search videos and add selected video', async ({ page }) => {
+    await page.route('**/api/videos/search**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          videos: [
+            {
+              videoId: 'sm9',
+              title: 'レッツゴー!陰陽師',
+              description: 'desc',
+              thumbnailUrl: 'https://example.com/thumb.jpg',
+              duration: 120,
+              viewCount: 1,
+              commentCount: 1,
+              mylistCount: 1,
+              uploadedAt: '2007-03-06T00:33:00+09:00',
+              tags: [],
+            },
+          ],
+          total: 1,
+        }),
+      });
+    });
+
+    await page.route('**/api/videos/bulk-import', async (route) => {
+      const request = route.request();
+      const body = request.postDataJSON() as { videoIds: string[] };
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: 1,
+          failed: 0,
+          skipped: 0,
+          total: body.videoIds.length,
+        }),
+      });
+    });
+
+    await page.goto('/import');
+    await page.getByRole('button', { name: '動画を検索して追加' }).click();
+    await page.getByLabel('検索キーワード').fill('陰陽師');
+    await page.getByRole('button', { name: '検索' }).click();
+
+    await expect(page.getByText('レッツゴー!陰陽師')).toBeVisible();
+    await page.getByRole('button', { name: '追加' }).click();
+    await expect(page.getByRole('button', { name: '追加済み' })).toBeVisible();
+  });
 });
 
 test.describe('Bulk Import Navigation', () => {
