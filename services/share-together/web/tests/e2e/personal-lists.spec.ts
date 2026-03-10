@@ -115,9 +115,12 @@ test.describe('個人リスト管理', () => {
       ],
     });
 
-    const forbiddenResponse = await request.put('/api/lists/other-default-list/todos/other-secret-todo', {
-      data: { isCompleted: true },
-    });
+    const forbiddenResponse = await request.put(
+      '/api/lists/other-default-list/todos/other-secret-todo',
+      {
+        data: { isCompleted: true },
+      }
+    );
     expect(forbiddenResponse.status()).toBe(403);
 
     await page.goto('/lists?listId=other-default-list');
