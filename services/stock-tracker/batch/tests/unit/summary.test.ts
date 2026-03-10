@@ -666,6 +666,17 @@ describe('summary batch handler', () => {
 
   describe('AI解析処理', () => {
     const originalOpenAiApiKey = process.env.OPENAI_API_KEY;
+    const mockAiAnalysisResult = {
+      priceMovementAnalysis: '当日の値動き分析',
+      patternAnalysis: 'パターン分析',
+      supportLevels: [100, 99, 98] as [number, number, number],
+      resistanceLevels: [110, 111, 112] as [number, number, number],
+      relatedMarketTrend: '関連市場動向',
+      investmentJudgment: {
+        signal: 'NEUTRAL' as const,
+        reason: '様子見',
+      },
+    };
 
     beforeEach(async () => {
       await exchangeRepository.create({
@@ -695,7 +706,7 @@ describe('summary batch handler', () => {
     it('generateAiAnalysisFn の成功時に aiAnalysisGenerated が増加する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
       const response = await handler(mockEvent, {
         exchangeRepository,
         tickerRepository,
@@ -727,7 +738,7 @@ describe('summary batch handler', () => {
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
       ).toMatchObject({
-        AiAnalysis: 'AIによる解析結果',
+        AiAnalysisResult: mockAiAnalysisResult,
       });
       expect(JSON.parse(response.body).statistics).toMatchObject({
         aiAnalysisGenerated: 1,
@@ -738,7 +749,7 @@ describe('summary batch handler', () => {
     it('静的解析時は chartData から過去データを作成して AI 入力に含める', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
       const createChartImageBase64Fn = jest
         .fn()
         .mockReturnValue('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA');
@@ -802,7 +813,7 @@ describe('summary batch handler', () => {
         SellPatternCount: 0,
       });
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
           time: Date.UTC(2026, 1, 27),
@@ -863,7 +874,7 @@ describe('summary batch handler', () => {
         SellPatternCount: 0,
       });
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
 
       await handler(mockEvent, {
         exchangeRepository,
@@ -879,14 +890,14 @@ describe('summary batch handler', () => {
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
       ).toMatchObject({
-        AiAnalysis: undefined,
+        AiAnalysisResult: undefined,
       });
     });
 
     it('チャート画像生成失敗時は画像なしで AI 解析を継続する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
 
       await handler(mockEvent, {
         exchangeRepository,
@@ -955,7 +966,7 @@ describe('summary batch handler', () => {
     it('OPENAI_API_KEY 未設定時は AI 解析をスキップする', async () => {
       delete process.env.OPENAI_API_KEY;
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIによる解析結果');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
       const response = await handler(mockEvent, {
         exchangeRepository,
         tickerRepository,
@@ -982,7 +993,7 @@ describe('summary batch handler', () => {
       });
     });
 
-    it('AiAnalysis が既存値ありの場合は再生成しない', async () => {
+    it('AiAnalysisResult が既存値ありの場合は再生成しない', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       await dailySummaryRepository.upsert({
@@ -998,10 +1009,13 @@ describe('summary batch handler', () => {
         ),
         BuyPatternCount: 0,
         SellPatternCount: 0,
-        AiAnalysis: '既存のAI解析',
+        AiAnalysisResult: mockAiAnalysisResult,
       });
 
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('新しいAI解析');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue({
+        ...mockAiAnalysisResult,
+        investmentJudgment: { signal: 'BULLISH' as const, reason: '上昇基調' },
+      });
       const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest.fn().mockResolvedValue([
         {
           time: Date.UTC(2026, 1, 27),
@@ -1027,11 +1041,11 @@ describe('summary batch handler', () => {
       expect(
         await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-27')
       ).toMatchObject({
-        AiAnalysis: '既存のAI解析',
+        AiAnalysisResult: mockAiAnalysisResult,
       });
     });
 
-    it('静的解析済みかつ AiAnalysis 未設定なら AI 解析のみ実行する', async () => {
+    it('静的解析済みかつ AiAnalysisResult 未設定なら AI 解析のみ実行する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
       await dailySummaryRepository.upsert({
@@ -1059,7 +1073,10 @@ describe('summary batch handler', () => {
           volume: 1000,
         },
       ]);
-      const generateAiAnalysisFn = jest.fn().mockResolvedValue('AIのみ再解析');
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue({
+        ...mockAiAnalysisResult,
+        investmentJudgment: { signal: 'BEARISH' as const, reason: '下落リスク' },
+      });
 
       const response = await handler(mockEvent, {
         exchangeRepository,
@@ -1083,7 +1100,9 @@ describe('summary batch handler', () => {
         High: 95,
         Low: 88,
         Close: 92,
-        AiAnalysis: 'AIのみ再解析',
+        AiAnalysisResult: expect.objectContaining({
+          investmentJudgment: expect.objectContaining({ signal: 'BEARISH' }),
+        }),
       });
     });
   });

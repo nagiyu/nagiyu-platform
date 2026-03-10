@@ -1,10 +1,17 @@
 import OpenAI from 'openai';
+import { zodTextFormat } from 'openai/helpers/zod';
+import { z } from 'zod';
+import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
 import { withRetry } from './retry.js';
 
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 120_000;
 const SUPPORTED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
+const ERROR_MESSAGES = {
+  INVALID_RESPONSE: 'AI解析の応答が不正です',
+  TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
+} as const;
 
 export interface HistoricalPriceData {
   date: string;
@@ -35,7 +42,22 @@ type OpenAiImageInput = {
   detail: 'auto';
 };
 
-export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput): Promise<string> {
+const aiAnalysisResultSchema = z.object({
+  priceMovementAnalysis: z.string(),
+  patternAnalysis: z.string(),
+  supportLevels: z.tuple([z.number(), z.number(), z.number()]),
+  resistanceLevels: z.tuple([z.number(), z.number(), z.number()]),
+  relatedMarketTrend: z.string(),
+  investmentJudgment: z.object({
+    signal: z.enum(['BULLISH', 'NEUTRAL', 'BEARISH']),
+    reason: z.string(),
+  }),
+});
+
+export async function generateAiAnalysis(
+  apiKey: string,
+  input: AiAnalysisInput
+): Promise<AiAnalysisResult> {
   const client = new OpenAI({
     apiKey,
     maxRetries: 0,
@@ -45,10 +67,13 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
   const response = await withRetry(
     async () =>
       withTimeout(
-        client.responses.create({
+        client.responses.parse({
           model: OPENAI_MODEL,
           stream: false,
           tools: [{ type: 'web_search' }],
+          text: {
+            format: zodTextFormat(aiAnalysisResultSchema, 'stock_ai_analysis'),
+          },
           input: [
             {
               role: 'user',
@@ -67,12 +92,11 @@ export async function generateAiAnalysis(apiKey: string, input: AiAnalysisInput)
     { maxRetries: MAX_RETRIES }
   );
 
-  const outputText = response.output_text?.trim();
-  if (!outputText) {
-    throw new Error('AI解析の応答が空です');
+  if (!response.output_parsed) {
+    throw new Error(ERROR_MESSAGES.INVALID_RESPONSE);
   }
 
-  return outputText;
+  return response.output_parsed;
 }
 
 function toSupportedImageInput(chartImageBase64: string | undefined): OpenAiImageInput | undefined {
@@ -102,10 +126,15 @@ function createPrompt(input: AiAnalysisInput): string {
   const historicalDataHeader = `【過去価格推移（取得件数: ${input.historicalData.length}件）】`;
 
   return [
-    'あなたは株式分析の専門家です。以下の情報を基に日本語で2000文字以内の解析を作成してください。',
-    '- 価格動向の解釈',
-    '- パターン分析結果の意味 (パターン分析については全てを検出できていない可能性があるため、添付画像も参考にしつつ、一般的なテクニカル分析の知見を活用して解釈してください)',
-    '- 関連する市場・セクター動向 (必要に応じてWeb検索を利用)',
+    'あなたは株式分析の専門家です。必ずJSONスキーマに従って日本語で解析を返してください。',
+    '各フィールドの要件:',
+    '- priceMovementAnalysis: 当日の値動きの分析',
+    '- patternAnalysis: パターン分析結果の解釈（検出漏れを考慮し、必要に応じて添付画像を参照）',
+    '- supportLevels: サポートレベルの価格を3件（数値）',
+    '- resistanceLevels: レジスタンスレベルの価格を3件（数値）',
+    '- relatedMarketTrend: 関連する市場・セクター動向（必要に応じてWeb検索を利用）',
+    '- investmentJudgment.signal: BULLISH / NEUTRAL / BEARISH のいずれか',
+    '- investmentJudgment.reason: 投資判断の理由',
     `ティッカーID: ${input.tickerId}`,
     `銘柄名: ${input.name}`,
     `日付: ${input.date}`,
@@ -141,7 +170,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
       promise,
       new Promise<T>((_, reject) => {
         timeoutId = setTimeout(() => {
-          reject(new Error('OpenAI APIの呼び出しがタイムアウトしました'));
+          reject(new Error(ERROR_MESSAGES.TIMEOUT));
         }, timeoutMs);
       }),
     ]);

@@ -1,13 +1,13 @@
 import OpenAI from 'openai';
 import { generateAiAnalysis } from '../../../src/lib/openai-client.js';
 
-const mockCreate = jest.fn();
+const mockParse = jest.fn();
 
 jest.mock('openai', () => ({
   __esModule: true,
   default: jest.fn(() => ({
     responses: {
-      create: mockCreate,
+      parse: mockParse,
     },
   })),
 }));
@@ -61,17 +61,30 @@ describe('generateAiAnalysis', () => {
   });
 
   it('正常系: AI解析テキストを返す', async () => {
-    mockCreate.mockResolvedValue({ output_text: '日本語の解析テキスト' });
+    mockParse.mockResolvedValue({
+      output_parsed: {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '市場動向',
+        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+      },
+    });
 
     const result = await generateAiAnalysis('test-api-key', testInput);
 
-    expect(result).toBe('日本語の解析テキスト');
+    expect(result).toEqual(
+      expect.objectContaining({
+        priceMovementAnalysis: '当日の値動き分析',
+      })
+    );
     expect(OpenAI).toHaveBeenCalledWith({
       apiKey: 'test-api-key',
       maxRetries: 0,
     });
-    expect(mockCreate).toHaveBeenCalledTimes(1);
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockParse).toHaveBeenCalledTimes(1);
+    expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
         model: 'gpt-5-mini',
         tools: [{ type: 'web_search' }],
@@ -91,14 +104,23 @@ describe('generateAiAnalysis', () => {
   });
 
   it('対応形式のチャート画像がある場合は input_image を付与する', async () => {
-    mockCreate.mockResolvedValue({ output_text: '画像付き解析テキスト' });
+    mockParse.mockResolvedValue({
+      output_parsed: {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '市場動向',
+        investmentJudgment: { signal: 'BULLISH', reason: '上昇継続' },
+      },
+    });
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
       chartImageBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA',
     });
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
         input: [
           {
@@ -121,14 +143,23 @@ describe('generateAiAnalysis', () => {
   });
 
   it('非対応形式のチャート画像は input_image に含めない', async () => {
-    mockCreate.mockResolvedValue({ output_text: 'テキスト解析テキスト' });
+    mockParse.mockResolvedValue({
+      output_parsed: {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '市場動向',
+        investmentJudgment: { signal: 'BEARISH', reason: '下落リスク' },
+      },
+    });
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
       chartImageBase64: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=',
     });
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockParse).toHaveBeenCalledWith(
       expect.objectContaining({
         input: [
           {
@@ -146,37 +177,44 @@ describe('generateAiAnalysis', () => {
   });
 
   it('異常系: APIエラー時はErrorをスローする', async () => {
-    mockCreate.mockRejectedValue(new Error('OpenAI API error'));
+    mockParse.mockRejectedValue(new Error('OpenAI API error'));
 
     const promise = generateAiAnalysis('test-api-key', testInput);
     const [, error] = await Promise.all([jest.runAllTimersAsync(), promise.catch((err) => err)]);
 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toContain('OpenAI API error');
-    expect(mockCreate).toHaveBeenCalledTimes(4);
+    expect(mockParse).toHaveBeenCalledTimes(4);
   });
 
   it('リトライ: 失敗後の再試行で成功する', async () => {
-    mockCreate.mockRejectedValueOnce(new Error('temporary error')).mockResolvedValue({
-      output_text: 'リトライ後に成功',
+    mockParse.mockRejectedValueOnce(new Error('temporary error')).mockResolvedValue({
+      output_parsed: {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '市場動向',
+        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+      },
     });
 
     const promise = generateAiAnalysis('test-api-key', testInput);
     await jest.runAllTimersAsync();
     const result = await promise;
 
-    expect(result).toBe('リトライ後に成功');
-    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(result.investmentJudgment.signal).toBe('NEUTRAL');
+    expect(mockParse).toHaveBeenCalledTimes(2);
   });
 
   it('タイムアウト: タイムアウト時はErrorをスローする', async () => {
-    mockCreate.mockImplementation(() => new Promise(() => undefined));
+    mockParse.mockImplementation(() => new Promise(() => undefined));
 
     const promise = generateAiAnalysis('test-api-key', testInput);
     const [, error] = await Promise.all([jest.runAllTimersAsync(), promise.catch((err) => err)]);
 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toContain('タイムアウト');
-    expect(mockCreate).toHaveBeenCalledTimes(4);
+    expect(mockParse).toHaveBeenCalledTimes(4);
   });
 });

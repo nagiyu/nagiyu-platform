@@ -112,7 +112,13 @@ services/stock-tracker/
 #### 3.2.2 AI 解析の設計方針
 
 - AI 解析は日次サマリー生成フローの拡張として扱い、ユーザー操作時の追加待機を発生させない
-- 解析文には価格推移・パターン分析・関連市場情報を含め、数値だけでは伝わらない判断材料を補完する
+- OpenAI Responses API の Structured Output を利用し、以下の固定項目で結果を返す
+    - `priceMovementAnalysis`
+    - `patternAnalysis`
+    - `supportLevels`（3件固定）
+    - `resistanceLevels`（3件固定）
+    - `relatedMarketTrend`
+    - `investmentJudgment`（`BULLISH` / `NEUTRAL` / `BEARISH` + 理由）
 - AI 解析は「生成成功」「未生成」「生成失敗」を明示的に区別し、UI で状態を分かりやすく提示する
 - AI 解析が失敗しても既存の日次サマリー機能は継続し、失敗を局所化する
 

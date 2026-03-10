@@ -350,7 +350,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysis: 'テスト用のAI解析テキストです。',
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: 'テスト用の値動き分析です。',
+                    patternAnalysis: 'テスト用のパターン分析です。',
+                    supportLevels: [100, 99, 98],
+                    resistanceLevels: [110, 111, 112],
+                    relatedMarketTrend: 'テスト用の市場動向です。',
+                    investmentJudgment: { signal: 'NEUTRAL', reason: '様子見です。' },
+                  },
                   holding: null,
                 },
               ],
@@ -365,7 +372,8 @@ test.describe('サマリー画面スモークテスト', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('テスト用のAI解析テキストです。')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析: テスト用の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('投資判断: 中立')).toBeVisible();
   });
 
   test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
@@ -397,7 +405,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysis: '更新後のAI解析テキストです。',
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: '更新後の値動き分析です。',
+                    patternAnalysis: '更新後のパターン分析です。',
+                    supportLevels: [200, 199, 198],
+                    resistanceLevels: [210, 211, 212],
+                    relatedMarketTrend: '更新後の市場動向です。',
+                    investmentJudgment: { signal: 'BULLISH', reason: '上昇基調です。' },
+                  },
                   holding: null,
                 },
               ],
@@ -421,7 +436,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await page.locator('tbody tr').first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('更新後のAI解析テキストです。')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析: 更新後の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('投資判断: 強気')).toBeVisible();
   });
 
   test('サマリーページの基本要素が表示される', async ({ page }) => {

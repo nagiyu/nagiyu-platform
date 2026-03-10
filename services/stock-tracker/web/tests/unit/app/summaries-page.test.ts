@@ -55,10 +55,20 @@ describe('SummariesPage', () => {
       holding: null,
     };
 
-    it('aiAnalysis が string の場合は解析テキストを表示する', () => {
-      expect(resolveAiAnalysisText({ ...baseSummary, aiAnalysis: 'AI解析テキスト' })).toBe(
-        'AI解析テキスト'
-      );
+    it('aiAnalysisResult がある場合は統一フォーマットの解析テキストを表示する', () => {
+      expect(
+        resolveAiAnalysisText({
+          ...baseSummary,
+          aiAnalysisResult: {
+            priceMovementAnalysis: '値動き分析',
+            patternAnalysis: 'パターン分析',
+            supportLevels: [100, 99, 98],
+            resistanceLevels: [110, 111, 112],
+            relatedMarketTrend: '市場動向',
+            investmentJudgment: { signal: 'BULLISH', reason: '上昇継続' },
+          },
+        })
+      ).toContain('投資判断: 強気');
     });
 
     it('aiAnalysisError が string の場合は失敗メッセージを表示する', () => {
@@ -67,17 +77,24 @@ describe('SummariesPage', () => {
       );
     });
 
-    it('aiAnalysis と aiAnalysisError が両方ある場合は aiAnalysis を優先表示する', () => {
+    it('aiAnalysisResult と aiAnalysisError が両方ある場合は aiAnalysisResult を優先表示する', () => {
       expect(
         resolveAiAnalysisText({
           ...baseSummary,
-          aiAnalysis: '優先される解析テキスト',
+          aiAnalysisResult: {
+            priceMovementAnalysis: '優先される値動き分析',
+            patternAnalysis: 'パターン分析',
+            supportLevels: [100, 99, 98],
+            resistanceLevels: [110, 111, 112],
+            relatedMarketTrend: '市場動向',
+            investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+          },
           aiAnalysisError: 'OpenAI timeout',
         })
-      ).toBe('優先される解析テキスト');
+      ).toContain('優先される値動き分析');
     });
 
-    it('aiAnalysis と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
+    it('aiAnalysisResult と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
       expect(resolveAiAnalysisText(baseSummary)).toBe(
         STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
       );

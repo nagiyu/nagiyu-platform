@@ -12,8 +12,14 @@ import {
   type EntityMapper,
 } from '@nagiyu/aws';
 import type { DailySummaryEntity, DailySummaryKey } from '../entities/daily-summary.entity.js';
+import type { AiAnalysisResult } from '../ai-analysis-result.js';
 import { PATTERN_REGISTRY } from '../patterns/pattern-registry.js';
 import type { PatternStatus } from '../types.js';
+
+const ERROR_MESSAGES = {
+  INVALID_AI_ANALYSIS_RESULT_JSON: 'AiAnalysisResultのJSON形式が不正です',
+  INVALID_AI_ANALYSIS_RESULT: 'AiAnalysisResultの形式が不正です',
+} as const;
 
 export interface PatternDetailResponse {
   patternId: string;
@@ -27,8 +33,37 @@ export interface DailySummaryPatternResponse {
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysis?: string;
+  aiAnalysisResult?: AiAnalysisResult;
   aiAnalysisError?: string;
+}
+
+function isAiAnalysisResult(value: unknown): value is AiAnalysisResult {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const supportLevels = candidate.supportLevels;
+  const resistanceLevels = candidate.resistanceLevels;
+  const investmentJudgment = candidate.investmentJudgment;
+
+  return (
+    typeof candidate.priceMovementAnalysis === 'string' &&
+    typeof candidate.patternAnalysis === 'string' &&
+    Array.isArray(supportLevels) &&
+    supportLevels.length === 3 &&
+    supportLevels.every((level) => typeof level === 'number') &&
+    Array.isArray(resistanceLevels) &&
+    resistanceLevels.length === 3 &&
+    resistanceLevels.every((level) => typeof level === 'number') &&
+    typeof candidate.relatedMarketTrend === 'string' &&
+    !!investmentJudgment &&
+    typeof investmentJudgment === 'object' &&
+    ['BULLISH', 'NEUTRAL', 'BEARISH'].includes(
+      (investmentJudgment as Record<string, unknown>).signal as string
+    ) &&
+    typeof (investmentJudgment as Record<string, unknown>).reason === 'string'
+  );
 }
 
 /**
@@ -69,7 +104,9 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       ...(entity.SellPatternCount !== undefined
         ? { SellPatternCount: entity.SellPatternCount }
         : {}),
-      ...(entity.AiAnalysis !== undefined ? { AiAnalysis: entity.AiAnalysis } : {}),
+      ...(entity.AiAnalysisResult !== undefined
+        ? { AiAnalysisResult: JSON.stringify(entity.AiAnalysisResult) }
+        : {}),
       ...(entity.AiAnalysisError !== undefined ? { AiAnalysisError: entity.AiAnalysisError } : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
@@ -105,10 +142,22 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         item.SellPatternCount === undefined
           ? undefined
           : validateNumberField(item.SellPatternCount, 'SellPatternCount'),
-      AiAnalysis:
-        item.AiAnalysis === undefined
+      AiAnalysisResult:
+        item.AiAnalysisResult === undefined
           ? undefined
-          : validateStringField(item.AiAnalysis, 'AiAnalysis'),
+          : (() => {
+              const rawValue = validateStringField(item.AiAnalysisResult, 'AiAnalysisResult');
+              let parsedValue: unknown;
+              try {
+                parsedValue = JSON.parse(rawValue) as unknown;
+              } catch {
+                throw new Error(ERROR_MESSAGES.INVALID_AI_ANALYSIS_RESULT_JSON);
+              }
+              if (!isAiAnalysisResult(parsedValue)) {
+                throw new Error(ERROR_MESSAGES.INVALID_AI_ANALYSIS_RESULT);
+              }
+              return parsedValue;
+            })(),
       AiAnalysisError:
         item.AiAnalysisError === undefined
           ? undefined
@@ -130,7 +179,7 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         buyPatternCount: 0,
         sellPatternCount: 0,
         patternDetails: [],
-        aiAnalysis: entity.AiAnalysis,
+        aiAnalysisResult: entity.AiAnalysisResult,
         aiAnalysisError: entity.AiAnalysisError,
       };
     }
@@ -154,7 +203,7 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       buyPatternCount: entity.BuyPatternCount ?? 0,
       sellPatternCount: entity.SellPatternCount ?? 0,
       patternDetails,
-      aiAnalysis: entity.AiAnalysis,
+      aiAnalysisResult: entity.AiAnalysisResult,
       aiAnalysisError: entity.AiAnalysisError,
     };
   }
