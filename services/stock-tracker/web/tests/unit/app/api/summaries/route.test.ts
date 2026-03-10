@@ -298,12 +298,12 @@ describe('GET /api/summaries', () => {
 
     expect(response.status).toBe(200);
     expect(body.exchanges[0].summaries[0]).toEqual(
-        expect.objectContaining({
-          aiAnalysisResult: expect.objectContaining({
-            priceMovementAnalysis: '当日の値動き分析',
-          }),
-        })
-      );
+      expect.objectContaining({
+        aiAnalysisResult: expect.objectContaining({
+          priceMovementAnalysis: '当日の値動き分析',
+        }),
+      })
+    );
     expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
   });
 
