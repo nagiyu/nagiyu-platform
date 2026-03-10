@@ -372,8 +372,9 @@ test.describe('サマリー画面スモークテスト', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('当日の値動き分析: テスト用の値動き分析です。')).toBeVisible();
-    await expect(dialog.getByText('投資判断: 中立')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+    await expect(dialog.getByText('テスト用の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('中立')).toBeVisible();
   });
 
   test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
@@ -436,8 +437,9 @@ test.describe('サマリー画面スモークテスト', () => {
     await page.locator('tbody tr').first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('当日の値動き分析: 更新後の値動き分析です。')).toBeVisible();
-    await expect(dialog.getByText('投資判断: 強気')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+    await expect(dialog.getByText('更新後の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('強気')).toBeVisible();
   });
 
   test('サマリーページの基本要素が表示される', async ({ page }) => {
