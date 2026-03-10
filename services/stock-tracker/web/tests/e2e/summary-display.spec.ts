@@ -24,6 +24,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 110,
                   low: 95,
                   close: 105,
+                  volume: 1234567,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
@@ -41,6 +42,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 210,
                   low: 190,
                   close: 205,
+                  volume: undefined,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
@@ -88,6 +90,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 110,
                   low: 95,
                   close: 105,
+                  volume: 1234567,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
@@ -105,6 +108,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 210,
                   low: 190,
                   close: 205,
+                  volume: undefined,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
@@ -131,6 +135,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('保有数')).toBeVisible();
     await expect(dialog.getByText('123')).toBeVisible();
     await expect(dialog.getByText('99.50')).toBeVisible();
+    await expect(dialog.getByText('出来高')).toBeVisible();
+    await expect(dialog.locator('tr', { hasText: '出来高' }).locator('td')).toHaveText('1,234,567');
     await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toBeVisible();
 
@@ -141,6 +147,7 @@ test.describe('サマリー画面スモークテスト', () => {
 
     await dialog.getByRole('button', { name: '閉じる' }).click();
     await secondRow.click();
+    await expect(dialog.locator('tr', { hasText: '出来高' }).locator('td')).toHaveText('-');
     await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toHaveCount(0);
   });
@@ -365,7 +372,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysis: 'テスト用のAI解析テキストです。',
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: 'テスト用の値動き分析です。',
+                    patternAnalysis: 'テスト用のパターン分析です。',
+                    supportLevels: [100, 99, 98],
+                    resistanceLevels: [110, 111, 112],
+                    relatedMarketTrend: 'テスト用の市場動向です。',
+                    investmentJudgment: { signal: 'NEUTRAL', reason: '様子見です。' },
+                  },
                   holding: null,
                 },
               ],
@@ -380,7 +394,9 @@ test.describe('サマリー画面スモークテスト', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('テスト用のAI解析テキストです。')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+    await expect(dialog.getByText('テスト用の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('中立')).toBeVisible();
   });
 
   test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
@@ -412,7 +428,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysis: '更新後のAI解析テキストです。',
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: '更新後の値動き分析です。',
+                    patternAnalysis: '更新後のパターン分析です。',
+                    supportLevels: [200, 199, 198],
+                    resistanceLevels: [210, 211, 212],
+                    relatedMarketTrend: '更新後の市場動向です。',
+                    investmentJudgment: { signal: 'BULLISH', reason: '上昇基調です。' },
+                  },
                   holding: null,
                 },
               ],
@@ -436,7 +459,9 @@ test.describe('サマリー画面スモークテスト', () => {
     await page.locator('tbody tr').first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('更新後のAI解析テキストです。')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+    await expect(dialog.getByText('更新後の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('強気')).toBeVisible();
   });
 
   test('サマリーページの基本要素が表示される', async ({ page }) => {

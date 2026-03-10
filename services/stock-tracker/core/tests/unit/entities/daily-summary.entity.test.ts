@@ -19,12 +19,14 @@ describe('DailySummaryEntity 型定義', () => {
       High: 110,
       Low: 90,
       Close: 105,
+      Volume: 1234567,
       CreatedAt: 1700000000000,
       UpdatedAt: 1700000000000,
     };
 
     expect(entity.Date).toBe('2026-02-27');
     expect(entity.Close).toBe(105);
+    expect(entity.Volume).toBe(1234567);
   });
 
   it('CreateDailySummaryInput が CreatedAt/UpdatedAt を含まない入力を保持できる', () => {
@@ -36,13 +38,15 @@ describe('DailySummaryEntity 型定義', () => {
       High: 110,
       Low: 90,
       Close: 105,
+      Volume: 7654321,
     };
 
     expect(input.TickerID).toBe('NSDQ:AAPL');
     expect(input.High).toBe(110);
+    expect(input.Volume).toBe(7654321);
   });
 
-  it('AiAnalysis フィールドが string として保持できる', () => {
+  it('AiAnalysisResult フィールドが構造化データとして保持できる', () => {
     const entity: DailySummaryEntity = {
       TickerID: 'NSDQ:AAPL',
       ExchangeID: 'NASDAQ',
@@ -51,12 +55,22 @@ describe('DailySummaryEntity 型定義', () => {
       High: 110,
       Low: 90,
       Close: 105,
-      AiAnalysis: '本日は上昇トレンドが継続しています。',
+      AiAnalysisResult: {
+        priceMovementAnalysis: '本日は上昇トレンドが継続しています。',
+        patternAnalysis: 'パターン分析結果は中立です。',
+        supportLevels: [100, 99, 98],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '関連市場は方向感が乏しい状態です。',
+        investmentJudgment: {
+          signal: 'NEUTRAL',
+          reason: '明確な優位性がありません。',
+        },
+      },
       CreatedAt: 1700000000000,
       UpdatedAt: 1700000000000,
     };
 
-    expect(entity.AiAnalysis).toBe('本日は上昇トレンドが継続しています。');
+    expect(entity.AiAnalysisResult?.investmentJudgment.signal).toBe('NEUTRAL');
   });
 
   it('AiAnalysisError フィールドが string として保持できる', () => {
@@ -76,7 +90,7 @@ describe('DailySummaryEntity 型定義', () => {
     expect(entity.AiAnalysisError).toBe('OpenAI API 呼び出しに失敗しました');
   });
 
-  it('AiAnalysis / AiAnalysisError が未生成状態として undefined を保持できる', () => {
+  it('AiAnalysisResult / AiAnalysisError が未生成状態として undefined を保持できる', () => {
     const entity: DailySummaryEntity = {
       TickerID: 'NSDQ:AAPL',
       ExchangeID: 'NASDAQ',
@@ -89,7 +103,7 @@ describe('DailySummaryEntity 型定義', () => {
       UpdatedAt: 1700000000000,
     };
 
-    expect(entity.AiAnalysis).toBeUndefined();
+    expect(entity.AiAnalysisResult).toBeUndefined();
     expect(entity.AiAnalysisError).toBeUndefined();
   });
 

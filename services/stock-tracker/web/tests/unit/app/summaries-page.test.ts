@@ -1,7 +1,10 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import SummariesPage from '../../../app/summaries/page';
-import { resolveAiAnalysisText } from '../../../app/summaries/ai-analysis';
+import {
+  resolveAiAnalysisFallbackMessage,
+  resolveInvestmentSignalLabel,
+} from '../../../app/summaries/ai-analysis';
 import { useSession } from 'next-auth/react';
 import { STOCK_TRACKER_ERROR_MESSAGES } from '../../../lib/error-messages';
 
@@ -39,7 +42,7 @@ describe('SummariesPage', () => {
     expect(html).toContain('取引所');
   });
 
-  describe('resolveAiAnalysisText', () => {
+  describe('ai-analysis helpers', () => {
     const baseSummary = {
       tickerId: 'TSE:7203',
       symbol: '7203',
@@ -55,30 +58,37 @@ describe('SummariesPage', () => {
       holding: null,
     };
 
-    it('aiAnalysis が string の場合は解析テキストを表示する', () => {
-      expect(resolveAiAnalysisText({ ...baseSummary, aiAnalysis: 'AI解析テキスト' })).toBe(
-        'AI解析テキスト'
-      );
+    it('投資判断シグナルを日本語ラベルに変換できる', () => {
+      expect(resolveInvestmentSignalLabel('BULLISH')).toBe('強気');
+      expect(resolveInvestmentSignalLabel('NEUTRAL')).toBe('中立');
+      expect(resolveInvestmentSignalLabel('BEARISH')).toBe('弱気');
     });
 
     it('aiAnalysisError が string の場合は失敗メッセージを表示する', () => {
-      expect(resolveAiAnalysisText({ ...baseSummary, aiAnalysisError: 'OpenAI timeout' })).toBe(
-        STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_FAILED
-      );
+      expect(
+        resolveAiAnalysisFallbackMessage({ ...baseSummary, aiAnalysisError: 'OpenAI timeout' })
+      ).toBe(STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_FAILED);
     });
 
-    it('aiAnalysis と aiAnalysisError が両方ある場合は aiAnalysis を優先表示する', () => {
+    it('aiAnalysisResult と aiAnalysisError が両方ある場合は aiAnalysisResult を優先表示する', () => {
       expect(
-        resolveAiAnalysisText({
+        resolveAiAnalysisFallbackMessage({
           ...baseSummary,
-          aiAnalysis: '優先される解析テキスト',
+          aiAnalysisResult: {
+            priceMovementAnalysis: '優先される値動き分析',
+            patternAnalysis: 'パターン分析',
+            supportLevels: [100, 99, 98],
+            resistanceLevels: [110, 111, 112],
+            relatedMarketTrend: '市場動向',
+            investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+          },
           aiAnalysisError: 'OpenAI timeout',
         })
-      ).toBe('優先される解析テキスト');
+      ).toBeNull();
     });
 
-    it('aiAnalysis と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
-      expect(resolveAiAnalysisText(baseSummary)).toBe(
+    it('aiAnalysisResult と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
+      expect(resolveAiAnalysisFallbackMessage(baseSummary)).toBe(
         STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
       );
     });
