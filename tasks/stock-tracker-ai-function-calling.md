@@ -83,8 +83,8 @@ OpenAI Responses API の Structured Output（`text.format: json_schema`）を導
 const AiAnalysisResultSchema = z.object({
   priceMovementAnalysis: z.string(),
   patternAnalysis: z.string(),
-  supportLevels: z.array(z.number()),
-  resistanceLevels: z.array(z.number()),
+  supportLevels: z.tuple([z.number(), z.number(), z.number()]),
+  resistanceLevels: z.tuple([z.number(), z.number(), z.number()]),
   relatedMarketTrend: z.string(),
   investmentJudgment: z.object({
     signal: z.enum(['BULLISH', 'NEUTRAL', 'BEARISH']),
@@ -118,8 +118,8 @@ const result = response.output_parsed;  // z.infer<typeof AiAnalysisResultSchema
 AiAnalysisResult:
   priceMovementAnalysis: string       // 当日の値動きの分析（日本語）
   patternAnalysis: string             // パターン分析の解釈（日本語）
-  supportLevels: number[]             // サポートレベル（数値配列、1〜3個程度）
-  resistanceLevels: number[]          // レジスタンスレベル（数値配列、1〜3個程度）
+  supportLevels: [number, number, number]     // サポートレベル（数値3個固定）
+  resistanceLevels: [number, number, number]  // レジスタンスレベル（数値3個固定）
   relatedMarketTrend: string          // 関連市場・セクター動向（日本語）
   investmentJudgment:
     signal: 'BULLISH' | 'NEUTRAL' | 'BEARISH'  // 投資シグナル
@@ -137,7 +137,7 @@ AiAnalysisResult:
 
 ```
 変更前: AiAnalysis?: string
-変更後: AiAnalysisResult?: AiAnalysisResult  // 構造化フィールド
+変更後: AiAnalysisResult?: AiAnalysisResult  // 構造化フィールド（supportLevels/resistanceLevels は各3個固定）
 ```
 
 DynamoDB 保存時は `AiAnalysisResult` を JSON 文字列としてシリアライズする。
@@ -211,6 +211,4 @@ DynamoDB 保存時は `AiAnalysisResult` を JSON 文字列としてシリアラ
 
 ## 備考・未決定事項
 
--   サポート・レジスタンスの数値個数（1〜3個の上限設定、または固定数にするか）は実装時に確定する
--   投資判断のシグナル値の列挙（`BULLISH / NEUTRAL / BEARISH` か、より細分化するか）は実装時に確定する
--   Web 検索ツールの利用により API コストが増加する可能性があるため、コスト試算も行う
+（現時点で未決定の事項はない）
