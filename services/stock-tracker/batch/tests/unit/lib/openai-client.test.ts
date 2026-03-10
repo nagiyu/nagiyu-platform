@@ -101,6 +101,51 @@ describe('generateAiAnalysis', () => {
         ],
       })
     );
+    const parseArgument = mockParse.mock.calls[0][0] as {
+      text: {
+        format: {
+          schema?: {
+            properties?: {
+              supportLevels?: {
+                minItems?: number;
+                maxItems?: number;
+                items?: unknown;
+              };
+              resistanceLevels?: {
+                minItems?: number;
+                maxItems?: number;
+                items?: unknown;
+              };
+            };
+          };
+        };
+      };
+    };
+
+    expect(parseArgument.text.format.schema?.properties?.supportLevels).toEqual(
+      expect.objectContaining({
+        minItems: 3,
+        maxItems: 3,
+        items: expect.objectContaining({
+          type: 'number',
+        }),
+      })
+    );
+    expect(Array.isArray(parseArgument.text.format.schema?.properties?.supportLevels?.items)).toBe(
+      false
+    );
+    expect(parseArgument.text.format.schema?.properties?.resistanceLevels).toEqual(
+      expect.objectContaining({
+        minItems: 3,
+        maxItems: 3,
+        items: expect.objectContaining({
+          type: 'number',
+        }),
+      })
+    );
+    expect(
+      Array.isArray(parseArgument.text.format.schema?.properties?.resistanceLevels?.items)
+    ).toBe(false);
   });
 
   it('対応形式のチャート画像がある場合は input_image を付与する', async () => {
