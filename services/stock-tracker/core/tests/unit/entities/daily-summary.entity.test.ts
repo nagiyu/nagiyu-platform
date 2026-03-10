@@ -19,12 +19,14 @@ describe('DailySummaryEntity 型定義', () => {
       High: 110,
       Low: 90,
       Close: 105,
+      Volume: 1234567,
       CreatedAt: 1700000000000,
       UpdatedAt: 1700000000000,
     };
 
     expect(entity.Date).toBe('2026-02-27');
     expect(entity.Close).toBe(105);
+    expect(entity.Volume).toBe(1234567);
   });
 
   it('CreateDailySummaryInput が CreatedAt/UpdatedAt を含まない入力を保持できる', () => {
@@ -36,10 +38,12 @@ describe('DailySummaryEntity 型定義', () => {
       High: 110,
       Low: 90,
       Close: 105,
+      Volume: 7654321,
     };
 
     expect(input.TickerID).toBe('NSDQ:AAPL');
     expect(input.High).toBe(110);
+    expect(input.Volume).toBe(7654321);
   });
 
   it('AiAnalysisResult フィールドが構造化データとして保持できる', () => {

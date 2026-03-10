@@ -29,6 +29,7 @@ const testInput = {
   high: 120,
   low: 95,
   close: 110,
+  volume: 2000000,
   buyPatternCount: 2,
   sellPatternCount: 1,
   patternSummary: 'ゴールデンクロス, RSI買いシグナル',
@@ -39,6 +40,7 @@ const testInput = {
       high: 105,
       low: 97,
       close: 103,
+      volume: 1800000,
     },
     {
       date: '2026-03-04',
@@ -46,6 +48,7 @@ const testInput = {
       high: 120,
       low: 95,
       close: 110,
+      volume: 2000000,
     },
   ],
 };
@@ -94,13 +97,14 @@ describe('generateAiAnalysis', () => {
             content: [
               {
                 type: 'input_text',
-                text: expect.stringContaining('【過去価格推移（取得件数: 2件）】'),
+                text: expect.stringContaining('出来高: 2000000'),
               },
             ],
           },
         ],
       })
     );
+    
     const parseCallArgument = mockParse.mock.calls[0][0] as {
       text: {
         format: {

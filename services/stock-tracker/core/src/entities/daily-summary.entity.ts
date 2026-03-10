@@ -26,6 +26,8 @@ export interface DailySummaryEntity {
   Low: number;
   /** 終値 */
   Close: number;
+  /** 出来高 */
+  Volume?: number;
   /** パターン判定結果マップ */
   PatternResults?: PatternResults;
   /** 買いシグナル合致数 */

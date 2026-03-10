@@ -24,6 +24,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 110,
                   low: 95,
                   close: 105,
+                  volume: 1234567,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
@@ -41,6 +42,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 210,
                   low: 190,
                   close: 205,
+                  volume: undefined,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
@@ -88,6 +90,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 110,
                   low: 95,
                   close: 105,
+                  volume: 1234567,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
@@ -105,6 +108,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 210,
                   low: 190,
                   close: 205,
+                  volume: undefined,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
@@ -131,6 +135,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('保有数')).toBeVisible();
     await expect(dialog.getByText('123')).toBeVisible();
     await expect(dialog.getByText('99.50')).toBeVisible();
+    await expect(dialog.getByText('出来高')).toBeVisible();
+    await expect(dialog.locator('tr', { hasText: '出来高' }).locator('td')).toHaveText('1,234,567');
     await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toBeVisible();
 
@@ -141,6 +147,7 @@ test.describe('サマリー画面スモークテスト', () => {
 
     await dialog.getByRole('button', { name: '閉じる' }).click();
     await secondRow.click();
+    await expect(dialog.locator('tr', { hasText: '出来高' }).locator('td')).toHaveText('-');
     await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toHaveCount(0);
   });

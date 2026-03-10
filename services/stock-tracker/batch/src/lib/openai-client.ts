@@ -12,6 +12,7 @@ const ERROR_MESSAGES = {
   INVALID_RESPONSE: 'AI解析の応答が不正です',
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
 } as const;
+const UNSET_VALUE_DISPLAY = '-';
 
 export interface HistoricalPriceData {
   date: string;
@@ -19,6 +20,7 @@ export interface HistoricalPriceData {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 }
 
 export interface AiAnalysisInput {
@@ -29,6 +31,7 @@ export interface AiAnalysisInput {
   high: number;
   low: number;
   close: number;
+  volume?: number;
   buyPatternCount: number;
   sellPatternCount: number;
   patternSummary: string;
@@ -146,12 +149,13 @@ function createPrompt(input: AiAnalysisInput): string {
     `高値: ${input.high}`,
     `安値: ${input.low}`,
     `終値: ${input.close}`,
+    `出来高: ${input.volume ?? UNSET_VALUE_DISPLAY}`,
     `買いシグナル合致数: ${input.buyPatternCount}`,
     `売りシグナル合致数: ${input.sellPatternCount}`,
     `合致パターン: ${input.patternSummary || 'なし'}`,
     '',
     historicalDataHeader,
-    '日付, 始値, 高値, 安値, 終値',
+    '日付, 始値, 高値, 安値, 終値, 出来高',
     ...historicalDataLines,
   ].join('\n');
 }
@@ -163,7 +167,10 @@ function formatHistoricalData(historicalData: HistoricalPriceData[]): string[] {
 
   return [...historicalData]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((point) => `${point.date}, ${point.open}, ${point.high}, ${point.low}, ${point.close}`);
+    .map(
+      (point) =>
+        `${point.date}, ${point.open}, ${point.high}, ${point.low}, ${point.close}, ${point.volume ?? UNSET_VALUE_DISPLAY}`
+    );
 }
 
 function toLevelTuple(levels: number[]): [number, number, number] {

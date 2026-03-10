@@ -39,6 +39,7 @@ interface TickerSummaryResponse {
   high: number;
   low: number;
   close: number;
+  volume?: number;
   updatedAt: string;
   buyPatternCount: number;
   sellPatternCount: number;
@@ -98,6 +99,7 @@ function toTickerSummaryResponse(
     high: summary.High,
     low: summary.Low,
     close: summary.Close,
+    volume: summary.Volume,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     holding,
     ...dailySummaryMapper.toTickerSummaryResponse(summary),

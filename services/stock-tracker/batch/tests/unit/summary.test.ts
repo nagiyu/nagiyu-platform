@@ -107,6 +107,7 @@ describe('summary batch handler', () => {
         High: 110,
         Low: 95,
         Close: 108,
+        Volume: 1000,
         PatternResults: {
           'morning-star': 'MATCHED',
           'evening-star': 'NOT_MATCHED',
@@ -733,6 +734,7 @@ describe('summary batch handler', () => {
           tickerId: 'NSDQ:AAPL',
           name: 'Apple Inc.',
           date: '2026-02-27',
+          volume: 1000,
         })
       );
       expect(
@@ -780,6 +782,7 @@ describe('summary batch handler', () => {
           high: 110,
           low: 95,
           close: 108,
+          volume: 1000,
         },
       ]);
       expect(generateAiAnalysisFn).toHaveBeenCalledWith(
@@ -849,6 +852,7 @@ describe('summary batch handler', () => {
               high: 110,
               low: 95,
               close: 108,
+              volume: 1000,
             },
           ],
           chartImageBase64: undefined,
