@@ -294,12 +294,10 @@ test.describe('Bulk Import UI', () => {
     await keywordInput.fill('陰陽師');
     await page.getByRole('button', { name: '検索' }).click();
 
+    const searchDialog = page.getByRole('dialog', { name: '動画検索' });
     const firstMatchedVideo = page.getByRole('heading', { name: /レッツゴー[!！]陰陽師/ }).first();
     await expect(firstMatchedVideo).toBeVisible();
-    await firstMatchedVideo
-      .locator('xpath=ancestor::div[contains(@class, "MuiCardContent-root")]')
-      .getByRole('button', { name: '追加' })
-      .click();
+    await searchDialog.getByRole('button', { name: '追加' }).first().click();
     await expect(page.getByRole('button', { name: '追加済み' })).toBeVisible();
   });
 });
