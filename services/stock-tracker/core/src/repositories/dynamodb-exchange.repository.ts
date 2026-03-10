@@ -11,6 +11,7 @@ import {
   DeleteCommand,
   ScanCommand,
   type DynamoDBDocumentClient,
+  type ScanCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import {
   EntityNotFoundError,
@@ -77,24 +78,32 @@ export class DynamoDBExchangeRepository implements ExchangeRepository {
    */
   public async getAll(): Promise<ExchangeEntity[]> {
     try {
-      const result = await this.docClient.send(
-        new ScanCommand({
-          TableName: this.tableName,
-          FilterExpression: '#type = :type',
-          ExpressionAttributeNames: {
-            '#type': 'Type',
-          },
-          ExpressionAttributeValues: {
-            ':type': 'Exchange',
-          },
-        })
-      );
+      const allItems: ExchangeEntity[] = [];
+      let exclusiveStartKey: ScanCommandInput['ExclusiveStartKey'];
 
-      if (!result.Items || result.Items.length === 0) {
-        return [];
-      }
+      do {
+        const result = await this.docClient.send(
+          new ScanCommand({
+            TableName: this.tableName,
+            FilterExpression: '#type = :type',
+            ExpressionAttributeNames: {
+              '#type': 'Type',
+            },
+            ExpressionAttributeValues: {
+              ':type': 'Exchange',
+            },
+            ExclusiveStartKey: exclusiveStartKey,
+          })
+        );
 
-      return result.Items.map((item) => this.mapper.toEntity(item as unknown as DynamoDBItem));
+        const pageItems = (result.Items || []).map((item) =>
+          this.mapper.toEntity(item as unknown as DynamoDBItem)
+        );
+        allItems.push(...pageItems);
+        exclusiveStartKey = result.LastEvaluatedKey;
+      } while (exclusiveStartKey);
+
+      return allItems;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
