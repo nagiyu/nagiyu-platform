@@ -54,8 +54,18 @@ test.describe('個人 ToDo 管理', () => {
     await expect(checkbox).toBeChecked();
   });
 
-  test.fixme('ToDo を編集できる', async ({ page }) => {
-    await page.getByText('E2E 未完了 ToDo').click();
+  test('ToDo を編集できる', async ({ page }) => {
+    const currentTitle = 'E2E 未完了 ToDo';
+    const updatedTitle = `E2E 編集後 ToDo ${Date.now()}`;
+
+    const todoRow = page.getByRole('listitem').filter({ hasText: currentTitle });
+    await todoRow.getByRole('button', { name: '編集' }).click();
+    await page.getByRole('textbox', { name: 'タイトルを編集' }).fill(updatedTitle);
+    await page.getByRole('button', { name: '保存' }).click();
+
+    await expect(page.getByText(updatedTitle)).toBeVisible();
+    await expect(page.getByText(currentTitle)).toHaveCount(0);
+    await expect(page.getByText('ToDoを更新しました。')).toBeVisible();
   });
 
   test('ToDo を削除できる', async ({ page }) => {

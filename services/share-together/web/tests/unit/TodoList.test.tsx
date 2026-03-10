@@ -83,6 +83,22 @@ describe('TodoList', () => {
     expect(checkbox).toBeChecked();
   });
 
+  it('編集して保存するとモック ToDo のタイトルが更新される', () => {
+    render(<TodoList listId="mock-default-list" />);
+
+    const todoRow = screen.getByText('牛乳を買う').closest('li');
+    expect(todoRow).not.toBeNull();
+    fireEvent.click(within(todoRow!).getByRole('button', { name: '編集' }));
+    fireEvent.change(within(todoRow!).getByRole('textbox', { name: 'タイトルを編集' }), {
+      target: { value: '牛乳を買って帰る' },
+    });
+    fireEvent.click(within(todoRow!).getByRole('button', { name: '保存' }));
+
+    expect(screen.getByText('牛乳を買って帰る')).toBeInTheDocument();
+    expect(screen.queryByText('牛乳を買う')).not.toBeInTheDocument();
+    expect(screen.getByText('ToDoを更新しました。')).toBeInTheDocument();
+  });
+
   it('apiEnabled が true の場合は ToDo 一覧を API から取得する', async () => {
     const originalFetch = globalThis.fetch;
     try {
@@ -315,6 +331,79 @@ describe('TodoList', () => {
         expect(screen.queryByText('API ToDo 1')).not.toBeInTheDocument();
       });
       expect(screen.getByText('API ToDo 2')).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: originalFetch,
+      });
+    }
+  });
+
+  it('apiEnabled が true の場合は ToDo 編集時に API を呼び出す', async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const fetchMock = jest
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todos: [{ todoId: 'api-todo-1', title: '編集前タイトル', isCompleted: false }],
+            },
+          }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: {
+              todoId: 'api-todo-1',
+              title: '編集後タイトル',
+              isCompleted: false,
+            },
+          }),
+        } as Response);
+      Object.defineProperty(globalThis, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+      Object.defineProperty(window, 'fetch', {
+        writable: true,
+        value: fetchMock,
+      });
+
+      render(<TodoList listId="api-list" apiEnabled />);
+
+      await waitFor(() => {
+        expect(screen.getByText('編集前タイトル')).toBeInTheDocument();
+      });
+
+      const todoRow = screen.getByText('編集前タイトル').closest('li');
+      expect(todoRow).not.toBeNull();
+      fireEvent.click(within(todoRow!).getByRole('button', { name: '編集' }));
+      fireEvent.change(within(todoRow!).getByRole('textbox', { name: 'タイトルを編集' }), {
+        target: { value: '編集後タイトル' },
+      });
+      fireEvent.click(within(todoRow!).getByRole('button', { name: '保存' }));
+
+      await waitFor(() => {
+        expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos/api-todo-1', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: '編集後タイトル' }),
+        });
+      });
+      await waitFor(() => {
+        expect(screen.getByText('編集後タイトル')).toBeInTheDocument();
+      });
+      await waitFor(() => {
+        expect(screen.getByText('ToDoを更新しました。')).toBeInTheDocument();
+      });
     } finally {
       Object.defineProperty(globalThis, 'fetch', {
         writable: true,
