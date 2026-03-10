@@ -12,6 +12,12 @@ import type { MembershipRepository } from '../../src/repositories/membership/mem
 import type { TodoRepository } from '../../src/repositories/todo/todo-repository.interface.js';
 import type { UserRepository } from '../../src/repositories/user/user-repository.interface.js';
 
+function expectValidIsoTimestamp(value: string): void {
+  const timestamp = new Date(value).getTime();
+  expect(Number.isNaN(timestamp)).toBe(false);
+  expect(timestamp).toBeLessThanOrEqual(Date.now());
+}
+
 describe('Repository Layer E2E with InMemory repositories', () => {
   const previousUseInMemoryDb = process.env.USE_IN_MEMORY_DB;
 
@@ -73,7 +79,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       title: '牛乳を買う',
       isCompleted: false,
     });
-    expect(createdTodo.createdAt).toBeDefined();
+    expectValidIsoTimestamp(createdTodo.createdAt);
 
     const updatedList = await listRepository.updatePersonalList('user-001', personalList.listId, {
       name: '週末の買い物リスト',
@@ -117,6 +123,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       name: '週次共有タスク',
       ownerUserId: 'owner-001',
     });
+    expectValidIsoTimestamp(group.createdAt);
 
     await membershipRepository.create({
       groupId: group.groupId,
@@ -146,6 +153,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       name: 'リリース準備',
       createdBy: 'owner-001',
     });
+    expectValidIsoTimestamp(groupList.createdAt);
 
     const createdSharedTodo = await todoRepository.create({
       todoId: 'group-todo-001',
@@ -155,6 +163,7 @@ describe('Repository Layer E2E with InMemory repositories', () => {
       createdBy: 'owner-001',
     });
     expect(createdSharedTodo.listId).toBe(groupList.listId);
+    expectValidIsoTimestamp(createdSharedTodo.createdAt);
 
     const completedSharedTodo = await todoRepository.update(groupList.listId, createdSharedTodo.todoId, {
       isCompleted: true,
