@@ -2,7 +2,7 @@
 
 ## 概要
 
-コードの共通化を専門とするリファクタリング Issue を毎週自動で作成するワークフローを追加する。
+コードの共通化を専門とするリファクタリング Issue を毎日実行し、オープンな同一ラベルの Issue が存在しない場合に新規作成するワークフローを追加する。
 Issue には `task.proposal` エージェントを割り当て、エージェントが自律的に調査・計画立案を行えるような内容を含む。
 重複 Issue を防ぐため、作成前に同一ラベルのオープン Issue を確認し、既存 Issue がある場合は新規作成をスキップする。
 
@@ -18,10 +18,9 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ### 機能要件
 
-- FR1: 毎週定期的にリファクタリング（コードの共通化）を目的とした Issue を自動作成する
+- FR1: 毎日、リファクタリング（コードの共通化）を目的とした Issue を自動作成する
 - FR2: `task.proposal` エージェントが適切に計画立案できる内容を Issue に含める
     - 調査対象のサービス・ライブラリ一覧
-    - 同一ラベルのオープン Issue 一覧（重複確認用）
     - コードの共通化観点のチェックポイント
 - FR3: 同一ラベル（`code-consolidation`）のオープン Issue が存在する場合、新規 Issue 作成をスキップする
 - FR4: スキップした場合も GitHub Step Summary に理由を記録する
@@ -30,7 +29,7 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ### 非機能要件
 
-- NFR1: 既存の週次ワークフローと時刻が重複しないよう、スケジュールをずらす（火曜日 11:00 JST = 2:00 UTC 等）
+- NFR1: 毎日 18:00 UTC（翌 3:00 JST）に実行する
 - NFR2: スクリプトは `.github/workflows/scripts/` に配置し、ワークフロー本体と分離する
 - NFR3: Issue 本文のテンプレートは `.github/workflows/templates/` に配置する
 - NFR4: ワークフロー名・ラベル・テンプレートの命名は既存パターンに準拠する
@@ -41,18 +40,18 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ```
 .github/workflows/
-├── weekly-refactoring-check.yml          # 新規ワークフロー
+├── daily-refactoring-check.yml           # 新規ワークフロー
 ├── scripts/
 │   └── prepare-refactoring-issue.sh      # Issue 本文生成スクリプト（新規）
 └── templates/
-    └── weekly-refactoring-body.md        # Issue 本文テンプレート（新規）
+    └── daily-refactoring-body.md         # Issue 本文テンプレート（新規）
 ```
 
 ### ワークフローの処理フロー
 
-1. **週情報の取得**: 年・週・日付を取得してタイトルを生成
+1. **日付情報の取得**: 年・月・日付を取得してタイトルを生成
 2. **重複チェック**: `gh issue list --label "code-consolidation" --state open` で既存オープン Issue を確認
-    - オープン Issue が存在する場合 → Step Summary に記録してスキップ（ワークフロー自体は成功で終了）
+    - オープン Issue が存在する場合 → オープン Issue の番号を Step Summary に記録してスキップ（ワークフロー自体は成功で終了）
     - オープン Issue が存在しない場合 → 次ステップへ
 3. **コンテキスト収集**: リポジトリのサービス・ライブラリ一覧を収集
 4. **Issue 本文生成**: テンプレートに変数を埋め込んでスクリプトで生成
@@ -61,7 +60,7 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ### ラベル設計
 
-新規ラベルとして以下を使用（GitHub 上で事前作成が必要、またはワークフロー内で `gh label create --force` により作成）:
+新規ラベルとして以下を使用（GitHub UI で事前作成済み）:
 - `refactoring`: リファクタリング全般（将来の横展開でも共用）
 - `code-consolidation`: コードの共通化専門（重複チェックのキーとなるラベル）
 
@@ -72,15 +71,14 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 `task.proposal` エージェントが調査・計画立案を行うために必要な情報を含める:
 
 1. **エージェントへの指示**: `task.proposal` エージェントが実行すべき内容の説明
-2. **重複確認の手順**: 同一ラベルのオープン Issue 一覧を確認してから着手するよう明記
-3. **調査対象**: リポジトリ内のサービス・ライブラリ一覧（自動収集）
-4. **調査観点（コードの共通化）**:
+2. **調査対象**: リポジトリ内のサービス・ライブラリ一覧（自動収集）
+3. **調査観点（コードの共通化）**:
     - 複数サービス間で重複している実装パターン
     - `libs/` への切り出しが可能なユーティリティ関数・コンポーネント
-    - `@nagiyu/common`, `@nagiyu/browser`, `@nagiyu/ui` で提供済みの機能を各サービスが独自実装していないか
+    - `libs/` 配下のパッケージで提供済みの機能を各サービスが独自実装していないか
     - 型定義の重複（複数サービスで同一インターフェースが定義されていないか）
-5. **実施範囲の制限**: `libs/` の依存方向（`ui → browser → common`）を維持すること
-6. **参考ドキュメント**: `docs/development/rules.md`, `docs/development/architecture.md` へのリンク
+4. **実施範囲の制限**: `libs/` の依存方向は `docs/development/architecture.md` を参照すること
+5. **参考ドキュメント**: `docs/development/rules.md`, `docs/development/architecture.md` へのリンク
 
 ### スクリプト実装方針
 
@@ -91,11 +89,10 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ### Phase 1: ラベルとテンプレートの準備
 
-- [ ] T001: `refactoring` ラベルの定義（説明: `リファクタリング全般`、色は GitHub の既存ラベルと視覚的に整合する色を選択すること）
-- [ ] T002: `code-consolidation` ラベルの定義（説明: `コードの共通化`、色は既存ラベルとの区別が明確になるよう選択すること）
-- [ ] T003: `.github/workflows/templates/weekly-refactoring-body.md` を作成
+- [x] T001: `refactoring` ラベル（説明: `リファクタリング全般`）を GitHub UI で手動作成済み
+- [x] T002: `code-consolidation` ラベル（説明: `コードの共通化`）を GitHub UI で手動作成済み
+- [ ] T003: `.github/workflows/templates/daily-refactoring-body.md` を作成
     - `task.proposal` エージェントへの指示文
-    - 重複確認の手順
     - 調査対象サービス・ライブラリ一覧（`{{SERVICE_LIST}}` プレースホルダー）
     - コードの共通化の調査観点チェックリスト
     - 参考ドキュメントリンク
@@ -103,13 +100,14 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 ### Phase 2: スクリプトとワークフローの作成
 
 - [ ] T004: `.github/workflows/scripts/prepare-refactoring-issue.sh` を作成
-    - 環境変数: `SERVICE_LIST`, `EXISTING_ISSUES`, `NEXT_DATE`, `CREATE_TIME`
+    - 環境変数: `SERVICE_LIST`, `NEXT_DATE`, `CREATE_TIME`
     - テンプレートファイルを読み込み、変数置換して本文を標準出力
-- [ ] T005: `.github/workflows/weekly-refactoring-check.yml` を作成
-    - スケジュール: 毎週火曜日 2:00 UTC（11:00 JST）
+    - ※重複チェックのスキップ処理はワークフロー側で完結させ、スクリプトは Issue 本文生成のみを担う
+- [ ] T005: `.github/workflows/daily-refactoring-check.yml` を作成
+    - スケジュール: 毎日 18:00 UTC（翌 3:00 JST）
     - 権限: `issues: write`, `contents: read`
-    - Step 1: 週情報取得
-    - Step 2: 次週日付計算
+    - Step 1: 日付情報取得
+    - Step 2: 翌日日付計算
     - Step 3: オープン Issue の重複チェック（`code-consolidation` ラベル）
     - Step 4: サービス・ライブラリ一覧の収集（`services/` と `libs/` のディレクトリ名を列挙）
     - Step 5: Issue 本文生成（スクリプト呼び出し）
@@ -118,15 +116,13 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ### Phase 3: ラベルの事前作成
 
-- [ ] T006: ワークフロー内または GitHub UI で `refactoring`, `code-consolidation` ラベルを作成する
-    - ワークフロー内で `gh label create --force` を使う方法を採用する場合、
-      `weekly-refactoring-check.yml` の冒頭に label 作成 Step を追加
+- [x] T006: GitHub UI で `refactoring`, `code-consolidation` ラベルを手動作成済み
 
 ### Phase 4: 動作確認
 
 - [ ] T007: `workflow_dispatch` で手動実行し、Issue が正しく作成されることを確認
 - [ ] T008: 既にオープン Issue がある状態で再実行し、スキップされることを確認
-- [ ] T009: 作成された Issue に `task.proposal` エージェントを割り当て、計画立案が正しく行えることを確認
+- [ ] T009: 作成された Issue に `task.proposal` エージェントを手動でアサインし、計画立案が正しく行えることを確認
 
 ## 参考ドキュメント
 
@@ -136,7 +132,7 @@ Issue には `task.proposal` エージェントを割り当て、エージェン
 
 ## 備考・未決定事項
 
-- **スケジュール曜日**: 既存の週次ワークフロー（月曜日 0:00 UTC, 1:00 UTC）と重複しないよう火曜日 2:00 UTC を提案しているが、別の曜日・時間帯も検討可能
-- **ラベル作成タイミング**: ワークフロー実行前に GitHub UI で手動作成する方法と、ワークフロー内で自動作成する方法のどちらを採用するか
-- **`task.proposal` エージェントのアサイン**: `gh issue create` コマンドで直接アサインする方法（`--assignee @copilot`）を使うか、Issue 本文でエージェントへの指示を記述するかを選択する。`--assignee @copilot` が GitHub CLI で正しく機能するかは実装時に確認が必要（GitHub Copilot のアサイン方法は通常の GitHub ユーザーとは異なる可能性がある）。
+- **スケジュール**: 毎日 18:00 UTC（翌 3:00 JST）で実施する
+- **ラベル作成**: GitHub UI で手動作成済み
+- **`task.proposal` エージェントのアサイン**: Issue 作成後に手動でアサインする
 - **将来の横展開**: テスト観点、脆弱性調査の Issue ワークフローを追加する場合、`refactoring` ラベルを共用し、サブラベル（`test-coverage`, `vulnerability-scan` 等）で区別する設計を推奨
