@@ -314,25 +314,27 @@ test.describe('サマリー画面スモークテスト', () => {
       }
     );
 
-    const summaryChartResponse = page.waitForResponse(
-      (response) => response.url().includes('/api/chart/') && response.status() === 200,
+    const summaryChartResponsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.startsWith('/api/chart/') && response.status() === 200,
       { timeout: 30000 }
     );
 
     await page.goto('/summaries');
     await page.locator('tbody tr').first().click();
-    await summaryChartResponse;
+    await summaryChartResponsePromise;
 
     const summaryDialog = page.getByRole('dialog');
     await expect(summaryDialog.getByText('株価チャート')).toBeVisible();
     await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible({ timeout: 10000 });
 
-    const alertChartResponse = page.waitForResponse(
-      (response) => response.url().includes('/api/chart/') && response.status() === 200,
+    const alertChartResponsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.startsWith('/api/chart/') && response.status() === 200,
       { timeout: 30000 }
     );
     await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
-    await alertChartResponse;
+    await alertChartResponsePromise;
     const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
     await expect(alertDialog.getByText('株価チャート')).toBeVisible();
     await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
