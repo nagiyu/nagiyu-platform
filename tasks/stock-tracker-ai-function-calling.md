@@ -3,7 +3,7 @@
 ## 概要
 
 Stock Tracker の AI 解析において、現在は OpenAI にプレーンテキスト（Markdown 形式の自由記述）で応答させているため、ティッカーによって出力項目や精度にばらつきが生じている。  
-OpenAI の Structured Output（Function Calling / JSON Schema 指定）を導入することで、表示項目を統一し、フロントエンドでの構造化表示を可能にする。
+OpenAI Responses API の Structured Output（`text.format: json_schema`）を導入することで、表示項目を統一し、フロントエンドでの構造化表示を可能にする。
 
 ## 関連情報
 
@@ -50,56 +50,65 @@ OpenAI の Structured Output（Function Calling / JSON Schema 指定）を導入
 
 ### 非機能要件
 
--   NFR1: 既存の DynamoDB スキーマ変更は後方互換を保つこと（移行期間中に旧データが混在しても動作すること）
--   NFR2: Lambda のタイムアウト制約（現状 120 秒）内で完結すること
--   NFR3: TypeScript strict mode、テストカバレッジ 80% 以上を維持すること
--   NFR4: エラーメッセージは日本語かつ `ERROR_MESSAGES` 定数で管理すること
+-   NFR1: Lambda のタイムアウト制約（現状 120 秒）内で完結すること
+-   NFR2: TypeScript strict mode、テストカバレッジ 80% 以上を維持すること
+-   NFR3: エラーメッセージは日本語かつ `ERROR_MESSAGES` 定数で管理すること
 
 ---
 
-## 実装方針の検討
+## 実装方針
 
-### 方針 A: Structured Output（JSON Schema 指定） ← **推奨**
+### 採用方針: Structured Output（`text.format: json_schema`）
 
-OpenAI Responses API の `text.format` に `{ type: 'json_schema', json_schema: {...} }` を指定し、モデルに JSON 形式の構造化出力を強制する方法。
+調査の結果、以下がすべて確認できたため **Structured Output を採用**する。
 
-**メリット**:
--   出力形式が API レベルで保証される（パースエラーが発生しにくい）
--   Web 検索ツール（`web_search`）との併用が可能
--   Function Calling（`tools` に `function` 型追加）よりもシンプル
+**確認済み事項**:
+-   `gpt-5-mini` は OpenAI Responses API の Structured Output（`text.format: json_schema`）をサポートしている
+-   `web_search` ツールと `text.format: json_schema` の**同時使用が可能**である（Responses API の設計として両立する）
+-   `client.responses.parse()` メソッドを使用することで `response.output_parsed` から型安全なオブジェクトを直接取得できる
+-   スキーマには `additionalProperties: false` および全フィールドを `required` として設定することで厳密なスキーマ準拠が保証される
+-   Zod でスキーマを定義することで TypeScript の型安全性を確保できる
 
-**懸念点**:
--   `gpt-5-mini` が Structured Output に対応しているか確認が必要
--   スキーマが複雑になると Tokens が増加する
+**Function Calling（`tools` に function 追加）を採用しない理由**:
+-   Structured Output の方がシンプルかつ信頼性が高い
+-   `text.format: json_schema` が API レベルで出力形式を保証するため、パースエラーのリスクが低い
+-   `output_parsed` によりレスポンスの型安全なアクセスが実現できる
 
-### 方針 B: Function Calling（`tools` に function 定義を追加）
+### 実装パターン（TypeScript）
 
-`tools` に `{ type: 'function', function: { name: 'report_analysis', parameters: {...} } }` を追加し、モデルにその関数を呼び出させる方法。
+`client.responses.create()` から `client.responses.parse()` に変更し、Zod スキーマを `text_format` に渡す。
 
-**メリット**:
--   既存の `tools: [{ type: 'web_search' }]` と共存できる
--   関数引数としてスキーマを定義できる
+```
+// Zod スキーマを定義（TypeScript の型も自動生成される）
+const AiAnalysisResultSchema = z.object({
+  priceMovementAnalysis: z.string(),
+  patternAnalysis: z.string(),
+  supportLevels: z.array(z.number()),
+  resistanceLevels: z.array(z.number()),
+  relatedMarketTrend: z.string(),
+  investmentJudgment: z.object({
+    signal: z.enum(['BULLISH', 'NEUTRAL', 'BEARISH']),
+    reason: z.string(),
+  }),
+});
 
-**懸念点**:
--   Responses API での function tool の使い方が Chat Completions API と異なる部分がある
--   Web 検索ツールと function を同時指定した場合の動作確認が必要
+// client.responses.parse() で呼び出す
+const response = await client.responses.parse({
+  model: 'gpt-5-mini',
+  stream: false,
+  tools: [{ type: 'web_search' }],
+  text_format: AiAnalysisResultSchema,  // Zod スキーマを直接渡す
+  input: [...],
+});
 
-### 方針 C: プロンプトエンジニアリング（`response_format: json_object`）
+// output_parsed から型安全なオブジェクトを取得
+const result = response.output_parsed;  // z.infer<typeof AiAnalysisResultSchema> 型
+```
 
-プロンプトで「以下の JSON 形式で出力してください」と指示し、`response_format: { type: 'json_object' }` を指定する方法。
-
-**メリット**:
--   実装変更が最小限
-
-**懸念点**:
--   出力形式の保証がなく、キーの欠落やネスト構造のずれが起こりやすい
--   Web 検索ツールと JSON 形式指定の併用時に不安定になるケースがある
-
-### 採用方針の結論（要調査確認項目）
-
-1.  `gpt-5-mini`（OpenAI Responses API）での Structured Output サポート状況を確認する
-2.  `web_search` ツールと `text.format: json_schema` の同時使用が可能かを公式ドキュメントで確認する
-3.  上記が可能なら **方針 A**、不可なら **方針 B** を採用する
+**注意点**:
+-   `client.responses.parse()` は `client.responses.create()` のラッパーであり、追加のランタイムコストはほぼない
+-   スキーマの全プロパティは `required` とする（オプショナルフィールドはモデルが埋められないケースで問題になる可能性）
+-   Web 検索結果を構造化出力に統合するため、プロンプトでも各フィールドの意図を明示する
 
 ---
 
@@ -123,15 +132,12 @@ AiAnalysisResult:
 
 ### DailySummaryEntity の変更
 
-現在の `AiAnalysis?: string` を構造化型に変更する。  
-後方互換のために旧型（`string`）との Union 型、または JSON 文字列としてシリアライズして保存することを検討する。
-
-推奨: 新フィールド `AiAnalysisResult` を追加し、既存の `AiAnalysis` は Deprecated として残す（移行後に削除）。
+現在の `AiAnalysis?: string` を削除し、`AiAnalysisResult` 構造化型に置き換える。  
+実装は一括で行うため後方互換は考慮しない。
 
 ```
 変更前: AiAnalysis?: string
-変更後: AiAnalysis?: string          // Deprecated（後方互換用）
-        AiAnalysisResult?: AiAnalysisResult  // 新構造化フィールド
+変更後: AiAnalysisResult?: AiAnalysisResult  // 構造化フィールド
 ```
 
 DynamoDB 保存時は `AiAnalysisResult` を JSON 文字列としてシリアライズする。
@@ -155,49 +161,41 @@ DynamoDB 保存時は `AiAnalysisResult` を JSON 文字列としてシリアラ
 
 ## タスク
 
-### Phase 1: 調査・方針確定
+### Phase 1: コア実装（batch / core）
 
--   [ ] T001: `gpt-5-mini`（OpenAI Responses API）での Structured Output（`text.format: json_schema`）サポートを公式ドキュメントで確認する
--   [ ] T002: `web_search` ツールと Structured Output の同時指定の可否を確認する
--   [ ] T003: Function Calling（方針 B）と Structured Output（方針 A）の選定結論を出す
--   [ ] T004: 出力スキーマの項目・型を確定する（上記案を起点にレビューする）
--   [ ] T005: DynamoDB の後方互換方針（新フィールド追加 vs 既存フィールド上書き）を確定する
-
-### Phase 2: コア実装（batch / core）
-
--   [ ] T006: `AiAnalysisResult` インターフェースを定義する（`core/src/entities/` または `batch/src/lib/`）
--   [ ] T007: `openai-client.ts` を Structured Output / Function Calling に対応させる
-    -   スキーマ定義の追加
-    -   レスポンスのパース処理
+-   [ ] T001: `zod` を `batch/` の依存関係に追加する（Structured Output スキーマ定義用）
+-   [ ] T002: `AiAnalysisResult` 型（Zod スキーマ + 推論型）を定義する（`batch/src/lib/openai-client.ts` 内）
+-   [ ] T003: `openai-client.ts` を Structured Output に対応させる
+    -   `client.responses.create()` → `client.responses.parse()` に変更
+    -   `text_format` に Zod スキーマを渡す
     -   戻り値を `string` から `AiAnalysisResult` に変更
--   [ ] T008: `daily-summary.entity.ts` に `AiAnalysisResult` フィールドを追加する
--   [ ] T009: `daily-summary.mapper.ts` に `AiAnalysisResult` の変換ロジックを追加する
--   [ ] T010: `batch/src/summary.ts` の呼び出し側を新インターフェースに対応させる
+    -   プロンプトに各フィールドの出力指示を明示する
+-   [ ] T004: `daily-summary.entity.ts` の `AiAnalysis?: string` を `AiAnalysisResult?: AiAnalysisResult` に変更する
+-   [ ] T005: `daily-summary.mapper.ts` に `AiAnalysisResult` の DynamoDB 変換ロジック（JSON シリアライズ/デシリアライズ）を追加する
+-   [ ] T006: `batch/src/summary.ts` の呼び出し側を新インターフェースに対応させる
 
-### Phase 3: フロントエンド実装（web）
+### Phase 2: フロントエンド実装（web）
 
--   [ ] T011: `web/types/stock.ts` の `TickerSummary` に `aiAnalysisResult` フィールドを追加する
--   [ ] T012: `web/app/summaries/ai-analysis.ts` を更新する（構造化データ対応）
--   [ ] T013: `web/app/summaries/page.tsx` の AI 解析セクションを構造化表示 UI に変更する
+-   [ ] T007: `web/types/stock.ts` の `TickerSummary` の `aiAnalysis?: string` を `aiAnalysisResult?: AiAnalysisResult` に変更する
+-   [ ] T008: `web/app/summaries/ai-analysis.ts` を削除または構造化データ対応に更新する
+-   [ ] T009: `web/app/summaries/page.tsx` の AI 解析セクションを構造化表示 UI に変更する
     -   当日の値動き分析テキスト
     -   パターン分析テキスト
     -   サポート・レジスタンスレベルの数値表示
     -   関連市場動向テキスト
     -   投資判断（シグナル + 理由）
--   [ ] T014: 後方互換として旧 `aiAnalysis` 文字列が残っている場合のフォールバック表示を実装する
 
-### Phase 4: テスト・品質保証
+### Phase 3: テスト・品質保証
 
--   [ ] T015: `openai-client.ts` のユニットテストを更新する（新スキーマのモックレスポンス対応）
--   [ ] T016: `daily-summary.mapper.ts` のユニットテストを更新する
--   [ ] T017: `ai-analysis.ts` のユニットテストを更新する
--   [ ] T018: サマリーページの E2E テストで AI 解析表示を確認する（構造化 UI のアクセシビリティ）
--   [ ] T019: テストカバレッジが 80% 以上であることを確認する
+-   [ ] T010: `openai-client.ts` のユニットテストを更新する（新スキーマのモックレスポンス対応）
+-   [ ] T011: `daily-summary.mapper.ts` のユニットテストを更新する
+-   [ ] T012: サマリーページの E2E テストで AI 解析表示を確認する（構造化 UI のアクセシビリティ）
+-   [ ] T013: テストカバレッジが 80% 以上であることを確認する
 
-### Phase 5: ドキュメント更新
+### Phase 4: ドキュメント更新
 
--   [ ] T020: `docs/services/stock-tracker/architecture.md` の「3.2.2 AI 解析の設計方針」を更新する
--   [ ] T021: `docs/services/stock-tracker/api-spec.md` の `AiAnalysis` 関連レスポンス仕様を更新する
+-   [ ] T014: `docs/services/stock-tracker/architecture.md` の「3.2.2 AI 解析の設計方針」を更新する
+-   [ ] T015: `docs/services/stock-tracker/api-spec.md` の `AiAnalysis` 関連レスポンス仕様を更新する
 
 ---
 
@@ -207,14 +205,12 @@ DynamoDB 保存時は `AiAnalysisResult` を JSON 文字列としてシリアラ
 -   [Stock Tracker API 仕様](../docs/services/stock-tracker/api-spec.md)
 -   [コーディング規約](../docs/development/rules.md)
 -   OpenAI Responses API Structured Output: https://platform.openai.com/docs/guides/structured-outputs
--   OpenAI Function Calling: https://platform.openai.com/docs/guides/function-calling
+-   OpenAI Responses API - TypeScript SDK: https://github.com/openai/openai-node
 
 ---
 
 ## 備考・未決定事項
 
--   `gpt-5-mini` のモデル名が正式な OpenAI モデル識別子かどうか要確認（リポジトリ内コードに記載された名称を使用している）
--   サポート・レジスタンスの数値個数（1〜3個の上限設定、または固定数にするか）は調査後に確定する
--   投資判断のシグナル値の列挙（`BULLISH / NEUTRAL / BEARISH` か、より細分化するか）は要検討
+-   サポート・レジスタンスの数値個数（1〜3個の上限設定、または固定数にするか）は実装時に確定する
+-   投資判断のシグナル値の列挙（`BULLISH / NEUTRAL / BEARISH` か、より細分化するか）は実装時に確定する
 -   Web 検索ツールの利用により API コストが増加する可能性があるため、コスト試算も行う
--   DynamoDB の既存データとの後方互換（旧形式の `AiAnalysis` 文字列が残っている状態での UI 表示）を設計する
