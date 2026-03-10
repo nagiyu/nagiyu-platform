@@ -1,0 +1,115 @@
+name: Daily Refactoring Check
+
+on:
+  schedule:
+    # 毎日 18:00 UTC（翌日 3:00 JST）
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  create-refactoring-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get current date info
+        id: date_info
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          CREATE_TIME=$(date -u +"%Y-%m-%d %H:%M UTC")
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+          echo "create_time=$CREATE_TIME" >> "$GITHUB_OUTPUT"
+          echo "title=[Refactoring] コード共通化調査 ($DATE)" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate next issue date
+        id: next_date
+        run: |
+          NEXT_DATE=$(date -d "tomorrow" +%Y-%m-%d)
+          echo "next_date=$NEXT_DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Check existing open code consolidation issue
+        id: duplicate_check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          OPEN_ISSUE=$(gh issue list \
+            --label "code-consolidation" \
+            --state open \
+            --limit 1 \
+            --json number,url \
+            --jq '.[0]')
+
+          if [ "$OPEN_ISSUE" != "null" ]; then
+            ISSUE_NUMBER=$(echo "$OPEN_ISSUE" | jq -r '.number')
+            ISSUE_URL=$(echo "$OPEN_ISSUE" | jq -r '.url')
+            echo "should_create=false" >> "$GITHUB_OUTPUT"
+            echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+            echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_create=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect services and libraries list
+        id: service_list
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        run: |
+          SERVICE_LIST=$( {
+            find services -mindepth 1 -maxdepth 1 -type d -printf '- services/%f\n' | sort
+            find libs -mindepth 1 -maxdepth 1 -type d -printf '- libs/%f\n' | sort
+          } )
+
+          {
+            echo 'service_list<<EOF'
+            echo "$SERVICE_LIST"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Prepare issue body from template
+        id: issue_body
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        env:
+          SERVICE_LIST: ${{ steps.service_list.outputs.service_list }}
+          NEXT_DATE: ${{ steps.next_date.outputs.next_date }}
+          CREATE_TIME: ${{ steps.date_info.outputs.create_time }}
+        run: |
+          BODY=$(.github/workflows/scripts/prepare-refactoring-issue.sh)
+          {
+            echo 'issue_body<<EOF'
+            echo "$BODY"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create daily refactoring issue
+        id: create_issue
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ISSUE_URL=$(gh issue create \
+            --title "${{ steps.date_info.outputs.title }}" \
+            --label "refactoring,code-consolidation" \
+            --body "${{ steps.issue_body.outputs.issue_body }}")
+          ISSUE_NUMBER=$(basename "$ISSUE_URL")
+          echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
+          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Summary (created)
+        if: steps.duplicate_check.outputs.should_create == 'true'
+        run: |
+          echo "✅ 日次リファクタリング Issue を作成しました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**タイトル**: ${{ steps.date_info.outputs.title }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Issue**: #${{ steps.create_issue.outputs.issue_number }} (${{ steps.create_issue.outputs.issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "**次回作成予定**: ${{ steps.next_date.outputs.next_date }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary (skipped)
+        if: steps.duplicate_check.outputs.should_create != 'true'
+        run: |
+          echo "⏭️ 既存の `code-consolidation` ラベル付きオープンIssueが存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
