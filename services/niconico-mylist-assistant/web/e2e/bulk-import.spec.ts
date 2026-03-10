@@ -289,7 +289,9 @@ test.describe('Bulk Import UI', () => {
 
     await page.goto('/import');
     await page.getByRole('button', { name: '動画を検索して追加' }).click();
-    await page.getByLabel('検索キーワード').fill('陰陽師');
+    const keywordInput = page.getByLabel('検索キーワード');
+    await keywordInput.waitFor({ state: 'visible' });
+    await keywordInput.fill('陰陽師');
     await page.getByRole('button', { name: '検索' }).click();
 
     await expect(page.getByText('レッツゴー!陰陽師')).toBeVisible();
