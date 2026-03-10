@@ -19,6 +19,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
+import { ERROR_MESSAGES as COMMON_ERROR_MESSAGES } from '@/lib/constants/errors';
 
 type SidebarList = {
   listId: string;
@@ -42,6 +43,7 @@ const ERROR_MESSAGES = {
   LIST_CREATE_FAILED: '個人リストの作成に失敗しました',
   LIST_UPDATE_FAILED: '個人リスト名の更新に失敗しました',
   LIST_DELETE_FAILED: '個人リストの削除に失敗しました',
+  PERSONAL_LIST_LIMIT_EXCEEDED: COMMON_ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED,
 } as const;
 
 /**
@@ -75,6 +77,7 @@ export function ListSidebar({
   const [apiLists, setApiLists] = useState<readonly SidebarList[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
   const displayedLists = apiEnabled ? apiLists : lists;
+  const isPersonalListLimitReached = apiEnabled && displayedLists.length >= 100;
   const navigateToList = (listId: string) => {
     if (onListSelect) {
       onListSelect(listId);
@@ -214,9 +217,19 @@ export function ListSidebar({
         {heading}
       </Typography>
       <Box sx={{ mb: 2 }}>
-        <Button variant="contained" fullWidth onClick={handleCreateList}>
+        <Button
+          variant="contained"
+          fullWidth
+          onClick={handleCreateList}
+          disabled={isPersonalListLimitReached}
+        >
           {createButtonLabel}
         </Button>
+        {isPersonalListLimitReached ? (
+          <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+            {ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED}
+          </Typography>
+        ) : null}
       </Box>
       <List disablePadding>
         {displayedLists.map((list) => (

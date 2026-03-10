@@ -10,6 +10,30 @@ const createPersonalListByPrompt = async (page: import('@playwright/test').Page,
   await expect(page.getByText('個人リストを作成しました。')).toBeVisible();
 };
 
+const createPersonalLists = (totalCount: number) => {
+  if (totalCount < 1) {
+    return [];
+  }
+
+  return Array.from({ length: totalCount }, (_, index) => {
+    if (index === 0) {
+      return {
+        listId: 'list-default',
+        userId: TEST_USER.userId,
+        name: 'デフォルトリスト',
+        isDefault: true,
+      };
+    }
+
+    return {
+      listId: `list-${index.toString().padStart(3, '0')}`,
+      userId: TEST_USER.userId,
+      name: `追加リスト${index}`,
+      isDefault: false,
+    };
+  });
+};
+
 test.describe('個人リスト管理', () => {
   test.beforeEach(async ({ page, request }) => {
     await resetTestData(request, {
@@ -126,5 +150,47 @@ test.describe('個人リスト管理', () => {
     await page.goto('/lists?listId=other-default-list');
     await expect(page.getByText('ToDo一覧の取得に失敗しました。')).toBeVisible();
     await expect(page.getByText('他ユーザー専用ToDo')).toHaveCount(0);
+  });
+
+  test('個人リストが100件に到達している場合は作成ボタンが無効化される', async ({
+    page,
+    request,
+  }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: createPersonalLists(100),
+    });
+
+    await page.goto('/lists?listId=list-default');
+    await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeDisabled();
+    await expect(page.getByText('個人リストは100件まで作成できます')).toBeVisible();
+  });
+
+  test('個人リスト作成 API が 409 を返した場合にエラーメッセージが表示される', async ({ page }) => {
+    await page.route('**/api/lists', async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'PERSONAL_LIST_LIMIT_EXCEEDED',
+            message: '個人リストは100件まで作成できます',
+          },
+        }),
+      });
+    });
+
+    page.once('dialog', async (dialog) => {
+      expect(dialog.type()).toBe('prompt');
+      await dialog.accept('追加できないリスト');
+    });
+
+    await page.getByRole('button', { name: '個人リストを作成' }).click();
+    await expect(page.getByText('個人リストは100件まで作成できます')).toBeVisible();
   });
 });
