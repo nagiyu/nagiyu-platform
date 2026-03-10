@@ -27,6 +27,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 110,
         Low: 95,
         Close: 108,
+        Volume: 1000000,
       });
       await repository.upsert({
         TickerID: 'NSDQ:NVDA',
@@ -36,6 +37,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 215,
         Low: 198,
         Close: 210,
+        Volume: 2000000,
       });
       await repository.upsert({
         TickerID: 'NSDQ:AAPL',
@@ -51,6 +53,7 @@ describe('InMemoryDailySummaryRepository', () => {
 
       expect(result).toHaveLength(2);
       expect(result.every((summary) => summary.Date === targetDate)).toBe(true);
+      expect(result[0].Volume).toBeDefined();
     });
 
     it('date未指定時は取引所内で最新日付のサマリーのみを返す', async () => {
@@ -62,6 +65,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 110,
         Low: 95,
         Close: 108,
+        Volume: 1000000,
       });
       await repository.upsert({
         TickerID: 'NSDQ:AAPL',
@@ -71,6 +75,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 112,
         Low: 107,
         Close: 111,
+        Volume: 1100000,
       });
       await repository.upsert({
         TickerID: 'NYSE:IBM',
@@ -80,6 +85,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 305,
         Low: 298,
         Close: 304,
+        Volume: 900000,
       });
 
       const result = await repository.getByExchange('NASDAQ');
@@ -87,6 +93,7 @@ describe('InMemoryDailySummaryRepository', () => {
       expect(result).toHaveLength(1);
       expect(result[0].TickerID).toBe('NSDQ:AAPL');
       expect(result[0].Date).toBe('2026-02-28');
+      expect(result[0].Volume).toBe(1100000);
     });
   });
 
@@ -100,6 +107,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 110,
         Low: 95,
         Close: 108,
+        Volume: 1000000,
       };
 
       const result = await repository.upsert(input);
@@ -108,6 +116,7 @@ describe('InMemoryDailySummaryRepository', () => {
       expect(result.CreatedAt).toBeDefined();
       expect(result.UpdatedAt).toBeDefined();
       expect(result.CreatedAt).toBe(result.UpdatedAt);
+      expect(result.Volume).toBe(1000000);
     });
 
     it('同一TickerID+Dateのupsertは既存レコードを更新し、CreatedAtを維持して重複を作らない', async () => {
@@ -119,6 +128,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 110,
         Low: 95,
         Close: 108,
+        Volume: 1000000,
       };
       const first = await repository.upsert(input);
       await new Promise((resolve) => setTimeout(resolve, 10));
@@ -129,6 +139,7 @@ describe('InMemoryDailySummaryRepository', () => {
         High: 111,
         Low: 96,
         Close: 109,
+        Volume: 1200000,
       });
       const byDate = await repository.getByExchange('NASDAQ', '2026-02-27');
 
@@ -136,9 +147,11 @@ describe('InMemoryDailySummaryRepository', () => {
       expect(updated.UpdatedAt).toBeGreaterThan(first.UpdatedAt);
       expect(updated.Open).toBe(101);
       expect(updated.Close).toBe(109);
+      expect(updated.Volume).toBe(1200000);
       expect(byDate).toHaveLength(1);
       expect(byDate[0].Open).toBe(101);
       expect(byDate[0].Close).toBe(109);
+      expect(byDate[0].Volume).toBe(1200000);
     });
   });
 });

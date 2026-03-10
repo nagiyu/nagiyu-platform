@@ -90,6 +90,7 @@ function toHistoricalDataFromChartData(
     high: point.high,
     low: point.low,
     close: point.close,
+    volume: point.volume,
   }));
 }
 
@@ -128,6 +129,7 @@ function toCreateDailySummaryInput(summary: DailySummaryEntity): CreateDailySumm
     High: summary.High,
     Low: summary.Low,
     Close: summary.Close,
+    Volume: summary.Volume,
     PatternResults: summary.PatternResults,
     BuyPatternCount: summary.BuyPatternCount,
     SellPatternCount: summary.SellPatternCount,
@@ -195,6 +197,7 @@ async function processExchange(
             High: latest.high,
             Low: latest.low,
             Close: latest.close,
+            Volume: latest.volume,
             PatternResults: patternAnalysis.patternResults,
             BuyPatternCount: patternAnalysis.buyPatternCount,
             SellPatternCount: patternAnalysis.sellPatternCount,
@@ -274,6 +277,7 @@ async function processExchange(
             high: currentSummaryInput.High,
             low: currentSummaryInput.Low,
             close: currentSummaryInput.Close,
+            volume: currentSummaryInput.Volume,
             buyPatternCount: currentSummaryInput.BuyPatternCount ?? 0,
             sellPatternCount: currentSummaryInput.SellPatternCount ?? 0,
             patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),

@@ -42,6 +42,9 @@ const ERROR_MESSAGES = {
   REFRESH_SUCCESS: 'サマリーバッチを実行しました',
   INSUFFICIENT_DATA_REASON: 'データ不足',
 } as const;
+const UI_DISPLAY_VALUES = {
+  NOT_AVAILABLE: '-',
+} as const;
 
 const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   const latest = summaries.reduce<number | null>((currentMax, summary) => {
@@ -324,6 +327,15 @@ export default function SummariesPage() {
                         終値
                       </TableCell>
                       <TableCell align="right">{selectedTicker.close.toFixed(2)}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        出来高
+                      </TableCell>
+                      <TableCell align="right">
+                        {selectedTicker.volume?.toLocaleString('ja-JP') ??
+                          UI_DISPLAY_VALUES.NOT_AVAILABLE}
+                      </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
