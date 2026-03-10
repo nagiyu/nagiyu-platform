@@ -45,8 +45,8 @@ type OpenAiImageInput = {
 const aiAnalysisResultSchema = z.object({
   priceMovementAnalysis: z.string(),
   patternAnalysis: z.string(),
-  supportLevels: z.tuple([z.number(), z.number(), z.number()]),
-  resistanceLevels: z.tuple([z.number(), z.number(), z.number()]),
+  supportLevels: z.array(z.number()).length(3),
+  resistanceLevels: z.array(z.number()).length(3),
   relatedMarketTrend: z.string(),
   investmentJudgment: z.object({
     signal: z.enum(['BULLISH', 'NEUTRAL', 'BEARISH']),
@@ -96,7 +96,11 @@ export async function generateAiAnalysis(
     throw new Error(ERROR_MESSAGES.INVALID_RESPONSE);
   }
 
-  return response.output_parsed;
+  return {
+    ...response.output_parsed,
+    supportLevels: toLevelTuple(response.output_parsed.supportLevels),
+    resistanceLevels: toLevelTuple(response.output_parsed.resistanceLevels),
+  };
 }
 
 function toSupportedImageInput(chartImageBase64: string | undefined): OpenAiImageInput | undefined {
@@ -160,6 +164,14 @@ function formatHistoricalData(historicalData: HistoricalPriceData[]): string[] {
   return [...historicalData]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((point) => `${point.date}, ${point.open}, ${point.high}, ${point.low}, ${point.close}`);
+}
+
+function toLevelTuple(levels: number[]): [number, number, number] {
+  if (levels.length !== 3) {
+    throw new Error(ERROR_MESSAGES.INVALID_RESPONSE);
+  }
+
+  return [levels[0], levels[1], levels[2]];
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
