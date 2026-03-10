@@ -94,7 +94,7 @@ jobs:
             --title "${{ steps.date_info.outputs.title }}" \
             --label "refactoring,code-consolidation" \
             --body "${{ steps.issue_body.outputs.issue_body }}")
-          ISSUE_NUMBER=$(basename "$ISSUE_URL")
+          ISSUE_NUMBER="${ISSUE_URL##*/}"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
 
