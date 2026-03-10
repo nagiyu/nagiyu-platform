@@ -165,10 +165,14 @@ describe('Repository Layer E2E with InMemory repositories', () => {
     expect(createdSharedTodo.listId).toBe(groupList.listId);
     expectValidIsoTimestamp(createdSharedTodo.createdAt);
 
-    const completedSharedTodo = await todoRepository.update(groupList.listId, createdSharedTodo.todoId, {
-      isCompleted: true,
-      completedBy: 'member-001',
-    });
+    const completedSharedTodo = await todoRepository.update(
+      groupList.listId,
+      createdSharedTodo.todoId,
+      {
+        isCompleted: true,
+        completedBy: 'member-001',
+      }
+    );
     expect(completedSharedTodo).toMatchObject({
       isCompleted: true,
       completedBy: 'member-001',
