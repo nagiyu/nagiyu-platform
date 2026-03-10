@@ -11,10 +11,6 @@ const createPersonalListByPrompt = async (page: import('@playwright/test').Page,
 };
 
 const createPersonalLists = (totalCount: number) => {
-  if (totalCount < 1) {
-    return [];
-  }
-
   return Array.from({ length: totalCount }, (_, index) => {
     if (index === 0) {
       return {
@@ -166,7 +162,18 @@ test.describe('個人リスト管理', () => {
     await expect(page.getByText('個人リストは100件まで作成できます')).toBeVisible();
   });
 
-  test('個人リスト作成 API が 409 を返した場合にエラーメッセージが表示される', async ({ page }) => {
+  test('個人リスト作成 API が 409 を返した場合にエラーメッセージが表示される', async ({
+    page,
+    request,
+  }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: createPersonalLists(2),
+    });
+
+    await page.goto('/lists?listId=list-default');
+    await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
+
     await page.route('**/api/lists', async (route) => {
       if (route.request().method() !== 'POST') {
         await route.continue();
