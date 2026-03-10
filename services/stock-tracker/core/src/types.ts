@@ -76,7 +76,7 @@ export type Ticker = {
 /**
  * 日次サマリー (DailySummary)
  *
- * 特定ティッカーの特定日における OHLC（始値・高値・安値・終値）の日次集計データ
+ * 特定ティッカーの特定日における OHLCV（始値・高値・安値・終値・出来高）の日次集計データ
  */
 export type DailySummary = {
   /** ティッカーID (PK: SUMMARY#{TickerID}) */
@@ -93,6 +93,8 @@ export type DailySummary = {
   Low: number;
   /** 終値 */
   Close: number;
+  /** 出来高 */
+  Volume?: number;
   /** 作成日時 (Unix timestamp ms) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp ms) */

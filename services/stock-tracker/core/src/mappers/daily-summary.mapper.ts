@@ -64,6 +64,7 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       High: entity.High,
       Low: entity.Low,
       Close: entity.Close,
+      ...(entity.Volume !== undefined ? { Volume: entity.Volume } : {}),
       ...(entity.PatternResults ? { PatternResults: entity.PatternResults } : {}),
       ...(entity.BuyPatternCount !== undefined ? { BuyPatternCount: entity.BuyPatternCount } : {}),
       ...(entity.SellPatternCount !== undefined
@@ -91,6 +92,7 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
       High: validateNumberField(item.High, 'High'),
       Low: validateNumberField(item.Low, 'Low'),
       Close: validateNumberField(item.Close, 'Close'),
+      Volume: item.Volume === undefined ? undefined : validateNumberField(item.Volume, 'Volume'),
       PatternResults:
         item.PatternResults &&
         typeof item.PatternResults === 'object' &&
