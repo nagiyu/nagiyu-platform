@@ -57,7 +57,7 @@ describe('TodoItem', () => {
     expect(screen.getByText('議事録を確認する')).toHaveStyle({ textDecoration: 'line-through' });
   });
 
-  it('コールバック未指定でも操作時にエラーにならない', () => {
+  it('コールバック未指定でも操作時にエラーにならずタイトルは変更されない', () => {
     render(
       <TodoItem
         todo={{
@@ -77,6 +77,7 @@ describe('TodoItem', () => {
       fireEvent.click(screen.getByRole('checkbox', { name: '掃除をするの完了チェック' }));
       fireEvent.click(screen.getByRole('button', { name: '削除' }));
     }).not.toThrow();
+    expect(screen.getByText('掃除をする')).toBeInTheDocument();
   });
 
   it('編集して保存すると更新コールバックを呼び出す', () => {
