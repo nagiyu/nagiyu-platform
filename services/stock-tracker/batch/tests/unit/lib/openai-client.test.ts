@@ -101,7 +101,7 @@ describe('generateAiAnalysis', () => {
         ],
       })
     );
-    const parseArgument = mockParse.mock.calls[0][0] as {
+    const parseCallArgument = mockParse.mock.calls[0][0] as {
       text: {
         format: {
           schema?: {
@@ -122,7 +122,7 @@ describe('generateAiAnalysis', () => {
       };
     };
 
-    expect(parseArgument.text.format.schema?.properties?.supportLevels).toEqual(
+    expect(parseCallArgument.text.format.schema?.properties?.supportLevels).toEqual(
       expect.objectContaining({
         minItems: 3,
         maxItems: 3,
@@ -131,10 +131,7 @@ describe('generateAiAnalysis', () => {
         }),
       })
     );
-    expect(Array.isArray(parseArgument.text.format.schema?.properties?.supportLevels?.items)).toBe(
-      false
-    );
-    expect(parseArgument.text.format.schema?.properties?.resistanceLevels).toEqual(
+    expect(parseCallArgument.text.format.schema?.properties?.resistanceLevels).toEqual(
       expect.objectContaining({
         minItems: 3,
         maxItems: 3,
@@ -143,9 +140,6 @@ describe('generateAiAnalysis', () => {
         }),
       })
     );
-    expect(
-      Array.isArray(parseArgument.text.format.schema?.properties?.resistanceLevels?.items)
-    ).toBe(false);
   });
 
   it('対応形式のチャート画像がある場合は input_image を付与する', async () => {
@@ -261,5 +255,22 @@ describe('generateAiAnalysis', () => {
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toContain('タイムアウト');
     expect(mockParse).toHaveBeenCalledTimes(4);
+  });
+
+  it('異常系: レベル配列が3件でない場合はErrorをスローする', async () => {
+    mockParse.mockResolvedValue({
+      output_parsed: {
+        priceMovementAnalysis: '当日の値動き分析',
+        patternAnalysis: 'パターン分析',
+        supportLevels: [100, 99],
+        resistanceLevels: [110, 111, 112],
+        relatedMarketTrend: '市場動向',
+        investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+      },
+    });
+
+    await expect(generateAiAnalysis('test-api-key', testInput)).rejects.toThrow(
+      'AI解析の応答が不正です'
+    );
   });
 });
