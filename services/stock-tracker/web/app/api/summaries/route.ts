@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   DailySummaryMapper,
+  type AiAnalysisResult,
   type DailySummaryEntity,
   type ExchangeEntity,
   type PatternDetailResponse,
@@ -38,11 +39,12 @@ interface TickerSummaryResponse {
   high: number;
   low: number;
   close: number;
+  volume?: number;
   updatedAt: string;
   buyPatternCount: number;
   sellPatternCount: number;
   patternDetails: PatternDetailResponse[];
-  aiAnalysis?: string;
+  aiAnalysisResult?: AiAnalysisResult;
   aiAnalysisError?: string;
   holding: HoldingSummaryResponse | null;
 }
@@ -97,6 +99,7 @@ function toTickerSummaryResponse(
     high: summary.High,
     low: summary.Low,
     close: summary.Close,
+    volume: summary.Volume,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     holding,
     ...dailySummaryMapper.toTickerSummaryResponse(summary),

@@ -11,6 +11,17 @@ import { PATTERN_REGISTRY } from '../../../src/patterns/pattern-registry.js';
 
 describe('DailySummaryMapper', () => {
   let mapper: DailySummaryMapper;
+  const mockAiAnalysisResult = {
+    priceMovementAnalysis: '当日の値動き分析',
+    patternAnalysis: 'パターン分析',
+    supportLevels: [100, 99, 98] as [number, number, number],
+    resistanceLevels: [110, 111, 112] as [number, number, number],
+    relatedMarketTrend: '関連市場動向',
+    investmentJudgment: {
+      signal: 'NEUTRAL' as const,
+      reason: '様子見',
+    },
+  };
 
   beforeEach(() => {
     mapper = new DailySummaryMapper();
@@ -26,6 +37,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };
@@ -45,6 +57,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       });
@@ -97,6 +110,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };
@@ -111,6 +125,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       });
@@ -161,6 +176,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };
@@ -295,14 +311,14 @@ describe('DailySummaryMapper', () => {
         buyPatternCount: 0,
         sellPatternCount: 0,
         patternDetails: [],
-        aiAnalysis: undefined,
+        aiAnalysisResult: undefined,
         aiAnalysisError: undefined,
       });
     });
   });
 
   describe('AI解析フィールドのマッピング', () => {
-    it('成功パターン: AiAnalysis あり / AiAnalysisError なし', () => {
+    it('成功パターン: AiAnalysisResult あり / AiAnalysisError なし', () => {
       const entity: DailySummaryEntity = {
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -311,7 +327,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
-        AiAnalysis: 'AI解析テキスト',
+        AiAnalysisResult: mockAiAnalysisResult,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };
@@ -320,15 +336,15 @@ describe('DailySummaryMapper', () => {
       const convertedEntity = mapper.toEntity(item);
       const response = mapper.toTickerSummaryResponse(entity);
 
-      expect(item.AiAnalysis).toBe('AI解析テキスト');
+      expect(item.AiAnalysisResult).toBe(JSON.stringify(mockAiAnalysisResult));
       expect(item.AiAnalysisError).toBeUndefined();
-      expect(convertedEntity.AiAnalysis).toBe('AI解析テキスト');
+      expect(convertedEntity.AiAnalysisResult).toEqual(mockAiAnalysisResult);
       expect(convertedEntity.AiAnalysisError).toBeUndefined();
-      expect(response.aiAnalysis).toBe('AI解析テキスト');
+      expect(response.aiAnalysisResult).toEqual(mockAiAnalysisResult);
       expect(response.aiAnalysisError).toBeUndefined();
     });
 
-    it('失敗パターン: AiAnalysis なし / AiAnalysisError あり', () => {
+    it('失敗パターン: AiAnalysisResult なし / AiAnalysisError あり', () => {
       const entity: DailySummaryEntity = {
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -346,15 +362,15 @@ describe('DailySummaryMapper', () => {
       const convertedEntity = mapper.toEntity(item);
       const response = mapper.toTickerSummaryResponse(entity);
 
-      expect(item.AiAnalysis).toBeUndefined();
+      expect(item.AiAnalysisResult).toBeUndefined();
       expect(item.AiAnalysisError).toBe('OpenAI API timeout');
-      expect(convertedEntity.AiAnalysis).toBeUndefined();
+      expect(convertedEntity.AiAnalysisResult).toBeUndefined();
       expect(convertedEntity.AiAnalysisError).toBe('OpenAI API timeout');
-      expect(response.aiAnalysis).toBeUndefined();
+      expect(response.aiAnalysisResult).toBeUndefined();
       expect(response.aiAnalysisError).toBe('OpenAI API timeout');
     });
 
-    it('未生成パターン: AiAnalysis / AiAnalysisError ともになし', () => {
+    it('未生成パターン: AiAnalysisResult / AiAnalysisError ともになし', () => {
       const entity: DailySummaryEntity = {
         TickerID: 'NSDQ:AAPL',
         ExchangeID: 'NASDAQ',
@@ -371,11 +387,11 @@ describe('DailySummaryMapper', () => {
       const convertedEntity = mapper.toEntity(item);
       const response = mapper.toTickerSummaryResponse(entity);
 
-      expect(item.AiAnalysis).toBeUndefined();
+      expect(item.AiAnalysisResult).toBeUndefined();
       expect(item.AiAnalysisError).toBeUndefined();
-      expect(convertedEntity.AiAnalysis).toBeUndefined();
+      expect(convertedEntity.AiAnalysisResult).toBeUndefined();
       expect(convertedEntity.AiAnalysisError).toBeUndefined();
-      expect(response.aiAnalysis).toBeUndefined();
+      expect(response.aiAnalysisResult).toBeUndefined();
       expect(response.aiAnalysisError).toBeUndefined();
     });
   });

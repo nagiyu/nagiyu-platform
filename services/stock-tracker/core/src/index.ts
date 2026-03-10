@@ -9,6 +9,7 @@
  */
 
 export * from './types.js';
+export type { AiAnalysisResult, InvestmentSignal } from './ai-analysis-result.js';
 export * from './validation/helpers.js';
 export * from './validation/index.js';
 export { CandlestickPattern } from './patterns/candlestick-pattern.js';

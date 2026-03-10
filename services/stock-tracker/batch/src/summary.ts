@@ -18,6 +18,7 @@ import { generateAiAnalysis } from './lib/openai-client.js';
 import type { AiAnalysisInput } from './lib/openai-client.js';
 import { createChartImageBase64 } from './lib/chart-renderer.js';
 import type {
+  AiAnalysisResult,
   CreateDailySummaryInput,
   DailySummaryEntity,
   DailySummaryRepository,
@@ -71,7 +72,7 @@ interface HandlerDependencies {
   getChartDataFn: typeof getChartData;
   createChartImageBase64Fn: typeof createChartImageBase64;
   nowFn: () => number;
-  generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<string>;
+  generateAiAnalysisFn?: (apiKey: string, input: AiAnalysisInput) => Promise<AiAnalysisResult>;
 }
 
 const REQUIRED_CHART_DATA_COUNT = 100;
@@ -90,6 +91,7 @@ function toHistoricalDataFromChartData(
     high: point.high,
     low: point.low,
     close: point.close,
+    volume: point.volume,
   }));
 }
 
@@ -128,10 +130,11 @@ function toCreateDailySummaryInput(summary: DailySummaryEntity): CreateDailySumm
     High: summary.High,
     Low: summary.Low,
     Close: summary.Close,
+    Volume: summary.Volume,
     PatternResults: summary.PatternResults,
     BuyPatternCount: summary.BuyPatternCount,
     SellPatternCount: summary.SellPatternCount,
-    AiAnalysis: summary.AiAnalysis,
+    AiAnalysisResult: summary.AiAnalysisResult,
     AiAnalysisError: summary.AiAnalysisError,
   };
 }
@@ -195,10 +198,11 @@ async function processExchange(
             High: latest.high,
             Low: latest.low,
             Close: latest.close,
+            Volume: latest.volume,
             PatternResults: patternAnalysis.patternResults,
             BuyPatternCount: patternAnalysis.buyPatternCount,
             SellPatternCount: patternAnalysis.sellPatternCount,
-            AiAnalysis: existingSummary?.AiAnalysis,
+            AiAnalysisResult: existingSummary?.AiAnalysisResult,
             AiAnalysisError: existingSummary?.AiAnalysisError,
           };
           historicalDataForAiFromChart = toHistoricalDataFromChartData(chartData);
@@ -210,7 +214,7 @@ async function processExchange(
           continue;
         }
 
-        if (currentSummaryInput.AiAnalysis !== undefined) {
+        if (currentSummaryInput.AiAnalysisResult !== undefined) {
           logger.debug('既存の日次サマリーが存在するためティッカーをスキップします', {
             exchangeId: exchange.ExchangeID,
             tickerId: ticker.TickerID,
@@ -274,6 +278,7 @@ async function processExchange(
             high: currentSummaryInput.High,
             low: currentSummaryInput.Low,
             close: currentSummaryInput.Close,
+            volume: currentSummaryInput.Volume,
             buyPatternCount: currentSummaryInput.BuyPatternCount ?? 0,
             sellPatternCount: currentSummaryInput.SellPatternCount ?? 0,
             patternSummary: matchedPatterns.map((pattern) => pattern.definition.name).join('、'),
@@ -283,7 +288,7 @@ async function processExchange(
 
           await dependencies.dailySummaryRepository.upsert({
             ...currentSummaryInput,
-            AiAnalysis: aiAnalysis,
+            AiAnalysisResult: aiAnalysis,
             AiAnalysisError: undefined,
           });
           stats.aiAnalysisGenerated++;
@@ -296,7 +301,7 @@ async function processExchange(
           });
           await dependencies.dailySummaryRepository.upsert({
             ...currentSummaryInput,
-            AiAnalysis: undefined,
+            AiAnalysisResult: undefined,
             AiAnalysisError: errorMessage,
           });
           stats.aiAnalysisSkipped++;

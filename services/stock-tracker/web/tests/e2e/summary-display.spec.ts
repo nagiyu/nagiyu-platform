@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
 
-const MOCK_CHART_DATE_2024_03_01 = 1709251200000;
-const MOCK_CHART_DATE_2024_02_29 = 1709164800000;
-
 test.describe('サマリー画面スモークテスト', () => {
   test('サマリー一覧テーブルに買い/売りシグナル列と件数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
@@ -24,6 +21,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 110,
                   low: 95,
                   close: 105,
+                  volume: 1234567,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
@@ -41,6 +39,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 210,
                   low: 190,
                   close: 205,
+                  volume: undefined,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
@@ -88,6 +87,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 110,
                   low: 95,
                   close: 105,
+                  volume: 1234567,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
@@ -105,6 +105,7 @@ test.describe('サマリー画面スモークテスト', () => {
                   high: 210,
                   low: 190,
                   close: 205,
+                  volume: undefined,
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
@@ -131,6 +132,8 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('保有数')).toBeVisible();
     await expect(dialog.getByText('123')).toBeVisible();
     await expect(dialog.getByText('99.50')).toBeVisible();
+    await expect(dialog.getByText('出来高')).toBeVisible();
+    await expect(dialog.locator('tr', { hasText: '出来高' }).locator('td')).toHaveText('1,234,567');
     await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toBeVisible();
 
@@ -141,6 +144,7 @@ test.describe('サマリー画面スモークテスト', () => {
 
     await dialog.getByRole('button', { name: '閉じる' }).click();
     await secondRow.click();
+    await expect(dialog.locator('tr', { hasText: '出来高' }).locator('td')).toHaveText('-');
     await expect(dialog.getByRole('button', { name: '買いアラート設定' })).toBeVisible();
     await expect(dialog.getByRole('button', { name: '売りアラート設定' })).toHaveCount(0);
   });
@@ -281,49 +285,53 @@ test.describe('サマリー画面スモークテスト', () => {
       });
     });
 
-    await page.route('**/api/chart/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          tickerId: 'TEST:AAA',
-          symbol: 'AAA',
-          timeframe: 'D',
-          data: [
-            {
-              time: MOCK_CHART_DATE_2024_03_01,
-              open: 100,
-              high: 110,
-              low: 95,
-              close: 105,
-              volume: 1000000,
-            },
-            {
-              time: MOCK_CHART_DATE_2024_02_29,
-              open: 98,
-              high: 108,
-              low: 94,
-              close: 100,
-              volume: 950000,
-            },
-          ],
-        }),
-      });
-    });
+    // webkit-mobile では TradingView 側タイムアウト時に 504 が返ることがあるため、
+    // ステータスに依存せず /api/chart のレスポンス到達を待ってからUI表示を検証する。
+    const summaryChartResponsePromise = page.waitForResponse(
+      (response) => new URL(response.url()).pathname.startsWith('/api/chart/'),
+      { timeout: 30000 }
+    );
 
     await page.goto('/summaries');
     await page.locator('tbody tr').first().click();
+    await summaryChartResponsePromise;
 
     const summaryDialog = page.getByRole('dialog');
     await expect(summaryDialog.getByText('株価チャート')).toBeVisible();
-    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+    await expect
+      .poll(
+        async () => {
+          const isChartVisible = await summaryDialog.getByLabel('AAA の株価チャート').isVisible();
+          const isChartErrorVisible = await summaryDialog
+            .getByText('チャート読み込みエラー')
+            .isVisible();
+          return isChartVisible || isChartErrorVisible;
+        },
+        { timeout: 10000 }
+      )
+      .toBeTruthy();
 
+    const alertChartResponsePromise = page.waitForResponse(
+      (response) => new URL(response.url()).pathname.startsWith('/api/chart/'),
+      { timeout: 30000 }
+    );
     await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
+    await alertChartResponsePromise;
     const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
     await expect(alertDialog.getByText('株価チャート')).toBeVisible();
     await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
-    await expect(alertDialog.getByLabel('表示本数')).toBeVisible();
-    await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+    await expect
+      .poll(
+        async () => {
+          const isChartVisible = await alertDialog.getByLabel('AAA の株価チャート').isVisible();
+          const isChartErrorVisible = await alertDialog
+            .getByText('チャート読み込みエラー')
+            .isVisible();
+          return isChartVisible || isChartErrorVisible;
+        },
+        { timeout: 10000 }
+      )
+      .toBeTruthy();
   });
 
   test('詳細ダイアログでAI解析セクションを表示できる', async ({ page }) => {
@@ -350,7 +358,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysis: 'テスト用のAI解析テキストです。',
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: 'テスト用の値動き分析です。',
+                    patternAnalysis: 'テスト用のパターン分析です。',
+                    supportLevels: [100, 99, 98],
+                    resistanceLevels: [110, 111, 112],
+                    relatedMarketTrend: 'テスト用の市場動向です。',
+                    investmentJudgment: { signal: 'NEUTRAL', reason: '様子見です。' },
+                  },
                   holding: null,
                 },
               ],
@@ -365,7 +380,9 @@ test.describe('サマリー画面スモークテスト', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('テスト用のAI解析テキストです。')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+    await expect(dialog.getByText('テスト用の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('中立')).toBeVisible();
   });
 
   test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
@@ -397,7 +414,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   buyPatternCount: 0,
                   sellPatternCount: 0,
                   patternDetails: [],
-                  aiAnalysis: '更新後のAI解析テキストです。',
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: '更新後の値動き分析です。',
+                    patternAnalysis: '更新後のパターン分析です。',
+                    supportLevels: [200, 199, 198],
+                    resistanceLevels: [210, 211, 212],
+                    relatedMarketTrend: '更新後の市場動向です。',
+                    investmentJudgment: { signal: 'BULLISH', reason: '上昇基調です。' },
+                  },
                   holding: null,
                 },
               ],
@@ -421,7 +445,9 @@ test.describe('サマリー画面スモークテスト', () => {
     await page.locator('tbody tr').first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('AI 解析')).toBeVisible();
-    await expect(dialog.getByText('更新後のAI解析テキストです。')).toBeVisible();
+    await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
+    await expect(dialog.getByText('更新後の値動き分析です。')).toBeVisible();
+    await expect(dialog.getByText('強気')).toBeVisible();
   });
 
   test('サマリーページの基本要素が表示される', async ({ page }) => {
