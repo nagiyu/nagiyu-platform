@@ -76,6 +76,8 @@ test.describe('グループ管理', () => {
     });
 
     await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: 'E2E グループ' }).click();
+    await expect(page.getByRole('textbox', { name: 'メールアドレス' })).toBeVisible();
     await page.getByRole('textbox', { name: 'メールアドレス' }).fill('invitee@example.com');
     await page.getByRole('button', { name: '招待を送信' }).click();
     await expect(page.getByText('招待を送信しました。')).toBeVisible();
@@ -182,6 +184,7 @@ test.describe('グループ管理', () => {
 
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '参加中グループ' }).click();
+    await expect(page.getByRole('button', { name: 'グループを脱退' })).toBeVisible();
     await page.getByRole('button', { name: 'グループを脱退' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '脱退' }).click();
     await expect(page.getByText('グループから脱退しました。')).toBeVisible();
@@ -213,6 +216,7 @@ test.describe('グループ管理', () => {
 
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: '管理グループ' }).click();
+    await expect(page.getByRole('button', { name: 'テストメンバーを削除' })).toBeVisible();
     await page.getByRole('button', { name: 'テストメンバーを削除' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '削除' }).click();
     await expect(page.getByText('テストメンバーさんをグループから削除しました。')).toBeVisible();

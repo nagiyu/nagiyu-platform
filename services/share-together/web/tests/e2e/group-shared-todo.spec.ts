@@ -53,6 +53,7 @@ test.describe('グループ共有 ToDo 管理', () => {
   test('共有リストを作成できる', async ({ page }) => {
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: 'E2E 共有グループ' }).click();
+    await expect(page.getByRole('textbox', { name: '新しい共有リスト名' })).toBeVisible();
 
     const createdListName = `E2E 共有リスト ${Date.now()}`;
     await page.getByRole('textbox', { name: '新しい共有リスト名' }).fill(createdListName);
@@ -109,6 +110,7 @@ test.describe('グループ共有 ToDo 管理', () => {
     });
 
     await page.goto('/lists?scope=shared&groupId=group-private&listId=private-list');
-    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).toBeVisible();
+    await expect(page.getByRole('link', { name: '非公開リスト' })).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'タイトル' })).toHaveCount(0);
   });
 });

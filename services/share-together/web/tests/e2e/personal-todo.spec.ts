@@ -17,14 +17,14 @@ test.describe('個人 ToDo 管理', () => {
         {
           todoId: 'todo-1',
           listId: 'list-default',
-          title: '牛乳を買う',
+          title: 'E2E 未完了 ToDo',
           isCompleted: false,
           createdBy: TEST_USER.userId,
         },
         {
           todoId: 'todo-2',
           listId: 'list-default',
-          title: '請求書を確認する',
+          title: 'E2E 完了済み ToDo',
           isCompleted: true,
           createdBy: TEST_USER.userId,
           completedBy: TEST_USER.userId,
@@ -33,6 +33,7 @@ test.describe('個人 ToDo 管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
+    await expect(page.getByText('E2E 未完了 ToDo')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'タイトル' })).toBeVisible();
   });
 
@@ -47,14 +48,14 @@ test.describe('個人 ToDo 管理', () => {
   });
 
   test('ToDo を完了にできる', async ({ page }) => {
-    const checkbox = page.getByRole('checkbox', { name: '牛乳を買うの完了チェック' });
+    const checkbox = page.getByRole('checkbox', { name: 'E2E 未完了 ToDoの完了チェック' });
     await expect(checkbox).not.toBeChecked();
     await checkbox.click();
     await expect(checkbox).toBeChecked();
   });
 
   test.fixme('ToDo を編集できる', async ({ page }) => {
-    await page.getByText('牛乳を買う').click();
+    await page.getByText('E2E 未完了 ToDo').click();
   });
 
   test('ToDo を削除できる', async ({ page }) => {

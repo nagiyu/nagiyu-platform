@@ -34,7 +34,9 @@ export default function GroupsPage() {
           throw new Error(`status: ${groupsResponse.status}`);
         }
 
-        const groupsData = (await groupsResponse.json()) as { data: { groups: GroupSummary[] } };
+        const groupsData = (await groupsResponse.json()) as {
+          data: { groups: GroupSummary[]; currentUserId: string };
+        };
         const groupsWithMemberCount = await Promise.all(
           groupsData.data.groups.map(async (group) => {
             try {
@@ -54,6 +56,7 @@ export default function GroupsPage() {
         );
 
         setGroups(groupsWithMemberCount);
+        setCurrentUserId(groupsData.data.currentUserId);
         if (groupsWithMemberCount.length > 0) {
           setSelectedGroupId(groupsWithMemberCount[0].groupId);
         }
@@ -76,18 +79,15 @@ export default function GroupsPage() {
 
     void (async () => {
       try {
-        const [groupsResponse, membersResponse, sessionResponse, listsResponse] = await Promise.all(
-          [
-            fetch('/api/groups'),
-            fetch(`/api/groups/${selectedGroupId}/members`),
-            fetch('/api/auth/session'),
-            fetch(`/api/groups/${selectedGroupId}/lists`),
-          ]
-        );
+        const [groupsResponse, membersResponse, listsResponse] = await Promise.all([
+          fetch('/api/groups'),
+          fetch(`/api/groups/${selectedGroupId}/members`),
+          fetch(`/api/groups/${selectedGroupId}/lists`),
+        ]);
 
-        if (!groupsResponse.ok || !membersResponse.ok || !sessionResponse.ok || !listsResponse.ok) {
+        if (!groupsResponse.ok || !membersResponse.ok || !listsResponse.ok) {
           throw new Error(
-            `status: ${groupsResponse.status},${membersResponse.status},${sessionResponse.status},${listsResponse.status}`
+            `status: ${groupsResponse.status},${membersResponse.status},${listsResponse.status}`
           );
         }
 
@@ -98,11 +98,6 @@ export default function GroupsPage() {
         const listsData = (await listsResponse.json()) as {
           data: { lists: Array<{ listId: string; name: string }> };
         };
-        const sessionData = (await sessionResponse.json()) as { user?: { id?: unknown } };
-        if (typeof sessionData.user?.id !== 'string' || sessionData.user.id.length === 0) {
-          setSelectedGroupError('ユーザーIDが取得できませんでした。再度ログインしてください。');
-          return;
-        }
         const targetGroup = groupsData.data.groups.find(
           (group) => group.groupId === selectedGroupId
         );
@@ -111,7 +106,6 @@ export default function GroupsPage() {
           return;
         }
 
-        setCurrentUserId(sessionData.user.id);
         setMembers(membersData.data.members);
         setGroupLists(listsData.data.lists);
       } catch (error: unknown) {

@@ -55,8 +55,8 @@ export async function GET(): Promise<NextResponse> {
       isOwner: isOwnerByGroupId.get(group.groupId) === true,
     }));
 
-    const response: ApiSuccessResponse<{ groups: GroupSummary[] }> = {
-      data: { groups: groupSummaries },
+    const response: ApiSuccessResponse<{ groups: GroupSummary[]; currentUserId: string }> = {
+      data: { groups: groupSummaries, currentUserId: userId },
     };
     return NextResponse.json(response);
   } catch (error) {
