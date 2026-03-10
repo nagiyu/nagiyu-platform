@@ -250,6 +250,34 @@ export function TodoList({
     setPendingDeleteId(todoId);
   };
 
+  const handleUpdate = (todoId: string, title: string) => {
+    if (isApiMode && listId) {
+      void globalThis
+        .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`status: ${response.status}`);
+          }
+          const result = (await response.json()) as TodoResponse;
+          setTodos((prev) =>
+            prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
+          );
+          setSnackbarMessage('ToDoを更新しました。');
+        })
+        .catch((error: unknown) => {
+          console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
+        });
+      return;
+    }
+
+    setTodos((prev) => prev.map((todo) => (todo.todoId === todoId ? { ...todo, title } : todo)));
+    setSnackbarMessage('ToDoを更新しました。');
+  };
+
   const handleDeleteConfirm = () => {
     if (pendingDeleteId) {
       if (isApiMode && listId) {
@@ -333,6 +361,7 @@ export function TodoList({
               key={todo.todoId}
               todo={todo}
               onToggleComplete={handleToggleComplete}
+              onUpdate={handleUpdate}
               onDelete={handleDeleteRequest}
             />
           ))}
