@@ -281,48 +281,62 @@ test.describe('サマリー画面スモークテスト', () => {
       });
     });
 
-    await page.route('**/api/chart/**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          tickerId: 'TEST:AAA',
-          symbol: 'AAA',
-          timeframe: 'D',
-          data: [
-            {
-              time: MOCK_CHART_DATE_2024_03_01,
-              open: 100,
-              high: 110,
-              low: 95,
-              close: 105,
-              volume: 1000000,
-            },
-            {
-              time: MOCK_CHART_DATE_2024_02_29,
-              open: 98,
-              high: 108,
-              low: 94,
-              close: 100,
-              volume: 950000,
-            },
-          ],
-        }),
-      });
-    });
+    await page.route(
+      (url) => url.pathname.startsWith('/api/chart/'),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            tickerId: 'TEST:AAA',
+            symbol: 'AAA',
+            timeframe: 'D',
+            data: [
+              {
+                time: MOCK_CHART_DATE_2024_03_01,
+                open: 100,
+                high: 110,
+                low: 95,
+                close: 105,
+                volume: 1000000,
+              },
+              {
+                time: MOCK_CHART_DATE_2024_02_29,
+                open: 98,
+                high: 108,
+                low: 94,
+                close: 100,
+                volume: 950000,
+              },
+            ],
+          }),
+        });
+      }
+    );
+
+    const summaryChartResponse = page.waitForResponse(
+      (response) => response.url().includes('/api/chart/') && response.status() === 200,
+      { timeout: 30000 }
+    );
 
     await page.goto('/summaries');
     await page.locator('tbody tr').first().click();
+    await summaryChartResponse;
 
     const summaryDialog = page.getByRole('dialog');
     await expect(summaryDialog.getByText('株価チャート')).toBeVisible();
-    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+    await expect(summaryDialog.getByLabel('AAA の株価チャート')).toBeVisible({ timeout: 10000 });
 
+    const alertChartResponse = page.waitForResponse(
+      (response) => response.url().includes('/api/chart/') && response.status() === 200,
+      { timeout: 30000 }
+    );
     await summaryDialog.getByRole('button', { name: '買いアラート設定' }).click();
+    await alertChartResponse;
     const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
     await expect(alertDialog.getByText('株価チャート')).toBeVisible();
     await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
-    await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible();
+    await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible({ timeout: 10000 });
   });
 
   test('詳細ダイアログでAI解析セクションを表示できる', async ({ page }) => {
