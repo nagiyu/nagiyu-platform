@@ -152,7 +152,9 @@ describe('generateAiAnalysis', () => {
   });
 
   it('出来高未設定時は当日データと過去データで "-" を出力する', async () => {
-    mockParse.mockResolvedValue({ output_parsed: { priceMovementAnalysis: '出来高未設定の解析テキスト' } });
+    mockParse.mockResolvedValue({
+      output_parsed: { priceMovementAnalysis: '出来高未設定の解析テキスト' },
+    });
 
     await generateAiAnalysis('test-api-key', {
       ...testInput,
