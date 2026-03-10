@@ -329,7 +329,7 @@ test.describe('サマリー画面スモークテスト', () => {
     const alertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
     await expect(alertDialog.getByText('株価チャート')).toBeVisible();
     await expect(alertDialog.getByLabel('時間枠')).toBeVisible();
-    await expect(alertDialog.getByLabel('表示本数')).toBeVisible();
+    await expect(alertDialog.getByLabel('表示本数')).toHaveCount(0);
     await expect(alertDialog.getByLabel('AAA の株価チャート')).toBeVisible();
   });
 

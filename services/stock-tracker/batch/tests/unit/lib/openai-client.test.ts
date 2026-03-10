@@ -104,7 +104,7 @@ describe('generateAiAnalysis', () => {
         ],
       })
     );
-    
+
     const parseCallArgument = mockParse.mock.calls[0][0] as {
       text: {
         format: {
