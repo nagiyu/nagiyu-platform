@@ -42,14 +42,29 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 
 ---
 
+## データモデルの整理
+
+本機能を正しく設計するにあたり、データモデルの役割を明確にしておく。
+
+| エンティティ | テーブル種別 | 説明 |
+|-------------|------------|------|
+| `VideoBasicInfo` | サービス全体（グローバル） | ニコニコ動画から取得した動画基本情報。全ユーザーで共有。インポート操作で追加される。 |
+| `UserVideoSetting` | ユーザー固有 | 各ユーザーの動画に対する設定（お気に入り・スキップ・メモ等）。インポート時に併せて作成される。 |
+
+**インポート（追加）= `VideoBasicInfo` へのデータ登録**であり、サービス全体に対する操作である。
+検索結果での「既存動画検知」は、この `VideoBasicInfo` の存在確認を基準とするべきであり、
+`UserVideoSetting`（ユーザー設定）は関与しない。
+
+---
+
 ## 実装方針
 
 ### 調査結果
 
 - 検索 API（`/api/videos/search/route.ts`）は現在 `NiconicoVideoInfo[]` を返すのみで、
-  ユーザー固有の登録状態を含まない
-- 追加 API（`/api/videos/bulk-import/route.ts`）では `getUserVideoSetting()` を呼び出して
-  既登録チェックを実施済みであり、同じロジックを検索時にも適用できる
+  動画の既登録状態を含まない
+- `core` ライブラリには `batchGetVideoBasicInfo(videoIds)` が公開されており、
+  複数の動画 ID に対して一括で `VideoBasicInfo` の存在確認ができる
 - `VideoSearchModal.tsx` の `addStatusById` ステートに検索時点で初期値を設定することで、
   フロントエンド側の変更は最小限に抑えられる
 
@@ -58,8 +73,8 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 **検索 API の拡張（最小変更アプローチ）**
 
 - `GET /api/videos/search` レスポンスに `existingVideoIds: string[]` フィールドを追加する
-- 検索動画の取得後、`getUserVideoSetting()` を各動画 ID に対して並行実行し、
-  既登録の動画 ID 一覧を取得する
+- 検索動画の取得後、`batchGetVideoBasicInfo()` で検索結果の動画 ID 群を一括確認し、
+  グローバル DB に既存の動画 ID 一覧を取得する
 - フロントエンド（`VideoSearchModal`）は `existingVideoIds` を受け取り、
   検索完了後に `addStatusById` の初期値として `'already-added'` ステータスを設定する
 
@@ -67,7 +82,7 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `web/src/app/api/videos/search/route.ts` | 検索後に `getUserVideoSetting()` を並行実行し `existingVideoIds` を返す |
+| `web/src/app/api/videos/search/route.ts` | 検索後に `batchGetVideoBasicInfo()` で既存動画を一括確認し `existingVideoIds` を返す |
 | `web/src/components/VideoSearchModal.tsx` | 検索結果受信後に `existingVideoIds` で `addStatusById` を初期化 |
 | `web/e2e/video-search.spec.ts` | 既登録動画が追加済み表示になるケースのテストを追加 |
 
@@ -78,9 +93,9 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 ### フェーズ 1: API 拡張
 
 - [ ] T001: `GET /api/videos/search` のレスポンス型に `existingVideoIds: string[]` を追加する
-- [ ] T002: `searchVideos()` 実行後、セッションのユーザー ID と検索結果の動画 ID 群で
-      `getUserVideoSetting()` を `Promise.all` で並行実行し、登録済み ID を収集する
-- [ ] T003: 収集した登録済み ID を `existingVideoIds` としてレスポンスに含める
+- [ ] T002: `searchVideos()` 実行後、検索結果の動画 ID 群を `batchGetVideoBasicInfo()` で
+      一括確認し、グローバル DB に存在する動画 ID を収集する
+- [ ] T003: 収集した既存動画 ID を `existingVideoIds` としてレスポンスに含める
 
 ### フェーズ 2: フロントエンド対応
 
@@ -105,8 +120,7 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 
 ## 備考・未決定事項
 
-- 検索結果が最大 10 件であるため、`getUserVideoSetting()` の並行呼び出しは最大 10 回であり
-  パフォーマンス上の問題は小さいと判断する
-- 将来的に検索件数が増える場合は、`listUserVideoSettings()` で全件取得し
-  フロントエンドでフィルタリングする方式も検討余地がある
+- `batchGetVideoBasicInfo()` は DynamoDB の BatchGetItem を使った一括取得であり、
+  検索件数（最大 10 件）に対して1リクエストで済むため、パフォーマンス上の問題は小さい
+- 「追加済み」はユーザー固有の状態ではなく、サービス全体として動画がインポート済みか否かを示す
 - E2E テスト環境変数 `USE_IN_MEMORY_DB=true` を使いテスト用に既登録動画を事前投入する
