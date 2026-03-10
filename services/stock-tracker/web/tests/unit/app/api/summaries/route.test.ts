@@ -267,7 +267,7 @@ describe('GET /api/summaries', () => {
     );
   });
 
-  it('正常系: AiAnalysis がある場合は aiAnalysis として返す', async () => {
+  it('正常系: AiAnalysisResult がある場合は aiAnalysisResult として返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -282,7 +282,14 @@ describe('GET /api/summaries', () => {
         Close: 183.31,
         CreatedAt: 1705276800000,
         UpdatedAt: 1705352400000,
-        AiAnalysis: '実データのAI解析',
+        AiAnalysisResult: {
+          priceMovementAnalysis: '当日の値動き分析',
+          patternAnalysis: 'パターン分析',
+          supportLevels: [100, 99, 98],
+          resistanceLevels: [110, 111, 112],
+          relatedMarketTrend: '関連市場動向',
+          investmentJudgment: { signal: 'NEUTRAL', reason: '様子見' },
+        },
       },
     ]);
 
@@ -292,13 +299,15 @@ describe('GET /api/summaries', () => {
     expect(response.status).toBe(200);
     expect(body.exchanges[0].summaries[0]).toEqual(
       expect.objectContaining({
-        aiAnalysis: '実データのAI解析',
+        aiAnalysisResult: expect.objectContaining({
+          priceMovementAnalysis: '当日の値動き分析',
+        }),
       })
     );
     expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
   });
 
-  it('正常系: AiAnalysis と AiAnalysisError がない場合は両方とも返さない', async () => {
+  it('正常系: AiAnalysisResult と AiAnalysisError がない場合は両方とも返さない', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -320,7 +329,7 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysis');
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
     expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
   });
 
@@ -352,10 +361,10 @@ describe('GET /api/summaries', () => {
         aiAnalysisError: 'AI解析の生成に失敗しました',
       })
     );
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysis');
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
   });
 
-  it('正常系: aiAnalysis と aiAnalysisError が明示的に undefined の場合はそのまま返す', async () => {
+  it('正常系: aiAnalysisResult と aiAnalysisError が明示的に undefined の場合はそのまま返す', async () => {
     mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
     mockGetAllTickers.mockResolvedValue({ items: [] });
     mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
@@ -370,7 +379,7 @@ describe('GET /api/summaries', () => {
         Close: 183.31,
         CreatedAt: 1705276800000,
         UpdatedAt: 1705352400000,
-        AiAnalysis: undefined,
+        AiAnalysisResult: undefined,
         AiAnalysisError: undefined,
       },
     ]);
@@ -379,7 +388,7 @@ describe('GET /api/summaries', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysis');
+    expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisResult');
     expect(body.exchanges[0].summaries[0]).not.toHaveProperty('aiAnalysisError');
   });
 

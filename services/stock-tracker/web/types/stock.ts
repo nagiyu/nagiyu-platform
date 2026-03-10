@@ -81,8 +81,8 @@ export interface TickerSummary {
   sellPatternCount: number;
   /** パターン詳細一覧（空配列はバッチ未実行） */
   patternDetails: PatternDetail[];
-  /** AI 解析テキスト（生成成功時のみ） */
-  aiAnalysis?: string;
+  /** AI 解析結果（生成成功時のみ） */
+  aiAnalysisResult?: AiAnalysisResult;
   /** AI 解析生成失敗時のエラー情報 */
   aiAnalysisError?: string;
   /** 保有情報（未保有の場合は null） */
@@ -108,3 +108,4 @@ export interface ExchangeSummaryGroup {
 export interface SummariesResponse {
   exchanges: ExchangeSummaryGroup[];
 }
+import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
