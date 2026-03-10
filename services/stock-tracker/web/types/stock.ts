@@ -73,6 +73,7 @@ export interface TickerSummary {
   high: number;
   low: number;
   close: number;
+  volume?: number;
   /** ISO 8601 UTC形式の更新日時 */
   updatedAt: string;
   /** MATCHED かつ BUY の件数 */

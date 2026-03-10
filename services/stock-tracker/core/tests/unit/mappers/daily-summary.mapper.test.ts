@@ -26,6 +26,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };
@@ -45,6 +46,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       });
@@ -97,6 +99,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };
@@ -111,6 +114,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       });
@@ -161,6 +165,7 @@ describe('DailySummaryMapper', () => {
         High: 183.92,
         Low: 181.44,
         Close: 183.31,
+        Volume: 1234567,
         CreatedAt: 1708992000000,
         UpdatedAt: 1708992000000,
       };

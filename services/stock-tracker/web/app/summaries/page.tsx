@@ -327,6 +327,14 @@ export default function SummariesPage() {
                     </TableRow>
                     <TableRow>
                       <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
+                        出来高
+                      </TableCell>
+                      <TableCell align="right">
+                        {selectedTicker.volume?.toLocaleString('ja-JP') ?? '-'}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
                         保有数
                       </TableCell>
                       <TableCell>
