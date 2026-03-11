@@ -1,5 +1,17 @@
 import { APIRequestContext } from '@playwright/test';
 
+const ALERT_WAIT_SETTINGS = {
+  pollIntervalMs: 200,
+  maxAttempts: 50,
+} as const;
+
+const ERROR_MESSAGES = {
+  alertPersistenceTimeout: (alertId: string): string =>
+    `作成したアラートが一覧に反映されませんでした: ${alertId}`,
+  alertResponseParseFailed: 'アラート一覧レスポンスのパースに失敗しました',
+  alertResponseInvalidFormat: 'アラート一覧レスポンスの形式が不正です',
+} as const;
+
 // ============================================================================
 // 入力型定義（作成時のオプション）
 // ============================================================================
@@ -444,6 +456,8 @@ export class TestDataFactory {
     const responseData = await response.json();
     const alertId = responseData.alertId;
 
+    await this.waitForAlertPersistence(alertId);
+
     const createdAlert: CreatedAlert = {
       alertId,
       tickerId: ticker.tickerId,
@@ -457,6 +471,30 @@ export class TestDataFactory {
     this.trackedData.alerts.set(alertId, createdAlert);
 
     return createdAlert;
+  }
+
+  private async waitForAlertPersistence(alertId: string): Promise<void> {
+    for (let attemptIndex = 0; attemptIndex < ALERT_WAIT_SETTINGS.maxAttempts; attemptIndex += 1) {
+      const listResponse = await this.request.get('/api/alerts');
+      if (listResponse.status() === 200) {
+        const body = await listResponse.json().catch((error) => {
+          throw new Error(`${ERROR_MESSAGES.alertResponseParseFailed}: ${String(error)}`);
+        });
+        if (!Array.isArray(body.alerts)) {
+          throw new Error(ERROR_MESSAGES.alertResponseInvalidFormat);
+        }
+        const hasAlert = body.alerts.some(
+          (alert: { alertId?: string }) => alert.alertId === alertId
+        );
+        if (hasAlert) {
+          return;
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, ALERT_WAIT_SETTINGS.pollIntervalMs));
+    }
+
+    throw new Error(ERROR_MESSAGES.alertPersistenceTimeout(alertId));
   }
 
   // ==========================================================================
