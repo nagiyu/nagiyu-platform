@@ -232,8 +232,11 @@ export default function SummariesPage() {
                 {exchange.summaries.length === 0 ? (
                   <Typography color="text.secondary">データがありません</Typography>
                 ) : (
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
+                  <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+                    <Table
+                      size="small"
+                      sx={{ minWidth: 760, '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}
+                    >
                       <TableHead>
                         <TableRow>
                           <TableCell>シンボル</TableCell>
