@@ -3,10 +3,9 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 // 環境判定
 // - ローカル開発環境: NODE_ENV === 'development'
 // - dev 環境: NODE_ENV === 'dev'
-// - prod 環境: NODE_ENV === 'prod' または NODE_ENV === 'production'
-const nodeEnv = String(process.env.NODE_ENV ?? '');
-const isDevelopment = nodeEnv === 'development';
-const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+// - prod 環境: NODE_ENV === 'prod'
+const isDevelopment = process.env.NODE_ENV === 'development';
+const isProduction = (process.env.NODE_ENV as string) === 'prod';
 
 // 共通のクッキーオプション
 const cookieOptions = {

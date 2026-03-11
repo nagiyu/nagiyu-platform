@@ -10,7 +10,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('NODE_ENV=development の場合、クッキー名は標準名', () => {
       const nodeEnv = 'development';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -24,7 +24,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('NODE_ENV=dev の場合、クッキー名に .dev サフィックス', () => {
       const nodeEnv = 'dev';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -38,21 +38,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('NODE_ENV=prod の場合、クッキー名は標準名', () => {
       const nodeEnv = 'prod';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
-
-      const cookieName = isProduction
-        ? '__Secure-next-auth.session-token'
-        : isDevelopment
-          ? '__Secure-next-auth.session-token'
-          : '__Secure-next-auth.session-token.dev';
-
-      expect(cookieName).toBe('__Secure-next-auth.session-token');
-    });
-
-    it('NODE_ENV=production の場合、クッキー名は標準名', () => {
-      const nodeEnv = 'production';
-      const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -66,7 +52,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('NODE_ENV=test の場合、クッキー名に .dev サフィックス', () => {
       const nodeEnv = 'test';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -114,7 +100,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('development 環境: 標準クッキー名、domain=undefined, secure=false', () => {
       const nodeEnv = 'development';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -132,7 +118,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('dev 環境: .dev サフィックスクッキー、domain=.nagiyu.com, secure=true', () => {
       const nodeEnv = 'dev';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -150,7 +136,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('prod 環境: 標準クッキー名、domain=.nagiyu.com, secure=true', () => {
       const nodeEnv = 'prod';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
@@ -168,7 +154,7 @@ describe('Auth Configuration - Environment-based Cookie Settings', () => {
     it('test 環境: .dev サフィックスクッキー、domain=.nagiyu.com, secure=true', () => {
       const nodeEnv = 'test';
       const isDevelopment = nodeEnv === 'development';
-      const isProduction = nodeEnv === 'prod' || nodeEnv === 'production';
+      const isProduction = nodeEnv === 'prod';
 
       const cookieName = isProduction
         ? '__Secure-next-auth.session-token'
