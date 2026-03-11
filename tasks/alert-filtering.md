@@ -72,18 +72,18 @@ StockTracker のアラート管理画面（`/alerts`）にて、取引所（Exch
 
 ### フェーズ1: フロントエンド実装
 
-- [ ] T001: `app/alerts/page.tsx` にフィルタ状態（`filterExchangeId`, `filterMode`）を追加する
-- [ ] T002: フィルタリングUIコンポーネント（取引所セレクト、モードセレクト、クリアボタン）を実装する
-- [ ] T003: `filteredAlerts` を計算するロジックを実装する（`alerts` データを `tickerId.split(':')[0]` と `mode` でフィルタリング）
-- [ ] T004: テーブルの表示データを `filteredAlerts` に切り替える
+- [x] T001: `app/alerts/page.tsx` にフィルタ状態（`filterExchangeId`, `filterMode`）を追加する
+- [x] T002: フィルタリングUIコンポーネント（取引所セレクト、モードセレクト、クリアボタン）を実装する
+- [x] T003: `filteredAlerts` を計算するロジックを実装する（`alerts` データを `tickerId.split(':')[0]` と `mode` でフィルタリング）
+- [x] T004: テーブルの表示データを `filteredAlerts` に切り替える
 
 ### フェーズ2: テスト・品質確認
 
-- [ ] T005: ユニットテストを追加・更新する（カバレッジ80%以上維持）
-- [ ] T006: E2Eテスト（`tests/e2e/alert-management.spec.ts`）にフィルタリング動作確認を追加する
-- [ ] T007: スマートフォン表示での動作確認
-- [ ] T008: TypeScript strict mode のエラーがないか確認する
-- [ ] T009: ESLint / Prettier のチェックをパスするか確認する
+- [x] T005: ユニットテストを追加・更新する（カバレッジ80%以上維持）
+- [x] T006: E2Eテスト（`tests/e2e/alert-management.spec.ts`）にフィルタリング動作確認を追加する
+- [x] T007: スマートフォン表示での動作確認
+- [x] T008: TypeScript strict mode のエラーがないか確認する
+- [x] T009: ESLint / Prettier のチェックをパスするか確認する
 
 ## 参考ドキュメント
 
