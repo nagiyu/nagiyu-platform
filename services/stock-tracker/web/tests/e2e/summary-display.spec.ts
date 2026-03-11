@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('サマリー画面スモークテスト', () => {
-  test('サマリー一覧テーブルに買い/売りシグナル列と件数を表示できる', async ({ page }) => {
+  test('サマリー一覧テーブルに投資判断・シグナル数・アラート数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
         status: 200,
@@ -25,7 +25,20 @@ test.describe('サマリー画面スモークテスト', () => {
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
+                  buyAlertCount: {
+                    enabled: 1,
+                    disabled: 2,
+                  },
+                  sellAlertCount: {
+                    enabled: 0,
+                    disabled: 0,
+                  },
                   patternDetails: [],
+                  aiAnalysisResult: {
+                    investmentJudgment: {
+                      signal: 'BULLISH',
+                    },
+                  },
                   holding: {
                     quantity: 10,
                     averagePrice: 98.5,
@@ -43,6 +56,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
+                  buyAlertCount: {
+                    enabled: 0,
+                    disabled: 0,
+                  },
+                  sellAlertCount: {
+                    enabled: 3,
+                    disabled: 1,
+                  },
                   patternDetails: [],
                   holding: null,
                 },
@@ -55,16 +76,26 @@ test.describe('サマリー画面スモークテスト', () => {
 
     await page.goto('/summaries');
 
+    await expect(page.getByRole('columnheader', { name: '保有可否' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '投資判断' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '買いシグナル' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '売りシグナル' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '買いアラート数' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '売りアラート数' })).toBeVisible();
 
     const rows = page.locator('tbody tr');
     await expect(rows).toHaveCount(2);
 
     await expect(page.getByTestId('buy-signal-TEST:AAA')).toHaveText('1');
     await expect(page.getByTestId('sell-signal-TEST:AAA')).toHaveText('0');
+    await expect(page.getByTestId('investment-judgment-TEST:AAA')).toHaveText('強気');
+    await expect(page.getByTestId('buy-alert-TEST:AAA')).toHaveText('1 (2)');
+    await expect(page.getByTestId('sell-alert-TEST:AAA')).toHaveText('0');
     await expect(page.getByTestId('buy-signal-TEST:BBB')).toHaveText('0');
     await expect(page.getByTestId('sell-signal-TEST:BBB')).toHaveText('2');
+    await expect(page.getByTestId('investment-judgment-TEST:BBB')).toHaveText('-');
+    await expect(page.getByTestId('buy-alert-TEST:BBB')).toHaveText('0');
+    await expect(page.getByTestId('sell-alert-TEST:BBB')).toHaveText('3 (1)');
   });
 
   test('保有情報と買い/売りアラート設定ボタンを条件に応じて表示できる', async ({ page }) => {
@@ -91,6 +122,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 1,
                   sellPatternCount: 0,
+                  buyAlertCount: {
+                    enabled: 1,
+                    disabled: 0,
+                  },
+                  sellAlertCount: {
+                    enabled: 0,
+                    disabled: 0,
+                  },
                   patternDetails: [],
                   holding: {
                     quantity: 123,
@@ -109,6 +148,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   updatedAt: '2026-03-02T00:00:00.000Z',
                   buyPatternCount: 0,
                   sellPatternCount: 2,
+                  buyAlertCount: {
+                    enabled: 0,
+                    disabled: 0,
+                  },
+                  sellAlertCount: {
+                    enabled: 2,
+                    disabled: 1,
+                  },
                   patternDetails: [],
                   holding: null,
                 },
@@ -120,7 +167,7 @@ test.describe('サマリー画面スモークテスト', () => {
     });
 
     await page.goto('/summaries');
-    await expect(page.getByRole('columnheader', { name: '保有' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: '保有可否' })).toBeVisible();
 
     const firstRow = page.locator('tbody tr').nth(0);
     const secondRow = page.locator('tbody tr').nth(1);

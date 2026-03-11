@@ -10,6 +10,7 @@ import {
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import {
+  createAlertRepository,
   createDailySummaryRepository,
   createExchangeRepository,
   createHoldingRepository,
@@ -20,6 +21,7 @@ const ERROR_MESSAGES = {
   INVALID_DATE: '日付はYYYY-MM-DD形式で指定してください',
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
   FETCH_HOLDINGS_FAILED: '保有株式情報の取得に失敗しました',
+  FETCH_ALERTS_FAILED: 'アラート情報の取得に失敗しました',
 } as const;
 // サマリーAPIでは保有情報取得を1回のレスポンスで完結させるため、初期実装は100件を上限とする。
 // getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
@@ -43,10 +45,22 @@ interface TickerSummaryResponse {
   updatedAt: string;
   buyPatternCount: number;
   sellPatternCount: number;
+  buyAlertCount: AlertCountResponse;
+  sellAlertCount: AlertCountResponse;
   patternDetails: PatternDetailResponse[];
   aiAnalysisResult?: AiAnalysisResult;
   aiAnalysisError?: string;
   holding: HoldingSummaryResponse | null;
+}
+
+interface AlertCountResponse {
+  enabled: number;
+  disabled: number;
+}
+
+interface TickerAlertCountResponse {
+  buy: AlertCountResponse;
+  sell: AlertCountResponse;
 }
 
 interface ExchangeSummaryGroupResponse {
@@ -86,10 +100,15 @@ const dailySummaryMapper = new DailySummaryMapper();
 function toTickerSummaryResponse(
   summary: DailySummaryEntity,
   tickerMap: Map<string, TickerEntity>,
-  holdingMap: Map<string, HoldingSummaryResponse>
+  holdingMap: Map<string, HoldingSummaryResponse>,
+  alertCountMap: Map<string, TickerAlertCountResponse>
 ): TickerSummaryResponse {
   const ticker = resolveTicker(summary, tickerMap);
   const holding = holdingMap.get(summary.TickerID) ?? null;
+  const alertCount = alertCountMap.get(summary.TickerID) ?? {
+    buy: { enabled: 0, disabled: 0 },
+    sell: { enabled: 0, disabled: 0 },
+  };
 
   return {
     tickerId: summary.TickerID,
@@ -102,6 +121,8 @@ function toTickerSummaryResponse(
     volume: summary.Volume,
     updatedAt: new Date(summary.UpdatedAt).toISOString(),
     holding,
+    buyAlertCount: alertCount.buy,
+    sellAlertCount: alertCount.sell,
     ...dailySummaryMapper.toTickerSummaryResponse(summary),
   };
 }
@@ -127,11 +148,41 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
   }
 }
 
+async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAlertCountResponse>> {
+  try {
+    const alertRepository = createAlertRepository();
+    const alertsResult = await alertRepository.getByUserId(userId, { limit: 1000 });
+    const alertCountMap = new Map<string, TickerAlertCountResponse>();
+
+    for (const alert of alertsResult.items) {
+      const currentCount = alertCountMap.get(alert.TickerID) ?? {
+        buy: { enabled: 0, disabled: 0 },
+        sell: { enabled: 0, disabled: 0 },
+      };
+      const modeCount = alert.Mode === 'Buy' ? currentCount.buy : currentCount.sell;
+
+      if (alert.Enabled) {
+        modeCount.enabled += 1;
+      } else {
+        modeCount.disabled += 1;
+      }
+
+      alertCountMap.set(alert.TickerID, currentCount);
+    }
+
+    return alertCountMap;
+  } catch (error) {
+    console.error(ERROR_MESSAGES.FETCH_ALERTS_FAILED, error);
+    return new Map<string, TickerAlertCountResponse>();
+  }
+}
+
 async function buildExchangeSummaryGroup(
   exchange: ExchangeEntity,
   date: string | null,
   tickerMap: Map<string, TickerEntity>,
-  holdingMap: Map<string, HoldingSummaryResponse>
+  holdingMap: Map<string, HoldingSummaryResponse>,
+  alertCountMap: Map<string, TickerAlertCountResponse>
 ): Promise<ExchangeSummaryGroupResponse> {
   const dailySummaryRepository = createDailySummaryRepository();
   const summaries = await dailySummaryRepository.getByExchange(
@@ -143,7 +194,9 @@ async function buildExchangeSummaryGroup(
     exchangeId: exchange.ExchangeID,
     exchangeName: exchange.Name,
     date: date ?? summaries[0]?.Date ?? null,
-    summaries: summaries.map((summary) => toTickerSummaryResponse(summary, tickerMap, holdingMap)),
+    summaries: summaries.map((summary) =>
+      toTickerSummaryResponse(summary, tickerMap, holdingMap, alertCountMap)
+    ),
   };
 }
 
@@ -175,12 +228,15 @@ export const GET = withAuth(
         exchangeRepository.getAll(),
         tickerRepository.getAll(),
       ]);
-      const holdingMap = await fetchHoldingMap(session.user.userId);
+      const [holdingMap, alertCountMap] = await Promise.all([
+        fetchHoldingMap(session.user.userId),
+        fetchAlertCountMap(session.user.userId),
+      ]);
 
       const tickerMap = new Map(tickersResult.items.map((ticker) => [ticker.TickerID, ticker]));
       const exchangeSummaryGroups = await Promise.all(
         exchanges.map((exchange) =>
-          buildExchangeSummaryGroup(exchange, date, tickerMap, holdingMap)
+          buildExchangeSummaryGroup(exchange, date, tickerMap, holdingMap, alertCountMap)
         )
       );
 

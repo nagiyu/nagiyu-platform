@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { GET } from '../../../../../app/api/summaries/route';
 import {
+  createAlertRepository,
   createDailySummaryRepository,
   createExchangeRepository,
   createHoldingRepository,
@@ -10,6 +11,7 @@ import {
 jest.mock('../../../../../lib/repository-factory', () => ({
   createDailySummaryRepository: jest.fn(),
   createExchangeRepository: jest.fn(),
+  createAlertRepository: jest.fn(),
   createHoldingRepository: jest.fn(),
   createTickerRepository: jest.fn(),
 }));
@@ -27,6 +29,7 @@ jest.mock('@nagiyu/nextjs', () => ({
 type MockedCreateExchangeRepository = jest.MockedFunction<typeof createExchangeRepository>;
 type MockedCreateTickerRepository = jest.MockedFunction<typeof createTickerRepository>;
 type MockedCreateDailySummaryRepository = jest.MockedFunction<typeof createDailySummaryRepository>;
+type MockedCreateAlertRepository = jest.MockedFunction<typeof createAlertRepository>;
 type MockedCreateHoldingRepository = jest.MockedFunction<typeof createHoldingRepository>;
 
 describe('GET /api/summaries', () => {
@@ -34,11 +37,13 @@ describe('GET /api/summaries', () => {
   const mockedCreateTickerRepository = createTickerRepository as MockedCreateTickerRepository;
   const mockedCreateDailySummaryRepository =
     createDailySummaryRepository as MockedCreateDailySummaryRepository;
+  const mockedCreateAlertRepository = createAlertRepository as MockedCreateAlertRepository;
   const mockedCreateHoldingRepository = createHoldingRepository as MockedCreateHoldingRepository;
 
   const mockGetAllExchanges = jest.fn();
   const mockGetAllTickers = jest.fn();
   const mockGetByExchange = jest.fn();
+  const mockGetAlertsByUserId = jest.fn();
   const mockGetHoldingsByUserId = jest.fn();
 
   beforeEach(() => {
@@ -56,9 +61,15 @@ describe('GET /api/summaries', () => {
       getByExchange: mockGetByExchange,
     } as ReturnType<typeof createDailySummaryRepository>);
 
+    mockedCreateAlertRepository.mockReturnValue({
+      getByUserId: mockGetAlertsByUserId,
+    } as ReturnType<typeof createAlertRepository>);
+
     mockedCreateHoldingRepository.mockReturnValue({
       getByUserId: mockGetHoldingsByUserId,
     } as ReturnType<typeof createHoldingRepository>);
+
+    mockGetAlertsByUserId.mockResolvedValue({ items: [] });
   });
 
   it('正常系: 取引所ごとにサマリーを返す', async () => {
@@ -129,6 +140,14 @@ describe('GET /api/summaries', () => {
               updatedAt: '2024-01-15T21:00:00.000Z',
               buyPatternCount: 0,
               sellPatternCount: 0,
+              buyAlertCount: {
+                enabled: 0,
+                disabled: 0,
+              },
+              sellAlertCount: {
+                enabled: 0,
+                disabled: 0,
+              },
               patternDetails: [],
               holding: null,
             },
@@ -217,6 +236,46 @@ describe('GET /api/summaries', () => {
           status: 'NOT_MATCHED',
         }),
       ])
+    );
+  });
+
+  it('正常系: 銘柄ごとの買い/売りアラート件数を返す', async () => {
+    mockGetAllExchanges.mockResolvedValue([{ ExchangeID: 'NASDAQ', Name: 'NASDAQ' }]);
+    mockGetAllTickers.mockResolvedValue({
+      items: [{ TickerID: 'NSDQ:AAPL', Symbol: 'AAPL', Name: 'Apple Inc.', ExchangeID: 'NASDAQ' }],
+    });
+    mockGetByExchange.mockResolvedValue([
+      {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2024-01-15',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1705276800000,
+        UpdatedAt: 1705352400000,
+      },
+    ]);
+    mockGetHoldingsByUserId.mockResolvedValue({ items: [] });
+    mockGetAlertsByUserId.mockResolvedValue({
+      items: [
+        { TickerID: 'NSDQ:AAPL', Mode: 'Buy', Enabled: true },
+        { TickerID: 'NSDQ:AAPL', Mode: 'Buy', Enabled: false },
+        { TickerID: 'NSDQ:AAPL', Mode: 'Sell', Enabled: true },
+        { TickerID: 'NSDQ:MSFT', Mode: 'Buy', Enabled: true },
+      ],
+    });
+
+    const response = await GET(new NextRequest('http://localhost/api/summaries'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.exchanges[0].summaries[0]).toEqual(
+      expect.objectContaining({
+        buyAlertCount: { enabled: 1, disabled: 1 },
+        sellAlertCount: { enabled: 1, disabled: 0 },
+      })
     );
   });
 
