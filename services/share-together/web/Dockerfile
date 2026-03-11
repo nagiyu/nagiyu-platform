@@ -20,6 +20,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace=@nagiyu/common
 RUN npm run build --workspace=@nagiyu/browser
 RUN npm run build --workspace=@nagiyu/ui
+RUN npm run build --workspace=@nagiyu/nextjs
 RUN npm run build --workspace=@nagiyu/share-together-core
 RUN npm run build --workspace=@nagiyu/share-together-web
 
