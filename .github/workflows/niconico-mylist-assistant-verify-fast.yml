@@ -357,6 +357,8 @@ jobs:
         env:
           CI: true
           PROJECT: chromium-mobile
+          # E2E実行時のweb server起動でもAPI routeが参照するため設定
+          DYNAMODB_TABLE_NAME: dummy-table
         run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
 
       - name: Upload test results
