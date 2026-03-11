@@ -45,40 +45,58 @@ test.describe('Video Search API', () => {
 
 test.describe('Video Search Modal - Existing Video Detection', () => {
   test('should show already-added label when search result is registered', async ({ page }) => {
-    await page.route('**/api/videos/search**', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          videos: [
+    await page.addInitScript(() => {
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const requestUrl =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.toString()
+              : input.url;
+
+        if (requestUrl.includes('/api/videos/search')) {
+          return new Response(
+            JSON.stringify({
+              videos: [
+                {
+                  videoId: 'sm9',
+                  title: 'レッツゴー!陰陽師',
+                  description: 'desc',
+                  thumbnailUrl: 'https://example.com/thumb.jpg',
+                  duration: 120,
+                  viewCount: 1,
+                  commentCount: 1,
+                  mylistCount: 1,
+                  uploadedAt: '2007-03-06T00:33:00+09:00',
+                  tags: [],
+                  isRegistered: true,
+                },
+              ],
+              total: 1,
+            }),
             {
-              videoId: 'sm9',
-              title: 'レッツゴー!陰陽師',
-              description: 'desc',
-              thumbnailUrl: 'https://example.com/thumb.jpg',
-              duration: 120,
-              viewCount: 1,
-              commentCount: 1,
-              mylistCount: 1,
-              uploadedAt: '2007-03-06T00:33:00+09:00',
-              tags: [],
-              isRegistered: true,
-            },
-          ],
-          total: 1,
-        }),
-      });
+              status: 200,
+              headers: { 'Content-Type': 'application/json' },
+            }
+          );
+        }
+
+        return originalFetch(input, init);
+      };
     });
 
     await page.goto('/import');
     await page.getByRole('button', { name: '動画を検索して追加' }).click();
-    await page.getByLabel('検索キーワード').fill('陰陽師');
+    const keywordInput = page.getByLabel('検索キーワード');
+    await keywordInput.waitFor({ state: 'visible' });
+    await keywordInput.fill('陰陽師');
     await page.getByRole('button', { name: '検索' }).click();
 
-    const registeredButton = page
-      .getByRole('dialog', { name: '動画検索' })
-      .getByRole('button', { name: '追加済み（登録済）' });
+    const searchDialog = page.getByRole('dialog', { name: '動画検索' });
+    const registeredButton = searchDialog.getByRole('button', { name: /追加済み/ });
     await expect(registeredButton).toBeVisible();
+    await expect(registeredButton).toHaveText('追加済み（登録済）');
     await expect(registeredButton).toBeDisabled();
   });
 });
