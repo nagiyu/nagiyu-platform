@@ -174,22 +174,9 @@ test.describe('個人リスト管理', () => {
     await page.goto('/lists?listId=list-default');
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
 
-    await page.route('**/api/lists', async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue();
-        return;
-      }
-
-      await route.fulfill({
-        status: 409,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          error: {
-            code: 'PERSONAL_LIST_LIMIT_EXCEEDED',
-            message: '個人リストは100件まで作成できます',
-          },
-        }),
-      });
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: createPersonalLists(100),
     });
 
     page.once('dialog', async (dialog) => {
@@ -197,7 +184,21 @@ test.describe('個人リスト管理', () => {
       await dialog.accept('追加できないリスト');
     });
 
-    await page.getByRole('button', { name: '個人リストを作成' }).click();
-    await expect(page.getByText('個人リストは100件まで作成できます')).toBeVisible();
+    const createListResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' && response.url().endsWith('/api/lists')
+    );
+    await page.getByRole('button', { name: '個人リストを作成' }).evaluate((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        throw new Error('個人リスト作成ボタンが見つかりません');
+      }
+      button.disabled = false;
+      button.click();
+    });
+    const createListResponse = await createListResponsePromise;
+    expect(createListResponse.status()).toBe(409);
+    await expect(
+      page.getByRole('alert').filter({ hasText: '個人リストは100件まで作成できます' })
+    ).toBeVisible();
   });
 });
