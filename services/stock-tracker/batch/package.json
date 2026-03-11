@@ -16,6 +16,7 @@
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.980.0",
     "@aws-sdk/lib-dynamodb": "^3.980.0",
+    "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/stock-tracker-core": "*",
     "@resvg/resvg-js": "^2.6.2",
