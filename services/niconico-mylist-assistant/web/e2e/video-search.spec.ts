@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const REGISTERED_LABEL = '追加済み（登録済）';
+
 test.describe('Video Search API', () => {
   test('should return 401 when not authenticated', async ({ request }) => {
     test.skip(
@@ -46,14 +48,17 @@ test.describe('Video Search API', () => {
 test.describe('Video Search Modal - Existing Video Detection', () => {
   test('should show already-added label when search result is registered', async ({ page }) => {
     await page.addInitScript(() => {
-      const originalFetch = window.fetch.bind(window);
+      const originalFetch = window.fetch;
+
+      const resolveRequestUrl = (input: URL | RequestInfo): string => {
+        if (typeof input === 'string') return input;
+        if (input instanceof URL) return input.toString();
+        if (input instanceof Request) return input.url;
+        return String(input);
+      };
+
       window.fetch = async (input, init) => {
-        const requestUrl =
-          typeof input === 'string'
-            ? input
-            : input instanceof URL
-              ? input.toString()
-              : input.url;
+        const requestUrl = resolveRequestUrl(input);
 
         if (requestUrl.includes('/api/videos/search')) {
           return new Response(
@@ -94,9 +99,9 @@ test.describe('Video Search Modal - Existing Video Detection', () => {
     await page.getByRole('button', { name: '検索' }).click();
 
     const searchDialog = page.getByRole('dialog', { name: '動画検索' });
-    const registeredButton = searchDialog.getByRole('button', { name: /追加済み/ });
+    const registeredButton = searchDialog.getByRole('button', { name: REGISTERED_LABEL });
     await expect(registeredButton).toBeVisible();
-    await expect(registeredButton).toHaveText('追加済み（登録済）');
+    await expect(registeredButton).toHaveText(REGISTERED_LABEL);
     await expect(registeredButton).toBeDisabled();
   });
 });
