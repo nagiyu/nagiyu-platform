@@ -68,10 +68,14 @@ const withBatchJobRepository = withRepository(
   }
 );
 
-export const GET = withAuth(getSession, null, async (session, request, context: RouteParams) => {
-  try {
-    return await withBatchJobRepository(request, context, session);
-  } catch (error) {
-    return handleApiError(error);
+export const GET = withAuth(
+  getSession,
+  null,
+  async (session, request: NextRequest, context: RouteParams) => {
+    try {
+      return await withBatchJobRepository(request, context, session);
+    } catch (error) {
+      return handleApiError(error);
+    }
   }
-});
+);
