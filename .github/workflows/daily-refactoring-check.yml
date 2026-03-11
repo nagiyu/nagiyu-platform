@@ -44,10 +44,10 @@ jobs:
             --limit 1 \
             --json number,url)
 
-          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0].number // empty')
-          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0].url // empty')
+          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .number // empty')
+          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0]? | .url // empty')
 
-          if [ -n "$ISSUE_NUMBER" ] && [ -n "$ISSUE_URL" ]; then
+          if [ -n "$ISSUE_NUMBER" ]; then
             echo "should_create=false" >> "$GITHUB_OUTPUT"
             echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
             echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
@@ -115,6 +115,8 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
             echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }}" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
           fi
