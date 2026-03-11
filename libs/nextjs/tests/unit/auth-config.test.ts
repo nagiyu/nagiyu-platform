@@ -16,8 +16,8 @@ describe('auth-config', () => {
   it('dev環境ではCookie名に.devサフィックスが付与される', () => {
     const config = createAuthConfig({ nodeEnv: 'dev' });
 
-    expect(config.cookies.sessionToken?.name).toBe('__Secure-authjs.session-token.dev');
-    expect(config.cookies.callbackUrl?.name).toBe('__Secure-authjs.callback-url.dev');
+    expect(config.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token.dev');
+    expect(config.cookies?.callbackUrl?.name).toBe('__Secure-authjs.callback-url.dev');
   });
 
   it('includeSubAsUserIdFallback=true の場合は token.sub を user.id にフォールバックする', async () => {
@@ -35,12 +35,9 @@ describe('auth-config', () => {
       token: {
         sub: 'sub-user-id',
       },
-      user: undefined,
-      trigger: 'update',
-      newSession: undefined,
-    });
+    } as never);
 
-    expect(session?.user.id).toBe('sub-user-id');
+    expect(session?.user?.id).toBe('sub-user-id');
   });
 
   it('includeSubAsUserIdFallback=false の場合は token.sub を user.id に使用しない', async () => {
@@ -58,12 +55,9 @@ describe('auth-config', () => {
       token: {
         sub: 'sub-user-id',
       },
-      user: undefined,
-      trigger: 'update',
-      newSession: undefined,
-    });
+    } as never);
 
-    expect(session?.user.id).toBe('');
+    expect(session?.user?.id).toBe('');
   });
 
   it('includeSubAsUserIdFallback=true でも token.userId が優先される', async () => {
@@ -82,11 +76,8 @@ describe('auth-config', () => {
         userId: 'explicit-user-id',
         sub: 'sub-user-id',
       },
-      user: undefined,
-      trigger: 'update',
-      newSession: undefined,
-    });
+    } as never);
 
-    expect(session?.user.id).toBe('explicit-user-id');
+    expect(session?.user?.id).toBe('explicit-user-id');
   });
 });

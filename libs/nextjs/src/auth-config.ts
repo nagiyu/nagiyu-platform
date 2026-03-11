@@ -26,8 +26,9 @@ export function createAuthSessionConfig(): NonNullable<NextAuthConfig['session']
   };
 }
 
-export function createAuthCookieOptions(nodeEnv = process.env.NODE_ENV): AuthCookieOptions {
-  const isDevelopment = nodeEnv === 'development';
+export function createAuthCookieOptions(nodeEnv?: string): AuthCookieOptions {
+  const resolvedNodeEnv = nodeEnv ?? process.env.NODE_ENV;
+  const isDevelopment = resolvedNodeEnv === 'development';
 
   return {
     httpOnly: true,
@@ -38,12 +39,11 @@ export function createAuthCookieOptions(nodeEnv = process.env.NODE_ENV): AuthCoo
   };
 }
 
-export function createAuthCookies(
-  nodeEnv = process.env.NODE_ENV
-): NonNullable<NextAuthConfig['cookies']> {
-  const cookieOptions = createAuthCookieOptions(nodeEnv);
-  const isDevelopment = nodeEnv === 'development';
-  const isProduction = nodeEnv === 'prod';
+export function createAuthCookies(nodeEnv?: string): NonNullable<NextAuthConfig['cookies']> {
+  const resolvedNodeEnv = nodeEnv ?? process.env.NODE_ENV;
+  const cookieOptions = createAuthCookieOptions(resolvedNodeEnv);
+  const isDevelopment = resolvedNodeEnv === 'development';
+  const isProduction = resolvedNodeEnv === 'prod';
   const cookieSuffix = isProduction ? '' : isDevelopment ? '' : '.dev';
 
   return {
