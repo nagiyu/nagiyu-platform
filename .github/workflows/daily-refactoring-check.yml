@@ -4,6 +4,7 @@ on:
   schedule:
     # 毎日 18:00 UTC（翌日 3:00 JST）
     - cron: '0 18 * * *'
+  push:
   workflow_dispatch:
 
 permissions:
