@@ -19,28 +19,50 @@ Niconico Mylist Assistant にて、自動登録のステータス画面（`/myli
 
 ### 根本原因
 
-`services/niconico-mylist-assistant/core/src/db/client.ts` にて、`getTableName()` がモジュールのロード時（モジュールスコープ）で即時実行されている。
+クライアント側のコードは DynamoDB Client を **直接呼び出していない**。しかし、
+`services/niconico-mylist-assistant/core/src/db/client.ts` にて `getTableName()` が
+**モジュールスコープ（トップレベル）** で即時実行されており、これがバレルエクスポート経由でクライアントバンドルに混入している。
 
 ```
-// 問題のコード（概念）
-export const TABLE_NAME = getTableName();  // モジュールロード時に実行される！
+// db/client.ts の問題箇所（概念）
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+
+export const docClient = getDynamoDBDocumentClient();  // モジュールロード時に実行
+export const TABLE_NAME = getTableName();               // モジュールロード時に実行 → DYNAMODB_TABLE_NAME 未設定でエラー！
 ```
+
+### なぜクライアントで実行されるのか
+
+クライアントコンポーネントが必要としているのは `TWO_FACTOR_AUTH_CODE_REGEX`（正規表現定数）だけである。
+しかし、JavaScript/Node.js のモジュール仕様として **`import` された時点でそのモジュールファイル全体のトップレベルコードが実行される**。
+バンドラー（webpack/Next.js）はツリーシェイキングで「使われていないエクスポート」を除去できるが、
+**モジュールスコープの関数呼び出しはサイドエフェクトとして残る**。
+
+コアパッケージの `package.json` に `"sideEffects": false` が設定されていないため、
+バンドラーは `db/client.ts` のトップレベルコードを「安全に除去できる副作用なし」と判断できず、クライアントバンドルに含める。
 
 ### 問題の伝播経路
 
-1.  クライアントコンポーネント `JobStatusDisplay.tsx` が `@nagiyu/niconico-mylist-assistant-core` から `TWO_FACTOR_AUTH_CODE_REGEX` をインポート
-2.  `core/src/index.ts` がバレルエクスポートで `db/index.js` を再エクスポート
-3.  `db/index.js` が `db/client.ts` を再エクスポート
-4.  `db/client.ts` の `TABLE_NAME = getTableName()` がモジュールスコープで実行
-5.  Next.js がクライアントコンポーネントのバンドル時に `db/client.ts` を含める
-6.  ブラウザでの実行時、`process.env.DYNAMODB_TABLE_NAME` は未設定（サーバー専用環境変数）のためエラーがスロー
+1.  `JobStatusDisplay.tsx`（`'use client'` コンポーネント）が `@nagiyu/niconico-mylist-assistant-core` から `TWO_FACTOR_AUTH_CODE_REGEX` をインポート
+2.  コアパッケージの `package.json` の `main` は `dist/index.js`（バレルエクスポート）
+3.  `core/src/index.ts` が `export * from './db/index.js'` で DynamoDB アクセス層全体を再エクスポート
+4.  `db/index.ts` が `export * from './client.js'` を再エクスポート
+5.  `db/client.ts` のトップレベルで `getDynamoDBDocumentClient()` と `getTableName()` が実行される
+6.  ブラウザ実行時、`process.env.DYNAMODB_TABLE_NAME` はサーバー専用の環境変数であり未設定のため `getTableName()` がエラーをスロー
+
+#### ポイント
+
+-   `TWO_FACTOR_AUTH_CODE_REGEX` 自体は `types/index.ts` に定義されており DynamoDB とは無関係
+-   問題はパッケージの入口（`index.ts`）が DynamoDB アクセス層を一括でエクスポートしていることにある
+-   クライアントが AWS Client を「意図して」使っているわけではなく、**バレルエクスポートによる意図せぬ混入**である
 
 ### 影響ファイル
 
--   `services/niconico-mylist-assistant/core/src/db/client.ts` — 根本原因（モジュールスコープでの `getTableName()` 呼び出し）
+-   `services/niconico-mylist-assistant/core/src/db/client.ts` — 根本原因（モジュールスコープでの `getDynamoDBDocumentClient()` / `getTableName()` 呼び出し）
 -   `services/niconico-mylist-assistant/core/src/db/index.ts` — バレルエクスポートで `client.ts` を公開
 -   `services/niconico-mylist-assistant/core/src/index.ts` — `db/index.js` を再エクスポート
--   `services/niconico-mylist-assistant/web/src/components/JobStatusDisplay.tsx` — クライアントコンポーネントからコアパッケージをインポート
+-   `services/niconico-mylist-assistant/core/package.json` — `"sideEffects": false` が未設定
+-   `services/niconico-mylist-assistant/web/src/components/JobStatusDisplay.tsx` — クライアントコンポーネントがパッケージルートからインポートしている
 
 ## 要件
 
