@@ -28,7 +28,7 @@ export class DynamoDBStack extends cdk.Stack {
       pointInTimeRecoverySpecification: {
         pointInTimeRecoveryEnabled: true,
       },
-      timeToLiveAttribute: 'ttl',
+      timeToLiveAttribute: 'TTL',
       encryption: dynamodb.TableEncryption.AWS_MANAGED,
       removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
