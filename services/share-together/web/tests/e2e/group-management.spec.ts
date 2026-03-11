@@ -196,26 +196,39 @@ test.describe('グループ管理', () => {
     await page.goto('/groups');
     await page.getByRole('heading', { level: 2, name: 'メンバー上限APIグループ' }).click();
 
-    await page.route(`**/api/groups/${groupId}/members`, async (route) => {
-      if (route.request().method() !== 'POST') {
-        await route.continue();
-        return;
-      }
-
-      await route.fulfill({
-        status: 409,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          error: {
-            code: 'MEMBER_LIMIT_EXCEEDED',
-            message: 'グループメンバーは最大5名です',
-          },
-        }),
-      });
+    const now = new Date().toISOString();
+    await resetTestData(request, {
+      users: [OWNER_USER, INVITEE_USER, ...LIMIT_MEMBER_USERS],
+      groups: [{ groupId, name: 'メンバー上限APIグループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: now,
+        },
+        ...LIMIT_MEMBER_USERS.map((user) => ({
+          groupId,
+          userId: user.userId,
+          role: 'MEMBER' as const,
+          status: 'ACCEPTED' as const,
+          invitedBy: OWNER_USER.userId,
+          invitedAt: now,
+          respondedAt: now,
+        })),
+      ],
     });
 
     await page.getByRole('textbox', { name: 'メールアドレス' }).fill(INVITEE_USER.email);
+    const inviteResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes(`/api/groups/${groupId}/members`)
+    );
     await page.getByRole('button', { name: '招待を送信' }).click();
+    const inviteResponse = await inviteResponsePromise;
+    expect(inviteResponse.status()).toBe(409);
     await expect(page.getByText('グループメンバーは最大5名です')).toBeVisible();
   });
 
