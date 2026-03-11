@@ -68,11 +68,11 @@
 ## タスク
 
 - [x] T001: `DynamoDBUserRepository` の調査・方針策定
-- [ ] T002: `create` メソッドを実装し、単体テストを追加
-- [ ] T003: `update` メソッドを実装し、単体テストを追加
-- [ ] T004: `delete` メソッドを実装し、単体テストを追加
-- [ ] T005: `npm run test --workspace=@nagiyu/share-together-core` で全テスト通過確認
-- [ ] T006: `npm run lint --workspace=@nagiyu/share-together-core` で lint 通過確認
+- [x] T002: `create` メソッドを実装し、単体テストを追加
+- [x] T003: `update` メソッドを実装し、単体テストを追加
+- [x] T004: `delete` メソッドを実装し、単体テストを追加
+- [x] T005: `npm run test --workspace=@nagiyu/share-together-core` で全テスト通過確認
+- [x] T006: `npm run lint --workspace=@nagiyu/share-together-core` で lint 通過確認
 
 ## 参考ドキュメント
 
