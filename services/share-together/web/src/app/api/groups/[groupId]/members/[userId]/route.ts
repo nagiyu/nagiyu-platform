@@ -8,7 +8,7 @@ import {
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
@@ -30,7 +30,7 @@ function createNoContentResponse(): NextResponse {
 function createDependencies(tableName: string): GroupOperationDependencies & {
   membershipRepository: MembershipRepository;
 } {
-  const { docClient } = getAwsClients();
+  const docClient = getDocClient();
 
   return {
     groupRepository: createGroupRepository(docClient, tableName),

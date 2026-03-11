@@ -2,7 +2,7 @@ import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
@@ -35,7 +35,7 @@ export async function GET(): Promise<NextResponse> {
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const { docClient } = getAwsClients();
+    const docClient = getDocClient();
     const groupRepository = createGroupRepository(docClient, tableName);
     const membershipRepository = createMembershipRepository(docClient, tableName);
 
@@ -85,7 +85,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const { docClient } = getAwsClients();
+    const docClient = getDocClient();
     const groupRepository = createGroupRepository(docClient, tableName);
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const groupId = crypto.randomUUID();

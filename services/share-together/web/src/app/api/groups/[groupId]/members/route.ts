@@ -2,7 +2,7 @@ import { ERROR_MESSAGES as GROUP_ERROR_MESSAGES, inviteMember } from '@nagiyu/sh
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
   createGroupRepository,
@@ -81,7 +81,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const { docClient } = getAwsClients();
+    const docClient = getDocClient();
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const userRepository = createUserRepository(docClient, tableName);
 
@@ -162,7 +162,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const { docClient } = getAwsClients();
+    const docClient = getDocClient();
     const groupRepository = createGroupRepository(docClient, tableName);
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const userRepository = createUserRepository(docClient, tableName);

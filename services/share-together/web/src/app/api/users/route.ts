@@ -2,7 +2,7 @@ import type { User } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, UserResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createUserRepository } from '@/lib/repositories';
 
@@ -63,8 +63,7 @@ export async function POST(): Promise<NextResponse> {
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const useInMemoryDb = process.env.USE_IN_MEMORY_DB === 'true';
-    const docClient = useInMemoryDb ? undefined : getAwsClients().docClient;
+    const docClient = getDocClient();
     const userRepository = createUserRepository(docClient, tableName);
     const listRepository = createListRepository(docClient, tableName);
     const existingUser = await userRepository.getById(userId);
