@@ -1,6 +1,6 @@
 import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { NextResponse } from 'next/server';
-import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
+import type { ApiErrorResponse, InvitationSummary, InvitationsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getAwsClients } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -11,14 +11,6 @@ import {
 } from '@/lib/repositories';
 
 const USER_META_SK = '#META#';
-
-type InvitationSummary = {
-  groupId: string;
-  groupName: string;
-  inviterUserId: string;
-  inviterName: string;
-  createdAt: string;
-};
 
 function createValidationErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
@@ -65,7 +57,7 @@ export async function GET(): Promise<NextResponse> {
 
     const pendingInvitations = await membershipRepository.getPendingInvitationsByUserId(userId);
     if (pendingInvitations.length === 0) {
-      const response: ApiSuccessResponse<{ invitations: InvitationSummary[] }> = {
+      const response: InvitationsResponse = {
         data: {
           invitations: [],
         },
@@ -98,7 +90,7 @@ export async function GET(): Promise<NextResponse> {
       createdAt: invitation.createdAt,
     }));
 
-    const response: ApiSuccessResponse<{ invitations: InvitationSummary[] }> = {
+    const response: InvitationsResponse = {
       data: {
         invitations,
       },

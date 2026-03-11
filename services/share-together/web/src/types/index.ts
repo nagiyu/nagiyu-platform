@@ -37,7 +37,16 @@ export type GroupResponse = ApiSuccessResponse<Group>;
 export type GroupMembersResponse = ApiSuccessResponse<{ members: GroupMembership[] }>;
 export type GroupListsResponse = ApiSuccessResponse<{ lists: GroupList[] }>;
 export type GroupListResponse = ApiSuccessResponse<GroupList>;
-export type InvitationsResponse = ApiSuccessResponse<{ invitations: GroupMembership[] }>;
+
+export type InvitationSummary = {
+  groupId: string;
+  groupName: string;
+  inviterUserId: string;
+  inviterName: string;
+  createdAt: string;
+};
+
+export type InvitationsResponse = ApiSuccessResponse<{ invitations: InvitationSummary[] }>;
 
 export type SessionUser = NonNullable<DefaultSession['user']> & { id: string };
 
