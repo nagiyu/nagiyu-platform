@@ -1,4 +1,4 @@
-import { docClient, TABLE_NAME } from './client.js';
+import { getDocClient, getTableName } from './client.js';
 import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
@@ -17,14 +17,14 @@ let userSettingRepositoryInstance: UserSettingRepository | null = null;
 
 function getVideoRepository(): VideoRepository {
   if (!videoRepositoryInstance) {
-    videoRepositoryInstance = createVideoRepository(docClient, TABLE_NAME);
+    videoRepositoryInstance = createVideoRepository(getDocClient(), getTableName());
   }
   return videoRepositoryInstance;
 }
 
 function getUserSettingRepository(): UserSettingRepository {
   if (!userSettingRepositoryInstance) {
-    userSettingRepositoryInstance = createUserSettingRepository(docClient, TABLE_NAME);
+    userSettingRepositoryInstance = createUserSettingRepository(getDocClient(), getTableName());
   }
   return userSettingRepositoryInstance;
 }
