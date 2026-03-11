@@ -38,16 +38,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          OPEN_ISSUE=$(gh issue list \
+          OPEN_ISSUES_JSON=$(gh issue list \
             --label "code-consolidation" \
             --state open \
             --limit 1 \
-            --json number,url \
-            --jq '.[0]')
+            --json number,url)
 
-          if [ "$OPEN_ISSUE" != "null" ]; then
-            ISSUE_NUMBER=$(echo "$OPEN_ISSUE" | jq -r '.number')
-            ISSUE_URL=$(echo "$OPEN_ISSUE" | jq -r '.url')
+          ISSUE_NUMBER=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0].number // empty')
+          ISSUE_URL=$(echo "$OPEN_ISSUES_JSON" | jq -r '.[0].url // empty')
+
+          if [ -n "$ISSUE_NUMBER" ] && [ -n "$ISSUE_URL" ]; then
             echo "should_create=false" >> "$GITHUB_OUTPUT"
             echo "open_issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
             echo "open_issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
@@ -111,6 +111,10 @@ jobs:
       - name: Summary (skipped)
         if: steps.duplicate_check.outputs.should_create != 'true'
         run: |
-          echo "⏭️ 既存の `code-consolidation` ラベル付きオープンIssueが存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
+          echo "⏭️ 既存の code-consolidation ラベル付きオープンIssueが存在するため、新規作成をスキップしました" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.duplicate_check.outputs.open_issue_number }}" ] && [ -n "${{ steps.duplicate_check.outputs.open_issue_url }}" ]; then
+            echo "**既存Issue**: #${{ steps.duplicate_check.outputs.open_issue_number }} (${{ steps.duplicate_check.outputs.open_issue_url }})" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**既存Issue**: 取得できませんでした" >> "$GITHUB_STEP_SUMMARY"
+          fi
