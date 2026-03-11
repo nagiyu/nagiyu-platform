@@ -70,7 +70,10 @@ async function seedInMemoryData(seedData: ResetSeedData): Promise<void> {
 
 async function handleReset(request?: Request): Promise<NextResponse> {
   if (!isTestMode()) {
-    return NextResponse.json({ error: ERROR_MESSAGES.NOT_FOUND }, { status: 404 });
+    return NextResponse.json(
+      { error: { code: 'NOT_FOUND', message: ERROR_MESSAGES.NOT_FOUND } },
+      { status: 404 }
+    );
   }
 
   const sessionOrUnauthorized = await getSessionOrUnauthorized();
@@ -92,7 +95,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     return await handleReset(request);
   } catch (error) {
     console.error('/api/test/reset POST の実行に失敗しました', { error });
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'INTERNAL_SERVER_ERROR', message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR } },
+      { status: 500 }
+    );
   }
 }
 
@@ -101,6 +107,9 @@ export async function DELETE(): Promise<NextResponse> {
     return await handleReset();
   } catch (error) {
     console.error('/api/test/reset DELETE の実行に失敗しました', { error });
-    return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });
+    return NextResponse.json(
+      { error: { code: 'INTERNAL_SERVER_ERROR', message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR } },
+      { status: 500 }
+    );
   }
 }
