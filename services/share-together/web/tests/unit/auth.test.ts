@@ -38,15 +38,13 @@ describe('authConfig', () => {
     });
   });
 
-  it('NODE_ENV=production の場合は .dev サフィックス付きクッキー名を利用する', () => {
+  it('NODE_ENV=production の場合はサフィックスなしクッキー名を利用する', () => {
     process.env.NODE_ENV = 'production';
 
     jest.isolateModules(() => {
       const { authConfig: reloadedAuthConfig } =
         jest.requireActual<typeof import('../../auth')>('../../auth');
-      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe(
-        '__Secure-authjs.session-token.dev'
-      );
+      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
     });
   });
 
