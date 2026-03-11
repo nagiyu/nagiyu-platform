@@ -1,4 +1,11 @@
-import { GetCommand, QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  DeleteCommand,
+  GetCommand,
+  PutCommand,
+  QueryCommand,
+  UpdateCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
 
@@ -7,7 +14,8 @@ const GSI2_INDEX_NAME = 'GSI2';
 
 const ERROR_MESSAGES = {
   INVALID_USER_DATA: 'ユーザー情報の形式が不正です',
-  NOT_IMPLEMENTED: 'この操作は未実装です',
+  USER_ALREADY_EXISTS: 'ユーザーは既に存在します',
+  USER_NOT_FOUND: 'ユーザーが見つかりません',
 } as const;
 
 export class DynamoDBUserRepository implements UserRepository {
@@ -60,16 +68,113 @@ export class DynamoDBUserRepository implements UserRepository {
     return this.toUser(result.Items[0] as Record<string, unknown>);
   }
 
-  public async create(_input: CreateUserInput): Promise<User> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async create(input: CreateUserInput): Promise<User> {
+    const now = new Date().toISOString();
+    const item = {
+      PK: this.buildUserPk(input.userId),
+      SK: USER_META_SK,
+      GSI2PK: this.buildEmailGsiPk(input.email),
+      userId: input.userId,
+      email: input.email,
+      name: input.name,
+      image: input.image,
+      defaultListId: input.defaultListId,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    try {
+      await this.docClient.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: item,
+          ConditionExpression: 'attribute_not_exists(PK) AND attribute_not_exists(SK)',
+        })
+      );
+    } catch (error) {
+      if (this.isConditionalCheckFailed(error)) {
+        throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
+      }
+      throw error;
+    }
+
+    return this.toUser(item);
   }
 
-  public async update(_userId: string, _updates: UpdateUserInput): Promise<User> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async update(userId: string, updates: UpdateUserInput): Promise<User> {
+    const now = new Date().toISOString();
+    const names: Record<string, string> = { '#updatedAt': 'updatedAt' };
+    const values: Record<string, unknown> = { ':updatedAt': now };
+    const setExpressions: string[] = ['#updatedAt = :updatedAt'];
+
+    if (updates.email !== undefined) {
+      names['#email'] = 'email';
+      values[':email'] = updates.email;
+      setExpressions.push('#email = :email');
+
+      names['#gsi2pk'] = 'GSI2PK';
+      values[':gsi2pk'] = this.buildEmailGsiPk(updates.email);
+      setExpressions.push('#gsi2pk = :gsi2pk');
+    }
+
+    if (updates.name !== undefined) {
+      names['#name'] = 'name';
+      values[':name'] = updates.name;
+      setExpressions.push('#name = :name');
+    }
+
+    if (updates.image !== undefined) {
+      names['#image'] = 'image';
+      values[':image'] = updates.image;
+      setExpressions.push('#image = :image');
+    }
+
+    if (updates.defaultListId !== undefined) {
+      names['#defaultListId'] = 'defaultListId';
+      values[':defaultListId'] = updates.defaultListId;
+      setExpressions.push('#defaultListId = :defaultListId');
+    }
+
+    let result;
+    try {
+      result = await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: {
+            PK: this.buildUserPk(userId),
+            SK: USER_META_SK,
+          },
+          UpdateExpression: `SET ${setExpressions.join(', ')}`,
+          ConditionExpression: 'attribute_exists(PK) AND attribute_exists(SK)',
+          ExpressionAttributeNames: names,
+          ExpressionAttributeValues: values,
+          ReturnValues: 'ALL_NEW',
+        })
+      );
+    } catch (error) {
+      if (this.isConditionalCheckFailed(error)) {
+        throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+      }
+      throw error;
+    }
+
+    if (!result.Attributes) {
+      throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    return this.toUser(result.Attributes as Record<string, unknown>);
   }
 
-  public async delete(_userId: string): Promise<void> {
-    throw new Error(ERROR_MESSAGES.NOT_IMPLEMENTED);
+  public async delete(userId: string): Promise<void> {
+    await this.docClient.send(
+      new DeleteCommand({
+        TableName: this.tableName,
+        Key: {
+          PK: this.buildUserPk(userId),
+          SK: USER_META_SK,
+        },
+      })
+    );
   }
 
   private buildUserPk(userId: string): string {
@@ -78,6 +183,15 @@ export class DynamoDBUserRepository implements UserRepository {
 
   private buildEmailGsiPk(email: string): string {
     return `EMAIL#${email}`;
+  }
+
+  private isConditionalCheckFailed(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'name' in error &&
+      error.name === 'ConditionalCheckFailedException'
+    );
   }
 
   private toUser(item: Record<string, unknown>): User {
