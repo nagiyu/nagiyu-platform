@@ -176,4 +176,25 @@ describe('/api/lists route handlers', () => {
 
     expect(response.status).toBe(400);
   });
+
+  it('POST: 個人リスト上限到達時は409を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: {
+        id: 'user-1',
+      },
+    } as SessionOrUnauthorized);
+    mockCreatePersonalList.mockRejectedValue(
+      new Error(ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED)
+    );
+
+    const response = await POST(createRequest({ name: '追加リスト' }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: 'PERSONAL_LIST_LIMIT_EXCEEDED',
+        message: ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED,
+      },
+    });
+  });
 });

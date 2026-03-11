@@ -33,6 +33,17 @@ function createInternalServerErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 500 });
 }
 
+function createConflictResponse(code: string, message: string): NextResponse {
+  const response: ApiErrorResponse = {
+    error: {
+      code,
+      message,
+    },
+  };
+
+  return NextResponse.json(response, { status: 409 });
+}
+
 function isValidationError(error: unknown): boolean {
   return error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message);
 }
@@ -121,6 +132,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     if (isValidationError(error) || error instanceof SyntaxError) {
       return createValidationErrorResponse();
+    }
+    if (error instanceof Error && error.message === ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED) {
+      return createConflictResponse('PERSONAL_LIST_LIMIT_EXCEEDED', error.message);
     }
 
     console.error('個人リスト作成 API の実行に失敗しました', {
