@@ -1,8 +1,9 @@
-name: Auth App - Full Verification
+name: Auth App - Verification
 
 on:
   pull_request:
     branches:
+      - integration/**
       - develop
     paths:
       - 'services/auth/**'
@@ -10,7 +11,10 @@ on:
       - 'infra/auth/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/auth-verify-full.yml'
+      - '.github/workflows/auth-verify-app.yml'
+
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -62,6 +66,7 @@ jobs:
   unit-test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
+    needs: [build]
 
     steps:
       - name: Checkout code
@@ -128,9 +133,10 @@ jobs:
   #         path: services/auth/coverage/
   #         retention-days: 30
 
-  e2e-test:
-    name: Run E2E Tests (All Browsers)
+  e2e-test-chromium-mobile:
+    name: Run E2E Tests (chromium-mobile)
     runs-on: ubuntu-latest
+    needs: [unit-test]
 
     permissions:
       contents: read
@@ -158,14 +164,14 @@ jobs:
           npm run build --workspace @nagiyu/nextjs
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
         working-directory: ./services/auth/web
 
-      - name: Run Playwright tests (All browsers)
+      - name: Run Playwright tests (chromium-mobile)
         env:
           CI: true
         run: |
-          npm run test:e2e --workspace @nagiyu/auth-web
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-mobile
           if [ $? -ne 0 ]; then
             echo "E2E tests failed"
             exit 1
@@ -175,7 +181,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full
+          name: playwright-report-full-chromium-mobile
           path: services/auth/web/playwright-report/
           retention-days: 30
 
@@ -183,13 +189,136 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full
+          name: test-results-full-chromium-mobile
+          path: services/auth/web/test-results/
+          retention-days: 30
+
+  e2e-test-chromium-desktop:
+    name: Run E2E Tests (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/auth/web
+
+      - name: Run Playwright tests (chromium-desktop)
+        env:
+          CI: true
+        run: |
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-desktop
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-chromium-desktop
+          path: services/auth/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-chromium-desktop
+          path: services/auth/web/test-results/
+          retention-days: 30
+
+  e2e-test-webkit-mobile:
+    name: Run E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/auth/web
+
+      - name: Run Playwright tests (webkit-mobile)
+        env:
+          CI: true
+        run: |
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=webkit-mobile
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-webkit-mobile
+          path: services/auth/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-webkit-mobile
           path: services/auth/web/test-results/
           retention-days: 30
 
   build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -222,6 +351,7 @@ jobs:
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
+    needs: [build]
 
     steps:
       - name: Checkout code
@@ -236,7 +366,17 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [lint, format-check, unit-test, e2e-test, build, docker-build]
+    needs:
+      [
+        lint,
+        format-check,
+        unit-test,
+        e2e-test-chromium-mobile,
+        e2e-test-chromium-desktop,
+        e2e-test-webkit-mobile,
+        build,
+        docker-build,
+      ]
     # TODO: Add coverage to needs when implemented
     # needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
 
@@ -256,7 +396,9 @@ jobs:
               'Unit Tests': '${{ needs.unit-test.result }}',
               // TODO: Uncomment when coverage check is implemented
               // 'Coverage Check': '${{ needs.coverage.result }}',
-              'E2E Tests (Full)': '${{ needs.e2e-test.result }}',
+              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
+              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
+              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}',
               'Next.js Build': '${{ needs.build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}'
             };
@@ -268,13 +410,16 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop';
             const header = allSuccess
-              ? '## ✅ All Full Checks Passed'
-              : '## ❌ Some Full Checks Failed';
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
 
             let body = `${header}\n\n`;
-            body += '**Full Verification (All devices)**\n\n';
+            body += isFull
+              ? '**Full Verification (All devices)**\n\n'
+              : '**Fast Verification (E2E: chromium-mobile only)**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

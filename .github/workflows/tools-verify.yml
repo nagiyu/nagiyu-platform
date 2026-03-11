@@ -1,24 +1,26 @@
-name: Codec Converter - Fast Verification
+name: Tools App - Verification
 
 on:
   pull_request:
     branches:
       - integration/**
+      - develop
     paths:
-      - 'services/codec-converter/**'
-      - 'infra/codec-converter/**'
+      - 'services/tools/**'
       - 'libs/**'
+      - 'infra/tools/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/codec-converter-verify-fast.yml'
+      - '.github/workflows/tools-verify.yml'
+
+permissions:
+  contents: read
 
 jobs:
   nextjs-build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
+    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -39,41 +41,28 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=codec-converter-core
 
       - name: Build Next.js application
-        run: npm run build --workspace=codec-converter-web
+        run: npm run build --workspace tools
 
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
+    needs: [nextjs-build]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build Web Docker image
+      - name: Build Docker image
         env:
           DOCKER_BUILDKIT: 0
-        run: docker build -t codec-converter-web-verify-fast-test -f services/codec-converter/web/Dockerfile .
-
-      - name: Build Batch Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t codec-converter-batch-verify-fast-test -f services/codec-converter/batch/Dockerfile .
+        run: docker build -t tools-verify-full-test -f services/tools/Dockerfile .
 
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
+    needs: [nextjs-build]
 
     steps:
       - name: Checkout code
@@ -89,26 +78,36 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
+      - name: Run tests
+        run: npm run test --workspace tools
 
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=codec-converter-core
-
-      - name: Run core tests
-        run: npm run test --workspace=codec-converter-core
-
-
-      - name: Run batch tests
-        run: npm run test --workspace=codec-converter-batch
-
-  integration-test:
-    name: Run Integration Tests (chromium-mobile only)
+  coverage:
+    name: Test Coverage Check
     runs-on: ubuntu-latest
+    needs: [test]
+    if: github.base_ref == 'develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace tools
+
+  e2e-test-chromium-mobile:
+    name: Run E2E Tests (chromium-mobile)
+    runs-on: ubuntu-latest
+    needs: [test]
 
     permissions:
       contents: read
@@ -132,40 +131,43 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=codec-converter-core
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
-        working-directory: ./services/codec-converter/web
+        working-directory: ./services/tools
 
-      - name: Run Integration tests (chromium-mobile only)
+      - name: Run Playwright tests (chromium-mobile)
         env:
           CI: true
           PROJECT: chromium-mobile
-        run: npm run test:e2e --workspace=codec-converter-web
+        run: |
+          npm run test:e2e --workspace tools
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-fast
-          path: services/codec-converter/web/playwright-report/
+          name: playwright-report-full-chromium-mobile
+          path: services/tools/playwright-report/
           retention-days: 30
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-fast
-          path: services/codec-converter/web/test-results/
+          name: test-results-full-chromium-mobile
+          path: services/tools/test-results/
           retention-days: 30
 
-  lint:
-    name: Lint Check
+  e2e-test-chromium-desktop:
+    name: Run E2E Tests (chromium-desktop)
     runs-on: ubuntu-latest
+    needs: [test]
+    if: github.base_ref == 'develop'
 
     permissions:
       contents: read
@@ -184,51 +186,127 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run ESLint on core
-        run: npm run lint --workspace=codec-converter-core
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
 
-      - name: Run ESLint on web
-        run: npm run lint --workspace=codec-converter-web
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/tools
 
-      - name: Run ESLint on batch
-        run: npm run lint --workspace=codec-converter-batch
+      - name: Run Playwright tests (chromium-desktop)
+        env:
+          CI: true
+          PROJECT: chromium-desktop
+        run: |
+          npm run test:e2e --workspace tools
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-chromium-desktop
+          path: services/tools/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-chromium-desktop
+          path: services/tools/test-results/
+          retention-days: 30
+
+  e2e-test-webkit-mobile:
+    name: Run E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/tools
+
+      - name: Run Playwright tests (webkit-mobile)
+        env:
+          CI: true
+          PROJECT: webkit-mobile
+        run: |
+          npm run test:e2e --workspace tools
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-webkit-mobile
+          path: services/tools/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-webkit-mobile
+          path: services/tools/test-results/
+          retention-days: 30
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint --workspace tools
 
   format-check:
     name: Format Check
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Check core formatting
-        run: npm run format:check --workspace=codec-converter-core
-
-      - name: Check web formatting
-        run: npm run format:check --workspace=codec-converter-web
-
-      - name: Check batch formatting
-        run: npm run format:check --workspace=codec-converter-batch
-
-  infra-format-check:
-    name: Infrastructure Format Check
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout code
@@ -245,61 +323,7 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npx prettier --check "infra/codec-converter/**/*.{ts,js,json}"
-
-  infra-type-check:
-    name: Infrastructure Type Check (Build)
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build infra-common library
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build CDK project
-        run: npm run build --workspace=codec-converter
-
-  infra-test:
-    name: Infrastructure Unit Tests
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build infra-common library
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Run tests
-        run: npm run test --workspace=codec-converter
+        run: npm run format:check --workspace tools
 
   report:
     name: Report Results to PR
@@ -310,12 +334,12 @@ jobs:
         nextjs-build,
         docker-build,
         test,
-        integration-test,
+        coverage,
+        e2e-test-chromium-mobile,
+        e2e-test-chromium-desktop,
+        e2e-test-webkit-mobile,
         lint,
         format-check,
-        infra-format-check,
-        infra-type-check,
-        infra-test,
       ]
 
     permissions:
@@ -332,12 +356,12 @@ jobs:
               'Next.js Build': '${{ needs.nextjs-build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'Integration Tests (Fast)': '${{ needs.integration-test.result }}',
-              'Lint Check': '${{ needs.lint.result }}',
-              'Format Check': '${{ needs.format-check.result }}',
-              'Infra Format Check': '${{ needs.infra-format-check.result }}',
-              'Infra Type Check': '${{ needs.infra-type-check.result }}',
-              'Infra Tests': '${{ needs.infra-test.result }}'
+              'Coverage Check': '${{ needs.coverage.result }}',
+               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
+               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
+               'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}',
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}'
             };
 
             const statusEmoji = {
@@ -347,13 +371,16 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop';
             const header = allSuccess
-              ? '## ✅ All Fast Checks Passed'
-              : '## ❌ Some Fast Checks Failed';
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
 
             let body = `${header}\n\n`;
-            body += '**Codec Converter - Fast Verification**\n\n';
+            body += isFull
+              ? '**Full Verification (All devices + Coverage)**\n\n'
+              : '**Fast Verification (chromium-mobile only)**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 
