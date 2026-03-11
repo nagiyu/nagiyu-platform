@@ -144,23 +144,21 @@ libs/{library-name}/
 
 サービスやライブラリごとに専用のPR検証ワークフローを作成することを推奨します。
 
-**ファイル名**: `.github/workflows/{target}-verify.yml` または `.github/workflows/{target}-verify-fast.yml` / `.github/workflows/{target}-verify-full.yml`  
-（例: `hoge-verify.yml` または `hoge-verify-fast.yml` / `hoge-verify-full.yml`）
+**ファイル名**: `.github/workflows/{target}-verify.yml`  
+（例: `hoge-verify.yml`）
 
 #### 2段階CI戦略の適用
 
-E2Eテストを持つサービスでは、2段階のワークフローを作成します:
+E2Eテストを持つサービスでは、1つのワークフローファイルで Fast/Full の両方を制御します:
 
-**{target}-verify-fast.yml** (高速フィードバック):
-- トリガー: `integration/**` ブランチへのPR
-- E2Eテスト: chromium-mobile のみ
-- 目的: 開発中の素早いフィードバック
-
-**{target}-verify-full.yml** (完全テスト):
-- トリガー: `develop` ブランチへのPR
-- E2Eテスト: 全デバイス（chromium-desktop, chromium-mobile, webkit-mobile）
-- カバレッジチェック: 80%未満で失敗
-- 目的: マージ前の完全な検証
+**{target}-verify.yml**:
+- トリガー: `integration/**` および `develop` ブランチへのPR
+- E2Eテスト: デバイスごとに独立したジョブで並列実行
+    - `e2e-test-chromium-mobile`: 常時実行
+    - `e2e-test-chromium-desktop`: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
+    - `e2e-test-webkit-mobile`: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
+- カバレッジチェック: `develop` へのPR のみ実行（`if: github.base_ref == 'develop'`）
+- 目的: 1ファイルで Fast（chromium-mobile のみ）と Full（全デバイス + カバレッジ）を制御
 
 **ライブラリの場合**:
 - E2Eテストがないため、単一の `{target}-verify.yml` のみ
@@ -272,7 +270,9 @@ flowchart LR
     docker_web[docker-build-web]
     docker_batch[docker-build-batch]
     test_batch[test-batch]
-    e2e[e2e-test-web]
+    e2e_cm[e2e-test-chromium-mobile]
+    e2e_cd[e2e-test-chromium-desktop]
+    e2e_wm[e2e-test-webkit-mobile]
     report[report]
 
     lint --> build_core
@@ -287,7 +287,9 @@ flowchart LR
     synth --> build_infra
 
     build_web --> docker_web
-    build_web --> e2e
+    build_web --> e2e_cm
+    build_web --> e2e_cd
+    build_web --> e2e_wm
     build_batch --> docker_batch
     build_batch --> test_batch
 
@@ -296,7 +298,9 @@ flowchart LR
     test_core --> report
     test_batch --> report
     coverage --> report
-    e2e --> report
+    e2e_cm --> report
+    e2e_cd --> report
+    e2e_wm --> report
     build_infra --> report
 ```
 
@@ -316,7 +320,9 @@ flowchart LR
 | docker-build-web   | build-web          | ビルド成功後に Docker ビルド     |
 | docker-build-batch | build-batch        | 同上                             |
 | test-batch         | build-batch        | ビルド成功後にテスト             |
-| e2e-test-web       | build-web          | ビルド成功後に E2E               |
+| e2e-test-chromium-mobile  | build-web          | ビルド成功後に E2E（常時実行）             |
+| e2e-test-chromium-desktop | build-web          | ビルド成功後に E2E（develop へのPR のみ）   |
+| e2e-test-webkit-mobile    | build-web          | ビルド成功後に E2E（develop へのPR のみ）   |
 | report             | 全ジョブ           | 最後に結果を集約                 |
 
 **設計のポイント**:
@@ -325,6 +331,12 @@ flowchart LR
 - **段階的な検証**: 品質チェック → ビルド → テスト → Docker の順で段階的に検証
 - **失敗時の無駄な実行を防止**: 前提条件が満たされない場合は後続ジョブをスキップ
 - **明示的な依存関係**: ビルド成果物を使用するジョブは明確に依存を宣言
+
+**`if:` 条件によるジョブスキップの注意点**:
+
+- `if: github.base_ref == 'develop'` でスキップされたジョブを `needs:` に含む `report` ジョブでは、スキップ結果（`skipped`）も成功として扱う必要がある
+- `report` ジョブの成否判定では `result == 'success' || result == 'skipped'` のように `skipped` を許容すること
+- PR のターゲットブランチは `github.base_ref` で参照する（`github.ref` ではない）
 
 この依存関係パターンは、core/web/batch 構成のサービスに適用できます。サービスの構成が異なる場合は、同じ原則に基づいて依存関係を設計してください。
 
