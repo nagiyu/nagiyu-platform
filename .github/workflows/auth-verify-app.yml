@@ -13,6 +13,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/auth-verify-app.yml'
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Code

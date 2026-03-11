@@ -13,6 +13,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/stock-tracker-verify.yml'
 
+permissions:
+  contents: read
+
 jobs:
   build-web:
     name: Web Build Verification

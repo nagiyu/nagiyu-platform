@@ -14,6 +14,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/codec-converter-verify.yml'
 
+permissions:
+  contents: read
+
 jobs:
   nextjs-build:
     name: Next.js Build Verification

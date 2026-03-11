@@ -13,6 +13,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/niconico-mylist-assistant-verify.yml'
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint Check

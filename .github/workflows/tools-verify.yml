@@ -13,6 +13,9 @@ on:
       - 'package-lock.json'
       - '.github/workflows/tools-verify.yml'
 
+permissions:
+  contents: read
+
 jobs:
   nextjs-build:
     name: Next.js Build Verification
