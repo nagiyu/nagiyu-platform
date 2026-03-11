@@ -159,10 +159,10 @@ jobs:
 
 ### Phase 1: 段階的フローの適用（Admin/Auth/Tools/Codec Converter）
 
-- [ ] T001: Admin の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
-- [ ] T002: Auth の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
-- [ ] T003: Tools の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
-- [ ] T004: Codec Converter の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
+- [x] T001: Admin の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
+- [x] T002: Auth の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
+- [x] T003: Tools の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
+- [x] T004: Codec Converter の Fast/Full ワークフローを調査し、段階的フロー（lint → build → test → e2e）を整理する
 
 ### Phase 2: E2E テストのデバイス並列化
 
