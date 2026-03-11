@@ -185,8 +185,7 @@ test.describe('個人リスト管理', () => {
     });
 
     const createListResponsePromise = page.waitForResponse(
-      (response) =>
-        response.request().method() === 'POST' && response.url().endsWith('/api/lists')
+      (response) => response.request().method() === 'POST' && response.url().endsWith('/api/lists')
     );
     await page.getByRole('button', { name: '個人リストを作成' }).evaluate((button) => {
       if (!(button instanceof HTMLButtonElement)) {
