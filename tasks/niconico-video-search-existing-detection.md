@@ -65,25 +65,25 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
   動画の既登録状態を含まない
 - `core` ライブラリには `batchGetVideoBasicInfo(videoIds)` が公開されており、
   複数の動画 ID に対して一括で `VideoBasicInfo` の存在確認ができる
-- `VideoSearchModal.tsx` の `addStatusById` ステートに検索時点で初期値を設定することで、
-  フロントエンド側の変更は最小限に抑えられる
+- 各動画アイテムに `isRegistered: boolean` を直接埋め込んでサーバーから返すことで、
+  クライアント側でのリスト参照・マッピング処理が不要になりシンプルになる
 
 ### 方針
 
-**検索 API の拡張（最小変更アプローチ）**
+**検索 API の拡張（サーバー側で登録済み判定）**
 
-- `GET /api/videos/search` レスポンスに `existingVideoIds: string[]` フィールドを追加する
-- 検索動画の取得後、`batchGetVideoBasicInfo()` で検索結果の動画 ID 群を一括確認し、
-  グローバル DB に既存の動画 ID 一覧を取得する
-- フロントエンド（`VideoSearchModal`）は `existingVideoIds` を受け取り、
-  検索完了後に `addStatusById` の初期値として `'already-added'` ステータスを設定する
+- `GET /api/videos/search` の各検索結果アイテムに `isRegistered: boolean` フィールドを追加する
+- サーバー側で `batchGetVideoBasicInfo()` を呼び出し、各動画の登録済み状態を確定してから
+  レスポンスに含める（クライアント側でのマッピング処理が不要）
+- フロントエンド（`VideoSearchModal`）は各動画の `isRegistered` を参照し、
+  `true` の場合は初期状態を `'already-added'` として表示する
 
 **変更対象ファイル**
 
 | ファイル | 変更内容 |
 |---------|---------|
-| `web/src/app/api/videos/search/route.ts` | 検索後に `batchGetVideoBasicInfo()` で既存動画を一括確認し `existingVideoIds` を返す |
-| `web/src/components/VideoSearchModal.tsx` | 検索結果受信後に `existingVideoIds` で `addStatusById` を初期化 |
+| `web/src/app/api/videos/search/route.ts` | 検索後に `batchGetVideoBasicInfo()` で既存動画を一括確認し、各動画に `isRegistered: boolean` を付与して返す |
+| `web/src/components/VideoSearchModal.tsx` | 各動画の `isRegistered` を参照し `addStatusById` 初期値を設定 |
 | `web/e2e/video-search.spec.ts` | 既登録動画が追加済み表示になるケースのテストを追加 |
 
 ---
@@ -92,15 +92,15 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 
 ### フェーズ 1: API 拡張
 
-- [ ] T001: `GET /api/videos/search` のレスポンス型に `existingVideoIds: string[]` を追加する
+- [ ] T001: `GET /api/videos/search` のレスポンス型を `(NiconicoVideoInfo & { isRegistered: boolean })[]` に変更する
 - [ ] T002: `searchVideos()` 実行後、検索結果の動画 ID 群を `batchGetVideoBasicInfo()` で
-      一括確認し、グローバル DB に存在する動画 ID を収集する
-- [ ] T003: 収集した既存動画 ID を `existingVideoIds` としてレスポンスに含める
+      一括確認し、グローバル DB に存在する動画 ID のセットを作成する
+- [ ] T003: 各動画アイテムに `isRegistered` フラグを付与してレスポンスに含める
 
 ### フェーズ 2: フロントエンド対応
 
-- [ ] T004: `VideoSearchModal.tsx` の `handleSearch` 内で、`existingVideoIds` を受け取ったら
-      `addStatusById` の初期値に `'already-added'` を設定する処理を追加する
+- [ ] T004: `VideoSearchModal.tsx` の `handleSearch` 内で、各動画の `isRegistered` が `true` の場合に
+      `addStatusById` の初期値を `'already-added'` に設定する処理を追加する
 
 ### フェーズ 3: テスト追加・更新
 
