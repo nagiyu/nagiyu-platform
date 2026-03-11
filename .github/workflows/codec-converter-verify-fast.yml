@@ -16,6 +16,7 @@ jobs:
   nextjs-build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
 
     permissions:
       contents: read
@@ -50,6 +51,7 @@ jobs:
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
+    needs: [nextjs-build]
 
     permissions:
       contents: read
@@ -71,6 +73,7 @@ jobs:
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
+    needs: [nextjs-build]
 
     permissions:
       contents: read
@@ -102,13 +105,13 @@ jobs:
       - name: Run core tests
         run: npm run test --workspace=codec-converter-core
 
-
       - name: Run batch tests
         run: npm run test --workspace=codec-converter-batch
 
   integration-test:
     name: Run Integration Tests (chromium-mobile only)
     runs-on: ubuntu-latest
+    needs: [test]
 
     permissions:
       contents: read

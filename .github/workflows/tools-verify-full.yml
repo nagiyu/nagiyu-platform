@@ -16,6 +16,7 @@ jobs:
   nextjs-build:
     name: Next.js Build Verification
     runs-on: ubuntu-latest
+    needs: [lint, format-check]
 
     steps:
       - name: Checkout code
@@ -43,6 +44,7 @@ jobs:
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
+    needs: [nextjs-build]
 
     steps:
       - name: Checkout code
@@ -56,6 +58,7 @@ jobs:
   test:
     name: Run Unit Tests
     runs-on: ubuntu-latest
+    needs: [nextjs-build]
 
     steps:
       - name: Checkout code
@@ -77,6 +80,7 @@ jobs:
   coverage:
     name: Test Coverage Check
     runs-on: ubuntu-latest
+    needs: [test]
 
     steps:
       - name: Checkout code
@@ -98,6 +102,7 @@ jobs:
   e2e-test:
     name: Run E2E Tests (All Devices)
     runs-on: ubuntu-latest
+    needs: [test]
 
     permissions:
       contents: read
