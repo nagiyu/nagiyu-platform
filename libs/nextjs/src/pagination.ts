@@ -19,9 +19,26 @@ export interface PaginationParams {
 /**
  * エラーメッセージ定数
  */
-const PAGINATION_ERROR_MESSAGES = {
+export const PAGINATION_ERROR_MESSAGES = {
   INVALID_LIMIT: 'limit は 1 から 100 の間で指定してください',
 } as const;
+
+export const PAGINATION_ERROR_CODES = {
+  INVALID_LIMIT: 'INVALID_LIMIT',
+} as const;
+
+export type PaginationErrorCode =
+  (typeof PAGINATION_ERROR_CODES)[keyof typeof PAGINATION_ERROR_CODES];
+
+export class PaginationValidationError extends Error {
+  public readonly code: PaginationErrorCode;
+
+  constructor(message: string, code: PaginationErrorCode) {
+    super(message);
+    this.name = 'PaginationValidationError';
+    this.code = code;
+  }
+}
 
 /**
  * ページネーションパラメータをパース
@@ -49,7 +66,10 @@ export function parsePagination(request: NextRequest): PaginationParams {
   // limit のバリデーション (1-100)
   const limit = limitParam ? parseInt(limitParam, 10) : 50;
   if (isNaN(limit) || limit < 1 || limit > 100) {
-    throw new Error(PAGINATION_ERROR_MESSAGES.INVALID_LIMIT);
+    throw new PaginationValidationError(
+      PAGINATION_ERROR_MESSAGES.INVALID_LIMIT,
+      PAGINATION_ERROR_CODES.INVALID_LIMIT
+    );
   }
 
   // lastKey のデコード (base64)

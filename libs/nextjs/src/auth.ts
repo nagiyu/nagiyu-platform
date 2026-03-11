@@ -18,9 +18,22 @@ export interface AuthError {
 }
 
 /**
+ * withAuth/getAuthError が扱う最小セッション要件。
+ *
+ * `@nagiyu/common` の Session だけでなく、next-auth の拡張 Session など
+ * 「user.roles を持つセッション」であれば利用できるようにするための共通型。
+ */
+export interface SessionWithRoles {
+  user: {
+    roles: string[];
+  };
+}
+
+/**
  * NextAuth の auth 関数型
  */
-export type AuthFunction = () => Promise<Session | null>;
+export type AuthFunction<TSession extends SessionWithRoles = Session> =
+  () => Promise<TSession | null>;
 
 /**
  * エラーメッセージ定数
@@ -49,7 +62,10 @@ const AUTH_ERROR_MESSAGES = {
  * }
  * ```
  */
-export function getAuthError(session: Session | null, permission: Permission): AuthError | null {
+export function getAuthError(
+  session: SessionWithRoles | null,
+  permission?: Permission | null
+): AuthError | null {
   // 未認証チェック
   if (!session) {
     return {
@@ -59,7 +75,7 @@ export function getAuthError(session: Session | null, permission: Permission): A
   }
 
   // 権限チェック
-  if (!hasPermission(session.user.roles, permission)) {
+  if (permission && !hasPermission(session.user.roles, permission)) {
     return {
       message: AUTH_ERROR_MESSAGES.FORBIDDEN,
       statusCode: 403,
@@ -88,7 +104,9 @@ export function getAuthError(session: Session | null, permission: Permission): A
  * }
  * ```
  */
-export async function getSessionOrThrow(auth: AuthFunction): Promise<Session> {
+export async function getSessionOrThrow<TSession extends SessionWithRoles>(
+  auth: AuthFunction<TSession>
+): Promise<TSession> {
   const session = await auth();
 
   if (!session) {
@@ -114,7 +132,9 @@ export async function getSessionOrThrow(auth: AuthFunction): Promise<Session> {
  * }
  * ```
  */
-export async function getOptionalSession(auth: AuthFunction): Promise<Session | null> {
+export async function getOptionalSession<TSession extends SessionWithRoles>(
+  auth: AuthFunction<TSession>
+): Promise<TSession | null> {
   return await auth();
 }
 
@@ -138,10 +158,10 @@ export async function getOptionalSession(auth: AuthFunction): Promise<Session | 
  * });
  * ```
  */
-export function withAuth<T extends unknown[]>(
-  auth: AuthFunction,
-  permission: Permission,
-  handler: (session: Session, ...args: T) => Promise<NextResponse>
+export function withAuth<TSession extends SessionWithRoles, T extends unknown[]>(
+  auth: AuthFunction<TSession>,
+  permission: Permission | null,
+  handler: (session: TSession, ...args: T) => Promise<NextResponse>
 ): (...args: T) => Promise<NextResponse> {
   return async (...args: T) => {
     try {

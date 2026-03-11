@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { withAuth, withRepository, handleApiError } from '@nagiyu/nextjs';
+import type { BatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
+import { DynamoDBBatchJobRepository } from '@nagiyu/niconico-mylist-assistant-core';
 import type { BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
-import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 interface RouteParams {
   params: Promise<{ jobId: string }>;
@@ -18,27 +20,21 @@ interface RouteParams {
  * @param params - ルートパラメータ（jobId）
  * @returns バッチジョブステータスレスポンス
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
-  try {
-    // パラメータを解決
+const getDynamoDBClient = () => getDynamoDBDocumentClient(process.env.AWS_REGION || 'us-east-1');
+
+const withBatchJobRepository = withRepository(
+  getDynamoDBClient,
+  getTableName,
+  DynamoDBBatchJobRepository,
+  async (
+    batchJobRepository: BatchJobRepository,
+    _request: NextRequest,
+    { params }: RouteParams,
+    session: NonNullable<Awaited<ReturnType<typeof getSession>>>
+  ) => {
     const { jobId } = await params;
-
-    // 認証チェック
-    const session = await getSession();
-    if (!session?.user) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'UNAUTHORIZED',
-            message: ERROR_MESSAGES.UNAUTHORIZED,
-          },
-        },
-        { status: 401 }
-      );
-    }
-
     // バッチジョブを取得
-    const batchJob = await getBatchJob(jobId, session.user.id);
+    const batchJob = await batchJobRepository.getById(jobId, session.user.id);
 
     if (!batchJob) {
       return NextResponse.json(
@@ -69,16 +65,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error('バッチジョブステータス取得エラー:', error);
-    return NextResponse.json(
-      {
-        error: {
-          code: 'DATABASE_ERROR',
-          message: 'データベースへのアクセスに失敗しました',
-        },
-      },
-      { status: 500 }
-    );
   }
-}
+);
+
+export const GET = withAuth(
+  getSession,
+  null,
+  async (session, request: NextRequest, context: RouteParams) => {
+    try {
+      return await withBatchJobRepository(request, context, session);
+    } catch (error) {
+      return handleApiError(error);
+    }
+  }
+);
