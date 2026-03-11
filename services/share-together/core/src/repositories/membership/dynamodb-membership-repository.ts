@@ -133,7 +133,7 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
   ): Promise<GroupMembership> {
     const expressionAttributeNames: Record<string, string> = {
       '#updatedAt': 'updatedAt',
-      '#ttl': 'TTL',
+      '#ttl': 'ttl',
     };
     const expressionAttributeValues: Record<string, unknown> = {
       ':updatedAt': new Date().toISOString(),
@@ -265,7 +265,7 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
       invitedBy: membership.invitedBy,
       invitedAt: membership.invitedAt,
       respondedAt: membership.respondedAt,
-      TTL: membership.ttl,
+      ttl: membership.ttl,
       createdAt: membership.createdAt,
       updatedAt: membership.updatedAt,
     };
@@ -279,7 +279,7 @@ export class DynamoDBMembershipRepository implements MembershipRepository {
     const invitedBy = item['invitedBy'];
     const invitedAt = item['invitedAt'];
     const respondedAt = item['respondedAt'];
-    const ttl = item['TTL'];
+    const ttl = item['ttl'];
     const createdAt = item['createdAt'];
     const updatedAt = item['updatedAt'];
 
