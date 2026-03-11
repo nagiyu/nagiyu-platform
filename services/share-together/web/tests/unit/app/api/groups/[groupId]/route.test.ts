@@ -26,7 +26,7 @@ jest.mock('@/lib/auth/session', () => ({
 }));
 
 jest.mock('@/lib/aws-clients', () => ({
-  getAwsClients: jest.fn(),
+  getDocClient: jest.fn(),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -37,12 +37,12 @@ jest.mock('@nagiyu/share-together-core', () => ({
 import { DELETE, PUT } from '@/app/api/groups/[groupId]/route';
 import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
-const mockGetAwsClients = getAwsClients as jest.MockedFunction<typeof getAwsClients>;
+const mockGetDocClient = getDocClient as jest.MockedFunction<typeof getDocClient>;
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
@@ -59,9 +59,7 @@ describe('/api/groups/[groupId] route handlers', () => {
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetAwsClients.mockReturnValue({
-      docClient: { send: jest.fn() } as ReturnType<typeof getAwsClients>['docClient'],
-    });
+    mockGetDocClient.mockReturnValue({ send: jest.fn() } as ReturnType<typeof getDocClient>);
 
     mockDynamoDBGroupRepository.mockImplementation(
       () =>

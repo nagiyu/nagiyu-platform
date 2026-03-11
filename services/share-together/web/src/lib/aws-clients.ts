@@ -19,3 +19,10 @@ export function getAwsClients() {
     docClient: cachedDocClient,
   };
 }
+
+export function getDocClient(): DynamoDBDocumentClient | undefined {
+  if (process.env.USE_IN_MEMORY_DB === 'true') {
+    return undefined;
+  }
+  return getAwsClients().docClient;
+}

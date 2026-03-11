@@ -1,8 +1,8 @@
-import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchGetCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, InvitationSummary, InvitationsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
   createGroupRepository,
@@ -51,7 +51,7 @@ export async function GET(): Promise<NextResponse> {
       throw new Error('DYNAMODB_TABLE_NAME is required');
     }
 
-    const { docClient } = getAwsClients();
+    const docClient = getDocClient();
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const groupRepository = createGroupRepository(docClient, tableName);
 
@@ -104,7 +104,7 @@ export async function GET(): Promise<NextResponse> {
 }
 
 async function getInviterNames(
-  docClient: ReturnType<typeof getAwsClients>['docClient'],
+  docClient: DynamoDBDocumentClient | undefined,
   tableName: string,
   inviterUserIds: string[]
 ): Promise<Map<string, string>> {
@@ -122,6 +122,10 @@ async function getInviterNames(
       }
     }
     return inviterNames;
+  }
+
+  if (!docClient) {
+    throw new Error(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
   }
 
   const result = await docClient.send(

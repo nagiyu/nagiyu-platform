@@ -2,7 +2,7 @@ import { type ListRepository, type TodoRepository } from '@nagiyu/share-together
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, GroupListResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getAwsClients } from '@/lib/aws-clients';
+import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
   createListRepository,
@@ -54,7 +54,7 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
     throw new Error('DYNAMODB_TABLE_NAME is required');
   }
 
-  const { docClient } = getAwsClients();
+  const docClient = getDocClient();
   const membershipRepository = createMembershipRepository(docClient, tableName);
   const membership = await membershipRepository.getById(groupId, userId);
   if (!membership || membership.status !== 'ACCEPTED') {
