@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/auth-web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -20,6 +20,7 @@
     "@nagiyu/auth-core": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
+    "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
     "next-auth": "^5.0.0-beta.30",
     "zod": "^4.3.6"

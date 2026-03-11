@@ -1,10 +1,6 @@
-import { NextResponse } from 'next/server';
+import { createHealthRoute } from '@nagiyu/nextjs';
 
-export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    service: 'auth',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-  });
-}
+export const GET = createHealthRoute({
+  service: 'auth',
+  version: '1.0.0',
+});

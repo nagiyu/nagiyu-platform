@@ -78,6 +78,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Run unit tests
         run: npm run test --workspace @nagiyu/admin
@@ -108,6 +109,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -162,6 +164,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Build Next.js application
         run: npm run build --workspace @nagiyu/admin

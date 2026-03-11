@@ -87,6 +87,23 @@ describe('getAuthError', () => {
     const error = getAuthError(session, 'stocks:write-own');
     expect(error).toBeNull();
   });
+
+  it('権限指定がない場合、nullを返す', () => {
+    const session: Session = {
+      user: {
+        userId: 'user-1',
+        googleId: 'google-1',
+        email: 'test@example.com',
+        name: 'Test User',
+        roles: [],
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+      expires: '2024-12-31T23:59:59Z',
+    };
+    const error = getAuthError(session, null);
+    expect(error).toBeNull();
+  });
 });
 
 describe('getSessionOrThrow', () => {
@@ -242,5 +259,31 @@ describe('withAuth', () => {
     expect(handler).toHaveBeenCalled();
     expect(response.status).toBe(500);
     expect(consoleErrorSpy).toHaveBeenCalled();
+  });
+
+  it('権限指定なしの場合、roles が空でもハンドラーを実行する', async () => {
+    const mockSession: Session = {
+      user: {
+        userId: 'user-1',
+        googleId: 'google-1',
+        email: 'test@example.com',
+        name: 'Test User',
+        roles: [],
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+      },
+      expires: '2024-12-31T23:59:59Z',
+    };
+
+    const mockAuth: AuthFunction = jest.fn(async () => mockSession);
+    const handler = jest.fn<(session: Session, request: NextRequest) => Promise<NextResponse>>(
+      async () => NextResponse.json({ success: true })
+    );
+    const wrappedHandler = withAuth(mockAuth, null, handler);
+    const request = new NextRequest('http://localhost/api/test');
+    const response = await wrappedHandler(request);
+
+    expect(handler).toHaveBeenCalled();
+    expect(response.status).toBe(200);
   });
 });
