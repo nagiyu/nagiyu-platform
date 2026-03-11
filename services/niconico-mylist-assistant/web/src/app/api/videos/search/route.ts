@@ -34,7 +34,10 @@ export async function GET(request: NextRequest) {
       isRegistered: registeredVideoIds.has(video.videoId),
     }));
 
-    return NextResponse.json({ videos: videosWithRegistration, total: videosWithRegistration.length });
+    return NextResponse.json({
+      videos: videosWithRegistration,
+      total: videosWithRegistration.length,
+    });
   } catch (error) {
     console.error('動画検索エラー:', error);
     return NextResponse.json({ error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR }, { status: 500 });

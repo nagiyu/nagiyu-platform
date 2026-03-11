@@ -53,12 +53,15 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
       }
 
       const searchResults = Array.isArray(data.videos) ? data.videos : [];
-      const initialAddStatus = searchResults.reduce<Record<string, AddStatus>>((statusById, video) => {
-        if (video.isRegistered) {
-          statusById[video.videoId] = 'already-added';
-        }
-        return statusById;
-      }, {});
+      const initialAddStatus = searchResults.reduce<Record<string, AddStatus>>(
+        (statusById, video) => {
+          if (video.isRegistered) {
+            statusById[video.videoId] = 'already-added';
+          }
+          return statusById;
+        },
+        {}
+      );
 
       setVideos(searchResults);
       setAddStatusById(initialAddStatus);
