@@ -167,6 +167,7 @@ export class TestDataFactory {
   private readonly trackedData: TrackedData;
   private readonly testPrefix: string;
   private readonly testUserId: string;
+  private readonly alertConsistencyTimeoutMs: number;
 
   /**
    * @param request - Playwright の APIRequestContext
@@ -184,6 +185,7 @@ export class TestDataFactory {
       holdings: new Map(),
       alerts: new Map(),
     };
+    this.alertConsistencyTimeoutMs = 10000;
   }
 
   // ==========================================================================
@@ -444,6 +446,8 @@ export class TestDataFactory {
     const responseData = await response.json();
     const alertId = responseData.alertId;
 
+    await this.waitForAlertPersistence(alertId);
+
     const createdAlert: CreatedAlert = {
       alertId,
       tickerId: ticker.tickerId,
@@ -457,6 +461,26 @@ export class TestDataFactory {
     this.trackedData.alerts.set(alertId, createdAlert);
 
     return createdAlert;
+  }
+
+  private async waitForAlertPersistence(alertId: string): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < this.alertConsistencyTimeoutMs) {
+      const listResponse = await this.request.get('/api/alerts');
+      if (listResponse.ok()) {
+        const body = await listResponse.json().catch(() => ({}));
+        const hasAlert = Array.isArray(body.alerts)
+          ? body.alerts.some((alert: { alertId?: string }) => alert.alertId === alertId)
+          : false;
+        if (hasAlert) {
+          return;
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    throw new Error(`Created alert was not persisted in time: ${alertId}`);
   }
 
   // ==========================================================================
