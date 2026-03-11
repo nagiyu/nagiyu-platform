@@ -171,7 +171,7 @@ on:
     pull_request:
         branches:
             - develop           # メインブランチ
-            - integration/**    # 統合ブランチ（fast verifyでは integration/** のみ）
+            - integration/**    # 統合ブランチ
         paths:
             - 'libs/hoge/**'           # ターゲットファイル
             - 'libs/common/**'            # 依存ライブラリ
