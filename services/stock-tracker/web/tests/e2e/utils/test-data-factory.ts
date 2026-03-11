@@ -1,5 +1,17 @@
 import { APIRequestContext } from '@playwright/test';
 
+const ALERT_WAIT_SETTINGS = {
+  pollIntervalMs: 200,
+  maxAttempts: 50,
+} as const;
+
+const ERROR_MESSAGES = {
+  alertPersistenceTimeout: (alertId: string): string =>
+    `作成したアラートが一覧に反映されませんでした: ${alertId}`,
+  alertResponseParseFailed: 'アラート一覧レスポンスのパースに失敗しました',
+  alertResponseInvalidFormat: 'アラート一覧レスポンスの形式が不正です',
+} as const;
+
 // ============================================================================
 // 入力型定義（作成時のオプション）
 // ============================================================================
@@ -167,7 +179,6 @@ export class TestDataFactory {
   private readonly trackedData: TrackedData;
   private readonly testPrefix: string;
   private readonly testUserId: string;
-  private readonly alertConsistencyTimeoutMs: number;
 
   /**
    * @param request - Playwright の APIRequestContext
@@ -185,7 +196,6 @@ export class TestDataFactory {
       holdings: new Map(),
       alerts: new Map(),
     };
-    this.alertConsistencyTimeoutMs = 10000;
   }
 
   // ==========================================================================
@@ -464,23 +474,27 @@ export class TestDataFactory {
   }
 
   private async waitForAlertPersistence(alertId: string): Promise<void> {
-    const start = Date.now();
-    while (Date.now() - start < this.alertConsistencyTimeoutMs) {
+    for (let attemptIndex = 0; attemptIndex < ALERT_WAIT_SETTINGS.maxAttempts; attemptIndex += 1) {
       const listResponse = await this.request.get('/api/alerts');
-      if (listResponse.ok()) {
-        const body = await listResponse.json().catch(() => ({}));
-        const hasAlert = Array.isArray(body.alerts)
-          ? body.alerts.some((alert: { alertId?: string }) => alert.alertId === alertId)
-          : false;
+      if (listResponse.status() === 200) {
+        const body = await listResponse.json().catch((error) => {
+          throw new Error(`${ERROR_MESSAGES.alertResponseParseFailed}: ${String(error)}`);
+        });
+        if (!Array.isArray(body.alerts)) {
+          throw new Error(ERROR_MESSAGES.alertResponseInvalidFormat);
+        }
+        const hasAlert = body.alerts.some(
+          (alert: { alertId?: string }) => alert.alertId === alertId
+        );
         if (hasAlert) {
           return;
         }
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, ALERT_WAIT_SETTINGS.pollIntervalMs));
     }
 
-    throw new Error(`Created alert was not persisted in time: ${alertId}`);
+    throw new Error(ERROR_MESSAGES.alertPersistenceTimeout(alertId));
   }
 
   // ==========================================================================
