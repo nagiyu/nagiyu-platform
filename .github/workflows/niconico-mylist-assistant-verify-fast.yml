@@ -166,6 +166,8 @@ jobs:
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 
       - name: Build web application
+        env:
+          DYNAMODB_TABLE_NAME: dummy-table
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 
   build-batch:
@@ -341,6 +343,8 @@ jobs:
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 
       - name: Build web application
+        env:
+          DYNAMODB_TABLE_NAME: dummy-table
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 
       - name: Install Playwright Browsers
