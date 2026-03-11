@@ -31,7 +31,6 @@ import { clearMemoryStore } from '../../lib/repository-factory';
  * - Holding
  * - Ticker
  * - Exchange
- * - Watchlist
  *
  * @returns Promise<void>
  *

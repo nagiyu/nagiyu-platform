@@ -58,7 +58,7 @@ Single Table Design は、複数のエンティティタイプを1つのDynamoDB
 
 - **PK（Partition Key）**: エンティティのグループ化キー（例: `USER#123`, `TICKER#AAPL`）
 - **SK（Sort Key）**: エンティティの識別子または階層（例: `HOLDING#AAPL`, `METADATA`）
-- **Type属性**: エンティティタイプの識別（例: `User`, `Holding`, `Watchlist`）
+- **Type属性**: エンティティタイプの識別（例: `User`, `Holding`, `Alert`）
 - **GSI**: 異なるアクセスパターンをサポートするための追加インデックス
 
 **設計例（概念）**:
@@ -69,7 +69,6 @@ PK                  SK                  Type        その他の属性
 USER#123            METADATA            User        Name, Email, ...
 USER#123            HOLDING#AAPL        Holding     Quantity, AvgPrice, ...
 USER#123            HOLDING#GOOGL       Holding     Quantity, AvgPrice, ...
-USER#123            WATCHLIST#tech      Watchlist   Name, Description, ...
 TICKER#AAPL         METADATA            Ticker      Symbol, Name, Exchange, ...
 TICKER#AAPL         ALERT#daily         Alert       Frequency, Threshold, ...
 ```
@@ -316,7 +315,6 @@ TICKER#AAPL         ALERT#daily         Alert       Frequency, Threshold, ...
 
 - **Usersテーブル**: PK = `UserID`
 - **Holdingsテーブル**: PK = `UserID`, SK = `TickerID`
-- **Watchlistsテーブル**: PK = `UserID`, SK = `WatchlistID`
 - **Tickersテーブル**: PK = `TickerID`
 - **Alertsテーブル**: PK = `AlertID` または PK = `UserID`, SK = `AlertID`
 

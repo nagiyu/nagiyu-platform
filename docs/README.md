@@ -40,6 +40,7 @@
 ### AIエージェント
 
 - [Task Proposal Agent](./agents/task.proposal.README.md) - 要件・指針ドキュメント生成エージェント
+- [Docs Write Agent](./agents/docs.write.README.md) - docs/ 配下専属のドキュメント作成・更新エージェント
 - [Task Implement Agent](./agents/task.implement.README.md) - ドキュメント駆動実装エージェント
 
 ## サービス
@@ -52,6 +53,7 @@
 - @nagiyu/browser - ブラウザAPI依存の共通ライブラリ
 - @nagiyu/ui - Next.js + Material-UI 依存の UI コンポーネント
 - @nagiyu/react - React依存のユーティリティ
+- @nagiyu/nextjs - Next.js依存のユーティリティ（APIルートヘルパー等）
 - @nagiyu/aws - AWS SDK 補助・拡張ライブラリ
 
 詳細は[共通ライブラリ設計](./development/shared-libraries.md)を参照してください。

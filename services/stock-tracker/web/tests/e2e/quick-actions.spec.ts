@@ -17,11 +17,11 @@ test.describe('クイックアクションエリア', () => {
     // 保有株式管理ボタン
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
 
-    // ウォッチリストボタン
-    await expect(page.locator('main').getByRole('link', { name: /ウォッチリスト/ })).toBeVisible();
-
     // アラート一覧ボタン
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
+
+    // サマリーボタン
+    await expect(page.locator('main').getByRole('link', { name: /サマリー/ })).toBeVisible();
   });
 
   test('各ボタンが正しいURLにリンクしている', async ({ page }) => {
@@ -29,13 +29,13 @@ test.describe('クイックアクションエリア', () => {
     const holdingsButton = page.locator('main').getByRole('link', { name: /保有株式管理/ });
     await expect(holdingsButton).toHaveAttribute('href', '/holdings');
 
-    // ウォッチリストボタン
-    const watchlistButton = page.locator('main').getByRole('link', { name: /ウォッチリスト/ });
-    await expect(watchlistButton).toHaveAttribute('href', '/watchlist');
-
     // アラート一覧ボタン
     const alertsButton = page.locator('main').getByRole('link', { name: /アラート一覧/ });
     await expect(alertsButton).toHaveAttribute('href', '/alerts');
+
+    // サマリーボタン
+    const summariesButton = page.locator('main').getByRole('link', { name: /サマリー/ });
+    await expect(summariesButton).toHaveAttribute('href', '/summaries');
   });
 
   test('ボタンにアイコンが表示される', async ({ page }) => {
@@ -43,11 +43,6 @@ test.describe('クイックアクションエリア', () => {
     const holdingsButton = page.locator('main').getByRole('link', { name: /保有株式管理/ });
     const holdingsIcon = holdingsButton.locator('svg').first();
     await expect(holdingsIcon).toBeVisible();
-
-    // ウォッチリストボタン内にアイコンが存在する
-    const watchlistButton = page.locator('main').getByRole('link', { name: /ウォッチリスト/ });
-    const watchlistIcon = watchlistButton.locator('svg').first();
-    await expect(watchlistIcon).toBeVisible();
 
     // アラート一覧ボタン内にアイコンが存在する
     const alertsButton = page.locator('main').getByRole('link', { name: /アラート一覧/ });
@@ -101,7 +96,6 @@ test.describe('クイックアクションエリア - レスポンシブ対応',
 
     // ボタンが表示される
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: /ウォッチリスト/ })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
   });
 
@@ -118,7 +112,6 @@ test.describe('クイックアクションエリア - レスポンシブ対応',
 
     // ボタンが表示される
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: /ウォッチリスト/ })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
   });
 
@@ -135,7 +128,6 @@ test.describe('クイックアクションエリア - レスポンシブ対応',
 
     // ボタンが表示される
     await expect(page.locator('main').getByRole('link', { name: /保有株式管理/ })).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: /ウォッチリスト/ })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /アラート一覧/ })).toBeVisible();
   });
 });

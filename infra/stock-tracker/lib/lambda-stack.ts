@@ -18,13 +18,14 @@ export interface LambdaStackProps extends cdk.StackProps {
   vapidSecret: secretsmanager.ISecret;
   vapidPublicKey: string; // VAPID 公開鍵（デプロイ時に Secrets Manager から取得）
   vapidPrivateKey: string; // VAPID 秘密鍵（デプロイ時に Secrets Manager から取得）
+  openAiApiKey: string; // OpenAI API Key（デプロイ時に Secrets Manager から取得）
   nextAuthSecret: string; // NextAuth Secret (Auth サービスから取得)
 }
 
 /**
  * Stock Tracker Lambda Stack
  *
- * Web Lambda（Next.js）と Batch Lambda（3関数）を作成します。
+ * Web Lambda 1関数と Batch Lambda 5関数（minute, hourly, summary, daily, temporary-alert-expiry）の合計6関数を作成します。
  * また、マネージドポリシー（WebRuntimePolicy, BatchRuntimePolicy）を作成し、
  * Lambda 実行ロールと開発用 IAM ユーザー（別スタック）で共有します。
  */
@@ -32,7 +33,9 @@ export class LambdaStack extends cdk.Stack {
   public readonly webFunction: lambda.Function;
   public readonly batchMinuteFunction: lambda.Function;
   public readonly batchHourlyFunction: lambda.Function;
+  public readonly batchSummaryFunction: lambda.Function;
   public readonly batchDailyFunction: lambda.Function;
+  public readonly batchTemporaryAlertExpiryFunction: lambda.Function;
   public readonly functionUrl: lambda.FunctionUrl;
   public readonly webRuntimePolicy: iam.IManagedPolicy;
   public readonly batchRuntimePolicy: iam.IManagedPolicy;
@@ -49,6 +52,7 @@ export class LambdaStack extends cdk.Stack {
       vapidSecret,
       vapidPublicKey,
       vapidPrivateKey,
+      openAiApiKey,
       nextAuthSecret,
     } = props;
 
@@ -115,6 +119,7 @@ export class LambdaStack extends cdk.Stack {
             ? 'https://stock-tracker.nagiyu.com'
             : 'https://dev-stock-tracker.nagiyu.com',
         AUTH_SECRET: nextAuthSecret,
+        STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-summary-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
@@ -159,6 +164,7 @@ export class LambdaStack extends cdk.Stack {
         BATCH_TYPE: 'MINUTE',
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -182,6 +188,29 @@ export class LambdaStack extends cdk.Stack {
         BATCH_TYPE: 'HOURLY',
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
+        OPENAI_API_KEY: openAiApiKey,
+      },
+      tracing: lambda.Tracing.ACTIVE,
+      logRetention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    // Batch Lambda - Summary（1時間間隔、日次サマリー生成）
+    this.batchSummaryFunction = new lambda.Function(this, 'BatchSummaryFunction', {
+      functionName: `nagiyu-stock-tracker-batch-summary-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(batchRepository, {
+        tagOrDigest: 'latest',
+        cmd: ['services/stock-tracker/batch/dist/summary.handler'],
+      }),
+      handler: lambda.Handler.FROM_IMAGE,
+      role: batchExecutionRole,
+      memorySize: 512,
+      timeout: cdk.Duration.minutes(5),
+      environment: {
+        NODE_ENV: environment,
+        DYNAMODB_TABLE_NAME: dynamoTable.tableName,
+        BATCH_TYPE: 'SUMMARY',
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -203,17 +232,46 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'DAILY',
+        OPENAI_API_KEY: openAiApiKey,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
     });
+
+    // Batch Lambda - Temporary Alert Expiry（1時間間隔、一時通知の期限切れ無効化）
+    this.batchTemporaryAlertExpiryFunction = new lambda.Function(
+      this,
+      'BatchTemporaryAlertExpiryFunction',
+      {
+        functionName: `nagiyu-stock-tracker-batch-temporary-alert-expiry-${environment}`,
+        runtime: lambda.Runtime.FROM_IMAGE,
+        code: lambda.Code.fromEcrImage(batchRepository, {
+          tagOrDigest: 'latest',
+          cmd: ['services/stock-tracker/batch/dist/temporary-alert-expiry.handler'],
+        }),
+        handler: lambda.Handler.FROM_IMAGE,
+        role: batchExecutionRole,
+        memorySize: 512,
+        timeout: cdk.Duration.minutes(5),
+        environment: {
+          NODE_ENV: environment,
+          DYNAMODB_TABLE_NAME: dynamoTable.tableName,
+          BATCH_TYPE: 'TEMPORARY_ALERT_EXPIRY',
+          OPENAI_API_KEY: openAiApiKey,
+        },
+        tracing: lambda.Tracing.ACTIVE,
+        logRetention: logs.RetentionDays.ONE_MONTH,
+      }
+    );
 
     // タグの追加
     [
       this.webFunction,
       this.batchMinuteFunction,
       this.batchHourlyFunction,
+      this.batchSummaryFunction,
       this.batchDailyFunction,
+      this.batchTemporaryAlertExpiryFunction,
     ].forEach((fn) => {
       cdk.Tags.of(fn).add('Application', 'nagiyu');
       cdk.Tags.of(fn).add('Service', 'stock-tracker');
@@ -241,9 +299,19 @@ export class LambdaStack extends cdk.Stack {
       description: 'Batch Hourly Lambda Function ARN',
     });
 
+    new cdk.CfnOutput(this, 'BatchSummaryFunctionArn', {
+      value: this.batchSummaryFunction.functionArn,
+      description: 'Batch Summary Lambda Function ARN',
+    });
+
     new cdk.CfnOutput(this, 'BatchDailyFunctionArn', {
       value: this.batchDailyFunction.functionArn,
       description: 'Batch Daily Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'BatchTemporaryAlertExpiryFunctionArn', {
+      value: this.batchTemporaryAlertExpiryFunction.functionArn,
+      description: 'Batch Temporary Alert Expiry Lambda Function ARN',
     });
 
     // Runtime Policies (IAM スタックで参照するため Export)

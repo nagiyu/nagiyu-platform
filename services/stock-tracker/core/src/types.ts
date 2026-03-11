@@ -20,7 +20,7 @@
  * - UpdatedAt: Unix timestamp、更新時に自動更新
  *
  * データ整合性:
- * - 削除時、関連するHolding/Watchlist/Alertが存在する場合は削除不可
+ * - 削除時、関連するHolding/Alertが存在する場合は削除不可
  */
 export type Exchange = {
   /** 取引所ID (PK: EXCHANGE#{ExchangeID}) - 1-50文字、英数字とハイフン、変更不可 */
@@ -55,7 +55,7 @@ export type Exchange = {
  * - UpdatedAt: Unix timestamp、更新時に自動更新
  *
  * データ整合性:
- * - 削除時、関連するHolding/Watchlist/Alertが存在する場合は削除不可
+ * - 削除時、関連するHolding/Alertが存在する場合は削除不可
  * - TickerIDはExchange.Keyから生成されるため、Exchange.Keyの変更不可制約に依存
  */
 export type Ticker = {
@@ -72,6 +72,77 @@ export type Ticker = {
   /** 更新日時 (Unix timestamp) - 自動更新 */
   UpdatedAt: number;
 };
+
+/**
+ * 日次サマリー (DailySummary)
+ *
+ * 特定ティッカーの特定日における OHLCV（始値・高値・安値・終値・出来高）の日次集計データ
+ */
+export type DailySummary = {
+  /** ティッカーID (PK: SUMMARY#{TickerID}) */
+  TickerID: string;
+  /** 取引所ID */
+  ExchangeID: string;
+  /** 取引日 (YYYY-MM-DD 形式, UTC基準) */
+  Date: string;
+  /** 始値 */
+  Open: number;
+  /** 高値 */
+  High: number;
+  /** 安値 */
+  Low: number;
+  /** 終値 */
+  Close: number;
+  /** 出来高 */
+  Volume?: number;
+  /** 作成日時 (Unix timestamp ms) */
+  CreatedAt: number;
+  /** 更新日時 (Unix timestamp ms) */
+  UpdatedAt: number;
+};
+
+/**
+ * パターン判定状態
+ */
+export type PatternStatus = 'MATCHED' | 'NOT_MATCHED' | 'INSUFFICIENT_DATA';
+
+/**
+ * パターンの売買区分
+ */
+export type PatternSignalType = 'BUY' | 'SELL';
+
+/**
+ * パターン定義
+ */
+export interface PatternDefinition {
+  patternId: string;
+  name: string;
+  description: string;
+  signalType: PatternSignalType;
+}
+
+/**
+ * ティッカー単位のパターン判定結果マップ
+ *
+ * キー: patternId
+ * 値: PatternStatus
+ */
+export type PatternResults = Record<string, PatternStatus>;
+
+/**
+ * PatternResults のデフォルト値（バッチ未実行時）
+ */
+export const DEFAULT_PATTERN_RESULTS: PatternResults = {};
+
+/**
+ * 買いシグナル合致数のデフォルト値
+ */
+export const DEFAULT_BUY_PATTERN_COUNT = 0;
+
+/**
+ * 売りシグナル合致数のデフォルト値
+ */
+export const DEFAULT_SELL_PATTERN_COUNT = 0;
 
 /**
  * 保有株式 (Holding)
@@ -105,28 +176,6 @@ export type Holding = {
   CreatedAt: number;
   /** 更新日時 (Unix timestamp) - 自動更新 */
   UpdatedAt: number;
-};
-
-/**
- * ウォッチリスト (Watchlist)
- *
- * ユーザーが監視している銘柄
- *
- * バリデーションルール:
- * - UserID: 必須、有効なユーザーID
- * - TickerID: 必須、有効なティッカーID
- * - ExchangeID: 必須、有効な取引所ID
- * - CreatedAt: Unix timestamp、作成後変更不可
- */
-export type Watchlist = {
-  /** ユーザーID (PK: USER#{UserID}) - 必須 */
-  UserID: string;
-  /** ティッカーID (SK: WATCHLIST#{TickerID}) - 必須 */
-  TickerID: string;
-  /** 取引所ID - 必須 */
-  ExchangeID: string;
-  /** 作成日時 (Unix timestamp) - 変更不可 */
-  CreatedAt: number;
 };
 
 /**
@@ -174,6 +223,10 @@ export type Alert = {
   Frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
   /** 有効/無効フラグ - 必須 */
   Enabled: boolean;
+  /** 一時通知フラグ（true: 取引終了後に自動無効化） */
+  Temporary?: boolean;
+  /** 一時通知の期限取引日（YYYY-MM-DD, 取引所タイムゾーン基準） */
+  TemporaryExpireDate?: string;
   /** アラート条件リスト (Phase 1は1条件のみ) - 必須 */
   ConditionList: AlertCondition[];
   /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用。未指定の場合はデフォルトで 'AND' として扱われる */
@@ -246,13 +299,6 @@ export type AlertCondition = {
  * - GSI1PK: {UserID}
  * - GSI1SK: Holding#{TickerID}
  *
- * Watchlist:
- * - PK: USER#{UserID}
- * - SK: WATCHLIST#{TickerID}
- * - Type: Watchlist
- * - GSI1PK: {UserID}
- * - GSI1SK: Watchlist#{TickerID}
- *
  * Alert:
  * - PK: USER#{UserID}
  * - SK: ALERT#{AlertID}
@@ -261,6 +307,13 @@ export type AlertCondition = {
  * - GSI1SK: Alert#{AlertID}
  * - GSI2PK: ALERT#{Frequency}
  * - GSI2SK: {UserID}#{AlertID}
+ *
+ * DailySummary:
+ * - PK: SUMMARY#{TickerID}
+ * - SK: DATE#{Date}
+ * - Type: DailySummary
+ * - GSI4PK: {ExchangeID}
+ * - GSI4SK: DATE#{Date}#{TickerID}
  */
 export type DynamoDBItem = {
   /** パーティションキー - エンティティごとに異なる形式 */
@@ -268,10 +321,10 @@ export type DynamoDBItem = {
   /** ソートキー - エンティティごとに異なる形式 */
   SK: string;
   /** エンティティタイプ - データの種類を識別 */
-  Type: 'Exchange' | 'Ticker' | 'Holding' | 'Watchlist' | 'Alert';
-  /** GSI1 パーティションキー (ユーザーごとのデータ取得用) - Holding/Watchlist/Alertで使用 */
+  Type: 'Exchange' | 'Ticker' | 'Holding' | 'Alert' | 'DailySummary';
+  /** GSI1 パーティションキー (ユーザーごとのデータ取得用) - Holding/Alertで使用 */
   GSI1PK?: string;
-  /** GSI1 ソートキー - Holding/Watchlist/Alertで使用 */
+  /** GSI1 ソートキー - Holding/Alertで使用 */
   GSI1SK?: string;
   /** GSI2 パーティションキー (アラート頻度ごとの取得用) - Alertのみ使用 */
   GSI2PK?: string;
@@ -281,6 +334,10 @@ export type DynamoDBItem = {
   GSI3PK?: string;
   /** GSI3 ソートキー - Tickerのみ使用 */
   GSI3SK?: string;
+  /** GSI4 パーティションキー (取引所ごとの日次サマリー取得用) - DailySummaryのみ使用 */
+  GSI4PK?: string;
+  /** GSI4 ソートキー - DailySummaryのみ使用 */
+  GSI4SK?: string;
 };
 
 /**
@@ -324,4 +381,6 @@ export type ChartData = {
   timeframe: string;
   /** チャートデータポイントの配列 */
   data: ChartDataPoint[];
+  /** 保有平均価格（保有がある場合のみ） */
+  holdingAveragePrice?: number;
 };

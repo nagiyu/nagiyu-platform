@@ -3,10 +3,10 @@
 import { Box, Typography, Button } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
-  Visibility as VisibilityIcon,
   Notifications as NotificationsIcon,
   Business as BusinessIcon,
   ShowChart as ShowChartIcon,
+  Summarize as SummarizeIcon,
 } from '@mui/icons-material';
 
 interface QuickActionsProps {
@@ -37,18 +37,7 @@ export default function QuickActions({ hasManageDataPermission }: QuickActionsPr
           保有株式管理
         </Button>
 
-        {/* 2. ウォッチリスト */}
-        <Button
-          variant="contained"
-          size="large"
-          href="/watchlist"
-          startIcon={<VisibilityIcon />}
-          sx={{ py: 2 }}
-        >
-          ウォッチリスト
-        </Button>
-
-        {/* 3. アラート一覧 */}
+        {/* 2. アラート一覧 */}
         <Button
           variant="contained"
           size="large"
@@ -57,6 +46,16 @@ export default function QuickActions({ hasManageDataPermission }: QuickActionsPr
           sx={{ py: 2 }}
         >
           アラート一覧
+        </Button>
+
+        <Button
+          variant="contained"
+          size="large"
+          href="/summaries"
+          startIcon={<SummarizeIcon />}
+          sx={{ py: 2 }}
+        >
+          サマリー
         </Button>
 
         {/* 4. 取引所管理 (stock-admin のみ) */}

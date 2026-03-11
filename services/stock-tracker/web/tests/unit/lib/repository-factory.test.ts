@@ -9,7 +9,7 @@ import {
   createHoldingRepository,
   createTickerRepository,
   createExchangeRepository,
-  createWatchlistRepository,
+  createDailySummaryRepository,
   clearMemoryStore,
 } from '../../../lib/repository-factory';
 import * as dynamodb from '../../../lib/dynamodb';
@@ -74,10 +74,10 @@ describe('Repository Factory', () => {
       expect(repo.constructor.name).toBe('InMemoryExchangeRepository');
     });
 
-    it('createWatchlistRepository はInMemory実装を返す', () => {
-      const repo = createWatchlistRepository();
+    it('createDailySummaryRepository はInMemory実装を返す', () => {
+      const repo = createDailySummaryRepository();
       expect(repo).toBeDefined();
-      expect(repo.constructor.name).toBe('InMemoryWatchlistRepository');
+      expect(repo.constructor.name).toBe('InMemoryDailySummaryRepository');
     });
 
     it('シングルトンパターンが機能する', () => {
@@ -135,10 +135,10 @@ describe('Repository Factory', () => {
       expect(repo.constructor.name).toBe('DynamoDBExchangeRepository');
     });
 
-    it('createWatchlistRepository はDynamoDB実装を返す', () => {
-      const repo = createWatchlistRepository();
+    it('createDailySummaryRepository はDynamoDB実装を返す', () => {
+      const repo = createDailySummaryRepository();
       expect(repo).toBeDefined();
-      expect(repo.constructor.name).toBe('DynamoDBWatchlistRepository');
+      expect(repo.constructor.name).toBe('DynamoDBDailySummaryRepository');
     });
 
     it('シングルトンパターンが機能する - Alert', () => {
@@ -165,9 +165,9 @@ describe('Repository Factory', () => {
       expect(repo1).toBe(repo2);
     });
 
-    it('シングルトンパターンが機能する - Watchlist', () => {
-      const repo1 = createWatchlistRepository();
-      const repo2 = createWatchlistRepository();
+    it('シングルトンパターンが機能する - DailySummary', () => {
+      const repo1 = createDailySummaryRepository();
+      const repo2 = createDailySummaryRepository();
       expect(repo1).toBe(repo2);
     });
   });
@@ -190,13 +190,13 @@ describe('Repository Factory', () => {
       const holdingRepo = createHoldingRepository();
       const tickerRepo = createTickerRepository();
       const exchangeRepo = createExchangeRepository();
-      const watchlistRepo = createWatchlistRepository();
+      const dailySummaryRepo = createDailySummaryRepository();
 
       expect(alertRepo.constructor.name).toBe('DynamoDBAlertRepository');
       expect(holdingRepo.constructor.name).toBe('DynamoDBHoldingRepository');
       expect(tickerRepo.constructor.name).toBe('DynamoDBTickerRepository');
       expect(exchangeRepo.constructor.name).toBe('DynamoDBExchangeRepository');
-      expect(watchlistRepo.constructor.name).toBe('DynamoDBWatchlistRepository');
+      expect(dailySummaryRepo.constructor.name).toBe('DynamoDBDailySummaryRepository');
     });
   });
 
@@ -220,7 +220,7 @@ describe('Repository Factory', () => {
       clearMemoryStore();
       expect(() => createExchangeRepository()).toThrow('DynamoDB設定が不正です');
       clearMemoryStore();
-      expect(() => createWatchlistRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createDailySummaryRepository()).toThrow('DynamoDB設定が不正です');
     });
   });
 });

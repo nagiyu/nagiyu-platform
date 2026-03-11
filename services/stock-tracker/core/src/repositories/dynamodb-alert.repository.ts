@@ -253,6 +253,16 @@ export class DynamoDBAlertRepository implements AlertRepository {
         expressionAttributeNames['#enabled'] = 'Enabled';
         expressionAttributeValues[':enabled'] = updates.Enabled;
       }
+      if (updates.Temporary !== undefined) {
+        updateExpressions.push('#temporary = :temporary');
+        expressionAttributeNames['#temporary'] = 'Temporary';
+        expressionAttributeValues[':temporary'] = updates.Temporary;
+      }
+      if (updates.TemporaryExpireDate !== undefined) {
+        updateExpressions.push('#temporaryExpireDate = :temporaryExpireDate');
+        expressionAttributeNames['#temporaryExpireDate'] = 'TemporaryExpireDate';
+        expressionAttributeValues[':temporaryExpireDate'] = updates.TemporaryExpireDate;
+      }
       if (updates.ConditionList !== undefined) {
         updateExpressions.push('#conditionList = :conditionList');
         expressionAttributeNames['#conditionList'] = 'ConditionList';

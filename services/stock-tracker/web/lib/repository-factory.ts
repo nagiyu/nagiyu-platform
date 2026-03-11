@@ -13,19 +13,19 @@ import type {
   HoldingRepository,
   TickerRepository,
   ExchangeRepository,
-  WatchlistRepository,
+  DailySummaryRepository,
 } from '@nagiyu/stock-tracker-core';
 import {
   DynamoDBAlertRepository,
+  DynamoDBDailySummaryRepository,
   DynamoDBHoldingRepository,
   DynamoDBTickerRepository,
   DynamoDBExchangeRepository,
-  DynamoDBWatchlistRepository,
   InMemoryAlertRepository,
+  InMemoryDailySummaryRepository,
   InMemoryHoldingRepository,
   InMemoryTickerRepository,
   InMemoryExchangeRepository,
-  InMemoryWatchlistRepository,
 } from '@nagiyu/stock-tracker-core';
 import { getDynamoDBClient, getTableName } from './dynamodb';
 
@@ -44,7 +44,7 @@ let alertRepository: AlertRepository | null = null;
 let holdingRepository: HoldingRepository | null = null;
 let tickerRepository: TickerRepository | null = null;
 let exchangeRepository: ExchangeRepository | null = null;
-let watchlistRepository: WatchlistRepository | null = null;
+let dailySummaryRepository: DailySummaryRepository | null = null;
 
 /**
  * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
@@ -69,7 +69,7 @@ export function clearMemoryStore(): void {
   holdingRepository = null;
   tickerRepository = null;
   exchangeRepository = null;
-  watchlistRepository = null;
+  dailySummaryRepository = null;
 }
 
 /**
@@ -193,31 +193,29 @@ export function createExchangeRepository(): ExchangeRepository {
 }
 
 /**
- * Watchlist Repository を作成
+ * DailySummary Repository を作成
  *
- * @returns WatchlistRepository インスタンス
+ * @returns DailySummaryRepository インスタンス
  */
-export function createWatchlistRepository(): WatchlistRepository {
-  if (watchlistRepository) {
-    return watchlistRepository;
+export function createDailySummaryRepository(): DailySummaryRepository {
+  if (dailySummaryRepository) {
+    return dailySummaryRepository;
   }
 
   const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
 
   if (useInMemory) {
-    // InMemory実装を使用
     const store = getOrCreateMemoryStore();
-    watchlistRepository = new InMemoryWatchlistRepository(store);
+    dailySummaryRepository = new InMemoryDailySummaryRepository(store);
   } else {
-    // DynamoDB実装を使用
     try {
       const docClient = getDynamoDBClient();
       const tableName = getTableName();
-      watchlistRepository = new DynamoDBWatchlistRepository(docClient, tableName);
+      dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
     } catch {
       throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
     }
   }
 
-  return watchlistRepository;
+  return dailySummaryRepository;
 }

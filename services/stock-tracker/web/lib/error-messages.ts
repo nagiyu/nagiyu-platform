@@ -22,11 +22,6 @@ export const STOCK_TRACKER_ERROR_MESSAGES = {
   PRICE_DATA_ERROR: '価格データの取得に失敗しました',
   HISTORICAL_DATA_ERROR: '過去データの取得に失敗しました',
 
-  // ウォッチリスト関連
-  WATCHLIST_NOT_FOUND: 'ウォッチリストが見つかりませんでした',
-  WATCHLIST_LIMIT_EXCEEDED: 'ウォッチリストの登録上限に達しています',
-  TICKER_ALREADY_IN_WATCHLIST: 'このティッカーは既にウォッチリストに登録されています',
-
   // ホールディング関連
   HOLDING_NOT_FOUND: 'ホールディングが見つかりませんでした',
   INVALID_QUANTITY: '無効な数量です',
@@ -45,4 +40,8 @@ export const STOCK_TRACKER_ERROR_MESSAGES = {
   PUSH_SUBSCRIPTION_FAILED: 'プッシュ通知の登録に失敗しました',
   PUSH_UNSUBSCRIPTION_FAILED: 'プッシュ通知の解除に失敗しました',
   VAPID_KEY_ERROR: 'VAPID公開鍵の取得に失敗しました',
+
+  // AI解析関連
+  AI_ANALYSIS_NOT_GENERATED: 'AI 解析はまだ生成されていません',
+  AI_ANALYSIS_FAILED: 'AI 解析の取得に失敗しました',
 } as const;

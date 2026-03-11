@@ -1,5 +1,4 @@
 import type { NextConfig } from 'next';
-import withPWA from 'next-pwa';
 import path from 'path';
 
 const nextConfig: NextConfig = {
@@ -11,9 +10,4 @@ const nextConfig: NextConfig = {
   transpilePackages: ['@nagiyu/ui', '@nagiyu/browser', '@nagiyu/common'],
 };
 
-export default withPWA({
-  dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
-  register: true,
-  skipWaiting: true,
-})(nextConfig);
+export default nextConfig;

@@ -11,12 +11,11 @@ import {
   validateExchange,
   validateTicker,
   validateHolding,
-  validateWatchlist,
   validateAlert,
   validateTickerCreateData,
   validateTickerUpdateData,
 } from '../../../src/validation';
-import type { Exchange, Ticker, Holding, Watchlist, Alert } from '../../../src/types';
+import type { Exchange, Ticker, Holding, Alert } from '../../../src/types';
 
 describe('validateExchange', () => {
   const validExchange: Exchange = {
@@ -578,74 +577,6 @@ describe('validateHolding', () => {
       const holding: Holding = { ...validHolding, AveragePrice: 1_000_000 };
       const result = validateHolding(holding);
       expect(result.valid).toBe(true);
-    });
-  });
-});
-
-describe('validateWatchlist', () => {
-  const validWatchlist: Watchlist = {
-    UserID: 'user-123',
-    TickerID: 'NSDQ:AAPL',
-    ExchangeID: 'NASDAQ',
-    CreatedAt: Date.now(),
-  };
-
-  describe('正常系', () => {
-    it('有効なウォッチリストデータはバリデーションに成功する', () => {
-      const result = validateWatchlist(validWatchlist);
-      expect(result.valid).toBe(true);
-      expect(result.errors).toBeUndefined();
-    });
-  });
-
-  describe('異常系', () => {
-    it('nullの場合はバリデーションに失敗する', () => {
-      const result = validateWatchlist(null);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('ウォッチリストデータが指定されていません');
-    });
-
-    it('undefinedの場合はバリデーションに失敗する', () => {
-      const result = validateWatchlist(undefined);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('ウォッチリストデータが指定されていません');
-    });
-
-    it('オブジェクト以外の型の場合はバリデーションに失敗する', () => {
-      const result = validateWatchlist('invalid');
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('ウォッチリストデータが不正です');
-    });
-
-    it('UserIDが空文字の場合はバリデーションに失敗する', () => {
-      const watchlist: Watchlist = { ...validWatchlist, UserID: '' };
-      const result = validateWatchlist(watchlist);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('ユーザーIDは必須です');
-    });
-
-    it('TickerIDが空文字の場合はバリデーションに失敗する', () => {
-      const watchlist: Watchlist = { ...validWatchlist, TickerID: '' };
-      const result = validateWatchlist(watchlist);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('ティッカーIDは必須です');
-    });
-
-    it('ExchangeIDが空文字の場合はバリデーションに失敗する', () => {
-      const watchlist: Watchlist = { ...validWatchlist, ExchangeID: '' };
-      const result = validateWatchlist(watchlist);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('取引所IDは必須です');
-    });
-
-    it('CreatedAtが未来すぎる場合はバリデーションに失敗する', () => {
-      const watchlist: Watchlist = {
-        ...validWatchlist,
-        CreatedAt: Date.now() + 86400000 * 2,
-      };
-      const result = validateWatchlist(watchlist);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('作成日時が無効です');
     });
   });
 });
@@ -1327,27 +1258,6 @@ describe('validateHolding', () => {
       const result = validateHolding(holding);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('更新日時が無効です');
-    });
-  });
-});
-
-describe('validateWatchlist', () => {
-  describe('無効なタイムスタンプのテスト', () => {
-    const validWatchlist = {
-      UserID: 'user-123',
-      TickerID: 'NSDQ:AAPL',
-      ExchangeID: 'NASDAQ',
-      CreatedAt: 1704067200000,
-    };
-
-    it('CreatedAtが無効な値の場合はバリデーションに失敗する', () => {
-      const watchlist = {
-        ...validWatchlist,
-        CreatedAt: {} as unknown,
-      };
-      const result = validateWatchlist(watchlist);
-      expect(result.valid).toBe(false);
-      expect(result.errors).toContain('作成日時が無効です');
     });
   });
 });

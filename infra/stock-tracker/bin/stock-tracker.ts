@@ -68,12 +68,13 @@ const snsStack = new SNSStack(app, `NagiyuStockTrackerSNS${envSuffix}`, {
   description: `Stock Tracker SNS - ${env} environment`,
 });
 
-// 5. Lambda スタック（Web + Batch × 3関数）
+// 5. Lambda スタック（Web + Batch × 5関数）
 // NextAuth Secret（Auth サービスから取得、未指定の場合はプレースホルダー）
 const nextAuthSecret = app.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
 // VAPID キー（デプロイ時に Secrets Manager から取得、未指定の場合はプレースホルダー）
 const vapidPublicKey = app.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';
 const vapidPrivateKey = app.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
+const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER';
 
 const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`, {
   environment: env,
@@ -84,6 +85,7 @@ const lambdaStack = new LambdaStack(app, `NagiyuStockTrackerLambda${envSuffix}`,
   vapidSecret: secretsStack.vapidSecret,
   vapidPublicKey,
   vapidPrivateKey,
+  openAiApiKey,
   nextAuthSecret,
   env: stackEnv,
   description: `Stock Tracker Lambda Functions - ${env} environment`,
@@ -132,7 +134,9 @@ const eventBridgeStack = new EventBridgeStack(
     environment: env,
     batchMinuteFunction: lambdaStack.batchMinuteFunction,
     batchHourlyFunction: lambdaStack.batchHourlyFunction,
+    batchSummaryFunction: lambdaStack.batchSummaryFunction,
     batchDailyFunction: lambdaStack.batchDailyFunction,
+    batchTemporaryAlertExpiryFunction: lambdaStack.batchTemporaryAlertExpiryFunction,
     env: stackEnv,
     description: `Stock Tracker EventBridge Scheduler - ${env} environment`,
   }

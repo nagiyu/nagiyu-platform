@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
+import type { AlertResponse } from '../../types/alert';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -44,6 +45,10 @@ const ERROR_MESSAGES = {
   CREATE_HOLDING_ERROR: '保有株式の登録に失敗しました',
   UPDATE_HOLDING_ERROR: '保有株式の更新に失敗しました',
   DELETE_HOLDING_ERROR: '保有株式の削除に失敗しました',
+  FETCH_SELL_ALERTS_ERROR: '売りアラート情報の取得に失敗しました',
+  DELETE_SELL_ALERT_ERROR: '売りアラートの削除に失敗しました',
+  DELETE_SELL_ALERT_PARTIAL_ERROR:
+    '保有株式は削除しましたが、一部の売りアラートの削除に失敗しました',
   INVALID_QUANTITY: '保有数は0.0001以上、1,000,000,000以下で入力してください',
   INVALID_AVERAGE_PRICE: '平均取得価格は0.01以上、1,000,000以下で入力してください',
   REQUIRED_FIELD: 'この項目は必須です',
@@ -82,6 +87,22 @@ interface Ticker {
   exchangeId: string;
 }
 
+interface SellAlertSummary {
+  alertId: string;
+  conditions: AlertResponse['conditions'];
+}
+
+const getOperatorLabel = (operator: string): string => {
+  switch (operator) {
+    case 'gte':
+      return '以上';
+    case 'lte':
+      return '以下';
+    default:
+      return '条件不明';
+  }
+};
+
 // フォームデータ型
 interface HoldingFormData {
   exchangeId: string;
@@ -117,6 +138,7 @@ export default function HoldingsPage() {
   const [exchangesLoading, setExchangesLoading] = useState<boolean>(false);
   const [tickersLoading, setTickersLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [deleteDialogLoading, setDeleteDialogLoading] = useState<boolean>(false);
 
   // エラー状態
   const [error, setError] = useState<string>('');
@@ -138,6 +160,7 @@ export default function HoldingsPage() {
 
   // 編集対象・削除対象・アラート設定対象
   const [selectedHolding, setSelectedHolding] = useState<HoldingResponse | null>(null);
+  const [pendingSellAlerts, setPendingSellAlerts] = useState<SellAlertSummary[]>([]);
 
   // 保有株式一覧を取得
   useEffect(() => {
@@ -327,15 +350,40 @@ export default function HoldingsPage() {
   };
 
   // 削除確認ダイアログを開く
-  const handleOpenDeleteDialog = (holding: HoldingResponse) => {
+  const handleOpenDeleteDialog = async (holding: HoldingResponse) => {
+    setDeleteDialogLoading(true);
+    setError('');
     setSelectedHolding(holding);
-    setDeleteDialogOpen(true);
+
+    try {
+      const response = await fetch('/api/alerts');
+      if (!response.ok) {
+        throw new Error(ERROR_MESSAGES.FETCH_SELL_ALERTS_ERROR);
+      }
+
+      const data = await response.json();
+      const sellAlerts = ((data.alerts || []) as AlertResponse[])
+        .filter((alert) => alert.tickerId === holding.tickerId && alert.mode === 'Sell')
+        .map((alert) => ({
+          alertId: alert.alertId,
+          conditions: alert.conditions,
+        }));
+      setPendingSellAlerts(sellAlerts);
+    } catch (err) {
+      console.error('Error fetching sell alerts for delete:', err);
+      setError(ERROR_MESSAGES.FETCH_SELL_ALERTS_ERROR);
+      setPendingSellAlerts([]);
+    } finally {
+      setDeleteDialogLoading(false);
+      setDeleteDialogOpen(true);
+    }
   };
 
   // 削除確認ダイアログを閉じる
   const handleCloseDeleteDialog = () => {
     setDeleteDialogOpen(false);
     setSelectedHolding(null);
+    setPendingSellAlerts([]);
   };
 
   // フォーム入力ハンドラー
@@ -463,14 +511,35 @@ export default function HoldingsPage() {
         throw new Error(errorData.message || ERROR_MESSAGES.DELETE_HOLDING_ERROR);
       }
 
-      setSuccessMessage(SUCCESS_MESSAGES.DELETE_SUCCESS);
+      let sellAlertDeleteFailed = false;
+      for (const sellAlert of pendingSellAlerts) {
+        const alertDeleteResponse = await fetch(
+          `/api/alerts/${encodeURIComponent(sellAlert.alertId)}`,
+          {
+            method: 'DELETE',
+          }
+        );
+        if (!alertDeleteResponse.ok) {
+          sellAlertDeleteFailed = true;
+          console.error(ERROR_MESSAGES.DELETE_SELL_ALERT_ERROR, sellAlert.alertId);
+        }
+      }
+
+      if (sellAlertDeleteFailed) {
+        setError(ERROR_MESSAGES.DELETE_SELL_ALERT_PARTIAL_ERROR);
+      } else {
+        setSuccessMessage(SUCCESS_MESSAGES.DELETE_SUCCESS);
+      }
       handleCloseDeleteDialog();
       await fetchHoldings();
+      await fetchAlerts();
 
       // 成功メッセージを3秒後に消す
-      setTimeout(() => {
-        setSuccessMessage('');
-      }, 3000);
+      if (!sellAlertDeleteFailed) {
+        setTimeout(() => {
+          setSuccessMessage('');
+        }, 3000);
+      }
     } catch (err) {
       console.error('Error deleting holding:', err);
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.DELETE_HOLDING_ERROR);
@@ -550,6 +619,20 @@ export default function HoldingsPage() {
           新規登録
         </Button>
       </Box>
+
+      {deleteDialogLoading && (
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <CircularProgress size={20} />
+          <Typography variant="body2" color="text.secondary">
+            削除対象の売りアラートを確認しています...
+          </Typography>
+        </Box>
+      )}
 
       {/* 保有株式一覧タイトル */}
       <Typography variant="h6" component="h2" fontWeight="bold" sx={{ mb: 2 }}>
@@ -651,6 +734,7 @@ export default function HoldingsPage() {
                             size="small"
                             startIcon={<DeleteIcon />}
                             onClick={() => handleOpenDeleteDialog(holding)}
+                            disabled={submitting || deleteDialogLoading}
                           >
                             削除
                           </Button>
@@ -900,6 +984,27 @@ export default function HoldingsPage() {
               </Typography>
             </Box>
           )}
+          {pendingSellAlerts.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 1 }}>
+                以下の売りアラートも合わせて削除されます。
+              </Alert>
+              <Box sx={{ p: 2, backgroundColor: 'warning.light', borderRadius: 1 }}>
+                {pendingSellAlerts.map((sellAlert, index) => {
+                  const conditionLabels = sellAlert.conditions.map((condition) => {
+                    const operatorLabel = getOperatorLabel(condition.operator);
+                    return `価格 ${condition.value.toLocaleString()} ${operatorLabel}`;
+                  });
+
+                  return (
+                    <Typography key={sellAlert.alertId} variant="body2">
+                      {index + 1}. {selectedHolding?.symbol}（{conditionLabels.join(' / ')}）
+                    </Typography>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDeleteDialog} disabled={submitting}>
@@ -920,7 +1025,8 @@ export default function HoldingsPage() {
           tickerId={selectedHolding.tickerId}
           symbol={selectedHolding.symbol}
           exchangeId={selectedHolding.tickerId.split(':')[0] || ''}
-          mode="Sell"
+          mode="create"
+          tradeMode="Sell"
           defaultTargetPrice={selectedHolding.averagePrice * 1.2}
           basePrice={selectedHolding.averagePrice}
         />

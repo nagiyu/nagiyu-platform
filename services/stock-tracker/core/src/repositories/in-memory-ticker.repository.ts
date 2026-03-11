@@ -24,6 +24,7 @@ import { TickerMapper } from '../mappers/ticker.mapper.js';
 const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
+const FULL_SCAN_PAGE_SIZE = 100;
 
 /**
  * InMemory Ticker Repository
@@ -82,6 +83,34 @@ export class InMemoryTickerRepository implements TickerRepository {
    * 全ティッカー取得
    */
   public async getAll(options?: PaginationOptions): Promise<PaginatedResult<TickerEntity>> {
+    const usePagination = options?.limit !== undefined || options?.cursor !== undefined;
+
+    if (!usePagination) {
+      const items: TickerEntity[] = [];
+      let cursor: string | undefined;
+
+      do {
+        const page = this.store.queryByAttribute(
+          {
+            attributeName: 'Type',
+            attributeValue: 'Ticker',
+          },
+          {
+            limit: FULL_SCAN_PAGE_SIZE,
+            cursor,
+          }
+        );
+        items.push(...page.items.map((item) => this.mapper.toEntity(item)));
+        cursor = page.nextCursor;
+      } while (cursor);
+
+      return {
+        items,
+        nextCursor: undefined,
+        count: items.length,
+      };
+    }
+
     const result = this.store.queryByAttribute(
       {
         attributeName: 'Type',
