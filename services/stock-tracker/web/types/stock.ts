@@ -80,6 +80,10 @@ export interface TickerSummary {
   buyPatternCount: number;
   /** MATCHED かつ SELL の件数 */
   sellPatternCount: number;
+  /** 買いアラート件数（enabled: 有効, disabled: 無効） */
+  buyAlertCount: AlertCount;
+  /** 売りアラート件数（enabled: 有効, disabled: 無効） */
+  sellAlertCount: AlertCount;
   /** パターン詳細一覧（空配列はバッチ未実行） */
   patternDetails: PatternDetail[];
   /** AI 解析結果（生成成功時のみ） */
@@ -91,6 +95,11 @@ export interface TickerSummary {
     quantity: number;
     averagePrice: number;
   } | null;
+}
+
+export interface AlertCount {
+  enabled: number;
+  disabled: number;
 }
 
 /**

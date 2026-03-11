@@ -68,6 +68,18 @@ const extractExchangeId = (tickerId: string): string => {
   return exchangeId && symbol ? exchangeId : '';
 };
 
+const formatAlertCount = (enabledCount: number, disabledCount: number): string => {
+  if (enabledCount === 0 && disabledCount === 0) {
+    return '0';
+  }
+
+  if (disabledCount > 0) {
+    return `${enabledCount} (${disabledCount})`;
+  }
+
+  return `${enabledCount}`;
+};
+
 export default function SummariesPage() {
   const { data: session } = useSession();
   const [summaries, setSummaries] = useState<SummariesResponse>({ exchanges: [] });
@@ -220,19 +232,21 @@ export default function SummariesPage() {
                 {exchange.summaries.length === 0 ? (
                   <Typography color="text.secondary">データがありません</Typography>
                 ) : (
-                  <TableContainer component={Paper} variant="outlined">
-                    <Table size="small">
+                  <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+                    <Table
+                      size="small"
+                      sx={{ minWidth: 760, '& .MuiTableCell-root': { whiteSpace: 'nowrap' } }}
+                    >
                       <TableHead>
                         <TableRow>
                           <TableCell>シンボル</TableCell>
                           <TableCell>銘柄名</TableCell>
-                          <TableCell align="center">保有</TableCell>
-                          <TableCell align="right">始値</TableCell>
-                          <TableCell align="right">高値</TableCell>
-                          <TableCell align="right">安値</TableCell>
-                          <TableCell align="right">終値</TableCell>
+                          <TableCell align="center">保有可否</TableCell>
+                          <TableCell align="right">投資判断</TableCell>
                           <TableCell align="right">買いシグナル</TableCell>
                           <TableCell align="right">売りシグナル</TableCell>
+                          <TableCell align="right">買いアラート数</TableCell>
+                          <TableCell align="right">売りアラート数</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -246,10 +260,16 @@ export default function SummariesPage() {
                             <TableCell>{summary.symbol}</TableCell>
                             <TableCell>{summary.name}</TableCell>
                             <TableCell align="center">{summary.holding ? '✓' : '-'}</TableCell>
-                            <TableCell align="right">{summary.open.toFixed(2)}</TableCell>
-                            <TableCell align="right">{summary.high.toFixed(2)}</TableCell>
-                            <TableCell align="right">{summary.low.toFixed(2)}</TableCell>
-                            <TableCell align="right">{summary.close.toFixed(2)}</TableCell>
+                            <TableCell
+                              align="right"
+                              data-testid={`investment-judgment-${summary.tickerId}`}
+                            >
+                              {summary.aiAnalysisResult?.investmentJudgment?.signal
+                                ? resolveInvestmentSignalLabel(
+                                    summary.aiAnalysisResult.investmentJudgment.signal
+                                  )
+                                : UI_DISPLAY_VALUES.NOT_AVAILABLE}
+                            </TableCell>
                             <TableCell align="right" data-testid={`buy-signal-${summary.tickerId}`}>
                               {summary.buyPatternCount ?? 0}
                             </TableCell>
@@ -258,6 +278,18 @@ export default function SummariesPage() {
                               data-testid={`sell-signal-${summary.tickerId}`}
                             >
                               {summary.sellPatternCount ?? 0}
+                            </TableCell>
+                            <TableCell align="right" data-testid={`buy-alert-${summary.tickerId}`}>
+                              {formatAlertCount(
+                                summary.buyAlertCount?.enabled ?? 0,
+                                summary.buyAlertCount?.disabled ?? 0
+                              )}
+                            </TableCell>
+                            <TableCell align="right" data-testid={`sell-alert-${summary.tickerId}`}>
+                              {formatAlertCount(
+                                summary.sellAlertCount?.enabled ?? 0,
+                                summary.sellAlertCount?.disabled ?? 0
+                              )}
                             </TableCell>
                           </TableRow>
                         ))}
