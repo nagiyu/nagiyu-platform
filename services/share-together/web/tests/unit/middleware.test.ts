@@ -117,7 +117,12 @@ describe('middleware', () => {
     expect(response).toEqual({
       type: 'json',
       status: 500,
-      body: { error: 'サーバーエラーが発生しました' },
+      body: {
+        error: {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'サーバーエラーが発生しました',
+        },
+      },
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'NEXT_PUBLIC_AUTH_URL または NEXTAUTH_URL が設定されていません'
