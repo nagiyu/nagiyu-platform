@@ -1,16 +1,17 @@
-name: Admin App - Full Verification
+name: Auth App - Verification
 
 on:
   pull_request:
     branches:
+      - integration/**
       - develop
     paths:
-      - 'services/admin/**'
+      - 'services/auth/**'
       - 'libs/common/**'
-      - 'infra/admin/**'
+      - 'infra/auth/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/admin-verify-full.yml'
+      - '.github/workflows/auth-verify-app.yml'
 
 jobs:
   lint:
@@ -32,7 +33,9 @@ jobs:
         run: npm ci
 
       - name: Run lint
-        run: npm run lint --workspace @nagiyu/admin
+        run: |
+          npm run lint --workspace @nagiyu/auth-core
+          npm run lint --workspace @nagiyu/auth-web
 
   format-check:
     name: Format Check
@@ -53,7 +56,9 @@ jobs:
         run: npm ci
 
       - name: Check formatting
-        run: npm run format:check --workspace @nagiyu/admin
+        run: |
+          npm run format:check --workspace @nagiyu/auth-core
+          npm run format:check --workspace @nagiyu/auth-web
 
   unit-test:
     name: Run Unit Tests
@@ -79,56 +84,51 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
-      - name: Run unit tests
-        run: npm run test --workspace @nagiyu/admin
+      - name: Run unit tests (auth-core)
+        run: npm run test --workspace @nagiyu/auth-core
 
-  coverage:
-    name: Test Coverage Check
-    runs-on: ubuntu-latest
-    needs: [unit-test]
+      - name: Run unit tests (auth-web)
+        run: npm run test --workspace @nagiyu/auth-web
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-
-      - name: Run tests with coverage
-        run: npm run test:coverage --workspace @nagiyu/admin
-
-      - name: Check coverage threshold
-        run: |
-          COVERAGE=$(cat services/admin/web/coverage/coverage-summary.json | jq '.total.lines.pct')
-          echo "Coverage: $COVERAGE%"
-          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-            echo "Error: Coverage is below 80%"
-            exit 1
-          fi
-
-      - name: Upload coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: services/admin/web/coverage/
-          retention-days: 30
+  # TODO: Uncomment when coverage check is implemented
+  # coverage:
+  #   name: Test Coverage Check
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #         cache: 'npm'
+  #         cache-dependency-path: './package-lock.json'
+  #
+  #     - name: Install dependencies
+  #       run: npm ci
+  #
+  #     - name: Build shared libraries
+  #       run: |
+  #         npm run build --workspace @nagiyu/common
+  #         npm run build --workspace @nagiyu/browser
+  #         npm run build --workspace @nagiyu/ui
+  #
+  #     - name: Run tests with coverage
+  #       run: npm run test -- --coverage
+  #       working-directory: ./services/auth
+  #
+  #     - name: Upload coverage report
+  #       uses: actions/upload-artifact@v4
+  #       if: always()
+  #       with:
+  #         name: coverage-report
+  #         path: services/auth/coverage/
+  #         retention-days: 30
 
   e2e-test-chromium-mobile:
     name: Run E2E Tests (chromium-mobile)
@@ -157,17 +157,18 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
-        working-directory: ./services/admin/web
+        working-directory: ./services/auth/web
 
       - name: Run Playwright tests (chromium-mobile)
         env:
           CI: true
         run: |
-          npm run test:e2e --workspace @nagiyu/admin -- --project=chromium-mobile
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-mobile
           if [ $? -ne 0 ]; then
             echo "E2E tests failed"
             exit 1
@@ -178,7 +179,7 @@ jobs:
         if: always()
         with:
           name: playwright-report-full-chromium-mobile
-          path: services/admin/web/playwright-report/
+          path: services/auth/web/playwright-report/
           retention-days: 30
 
       - name: Upload test artifacts
@@ -186,13 +187,14 @@ jobs:
         if: always()
         with:
           name: test-results-full-chromium-mobile
-          path: services/admin/web/test-results/
+          path: services/auth/web/test-results/
           retention-days: 30
 
   e2e-test-chromium-desktop:
     name: Run E2E Tests (chromium-desktop)
     runs-on: ubuntu-latest
     needs: [unit-test]
+    if: github.base_ref == 'develop'
 
     permissions:
       contents: read
@@ -216,17 +218,18 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
-        working-directory: ./services/admin/web
+        working-directory: ./services/auth/web
 
       - name: Run Playwright tests (chromium-desktop)
         env:
           CI: true
         run: |
-          npm run test:e2e --workspace @nagiyu/admin -- --project=chromium-desktop
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=chromium-desktop
           if [ $? -ne 0 ]; then
             echo "E2E tests failed"
             exit 1
@@ -237,7 +240,7 @@ jobs:
         if: always()
         with:
           name: playwright-report-full-chromium-desktop
-          path: services/admin/web/playwright-report/
+          path: services/auth/web/playwright-report/
           retention-days: 30
 
       - name: Upload test artifacts
@@ -245,13 +248,14 @@ jobs:
         if: always()
         with:
           name: test-results-full-chromium-desktop
-          path: services/admin/web/test-results/
+          path: services/auth/web/test-results/
           retention-days: 30
 
   e2e-test-webkit-mobile:
     name: Run E2E Tests (webkit-mobile)
     runs-on: ubuntu-latest
     needs: [unit-test]
+    if: github.base_ref == 'develop'
 
     permissions:
       contents: read
@@ -275,17 +279,18 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit
-        working-directory: ./services/admin/web
+        working-directory: ./services/auth/web
 
       - name: Run Playwright tests (webkit-mobile)
         env:
           CI: true
         run: |
-          npm run test:e2e --workspace @nagiyu/admin -- --project=webkit-mobile
+          npm run test:e2e --workspace @nagiyu/auth-web -- --project=webkit-mobile
           if [ $? -ne 0 ]; then
             echo "E2E tests failed"
             exit 1
@@ -296,7 +301,7 @@ jobs:
         if: always()
         with:
           name: playwright-report-full-webkit-mobile
-          path: services/admin/web/playwright-report/
+          path: services/auth/web/playwright-report/
           retention-days: 30
 
       - name: Upload test artifacts
@@ -304,7 +309,7 @@ jobs:
         if: always()
         with:
           name: test-results-full-webkit-mobile
-          path: services/admin/web/test-results/
+          path: services/auth/web/test-results/
           retention-days: 30
 
   build:
@@ -331,10 +336,14 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
+      - name: Build auth core
+        run: npm run build --workspace @nagiyu/auth-core
+
       - name: Build Next.js application
-        run: npm run build --workspace @nagiyu/admin
+        run: npm run build --workspace @nagiyu/auth-web
 
   docker-build:
     name: Docker Build Verification
@@ -348,7 +357,7 @@ jobs:
       - name: Build Docker image
         env:
           DOCKER_BUILDKIT: 0
-        run: docker build -t admin-verify-full-test -f services/admin/web/Dockerfile .
+        run: docker build -t auth-verify-full-test -f services/auth/web/Dockerfile .
 
   report:
     name: Report Results to PR
@@ -359,13 +368,14 @@ jobs:
         lint,
         format-check,
         unit-test,
-        coverage,
         e2e-test-chromium-mobile,
         e2e-test-chromium-desktop,
         e2e-test-webkit-mobile,
         build,
         docker-build,
       ]
+    # TODO: Add coverage to needs when implemented
+    # needs: [lint, format-check, unit-test, coverage, e2e-test, build, docker-build]
 
     permissions:
       contents: read
@@ -381,7 +391,8 @@ jobs:
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Unit Tests': '${{ needs.unit-test.result }}',
-              'Coverage Check': '${{ needs.coverage.result }}',
+              // TODO: Uncomment when coverage check is implemented
+              // 'Coverage Check': '${{ needs.coverage.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
               'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}',
@@ -396,13 +407,16 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop';
             const header = allSuccess
-              ? '## ✅ All Full Checks Passed'
-              : '## ❌ Some Full Checks Failed';
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
 
             let body = `${header}\n\n`;
-            body += '**Full Verification (All devices + Coverage)**\n\n';
+            body += isFull
+              ? '**Full Verification (All devices)**\n\n'
+              : '**Fast Verification (E2E: chromium-mobile only)**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

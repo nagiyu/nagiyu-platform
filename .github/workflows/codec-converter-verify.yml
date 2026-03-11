@@ -1,8 +1,9 @@
-name: Codec Converter - Full Verification
+name: Codec Converter - Verification
 
 on:
   pull_request:
     branches:
+      - integration/**
       - develop
       - master
     paths:
@@ -11,7 +12,7 @@ on:
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/codec-converter-verify-full.yml'
+      - '.github/workflows/codec-converter-verify.yml'
 
 jobs:
   nextjs-build:
@@ -171,6 +172,7 @@ jobs:
     name: Run Integration Tests (chromium-desktop)
     runs-on: ubuntu-latest
     needs: [test]
+    if: github.base_ref == 'develop' || github.base_ref == 'master'
 
     permissions:
       contents: read
@@ -229,6 +231,7 @@ jobs:
     name: Run Integration Tests (webkit-mobile)
     runs-on: ubuntu-latest
     needs: [test]
+    if: github.base_ref == 'develop' || github.base_ref == 'master'
 
     permissions:
       contents: read
@@ -471,13 +474,16 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop' || github.base_ref === 'master';
             const header = allSuccess
-              ? '## ✅ All Full Checks Passed'
-              : '## ❌ Some Full Checks Failed';
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
 
             let body = `${header}\n\n`;
-            body += '**Codec Converter - Full Verification**\n\n';
+            body += isFull
+              ? '**Codec Converter - Full Verification**\n\n'
+              : '**Codec Converter - Fast Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

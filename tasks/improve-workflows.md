@@ -175,12 +175,12 @@ jobs:
 
 ### Phase 3: Fast/Full ワークフローの統合
 
-- [ ] T011: Admin の fast/full を `admin-verify.yml` に統合し、旧ファイルを削除する
-- [ ] T012: Auth の fast/full を `auth-verify-app.yml`（または `auth-app-verify.yml`）に統合し、旧ファイルを削除する（既存の `auth-verify.yml` はインフラ CDK 専用のため別名を使用）
-- [ ] T013: Tools の fast/full を `tools-verify.yml` に統合し、旧ファイルを削除する
-- [ ] T014: Codec Converter の fast/full を `codec-converter-verify.yml` に統合し、旧ファイルを削除する
-- [ ] T015: Stock Tracker の fast/full を `stock-tracker-verify.yml` に統合し、旧ファイルを削除する
-- [ ] T016: Niconico Mylist Assistant の fast/full を `niconico-mylist-assistant-verify.yml` に統合し、旧ファイルを削除する
+- [x] T011: Admin の fast/full を `admin-verify.yml` に統合し、旧ファイルを削除する
+- [x] T012: Auth の fast/full を `auth-verify-app.yml`（または `auth-app-verify.yml`）に統合し、旧ファイルを削除する（既存の `auth-verify.yml` はインフラ CDK 専用のため別名を使用）
+- [x] T013: Tools の fast/full を `tools-verify.yml` に統合し、旧ファイルを削除する
+- [x] T014: Codec Converter の fast/full を `codec-converter-verify.yml` に統合し、旧ファイルを削除する
+- [x] T015: Stock Tracker の fast/full を `stock-tracker-verify.yml` に統合し、旧ファイルを削除する
+- [x] T016: Niconico Mylist Assistant の fast/full を `niconico-mylist-assistant-verify.yml` に統合し、旧ファイルを削除する
 
 ### Phase 4: 動作確認
 
