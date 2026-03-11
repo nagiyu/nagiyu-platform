@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Badge, Button } from '@mui/material';
-
-type InvitationsResponse = {
-  data: { invitations: Array<{ groupId: string }> };
-};
+import type { InvitationsResponse } from '@/types';
 
 const ERROR_MESSAGES = {
   FETCH_INVITATIONS_FAILED: '招待バッジの取得に失敗しました',
