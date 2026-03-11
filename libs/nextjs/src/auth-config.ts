@@ -2,6 +2,14 @@ import type { NextAuthConfig } from 'next-auth';
 
 const AUTH_SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
+export type AuthCookieOptions = {
+  httpOnly: true;
+  sameSite: 'lax';
+  path: '/';
+  domain: string | undefined;
+  secure: boolean;
+};
+
 export interface CreateAuthCallbacksOptions {
   includeSubAsUserIdFallback?: boolean;
   jwt?: NonNullable<NextAuthConfig['callbacks']>['jwt'];
@@ -18,13 +26,7 @@ export function createAuthSessionConfig(): NonNullable<NextAuthConfig['session']
   };
 }
 
-export function createAuthCookieOptions(nodeEnv = process.env.NODE_ENV): {
-  httpOnly: true;
-  sameSite: 'lax';
-  path: '/';
-  domain: string | undefined;
-  secure: boolean;
-} {
+export function createAuthCookieOptions(nodeEnv = process.env.NODE_ENV): AuthCookieOptions {
   const isDevelopment = nodeEnv === 'development';
 
   return {
@@ -75,6 +77,16 @@ export function createAuthCookies(
   };
 }
 
+/**
+ * 共通の NextAuth callbacks を生成する。
+ * カスタム `jwt` を指定した場合はその戻り値を利用し、`session` コールバックでは
+ * 生成された token から user 情報を復元する（`includeSubAsUserIdFallback` は userId 未設定時のみ適用）。
+ *
+ * @param options - callback の動作を制御するオプション
+ * @param options.includeSubAsUserIdFallback - true の場合、`token.userId` 未設定時に `token.sub` を `session.user.id` へフォールバックする
+ * @param options.jwt - カスタム JWT callback。未指定時は `params.token` をそのまま返す
+ * @returns 共通化済みの NextAuth callbacks
+ */
 export function createAuthCallbacks(
   options: CreateAuthCallbacksOptions = {}
 ): NonNullable<NextAuthConfig['callbacks']> {

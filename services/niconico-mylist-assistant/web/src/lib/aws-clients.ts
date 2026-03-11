@@ -1,9 +1,7 @@
-import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { BatchClient } from '@aws-sdk/client-batch';
 import { clearDynamoDBClientCache, getDynamoDBDocumentClient } from '@nagiyu/aws';
 
 // AWS クライアントのシングルトン
-let cachedDocClient: DynamoDBDocumentClient | null = null;
 let cachedBatchClient: BatchClient | null = null;
 
 /**
@@ -11,7 +9,6 @@ let cachedBatchClient: BatchClient | null = null;
  */
 export function clearAwsClientsCache(): void {
   clearDynamoDBClientCache();
-  cachedDocClient = null;
   cachedBatchClient = null;
 }
 
@@ -20,17 +17,14 @@ export function clearAwsClientsCache(): void {
  */
 export function getAwsClients() {
   const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-
-  if (!cachedDocClient) {
-    cachedDocClient = getDynamoDBDocumentClient(AWS_REGION);
-  }
+  const docClient = getDynamoDBDocumentClient(AWS_REGION);
 
   if (!cachedBatchClient) {
     cachedBatchClient = new BatchClient({ region: AWS_REGION });
   }
 
   return {
-    docClient: cachedDocClient,
+    docClient,
     batchClient: cachedBatchClient,
   };
 }

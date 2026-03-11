@@ -50,6 +50,7 @@ const sharedAuthConfig = createAuthConfig({
     return token;
   },
 });
+const { callbacks: sharedCallbacks, ...sharedAuthConfigWithoutCallbacks } = sharedAuthConfig;
 
 export const authConfig: NextAuthConfig = {
   providers: [
@@ -65,9 +66,9 @@ export const authConfig: NextAuthConfig = {
       },
     }),
   ],
-  ...sharedAuthConfig,
+  ...sharedAuthConfigWithoutCallbacks,
   callbacks: {
-    ...sharedAuthConfig.callbacks,
+    ...sharedCallbacks,
     async redirect({ url, baseUrl }) {
       // 同じドメインへのリダイレクトを許可
       if (url.startsWith(baseUrl)) {

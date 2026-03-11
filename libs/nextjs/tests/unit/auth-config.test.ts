@@ -42,4 +42,51 @@ describe('auth-config', () => {
 
     expect(session?.user.id).toBe('sub-user-id');
   });
+
+  it('includeSubAsUserIdFallback=false の場合は token.sub を user.id に使用しない', async () => {
+    const callbacks = createAuthCallbacks();
+    const session = await callbacks.session?.({
+      session: {
+        user: {
+          id: '',
+          email: '',
+          name: '',
+          roles: [],
+        },
+        expires: '',
+      },
+      token: {
+        sub: 'sub-user-id',
+      },
+      user: undefined,
+      trigger: 'update',
+      newSession: undefined,
+    });
+
+    expect(session?.user.id).toBe('');
+  });
+
+  it('includeSubAsUserIdFallback=true でも token.userId が優先される', async () => {
+    const callbacks = createAuthCallbacks({ includeSubAsUserIdFallback: true });
+    const session = await callbacks.session?.({
+      session: {
+        user: {
+          id: '',
+          email: '',
+          name: '',
+          roles: [],
+        },
+        expires: '',
+      },
+      token: {
+        userId: 'explicit-user-id',
+        sub: 'sub-user-id',
+      },
+      user: undefined,
+      trigger: 'update',
+      newSession: undefined,
+    });
+
+    expect(session?.user.id).toBe('explicit-user-id');
+  });
 });
