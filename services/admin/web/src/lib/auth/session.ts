@@ -1,6 +1,12 @@
 import { auth } from '../../auth';
 import type { Session } from 'next-auth';
 
+const TEST_SESSION_DEFAULTS = {
+  USER_ID: 'test-user-id',
+  USER_EMAIL: 'test@example.com',
+  USER_NAME: 'Test User',
+} as const;
+
 /**
  * セッション情報を取得する
  *
@@ -15,9 +21,9 @@ export async function getSession(): Promise<Session | null> {
   if (process.env.SKIP_AUTH_CHECK === 'true') {
     return {
       user: {
-        id: process.env.TEST_USER_ID || 'test-user-id',
-        email: process.env.TEST_USER_EMAIL || 'test@example.com',
-        name: process.env.TEST_USER_NAME || 'Test User',
+        id: process.env.TEST_USER_ID || TEST_SESSION_DEFAULTS.USER_ID,
+        email: process.env.TEST_USER_EMAIL || TEST_SESSION_DEFAULTS.USER_EMAIL,
+        name: process.env.TEST_USER_NAME || TEST_SESSION_DEFAULTS.USER_NAME,
         image: process.env.TEST_USER_IMAGE || undefined,
         roles: process.env.TEST_USER_ROLES?.split(',') || ['admin'],
       },

@@ -22,8 +22,14 @@ export { withRepository, withRepositories } from './repository.js';
 export type { RepositoryConstructor, GetDynamoDBClient, GetTableName } from './repository.js';
 
 // Pagination module - Pagination helpers
-export { parsePagination, createPaginatedResponse } from './pagination.js';
-export type { PaginationParams } from './pagination.js';
+export {
+  parsePagination,
+  createPaginatedResponse,
+  PAGINATION_ERROR_CODES,
+  PAGINATION_ERROR_MESSAGES,
+  PaginationValidationError,
+} from './pagination.js';
+export type { PaginationParams, PaginationErrorCode } from './pagination.js';
 
 // Error module - Error handling helpers
 export { handleApiError } from './error.js';

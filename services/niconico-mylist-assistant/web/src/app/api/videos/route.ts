@@ -4,7 +4,11 @@ import {
   type VideosListResponse,
   type VideoData,
 } from '@nagiyu/niconico-mylist-assistant-core';
-import { parsePagination } from '@nagiyu/nextjs';
+import {
+  PAGINATION_ERROR_CODES,
+  PaginationValidationError,
+  parsePagination,
+} from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -138,7 +142,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    if (error instanceof Error && error.message === 'limit は 1 から 100 の間で指定してください') {
+    if (
+      error instanceof PaginationValidationError &&
+      error.code === PAGINATION_ERROR_CODES.INVALID_LIMIT
+    ) {
       return NextResponse.json(
         {
           error: {

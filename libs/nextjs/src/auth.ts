@@ -17,7 +17,13 @@ export interface AuthError {
   statusCode: number;
 }
 
-interface SessionWithRoles {
+/**
+ * withAuth/getAuthError が扱う最小セッション要件。
+ *
+ * `@nagiyu/common` の Session だけでなく、next-auth の拡張 Session など
+ * 「user.roles を持つセッション」であれば利用できるようにするための共通型。
+ */
+export interface SessionWithRoles {
   user: {
     roles: string[];
   };

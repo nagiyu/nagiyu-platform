@@ -3,7 +3,12 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { parsePagination, createPaginatedResponse } from '../../src/pagination';
+import {
+  parsePagination,
+  createPaginatedResponse,
+  PAGINATION_ERROR_CODES,
+  PaginationValidationError,
+} from '../../src/pagination';
 import { NextRequest } from 'next/server';
 
 describe('parsePagination', () => {
@@ -50,6 +55,19 @@ describe('parsePagination', () => {
   it('limitが1未満の場合エラーをスローする', () => {
     const request = new NextRequest('http://localhost/api/test?limit=0');
     expect(() => parsePagination(request)).toThrow('limit は 1 から 100 の間で指定してください');
+  });
+
+  it('limitが不正な場合、エラーコード付きでスローする', () => {
+    const request = new NextRequest('http://localhost/api/test?limit=101');
+    expect.assertions(2);
+    try {
+      parsePagination(request);
+    } catch (error) {
+      expect(error).toBeInstanceOf(PaginationValidationError);
+      expect((error as PaginationValidationError).code).toBe(PAGINATION_ERROR_CODES.INVALID_LIMIT);
+      return;
+    }
+    throw new Error('例外がスローされるべきでした');
   });
 
   it('limitが100を超える場合エラーをスローする', () => {
