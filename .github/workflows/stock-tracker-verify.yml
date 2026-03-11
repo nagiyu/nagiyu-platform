@@ -1,16 +1,20 @@
-name: Stock Tracker - Fast Verification
+name: Stock Tracker - Verification
 
 on:
   pull_request:
     branches:
       - integration/**
+      - develop
     paths:
       - 'services/stock-tracker/**'
       - 'libs/**'
       - 'infra/stock-tracker/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/stock-tracker-verify-fast.yml'
+      - '.github/workflows/stock-tracker-verify.yml'
+
+permissions:
+  contents: read
 
 jobs:
   build-web:
@@ -141,7 +145,7 @@ jobs:
       - name: Build Docker image
         env:
           DOCKER_BUILDKIT: 0
-        run: docker build -t stock-tracker-web-verify-fast-test -f services/stock-tracker/web/Dockerfile .
+        run: docker build -t stock-tracker-web-verify-full-test -f services/stock-tracker/web/Dockerfile .
 
   docker-build-batch:
     name: Docker Build Verification (Batch)
@@ -155,7 +159,7 @@ jobs:
       - name: Build Docker image
         env:
           DOCKER_BUILDKIT: 0
-        run: docker build -t stock-tracker-batch-verify-fast-test -f services/stock-tracker/batch/Dockerfile .
+        run: docker build -t stock-tracker-batch-verify-full-test -f services/stock-tracker/batch/Dockerfile .
 
   test-web:
     name: Run Web Unit Tests
@@ -248,8 +252,36 @@ jobs:
       - name: Run Batch tests
         run: npm run test --workspace @nagiyu/stock-tracker-batch
 
-  e2e-test-web:
-    name: Run E2E Tests Web (chromium-mobile only)
+  coverage:
+    name: Test Coverage Check
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    if: github.base_ref == 'develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
+
+      - name: Run Core tests with coverage
+        run: npm run test:coverage --workspace @nagiyu/stock-tracker-core
+
+  e2e-test-web-chromium-mobile:
+    name: Run E2E Tests Web (chromium-mobile)
     runs-on: ubuntu-latest
     needs: [build-web]
 
@@ -301,7 +333,7 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: ./services/stock-tracker/web
 
-      - name: Run Playwright tests (chromium-mobile only)
+      - name: Run Playwright tests (chromium-mobile)
         env:
           CI: true
           PROJECT: chromium-mobile
@@ -319,7 +351,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-fast
+          name: playwright-report-full-chromium-mobile
           path: services/stock-tracker/web/playwright-report/
           retention-days: 30
 
@@ -327,7 +359,175 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-fast
+          name: test-results-full-chromium-mobile
+          path: services/stock-tracker/web/test-results/
+          retention-days: 30
+
+  e2e-test-web-chromium-desktop:
+    name: Run E2E Tests Web (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Fetch dev IAM credentials from Secrets Manager
+        id: fetch-dev-credentials
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
+          parse-json-secrets: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/react
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/stock-tracker/web
+
+      - name: Run Playwright tests (chromium-desktop)
+        env:
+          CI: true
+          PROJECT: chromium-desktop
+          AWS_ACCESS_KEY_ID: ${{ env.DEV_CREDENTIALS_ACCESSKEYID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DEV_CREDENTIALS_SECRETACCESSKEY }}
+          AWS_REGION: us-east-1
+        run: |
+          npm run test:e2e --workspace @nagiyu/stock-tracker-web
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-chromium-desktop
+          path: services/stock-tracker/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-chromium-desktop
+          path: services/stock-tracker/web/test-results/
+          retention-days: 30
+
+  e2e-test-web-webkit-mobile:
+    name: Run E2E Tests Web (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Fetch dev IAM credentials from Secrets Manager
+        id: fetch-dev-credentials
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
+          parse-json-secrets: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/react
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Build core package
+        run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/stock-tracker/web
+
+      - name: Run Playwright tests (webkit-mobile)
+        env:
+          CI: true
+          PROJECT: webkit-mobile
+          AWS_ACCESS_KEY_ID: ${{ env.DEV_CREDENTIALS_ACCESSKEYID }}
+          AWS_SECRET_ACCESS_KEY: ${{ env.DEV_CREDENTIALS_SECRETACCESSKEY }}
+          AWS_REGION: us-east-1
+        run: |
+          npm run test:e2e --workspace @nagiyu/stock-tracker-web
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-webkit-mobile
+          path: services/stock-tracker/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-webkit-mobile
           path: services/stock-tracker/web/test-results/
           retention-days: 30
 
@@ -428,7 +628,10 @@ jobs:
         test-web,
         test-core,
         test-batch,
-        e2e-test-web,
+        coverage,
+        e2e-test-web-chromium-mobile,
+        e2e-test-web-chromium-desktop,
+        e2e-test-web-webkit-mobile,
         lint,
         format-check,
         synth-infra,
@@ -454,7 +657,10 @@ jobs:
               'Web Unit Tests': '${{ needs.test-web.result }}',
               'Core Unit Tests': '${{ needs.test-core.result }}',
               'Batch Unit Tests': '${{ needs.test-batch.result }}',
-              'E2E Tests Web (Fast)': '${{ needs.e2e-test-web.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
+              'E2E Tests Web (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
+              'E2E Tests Web (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',
+              'E2E Tests Web (webkit-mobile)': '${{ needs.e2e-test-web-webkit-mobile.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Synthesize Infrastructure': '${{ needs.synth-infra.result }}'
@@ -467,13 +673,16 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop';
             const header = allSuccess
-              ? '## ✅ All Fast Checks Passed'
-              : '## ❌ Some Fast Checks Failed';
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
 
             let body = `${header}\n\n`;
-            body += '**Fast Verification (chromium-mobile only)**\n\n';
+            body += isFull
+              ? '**Full Verification (All devices + Coverage)**\n\n'
+              : '**Fast Verification (chromium-mobile only)**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

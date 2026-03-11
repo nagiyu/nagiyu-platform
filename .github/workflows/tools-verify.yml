@@ -1,16 +1,20 @@
-name: Tools App - Fast Verification
+name: Tools App - Verification
 
 on:
   pull_request:
     branches:
       - integration/**
+      - develop
     paths:
       - 'services/tools/**'
       - 'libs/**'
       - 'infra/tools/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/tools-verify-fast.yml'
+      - '.github/workflows/tools-verify.yml'
+
+permissions:
+  contents: read
 
 jobs:
   nextjs-build:
@@ -53,7 +57,7 @@ jobs:
       - name: Build Docker image
         env:
           DOCKER_BUILDKIT: 0
-        run: docker build -t tools-verify-fast-test -f services/tools/Dockerfile .
+        run: docker build -t tools-verify-full-test -f services/tools/Dockerfile .
 
   test:
     name: Run Unit Tests
@@ -77,8 +81,31 @@ jobs:
       - name: Run tests
         run: npm run test --workspace tools
 
-  e2e-test:
-    name: Run E2E Tests (chromium-mobile only)
+  coverage:
+    name: Test Coverage Check
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.base_ref == 'develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace tools
+
+  e2e-test-chromium-mobile:
+    name: Run E2E Tests (chromium-mobile)
     runs-on: ubuntu-latest
     needs: [test]
 
@@ -109,7 +136,7 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: ./services/tools
 
-      - name: Run Playwright tests (chromium-mobile only)
+      - name: Run Playwright tests (chromium-mobile)
         env:
           CI: true
           PROJECT: chromium-mobile
@@ -124,7 +151,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-fast
+          name: playwright-report-full-chromium-mobile
           path: services/tools/playwright-report/
           retention-days: 30
 
@@ -132,7 +159,127 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-fast
+          name: test-results-full-chromium-mobile
+          path: services/tools/test-results/
+          retention-days: 30
+
+  e2e-test-chromium-desktop:
+    name: Run E2E Tests (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/tools
+
+      - name: Run Playwright tests (chromium-desktop)
+        env:
+          CI: true
+          PROJECT: chromium-desktop
+        run: |
+          npm run test:e2e --workspace tools
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-chromium-desktop
+          path: services/tools/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-chromium-desktop
+          path: services/tools/test-results/
+          retention-days: 30
+
+  e2e-test-webkit-mobile:
+    name: Run E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/tools
+
+      - name: Run Playwright tests (webkit-mobile)
+        env:
+          CI: true
+          PROJECT: webkit-mobile
+        run: |
+          npm run test:e2e --workspace tools
+          if [ $? -ne 0 ]; then
+            echo "E2E tests failed"
+            exit 1
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-webkit-mobile
+          path: services/tools/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-webkit-mobile
           path: services/tools/test-results/
           retention-days: 30
 
@@ -182,7 +329,18 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
-    needs: [nextjs-build, docker-build, test, e2e-test, lint, format-check]
+    needs:
+      [
+        nextjs-build,
+        docker-build,
+        test,
+        coverage,
+        e2e-test-chromium-mobile,
+        e2e-test-chromium-desktop,
+        e2e-test-webkit-mobile,
+        lint,
+        format-check,
+      ]
 
     permissions:
       contents: read
@@ -198,7 +356,10 @@ jobs:
               'Next.js Build': '${{ needs.nextjs-build.result }}',
               'Docker Build': '${{ needs.docker-build.result }}',
               'Unit Tests': '${{ needs.test.result }}',
-              'E2E Tests (Fast)': '${{ needs.e2e-test.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
+               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
+               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
+               'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}',
               'Lint': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}'
             };
@@ -210,13 +371,16 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop';
             const header = allSuccess
-              ? '## ✅ All Fast Checks Passed'
-              : '## ❌ Some Fast Checks Failed';
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
 
             let body = `${header}\n\n`;
-            body += '**Fast Verification (chromium-mobile only)**\n\n';
+            body += isFull
+              ? '**Full Verification (All devices + Coverage)**\n\n'
+              : '**Fast Verification (chromium-mobile only)**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 
