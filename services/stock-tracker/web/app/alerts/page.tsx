@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useMemo } from 'react';
 import {
   Container,
   Box,
@@ -16,6 +16,10 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -26,6 +30,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import AlertSettingsModal from '../../components/AlertSettingsModal';
 import AlertDeleteConfirmDialog from '../../components/AlertDeleteConfirmDialog';
 import type { AlertResponse } from '../../types/alert';
+import { filterAlerts } from '../../lib/alert-filter';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -71,6 +76,8 @@ function AlertsPageContent() {
   // データ状態
   const [alerts, setAlerts] = useState<AlertResponse[]>([]);
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [filterExchangeKey, setFilterExchangeKey] = useState<string>('');
+  const [filterMode, setFilterMode] = useState<'' | AlertResponse['mode']>('');
 
   // ローディング状態
   const [loading, setLoading] = useState<boolean>(true);
@@ -231,6 +238,35 @@ function AlertsPageContent() {
     }
   };
 
+  const filteredAlerts = useMemo(() => {
+    return filterAlerts(alerts, {
+      exchangeKey: filterExchangeKey,
+      mode: filterMode,
+    });
+  }, [alerts, filterExchangeKey, filterMode]);
+
+  const exchangeNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    exchanges.forEach((exchange) => {
+      map.set(exchange.key, exchange.name);
+      map.set(exchange.exchangeId, exchange.name);
+    });
+    return map;
+  }, [exchanges]);
+
+  const handleModeFilterChange = (value: string) => {
+    if (value === 'Buy' || value === 'Sell') {
+      setFilterMode(value);
+      return;
+    }
+    setFilterMode('');
+  };
+
+  const handleClearFilters = () => {
+    setFilterExchangeKey('');
+    setFilterMode('');
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* エラーメッセージ表示 */}
@@ -264,6 +300,47 @@ function AlertsPageContent() {
         アラート一覧
       </Typography>
 
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
+        <FormControl size="small" sx={{ minWidth: 180, flex: '1 1 180px' }}>
+          <InputLabel id="exchange-filter-label">取引所フィルタ</InputLabel>
+          <Select
+            labelId="exchange-filter-label"
+            label="取引所フィルタ"
+            value={filterExchangeKey}
+            onChange={(event) => setFilterExchangeKey(event.target.value)}
+          >
+            <MenuItem value="">すべて</MenuItem>
+            {exchanges.map((exchange) => (
+              <MenuItem key={exchange.exchangeId} value={exchange.key}>
+                {exchange.name}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 180, flex: '1 1 180px' }}>
+          <InputLabel id="mode-filter-label">モードフィルタ</InputLabel>
+          <Select
+            labelId="mode-filter-label"
+            label="モードフィルタ"
+            value={filterMode}
+            onChange={(event) => handleModeFilterChange(event.target.value)}
+          >
+            <MenuItem value="">すべて</MenuItem>
+            <MenuItem value="Buy">Buy（買い）</MenuItem>
+            <MenuItem value="Sell">Sell（売り）</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Button
+          variant="outlined"
+          onClick={handleClearFilters}
+          disabled={!filterExchangeKey && !filterMode}
+        >
+          クリア
+        </Button>
+      </Box>
+
       {/* ローディング表示 */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -289,14 +366,16 @@ function AlertsPageContent() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {alerts.length === 0 ? (
+              {filteredAlerts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                    アラートがありません
+                    {alerts.length === 0
+                      ? 'アラートがありません'
+                      : 'フィルタ条件に一致するアラートがありません'}
                   </TableCell>
                 </TableRow>
               ) : (
-                alerts.map((alert) => {
+                filteredAlerts.map((alert) => {
                   // 条件テキストを生成
                   let conditionText = '-';
                   if (alert.conditions.length === 1) {
@@ -317,9 +396,8 @@ function AlertsPageContent() {
                   }
 
                   // 取引所IDから取引所名を取得
-                  const exchangeId = alert.tickerId.split(':')[0] || '';
-                  const exchange = exchanges.find((ex) => ex.exchangeId === exchangeId);
-                  const exchangeName = exchange?.name || exchangeId;
+                  const exchangeKey = alert.tickerId.split(':')[0] || '';
+                  const exchangeName = exchangeNameMap.get(exchangeKey) || exchangeKey;
 
                   return (
                     <TableRow key={alert.alertId} hover>
