@@ -63,8 +63,8 @@ StockTracker のサマリー一覧テーブルを見やすくする。現在は 
 - FR2: 投資判断は AI 解析結果（BULLISH/NEUTRAL/BEARISH）を日本語（強気/中立/弱気）で表示する
     - AI 解析未生成 / エラーの場合は `-` またはそれに準じた表示にする
 - FR3: 買いアラート数・売りアラート数は、そのティッカーに対してユーザーが設定しているアラートの件数を表示する
-    - アラートが 0 件の場合は `0` を表示する
-    - 無効（Enabled: false）のアラートも件数に含めるかは要検討（下記「未決定事項」参照）
+    - 有効アラートのみある場合は `1`、無効アラートもある場合は `1 (2)`（有効 1、無効 2）の形式で表示する
+    - すべて 0 件の場合は `0` を表示する
 
 ### 非機能要件
 
@@ -81,20 +81,18 @@ StockTracker のサマリー一覧テーブルを見やすくする。現在は 
 - 未解析状態は `UI_DISPLAY_VALUES.NOT_AVAILABLE` (`'-'`) を表示
 - BULLISH/NEUTRAL/BEARISH に対応する色付き Chip（MUI）の使用を検討
 
-### アラート数の取得方法（要選定）
+### アラート数の取得方法（決定済み）
 
-**案 A: `/api/summaries` にアラート件数を含める**
+**案 A: `/api/summaries` にアラート件数を含める（採用）**
 - `SummariesResponse` の `TickerSummary` に `buyAlertCount` / `sellAlertCount` フィールドを追加
-- `app/api/summaries/route.ts` で `alertRepository.getByUserId()` を呼び出し、TickerID × Mode で件数を集計
-- メリット: フロントエンドの変更が最小、1 回の fetch で完結
-- デメリット: サマリー API の責務が増える、アラートが多い場合に処理が重くなる可能性
+    - 各フィールドは `{ enabled: number; disabled: number }` の形式で持つ
+- `app/api/summaries/route.ts` で `alertRepository.getByUserId()` を呼び出し、TickerID × Mode で有効・無効それぞれの件数を集計
+- サマリー画面を表示するたびにアラート件数が再取得される（リアルタイム反映）
 
-**案 B: フロントエンドで `/api/alerts` を別途 fetch**
-- `page.tsx` で `useEffect` を追加して `/api/alerts` を呼び出し、ティッカー別に件数を集計
-- メリット: API の責務が分離、既存の `/api/summaries` に変更不要
-- デメリット: 2 回の fetch が必要、表示タイミングのずれが生じる可能性
-
-**推奨**: 案 A（サーバーサイドで一括集計）を優先検討。ただしアラート件数は全ユーザーアラートをページネーションなしで取得できる前提が必要であるため、`alertRepository.getByUserId()` の性能特性を確認する。
+**表示形式（決定済み）**
+- 有効アラートのみの場合: `1`
+- 無効アラートもある場合: `1 (2)`（有効数 1、無効数 2 を意味する）
+- どちらも 0 の場合: `0`
 
 ### テーブルの列削減
 
@@ -103,29 +101,25 @@ StockTracker のサマリー一覧テーブルを見やすくする。現在は 
 
 ## タスク
 
-### Phase 1: 調査・設計
+### Phase 1: バックエンド変更
 
-- [ ] T001: `/api/summaries/route.ts` でアラートリポジトリを呼び出した場合の性能影響を試算する
-- [ ] T002: アラート件数の取得方式（案 A または案 B）を決定する
-- [ ] T003: 無効アラート（`Enabled: false`）を件数に含めるかを決定する
+- [ ] T001: `web/types/stock.ts` の `TickerSummary` に `buyAlertCount` / `sellAlertCount` フィールドを追加
+    - 型: `{ enabled: number; disabled: number }`
+- [ ] T002: `app/api/summaries/route.ts` で `alertRepository.getByUserId()` を呼び出し、TickerID × Mode で有効・無効件数を集計してレスポンスに含める
+- [ ] T003: `tests/unit/app/api/summaries/route.test.ts` のテストを更新（アラート件数が含まれることを検証）
 
-### Phase 2: バックエンド変更（案 A 採用時）
+### Phase 2: フロントエンド変更
 
-- [ ] T004: `web/types/stock.ts` の `TickerSummary` に `buyAlertCount` / `sellAlertCount` フィールドを追加
-- [ ] T005: `app/api/summaries/route.ts` でアラート件数を集計してレスポンスに含める
-- [ ] T006: `tests/unit/app/api/summaries/route.test.ts` のテストを更新
+- [ ] T004: `app/summaries/page.tsx` の OHLC 列（始値・高値・安値・終値）を削除
+- [ ] T005: `app/summaries/page.tsx` に「投資判断」列を追加（`resolveInvestmentSignalLabel()` 使用）
+- [ ] T006: `app/summaries/page.tsx` に「買いアラート数」「売りアラート数」列を追加
+    - 表示形式: 有効数のみの場合 `1`、無効数もある場合 `1 (2)`（有効 1、無効 2）、すべて 0 の場合 `0`
 
-### Phase 3: フロントエンド変更
+### Phase 3: テスト更新・検証
 
-- [ ] T007: `app/summaries/page.tsx` の OHLC 列（始値・高値・安値・終値）を削除
-- [ ] T008: `app/summaries/page.tsx` に「投資判断」列を追加（`resolveInvestmentSignalLabel()` 使用）
-- [ ] T009: `app/summaries/page.tsx` に「買いアラート数」「売りアラート数」列を追加
-
-### Phase 4: テスト更新・検証
-
-- [ ] T010: `tests/e2e/summary-display.spec.ts` を新しい列構成に合わせて更新
-- [ ] T011: ユニットテスト・E2E テストを実行して全件通過を確認
-- [ ] T012: スマートフォン表示でテーブルのレイアウトを確認
+- [ ] T007: `tests/e2e/summary-display.spec.ts` を新しい列構成に合わせて更新
+- [ ] T008: ユニットテスト・E2E テストを実行して全件通過を確認
+- [ ] T009: スマートフォン表示でテーブルのレイアウトを確認
 
 ## 参考ドキュメント
 
@@ -139,8 +133,7 @@ StockTracker のサマリー一覧テーブルを見やすくする。現在は 
     - `services/stock-tracker/core/src/repositories/alert.repository.interface.ts` — アラートリポジトリ
     - `services/stock-tracker/web/tests/e2e/summary-display.spec.ts` — E2E テスト
 
-## 備考・未決定事項
+## 備考
 
-- 無効アラート（`Enabled: false`）を件数に含めるか: アラートが無効でも設定されていることを示す観点では含めた方が良いが、「現在有効なアラート数」を表す観点では除外が自然
-- アラート件数をリアルタイムで反映するか: サマリー表示のたびに件数を再取得するか、キャッシュ活用するか
-- OHLC データは削除するが、詳細ダイアログでは引き続き表示する（変更不要）
+- OHLC データは一覧から削除するが、詳細ダイアログでは引き続き表示する（変更不要）
+- アラート件数はサマリー画面を開くたびに再取得される（リアルタイム反映）
