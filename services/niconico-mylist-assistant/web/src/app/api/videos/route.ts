@@ -4,6 +4,7 @@ import {
   type VideosListResponse,
   type VideoData,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { parsePagination } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -35,29 +36,14 @@ export async function GET(request: NextRequest) {
 
     // クエリパラメータの取得
     const searchParams = request.nextUrl.searchParams;
-    const limitParam = searchParams.get('limit');
     const offsetParam = searchParams.get('offset');
     const isFavoriteParam = searchParams.get('isFavorite');
     const isSkipParam = searchParams.get('isSkip');
     const searchKeyword = searchParams.get('search')?.trim() || undefined;
 
     // パラメータのパース
-    const limit = limitParam ? parseInt(limitParam, 10) : 50;
+    const { limit } = parsePagination(request);
     const offset = offsetParam ? parseInt(offsetParam, 10) : 0;
-
-    // バリデーション: limit
-    if (isNaN(limit) || limit < 1 || limit > 100) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: 'リクエストが不正です',
-            details: 'limit は 1 以上 100 以下である必要があります',
-          },
-        },
-        { status: 400 }
-      );
-    }
 
     // バリデーション: offset
     if (isNaN(offset) || offset < 0) {
@@ -152,6 +138,19 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
+    if (error instanceof Error && error.message === 'limit は 1 から 100 の間で指定してください') {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'INVALID_REQUEST',
+            message: 'リクエストが不正です',
+            details: error.message,
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     console.error('動画一覧取得エラー:', error);
     return NextResponse.json(
       {

@@ -1,5 +1,5 @@
 import { auth } from '../../auth';
-import type { Session } from '../../types/auth';
+import type { Session } from 'next-auth';
 
 /**
  * セッション情報を取得する
@@ -15,9 +15,13 @@ export async function getSession(): Promise<Session | null> {
   if (process.env.SKIP_AUTH_CHECK === 'true') {
     return {
       user: {
+        id: process.env.TEST_USER_ID || 'test-user-id',
         email: process.env.TEST_USER_EMAIL || 'test@example.com',
+        name: process.env.TEST_USER_NAME || 'Test User',
+        image: process.env.TEST_USER_IMAGE || undefined,
         roles: process.env.TEST_USER_ROLES?.split(',') || ['admin'],
       },
+      expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     };
   }
 
@@ -29,8 +33,12 @@ export async function getSession(): Promise<Session | null> {
 
   return {
     user: {
+      id: session.user.id || '',
       email: session.user.email || '',
+      name: session.user.name || '',
+      image: session.user.image || undefined,
       roles: session.user.roles || [],
     },
+    expires: session.expires,
   };
 }

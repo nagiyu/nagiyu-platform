@@ -27,3 +27,7 @@ export type { PaginationParams } from './pagination.js';
 
 // Error module - Error handling helpers
 export { handleApiError } from './error.js';
+
+// Health module - Health check route helper
+export { createHealthRoute } from './health.js';
+export type { HealthRouteOptions } from './health.js';

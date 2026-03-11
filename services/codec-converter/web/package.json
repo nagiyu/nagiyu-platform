@@ -20,6 +20,8 @@
     "@aws-sdk/s3-request-presigner": "^3.980.0",
     "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
+    "@nagiyu/common": "*",
+    "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
     "codec-converter-core": "*",
     "uuid": "^13.0.0"

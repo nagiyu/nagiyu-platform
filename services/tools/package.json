@@ -19,6 +19,7 @@
   "dependencies": {
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
+    "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*"
   }
 }

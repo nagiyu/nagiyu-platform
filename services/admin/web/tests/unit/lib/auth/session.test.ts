@@ -14,6 +14,9 @@ describe('getSession', () => {
     jest.clearAllMocks();
     delete process.env.SKIP_AUTH_CHECK;
     delete process.env.TEST_USER_EMAIL;
+    delete process.env.TEST_USER_ID;
+    delete process.env.TEST_USER_NAME;
+    delete process.env.TEST_USER_IMAGE;
     delete process.env.TEST_USER_ROLES;
   });
 
@@ -27,7 +30,9 @@ describe('getSession', () => {
 
       expect(session).not.toBeNull();
       expect(session?.user).toBeDefined();
+      expect(session?.user.id).toBe('test-user-id');
       expect(session?.user.email).toBe('test@example.com');
+      expect(session?.user.name).toBe('Test User');
       expect(session?.user.roles).toEqual(['admin']);
     });
 
