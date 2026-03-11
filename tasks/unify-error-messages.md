@@ -65,9 +65,9 @@
 
 ### 既存定数定義
 
-```
-services/share-together/web/src/lib/constants/errors.ts
-  DYNAMODB_TABLE_NAME_REQUIRED: '環境変数 DYNAMODB_TABLE_NAME の設定が必要です'
+```typescript
+// services/share-together/web/src/lib/constants/errors.ts
+DYNAMODB_TABLE_NAME_REQUIRED: '環境変数 DYNAMODB_TABLE_NAME の設定が必要です'
 ```
 
 stock-tracker web には対応する定数が未定義のため、新規追加が必要。
