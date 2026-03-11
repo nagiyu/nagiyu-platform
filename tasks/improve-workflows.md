@@ -13,39 +13,39 @@
 - Issue: #（ワークフローの改善）
 - タスクタイプ: プラットフォームタスク（CI/CD 改善）
 - 対象ワークフロー:
-    - `.github/workflows/admin-verify-fast.yml` / `admin-verify-full.yml`
-    - `.github/workflows/auth-verify-fast.yml` / `auth-verify-full.yml`
-    - `.github/workflows/codec-converter-verify-fast.yml` / `codec-converter-verify-full.yml`
-    - `.github/workflows/tools-verify-fast.yml` / `tools-verify-full.yml`
-    - `.github/workflows/stock-tracker-verify-fast.yml` / `stock-tracker-verify-full.yml`（E2E並列化のみ）
-    - `.github/workflows/niconico-mylist-assistant-verify-fast.yml` / `niconico-mylist-assistant-verify-full.yml`（E2E並列化のみ）
+  - `.github/workflows/admin-verify-fast.yml` / `admin-verify-full.yml`
+  - `.github/workflows/auth-verify-fast.yml` / `auth-verify-full.yml`
+  - `.github/workflows/codec-converter-verify-fast.yml` / `codec-converter-verify-full.yml`
+  - `.github/workflows/tools-verify-fast.yml` / `tools-verify-full.yml`
+  - `.github/workflows/stock-tracker-verify-fast.yml` / `stock-tracker-verify-full.yml`（E2E並列化のみ）
+  - `.github/workflows/niconico-mylist-assistant-verify-fast.yml` / `niconico-mylist-assistant-verify-full.yml`（E2E並列化のみ）
 - 対象外ワークフロー（E2E テストなし・単一ファイル構成のため変更不要）:
-    - `.github/workflows/browser-verify.yml`
-    - `.github/workflows/common-verify.yml`
-    - `.github/workflows/nextjs-verify.yml`
-    - `.github/workflows/react-verify.yml`
-    - `.github/workflows/ui-verify.yml`
-    - `.github/workflows/infra-common-verify.yml`
-    - `.github/workflows/auth-verify.yml`（auth インフラの CDK 専用ワークフロー）
+  - `.github/workflows/browser-verify.yml`
+  - `.github/workflows/common-verify.yml`
+  - `.github/workflows/nextjs-verify.yml`
+  - `.github/workflows/react-verify.yml`
+  - `.github/workflows/ui-verify.yml`
+  - `.github/workflows/infra-common-verify.yml`
+  - `.github/workflows/auth-verify.yml`（auth インフラの CDK 専用ワークフロー）
 
 ## 現状分析
 
 ### 段階的フローの適用状況
 
-| サービス | 段階的フロー | Fast/Full 分離 | 備考 |
-|---|---|---|---|
-| Stock Tracker | ✅ あり | ✅ 分離済み | lint/format-check → build-core → build-web/batch → test → e2e |
-| Niconico Mylist Assistant | ✅ あり | ✅ 分離済み | 同上 |
-| Admin | ❌ なし | ✅ 分離済み | 全ジョブが並列実行（lint/build/test が独立） |
-| Auth | ❌ なし | ✅ 分離済み | 全ジョブが並列実行（auth-core + auth-web の E2E あり） |
-| Tools | ❌ なし | ✅ 分離済み | 全ジョブが並列実行 |
-| Codec Converter | ❌ なし | ✅ 分離済み | 全ジョブが並列実行 |
+| サービス                  | 段階的フロー | Fast/Full 分離 | 備考                                                          |
+| ------------------------- | ------------ | -------------- | ------------------------------------------------------------- |
+| Stock Tracker             | ✅ あり      | ✅ 分離済み    | lint/format-check → build-core → build-web/batch → test → e2e |
+| Niconico Mylist Assistant | ✅ あり      | ✅ 分離済み    | 同上                                                          |
+| Admin                     | ❌ なし      | ✅ 分離済み    | 全ジョブが並列実行（lint/build/test が独立）                  |
+| Auth                      | ❌ なし      | ✅ 分離済み    | 全ジョブが並列実行（auth-core + auth-web の E2E あり）        |
+| Tools                     | ❌ なし      | ✅ 分離済み    | 全ジョブが並列実行                                            |
+| Codec Converter           | ❌ なし      | ✅ 分離済み    | 全ジョブが並列実行                                            |
 
 ### E2E テストの現状
 
-| ワークフロー | デバイス | 並列化 |
-|---|---|---|
-| Fast（全サービス） | chromium-mobile のみ | 1ジョブ |
+| ワークフロー       | デバイス                                         | 並列化                          |
+| ------------------ | ------------------------------------------------ | ------------------------------- |
+| Fast（全サービス） | chromium-mobile のみ                             | 1ジョブ                         |
 | Full（全サービス） | chromium-mobile, chromium-desktop, webkit-mobile | 1ジョブ（全デバイスを直列実行） |
 
 Full CI で E2E が 30 分以上かかる主因は、1つのジョブ内で全デバイスを直列実行していること。
@@ -166,12 +166,12 @@ jobs:
 
 ### Phase 2: E2E テストのデバイス並列化
 
-- [ ] T005: Stock Tracker の E2E ジョブをデバイスごとに分割する（chromium-mobile / chromium-desktop / webkit-mobile）
-- [ ] T006: Niconico Mylist Assistant の E2E ジョブをデバイスごとに分割する
-- [ ] T007: Admin の E2E ジョブをデバイスごとに分割する
-- [ ] T008: Auth の E2E ジョブをデバイスごとに分割する
-- [ ] T009: Tools の E2E ジョブをデバイスごとに分割する
-- [ ] T010: Codec Converter の E2E ジョブをデバイスごとに分割する
+- [x] T005: Stock Tracker の E2E ジョブをデバイスごとに分割する（chromium-mobile / chromium-desktop / webkit-mobile）
+- [x] T006: Niconico Mylist Assistant の E2E ジョブをデバイスごとに分割する
+- [x] T007: Admin の E2E ジョブをデバイスごとに分割する
+- [x] T008: Auth の E2E ジョブをデバイスごとに分割する
+- [x] T009: Tools の E2E ジョブをデバイスごとに分割する
+- [x] T010: Codec Converter の E2E ジョブをデバイスごとに分割する
 
 ### Phase 3: Fast/Full ワークフローの統合
 

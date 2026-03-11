@@ -344,8 +344,8 @@ jobs:
       - name: Run batch tests
         run: npm run test --workspace=@nagiyu/niconico-mylist-assistant-batch
 
-  e2e-test-web:
-    name: E2E Tests (All Devices)
+  e2e-test-web-chromium-mobile:
+    name: E2E Tests (chromium-mobile)
     runs-on: ubuntu-latest
     needs: [build-web]
 
@@ -384,12 +384,13 @@ jobs:
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 
       - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium webkit
+        run: npx playwright install --with-deps chromium
         working-directory: ./services/niconico-mylist-assistant/web
 
-      - name: Run E2E tests (All Devices)
+      - name: Run E2E tests (chromium-mobile)
         env:
           CI: true
+          PROJECT: chromium-mobile
           # E2E実行時のweb server起動でもAPI routeが参照するため設定
           DYNAMODB_TABLE_NAME: dummy-table
         run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
@@ -398,7 +399,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full
+          name: playwright-report-full-chromium-mobile
           path: services/niconico-mylist-assistant/web/playwright-report/
           retention-days: 30
 
@@ -406,7 +407,141 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full
+          name: test-results-full-chromium-mobile
+          path: services/niconico-mylist-assistant/web/test-results/
+          retention-days: 30
+
+  e2e-test-web-chromium-desktop:
+    name: E2E Tests (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build web application
+        env:
+          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
+          DYNAMODB_TABLE_NAME: dummy-table
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/niconico-mylist-assistant/web
+
+      - name: Run E2E tests (chromium-desktop)
+        env:
+          CI: true
+          PROJECT: chromium-desktop
+          # E2E実行時のweb server起動でもAPI routeが参照するため設定
+          DYNAMODB_TABLE_NAME: dummy-table
+        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-chromium-desktop
+          path: services/niconico-mylist-assistant/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-chromium-desktop
+          path: services/niconico-mylist-assistant/web/test-results/
+          retention-days: 30
+
+  e2e-test-web-webkit-mobile:
+    name: E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/aws
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Build core library
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
+
+      - name: Build web application
+        env:
+          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
+          DYNAMODB_TABLE_NAME: dummy-table
+        run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/niconico-mylist-assistant/web
+
+      - name: Run E2E tests (webkit-mobile)
+        env:
+          CI: true
+          PROJECT: webkit-mobile
+          # E2E実行時のweb server起動でもAPI routeが参照するため設定
+          DYNAMODB_TABLE_NAME: dummy-table
+        run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-full-webkit-mobile
+          path: services/niconico-mylist-assistant/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-full-webkit-mobile
           path: services/niconico-mylist-assistant/web/test-results/
           retention-days: 30
 
@@ -465,7 +600,9 @@ jobs:
         docker-build-web,
         docker-build-batch,
         test-batch,
-        e2e-test-web,
+        e2e-test-web-chromium-mobile,
+        e2e-test-web-chromium-desktop,
+        e2e-test-web-webkit-mobile,
         test-batch-integration,
       ]
 
@@ -491,7 +628,9 @@ jobs:
               'Docker Build Web': '${{ needs.docker-build-web.result }}',
               'Docker Build Batch': '${{ needs.docker-build-batch.result }}',
               'Test Batch': '${{ needs.test-batch.result }}',
-              'E2E Tests (Full)': '${{ needs.e2e-test-web.result }}',
+               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
+               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',
+               'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-web-webkit-mobile.result }}',
               'Batch Integration': '${{ needs.test-batch-integration.result }}'
             };
 
