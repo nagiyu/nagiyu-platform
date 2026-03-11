@@ -25,10 +25,15 @@ interface VideoSearchModalProps {
 }
 
 type AddStatus = 'added' | 'already-added';
+type SearchVideo = NiconicoVideoInfo & { isRegistered?: boolean };
+interface SearchResponse {
+  videos?: SearchVideo[];
+  error?: string;
+}
 
 export default function VideoSearchModal({ open, onClose }: VideoSearchModalProps) {
   const [keyword, setKeyword] = useState('');
-  const [videos, setVideos] = useState<NiconicoVideoInfo[]>([]);
+  const [videos, setVideos] = useState<SearchVideo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addStatusById, setAddStatusById] = useState<Record<string, AddStatus>>({});
@@ -42,12 +47,21 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
     try {
       const params = new URLSearchParams({ q: keyword.trim() });
       const response = await fetch(`/api/videos/search?${params.toString()}`);
-      const data = await response.json();
+      const data = (await response.json()) as SearchResponse;
       if (!response.ok) {
         throw new Error(data.error || ERROR_MESSAGES.VIDEO_SEARCH_FAILED);
       }
 
-      setVideos(data.videos);
+      const searchResults = Array.isArray(data.videos) ? data.videos : [];
+      const initialAddStatus = searchResults.reduce<Record<string, AddStatus>>((statusById, video) => {
+        if (video.isRegistered) {
+          statusById[video.videoId] = 'already-added';
+        }
+        return statusById;
+      }, {});
+
+      setVideos(searchResults);
+      setAddStatusById(initialAddStatus);
     } catch (searchError) {
       setError(
         searchError instanceof Error ? searchError.message : ERROR_MESSAGES.VIDEO_SEARCH_FAILED

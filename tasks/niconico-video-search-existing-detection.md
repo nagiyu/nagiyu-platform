@@ -92,21 +92,21 @@ Niconico Mylist Assistant の動画検索機能（`VideoSearchModal`）にて、
 
 ### フェーズ 1: API 拡張
 
-- [ ] T001: `GET /api/videos/search` のレスポンス型を `(NiconicoVideoInfo & { isRegistered: boolean })[]` に変更する
-- [ ] T002: `searchVideos()` 実行後、検索結果の動画 ID 群を `batchGetVideoBasicInfo()` で
+- [x] T001: `GET /api/videos/search` のレスポンス型を `(NiconicoVideoInfo & { isRegistered: boolean })[]` に変更する
+- [x] T002: `searchVideos()` 実行後、検索結果の動画 ID 群を `batchGetVideoBasicInfo()` で
       一括確認し、グローバル DB に存在する動画 ID のセットを作成する
-- [ ] T003: 各動画アイテムに `isRegistered` フラグを付与してレスポンスに含める
+- [x] T003: 各動画アイテムに `isRegistered` フラグを付与してレスポンスに含める
 
 ### フェーズ 2: フロントエンド対応
 
-- [ ] T004: `VideoSearchModal.tsx` の `handleSearch` 内で、各動画の `isRegistered` が `true` の場合に
+- [x] T004: `VideoSearchModal.tsx` の `handleSearch` 内で、各動画の `isRegistered` が `true` の場合に
       `addStatusById` の初期値を `'already-added'` に設定する処理を追加する
 
 ### フェーズ 3: テスト追加・更新
 
-- [ ] T005: `web/e2e/video-search.spec.ts` に、既登録動画が検索結果で追加済み表示になる
+- [x] T005: `web/e2e/video-search.spec.ts` に、既登録動画が検索結果で追加済み表示になる
       ケースの E2E テストを追加する（`USE_IN_MEMORY_DB` を活用）
-- [ ] T006: カバレッジが 80% 以上であることを確認する
+- [x] T006: カバレッジが 80% 以上であることを確認する
 
 ---
 
