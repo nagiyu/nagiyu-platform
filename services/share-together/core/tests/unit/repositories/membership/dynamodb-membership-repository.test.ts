@@ -41,7 +41,7 @@ describe('DynamoDBMembershipRepository', () => {
     status: 'PENDING',
     invitedBy: 'owner-1',
     invitedAt: '2026-01-01T00:00:00.000Z',
-    TTL: 1_700_000_000,
+    ttl: 1_700_000_000,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -213,14 +213,14 @@ describe('DynamoDBMembershipRepository', () => {
 
     expect(result.ttl).toBe(1_700_000_000);
     expect(item['GSI1PK']).toBe('USER#user-1');
-    expect(item['TTL']).toBe(1_700_000_000);
+    expect(item['ttl']).toBe(1_700_000_000);
   });
 
   it('update は ttl: undefined 指定時に TTL を REMOVE する', async () => {
     mockDocClient.send.mockResolvedValueOnce({
       Attributes: createMembershipItem({
         status: 'ACCEPTED',
-        TTL: undefined,
+        ttl: undefined,
         respondedAt: '2026-01-02T00:00:00.000Z',
       }),
     });
@@ -245,7 +245,7 @@ describe('DynamoDBMembershipRepository', () => {
         invitedBy: undefined,
         invitedAt: undefined,
         respondedAt: undefined,
-        TTL: 1_800_000_000,
+        ttl: 1_800_000_000,
       }),
     });
 
