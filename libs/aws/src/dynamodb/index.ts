@@ -35,6 +35,7 @@ export {
   conditionalUpdate,
   conditionalDelete,
 } from './helpers.js';
+export { getDynamoDBDocumentClient, getTableName, clearDynamoDBClientCache } from './client.js';
 
 // 抽象基底クラス
 export { AbstractDynamoDBRepository } from './abstract-repository.js';

@@ -8,6 +8,14 @@
 // Auth module - Authentication and Authorization helpers
 export { getAuthError, getSessionOrThrow, getOptionalSession, withAuth } from './auth.js';
 export type { AuthError, AuthFunction } from './auth.js';
+export {
+  createAuthConfig,
+  createAuthSessionConfig,
+  createAuthCookieOptions,
+  createAuthCookies,
+  createAuthCallbacks,
+} from './auth-config.js';
+export type { CreateAuthConfigOptions, CreateAuthCallbacksOptions } from './auth-config.js';
 
 // Repository module - Repository initialization helpers
 export { withRepository, withRepositories } from './repository.js';

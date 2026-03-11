@@ -160,11 +160,15 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 
       - name: Build web application
+        env:
+          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
+          DYNAMODB_TABLE_NAME: dummy-table
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 
   build-batch:
@@ -334,11 +338,15 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
 
       - name: Build web application
+        env:
+          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
+          DYNAMODB_TABLE_NAME: dummy-table
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-web
 
       - name: Install Playwright Browsers
@@ -349,6 +357,8 @@ jobs:
         env:
           CI: true
           PROJECT: chromium-mobile
+          # E2E実行時のweb server起動でもAPI routeが参照するため設定
+          DYNAMODB_TABLE_NAME: dummy-table
         run: npm run test:e2e --workspace=@nagiyu/niconico-mylist-assistant-web
 
       - name: Upload test results
