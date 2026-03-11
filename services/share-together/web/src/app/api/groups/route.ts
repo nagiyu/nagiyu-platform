@@ -32,7 +32,7 @@ export async function GET(): Promise<NextResponse> {
 
     const tableName = process.env.DYNAMODB_TABLE_NAME;
     if (!tableName) {
-      throw new Error('DYNAMODB_TABLE_NAME is required');
+      throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
     const { docClient } = getAwsClients();
@@ -82,7 +82,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const tableName = process.env.DYNAMODB_TABLE_NAME;
     if (!tableName) {
-      throw new Error('DYNAMODB_TABLE_NAME is required');
+      throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
     const { docClient } = getAwsClients();

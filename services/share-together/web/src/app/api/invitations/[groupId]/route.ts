@@ -82,7 +82,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
 
     const tableName = process.env.DYNAMODB_TABLE_NAME;
     if (!tableName) {
-      throw new Error('DYNAMODB_TABLE_NAME is required');
+      throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
     const { docClient } = getAwsClients();
