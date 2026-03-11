@@ -132,7 +132,11 @@ async function getInviterNames(
     return inviterNames;
   }
 
-  const result = await docClient!.send(
+  if (!docClient) {
+    throw new Error(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
+  }
+
+  const result = await docClient.send(
     new BatchGetCommand({
       RequestItems: {
         [tableName]: {
