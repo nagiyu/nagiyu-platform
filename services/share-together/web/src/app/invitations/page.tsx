@@ -15,16 +15,10 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-
-type Invitation = {
-  groupId: string;
-  groupName: string;
-  inviterName: string;
-  createdAt: string;
-};
+import type { InvitationSummary, InvitationsResponse } from '@/types';
 
 export default function InvitationsPage() {
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [rejectTarget, setRejectTarget] = useState<{ groupId: string; groupName: string } | null>(
     null
@@ -39,7 +33,7 @@ export default function InvitationsPage() {
           throw new Error(`status: ${response.status}`);
         }
 
-        const data = (await response.json()) as { data: { invitations: Invitation[] } };
+        const data = (await response.json()) as InvitationsResponse;
         setInvitations(data.data.invitations);
       } catch (error: unknown) {
         console.error('招待一覧の取得に失敗しました', { error });
