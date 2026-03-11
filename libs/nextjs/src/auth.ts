@@ -32,7 +32,8 @@ export interface SessionWithRoles {
 /**
  * NextAuth の auth 関数型
  */
-export type AuthFunction<TSession extends SessionWithRoles = Session> = () => Promise<TSession | null>;
+export type AuthFunction<TSession extends SessionWithRoles = Session> =
+  () => Promise<TSession | null>;
 
 /**
  * エラーメッセージ定数
