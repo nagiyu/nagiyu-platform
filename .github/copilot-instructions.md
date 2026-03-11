@@ -29,6 +29,9 @@ libs/
 └── aws/           # AWS SDK 依存ユーティリティ
 
 services/          # アプリケーション
+├── stock-tracker/            # 株価トラッカー（core + web + batch）
+├── niconico-mylist-assistant/ # ニコニコマイリスト管理（core + web + batch）
+└── share-together/           # みんなでシェアリスト（core + web）
 ```
 
 **依存関係の一方向性**: `ui → browser → common`（循環依存禁止）

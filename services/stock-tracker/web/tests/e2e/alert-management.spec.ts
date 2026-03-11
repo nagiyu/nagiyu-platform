@@ -216,6 +216,103 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
     });
   });
 
+  test.describe('アラート一覧フィルタリング', () => {
+    test('取引所とモードで絞り込み、クリアで全件表示に戻せる', async ({ page }) => {
+      const suffix = Date.now().toString().slice(-6);
+      const firstBuySymbol = `FA${suffix}1`;
+      const firstSellSymbol = `FA${suffix}2`;
+      const secondSellSymbol = `FB${suffix}3`;
+      const firstExchangeName = `Filter Exchange A ${suffix}`;
+      const secondExchangeName = `Filter Exchange B ${suffix}`;
+
+      await page.route('**/api/exchanges', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            exchanges: [
+              { exchangeId: `ex-a-${suffix}`, name: firstExchangeName, key: 'FLTA' },
+              { exchangeId: `ex-b-${suffix}`, name: secondExchangeName, key: 'FLTB' },
+            ],
+          }),
+        });
+      });
+
+      await page.route('**/api/alerts', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            alerts: [
+              {
+                alertId: `alert-a-buy-${suffix}`,
+                tickerId: `FLTA:${firstBuySymbol}`,
+                symbol: firstBuySymbol,
+                name: 'Filter A Buy',
+                mode: 'Buy',
+                frequency: 'MINUTE_LEVEL',
+                conditions: [{ field: 'price', operator: 'gte', value: 100 }],
+                enabled: true,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+              },
+              {
+                alertId: `alert-a-sell-${suffix}`,
+                tickerId: `FLTA:${firstSellSymbol}`,
+                symbol: firstSellSymbol,
+                name: 'Filter A Sell',
+                mode: 'Sell',
+                frequency: 'MINUTE_LEVEL',
+                conditions: [{ field: 'price', operator: 'gte', value: 100 }],
+                enabled: true,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+              },
+              {
+                alertId: `alert-b-sell-${suffix}`,
+                tickerId: `FLTB:${secondSellSymbol}`,
+                symbol: secondSellSymbol,
+                name: 'Filter B Sell',
+                mode: 'Sell',
+                frequency: 'MINUTE_LEVEL',
+                conditions: [{ field: 'price', operator: 'gte', value: 100 }],
+                enabled: true,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+              },
+            ],
+          }),
+        });
+      });
+
+      await page.goto('/alerts');
+      await page.waitForLoadState('networkidle');
+
+      await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: firstSellSymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: secondSellSymbol }).first()).toBeVisible();
+
+      await page.getByLabel('取引所フィルタ').click();
+      await page.getByRole('option', { name: firstExchangeName }).click();
+
+      await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: firstSellSymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: secondSellSymbol })).toHaveCount(0);
+
+      await page.getByLabel('モードフィルタ').click();
+      await page.getByRole('option', { name: 'Buy（買い）' }).click();
+
+      await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: firstSellSymbol })).toHaveCount(0);
+
+      await page.getByRole('button', { name: 'クリア' }).click();
+
+      await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: firstSellSymbol }).first()).toBeVisible();
+      await expect(page.locator('tbody td', { hasText: secondSellSymbol }).first()).toBeVisible();
+    });
+  });
+
   test.describe('Web Push通知許可', () => {
     test('通知許可がリクエストされる', async ({ page, context }) => {
       // Notification API がサポートされているか確認

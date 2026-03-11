@@ -23,6 +23,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace=libs/common
 RUN npm run build --workspace=libs/browser
 RUN npm run build --workspace=libs/ui
+RUN npm run build --workspace=libs/nextjs
 RUN npm run build --workspace=@nagiyu/admin
 
 # 本番ステージ
