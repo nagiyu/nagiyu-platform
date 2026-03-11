@@ -27,6 +27,10 @@ const ERROR_MESSAGES = {
 // getByUserId の limit で先頭100件のみ取得し、典型的な利用の保有銘柄数を満たしつつ
 // レスポンス遅延や過剰なDBアクセスを抑制する。
 const MAX_HOLDINGS_PER_USER = 100;
+// サマリーAPIではアラート件数を1回のレスポンスで完結させるため、初期実装は1000件を上限とする。
+// 1ユーザーあたり数十〜数百件の想定に対して十分な上限であり、レスポンス肥大化を抑える。
+// 上限を超える場合は先頭1000件で集計するため、超過分は一覧の件数表示に含まれない。
+const MAX_ALERTS_PER_USER = 1000;
 
 interface HoldingSummaryResponse {
   quantity: number;
@@ -151,7 +155,7 @@ async function fetchHoldingMap(userId: string): Promise<Map<string, HoldingSumma
 async function fetchAlertCountMap(userId: string): Promise<Map<string, TickerAlertCountResponse>> {
   try {
     const alertRepository = createAlertRepository();
-    const alertsResult = await alertRepository.getByUserId(userId, { limit: 1000 });
+    const alertsResult = await alertRepository.getByUserId(userId, { limit: MAX_ALERTS_PER_USER });
     const alertCountMap = new Map<string, TickerAlertCountResponse>();
 
     for (const alert of alertsResult.items) {
