@@ -80,8 +80,13 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(page.getByRole('columnheader', { name: '投資判断' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '買いシグナル' })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: '売りシグナル' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '買いアラート数' })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: '売りアラート数' })).toBeVisible();
+    const buyAlertHeader = page.getByRole('columnheader', { name: '買いアラート数' });
+    const sellAlertHeader = page.getByRole('columnheader', { name: '売りアラート数' });
+    await expect(buyAlertHeader).toBeVisible();
+    await expect(sellAlertHeader).toBeVisible();
+    await expect(buyAlertHeader).toHaveCSS('white-space', 'nowrap');
+    await expect(sellAlertHeader).toHaveCSS('white-space', 'nowrap');
+    await expect(page.locator('.MuiTableContainer-root').first()).toHaveCSS('overflow-x', 'auto');
 
     const rows = page.locator('tbody tr');
     await expect(rows).toHaveCount(2);
