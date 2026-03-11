@@ -1,5 +1,9 @@
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-export const docClient = getDynamoDBDocumentClient();
+export function getDocClient(): DynamoDBDocumentClient {
+  return getDynamoDBDocumentClient();
+}
 
-export const TABLE_NAME = getTableName();
+/** @nagiyu/aws の getTableName を再エクスポート。環境変数 DYNAMODB_TABLE_NAME から DynamoDB テーブル名を取得する */
+export { getTableName };
