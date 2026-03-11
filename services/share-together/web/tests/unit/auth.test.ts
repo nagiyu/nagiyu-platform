@@ -44,9 +44,7 @@ describe('authConfig', () => {
     jest.isolateModules(() => {
       const { authConfig: reloadedAuthConfig } =
         jest.requireActual<typeof import('../../auth')>('../../auth');
-      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe(
-        '__Secure-authjs.session-token'
-      );
+      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
     });
   });
 
