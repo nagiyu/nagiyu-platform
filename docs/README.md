@@ -40,6 +40,7 @@
 ### AIエージェント
 
 - [Task Proposal Agent](./agents/task.proposal.README.md) - 要件・指針ドキュメント生成エージェント
+- [Docs Write Agent](./agents/docs.write.README.md) - docs/ 配下専属のドキュメント作成・更新エージェント
 - [Task Implement Agent](./agents/task.implement.README.md) - ドキュメント駆動実装エージェント
 
 ## サービス

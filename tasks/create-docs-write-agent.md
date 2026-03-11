@@ -69,18 +69,18 @@
 
 ### Phase 1: 調査・方針確定
 
-- [ ] T001: 既存エージェント定義（task.implement, task.proposal の agent.md）のフォーマットを確認し、docs.write 用の構成案を確定する
-- [ ] T002: 既存の `docs/agents/task.implement.README.md`、`docs/agents/task.proposal.README.md` のフォーマットを確認し、README構成案を確定する
+- [x] T001: 既存エージェント定義（task.implement, task.proposal の agent.md）のフォーマットを確認し、docs.write 用の構成案を確定する
+- [x] T002: 既存の `docs/agents/task.implement.README.md`、`docs/agents/task.proposal.README.md` のフォーマットを確認し、README構成案を確定する
 
 ### Phase 2: エージェント定義の作成
 
-- [ ] T003: `.github/agents/docs.write.agent.md` を作成する（エージェントの動作フロー、制約、ルール準拠方針を記述）
-- [ ] T004: `docs/agents/docs.write.README.md` を作成する（使用方法、ユースケース例、既存エージェントとの連携方法を記述）
+- [x] T003: `.github/agents/docs.write.agent.md` を作成する（エージェントの動作フロー、制約、ルール準拠方針を記述）
+- [x] T004: `docs/agents/docs.write.README.md` を作成する（使用方法、ユースケース例、既存エージェントとの連携方法を記述）
 
 ### Phase 3: 検証
 
 - [ ] T005: `docs.write` エージェントを実際のドキュメント作成タスクに試験的に使用し、動作を確認する
-- [ ] T006: 生成されたドキュメントが本リポジトリのルールに準拠しているか確認する（インデント、最小限のルール、単体完結）
+- [x] T006: 生成されたドキュメントが本リポジトリのルールに準拠しているか確認する（インデント、最小限のルール、単体完結）
 
 ## 参考ドキュメント
 
