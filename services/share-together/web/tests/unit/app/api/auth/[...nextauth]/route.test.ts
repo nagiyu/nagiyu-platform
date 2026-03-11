@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 

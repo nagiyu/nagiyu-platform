@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 jest.mock('next-auth', () => ({
   __esModule: true,
   default: jest.fn(() => ({
@@ -28,23 +32,26 @@ describe('authConfig', () => {
     expect(authConfig.cookies?.sessionToken?.name).toContain('__Secure-authjs.session-token');
   });
 
-  it('AUTH_SECRET が設定されている場合は secret に反映される', () => {
+  it('secret は NextAuth が AUTH_SECRET 環境変数から自動取得するため config には設定しない', () => {
     process.env.AUTH_SECRET = 'test-auth-secret';
 
     jest.isolateModules(() => {
       const { authConfig: reloadedAuthConfig } =
         jest.requireActual<typeof import('../../auth')>('../../auth');
-      expect(reloadedAuthConfig.secret).toBe('test-auth-secret');
+      // createAuthConfig は secret を含まないため、NextAuth が AUTH_SECRET env var を直接参照する
+      expect(reloadedAuthConfig.secret).toBeUndefined();
     });
   });
 
-  it('NODE_ENV=production の場合はサフィックスなしクッキー名を利用する', () => {
+  it('NODE_ENV=production の場合は .dev サフィックス付きクッキー名を利用する', () => {
     process.env.NODE_ENV = 'production';
 
     jest.isolateModules(() => {
       const { authConfig: reloadedAuthConfig } =
         jest.requireActual<typeof import('../../auth')>('../../auth');
-      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe('__Secure-authjs.session-token');
+      expect(reloadedAuthConfig.cookies?.sessionToken?.name).toBe(
+        '__Secure-authjs.session-token.dev'
+      );
     });
   });
 

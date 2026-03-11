@@ -10,6 +10,7 @@ const config: Config = {
     '^@nagiyu/share-together-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
+    '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
