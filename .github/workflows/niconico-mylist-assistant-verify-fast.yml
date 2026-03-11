@@ -160,6 +160,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -334,6 +335,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
 
       - name: Build core library
         run: npm run build --workspace=@nagiyu/niconico-mylist-assistant-core
