@@ -7,13 +7,17 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
 type InviteFormProps = {
   groupId: string;
   isOwner: boolean;
+  memberCount: number;
 };
 
-export function InviteForm({ groupId, isOwner }: InviteFormProps) {
+const MAX_GROUP_MEMBERS = 5;
+
+export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMemberLimitReached = memberCount >= MAX_GROUP_MEMBERS;
 
   const handleSubmit = async () => {
     const trimmedEmail = email.trim();
@@ -63,6 +67,11 @@ export function InviteForm({ groupId, isOwner }: InviteFormProps) {
           招待を送信しました。
         </Typography>
       )}
+      {isOwner && isMemberLimitReached && (
+        <Typography variant="body2" color="error" sx={{ mb: 2 }}>
+          {ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED}
+        </Typography>
+      )}
       {errorMessage && (
         <Typography variant="body2" color="error" sx={{ mb: 2 }}>
           {errorMessage}
@@ -82,12 +91,12 @@ export function InviteForm({ groupId, isOwner }: InviteFormProps) {
               setSubmitted(false);
               setErrorMessage(null);
             }}
-            disabled={!isOwner}
+            disabled={!isOwner || isMemberLimitReached}
           />
           <Button
             type="button"
             variant="contained"
-            disabled={!isOwner || isSubmitting}
+            disabled={!isOwner || isSubmitting || isMemberLimitReached}
             onClick={handleSubmit}
           >
             招待を送信

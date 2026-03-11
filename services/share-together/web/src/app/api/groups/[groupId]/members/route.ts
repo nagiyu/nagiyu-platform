@@ -219,6 +219,12 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       if (error.message === GROUP_ERROR_MESSAGES.ALREADY_GROUP_MEMBER) {
         return createConflictResponse('ALREADY_MEMBER', ERROR_MESSAGES.ALREADY_MEMBER);
       }
+      if (error.message === GROUP_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED) {
+        return createConflictResponse(
+          'MEMBER_LIMIT_EXCEEDED',
+          ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED
+        );
+      }
     }
 
     console.error('グループメンバー招待 API の実行に失敗しました', {

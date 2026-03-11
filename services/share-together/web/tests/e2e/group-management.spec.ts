@@ -20,6 +20,32 @@ const OTHER_OWNER_USER = {
   name: '別オーナー',
   defaultListId: 'other-owner-default-list',
 } as const;
+const LIMIT_MEMBER_USERS = [
+  {
+    userId: 'member-limit-user-1',
+    email: 'member-limit-user-1@example.com',
+    name: '上限メンバー1',
+    defaultListId: 'member-limit-default-list-1',
+  },
+  {
+    userId: 'member-limit-user-2',
+    email: 'member-limit-user-2@example.com',
+    name: '上限メンバー2',
+    defaultListId: 'member-limit-default-list-2',
+  },
+  {
+    userId: 'member-limit-user-3',
+    email: 'member-limit-user-3@example.com',
+    name: '上限メンバー3',
+    defaultListId: 'member-limit-default-list-3',
+  },
+  {
+    userId: 'member-limit-user-4',
+    email: 'member-limit-user-4@example.com',
+    name: '上限メンバー4',
+    defaultListId: 'member-limit-default-list-4',
+  },
+] as const;
 
 test.describe('グループ管理', () => {
   test.beforeEach(async ({ request }) => {
@@ -111,6 +137,86 @@ test.describe('グループ管理', () => {
     await emailField.fill(INVITEE_USER.email);
     await submitButton.click();
     await expect(page.getByText('既に招待済みです')).toBeVisible();
+  });
+
+  test('グループメンバーが5名に到達している場合は招待ボタンが無効化される', async ({
+    page,
+    request,
+  }) => {
+    const groupId = 'group-member-limit-disabled';
+    const now = new Date().toISOString();
+    await resetTestData(request, {
+      users: [OWNER_USER, ...LIMIT_MEMBER_USERS],
+      groups: [{ groupId, name: 'メンバー上限グループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: now,
+        },
+        ...LIMIT_MEMBER_USERS.map((user) => ({
+          groupId,
+          userId: user.userId,
+          role: 'MEMBER' as const,
+          status: 'ACCEPTED' as const,
+          invitedBy: OWNER_USER.userId,
+          invitedAt: now,
+          respondedAt: now,
+        })),
+      ],
+    });
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: 'メンバー上限グループ' }).click();
+    await expect(page.getByRole('button', { name: '招待を送信' })).toBeDisabled();
+    await expect(page.getByText('グループメンバーは最大5名です')).toBeVisible();
+  });
+
+  test('UI制御をバイパスして招待 API が 409 を返した場合に上限エラーメッセージが表示される', async ({
+    page,
+    request,
+  }) => {
+    const groupId = 'group-member-limit-api';
+    await resetTestData(request, {
+      users: [OWNER_USER, MEMBER_USER, INVITEE_USER],
+      groups: [{ groupId, name: 'メンバー上限APIグループ', ownerUserId: OWNER_USER.userId }],
+      memberships: [
+        {
+          groupId,
+          userId: OWNER_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    await page.goto('/groups');
+    await page.getByRole('heading', { level: 2, name: 'メンバー上限APIグループ' }).click();
+
+    await page.route(`**/api/groups/${groupId}/members`, async (route) => {
+      if (route.request().method() !== 'POST') {
+        await route.continue();
+        return;
+      }
+
+      await route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            code: 'MEMBER_LIMIT_EXCEEDED',
+            message: 'グループメンバーは最大5名です',
+          },
+        }),
+      });
+    });
+
+    await page.getByRole('textbox', { name: 'メールアドレス' }).fill(INVITEE_USER.email);
+    await page.getByRole('button', { name: '招待を送信' }).click();
+    await expect(page.getByText('グループメンバーは最大5名です')).toBeVisible();
   });
 
   test('招待を承認できる', async ({ page, request }) => {

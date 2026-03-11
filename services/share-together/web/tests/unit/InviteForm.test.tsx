@@ -11,7 +11,7 @@ describe('InviteForm', () => {
   });
 
   it('オーナーの場合は入力フォームを有効化し説明文を表示する', () => {
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     expect(screen.getByText('オーナーとしてメンバーを招待できます。')).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'メールアドレス' })).not.toBeDisabled();
@@ -19,7 +19,7 @@ describe('InviteForm', () => {
   });
 
   it('非オーナーの場合は入力フォームを無効化する', () => {
-    render(<InviteForm groupId="group-1" isOwner={false} />);
+    render(<InviteForm groupId="group-1" isOwner={false} memberCount={1} />);
 
     expect(
       screen.getByText('このグループではメンバー追加はできません（オーナーのみ）。')
@@ -33,7 +33,7 @@ describe('InviteForm', () => {
       ok: true,
       json: async () => ({ data: {} }),
     } as Response);
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
       target: { value: 'test@example.com' },
@@ -54,7 +54,7 @@ describe('InviteForm', () => {
 
   it('空のメールアドレスで送信すると完了メッセージを表示しない', () => {
     global.fetch = jest.fn();
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     fireEvent.click(screen.getByRole('button', { name: '招待を送信' }));
 
@@ -64,7 +64,7 @@ describe('InviteForm', () => {
 
   it('無効なメールアドレスで送信すると完了メッセージを表示しない', () => {
     global.fetch = jest.fn();
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
       target: { value: 'invalid-email' },
@@ -80,7 +80,7 @@ describe('InviteForm', () => {
       ok: true,
       json: async () => ({ data: {} }),
     } as Response);
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
       target: { value: 'test@example.com' },
@@ -101,7 +101,7 @@ describe('InviteForm', () => {
       ok: false,
       json: async () => ({ error: { message: '既に招待済みです' } }),
     } as Response);
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
       target: { value: 'test@example.com' },
@@ -116,7 +116,7 @@ describe('InviteForm', () => {
 
   it('ネットワークエラー時は汎用エラーメッセージを表示する', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('network error'));
-    render(<InviteForm groupId="group-1" isOwner={true} />);
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 
     fireEvent.change(screen.getByRole('textbox', { name: 'メールアドレス' }), {
       target: { value: 'test@example.com' },
@@ -127,5 +127,15 @@ describe('InviteForm', () => {
       expect(screen.getByText('招待の送信に失敗しました。')).toBeInTheDocument();
     });
     expect(screen.queryByText('招待を送信しました。')).not.toBeInTheDocument();
+  });
+
+  it('メンバー数が上限のときは招待を無効化して上限メッセージを表示する', () => {
+    global.fetch = jest.fn();
+    render(<InviteForm groupId="group-1" isOwner={true} memberCount={5} />);
+
+    expect(screen.getByText('グループメンバーは最大5名です')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'メールアドレス' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '招待を送信' })).toBeDisabled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });

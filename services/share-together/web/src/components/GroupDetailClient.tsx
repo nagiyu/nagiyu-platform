@@ -304,7 +304,7 @@ export function GroupDetailClient({
             <Typography variant="h6" component="h2" gutterBottom>
               メンバー招待フォーム
             </Typography>
-            <InviteForm groupId={groupId} isOwner={isOwner} />
+            <InviteForm groupId={groupId} isOwner={isOwner} memberCount={members.length} />
           </CardContent>
         </Card>
       </Stack>

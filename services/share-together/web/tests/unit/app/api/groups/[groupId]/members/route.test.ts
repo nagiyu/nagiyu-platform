@@ -25,6 +25,7 @@ jest.mock('@nagiyu/share-together-core', () => {
     ERROR_MESSAGES: {
       DUPLICATE_INVITATION: actualCore.ERROR_MESSAGES.DUPLICATE_INVITATION,
       ALREADY_GROUP_MEMBER: actualCore.ERROR_MESSAGES.ALREADY_GROUP_MEMBER,
+      MEMBER_LIMIT_EXCEEDED: actualCore.ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED,
     },
   };
 });
@@ -305,6 +306,46 @@ describe('/api/groups/[groupId]/members route', () => {
       error: {
         code: 'ALREADY_INVITED',
         message: '既に招待済みです',
+      },
+    });
+  });
+
+  it('POST: メンバー上限エラーは409を返す', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetGroupById.mockResolvedValue({
+      groupId: 'group-1',
+      ownerUserId: 'owner-1',
+    });
+    mockGetMembershipById.mockResolvedValue({
+      groupId: 'group-1',
+      userId: 'owner-1',
+      role: 'OWNER',
+      status: 'ACCEPTED',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    mockGetUserByEmail.mockResolvedValue({
+      userId: 'user-2',
+      email: 'invitee@example.com',
+      name: '招待対象',
+      defaultListId: 'list-2',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    });
+    mockInviteMember.mockRejectedValue(new Error(GROUP_CORE_ERROR_MESSAGES.MEMBER_LIMIT_EXCEEDED));
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ email: 'invitee@example.com' }),
+    } as unknown as Request;
+    const response = await POST(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: {
+        code: 'MEMBER_LIMIT_EXCEEDED',
+        message: 'グループメンバーは最大5名です',
       },
     });
   });

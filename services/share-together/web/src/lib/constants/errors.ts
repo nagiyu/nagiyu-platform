@@ -21,6 +21,7 @@ export const ERROR_MESSAGES = {
   OWNER_CANNOT_LEAVE: 'オーナーはグループを脱退できません',
   ALREADY_INVITED: '既に招待済みです',
   ALREADY_MEMBER: '既にグループメンバーです',
+  MEMBER_LIMIT_EXCEEDED: 'グループメンバーは最大5名です',
   INVITATION_SEND_FAILED: '招待の送信に失敗しました。',
   ALREADY_RESPONDED: 'この招待には既に応答済みです',
   INVALID_INVITATION_STATUS: '招待のステータスが不正です',
