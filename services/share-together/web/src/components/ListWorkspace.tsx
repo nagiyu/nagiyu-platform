@@ -255,7 +255,6 @@ export function ListWorkspace({
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
             onListSelect={(listId) => setSelectedListId(listId)}
-            apiEnabled={scope === 'personal'}
           />
         </Stack>
       </Box>
@@ -266,7 +265,6 @@ export function ListWorkspace({
             scope={scope === 'personal' ? 'personal' : 'group'}
             listId={currentListId}
             groupId={scope === 'shared' ? selectedGroupId : undefined}
-            apiEnabled
           />
         ) : null}
       </Box>

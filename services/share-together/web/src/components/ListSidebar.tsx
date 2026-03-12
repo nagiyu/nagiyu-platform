@@ -35,7 +35,6 @@ type ListSidebarProps = {
   hrefPrefix: string;
   onCreateList?: () => void;
   onListSelect?: (listId: string) => void;
-  apiEnabled?: boolean;
 };
 
 const ERROR_MESSAGES = {
@@ -67,17 +66,17 @@ export function ListSidebar({
   heading,
   createButtonLabel,
   selectedListId,
-  lists = [],
+  lists,
   hrefPrefix,
   onCreateList,
   onListSelect,
-  apiEnabled = false,
 }: ListSidebarProps) {
   const router = useRouter();
   const [apiLists, setApiLists] = useState<readonly SidebarList[]>([]);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
-  const displayedLists = apiEnabled ? apiLists : lists;
-  const isPersonalListLimitReached = apiEnabled && displayedLists.length >= 100;
+  const hasExternalLists = lists !== undefined;
+  const displayedLists = lists ?? apiLists;
+  const isPersonalListLimitReached = !hasExternalLists && displayedLists.length >= 100;
   const navigateToList = (listId: string) => {
     if (onListSelect) {
       onListSelect(listId);
@@ -87,7 +86,7 @@ export function ListSidebar({
   };
 
   useEffect(() => {
-    if (!apiEnabled) {
+    if (hasExternalLists) {
       return;
     }
 
@@ -115,10 +114,10 @@ export function ListSidebar({
     return () => {
       controller.abort();
     };
-  }, [apiEnabled]);
+  }, [hasExternalLists]);
 
   const handleCreateList = () => {
-    if (!apiEnabled) {
+    if (hasExternalLists) {
       onCreateList?.();
       return;
     }
@@ -237,7 +236,7 @@ export function ListSidebar({
             key={list.listId}
             disablePadding
             secondaryAction={
-              apiEnabled ? (
+              !hasExternalLists ? (
                 <Stack direction="row" spacing={0.5}>
                   <IconButton
                     aria-label={`${list.name}を編集`}
