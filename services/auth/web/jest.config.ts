@@ -16,6 +16,8 @@ const config: Config = {
     '^@nagiyu/auth-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^@nagiyu/browser$': '<rootDir>/../../../libs/browser/src/index.ts',
+    '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
+    '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
     // ESM .js extension to .ts mapping for libs/common
     '^(\\.{1,2}/.*)\\.js$': '$1',
