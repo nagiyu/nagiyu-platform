@@ -2,6 +2,16 @@ import { auth } from '@nagiyu/auth-core';
 import { createSessionGetter } from '@nagiyu/nextjs/session';
 import type { Session } from 'next-auth';
 
+type AuthSession = {
+  user?: Session['user'] & {
+    id?: string;
+    roles?: string[];
+  };
+  expires?: string;
+};
+
+const getAuthSession = auth as () => Promise<AuthSession | null>;
+
 /**
  * セッション情報を取得する
  *
@@ -11,8 +21,8 @@ import type { Session } from 'next-auth';
  *
  * @returns セッション情報、未認証の場合は null
  */
-export const getSession = createSessionGetter({
-  auth,
+export const getSession = createSessionGetter<AuthSession, Session>({
+  auth: getAuthSession,
   createTestSession: () => ({
     user: {
       id: 'test-user-id',
@@ -23,5 +33,8 @@ export const getSession = createSessionGetter({
     },
     expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
   }),
-  mapSession: (session): Session => session,
+  mapSession: (session): Session => ({
+    ...(session as Session),
+    expires: session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  }),
 });

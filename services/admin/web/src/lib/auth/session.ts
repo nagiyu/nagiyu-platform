@@ -2,6 +2,16 @@ import { auth } from '../../auth';
 import { createSessionGetter } from '@nagiyu/nextjs/session';
 import type { Session } from 'next-auth';
 
+type AuthSession = {
+  user?: Session['user'] & {
+    id?: string;
+    roles?: string[];
+  };
+  expires?: string;
+};
+
+const getAuthSession = auth as () => Promise<AuthSession | null>;
+
 const TEST_SESSION_DEFAULTS = {
   USER_ID: 'test-user-id',
   USER_EMAIL: 'test@example.com',
@@ -17,8 +27,8 @@ const TEST_SESSION_DEFAULTS = {
  *
  * @returns セッション情報、未認証の場合は null
  */
-export const getSession = createSessionGetter({
-  auth,
+export const getSession = createSessionGetter<AuthSession, Session>({
+  auth: getAuthSession,
   createTestSession: () => ({
     user: {
       id: process.env.TEST_USER_ID || TEST_SESSION_DEFAULTS.USER_ID,
@@ -30,13 +40,14 @@ export const getSession = createSessionGetter({
     expires: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }),
   mapSession: (session): Session => ({
+    ...(session as Session),
     user: {
-      id: session.user.id || '',
-      email: session.user.email || '',
-      name: session.user.name || '',
-      image: session.user.image || undefined,
-      roles: session.user.roles || [],
+      id: (session.user as { id?: string })?.id || '',
+      email: session.user?.email || '',
+      name: session.user?.name || '',
+      image: session.user?.image || undefined,
+      roles: (session.user as { roles?: string[] })?.roles || [],
     },
-    expires: session.expires,
+    expires: session.expires || new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }),
 });
