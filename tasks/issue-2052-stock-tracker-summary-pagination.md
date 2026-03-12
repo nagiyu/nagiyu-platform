@@ -66,11 +66,11 @@ DynamoDB のクエリは 1 回のレスポンスで最大 1MB のデータしか
 
 ## タスク
 
-- [ ] T001: `dynamodb-daily-summary.repository.ts` の `getByExchange()` にページネーションループを追加
-- [ ] T002: ユニットテストに「2 ページ以上のデータを返すケース」を追加
+- [x] T001: `dynamodb-daily-summary.repository.ts` の `getByExchange()` にページネーションループを追加
+- [x] T002: ユニットテストに「2 ページ以上のデータを返すケース」を追加
     - 対象: `services/stock-tracker/core/tests/unit/repositories/dynamodb-daily-summary.repository.test.ts`（または同等のテストファイル）
-- [ ] T003: ローカルビルド・テストで既存テストが通ることを確認
-- [ ] T004: カバレッジ 80% 以上を確認
+- [x] T003: ローカルビルド・テストで既存テストが通ることを確認
+- [x] T004: カバレッジ 80% 以上を確認
 
 ## 参考ドキュメント
 
