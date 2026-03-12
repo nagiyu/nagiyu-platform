@@ -1,4 +1,4 @@
-import { docClient, TABLE_NAME } from './client.js';
+import { getDocClient, getTableName } from './client.js';
 import { createBatchJobRepository } from '../repositories/factory.js';
 import type { BatchJobRepository } from '../repositories/batch-job.repository.interface.js';
 import type {
@@ -13,7 +13,7 @@ let batchJobRepositoryInstance: BatchJobRepository | null = null;
 
 function getBatchJobRepository(): BatchJobRepository {
   if (!batchJobRepositoryInstance) {
-    batchJobRepositoryInstance = createBatchJobRepository(docClient, TABLE_NAME);
+    batchJobRepositoryInstance = createBatchJobRepository(getDocClient(), getTableName());
   }
   return batchJobRepositoryInstance;
 }
