@@ -7,6 +7,7 @@ const config: Config = {
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   // next-auth などの ES モジュールをトランスフォームする
