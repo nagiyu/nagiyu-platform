@@ -5,7 +5,9 @@
  */
 
 import { auth } from '../auth';
+import { createSessionGetter } from '@nagiyu/nextjs/session';
 import type { Session } from '@nagiyu/common';
+import type { Session as NextAuthSession } from 'next-auth';
 
 /**
  * セッション情報を取得する
@@ -16,30 +18,21 @@ import type { Session } from '@nagiyu/common';
  *
  * @returns セッション情報、未認証の場合は null
  */
-export async function getSession(): Promise<Session | null> {
-  // テスト環境で認証をスキップする場合、モックセッションを返す
-  if (process.env.SKIP_AUTH_CHECK === 'true') {
-    return {
-      user: {
-        userId: 'test-user-id',
-        googleId: 'test-google-id',
-        email: process.env.TEST_USER_EMAIL || 'test@example.com',
-        name: 'Test User',
-        roles: process.env.TEST_USER_ROLES?.split(',') || ['stock-user'],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-    };
-  }
-
-  const session = await auth();
-
-  if (!session?.user) {
-    return null;
-  }
-
-  return {
+const getSessionFromAuth = createSessionGetter({
+  auth,
+  createTestSession: () => ({
+    user: {
+      userId: 'test-user-id',
+      googleId: 'test-google-id',
+      email: process.env.TEST_USER_EMAIL || 'test@example.com',
+      name: 'Test User',
+      roles: process.env.TEST_USER_ROLES?.split(',') || ['stock-user'],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+  }),
+  mapSession: (session: NextAuthSession): Session => ({
     user: {
       userId: session.user.id || '',
       googleId: session.user.id || '', // NextAuth doesn't expose googleId separately
@@ -50,5 +43,9 @@ export async function getSession(): Promise<Session | null> {
       updatedAt: new Date().toISOString(),
     },
     expires: session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-  };
+  }),
+});
+
+export async function getSession(): Promise<Session | null> {
+  return await getSessionFromAuth();
 }
