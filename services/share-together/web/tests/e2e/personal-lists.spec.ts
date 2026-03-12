@@ -201,7 +201,10 @@ test.describe('個人リスト管理', () => {
     ).toBeVisible();
   });
 
-  test('共有から個人へ表示範囲を戻しても個人ToDo取得エラーにならない', async ({ page, request }) => {
+  test('共有から個人へ表示範囲を戻しても個人ToDo取得エラーにならない', async ({
+    page,
+    request,
+  }) => {
     await resetTestData(request, {
       users: [
         TEST_USER,
@@ -220,7 +223,13 @@ test.describe('個人リスト管理', () => {
           isDefault: true,
         },
       ],
-      groups: [{ groupId: 'scope-switch-group', name: 'スコープ切り替え検証', ownerUserId: TEST_USER.userId }],
+      groups: [
+        {
+          groupId: 'scope-switch-group',
+          name: 'スコープ切り替え検証',
+          ownerUserId: TEST_USER.userId,
+        },
+      ],
       memberships: [
         {
           groupId: 'scope-switch-group',
