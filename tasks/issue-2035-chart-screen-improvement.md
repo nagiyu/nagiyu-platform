@@ -28,7 +28,7 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
 
 `StockChart` は `holdingPrice`（保有平均価格ライン）と `alertLines`（アラートしきい値ライン）をすでにサポートしているが、現状はデータを渡していない。
 
-### 既存 API（統合可能なもの）
+### 既存 API（参考）
 
 | API | エンドポイント | 備考 |
 |-----|--------------|------|
@@ -36,7 +36,7 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
 | 保有株式 | `GET /api/holdings` | 全保有分を返す |
 | アラート | `GET /api/alerts` | 全アラート分を返す |
 
-いずれも全件返却のため、フロントでティッカーIDによるフィルタが必要。
+いずれも全件返却のため、チャート画面での利用には効率が悪い（クライアント負担・無駄な通信）。**ティッカーID を受け取り単件・絞り込み結果を返す新 API を追加する方針とする**（後述）。
 
 ### 既存の型定義
 
@@ -58,7 +58,8 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
     - 保有が存在しない場合は「保有なし」などの状態を表示する
     - 保有平均価格ラインをチャートにオーバーレイ表示する（`StockChart` の `holdingPrice` prop を活用）
 - **FR3**: 取引所とティッカーが選択された状態のとき、該当ティッカーのアラート一覧をチャート画面に表示する
-    - 表示項目: 買いアラート数（有効/無効別）、売りアラート数（有効/無効別）
+    - 表示項目: アラートごとの詳細情報（モード、条件、有効/無効、種別）を一覧表示する
+    - アラート件数が多く画面が煩雑になる場合はモーダルで詳細を表示する構成にしてもよい
     - アラートのしきい値ラインをチャートにオーバーレイ表示する（`StockChart` の `alertLines` prop を活用）
 - **FR4**: 取引所またはティッカーが未選択の場合、FR1〜FR3 の情報表示エリアは表示しない（または非活性状態にする）
 
@@ -74,9 +75,13 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
 
 ### データ取得の方針
 
-- ティッカー選択時（`ticker` state 変化時）に `useEffect` でサマリー・保有株式・アラートを並行取得する
-- `/api/summaries`、`/api/holdings`、`/api/alerts` はすでに存在するため、フロントで tickerId によるフィルタを行う
-- `HomePageClient` でデータ取得・フィルタを行い、表示コンポーネントに props として渡す
+- 既存の全件取得 API（`/api/summaries`、`/api/holdings`、`/api/alerts`）をチャート画面で直接利用するのは非効率のため、**ティッカーIDを受け取り該当データを返す API を新規追加する**
+- 追加する API（案）:
+    - `GET /api/summaries/[tickerId]` — 指定ティッカーの最新サマリーを返す
+    - `GET /api/holdings/[tickerId]` — 指定ティッカーの保有株式を返す（未保有なら 404 または空レスポンス）
+    - `GET /api/alerts?tickerId={tickerId}` — 指定ティッカーのアラート一覧を返す
+- ティッカー選択時（`ticker` state 変化時）に `useEffect` でこれらの API を並行取得する
+- `HomePageClient` でデータ取得を行い、表示コンポーネントに props として渡す
 
 ### コンポーネント設計
 
@@ -93,31 +98,36 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
 - [ ] T001: 調査・実装計画の確認
     - `HomePageClient.tsx`、`StockChart.tsx`、`/api/summaries`、`/api/holdings`、`/api/alerts` の最新実装を確認する
     - 既存の型定義（`TickerSummary`、`HoldingResponse`、`AlertResponse`、`AlertLine`）を把握する
-- [ ] T002: サマリー表示コンポーネントの作成
+- [ ] T002: ティッカーID指定 API の追加
+    - `GET /api/summaries/[tickerId]` — 指定ティッカーの最新サマリーを返すルートを新規作成
+    - `GET /api/holdings/[tickerId]` — 指定ティッカーの保有株式を返すルートを新規作成
+    - `GET /api/alerts` に `tickerId` クエリパラメータによる絞り込みを追加（または `GET /api/alerts/[tickerId]` を新規作成）
+    - 各ルートのユニットテストを追加
+- [ ] T003: サマリー表示コンポーネントの作成
     - `services/stock-tracker/web/src/components/TickerSummaryCard.tsx` を新規作成
     - props: `summary: TickerSummary | null`, `loading: boolean`, `error: string`
     - 取引所・ティッカー未選択時は非表示
-- [ ] T003: 保有株式表示コンポーネントの作成
+- [ ] T004: 保有株式表示コンポーネントの作成
     - `services/stock-tracker/web/src/components/HoldingCard.tsx` を新規作成
     - props: `holding: HoldingResponse | null`, `loading: boolean`, `error: string`
     - 保有なしの場合はその旨を表示
-- [ ] T004: アラート一覧表示コンポーネントの作成
-    - `services/stock-tracker/web/src/components/TickerAlertSummaryCard.tsx` を新規作成
+- [ ] T005: アラート一覧表示コンポーネントの作成
+    - `services/stock-tracker/web/src/components/TickerAlertListCard.tsx` を新規作成
     - props: `alerts: AlertResponse[]`, `loading: boolean`, `error: string`
-    - 買いアラート数・売りアラート数（有効/無効別）を表示
-- [ ] T005: `HomePageClient` へのデータ取得ロジック追加
-    - ティッカー選択時に `/api/summaries`、`/api/holdings`、`/api/alerts` を取得
-    - 取得データから tickerId によるフィルタを行い、選択ティッカーのデータを抽出
+    - アラートごとの詳細情報（モード、条件、有効/無効）を一覧表示する
+    - アラート件数が多い場合はモーダルで詳細表示する構成にしてもよい
+- [ ] T006: `HomePageClient` へのデータ取得ロジック追加
+    - ティッカー選択時に T002 で追加した API を並行取得する
     - `holdingPrice` と `alertLines` を `StockChart` へ渡す
-- [ ] T006: チャート画面レイアウトの更新
-    - `HomePageClient.tsx` に T002〜T004 のコンポーネントを組み込む
+- [ ] T007: チャート画面レイアウトの更新
+    - `HomePageClient.tsx` に T003〜T005 のコンポーネントを組み込む
     - 取引所・ティッカーが選択済みの場合のみ表示する
     - Material-UI のグリッドを使用してレスポンシブ対応
-- [ ] T007: ユニットテストの追加・更新
-    - T002〜T004 の各コンポーネントのユニットテストを `tests/unit/` 配下に追加
-    - T005 のデータ取得ロジックのユニットテストを追加
+- [ ] T008: ユニットテストの追加・更新
+    - T003〜T005 の各コンポーネントのユニットテストを `tests/unit/` 配下に追加
+    - T006 のデータ取得ロジックのユニットテストを追加
     - カバレッジ 80% 以上を維持
-- [ ] T008: 動作確認
+- [ ] T009: 動作確認
     - 取引所・ティッカー選択時にサマリー・保有株式・アラートが表示されること
     - 取引所・ティッカー未選択時に表示されないこと
     - チャートに保有価格ライン・アラートラインがオーバーレイ表示されること
@@ -134,5 +144,5 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
 ## 備考・未決定事項
 
 - サマリー・保有株式・アラートの表示順序・レイアウト（横並び / 縦並び）は実装時に判断する
-- アラート一覧の詳細（個別アラートの条件表示）を表示するかどうかは未決定。まずは件数表示のみとし、詳細は別 Issue で対応する
+- アラート詳細の表示形式（インライン一覧 or モーダル）は実装時に画面の煩雑さを見ながら判断する
 - 保有株式・アラートの作成・編集・削除は本 Issue の対象外とする（既存の各ページへのリンク追加は許容）
