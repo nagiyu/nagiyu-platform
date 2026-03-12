@@ -1,10 +1,8 @@
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+
 export const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'アクセス権限がありません',
-  NOT_FOUND: '対象のデータが見つかりません',
-  VALIDATION_ERROR: '入力内容が不正です',
+  ...COMMON_ERROR_MESSAGES,
   CONFLICT: 'データの競合が発生しました',
-  INTERNAL_SERVER_ERROR: 'サーバーエラーが発生しました',
 
   USER_ID_REQUIRED: 'ユーザーIDは必須です',
   LIST_ID_REQUIRED: 'リストIDは必須です',

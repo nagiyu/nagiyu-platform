@@ -6,7 +6,7 @@ import {
   resolveInvestmentSignalLabel,
 } from '../../../app/summaries/ai-analysis';
 import { useSession } from 'next-auth/react';
-import { STOCK_TRACKER_ERROR_MESSAGES } from '../../../lib/error-messages';
+import { ERROR_MESSAGES } from '../../../lib/error-messages';
 
 jest.mock('../../../components/StockChart', () => ({
   __esModule: true,
@@ -67,7 +67,7 @@ describe('SummariesPage', () => {
     it('aiAnalysisError が string の場合は失敗メッセージを表示する', () => {
       expect(
         resolveAiAnalysisFallbackMessage({ ...baseSummary, aiAnalysisError: 'OpenAI timeout' })
-      ).toBe(STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_FAILED);
+      ).toBe(ERROR_MESSAGES.AI_ANALYSIS_FAILED);
     });
 
     it('aiAnalysisResult と aiAnalysisError が両方ある場合は aiAnalysisResult を優先表示する', () => {
@@ -89,7 +89,7 @@ describe('SummariesPage', () => {
 
     it('aiAnalysisResult と aiAnalysisError が未定義の場合は未生成メッセージを表示する', () => {
       expect(resolveAiAnalysisFallbackMessage(baseSummary)).toBe(
-        STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
+        ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED
       );
     });
   });
