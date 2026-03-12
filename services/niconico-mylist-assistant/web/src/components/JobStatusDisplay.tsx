@@ -24,7 +24,8 @@ import {
 import type { JobStatusDisplayProps, JobStatusState } from '@/types/job';
 import { DEFAULT_POLLING_CONFIG } from '@/types/job';
 import type { BatchStatus, BatchJobStatusResponse } from '@nagiyu/niconico-mylist-assistant-core';
-import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-core';
+
+const TWO_FACTOR_AUTH_CODE_REGEX = /^\d{6}$/;
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
