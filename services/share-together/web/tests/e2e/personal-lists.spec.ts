@@ -277,11 +277,13 @@ test.describe('個人リスト管理', () => {
     await page.goto('/lists?listId=list-default');
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
 
-    await page.getByLabel('表示範囲').click();
+    const scopeSelect = page.getByRole('combobox', { name: '表示範囲' }).first();
+
+    await scopeSelect.click();
     await page.getByRole('option', { name: '共有' }).click();
     await expect(page.getByText('共有スコープToDo')).toBeVisible();
 
-    await page.getByLabel('表示範囲').click();
+    await scopeSelect.click();
     await page.getByRole('option', { name: '個人' }).click();
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
     await expect(page.getByText('ToDo一覧の取得に失敗しました。')).not.toBeVisible();
