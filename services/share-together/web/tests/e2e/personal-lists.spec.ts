@@ -200,4 +200,81 @@ test.describe('個人リスト管理', () => {
       page.getByRole('alert').filter({ hasText: '個人リストは100件まで作成できます' })
     ).toBeVisible();
   });
+
+  test('共有から個人へ表示範囲を戻しても個人ToDo取得エラーにならない', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [
+        TEST_USER,
+        {
+          userId: 'shared-member',
+          email: 'shared-member@example.com',
+          name: 'Shared Member',
+          defaultListId: 'shared-member-default',
+        },
+      ],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
+      groups: [{ groupId: 'scope-switch-group', name: 'スコープ切り替え検証', ownerUserId: TEST_USER.userId }],
+      memberships: [
+        {
+          groupId: 'scope-switch-group',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+        {
+          groupId: 'scope-switch-group',
+          userId: 'shared-member',
+          role: 'MEMBER',
+          status: 'ACCEPTED',
+          invitedBy: TEST_USER.userId,
+          invitedAt: new Date().toISOString(),
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+      groupLists: [
+        {
+          listId: 'scope-shared-list',
+          groupId: 'scope-switch-group',
+          name: '共有検証リスト',
+          createdBy: TEST_USER.userId,
+        },
+      ],
+      todos: [
+        {
+          todoId: 'todo-personal-scope',
+          listId: 'list-default',
+          title: '個人スコープToDo',
+          isCompleted: false,
+          createdBy: TEST_USER.userId,
+        },
+        {
+          todoId: 'todo-shared-scope',
+          listId: 'scope-shared-list',
+          title: '共有スコープToDo',
+          isCompleted: false,
+          createdBy: TEST_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/lists?listId=list-default');
+    await expect(page.getByText('個人スコープToDo')).toBeVisible();
+
+    await page.getByLabel('表示範囲').click();
+    await page.getByRole('option', { name: '共有' }).click();
+    await expect(page.getByText('共有スコープToDo')).toBeVisible();
+
+    await page.getByLabel('表示範囲').click();
+    await page.getByRole('option', { name: '個人' }).click();
+    await expect(page.getByText('個人スコープToDo')).toBeVisible();
+    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).toHaveCount(0);
+  });
 });

@@ -90,11 +90,11 @@ onChange={(event) => {
 
 ## タスク
 
-- [ ] T001: `ListWorkspace.tsx` のスコープ切り替えハンドラを修正する
+- [x] T001: `ListWorkspace.tsx` のスコープ切り替えハンドラを修正する
     - `onChange` ハンドラで個人スコープへ切り替える際に `setSelectedListId(initialListId)` を呼ぶ
-- [ ] T002: ユニットテストの追加・更新
+- [x] T002: ユニットテストの追加・更新
     - スコープ切り替え後に正しい API パスが呼ばれることをテストする
-- [ ] T003: E2E テストの追加・更新
+- [x] T003: E2E テストの追加・更新
     - `tests/e2e/personal-lists.spec.ts` または `tests/e2e/group-shared-todo.spec.ts` に
       スコープ切り替えシナリオのテストケースを追加する
 

@@ -153,6 +153,9 @@ export function ListWorkspace({
               onChange={(event) => {
                 const nextScope = event.target.value as 'personal' | 'shared';
                 setScope(nextScope);
+                if (nextScope === 'personal') {
+                  setSelectedListId(initialListId);
+                }
                 let nextLists: readonly { listId: string; name: string }[] = [];
                 if (nextScope === 'shared') {
                   nextLists = sharedLists;
