@@ -275,6 +275,6 @@ test.describe('個人リスト管理', () => {
     await page.getByLabel('表示範囲').click();
     await page.getByRole('option', { name: '個人' }).click();
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
-    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).toHaveCount(0);
+    await expect(page.getByText('ToDo一覧の取得に失敗しました。')).not.toBeVisible();
   });
 });
