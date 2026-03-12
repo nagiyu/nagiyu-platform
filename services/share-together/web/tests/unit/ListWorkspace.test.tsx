@@ -168,6 +168,25 @@ describe('ListWorkspace', () => {
     });
   });
 
+  it('共有から個人に戻したときに個人リストのToDoを取得する', async () => {
+    render(<ListWorkspace initialListId="mock-default-list" />);
+
+    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
+    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    await waitFor(() => {
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    });
+
+    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
+    fireEvent.click(screen.getByRole('option', { name: '個人' }));
+    await waitFor(() => {
+      expect(screen.getByText('個人ToDo(初期)')).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.queryByText('ToDo一覧の取得に失敗しました。')).not.toBeInTheDocument();
+    });
+  });
+
   it('共有スコープへ切り替えると選択グループの共有リストを表示できる', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 
