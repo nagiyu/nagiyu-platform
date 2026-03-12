@@ -1,0 +1,93 @@
+name: Create Task Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 親Issue番号
+        required: true
+        type: string
+      mode:
+        description: 作成モード
+        required: true
+        default: task-document-completion
+        type: choice
+        options:
+          - task-document-completion
+
+permissions:
+  issues: write
+
+jobs:
+  create-issues:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.mode == 'task-document-completion'
+    steps:
+      - name: Create issues and link as sub-issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          PARENT_ISSUE_NUMBER="${{ github.event.inputs.issue_number }}"
+          if ! PARENT_ISSUE_ID=$(gh issue view "$PARENT_ISSUE_NUMBER" --json id --jq '.id'); then
+            echo "::error::親Issue #${PARENT_ISSUE_NUMBER} を取得できませんでした。Issue番号を確認してください。"
+            exit 1
+          fi
+
+          TASK_DOCUMENT_BODY=$'調査、対応方針の検討から行う。\n実装は行わず、タスクドキュメントの作成のみ実施すること。'
+
+          if ! TASK_DOCUMENT_ISSUE_URL=$(gh issue create \
+            --title "タスクドキュメント作成" \
+            --body "$TASK_DOCUMENT_BODY"); then
+            echo "::error::「タスクドキュメント作成」Issueの作成に失敗しました。"
+            exit 1
+          fi
+          TASK_DOCUMENT_ISSUE_NUMBER="${TASK_DOCUMENT_ISSUE_URL##*/}"
+
+          CLEANUP_BODY=$'実装が完了しているので、タスクドキュメントを削除する。\nその上で、docs 配下に残しておくべき仕様をキャッチアップする。\n\n参照: '
+
+          if ! CLEANUP_ISSUE_URL=$(gh issue create \
+            --title "クリーンアップ" \
+            --body "$CLEANUP_BODY"); then
+            echo "::error::「クリーンアップ」Issueの作成に失敗しました。"
+            exit 1
+          fi
+          CLEANUP_ISSUE_NUMBER="${CLEANUP_ISSUE_URL##*/}"
+
+          if ! TASK_DOCUMENT_ISSUE_ID=$(gh issue view "$TASK_DOCUMENT_ISSUE_NUMBER" --json id --jq '.id'); then
+            echo "::error::「タスクドキュメント作成」IssueのID取得に失敗しました。"
+            exit 1
+          fi
+
+          if ! CLEANUP_ISSUE_ID=$(gh issue view "$CLEANUP_ISSUE_NUMBER" --json id --jq '.id'); then
+            echo "::error::「クリーンアップ」IssueのID取得に失敗しました。"
+            exit 1
+          fi
+
+          if ! gh api graphql \
+            -H "GraphQL-Features: sub_issues" \
+            -f query='mutation($issueId: ID!, $subIssueId: ID!) { addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) { issue { id } subIssue { id } } }' \
+            -F issueId="$PARENT_ISSUE_ID" \
+            -F subIssueId="$TASK_DOCUMENT_ISSUE_ID" > /dev/null; then
+            echo "::error::親Issueへの「タスクドキュメント作成」Sub Issue紐付けに失敗しました。"
+            exit 1
+          fi
+
+          if ! gh api graphql \
+            -H "GraphQL-Features: sub_issues" \
+            -f query='mutation($issueId: ID!, $subIssueId: ID!) { addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) { issue { id } subIssue { id } } }' \
+            -F issueId="$PARENT_ISSUE_ID" \
+            -F subIssueId="$CLEANUP_ISSUE_ID" > /dev/null; then
+            echo "::error::親Issueへの「クリーンアップ」Sub Issue紐付けに失敗しました。"
+            exit 1
+          fi
+
+          {
+            echo "✅ Issueを作成しました"
+            echo ""
+            echo "- 親Issue: #${PARENT_ISSUE_NUMBER}"
+            echo "- タスクドキュメント作成: #${TASK_DOCUMENT_ISSUE_NUMBER}"
+            echo "- クリーンアップ: #${CLEANUP_ISSUE_NUMBER}"
+          } >> "$GITHUB_STEP_SUMMARY"
