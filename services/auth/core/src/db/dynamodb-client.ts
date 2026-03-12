@@ -1,5 +1,10 @@
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-export const dynamoDb = getDynamoDBDocumentClient();
+export function getDynamoDb(): DynamoDBDocumentClient {
+  return getDynamoDBDocumentClient();
+}
 
-export const USERS_TABLE_NAME = getTableName('nagiyu-auth-users-dev');
+export function getUsersTableName(): string {
+  return getTableName('nagiyu-auth-users-dev');
+}

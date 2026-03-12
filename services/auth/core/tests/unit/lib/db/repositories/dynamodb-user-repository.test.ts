@@ -2,15 +2,16 @@ import {
   DynamoDBUserRepository,
   UserNotFoundError,
 } from '../../../../../src/db/repositories/dynamodb-user-repository';
-import { dynamoDb, USERS_TABLE_NAME } from '../../../../../src/db/dynamodb-client';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { User } from '../../../../../src/db/types';
+import { getDynamoDb, getUsersTableName } from '../../../../../src/db/dynamodb-client';
 
-// Mock AWS SDK
+const USERS_TABLE_NAME = 'test-users-table';
+
+// Mock dynamodb-client to test default constructor parameter fallback
 jest.mock('../../../../../src/db/dynamodb-client', () => ({
-  dynamoDb: {
-    send: jest.fn(),
-  },
-  USERS_TABLE_NAME: 'test-users-table',
+  getDynamoDb: jest.fn(),
+  getUsersTableName: jest.fn(),
 }));
 
 // Mock crypto.randomUUID
@@ -20,11 +21,12 @@ jest.mock('crypto', () => ({
 
 describe('DynamoDBUserRepository', () => {
   let repository: DynamoDBUserRepository;
-  const mockSend = dynamoDb.send as jest.MockedFunction<(command: unknown) => Promise<unknown>>;
+  let mockSend: jest.MockedFunction<(command: unknown) => Promise<unknown>>;
 
   beforeEach(() => {
-    repository = new DynamoDBUserRepository();
-    mockSend.mockClear();
+    mockSend = jest.fn();
+    const mockDynamoDb = { send: mockSend } as unknown as DynamoDBDocumentClient;
+    repository = new DynamoDBUserRepository(mockDynamoDb, USERS_TABLE_NAME);
   });
 
   describe('getUserByGoogleId', () => {
@@ -476,6 +478,21 @@ describe('DynamoDBUserRepository', () => {
       await expect(repository.updateLastLogin('nonexistent')).rejects.toThrow(UserNotFoundError);
 
       expect(mockSend).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('コンストラクタのデフォルト引数', () => {
+    it('引数なしで生成した場合、getDynamoDb と getUsersTableName が呼び出される', () => {
+      const mockDefaultSend = jest.fn();
+      const mockDefaultDynamoDb = { send: mockDefaultSend } as unknown as DynamoDBDocumentClient;
+      (getDynamoDb as jest.Mock).mockReturnValue(mockDefaultDynamoDb);
+      (getUsersTableName as jest.Mock).mockReturnValue('default-table');
+
+      const defaultRepo = new DynamoDBUserRepository();
+
+      expect(getDynamoDb).toHaveBeenCalled();
+      expect(getUsersTableName).toHaveBeenCalled();
+      expect(defaultRepo).toBeInstanceOf(DynamoDBUserRepository);
     });
   });
 });
