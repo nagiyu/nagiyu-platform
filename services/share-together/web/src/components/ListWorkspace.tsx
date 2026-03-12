@@ -21,6 +21,7 @@ const ERROR_MESSAGES = {
   SHARED_LISTS_FETCH_FAILED: '共有リスト一覧の取得に失敗しました',
   SHARED_LIST_CREATE_FAILED: '共有リストの作成に失敗しました。',
   OPERATION_FAILED: '操作に失敗しました。',
+  SHARED_LIST_CREATE_SHARED_SCOPE_ONLY: '共有リスト作成は共有スコープでのみ利用できます。',
 } as const;
 
 type ListWorkspaceProps = {
@@ -146,8 +147,8 @@ export function ListWorkspace({
   }
 
   const handleCreateList = async (name: string) => {
-    if (scope === 'personal') {
-      setSnackbarMessage(`個人リスト「${name}」を作成しました（モック）。`);
+    if (scope !== 'shared') {
+      setSnackbarMessage(ERROR_MESSAGES.SHARED_LIST_CREATE_SHARED_SCOPE_ONLY);
       return;
     }
 
