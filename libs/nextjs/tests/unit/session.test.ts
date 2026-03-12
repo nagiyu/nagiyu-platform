@@ -69,7 +69,7 @@ describe('createSessionGetter', () => {
     });
     const getSession = createSessionGetter<MockAuthSession, { userId: string; email: string }>({
       auth,
-      createTestSession: () => ({ userId: 'test-user-id' }),
+      createTestSession: () => ({ userId: 'test-user-id', email: 'test@example.com' }),
       mapSession: (session) => ({
         userId: session.user.id ?? '',
         email: session.user.email ?? '',
