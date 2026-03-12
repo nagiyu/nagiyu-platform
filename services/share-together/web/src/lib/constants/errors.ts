@@ -2,6 +2,7 @@ import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 export const ERROR_MESSAGES = {
   ...COMMON_ERROR_MESSAGES,
+
   CONFLICT: 'データの競合が発生しました',
 
   USER_ID_REQUIRED: 'ユーザーIDは必須です',

@@ -1,14 +1,11 @@
-import { S3Client } from '@aws-sdk/client-s3';
 import {
   clearBatchClientCache,
   clearDynamoDBClientCache,
-  createS3Client,
+  clearS3ClientCache,
   getBatchClient,
   getDynamoDBDocumentClient,
+  getS3Client,
 } from '@nagiyu/aws';
-
-// AWS クライアントのシングルトン
-let cachedS3Client: S3Client | null = null;
 
 /**
  * AWS クライアントのキャッシュをクリア（主にテスト用）
@@ -16,7 +13,7 @@ let cachedS3Client: S3Client | null = null;
 export function clearAwsClientsCache(): void {
   clearBatchClientCache();
   clearDynamoDBClientCache();
-  cachedS3Client = null;
+  clearS3ClientCache();
 }
 
 /**
@@ -26,13 +23,9 @@ export function getAwsClients() {
   const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
   const docClient = getDynamoDBDocumentClient(AWS_REGION);
 
-  if (!cachedS3Client) {
-    cachedS3Client = createS3Client({ region: AWS_REGION });
-  }
-
   return {
     docClient,
-    s3Client: cachedS3Client,
+    s3Client: getS3Client(AWS_REGION),
     batchClient: getBatchClient(AWS_REGION),
   };
 }
