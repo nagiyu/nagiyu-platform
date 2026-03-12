@@ -5,7 +5,8 @@ import {
   QueryCommand,
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
-import { dynamoDb, USERS_TABLE_NAME } from '../dynamodb-client';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { getDynamoDb, getUsersTableName } from '../dynamodb-client';
 import type { User, CreateUserInput, UpdateUserInput } from '../types';
 import { randomUUID } from 'node:crypto';
 
@@ -22,13 +23,21 @@ export class UserNotFoundError extends Error {
 }
 
 export class DynamoDBUserRepository {
+  private readonly dynamoDb: DynamoDBDocumentClient;
+  private readonly tableName: string;
+
+  constructor(docClient?: DynamoDBDocumentClient, tableName?: string) {
+    this.dynamoDb = docClient ?? getDynamoDb();
+    this.tableName = tableName ?? getUsersTableName();
+  }
+
   /**
    * Google ID でユーザーを取得 (GSI 使用)
    */
   async getUserByGoogleId(googleId: string): Promise<User | null> {
-    const result = await dynamoDb.send(
+    const result = await this.dynamoDb.send(
       new QueryCommand({
-        TableName: USERS_TABLE_NAME,
+        TableName: this.tableName,
         IndexName: 'googleId-index',
         KeyConditionExpression: 'googleId = :googleId',
         ExpressionAttributeValues: {
@@ -44,9 +53,9 @@ export class DynamoDBUserRepository {
    * User ID でユーザーを取得
    */
   async getUserById(userId: string): Promise<User | null> {
-    const result = await dynamoDb.send(
+    const result = await this.dynamoDb.send(
       new GetCommand({
-        TableName: USERS_TABLE_NAME,
+        TableName: this.tableName,
         Key: { userId },
       })
     );
@@ -61,9 +70,9 @@ export class DynamoDBUserRepository {
     limit: number = 100,
     lastEvaluatedKey?: Record<string, unknown>
   ): Promise<{ users: User[]; lastEvaluatedKey?: Record<string, unknown> }> {
-    const result = await dynamoDb.send(
+    const result = await this.dynamoDb.send(
       new ScanCommand({
-        TableName: USERS_TABLE_NAME,
+        TableName: this.tableName,
         Limit: limit,
         ExclusiveStartKey: lastEvaluatedKey,
       })
@@ -90,9 +99,9 @@ export class DynamoDBUserRepository {
         updatedAt: new Date().toISOString(),
       };
 
-      await dynamoDb.send(
+      await this.dynamoDb.send(
         new PutCommand({
-          TableName: USERS_TABLE_NAME,
+          TableName: this.tableName,
           Item: updatedUser,
         })
       );
@@ -111,9 +120,9 @@ export class DynamoDBUserRepository {
         updatedAt: new Date().toISOString(),
       };
 
-      await dynamoDb.send(
+      await this.dynamoDb.send(
         new PutCommand({
-          TableName: USERS_TABLE_NAME,
+          TableName: this.tableName,
           Item: newUser,
         })
       );
@@ -137,9 +146,9 @@ export class DynamoDBUserRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    await dynamoDb.send(
+    await this.dynamoDb.send(
       new PutCommand({
-        TableName: USERS_TABLE_NAME,
+        TableName: this.tableName,
         Item: updatedUser,
       })
     );
@@ -151,9 +160,9 @@ export class DynamoDBUserRepository {
    * ユーザーを削除
    */
   async deleteUser(userId: string): Promise<void> {
-    await dynamoDb.send(
+    await this.dynamoDb.send(
       new DeleteCommand({
-        TableName: USERS_TABLE_NAME,
+        TableName: this.tableName,
         Key: { userId },
       })
     );
@@ -181,9 +190,9 @@ export class DynamoDBUserRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    await dynamoDb.send(
+    await this.dynamoDb.send(
       new PutCommand({
-        TableName: USERS_TABLE_NAME,
+        TableName: this.tableName,
         Item: updatedUser,
       })
     );
