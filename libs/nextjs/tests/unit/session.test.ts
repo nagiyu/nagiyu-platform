@@ -18,7 +18,7 @@ describe('createSessionGetter', () => {
   it('SKIP_AUTH_CHECK=true の場合はテストセッションを返す', async () => {
     process.env.SKIP_AUTH_CHECK = 'true';
     const auth = jest.fn<() => Promise<MockAuthSession | null>>();
-    const getSession = createSessionGetter({
+    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
       auth,
       createTestSession: () => ({ userId: 'test-user-id' }),
       mapSession: (session) => ({ userId: session.user.id ?? '' }),
@@ -32,7 +32,7 @@ describe('createSessionGetter', () => {
 
   it('認証セッションが null の場合は null を返す', async () => {
     const auth = jest.fn<() => Promise<MockAuthSession | null>>().mockResolvedValue(null);
-    const getSession = createSessionGetter({
+    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
       auth,
       createTestSession: () => ({ userId: 'test-user-id' }),
       mapSession: (session) => ({ userId: session.user.id ?? '' }),
@@ -47,7 +47,7 @@ describe('createSessionGetter', () => {
     const auth = jest
       .fn<() => Promise<MockAuthSession | null>>()
       .mockResolvedValue({ expires: new Date().toISOString() });
-    const getSession = createSessionGetter({
+    const getSession = createSessionGetter<MockAuthSession, { userId: string }>({
       auth,
       createTestSession: () => ({ userId: 'test-user-id' }),
       mapSession: (session) => ({ userId: session.user.id ?? '' }),
@@ -67,7 +67,7 @@ describe('createSessionGetter', () => {
       },
       expires: '2026-01-01T00:00:00Z',
     });
-    const getSession = createSessionGetter({
+    const getSession = createSessionGetter<MockAuthSession, { userId: string; email: string }>({
       auth,
       createTestSession: () => ({ userId: 'test-user-id' }),
       mapSession: (session) => ({

@@ -47,5 +47,5 @@ const getSessionFromAuth = createSessionGetter({
 });
 
 export async function getSession(): Promise<Session | null> {
-  return await getSessionFromAuth();
+  return getSessionFromAuth();
 }
