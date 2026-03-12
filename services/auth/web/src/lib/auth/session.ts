@@ -1,5 +1,16 @@
 import { auth } from '@nagiyu/auth-core';
+import { createSessionGetter } from '@nagiyu/nextjs/session';
 import type { Session } from 'next-auth';
+
+type AuthSession = {
+  user?: Session['user'] & {
+    id?: string;
+    roles?: string[];
+  };
+  expires?: string;
+};
+
+const getAuthSession = auth as () => Promise<AuthSession | null>;
 
 /**
  * セッション情報を取得する
@@ -10,26 +21,20 @@ import type { Session } from 'next-auth';
  *
  * @returns セッション情報、未認証の場合は null
  */
-export async function getSession(): Promise<Session | null> {
-  // テスト環境で認証をスキップする場合、モックセッションを返す
-  if (process.env.SKIP_AUTH_CHECK === 'true') {
-    return {
-      user: {
-        id: 'test-user-id',
-        email: process.env.TEST_USER_EMAIL || 'test@example.com',
-        name: 'Test User',
-        image: undefined,
-        roles: process.env.TEST_USER_ROLES?.split(',') || ['admin'],
-      },
-      expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-  }
-
-  const session = await auth();
-
-  if (!session?.user) {
-    return null;
-  }
-
-  return session;
-}
+export const getSession = createSessionGetter<AuthSession, Session>({
+  auth: getAuthSession,
+  createTestSession: () => ({
+    user: {
+      id: 'test-user-id',
+      email: process.env.TEST_USER_EMAIL || 'test@example.com',
+      name: 'Test User',
+      image: undefined,
+      roles: process.env.TEST_USER_ROLES?.split(',') || ['admin'],
+    },
+    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  }),
+  mapSession: (session): Session => ({
+    ...(session as Session),
+    expires: session.expires || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  }),
+});

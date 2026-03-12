@@ -6,6 +6,9 @@
 
 import { S3Client, PutObjectCommand, PutObjectCommandInput } from '@aws-sdk/client-s3';
 
+const DEFAULT_REGION = 'us-east-1';
+const cachedClients = new Map<string, S3Client>();
+
 /**
  * S3 クライアントの設定
  */
@@ -32,8 +35,34 @@ export interface UploadFileOptions {
  */
 export function createS3Client(config: S3ClientConfig = {}): S3Client {
   return new S3Client({
-    region: config.region || process.env.AWS_REGION || 'us-east-1',
+    region: config.region || process.env.AWS_REGION || DEFAULT_REGION,
   });
+}
+
+/**
+ * S3 クライアントのキャッシュをクリアする（主にテスト用）。
+ */
+export function clearS3ClientCache(): void {
+  cachedClients.clear();
+}
+
+/**
+ * S3 クライアントを取得する。
+ * 同一リージョンのクライアントはキャッシュを再利用し、未指定時は `AWS_REGION`、
+ * さらに未設定の場合は `us-east-1` を使用する。
+ */
+export function getS3Client(region?: string): S3Client {
+  const targetRegion = region || process.env.AWS_REGION || DEFAULT_REGION;
+  const cachedClient = cachedClients.get(targetRegion);
+
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  const client = createS3Client({ region: targetRegion });
+  cachedClients.set(targetRegion, client);
+
+  return client;
 }
 
 /**

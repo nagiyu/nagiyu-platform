@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   // Silence Turbopack warning when using webpack config
   turbopack: {},
   // Transpile workspace packages
-  transpilePackages: ['@nagiyu/ui', '@nagiyu/browser', '@nagiyu/common'],
+  transpilePackages: ['@nagiyu/ui', '@nagiyu/browser', '@nagiyu/common', '@nagiyu/nextjs'],
 };
 
 export default nextConfig;

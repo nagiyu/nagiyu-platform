@@ -114,6 +114,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -188,6 +189,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -223,6 +225,7 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
