@@ -46,6 +46,16 @@ jobs:
           fi
           TASK_DOCUMENT_ISSUE_NUMBER="${TASK_DOCUMENT_ISSUE_URL##*/}"
 
+          IMPLEMENTATION_BODY=$'タスクドキュメントに従い実装する。\nなお、実装後はタスクドキュメントを更新すること。\n\n参照: '
+
+          if ! IMPLEMENTATION_ISSUE_URL=$(gh issue create \
+            --title "実装" \
+            --body "$IMPLEMENTATION_BODY"); then
+            echo "::error::「実装」Issueの作成に失敗しました。"
+            exit 1
+          fi
+          IMPLEMENTATION_ISSUE_NUMBER="${IMPLEMENTATION_ISSUE_URL##*/}"
+
           CLEANUP_BODY=$'実装が完了しているので、タスクドキュメントを削除する。\nその上で、docs 配下に残しておくべき仕様をキャッチアップする。\n\n参照: '
 
           if ! CLEANUP_ISSUE_URL=$(gh issue create \
@@ -66,12 +76,26 @@ jobs:
             exit 1
           fi
 
+          if ! IMPLEMENTATION_ISSUE_ID=$(gh issue view "$IMPLEMENTATION_ISSUE_NUMBER" --json id --jq '.id'); then
+            echo "::error::「実装」IssueのID取得に失敗しました。"
+            exit 1
+          fi
+
           if ! gh api graphql \
             -H "GraphQL-Features: sub_issues" \
             -f query='mutation($issueId: ID!, $subIssueId: ID!) { addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) { issue { id } subIssue { id } } }' \
             -F issueId="$PARENT_ISSUE_ID" \
             -F subIssueId="$TASK_DOCUMENT_ISSUE_ID" > /dev/null; then
             echo "::error::親Issueへの「タスクドキュメント作成」Sub Issue紐付けに失敗しました。"
+            exit 1
+          fi
+
+          if ! gh api graphql \
+            -H "GraphQL-Features: sub_issues" \
+            -f query='mutation($issueId: ID!, $subIssueId: ID!) { addSubIssue(input: { issueId: $issueId, subIssueId: $subIssueId }) { issue { id } subIssue { id } } }' \
+            -F issueId="$PARENT_ISSUE_ID" \
+            -F subIssueId="$IMPLEMENTATION_ISSUE_ID" > /dev/null; then
+            echo "::error::親Issueへの「実装」Sub Issue紐付けに失敗しました。"
             exit 1
           fi
 
@@ -89,5 +113,6 @@ jobs:
             echo ""
             echo "- 親Issue: #${PARENT_ISSUE_NUMBER}"
             echo "- タスクドキュメント作成: #${TASK_DOCUMENT_ISSUE_NUMBER}"
+            echo "- 実装: #${IMPLEMENTATION_ISSUE_NUMBER}"
             echo "- クリーンアップ: #${CLEANUP_ISSUE_NUMBER}"
           } >> "$GITHUB_STEP_SUMMARY"
