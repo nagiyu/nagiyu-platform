@@ -72,29 +72,26 @@ onChange={(event) => {
 `selectedListId` のリセット処理は `scope === 'shared'` の条件下でのみ行われており、
 個人スコープへの切り替え後は補正が行われない。
 
-## 対応方針
-
-### 案 A: スコープ別に selectedListId を管理する（推奨）
-
-個人用と共有用で選択中の `listId` を別々の状態として保持する。
-
-- `selectedPersonalListId`: 個人スコープ用
-- `selectedSharedListId`: 共有スコープ用
-
-スコープ切り替え時には対応する状態を参照するようにする。
-それぞれの状態は独立しているため、スコープをまたいで汚染されない。
+## 対応方針（採用: 案 B）
 
 ### 案 B: スコープ切り替え時に `selectedListId` をリセットする
 
 スコープ切り替えハンドラで、個人に戻る際に `initialListId`（もしくは空文字列）へリセットする。
 `ListSidebar` が API 経由で個人リストを取得し、最初のリストを選択状態にする動作に委ねる。
 
-実装が簡易だが、スコープを何度も切り替えると個人側の選択状態が毎回リセットされる。
+実装が簡易で変更範囲が最小限に抑えられる。
+スコープを何度も切り替えると個人側の選択状態が毎回リセットされるが、
+現状のユースケースでは許容範囲とする。
+
+### ~~案 A: スコープ別に selectedListId を管理する~~（不採用）
+
+個人用と共有用で選択中の `listId` を別々の状態として保持する案。
+変更範囲が大きくなるため不採用。
 
 ## タスク
 
-- [ ] T001: `ListWorkspace.tsx` の `selectedListId` 状態管理を見直す
-    - 案 A または案 B を選択し実装する
+- [ ] T001: `ListWorkspace.tsx` のスコープ切り替えハンドラを修正する
+    - `onChange` ハンドラで個人スコープへ切り替える際に `setSelectedListId(initialListId)` を呼ぶ
 - [ ] T002: ユニットテストの追加・更新
     - スコープ切り替え後に正しい API パスが呼ばれることをテストする
 - [ ] T003: E2E テストの追加・更新
@@ -105,10 +102,3 @@ onChange={(event) => {
 
 - `docs/services/share-together/` - サービス仕様
 - `docs/development/rules.md` - コーディング規約
-
-## 備考・未決定事項
-
-- 案 A の実装では `ListSidebar` から選択イベントを受け取る `onListSelect` コールバックの
-  振る舞いも合わせて確認が必要
-- 個人リスト一覧は `ListSidebar` が API 経由で取得するため、
-  `selectedPersonalListId` の初期化タイミングに注意が必要
