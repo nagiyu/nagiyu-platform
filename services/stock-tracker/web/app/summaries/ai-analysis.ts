@@ -1,4 +1,4 @@
-import { STOCK_TRACKER_ERROR_MESSAGES } from '../../lib/error-messages';
+import { ERROR_MESSAGES } from '../../lib/error-messages';
 import type { TickerSummary } from '../../types/stock';
 import type { InvestmentSignal } from '@nagiyu/stock-tracker-core';
 
@@ -17,8 +17,8 @@ export const resolveAiAnalysisFallbackMessage = (summary: TickerSummary): string
     return null;
   }
   if (typeof summary.aiAnalysisError === 'string') {
-    return STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_FAILED;
+    return ERROR_MESSAGES.AI_ANALYSIS_FAILED;
   }
 
-  return STOCK_TRACKER_ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED;
+  return ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED;
 };

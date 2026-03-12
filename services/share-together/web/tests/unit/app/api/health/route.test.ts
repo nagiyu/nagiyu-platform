@@ -12,12 +12,14 @@ import { GET } from '@/app/api/health/route';
 describe('GET /api/health', () => {
   it('サービス稼働状態を返す', async () => {
     const response = await GET();
+    const body = await response.json();
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      data: {
-        status: 'ok',
-      },
+    expect(body).toMatchObject({
+      status: 'ok',
+      service: 'share-together',
+      version: '1.0.0',
     });
+    expect(body).toHaveProperty('timestamp');
   });
 });

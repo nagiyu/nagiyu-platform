@@ -143,5 +143,30 @@ describe('getSession', () => {
       expect(session?.user.email).toBe('user@example.com');
       expect(session?.user.roles).toEqual([]);
     });
+
+    it('should fallback missing id, name, and expires gracefully', async () => {
+      const fixedNow = 1_700_000_000_000;
+      const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(fixedNow);
+      try {
+        const mockSession = {
+          user: {
+            email: 'user@example.com',
+            image: 'https://example.com/avatar.png',
+            roles: ['admin'],
+          },
+        } as NextAuthSession;
+        mockAuth.mockResolvedValue(mockSession);
+
+        const session = await getSession();
+
+        expect(session).not.toBeNull();
+        expect(session?.user.id).toBe('');
+        expect(session?.user.name).toBe('');
+        expect(session?.user.image).toBe('https://example.com/avatar.png');
+        expect(session?.expires).toBe(new Date(fixedNow + 60 * 60 * 1000).toISOString());
+      } finally {
+        nowSpy.mockRestore();
+      }
+    });
   });
 });

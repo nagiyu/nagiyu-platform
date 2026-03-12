@@ -4,7 +4,13 @@
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { S3Client } from '@aws-sdk/client-s3';
-import { createS3Client, uploadFile, getS3ObjectUrl } from '../../../src/s3/client.js';
+import {
+  clearS3ClientCache,
+  createS3Client,
+  getS3Client,
+  uploadFile,
+  getS3ObjectUrl,
+} from '../../../src/s3/client.js';
 
 // S3Client のモック
 jest.mock('@aws-sdk/client-s3');
@@ -12,6 +18,7 @@ jest.mock('@aws-sdk/client-s3');
 describe('S3 Client', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    clearS3ClientCache();
   });
 
   describe('createS3Client', () => {
@@ -62,6 +69,30 @@ describe('S3 Client', () => {
       });
 
       expect(mockSend).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('getS3Client', () => {
+    it('同一リージョンではシングルトンを返す', () => {
+      const first = getS3Client('ap-northeast-1');
+      const second = getS3Client('ap-northeast-1');
+
+      expect(first).toBe(second);
+    });
+
+    it('リージョンが異なる場合は別インスタンスを返す', () => {
+      const first = getS3Client('ap-northeast-1');
+      const second = getS3Client('us-east-1');
+
+      expect(first).not.toBe(second);
+    });
+
+    it('キャッシュクリア後は新しいインスタンスを返す', () => {
+      const first = getS3Client('ap-northeast-1');
+      clearS3ClientCache();
+      const second = getS3Client('ap-northeast-1');
+
+      expect(first).not.toBe(second);
     });
   });
 

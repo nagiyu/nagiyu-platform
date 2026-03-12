@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
     '@nagiyu/ui',
     '@nagiyu/browser',
     '@nagiyu/common',
+    '@nagiyu/nextjs',
+    '@nagiyu/react',
     '@nagiyu/aws',
     '@nagiyu/stock-tracker-core',
   ],
