@@ -173,11 +173,14 @@ test.describe('個人リスト管理', () => {
 
     await page.goto('/lists?listId=list-default');
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '追加リスト1', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '追加リスト2', exact: true })).toHaveCount(0);
 
     await resetTestData(request, {
       users: [TEST_USER],
       personalLists: createPersonalLists(100),
     });
+    await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
 
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('prompt');
@@ -187,13 +190,7 @@ test.describe('個人リスト管理', () => {
     const createListResponsePromise = page.waitForResponse(
       (response) => response.request().method() === 'POST' && response.url().endsWith('/api/lists')
     );
-    await page.getByRole('button', { name: '個人リストを作成' }).evaluate((button) => {
-      if (!(button instanceof HTMLButtonElement)) {
-        throw new Error('個人リスト作成ボタンが見つかりません');
-      }
-      button.disabled = false;
-      button.click();
-    });
+    await page.getByRole('button', { name: '個人リストを作成' }).click();
     const createListResponse = await createListResponsePromise;
     expect(createListResponse.status()).toBe(409);
     await expect(

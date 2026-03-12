@@ -31,37 +31,7 @@ describe('ListSidebar', () => {
     confirmSpy.mockRestore();
   });
 
-  it('モックの個人リスト一覧と作成ボタンを表示し、選択中リストを強調してリンク表示する', () => {
-    const handleSelect = jest.fn();
-    render(
-      <ListSidebar
-        heading="個人リスト"
-        createButtonLabel="個人リストを作成"
-        selectedListId="mock-work-list"
-        lists={[
-          { listId: 'mock-default-list', name: 'デフォルトリスト' },
-          { listId: 'mock-work-list', name: '仕事' },
-          { listId: 'mock-shopping-list', name: '買い物' },
-        ]}
-        hrefPrefix="/lists"
-        onListSelect={handleSelect}
-      />
-    );
-
-    expect(screen.getByRole('heading', { name: '個人リスト' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '個人リストを作成' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'デフォルトリスト' })).toBeInTheDocument();
-
-    const workListButton = screen.getByRole('button', { name: '仕事' });
-    expect(workListButton).toHaveClass('Mui-selected');
-    expect(screen.getByRole('button', { name: 'デフォルトリスト' })).not.toHaveClass(
-      'Mui-selected'
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'デフォルトリスト' }));
-    expect(handleSelect).toHaveBeenCalledWith('mock-default-list');
-  });
-
-  it('APIモードで一覧取得・作成・名称変更・削除を実行できる', async () => {
+  it('一覧取得・作成・名称変更・削除を API 経由で実行できる', async () => {
     const fetchMock = jest
       .fn()
       .mockResolvedValueOnce({
@@ -104,7 +74,6 @@ describe('ListSidebar', () => {
         createButtonLabel="個人リストを作成"
         selectedListId="work-list"
         hrefPrefix="/lists"
-        apiEnabled
       />
     );
 
@@ -146,7 +115,7 @@ describe('ListSidebar', () => {
     });
   });
 
-  it('APIモードで一覧取得に失敗した場合はエラーメッセージを表示する', async () => {
+  it('一覧取得に失敗した場合はエラーメッセージを表示する', async () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: false,
       json: async () => ({
@@ -164,10 +133,46 @@ describe('ListSidebar', () => {
         createButtonLabel="個人リストを作成"
         selectedListId="default-list"
         hrefPrefix="/lists"
-        apiEnabled
       />
     );
 
     expect(await screen.findByText('一覧取得に失敗しました。')).toBeInTheDocument();
+  });
+
+  it('外部管理リストが渡された場合は一覧をそのまま表示し、作成時にコールバックを呼ぶ', async () => {
+    const fetchMock = jest.fn();
+    const handleCreate = jest.fn();
+    const handleSelect = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(
+      <ListSidebar
+        heading="共有リスト"
+        createButtonLabel="共有リストを作成"
+        selectedListId="shared-2"
+        lists={[
+          { listId: 'shared-1', name: '旅行準備' },
+          { listId: 'shared-2', name: '買い出し' },
+        ]}
+        hrefPrefix="/groups/group-1/lists"
+        onCreateList={handleCreate}
+        onListSelect={handleSelect}
+      />
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '旅行準備' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '買い出し' })).toHaveClass('Mui-selected');
+    expect(screen.queryByRole('button', { name: '旅行準備を編集' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '旅行準備を削除' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '共有リストを作成' }));
+    expect(handleCreate).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '旅行準備' }));
+    expect(handleSelect).toHaveBeenCalledWith('shared-1');
   });
 });
