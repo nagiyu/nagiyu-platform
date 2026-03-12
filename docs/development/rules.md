@@ -413,6 +413,55 @@ throw new Error('JSON parse failed at line 5');
 throw new Error('データの形式が正しくありません。正しいJSON形式で入力してください');
 ```
 
+### 3.4 core パッケージのサーバー / クライアント境界
+
+#### MUST NOT: サーバー専用の初期化処理をモジュールスコープで実行してはならない
+
+DB接続・環境変数参照・外部サービスクライアントの生成など、サーバー専用の処理をモジュールのトップレベルで即時実行してはならない。  
+これらは必ず関数スコープ内で実行すること。
+
+```typescript
+// ❌ NG: モジュールスコープで即時実行
+const client = createDatabaseClient();     // トップレベルで実行
+const tableName = getTableName();          // トップレベルで実行
+
+export function getItem(id: string) {
+    return client.get(tableName, id);
+}
+
+// ✅ OK: 関数スコープ内で実行
+export function getItem(id: string) {
+    const client = createDatabaseClient(); // 関数内で実行
+    const tableName = getTableName();      // 関数内で実行
+    return client.get(tableName, id);
+}
+```
+
+**理由**: クライアントコンポーネントがバレルエクスポート経由でモジュールをインポートした際、モジュールスコープのコードはサイドエフェクトとして実行される。`sideEffects: false` が設定されていない場合、バンドラーはこれを除去できず、サーバー専用コードがクライアントバンドルに混入する。  
+**違反時の影響**: クライアント側でサーバー専用API（環境変数、DB クライアント等）が実行され、実行時エラーが発生する
+
+#### MUST NOT: バレルエクスポートにサーバー専用モジュールを含めてはならない
+
+core パッケージのバレルエクスポート（エントリポイント）にサーバー専用モジュール（DB アクセス層等）を含めてはならない。  
+クライアントとサーバーで利用するシンボルが混在する場合は、エントリポイントを分離すること。
+
+```typescript
+// ❌ NG: クライアント向けシンボルとサーバー専用モジュールを同一エントリポイントに混在
+// index.ts
+export { TWO_FACTOR_AUTH_CODE_REGEX } from './constants';
+export { getItem, putItem } from './db/client'; // サーバー専用
+
+// ✅ OK: エントリポイントを分離
+// index.ts (クライアント・サーバー共通)
+export { TWO_FACTOR_AUTH_CODE_REGEX } from './constants';
+
+// server.ts (サーバー専用)
+export { getItem, putItem } from './db/client';
+```
+
+**理由**: バレルエクスポートに含まれたサーバー専用コードは、クライアントコンポーネントがそのパッケージから任意のシンボルをインポートした際に意図せず実行される。エントリポイントを分離することで、クライアントバンドルへの混入を構造的に防止できる。  
+**違反時の影響**: 使用していないサーバー専用モジュールがクライアントバンドルに混入し、実行時エラーの原因になる
+
 ---
 
 ## 4. テストルール
