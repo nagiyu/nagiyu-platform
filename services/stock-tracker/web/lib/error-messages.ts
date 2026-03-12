@@ -1,3 +1,5 @@
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+
 /**
  * Stock Tracker固有のエラーメッセージ
  *
@@ -8,7 +10,9 @@
 /**
  * Stock Tracker固有のエラーメッセージマッピング
  */
-export const STOCK_TRACKER_ERROR_MESSAGES = {
+export const ERROR_MESSAGES = {
+  ...COMMON_ERROR_MESSAGES,
+
   // ティッカー関連
   TICKER_NOT_FOUND: 'ティッカーが見つかりませんでした',
   INVALID_TICKER: '無効なティッカーシンボルです',

@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
     '@nagiyu/ui',
     '@nagiyu/browser',
     '@nagiyu/common',
+    '@nagiyu/nextjs',
     '@nagiyu/niconico-mylist-assistant-core',
   ],
   experimental: {

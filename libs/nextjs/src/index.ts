@@ -16,6 +16,10 @@ export {
   createAuthCallbacks,
 } from './auth-config.js';
 export type { CreateAuthConfigOptions, CreateAuthCallbacksOptions } from './auth-config.js';
+export { createAuthMiddleware } from './middleware.js';
+export type { AuthMiddlewareRequest, CreateAuthMiddlewareOptions } from './middleware.js';
+export { createSessionGetter } from './session.js';
+export type { CreateSessionGetterOptions } from './session.js';
 
 // Repository module - Repository initialization helpers
 export { withRepository, withRepositories } from './repository.js';
