@@ -19,6 +19,7 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
+import { urlBase64ToUint8Array } from '@nagiyu/browser';
 import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
 import { TIMEFRAME_LABELS } from '../types/stock';
@@ -272,20 +273,6 @@ export default function AlertSettingsModal({
       setError(err instanceof Error ? err.message : ERROR_MESSAGES.SUBSCRIPTION_ERROR);
       return null;
     }
-  };
-
-  // VAPID公開鍵をUint8Arrayに変換
-  const urlBase64ToUint8Array = (base64String: string): Uint8Array => {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
-    }
-    return outputArray;
   };
 
   // フォームのバリデーション

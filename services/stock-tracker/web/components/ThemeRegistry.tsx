@@ -4,7 +4,7 @@ import * as React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Box } from '@mui/material';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import { SessionProvider, useSession, signOut } from 'next-auth/react';
 import { theme, Header, Footer, NavigationItem } from '@nagiyu/ui';
 import { SnackbarProvider } from './SnackbarProvider';

@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
     // 重複チェック（ユーザー設定の存在を確認）
     const existingSettings = await Promise.all(
-      body.videoIds.map((id) => getUserVideoSetting(session.user.id, id))
+      body.videoIds.map((id) => getUserVideoSetting(session.user.userId, id))
     );
 
     let skippedCount = 0;
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
 
         // 2. ユーザー設定を作成
         await upsertUserVideoSetting({
-          userId: session.user.id,
+          userId: session.user.userId,
           videoId: info.videoId,
           isFavorite: false,
           isSkip: false,

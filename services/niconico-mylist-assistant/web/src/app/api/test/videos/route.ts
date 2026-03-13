@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         length: '3:00',
       });
       await upsertUserVideoSetting({
-        userId: session.user.id,
+        userId: session.user.userId,
         videoId,
         isFavorite: i < favoriteCount,
         isSkip: false,
@@ -75,10 +75,10 @@ export async function DELETE() {
   }
 
   try {
-    const { videos } = await listVideosWithSettings(session.user.id);
+    const { videos } = await listVideosWithSettings(session.user.userId);
     await Promise.all(
       videos.map(async (video) => {
-        await deleteUserVideoSetting(session.user.id, video.videoId);
+        await deleteUserVideoSetting(session.user.userId, video.videoId);
         await deleteVideoBasicInfo(video.videoId);
       })
     );
