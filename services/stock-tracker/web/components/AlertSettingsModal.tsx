@@ -164,6 +164,7 @@ export default function AlertSettingsModal({
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
 
   const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
+  // バッチ側 createAlertNotificationPayload() と同等の文言ルールを維持する
   const defaultNotificationText = useMemo(() => {
     const modeLabel = tradeMode === 'Buy' ? '買い' : '売り';
     const title = `${modeLabel}アラート: ${tickerId}`;
