@@ -14,10 +14,10 @@ Share Together の検証ワークフローを、他サービス（stock-tracker,
 
 現在、Share Together の検証ワークフローは以下の2ファイルに分割されている:
 
-| ファイル | トリガーブランチ | 役割 |
-|---|---|---|
-| `share-together-web-verify-fast.yml` | `integration/**` | Fast CI（chromium-mobile のみ） |
-| `share-together-web-verify-full.yml` | `develop` | Full CI（全デバイス + カバレッジ） |
+| ファイル                             | トリガーブランチ | 役割                               |
+| ------------------------------------ | ---------------- | ---------------------------------- |
+| `share-together-web-verify-fast.yml` | `integration/**` | Fast CI（chromium-mobile のみ）    |
+| `share-together-web-verify-full.yml` | `develop`        | Full CI（全デバイス + カバレッジ） |
 
 ## 要件
 
@@ -45,8 +45,8 @@ Share Together の検証ワークフローを、他サービス（stock-tracker,
 1. **トリガー条件**: `integration/**` と `develop` の両ブランチを対象とする
 2. **Fast/Full の分岐**: Full CI 専用のジョブ（coverage, 追加デバイスの E2E）に `if: github.base_ref == 'develop'` を付与する
 3. **E2E テスト**:
-    - chromium-mobile: 常時実行（Fast/Full 共通）
-    - その他デバイス（webkit-mobile 等）: `develop` 向けのみ実行
+   - chromium-mobile: 常時実行（Fast/Full 共通）
+   - その他デバイス（webkit-mobile 等）: `develop` 向けのみ実行
 4. **カバレッジ**: `develop` 向けのみ実行
 5. **PR レポート**: Fast/Full を判定してコメントメッセージを出し分ける
 
@@ -63,11 +63,11 @@ Share Together の検証ワークフローを、他サービス（stock-tracker,
 
 ## タスク
 
-- [ ] T001: `stock-tracker-verify.yml` と現状の Share Together ワークフローを詳細比較し、差分を把握する
-- [ ] T002: `share-together-verify.yml` を新規作成し、fast/full 両方の動作を統合する
-- [ ] T003: `share-together-web-verify-fast.yml` と `share-together-web-verify-full.yml` を削除する
-- [ ] T004: `all-verify.yml` に参照箇所があれば更新する
-- [ ] T005: ローカルおよび CI での動作確認
+- [x] T001: `stock-tracker-verify.yml` と現状の Share Together ワークフローを詳細比較し、差分を把握する
+- [x] T002: `share-together-verify.yml` を新規作成し、fast/full 両方の動作を統合する
+- [x] T003: `share-together-web-verify-fast.yml` と `share-together-web-verify-full.yml` を削除する
+- [x] T004: `all-verify.yml` に参照箇所があれば更新する
+- [x] T005: ローカルおよび CI での動作確認
 
 ## 参考ドキュメント
 
