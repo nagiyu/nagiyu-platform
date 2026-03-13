@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -138,6 +138,134 @@ const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   notificationBody: '',
 });
 
+const getDefaultNotificationText = (
+  tradeMode: AlertMode,
+  tickerId: string,
+  formData: Pick<
+    FormData,
+    'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice'
+  >
+): { title: string; body: string } => {
+  const modeLabel = tradeMode === 'Buy' ? '買い' : '売り';
+  const title = `${modeLabel}アラート: ${tickerId}`;
+
+  if (formData.conditionMode === 'single') {
+    const targetPrice = Number(formData.targetPrice);
+    if (!Number.isNaN(targetPrice) && targetPrice > 0) {
+      const operatorText = formData.operator === 'gte' ? '以上' : '以下';
+      return {
+        title,
+        body: `現在価格 が目標価格 $${targetPrice.toFixed(2)} ${operatorText}になりました`,
+      };
+    }
+  } else {
+    const minPrice = Number(formData.minPrice);
+    const maxPrice = Number(formData.maxPrice);
+
+    if (!Number.isNaN(minPrice) && !Number.isNaN(maxPrice) && minPrice > 0 && maxPrice > 0) {
+      if (formData.rangeType === 'inside') {
+        return {
+          title,
+          body: `現在価格 が範囲 $${minPrice.toFixed(2)}〜$${maxPrice.toFixed(2)} 内になりました`,
+        };
+      }
+      return {
+        title,
+        body: `現在価格 が範囲外（$${minPrice.toFixed(2)} 以下 または $${maxPrice.toFixed(2)} 以上）になりました`,
+      };
+    }
+  }
+
+  return {
+    title,
+    body: '現在価格 がアラート条件に一致しました',
+  };
+};
+
+interface BuildFormDataParams {
+  mode: 'create' | 'edit';
+  tradeMode: AlertMode;
+  editTarget?: AlertResponse;
+  defaultTargetPrice?: number;
+  tickerId: string;
+}
+
+const buildFormData = ({
+  mode,
+  tradeMode,
+  editTarget,
+  defaultTargetPrice,
+  tickerId,
+}: BuildFormDataParams): FormData => {
+  if (mode === 'edit' && editTarget) {
+    const isRangeCondition = editTarget.conditions.length === 2 && !!editTarget.logicalOperator;
+
+    if (isRangeCondition) {
+      const minCond = editTarget.conditions[0];
+      const maxCond = editTarget.conditions[1];
+      const isRangePercentage = minCond?.isPercentage === true && maxCond?.isPercentage === true;
+      const nextFormData: FormData = {
+        ...getInitialFormData(tradeMode),
+        conditionMode: 'range',
+        rangeType: editTarget.logicalOperator === 'OR' ? 'outside' : 'inside',
+        minPrice: minCond?.value.toString() || '',
+        maxPrice: maxCond?.value.toString() || '',
+        frequency: editTarget.frequency,
+        enabled: editTarget.enabled,
+        temporary: editTarget.temporary === true,
+        notificationTitle: editTarget.notificationTitle || '',
+        notificationBody: editTarget.notificationBody || '',
+        ...(isRangePercentage && {
+          rangeInputMode: 'percentage',
+          minPercentage: minCond?.percentageValue?.toString() || '',
+          maxPercentage: maxCond?.percentageValue?.toString() || '',
+        }),
+      };
+      const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
+      return {
+        ...nextFormData,
+        notificationTitle: nextFormData.notificationTitle || defaultNotificationText.title,
+        notificationBody: nextFormData.notificationBody || defaultNotificationText.body,
+      };
+    }
+
+    const singleCond = editTarget.conditions[0];
+    const isSinglePercentage = singleCond?.isPercentage === true;
+    const nextFormData: FormData = {
+      ...getInitialFormData(tradeMode),
+      conditionMode: 'single',
+      operator: singleCond?.operator === 'gte' ? 'gte' : 'lte',
+      targetPrice: singleCond?.value.toString() || '',
+      frequency: editTarget.frequency,
+      enabled: editTarget.enabled,
+      temporary: editTarget.temporary === true,
+      notificationTitle: editTarget.notificationTitle || '',
+      notificationBody: editTarget.notificationBody || '',
+      ...(isSinglePercentage && {
+        inputMode: 'percentage',
+        percentage: singleCond?.percentageValue?.toString() || '',
+      }),
+    };
+    const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
+    return {
+      ...nextFormData,
+      notificationTitle: nextFormData.notificationTitle || defaultNotificationText.title,
+      notificationBody: nextFormData.notificationBody || defaultNotificationText.body,
+    };
+  }
+
+  const nextFormData: FormData = {
+    ...getInitialFormData(tradeMode),
+    targetPrice: defaultTargetPrice ? defaultTargetPrice.toString() : '',
+  };
+  const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
+  return {
+    ...nextFormData,
+    notificationTitle: defaultNotificationText.title,
+    notificationBody: defaultNotificationText.body,
+  };
+};
+
 export default function AlertSettingsModal({
   open,
   onClose,
@@ -154,7 +282,9 @@ export default function AlertSettingsModal({
   const dialogTitle = `${mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (${tradeMode === 'Buy' ? '買い' : '売り'}アラート)`;
 
   // フォームデータ
-  const [formData, setFormData] = useState<FormData>(getInitialFormData(tradeMode));
+  const [formData, setFormData] = useState<FormData>(() =>
+    buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId })
+  );
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
   // 状態管理
@@ -164,112 +294,16 @@ export default function AlertSettingsModal({
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
 
   const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
-  // バッチ側 createAlertNotificationPayload() と同等の文言ルールを維持する
-  const defaultNotificationText = useMemo(() => {
-    const modeLabel = tradeMode === 'Buy' ? '買い' : '売り';
-    const title = `${modeLabel}アラート: ${tickerId}`;
-
-    if (formData.conditionMode === 'single') {
-      const targetPrice = Number(formData.targetPrice);
-      if (!Number.isNaN(targetPrice) && targetPrice > 0) {
-        const operatorText = formData.operator === 'gte' ? '以上' : '以下';
-        return {
-          title,
-          body: `現在価格 が目標価格 $${targetPrice.toFixed(2)} ${operatorText}になりました`,
-        };
-      }
-    } else {
-      const minPrice = Number(formData.minPrice);
-      const maxPrice = Number(formData.maxPrice);
-
-      if (!Number.isNaN(minPrice) && !Number.isNaN(maxPrice) && minPrice > 0 && maxPrice > 0) {
-        if (formData.rangeType === 'inside') {
-          return {
-            title,
-            body: `現在価格 が範囲 $${minPrice.toFixed(2)}〜$${maxPrice.toFixed(2)} 内になりました`,
-          };
-        }
-        return {
-          title,
-          body: `現在価格 が範囲外（$${minPrice.toFixed(2)} 以下 または $${maxPrice.toFixed(2)} 以上）になりました`,
-        };
-      }
-    }
-
-    return {
-      title,
-      body: '現在価格 がアラート条件に一致しました',
-    };
-  }, [
-    formData.conditionMode,
-    formData.maxPrice,
-    formData.minPrice,
-    formData.operator,
-    formData.rangeType,
-    formData.targetPrice,
-    tickerId,
-    tradeMode,
-  ]);
-
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
     if (open) {
-      if (mode === 'edit' && editTarget) {
-        const isRangeCondition = editTarget.conditions.length === 2 && !!editTarget.logicalOperator;
-
-        if (isRangeCondition) {
-          const minCond = editTarget.conditions[0];
-          const maxCond = editTarget.conditions[1];
-          const isRangePercentage =
-            minCond?.isPercentage === true && maxCond?.isPercentage === true;
-          setFormData({
-            ...getInitialFormData(tradeMode),
-            conditionMode: 'range',
-            rangeType: editTarget.logicalOperator === 'OR' ? 'outside' : 'inside',
-            minPrice: minCond?.value.toString() || '',
-            maxPrice: maxCond?.value.toString() || '',
-            frequency: editTarget.frequency,
-            enabled: editTarget.enabled,
-            temporary: editTarget.temporary === true,
-            notificationTitle: editTarget.notificationTitle || '',
-            notificationBody: editTarget.notificationBody || '',
-            ...(isRangePercentage && {
-              rangeInputMode: 'percentage',
-              minPercentage: minCond?.percentageValue?.toString() || '',
-              maxPercentage: maxCond?.percentageValue?.toString() || '',
-            }),
-          });
-        } else {
-          const singleCond = editTarget.conditions[0];
-          const isSinglePercentage = singleCond?.isPercentage === true;
-          setFormData({
-            ...getInitialFormData(tradeMode),
-            conditionMode: 'single',
-            operator: singleCond?.operator === 'gte' ? 'gte' : 'lte',
-            targetPrice: singleCond?.value.toString() || '',
-            frequency: editTarget.frequency,
-            enabled: editTarget.enabled,
-            temporary: editTarget.temporary === true,
-            notificationTitle: editTarget.notificationTitle || '',
-            notificationBody: editTarget.notificationBody || '',
-            ...(isSinglePercentage && {
-              inputMode: 'percentage',
-              percentage: singleCond?.percentageValue?.toString() || '',
-            }),
-          });
-        }
-      } else {
-        setFormData({
-          ...getInitialFormData(tradeMode),
-          targetPrice: defaultTargetPrice ? defaultTargetPrice.toString() : '',
-        });
-      }
+      setFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId }));
       setFormErrors({});
       setError('');
       setSubscription(null);
       setTimeframe(DEFAULT_CHART_TIMEFRAME);
     }
-  }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
+  }, [open, mode, tradeMode, editTarget, defaultTargetPrice, tickerId]);
 
   // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
@@ -1396,7 +1430,6 @@ export default function AlertSettingsModal({
             label="通知タイトル"
             value={formData.notificationTitle}
             onChange={(e) => handleFormChange('notificationTitle', e.target.value)}
-            placeholder={defaultNotificationText.title}
             helperText="未入力の場合は自動生成されたタイトルを使用します"
             inputProps={{ maxLength: 120 }}
           />
@@ -1407,7 +1440,6 @@ export default function AlertSettingsModal({
             label="通知本文"
             value={formData.notificationBody}
             onChange={(e) => handleFormChange('notificationBody', e.target.value)}
-            placeholder={defaultNotificationText.body}
             helperText="未入力の場合は現在の条件から自動生成された本文を使用します"
             inputProps={{ maxLength: 500 }}
           />
