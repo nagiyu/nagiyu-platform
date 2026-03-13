@@ -113,6 +113,12 @@ jobs:
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Application version: $VERSION"
 
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: 'tools'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:

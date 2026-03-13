@@ -116,6 +116,12 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Build web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/share-together-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/share-together-core'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
