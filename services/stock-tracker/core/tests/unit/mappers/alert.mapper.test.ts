@@ -270,6 +270,31 @@ describe('AlertMapper', () => {
       expect(item).not.toHaveProperty('Temporary');
       expect(item).not.toHaveProperty('TemporaryExpireDate');
     });
+
+    it('NotificationTitle と NotificationBody が指定されている場合、DynamoDBItem に含まれる', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        NotificationTitle: 'カスタムタイトル',
+        NotificationBody: 'カスタム本文',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.NotificationTitle).toBe('カスタムタイトル');
+      expect(item.NotificationBody).toBe('カスタム本文');
+    });
   });
 
   describe('toEntity', () => {
@@ -561,6 +586,34 @@ describe('AlertMapper', () => {
       expect(entity).not.toHaveProperty('Temporary');
       expect(entity).not.toHaveProperty('TemporaryExpireDate');
     });
+
+    it('NotificationTitle と NotificationBody がある場合、エンティティに復元される', () => {
+      const item: DynamoDBItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        NotificationTitle: 'カスタムタイトル',
+        NotificationBody: 'カスタム本文',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const entity = mapper.toEntity(item);
+
+      expect(entity.NotificationTitle).toBe('カスタムタイトル');
+      expect(entity.NotificationBody).toBe('カスタム本文');
+    });
   });
 
   describe('buildKeys', () => {
@@ -728,6 +781,31 @@ describe('AlertMapper', () => {
       expect(result.ConditionList[0].isPercentage).toBe(true);
       expect(result.ConditionList[0].percentageValue).toBe(5);
       expect(result.ConditionList[0].basePrice).toBe(200.0);
+    });
+
+    it('NotificationTitle/NotificationBody を含む Entity の往復変換', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
+        NotificationTitle: 'カスタムタイトル',
+        NotificationBody: 'カスタム本文',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
     });
   });
 });

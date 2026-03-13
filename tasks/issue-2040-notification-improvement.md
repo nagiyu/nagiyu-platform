@@ -84,9 +84,9 @@ Stock Tracker の Web Push 通知を改善する。
 
 ### Phase 1: コアエンティティの更新
 
--   [ ] T001: `core/src/entities/alert.entity.ts` に `NotificationTitle?` と `NotificationBody?` を追加
--   [ ] T002: `core/src/mappers/alert.mapper.ts` の `toItem()` / `fromItem()` を更新
--   [ ] T003: `core` のユニットテストを更新・追加
+-   [x] T001: `core/src/entities/alert.entity.ts` に `NotificationTitle?` と `NotificationBody?` を追加
+-   [x] T002: `core/src/mappers/alert.mapper.ts` の `toItem()` / `fromItem()` を更新
+-   [x] T003: `core` のユニットテストを更新・追加
 
 ### Phase 2: バッチ側の更新
 
