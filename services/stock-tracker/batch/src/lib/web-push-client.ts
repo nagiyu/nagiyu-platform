@@ -30,6 +30,12 @@ export type NotificationPayload = {
  *
  * @throws {Error} VAPID キーが未設定の場合
  */
+/**
+ * VAPID キー文字列を正規化する。
+ *
+ * 前後空白・引用符・JSON 文字列（publicKey/privateKey）を許容し、
+ * Web Push ライブラリへ渡せる生文字列へ変換する。
+ */
 export function normalizeVapidKey(rawKey: string, keyName: 'publicKey' | 'privateKey'): string {
   const trimmedKey = rawKey.trim();
   const unquotedKey =
