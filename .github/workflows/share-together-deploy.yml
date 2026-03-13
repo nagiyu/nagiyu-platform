@@ -146,6 +146,9 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Acquire Docker build lock
+        uses: ./.github/actions/docker-build-lock-acquire
+
       - name: Build and push Docker image
         id: build-image
         env:
@@ -159,6 +162,10 @@ jobs:
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Release Docker build lock
+        if: always()
+        uses: ./.github/actions/docker-build-lock-release
 
   infrastructure-app:
     name: Deploy Application Infrastructure

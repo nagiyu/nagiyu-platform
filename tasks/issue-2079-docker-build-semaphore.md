@@ -11,7 +11,7 @@ S3 オブジェクトをセマフォとして活用し、同時実行中の Dock
 
 - Issue: #2079
 - タスクタイプ: プラットフォームタスク（GitHub Actions + インフラ）
-- 影響範囲: Docker ビルドを含む全ワークフロー（15 ファイル、21 ステップ）
+- 影響範囲: Docker ビルドを含む全ワークフロー（14 ファイル、19 ステップ）
 
 ## 要件
 
@@ -47,8 +47,7 @@ S3 オブジェクトをセマフォとして活用し、同時実行中の Dock
 | `.github/workflows/niconico-mylist-assistant-deploy.yml` | 2 |
 | `.github/workflows/niconico-mylist-assistant-verify.yml` | 2 |
 | `.github/workflows/share-together-deploy.yml` | 1 |
-| `.github/workflows/share-together-web-verify-fast.yml` | 1 |
-| `.github/workflows/share-together-web-verify-full.yml` | 1 |
+| `.github/workflows/share-together-verify.yml` | 1 |
 | `.github/workflows/stock-tracker-deploy.yml` | 2 |
 | `.github/workflows/stock-tracker-verify.yml` | 2 |
 | `.github/workflows/tools-deploy.yml` | 1 |
@@ -108,7 +107,7 @@ s3.delete-object(key="locks/{LOCK_KEY}")
 
 ### Phase 3: ワークフローの更新
 
-15 ファイル（21 ステップ）に対してロック取得・解放を挿入する。各 `docker build` ステップの前後に以下を追加する:
+14 ファイル（19 ステップ）に対してロック取得・解放を挿入する。各 `docker build` ステップの前後に以下を追加する:
 
 - `docker build` 前: ロック取得処理（上述のアルゴリズム）
 - `docker build` + `docker push` 完了後: ロック解放処理
@@ -133,21 +132,21 @@ s3.delete-object(key="locks/{LOCK_KEY}")
 
 ### Phase 3: ワークフローの更新
 
-- [ ] T010: `admin-deploy.yml` を更新する
-- [ ] T011: `admin-verify.yml` を更新する
-- [ ] T012: `auth-deploy.yml` を更新する
-- [ ] T013: `auth-verify-app.yml` を更新する
-- [ ] T014: `codec-converter-deploy.yml` を更新する（ビルドジョブ 2 つ）
-- [ ] T015: `codec-converter-verify.yml` を更新する（ビルドジョブ 2 つ）
-- [ ] T016: `niconico-mylist-assistant-deploy.yml` を更新する（ビルドジョブ 2 つ）
-- [ ] T017: `niconico-mylist-assistant-verify.yml` を更新する（ビルドジョブ 2 つ）
-- [ ] T018: `share-together-deploy.yml` を更新する
-- [ ] T019: `share-together-web-verify-fast.yml` を更新する
-- [ ] T020: `share-together-web-verify-full.yml` を更新する
-- [ ] T021: `stock-tracker-deploy.yml` を更新する（ビルドジョブ 2 つ）
-- [ ] T022: `stock-tracker-verify.yml` を更新する（ビルドジョブ 2 つ）
-- [ ] T023: `tools-deploy.yml` を更新する
-- [ ] T024: `tools-verify.yml` を更新する
+- [x] T010: `admin-deploy.yml` を更新する
+- [x] T011: `admin-verify.yml` を更新する
+- [x] T012: `auth-deploy.yml` を更新する
+- [x] T013: `auth-verify-app.yml` を更新する
+- [x] T014: `codec-converter-deploy.yml` を更新する（ビルドジョブ 2 つ）
+- [x] T015: `codec-converter-verify.yml` を更新する（ビルドジョブ 2 つ）
+- [x] T016: `niconico-mylist-assistant-deploy.yml` を更新する（ビルドジョブ 2 つ）
+- [x] T017: `niconico-mylist-assistant-verify.yml` を更新する（ビルドジョブ 2 つ）
+- [x] T018: `share-together-deploy.yml` を更新する
+- [x] T019: `share-together-verify.yml` を更新する（旧 `share-together-web-verify-fast.yml` 相当）
+- [x] T020: `share-together-verify.yml` を更新する（旧 `share-together-web-verify-full.yml` 相当）
+- [x] T021: `stock-tracker-deploy.yml` を更新する（ビルドジョブ 2 つ）
+- [x] T022: `stock-tracker-verify.yml` を更新する（ビルドジョブ 2 つ）
+- [x] T023: `tools-deploy.yml` を更新する
+- [x] T024: `tools-verify.yml` を更新する
 
 ## 参考ドキュメント
 
