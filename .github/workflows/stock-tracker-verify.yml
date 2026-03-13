@@ -41,15 +41,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -68,15 +64,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -98,15 +90,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -183,15 +171,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -217,15 +201,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -244,15 +224,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -275,15 +251,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -305,11 +277,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
       - name: Configure AWS credentials
@@ -326,9 +297,6 @@ jobs:
           secret-ids: |
             DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
           parse-json-secrets: true
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -389,11 +357,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
       - name: Configure AWS credentials
@@ -410,9 +377,6 @@ jobs:
           secret-ids: |
             DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
           parse-json-secrets: true
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -473,11 +437,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
       - name: Configure AWS credentials
@@ -494,9 +457,6 @@ jobs:
           secret-ids: |
             DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
           parse-json-secrets: true
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -552,15 +512,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run lint on Core
         run: npm run lint --workspace @nagiyu/stock-tracker-core
@@ -579,15 +535,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check formatting on Core
         run: npm run format:check --workspace @nagiyu/stock-tracker-core
@@ -607,15 +559,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common

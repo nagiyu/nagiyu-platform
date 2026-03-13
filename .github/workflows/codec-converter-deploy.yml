@@ -35,42 +35,25 @@ jobs:
       contents: read
 
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      stack-name: ${{ steps.set-env.outputs.stack-name }}
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-name: ${{ steps.setup-environment.outputs.stack-name }}
       ecr-registry: ${{ steps.login-ecr.outputs.registry }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
-            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
-            if [[ "$ENV" == "prod" ]]; then
-              echo "stack-name=NagiyuCodecConverterProd" >> "$GITHUB_OUTPUT"
-            else
-              echo "stack-name=NagiyuCodecConverterDev" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "stack-name=NagiyuCodecConverterProd" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "stack-name=NagiyuCodecConverterDev" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
+        with:
+          stack-name-prefix: NagiyuCodecConverter
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -98,12 +81,12 @@ jobs:
         run: |
           # Bootstrap is idempotent - safe to run on every deployment
           npm run bootstrap --workspace=codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
-            --context env=${{ steps.set-env.outputs.environment }}
+            --context env=${{ steps.setup-environment.outputs.environment }}
 
       - name: Check if Web ECR repository exists
         id: check-web-ecr
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           if aws ecr describe-repositories --repository-names nagiyu-codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -114,7 +97,7 @@ jobs:
       - name: Check if Batch ECR repository exists
         id: check-batch-ecr
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           if aws ecr describe-repositories --repository-names nagiyu-codec-converter-ffmpeg-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -125,10 +108,10 @@ jobs:
       - name: CDK Deploy (Create ECR Repositories)
         if: steps.check-web-ecr.outputs.exists == 'false' || steps.check-batch-ecr.outputs.exists == 'false'
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           echo "Creating ECR repositories..."
-          npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
+          npm run deploy --workspace=codec-converter -- ${{ steps.setup-environment.outputs.stack-name }} \
             --context env=$ENVIRONMENT \
             --context deploymentPhase=ecr-only \
             --verbose
@@ -250,15 +233,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common

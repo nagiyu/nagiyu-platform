@@ -28,15 +28,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run ESLint on core
         run: npm run lint --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -58,15 +54,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check core formatting
         run: npm run format:check --workspace=@nagiyu/niconico-mylist-assistant-core
@@ -89,15 +81,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -120,15 +108,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -169,15 +153,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -203,15 +183,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -238,15 +214,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -338,15 +310,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -375,15 +343,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -443,15 +407,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -511,15 +471,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -579,15 +535,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
