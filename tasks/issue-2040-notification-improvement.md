@@ -90,9 +90,9 @@ Stock Tracker の Web Push 通知を改善する。
 
 ### Phase 2: バッチ側の更新
 
--   [ ] T004: `batch/src/lib/web-push-client.ts` の `createAlertNotificationPayload()` に `url` フィールドを追加
--   [ ] T005: `batch/src/lib/web-push-client.ts` でカスタム通知タイトル・本文を使用するよう更新
--   [ ] T006: `batch` のユニットテストを更新・追加
+-   [x] T004: `batch/src/lib/web-push-client.ts` の `createAlertNotificationPayload()` に `url` フィールドを追加
+-   [x] T005: `batch/src/lib/web-push-client.ts` でカスタム通知タイトル・本文を使用するよう更新
+-   [x] T006: `batch` のユニットテストを更新・追加
 
 ### Phase 3: フロントエンド（Web）の更新
 
