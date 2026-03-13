@@ -30,10 +30,10 @@ jobs:
   infrastructure:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    
+
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -179,39 +179,36 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/auth/web/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build and push Docker image
+      - name: Push Docker image
         id: build-image
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
-          DOCKER_BUILDKIT: 0
         run: |
-          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
-            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/auth/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
-          
+
           # Also tag as latest
           docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
           docker push "$REPOSITORY_URI:latest"
-          
-          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy to AWS Lambda
     runs-on: ubuntu-latest
     needs: [infrastructure, build]
-    
+
     outputs:
       lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
       cloudfront-domain: ${{ steps.get-cloudfront.outputs.cloudfront-domain }}
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -275,7 +272,7 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionArn'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-          
+
           if [ -z "$FUNCTION_ARN" ]; then
             echo "Warning: Could not find Lambda function ARN from stack"
             FUNCTION_NAME="nagiyu-auth-lambda-$ENVIRONMENT"
@@ -283,7 +280,7 @@ jobs:
             # Extract function name from ARN
             FUNCTION_NAME=$(echo "$FUNCTION_ARN" | awk -F':' '{print $NF}')
           fi
-          
+
           echo "function-name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
           echo "Lambda Function: $FUNCTION_NAME"
 
@@ -318,7 +315,7 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionUrl'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-          
+
           echo "function-url=$FUNCTION_URL" >> "$GITHUB_OUTPUT"
           echo "Lambda Function URL: $FUNCTION_URL"
 
@@ -344,7 +341,7 @@ jobs:
     name: CloudFront Invalidation
     runs-on: ubuntu-latest
     needs: [deploy, build]
-    
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -363,7 +360,7 @@ jobs:
             --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-          
+
           if [ -z "$DISTRIBUTION_ID" ]; then
             echo "Warning: Could not find CloudFront distribution ID"
             echo "distribution-id=" >> "$GITHUB_OUTPUT"
@@ -383,7 +380,7 @@ jobs:
             --paths "/*" \
             --query "Invalidation.Id" \
             --output text)
-          
+
           echo "Invalidation created: $INVALIDATION_ID"
           echo "INVALIDATION_ID=$INVALIDATION_ID" >> $GITHUB_ENV
 
@@ -403,7 +400,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs: [infrastructure, build, deploy, cloudfront-invalidation]
-    
+
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -418,10 +415,10 @@ jobs:
         run: |
           echo "## 🚀 Auth App Deployment Summary - $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "- **App Version**: ${{ needs.build.outputs.app-version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           echo "### Deployment Status" >> $GITHUB_STEP_SUMMARY
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
@@ -430,40 +427,40 @@ jobs:
           echo "| Lambda Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CloudFront Invalidation | ${{ needs.cloudfront-invalidation.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Lambda Function URL
           if [ -n "${{ needs.deploy.outputs.lambda-function-url }}" ]; then
             echo "### Lambda Function URL" >> $GITHUB_STEP_SUMMARY
             echo "${{ needs.deploy.outputs.lambda-function-url }}" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # CloudFront Domain
           CF_DOMAIN=$(aws cloudformation describe-stacks \
             --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-          
+
           if [ -n "$CF_DOMAIN" ]; then
             echo "### CloudFront Distribution" >> $GITHUB_STEP_SUMMARY
             echo "Domain: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           # Custom Domain (if configured)
           CUSTOM_DOMAIN=$(aws cloudformation describe-stacks \
             --stack-name "NagiyuAuthCloudFront$(echo $ENVIRONMENT | sed 's/\(.\)/\U\1/')" \
             --query "Stacks[0].Parameters[?ParameterKey=='DomainName'].ParameterValue" \
             --output text \
             --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
-          
+
           if [ -n "$CUSTOM_DOMAIN" ]; then
             echo "### Custom Domain" >> $GITHUB_STEP_SUMMARY
             echo "https://$CUSTOM_DOMAIN" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "### ⚠️ Post-Deployment Actions" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Initial Setup Only:** Update Google OAuth credentials in Secrets Manager:" >> $GITHUB_STEP_SUMMARY

@@ -7,12 +7,12 @@ on:
       - integration/**
       - master
     paths:
-      - "services/niconico-mylist-assistant/**"
-      - "infra/niconico-mylist-assistant/**"
-      - "libs/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/niconico-mylist-assistant-deploy.yml"
+      - 'services/niconico-mylist-assistant/**'
+      - 'infra/niconico-mylist-assistant/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/niconico-mylist-assistant-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -65,9 +65,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -156,33 +156,27 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Web Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/niconico-mylist-assistant/web/Dockerfile
+          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}:${{ github.sha }}
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build, tag, and push Web Docker image to ECR
+      - name: Push Web Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nagiyu-niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: ${{ github.sha }}
-          DOCKER_BUILDKIT: 0
         run: |
-          # Build and tag with commit SHA
-          docker build \
-            --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -f services/niconico-mylist-assistant/web/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          
+
           # Also tag as latest
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
-          echo "Web image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+          echo "Web image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -199,6 +193,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/niconico-mylist-assistant/batch
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -210,31 +212,27 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/niconico-mylist-assistant/batch/Dockerfile
+          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}:${{ github.sha }}
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build, tag, and push Batch worker Docker image to ECR
+      - name: Push Batch worker Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nagiyu-niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: ${{ github.sha }}
-          DOCKER_BUILDKIT: 0
         run: |
-          # Build and tag with commit SHA
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
-            -f services/niconico-mylist-assistant/batch/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          
+
           # Also tag as latest
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
             $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
-          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+          echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
   deploy:
     name: Deploy Full Stack
@@ -251,9 +249,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
 
       - name: Install dependencies
         run: npm ci
@@ -338,7 +336,7 @@ jobs:
           STACK_SUFFIX: ${{ needs.prepare-infrastructure.outputs.stack-suffix }}
         run: |
           echo "=== CDK Stack Outputs ==="
-          
+
           # Lambda Stack outputs
           echo ""
           echo "Lambda Stack:"
@@ -347,7 +345,7 @@ jobs:
             --query "Stacks[0].Outputs" \
             --region ${{ env.AWS_REGION }} \
             --output table || echo "Lambda stack not found"
-          
+
           # CloudFront Stack outputs
           echo ""
           echo "CloudFront Stack:"
@@ -356,7 +354,7 @@ jobs:
             --query "Stacks[0].Outputs" \
             --region ${{ env.AWS_REGION }} \
             --output table || echo "CloudFront stack not found"
-          
+
           # Batch Stack outputs
           echo ""
           echo "Batch Stack:"

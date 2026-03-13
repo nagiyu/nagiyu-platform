@@ -132,6 +132,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/share-together/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -139,17 +146,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
-
       - name: Build web Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t share-together-web-verify-test -f services/share-together/web/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/share-together/web/Dockerfile
+          image-tag: share-together-web-verify-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
   test-core:
     name: Core Unit Tests
