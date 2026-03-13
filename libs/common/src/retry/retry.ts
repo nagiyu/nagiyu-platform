@@ -1,4 +1,3 @@
-import { sleep } from '../api/client.js';
 import { logger } from '../logger/logger.js';
 import type { RetryOptions, RetryLogger } from './types.js';
 
@@ -10,6 +9,10 @@ export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   initialDelayMs: 1000,
   backoffMultiplier: 2,
 };
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 /**
  * 指数バックオフでリトライを実行する

@@ -15,6 +15,12 @@ import { MylistRegistrationResult, LoginResult } from './types.js';
 import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
 
+const VIDEO_REGISTRATION_RETRY_OPTIONS = {
+  maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
+  initialDelayMs: DEFAULT_RETRY_CONFIG.retryDelay,
+  backoffMultiplier: 1,
+} as const;
+
 /**
  * ニコニコ動画にログインする
  *
@@ -519,11 +525,7 @@ export async function registerVideosToMylist(
         async () => {
           await registerVideoToMylist(page, videoId, mylistName);
         },
-        {
-          maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
-          initialDelayMs: DEFAULT_RETRY_CONFIG.retryDelay,
-          backoffMultiplier: 1,
-        }
+        VIDEO_REGISTRATION_RETRY_OPTIONS
       );
 
       successVideoIds.push(videoId);
