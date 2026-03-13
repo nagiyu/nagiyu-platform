@@ -181,7 +181,7 @@ jobs:
 
       - name: Get version from package.json
         id: get-version
-        working-directory: ./services/stock-tracker/web
+        working-directory: ./services/stock-tracker/batch
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"

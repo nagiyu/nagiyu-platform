@@ -200,7 +200,7 @@ jobs:
 
       - name: Get version from package.json
         id: get-version
-        working-directory: ./services/codec-converter/web
+        working-directory: ./services/codec-converter/batch
         run: |
           VERSION=$(node -p "require('./package.json').version")
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
