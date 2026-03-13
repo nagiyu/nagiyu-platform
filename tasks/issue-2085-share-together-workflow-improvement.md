@@ -55,7 +55,6 @@ Share Together の検証ワークフローを、他サービス（stock-tracker,
 - 追加: `.github/workflows/share-together-verify.yml`（統合後の新ファイル）
 - 削除: `.github/workflows/share-together-web-verify-fast.yml`
 - 削除: `.github/workflows/share-together-web-verify-full.yml`
-- 更新: `.github/workflows/all-verify.yml`（ワークフロー名の参照が変わる場合）
 
 ### 参考ワークフロー
 
