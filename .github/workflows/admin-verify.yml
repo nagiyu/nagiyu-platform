@@ -352,6 +352,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/admin/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -359,17 +366,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
-
       - name: Build Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t admin-verify-full-test -f services/admin/web/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/admin/web/Dockerfile
+          image-tag: admin-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
   report:
     name: Report Results to PR

@@ -65,6 +65,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/codec-converter/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -72,29 +79,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
-
       - name: Build Web Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t codec-converter-web-verify-full-test -f services/codec-converter/web/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
-
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/codec-converter/web/Dockerfile
+          image-tag: codec-converter-web-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
       - name: Build Batch Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t codec-converter-batch-verify-full-test -f services/codec-converter/batch/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/codec-converter/batch/Dockerfile
+          image-tag: codec-converter-batch-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
   test:
     name: Run Unit Tests
