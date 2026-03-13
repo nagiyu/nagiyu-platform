@@ -7,6 +7,7 @@ import { Box, Typography } from '@mui/material';
 import { DEFAULT_CHART_BAR_COUNT } from '@/types/stock';
 import type { AlertLine } from '../types/alert';
 import { buildChartMarkLines } from '../lib/chart-overlay-lines';
+import { AUTO_REFRESH_INTERVAL_MS } from '../lib/constants';
 import ErrorAlert from './ErrorAlert';
 import LoadingState from './LoadingState';
 
@@ -42,6 +43,7 @@ export interface StockChartProps {
   count?: number;
   holdingPrice?: number;
   alertLines?: AlertLine[];
+  autoRefresh?: boolean;
 }
 
 /**
@@ -69,6 +71,7 @@ export default function StockChart({
   count = DEFAULT_CHART_BAR_COUNT,
   holdingPrice,
   alertLines,
+  autoRefresh = false,
 }: StockChartProps) {
   // 状態管理
   const [loading, setLoading] = useState<boolean>(false);
@@ -115,8 +118,20 @@ export default function StockChart({
       }
     };
 
-    fetchChartData();
-  }, [tickerId, timeframe, count]);
+    void fetchChartData();
+
+    if (!autoRefresh) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void fetchChartData();
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [tickerId, timeframe, count, autoRefresh]);
 
   // ECharts オプション生成
   const getChartOption = (): EChartsOption => {
