@@ -122,7 +122,7 @@ s3.delete-object(key="locks/{LOCK_KEY}")
 - [x] T002: ライフサイクルルールを追加してゾンビロック対策を実装する
 - [x] T003: `infra/shared/bin/shared.ts` に新スタックを登録する
 - [x] T004: `infra/shared/` の CDK テストを更新・追加する
-- [x] T005: 既存 IAM ポリシーがロック用バケットに対して必要な権限を付与していることを確認する（不足があれば `iam-application-policy-stack.ts` を更新する）
+- [x] T005: 既存 IAM ポリシーがロック用バケットに対して必要な権限を付与していることを確認する（`S3Operations` に `s3:PutObject` / `s3:GetObject` / `s3:DeleteObject` / `s3:ListBucket` が含まれるため更新不要）
 
 ### Phase 2: ロック取得・解放ロジックの実装
 

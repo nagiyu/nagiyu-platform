@@ -10,7 +10,9 @@ export class DockerBuildLockStack extends cdk.Stack {
 
     this.lockBucket = new s3.Bucket(this, 'DockerBuildLockBucket', {
       bucketName: 'nagiyu-docker-build-lock',
+      encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      versioned: false,
       lifecycleRules: [
         {
           id: 'DeleteOldLocks',
