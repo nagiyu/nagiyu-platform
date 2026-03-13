@@ -42,7 +42,9 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
               <Typography variant="body2">安値: {summary.low.toLocaleString()}</Typography>
             </Grid>
             <Grid size={12}>
-              <Typography variant="body2">出来高: {(summary.volume ?? 0).toLocaleString()}</Typography>
+              <Typography variant="body2">
+                出来高: {(summary.volume ?? 0).toLocaleString()}
+              </Typography>
             </Grid>
             <Grid size={6}>
               <Typography variant="body2">買いシグナル: {summary.buyPatternCount}</Typography>

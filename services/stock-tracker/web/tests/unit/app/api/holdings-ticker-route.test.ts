@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { GET } from '../../../../app/api/holdings/[id]/route';
-import { createHoldingRepository, createTickerRepository } from '../../../../lib/repository-factory';
+import {
+  createHoldingRepository,
+  createTickerRepository,
+} from '../../../../lib/repository-factory';
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createHoldingRepository: jest.fn(),

@@ -35,7 +35,13 @@ export default function TickerAlertListCard({ alerts, loading, error }: TickerAl
         {!loading && !error && alerts.length > 0 && (
           <Stack spacing={1}>
             {alerts.map((alert) => (
-              <Stack key={alert.alertId} direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+              <Stack
+                key={alert.alertId}
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                flexWrap="wrap"
+              >
                 <Chip
                   label={alert.mode === 'Buy' ? '買い' : '売り'}
                   size="small"

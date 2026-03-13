@@ -67,10 +67,9 @@ describe('GET /api/summaries/[tickerId]', () => {
       items: [{ TickerID: 'NASDAQ:NVDA', Mode: 'Buy', Enabled: true }],
     });
 
-    const response = await GET(
-      new Request('http://localhost/api/summaries/NASDAQ:NVDA'),
-      { params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }) }
-    );
+    const response = await GET(new Request('http://localhost/api/summaries/NASDAQ:NVDA'), {
+      params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }),
+    });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -80,10 +79,9 @@ describe('GET /api/summaries/[tickerId]', () => {
   });
 
   it('異常系: tickerId が不正な場合は 400 を返す', async () => {
-    const response = await GET(
-      new Request('http://localhost/api/summaries/INVALID'),
-      { params: Promise.resolve({ tickerId: 'INVALID' }) }
-    );
+    const response = await GET(new Request('http://localhost/api/summaries/INVALID'), {
+      params: Promise.resolve({ tickerId: 'INVALID' }),
+    });
 
     expect(response.status).toBe(400);
   });
@@ -94,10 +92,9 @@ describe('GET /api/summaries/[tickerId]', () => {
     mockGetHoldingById.mockResolvedValue(null);
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
 
-    const response = await GET(
-      new Request('http://localhost/api/summaries/NASDAQ:NVDA'),
-      { params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }) }
-    );
+    const response = await GET(new Request('http://localhost/api/summaries/NASDAQ:NVDA'), {
+      params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }),
+    });
 
     expect(response.status).toBe(404);
   });
