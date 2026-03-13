@@ -5,6 +5,7 @@
   "description": "Shared Infrastructure (VPC, IAM, ACM) for Nagiyu Platform",
   "scripts": {
     "build": "tsc",
+    "test": "jest",
     "watch": "tsc -w",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
