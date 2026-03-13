@@ -51,6 +51,8 @@ interface AlertResponse {
   enabled: boolean;
   temporary?: boolean;
   temporaryExpireDate?: string;
+  notificationTitle?: string;
+  notificationBody?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -59,6 +61,26 @@ interface ErrorResponse {
   error: string;
   message: string;
   details?: string[];
+}
+
+interface CreateAlertRequest {
+  tickerId: string;
+  exchangeId?: string;
+  mode: AlertEntity['Mode'];
+  frequency: AlertEntity['Frequency'];
+  conditions?: AlertEntity['ConditionList'];
+  logicalOperator?: AlertEntity['LogicalOperator'];
+  enabled?: boolean;
+  temporary?: boolean;
+  notificationTitle?: string;
+  notificationBody?: string;
+  subscription?: {
+    endpoint?: string;
+    keys?: {
+      p256dh?: string;
+      auth?: string;
+    };
+  };
 }
 
 /**
@@ -87,6 +109,12 @@ function mapAlertToResponse(
   // LogicalOperator が存在する場合のみ追加
   if (alert.LogicalOperator) {
     response.logicalOperator = alert.LogicalOperator;
+  }
+  if (alert.NotificationTitle) {
+    response.notificationTitle = alert.NotificationTitle;
+  }
+  if (alert.NotificationBody) {
+    response.notificationBody = alert.NotificationBody;
   }
 
   return response;
@@ -159,7 +187,7 @@ export const POST = withAuth(
   async (session, request: NextRequest): Promise<NextResponse<AlertResponse | ErrorResponse>> => {
     try {
       // リクエストボディの取得
-      let body;
+      let body: CreateAlertRequest;
       try {
         body = await request.json();
       } catch {
@@ -216,6 +244,8 @@ export const POST = withAuth(
         LogicalOperator: body.logicalOperator,
         Temporary: body.temporary === true ? true : undefined,
         TemporaryExpireDate: undefined,
+        NotificationTitle: body.notificationTitle?.trim() || undefined,
+        NotificationBody: body.notificationBody?.trim() || undefined,
         SubscriptionEndpoint: subscription.endpoint,
         SubscriptionKeysP256dh: subscription.keys.p256dh,
         SubscriptionKeysAuth: subscription.keys.auth,
