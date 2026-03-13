@@ -9,6 +9,11 @@ interface TickerAlertListCardProps {
   error: string;
 }
 
+const OPERATOR_LABELS: Record<string, string> = {
+  gte: '以上',
+  lte: '以下',
+};
+
 export default function TickerAlertListCard({ alerts, loading, error }: TickerAlertListCardProps) {
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
@@ -37,7 +42,12 @@ export default function TickerAlertListCard({ alerts, loading, error }: TickerAl
                   color={alert.mode === 'Buy' ? 'success' : 'warning'}
                 />
                 <Typography variant="body2">
-                  {alert.conditions.map((condition) => `${condition.operator} ${condition.value}`).join(', ')}
+                  {alert.conditions
+                    .map(
+                      (condition) =>
+                        `${OPERATOR_LABELS[condition.operator] ?? condition.operator} ${condition.value}`
+                    )
+                    .join(', ')}
                 </Typography>
                 <Chip label={alert.enabled ? '有効' : '無効'} size="small" variant="outlined" />
               </Stack>

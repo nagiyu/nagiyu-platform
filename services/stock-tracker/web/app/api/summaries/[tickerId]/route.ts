@@ -8,14 +8,13 @@ import {
   createHoldingRepository,
   createTickerRepository,
 } from '../../../../lib/repository-factory';
+import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
 
 const ERROR_MESSAGES = {
   INVALID_TICKER_ID: 'ティッカーIDが不正です',
   NOT_FOUND: 'サマリーが見つかりません',
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
 } as const;
-
-const MAX_ALERTS_PER_USER = 1000;
 
 interface ErrorResponse {
   error: string;

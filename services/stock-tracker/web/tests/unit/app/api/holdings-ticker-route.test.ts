@@ -33,7 +33,7 @@ describe('GET /api/holdings/[id]', () => {
   it('正常系: ティッカーIDで保有情報を返す', async () => {
     mockGetHoldingById.mockResolvedValue({
       UserID: 'test-user',
-      TickerID: 'NSDQ:NVDA',
+      TickerID: 'NASDAQ:NVDA',
       Quantity: 5,
       AveragePrice: 98,
       Currency: 'USD',
@@ -42,21 +42,21 @@ describe('GET /api/holdings/[id]', () => {
     });
     mockGetTickerById.mockResolvedValue({ Symbol: 'NVDA', Name: 'NVIDIA' });
 
-    const response = await GET(new NextRequest('http://localhost/api/holdings/NSDQ:NVDA'), {
-      params: Promise.resolve({ id: 'NSDQ:NVDA' }),
+    const response = await GET(new NextRequest('http://localhost/api/holdings/NASDAQ:NVDA'), {
+      params: Promise.resolve({ id: 'NASDAQ:NVDA' }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.tickerId).toBe('NSDQ:NVDA');
+    expect(body.tickerId).toBe('NASDAQ:NVDA');
     expect(body.averagePrice).toBe(98);
   });
 
   it('異常系: 保有情報が存在しない場合は 404 を返す', async () => {
     mockGetHoldingById.mockResolvedValue(null);
 
-    const response = await GET(new NextRequest('http://localhost/api/holdings/NSDQ:NVDA'), {
-      params: Promise.resolve({ id: 'NSDQ:NVDA' }),
+    const response = await GET(new NextRequest('http://localhost/api/holdings/NASDAQ:NVDA'), {
+      params: Promise.resolve({ id: 'NASDAQ:NVDA' }),
     });
 
     expect(response.status).toBe(404);

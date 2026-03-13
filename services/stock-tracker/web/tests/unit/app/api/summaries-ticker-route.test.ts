@@ -49,8 +49,8 @@ describe('GET /api/summaries/[tickerId]', () => {
   it('正常系: 指定ティッカーのサマリーを返す', async () => {
     mockGetByExchange.mockResolvedValue([
       {
-        TickerID: 'NSDQ:NVDA',
-        ExchangeID: 'NSDQ',
+        TickerID: 'NASDAQ:NVDA',
+        ExchangeID: 'NASDAQ',
         Date: '2026-01-01',
         Open: 100,
         High: 120,
@@ -61,20 +61,20 @@ describe('GET /api/summaries/[tickerId]', () => {
         UpdatedAt: 1000,
       },
     ]);
-    mockGetById.mockResolvedValue({ TickerID: 'NSDQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
+    mockGetById.mockResolvedValue({ TickerID: 'NASDAQ:NVDA', Symbol: 'NVDA', Name: 'NVIDIA' });
     mockGetHoldingById.mockResolvedValue({ Quantity: 5, AveragePrice: 98 });
     mockGetAlertsByUserId.mockResolvedValue({
-      items: [{ TickerID: 'NSDQ:NVDA', Mode: 'Buy', Enabled: true }],
+      items: [{ TickerID: 'NASDAQ:NVDA', Mode: 'Buy', Enabled: true }],
     });
 
     const response = await GET(
-      new Request('http://localhost/api/summaries/NSDQ:NVDA'),
-      { params: Promise.resolve({ tickerId: 'NSDQ:NVDA' }) }
+      new Request('http://localhost/api/summaries/NASDAQ:NVDA'),
+      { params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }) }
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.tickerId).toBe('NSDQ:NVDA');
+    expect(body.tickerId).toBe('NASDAQ:NVDA');
     expect(body.holding).toEqual({ quantity: 5, averagePrice: 98 });
     expect(body.buyAlertCount).toEqual({ enabled: 1, disabled: 0 });
   });
@@ -95,8 +95,8 @@ describe('GET /api/summaries/[tickerId]', () => {
     mockGetAlertsByUserId.mockResolvedValue({ items: [] });
 
     const response = await GET(
-      new Request('http://localhost/api/summaries/NSDQ:NVDA'),
-      { params: Promise.resolve({ tickerId: 'NSDQ:NVDA' }) }
+      new Request('http://localhost/api/summaries/NASDAQ:NVDA'),
+      { params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }) }
     );
 
     expect(response.status).toBe(404);

@@ -78,7 +78,7 @@ export const GET = withAuth(
       }
 
       const holdingRepo = createHoldingRepository();
-      const holding = await holdingRepo.getById(session!.user.userId, tickerId);
+      const holding = await holdingRepo.getById(session.user.userId, tickerId);
 
       if (!holding) {
         return NextResponse.json(
@@ -176,7 +176,7 @@ export const PUT = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session!.user.userId;
+      const currentUserId = session.user.userId;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {
@@ -294,7 +294,7 @@ export const DELETE = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session!.user.userId;
+      const currentUserId = session.user.userId;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {

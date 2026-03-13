@@ -38,7 +38,7 @@ describe('GET /api/alerts tickerId filter', () => {
       items: [
         {
           AlertID: '1',
-          TickerID: 'NSDQ:NVDA',
+          TickerID: 'NASDAQ:NVDA',
           Mode: 'Buy',
           Frequency: 'MINUTE_LEVEL',
           ConditionList: [{ field: 'price', operator: 'gte', value: 120 }],
@@ -48,7 +48,7 @@ describe('GET /api/alerts tickerId filter', () => {
         },
         {
           AlertID: '2',
-          TickerID: 'NSDQ:AAPL',
+          TickerID: 'NASDAQ:AAPL',
           Mode: 'Sell',
           Frequency: 'MINUTE_LEVEL',
           ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
@@ -59,12 +59,12 @@ describe('GET /api/alerts tickerId filter', () => {
       ],
     });
 
-    const response = await GET(new NextRequest('http://localhost/api/alerts?tickerId=NSDQ:NVDA'));
+    const response = await GET(new NextRequest('http://localhost/api/alerts?tickerId=NASDAQ:NVDA'));
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(body.alerts).toHaveLength(1);
-    expect(body.alerts[0].tickerId).toBe('NSDQ:NVDA');
+    expect(body.alerts[0].tickerId).toBe('NASDAQ:NVDA');
   });
 
   it('異常系: tickerId 形式が不正な場合は 400 を返す', async () => {

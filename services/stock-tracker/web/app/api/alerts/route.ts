@@ -16,6 +16,7 @@ import {
   createExchangeRepository,
 } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
+import { MAX_ALERTS_PER_USER } from '../../../lib/constants';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -29,7 +30,6 @@ const ERROR_MESSAGES = {
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
   EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
 } as const;
-const MAX_ALERTS_PER_USER = 1000;
 
 /**
  * レスポンス型定義

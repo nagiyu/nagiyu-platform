@@ -10,7 +10,7 @@ import type { AlertResponse } from '../../../types/alert';
 describe('チャート画面カードコンポーネント', () => {
   it('TickerSummaryCard: サマリー情報を表示する', () => {
     const summary: TickerSummary = {
-      tickerId: 'NSDQ:NVDA',
+      tickerId: 'NASDAQ:NVDA',
       symbol: 'NVDA',
       name: 'NVIDIA',
       open: 100,
@@ -32,6 +32,7 @@ describe('チャート画面カードコンポーネント', () => {
     expect(screen.getByText('サマリー')).toBeTruthy();
     expect(screen.getByText('始値: 100')).toBeTruthy();
     expect(screen.getByText('終値: 110')).toBeTruthy();
+    expect(screen.getByText('出来高: 1,000')).toBeTruthy();
   });
 
   it('HoldingCard: 保有なしを表示する', () => {
@@ -44,7 +45,7 @@ describe('チャート画面カードコンポーネント', () => {
     const alerts: AlertResponse[] = [
       {
         alertId: 'alert-1',
-        tickerId: 'NSDQ:NVDA',
+        tickerId: 'NASDAQ:NVDA',
         symbol: 'NVDA',
         name: 'NVIDIA',
         mode: 'Buy',
@@ -59,7 +60,7 @@ describe('チャート画面カードコンポーネント', () => {
     render(React.createElement(TickerAlertListCard, { alerts, loading: false, error: '' }));
 
     expect(screen.getByText('アラート')).toBeTruthy();
-    expect(screen.getByText('gte 120')).toBeTruthy();
+    expect(screen.getByText('以上 120')).toBeTruthy();
     expect(screen.getByText('有効')).toBeTruthy();
   });
 });

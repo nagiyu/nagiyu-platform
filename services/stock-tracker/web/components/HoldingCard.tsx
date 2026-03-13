@@ -1,18 +1,7 @@
 'use client';
 
 import { Card, CardContent, CircularProgress, Typography } from '@mui/material';
-
-export interface HoldingResponse {
-  holdingId: string;
-  tickerId: string;
-  symbol: string;
-  name: string;
-  quantity: number;
-  averagePrice: number;
-  currency: string;
-  createdAt: string;
-  updatedAt: string;
-}
+import type { HoldingResponse } from '@/types/holding';
 
 interface HoldingCardProps {
   holding: HoldingResponse | null;

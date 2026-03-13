@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Container,
@@ -32,7 +32,7 @@ import ErrorAlert from './ErrorAlert';
 import EmptyState from './EmptyState';
 import TickerSummaryCard from './TickerSummaryCard';
 import HoldingCard from './HoldingCard';
-import type { HoldingResponse } from './HoldingCard';
+import type { HoldingResponse } from '@/types/holding';
 import TickerAlertListCard from './TickerAlertListCard';
 
 // API レスポンス型定義
@@ -104,6 +104,13 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   const [summaryError, setSummaryError] = useState<string>('');
   const [holdingError, setHoldingError] = useState<string>('');
   const [alertsError, setAlertsError] = useState<string>('');
+  const alertLines = useMemo(
+    () =>
+      alerts
+        .filter((alert) => alert.enabled)
+        .flatMap((alert) => computeAlertLines(alert.conditions)),
+    [alerts]
+  );
 
   // 取引所一覧を取得
   useEffect(() => {
@@ -209,23 +216,28 @@ export default function HomePageClient({ children }: HomePageClientProps) {
       );
 
       try {
-        const [summaryResult, holdingResult, alertsResult] = await Promise.all([
+        const [summaryResult, holdingResult, alertsResult] = await Promise.allSettled([
           summaryPromise,
           holdingPromise,
           alertsPromise,
         ]);
-        setSummary(summaryResult);
-        setHolding(holdingResult);
-        setAlerts(alertsResult);
-      } catch (error) {
-        if (error instanceof Error) {
-          if (error.message === ERROR_MESSAGES.FETCH_SUMMARY_ERROR) {
-            setSummaryError(error.message);
-          } else if (error.message === ERROR_MESSAGES.FETCH_HOLDING_ERROR) {
-            setHoldingError(error.message);
-          } else {
-            setAlertsError(error.message);
-          }
+
+        if (summaryResult.status === 'fulfilled') {
+          setSummary(summaryResult.value);
+        } else {
+          setSummaryError(ERROR_MESSAGES.FETCH_SUMMARY_ERROR);
+        }
+
+        if (holdingResult.status === 'fulfilled') {
+          setHolding(holdingResult.value);
+        } else {
+          setHoldingError(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+        }
+
+        if (alertsResult.status === 'fulfilled') {
+          setAlerts(alertsResult.value);
+        } else {
+          setAlertsError(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
         }
       } finally {
         setSummaryLoading(false);
@@ -435,7 +447,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             count={barCount}
             autoRefresh={autoRefresh}
             holdingPrice={holding?.averagePrice}
-            alertLines={alerts.filter((alert) => alert.enabled).flatMap((alert) => computeAlertLines(alert.conditions))}
+            alertLines={alertLines}
           />
         ) : (
           <EmptyState
