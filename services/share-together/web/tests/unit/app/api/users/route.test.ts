@@ -35,6 +35,15 @@ jest.mock('@nagiyu/nextjs', () => ({
           { status: 401 }
         );
       }
+
+      if (!Array.isArray((session.user as { roles?: unknown }).roles)) {
+        return NextResponse.json(
+          {
+            error: { code: 'INTERNAL_SERVER_ERROR', message: '認証処理に失敗しました' },
+          },
+          { status: 500 }
+        );
+      }
       return handler(session);
     },
 }));

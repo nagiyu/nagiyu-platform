@@ -1,5 +1,6 @@
 import type { User } from '@nagiyu/share-together-core';
 import { withAuth } from '@nagiyu/nextjs';
+import type { Session } from 'next-auth';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
@@ -8,6 +9,30 @@ import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createUserRepository } from '@/lib/repositories';
 
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
+const DEFAULT_ROLES: string[] = [];
+
+type UsersRouteSession = Session & {
+  user: Session['user'] & {
+    id: string;
+    roles: string[];
+  };
+};
+
+async function getSessionWithRoles(): Promise<UsersRouteSession | null> {
+  const session = await getSession();
+  if (!session) {
+    return null;
+  }
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      id: session.user.id,
+      roles: DEFAULT_ROLES,
+    },
+  };
+}
 
 function createValidationErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
@@ -31,7 +56,7 @@ function createInternalServerErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 500 });
 }
 
-export const POST = withAuth(getSession, null, async (session): Promise<NextResponse> => {
+export const POST = withAuth(getSessionWithRoles, null, async (session): Promise<NextResponse> => {
   let requestedUserId: string | undefined;
   let operation: 'create' | 'update' | 'unknown' = 'unknown';
 
