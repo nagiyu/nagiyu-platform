@@ -83,6 +83,44 @@ test.describe('チャート表示機能', () => {
     await expect(page.getByText('取引所とティッカーを選択してください')).toBeVisible();
   });
 
+  test('自動更新ボタンの表示とトグル動作が正常に動作する', async ({ page }) => {
+    const autoRefreshButton = page.getByRole('button', { name: '自動更新' });
+    await expect(autoRefreshButton).toBeVisible();
+    await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'false');
+
+    // 取引所を選択
+    const exchangeSelect = page.getByLabel('取引所選択');
+    await exchangeSelect.click();
+    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+    await exchangeOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+    // ティッカーを選択
+    const tickerSelect = page.getByLabel('ティッカー選択');
+    await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
+    await tickerSelect.click();
+
+    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    await tickerOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+
+    // 自動更新を有効化
+    await autoRefreshButton.click();
+    await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
+
+    // 時間枠変更後も自動更新状態を維持する
+    const timeframeSelect = page.getByLabel('時間枠');
+    await timeframeSelect.click();
+    const timeframeOptions = page.locator('[role="listbox"] [role="option"]');
+    await timeframeOptions.nth(1).click();
+    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
+
+    // 再クリックで自動更新を停止
+    await autoRefreshButton.click();
+    await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'false');
+  });
+
   test('取引所・ティッカー選択後にチャートが表示される', async ({ page }) => {
     // 取引所を選択
     const exchangeSelect = page.getByLabel('取引所選択');

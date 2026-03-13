@@ -8,117 +8,6 @@ import { TodoItem } from '@/components/TodoItem';
 import type { TodoResponse, TodosResponse } from '@/types';
 import type { TodoItem as TodoItemType } from '@/types';
 
-const MOCK_TODOS_BY_SCOPE: Record<
-  'personal' | 'group',
-  Record<string, Array<Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>>>
-> = {
-  personal: {
-    'mock-default-list': [
-      {
-        todoId: 'mock-personal-default-todo-1',
-        title: '牛乳を買う',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-personal-default-todo-2',
-        title: '請求書を確認する',
-        isCompleted: true,
-      },
-    ],
-    'mock-work-list': [
-      {
-        todoId: 'mock-personal-work-todo-1',
-        title: '週次レポートを作成する',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-personal-work-todo-2',
-        title: '顧客向け資料を更新する',
-        isCompleted: true,
-      },
-    ],
-    'mock-shopping-list': [
-      {
-        todoId: 'mock-personal-shopping-todo-1',
-        title: '卵を買う',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-personal-shopping-todo-2',
-        title: 'トイレットペーパーを買う',
-        isCompleted: true,
-      },
-    ],
-  },
-  group: {
-    'mock-list-1': [
-      {
-        todoId: 'mock-group-1-todo-1',
-        title: '会議用の議題を共有する',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-group-1-todo-2',
-        title: '懇親会の出欠を確認する',
-        isCompleted: true,
-      },
-    ],
-    'mock-list-2': [
-      {
-        todoId: 'mock-group-2-todo-1',
-        title: 'パスポートの期限を確認する',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-group-2-todo-2',
-        title: 'ホテルの予約内容を共有する',
-        isCompleted: true,
-      },
-    ],
-    'mock-list-3': [
-      {
-        todoId: 'mock-group-3-todo-1',
-        title: 'ゴミ出し当番を確認する',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-group-3-todo-2',
-        title: '消耗品の購入担当を決める',
-        isCompleted: true,
-      },
-    ],
-    'mock-list-4': [
-      {
-        todoId: 'mock-group-4-todo-1',
-        title: 'スプリント計画を立てる',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-group-4-todo-2',
-        title: '先週のタスクを振り返る',
-        isCompleted: true,
-      },
-    ],
-    'mock-list-5': [
-      {
-        todoId: 'mock-group-5-todo-1',
-        title: '新機能のアイデアを投稿する',
-        isCompleted: false,
-      },
-      {
-        todoId: 'mock-group-5-todo-2',
-        title: 'ユーザーフィードバックをまとめる',
-        isCompleted: false,
-      },
-    ],
-  },
-};
-
-const DEFAULT_LIST_ID_BY_SCOPE: Record<'personal' | 'group', string> = {
-  personal: 'mock-default-list',
-  group: 'mock-list-1',
-};
-
 const ERROR_MESSAGES = {
   TODOS_FETCH_FAILED: 'ToDo 一覧取得 API の実行に失敗しました',
   TODO_CREATE_FAILED: 'ToDo 作成 API の実行に失敗しました',
@@ -132,7 +21,6 @@ type TodoListProps = {
   scope?: 'personal' | 'group';
   listId?: string;
   groupId?: string;
-  apiEnabled?: boolean;
 };
 
 function toDisplayTodo(todo: TodoItemType): Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'> {
@@ -168,20 +56,9 @@ function createTodosApiPath(
   return `/api/lists/${encodedListId}/todos/${encodeURIComponent(todoId)}`;
 }
 
-export function TodoList({
-  scope = 'personal',
-  listId,
-  groupId,
-  apiEnabled = false,
-}: TodoListProps) {
-  const todosByList = MOCK_TODOS_BY_SCOPE[scope];
-  const fallbackListId = DEFAULT_LIST_ID_BY_SCOPE[scope];
-  const isApiMode =
-    apiEnabled &&
-    Boolean(listId) &&
-    (scope === 'personal' || (scope === 'group' && Boolean(groupId)));
-  const [todos, setTodos] = useState(
-    () => todosByList[listId ?? fallbackListId] ?? todosByList[fallbackListId] ?? []
+export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps) {
+  const [todos, setTodos] = useState<Array<Pick<TodoItemType, 'todoId' | 'title' | 'isCompleted'>>>(
+    []
   );
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
@@ -203,47 +80,45 @@ export function TodoList({
   };
 
   useEffect(() => {
-    if (!isApiMode || !listId) {
+    if (!listId) {
+      return;
+    }
+    if (scope === 'group' && !groupId) {
       return;
     }
 
     fetchTodos(listId);
-  }, [groupId, isApiMode, listId, scope]);
+  }, [groupId, listId, scope]);
 
   const handleToggleComplete = (todoId: string) => {
-    if (isApiMode && listId) {
-      const targetTodo = todos.find((todo) => todo.todoId === todoId);
-      if (!targetTodo) {
-        return;
-      }
-
-      const nextCompleted = !targetTodo.isCompleted;
-      void globalThis
-        .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isCompleted: nextCompleted }),
-        })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`status: ${response.status}`);
-          }
-          const result = (await response.json()) as TodoResponse;
-          setTodos((prev) =>
-            prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
-          );
-        })
-        .catch((error: unknown) => {
-          console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
-        });
+    if (!listId || (scope === 'group' && !groupId)) {
       return;
     }
 
-    setTodos((prev) =>
-      prev.map((todo) =>
-        todo.todoId === todoId ? { ...todo, isCompleted: !todo.isCompleted } : todo
-      )
-    );
+    const targetTodo = todos.find((todo) => todo.todoId === todoId);
+    if (!targetTodo) {
+      return;
+    }
+
+    const nextCompleted = !targetTodo.isCompleted;
+    void globalThis
+      .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isCompleted: nextCompleted }),
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+        const result = (await response.json()) as TodoResponse;
+        setTodos((prev) =>
+          prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
+        );
+      })
+      .catch((error: unknown) => {
+        console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
+      });
   };
 
   const handleDeleteRequest = (todoId: string) => {
@@ -251,66 +126,59 @@ export function TodoList({
   };
 
   const handleUpdate = (todoId: string, title: string) => {
-    if (isApiMode && listId) {
-      void globalThis
-        .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title }),
-        })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`status: ${response.status}`);
-          }
-          const result = (await response.json()) as TodoResponse;
-          setTodos((prev) =>
-            prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
-          );
-          setSnackbarMessage('ToDoを更新しました。');
-        })
-        .catch((error: unknown) => {
-          console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
-        });
+    if (!listId || (scope === 'group' && !groupId)) {
       return;
     }
 
-    setTodos((prev) => prev.map((todo) => (todo.todoId === todoId ? { ...todo, title } : todo)));
-    setSnackbarMessage('ToDoを更新しました。');
+    void globalThis
+      .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+        const result = (await response.json()) as TodoResponse;
+        setTodos((prev) =>
+          prev.map((todo) => (todo.todoId === todoId ? toDisplayTodo(result.data) : todo))
+        );
+        setSnackbarMessage('ToDoを更新しました。');
+      })
+      .catch((error: unknown) => {
+        console.error(ERROR_MESSAGES.TODO_UPDATE_FAILED, { error, listId, todoId });
+      });
   };
 
   const handleDeleteConfirm = () => {
-    if (pendingDeleteId) {
-      if (isApiMode && listId) {
-        const deleteTargetId = pendingDeleteId;
-        void globalThis
-          .fetch(createTodosApiPath(scope, listId, groupId, deleteTargetId), {
-            method: 'DELETE',
-          })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`status: ${response.status}`);
-            }
-            setTodos((prev) => prev.filter((todo) => todo.todoId !== deleteTargetId));
-            fetchTodos(listId);
-            setSnackbarMessage('ToDoを削除しました。');
-          })
-          .catch((error: unknown) => {
-            console.error(ERROR_MESSAGES.TODO_DELETE_FAILED, {
-              error,
-              listId,
-              todoId: deleteTargetId,
-            });
-          })
-          .finally(() => {
-            setPendingDeleteId(null);
-          });
-        return;
-      }
-
-      setTodos((prev) => prev.filter((todo) => todo.todoId !== pendingDeleteId));
-      setSnackbarMessage('ToDoを削除しました。');
-      setPendingDeleteId(null);
+    if (!pendingDeleteId || !listId || (scope === 'group' && !groupId)) {
+      return;
     }
+
+    const deleteTargetId = pendingDeleteId;
+    void globalThis
+      .fetch(createTodosApiPath(scope, listId, groupId, deleteTargetId), {
+        method: 'DELETE',
+      })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+        setTodos((prev) => prev.filter((todo) => todo.todoId !== deleteTargetId));
+        fetchTodos(listId);
+        setSnackbarMessage('ToDoを削除しました。');
+      })
+      .catch((error: unknown) => {
+        console.error(ERROR_MESSAGES.TODO_DELETE_FAILED, {
+          error,
+          listId,
+          todoId: deleteTargetId,
+        });
+      })
+      .finally(() => {
+        setPendingDeleteId(null);
+      });
   };
 
   const handleDeleteCancel = () => {
@@ -318,34 +186,27 @@ export function TodoList({
   };
 
   const handleAdd = (title: string) => {
-    if (isApiMode && listId) {
-      void globalThis
-        .fetch(createTodosApiPath(scope, listId, groupId), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title }),
-        })
-        .then(async (response) => {
-          if (!response.ok) {
-            throw new Error(`status: ${response.status}`);
-          }
-          const result = (await response.json()) as TodoResponse;
-          setTodos((prev) => [...prev, toDisplayTodo(result.data)]);
-          setSnackbarMessage('ToDoを追加しました。');
-        })
-        .catch((error: unknown) => {
-          console.error(ERROR_MESSAGES.TODO_CREATE_FAILED, { error, listId });
-        });
+    if (!listId || (scope === 'group' && !groupId)) {
       return;
     }
 
-    const newTodo = {
-      todoId: crypto.randomUUID(),
-      title,
-      isCompleted: false,
-    };
-    setTodos((prev) => [...prev, newTodo]);
-    setSnackbarMessage('ToDoを追加しました。');
+    void globalThis
+      .fetch(createTodosApiPath(scope, listId, groupId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`status: ${response.status}`);
+        }
+        const result = (await response.json()) as TodoResponse;
+        setTodos((prev) => [...prev, toDisplayTodo(result.data)]);
+        setSnackbarMessage('ToDoを追加しました。');
+      })
+      .catch((error: unknown) => {
+        console.error(ERROR_MESSAGES.TODO_CREATE_FAILED, { error, listId });
+      });
   };
 
   return (

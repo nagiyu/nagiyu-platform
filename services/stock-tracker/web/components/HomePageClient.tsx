@@ -11,7 +11,11 @@ import {
   Paper,
   SelectChangeEvent,
   CircularProgress,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import PauseIcon from '@mui/icons-material/Pause';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import type { Timeframe, ChartBarCount } from '@/types/stock';
 import {
   TIMEFRAME_LABELS,
@@ -58,6 +62,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   const [ticker, setTicker] = useState<string>('');
   const [timeframe, setTimeframe] = useState<Timeframe>('60');
   const [barCount, setBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
@@ -145,6 +150,10 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
   const handleBarCountChange = (event: SelectChangeEvent) => {
     setBarCount(Number(event.target.value) as ChartBarCount);
+  };
+
+  const handleAutoRefreshToggle = () => {
+    setAutoRefresh((prev) => !prev);
   };
 
   return (
@@ -271,8 +280,25 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         role="region"
         aria-label="株価チャート"
       >
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Tooltip title={autoRefresh ? '自動更新を停止' : '自動更新を開始'}>
+            <IconButton
+              onClick={handleAutoRefreshToggle}
+              color={autoRefresh ? 'primary' : 'default'}
+              aria-label="自動更新"
+              aria-pressed={autoRefresh}
+            >
+              {autoRefresh ? <PauseIcon /> : <PlayArrowIcon />}
+            </IconButton>
+          </Tooltip>
+        </Box>
         {ticker ? (
-          <StockChart tickerId={ticker} timeframe={timeframe} count={barCount} />
+          <StockChart
+            tickerId={ticker}
+            timeframe={timeframe}
+            count={barCount}
+            autoRefresh={autoRefresh}
+          />
         ) : (
           <EmptyState
             title="チャート表示エリア"
