@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     // バッチジョブの存在確認
-    const batchJob = await getBatchJob(jobId, session.user.id);
+    const batchJob = await getBatchJob(jobId, session.user.userId);
 
     if (!batchJob) {
       return NextResponse.json(
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // バッチジョブに二段階認証コードを登録
-    await updateBatchJob(jobId, session.user.id, {
+    await updateBatchJob(jobId, session.user.userId, {
       status: 'WAITING_FOR_2FA', // ステータスは変更しない
       twoFactorAuthCode: code,
     });

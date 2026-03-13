@@ -12,15 +12,6 @@ jest.mock('openai', () => ({
   })),
 }));
 
-jest.mock('../../../src/lib/logger.js', () => ({
-  logger: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    debug: jest.fn(),
-  },
-}));
-
 const testInput = {
   tickerId: 'NSDQ:AAPL',
   name: 'Apple Inc.',

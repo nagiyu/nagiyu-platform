@@ -13,7 +13,7 @@ type AuthSession = {
 
 const getAuthSession = auth as () => Promise<AuthSession | null>;
 
-const getSession = createSessionGetter<AuthSession, Session>({
+const getSessionFromAuth = createSessionGetter<AuthSession, Session>({
   auth: getAuthSession,
   createTestSession: () => ({
     user: {
@@ -33,6 +33,8 @@ const getSession = createSessionGetter<AuthSession, Session>({
     expires: session.expires || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   }),
 });
+
+export const getSession = getSessionFromAuth;
 
 export function createUnauthorizedResponse(): NextResponse {
   return NextResponse.json(

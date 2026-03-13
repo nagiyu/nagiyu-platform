@@ -17,6 +17,9 @@ export * from './logger/index.js';
 // API module - Common API utilities and types
 export * from './api/index.js';
 
+// Retry module - Backend retry utilities
+export * from './retry/index.js';
+
 // Constants module - Common constants
 export { ERROR_CODES } from './constants/error-codes.js';
 export type { ErrorCode } from './constants/error-codes.js';

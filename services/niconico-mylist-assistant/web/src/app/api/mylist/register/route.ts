@@ -226,7 +226,7 @@ export async function POST(
     let selectedVideos: Awaited<ReturnType<typeof selectRandomVideos>>;
     try {
       selectedVideos = await selectRandomVideos({
-        userId: session.user.id,
+        userId: session.user.userId,
         maxCount: body.maxCount,
         favoriteOnly: body.favoriteOnly,
         skipExclude: body.excludeSkip,
@@ -270,7 +270,7 @@ export async function POST(
       AWS_REGION_FOR_SDK,
     } = getEnvVars();
 
-    const jobName = `niconico-mylist-${session.user.id}-${Date.now()}`;
+    const jobName = `niconico-mylist-${session.user.userId}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);
 
     // パスワードの暗号化
@@ -305,7 +305,7 @@ export async function POST(
         jobDefinition: BATCH_JOB_DEFINITION,
         containerOverrides: {
           environment: [
-            { name: 'USER_ID', value: session.user.id },
+            { name: 'USER_ID', value: session.user.userId },
             { name: 'VIDEO_IDS', value: JSON.stringify(videoIds) },
             { name: 'MYLIST_NAME', value: body.mylistName },
             { name: 'NICONICO_EMAIL', value: body.niconicoAccount.email },
@@ -338,7 +338,7 @@ export async function POST(
     try {
       await createBatchJob({
         jobId: submitResult.jobId,
-        userId: session.user.id,
+        userId: session.user.userId,
         status: 'SUBMITTED',
         pushSubscription: body.pushSubscription,
       });

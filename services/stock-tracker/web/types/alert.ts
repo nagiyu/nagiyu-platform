@@ -29,6 +29,8 @@ export interface AlertResponse {
   enabled: boolean;
   temporary?: boolean;
   temporaryExpireDate?: string;
+  notificationTitle?: string;
+  notificationBody?: string;
   createdAt: string;
   updatedAt: string;
 }

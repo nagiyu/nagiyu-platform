@@ -1,8 +1,9 @@
-name: Share Together Web - Fast Verification
+name: Share Together - Verification
 
 on:
   pull_request:
     branches:
+      - develop
       - integration/**
     paths:
       - 'services/share-together/**'
@@ -10,7 +11,7 @@ on:
       - 'libs/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/share-together-web-verify-fast.yml'
+      - '.github/workflows/share-together-verify.yml'
 
 permissions:
   contents: read
@@ -134,7 +135,7 @@ jobs:
       - name: Build web Docker image
         env:
           DOCKER_BUILDKIT: 0
-        run: docker build -t share-together-web-verify-fast-test -f services/share-together/web/Dockerfile .
+        run: docker build -t share-together-web-verify-test -f services/share-together/web/Dockerfile .
 
   test-core:
     name: Core Unit Tests
@@ -197,8 +198,37 @@ jobs:
       - name: Run web unit tests
         run: npm run test --workspace=@nagiyu/share-together-web
 
-  e2e-test-web:
-    name: E2E Tests (chromium-mobile only)
+  coverage:
+    name: Coverage Check (80% threshold)
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    if: github.base_ref == 'develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: npm run build --workspace @nagiyu/common
+
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/share-together-core
+
+      - name: Run coverage check
+        run: npm run test:coverage --workspace=@nagiyu/share-together-core
+
+  e2e-test-web-chromium-mobile:
+    name: E2E Tests (chromium-mobile)
     runs-on: ubuntu-latest
     needs: [build-web]
 
@@ -237,7 +267,7 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: ./services/share-together/web
 
-      - name: Run E2E tests (chromium-mobile only)
+      - name: Run E2E tests (chromium-mobile)
         env:
           CI: true
           SKIP_AUTH_CHECK: true
@@ -249,7 +279,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-fast
+          name: playwright-report-chromium-mobile
           path: services/share-together/web/playwright-report/
           retention-days: 30
 
@@ -257,7 +287,137 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-fast
+          name: test-results-chromium-mobile
+          path: services/share-together/web/test-results/
+          retention-days: 30
+
+  e2e-test-web-chromium-desktop:
+    name: E2E Tests (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/share-together-core
+
+      - name: Build web application
+        run: npm run build --workspace=@nagiyu/share-together-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/share-together/web
+
+      - name: Run E2E tests (chromium-desktop)
+        env:
+          CI: true
+          SKIP_AUTH_CHECK: true
+          AUTH_SECRET: test-secret-for-e2e
+          NEXTAUTH_SECRET: test-secret-for-e2e
+        run: npm run test:e2e --workspace=@nagiyu/share-together-web -- --project=chromium-desktop
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-chromium-desktop
+          path: services/share-together/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-chromium-desktop
+          path: services/share-together/web/test-results/
+          retention-days: 30
+
+  e2e-test-web-webkit-mobile:
+    name: E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [build-web]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/aws
+
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/share-together-core
+
+      - name: Build web application
+        run: npm run build --workspace=@nagiyu/share-together-web
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/share-together/web
+
+      - name: Run E2E tests (webkit-mobile)
+        env:
+          CI: true
+          SKIP_AUTH_CHECK: true
+          AUTH_SECRET: test-secret-for-e2e
+          NEXTAUTH_SECRET: test-secret-for-e2e
+        run: npm run test:e2e --workspace=@nagiyu/share-together-web -- --project=webkit-mobile
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-webkit-mobile
+          path: services/share-together/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-webkit-mobile
           path: services/share-together/web/test-results/
           retention-days: 30
 
@@ -302,7 +462,10 @@ jobs:
         docker-build,
         test-core,
         test-web,
-        e2e-test-web,
+        coverage,
+        e2e-test-web-chromium-mobile,
+        e2e-test-web-chromium-desktop,
+        e2e-test-web-webkit-mobile,
         synth-infra,
       ]
 
@@ -324,9 +487,14 @@ jobs:
               'Docker Build': '${{ needs.docker-build.result }}',
               'Core Unit Tests': '${{ needs.test-core.result }}',
               'Web Unit Tests': '${{ needs.test-web.result }}',
-              'E2E Tests (Fast)': '${{ needs.e2e-test-web.result }}',
+              'Coverage (80%)': '${{ needs.coverage.result }}',
+              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
+              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',
+              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-web-webkit-mobile.result }}',
               'Synthesize Infrastructure': '${{ needs.synth-infra.result }}'
             };
+
+            const isFullVerification = '${{ github.base_ref }}' === 'develop';
 
             const statusEmoji = {
               'success': '✅',
@@ -335,13 +503,21 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every((result) =>
+              isFullVerification ? result === 'success' : result === 'success' || result === 'skipped'
+            );
             const header = allSuccess
-              ? '## ✅ All Fast Checks Passed'
-              : '## ❌ Some Fast Checks Failed';
+              ? isFullVerification
+                ? '## ✅ All Full Checks Passed'
+                : '## ✅ All Fast Checks Passed'
+              : isFullVerification
+                ? '## ❌ Some Full Checks Failed'
+                : '## ❌ Some Fast Checks Failed';
 
             let body = `${header}\n\n`;
-            body += '**Share Together Web - Fast Verification**\n\n';
+            body += isFullVerification
+              ? '**Share Together - Full Verification**\n\n'
+              : '**Share Together - Fast Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

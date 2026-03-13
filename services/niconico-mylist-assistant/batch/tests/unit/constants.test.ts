@@ -93,9 +93,9 @@ describe('constants', () => {
       expect(Number.isInteger(DEFAULT_RETRY_CONFIG.maxRetries)).toBe(true);
     });
 
-    it('retryDelayが正の整数である', () => {
-      expect(DEFAULT_RETRY_CONFIG.retryDelay).toBeGreaterThan(0);
-      expect(Number.isInteger(DEFAULT_RETRY_CONFIG.retryDelay)).toBe(true);
+    it('initialDelayMsが正の整数である', () => {
+      expect(DEFAULT_RETRY_CONFIG.initialDelayMs).toBeGreaterThan(0);
+      expect(Number.isInteger(DEFAULT_RETRY_CONFIG.initialDelayMs)).toBe(true);
     });
 
     it('適切なリトライ回数が設定されている', () => {
@@ -105,7 +105,7 @@ describe('constants', () => {
 
     it('適切なリトライ間隔が設定されている', () => {
       // 2000ms（2秒）が推奨値
-      expect(DEFAULT_RETRY_CONFIG.retryDelay).toBe(2000);
+      expect(DEFAULT_RETRY_CONFIG.initialDelayMs).toBe(2000);
     });
   });
 
@@ -173,14 +173,14 @@ describe('constants', () => {
   describe('定数の一貫性', () => {
     it('動画登録待機時間がリトライ間隔と同じである', () => {
       // ニコニコ動画サーバーへの配慮として2秒待機が推奨
-      expect(VIDEO_REGISTRATION_WAIT).toBe(DEFAULT_RETRY_CONFIG.retryDelay);
+      expect(VIDEO_REGISTRATION_WAIT).toBe(DEFAULT_RETRY_CONFIG.initialDelayMs);
     });
 
     it('全ての時間関連定数がミリ秒単位である', () => {
       // ミリ秒単位であることを確認（秒単位の値は100以上になるはず）
       expect(VIDEO_REGISTRATION_WAIT).toBeGreaterThanOrEqual(1000);
       expect(TWO_FACTOR_AUTH_POLL_INTERVAL).toBeGreaterThanOrEqual(1000);
-      expect(DEFAULT_RETRY_CONFIG.retryDelay).toBeGreaterThanOrEqual(1000);
+      expect(DEFAULT_RETRY_CONFIG.initialDelayMs).toBeGreaterThanOrEqual(1000);
     });
   });
 });

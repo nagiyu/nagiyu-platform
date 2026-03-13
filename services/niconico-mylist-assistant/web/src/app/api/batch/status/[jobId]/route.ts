@@ -34,7 +34,7 @@ const withBatchJobRepository = withRepository(
   ) => {
     const { jobId } = await params;
     // バッチジョブを取得
-    const batchJob = await batchJobRepository.getById(jobId, session.user.id);
+    const batchJob = await batchJobRepository.getById(jobId, session.user.userId);
 
     if (!batchJob) {
       return NextResponse.json(
