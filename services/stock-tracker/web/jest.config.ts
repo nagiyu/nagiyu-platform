@@ -6,6 +6,7 @@ const config: Config = {
   roots: ['<rootDir>/lib', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
