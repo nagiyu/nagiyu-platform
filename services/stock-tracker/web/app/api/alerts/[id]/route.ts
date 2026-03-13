@@ -53,6 +53,8 @@ interface AlertResponse {
   enabled: boolean;
   temporary?: boolean;
   temporaryExpireDate?: string;
+  notificationTitle?: string;
+  notificationBody?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -66,6 +68,22 @@ interface ErrorResponse {
   error: string;
   message: string;
   details?: string[];
+}
+
+interface UpdateAlertRequest {
+  conditions?: Array<{
+    field?: AlertCondition['field'];
+    operator?: AlertCondition['operator'];
+    value?: number;
+    isPercentage?: boolean;
+    percentageValue?: number;
+    basePrice?: number;
+  }>;
+  enabled?: boolean;
+  temporary?: boolean;
+  logicalOperator?: AlertEntity['LogicalOperator'];
+  notificationTitle?: string;
+  notificationBody?: string;
 }
 
 /**
@@ -95,6 +113,12 @@ function mapAlertToResponse(
   if (alert.LogicalOperator) {
     response.logicalOperator = alert.LogicalOperator;
   }
+  if (alert.NotificationTitle) {
+    response.notificationTitle = alert.NotificationTitle;
+  }
+  if (alert.NotificationBody) {
+    response.notificationBody = alert.NotificationBody;
+  }
 
   return response;
 }
@@ -117,7 +141,7 @@ export const PUT = withAuth(
       const userId = session.user.userId;
 
       // リクエストボディの取得
-      let body;
+      let body: UpdateAlertRequest;
       try {
         body = await request.json();
       } catch {
@@ -151,11 +175,13 @@ export const PUT = withAuth(
       const updates: Partial<AlertEntity> = {};
 
       if (body.conditions !== undefined) {
+        const updateConditions = body.conditions;
+
         // 条件の部分更新をサポート
         // 既存条件とインデックス対応でマージ（単一・範囲指定の両方に対応）
         const updatedConditions: AlertCondition[] = existingAlert.ConditionList.map(
           (existingCondition, index) => {
-            const updateCondition = body.conditions[index];
+            const updateCondition = updateConditions[index];
             if (!updateCondition) return existingCondition;
 
             const mergedCondition: AlertCondition = {
@@ -207,6 +233,12 @@ export const PUT = withAuth(
       // LogicalOperator は 'AND' | 'OR' のみ許容（null は除外）
       if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
         updates.LogicalOperator = body.logicalOperator;
+      }
+      if (body.notificationTitle !== undefined) {
+        updates.NotificationTitle = body.notificationTitle.trim() || undefined;
+      }
+      if (body.notificationBody !== undefined) {
+        updates.NotificationBody = body.notificationBody.trim() || undefined;
       }
 
       // 更新フィールドが存在しない場合

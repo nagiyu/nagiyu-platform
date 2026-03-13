@@ -53,6 +53,8 @@ const editTarget: AlertResponse = {
   enabled: true,
   temporary: true,
   temporaryExpireDate: '2026-01-02',
+  notificationTitle: 'カスタム通知タイトル',
+  notificationBody: 'カスタム通知本文',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -133,6 +135,9 @@ describe('AlertSettingsModal mode', () => {
     expect(html).not.toContain('表示本数');
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
+    expect(html).toContain('通知設定（任意）');
+    expect(html).toContain('通知タイトル');
+    expect(html).toContain('通知本文');
   });
 
   it('mode=create のとき Web Push 説明を表示する', () => {
@@ -152,6 +157,9 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('Web Push通知の許可をリクエスト');
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
+    expect(html).toContain('通知設定（任意）');
+    expect(html).toContain('通知タイトル');
+    expect(html).toContain('通知本文');
   });
 
   it('mode=edit で isPercentage=true の条件を持つアラートのとき、パーセンテージ選択UIを表示する', () => {

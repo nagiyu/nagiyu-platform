@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -92,6 +92,8 @@ interface FormData {
   rangeInputMode?: 'manual' | 'percentage';
   minPercentage?: string; // -20 ～ +20
   maxPercentage?: string; // -20 ～ +20
+  notificationTitle: string;
+  notificationBody: string;
 }
 
 // アラート作成リクエストボディ型
@@ -111,6 +113,8 @@ interface CreateAlertRequest {
   subscription: PushSubscriptionJSON;
   logicalOperator?: 'AND' | 'OR';
   temporary?: boolean;
+  notificationTitle?: string;
+  notificationBody?: string;
 }
 
 // 初期フォームデータ
@@ -130,6 +134,8 @@ const getInitialFormData = (tradeMode: AlertMode): FormData => ({
   rangeInputMode: 'manual',
   minPercentage: '',
   maxPercentage: '',
+  notificationTitle: '',
+  notificationBody: '',
 });
 
 export default function AlertSettingsModal({
@@ -158,6 +164,51 @@ export default function AlertSettingsModal({
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
 
   const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
+  const defaultNotificationText = useMemo(() => {
+    const modeLabel = tradeMode === 'Buy' ? '買い' : '売り';
+    const title = `${modeLabel}アラート: ${tickerId}`;
+
+    if (formData.conditionMode === 'single') {
+      const targetPrice = Number(formData.targetPrice);
+      if (!Number.isNaN(targetPrice) && targetPrice > 0) {
+        const operatorText = formData.operator === 'gte' ? '以上' : '以下';
+        return {
+          title,
+          body: `現在価格 が目標価格 $${targetPrice.toFixed(2)} ${operatorText}になりました`,
+        };
+      }
+    } else {
+      const minPrice = Number(formData.minPrice);
+      const maxPrice = Number(formData.maxPrice);
+
+      if (!Number.isNaN(minPrice) && !Number.isNaN(maxPrice) && minPrice > 0 && maxPrice > 0) {
+        if (formData.rangeType === 'inside') {
+          return {
+            title,
+            body: `現在価格 が範囲 $${minPrice.toFixed(2)}〜$${maxPrice.toFixed(2)} 内になりました`,
+          };
+        }
+        return {
+          title,
+          body: `現在価格 が範囲外（$${minPrice.toFixed(2)} 以下 または $${maxPrice.toFixed(2)} 以上）になりました`,
+        };
+      }
+    }
+
+    return {
+      title,
+      body: '現在価格 がアラート条件に一致しました',
+    };
+  }, [
+    formData.conditionMode,
+    formData.maxPrice,
+    formData.minPrice,
+    formData.operator,
+    formData.rangeType,
+    formData.targetPrice,
+    tickerId,
+    tradeMode,
+  ]);
 
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
@@ -179,6 +230,8 @@ export default function AlertSettingsModal({
             frequency: editTarget.frequency,
             enabled: editTarget.enabled,
             temporary: editTarget.temporary === true,
+            notificationTitle: editTarget.notificationTitle || '',
+            notificationBody: editTarget.notificationBody || '',
             ...(isRangePercentage && {
               rangeInputMode: 'percentage',
               minPercentage: minCond?.percentageValue?.toString() || '',
@@ -196,6 +249,8 @@ export default function AlertSettingsModal({
             frequency: editTarget.frequency,
             enabled: editTarget.enabled,
             temporary: editTarget.temporary === true,
+            notificationTitle: editTarget.notificationTitle || '',
+            notificationBody: editTarget.notificationBody || '',
             ...(isSinglePercentage && {
               inputMode: 'percentage',
               percentage: singleCond?.percentageValue?.toString() || '',
@@ -636,9 +691,13 @@ export default function AlertSettingsModal({
           }>;
           enabled: boolean;
           temporary: boolean;
+          notificationTitle?: string;
+          notificationBody?: string;
         } = {
           enabled: formData.enabled,
           temporary: formData.temporary,
+          notificationTitle: formData.notificationTitle.trim(),
+          notificationBody: formData.notificationBody.trim(),
         };
 
         if (formData.conditionMode === 'single') {
@@ -833,6 +892,8 @@ export default function AlertSettingsModal({
           conditions,
           subscription: sub.toJSON(),
           temporary: formData.temporary,
+          notificationTitle: formData.notificationTitle.trim() || undefined,
+          notificationBody: formData.notificationBody.trim() || undefined,
         };
 
         // LogicalOperatorを追加（範囲指定の場合のみ）
@@ -1325,6 +1386,30 @@ export default function AlertSettingsModal({
               label="アラートを有効にする"
             />
           )}
+
+          <Typography variant="subtitle1" sx={{ mt: 1 }}>
+            通知設定（任意）
+          </Typography>
+          <TextField
+            fullWidth
+            label="通知タイトル"
+            value={formData.notificationTitle}
+            onChange={(e) => handleFormChange('notificationTitle', e.target.value)}
+            placeholder={defaultNotificationText.title}
+            helperText="未入力の場合は自動生成されたタイトルを使用します"
+            inputProps={{ maxLength: 120 }}
+          />
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label="通知本文"
+            value={formData.notificationBody}
+            onChange={(e) => handleFormChange('notificationBody', e.target.value)}
+            placeholder={defaultNotificationText.body}
+            helperText="未入力の場合は現在の条件から自動生成された本文を使用します"
+            inputProps={{ maxLength: 500 }}
+          />
 
           {/* Web Push通知の説明 */}
           {mode === 'create' && (
