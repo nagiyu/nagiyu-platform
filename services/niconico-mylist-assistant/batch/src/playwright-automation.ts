@@ -3,11 +3,27 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { ERROR_MESSAGES, NICONICO_URLS, TIMEOUTS, VIDEO_REGISTRATION_WAIT } from './constants.js';
+import { withRetry, sleep } from '@nagiyu/common';
+import type { RetryOptions } from '@nagiyu/common';
+import {
+  DEFAULT_RETRY_CONFIG,
+  ERROR_MESSAGES,
+  NICONICO_URLS,
+  TIMEOUTS,
+  VIDEO_REGISTRATION_WAIT,
+} from './constants.js';
 import { MylistRegistrationResult, LoginResult } from './types.js';
-import { retry, sleep } from './utils.js';
 import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
+
+const VIDEO_RETRY_OPTIONS: Pick<
+  RetryOptions,
+  'maxRetries' | 'initialDelayMs' | 'backoffMultiplier'
+> = {
+  maxRetries: DEFAULT_RETRY_CONFIG.maxRetries,
+  initialDelayMs: DEFAULT_RETRY_CONFIG.initialDelayMs,
+  backoffMultiplier: 1,
+};
 
 /**
  * ニコニコ動画にログインする
@@ -509,9 +525,9 @@ export async function registerVideosToMylist(
 
     try {
       // リトライ機能付きで動画を登録
-      await retry(async () => {
+      await withRetry(async () => {
         await registerVideoToMylist(page, videoId, mylistName);
-      });
+      }, VIDEO_RETRY_OPTIONS);
 
       successVideoIds.push(videoId);
 

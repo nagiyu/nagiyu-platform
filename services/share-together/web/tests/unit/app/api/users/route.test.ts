@@ -7,8 +7,49 @@ jest.mock('next/server', () => ({
   },
 }));
 
+jest.mock('@nagiyu/nextjs', () => ({
+  withAuth:
+    (
+      authFn: () => Promise<Session | null>,
+      _permission: null,
+      handler: (session: Session) => Promise<unknown>
+    ) =>
+    async () => {
+      const { NextResponse } = jest.requireMock('next/server') as {
+        NextResponse: {
+          json: (
+            body: unknown,
+            init?: { status?: number }
+          ) => {
+            status: number;
+            json: () => Promise<unknown>;
+          };
+        };
+      };
+      const session = await authFn();
+      if (!session || !session.user?.id) {
+        return NextResponse.json(
+          {
+            error: { code: 'UNAUTHORIZED', message: '認証が必要です' },
+          },
+          { status: 401 }
+        );
+      }
+
+      if (!Array.isArray((session.user as { roles?: unknown }).roles)) {
+        return NextResponse.json(
+          {
+            error: { code: 'INTERNAL_SERVER_ERROR', message: '認証処理に失敗しました' },
+          },
+          { status: 500 }
+        );
+      }
+      return handler(session);
+    },
+}));
+
 jest.mock('@/lib/auth/session', () => ({
-  getSessionOrUnauthorized: jest.fn(),
+  getSession: jest.fn(),
 }));
 
 jest.mock('@/lib/aws-clients', () => ({
@@ -21,13 +62,12 @@ jest.mock('@/lib/repositories', () => ({
 }));
 
 import { POST } from '@/app/api/users/route';
-import { getSessionOrUnauthorized } from '@/lib/auth/session';
+import type { Session } from 'next-auth';
+import { getSession } from '@/lib/auth/session';
 import { getDocClient } from '@/lib/aws-clients';
 import { createListRepository, createUserRepository } from '@/lib/repositories';
 
-const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
-  typeof getSessionOrUnauthorized
->;
+const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetDocClient = getDocClient as jest.MockedFunction<typeof getDocClient>;
 const mockCreateUserRepository = createUserRepository as jest.MockedFunction<
   typeof createUserRepository
@@ -35,8 +75,6 @@ const mockCreateUserRepository = createUserRepository as jest.MockedFunction<
 const mockCreateListRepository = createListRepository as jest.MockedFunction<
   typeof createListRepository
 >;
-type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
-
 describe('POST /api/users', () => {
   const mockSend = jest.fn();
   const mockGetById = jest.fn();
@@ -66,12 +104,7 @@ describe('POST /api/users', () => {
   });
 
   it('未認証の場合は401レスポンスを返す', async () => {
-    mockGetSessionOrUnauthorized.mockResolvedValue({
-      status: 401,
-      json: async () => ({
-        error: { code: 'UNAUTHORIZED', message: '認証が必要です' },
-      }),
-    } as SessionOrUnauthorized);
+    mockGetSession.mockResolvedValue(null);
 
     const response = await POST();
 
@@ -81,14 +114,14 @@ describe('POST /api/users', () => {
   });
 
   it('既存ユーザーの場合はプロフィールを更新して返す', async () => {
-    mockGetSessionOrUnauthorized.mockResolvedValue({
+    mockGetSession.mockResolvedValue({
       user: {
         id: 'user-1',
         email: 'updated@example.com',
         name: '更新ユーザー',
         image: 'https://example.com/new.png',
       },
-    } as SessionOrUnauthorized);
+    } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockResolvedValue({
       userId: 'user-1',
       email: 'before@example.com',
@@ -128,14 +161,14 @@ describe('POST /api/users', () => {
 
   it('新規ユーザーの場合はユーザーとデフォルトリストを作成する', async () => {
     randomUuidSpy = jest.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('list-99');
-    mockGetSessionOrUnauthorized.mockResolvedValue({
+    mockGetSession.mockResolvedValue({
       user: {
         id: 'user-new',
         email: 'new@example.com',
         name: '新規ユーザー',
         image: null,
       },
-    } as SessionOrUnauthorized);
+    } as Awaited<ReturnType<typeof getSession>>);
     mockGetById.mockResolvedValue(null);
     mockCreateUser.mockResolvedValue({
       userId: 'user-new',

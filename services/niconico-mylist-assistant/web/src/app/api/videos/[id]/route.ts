@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // 動画基本情報とユーザー設定を並行取得
     const [basicInfo, setting] = await Promise.all([
       getVideoBasicInfo(id),
-      getUserVideoSetting(session.user.id, id),
+      getUserVideoSetting(session.user.userId, id),
     ]);
 
     if (!basicInfo) {
@@ -68,13 +68,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // ユーザー設定の存在確認
-    const setting = await getUserVideoSetting(session.user.id, id);
+    const setting = await getUserVideoSetting(session.user.userId, id);
     if (!setting) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
     }
 
     // ユーザー設定を削除
-    await deleteUserVideoSetting(session.user.id, id);
+    await deleteUserVideoSetting(session.user.userId, id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

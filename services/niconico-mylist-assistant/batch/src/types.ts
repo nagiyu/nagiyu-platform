@@ -41,13 +41,3 @@ export interface LoginResult {
   /** 二段階認証が必要か */
   requires2FA: boolean;
 }
-
-/**
- * リトライ設定
- */
-export interface RetryConfig {
-  /** 最大リトライ回数 */
-  maxRetries: number;
-  /** リトライ間隔（ミリ秒） */
-  retryDelay: number;
-}

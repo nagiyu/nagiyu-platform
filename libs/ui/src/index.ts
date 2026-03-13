@@ -4,6 +4,8 @@ export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';
 export type { FooterProps } from './components/layout/Footer';
+export { default as AppLayout } from './components/layout/AppLayout';
+export type { AppLayoutProps } from './components/layout/AppLayout';
 export { default as PrivacyPolicyDialog } from './components/dialogs/PrivacyPolicyDialog';
 export type { PrivacyPolicyDialogProps } from './components/dialogs/PrivacyPolicyDialog';
 export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfServiceDialog';

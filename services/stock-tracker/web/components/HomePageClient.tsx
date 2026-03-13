@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Container,
   Box,
@@ -11,7 +12,11 @@ import {
   Paper,
   SelectChangeEvent,
   CircularProgress,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import PauseIcon from '@mui/icons-material/Pause';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import type { Timeframe, ChartBarCount } from '@/types/stock';
 import {
   TIMEFRAME_LABELS,
@@ -53,11 +58,21 @@ interface HomePageClientProps {
 }
 
 export default function HomePageClient({ children }: HomePageClientProps) {
+  const searchParams = useSearchParams();
+  const initialSelectionAppliedRef = useRef<{ exchange: boolean; ticker: boolean }>({
+    exchange: false,
+    ticker: false,
+  });
+
+  const queryExchangeId = searchParams.get('exchangeId') || '';
+  const queryTickerId = searchParams.get('tickerId') || '';
+
   // 選択状態の管理
   const [exchange, setExchange] = useState<string>('');
   const [ticker, setTicker] = useState<string>('');
   const [timeframe, setTimeframe] = useState<Timeframe>('60');
   const [barCount, setBarCount] = useState<ChartBarCount>(DEFAULT_CHART_BAR_COUNT);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
 
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
@@ -128,6 +143,38 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     fetchTickers();
   }, [exchange]);
 
+  // URL クエリの exchangeId を初期選択に反映
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current.exchange) {
+      return;
+    }
+    if (!queryExchangeId || exchanges.length === 0) {
+      return;
+    }
+
+    const exists = exchanges.some((ex) => ex.exchangeId === queryExchangeId);
+    if (exists) {
+      setExchange(queryExchangeId);
+    }
+    initialSelectionAppliedRef.current.exchange = true;
+  }, [exchanges, queryExchangeId]);
+
+  // URL クエリの tickerId を初期選択に反映
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current.ticker) {
+      return;
+    }
+    if (!queryTickerId || !exchange || tickers.length === 0) {
+      return;
+    }
+
+    const exists = tickers.some((t) => t.tickerId === queryTickerId);
+    if (exists) {
+      setTicker(queryTickerId);
+    }
+    initialSelectionAppliedRef.current.ticker = true;
+  }, [exchange, tickers, queryTickerId]);
+
   // イベントハンドラー
   const handleExchangeChange = (event: SelectChangeEvent) => {
     setExchange(event.target.value);
@@ -145,6 +192,10 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
   const handleBarCountChange = (event: SelectChangeEvent) => {
     setBarCount(Number(event.target.value) as ChartBarCount);
+  };
+
+  const handleAutoRefreshToggle = () => {
+    setAutoRefresh((prev) => !prev);
   };
 
   return (
@@ -271,8 +322,25 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         role="region"
         aria-label="株価チャート"
       >
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Tooltip title={autoRefresh ? '自動更新を停止' : '自動更新を開始'}>
+            <IconButton
+              onClick={handleAutoRefreshToggle}
+              color={autoRefresh ? 'primary' : 'default'}
+              aria-label="自動更新"
+              aria-pressed={autoRefresh}
+            >
+              {autoRefresh ? <PauseIcon /> : <PlayArrowIcon />}
+            </IconButton>
+          </Tooltip>
+        </Box>
         {ticker ? (
-          <StockChart tickerId={ticker} timeframe={timeframe} count={barCount} />
+          <StockChart
+            tickerId={ticker}
+            timeframe={timeframe}
+            count={barCount}
+            autoRefresh={autoRefresh}
+          />
         ) : (
           <EmptyState
             title="チャート表示エリア"

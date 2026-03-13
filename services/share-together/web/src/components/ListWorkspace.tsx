@@ -251,11 +251,10 @@ export function ListWorkspace({
             heading={scope === 'personal' ? '個人リスト' : '共有リスト'}
             createButtonLabel={scope === 'personal' ? '個人リストを作成' : '共有リストを作成'}
             selectedListId={currentListId}
-            lists={sidebarLists}
+            lists={scope === 'personal' ? undefined : sidebarLists}
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
             onListSelect={(listId) => setSelectedListId(listId)}
-            apiEnabled={scope === 'personal'}
           />
         </Stack>
       </Box>
@@ -266,7 +265,6 @@ export function ListWorkspace({
             scope={scope === 'personal' ? 'personal' : 'group'}
             listId={currentListId}
             groupId={scope === 'shared' ? selectedGroupId : undefined}
-            apiEnabled
           />
         ) : null}
       </Box>

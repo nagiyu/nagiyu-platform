@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 import { zodTextFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
+import { withRetry } from '@nagiyu/common';
 import type { AiAnalysisResult } from '@nagiyu/stock-tracker-core';
-import { withRetry } from './retry.js';
 
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
