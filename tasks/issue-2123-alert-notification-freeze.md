@@ -100,9 +100,10 @@ const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
 
 ## 実装方針
 
-フォーム全体を単一 state で管理していることが根本原因のため、以下の 2 方針を検討する。
+フォーム全体を単一 state で管理していることが根本原因のため、
+state をチャート関連フィールドと通知テキスト・設定フィールドに分離する。
 
-### 方針A（推奨）: state をチャート関連／通知テキストで分離する
+### state 分離による根本解決
 
 チャート描画に関係するフィールド（価格条件）と、関係しないフィールド（通知テキスト・有効化等）の
 state を分離することで、通知テキスト変更時にチャート関連の再レンダリングが発生しなくなる。
@@ -127,74 +128,15 @@ notificationTitle, notificationBody, frequency, enabled, temporary
 - `buildFormData()` ヘルパーを各 state の初期値計算用に分割または調整する
 - `chartAlertLines` の依存はチャート関連 state のみになり、`useMemo` なしでも自然に最適化される
 
-**メリット**:
-- 通知テキスト変更時にチャートが一切再描画されなくなる（根本解決）
-- React の慣用的なパターンに沿う
-- チャート関連 state のみに依存することで、依存関係が明示的になる
-
-**デメリット**:
-- 大規模なコンポーネント（約 1,500 行）のリファクタリングが必要
-- `validateForm()` 内で各 state を参照する形に修正が必要
-- 既存テストの修正が必要になる可能性がある
-
----
-
-### 方針B（軽量対応）: `useMemo` で chartAlertLines の再計算を抑制する
-
-方針A のリファクタリングコストが高い場合の代替として、`chartAlertLines` を `useMemo` でラップし、
-依存配列を価格条件フィールドのみに限定することで通知テキスト変更時の StockChart 再描画を防ぐ。
-
-**変更対象 1**: `services/stock-tracker/web/components/AlertSettingsModal.tsx`
-
-- `useState`, `useEffect` の import に `useMemo` を追加する
-- Line 297 の `chartAlertLines` 計算を `useMemo` でラップし、依存配列に
-  価格条件フィールド（`conditionMode`, `operator`, `targetPrice`, `rangeType`,
-  `minPrice`, `maxPrice`）のみを指定する
-
-**変更対象 2**: `services/stock-tracker/web/components/StockChart.tsx`
-
-- `useEffect`, `useRef` の import に `useMemo` を追加する
-- `getChartOption()` 関数呼び出しを `useMemo` でラップし、依存配列に
-  `chartData`, `holdingPrice`, `alertLines` を指定する
-
-**メリット**:
-- 変更規模が小さく、既存テストへの影響が少ない
-
-**デメリット**:
-- `useMemo` の依存配列を誤ると気づきにくいバグになる
-- 根本原因（単一 state の問題）は残るため、将来的に同様の問題が再発し得る
-
----
-
-### 推奨方針の決定
-
-**方針A を推奨する**。ただし、変更規模や既存テストへの影響を踏まえて実装担当者が最終判断すること。
-
-| 観点 | 方針A（state分離） | 方針B（useMemo） |
-|------|-------------------|-----------------|
-| 根本解決 | ✅ | ❌（対症療法） |
-| 変更規模 | 大 | 小 |
-| テスト影響 | 要修正の可能性あり | 低リスク |
-| 将来的な安全性 | 高 | 低 |
-
 ## タスク
 
-### 方針A（推奨）: state 分離
-
-- [ ] T001-A: `AlertSettingsModal.tsx` の state をチャート関連フィールドと通知・設定フィールドに分割する
-- [ ] T002-A: 共通ハンドラ `handleFormChange` を廃止し、各フィールドグループの setter に置き換える
-- [ ] T003-A: `handleSubmit` で各 state を集約してリクエストボディを構築する
-- [ ] T004-A: `validateForm()` を分割後の state を参照する形に修正する
-- [ ] T005-A: `buildFormData()` ヘルパーを各 state の初期化用に調整する
-- [ ] T006-A: 既存ユニットテストを修正・通過確認する
-- [ ] T007-A: E2E テストで通知テキスト入力時に画面が固まらないことを確認する
-
-### 方針B（代替）: useMemo 対応
-
-- [ ] T001-B: `AlertSettingsModal.tsx` の `chartAlertLines` 計算を `useMemo` でラップする
-- [ ] T002-B: `StockChart.tsx` の `getChartOption()` 呼び出しを `useMemo` でラップする
-- [ ] T003-B: 既存ユニットテストが通ることを確認する
-- [ ] T004-B: E2E テストで通知テキスト入力時に画面が固まらないことを確認する
+- [ ] T001: `AlertSettingsModal.tsx` の state をチャート関連フィールドと通知・設定フィールドに分割する
+- [ ] T002: 共通ハンドラ `handleFormChange` を廃止し、各フィールドグループの setter に置き換える
+- [ ] T003: `handleSubmit` で各 state を集約してリクエストボディを構築する
+- [ ] T004: `validateForm()` を分割後の state を参照する形に修正する
+- [ ] T005: `buildFormData()` ヘルパーを各 state の初期化用に調整する
+- [ ] T006: 既存ユニットテストを修正・通過確認する
+- [ ] T007: E2E テストで通知テキスト入力時に画面が固まらないことを確認する
 
 ## 参考ドキュメント
 
@@ -205,7 +147,6 @@ notificationTitle, notificationBody, frequency, enabled, temporary
 
 ## 備考・未決定事項
 
-- 方針A（state 分離）と方針B（useMemo）のどちらを採用するか最終判断は実装担当者に委ねる
 - `notMerge={true}` の見直し（`false` にすると差分更新になるが副作用要確認）については
   今回の修正スコープ外とする
 - E2E テストで再現確認できない場合は、ローカルブラウザでの手動確認を優先する
