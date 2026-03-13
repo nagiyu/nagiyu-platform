@@ -8,6 +8,7 @@ import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-sta
 import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
+import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 
 const app = new cdk.App();
 
@@ -78,6 +79,11 @@ const usersStack = new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   },
   env: stackEnv,
   description: 'Shared IAM Users for GitHub Actions and Local Development',
+});
+
+new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
+  env: stackEnv,
+  description: 'S3 bucket for Docker build lock semaphore',
 });
 
 app.synth();
