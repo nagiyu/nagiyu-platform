@@ -1,0 +1,9 @@
+name: Release Docker Build Lock
+description: Release S3 lock semaphore after docker build
+
+runs:
+  using: composite
+  steps:
+    - name: Release lock
+      shell: bash
+      run: ./.github/scripts/docker-build-lock.sh release

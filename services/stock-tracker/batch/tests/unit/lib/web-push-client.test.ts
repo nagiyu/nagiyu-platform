@@ -5,6 +5,7 @@
 import {
   sendNotification,
   createAlertNotificationPayload,
+  normalizeVapidKey,
 } from '../../../src/lib/web-push-client.js';
 import webpush from 'web-push';
 import type { Alert } from '@nagiyu/stock-tracker-core';
@@ -150,10 +151,12 @@ describe('web-push-client', () => {
         icon: '/icon-192x192.png',
         data: {
           alertId: 'alert-1',
+          exchangeId: 'NASDAQ',
           tickerId: 'NSDQ:AAPL',
           mode: 'Sell',
           currentPrice: 205.5,
           targetPrice: 200.0,
+          url: '/?exchangeId=NASDAQ&tickerId=NSDQ%3AAAPL',
         },
       });
     });
@@ -177,10 +180,12 @@ describe('web-push-client', () => {
         icon: '/icon-192x192.png',
         data: {
           alertId: 'alert-1',
+          exchangeId: 'NASDAQ',
           tickerId: 'NSDQ:AAPL',
           mode: 'Buy',
           currentPrice: 145.25,
           targetPrice: 150.0,
+          url: '/?exchangeId=NASDAQ&tickerId=NSDQ%3AAAPL',
         },
       });
     });
@@ -223,10 +228,12 @@ describe('web-push-client', () => {
         icon: '/icon-192x192.png',
         data: {
           alertId: 'alert-1',
+          exchangeId: 'NASDAQ',
           tickerId: 'NSDQ:AAPL',
           mode: 'Sell',
           currentPrice: 105.0,
           targetPrice: 100.0,
+          url: '/?exchangeId=NASDAQ&tickerId=NSDQ%3AAAPL',
         },
       });
     });
@@ -253,10 +260,12 @@ describe('web-push-client', () => {
         icon: '/icon-192x192.png',
         data: {
           alertId: 'alert-1',
+          exchangeId: 'NASDAQ',
           tickerId: 'NSDQ:AAPL',
           mode: 'Sell',
           currentPrice: 85.0,
           targetPrice: 120.0,
+          url: '/?exchangeId=NASDAQ&tickerId=NSDQ%3AAAPL',
         },
       });
     });
@@ -319,12 +328,80 @@ describe('web-push-client', () => {
         icon: '/icon-192x192.png',
         data: {
           alertId: 'alert-1',
+          exchangeId: 'NASDAQ',
           tickerId: 'NSDQ:AAPL',
           mode: 'Sell',
           currentPrice: 105.0,
           targetPrice: 100.0,
+          url: '/?exchangeId=NASDAQ&tickerId=NSDQ%3AAAPL',
         },
       });
+    });
+
+    it('通知タイトルと通知本文が指定されている場合はカスタム値を使用する', () => {
+      // Arrange
+      const customAlert: Alert = {
+        ...mockAlert,
+        NotificationTitle: 'カスタムタイトル',
+        NotificationBody: 'カスタム本文',
+      };
+      const currentPrice = 205.5;
+
+      // Act
+      const payload = createAlertNotificationPayload(customAlert, currentPrice);
+
+      // Assert
+      expect(payload.title).toBe('カスタムタイトル');
+      expect(payload.body).toBe('カスタム本文');
+    });
+
+    it('通知タイトルと通知本文が空文字の場合は自動生成値を使用する', () => {
+      // Arrange
+      const customAlert: Alert = {
+        ...mockAlert,
+        NotificationTitle: '',
+        NotificationBody: '',
+      };
+      const currentPrice = 205.5;
+
+      // Act
+      const payload = createAlertNotificationPayload(customAlert, currentPrice);
+
+      // Assert
+      expect(payload.title).toBe('売りアラート: NSDQ:AAPL');
+      expect(payload.body).toBe('現在価格 $205.50 が目標価格 $200.00 以上になりました');
+    });
+
+    it('通知タイトルのみ指定されている場合は本文のみ自動生成値を使用する', () => {
+      // Arrange
+      const customAlert: Alert = {
+        ...mockAlert,
+        NotificationTitle: 'タイトルのみカスタム',
+      };
+      const currentPrice = 205.5;
+
+      // Act
+      const payload = createAlertNotificationPayload(customAlert, currentPrice);
+
+      // Assert
+      expect(payload.title).toBe('タイトルのみカスタム');
+      expect(payload.body).toBe('現在価格 $205.50 が目標価格 $200.00 以上になりました');
+    });
+
+    it('通知本文のみ指定されている場合はタイトルのみ自動生成値を使用する', () => {
+      // Arrange
+      const customAlert: Alert = {
+        ...mockAlert,
+        NotificationBody: '本文のみカスタム',
+      };
+      const currentPrice = 205.5;
+
+      // Act
+      const payload = createAlertNotificationPayload(customAlert, currentPrice);
+
+      // Assert
+      expect(payload.title).toBe('売りアラート: NSDQ:AAPL');
+      expect(payload.body).toBe('本文のみカスタム');
     });
 
     it('無効な LogicalOperator の場合はエラーをスローする', () => {
@@ -376,6 +453,22 @@ describe('web-push-client', () => {
       expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
         'サポートされていない条件数です: 3'
       );
+    });
+  });
+
+  describe('normalizeVapidKey', () => {
+    it('前後の空白を除去する', () => {
+      expect(normalizeVapidKey('  test-key  ', 'publicKey')).toBe('test-key');
+    });
+
+    it('引用符で囲まれた値を正規化する', () => {
+      expect(normalizeVapidKey('"test-key"', 'publicKey')).toBe('test-key');
+    });
+
+    it('JSON文字列から指定キーを抽出する', () => {
+      const raw = '{"publicKey":"public-value","privateKey":"private-value"}';
+      expect(normalizeVapidKey(raw, 'publicKey')).toBe('public-value');
+      expect(normalizeVapidKey(raw, 'privateKey')).toBe('private-value');
     });
   });
 });

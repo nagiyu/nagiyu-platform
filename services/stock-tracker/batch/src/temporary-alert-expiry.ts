@@ -4,7 +4,7 @@
  * 一時通知アラートの期限切れを判定して無効化する
  */
 
-import { logger } from './lib/logger.js';
+import { logger } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import {

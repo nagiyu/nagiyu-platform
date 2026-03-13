@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
+import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import { theme } from '@nagiyu/ui';
 import MigrationDialog from '@/components/dialogs/MigrationDialog';
 

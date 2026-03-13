@@ -10,3 +10,6 @@ export { readFromClipboard, writeToClipboard } from './clipboard';
 
 // localStorage utilities
 export { getItem, setItem, removeItem } from './localStorage';
+
+// Web Push utilities
+export { urlBase64ToUint8Array } from './push';

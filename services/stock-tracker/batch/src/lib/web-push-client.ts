@@ -4,7 +4,7 @@
  */
 
 import webpush from 'web-push';
-import { logger } from './logger.js';
+import { logger } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -30,6 +30,42 @@ export type NotificationPayload = {
  *
  * @throws {Error} VAPID キーが未設定の場合
  */
+/**
+ * VAPID キー文字列を正規化する。
+ *
+ * 前後空白・引用符・JSON 文字列（publicKey/privateKey）を許容し、
+ * Web Push ライブラリへ渡せる生文字列へ変換する。
+ */
+export function normalizeVapidKey(rawKey: string, keyName: 'publicKey' | 'privateKey'): string {
+  const trimmedKey = rawKey.trim();
+  const unquotedKey =
+    (trimmedKey.startsWith('"') && trimmedKey.endsWith('"')) ||
+    (trimmedKey.startsWith("'") && trimmedKey.endsWith("'"))
+      ? trimmedKey.slice(1, -1).trim()
+      : trimmedKey;
+  const jsonCandidate = unquotedKey.replace(/\\"/g, '"');
+
+  if (jsonCandidate.startsWith('{') && jsonCandidate.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(jsonCandidate) as Record<string, unknown>;
+      const nestedKey = parsed[keyName];
+      if (typeof nestedKey === 'string') {
+        return nestedKey.trim();
+      }
+      logger.warn('VAPID キーJSONに必要なキーが見つかりませんでした', {
+        keyName,
+        expectedFormat: '{ "publicKey": "...", "privateKey": "..." }',
+      });
+    } catch (error) {
+      logger.warn('VAPID キーのJSON解析に失敗しました。プレーン文字列として処理します', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  return unquotedKey;
+}
+
 function configureVapidKeys(): void {
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -38,7 +74,10 @@ function configureVapidKeys(): void {
     throw new Error(ERROR_MESSAGES.VAPID_NOT_CONFIGURED);
   }
 
-  webpush.setVapidDetails('mailto:support@nagiyu.com', publicKey, privateKey);
+  const normalizedPublicKey = normalizeVapidKey(publicKey, 'publicKey');
+  const normalizedPrivateKey = normalizeVapidKey(privateKey, 'privateKey');
+
+  webpush.setVapidDetails('mailto:support@nagiyu.com', normalizedPublicKey, normalizedPrivateKey);
 }
 
 /**
@@ -122,6 +161,12 @@ export function createAlertNotificationPayload(
   currentPrice: number
 ): NotificationPayload {
   const mode = alert.Mode === 'Buy' ? '買い' : '売り';
+  const defaultTitle = `${mode}アラート: ${alert.TickerID}`;
+  const customTitle = alert.NotificationTitle?.trim();
+  const customBody = alert.NotificationBody?.trim();
+  const url = `/?exchangeId=${encodeURIComponent(alert.ExchangeID)}&tickerId=${encodeURIComponent(
+    alert.TickerID
+  )}`;
 
   let body: string;
   let targetPrice: number;
@@ -160,15 +205,17 @@ export function createAlertNotificationPayload(
   }
 
   return {
-    title: `${mode}アラート: ${alert.TickerID}`,
-    body,
+    title: customTitle || defaultTitle,
+    body: customBody || body,
     icon: '/icon-192x192.png',
     data: {
       alertId: alert.AlertID,
+      exchangeId: alert.ExchangeID,
       tickerId: alert.TickerID,
       mode: alert.Mode,
       currentPrice,
       targetPrice,
+      url,
     },
   };
 }
