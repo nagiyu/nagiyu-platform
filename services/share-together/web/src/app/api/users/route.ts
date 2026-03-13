@@ -1,7 +1,8 @@
 import type { User } from '@nagiyu/share-together-core';
+import { withAuth } from '@nagiyu/nextjs';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, UserResponse } from '@/types';
-import { getSessionOrUnauthorized } from '@/lib/auth/session';
+import { getSession } from '@/lib/auth/session';
 import { getDocClient } from '@/lib/aws-clients';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createUserRepository } from '@/lib/repositories';
@@ -30,20 +31,15 @@ function createInternalServerErrorResponse(): NextResponse {
   return NextResponse.json(response, { status: 500 });
 }
 
-export async function POST(): Promise<NextResponse> {
+export const POST = withAuth(getSession, null, async (session): Promise<NextResponse> => {
   let requestedUserId: string | undefined;
   let operation: 'create' | 'update' | 'unknown' = 'unknown';
 
   try {
-    const sessionOrUnauthorized = await getSessionOrUnauthorized();
-    if ('status' in sessionOrUnauthorized) {
-      return sessionOrUnauthorized;
-    }
-
-    const userId = sessionOrUnauthorized.user.id;
-    const email = sessionOrUnauthorized.user.email;
-    const name = sessionOrUnauthorized.user.name;
-    const image = sessionOrUnauthorized.user.image ?? undefined;
+    const userId = session.user.id;
+    const email = session.user.email;
+    const name = session.user.name;
+    const image = session.user.image ?? undefined;
 
     if (
       typeof userId !== 'string' ||
@@ -106,4 +102,4 @@ export async function POST(): Promise<NextResponse> {
     });
     return createInternalServerErrorResponse();
   }
-}
+});

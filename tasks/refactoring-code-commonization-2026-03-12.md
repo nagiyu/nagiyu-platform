@@ -289,21 +289,21 @@ JWT 検証専用サービス（Auth 以外）の `auth.ts` がほぼ同一パタ
 
 ### 優先度: 低
 
-- [ ] **T011**: `services/niconico-mylist-assistant/web/src/types/auth.ts` の独自 `Session` 型を `@nagiyu/common` の `Session` 型に統一する
+- [x] **T011**: `services/niconico-mylist-assistant/web/src/types/auth.ts` の独自 `Session` 型を `@nagiyu/common` の `Session` 型に統一する
   - 事前確認: `user.id`（niconico）vs `user.userId`（common）の差異を確認し、影響範囲を調査
   - 変更ファイル: `services/niconico-mylist-assistant/web/src/types/auth.ts`（削除）、参照箇所
 
-- [ ] **T012**: `libs/ui` に基本レイアウト用の汎用 `AppLayout` コンポーネントを追加し、`ThemeRegistry` の共通部分（`AppRouterCacheProvider + ThemeProvider + CssBaseline`）を統一する
+- [x] **T012**: `libs/ui` に基本レイアウト用の汎用 `AppLayout` コンポーネントを追加し、`ThemeRegistry` の共通部分（`AppRouterCacheProvider + ThemeProvider + CssBaseline`）を統一する
   - 対象サービス: admin, auth, codec-converter, niconico（stock-tracker は独自要件が大きいため別途検討）
   - 作業量: 中
 
-- [ ] **T013**: share-together の `getSessionOrUnauthorized()` パターンを `@nagiyu/nextjs` の `withAuth()` に段階的に移行する
+- [x] **T013**: share-together の `getSessionOrUnauthorized()` パターンを `@nagiyu/nextjs` の `withAuth()` に段階的に移行する
   - 影響範囲: `services/share-together/web/src/app/api/` 配下の全 route.ts（10 ファイル以上）
   - 作業量: 大（各 route の書き換えが必要）
 
-- [ ] **T014**: `libs/common` の `RetryOptions` 型を整備し、各バッチの独自 `RetryConfig`/`RetryOptions` 型を廃止する（T002〜T004 完了後）
+- [x] **T014**: `libs/common` の `RetryOptions` 型を整備し、各バッチの独自 `RetryConfig`/`RetryOptions` 型を廃止する（T002〜T004 完了後）
 
-- [ ] **T015**: `services/share-together/web/src/components/ThemeRegistry.tsx` の独自テーマ（`createTheme({ palette: { primary: '#1565c0' } })`）を `@nagiyu/ui` の共通 theme に統一する（T012 完了後）
+- [x] **T015**: `services/share-together/web/src/components/ThemeRegistry.tsx` の独自テーマ（`createTheme({ palette: { primary: '#1565c0' } })`）を `@nagiyu/ui` の共通 theme に統一する（T012 完了後）
   - 変更ファイル: `services/share-together/web/src/components/ThemeRegistry.tsx`
   - 作業量: 小
 
