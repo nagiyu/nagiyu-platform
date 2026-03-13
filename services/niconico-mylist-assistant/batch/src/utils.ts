@@ -2,53 +2,6 @@
  * ユーティリティ関数
  */
 
-import { RetryConfig } from './types.js';
-import { DEFAULT_RETRY_CONFIG } from './constants.js';
-
-/**
- * 指定されたミリ秒間待機する
- *
- * @param ms 待機時間（ミリ秒）。負の値は0として扱う
- */
-export async function sleep(ms: number): Promise<void> {
-  const delay = Math.max(0, ms);
-  return new Promise((resolve) => setTimeout(resolve, delay));
-}
-
-/**
- * リトライ機能を持つ関数実行ラッパー
- *
- * @param fn 実行する関数
- * @param config リトライ設定
- * @returns 関数の実行結果
- */
-export async function retry<T>(
-  fn: () => Promise<T>,
-  config: Partial<RetryConfig> = {}
-): Promise<T> {
-  const { maxRetries, retryDelay } = {
-    ...DEFAULT_RETRY_CONFIG,
-    ...config,
-  };
-
-  let lastError: Error | undefined;
-
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn();
-    } catch (error) {
-      lastError = error instanceof Error ? error : new Error(String(error));
-
-      if (attempt < maxRetries) {
-        console.log(`リトライ ${attempt + 1}/${maxRetries}: ${lastError.message}`);
-        await sleep(retryDelay);
-      }
-    }
-  }
-
-  throw lastError;
-}
-
 /**
  * 現在時刻を ISO 8601 形式で取得
  */

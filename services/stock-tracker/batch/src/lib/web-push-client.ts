@@ -4,7 +4,7 @@
  */
 
 import webpush from 'web-push';
-import { logger } from './logger.js';
+import { logger } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**

@@ -2,128 +2,9 @@
  * utils.ts のユニットテスト
  */
 
-import { sleep, retry, getTimestamp, generateDefaultMylistName } from '../../src/utils';
+import { getTimestamp, generateDefaultMylistName } from '../../src/utils';
 
 describe('utils', () => {
-  describe('sleep', () => {
-    it('指定されたミリ秒間待機する', async () => {
-      const startTime = Date.now();
-      const delay = 100;
-
-      await sleep(delay);
-
-      const elapsedTime = Date.now() - startTime;
-      // 100ms前後の誤差を許容（システム負荷による）
-      expect(elapsedTime).toBeGreaterThanOrEqual(delay - 10);
-      expect(elapsedTime).toBeLessThan(delay + 50);
-    });
-
-    it('負の値を指定した場合は0として扱う', async () => {
-      const startTime = Date.now();
-
-      await sleep(-100);
-
-      const elapsedTime = Date.now() - startTime;
-      // ほぼ即座に完了する
-      expect(elapsedTime).toBeLessThan(50);
-    });
-
-    it('0を指定した場合は即座に完了する', async () => {
-      const startTime = Date.now();
-
-      await sleep(0);
-
-      const elapsedTime = Date.now() - startTime;
-      // ほぼ即座に完了する
-      expect(elapsedTime).toBeLessThan(50);
-    });
-  });
-
-  describe('retry', () => {
-    it('成功した場合は結果を返す', async () => {
-      const successFn = jest.fn().mockResolvedValue('success');
-
-      const result = await retry(successFn);
-
-      expect(result).toBe('success');
-      expect(successFn).toHaveBeenCalledTimes(1);
-    });
-
-    it('失敗した場合はリトライする', async () => {
-      const failTwiceThenSucceed = jest
-        .fn()
-        .mockRejectedValueOnce(new Error('fail 1'))
-        .mockRejectedValueOnce(new Error('fail 2'))
-        .mockResolvedValue('success');
-
-      const result = await retry(failTwiceThenSucceed, {
-        maxRetries: 3,
-        retryDelay: 10, // テストを高速化
-      });
-
-      expect(result).toBe('success');
-      expect(failTwiceThenSucceed).toHaveBeenCalledTimes(3);
-    });
-
-    it('最大リトライ回数を超えた場合はエラーをスローする', async () => {
-      const alwaysFail = jest.fn().mockRejectedValue(new Error('always fail'));
-
-      await expect(
-        retry(alwaysFail, {
-          maxRetries: 2,
-          retryDelay: 10,
-        })
-      ).rejects.toThrow('always fail');
-
-      // 初回 + リトライ2回 = 合計3回実行
-      expect(alwaysFail).toHaveBeenCalledTimes(3);
-    });
-
-    it('リトライ間に指定された時間待機する', async () => {
-      const failOnceThenSucceed = jest
-        .fn()
-        .mockRejectedValueOnce(new Error('fail'))
-        .mockResolvedValue('success');
-
-      const startTime = Date.now();
-      const retryDelay = 100;
-
-      await retry(failOnceThenSucceed, {
-        maxRetries: 1,
-        retryDelay,
-      });
-
-      const elapsedTime = Date.now() - startTime;
-      // リトライ間隔の待機時間を含む
-      expect(elapsedTime).toBeGreaterThanOrEqual(retryDelay - 10);
-    });
-
-    it('デフォルトのリトライ設定を使用する', async () => {
-      const failTwiceThenSucceed = jest
-        .fn()
-        .mockRejectedValueOnce(new Error('fail 1'))
-        .mockRejectedValueOnce(new Error('fail 2'))
-        .mockResolvedValue('success');
-
-      const result = await retry(failTwiceThenSucceed);
-
-      expect(result).toBe('success');
-      // デフォルトの maxRetries は 3
-      expect(failTwiceThenSucceed).toHaveBeenCalledTimes(3);
-    });
-
-    it('Error以外の例外もハンドリングする', async () => {
-      const throwString = jest.fn().mockRejectedValue('string error');
-
-      await expect(
-        retry(throwString, {
-          maxRetries: 1,
-          retryDelay: 10,
-        })
-      ).rejects.toThrow('string error');
-    });
-  });
-
   describe('getTimestamp', () => {
     it('ISO 8601形式のタイムスタンプを返す', () => {
       const timestamp = getTimestamp();
@@ -134,7 +15,7 @@ describe('utils', () => {
 
     it('呼び出すたびに異なる値を返す', async () => {
       const timestamp1 = getTimestamp();
-      await sleep(10); // 少し待機
+      await new Promise((resolve) => setTimeout(resolve, 10));
       const timestamp2 = getTimestamp();
 
       expect(timestamp1).not.toBe(timestamp2);

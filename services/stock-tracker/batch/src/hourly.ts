@@ -4,10 +4,9 @@
  * HOURLY_LEVEL のアラート条件をチェックして通知を送信する
  */
 
-import { logger } from './lib/logger.js';
+import { logger, withRetry } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import { sendNotification, createAlertNotificationPayload } from './lib/web-push-client.js';
-import { withRetry } from './lib/retry.js';
 import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
