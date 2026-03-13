@@ -92,6 +92,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
       await expect(page.getByLabel('目標価格')).toBeVisible();
       await expect(page.getByLabel('通知頻度')).toBeVisible();
+      await expect(page.getByText('通知設定（任意）')).toBeVisible();
+      await expect(page.getByLabel('通知タイトル')).toBeVisible();
+      await expect(page.getByLabel('通知本文')).toBeVisible();
 
       // 取引所とティッカーは変更不可（disabled）
       await expect(page.getByLabel('取引所')).toBeDisabled();

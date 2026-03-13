@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Container,
   Box,
@@ -57,6 +58,15 @@ interface HomePageClientProps {
 }
 
 export default function HomePageClient({ children }: HomePageClientProps) {
+  const searchParams = useSearchParams();
+  const initialSelectionAppliedRef = useRef<{ exchange: boolean; ticker: boolean }>({
+    exchange: false,
+    ticker: false,
+  });
+
+  const queryExchangeId = searchParams.get('exchangeId') || '';
+  const queryTickerId = searchParams.get('tickerId') || '';
+
   // 選択状態の管理
   const [exchange, setExchange] = useState<string>('');
   const [ticker, setTicker] = useState<string>('');
@@ -132,6 +142,38 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
     fetchTickers();
   }, [exchange]);
+
+  // URL クエリの exchangeId を初期選択に反映
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current.exchange) {
+      return;
+    }
+    if (!queryExchangeId || exchanges.length === 0) {
+      return;
+    }
+
+    const exists = exchanges.some((ex) => ex.exchangeId === queryExchangeId);
+    if (exists) {
+      setExchange(queryExchangeId);
+    }
+    initialSelectionAppliedRef.current.exchange = true;
+  }, [exchanges, queryExchangeId]);
+
+  // URL クエリの tickerId を初期選択に反映
+  useEffect(() => {
+    if (initialSelectionAppliedRef.current.ticker) {
+      return;
+    }
+    if (!queryTickerId || !exchange || tickers.length === 0) {
+      return;
+    }
+
+    const exists = tickers.some((t) => t.tickerId === queryTickerId);
+    if (exists) {
+      setTicker(queryTickerId);
+    }
+    initialSelectionAppliedRef.current.ticker = true;
+  }, [exchange, tickers, queryTickerId]);
 
   // イベントハンドラー
   const handleExchangeChange = (event: SelectChangeEvent) => {
