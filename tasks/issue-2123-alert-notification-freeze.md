@@ -101,42 +101,59 @@ const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
 ## 実装方針
 
 フォーム全体を単一 state で管理していることが根本原因のため、
-state をチャート関連フィールドと通知テキスト・設定フィールドに分離する。
+全フィールドをそれぞれ独立した `useState` に分割する。
 
-### state 分離による根本解決
+### 全フィールド個別 state への分割
 
-チャート描画に関係するフィールド（価格条件）と、関係しないフィールド（通知テキスト・有効化等）の
-state を分離することで、通知テキスト変更時にチャート関連の再レンダリングが発生しなくなる。
+各フィールドをそれぞれ個別の `useState` で管理し、保存・送信アクション時に各 state を集約する
+React の慣用的なパターンに沿った実装。
+
+**React 18+ のバッチ処理について**:
+
+React 18 以降、イベントハンドラ内での複数 `setState` 呼び出しは自動的にバッチ処理されるため、
+フィールドを完全に個別分割してもパフォーマンス上の問題は生じない。
 
 **概念的なイメージ**:
 
-```
-// チャート描画に関係する state（変更時に chartAlertLines を再計算）
-conditionMode, operator, targetPrice, rangeType, minPrice, maxPrice,
-inputMode, percentage, rangeInputMode, minPercentage, maxPercentage
+```tsx
+// 価格条件フィールド（変更時に chartAlertLines を再計算）
+const [conditionMode, setConditionMode] = useState(...);
+const [operator, setOperator] = useState(...);
+const [targetPrice, setTargetPrice] = useState(...);
+// ...
 
-// チャート描画に関係しない state（変更してもチャートに影響しない）
-notificationTitle, notificationBody, frequency, enabled, temporary
+// 通知・設定フィールド（変更してもチャートに影響しない）
+const [notificationTitle, setNotificationTitle] = useState(...);
+const [notificationBody, setNotificationBody] = useState(...);
+const [frequency, setFrequency] = useState(...);
+const [enabled, setEnabled] = useState(...);
+const [temporary, setTemporary] = useState(...);
+
+// chartAlertLines は useMemo で価格条件フィールドのみに依存
+const chartAlertLines = useMemo(
+  () => computeAlertLines(getChartAlertConditions({ conditionMode, operator, targetPrice, ... })),
+  [conditionMode, operator, targetPrice, ...]
+);
 ```
 
 **変更対象**: `services/stock-tracker/web/components/AlertSettingsModal.tsx`
 
-- `formData` state を複数の state に分割する（例: `chartFields`, `notificationTitle`,
-  `notificationBody`, `frequency`, `enabled`, `temporary`）
-- `handleFormChange` の共通ハンドラを廃止し、各フィールド（グループ）ごとの setter を使う
+- `formData` state を全フィールド個別の `useState` に分割する
+- `handleFormChange` の共通ハンドラを廃止し、各フィールドの setter を直接使う
 - `handleSubmit` 時に各 state を集約してリクエストボディを組み立てる
-- `buildFormData()` ヘルパーを各 state の初期値計算用に分割または調整する
-- `chartAlertLines` の依存はチャート関連 state のみになり、`useMemo` なしでも自然に最適化される
+- `buildFormData()` ヘルパーを各 state の初期値計算用に調整する
+- `chartAlertLines` を `useMemo` でラップし、価格条件フィールドのみを依存配列に指定する
 
 ## タスク
 
-- [ ] T001: `AlertSettingsModal.tsx` の state をチャート関連フィールドと通知・設定フィールドに分割する
-- [ ] T002: 共通ハンドラ `handleFormChange` を廃止し、各フィールドグループの setter に置き換える
-- [ ] T003: `handleSubmit` で各 state を集約してリクエストボディを構築する
-- [ ] T004: `validateForm()` を分割後の state を参照する形に修正する
-- [ ] T005: `buildFormData()` ヘルパーを各 state の初期化用に調整する
-- [ ] T006: 既存ユニットテストを修正・通過確認する
-- [ ] T007: E2E テストで通知テキスト入力時に画面が固まらないことを確認する
+- [ ] T001: `AlertSettingsModal.tsx` の `formData` state を全フィールド個別の `useState` に分割する
+- [ ] T002: 共通ハンドラ `handleFormChange` を廃止し、各フィールドの setter に置き換える
+- [ ] T003: `chartAlertLines` を `useMemo` でラップし、価格条件フィールドのみを依存配列に指定する
+- [ ] T004: `handleSubmit` で各 state を集約してリクエストボディを構築する
+- [ ] T005: `validateForm()` を分割後の state を参照する形に修正する
+- [ ] T006: `buildFormData()` ヘルパーを各 state の初期化用に調整する
+- [ ] T007: 既存ユニットテストを修正・通過確認する
+- [ ] T008: E2E テストで通知テキスト入力時に画面が固まらないことを確認する
 
 ## 参考ドキュメント
 
