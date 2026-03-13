@@ -4,7 +4,7 @@
  * データクリーンアップを実行する
  */
 
-import { logger } from './lib/logger.js';
+import { logger } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';

@@ -48,6 +48,6 @@ export interface LoginResult {
 export interface RetryConfig {
   /** 最大リトライ回数 */
   maxRetries: number;
-  /** リトライ間隔（ミリ秒） */
-  retryDelay: number;
+  /** 初期待機時間（ミリ秒） */
+  initialDelayMs: number;
 }
