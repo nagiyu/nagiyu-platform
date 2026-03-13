@@ -12,8 +12,9 @@ import {
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';
+import { sleep } from '@nagiyu/common';
 import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
-import { getTimestamp, generateDefaultMylistName, sleep } from './utils.js';
+import { getTimestamp, generateDefaultMylistName } from './utils.js';
 import { MylistRegistrationJobParams } from './types.js';
 
 /**

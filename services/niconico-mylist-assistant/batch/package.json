@@ -18,6 +18,7 @@
   "dependencies": {
     "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
+    "@nagiyu/common": "*",
     "@nagiyu/niconico-mylist-assistant-core": "*",
     "dotenv": "^17.2.3",
     "playwright": "1.58.0",

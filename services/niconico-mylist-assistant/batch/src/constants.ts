@@ -45,7 +45,7 @@ export const NICONICO_URLS = {
  */
 export const DEFAULT_RETRY_CONFIG = {
   maxRetries: 3,
-  retryDelay: 2000, // 2秒
+  initialDelayMs: 2000, // 2秒
 } as const;
 
 /**

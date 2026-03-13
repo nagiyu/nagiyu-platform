@@ -5,6 +5,7 @@
 import {
   sendNotification,
   createAlertNotificationPayload,
+  normalizeVapidKey,
 } from '../../../src/lib/web-push-client.js';
 import webpush from 'web-push';
 import type { Alert } from '@nagiyu/stock-tracker-core';
@@ -376,6 +377,22 @@ describe('web-push-client', () => {
       expect(() => createAlertNotificationPayload(invalidAlert, currentPrice)).toThrow(
         'サポートされていない条件数です: 3'
       );
+    });
+  });
+
+  describe('normalizeVapidKey', () => {
+    it('前後の空白を除去する', () => {
+      expect(normalizeVapidKey('  test-key  ', 'publicKey')).toBe('test-key');
+    });
+
+    it('引用符で囲まれた値を正規化する', () => {
+      expect(normalizeVapidKey('"test-key"', 'publicKey')).toBe('test-key');
+    });
+
+    it('JSON文字列から指定キーを抽出する', () => {
+      const raw = '{"publicKey":"public-value","privateKey":"private-value"}';
+      expect(normalizeVapidKey(raw, 'publicKey')).toBe('public-value');
+      expect(normalizeVapidKey(raw, 'privateKey')).toBe('private-value');
     });
   });
 });

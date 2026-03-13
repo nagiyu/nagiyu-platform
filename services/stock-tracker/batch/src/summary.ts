@@ -3,7 +3,7 @@
  * EventBridge Scheduler から rate(1 hour) で実行される
  */
 
-import { logger } from './lib/logger.js';
+import { logger } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
 import {
   DynamoDBDailySummaryRepository,

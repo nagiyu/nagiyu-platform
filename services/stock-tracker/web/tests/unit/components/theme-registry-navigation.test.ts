@@ -41,7 +41,7 @@ jest.mock('@mui/material', () => {
   };
 });
 
-jest.mock('@mui/material-nextjs/v15-appRouter', () => {
+jest.mock('@mui/material-nextjs/v16-appRouter', () => {
   return {
     AppRouterCacheProvider: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),

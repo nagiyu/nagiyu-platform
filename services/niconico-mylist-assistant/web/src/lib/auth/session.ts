@@ -1,6 +1,6 @@
 import { auth } from '../../auth';
 import { createSessionGetter } from '@nagiyu/nextjs/session';
-import type { Session } from '../../types/auth';
+import type { Session } from '@nagiyu/common';
 import type { Session as NextAuthSession } from 'next-auth';
 
 /**
@@ -14,24 +14,47 @@ import type { Session as NextAuthSession } from 'next-auth';
  */
 const getSessionFromAuth = createSessionGetter({
   auth,
-  createTestSession: () => ({
-    user: {
-      id: process.env.TEST_USER_ID || 'test-user-id',
-      email: process.env.TEST_USER_EMAIL || 'test@example.com',
-      name: process.env.TEST_USER_NAME || 'Test User',
-      image: undefined,
-      roles: process.env.TEST_USER_ROLES?.split(',') || [],
-    },
-  }),
-  mapSession: (session: NextAuthSession): Session => ({
-    user: {
-      id: session.user.id || '',
-      email: session.user.email || '',
-      name: session.user.name || '',
-      image: session.user.image,
-      roles: session.user.roles || [],
-    },
-  }),
+  createTestSession: () => {
+    const testUserId = process.env.TEST_USER_ID || 'test-user-id';
+    return {
+      user: {
+        userId: testUserId,
+        googleId: process.env.TEST_USER_GOOGLE_ID || testUserId,
+        email: process.env.TEST_USER_EMAIL || 'test@example.com',
+        name: process.env.TEST_USER_NAME || 'Test User',
+        roles: process.env.TEST_USER_ROLES?.split(',') || [],
+        createdAt: new Date(0).toISOString(),
+        updatedAt: new Date(0).toISOString(),
+      },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+  },
+  mapSession: (session: NextAuthSession): Session => {
+    const sessionUser = session.user as NextAuthSession['user'] & {
+      id?: string;
+      userId?: string;
+      googleId?: string;
+      roles?: string[];
+      createdAt?: string;
+      updatedAt?: string;
+      lastLoginAt?: string;
+    };
+
+    return {
+      user: {
+        // createAuthConfig() が設定する NextAuth 標準属性 `session.user.id` を `userId` へ正規化する
+        userId: sessionUser.userId || sessionUser.id || '',
+        googleId: sessionUser.googleId || '',
+        email: sessionUser.email || '',
+        name: sessionUser.name || '',
+        roles: sessionUser.roles || [],
+        createdAt: sessionUser.createdAt || new Date(0).toISOString(),
+        updatedAt: sessionUser.updatedAt || new Date(0).toISOString(),
+        lastLoginAt: sessionUser.lastLoginAt,
+      },
+      expires: session.expires,
+    };
+  },
 });
 
 export async function getSession(): Promise<Session | null> {

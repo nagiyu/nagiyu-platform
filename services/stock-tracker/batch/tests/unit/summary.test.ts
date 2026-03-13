@@ -13,7 +13,7 @@ import {
 import { handler } from '../../src/summary.js';
 import type { ScheduledEvent } from '../../src/summary.js';
 import { getChartData } from '@nagiyu/stock-tracker-core';
-import { logger } from '../../src/lib/logger.js';
+import { logger } from '@nagiyu/common';
 
 describe('summary batch handler', () => {
   let exchangeRepository: InMemoryExchangeRepository;
