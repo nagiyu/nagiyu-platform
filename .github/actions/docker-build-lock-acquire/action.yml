@@ -1,0 +1,9 @@
+name: Acquire Docker Build Lock
+description: Acquire S3 lock semaphore before docker build
+
+runs:
+  using: composite
+  steps:
+    - name: Acquire lock
+      shell: bash
+      run: ./.github/scripts/docker-build-lock.sh acquire

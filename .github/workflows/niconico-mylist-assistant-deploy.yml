@@ -156,6 +156,9 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Acquire Docker build lock
+        uses: ./.github/actions/docker-build-lock-acquire
+
       - name: Build, tag, and push Web Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -176,6 +179,10 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           
           echo "Web image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Release Docker build lock
+        if: always()
+        uses: ./.github/actions/docker-build-lock-release
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -203,6 +210,9 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Acquire Docker build lock
+        uses: ./.github/actions/docker-build-lock-acquire
+
       - name: Build, tag, and push Batch worker Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -221,6 +231,10 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           
           echo "Batch image pushed: $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+      - name: Release Docker build lock
+        if: always()
+        uses: ./.github/actions/docker-build-lock-release
 
   deploy:
     name: Deploy Full Stack
