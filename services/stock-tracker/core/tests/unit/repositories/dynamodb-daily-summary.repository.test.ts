@@ -158,6 +158,121 @@ describe('DynamoDBDailySummaryRepository', () => {
       expect(result[0].Date).toBe('2026-02-27');
     });
 
+    it('date指定時に複数ページを取得して全件返す', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              PK: 'SUMMARY#NSDQ:AAPL',
+              SK: 'DATE#2026-02-27',
+              Type: 'DailySummary',
+              GSI4PK: 'NASDAQ',
+              GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
+              TickerID: 'NSDQ:AAPL',
+              ExchangeID: 'NASDAQ',
+              Date: '2026-02-27',
+              Open: 182.15,
+              High: 183.92,
+              Low: 181.44,
+              Close: 183.31,
+              CreatedAt: 1708992000000,
+              UpdatedAt: 1708992000000,
+            },
+          ],
+          LastEvaluatedKey: {
+            PK: 'SUMMARY#NSDQ:AAPL',
+            SK: 'DATE#2026-02-27',
+          },
+        })
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              PK: 'SUMMARY#NSDQ:MSFT',
+              SK: 'DATE#2026-02-27',
+              Type: 'DailySummary',
+              GSI4PK: 'NASDAQ',
+              GSI4SK: 'DATE#2026-02-27#NSDQ:MSFT',
+              TickerID: 'NSDQ:MSFT',
+              ExchangeID: 'NASDAQ',
+              Date: '2026-02-27',
+              Open: 405.0,
+              High: 408.0,
+              Low: 404.0,
+              Close: 407.5,
+              CreatedAt: 1708992000000,
+              UpdatedAt: 1708992000000,
+            },
+          ],
+        });
+
+      const result = await repository.getByExchange('NASDAQ', '2026-02-27');
+
+      expect(result).toHaveLength(2);
+      expect(result.map((item) => item.TickerID)).toEqual(['NSDQ:AAPL', 'NSDQ:MSFT']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+
+      const secondCommand = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(secondCommand.input.ExclusiveStartKey).toEqual({
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+      });
+    });
+
+    it('date未指定時に複数ページ取得後の最新日付でフィルタする', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              PK: 'SUMMARY#NSDQ:AAPL',
+              SK: 'DATE#2026-02-26',
+              Type: 'DailySummary',
+              GSI4PK: 'NASDAQ',
+              GSI4SK: 'DATE#2026-02-26#NSDQ:AAPL',
+              TickerID: 'NSDQ:AAPL',
+              ExchangeID: 'NASDAQ',
+              Date: '2026-02-26',
+              Open: 180.0,
+              High: 181.0,
+              Low: 179.0,
+              Close: 180.5,
+              CreatedAt: 1708905600000,
+              UpdatedAt: 1708905600000,
+            },
+          ],
+          LastEvaluatedKey: {
+            PK: 'SUMMARY#NSDQ:AAPL',
+            SK: 'DATE#2026-02-26',
+          },
+        })
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              PK: 'SUMMARY#NSDQ:MSFT',
+              SK: 'DATE#2026-02-27',
+              Type: 'DailySummary',
+              GSI4PK: 'NASDAQ',
+              GSI4SK: 'DATE#2026-02-27#NSDQ:MSFT',
+              TickerID: 'NSDQ:MSFT',
+              ExchangeID: 'NASDAQ',
+              Date: '2026-02-27',
+              Open: 405.0,
+              High: 408.0,
+              Low: 404.0,
+              Close: 407.5,
+              CreatedAt: 1708992000000,
+              UpdatedAt: 1708992000000,
+            },
+          ],
+        });
+
+      const result = await repository.getByExchange('NASDAQ');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].Date).toBe('2026-02-27');
+      expect(result[0].TickerID).toBe('NSDQ:MSFT');
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+    });
+
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
 

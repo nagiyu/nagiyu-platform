@@ -5,7 +5,7 @@ import { Box, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack } from 
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
-import type { GroupListsResponse, GroupsResponse } from '@/types';
+import type { GroupListResponse, GroupListsResponse, GroupsResponse } from '@/types';
 type SharedGroup = {
   groupId: string;
   name: string;
@@ -19,6 +19,9 @@ type SharedList = {
 const ERROR_MESSAGES = {
   SHARED_GROUPS_FETCH_FAILED: '共有グループ一覧の取得に失敗しました',
   SHARED_LISTS_FETCH_FAILED: '共有リスト一覧の取得に失敗しました',
+  SHARED_LIST_CREATE_FAILED: '共有リストの作成に失敗しました。',
+  OPERATION_FAILED: '操作に失敗しました。',
+  SHARED_LIST_CREATE_SHARED_SCOPE_ONLY: '共有リスト作成は共有スコープでのみ利用できます。',
 } as const;
 
 type ListWorkspaceProps = {
@@ -41,6 +44,18 @@ export function ListWorkspace({
   const [selectedListId, setSelectedListId] = useState(initialListId);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+
+  const getErrorMessage = async (response: Response): Promise<string> => {
+    try {
+      const data = (await response.json()) as { error?: { message?: string } };
+      if (typeof data.error?.message === 'string') {
+        return data.error.message;
+      }
+    } catch {
+      // noop
+    }
+    return ERROR_MESSAGES.OPERATION_FAILED;
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -131,12 +146,47 @@ export function ListWorkspace({
     currentListId = selectedListId;
   }
 
-  const handleCreateList = (name: string) => {
-    setSnackbarMessage(
-      scope === 'personal'
-        ? `個人リスト「${name}」を作成しました（モック）。`
-        : `共有リスト「${name}」を作成しました（モック）。`
-    );
+  const handleCreateList = async (name: string) => {
+    if (scope !== 'shared') {
+      setSnackbarMessage(ERROR_MESSAGES.SHARED_LIST_CREATE_SHARED_SCOPE_ONLY);
+      return;
+    }
+
+    if (!selectedGroupId) {
+      setSnackbarMessage(ERROR_MESSAGES.SHARED_LIST_CREATE_FAILED);
+      return;
+    }
+
+    const targetGroupId = selectedGroupId;
+    try {
+      const response = await globalThis.fetch(
+        `/api/groups/${encodeURIComponent(targetGroupId)}/lists`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      const result = (await response.json()) as GroupListResponse;
+      const createdList: SharedList = {
+        listId: result.data.listId,
+        name: result.data.name,
+      };
+      setSharedListsByGroup((previous) => ({
+        ...previous,
+        [targetGroupId]: [...(previous[targetGroupId] ?? []), createdList],
+      }));
+      setSelectedListId(createdList.listId);
+      setSnackbarMessage(`共有リスト「${createdList.name}」を作成しました。`);
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : ERROR_MESSAGES.SHARED_LIST_CREATE_FAILED
+      );
+    }
   };
 
   return (
@@ -201,11 +251,10 @@ export function ListWorkspace({
             heading={scope === 'personal' ? '個人リスト' : '共有リスト'}
             createButtonLabel={scope === 'personal' ? '個人リストを作成' : '共有リストを作成'}
             selectedListId={currentListId}
-            lists={sidebarLists}
+            lists={scope === 'personal' ? undefined : sidebarLists}
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
             onListSelect={(listId) => setSelectedListId(listId)}
-            apiEnabled={scope === 'personal'}
           />
         </Stack>
       </Box>
@@ -216,7 +265,6 @@ export function ListWorkspace({
             scope={scope === 'personal' ? 'personal' : 'group'}
             listId={currentListId}
             groupId={scope === 'shared' ? selectedGroupId : undefined}
-            apiEnabled
           />
         ) : null}
       </Box>

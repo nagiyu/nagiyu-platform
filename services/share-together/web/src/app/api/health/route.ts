@@ -1,12 +1,6 @@
-import { NextResponse } from 'next/server';
-import type { HealthResponse } from '@/types';
+import { createHealthRoute } from '@nagiyu/nextjs';
 
-export async function GET() {
-  const response: HealthResponse = {
-    data: {
-      status: 'ok',
-    },
-  };
-
-  return NextResponse.json(response);
-}
+export const GET = createHealthRoute({
+  service: 'share-together',
+  version: process.env.APP_VERSION || '1.0.0',
+});

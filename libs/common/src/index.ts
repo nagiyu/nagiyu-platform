@@ -20,4 +20,6 @@ export * from './api/index.js';
 // Constants module - Common constants
 export { ERROR_CODES } from './constants/error-codes.js';
 export type { ErrorCode } from './constants/error-codes.js';
+export { COMMON_ERROR_MESSAGES } from './constants/error-messages.js';
+export type { CommonErrorMessageKey } from './constants/error-messages.js';
 export { HTTP_STATUS } from './constants/http-status.js';

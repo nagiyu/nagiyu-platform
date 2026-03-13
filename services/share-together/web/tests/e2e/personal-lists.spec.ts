@@ -173,11 +173,14 @@ test.describe('個人リスト管理', () => {
 
     await page.goto('/lists?listId=list-default');
     await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
+    await expect(page.getByRole('button', { name: '追加リスト1', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '追加リスト2', exact: true })).toHaveCount(0);
 
     await resetTestData(request, {
       users: [TEST_USER],
       personalLists: createPersonalLists(100),
     });
+    await expect(page.getByRole('button', { name: '個人リストを作成' })).toBeEnabled();
 
     page.once('dialog', async (dialog) => {
       expect(dialog.type()).toBe('prompt');
@@ -187,13 +190,7 @@ test.describe('個人リスト管理', () => {
     const createListResponsePromise = page.waitForResponse(
       (response) => response.request().method() === 'POST' && response.url().endsWith('/api/lists')
     );
-    await page.getByRole('button', { name: '個人リストを作成' }).evaluate((button) => {
-      if (!(button instanceof HTMLButtonElement)) {
-        throw new Error('個人リスト作成ボタンが見つかりません');
-      }
-      button.disabled = false;
-      button.click();
-    });
+    await page.getByRole('button', { name: '個人リストを作成' }).click();
     const createListResponse = await createListResponsePromise;
     expect(createListResponse.status()).toBe(409);
     await expect(
@@ -287,5 +284,67 @@ test.describe('個人リスト管理', () => {
     await page.getByRole('option', { name: '個人' }).click();
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
     await expect(page.getByText('ToDo一覧の取得に失敗しました。')).not.toBeVisible();
+  });
+
+  test('共有スコープのリスト画面から共有リストを作成できる', async ({ page, request }) => {
+    await resetTestData(request, {
+      users: [TEST_USER],
+      personalLists: [
+        {
+          listId: 'list-default',
+          userId: TEST_USER.userId,
+          name: 'デフォルトリスト',
+          isDefault: true,
+        },
+      ],
+      groups: [
+        {
+          groupId: 'shared-create-group',
+          name: '共有作成検証グループ',
+          ownerUserId: TEST_USER.userId,
+        },
+      ],
+      memberships: [
+        {
+          groupId: 'shared-create-group',
+          userId: TEST_USER.userId,
+          role: 'OWNER',
+          status: 'ACCEPTED',
+          respondedAt: new Date().toISOString(),
+        },
+      ],
+      groupLists: [
+        {
+          listId: 'shared-create-initial-list',
+          groupId: 'shared-create-group',
+          name: '既存共有リスト',
+          createdBy: TEST_USER.userId,
+        },
+      ],
+    });
+
+    await page.goto('/lists?listId=list-default');
+    const scopeSelect = page.getByRole('combobox', { name: '表示範囲' }).first();
+    await scopeSelect.click();
+    await page.getByRole('option', { name: '共有' }).click();
+    await expect(page.getByRole('combobox', { name: 'グループ' })).toHaveText(
+      '共有作成検証グループ'
+    );
+    await expect(page.getByRole('button', { name: '共有リストを作成' })).toBeVisible();
+
+    await page.getByRole('button', { name: '共有リストを作成' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('textbox', { name: 'リスト名' }).fill('E2E共有作成リスト');
+    const createListResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        response.url().includes('/api/groups/shared-create-group/lists')
+    );
+    await dialog.getByRole('button', { name: '作成' }).click();
+    const createListResponse = await createListResponsePromise;
+    expect(createListResponse.status()).toBe(201);
+
+    await expect(page.getByRole('button', { name: 'E2E共有作成リスト' })).toBeVisible();
+    await expect(page.getByText('共有リスト「E2E共有作成リスト」を作成しました。')).toBeVisible();
   });
 });

@@ -67,35 +67,42 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
    */
   public async getByExchange(exchangeId: string, date?: string): Promise<DailySummaryEntity[]> {
     try {
-      const result = await this.docClient.send(
-        new QueryCommand({
-          TableName: this.tableName,
-          IndexName: 'ExchangeSummaryIndex',
-          KeyConditionExpression: date
-            ? '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)'
-            : '#gsi4pk = :exchangeId',
-          ExpressionAttributeNames: date
-            ? {
-                '#gsi4pk': 'GSI4PK',
-                '#gsi4sk': 'GSI4SK',
-              }
-            : {
-                '#gsi4pk': 'GSI4PK',
-              },
-          ExpressionAttributeValues: date
-            ? {
-                ':exchangeId': exchangeId,
-                ':datePrefix': `DATE#${date}`,
-              }
-            : {
-                ':exchangeId': exchangeId,
-              },
-        })
-      );
+      const items: DynamoDBItem[] = [];
+      let lastEvaluatedKey: Record<string, unknown> | undefined;
 
-      const summaries = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
+      do {
+        const result = await this.docClient.send(
+          new QueryCommand({
+            TableName: this.tableName,
+            IndexName: 'ExchangeSummaryIndex',
+            KeyConditionExpression: date
+              ? '#gsi4pk = :exchangeId AND begins_with(#gsi4sk, :datePrefix)'
+              : '#gsi4pk = :exchangeId',
+            ExpressionAttributeNames: date
+              ? {
+                  '#gsi4pk': 'GSI4PK',
+                  '#gsi4sk': 'GSI4SK',
+                }
+              : {
+                  '#gsi4pk': 'GSI4PK',
+                },
+            ExpressionAttributeValues: date
+              ? {
+                  ':exchangeId': exchangeId,
+                  ':datePrefix': `DATE#${date}`,
+                }
+              : {
+                  ':exchangeId': exchangeId,
+                },
+            ExclusiveStartKey: lastEvaluatedKey,
+          })
+        );
+
+        items.push(...((result.Items as DynamoDBItem[] | undefined) ?? []));
+        lastEvaluatedKey = result.LastEvaluatedKey as Record<string, unknown> | undefined;
+      } while (lastEvaluatedKey);
+
+      const summaries = items.map((item) => this.mapper.toEntity(item));
 
       if (date || summaries.length === 0) {
         return summaries;
