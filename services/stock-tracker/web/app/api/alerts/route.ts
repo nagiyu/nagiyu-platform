@@ -23,11 +23,13 @@ import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
  */
 const ERROR_MESSAGES = {
   INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_TICKER_ID: 'ティッカーIDの形式が不正です',
   VALIDATION_ERROR: '入力データが不正です',
   CREATE_ERROR: 'アラートの登録に失敗しました',
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
   EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
 } as const;
+const MAX_ALERTS_PER_USER = 1000;
 
 /**
  * レスポンス型定義
@@ -129,8 +131,18 @@ export const GET = withAuth(
   'stocks:read',
   async (session, request: NextRequest): Promise<NextResponse> => {
     try {
-      // ページネーションパラメータをパース
-      const { limit, lastKey } = parsePagination(request);
+      const { searchParams } = new URL(request.url);
+      const tickerId = searchParams.get('tickerId');
+
+      if (tickerId && !tickerId.includes(':')) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_TICKER_ID,
+          },
+          { status: 400 }
+        );
+      }
 
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
@@ -140,16 +152,19 @@ export const GET = withAuth(
       const userId = session.user.userId;
 
       // アラート一覧取得
-      const result = await alertRepo.getByUserId(userId, {
-        limit,
-        cursor: lastKey as string | undefined,
-      });
+      const result = tickerId
+        ? await alertRepo.getByUserId(userId, { limit: MAX_ALERTS_PER_USER })
+        : await alertRepo.getByUserId(userId, parsePagination(request));
+
+      const targetAlerts = tickerId
+        ? result.items.filter((alert) => alert.TickerID === tickerId)
+        : result.items;
 
       // TickerリポジトリでSymbolとNameを取得
       // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
 
       const alerts: AlertResponse[] = [];
-      for (const alert of result.items) {
+      for (const alert of targetAlerts) {
         const ticker = await tickerRepo.getById(alert.TickerID);
         alerts.push(
           mapAlertToResponse(
@@ -166,7 +181,7 @@ export const GET = withAuth(
           alerts,
           pagination: {
             count: alerts.length,
-            ...(result.nextCursor && { lastKey: result.nextCursor }),
+            ...(!tickerId && result.nextCursor && { lastKey: result.nextCursor }),
           },
         },
         { status: 200 }
