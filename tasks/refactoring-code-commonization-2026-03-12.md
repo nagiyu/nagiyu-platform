@@ -265,25 +265,25 @@ JWT 検証専用サービス（Auth 以外）の `auth.ts` がほぼ同一パタ
 
 ### 優先度: 中
 
-- [ ] **T005**: `libs/browser` に `urlBase64ToUint8Array()` を追加する
+- [x] **T005**: `libs/browser` に `urlBase64ToUint8Array()` を追加する
   - 変更ファイル: `libs/browser/src/index.ts`、新規ファイル `libs/browser/src/push.ts`（またはユーティリティファイル）
   - 作業量: 小
 
-- [ ] **T006**: `services/stock-tracker/web/components/ServiceWorkerRegistration.tsx` と `AlertSettingsModal.tsx` のインライン実装を `@nagiyu/browser` 利用に変更する（T005 完了後）
+- [x] **T006**: `services/stock-tracker/web/components/ServiceWorkerRegistration.tsx` と `AlertSettingsModal.tsx` のインライン実装を `@nagiyu/browser` 利用に変更する（T005 完了後）
   - 変更ファイル: 上記 2 ファイル
 
-- [ ] **T007**: `services/niconico-mylist-assistant/web/src/lib/utils/push.ts` を `@nagiyu/browser` 利用に変更する（T005 完了後）
+- [x] **T007**: `services/niconico-mylist-assistant/web/src/lib/utils/push.ts` を `@nagiyu/browser` 利用に変更する（T005 完了後）
   - 変更ファイル: `services/niconico-mylist-assistant/web/src/lib/utils/push.ts`
 
-- [ ] **T008**: `services/niconico-mylist-assistant/web/src/lib/aws-clients.ts` の `BatchClient` 独自キャッシュを `@nagiyu/aws` の `getBatchClient()` で置き換える
+- [x] **T008**: `services/niconico-mylist-assistant/web/src/lib/aws-clients.ts` の `BatchClient` 独自キャッシュを `@nagiyu/aws` の `getBatchClient()` で置き換える
   - 変更ファイル: `services/niconico-mylist-assistant/web/src/lib/aws-clients.ts`
   - 事前確認: `libs/aws/src/batch/index.ts` の `getBatchClient` のキャッシュ実装を確認
 
-- [ ] **T009**: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `normalizeVapidKey()` を `services/stock-tracker/batch/src/lib/web-push-client.ts` にも適用する
+- [x] **T009**: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `normalizeVapidKey()` を `services/stock-tracker/batch/src/lib/web-push-client.ts` にも適用する
   - 変更ファイル: `services/stock-tracker/batch/src/lib/web-push-client.ts`
   - 注意: VAPID キー設定のキャッシュ（`vapidConfigured` フラグ）も stock-tracker 側に追加推奨
 
-- [ ] **T010**: `@mui/material-nextjs` のバージョンを全サービスで統一する（`v16-appRouter` に揃える）
+- [x] **T010**: `@mui/material-nextjs` のバージョンを全サービスで統一する（`v16-appRouter` に揃える）
   - 事前確認: 各サービスの `package.json` で使用中の `@mui/material` メジャーバージョンを確認し、`v16-appRouter` との互換性を検証する（MUI v6 系が `v16-appRouter` に対応）
   - 変更ファイル: `services/auth/web/src/components/ThemeRegistry.tsx`、`services/stock-tracker/web/components/ThemeRegistry.tsx`、各サービスの `package.json`
 
