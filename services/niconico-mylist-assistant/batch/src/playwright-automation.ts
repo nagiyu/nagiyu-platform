@@ -525,12 +525,9 @@ export async function registerVideosToMylist(
 
     try {
       // リトライ機能付きで動画を登録
-      await withRetry(
-        async () => {
-          await registerVideoToMylist(page, videoId, mylistName);
-        },
-        VIDEO_RETRY_OPTIONS
-      );
+      await withRetry(async () => {
+        await registerVideoToMylist(page, videoId, mylistName);
+      }, VIDEO_RETRY_OPTIONS);
 
       successVideoIds.push(videoId);
 
