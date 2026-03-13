@@ -141,8 +141,8 @@ s3.delete-object(key="locks/{LOCK_KEY}")
 - [x] T016: `niconico-mylist-assistant-deploy.yml` を更新する（ビルドジョブ 2 つ）
 - [x] T017: `niconico-mylist-assistant-verify.yml` を更新する（ビルドジョブ 2 つ）
 - [x] T018: `share-together-deploy.yml` を更新する
-- [x] T019: `share-together-verify.yml` を更新する（旧 `share-together-web-verify-fast.yml` 相当）
-- [x] T020: `share-together-verify.yml` を更新する（旧 `share-together-web-verify-full.yml` 相当）
+- [x] T019: `share-together-verify.yml` の Fast 検証相当ジョブを更新する（旧 `share-together-web-verify-fast.yml` 相当）
+- [x] T020: `share-together-verify.yml` の Full 検証相当ジョブを更新する（旧 `share-together-web-verify-full.yml` 相当）
 - [x] T021: `stock-tracker-deploy.yml` を更新する（ビルドジョブ 2 つ）
 - [x] T022: `stock-tracker-verify.yml` を更新する（ビルドジョブ 2 つ）
 - [x] T023: `tools-deploy.yml` を更新する

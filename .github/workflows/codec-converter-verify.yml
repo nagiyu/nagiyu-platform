@@ -72,7 +72,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock (Web)
+      - name: Acquire Docker build lock
         uses: ./.github/actions/docker-build-lock-acquire
 
       - name: Build Web Docker image
@@ -80,11 +80,11 @@ jobs:
           DOCKER_BUILDKIT: 0
         run: docker build -t codec-converter-web-verify-full-test -f services/codec-converter/web/Dockerfile .
 
-      - name: Release Docker build lock (Web)
+      - name: Release Docker build lock
         if: always()
         uses: ./.github/actions/docker-build-lock-release
 
-      - name: Acquire Docker build lock (Batch)
+      - name: Acquire Docker build lock
         uses: ./.github/actions/docker-build-lock-acquire
 
       - name: Build Batch Docker image
@@ -92,7 +92,7 @@ jobs:
           DOCKER_BUILDKIT: 0
         run: docker build -t codec-converter-batch-verify-full-test -f services/codec-converter/batch/Dockerfile .
 
-      - name: Release Docker build lock (Batch)
+      - name: Release Docker build lock
         if: always()
         uses: ./.github/actions/docker-build-lock-release
 
