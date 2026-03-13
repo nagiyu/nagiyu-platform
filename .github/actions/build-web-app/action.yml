@@ -25,6 +25,7 @@ runs:
       run: npm ci
 
     - name: Build shared workspaces
+      if: inputs.shared-workspaces != ''
       shell: bash
       run: |
         IFS=',' read -ra WORKSPACES <<< "${{ inputs.shared-workspaces }}"
