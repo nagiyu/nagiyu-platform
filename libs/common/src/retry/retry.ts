@@ -10,6 +10,13 @@ export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
   backoffMultiplier: 2,
 };
 
+const ERROR_MESSAGES = {
+  UNEXPECTED: 'リトライ処理中に予期しないエラーが発生しました',
+} as const;
+
+/**
+ * 指定されたミリ秒間待機する内部ヘルパー関数
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -53,5 +60,5 @@ export async function withRetry<T>(
     }
   }
 
-  throw lastError || new Error('予期しないエラーが発生しました');
+  throw lastError || new Error(ERROR_MESSAGES.UNEXPECTED);
 }
