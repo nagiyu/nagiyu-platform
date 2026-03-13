@@ -17,7 +17,10 @@ jest.mock('@nagiyu/nextjs', () => ({
     async () => {
       const { NextResponse } = jest.requireMock('next/server') as {
         NextResponse: {
-          json: (body: unknown, init?: { status?: number }) => {
+          json: (
+            body: unknown,
+            init?: { status?: number }
+          ) => {
             status: number;
             json: () => Promise<unknown>;
           };
