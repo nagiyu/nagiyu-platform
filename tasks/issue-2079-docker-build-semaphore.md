@@ -126,10 +126,10 @@ s3.delete-object(key="locks/{LOCK_KEY}")
 
 ### Phase 2: ロック取得・解放ロジックの実装
 
-- [ ] T006: 実装方式（composite action / shell script 等）を決定する
-- [ ] T007: ロック取得処理を実装する
-- [ ] T008: ロック解放処理を実装する
-- [ ] T009: S3 バケット名（固定値）をワークフロー内で直接参照する形に統一する
+- [x] T006: 実装方式（composite action / shell script 等）を決定する（`.github/scripts/docker-build-lock.sh` + composite action）
+- [x] T007: ロック取得処理を実装する
+- [x] T008: ロック解放処理を実装する
+- [x] T009: S3 バケット名（固定値）をワークフロー内で直接参照する形に統一する
 
 ### Phase 3: ワークフローの更新
 
