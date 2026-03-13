@@ -120,21 +120,11 @@ jobs:
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Application version: $VERSION"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
+          workspace: '@nagiyu/admin'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

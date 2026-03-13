@@ -99,29 +99,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/aws
-
-      - name: Build core package
-        run: npm run build --workspace=@nagiyu/share-together-core
-
       - name: Build web application
-        run: npm run build --workspace=@nagiyu/share-together-web
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/share-together-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/aws,@nagiyu/share-together-core'
 
   docker-build:
     name: Docker Build Web

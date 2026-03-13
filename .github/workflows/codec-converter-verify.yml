@@ -30,28 +30,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=codec-converter-core
-
       - name: Build Next.js application
-        run: npm run build --workspace=codec-converter-web
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: 'codec-converter-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,codec-converter-core'
 
   docker-build:
     name: Docker Build Verification

@@ -145,6 +145,15 @@ jobs:
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Application version: $VERSION"
 
+      - name: Build web application
+        uses: ./.github/actions/build-web-app
+        env:
+          # Next.js build時にAPI routeの評価で参照されるため、CIではダミー値を設定
+          DYNAMODB_TABLE_NAME: dummy-table
+        with:
+          workspace: '@nagiyu/niconico-mylist-assistant-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/aws,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/niconico-mylist-assistant-core'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
