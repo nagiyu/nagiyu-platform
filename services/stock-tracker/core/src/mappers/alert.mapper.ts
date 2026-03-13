@@ -62,10 +62,10 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
     if (entity.LogicalOperator) {
       item.LogicalOperator = entity.LogicalOperator;
     }
-    if (entity.NotificationTitle) {
+    if (typeof entity.NotificationTitle === 'string' && entity.NotificationTitle.length > 0) {
       item.NotificationTitle = entity.NotificationTitle;
     }
-    if (entity.NotificationBody) {
+    if (typeof entity.NotificationBody === 'string' && entity.NotificationBody.length > 0) {
       item.NotificationBody = entity.NotificationBody;
     }
     if (entity.Temporary === true) {

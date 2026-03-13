@@ -295,6 +295,31 @@ describe('AlertMapper', () => {
       expect(item.NotificationTitle).toBe('カスタムタイトル');
       expect(item.NotificationBody).toBe('カスタム本文');
     });
+
+    it('NotificationTitle と NotificationBody が空文字列の場合、DynamoDBItem に含まれない', () => {
+      const entity: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        NotificationTitle: '',
+        NotificationBody: '',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item).not.toHaveProperty('NotificationTitle');
+      expect(item).not.toHaveProperty('NotificationBody');
+    });
   });
 
   describe('toEntity', () => {
@@ -806,6 +831,59 @@ describe('AlertMapper', () => {
       const result = mapper.toEntity(item);
 
       expect(result).toEqual(original);
+    });
+
+    it('NotificationTitle/NotificationBody が undefined の Entity の往復変換', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(result).toEqual(original);
+      expect(result).not.toHaveProperty('NotificationTitle');
+      expect(result).not.toHaveProperty('NotificationBody');
+    });
+
+    it('NotificationTitle/NotificationBody が空文字列の Entity は往復後に未設定として扱われる', () => {
+      const original: AlertEntity = {
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
+        NotificationTitle: '',
+        NotificationBody: '',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const item = mapper.toItem(original);
+      const result = mapper.toEntity(item);
+
+      expect(item).not.toHaveProperty('NotificationTitle');
+      expect(item).not.toHaveProperty('NotificationBody');
+      expect(result).not.toHaveProperty('NotificationTitle');
+      expect(result).not.toHaveProperty('NotificationBody');
     });
   });
 });
