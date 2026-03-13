@@ -112,6 +112,13 @@ const editTargetRange: AlertResponse = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
+const editTargetWithoutCustomNotification: AlertResponse = {
+  ...editTarget,
+  alertId: 'alert-4',
+  notificationTitle: undefined,
+  notificationBody: undefined,
+};
+
 describe('AlertSettingsModal mode', () => {
   it('mode=edit のとき編集タイトルを表示し Web Push 説明を表示しない', () => {
     const html = renderToStaticMarkup(
@@ -160,6 +167,42 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('通知設定（任意）');
     expect(html).toContain('通知タイトル');
     expect(html).toContain('通知本文');
+  });
+
+  it('mode=edit で通知タイトル・通知本文が未設定のとき、自動生成文言を初期値として表示する', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'edit',
+        tradeMode: 'Buy',
+        editTarget: editTargetWithoutCustomNotification,
+      })
+    );
+
+    expect(html).toContain('買いアラート: NASDAQ:AAPL');
+    expect(html).toContain('現在価格 が目標価格 $180.00 以下になりました');
+  });
+
+  it('mode=edit で通知タイトル・通知本文が設定済みのとき、保存済みの値を初期値として表示する', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'edit',
+        tradeMode: 'Buy',
+        editTarget,
+      })
+    );
+
+    expect(html).toContain('カスタム通知タイトル');
+    expect(html).toContain('カスタム通知本文');
   });
 
   it('mode=edit で isPercentage=true の条件を持つアラートのとき、パーセンテージ選択UIを表示する', () => {

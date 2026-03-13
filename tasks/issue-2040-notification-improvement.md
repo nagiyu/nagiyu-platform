@@ -69,7 +69,7 @@ Stock Tracker の Web Push 通知を改善する。
 - フォーム初期値は空文字列
 - 編集時は既存のアラートの値をフォームに反映する
 - UI は「通知設定（任意）」のセクションとして末尾に配置する
-- プレースホルダーは、現在のフォーム入力値（ティッカー・モード・条件等）をもとに `createAlertNotificationPayload()` と同等のロジックでリアルタイムに動的生成すること（空欄時は自動生成内容が使用されることを視覚的に示す）
+- 通知タイトル・通知本文の初期値は、現在のフォーム入力値（ティッカー・モード・条件等）をもとに `createAlertNotificationPayload()` と同等のロジックで自動生成した文言を設定する（プレースホルダーは使用しない）
 
 **API ルート (`web/app/api/alerts/route.ts`, `[id]/route.ts`)**
 
@@ -118,5 +118,5 @@ Stock Tracker の Web Push 通知を改善する。
 ## 備考・未決定事項
 
 - `HomePageClient.tsx` は現在 `'use client'` コンポーネントのため `useSearchParams` を使用可能だが、`Suspense` でラップが必要な場合がある（Next.js の要件に応じて調整）
-- 通知タイトル・本文の入力欄のプレースホルダーは、現在の入力値（取引所・ティッカー・条件）をもとに `createAlertNotificationPayload()` と同等のロジックで動的に生成すること
+- 通知タイトル・本文の入力欄は、初期表示時に現在の入力値（取引所・ティッカー・条件）をもとに `createAlertNotificationPayload()` と同等のロジックで自動生成した文言を入力値として設定する（プレースホルダーは使用しない）
 - 既存の DynamoDB テーブルにスキーマ変更は不要（新規フィールドはオプショナルなため）
