@@ -487,16 +487,14 @@ jobs:
               'Docker Build': '${{ needs.docker-build.result }}',
               'Core Unit Tests': '${{ needs.test-core.result }}',
               'Web Unit Tests': '${{ needs.test-web.result }}',
+              'Coverage (80%)': '${{ needs.coverage.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
+              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',
+              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-web-webkit-mobile.result }}',
               'Synthesize Infrastructure': '${{ needs.synth-infra.result }}'
             };
 
             const isFullVerification = '${{ github.base_ref }}' === 'develop';
-            if (isFullVerification) {
-              results['Coverage (80%)'] = '${{ needs.coverage.result }}';
-              results['E2E Tests (chromium-desktop)'] = '${{ needs.e2e-test-web-chromium-desktop.result }}';
-              results['E2E Tests (webkit-mobile)'] = '${{ needs.e2e-test-web-webkit-mobile.result }}';
-            }
 
             const statusEmoji = {
               'success': '✅',
@@ -505,7 +503,9 @@ jobs:
               'skipped': '⏭️'
             };
 
-            const allSuccess = Object.values(results).every(r => r === 'success');
+            const allSuccess = Object.values(results).every((result) =>
+              isFullVerification ? result === 'success' : result === 'success' || result === 'skipped'
+            );
             const header = allSuccess
               ? isFullVerification
                 ? '## ✅ All Full Checks Passed'
