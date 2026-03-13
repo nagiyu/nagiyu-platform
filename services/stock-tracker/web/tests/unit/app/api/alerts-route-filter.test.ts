@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { GET } from '../../../../app/api/alerts/route';
+import { GET } from '../../../../app/api/alerts/tickers/[tickerId]/route';
 import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
 
 jest.mock('../../../../lib/repository-factory', () => ({
@@ -22,7 +22,7 @@ jest.mock('@nagiyu/nextjs', () => ({
   }),
 }));
 
-describe('GET /api/alerts tickerId filter', () => {
+describe('GET /api/alerts/tickers/[tickerId]', () => {
   const mockGetByUserId = jest.fn();
   const mockGetTickerById = jest.fn();
 
@@ -59,7 +59,9 @@ describe('GET /api/alerts tickerId filter', () => {
       ],
     });
 
-    const response = await GET(new NextRequest('http://localhost/api/alerts?tickerId=NASDAQ:NVDA'));
+    const response = await GET(new NextRequest('http://localhost/api/alerts/tickers/NASDAQ:NVDA'), {
+      params: Promise.resolve({ tickerId: 'NASDAQ:NVDA' }),
+    });
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -68,7 +70,9 @@ describe('GET /api/alerts tickerId filter', () => {
   });
 
   it('異常系: tickerId 形式が不正な場合は 400 を返す', async () => {
-    const response = await GET(new NextRequest('http://localhost/api/alerts?tickerId=INVALID'));
+    const response = await GET(new NextRequest('http://localhost/api/alerts/tickers/INVALID'), {
+      params: Promise.resolve({ tickerId: 'INVALID' }),
+    });
     expect(response.status).toBe(400);
   });
 });

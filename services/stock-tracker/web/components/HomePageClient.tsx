@@ -195,17 +195,19 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         return (await response.json()) as TickerSummary;
       });
 
-      const holdingPromise = fetch(`/api/holdings/${ticker}`).then(async (response) => {
-        if (response.status === 404) {
-          return null;
+      const holdingPromise = fetch(`/api/holdings/tickers/${encodeURIComponent(ticker)}`).then(
+        async (response) => {
+          if (response.status === 404) {
+            return null;
+          }
+          if (!response.ok) {
+            throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+          }
+          return (await response.json()) as HoldingResponse;
         }
-        if (!response.ok) {
-          throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
-        }
-        return (await response.json()) as HoldingResponse;
-      });
+      );
 
-      const alertsPromise = fetch(`/api/alerts?tickerId=${encodeURIComponent(ticker)}`).then(
+      const alertsPromise = fetch(`/api/alerts/tickers/${encodeURIComponent(ticker)}`).then(
         async (response) => {
           if (!response.ok) {
             throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);

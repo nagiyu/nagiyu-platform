@@ -98,7 +98,7 @@ describe('HomePageClient クエリ初期選択', () => {
         } as Response;
       }
 
-      if (url === '/api/holdings/NASDAQ:AAPL') {
+      if (url === '/api/holdings/tickers/NASDAQ%3AAAPL') {
         return {
           ok: true,
           status: 200,
@@ -116,7 +116,7 @@ describe('HomePageClient クエリ初期選択', () => {
         } as Response;
       }
 
-      if (url === '/api/alerts?tickerId=NASDAQ%3AAAPL') {
+      if (url === '/api/alerts/tickers/NASDAQ%3AAAPL') {
         return {
           ok: true,
           json: async () => ({
@@ -161,9 +161,11 @@ describe('HomePageClient クエリ初期選択', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/exchanges'));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/tickers?exchangeId=NASDAQ'));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/summaries/NASDAQ:AAPL'));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/holdings/NASDAQ:AAPL'));
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith('/api/alerts?tickerId=NASDAQ%3AAAPL')
+      expect(fetchMock).toHaveBeenCalledWith('/api/holdings/tickers/NASDAQ%3AAAPL')
+    );
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith('/api/alerts/tickers/NASDAQ%3AAAPL')
     );
     await waitFor(() => expect(screen.getByTestId('stock-chart').textContent).toBe('NASDAQ:AAPL'));
     expect(screen.getByTestId('stock-chart').getAttribute('data-holding-price')).toBe('98');

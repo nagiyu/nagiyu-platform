@@ -21,7 +21,6 @@ import type { Holding } from '@nagiyu/stock-tracker-core';
  */
 const ERROR_MESSAGES = {
   INVALID_HOLDING_ID: '保有株式IDの形式が不正です',
-  INVALID_TICKER_ID: 'ティッカーIDの形式が不正です',
   INVALID_REQUEST_BODY: 'リクエストボディが不正です',
   VALIDATION_ERROR: '入力データが不正です',
   HOLDING_NOT_FOUND: '保有株式が見つかりません',
@@ -49,63 +48,6 @@ interface DeleteResponse {
   success: boolean;
   deletedHoldingId: string;
 }
-
-interface ErrorResponse {
-  error: string;
-  message: string;
-  details?: string[];
-}
-
-/**
- * GET /api/holdings/{tickerId}
- * ティッカーID指定で保有株式取得
- */
-export const GET = withAuth(
-  getSession,
-  'stocks:read',
-  async (session, _request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    try {
-      const { id: tickerId } = await params;
-
-      if (!tickerId || !tickerId.includes(':')) {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.INVALID_TICKER_ID,
-          },
-          { status: 400 }
-        );
-      }
-
-      const holdingRepo = createHoldingRepository();
-      const holding = await holdingRepo.getById(session.user.userId, tickerId);
-
-      if (!holding) {
-        return NextResponse.json(
-          {
-            error: 'NOT_FOUND',
-            message: ERROR_MESSAGES.HOLDING_NOT_FOUND,
-          },
-          { status: 404 }
-        );
-      }
-
-      const tickerRepo = createTickerRepository();
-      const ticker = await tickerRepo.getById(holding.TickerID);
-
-      return NextResponse.json(
-        mapHoldingToResponse(
-          holding,
-          ticker?.Symbol || holding.TickerID.split(':')[1] || '',
-          ticker?.Name || ''
-        ),
-        { status: 200 }
-      );
-    } catch (error) {
-      return handleApiError(error);
-    }
-  }
-);
 
 /**
  * Holding エンティティをレスポンス形式に変換
