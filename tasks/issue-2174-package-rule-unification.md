@@ -98,17 +98,18 @@
 
 ### `package.json` 構成の統一ルール
 
-#### モノレポ内専用パッケージ（services/*, infra/*）
+#### 他パッケージから import されるパッケージ（libs/*, services/*/core）
 
 - `private: true` を設定する
-- `exports` フィールドは設定しない（TypeScript がパス解決するため不要）
+- TypeScript のパス解決のため `exports` + `types` + `main` を設定する
+- `libs/*` はサービス間で共有される共通ライブラリ。`services/*/core` は同一サービスの web / batch から import される点で同様の扱いとなる
+
+#### 他パッケージから import されないパッケージ（services/*/web, services/*/batch, services/{single}, infra/*）
+
+- `private: true` を設定する
+- `exports` フィールドは設定しない（他から import されないため不要）
 - `types` フィールドは設定しない（同上）
 - `main` フィールドのみ設定する（実行エントリーポイントが必要なパッケージのみ）
-
-#### 共通ライブラリ（libs/*）
-
-`libs/` パッケージもモノレポ内でのみ利用される（モノレポのサービス間で共有される共通ライブラリ）。
-ただし、他のパッケージから import されるため TypeScript のパス解決に `exports` + `types` + `main` が必要であり、現状のまま維持する。
 
 ### `scripts` の統一ルール
 
@@ -143,7 +144,7 @@
 ### Phase 3: `package.json` 構成の整理
 
 - [ ] T011: `private: true` が欠落しているパッケージ（codec-converter-core, codec-converter-batch, niconico-mylist-assistant-batch）に追加する
-- [ ] T012: サービスの core / batch / web パッケージから不要な `exports` / `types` フィールドを除去する
+- [ ] T012: サービスの batch / web パッケージから不要な `exports` / `types` フィールドを除去する（core は import される側のため除去しない）
 - [ ] T013: `niconico-mylist-assistant-core` の `types` パスを `dist/src/index.d.ts` に修正し、`main` / `tsconfig.json` のパス設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
 - [ ] T014: `stock-tracker-core` の `main` パスを `dist/src/index.js` に修正し、`tsconfig.json` の `outDir` 設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
 - [ ] T015: `infra/common` の `exports` を T003 の調査結果をもとに対応する（`require` 形式のままにするか `import` 形式に統一するかを決定）
