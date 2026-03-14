@@ -1,0 +1,37 @@
+name: Build Docker Image
+description: Build Docker image with docker build lock and optional APP_VERSION build arg
+
+inputs:
+  dockerfile:
+    description: Dockerfile path (e.g. services/stock-tracker/web/Dockerfile)
+    required: true
+  image-tag:
+    description: Docker image tag to build
+    required: true
+  app-version:
+    description: APP_VERSION value for --build-arg APP_VERSION (optional)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Acquire Docker build lock
+      uses: ./.github/actions/docker-build-lock-acquire
+
+    - name: Build Docker image
+      shell: bash
+      env:
+        DOCKER_BUILDKIT: 0
+      run: |
+        if [ -n "${{ inputs.app-version }}" ]; then
+          docker build --build-arg APP_VERSION="${{ inputs.app-version }}" \
+            -t "${{ inputs.image-tag }}" \
+            -f "${{ inputs.dockerfile }}" .
+        else
+          docker build -t "${{ inputs.image-tag }}" -f "${{ inputs.dockerfile }}" .
+        fi
+
+    - name: Release Docker build lock
+      if: always()
+      uses: ./.github/actions/docker-build-lock-release
