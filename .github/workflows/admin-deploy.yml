@@ -32,34 +32,21 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
+      environment: ${{ steps.setup-environment.outputs.environment }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "environment=prod" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" =~ ^refs/heads/integration/admin/ ]]; then
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -77,11 +64,11 @@ jobs:
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
-          npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
+          npm run cdk --workspace=@nagiyu/infra-admin -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.setup-environment.outputs.environment }} || echo "Bootstrap already exists"
 
       - name: Deploy Infrastructure (ECR)
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           echo "Deploying ECR stack..."
 
@@ -120,21 +107,11 @@ jobs:
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Application version: $VERSION"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
         with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
+          workspace: '@nagiyu/admin'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -175,18 +152,19 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/admin/web/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build and push Docker image
+      - name: Push Docker image
         id: build-image
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: ${{ github.sha }}
-          DOCKER_BUILDKIT: 0
         run: |
-          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
-            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/admin/web/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           # Also tag as latest
@@ -194,10 +172,6 @@ jobs:
           docker push "$REPOSITORY_URI:latest"
 
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
 
   deploy:
     name: Deploy to AWS Lambda
@@ -212,15 +186,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -248,7 +218,7 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
-          APP_VERSION: ${{ needs.build.outputs.app-version }}  # CDK reads this via process.env.APP_VERSION (default: '1.0.0')
+          APP_VERSION: ${{ needs.build.outputs.app-version }} # CDK reads this via process.env.APP_VERSION (default: '1.0.0')
         run: |
           echo "Deploying full Admin infrastructure to $ENVIRONMENT environment..."
           echo "Using Docker image: $IMAGE_URI"

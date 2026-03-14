@@ -7,12 +7,12 @@ on:
       - integration/**
       - master
     paths:
-      - "services/codec-converter/**"
-      - "infra/codec-converter/**"
-      - "libs/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/codec-converter-deploy.yml"
+      - 'services/codec-converter/**'
+      - 'infra/codec-converter/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/codec-converter-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -35,42 +35,25 @@ jobs:
       contents: read
 
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      stack-name: ${{ steps.set-env.outputs.stack-name }}
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-name: ${{ steps.setup-environment.outputs.stack-name }}
       ecr-registry: ${{ steps.login-ecr.outputs.registry }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
-            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
-            if [[ "$ENV" == "prod" ]]; then
-              echo "stack-name=NagiyuCodecConverterProd" >> "$GITHUB_OUTPUT"
-            else
-              echo "stack-name=NagiyuCodecConverterDev" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "stack-name=NagiyuCodecConverterProd" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "stack-name=NagiyuCodecConverterDev" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
+          stack-name-prefix: NagiyuCodecConverter
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '22'
+          cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -98,12 +81,12 @@ jobs:
         run: |
           # Bootstrap is idempotent - safe to run on every deployment
           npm run bootstrap --workspace=codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
-            --context env=${{ steps.set-env.outputs.environment }}
+            --context env=${{ steps.setup-environment.outputs.environment }}
 
       - name: Check if Web ECR repository exists
         id: check-web-ecr
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           if aws ecr describe-repositories --repository-names nagiyu-codec-converter-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -114,7 +97,7 @@ jobs:
       - name: Check if Batch ECR repository exists
         id: check-batch-ecr
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           if aws ecr describe-repositories --repository-names nagiyu-codec-converter-ffmpeg-$ENVIRONMENT --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
@@ -125,10 +108,10 @@ jobs:
       - name: CDK Deploy (Create ECR Repositories)
         if: steps.check-web-ecr.outputs.exists == 'false' || steps.check-batch-ecr.outputs.exists == 'false'
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           echo "Creating ECR repositories..."
-          npm run deploy --workspace=codec-converter -- ${{ steps.set-env.outputs.stack-name }} \
+          npm run deploy --workspace=codec-converter -- ${{ steps.setup-environment.outputs.stack-name }} \
             --context env=$ENVIRONMENT \
             --context deploymentPhase=ecr-only \
             --verbose
@@ -160,6 +143,12 @@ jobs:
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Application version: $VERSION"
 
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: 'codec-converter-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,codec-converter-core'
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -171,23 +160,20 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Web Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/codec-converter/web/Dockerfile
+          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build, tag, and push Web Docker image to ECR
+      - name: Push Web Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: latest
-          DOCKER_BUILDKIT: 0
         run: |
-          docker build --build-arg APP_VERSION="${{ steps.get-version.outputs.app-version }}" \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/web/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
 
   build-batch:
     name: Build and Push Batch Worker Image
@@ -201,6 +187,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/codec-converter/batch
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -212,22 +206,20 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/codec-converter/batch/Dockerfile
+          image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build, tag, and push Batch worker Docker image to ECR
+      - name: Push Batch worker Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           ECR_REPOSITORY: nagiyu-codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}
           IMAGE_TAG: latest
-          DOCKER_BUILDKIT: 0
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f services/codec-converter/batch/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
 
   deploy:
     name: Deploy Full Stack
@@ -241,15 +233,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: "./package-lock.json"
-
-      - name: Install dependencies
-        run: npm ci
+          node-version: '22'
+          cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common

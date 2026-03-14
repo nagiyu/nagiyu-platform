@@ -26,30 +26,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/aws
-          npm run build --workspace @nagiyu/nextjs
-          npm run build --workspace @nagiyu/react
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-
-      - name: Build core package
-        run: npm run build --workspace @nagiyu/stock-tracker-core
-
       - name: Build Web application
-        run: npm run build --workspace @nagiyu/stock-tracker-web
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/stock-tracker-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/nextjs,@nagiyu/react,@nagiyu/browser,@nagiyu/ui,@nagiyu/stock-tracker-core'
 
   build-core:
     name: Core Build Verification
@@ -60,15 +41,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -87,15 +64,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -117,15 +90,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -142,6 +111,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/stock-tracker/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -149,17 +125,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
-
       - name: Build Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t stock-tracker-web-verify-full-test -f services/stock-tracker/web/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/stock-tracker/web/Dockerfile
+          image-tag: stock-tracker-web-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
   docker-build-batch:
     name: Docker Build Verification (Batch)
@@ -170,6 +141,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/stock-tracker/batch
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -177,17 +155,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
-
       - name: Build Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t stock-tracker-batch-verify-full-test -f services/stock-tracker/batch/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/stock-tracker/batch/Dockerfile
+          image-tag: stock-tracker-batch-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
   test-web:
     name: Run Web Unit Tests
@@ -198,15 +171,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -232,15 +201,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -259,15 +224,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -290,15 +251,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -320,11 +277,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
       - name: Configure AWS credentials
@@ -341,9 +297,6 @@ jobs:
           secret-ids: |
             DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
           parse-json-secrets: true
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -404,11 +357,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
       - name: Configure AWS credentials
@@ -425,9 +377,6 @@ jobs:
           secret-ids: |
             DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
           parse-json-secrets: true
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -488,11 +437,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
 
       - name: Configure AWS credentials
@@ -509,9 +457,6 @@ jobs:
           secret-ids: |
             DEV_CREDENTIALS,nagiyu-stock-tracker-dev-credentials-dev
           parse-json-secrets: true
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -567,15 +512,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run lint on Core
         run: npm run lint --workspace @nagiyu/stock-tracker-core
@@ -594,15 +535,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check formatting on Core
         run: npm run format:check --workspace @nagiyu/stock-tracker-core
@@ -622,15 +559,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common

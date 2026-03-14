@@ -30,28 +30,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared libraries
-        run: |
-          npm run build --workspace @nagiyu/common
-          npm run build --workspace @nagiyu/browser
-          npm run build --workspace @nagiyu/ui
-          npm run build --workspace @nagiyu/aws
-
-      - name: Build codec-converter-core library
-        run: npm run build --workspace=codec-converter-core
-
       - name: Build Next.js application
-        run: npm run build --workspace=codec-converter-web
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: 'codec-converter-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,codec-converter-core'
 
   docker-build:
     name: Docker Build Verification
@@ -65,6 +48,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Get web version from package.json
+        id: get-web-version
+        working-directory: ./services/codec-converter/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Get batch version from package.json
+        id: get-batch-version
+        working-directory: ./services/codec-converter/batch
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -72,29 +69,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
-
       - name: Build Web Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t codec-converter-web-verify-full-test -f services/codec-converter/web/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
-
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/codec-converter/web/Dockerfile
+          image-tag: codec-converter-web-verify-full-test
+          app-version: ${{ steps.get-web-version.outputs.app-version }}
 
       - name: Build Batch Docker image
-        env:
-          DOCKER_BUILDKIT: 0
-        run: docker build -t codec-converter-batch-verify-full-test -f services/codec-converter/batch/Dockerfile .
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/codec-converter/batch/Dockerfile
+          image-tag: codec-converter-batch-verify-full-test
+          app-version: ${{ steps.get-batch-version.outputs.app-version }}
 
   test:
     name: Run Unit Tests
@@ -108,15 +95,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -146,15 +129,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -205,15 +184,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -264,15 +239,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build shared libraries
         run: |
@@ -321,15 +292,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Run ESLint on core
         run: npm run lint --workspace=codec-converter-core
@@ -351,15 +318,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check core formatting
         run: npm run format:check --workspace=codec-converter-core
@@ -381,15 +344,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Check formatting
         run: npx prettier --check "infra/codec-converter/**/*.{ts,js,json}"
@@ -405,15 +364,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build infra-common library
         run: npm run build --workspace=@nagiyu/infra-common
@@ -432,15 +387,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build infra-common library
         run: npm run build --workspace=@nagiyu/infra-common
