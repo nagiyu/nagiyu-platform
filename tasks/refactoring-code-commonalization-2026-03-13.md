@@ -350,7 +350,7 @@ aws → common（確認が必要）
 
 ### フェーズ 1: libs/common 内部の整理
 
-- [ ] T001: `libs/common/src/api/types.ts` の `COMMON_ERROR_MESSAGES` を `libs/common/src/constants/error-messages.ts` に統合する
+- [x] T001: `libs/common/src/api/types.ts` の `COMMON_ERROR_MESSAGES` を `libs/common/src/constants/error-messages.ts` に統合する
     - 5項目版と14項目版のキーを統合し、1つの定数にまとめる
     - `api/types.ts` から `COMMON_ERROR_MESSAGES` を削除し、`constants/error-messages.ts` からインポートするよう修正
     - `libs/common/src/api/error-handler.ts` の import を修正
