@@ -14,37 +14,23 @@ jest.mock('next-auth/react', () => {
 
 jest.mock('@nagiyu/ui', () => {
   return {
-    theme: {},
-    Header: ({ navigationItems }: { navigationItems: unknown }) =>
+    ServiceLayout: ({
+      children,
+      headerProps,
+    }: {
+      children: React.ReactNode;
+      headerProps?: { navigationItems?: unknown };
+    }) =>
       React.createElement(
-        'pre',
-        { 'data-testid': 'navigation-items' },
-        JSON.stringify(navigationItems)
+        React.Fragment,
+        null,
+        React.createElement(
+          'pre',
+          { 'data-testid': 'navigation-items' },
+          JSON.stringify(headerProps?.navigationItems)
+        ),
+        children
       ),
-    Footer: () => React.createElement('footer'),
-  };
-});
-
-jest.mock('@mui/material/styles', () => {
-  return {
-    ThemeProvider: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
-  };
-});
-
-jest.mock('@mui/material/CssBaseline', () => () => null);
-
-jest.mock('@mui/material', () => {
-  return {
-    Box: ({ children }: { children: React.ReactNode }) =>
-      React.createElement('div', null, children),
-  };
-});
-
-jest.mock('@mui/material-nextjs/v16-appRouter', () => {
-  return {
-    AppRouterCacheProvider: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
   };
 });
 

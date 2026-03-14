@@ -10,12 +10,14 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const version = process.env.APP_VERSION || '1.0.0';
+
   return (
     <html lang="ja">
       <body>
         <ServiceWorkerRegistration />
         <UserRegistrationInitializer />
-        <ThemeRegistry>{children}</ThemeRegistry>
+        <ThemeRegistry version={version}>{children}</ThemeRegistry>
       </body>
     </html>
   );
