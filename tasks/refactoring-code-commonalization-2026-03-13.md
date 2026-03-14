@@ -384,7 +384,7 @@ aws → common（確認が必要）
 
 ### フェーズ 4: Pushサブスクリプション検証の共通化
 
-- [ ] T005: Push サブスクリプション検証ユーティリティを `libs/nextjs` に追加する
+- [x] T005: Push サブスクリプション検証ユーティリティを `libs/nextjs` に追加する
     - `libs/nextjs/src/push.ts` に `validatePushSubscription()` および `createSubscriptionId()` を追加
     - stock-tracker・niconico の subscribe ルートから独自実装を削除し `@nagiyu/nextjs` からインポート
     - 認証チェック（`getAuthError`）も統一する：niconico の subscribe ルートにも stock-tracker と同様の認証チェックを追加する（通常の使用フローでは挙動は変わらず、直接 API 呼び出しへのセキュリティ抑止のみ）

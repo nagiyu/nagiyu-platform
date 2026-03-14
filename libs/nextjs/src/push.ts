@@ -13,6 +13,58 @@ type ErrorResponse = {
   message: string;
 };
 
+export interface PushSubscriptionData {
+  endpoint: string;
+  keys: {
+    p256dh: string;
+    auth: string;
+  };
+}
+
+export function validatePushSubscription(subscription: unknown): subscription is PushSubscriptionData {
+  if (!subscription || typeof subscription !== 'object') {
+    return false;
+  }
+
+  const sub = subscription as Record<string, unknown>;
+
+  if (typeof sub.endpoint !== 'string' || !sub.endpoint) {
+    return false;
+  }
+
+  try {
+    new URL(sub.endpoint);
+  } catch {
+    return false;
+  }
+
+  if (!sub.keys || typeof sub.keys !== 'object') {
+    return false;
+  }
+
+  const keys = sub.keys as Record<string, unknown>;
+
+  if (typeof keys.p256dh !== 'string' || !keys.p256dh) {
+    return false;
+  }
+
+  if (typeof keys.auth !== 'string' || !keys.auth) {
+    return false;
+  }
+
+  return true;
+}
+
+export async function createSubscriptionId(endpoint: string): Promise<string> {
+  const endpointBytes = new TextEncoder().encode(endpoint);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', endpointBytes);
+  const hashHex = Array.from(new Uint8Array(hashBuffer))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `sub_${hashHex.substring(0, 32)}`;
+}
+
 /**
  * サービス共通の VAPID 公開鍵 route ハンドラーを生成する。
  */

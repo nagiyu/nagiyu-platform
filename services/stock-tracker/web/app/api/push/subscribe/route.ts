@@ -7,9 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'crypto';
 import webpush from 'web-push';
-import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { getAuthError, validatePushSubscription, createSubscriptionId } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 
 /**
@@ -34,19 +33,6 @@ if (vapidPublicKey && vapidPrivateKey) {
 }
 
 /**
- * リクエストボディ型定義
- */
-interface SubscribeRequest {
-  subscription: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
-}
-
-/**
  * レスポンス型定義
  */
 interface SubscribeResponse {
@@ -57,47 +43,6 @@ interface SubscribeResponse {
 interface ErrorResponse {
   error: string;
   message: string;
-}
-
-/**
- * サブスクリプション情報のバリデーション
- */
-function validateSubscription(
-  subscription: unknown
-): subscription is SubscribeRequest['subscription'] {
-  if (!subscription || typeof subscription !== 'object') {
-    return false;
-  }
-
-  const sub = subscription as Record<string, unknown>;
-
-  if (typeof sub.endpoint !== 'string' || !sub.endpoint) {
-    return false;
-  }
-
-  // endpoint が有効な URL 形式であることを検証
-  try {
-    // 不正な URL 文字列の場合は例外が発生する
-    new URL(sub.endpoint);
-  } catch {
-    return false;
-  }
-
-  if (!sub.keys || typeof sub.keys !== 'object') {
-    return false;
-  }
-
-  const keys = sub.keys as Record<string, unknown>;
-
-  if (typeof keys.p256dh !== 'string' || !keys.p256dh) {
-    return false;
-  }
-
-  if (typeof keys.auth !== 'string' || !keys.auth) {
-    return false;
-  }
-
-  return true;
 }
 
 /**
@@ -150,7 +95,7 @@ export async function POST(
     const { subscription } = body as { subscription: unknown };
 
     // サブスクリプション情報のバリデーション
-    if (!validateSubscription(subscription)) {
+    if (!validatePushSubscription(subscription)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -173,10 +118,7 @@ export async function POST(
     }
 
     // サブスクリプションIDの生成（endpoint をSHA-256でハッシュ化）
-    const subscriptionId = createHash('sha256')
-      .update(subscription.endpoint)
-      .digest('hex')
-      .substring(0, 32);
+    const subscriptionId = await createSubscriptionId(subscription.endpoint);
 
     // Phase 1: サブスクリプション情報は Alert エンティティに保存される
     // ここでは単純に成功レスポンスを返す
@@ -184,7 +126,7 @@ export async function POST(
 
     const response: SubscribeResponse = {
       success: true,
-      subscriptionId: `sub_${subscriptionId}`,
+      subscriptionId,
     };
 
     return NextResponse.json(response, { status: 201 });
