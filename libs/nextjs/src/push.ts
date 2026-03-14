@@ -21,6 +21,12 @@ export interface PushSubscriptionData {
   };
 }
 
+/**
+ * Push サブスクリプション情報を検証する。
+ *
+ * endpoint が有効な URL 形式であり、keys.p256dh と keys.auth が
+ * 非空文字列で存在する場合に true を返す。
+ */
 export function validatePushSubscription(subscription: unknown): subscription is PushSubscriptionData {
   if (!subscription || typeof subscription !== 'object') {
     return false;
@@ -55,6 +61,12 @@ export function validatePushSubscription(subscription: unknown): subscription is
   return true;
 }
 
+/**
+ * Push サブスクリプション endpoint から一意なIDを生成する。
+ *
+ * SHA-256 ハッシュを作成し、先頭32文字を `sub_` プレフィックス付きで返す。
+ * この関数は `validatePushSubscription()` で endpoint が検証済みであることを前提とする。
+ */
 export async function createSubscriptionId(endpoint: string): Promise<string> {
   const endpointBytes = new TextEncoder().encode(endpoint);
   const hashBuffer = await crypto.subtle.digest('SHA-256', endpointBytes);

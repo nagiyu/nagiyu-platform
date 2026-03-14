@@ -8,7 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { getAuthError, validatePushSubscription, createSubscriptionId } from '@nagiyu/nextjs';
+import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { validatePushSubscription, createSubscriptionId } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 
 /**
