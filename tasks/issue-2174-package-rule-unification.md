@@ -107,7 +107,8 @@
 
 #### 共通ライブラリ（libs/*）
 
-- 現状のまま維持（`exports` + `types` + `main` の構成は正しい）
+`libs/` パッケージもモノレポ内でのみ利用される（モノレポのサービス間で共有される共通ライブラリ）。
+ただし、他のパッケージから import されるため TypeScript のパス解決に `exports` + `types` + `main` が必要であり、現状のまま維持する。
 
 ### `scripts` の統一ルール
 
@@ -121,7 +122,9 @@
 
 ## タスク
 
-### Phase 1: 調査・確認
+> **本タスクの範囲**: Phase 1（調査・確認）のみ。Phase 2 以降の実装は別タスクで実施する。
+
+### Phase 1: 調査・確認（本タスクの範囲）
 
 - [ ] T001: 名前変更の影響範囲を調査する（変更するパッケージ名を参照している箇所をリストアップ）
 - [ ] T002: `infra/shared` の名前変更（`@nagiyu/shared-infra` → `@nagiyu/infra-shared`）の影響範囲を確認する
@@ -147,20 +150,14 @@
 
 ### Phase 4: `scripts` の統一
 
-- [ ] T016: `niconico-mylist-assistant-core` の `format` / `format:check` を `"."` を対象にする形式に修正する
-- [ ] T017: `niconico-mylist-assistant-core` の `lint` に `tests/**/*.ts` を追加する
+- [ ] T016: `niconico-mylist-assistant-core` の `format` / `format:check` を `"."` を対象にする形式に修正する（修正に伴い CI が失敗する場合は、合わせて修正する）
+- [ ] T017: `niconico-mylist-assistant-core` の `lint` に `tests/**/*.ts` を追加する（修正に伴い CI が失敗する場合は、合わせて修正する）
 - [ ] T018: `niconico-mylist-assistant-core` に `test:watch` スクリプトを追加する
-- [ ] T019: `niconico-mylist-assistant-batch` の `format` / `format:check` を `"."` を対象にする形式に修正する
+- [ ] T019: `niconico-mylist-assistant-batch` の `format` / `format:check` を `"."` を対象にする形式に修正する（修正に伴い CI が失敗する場合は、合わせて修正する）
 
 ### Phase 5: `devDependencies` の整理
 
 - [ ] T020: `stock-tracker-batch` の `devDependencies` から `jest`, `ts-jest`, `typescript` を除去する（ルート管理に委ねる）
-
-### Phase 6: 検証
-
-- [ ] T021: 全パッケージでビルドが成功することを確認する
-- [ ] T022: 全パッケージでテストが成功することを確認する
-- [ ] T023: CIが成功することを確認する
 
 ## 参考ドキュメント
 
@@ -170,4 +167,4 @@
 ## 備考・未決定事項
 
 - T003 の結果次第で、`infra/common` の `exports` 形式の対応方針が変わる。CDK の制約により CommonJS 形式が必要な場合は、`require` 形式のまま維持する。
-- T013・T014 は、Phase 1 の T004 の調査結果をもとに影響範囲を確認した上で実施すること。`tsconfig.json` の `outDir` 変更はビルド出力パス・import 文・ビルドスクリプトへの影響があるため、Phase 6 の検証で動作確認を行うこと。
+- T013・T014 は、Phase 1 の T004 の調査結果をもとに影響範囲を確認した上で実施すること。`tsconfig.json` の `outDir` 変更はビルド出力パス・import 文・ビルドスクリプトへの影響があるため、各フェーズの変更ごとに CI で動作確認を行うこと。
