@@ -49,7 +49,7 @@ describe('コンテンツ整合性', () => {
     expect(homeHtml).toContain('VAPID キー生成ツール');
     expect(homeHtml).toContain('Base64 エンコーダー / デコーダー');
     expect(homeHtml).toContain(
-      'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意でき、Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。'
+      'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。 Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。'
     );
     expect(homeHtml).toContain(
       'VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。'

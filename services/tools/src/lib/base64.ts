@@ -18,8 +18,9 @@ const convertBinaryToUtf8 = (binary: string): string => {
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
     return new TextDecoder().decode(bytes);
   }
-  const percentEncoded = Array.from(binary, (char) =>
-    `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`
+  const percentEncoded = Array.from(
+    binary,
+    (char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`
   ).join('');
   return decodeURIComponent(percentEncoded);
 };

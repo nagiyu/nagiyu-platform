@@ -45,7 +45,10 @@ export default function Base64Client() {
     try {
       const result = mode === 'encode' ? encodeBase64(inputText) : decodeBase64(inputText);
       setOutputText(result);
-      showSnackbar(mode === 'encode' ? 'Base64にエンコードしました' : 'Base64をデコードしました', 'success');
+      showSnackbar(
+        mode === 'encode' ? 'Base64にエンコードしました' : 'Base64をデコードしました',
+        'success'
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : '変換に失敗しました。';
       setError(message);
@@ -130,7 +133,11 @@ export default function Base64Client() {
           multiline
           rows={8}
           label={mode === 'encode' ? 'テキスト' : 'Base64文字列'}
-          placeholder={mode === 'encode' ? 'エンコードする文字列を入力してください...' : 'デコードするBase64文字列を入力してください...'}
+          placeholder={
+            mode === 'encode'
+              ? 'エンコードする文字列を入力してください...'
+              : 'デコードするBase64文字列を入力してください...'
+          }
           value={inputText}
           onChange={(event) => setInputText(event.target.value)}
           error={!!error}
@@ -154,7 +161,9 @@ export default function Base64Client() {
             variant="contained"
             onClick={handleConvert}
             disabled={!inputText.trim()}
-            aria-label={mode === 'encode' ? '入力をBase64にエンコードする' : '入力をBase64からデコードする'}
+            aria-label={
+              mode === 'encode' ? '入力をBase64にエンコードする' : '入力をBase64からデコードする'
+            }
           >
             {mode === 'encode' ? 'エンコード' : 'デコード'}
           </Button>

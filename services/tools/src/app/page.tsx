@@ -74,8 +74,9 @@ export default function HomePage() {
         <Box sx={{ mb: 6, mt: 3 }}>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
-            乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。
-            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意でき、Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。
+            乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。{' '}
+            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
+            Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。
