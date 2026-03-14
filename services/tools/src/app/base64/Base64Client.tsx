@@ -53,6 +53,12 @@ export default function Base64Client() {
     }
   };
 
+  const handleModeChange = (nextMode: Mode) => {
+    setMode(nextMode);
+    setOutputText('');
+    setError(null);
+  };
+
   const handleReadClipboard = async () => {
     try {
       const text = await readFromClipboard();
@@ -100,14 +106,14 @@ export default function Base64Client() {
         <Stack direction="row" spacing={2}>
           <Button
             variant={mode === 'encode' ? 'contained' : 'outlined'}
-            onClick={() => setMode('encode')}
+            onClick={() => handleModeChange('encode')}
             aria-label="エンコードモードに切り替える"
           >
             エンコード
           </Button>
           <Button
             variant={mode === 'decode' ? 'contained' : 'outlined'}
-            onClick={() => setMode('decode')}
+            onClick={() => handleModeChange('decode')}
             aria-label="デコードモードに切り替える"
           >
             デコード

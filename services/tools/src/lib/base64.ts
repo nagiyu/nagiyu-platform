@@ -3,7 +3,7 @@ export const ERROR_MESSAGES = {
   DECODE_FAILED: 'Base64デコードに失敗しました。',
 } as const;
 
-const toBinaryString = (text: string): string => {
+const convertUtf8ToBinary = (text: string): string => {
   if (typeof TextEncoder !== 'undefined') {
     const bytes = new TextEncoder().encode(text);
     return Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
@@ -13,7 +13,7 @@ const toBinaryString = (text: string): string => {
   );
 };
 
-const fromBinaryString = (binary: string): string => {
+const convertBinaryToUtf8 = (binary: string): string => {
   if (typeof TextDecoder !== 'undefined') {
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
     return new TextDecoder().decode(bytes);
@@ -24,7 +24,7 @@ const fromBinaryString = (binary: string): string => {
   return decodeURIComponent(percentEncoded);
 };
 
-const encodeBinary = (binary: string): string => {
+const encodeBinaryToBase64 = (binary: string): string => {
   if (typeof globalThis.btoa === 'function') {
     return globalThis.btoa(binary);
   }
@@ -34,7 +34,7 @@ const encodeBinary = (binary: string): string => {
   throw new Error(ERROR_MESSAGES.ENCODE_FAILED);
 };
 
-const decodeBinary = (encodedText: string): string => {
+const decodeBase64ToBinary = (encodedText: string): string => {
   if (typeof globalThis.atob === 'function') {
     return globalThis.atob(encodedText);
   }
@@ -45,6 +45,7 @@ const decodeBinary = (encodedText: string): string => {
 };
 
 const isValidBase64 = (value: string): boolean => {
+  // 空文字列は有効なBase64として扱う
   if (!value) {
     return true;
   }
@@ -56,7 +57,7 @@ const isValidBase64 = (value: string): boolean => {
 
 export const encodeBase64 = (text: string): string => {
   try {
-    return encodeBinary(toBinaryString(text));
+    return encodeBinaryToBase64(convertUtf8ToBinary(text));
   } catch {
     throw new Error(ERROR_MESSAGES.ENCODE_FAILED);
   }
@@ -68,7 +69,7 @@ export const decodeBase64 = (encodedText: string): string => {
     if (!isValidBase64(normalized)) {
       throw new Error(ERROR_MESSAGES.DECODE_FAILED);
     }
-    return fromBinaryString(decodeBinary(normalized));
+    return convertBinaryToUtf8(decodeBase64ToBinary(normalized));
   } catch {
     throw new Error(ERROR_MESSAGES.DECODE_FAILED);
   }
