@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -282,10 +282,56 @@ export default function AlertSettingsModal({
 }: AlertSettingsModalProps) {
   const dialogTitle = `${mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (${tradeMode === 'Buy' ? '買い' : '売り'}アラート)`;
 
-  // フォームデータ
-  const [formData, setFormData] = useState<FormData>(() =>
-    buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId })
+  const initialFormData = buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId });
+
+  // フォームデータ（フィールド別 state）
+  const [conditionMode, setConditionMode] = useState<FormData['conditionMode']>(
+    initialFormData.conditionMode
   );
+  const [operator, setOperator] = useState<FormData['operator']>(initialFormData.operator);
+  const [targetPrice, setTargetPrice] = useState<FormData['targetPrice']>(initialFormData.targetPrice);
+  const [rangeType, setRangeType] = useState<FormData['rangeType']>(initialFormData.rangeType);
+  const [minPrice, setMinPrice] = useState<FormData['minPrice']>(initialFormData.minPrice);
+  const [maxPrice, setMaxPrice] = useState<FormData['maxPrice']>(initialFormData.maxPrice);
+  const [frequency, setFrequency] = useState<FormData['frequency']>(initialFormData.frequency);
+  const [enabled, setEnabled] = useState<FormData['enabled']>(initialFormData.enabled);
+  const [temporary, setTemporary] = useState<FormData['temporary']>(initialFormData.temporary);
+  const [inputMode, setInputMode] = useState<FormData['inputMode']>(initialFormData.inputMode);
+  const [percentage, setPercentage] = useState<FormData['percentage']>(initialFormData.percentage);
+  const [rangeInputMode, setRangeInputMode] = useState<FormData['rangeInputMode']>(
+    initialFormData.rangeInputMode
+  );
+  const [minPercentage, setMinPercentage] = useState<FormData['minPercentage']>(
+    initialFormData.minPercentage
+  );
+  const [maxPercentage, setMaxPercentage] = useState<FormData['maxPercentage']>(
+    initialFormData.maxPercentage
+  );
+  const [notificationTitle, setNotificationTitle] = useState<FormData['notificationTitle']>(
+    initialFormData.notificationTitle
+  );
+  const [notificationBody, setNotificationBody] = useState<FormData['notificationBody']>(
+    initialFormData.notificationBody
+  );
+
+  const formData: FormData = {
+    conditionMode,
+    operator,
+    targetPrice,
+    rangeType,
+    minPrice,
+    maxPrice,
+    frequency,
+    enabled,
+    temporary,
+    inputMode,
+    percentage,
+    rangeInputMode,
+    minPercentage,
+    maxPercentage,
+    notificationTitle,
+    notificationBody,
+  };
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
   // 状態管理
@@ -294,11 +340,44 @@ export default function AlertSettingsModal({
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
 
-  const chartAlertLines = computeAlertLines(getChartAlertConditions(formData));
+  const chartAlertLines = useMemo(
+    () =>
+      computeAlertLines(
+        getChartAlertConditions({
+          conditionMode,
+          operator,
+          targetPrice,
+          rangeType,
+          minPrice,
+          maxPrice,
+        })
+      ),
+    [conditionMode, operator, targetPrice, rangeType, minPrice, maxPrice]
+  );
+
+  const applyFormData = (nextFormData: FormData) => {
+    setConditionMode(nextFormData.conditionMode);
+    setOperator(nextFormData.operator);
+    setTargetPrice(nextFormData.targetPrice);
+    setRangeType(nextFormData.rangeType);
+    setMinPrice(nextFormData.minPrice);
+    setMaxPrice(nextFormData.maxPrice);
+    setFrequency(nextFormData.frequency);
+    setEnabled(nextFormData.enabled);
+    setTemporary(nextFormData.temporary);
+    setInputMode(nextFormData.inputMode);
+    setPercentage(nextFormData.percentage);
+    setRangeInputMode(nextFormData.rangeInputMode);
+    setMinPercentage(nextFormData.minPercentage);
+    setMaxPercentage(nextFormData.maxPercentage);
+    setNotificationTitle(nextFormData.notificationTitle);
+    setNotificationBody(nextFormData.notificationBody);
+  };
+
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
     if (open) {
-      setFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId }));
+      applyFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId }));
       setFormErrors({});
       setError('');
       setSubscription(null);
@@ -609,78 +688,66 @@ export default function AlertSettingsModal({
     return Object.keys(errors).length === 0;
   };
 
-  // フォーム入力ハンドラー
-  const handleFormChange = (field: keyof FormData, value: string | boolean) => {
-    setFormData((prev) => {
-      const newData = { ...prev, [field]: value };
-
-      // パーセンテージ選択時の自動計算（単一条件モード）
-      if (field === 'inputMode' || field === 'percentage') {
-        if (
-          newData.inputMode === 'percentage' &&
-          newData.percentage &&
-          basePrice &&
-          basePrice > 0
-        ) {
-          const percentage = parseFloat(newData.percentage);
-          if (!isNaN(percentage)) {
-            try {
-              const calculatedPrice = calculateTargetPriceFromPercentage(basePrice, percentage);
-              newData.targetPrice = calculatedPrice.toString();
-            } catch (error) {
-              console.error('Error calculating target price:', error);
-            }
-          }
-        }
-      }
-
-      // パーセンテージ選択時の自動計算（範囲指定モード）
-      if (field === 'rangeInputMode' || field === 'minPercentage' || field === 'maxPercentage') {
-        if (newData.rangeInputMode === 'percentage' && basePrice && basePrice > 0) {
-          // 最小価格の計算
-          if (newData.minPercentage) {
-            const minPercentage = parseFloat(newData.minPercentage);
-            if (!isNaN(minPercentage)) {
-              try {
-                const calculatedMinPrice = calculateTargetPriceFromPercentage(
-                  basePrice,
-                  minPercentage
-                );
-                newData.minPrice = calculatedMinPrice.toString();
-              } catch (error) {
-                console.error('Error calculating min price:', error);
-              }
-            }
-          }
-
-          // 最大価格の計算
-          if (newData.maxPercentage) {
-            const maxPercentage = parseFloat(newData.maxPercentage);
-            if (!isNaN(maxPercentage)) {
-              try {
-                const calculatedMaxPrice = calculateTargetPriceFromPercentage(
-                  basePrice,
-                  maxPercentage
-                );
-                newData.maxPrice = calculatedMaxPrice.toString();
-              } catch (error) {
-                console.error('Error calculating max price:', error);
-              }
-            }
-          }
-        }
-      }
-
-      return newData;
-    });
-
-    // エラーをクリア
+  const clearFieldError = (field: keyof FormData) => {
     if (formErrors[field]) {
       setFormErrors((prev) => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
       });
+    }
+  };
+
+  const updateTargetPriceFromPercentage = (
+    nextPercentage: string | undefined,
+    nextInputMode: FormData['inputMode'] = inputMode
+  ) => {
+    if (nextInputMode !== 'percentage' || !nextPercentage || !basePrice || basePrice <= 0) {
+      return;
+    }
+    const parsedPercentage = parseFloat(nextPercentage);
+    if (isNaN(parsedPercentage)) {
+      return;
+    }
+    try {
+      const calculatedPrice = calculateTargetPriceFromPercentage(basePrice, parsedPercentage);
+      setTargetPrice(calculatedPrice.toString());
+    } catch (calculationError) {
+      console.error('Error calculating target price:', calculationError);
+    }
+  };
+
+  const updateRangePriceFromPercentage = (
+    nextRangeInputMode: FormData['rangeInputMode'],
+    nextMinPercentage: string | undefined,
+    nextMaxPercentage: string | undefined
+  ) => {
+    if (nextRangeInputMode !== 'percentage' || !basePrice || basePrice <= 0) {
+      return;
+    }
+
+    if (nextMinPercentage) {
+      const parsedMinPercentage = parseFloat(nextMinPercentage);
+      if (!isNaN(parsedMinPercentage)) {
+        try {
+          const calculatedMinPrice = calculateTargetPriceFromPercentage(basePrice, parsedMinPercentage);
+          setMinPrice(calculatedMinPrice.toString());
+        } catch (calculationError) {
+          console.error('Error calculating min price:', calculationError);
+        }
+      }
+    }
+
+    if (nextMaxPercentage) {
+      const parsedMaxPercentage = parseFloat(nextMaxPercentage);
+      if (!isNaN(parsedMaxPercentage)) {
+        try {
+          const calculatedMaxPrice = calculateTargetPriceFromPercentage(basePrice, parsedMaxPercentage);
+          setMaxPrice(calculatedMaxPrice.toString());
+        } catch (calculationError) {
+          console.error('Error calculating max price:', calculationError);
+        }
+      }
     }
   };
 
@@ -1043,13 +1110,16 @@ export default function AlertSettingsModal({
           ) : (
             <FormControl fullWidth>
               <InputLabel id="condition-mode-label">条件タイプ</InputLabel>
-              <Select
-                labelId="condition-mode-label"
-                id="condition-mode-select"
-                value={formData.conditionMode}
-                label="条件タイプ"
-                onChange={(e) => handleFormChange('conditionMode', e.target.value)}
-              >
+                <Select
+                  labelId="condition-mode-label"
+                  id="condition-mode-select"
+                  value={formData.conditionMode}
+                  label="条件タイプ"
+                  onChange={(e) => {
+                    setConditionMode(e.target.value as FormData['conditionMode']);
+                    clearFieldError('conditionMode');
+                  }}
+                >
                 <MenuItem value="single">単一条件（以上または以下）</MenuItem>
                 <MenuItem value="range">範囲指定</MenuItem>
               </Select>
@@ -1070,13 +1140,16 @@ export default function AlertSettingsModal({
               ) : (
                 <FormControl fullWidth error={!!formErrors.operator}>
                   <InputLabel id="operator-label">条件</InputLabel>
-                  <Select
-                    labelId="operator-label"
-                    id="operator-select"
-                    value={formData.operator}
-                    label="条件"
-                    onChange={(e) => handleFormChange('operator', e.target.value)}
-                  >
+                    <Select
+                      labelId="operator-label"
+                      id="operator-select"
+                      value={formData.operator}
+                      label="条件"
+                      onChange={(e) => {
+                        setOperator(e.target.value as FormData['operator']);
+                        clearFieldError('operator');
+                      }}
+                    >
                     <MenuItem value="gte">以上 (≥)</MenuItem>
                     <MenuItem value="lte">以下 (≤)</MenuItem>
                   </Select>
@@ -1097,7 +1170,12 @@ export default function AlertSettingsModal({
                     id="input-mode-select"
                     value={formData.inputMode}
                     label="入力方式"
-                    onChange={(e) => handleFormChange('inputMode', e.target.value)}
+                    onChange={(e) => {
+                      const nextInputMode = e.target.value as FormData['inputMode'];
+                      setInputMode(nextInputMode);
+                      clearFieldError('inputMode');
+                      updateTargetPriceFromPercentage(percentage, nextInputMode);
+                    }}
                   >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
@@ -1113,7 +1191,10 @@ export default function AlertSettingsModal({
                   label="目標価格"
                   type="number"
                   value={formData.targetPrice}
-                  onChange={(e) => handleFormChange('targetPrice', e.target.value)}
+                  onChange={(e) => {
+                    setTargetPrice(e.target.value);
+                    clearFieldError('targetPrice');
+                  }}
                   error={!!formErrors.targetPrice}
                   helperText={formErrors.targetPrice}
                   inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
@@ -1130,7 +1211,12 @@ export default function AlertSettingsModal({
                       id="percentage-select"
                       value={formData.percentage}
                       label="パーセンテージ"
-                      onChange={(e) => handleFormChange('percentage', e.target.value)}
+                      onChange={(e) => {
+                        const nextPercentage = e.target.value;
+                        setPercentage(nextPercentage);
+                        clearFieldError('percentage');
+                        updateTargetPriceFromPercentage(nextPercentage);
+                      }}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1196,13 +1282,16 @@ export default function AlertSettingsModal({
               ) : (
                 <FormControl fullWidth>
                   <InputLabel id="range-type-label">範囲タイプ</InputLabel>
-                  <Select
-                    labelId="range-type-label"
-                    id="range-type-select"
-                    value={formData.rangeType}
-                    label="範囲タイプ"
-                    onChange={(e) => handleFormChange('rangeType', e.target.value)}
-                  >
+                    <Select
+                      labelId="range-type-label"
+                      id="range-type-select"
+                      value={formData.rangeType}
+                      label="範囲タイプ"
+                      onChange={(e) => {
+                        setRangeType(e.target.value as FormData['rangeType']);
+                        clearFieldError('rangeType');
+                      }}
+                    >
                     <MenuItem value="inside">範囲内（AND）</MenuItem>
                     <MenuItem value="outside">範囲外（OR）</MenuItem>
                   </Select>
@@ -1218,13 +1307,22 @@ export default function AlertSettingsModal({
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="range-input-mode-label">入力方式</InputLabel>
-                  <Select
-                    labelId="range-input-mode-label"
-                    id="range-input-mode-select"
-                    value={formData.rangeInputMode}
-                    label="入力方式"
-                    onChange={(e) => handleFormChange('rangeInputMode', e.target.value)}
-                  >
+                    <Select
+                      labelId="range-input-mode-label"
+                      id="range-input-mode-select"
+                      value={formData.rangeInputMode}
+                      label="入力方式"
+                      onChange={(e) => {
+                        const nextRangeInputMode = e.target.value as FormData['rangeInputMode'];
+                        setRangeInputMode(nextRangeInputMode);
+                        clearFieldError('rangeInputMode');
+                        updateRangePriceFromPercentage(
+                          nextRangeInputMode,
+                          minPercentage,
+                          maxPercentage
+                        );
+                      }}
+                    >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
                   </Select>
@@ -1240,7 +1338,10 @@ export default function AlertSettingsModal({
                     label={formData.rangeType === 'inside' ? '最小価格（下限）' : '下限価格'}
                     type="number"
                     value={formData.minPrice}
-                    onChange={(e) => handleFormChange('minPrice', e.target.value)}
+                    onChange={(e) => {
+                      setMinPrice(e.target.value);
+                      clearFieldError('minPrice');
+                    }}
                     error={!!formErrors.minPrice}
                     helperText={
                       formErrors.minPrice ||
@@ -1255,7 +1356,10 @@ export default function AlertSettingsModal({
                     label={formData.rangeType === 'inside' ? '最大価格（上限）' : '上限価格'}
                     type="number"
                     value={formData.maxPrice}
-                    onChange={(e) => handleFormChange('maxPrice', e.target.value)}
+                    onChange={(e) => {
+                      setMaxPrice(e.target.value);
+                      clearFieldError('maxPrice');
+                    }}
                     error={!!formErrors.maxPrice}
                     helperText={
                       formErrors.maxPrice ||
@@ -1276,7 +1380,16 @@ export default function AlertSettingsModal({
                       id="min-percentage-select"
                       value={formData.minPercentage}
                       label="最小価格のパーセンテージ"
-                      onChange={(e) => handleFormChange('minPercentage', e.target.value)}
+                      onChange={(e) => {
+                        const nextMinPercentage = e.target.value;
+                        setMinPercentage(nextMinPercentage);
+                        clearFieldError('minPercentage');
+                        updateRangePriceFromPercentage(
+                          rangeInputMode,
+                          nextMinPercentage,
+                          maxPercentage
+                        );
+                      }}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1294,7 +1407,16 @@ export default function AlertSettingsModal({
                       id="max-percentage-select"
                       value={formData.maxPercentage}
                       label="最大価格のパーセンテージ"
-                      onChange={(e) => handleFormChange('maxPercentage', e.target.value)}
+                      onChange={(e) => {
+                        const nextMaxPercentage = e.target.value;
+                        setMaxPercentage(nextMaxPercentage);
+                        clearFieldError('maxPercentage');
+                        updateRangePriceFromPercentage(
+                          rangeInputMode,
+                          minPercentage,
+                          nextMaxPercentage
+                        );
+                      }}
                     >
                       {PERCENTAGE_OPTIONS.map((percentage) => (
                         <MenuItem key={percentage} value={percentage.toString()}>
@@ -1362,13 +1484,16 @@ export default function AlertSettingsModal({
           ) : (
             <FormControl fullWidth error={!!formErrors.frequency}>
               <InputLabel id="frequency-label">通知頻度</InputLabel>
-              <Select
-                labelId="frequency-label"
-                id="frequency-select"
-                value={formData.frequency}
-                label="通知頻度"
-                onChange={(e) => handleFormChange('frequency', e.target.value)}
-              >
+                <Select
+                  labelId="frequency-label"
+                  id="frequency-select"
+                  value={formData.frequency}
+                  label="通知頻度"
+                  onChange={(e) => {
+                    setFrequency(e.target.value as FormData['frequency']);
+                    clearFieldError('frequency');
+                  }}
+                >
                 <MenuItem value="MINUTE_LEVEL">1分間隔</MenuItem>
                 <MenuItem value="HOURLY_LEVEL">1時間間隔</MenuItem>
               </Select>
@@ -1384,7 +1509,10 @@ export default function AlertSettingsModal({
             control={
               <Switch
                 checked={formData.temporary}
-                onChange={(e) => handleFormChange('temporary', e.target.checked)}
+                onChange={(e) => {
+                  setTemporary(e.target.checked);
+                  clearFieldError('temporary');
+                }}
                 color="primary"
               />
             }
@@ -1401,7 +1529,10 @@ export default function AlertSettingsModal({
               control={
                 <Switch
                   checked={formData.enabled}
-                  onChange={(e) => handleFormChange('enabled', e.target.checked)}
+                  onChange={(e) => {
+                    setEnabled(e.target.checked);
+                    clearFieldError('enabled');
+                  }}
                   color="primary"
                 />
               }
@@ -1416,7 +1547,10 @@ export default function AlertSettingsModal({
             fullWidth
             label="通知タイトル"
             value={formData.notificationTitle}
-            onChange={(e) => handleFormChange('notificationTitle', e.target.value)}
+            onChange={(e) => {
+              setNotificationTitle(e.target.value);
+              clearFieldError('notificationTitle');
+            }}
             helperText="未入力の場合は自動生成されたタイトルを使用します"
             inputProps={{ maxLength: 120 }}
           />
@@ -1426,7 +1560,10 @@ export default function AlertSettingsModal({
             minRows={2}
             label="通知本文"
             value={formData.notificationBody}
-            onChange={(e) => handleFormChange('notificationBody', e.target.value)}
+            onChange={(e) => {
+              setNotificationBody(e.target.value);
+              clearFieldError('notificationBody');
+            }}
             helperText="未入力の場合は現在の条件から自動生成された本文を使用します"
             inputProps={{ maxLength: 500 }}
           />
