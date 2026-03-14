@@ -12,13 +12,13 @@ import {
   createDailySummaryRepository,
   clearMemoryStore,
 } from '../../../lib/repository-factory';
-import * as dynamodb from '../../../lib/dynamodb';
+import * as aws from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
 // DynamoDBクライアントをモック化
-jest.mock('../../../lib/dynamodb');
+jest.mock('@nagiyu/aws');
 
-const mockedDynamoDB = dynamodb as jest.Mocked<typeof dynamodb>;
+const mockedAws = aws as jest.Mocked<typeof aws>;
 
 describe('Repository Factory', () => {
   const originalEnv = process.env;
@@ -28,10 +28,10 @@ describe('Repository Factory', () => {
     process.env = { ...originalEnv };
     clearMemoryStore();
     // デフォルトのモック動作を設定
-    mockedDynamoDB.getDynamoDBClient.mockReturnValue({
+    mockedAws.getDynamoDBDocumentClient.mockReturnValue({
       send: jest.fn(),
     } as DynamoDBDocumentClient);
-    mockedDynamoDB.getTableName.mockImplementation(() => {
+    mockedAws.getTableName.mockImplementation(() => {
       const tableName = process.env.DYNAMODB_TABLE_NAME;
       if (!tableName) {
         throw new Error('DYNAMODB_TABLE_NAME environment variable is not set');
