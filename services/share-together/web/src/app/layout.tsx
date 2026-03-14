@@ -9,8 +9,10 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
 };
 
+const DEFAULT_APP_VERSION = '1.0.0';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const version = process.env.APP_VERSION || '1.0.0';
+  const version = process.env.APP_VERSION || DEFAULT_APP_VERSION;
 
   return (
     <html lang="ja">

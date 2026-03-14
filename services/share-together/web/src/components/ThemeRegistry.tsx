@@ -5,10 +5,10 @@ import { ServiceLayout } from '@nagiyu/ui';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
-  version?: string;
+  version: string;
 }
 
-export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
+export default function ThemeRegistry({ children, version }: ThemeRegistryProps) {
   return (
     <ServiceLayout
       headerProps={{ title: 'Share Together', ariaLabel: 'Share Together ホームページに戻る' }}
