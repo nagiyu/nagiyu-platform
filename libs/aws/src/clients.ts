@@ -17,6 +17,8 @@ export interface AwsClients {
 /**
  * サービスで利用する主要AWSクライアントをまとめて取得する。
  * 各クライアントは内部のリージョン別キャッシュを再利用する。
+ * region 未指定時は各クライアントファクトリーのデフォルト解決
+ * （`process.env.AWS_REGION` → `us-east-1`）に委譲する。
  */
 export function getAwsClients(region?: string): AwsClients {
   return {

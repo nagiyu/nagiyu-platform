@@ -21,6 +21,7 @@ function getEnvVars() {
   return {
     DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
+    AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   };
 }
 
@@ -52,8 +53,8 @@ export async function GET(
     const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { docClient, s3Client } = getAwsClients(process.env.AWS_REGION);
-    const { DYNAMODB_TABLE, S3_BUCKET } = getEnvVars();
+    const { DYNAMODB_TABLE, S3_BUCKET, AWS_REGION } = getEnvVars();
+    const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
     // DynamoDBでジョブを取得
     const getResult = await docClient.send(
