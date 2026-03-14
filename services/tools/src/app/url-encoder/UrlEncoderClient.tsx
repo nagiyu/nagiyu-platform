@@ -45,10 +45,7 @@ export default function UrlEncoderClient() {
     try {
       const result = mode === 'encode' ? encodeUrl(inputText) : decodeUrl(inputText);
       setOutputText(result);
-      showSnackbar(
-        mode === 'encode' ? 'URLエンコードしました' : 'URLデコードしました',
-        'success'
-      );
+      showSnackbar(mode === 'encode' ? 'URLエンコードしました' : 'URLデコードしました', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : '変換に失敗しました。';
       setError(message);
@@ -162,9 +159,7 @@ export default function UrlEncoderClient() {
             onClick={handleConvert}
             disabled={!inputText.trim()}
             aria-label={
-              mode === 'encode'
-                ? '入力をURLエンコードする'
-                : '入力をURLエンコードからデコードする'
+              mode === 'encode' ? '入力をURLエンコードする' : '入力をURLエンコードからデコードする'
             }
           >
             {mode === 'encode' ? 'エンコード' : 'デコード'}

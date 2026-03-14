@@ -7,7 +7,9 @@ describe('url-encoder', () => {
     });
 
     it('日本語を含む文字列をURLエンコードできる', () => {
-      expect(encodeUrl('こんにちは🌟')).toBe('%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF%F0%9F%8C%9F');
+      expect(encodeUrl('こんにちは🌟')).toBe(
+        '%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF%F0%9F%8C%9F'
+      );
     });
   });
 

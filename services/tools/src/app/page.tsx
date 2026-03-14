@@ -85,13 +85,14 @@ export default function HomePage() {
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
             乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。{' '}
-             VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
-             Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。 URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。
-           </Typography>
-           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-             乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。
-             VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
-           </Typography>
+            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
+            Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。
+            URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。
+          </Typography>
+          <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
+            乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。
+            VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
+          </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             PWA（Progressive Web App）としてホーム画面に追加すれば、アプリのようにすぐ起動できます。
             通信が不安定な環境でも、サーバー通信が不要な基本機能を利用でき、外出先での作業にも適しています。
