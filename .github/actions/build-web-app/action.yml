@@ -1,0 +1,42 @@
+name: Build Web App
+description: Setup Node.js, install dependencies, build shared workspaces and target web workspace
+
+inputs:
+  workspace:
+    description: NPM workspace name to build (e.g. @nagiyu/admin)
+    required: true
+  shared-workspaces:
+    description: Comma-separated shared workspaces to build before target workspace
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: './package-lock.json'
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Build shared workspaces
+      if: inputs.shared-workspaces != ''
+      shell: bash
+      run: |
+        IFS=',' read -ra WORKSPACES <<< "${{ inputs.shared-workspaces }}"
+        for workspace in "${WORKSPACES[@]}"; do
+          workspace="$(echo "$workspace" | xargs)"
+          if [ -z "$workspace" ]; then
+            continue
+          fi
+          npm run build --workspace "$workspace"
+        done
+
+    - name: Build target workspace
+      shell: bash
+      run: npm run build --workspace "${{ inputs.workspace }}"

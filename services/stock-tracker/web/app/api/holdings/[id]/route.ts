@@ -49,12 +49,6 @@ interface DeleteResponse {
   deletedHoldingId: string;
 }
 
-interface ErrorResponse {
-  error: string;
-  message: string;
-  details?: string[];
-}
-
 /**
  * Holding エンティティをレスポンス形式に変換
  */
@@ -124,7 +118,7 @@ export const PUT = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session!.user.userId;
+      const currentUserId = session.user.userId;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {
@@ -242,7 +236,7 @@ export const DELETE = withAuth(
       const { userId: targetUserId, tickerId } = parsedId;
 
       // 他ユーザーのデータへのアクセスを拒否
-      const currentUserId = session!.user.userId;
+      const currentUserId = session.user.userId;
       if (targetUserId !== currentUserId) {
         return NextResponse.json(
           {

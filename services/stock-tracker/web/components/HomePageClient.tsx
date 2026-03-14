@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   Container,
@@ -18,15 +18,22 @@ import {
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import type { Timeframe, ChartBarCount } from '@/types/stock';
+import type { TickerSummary } from '@/types/stock';
+import type { AlertResponse } from '@/types/alert';
 import {
   TIMEFRAME_LABELS,
   CHART_BAR_COUNTS,
   CHART_BAR_COUNT_LABELS,
   DEFAULT_CHART_BAR_COUNT,
 } from '@/types/stock';
+import { computeAlertLines } from '@/lib/chart-overlay-lines';
 import StockChart from './StockChart';
 import ErrorAlert from './ErrorAlert';
 import EmptyState from './EmptyState';
+import TickerSummaryCard from './TickerSummaryCard';
+import HoldingCard from './HoldingCard';
+import type { HoldingResponse } from '@/types/holding';
+import TickerAlertListCard from './TickerAlertListCard';
 
 // API レスポンス型定義
 interface Exchange {
@@ -51,6 +58,9 @@ interface Ticker {
 const ERROR_MESSAGES = {
   FETCH_EXCHANGES_ERROR: '取引所一覧の取得に失敗しました。ネットワーク接続を確認してください。',
   FETCH_TICKERS_ERROR: 'ティッカー一覧の取得に失敗しました。ネットワーク接続を確認してください。',
+  FETCH_SUMMARY_ERROR: 'サマリーの取得に失敗しました',
+  FETCH_HOLDING_ERROR: '保有株式の取得に失敗しました',
+  FETCH_ALERTS_ERROR: 'アラート情報の取得に失敗しました',
 } as const;
 
 interface HomePageClientProps {
@@ -77,14 +87,30 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   // データ状態の管理
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [tickers, setTickers] = useState<Ticker[]>([]);
+  const [summary, setSummary] = useState<TickerSummary | null>(null);
+  const [holding, setHolding] = useState<HoldingResponse | null>(null);
+  const [alerts, setAlerts] = useState<AlertResponse[]>([]);
 
   // ローディング状態の管理
   const [exchangesLoading, setExchangesLoading] = useState<boolean>(false);
   const [tickersLoading, setTickersLoading] = useState<boolean>(false);
+  const [summaryLoading, setSummaryLoading] = useState<boolean>(false);
+  const [holdingLoading, setHoldingLoading] = useState<boolean>(false);
+  const [alertsLoading, setAlertsLoading] = useState<boolean>(false);
 
   // エラー状態の管理
   const [exchangesError, setExchangesError] = useState<string>('');
   const [tickersError, setTickersError] = useState<string>('');
+  const [summaryError, setSummaryError] = useState<string>('');
+  const [holdingError, setHoldingError] = useState<string>('');
+  const [alertsError, setAlertsError] = useState<string>('');
+  const alertLines = useMemo(
+    () =>
+      alerts
+        .filter((alert) => alert.enabled)
+        .flatMap((alert) => computeAlertLines(alert.conditions)),
+    [alerts]
+  );
 
   // 取引所一覧を取得
   useEffect(() => {
@@ -142,6 +168,88 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
     fetchTickers();
   }, [exchange]);
+
+  useEffect(() => {
+    if (!ticker) {
+      setSummary(null);
+      setHolding(null);
+      setAlerts([]);
+      setSummaryError('');
+      setHoldingError('');
+      setAlertsError('');
+      return;
+    }
+
+    const fetchTickerData = async () => {
+      setSummaryLoading(true);
+      setHoldingLoading(true);
+      setAlertsLoading(true);
+      setSummaryError('');
+      setHoldingError('');
+      setAlertsError('');
+
+      const summaryPromise = fetch(`/api/summaries/${ticker}`).then(async (response) => {
+        if (!response.ok) {
+          throw new Error(ERROR_MESSAGES.FETCH_SUMMARY_ERROR);
+        }
+        return (await response.json()) as TickerSummary;
+      });
+
+      const holdingPromise = fetch(`/api/holdings/tickers/${encodeURIComponent(ticker)}`).then(
+        async (response) => {
+          if (response.status === 404) {
+            return null;
+          }
+          if (!response.ok) {
+            throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+          }
+          return (await response.json()) as HoldingResponse;
+        }
+      );
+
+      const alertsPromise = fetch(`/api/alerts/tickers/${encodeURIComponent(ticker)}`).then(
+        async (response) => {
+          if (!response.ok) {
+            throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
+          }
+          const data = (await response.json()) as { alerts?: AlertResponse[] };
+          return data.alerts ?? [];
+        }
+      );
+
+      try {
+        const [summaryResult, holdingResult, alertsResult] = await Promise.allSettled([
+          summaryPromise,
+          holdingPromise,
+          alertsPromise,
+        ]);
+
+        if (summaryResult.status === 'fulfilled') {
+          setSummary(summaryResult.value);
+        } else {
+          setSummaryError(ERROR_MESSAGES.FETCH_SUMMARY_ERROR);
+        }
+
+        if (holdingResult.status === 'fulfilled') {
+          setHolding(holdingResult.value);
+        } else {
+          setHoldingError(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+        }
+
+        if (alertsResult.status === 'fulfilled') {
+          setAlerts(alertsResult.value);
+        } else {
+          setAlertsError(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
+        }
+      } finally {
+        setSummaryLoading(false);
+        setHoldingLoading(false);
+        setAlertsLoading(false);
+      }
+    };
+
+    void fetchTickerData();
+  }, [ticker]);
 
   // URL クエリの exchangeId を初期選択に反映
   useEffect(() => {
@@ -340,6 +448,8 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             timeframe={timeframe}
             count={barCount}
             autoRefresh={autoRefresh}
+            holdingPrice={holding?.averagePrice}
+            alertLines={alertLines}
           />
         ) : (
           <EmptyState
@@ -353,6 +463,24 @@ export default function HomePageClient({ children }: HomePageClientProps) {
           />
         )}
       </Paper>
+
+      {exchange && ticker && (
+        <Box
+          sx={{
+            mt: 3,
+            display: 'grid',
+            gap: 2,
+            gridTemplateColumns: {
+              xs: '1fr',
+              md: 'repeat(3, 1fr)',
+            },
+          }}
+        >
+          <TickerSummaryCard summary={summary} loading={summaryLoading} error={summaryError} />
+          <HoldingCard holding={holding} loading={holdingLoading} error={holdingError} />
+          <TickerAlertListCard alerts={alerts} loading={alertsLoading} error={alertsError} />
+        </Box>
+      )}
 
       {/* クイックアクションエリア */}
       {children}

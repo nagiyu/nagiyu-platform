@@ -1,0 +1,52 @@
+name: Setup Environment
+description: Determine deployment environment and stack naming outputs
+
+inputs:
+  stack-name-prefix:
+    description: Optional stack name prefix to output full stack name (e.g. NagiyuCodecConverter)
+    required: false
+    default: ''
+
+outputs:
+  environment:
+    description: Deployment environment (dev or prod)
+    value: ${{ steps.set-environment.outputs.environment }}
+  stack-suffix:
+    description: Stack suffix (Dev or Prod)
+    value: ${{ steps.set-environment.outputs.stack-suffix }}
+  stack-name:
+    description: Full stack name based on stack-name-prefix and stack suffix
+    value: ${{ steps.set-environment.outputs.stack-name }}
+
+runs:
+  using: composite
+  steps:
+    - name: Determine environment
+      id: set-environment
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          environment="${{ github.event.inputs.environment }}"
+          if [[ -z "$environment" ]]; then
+            environment='dev'
+          fi
+        elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
+          environment='prod'
+        else
+          environment='dev'
+        fi
+
+        if [[ "$environment" == 'prod' ]]; then
+          stack_suffix='Prod'
+        else
+          stack_suffix='Dev'
+        fi
+
+        echo "environment=$environment" >> "$GITHUB_OUTPUT"
+        echo "stack-suffix=$stack_suffix" >> "$GITHUB_OUTPUT"
+
+        if [[ -n "${{ inputs.stack-name-prefix }}" ]]; then
+          echo "stack-name=${{ inputs.stack-name-prefix }}$stack_suffix" >> "$GITHUB_OUTPUT"
+        else
+          echo "stack-name=" >> "$GITHUB_OUTPUT"
+        fi

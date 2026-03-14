@@ -31,40 +31,21 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      stack-suffix: ${{ steps.set-env.outputs.stack-suffix }}
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
 
-      - name: Set environment
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
-            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
-            if [[ "$ENV" == "prod" ]]; then
-              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
-            else
-              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -81,8 +62,8 @@ jobs:
 
       - name: Deploy ECR Stack
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
-          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-tools -- deploy NagiyuToolsEcr${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
@@ -112,6 +93,12 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Application version: $VERSION"
+
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: 'tools'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -146,28 +133,23 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Acquire Docker build lock
-        uses: ./.github/actions/docker-build-lock-acquire
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/tools/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
 
-      - name: Build and push Docker image
+      - name: Push Docker image
         id: build-image
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
           IMAGE_TAG: latest
-          APP_VERSION: ${{ steps.get-version.outputs.app-version }}
-          DOCKER_BUILDKIT: 0
         run: |
-          # Build and push with latest tag only
-          docker build --build-arg APP_VERSION="$APP_VERSION" \
-            -t "$REPOSITORY_URI:$IMAGE_TAG" -f services/tools/Dockerfile .
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
 
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "commit-sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
-
-      - name: Release Docker build lock
-        if: always()
-        uses: ./.github/actions/docker-build-lock-release
 
   infrastructure-app:
     name: Deploy Application Infrastructure
@@ -178,14 +160,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
