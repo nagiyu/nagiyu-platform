@@ -64,7 +64,8 @@
 - エラーメッセージ定数（INVALID_REQUEST_BODY, MISSING_SUBSCRIPTION 等）
 - リクエストボディのパース処理
 
-**差異**: stock-tracker は認証チェック（`getAuthError`）が追加されている。
+**差異**: stock-tracker は認証チェック（`getAuthError`）が追加されている。niconico には認証チェックがない。
+両者のルートを共通化する際は、認証チェックも含めて統一する。
 
 ---
 
@@ -80,6 +81,7 @@
 **重複内容**: `normalizeVapidKey(rawKey, keyName)` 関数。引用符除去・JSON解析による VAPID キー正規化ロジックが同一。
 
 **差異**: stock-tracker 版は `logger.warn()` を使用、niconico 版は `console.warn()` を使用。
+`logger` で統一する（niconico 版の `console.warn()` を `logger.warn()` に変更）。
 
 ---
 
@@ -116,6 +118,7 @@
 | codec-converter | `services/codec-converter/web/src/components/ThemeRegistry.tsx` |
 
 **重複内容**: いずれも `AppLayout + Box(flex column) + Header(title=X) + main(flexGrow) + Footer(version)` の同一構造。
+**方針**: この構成を**本プロジェクトの基本レイアウト構成**として標準化する。サービスによって `Header` に表示するタイトルや追加ボタン等が異なる場合は、props または children スロットでコンポーネントを受け渡せる形とする。
 
 **差異**: `Header` の `title` と `ariaLabel` のみ異なる。
 
@@ -133,6 +136,8 @@
 | stock-tracker (batch) | `services/stock-tracker/batch/src/lib/aws-clients.ts` |
 
 **重複内容**: `getAwsClients()` ファクトリー関数と `clearAwsClientsCache()` パターン。いずれも `@nagiyu/aws` の関数を呼び出すラッパーとして機能しているが、返却するクライアントの種類が異なる。
+
+**方針**: `@nagiyu/aws` 側で DynamoDB、S3、SQS、SNS 等の各クライアントを返すファクトリー関数を追加し、各サービスの `aws-clients.ts` は不要とする。こうすることでサービスごとに `aws-clients.ts` を維持する必要がなくなり汎用性が向上する。
 
 ---
 
@@ -227,9 +232,34 @@
 
 | 対象 | 理由 |
 |------|------|
-| `auth.ts` ファイル（1-8） | NextAuth の設定はサービス固有設定が必要なため完全共通化は困難 |
 | `session.ts` の `createTestSession`（1-9） | テスト環境のユーザー情報はサービス固有 |
-| `getAwsClients()`（1-6） | 返却クライアントが異なる、`@nagiyu/aws` を直接使えば十分 |
+
+#### 2-5. `@nagiyu/aws` への追加候補（1-6 の `getAwsClients()` 対応）
+
+| 候補 | 内容 |
+|------|------|
+| `getDynamoDBDocumentClient()` キャッシュ対応版 | シングルトン・キャッシュクリア付きファクトリー |
+| `getS3Client()` キャッシュ対応版 | 同上 |
+| `getSQSClient()` キャッシュ対応版 | 同上 |
+| `getSNSClient()` キャッシュ対応版 | 同上 |
+
+各サービスの `aws-clients.ts` は `@nagiyu/aws` のクライアントファクトリーを直接呼び出すだけで済むようになり、ラッパーファイルが不要になる。
+
+#### 2-6. `@nagiyu/nextjs` への `createServiceAuthConfig()` 追加候補（1-8 の `auth.ts` 対応）
+
+全サービスの `auth.ts` を実際に比較した結果、差異は以下の2点のみ:
+
+| サービス | `createAuthConfig` オプション | `secret` フィールド |
+|---------|------------------------------|-------------------|
+| stock-tracker | なし | `process.env.AUTH_SECRET \|\| process.env.NEXTAUTH_SECRET` 明示 |
+| share-together | `{ includeSubAsUserIdFallback: true }` | なし |
+| admin | なし | なし |
+| niconico-mylist-assistant | `{ includeSubAsUserIdFallback: true }` | なし |
+
+`pages.signIn` はすべて `${process.env.NEXT_PUBLIC_AUTH_URL}/signin` で完全一致。
+`providers: []`, `trustHost: true` もすべて同一。
+
+`createAuthConfig` に `includeSubAsUserIdFallback` オプションを引数として受け取る形で、`createServiceAuthConfig(options?)` のようなラッパーを `@nagiyu/nextjs` に追加すれば、各サービスの `auth.ts` は数行に削減できる可能性がある。
 
 ---
 
@@ -287,11 +317,13 @@
 | 優先度 | 対象 | 理由 |
 |--------|------|------|
 | 高 | VAPID公開鍵ルートの共通化（1-1） | 完全重複、共通化が容易 |
-| 高 | `normalizeVapidKey` の `@nagiyu/common` 追加（1-3） | 完全重複、純粋関数で追加容易 |
+| 高 | `normalizeVapidKey` の `@nagiyu/common` 追加 + `logger` 統一（1-3） | 完全重複、純粋関数で追加容易、`logger` で統一 |
 | 高 | `COMMON_ERROR_MESSAGES` の統合（4-1） | libs/common 内部の問題で影響範囲が広い |
 | 中 | stock-tracker 独自 DynamoDB クライアントの削除（3-1） | `@nagiyu/aws` への単純移行 |
-| 中 | Push サブスクリプション検証の共通化（1-2） | 重複度高、nextjs ライブラリへの追加 |
-| 中 | ThemeRegistry パターンの `ServiceLayout` 化（1-5） | admin/auth/codec-converter の3サービスに適用 |
+| 中 | Push サブスクリプション検証の共通化 + 認証チェック統一（1-2） | 重複度高、nextjs ライブラリへの追加 |
+| 中 | `@nagiyu/aws` クライアントファクトリーの整備（1-6） | 複数サービスの `aws-clients.ts` ラッパーを削除可能 |
+| 中 | ThemeRegistry パターンの `ServiceLayout` 化（1-5） | プロジェクト基本構成として全サービスへ展開 |
+| 中 | `auth.ts` の `createServiceAuthConfig()` 化（1-8） | 差異は `includeSubAsUserIdFallback` オプションのみ |
 | 低 | `getAuthError` の統合（3-2、1-10） | 型確認が必要、リスクあり |
 | 低 | ServiceWorkerRegistration フック化（1-4） | サービス間の差異が大きく完全共通化は難しい |
 
@@ -309,6 +341,8 @@ aws → common（確認が必要）
 - `ServiceLayout` を `@nagiyu/ui` に追加: ✅ `@nagiyu/browser` 参照可（`ui → browser` ルール内）
 - `useServiceWorkerRegistration` を `@nagiyu/ui` に追加: ✅ `@nagiyu/browser` の `urlBase64ToUint8Array` を利用可能（`ui → browser` ルール内）
 - Push 検証ユーティリティを `@nagiyu/nextjs` に追加: ✅ `crypto` モジュール使用のみ（Node.js 組み込み）、`web-push` 依存不要
+- `@nagiyu/aws` クライアントファクトリー整備: ✅ `@nagiyu/aws` は他のモノレポライブラリに依存しないため変更の影響範囲は限定的
+- `createServiceAuthConfig()` を `@nagiyu/nextjs` に追加: ✅ `next-auth` に依存、ルール維持
 
 ---
 
@@ -325,11 +359,12 @@ aws → common（確認が必要）
 
 ### フェーズ 2: 軽微な共通化（低リスク）
 
-- [ ] T002: `normalizeVapidKey` 関数を `libs/common` に追加する
+- [ ] T002: `normalizeVapidKey` 関数を `libs/common` に追加し、`logger` で統一する
     - `libs/common/src/push/` ディレクトリを作成し `vapid.ts` を追加
     - `libs/common/src/index.ts` からエクスポート
     - テストを追加（`libs/common/tests/unit/push/vapid.test.ts`）
     - stock-tracker バッチ・niconico バッチの `web-push-client.ts` から独自実装を削除し `@nagiyu/common` からインポートするよう修正
+    - niconico バッチ版の `console.warn()` を `logger.warn()` に変更（stock-tracker 版と統一）
     - **影響ファイル**: `services/stock-tracker/batch/src/lib/web-push-client.ts`, `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts`
 
 - [ ] T003: VAPID公開鍵ルートヘルパーを `libs/nextjs` に追加する
@@ -352,16 +387,35 @@ aws → common（確認が必要）
 - [ ] T005: Push サブスクリプション検証ユーティリティを `libs/nextjs` に追加する
     - `libs/nextjs/src/push.ts` に `validatePushSubscription()` および `createSubscriptionId()` を追加
     - stock-tracker・niconico の subscribe ルートから独自実装を削除し `@nagiyu/nextjs` からインポート
+    - 認証チェック（`getAuthError`）も統一する：niconico の subscribe ルートにも stock-tracker と同様の認証チェックを追加するか、共通ルートヘルパー内で認証チェックオプションを提供する
     - テストを追加
     - **影響ファイル**: `services/stock-tracker/web/app/api/push/subscribe/route.ts`, `services/niconico-mylist-assistant/web/src/app/api/push/subscribe/route.ts`
 
-### フェーズ 5: ThemeRegistry の整理（任意）
+### フェーズ 5: AWS クライアントファクトリーの整備
 
-- [ ] T006: `ServiceLayout` コンポーネントを `libs/ui` に追加することを検討する
+- [ ] T007: `@nagiyu/aws` 側でキャッシュ付きクライアントファクトリーを整備する
+    - 各サービスが個別に `aws-clients.ts` でラップしているパターンを `@nagiyu/aws` 側に集約
+    - `getDynamoDBDocumentClient()`, `getS3Client()`, `getSQSClient()`, `getSNSClient()` 等にキャッシュ・クリア機能を付与
+    - 各サービスの `aws-clients.ts` を削除し `@nagiyu/aws` を直接使用するよう変更
+    - **影響ファイル**: `libs/aws/`, `services/codec-converter/web/src/lib/aws-clients.ts`, `services/share-together/web/src/lib/aws-clients.ts`, `services/niconico-mylist-assistant/web/src/lib/aws-clients.ts`, `services/stock-tracker/batch/src/lib/aws-clients.ts`
+
+### フェーズ 6: ThemeRegistry の `ServiceLayout` への統一（プロジェクト基本構成化）
+
+- [ ] T006: `ServiceLayout` コンポーネントを `libs/ui` に追加してプロジェクト基本構成とする
     - `libs/ui/src/components/layout/ServiceLayout.tsx` を新規作成
+    - `AppLayout + Box(flex column) + Header + main(flexGrow) + Footer` の構成を基本構成として標準化
+    - サービス固有の差異（Header のタイトル・追加ボタン等）は props または children スロットで対応できる設計
     - admin, auth, codec-converter の ThemeRegistry を `ServiceLayout` を使う形式に統一
-    - `title` と `ariaLabel` を props として受け取る設計
-    - **影響ファイル**: `services/admin/web/src/components/ThemeRegistry.tsx`, `services/auth/web/src/components/ThemeRegistry.tsx`, `services/codec-converter/web/src/components/ThemeRegistry.tsx`
+    - 全サービスへの段階的な適用を推奨
+    - **影響ファイル**: `libs/ui/src/components/layout/ServiceLayout.tsx`（新規）, `services/admin/web/src/components/ThemeRegistry.tsx`, `services/auth/web/src/components/ThemeRegistry.tsx`, `services/codec-converter/web/src/components/ThemeRegistry.tsx`
+
+### フェーズ 7: `auth.ts` の共通化検討
+
+- [ ] T008: `createServiceAuthConfig()` を `libs/nextjs` に追加することを検討する
+    - 全サービスの `auth.ts` を比較した結果、差異は `createAuthConfig` の `includeSubAsUserIdFallback` オプションのみ（全サービスで `pages.signIn` は `NEXT_PUBLIC_AUTH_URL/signin` と同一）
+    - `@nagiyu/nextjs` に `createServiceAuthConfig(options?: { includeSubAsUserIdFallback?: boolean })` を追加
+    - 各サービスの `auth.ts` を数行に削減できる
+    - **影響ファイル**: `libs/nextjs/src/auth.ts`, 各サービスの `auth.ts`
 
 ---
 
@@ -381,6 +435,4 @@ aws → common（確認が必要）
 
 2. **ServiceWorkerRegistration の共通フック化（1-4）**: 3サービスで用途が異なる（refreshあり・なし・pushなし）ため、完全な共通化は難しい。`useBasicServiceWorker()` のような基本登録のみ共通化し、Push処理はサービス側に残す方針が現実的か要検討。
 
-3. **`auth.ts` ファイルの完全共通化（1-8）**: `createConsumerAuthConfig()` のようなラッパーを `libs/nextjs` に追加することも選択肢だが、各サービスが `pages.signIn` URLを個別設定する必要があり恩恵が限定的。現状維持でもよい。
-
-4. **共通化後の `web-push-client.ts`**: T002・T005 実施後、2つのバッチ版 `web-push-client.ts` は `normalizeVapidKey` 以外の部分（通知送信・ペイロード生成）はサービス固有ロジックが多いため、残存してよい。
+3. **共通化後の `web-push-client.ts`**: T002・T005 実施後、2つのバッチ版 `web-push-client.ts` は `normalizeVapidKey` 以外の部分（通知送信・ペイロード生成）はサービス固有ロジックが多いため、残存してよい。
