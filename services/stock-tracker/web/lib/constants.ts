@@ -1,1 +1,2 @@
 export const AUTO_REFRESH_INTERVAL_MS = 10_000;
+export const MAX_ALERTS_PER_USER = 1_000;
