@@ -123,4 +123,25 @@ describe('AlertSettingsModal performance', () => {
 
     expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);
   });
+
+  it('通知タイトルの入力では chartAlertLines を再計算しない', () => {
+    const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<typeof computeAlertLines>;
+
+    render(
+      React.createElement(AlertSettingsModal, {
+        open: true,
+        onClose: jest.fn(),
+        tickerId: 'NASDAQ:AAPL',
+        symbol: 'AAPL',
+        exchangeId: 'NASDAQ',
+        mode: 'create',
+        tradeMode: 'Buy',
+      })
+    );
+
+    const initialCallCount = computeAlertLinesMock.mock.calls.length;
+    fireEvent.change(screen.getByLabelText('通知タイトル'), { target: { value: '通知タイトルテスト' } });
+
+    expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);
+  });
 });
