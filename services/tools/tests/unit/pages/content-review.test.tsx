@@ -3,7 +3,7 @@ import AboutPage from '@/app/about/page';
 import HomePage, { metadata as homeMetadata } from '@/app/page';
 import { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 
-describe('Phase 1 コンテンツ修正', () => {
+describe('コンテンツ整合性', () => {
   it('aboutページの提供ツールにJSON整形ツールが含まれる', () => {
     const html = renderToStaticMarkup(AboutPage());
 
