@@ -42,7 +42,7 @@ const convertJwkToVapidKeys = (publicJwk: JwkKey, privateJwk: JwkKey) => {
     Buffer.from(publicJwk.y, 'base64url'),
   ]).toString('base64url');
 
-  const privateKey = Buffer.from(privateJwk.d, 'base64url').toString('base64url');
+  const privateKey = privateJwk.d;
 
   return { publicKey, privateKey };
 };
