@@ -4,12 +4,12 @@
 
 import { handler } from '../../src/daily.js';
 import type { ScheduledEvent } from '../../src/daily.js';
-import * as awsClients from '../../src/lib/aws-clients.js';
+import * as awsClients from '@nagiyu/aws';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 // モックの設定
-jest.mock('../../src/lib/aws-clients.js');
+jest.mock('@nagiyu/aws');
 
 describe('daily batch handler', () => {
   let mockDocClient: {

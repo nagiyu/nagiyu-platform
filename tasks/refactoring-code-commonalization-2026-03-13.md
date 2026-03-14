@@ -393,7 +393,7 @@ aws → common（確認が必要）
 
 ### フェーズ 5: AWS クライアントファクトリーの整備
 
-- [ ] T007: `@nagiyu/aws` 側でキャッシュ付きクライアントファクトリーを整備する
+- [x] T007: `@nagiyu/aws` 側でキャッシュ付きクライアントファクトリーを整備する
     - 各サービスが個別に `aws-clients.ts` でラップしているパターンを `@nagiyu/aws` 側に集約
     - `getDynamoDBDocumentClient()`, `getS3Client()`, `getSQSClient()`, `getSNSClient()` 等にキャッシュ・クリア機能を付与
     - 各サービスの `aws-clients.ts` を削除し `@nagiyu/aws` を直接使用するよう変更

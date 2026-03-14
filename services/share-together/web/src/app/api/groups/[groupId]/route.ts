@@ -6,7 +6,7 @@ import {
 import { NextResponse, type NextRequest } from 'next/server';
 import type { ApiErrorResponse, GroupResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
@@ -76,7 +76,8 @@ async function getOwnedGroup(groupId: string): Promise<
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
-  const docClient = getDocClient();
+  const docClient =
+    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const groupRepository = createGroupRepository(docClient, tableName);
   const membershipRepository = createMembershipRepository(docClient, tableName);
   const group = await groupRepository.getById(groupId);

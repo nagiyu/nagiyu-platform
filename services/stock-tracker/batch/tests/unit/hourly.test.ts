@@ -4,7 +4,7 @@
 
 import { handler } from '../../src/hourly.js';
 import type { ScheduledEvent } from '../../src/hourly.js';
-import * as awsClients from '../../src/lib/aws-clients.js';
+import * as awsClients from '@nagiyu/aws';
 import * as webPushClient from '../../src/lib/web-push-client.js';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
@@ -14,7 +14,7 @@ import * as tradingviewClient from '@nagiyu/stock-tracker-core';
 import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 
 // モックの設定
-jest.mock('../../src/lib/aws-clients.js');
+jest.mock('@nagiyu/aws');
 jest.mock('../../src/lib/web-push-client.js');
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),

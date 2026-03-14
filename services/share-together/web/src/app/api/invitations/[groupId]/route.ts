@@ -5,7 +5,7 @@ import {
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
@@ -85,7 +85,8 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = getDocClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const groupRepository = createGroupRepository(docClient, tableName);
     const updatedMembership = await respondToInvitation(

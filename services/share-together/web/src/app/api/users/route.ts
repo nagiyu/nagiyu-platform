@@ -4,7 +4,7 @@ import type { Session } from 'next-auth';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createUserRepository } from '@/lib/repositories';
 
@@ -84,7 +84,8 @@ export const POST = withAuth(getSessionWithRoles, null, async (session): Promise
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = getDocClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const userRepository = createUserRepository(docClient, tableName);
     const listRepository = createListRepository(docClient, tableName);
     const existingUser = await userRepository.getById(userId);
