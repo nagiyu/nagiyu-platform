@@ -35,42 +35,23 @@ jobs:
       contents: read
 
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      stack-suffix: ${{ steps.set-env.outputs.stack-suffix }}
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
       ecr-registry: ${{ steps.login-ecr.outputs.registry }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            ENV="${{ github.event.inputs.environment }}"
-            echo "environment=$ENV" >> "$GITHUB_OUTPUT"
-            if [[ "$ENV" == "prod" ]]; then
-              echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
-            else
-              echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "environment=prod" >> "$GITHUB_OUTPUT"
-            echo "stack-suffix=Prod" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-            echo "stack-suffix=Dev" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -99,12 +80,12 @@ jobs:
           # Bootstrap is idempotent - safe to run on every deployment
           npm run cdk --workspace=@nagiyu/infra-niconico-mylist-assistant -- bootstrap \
             aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
-            --context env=${{ steps.set-env.outputs.environment }}
+            --context env=${{ steps.setup-environment.outputs.environment }}
 
       - name: Deploy Infrastructure Stacks (DynamoDB, Secrets, ECR, S3)
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
-          STACK_SUFFIX: ${{ steps.set-env.outputs.stack-suffix }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
           # CDK deploy is idempotent - no need for existence checks
           echo "Deploying infrastructure stacks..."
@@ -255,15 +236,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: './package-lock.json'
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common

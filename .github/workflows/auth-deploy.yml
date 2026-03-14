@@ -32,34 +32,21 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
+      environment: ${{ steps.setup-environment.outputs.environment }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment
-        id: set-env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ github.event.inputs.environment }}" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" == 'refs/heads/master' ]]; then
-            echo "environment=prod" >> "$GITHUB_OUTPUT"
-          elif [[ "$GITHUB_REF" =~ ^refs/heads/integration/auth/ ]]; then
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-          else
-            echo "environment=dev" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
@@ -77,11 +64,11 @@ jobs:
       - name: CDK Bootstrap (if needed)
         run: |
           echo "Checking if CDK bootstrap is needed..."
-          npm run cdk --workspace=@nagiyu/infra-auth -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.set-env.outputs.environment }} || echo "Bootstrap already exists"
+          npm run cdk --workspace=@nagiyu/infra-auth -- bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} --context env=${{ steps.setup-environment.outputs.environment }} || echo "Bootstrap already exists"
 
       - name: Deploy Infrastructure (DynamoDB, Secrets, ECR)
         env:
-          ENVIRONMENT: ${{ steps.set-env.outputs.environment }}
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           echo "Deploying DynamoDB, Secrets Manager, and ECR stacks..."
 
@@ -203,15 +190,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
         with:
           node-version: '22'
-          cache: 'npm'
           cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
