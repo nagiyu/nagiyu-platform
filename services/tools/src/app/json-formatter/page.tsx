@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { jsonFormatterStructuredData, toJsonLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'JSON 整形ツール - Tools',
@@ -9,5 +10,10 @@ export const metadata: Metadata = {
 import JsonFormatterClient from './JsonFormatterClient';
 
 export default function JsonFormatterPage() {
-  return <JsonFormatterClient />;
+  return (
+    <>
+      <script type="application/ld+json">{toJsonLd(jsonFormatterStructuredData)}</script>
+      <JsonFormatterClient />
+    </>
+  );
 }
