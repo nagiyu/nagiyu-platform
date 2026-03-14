@@ -16,6 +16,11 @@ describe('structuredData', () => {
     expect(graph).toEqual(
       expect.arrayContaining([expect.objectContaining({ '@type': 'SoftwareApplication' })])
     );
+    const software = graph.find(
+      (entry): entry is { '@type': string; featureList?: string[] } =>
+        typeof entry === 'object' && entry !== null && entry['@type'] === 'SoftwareApplication'
+    );
+    expect(software?.featureList).toContain('Base64文字列のエンコード・デコード');
   });
 
   it('ツールページ用スキーマが WebApplication になっている', () => {
