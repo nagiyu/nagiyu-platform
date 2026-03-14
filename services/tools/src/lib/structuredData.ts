@@ -31,7 +31,11 @@ export const homeStructuredData = {
         price: '0',
         priceCurrency: 'JPY',
       },
-      featureList: ['乗り換え案内テキストの整形', 'JSONの整形・圧縮・検証'],
+      featureList: [
+        '乗り換え案内テキストの整形',
+        'JSONの整形・圧縮・検証',
+        'VAPIDキー（公開鍵・秘密鍵）の生成',
+      ],
     },
   ],
 };

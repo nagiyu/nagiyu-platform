@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import TrainIcon from '@mui/icons-material/Train';
 import DataObjectIcon from '@mui/icons-material/DataObject';
+import KeyIcon from '@mui/icons-material/Key';
 import ToolCard from '@/components/tools/ToolCard';
 import { homeStructuredData, toJsonLd } from '@/lib/structuredData';
 import { Tool } from '@/types/tools';
@@ -9,7 +10,7 @@ import { Tool } from '@/types/tools';
 export const metadata: Metadata = {
   title: 'Tools - 便利なオンラインツール集',
   description:
-    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツールとJSON整形ツールを提供し、コピーしやすい形式への変換やデータ整形をすばやく行えます。すべての処理はブラウザ内で完結し、入力データは外部送信されません。PWA対応でオフライン環境でも利用できます。',
+    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツールを提供し、コピーしやすい形式への変換やデータ整形、Web Push設定に必要な鍵生成をすばやく行えます。機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。',
   openGraph: {
     title: 'Tools - 便利なオンラインツール集',
     description:
@@ -40,6 +41,15 @@ export default function HomePage() {
       href: '/json-formatter',
       category: '変換ツール',
     },
+    {
+      id: 'vapid-generator',
+      title: 'VAPID キー生成ツール',
+      description:
+        'Web Push 通知で必要な VAPID の公開鍵・秘密鍵ペアを生成し、そのままコピーして設定に利用できます。',
+      icon: <KeyIcon sx={{ fontSize: 48 }} />,
+      href: '/vapid-generator',
+      category: '開発支援ツール',
+    },
   ];
 
   return (
@@ -55,14 +65,15 @@ export default function HomePage() {
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
             乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。
+            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-            すべてのツールはブラウザ内で動作し、入力データは外部に送信されません。
-            開発者だけでなく、日常的にテキストやデータを扱うすべての方が安全かつ手軽に利用できます。
+            乗り換え変換ツールとJSON整形ツールはブラウザ内で動作し、入力データは外部に送信されません。
+            VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             PWA（Progressive Web App）としてホーム画面に追加すれば、アプリのようにすぐ起動できます。
-            通信が不安定な環境でも基本機能を利用でき、外出先での作業にも適しています。
+            通信が不安定な環境でも、サーバー通信が不要な基本機能を利用でき、外出先での作業にも適しています。
           </Typography>
         </Box>
 
@@ -97,8 +108,8 @@ export default function HomePage() {
                 🔒 プライバシー保護
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                すべてのデータはブラウザ内でのみ処理されます。入力されたデータはサーバーに送信されないため、
-                安心してご利用いただけます。
+                乗り換え変換・JSON整形はブラウザ内で処理され、入力データはサーバー送信されません。
+                VAPIDキー生成はサーバーで鍵を作成するため、各ツールの特性に応じて処理方式が異なります。
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'center' }}>
@@ -106,8 +117,8 @@ export default function HomePage() {
                 📱 オフライン対応
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                PWAとしてインストールすることで、オフライン環境でも基本的なツールを利用できます。
-                通信環境を気にせず使えます。
+                PWAとしてインストールすることで、オフライン環境でもサーバー通信不要の機能を利用できます。
+                通信が必要な機能はオンライン時にご利用ください。
               </Typography>
             </Box>
             <Box sx={{ textAlign: 'center' }}>

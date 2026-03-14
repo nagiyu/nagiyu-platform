@@ -38,8 +38,25 @@ describe('コンテンツ整合性', () => {
   it('ホームページのmetadataと主要説明文が提供中ツールに整合する', () => {
     const homeHtml = renderToStaticMarkup(HomePage());
 
-    expect(homeMetadata.description).toContain('乗り換え変換ツールとJSON整形ツール');
+    expect(homeMetadata.description).toContain(
+      '乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール'
+    );
+    expect(homeMetadata.description).toContain(
+      '機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。'
+    );
     expect(homeHtml).toContain('APIレスポンスや設定データの確認作業を効率化します。');
+    expect(homeHtml).toContain('VAPID キー生成ツール');
+    expect(homeHtml).toContain(
+      'VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。'
+    );
+    expect(homeHtml).toContain(
+      '乗り換え変換ツールとJSON整形ツールはブラウザ内で動作し、入力データは外部に送信されません。'
+    );
+    expect(homeHtml).toContain('サーバー通信が不要な基本機能を利用でき');
+    expect(homeHtml).toContain(
+      'VAPIDキー生成はサーバーで鍵を作成するため、各ツールの特性に応じて処理方式が異なります。'
+    );
+    expect(homeHtml).toContain('通信が必要な機能はオンライン時にご利用ください。');
   });
 
   it('ホームページに WebSite / SoftwareApplication のJSON-LDが埋め込まれている', () => {
