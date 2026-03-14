@@ -8,7 +8,7 @@ import { Tool } from '@/types/tools';
 export const metadata: Metadata = {
   title: 'Tools - 便利なオンラインツール集',
   description:
-    'Toolsは、日常的に便利なオンラインツール群を提供する無料のWebアプリケーションです。乗り換え案内の整形ツール、今後追加予定の様々なツールを無料で利用できます。すべてのツールはブラウザ内で動作し、入力データは外部に送信されません。PWA対応でオフライン環境でも利用可能です。',
+    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツールとJSON整形ツールを提供し、コピーしやすい形式への変換やデータ整形をすばやく行えます。すべての処理はブラウザ内で完結し、入力データは外部送信されません。PWA対応でオフライン環境でも利用できます。',
   openGraph: {
     title: 'Tools - 便利なオンラインツール集',
     description:
@@ -24,7 +24,8 @@ export default function HomePage() {
     {
       id: 'transit-converter',
       title: '乗り換え変換ツール',
-      description: '乗り換え案内のテキストを整形してコピーします',
+      description:
+        '乗り換え案内のテキストから必要な情報を抽出し、メモやチャットに貼り付けやすい形式へ変換します。',
       icon: <TrainIcon sx={{ fontSize: 48 }} />,
       href: '/transit-converter',
       category: '変換ツール',
@@ -32,7 +33,8 @@ export default function HomePage() {
     {
       id: 'json-formatter',
       title: 'JSON 整形ツール',
-      description: 'JSONの整形・圧縮・検証ができます',
+      description:
+        'JSONの整形・圧縮・検証を1画面で実行できます。APIレスポンスや設定データの確認作業を効率化します。',
       icon: <DataObjectIcon sx={{ fontSize: 48 }} />,
       href: '/json-formatter',
       category: '変換ツール',
@@ -48,17 +50,16 @@ export default function HomePage() {
       {/* サイトの概要説明 */}
       <Box sx={{ mb: 6, mt: 3 }}>
         <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-          Toolsは、日常的に便利なツール群を提供する無料のWebアプリケーションです。
+          Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
+          乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。
+        </Typography>
+        <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
           すべてのツールはブラウザ内で動作し、入力データは外部に送信されません。
-          プライバシーを重視した設計で、安心してご利用いただけます。
+          開発者だけでなく、日常的にテキストやデータを扱うすべての方が安全かつ手軽に利用できます。
         </Typography>
         <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-          開発者や一般ユーザーを問わず、誰でも無料で利用できます。
-          乗り換え案内の整形や、今後追加予定の様々なツールをお役立てください。
-        </Typography>
-        <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-          PWA（Progressive Web App）として、スマートフォンのホーム画面に追加して、
-          アプリのように使うこともできます。オフラインでも基本的な機能が動作します。
+          PWA（Progressive Web App）としてホーム画面に追加すれば、アプリのようにすぐ起動できます。
+          通信が不安定な環境でも基本機能を利用でき、外出先での作業にも適しています。
         </Typography>
       </Box>
 

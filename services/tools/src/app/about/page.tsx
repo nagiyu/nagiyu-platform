@@ -30,7 +30,7 @@ export default function AboutPage() {
           プライバシーを重視した設計となっており、安心してご利用いただけます。
         </Typography>
         <Typography variant="body1" paragraph>
-          乗り換え案内の整形や、今後追加予定の様々なツールを通じて、
+          乗り換え案内の整形や JSON データの整形など、実用性の高いツールを提供し、
           日常的な作業をより快適にすることを目指しています。
         </Typography>
       </Box>
@@ -67,6 +67,15 @@ export default function AboutPage() {
               乗り換え案内のテキストを整形してコピー。
               出発地、到着地、時刻、運賃などの必要な情報だけを抽出し、
               読みやすい形式に変換します。表示項目のカスタマイズも可能です。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              JSON 整形ツール
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              JSON の整形（Pretty Print）、圧縮（Minify）、検証を 1 つの画面で実行できます。 API
+              レスポンス確認や設定ファイル編集時の可読性向上に活用できます。
             </Typography>
           </Box>
         </Box>
@@ -132,9 +141,6 @@ export default function AboutPage() {
           現在検討中のツールには、以下のようなものがあります：
         </Typography>
         <Box component="ul" sx={{ pl: 3 }}>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body2">JSON フォーマッター</Typography>
-          </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body2">Base64 エンコーダー/デコーダー</Typography>
           </Box>
