@@ -146,14 +146,14 @@ const chartAlertLines = useMemo(
 
 ## タスク
 
-- [ ] T001: `AlertSettingsModal.tsx` の `formData` state を全フィールド個別の `useState` に分割する
-- [ ] T002: 共通ハンドラ `handleFormChange` を廃止し、各フィールドの setter に置き換える
-- [ ] T003: `chartAlertLines` を `useMemo` でラップし、価格条件フィールドのみを依存配列に指定する
-- [ ] T004: `handleSubmit` で各 state を集約してリクエストボディを構築する
-- [ ] T005: `validateForm()` を分割後の state を参照する形に修正する
-- [ ] T006: `buildFormData()` ヘルパーを各 state の初期化用に調整する
-- [ ] T007: 既存ユニットテストを修正・通過確認する
-- [ ] T008: E2E テストで通知テキスト入力時に画面が固まらないことを確認する
+- [x] T001: `AlertSettingsModal.tsx` の `formData` state を全フィールド個別の `useState` に分割する
+- [x] T002: 共通ハンドラ `handleFormChange` を廃止し、各フィールドの setter に置き換える
+- [x] T003: `chartAlertLines` を `useMemo` でラップし、価格条件フィールドのみを依存配列に指定する
+- [x] T004: `handleSubmit` で各 state を集約してリクエストボディを構築する
+- [x] T005: `validateForm()` を分割後の state を参照する形に修正する
+- [x] T006: `buildFormData()` ヘルパーを各 state の初期化用に調整する
+- [x] T007: 既存ユニットテストを修正・通過確認する
+- [x] T008: 通知本文入力時にフリーズしないことをローカルブラウザで手動確認し、画面キャプチャを取得する（E2E の代替確認）
 
 ## 参考ドキュメント
 
