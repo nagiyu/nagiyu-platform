@@ -1,9 +1,20 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import AboutPage from '@/app/about/page';
+import JsonFormatterPage, { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 import HomePage, { metadata as homeMetadata } from '@/app/page';
-import { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 import TransitConverterLayout from '@/app/transit-converter/layout';
-import { homeStructuredData, toJsonLd, transitConverterStructuredData } from '@/lib/structuredData';
+import {
+  homeStructuredData,
+  jsonFormatterStructuredData,
+  toJsonLd,
+  transitConverterStructuredData,
+} from '@/lib/structuredData';
+
+jest.mock('@/app/json-formatter/JsonFormatterClient', () => {
+  const MockJsonFormatterClient = () => <div>dummy</div>;
+
+  return MockJsonFormatterClient;
+});
 
 describe('コンテンツ整合性', () => {
   it('aboutページの提供ツールにJSON整形ツールが含まれる', () => {
@@ -47,5 +58,12 @@ describe('コンテンツ整合性', () => {
 
     expect(transitHtml).toContain('application/ld+json');
     expect(transitHtml).toContain(toJsonLd(transitConverterStructuredData));
+  });
+
+  it('JSON整形ツールページに WebApplication のJSON-LDが埋め込まれている', () => {
+    const jsonFormatterHtml = renderToStaticMarkup(JsonFormatterPage());
+
+    expect(jsonFormatterHtml).toContain('application/ld+json');
+    expect(jsonFormatterHtml).toContain(toJsonLd(jsonFormatterStructuredData));
   });
 });

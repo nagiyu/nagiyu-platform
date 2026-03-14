@@ -66,4 +66,10 @@ export const jsonFormatterStructuredData = {
   },
 };
 
-export const toJsonLd = (value: unknown): string => JSON.stringify(value);
+export const toJsonLd = (value: object): string => {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return '{}';
+  }
+};

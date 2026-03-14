@@ -32,4 +32,11 @@ describe('structuredData', () => {
 
     expect(parsed['@context']).toBe('https://schema.org');
   });
+
+  it('循環参照が含まれる場合は空オブジェクトを返す', () => {
+    const circular = {} as { self?: object };
+    circular.self = circular;
+
+    expect(toJsonLd(circular)).toBe('{}');
+  });
 });
