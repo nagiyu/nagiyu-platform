@@ -107,10 +107,11 @@ describe('Validation Helpers', () => {
   });
 
   describe('isValidTimestamp', () => {
-    const FIXED_NOW = 1_700_000_000_000;
+    // 2023-11-14T22:13:20.000Z（正の Unix ミリ秒値）を固定利用し、Date.now 依存の境界テストを安定化する
+    const TEST_FIXED_TIMESTAMP = 1_700_000_000_000;
 
     beforeEach(() => {
-      jest.spyOn(Date, 'now').mockReturnValue(FIXED_NOW);
+      jest.spyOn(Date, 'now').mockReturnValue(TEST_FIXED_TIMESTAMP);
     });
 
     afterEach(() => {
