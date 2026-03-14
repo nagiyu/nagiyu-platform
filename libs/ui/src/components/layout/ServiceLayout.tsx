@@ -8,16 +8,24 @@ import Header, { type HeaderProps } from './Header';
 
 export interface ServiceLayoutProps {
   children: ReactNode;
-  headerProps?: HeaderProps;
-  footerProps?: FooterProps;
+  /**
+   * Header に渡すプロパティ。
+   * 未指定時は Header コンポーネント側のデフォルト値（title/href/ariaLabel）が適用されます。
+   */
+  headerProps?: Partial<HeaderProps>;
+  /**
+   * Footer に渡すプロパティ。
+   * 未指定時は Footer コンポーネント側のデフォルト値（version）が適用されます。
+   */
+  footerProps?: Partial<FooterProps>;
   headerSlot?: ReactNode;
   footerSlot?: ReactNode;
 }
 
 export default function ServiceLayout({
   children,
-  headerProps,
-  footerProps,
+  headerProps = {},
+  footerProps = {},
   headerSlot,
   footerSlot,
 }: ServiceLayoutProps) {

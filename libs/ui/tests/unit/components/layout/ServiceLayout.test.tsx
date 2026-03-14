@@ -32,4 +32,15 @@ describe('ServiceLayout', () => {
     expect(screen.getByText('Custom Footer')).toBeInTheDocument();
     expect(screen.queryByText('プライバシーポリシー')).not.toBeInTheDocument();
   });
+
+  it('headerProps/footerProps 未指定でもデフォルト表示で描画できる', () => {
+    render(
+      <ServiceLayout>
+        <div>メインコンテンツ</div>
+      </ServiceLayout>
+    );
+
+    expect(screen.getByLabelText('Nagiyu Platform - Navigate to homepage')).toBeInTheDocument();
+    expect(screen.getByText(/v1\.0\.0/)).toBeInTheDocument();
+  });
 });
