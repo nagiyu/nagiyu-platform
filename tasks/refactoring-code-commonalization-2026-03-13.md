@@ -401,7 +401,7 @@ aws → common（確認が必要）
 
 ### フェーズ 6: ThemeRegistry の `ServiceLayout` への統一（プロジェクト基本構成化）
 
-- [ ] T006: `ServiceLayout` コンポーネントを `libs/ui` に追加してプロジェクト基本構成とする
+- [x] T006: `ServiceLayout` コンポーネントを `libs/ui` に追加してプロジェクト基本構成とする
     - `libs/ui/src/components/layout/ServiceLayout.tsx` を新規作成
     - `AppLayout + Box(flex column) + Header + main(flexGrow) + Footer` の構成を基本構成として標準化
     - サービス固有の差異（Header のタイトル・追加ボタン等）は props または children スロットで対応できる設計
