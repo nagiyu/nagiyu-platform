@@ -16,7 +16,9 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
     await expect(toolCard).toBeVisible();
 
     // Verify tool card contains description
-    const description = page.getByText(/乗り換え案内のテキストを整形してコピーします/i);
+    const description = page.getByText(
+      /乗り換え案内のテキストから必要な情報を抽出し、メモやチャットに貼り付けやすい形式へ変換します。/i
+    );
     await expect(description).toBeVisible();
 
     // Verify tool card contains icon
@@ -50,7 +52,9 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
     await expect(toolName).toBeVisible();
 
     // Verify description is displayed
-    const description = toolCard.getByText(/乗り換え案内のテキストを整形してコピーします/i);
+    const description = toolCard.getByText(
+      /乗り換え案内のテキストから必要な情報を抽出し、メモやチャットに貼り付けやすい形式へ変換します。/i
+    );
     await expect(description).toBeVisible();
 
     // Verify icon is present (svg element should be visible)
