@@ -282,14 +282,22 @@ export default function AlertSettingsModal({
 }: AlertSettingsModalProps) {
   const dialogTitle = `${mode === 'edit' ? 'アラートの編集' : 'アラート設定'} (${tradeMode === 'Buy' ? '買い' : '売り'}アラート)`;
 
-  const initialFormData = buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId });
+  const initialFormData = buildFormData({
+    mode,
+    tradeMode,
+    editTarget,
+    defaultTargetPrice,
+    tickerId,
+  });
 
   // フォームデータ（フィールド別 state）
   const [conditionMode, setConditionMode] = useState<FormData['conditionMode']>(
     initialFormData.conditionMode
   );
   const [operator, setOperator] = useState<FormData['operator']>(initialFormData.operator);
-  const [targetPrice, setTargetPrice] = useState<FormData['targetPrice']>(initialFormData.targetPrice);
+  const [targetPrice, setTargetPrice] = useState<FormData['targetPrice']>(
+    initialFormData.targetPrice
+  );
   const [rangeType, setRangeType] = useState<FormData['rangeType']>(initialFormData.rangeType);
   const [minPrice, setMinPrice] = useState<FormData['minPrice']>(initialFormData.minPrice);
   const [maxPrice, setMaxPrice] = useState<FormData['maxPrice']>(initialFormData.maxPrice);
@@ -730,7 +738,10 @@ export default function AlertSettingsModal({
       const parsedMinPercentage = parseFloat(nextMinPercentage);
       if (!isNaN(parsedMinPercentage)) {
         try {
-          const calculatedMinPrice = calculateTargetPriceFromPercentage(basePrice, parsedMinPercentage);
+          const calculatedMinPrice = calculateTargetPriceFromPercentage(
+            basePrice,
+            parsedMinPercentage
+          );
           setMinPrice(calculatedMinPrice.toString());
         } catch (calculationError) {
           console.error('Error calculating min price:', calculationError);
@@ -742,7 +753,10 @@ export default function AlertSettingsModal({
       const parsedMaxPercentage = parseFloat(nextMaxPercentage);
       if (!isNaN(parsedMaxPercentage)) {
         try {
-          const calculatedMaxPrice = calculateTargetPriceFromPercentage(basePrice, parsedMaxPercentage);
+          const calculatedMaxPrice = calculateTargetPriceFromPercentage(
+            basePrice,
+            parsedMaxPercentage
+          );
           setMaxPrice(calculatedMaxPrice.toString());
         } catch (calculationError) {
           console.error('Error calculating max price:', calculationError);
@@ -1110,16 +1124,16 @@ export default function AlertSettingsModal({
           ) : (
             <FormControl fullWidth>
               <InputLabel id="condition-mode-label">条件タイプ</InputLabel>
-                <Select
-                  labelId="condition-mode-label"
-                  id="condition-mode-select"
-                  value={formData.conditionMode}
-                  label="条件タイプ"
-                  onChange={(e) => {
-                    setConditionMode(e.target.value as FormData['conditionMode']);
-                    clearFieldError('conditionMode');
-                  }}
-                >
+              <Select
+                labelId="condition-mode-label"
+                id="condition-mode-select"
+                value={formData.conditionMode}
+                label="条件タイプ"
+                onChange={(e) => {
+                  setConditionMode(e.target.value as FormData['conditionMode']);
+                  clearFieldError('conditionMode');
+                }}
+              >
                 <MenuItem value="single">単一条件（以上または以下）</MenuItem>
                 <MenuItem value="range">範囲指定</MenuItem>
               </Select>
@@ -1140,16 +1154,16 @@ export default function AlertSettingsModal({
               ) : (
                 <FormControl fullWidth error={!!formErrors.operator}>
                   <InputLabel id="operator-label">条件</InputLabel>
-                    <Select
-                      labelId="operator-label"
-                      id="operator-select"
-                      value={formData.operator}
-                      label="条件"
-                      onChange={(e) => {
-                        setOperator(e.target.value as FormData['operator']);
-                        clearFieldError('operator');
-                      }}
-                    >
+                  <Select
+                    labelId="operator-label"
+                    id="operator-select"
+                    value={formData.operator}
+                    label="条件"
+                    onChange={(e) => {
+                      setOperator(e.target.value as FormData['operator']);
+                      clearFieldError('operator');
+                    }}
+                  >
                     <MenuItem value="gte">以上 (≥)</MenuItem>
                     <MenuItem value="lte">以下 (≤)</MenuItem>
                   </Select>
@@ -1282,16 +1296,16 @@ export default function AlertSettingsModal({
               ) : (
                 <FormControl fullWidth>
                   <InputLabel id="range-type-label">範囲タイプ</InputLabel>
-                    <Select
-                      labelId="range-type-label"
-                      id="range-type-select"
-                      value={formData.rangeType}
-                      label="範囲タイプ"
-                      onChange={(e) => {
-                        setRangeType(e.target.value as FormData['rangeType']);
-                        clearFieldError('rangeType');
-                      }}
-                    >
+                  <Select
+                    labelId="range-type-label"
+                    id="range-type-select"
+                    value={formData.rangeType}
+                    label="範囲タイプ"
+                    onChange={(e) => {
+                      setRangeType(e.target.value as FormData['rangeType']);
+                      clearFieldError('rangeType');
+                    }}
+                  >
                     <MenuItem value="inside">範囲内（AND）</MenuItem>
                     <MenuItem value="outside">範囲外（OR）</MenuItem>
                   </Select>
@@ -1307,22 +1321,22 @@ export default function AlertSettingsModal({
               {basePrice && basePrice > 0 && (
                 <FormControl fullWidth>
                   <InputLabel id="range-input-mode-label">入力方式</InputLabel>
-                    <Select
-                      labelId="range-input-mode-label"
-                      id="range-input-mode-select"
-                      value={formData.rangeInputMode}
-                      label="入力方式"
-                      onChange={(e) => {
-                        const nextRangeInputMode = e.target.value as FormData['rangeInputMode'];
-                        setRangeInputMode(nextRangeInputMode);
-                        clearFieldError('rangeInputMode');
-                        updateRangePriceFromPercentage(
-                          nextRangeInputMode,
-                          minPercentage,
-                          maxPercentage
-                        );
-                      }}
-                    >
+                  <Select
+                    labelId="range-input-mode-label"
+                    id="range-input-mode-select"
+                    value={formData.rangeInputMode}
+                    label="入力方式"
+                    onChange={(e) => {
+                      const nextRangeInputMode = e.target.value as FormData['rangeInputMode'];
+                      setRangeInputMode(nextRangeInputMode);
+                      clearFieldError('rangeInputMode');
+                      updateRangePriceFromPercentage(
+                        nextRangeInputMode,
+                        minPercentage,
+                        maxPercentage
+                      );
+                    }}
+                  >
                     <MenuItem value="manual">手動入力</MenuItem>
                     <MenuItem value="percentage">パーセンテージ</MenuItem>
                   </Select>
@@ -1484,16 +1498,16 @@ export default function AlertSettingsModal({
           ) : (
             <FormControl fullWidth error={!!formErrors.frequency}>
               <InputLabel id="frequency-label">通知頻度</InputLabel>
-                <Select
-                  labelId="frequency-label"
-                  id="frequency-select"
-                  value={formData.frequency}
-                  label="通知頻度"
-                  onChange={(e) => {
-                    setFrequency(e.target.value as FormData['frequency']);
-                    clearFieldError('frequency');
-                  }}
-                >
+              <Select
+                labelId="frequency-label"
+                id="frequency-select"
+                value={formData.frequency}
+                label="通知頻度"
+                onChange={(e) => {
+                  setFrequency(e.target.value as FormData['frequency']);
+                  clearFieldError('frequency');
+                }}
+              >
                 <MenuItem value="MINUTE_LEVEL">1分間隔</MenuItem>
                 <MenuItem value="HOURLY_LEVEL">1時間間隔</MenuItem>
               </Select>

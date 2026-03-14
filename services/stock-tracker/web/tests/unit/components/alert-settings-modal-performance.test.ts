@@ -80,13 +80,8 @@ jest.mock('@mui/material', () => {
     CircularProgress: createComponent('span'),
     Box: createComponent('div'),
     Typography: createComponent('span'),
-    FormControlLabel: ({
-      control,
-      label,
-    }: {
-      control: React.ReactNode;
-      label: React.ReactNode;
-    }) => React.createElement('label', null, control, label),
+    FormControlLabel: ({ control, label }: { control: React.ReactNode; label: React.ReactNode }) =>
+      React.createElement('label', null, control, label),
     Switch: ({
       checked,
       onChange,
@@ -104,7 +99,9 @@ jest.mock('@mui/material', () => {
 
 describe('AlertSettingsModal performance', () => {
   it('通知本文の入力では chartAlertLines を再計算しない', () => {
-    const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<typeof computeAlertLines>;
+    const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<
+      typeof computeAlertLines
+    >;
 
     render(
       React.createElement(AlertSettingsModal, {
@@ -125,7 +122,9 @@ describe('AlertSettingsModal performance', () => {
   });
 
   it('通知タイトルの入力では chartAlertLines を再計算しない', () => {
-    const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<typeof computeAlertLines>;
+    const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<
+      typeof computeAlertLines
+    >;
 
     render(
       React.createElement(AlertSettingsModal, {
@@ -140,7 +139,9 @@ describe('AlertSettingsModal performance', () => {
     );
 
     const initialCallCount = computeAlertLinesMock.mock.calls.length;
-    fireEvent.change(screen.getByLabelText('通知タイトル'), { target: { value: '通知タイトルテスト' } });
+    fireEvent.change(screen.getByLabelText('通知タイトル'), {
+      target: { value: '通知タイトルテスト' },
+    });
 
     expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);
   });
