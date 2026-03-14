@@ -11,8 +11,8 @@ jest.mock('@/lib/auth/session', () => ({
   getSessionOrUnauthorized: jest.fn(),
 }));
 
-jest.mock('@/lib/aws-clients', () => ({
-  getDocClient: jest.fn(),
+jest.mock('@nagiyu/aws', () => ({
+  getDynamoDBDocumentClient: jest.fn(),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -30,12 +30,12 @@ import {
 } from '@nagiyu/share-together-core';
 import { GET, POST, SERVICE_ERROR_MESSAGES } from '@/app/api/lists/[listId]/todos/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
-const mockGetDocClient = getDocClient as jest.MockedFunction<typeof getDocClient>;
+const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<typeof getDynamoDBDocumentClient>;
 const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
   typeof DynamoDBListRepository
 >;
@@ -63,7 +63,7 @@ describe('/api/lists/[listId]/todos route handlers', () => {
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
 
-    mockGetDocClient.mockReturnValue({ send: jest.fn() } as ReturnType<typeof getDocClient>);
+    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<typeof getDynamoDBDocumentClient>);
 
     mockDynamoDBListRepository.mockImplementation(
       () => ({}) as InstanceType<typeof DynamoDBListRepository>

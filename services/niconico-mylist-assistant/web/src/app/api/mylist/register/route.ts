@@ -5,10 +5,10 @@ import {
   encrypt,
   createBatchJob,
 } from '@nagiyu/niconico-mylist-assistant-core';
+import { getBatchClient } from '@nagiyu/aws';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { getAwsClients } from '@/lib/aws-clients';
 
 /**
  * リクエストボディの型定義
@@ -260,7 +260,6 @@ export async function POST(
     }
 
     // AWS Batch ジョブを投入
-    const { batchClient } = getAwsClients();
     const {
       BATCH_JOB_QUEUE,
       BATCH_JOB_DEFINITION,
@@ -269,6 +268,7 @@ export async function POST(
       ENCRYPTION_SECRET_NAME,
       AWS_REGION_FOR_SDK,
     } = getEnvVars();
+    const batchClient = getBatchClient(AWS_REGION);
 
     const jobName = `niconico-mylist-${session.user.userId}-${Date.now()}`;
     const videoIds = selectedVideos.map((video) => video.videoId);

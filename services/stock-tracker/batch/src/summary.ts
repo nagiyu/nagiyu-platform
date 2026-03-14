@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,

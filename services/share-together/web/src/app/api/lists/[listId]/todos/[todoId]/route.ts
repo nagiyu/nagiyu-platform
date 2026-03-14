@@ -2,7 +2,7 @@ import { type ListRepository, TodoService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository, createTodoRepository } from '@/lib/repositories';
 
@@ -76,7 +76,7 @@ function createServices(): { listRepository: ListRepository; todoService: TodoSe
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
-  const docClient = getDocClient();
+  const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const listRepository = createListRepository(docClient, tableName);
   const todoRepository = createTodoRepository(docClient, tableName);
   return {

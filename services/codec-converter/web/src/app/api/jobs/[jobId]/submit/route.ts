@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
+import { getAwsClients } from '@nagiyu/aws';
 import { type Job, type JobStatus, selectJobDefinition } from 'codec-converter-core';
-import { getAwsClients } from '@/lib/aws-clients';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -56,7 +56,7 @@ export async function POST(
     const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { docClient, s3Client, batchClient } = getAwsClients();
+    const { docClient, s3Client, batchClient } = getAwsClients(process.env.AWS_REGION);
     const { DYNAMODB_TABLE, S3_BUCKET, BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION_PREFIX, AWS_REGION } =
       getEnvVars();
 
