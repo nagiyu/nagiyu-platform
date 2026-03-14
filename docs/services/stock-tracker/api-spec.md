@@ -79,14 +79,17 @@
 | PUT | `/api/tickers/{id}` | ティッカー更新 | 必須 | `stocks:manage-data` |
 | DELETE | `/api/tickers/{id}` | ティッカー削除 | 必須 | `stocks:manage-data` |
 | GET | `/api/holdings` | 保有株式一覧 | 必須 | `stocks:read` |
+| GET | `/api/holdings/tickers/{tickerId}` | ティッカー別保有株式取得 | 必須 | `stocks:read` |
 | POST | `/api/holdings` | 保有株式登録 | 必須 | `stocks:write-own` |
 | PUT | `/api/holdings/{id}` | 保有株式更新 | 必須 | `stocks:write-own` |
 | DELETE | `/api/holdings/{id}` | 保有株式削除 | 必須 | `stocks:write-own` |
 | GET | `/api/alerts` | アラート一覧 | 必須 | `stocks:read` |
+| GET | `/api/alerts/tickers/{tickerId}` | ティッカー別アラート一覧取得 | 必須 | `stocks:read` |
 | POST | `/api/alerts` | アラート作成 | 必須 | `stocks:write-own` |
 | PUT | `/api/alerts/{id}` | アラート更新 | 必須 | `stocks:write-own` |
 | DELETE | `/api/alerts/{id}` | アラート削除 | 必須 | `stocks:write-own` |
 | GET | `/api/summaries` | 日次サマリー一覧取得 | 必須 | `stocks:read` |
+| GET | `/api/summaries/{tickerId}` | 指定ティッカーの最新サマリー取得 | 必須 | `stocks:read` |
 | POST | `/api/summaries/refresh` | 日次サマリーバッチ手動実行 | 必須 | `stocks:manage-data` |
 | GET | `/api/chart/{tickerId}` | チャートデータ取得 | 必須 | `stocks:read` |
 | POST | `/api/push/subscribe` | Web Push 登録 | 必須 | `stocks:write-own` |
@@ -161,7 +164,7 @@
 
 | 権限スコープ | 説明 | 適用エンドポイント |
 |------------|------|------------------|
-| `stocks:read` | 株価データ・マスタデータの閲覧 | GET /api/exchanges, /api/tickers, /api/holdings, /api/alerts, /api/summaries, /api/chart |
+| `stocks:read` | 株価データ・マスタデータの閲覧 | GET /api/exchanges, /api/tickers, /api/holdings, /api/holdings/tickers/{tickerId}, /api/alerts, /api/alerts/tickers/{tickerId}, /api/summaries, /api/summaries/{tickerId}, /api/chart |
 | `stocks:write-own` | 自身のデータの作成・更新・削除 | POST/PUT/DELETE /api/holdings, /api/alerts, /api/push/* |
 | `stocks:manage-data` | マスタデータの管理（取引所・ティッカー）とサマリー更新 | POST/PUT/DELETE /api/exchanges, /api/tickers, POST /api/summaries/refresh |
 
@@ -303,3 +306,103 @@ Phase 1（MVP）では以下の機能に限定します:
 - リアルタイムチャート表示（TradingView連携）
 - Web Push 通知
 - 日次サマリー表示（OHLCV + 日足パターン分析結果）
+
+### 7.4 指定ティッカーのサマリー取得
+
+`GET /api/summaries/{tickerId}` は、指定ティッカーの最新日次サマリーを返します。
+
+**パスパラメータ**:
+- `tickerId`: ティッカーID（形式: `{exchangeKey}:{symbol}`、例: `NSDQ:AAPL`）
+
+**レスポンス**:
+
+```json
+{
+    "tickerId": "NSDQ:AAPL",
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "open": 182.15,
+    "high": 183.92,
+    "low": 181.44,
+    "close": 183.31,
+    "volume": 1234567,
+    "updatedAt": "2024-01-15T21:00:00.000Z",
+    "buyAlertCount": { "enabled": 1, "disabled": 0 },
+    "sellAlertCount": { "enabled": 0, "disabled": 1 },
+    "holding": {
+        "quantity": 100,
+        "averagePrice": 175.00
+    },
+    "buyPatternCount": 1,
+    "sellPatternCount": 0,
+    "patternDetails": [...],
+    "aiAnalysisResult": {...},
+    "aiAnalysisError": null
+}
+```
+
+- `holding` はユーザーが当該ティッカーを保有している場合に値を持つ（未保有の場合は `null`）
+- `buyAlertCount` / `sellAlertCount` はリクエストユーザーのアラート件数（有効/無効別）
+- `patternDetails`・`aiAnalysisResult`・`aiAnalysisError` は `/api/summaries` と同じ構造
+
+### 7.5 ティッカー別保有株式取得
+
+`GET /api/holdings/tickers/{tickerId}` は、指定ティッカーに対するログインユーザーの保有株式を返します。
+
+**パスパラメータ**:
+- `tickerId`: ティッカーID（形式: `{exchangeKey}:{symbol}`）
+
+**レスポンス**:
+
+```json
+{
+    "holdingId": "user-001#NSDQ:AAPL",
+    "tickerId": "NSDQ:AAPL",
+    "symbol": "AAPL",
+    "name": "Apple Inc.",
+    "quantity": 100,
+    "averagePrice": 175.00,
+    "currency": "USD",
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-15T10:00:00.000Z"
+}
+```
+
+- 保有なしの場合は `404 Not Found` を返す
+
+### 7.6 ティッカー別アラート一覧取得
+
+`GET /api/alerts/tickers/{tickerId}` は、指定ティッカーに対するログインユーザーのアラート一覧を返します。
+
+**パスパラメータ**:
+- `tickerId`: ティッカーID（形式: `{exchangeKey}:{symbol}`）
+
+**レスポンス**:
+
+```json
+{
+    "alerts": [
+        {
+            "alertId": "alert-001",
+            "tickerId": "NSDQ:AAPL",
+            "symbol": "AAPL",
+            "name": "Apple Inc.",
+            "mode": "Buy",
+            "frequency": "ONCE",
+            "conditions": [
+                {
+                    "field": "close",
+                    "operator": "ABOVE",
+                    "value": 200.00
+                }
+            ],
+            "enabled": true,
+            "createdAt": "2024-01-01T00:00:00.000Z",
+            "updatedAt": "2024-01-15T10:00:00.000Z"
+        }
+    ],
+    "pagination": {
+        "count": 1
+    }
+}
+```
