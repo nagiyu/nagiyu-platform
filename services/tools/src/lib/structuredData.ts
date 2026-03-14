@@ -35,6 +35,7 @@ export const homeStructuredData = {
         '乗り換え案内テキストの整形',
         'JSONの整形・圧縮・検証',
         'VAPIDキー（公開鍵・秘密鍵）の生成',
+        'Base64文字列のエンコード・デコード',
       ],
     },
   ],

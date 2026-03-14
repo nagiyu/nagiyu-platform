@@ -3,6 +3,7 @@ import { Container, Typography, Grid, Box } from '@mui/material';
 import TrainIcon from '@mui/icons-material/Train';
 import DataObjectIcon from '@mui/icons-material/DataObject';
 import KeyIcon from '@mui/icons-material/Key';
+import DataArrayIcon from '@mui/icons-material/DataArray';
 import ToolCard from '@/components/tools/ToolCard';
 import { homeStructuredData, toJsonLd } from '@/lib/structuredData';
 import { Tool } from '@/types/tools';
@@ -10,7 +11,7 @@ import { Tool } from '@/types/tools';
 export const metadata: Metadata = {
   title: 'Tools - 便利なオンラインツール集',
   description:
-    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツールを提供し、コピーしやすい形式への変換やデータ整形、Web Push設定に必要な鍵生成をすばやく行えます。機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。',
+    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール、Base64エンコーダー/デコーダーを提供し、コピーしやすい形式への変換やデータ整形、Web Push設定に必要な鍵生成をすばやく行えます。機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。',
   openGraph: {
     title: 'Tools - 便利なオンラインツール集',
     description:
@@ -50,6 +51,15 @@ export default function HomePage() {
       href: '/vapid-generator',
       category: '開発支援ツール',
     },
+    {
+      id: 'base64',
+      title: 'Base64 エンコーダー / デコーダー',
+      description:
+        'テキストの Base64 エンコードとデコードをすばやく切り替えて実行できます。文字列変換や検証作業に便利です。',
+      icon: <DataArrayIcon sx={{ fontSize: 48 }} />,
+      href: '/base64',
+      category: '変換ツール',
+    },
   ];
 
   return (
@@ -64,11 +74,12 @@ export default function HomePage() {
         <Box sx={{ mb: 6, mt: 3 }}>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
-            乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。
-            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。
+            乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。{' '}
+            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
+            Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-            乗り換え変換ツールとJSON整形ツールはブラウザ内で動作し、入力データは外部に送信されません。
+            乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。
             VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>

@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import AboutPage from '@/app/about/page';
+import Base64Page, { metadata as base64Metadata } from '@/app/base64/page';
 import JsonFormatterPage, { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 import HomePage, { metadata as homeMetadata } from '@/app/page';
 import TransitConverterLayout from '@/app/transit-converter/layout';
@@ -39,18 +40,22 @@ describe('コンテンツ整合性', () => {
     const homeHtml = renderToStaticMarkup(HomePage());
 
     expect(homeMetadata.description).toContain(
-      '乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール'
+      '乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール、Base64エンコーダー/デコーダー'
     );
     expect(homeMetadata.description).toContain(
       '機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。'
     );
     expect(homeHtml).toContain('APIレスポンスや設定データの確認作業を効率化します。');
     expect(homeHtml).toContain('VAPID キー生成ツール');
+    expect(homeHtml).toContain('Base64 エンコーダー / デコーダー');
+    expect(homeHtml).toContain(
+      'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。 Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。'
+    );
     expect(homeHtml).toContain(
       'VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。'
     );
     expect(homeHtml).toContain(
-      '乗り換え変換ツールとJSON整形ツールはブラウザ内で動作し、入力データは外部に送信されません。'
+      '乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。'
     );
     expect(homeHtml).toContain('サーバー通信が不要な基本機能を利用でき');
     expect(homeHtml).toContain(
@@ -82,5 +87,13 @@ describe('コンテンツ整合性', () => {
 
     expect(jsonFormatterHtml).toContain('application/ld+json');
     expect(jsonFormatterHtml).toContain(toJsonLd(jsonFormatterStructuredData));
+  });
+
+  it('base64ページのmetadata descriptionにエンコード/デコード用途が含まれる', () => {
+    const base64Html = renderToStaticMarkup(Base64Page());
+
+    expect(base64Metadata.description).toContain('エンコード');
+    expect(base64Metadata.description).toContain('デコード');
+    expect(base64Html).toContain('Base64 エンコーダー / デコーダー');
   });
 });

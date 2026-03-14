@@ -14,6 +14,9 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
     // Check if tool cards are displayed
     const toolCard = page.getByRole('link', { name: /乗り換え変換ツール/i });
     await expect(toolCard).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Base64 エンコーダー \/ デコーダー/i })
+    ).toBeVisible();
 
     // Verify tool card contains description
     const description = page.getByText(
@@ -60,6 +63,10 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
     // Verify icon is present (svg element should be visible)
     const icon = toolCard.locator('svg');
     await expect(icon).toBeVisible();
+
+    const base64Card = page.locator('a[href="/base64"]');
+    await expect(base64Card).toBeVisible();
+    await expect(base64Card.getByText('Base64 エンコーダー / デコーダー')).toBeVisible();
   });
 });
 
