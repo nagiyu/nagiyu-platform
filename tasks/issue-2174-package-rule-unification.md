@@ -134,13 +134,13 @@
 
 #### T001 調査結果: 名前変更の影響範囲
 
-| 変更対象パッケージ | 参照ファイル |
-|---|---|
-| `codec-converter-core` → `@nagiyu/codec-converter-core` | `services/codec-converter/batch/package.json`, `services/codec-converter/web/package.json`, `services/codec-converter/web/tsconfig.json`（paths エイリアス） |
-| `codec-converter-web` → `@nagiyu/codec-converter-web` | `services/codec-converter/web/package.json` |
-| `codec-converter-batch` → `@nagiyu/codec-converter-batch` | `services/codec-converter/batch/package.json` |
-| `tools` → `@nagiyu/tools` | `services/tools/package.json` のみ（他から依存なし） |
-| `codec-converter`（infra）→ `@nagiyu/infra-codec-converter` | `infra/codec-converter/package.json` のみ（他から依存なし） |
+| 変更対象パッケージ | 参照ファイル（コード） | 参照ファイル（ワークフロー） |
+|---|---|---|
+| `codec-converter-core` → `@nagiyu/codec-converter-core` | `services/codec-converter/batch/package.json`, `services/codec-converter/web/package.json`, `services/codec-converter/web/tsconfig.json`（paths エイリアス） | `.github/workflows/codec-converter-verify.yml`（複数箇所）, `.github/workflows/codec-converter-deploy.yml` |
+| `codec-converter-web` → `@nagiyu/codec-converter-web` | `services/codec-converter/web/package.json` | `.github/workflows/codec-converter-verify.yml`, `.github/workflows/codec-converter-deploy.yml` |
+| `codec-converter-batch` → `@nagiyu/codec-converter-batch` | `services/codec-converter/batch/package.json` | `.github/workflows/codec-converter-verify.yml` |
+| `tools` → `@nagiyu/tools` | `services/tools/package.json` のみ（他から依存なし） | `.github/workflows/tools-verify.yml`（複数箇所）, `.github/workflows/tools-deploy.yml` |
+| `codec-converter`（infra）→ `@nagiyu/infra-codec-converter` | `infra/codec-converter/package.json` のみ（他から依存なし） | `.github/workflows/codec-converter-verify.yml`, `.github/workflows/codec-converter-deploy.yml` |
 
 #### T002 調査結果: `infra/shared` 名前変更の影響範囲
 
@@ -154,9 +154,9 @@
 
 #### T003 調査結果: `infra/common` の CommonJS 形式の理由
 
-CDK の制約により CommonJS 形式が必要。`infra/tsconfig.json`（全 infra パッケージのベース）が `"module": "commonjs"` を指定しており、`infra/common/tsconfig.json` も同様。CDK は CommonJS を前提として動作するため、`require` 形式は正当な理由がある。
+プロジェクト内の既存ルール（`infra/tsconfig.json` のベース設定）に基づく判断。`infra/tsconfig.json` は `"module": "commonjs"` を指定しており、`infra/common/tsconfig.json` もこの設定に従っている。`infra/auth`, `infra/shared` など他の infra パッケージも同様に CommonJS を使用しており、モノレポ内で統一された慣行となっている（なお `infra/codec-converter` のみ `NodeNext` を使用しているが、これは例外的な設定）。
 
-**結論**: T015 の対応は「`require` 形式のまま維持する」。
+**結論**: T015 の対応は「`require` 形式のまま維持する」（`infra/tsconfig.json` ベース設定との整合性を保つため）。
 
 #### T004 調査結果: パスの不整合と修正方針
 
