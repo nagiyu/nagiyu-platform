@@ -376,7 +376,7 @@ aws → common（確認が必要）
 
 ### フェーズ 3: DynamoDB クライアントの統一
 
-- [ ] T004: `stock-tracker/web/lib/dynamodb.ts` を `@nagiyu/aws` で置き換える
+- [x] T004: `stock-tracker/web/lib/dynamodb.ts` を `@nagiyu/aws` で置き換える
     - `services/stock-tracker/web/lib/dynamodb.ts` を削除
     - `services/stock-tracker/web/lib/repository-factory.ts` の import を `@nagiyu/aws` に変更
     - テスト（もしあれば）の更新
