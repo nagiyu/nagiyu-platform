@@ -12,8 +12,11 @@ const convertDigestToHex = (digest: ArrayBuffer): string =>
   }).join('');
 
 const convertTextToUtf8Bytes = (text: string): ArrayBuffer => {
-  const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer => {
+    const arrayBuffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(arrayBuffer).set(bytes);
+    return arrayBuffer;
+  };
 
   if (typeof TextEncoder !== 'undefined') {
     return toArrayBuffer(new TextEncoder().encode(text));
