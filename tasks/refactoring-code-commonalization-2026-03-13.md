@@ -65,7 +65,7 @@
 - リクエストボディのパース処理
 
 **差異**: stock-tracker は認証チェック（`getAuthError`）が追加されている。niconico には認証チェックがない。
-両者のルートを共通化する際は、認証チェックも含めて統一する。
+共通化の際は niconico 側に認証チェックを追加して統一する（通常の使用フローでは挙動は変わらず、直接 API 呼び出しへのセキュリティ抑止のみ）。
 
 ---
 
@@ -387,7 +387,7 @@ aws → common（確認が必要）
 - [ ] T005: Push サブスクリプション検証ユーティリティを `libs/nextjs` に追加する
     - `libs/nextjs/src/push.ts` に `validatePushSubscription()` および `createSubscriptionId()` を追加
     - stock-tracker・niconico の subscribe ルートから独自実装を削除し `@nagiyu/nextjs` からインポート
-    - 認証チェック（`getAuthError`）も統一する：niconico の subscribe ルートにも stock-tracker と同様の認証チェックを追加するか、共通ルートヘルパー内で認証チェックオプションを提供する
+    - 認証チェック（`getAuthError`）も統一する：niconico の subscribe ルートにも stock-tracker と同様の認証チェックを追加する（通常の使用フローでは挙動は変わらず、直接 API 呼び出しへのセキュリティ抑止のみ）
     - テストを追加
     - **影響ファイル**: `services/stock-tracker/web/app/api/push/subscribe/route.ts`, `services/niconico-mylist-assistant/web/src/app/api/push/subscribe/route.ts`
 
