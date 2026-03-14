@@ -39,9 +39,7 @@ describe('hash', () => {
           configurable: true,
         });
 
-        await expect(generateHash('nagiyu', 'SHA-256')).rejects.toThrow(
-          ERROR_MESSAGES.HASH_FAILED
-        );
+        await expect(generateHash('nagiyu', 'SHA-256')).rejects.toThrow(ERROR_MESSAGES.HASH_FAILED);
       } finally {
         Object.defineProperty(globalThis, 'crypto', {
           value: originalCrypto,
