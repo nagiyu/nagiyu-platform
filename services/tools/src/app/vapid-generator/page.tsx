@@ -41,7 +41,10 @@ export default function VapidGeneratorPage() {
       setKeys(generated);
       showSnackbar('VAPIDキーを生成しました', 'success');
     } catch (error) {
-      showSnackbar(error instanceof Error ? error.message : 'VAPIDキーの生成に失敗しました。', 'error');
+      showSnackbar(
+        error instanceof Error ? error.message : 'VAPIDキーの生成に失敗しました。',
+        'error'
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -71,7 +74,8 @@ export default function VapidGeneratorPage() {
       </Typography>
 
       <Typography variant="body2" color="text.secondary" paragraph>
-        生成される鍵は Base64url 形式です。公開鍵はクライアント側、秘密鍵はサーバー側で安全に保管してください。
+        生成される鍵は Base64url
+        形式です。公開鍵はクライアント側、秘密鍵はサーバー側で安全に保管してください。
       </Typography>
 
       <Box sx={{ mb: 3, mt: 3 }}>
