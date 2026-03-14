@@ -28,7 +28,9 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
-const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<typeof getDynamoDBDocumentClient>;
+const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
+  typeof getDynamoDBDocumentClient
+>;
 const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
   typeof DynamoDBListRepository
 >;
@@ -45,7 +47,9 @@ describe('/api/groups/[groupId]/lists route', () => {
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<typeof getDynamoDBDocumentClient>);
+    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<
+      typeof getDynamoDBDocumentClient
+    >);
     mockDynamoDBMembershipRepository.mockImplementation(
       () =>
         ({

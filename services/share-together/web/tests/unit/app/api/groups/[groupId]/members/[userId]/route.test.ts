@@ -50,7 +50,9 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
-const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<typeof getDynamoDBDocumentClient>;
+const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
+  typeof getDynamoDBDocumentClient
+>;
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
@@ -63,7 +65,9 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<typeof getDynamoDBDocumentClient>);
+    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<
+      typeof getDynamoDBDocumentClient
+    >);
     mockDynamoDBMembershipRepository.mockImplementation(
       () =>
         ({

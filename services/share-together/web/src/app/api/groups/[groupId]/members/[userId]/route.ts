@@ -30,7 +30,8 @@ function createNoContentResponse(): NextResponse {
 function createDependencies(tableName: string): GroupOperationDependencies & {
   membershipRepository: MembershipRepository;
 } {
-  const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+  const docClient =
+    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
 
   return {
     groupRepository: createGroupRepository(docClient, tableName),

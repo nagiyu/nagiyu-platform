@@ -76,7 +76,8 @@ async function getOwnedGroup(groupId: string): Promise<
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
-  const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+  const docClient =
+    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const groupRepository = createGroupRepository(docClient, tableName);
   const membershipRepository = createMembershipRepository(docClient, tableName);
   const group = await groupRepository.getById(groupId);

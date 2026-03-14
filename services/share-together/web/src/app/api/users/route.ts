@@ -84,7 +84,8 @@ export const POST = withAuth(getSessionWithRoles, null, async (session): Promise
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const userRepository = createUserRepository(docClient, tableName);
     const listRepository = createListRepository(docClient, tableName);
     const existingUser = await userRepository.getById(userId);

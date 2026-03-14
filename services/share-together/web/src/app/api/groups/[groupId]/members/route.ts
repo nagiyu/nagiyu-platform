@@ -81,7 +81,8 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const userRepository = createUserRepository(docClient, tableName);
 
@@ -162,7 +163,8 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const groupRepository = createGroupRepository(docClient, tableName);
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const userRepository = createUserRepository(docClient, tableName);

@@ -41,7 +41,9 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
-const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<typeof getDynamoDBDocumentClient>;
+const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
+  typeof getDynamoDBDocumentClient
+>;
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
@@ -56,7 +58,9 @@ type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>
 describe('PUT /api/invitations/[groupId]', () => {
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<typeof getDynamoDBDocumentClient>);
+    mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<
+      typeof getDynamoDBDocumentClient
+    >);
     mockDynamoDBGroupRepository.mockImplementation(
       () => ({}) as InstanceType<typeof DynamoDBGroupRepository>
     );

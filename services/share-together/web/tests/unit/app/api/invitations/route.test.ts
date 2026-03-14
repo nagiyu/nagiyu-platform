@@ -29,7 +29,9 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
 >;
-const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<typeof getDynamoDBDocumentClient>;
+const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
+  typeof getDynamoDBDocumentClient
+>;
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
@@ -45,7 +47,9 @@ describe('GET /api/invitations', () => {
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetDynamoDBDocumentClient.mockReturnValue({ send: mockSend } as ReturnType<typeof getDynamoDBDocumentClient>);
+    mockGetDynamoDBDocumentClient.mockReturnValue({ send: mockSend } as ReturnType<
+      typeof getDynamoDBDocumentClient
+    >);
     mockDynamoDBMembershipRepository.mockImplementation(
       () =>
         ({

@@ -67,7 +67,8 @@ function createListService(): ListService {
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
-  const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+  const docClient =
+    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const listRepository = createListRepository(docClient, tableName);
   return new ListService(listRepository);
 }

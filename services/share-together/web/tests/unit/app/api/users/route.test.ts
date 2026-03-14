@@ -68,7 +68,9 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createListRepository, createUserRepository } from '@/lib/repositories';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
-const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<typeof getDynamoDBDocumentClient>;
+const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
+  typeof getDynamoDBDocumentClient
+>;
 const mockCreateUserRepository = createUserRepository as jest.MockedFunction<
   typeof createUserRepository
 >;
@@ -85,7 +87,9 @@ describe('POST /api/users', () => {
 
   beforeEach(() => {
     process.env.DYNAMODB_TABLE_NAME = 'test-share-together-main';
-    mockGetDynamoDBDocumentClient.mockReturnValue({ send: mockSend } as ReturnType<typeof getDynamoDBDocumentClient>);
+    mockGetDynamoDBDocumentClient.mockReturnValue({ send: mockSend } as ReturnType<
+      typeof getDynamoDBDocumentClient
+    >);
     mockCreateUserRepository.mockReturnValue({
       getById: mockGetById,
       update: mockUpdateUser,

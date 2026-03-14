@@ -112,7 +112,8 @@ async function getAuthorizedContext(params: RouteParams['params']): Promise<
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
-  const docClient = process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
+  const docClient =
+    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const membershipRepository = createMembershipRepository(docClient, tableName);
   const membership = await membershipRepository.getById(groupId, userId);
   if (!membership || membership.status !== 'ACCEPTED') {
