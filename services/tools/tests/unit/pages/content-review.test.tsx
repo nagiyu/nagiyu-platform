@@ -4,6 +4,7 @@ import Base64Page, { metadata as base64Metadata } from '@/app/base64/page';
 import JsonFormatterPage, { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 import HomePage, { metadata as homeMetadata } from '@/app/page';
 import TransitConverterLayout from '@/app/transit-converter/layout';
+import UrlEncoderPage, { metadata as urlEncoderMetadata } from '@/app/url-encoder/page';
 import {
   homeStructuredData,
   jsonFormatterStructuredData,
@@ -40,7 +41,7 @@ describe('コンテンツ整合性', () => {
     const homeHtml = renderToStaticMarkup(HomePage());
 
     expect(homeMetadata.description).toContain(
-      '乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール、Base64エンコーダー/デコーダー'
+      '乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール、Base64エンコーダー/デコーダー、URLエンコーダー/デコーダー'
     );
     expect(homeMetadata.description).toContain(
       '機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。'
@@ -48,14 +49,15 @@ describe('コンテンツ整合性', () => {
     expect(homeHtml).toContain('APIレスポンスや設定データの確認作業を効率化します。');
     expect(homeHtml).toContain('VAPID キー生成ツール');
     expect(homeHtml).toContain('Base64 エンコーダー / デコーダー');
+    expect(homeHtml).toContain('URL エンコーダー / デコーダー');
     expect(homeHtml).toContain(
-      'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。 Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。'
+      'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。 Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。 URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。'
     );
     expect(homeHtml).toContain(
       'VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。'
     );
     expect(homeHtml).toContain(
-      '乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。'
+      '乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。'
     );
     expect(homeHtml).toContain('サーバー通信が不要な基本機能を利用でき');
     expect(homeHtml).toContain(
@@ -95,5 +97,13 @@ describe('コンテンツ整合性', () => {
     expect(base64Metadata.description).toContain('エンコード');
     expect(base64Metadata.description).toContain('デコード');
     expect(base64Html).toContain('Base64 エンコーダー / デコーダー');
+  });
+
+  it('url-encoderページのmetadata descriptionにエンコード/デコード用途が含まれる', () => {
+    const urlEncoderHtml = renderToStaticMarkup(UrlEncoderPage());
+
+    expect(urlEncoderMetadata.description).toContain('エンコード');
+    expect(urlEncoderMetadata.description).toContain('デコード');
+    expect(urlEncoderHtml).toContain('URL エンコーダー / デコーダー');
   });
 });
