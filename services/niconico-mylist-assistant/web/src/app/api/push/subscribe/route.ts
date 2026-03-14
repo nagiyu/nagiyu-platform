@@ -5,7 +5,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createHash } from 'crypto';
+import { getAuthError, validatePushSubscription, createSubscriptionId } from '@nagiyu/nextjs';
+import { getSession } from '../../../../lib/auth/session';
 
 /**
  * エラーメッセージ定数
@@ -26,20 +27,6 @@ const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
 /**
- * リクエストボディ型定義
- */
-interface SubscribeRequest {
-  subscription: {
-    endpoint: string;
-    keys: {
-      p256dh: string;
-      auth: string;
-    };
-  };
-  userId?: string; // オプション: 認証が実装されている場合
-}
-
-/**
  * レスポンス型定義
  */
 interface SubscribeResponse {
@@ -53,47 +40,6 @@ interface ErrorResponse {
 }
 
 /**
- * サブスクリプション情報のバリデーション
- */
-function validateSubscription(
-  subscription: unknown
-): subscription is SubscribeRequest['subscription'] {
-  if (!subscription || typeof subscription !== 'object') {
-    return false;
-  }
-
-  const sub = subscription as Record<string, unknown>;
-
-  if (typeof sub.endpoint !== 'string' || !sub.endpoint) {
-    return false;
-  }
-
-  // endpoint が有効な URL 形式であることを検証
-  try {
-    // URL のバリデーションのみを行う（インスタンスは使用しない）
-    void new URL(sub.endpoint);
-  } catch {
-    return false;
-  }
-
-  if (!sub.keys || typeof sub.keys !== 'object') {
-    return false;
-  }
-
-  const keys = sub.keys as Record<string, unknown>;
-
-  if (typeof keys.p256dh !== 'string' || !keys.p256dh) {
-    return false;
-  }
-
-  if (typeof keys.auth !== 'string' || !keys.auth) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
  * POST /api/push/subscribe
  * Web Push サブスクリプション登録
  */
@@ -101,6 +47,20 @@ export async function POST(
   request: NextRequest
 ): Promise<NextResponse<SubscribeResponse | ErrorResponse>> {
   try {
+    // 認証チェック
+    const session = await getSession();
+    const authError = getAuthError(session);
+
+    if (authError) {
+      return NextResponse.json(
+        {
+          error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          message: authError.message,
+        },
+        { status: authError.statusCode }
+      );
+    }
+
     // リクエストボディの取得
     let body: unknown;
     try {
@@ -129,7 +89,7 @@ export async function POST(
     const { subscription } = body as { subscription: unknown };
 
     // サブスクリプション情報のバリデーション
-    if (!validateSubscription(subscription)) {
+    if (!validatePushSubscription(subscription)) {
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
@@ -152,17 +112,14 @@ export async function POST(
     }
 
     // サブスクリプションIDの生成（endpoint をSHA-256でハッシュ化）
-    const subscriptionId = createHash('sha256')
-      .update(subscription.endpoint)
-      .digest('hex')
-      .substring(0, 32);
+    const subscriptionId = await createSubscriptionId(subscription.endpoint);
 
     // サブスクリプション情報はバッチジョブ作成時に保存される
     // ここでは単純に成功レスポンスを返す
 
     const response: SubscribeResponse = {
       success: true,
-      subscriptionId: `sub_${subscriptionId}`,
+      subscriptionId,
     };
 
     return NextResponse.json(response, { status: 201 });
