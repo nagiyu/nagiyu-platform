@@ -41,3 +41,6 @@ export { handleApiError } from './error.js';
 // Health module - Health check route helper
 export { createHealthRoute } from './health.js';
 export type { HealthRouteOptions } from './health.js';
+
+// Push module - Web Push route helper
+export { createVapidPublicKeyRoute } from './push.js';

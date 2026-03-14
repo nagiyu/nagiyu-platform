@@ -20,6 +20,9 @@ export * from './api/index.js';
 // Retry module - Backend retry utilities
 export * from './retry/index.js';
 
+// Push module - Web Push utilities
+export * from './push/index.js';
+
 // Constants module - Common constants
 export { ERROR_CODES } from './constants/error-codes.js';
 export type { ErrorCode } from './constants/error-codes.js';

@@ -359,7 +359,7 @@ aws → common（確認が必要）
 
 ### フェーズ 2: 軽微な共通化（低リスク）
 
-- [ ] T002: `normalizeVapidKey` 関数を `libs/common` に追加し、`logger` で統一する
+- [x] T002: `normalizeVapidKey` 関数を `libs/common` に追加し、`logger` で統一する
     - `libs/common/src/push/` ディレクトリを作成し `vapid.ts` を追加
     - `libs/common/src/index.ts` からエクスポート
     - テストを追加（`libs/common/tests/unit/push/vapid.test.ts`）
@@ -367,7 +367,7 @@ aws → common（確認が必要）
     - niconico バッチ版の `console.warn()` を `logger.warn()` に変更（stock-tracker 版と統一）
     - **影響ファイル**: `services/stock-tracker/batch/src/lib/web-push-client.ts`, `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts`
 
-- [ ] T003: VAPID公開鍵ルートヘルパーを `libs/nextjs` に追加する
+- [x] T003: VAPID公開鍵ルートヘルパーを `libs/nextjs` に追加する
     - `libs/nextjs/src/push.ts` に `createVapidPublicKeyRoute()` を追加
     - `libs/nextjs/src/index.ts` からエクスポート
     - テストを追加（`libs/nextjs/tests/unit/push.test.ts`）

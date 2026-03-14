@@ -5,8 +5,8 @@
 import {
   sendNotification,
   createAlertNotificationPayload,
-  normalizeVapidKey,
 } from '../../../src/lib/web-push-client.js';
+import { normalizeVapidKey } from '@nagiyu/common';
 import webpush from 'web-push';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
