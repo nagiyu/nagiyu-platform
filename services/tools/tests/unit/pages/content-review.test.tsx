@@ -38,8 +38,9 @@ describe('コンテンツ整合性', () => {
   it('ホームページのmetadataと主要説明文が提供中ツールに整合する', () => {
     const homeHtml = renderToStaticMarkup(HomePage());
 
-    expect(homeMetadata.description).toContain('乗り換え変換ツールとJSON整形ツール');
+    expect(homeMetadata.description).toContain('乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール');
     expect(homeHtml).toContain('APIレスポンスや設定データの確認作業を効率化します。');
+    expect(homeHtml).toContain('VAPID キー生成ツール');
   });
 
   it('ホームページに WebSite / SoftwareApplication のJSON-LDが埋め込まれている', () => {

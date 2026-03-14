@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Container, Typography, Grid, Box } from '@mui/material';
 import TrainIcon from '@mui/icons-material/Train';
 import DataObjectIcon from '@mui/icons-material/DataObject';
+import KeyIcon from '@mui/icons-material/Key';
 import ToolCard from '@/components/tools/ToolCard';
 import { homeStructuredData, toJsonLd } from '@/lib/structuredData';
 import { Tool } from '@/types/tools';
@@ -9,7 +10,7 @@ import { Tool } from '@/types/tools';
 export const metadata: Metadata = {
   title: 'Tools - 便利なオンラインツール集',
   description:
-    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツールとJSON整形ツールを提供し、コピーしやすい形式への変換やデータ整形をすばやく行えます。すべての処理はブラウザ内で完結し、入力データは外部送信されません。PWA対応でオフライン環境でも利用できます。',
+    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツールを提供し、コピーしやすい形式への変換やデータ整形、Web Push設定に必要な鍵生成をすばやく行えます。すべての処理はブラウザ内で完結し、入力データは外部送信されません。PWA対応でオフライン環境でも利用できます。',
   openGraph: {
     title: 'Tools - 便利なオンラインツール集',
     description:
@@ -40,6 +41,15 @@ export default function HomePage() {
       href: '/json-formatter',
       category: '変換ツール',
     },
+    {
+      id: 'vapid-generator',
+      title: 'VAPID キー生成ツール',
+      description:
+        'Web Push 通知で必要な VAPID の公開鍵・秘密鍵ペアを生成し、そのままコピーして設定に利用できます。',
+      icon: <KeyIcon sx={{ fontSize: 48 }} />,
+      href: '/vapid-generator',
+      category: '開発支援ツール',
+    },
   ];
 
   return (
@@ -55,6 +65,7 @@ export default function HomePage() {
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
             乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。
+            VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
             すべてのツールはブラウザ内で動作し、入力データは外部に送信されません。
