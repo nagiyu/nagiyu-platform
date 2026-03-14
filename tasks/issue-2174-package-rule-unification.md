@@ -154,9 +154,11 @@
 
 #### T003 調査結果: `infra/common` の CommonJS 形式の理由
 
-プロジェクト内の既存ルール（`infra/tsconfig.json` のベース設定）に基づく判断。`infra/tsconfig.json` は `"module": "commonjs"` を指定しており、`infra/common/tsconfig.json` もこの設定に従っている。`infra/auth`, `infra/shared` など他の infra パッケージも同様に CommonJS を使用しており、モノレポ内で統一された慣行となっている（なお `infra/codec-converter` のみ `NodeNext` を使用しているが、これは例外的な設定）。
+`infra/tsconfig.json`（ベース設定）が `"module": "commonjs"` を指定しており、`infra/auth`・`infra/shared`・`infra/common` などはこれに従っている。ただし `infra/codec-converter` は独自に `"module": "NodeNext"` を設定しており、CDK デプロイも実際に稼働している実績がある。
 
-**結論**: T015 の対応は「`require` 形式のまま維持する」（`infra/tsconfig.json` ベース設定との整合性を保つため）。
+CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`NodeNext` での利用は技術的に問題ない。`infra/codec-converter` の実績を踏まえると、全 infra パッケージを `NodeNext`（ESM）に統一することが可能である。
+
+**結論**: T015 の対応は「`require` 形式から `import` 形式に変更する」方針とする。合わせて `infra/tsconfig.json`（ベース）、`infra/auth`・`infra/shared`・`infra/common` の tsconfig を `NodeNext` に更新する。
 
 #### T004 調査結果: パスの不整合と修正方針
 
@@ -191,7 +193,7 @@
 - [ ] T012: サービスの batch / web パッケージから不要な `exports` / `types` フィールドを除去する（core は import される側のため除去しない）
 - [ ] T013: `niconico-mylist-assistant-core` の `types` パスを `dist/src/index.d.ts` に修正し、`main` / `tsconfig.json` のパス設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
 - [ ] T014: `stock-tracker-core` の `main` パスを `dist/src/index.js` に修正し、`tsconfig.json` の `outDir` 設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
-- [ ] T015: `infra/common` の `exports` は T003 の調査結果より `require` 形式のまま維持する（CDK の制約による）
+- [ ] T015: `infra/common` の `exports` を `require` 形式から `import` 形式に変更する。合わせて `infra/tsconfig.json`（ベース）の `module` を `NodeNext` に変更し、`infra/auth`・`infra/shared`・`infra/common` の tsconfig も `NodeNext` に対応させる（`infra/codec-converter` が NodeNext で CDK 動作している実績あり）
 
 ### Phase 4: `scripts` の統一
 
@@ -211,7 +213,7 @@
 
 ## 備考・未決定事項
 
-- T003 の調査結果より、`infra/common` の `exports` は CDK の制約（`module: commonjs`）のため `require` 形式のまま維持する。T015 で変更不要と判断済み。
+- T003 の調査結果より、`infra/codec-converter` が既に NodeNext で CDK 動作している実績があるため、全 infra パッケージを ESM（NodeNext）に統一する方針とした。T015 で `infra/common` の `exports` を `import` 形式に変更し、`infra/tsconfig.json` ベース設定を含む関連 tsconfig も ESM 対応に更新する。
 - T013・T014 は、T004 の調査結果をもとに実施すること。
   - `niconico-mylist-assistant-core` の修正は tsconfig 変更不要で `package.json` のパス修正のみ。
   - `stock-tracker-core` の修正は tsconfig から `rootDir: ./src` を除去する必要があり、`web/next.config.ts` の `transpilePackages` を使ったランタイム動作に影響するため CI での確認が必須。
