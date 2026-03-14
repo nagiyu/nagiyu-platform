@@ -5,15 +5,15 @@ import type { CommonErrorMessageKey } from '../../../src/constants/error-message
 describe('COMMON_ERROR_MESSAGES', () => {
   it('HTTPステータスに対応する共通エラーメッセージを提供する', () => {
     expect(COMMON_ERROR_MESSAGES).toEqual({
-      UNAUTHORIZED: 'ログインが必要です。再度ログインしてください',
-      FORBIDDEN: 'この操作を実行する権限がありません',
+      UNAUTHORIZED: '認証が必要です',
+      FORBIDDEN: 'アクセス権限がありません',
       SESSION_EXPIRED: 'セッションが期限切れです。再度ログインしてください',
       NETWORK_ERROR: 'ネットワーク接続を確認してください',
       TIMEOUT_ERROR: '接続がタイムアウトしました。しばらくしてから再度お試しください',
       SERVER_ERROR: 'サーバーエラーが発生しました。しばらくしてから再度お試しください',
       INVALID_REQUEST: '入力内容に誤りがあります。確認してください',
-      NOT_FOUND: 'データが見つかりませんでした',
-      VALIDATION_ERROR: '入力データが不正です',
+      NOT_FOUND: '対象のデータが見つかりません',
+      VALIDATION_ERROR: '入力内容が不正です',
       CREATE_ERROR: '登録に失敗しました',
       UPDATE_ERROR: '更新に失敗しました',
       DELETE_ERROR: '削除に失敗しました',

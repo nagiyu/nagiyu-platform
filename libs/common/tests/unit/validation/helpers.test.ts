@@ -107,6 +107,16 @@ describe('Validation Helpers', () => {
   });
 
   describe('isValidTimestamp', () => {
+    const FIXED_NOW = 1_700_000_000_000;
+
+    beforeEach(() => {
+      jest.spyOn(Date, 'now').mockReturnValue(FIXED_NOW);
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
     describe('正常系', () => {
       it('現在時刻のタイムスタンプを受理する', () => {
         const now = Date.now();
