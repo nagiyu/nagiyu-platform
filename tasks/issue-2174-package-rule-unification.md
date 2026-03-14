@@ -127,10 +127,54 @@
 
 ### Phase 1: 調査・確認（本タスクの範囲）
 
-- [ ] T001: 名前変更の影響範囲を調査する（変更するパッケージ名を参照している箇所をリストアップ）
-- [ ] T002: `infra/shared` の名前変更（`@nagiyu/shared-infra` → `@nagiyu/infra-shared`）の影響範囲を確認する
-- [ ] T003: `infra/common` が CommonJS 形式（`require`）の exports を使用している理由を調査する（CDK の制約がある可能性があるため、import 形式への変更可否を確認する）
-- [ ] T004: `stock-tracker-core` の `main` パス（`dist/index.js`）と `niconico-mylist-assistant-core` の `types` パス（`dist/index.d.ts`）について、`tsconfig.json` の `outDir` 設定と実際のディレクトリ構造を確認し、`dist/src/` への変更がビルド出力・import 文・ビルドスクリプトに与える影響範囲を特定する
+- [x] T001: 名前変更の影響範囲を調査する（変更するパッケージ名を参照している箇所をリストアップ）
+- [x] T002: `infra/shared` の名前変更（`@nagiyu/shared-infra` → `@nagiyu/infra-shared`）の影響範囲を確認する
+- [x] T003: `infra/common` が CommonJS 形式（`require`）の exports を使用している理由を調査する（CDK の制約がある可能性があるため、import 形式への変更可否を確認する）
+- [x] T004: `stock-tracker-core` の `main` パス（`dist/index.js`）と `niconico-mylist-assistant-core` の `types` パス（`dist/index.d.ts`）について、`tsconfig.json` の `outDir` 設定と実際のディレクトリ構造を確認し、`dist/src/` への変更がビルド出力・import 文・ビルドスクリプトに与える影響範囲を特定する
+
+#### T001 調査結果: 名前変更の影響範囲
+
+| 変更対象パッケージ | 参照ファイル |
+|---|---|
+| `codec-converter-core` → `@nagiyu/codec-converter-core` | `services/codec-converter/batch/package.json`, `services/codec-converter/web/package.json`, `services/codec-converter/web/tsconfig.json`（paths エイリアス） |
+| `codec-converter-web` → `@nagiyu/codec-converter-web` | `services/codec-converter/web/package.json` |
+| `codec-converter-batch` → `@nagiyu/codec-converter-batch` | `services/codec-converter/batch/package.json` |
+| `tools` → `@nagiyu/tools` | `services/tools/package.json` のみ（他から依存なし） |
+| `codec-converter`（infra）→ `@nagiyu/infra-codec-converter` | `infra/codec-converter/package.json` のみ（他から依存なし） |
+
+#### T002 調査結果: `infra/shared` 名前変更の影響範囲
+
+`.github/workflows/shared-deploy.yml` の 3 箇所で `--workspace=@nagiyu/shared-infra` として参照している。名前変更時はワークフローファイルも合わせて修正が必要。
+
+```
+.github/workflows/shared-deploy.yml:63  npm run bootstrap --workspace=@nagiyu/shared-infra
+.github/workflows/shared-deploy.yml:69  npm run synth --workspace=@nagiyu/shared-infra
+.github/workflows/shared-deploy.yml:75  npm run deploy --workspace=@nagiyu/shared-infra
+```
+
+#### T003 調査結果: `infra/common` の CommonJS 形式の理由
+
+CDK の制約により CommonJS 形式が必要。`infra/tsconfig.json`（全 infra パッケージのベース）が `"module": "commonjs"` を指定しており、`infra/common/tsconfig.json` も同様。CDK は CommonJS を前提として動作するため、`require` 形式は正当な理由がある。
+
+**結論**: T015 の対応は「`require` 形式のまま維持する」。
+
+#### T004 調査結果: パスの不整合と修正方針
+
+**`stock-tracker-core`**:
+
+- tsconfig.json に `"rootDir": "./src", "outDir": "./dist"` が設定されている
+- TypeScript は rootDir からの相対パスを outDir に再現するため、`src/index.ts` → `dist/index.js`（`dist/src/` 配下ではない）
+- `package.json` の `main: dist/index.js` は tsconfig と整合しているが、プロジェクト標準（`dist/src/index.js`）と異なる
+- 標準化するには tsconfig から `"rootDir": "./src"` を除去する必要がある（除去後は `src/index.ts` → `dist/src/index.js`）
+- `batch/jest.config.ts` と `web/jest.config.ts` の `moduleNameMapper` は `src/index.ts` を直接参照しているため影響なし
+- `web/next.config.ts` の `transpilePackages` は `package.json` の `main`/`exports` を参照するため、ビルド成果物のパス変更の影響を受ける
+
+**`niconico-mylist-assistant-core`**:
+
+- tsconfig.json に `rootDir` 未指定（デフォルトはプロジェクトルート）、`"outDir": "./dist"` のため、`src/index.ts` → `dist/src/index.js`
+- `package.json` の `main: dist/index.js`・`types: dist/index.d.ts` は実際のビルド出力（`dist/src/`）と不整合
+- `batch/jest.config.ts` に `@nagiyu/niconico-mylist-assistant-core` の `moduleNameMapper` がなく、`main` フィールドを参照する。ランタイム時に不整合が発生している可能性がある
+- **修正**: `package.json` の `main` → `dist/src/index.js`、`types` → `dist/src/index.d.ts`（tsconfig の変更は不要）
 
 ### Phase 2: パッケージ名の修正
 
@@ -147,7 +191,7 @@
 - [ ] T012: サービスの batch / web パッケージから不要な `exports` / `types` フィールドを除去する（core は import される側のため除去しない）
 - [ ] T013: `niconico-mylist-assistant-core` の `types` パスを `dist/src/index.d.ts` に修正し、`main` / `tsconfig.json` のパス設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
 - [ ] T014: `stock-tracker-core` の `main` パスを `dist/src/index.js` に修正し、`tsconfig.json` の `outDir` 設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
-- [ ] T015: `infra/common` の `exports` を T003 の調査結果をもとに対応する（`require` 形式のままにするか `import` 形式に統一するかを決定）
+- [ ] T015: `infra/common` の `exports` は T003 の調査結果より `require` 形式のまま維持する（CDK の制約による）
 
 ### Phase 4: `scripts` の統一
 
@@ -167,5 +211,7 @@
 
 ## 備考・未決定事項
 
-- T003 の結果次第で、`infra/common` の `exports` 形式の対応方針が変わる。CDK の制約により CommonJS 形式が必要な場合は、`require` 形式のまま維持する。
-- T013・T014 は、Phase 1 の T004 の調査結果をもとに影響範囲を確認した上で実施すること。`tsconfig.json` の `outDir` 変更はビルド出力パス・import 文・ビルドスクリプトへの影響があるため、各フェーズの変更ごとに CI で動作確認を行うこと。
+- T003 の調査結果より、`infra/common` の `exports` は CDK の制約（`module: commonjs`）のため `require` 形式のまま維持する。T015 で変更不要と判断済み。
+- T013・T014 は、T004 の調査結果をもとに実施すること。
+  - `niconico-mylist-assistant-core` の修正は tsconfig 変更不要で `package.json` のパス修正のみ。
+  - `stock-tracker-core` の修正は tsconfig から `rootDir: ./src` を除去する必要があり、`web/next.config.ts` の `transpilePackages` を使ったランタイム動作に影響するため CI での確認が必須。
