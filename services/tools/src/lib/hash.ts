@@ -7,11 +7,13 @@ export const HASH_ALGORITHMS = ['SHA-256', 'SHA-512'] as const;
 export type HashAlgorithm = (typeof HASH_ALGORITHMS)[number];
 
 const convertDigestToHex = (digest: ArrayBuffer): string =>
-  Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  Array.from(new Uint8Array(digest), (byte) => {
+    return byte.toString(16).padStart(2, '0');
+  }).join('');
 
 const convertTextToUtf8Bytes = (text: string): ArrayBuffer => {
   const toArrayBuffer = (bytes: Uint8Array): ArrayBuffer =>
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
 
   if (typeof TextEncoder !== 'undefined') {
     return toArrayBuffer(new TextEncoder().encode(text));
@@ -31,7 +33,7 @@ export const generateHash = async (text: string, algorithm: HashAlgorithm): Prom
     const encoded = convertTextToUtf8Bytes(text);
     const digest = await globalThis.crypto.subtle.digest(algorithm, encoded);
     return convertDigestToHex(digest);
-  } catch {
-    throw new Error(ERROR_MESSAGES.HASH_FAILED);
+  } catch (error) {
+    throw new Error(ERROR_MESSAGES.HASH_FAILED, { cause: error });
   }
 };
