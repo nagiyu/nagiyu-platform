@@ -95,39 +95,39 @@ Stock Tracker のチャート画面（トップ画面）に、選択中の取引
 
 ## タスク
 
-- [ ] T001: 調査・実装計画の確認
+- [x] T001: 調査・実装計画の確認
     - `HomePageClient.tsx`、`StockChart.tsx`、`/api/summaries`、`/api/holdings`、`/api/alerts` の最新実装を確認する
     - 既存の型定義（`TickerSummary`、`HoldingResponse`、`AlertResponse`、`AlertLine`）を把握する
-- [ ] T002: ティッカーID指定 API の追加
+- [x] T002: ティッカーID指定 API の追加
     - `GET /api/summaries/[tickerId]` — 指定ティッカーの最新サマリーを返すルートを新規作成
     - `GET /api/holdings/[tickerId]` — 指定ティッカーの保有株式を返すルートを新規作成
     - `GET /api/alerts` に `tickerId` クエリパラメータによる絞り込みを追加（または `GET /api/alerts/[tickerId]` を新規作成）
     - 各ルートのユニットテストを追加
-- [ ] T003: サマリー表示コンポーネントの作成
+- [x] T003: サマリー表示コンポーネントの作成
     - `services/stock-tracker/web/src/components/TickerSummaryCard.tsx` を新規作成
     - props: `summary: TickerSummary | null`, `loading: boolean`, `error: string`
     - 取引所・ティッカー未選択時は非表示
-- [ ] T004: 保有株式表示コンポーネントの作成
+- [x] T004: 保有株式表示コンポーネントの作成
     - `services/stock-tracker/web/src/components/HoldingCard.tsx` を新規作成
     - props: `holding: HoldingResponse | null`, `loading: boolean`, `error: string`
     - 保有なしの場合はその旨を表示
-- [ ] T005: アラート一覧表示コンポーネントの作成
+- [x] T005: アラート一覧表示コンポーネントの作成
     - `services/stock-tracker/web/src/components/TickerAlertListCard.tsx` を新規作成
     - props: `alerts: AlertResponse[]`, `loading: boolean`, `error: string`
     - アラートごとの詳細情報（モード、条件、有効/無効）を一覧表示する
     - アラート件数が多い場合はモーダルで詳細表示する構成にしてもよい
-- [ ] T006: `HomePageClient` へのデータ取得ロジック追加
+- [x] T006: `HomePageClient` へのデータ取得ロジック追加
     - ティッカー選択時に T002 で追加した API を並行取得する
     - `holdingPrice` と `alertLines` を `StockChart` へ渡す
-- [ ] T007: チャート画面レイアウトの更新
+- [x] T007: チャート画面レイアウトの更新
     - `HomePageClient.tsx` に T003〜T005 のコンポーネントを組み込む
     - 取引所・ティッカーが選択済みの場合のみ表示する
     - Material-UI のグリッドを使用してレスポンシブ対応
-- [ ] T008: ユニットテストの追加・更新
+- [x] T008: ユニットテストの追加・更新
     - T003〜T005 の各コンポーネントのユニットテストを `tests/unit/` 配下に追加
     - T006 のデータ取得ロジックのユニットテストを追加
     - カバレッジ 80% 以上を維持
-- [ ] T009: 動作確認
+- [x] T009: 動作確認
     - 取引所・ティッカー選択時にサマリー・保有株式・アラートが表示されること
     - 取引所・ティッカー未選択時に表示されないこと
     - チャートに保有価格ライン・アラートラインがオーバーレイ表示されること
