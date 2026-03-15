@@ -6,6 +6,7 @@ import KeyIcon from '@mui/icons-material/Key';
 import DataArrayIcon from '@mui/icons-material/DataArray';
 import LinkIcon from '@mui/icons-material/Link';
 import FingerprintIcon from '@mui/icons-material/Fingerprint';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import ToolCard from '@/components/tools/ToolCard';
 import { homeStructuredData, toJsonLd } from '@/lib/structuredData';
 import { Tool } from '@/types/tools';
@@ -79,6 +80,15 @@ export default function HomePage() {
       icon: <FingerprintIcon sx={{ fontSize: 48 }} />,
       href: '/hash-generator',
       category: '開発支援ツール',
+    },
+    {
+      id: 'timestamp-converter',
+      title: 'タイムスタンプ変換ツール',
+      description:
+        'Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互変換できます。Stock Trackerで利用しているタイムゾーンに対応しています。',
+      icon: <AccessTimeIcon sx={{ fontSize: 48 }} />,
+      href: '/timestamp-converter',
+      category: '変換ツール',
     },
   ];
 

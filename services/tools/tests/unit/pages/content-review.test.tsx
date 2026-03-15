@@ -4,6 +4,7 @@ import Base64Page, { metadata as base64Metadata } from '@/app/base64/page';
 import HashGeneratorPage, { metadata as hashGeneratorMetadata } from '@/app/hash-generator/page';
 import JsonFormatterPage, { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 import HomePage, { metadata as homeMetadata } from '@/app/page';
+import TimestampConverterPage, { metadata as timestampConverterMetadata } from '@/app/timestamp-converter/page';
 import TransitConverterLayout from '@/app/transit-converter/layout';
 import UrlEncoderPage, { metadata as urlEncoderMetadata } from '@/app/url-encoder/page';
 import {
@@ -52,6 +53,7 @@ describe('コンテンツ整合性', () => {
     expect(homeHtml).toContain('Base64 エンコーダー / デコーダー');
     expect(homeHtml).toContain('URL エンコーダー / デコーダー');
     expect(homeHtml).toContain('ハッシュ生成ツール');
+    expect(homeHtml).toContain('タイムスタンプ変換ツール');
     expect(homeHtml).toContain(
       'VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。 Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。 URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。 ハッシュ生成ツールではSHA-256 / SHA-512のハッシュ値をすばやく確認できます。'
     );
@@ -115,5 +117,13 @@ describe('コンテンツ整合性', () => {
     expect(hashGeneratorMetadata.description).toContain('SHA-256 / SHA-512');
     expect(hashGeneratorMetadata.description).toContain('Hex');
     expect(hashGeneratorHtml).toContain('ハッシュ生成ツール');
+  });
+
+  it('timestamp-converterページのmetadata descriptionに相互変換用途が含まれる', () => {
+    const timestampConverterHtml = renderToStaticMarkup(TimestampConverterPage());
+
+    expect(timestampConverterMetadata.description).toContain('Unixタイムスタンプ');
+    expect(timestampConverterMetadata.description).toContain('相互');
+    expect(timestampConverterHtml).toContain('タイムスタンプ変換ツール');
   });
 });
