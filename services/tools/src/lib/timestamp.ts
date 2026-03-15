@@ -36,7 +36,10 @@ type DateTimeParts = {
 
 const DATETIME_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
-const extractPart = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string => {
+const extractPart = (
+  parts: Intl.DateTimeFormatPart[],
+  type: Intl.DateTimeFormatPartTypes
+): string => {
   return parts.find((part) => part.type === type)?.value ?? '';
 };
 

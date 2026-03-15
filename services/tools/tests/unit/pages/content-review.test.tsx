@@ -4,7 +4,9 @@ import Base64Page, { metadata as base64Metadata } from '@/app/base64/page';
 import HashGeneratorPage, { metadata as hashGeneratorMetadata } from '@/app/hash-generator/page';
 import JsonFormatterPage, { metadata as jsonFormatterMetadata } from '@/app/json-formatter/page';
 import HomePage, { metadata as homeMetadata } from '@/app/page';
-import TimestampConverterPage, { metadata as timestampConverterMetadata } from '@/app/timestamp-converter/page';
+import TimestampConverterPage, {
+  metadata as timestampConverterMetadata,
+} from '@/app/timestamp-converter/page';
 import TransitConverterLayout from '@/app/transit-converter/layout';
 import UrlEncoderPage, { metadata as urlEncoderMetadata } from '@/app/url-encoder/page';
 import {
