@@ -94,6 +94,14 @@ describe('auth-config', () => {
     expect(config.pages?.signIn).toBe('https://auth.example.com/signin');
   });
 
+  it('createServiceAuthConfig は NEXT_PUBLIC_AUTH_URL 未設定時に /signin を使う', () => {
+    delete process.env.NEXT_PUBLIC_AUTH_URL;
+
+    const config = createServiceAuthConfig();
+
+    expect(config.pages?.signIn).toBe('/signin');
+  });
+
   it('createServiceAuthConfig でも includeSubAsUserIdFallback を適用する', async () => {
     const config = createServiceAuthConfig({ includeSubAsUserIdFallback: true });
     expect(config.callbacks?.session).toBeDefined();

@@ -131,11 +131,13 @@ export function createServiceAuthConfig(
   options: CreateServiceAuthConfigOptions = {}
 ): Pick<NextAuthConfig, 'session' | 'cookies' | 'callbacks' | 'pages'> {
   const { includeSubAsUserIdFallback } = options;
+  const authUrl = process.env.NEXT_PUBLIC_AUTH_URL;
+  const signIn = authUrl ? `${authUrl}/signin` : '/signin';
 
   return {
     ...createAuthConfig({ includeSubAsUserIdFallback }),
     pages: {
-      signIn: `${process.env.NEXT_PUBLIC_AUTH_URL}/signin`,
+      signIn,
     },
   };
 }
