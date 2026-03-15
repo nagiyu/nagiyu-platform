@@ -10,7 +10,11 @@ import {
   Snackbar,
   Alert,
   Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -129,6 +133,83 @@ export default function JsonFormatterClient() {
       <Typography variant="body1" color="text.secondary" paragraph align="center">
         JSON の整形・圧縮・検証ができます
       </Typography>
+
+      {/* 使い方ガイド */}
+      <Box sx={{ mb: 4 }}>
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="h6" component="h3">
+              📖 使い方ガイド
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1 }}>
+              ステップ1: JSON を入力
+            </Typography>
+            <Typography variant="body2" paragraph>
+              入力欄に JSON 文字列を貼り付けます。「クリップボードから読み取り」ボタンを使うと、
+              クリップボード内の JSON をそのまま入力できます。
+            </Typography>
+
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              ステップ2: 整形または圧縮を選ぶ
+            </Typography>
+            <Typography variant="body2" paragraph>
+              「整形」はインデント付きで見やすく表示したいときに使用します。
+              「圧縮」は改行や空白を削除し、1行のコンパクトな JSON にしたいときに使用します。
+            </Typography>
+
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              ステップ3: 結果を確認してコピー
+            </Typography>
+            <Typography variant="body2" paragraph>
+              出力欄に変換結果が表示されます。「コピー」ボタンで結果をクリップボードに保存し、
+              ドキュメントやチャット、設定ファイルの編集にそのまま利用できます。
+            </Typography>
+
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 3 }}>
+              💡 主なユースケース
+            </Typography>
+            <Box component="ul" sx={{ pl: 3, mb: 2 }}>
+              <Box component="li" sx={{ mb: 1 }}>
+                <Typography variant="body2">
+                  API レスポンスの可読性を上げ、キー構造を確認しやすくする
+                </Typography>
+              </Box>
+              <Box component="li" sx={{ mb: 1 }}>
+                <Typography variant="body2">
+                  共有用に JSON を圧縮し、ログやメッセージに貼り付けやすくする
+                </Typography>
+              </Box>
+              <Box component="li" sx={{ mb: 1 }}>
+                <Typography variant="body2">
+                  JSON の文法エラーを検出し、入力ミスを早期に見つける
+                </Typography>
+              </Box>
+            </Box>
+
+            <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
+              ❓ FAQ
+            </Typography>
+            <Typography variant="body2" paragraph>
+              <strong>Q. データはサーバーに送信されますか？</strong>
+              <br />
+              A. いいえ。変換処理はブラウザ内で完結するため、入力した JSON は外部に送信されません。
+            </Typography>
+            <Typography variant="body2" paragraph>
+              <strong>Q. 整形時のインデント幅は変更できますか？</strong>
+              <br />
+              A. 現在は 2 スペース固定です。一般的な JSON 表示形式として読みやすさを優先しています。
+            </Typography>
+            <Typography variant="body2">
+              <strong>Q. 無効な JSON を入力した場合はどうなりますか？</strong>
+              <br />
+              A.
+              エラーメッセージを表示し、整形・圧縮処理を停止します。入力内容を修正して再実行してください。
+            </Typography>
+          </AccordionDetails>
+        </Accordion>
+      </Box>
 
       {/* 入力セクション */}
       <Box sx={{ mb: 3 }}>

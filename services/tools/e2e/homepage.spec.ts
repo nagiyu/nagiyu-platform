@@ -14,9 +14,14 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
     // Check if tool cards are displayed
     const toolCard = page.getByRole('link', { name: /乗り換え変換ツール/i });
     await expect(toolCard).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /Base64 エンコーダー \/ デコーダー/i })
+    ).toBeVisible();
 
     // Verify tool card contains description
-    const description = page.getByText(/乗り換え案内のテキストを整形してコピーします/i);
+    const description = page.getByText(
+      /乗り換え案内のテキストから必要な情報を抽出し、メモやチャットに貼り付けやすい形式へ変換します。/i
+    );
     await expect(description).toBeVisible();
 
     // Verify tool card contains icon
@@ -50,12 +55,18 @@ test.describe('Homepage - Tool Cards and Navigation', () => {
     await expect(toolName).toBeVisible();
 
     // Verify description is displayed
-    const description = toolCard.getByText(/乗り換え案内のテキストを整形してコピーします/i);
+    const description = toolCard.getByText(
+      /乗り換え案内のテキストから必要な情報を抽出し、メモやチャットに貼り付けやすい形式へ変換します。/i
+    );
     await expect(description).toBeVisible();
 
     // Verify icon is present (svg element should be visible)
     const icon = toolCard.locator('svg');
     await expect(icon).toBeVisible();
+
+    const base64Card = page.locator('a[href="/base64"]');
+    await expect(base64Card).toBeVisible();
+    await expect(base64Card.getByText('Base64 エンコーダー / デコーダー')).toBeVisible();
   });
 });
 
