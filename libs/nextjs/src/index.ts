@@ -10,12 +10,17 @@ export { getAuthError, getSessionOrThrow, getOptionalSession, withAuth } from '.
 export type { AuthError, AuthFunction } from './auth.js';
 export {
   createAuthConfig,
+  createServiceAuthConfig,
   createAuthSessionConfig,
   createAuthCookieOptions,
   createAuthCookies,
   createAuthCallbacks,
 } from './auth-config.js';
-export type { CreateAuthConfigOptions, CreateAuthCallbacksOptions } from './auth-config.js';
+export type {
+  CreateAuthConfigOptions,
+  CreateAuthCallbacksOptions,
+  CreateServiceAuthConfigOptions,
+} from './auth-config.js';
 export { createAuthMiddleware } from './middleware.js';
 export type { AuthMiddlewareRequest, CreateAuthMiddlewareOptions } from './middleware.js';
 export { createSessionGetter } from './session.js';
