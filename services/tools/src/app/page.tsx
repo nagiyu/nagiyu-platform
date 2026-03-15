@@ -5,6 +5,7 @@ import DataObjectIcon from '@mui/icons-material/DataObject';
 import KeyIcon from '@mui/icons-material/Key';
 import DataArrayIcon from '@mui/icons-material/DataArray';
 import LinkIcon from '@mui/icons-material/Link';
+import FingerprintIcon from '@mui/icons-material/Fingerprint';
 import ToolCard from '@/components/tools/ToolCard';
 import { homeStructuredData, toJsonLd } from '@/lib/structuredData';
 import { Tool } from '@/types/tools';
@@ -12,7 +13,7 @@ import { Tool } from '@/types/tools';
 export const metadata: Metadata = {
   title: 'Tools - 便利なオンラインツール集',
   description:
-    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール、Base64エンコーダー/デコーダー、URLエンコーダー/デコーダーを提供し、コピーしやすい形式への変換やデータ整形、Web Push設定に必要な鍵生成をすばやく行えます。機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。',
+    'Toolsは、日常作業を効率化する無料のオンラインツール集です。乗り換え変換ツール、JSON整形ツール、VAPIDキー生成ツール、Base64エンコーダー/デコーダー、URLエンコーダー/デコーダー、ハッシュ生成ツールを提供し、コピーしやすい形式への変換やデータ整形、Web Push設定に必要な鍵生成、SHA-256/SHA-512ハッシュ値生成をすばやく行えます。機能に応じてブラウザ内処理とサーバー処理を使い分けており、PWA対応でオフライン環境でも一部機能を利用できます。',
   openGraph: {
     title: 'Tools - 便利なオンラインツール集',
     description:
@@ -70,6 +71,15 @@ export default function HomePage() {
       href: '/url-encoder',
       category: '変換ツール',
     },
+    {
+      id: 'hash-generator',
+      title: 'ハッシュ生成ツール',
+      description:
+        '文字列から SHA-256 / SHA-512 のハッシュ値（Hex）を生成できます。データの同一性確認や検証作業に便利です。',
+      icon: <FingerprintIcon sx={{ fontSize: 48 }} />,
+      href: '/hash-generator',
+      category: '開発支援ツール',
+    },
   ];
 
   return (
@@ -88,9 +98,10 @@ export default function HomePage() {
             VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
             Base64エンコーダー/デコーダーでは文字列の相互変換を簡単に行えます。
             URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。
+            ハッシュ生成ツールではSHA-256 / SHA-512のハッシュ値をすばやく確認できます。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
-            乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダーはブラウザ内で動作し、入力データは外部に送信されません。
+            乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダー・ハッシュ生成ツールはブラウザ内で動作し、入力データは外部に送信されません。
             VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
           </Typography>
           <Typography variant="body1" paragraph align="center" sx={{ fontSize: '1.1rem' }}>
