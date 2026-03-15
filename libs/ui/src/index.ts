@@ -6,6 +6,8 @@ export { default as Footer } from './components/layout/Footer';
 export type { FooterProps } from './components/layout/Footer';
 export { default as AppLayout } from './components/layout/AppLayout';
 export type { AppLayoutProps } from './components/layout/AppLayout';
+export { default as ServiceLayout } from './components/layout/ServiceLayout';
+export type { ServiceLayoutProps } from './components/layout/ServiceLayout';
 export { default as PrivacyPolicyDialog } from './components/dialogs/PrivacyPolicyDialog';
 export type { PrivacyPolicyDialogProps } from './components/dialogs/PrivacyPolicyDialog';
 export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfServiceDialog';

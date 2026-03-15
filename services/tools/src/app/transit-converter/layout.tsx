@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { toJsonLd, transitConverterStructuredData } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: '乗り換え変換ツール',
@@ -15,5 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default function TransitConverterLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <script type="application/ld+json">{toJsonLd(transitConverterStructuredData)}</script>
+      {children}
+    </>
+  );
 }

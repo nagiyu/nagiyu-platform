@@ -5,8 +5,8 @@
 import {
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
-  normalizeVapidKey,
 } from '../../src/lib/web-push-client.js';
+import { normalizeVapidKey } from '@nagiyu/common';
 
 describe('createBatchCompletionPayload', () => {
   test('全件成功時の通知ペイロード', () => {

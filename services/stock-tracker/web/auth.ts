@@ -1,5 +1,5 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
-import { createAuthConfig } from '@nagiyu/nextjs';
+import { createServiceAuthConfig } from '@nagiyu/nextjs';
 
 /**
  * Stock Tracker サービスの NextAuth 設定
@@ -11,10 +11,7 @@ export const authConfig: NextAuthConfig = {
   providers: [],
   secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET,
   trustHost: true,
-  ...createAuthConfig(),
-  pages: {
-    signIn: `${process.env.NEXT_PUBLIC_AUTH_URL}/signin`,
-  },
+  ...createServiceAuthConfig(),
 };
 
 const nextAuth = NextAuth(authConfig);
