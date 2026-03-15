@@ -1,5 +1,5 @@
 {
-  "name": "codec-converter-web",
+  "name": "@nagiyu/codec-converter-web",
   "version": "1.1.4",
   "private": true,
   "scripts": {
@@ -23,7 +23,7 @@
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
-    "codec-converter-core": "*",
+    "@nagiyu/codec-converter-core": "*",
     "uuid": "^13.0.0"
   },
   "devDependencies": {

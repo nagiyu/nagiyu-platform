@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
-import type { CodecType } from 'codec-converter-core';
+import type { CodecType } from '@nagiyu/codec-converter-core';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {

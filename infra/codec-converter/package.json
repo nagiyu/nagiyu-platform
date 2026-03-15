@@ -1,5 +1,5 @@
 {
-  "name": "codec-converter",
+  "name": "@nagiyu/infra-codec-converter",
   "version": "0.1.0",
   "bin": {
     "codec-converter": "bin/codec-converter.js"

@@ -23,8 +23,8 @@ COPY services/codec-converter ./services/codec-converter/
 RUN npm install --prefer-offline --no-audit
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
-RUN npm run build --workspace=codec-converter-core
-RUN npm run build --workspace=codec-converter-batch
+RUN npm run build --workspace=@nagiyu/codec-converter-core
+RUN npm run build --workspace=@nagiyu/codec-converter-batch
 
 # 実行ステージ
 FROM base AS runner
