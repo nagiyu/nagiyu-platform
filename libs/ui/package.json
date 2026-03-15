@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
+    },
+    "./service-layout": {
+      "types": "./dist/src/components/layout/ServiceLayout.d.ts",
+      "import": "./dist/src/components/layout/ServiceLayout.jsx"
     }
   },
   "scripts": {

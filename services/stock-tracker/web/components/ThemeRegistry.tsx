@@ -1,12 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { Box } from '@mui/material';
-import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
 import { SessionProvider, useSession, signOut } from 'next-auth/react';
-import { theme, Header, Footer, NavigationItem } from '@nagiyu/ui';
+import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
 import { SnackbarProvider } from './SnackbarProvider';
 import { ErrorBoundary } from './ErrorBoundary';
 import { hasPermission } from '@nagiyu/common';
@@ -61,27 +57,21 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
   const handleLogout = () => signOut();
 
   return (
-    <AppRouterCacheProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <ErrorBoundary>
-          <SnackbarProvider>
-            <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-              <Header
-                title="Stock Tracker"
-                navigationItems={navigationItems}
-                user={user}
-                onLogout={handleLogout}
-              />
-              <Box component="main" sx={{ flexGrow: 1 }}>
-                {children}
-              </Box>
-              <Footer version={version} />
-            </Box>
-          </SnackbarProvider>
-        </ErrorBoundary>
-      </ThemeProvider>
-    </AppRouterCacheProvider>
+    <ErrorBoundary>
+      <SnackbarProvider>
+        <ServiceLayout
+          headerProps={{
+            title: 'Stock Tracker',
+            navigationItems,
+            user,
+            onLogout: handleLogout,
+          }}
+          footerProps={{ version }}
+        >
+          {children}
+        </ServiceLayout>
+      </SnackbarProvider>
+    </ErrorBoundary>
   );
 }
 

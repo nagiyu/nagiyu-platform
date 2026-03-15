@@ -1,12 +1,20 @@
 'use client';
 
 import * as React from 'react';
-import { AppLayout } from '@nagiyu/ui';
+import { ServiceLayout } from '@nagiyu/ui';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
+  version: string;
 }
 
-export default function ThemeRegistry({ children }: ThemeRegistryProps) {
-  return <AppLayout>{children}</AppLayout>;
+export default function ThemeRegistry({ children, version }: ThemeRegistryProps) {
+  return (
+    <ServiceLayout
+      headerProps={{ title: 'Share Together', ariaLabel: 'Share Together ホームページに戻る' }}
+      footerProps={{ version }}
+    >
+      {children}
+    </ServiceLayout>
+  );
 }

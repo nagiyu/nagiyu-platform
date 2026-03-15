@@ -134,6 +134,7 @@ Next.jsとMaterial-UIに依存するUIコンポーネント。
 
 - Header, Footer コンポーネント
 - AppLayout（MUI テーマプロバイダー・`AppRouterCacheProvider` ラッパー）
+- ServiceLayout（`AppLayout + Header + main + Footer` の標準レイアウト）
 - ThemeRegistry（Material-UIプロバイダー）
 - theme.ts（カラーパレット、タイポグラフィ）
 - グローバルCSS

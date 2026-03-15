@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Box } from '@mui/material';
-import { AppLayout, Header, Footer } from '@nagiyu/ui';
+import ServiceLayout from '@nagiyu/ui/service-layout';
 
 interface ThemeRegistryProps {
   children: React.ReactNode;
@@ -11,14 +10,11 @@ interface ThemeRegistryProps {
 
 export default function ThemeRegistry({ children, version = '1.0.0' }: ThemeRegistryProps) {
   return (
-    <AppLayout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Header title="Codec Converter" ariaLabel="Codec Converter ホームページに戻る" />
-        <Box component="main" sx={{ flexGrow: 1 }}>
-          {children}
-        </Box>
-        <Footer version={version} />
-      </Box>
-    </AppLayout>
+    <ServiceLayout
+      headerProps={{ title: 'Codec Converter', ariaLabel: 'Codec Converter ホームページに戻る' }}
+      footerProps={{ version }}
+    >
+      {children}
+    </ServiceLayout>
   );
 }
