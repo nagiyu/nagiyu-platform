@@ -411,7 +411,7 @@ aws → common（確認が必要）
 
 ### フェーズ 7: `auth.ts` の共通化検討
 
-- [ ] T008: `createServiceAuthConfig()` を `libs/nextjs` に追加することを検討する
+- [x] T008: `createServiceAuthConfig()` を `libs/nextjs` に追加することを検討する
     - 全サービスの `auth.ts` を比較した結果、差異は `createAuthConfig` の `includeSubAsUserIdFallback` オプションのみ（全サービスで `pages.signIn` は `NEXT_PUBLIC_AUTH_URL/signin` と同一）
     - `@nagiyu/nextjs` に `createServiceAuthConfig(options?: { includeSubAsUserIdFallback?: boolean })` を追加
     - 各サービスの `auth.ts` を数行に削減できる
