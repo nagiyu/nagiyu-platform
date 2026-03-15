@@ -2,10 +2,7 @@ import type { BatchClient } from '@aws-sdk/client-batch';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { S3Client } from '@aws-sdk/client-s3';
 import { clearBatchClientCache, getBatchClient } from './batch/index.js';
-import {
-  clearDynamoDBClientCache,
-  getDynamoDBDocumentClient,
-} from './dynamodb/index.js';
+import { clearDynamoDBClientCache, getDynamoDBDocumentClient } from './dynamodb/index.js';
 import { clearS3ClientCache, getS3Client } from './s3/index.js';
 
 export interface AwsClients {
