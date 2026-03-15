@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "paths": {
       "@/*": ["./src/*"],
-      "codec-converter-core": ["../core/src"]
+      "@nagiyu/codec-converter-core": ["../core/src"]
     },
     "plugins": [
       {

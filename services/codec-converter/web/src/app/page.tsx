@@ -2,7 +2,7 @@
 
 import { useState, useRef, FormEvent, DragEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { validateFile, type CodecType } from 'codec-converter-core';
+import { validateFile, type CodecType } from '@nagiyu/codec-converter-core';
 import {
   Container,
   Typography,

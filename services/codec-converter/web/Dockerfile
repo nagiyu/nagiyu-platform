@@ -27,8 +27,8 @@ RUN npm run build --workspace @nagiyu/common
 RUN npm run build --workspace @nagiyu/browser
 RUN npm run build --workspace @nagiyu/ui
 RUN npm run build --workspace @nagiyu/aws
-RUN npm run build --workspace=codec-converter-core
-RUN npm run build --workspace=codec-converter-web
+RUN npm run build --workspace=@nagiyu/codec-converter-core
+RUN npm run build --workspace=@nagiyu/codec-converter-web
 
 # 本番ステージ
 FROM base AS runner

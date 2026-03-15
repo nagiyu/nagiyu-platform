@@ -180,12 +180,12 @@ CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`
 
 ### Phase 2: パッケージ名の修正
 
-- [ ] T005: `infra/codec-converter` の名前を `@nagiyu/infra-codec-converter` に変更し、参照箇所を更新する
-- [ ] T006: `services/codec-converter/core` の名前を `@nagiyu/codec-converter-core` に変更し、参照箇所を更新する
-- [ ] T007: `services/codec-converter/web` の名前を `@nagiyu/codec-converter-web` に変更し、参照箇所を更新する
-- [ ] T008: `services/codec-converter/batch` の名前を `@nagiyu/codec-converter-batch` に変更し、参照箇所を更新する
-- [ ] T009: `services/tools` の名前を `@nagiyu/tools` に変更し、参照箇所を更新する
-- [ ] T010: `infra/shared` の名前を `@nagiyu/infra-shared` に変更し、参照箇所を更新する
+- [x] T005: `infra/codec-converter` の名前を `@nagiyu/infra-codec-converter` に変更し、参照箇所を更新する
+- [x] T006: `services/codec-converter/core` の名前を `@nagiyu/codec-converter-core` に変更し、参照箇所を更新する
+- [x] T007: `services/codec-converter/web` の名前を `@nagiyu/codec-converter-web` に変更し、参照箇所を更新する
+- [x] T008: `services/codec-converter/batch` の名前を `@nagiyu/codec-converter-batch` に変更し、参照箇所を更新する
+- [x] T009: `services/tools` の名前を `@nagiyu/tools` に変更し、参照箇所を更新する
+- [x] T010: `infra/shared` の名前を `@nagiyu/infra-shared` に変更し、参照箇所を更新する
 
 ### Phase 3: `package.json` 構成の整理
 

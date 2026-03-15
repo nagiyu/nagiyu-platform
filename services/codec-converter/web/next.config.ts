@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
     '@nagiyu/browser',
     '@nagiyu/common',
     '@nagiyu/nextjs',
-    'codec-converter-core',
+    '@nagiyu/codec-converter-core',
   ],
 };
 

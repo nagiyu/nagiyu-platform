@@ -1,5 +1,5 @@
 {
-  "name": "codec-converter-batch",
+  "name": "@nagiyu/codec-converter-batch",
   "version": "1.0.0",
   "type": "module",
   "main": "dist/src/index.js",
@@ -17,7 +17,7 @@
     "@aws-sdk/client-dynamodb": "^3.980.0",
     "@aws-sdk/client-s3": "^3.980.0",
     "@aws-sdk/lib-dynamodb": "^3.980.0",
-    "codec-converter-core": "*"
+    "@nagiyu/codec-converter-core": "*"
   },
   "devDependencies": {
     "@aws-sdk/types": "^3.973.0",
