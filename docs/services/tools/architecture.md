@@ -111,7 +111,12 @@ Lambda Function URL (Next.js SSR)
 **実装されているツールページ**:
 - `/` - ツール一覧ページ（トップページ）
 - `/transit-converter` - 乗り換え変換ツール
-- `/json-formatter` - JSON 整形ツール（フェーズ2で実装予定）
+- `/json-formatter` - JSON 整形ツール
+- `/base64` - Base64 エンコーダー/デコーダー
+- `/url-encoder` - URL エンコーダー/デコーダー
+- `/hash-generator` - ハッシュ生成ツール
+- `/vapid-generator` - VAPID キー生成ツール
+- `/timestamp-converter` - タイムスタンプ変換ツール
 
 **設計方針**:
 - 各ツールは独立したページとして実装
@@ -186,9 +191,9 @@ Lambda Function URL (Next.js SSR)
 Next.js の API Routes (`app/api/` ディレクトリ) を使用。
 現時点では、ほとんどの処理がクライアントサイドで完結するため、最小限の API を実装。
 
-**想定される API:**
+**実装されている API:**
 - `/api/health` - ヘルスチェック (Lambda 稼働確認用)
-- (将来) `/api/tools/*` - サーバーサイド処理が必要なツール
+- `/api/vapid` - VAPID キーペア生成 (Web Push 通知用)
 
 ---
 
