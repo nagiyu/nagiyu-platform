@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import TimestampConverterClient from './TimestampConverterClient';
+import { timestampConverterStructuredData, toJsonLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'タイムスタンプ変換ツール - Tools',
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function TimestampConverterPage() {
-  return <TimestampConverterClient />;
+  return (
+    <>
+      <script type="application/ld+json">{toJsonLd(timestampConverterStructuredData)}</script>
+      <TimestampConverterClient />
+    </>
+  );
 }
