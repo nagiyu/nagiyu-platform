@@ -2,7 +2,7 @@ import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
 
@@ -35,7 +35,8 @@ export async function GET(): Promise<NextResponse> {
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = getDocClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const groupRepository = createGroupRepository(docClient, tableName);
     const membershipRepository = createMembershipRepository(docClient, tableName);
 
@@ -85,7 +86,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
     }
 
-    const docClient = getDocClient();
+    const docClient =
+      process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
     const groupRepository = createGroupRepository(docClient, tableName);
     const membershipRepository = createMembershipRepository(docClient, tableName);
     const groupId = crypto.randomUUID();

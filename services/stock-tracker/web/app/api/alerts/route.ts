@@ -129,9 +129,6 @@ export const GET = withAuth(
   'stocks:read',
   async (session, request: NextRequest): Promise<NextResponse> => {
     try {
-      // ページネーションパラメータをパース
-      const { limit, lastKey } = parsePagination(request);
-
       // リポジトリの初期化
       const alertRepo = createAlertRepository();
       const tickerRepo = createTickerRepository();
@@ -140,10 +137,7 @@ export const GET = withAuth(
       const userId = session.user.userId;
 
       // アラート一覧取得
-      const result = await alertRepo.getByUserId(userId, {
-        limit,
-        cursor: lastKey as string | undefined,
-      });
+      const result = await alertRepo.getByUserId(userId, parsePagination(request));
 
       // TickerリポジトリでSymbolとNameを取得
       // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化

@@ -4,6 +4,7 @@
  */
 
 import webpush from 'web-push';
+import { logger, normalizeVapidKey } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -40,49 +41,6 @@ export interface PushSubscription {
  * @throws {Error} VAPID キーが未設定の場合
  */
 let vapidConfigured = false;
-
-/**
- * VAPID キー文字列を正規化する
- *
- * 以下の形式を許容して、最終的に Web Push ライブラリへ渡せる生のキー文字列へ変換する:
- * - 前後に空白を含む文字列
- * - 引用符で囲まれた文字列
- * - `{ "publicKey": "...", "privateKey": "..." }` 形式の JSON 文字列
- *
- * @param rawKey - 環境変数から取得した生文字列
- * @param keyName - 抽出対象キー名（publicKey または privateKey）
- * @returns 正規化後のキー文字列
- */
-export function normalizeVapidKey(rawKey: string, keyName: 'publicKey' | 'privateKey'): string {
-  const trimmedKey = rawKey.trim();
-  const unquotedKey =
-    (trimmedKey.startsWith('"') && trimmedKey.endsWith('"')) ||
-    (trimmedKey.startsWith("'") && trimmedKey.endsWith("'"))
-      ? trimmedKey.slice(1, -1).trim()
-      : trimmedKey;
-  const jsonCandidate = unquotedKey.replace(/\\"/g, '"');
-
-  if (jsonCandidate.startsWith('{') && jsonCandidate.endsWith('}')) {
-    try {
-      const parsed = JSON.parse(jsonCandidate) as Record<string, unknown>;
-      const nestedKey = parsed[keyName];
-      if (typeof nestedKey === 'string') {
-        return nestedKey.trim();
-      }
-      console.warn('VAPID キーJSONに必要なキーが見つかりませんでした', {
-        keyName,
-        expectedFormat: '{ "publicKey": "...", "privateKey": "..." }',
-      });
-    } catch (error) {
-      // JSON として解釈できない場合は、引用符除去済みの値をそのまま利用する
-      console.warn('VAPID キーのJSON解析に失敗しました。プレーン文字列として処理します', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  return unquotedKey;
-}
 
 function configureVapidKeys(): void {
   // 既に設定済みの場合はスキップ
@@ -132,7 +90,7 @@ export async function sendNotification(
     // Web Push 通知を送信
     const response = await webpush.sendNotification(subscription, JSON.stringify(payload));
 
-    console.log('Web Push 通知を送信しました', {
+    logger.info('Web Push 通知を送信しました', {
       statusCode: response.statusCode,
       endpoint: subscription.endpoint,
     });
@@ -144,11 +102,11 @@ export async function sendNotification(
     // 410 Gone: サブスクリプションが無効化されている
     // 404 Not Found: サブスクリプションが存在しない
     if (errorMessage.includes('410') || errorMessage.includes('404')) {
-      console.warn('無効な Web Push サブスクリプションです', {
+      logger.warn('無効な Web Push サブスクリプションです', {
         error: errorMessage,
       });
     } else {
-      console.error('Web Push 通知の送信に失敗しました', {
+      logger.error('Web Push 通知の送信に失敗しました', {
         error: errorMessage,
       });
     }

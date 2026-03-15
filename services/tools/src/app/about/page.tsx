@@ -4,7 +4,7 @@ import { Container, Typography, Box, Link } from '@mui/material';
 export const metadata: Metadata = {
   title: 'Tools について',
   description:
-    'Toolsは、日常的に便利なツール群を提供する無料のWebアプリケーションです。このページでは、Toolsの目的、開発の経緯、採用している技術スタック（Next.js、TypeScript、Material-UI、PWA）、今後の展望について詳しく説明します。プライバシーとセキュリティを最優先に考えた設計です。',
+    'Toolsは、日常的に便利なツール群を提供する無料のWebアプリケーションです。このページでは、Toolsの目的、開発の経緯、提供ツール、採用している技術スタック（Next.js、TypeScript、Material-UI、PWA）について詳しく説明します。プライバシーとセキュリティを最優先に考えた設計です。',
   alternates: {
     canonical: 'https://nagiyu.com/about',
   },
@@ -30,7 +30,7 @@ export default function AboutPage() {
           プライバシーを重視した設計となっており、安心してご利用いただけます。
         </Typography>
         <Typography variant="body1" paragraph>
-          乗り換え案内の整形や、今後追加予定の様々なツールを通じて、
+          乗り換え案内の整形や JSON データの整形など、実用性の高いツールを提供し、
           日常的な作業をより快適にすることを目指しています。
         </Typography>
       </Box>
@@ -67,6 +67,60 @@ export default function AboutPage() {
               乗り換え案内のテキストを整形してコピー。
               出発地、到着地、時刻、運賃などの必要な情報だけを抽出し、
               読みやすい形式に変換します。表示項目のカスタマイズも可能です。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              JSON 整形ツール
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              JSON の整形（Pretty Print）、圧縮（Minify）、検証を 1 つの画面で実行できます。 API
+              レスポンス確認や設定ファイル編集時の可読性向上に活用できます。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              VAPID キー生成ツール
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Web Push 通知に必要な VAPID の公開鍵・秘密鍵ペアを生成できます。
+              生成した鍵はそのままコピーしてアプリ設定に利用できます。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              Base64 エンコーダー / デコーダー
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              文字列の Base64 エンコードとデコードをすばやく切り替えて実行できます。 API
+              の入出力確認やデータ変換作業を効率化できます。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              URL エンコーダー / デコーダー
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              URL に含まれる文字列のエンコード・デコードを実行できます。
+              クエリパラメータ作成時の文字化け防止や検証に役立ちます。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              ハッシュ生成ツール
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              入力した文字列から SHA-256 / SHA-512 のハッシュ値（Hex）を生成できます。
+              データ同一性チェックや検証作業に活用できます。
+            </Typography>
+          </Box>
+          <Box component="li" sx={{ mb: 2 }}>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              タイムスタンプ変換ツール
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Unix タイムスタンプ（秒 / ミリ秒）と日時文字列を相互に変換できます。
+              ログ調査や運用時の時刻確認を素早く行えます。
             </Typography>
           </Box>
         </Box>
@@ -120,37 +174,6 @@ export default function AboutPage() {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
           すべてのコードは TypeScript strict mode で記述され、高い品質基準を維持しています。
           テストカバレッジは 80% 以上を目標としています。
-        </Typography>
-      </Box>
-
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
-          今後の展望
-        </Typography>
-        <Typography variant="body1" paragraph>
-          今後も、日常的に便利なツールを追加していく予定です。
-          現在検討中のツールには、以下のようなものがあります：
-        </Typography>
-        <Box component="ul" sx={{ pl: 3 }}>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body2">JSON フォーマッター</Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body2">Base64 エンコーダー/デコーダー</Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body2">ハッシュ生成ツール</Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body2">URL エンコーダー/デコーダー</Typography>
-          </Box>
-          <Box component="li" sx={{ mb: 1 }}>
-            <Typography variant="body2">タイムスタンプ変換ツール</Typography>
-          </Box>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          開発者自身が使いたいツールを優先的に実装していきますが、
-          ユーザーからのフィードバックやリクエストも参考にします。
         </Typography>
       </Box>
 

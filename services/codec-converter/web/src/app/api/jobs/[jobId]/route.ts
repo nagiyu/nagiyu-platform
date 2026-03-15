@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getAwsClients } from '@nagiyu/aws';
 import { type Job } from 'codec-converter-core';
-import { getAwsClients } from '@/lib/aws-clients';
 
 // Presigned URLの有効期限（24時間 = 86400秒）
 const PRESIGNED_URL_EXPIRES_IN = 86400;
@@ -21,6 +21,7 @@ function getEnvVars() {
   return {
     DYNAMODB_TABLE: process.env.DYNAMODB_TABLE || '',
     S3_BUCKET: process.env.S3_BUCKET || '',
+    AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   };
 }
 
@@ -52,8 +53,8 @@ export async function GET(
     const { jobId } = await params;
 
     // AWS クライアントと環境変数の取得
-    const { docClient, s3Client } = getAwsClients();
-    const { DYNAMODB_TABLE, S3_BUCKET } = getEnvVars();
+    const { DYNAMODB_TABLE, S3_BUCKET, AWS_REGION } = getEnvVars();
+    const { docClient, s3Client } = getAwsClients(AWS_REGION);
 
     // DynamoDBでジョブを取得
     const getResult = await docClient.send(

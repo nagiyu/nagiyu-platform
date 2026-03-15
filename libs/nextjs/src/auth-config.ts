@@ -19,6 +19,10 @@ export interface CreateAuthConfigOptions extends CreateAuthCallbacksOptions {
   nodeEnv?: string;
 }
 
+export interface CreateServiceAuthConfigOptions {
+  includeSubAsUserIdFallback?: boolean;
+}
+
 export function createAuthSessionConfig(): NonNullable<NextAuthConfig['session']> {
   return {
     strategy: 'jwt',
@@ -120,5 +124,20 @@ export function createAuthConfig(
     session: createAuthSessionConfig(),
     cookies: createAuthCookies(nodeEnv),
     callbacks: createAuthCallbacks({ includeSubAsUserIdFallback, jwt }),
+  };
+}
+
+export function createServiceAuthConfig(
+  options: CreateServiceAuthConfigOptions = {}
+): Pick<NextAuthConfig, 'session' | 'cookies' | 'callbacks' | 'pages'> {
+  const { includeSubAsUserIdFallback } = options;
+  const authUrl = process.env.NEXT_PUBLIC_AUTH_URL;
+  const signIn = authUrl ? `${authUrl}/signin` : '/signin';
+
+  return {
+    ...createAuthConfig({ includeSubAsUserIdFallback }),
+    pages: {
+      signIn,
+    },
   };
 }

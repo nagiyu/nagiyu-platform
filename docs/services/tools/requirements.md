@@ -170,14 +170,15 @@
 | F-007 | Google AdSense 統合 | 広告収益化（本番環境のみ） | 中 |
 | F-008 | JSON Formatter | JSONを整形、圧縮、検証 | 中 |
 
-#### フェーズ3: 将来拡張 (将来実装)
+#### フェーズ3: 追加ツール（実装済み）
 
 | ID | 機能名 | 説明 | 優先度 |
 |----|--------|------|--------|
 | F-101 | Base64 Encoder/Decoder | Base64エンコード/デコード | 中 |
-| F-102 | Hash Generator | MD5、SHA-256等のハッシュ生成 | 中 |
+| F-102 | Hash Generator | SHA-256/SHA-512形式でハッシュを生成（Hex出力） | 中 |
 | F-103 | URL Encoder/Decoder | URLエンコード/デコード | 低 |
-| F-104 | Timestamp Converter | Unix timestamp ⇔ 日時変換 | 低 |
+| F-104 | Timestamp Converter | Unix timestamp ⇔ 日時文字列の相互変換 | 低 |
+| F-105 | VAPID Key Generator | Web Push 通知用の公開鍵/秘密鍵ペアを生成 | 低 |
 
 ### 2.2 各機能の詳細要件
 
@@ -583,6 +584,11 @@ JSON文字列の整形（Pretty Print）、圧縮（Minify）、検証（Validat
 | ツール一覧ページ | `/` | 利用可能なツールの一覧を表示 | 高 |
 | 乗り換え変換ツール | `/transit-converter` | 乗り換え情報を変換してクリップボードにコピー | 最高 |
 | JSON 整形ツール | `/json-formatter` | JSON を整形、圧縮、検証 | 中 |
+| Base64 エンコーダー/デコーダー | `/base64` | Base64エンコード/デコード | 中 |
+| URL エンコーダー/デコーダー | `/url-encoder` | URLパーセントエンコード/デコード | 中 |
+| ハッシュ生成ツール | `/hash-generator` | SHA-256/SHA-512 Hex 形式のハッシュ生成 | 中 |
+| VAPID キー生成ツール | `/vapid-generator` | Web Push 通知用の公開鍵/秘密鍵ペアを生成 | 低 |
+| タイムスタンプ変換ツール | `/timestamp-converter` | Unix タイムスタンプと日時文字列の相互変換 | 中 |
 
 ### 4.2 画面遷移図
 
