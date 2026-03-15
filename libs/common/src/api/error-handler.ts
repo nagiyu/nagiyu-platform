@@ -5,7 +5,7 @@
  */
 
 import type { APIErrorResponse, ErrorInfo, ErrorType } from './types.js';
-import { COMMON_ERROR_MESSAGES } from './types.js';
+import { COMMON_ERROR_MESSAGES } from '../constants/error-messages.js';
 
 /**
  * HTTPステータスコードからエラータイプを判定

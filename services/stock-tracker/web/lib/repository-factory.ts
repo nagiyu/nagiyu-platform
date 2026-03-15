@@ -7,7 +7,7 @@
  * - シングルトンパターンでリポジトリインスタンスを管理
  */
 
-import { InMemorySingleTableStore } from '@nagiyu/aws';
+import { InMemorySingleTableStore, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import type {
   AlertRepository,
   HoldingRepository,
@@ -27,7 +27,6 @@ import {
   InMemoryTickerRepository,
   InMemoryExchangeRepository,
 } from '@nagiyu/stock-tracker-core';
-import { getDynamoDBClient, getTableName } from './dynamodb';
 
 /**
  * エラーメッセージ定数
@@ -91,7 +90,7 @@ export function createAlertRepository(): AlertRepository {
   } else {
     // DynamoDB実装を使用
     try {
-      const docClient = getDynamoDBClient();
+      const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
       alertRepository = new DynamoDBAlertRepository(docClient, tableName);
     } catch {
@@ -121,7 +120,7 @@ export function createHoldingRepository(): HoldingRepository {
   } else {
     // DynamoDB実装を使用
     try {
-      const docClient = getDynamoDBClient();
+      const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
       holdingRepository = new DynamoDBHoldingRepository(docClient, tableName);
     } catch {
@@ -151,7 +150,7 @@ export function createTickerRepository(): TickerRepository {
   } else {
     // DynamoDB実装を使用
     try {
-      const docClient = getDynamoDBClient();
+      const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
       tickerRepository = new DynamoDBTickerRepository(docClient, tableName);
     } catch {
@@ -181,7 +180,7 @@ export function createExchangeRepository(): ExchangeRepository {
   } else {
     // DynamoDB実装を使用
     try {
-      const docClient = getDynamoDBClient();
+      const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
       exchangeRepository = new DynamoDBExchangeRepository(docClient, tableName);
     } catch {
@@ -209,7 +208,7 @@ export function createDailySummaryRepository(): DailySummaryRepository {
     dailySummaryRepository = new InMemoryDailySummaryRepository(store);
   } else {
     try {
-      const docClient = getDynamoDBClient();
+      const docClient = getDynamoDBDocumentClient();
       const tableName = getTableName();
       dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
     } catch {

@@ -10,7 +10,7 @@ import {
   isRetryableError,
   extractErrorInfo,
 } from '../../../src/api/error-handler';
-import { COMMON_ERROR_MESSAGES } from '../../../src/api/types';
+import { COMMON_ERROR_MESSAGES } from '../../../src/constants/error-messages';
 import type { APIErrorResponse } from '../../../src/api/types';
 
 describe('error-handler', () => {

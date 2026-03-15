@@ -13,6 +13,7 @@ const config: Config.InitialOptions = {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
   },
   transform: {
     '^.+\\.ts$': [

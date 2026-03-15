@@ -10,12 +10,17 @@ export { getAuthError, getSessionOrThrow, getOptionalSession, withAuth } from '.
 export type { AuthError, AuthFunction } from './auth.js';
 export {
   createAuthConfig,
+  createServiceAuthConfig,
   createAuthSessionConfig,
   createAuthCookieOptions,
   createAuthCookies,
   createAuthCallbacks,
 } from './auth-config.js';
-export type { CreateAuthConfigOptions, CreateAuthCallbacksOptions } from './auth-config.js';
+export type {
+  CreateAuthConfigOptions,
+  CreateAuthCallbacksOptions,
+  CreateServiceAuthConfigOptions,
+} from './auth-config.js';
 export { createAuthMiddleware } from './middleware.js';
 export type { AuthMiddlewareRequest, CreateAuthMiddlewareOptions } from './middleware.js';
 export { createSessionGetter } from './session.js';
@@ -41,3 +46,11 @@ export { handleApiError } from './error.js';
 // Health module - Health check route helper
 export { createHealthRoute } from './health.js';
 export type { HealthRouteOptions } from './health.js';
+
+// Push module - Web Push route helper
+export {
+  createVapidPublicKeyRoute,
+  validatePushSubscription,
+  createSubscriptionId,
+} from './push.js';
+export type { PushSubscriptionData } from './push.js';

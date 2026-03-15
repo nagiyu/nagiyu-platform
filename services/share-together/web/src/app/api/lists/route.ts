@@ -2,7 +2,7 @@ import { ListService } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDocClient } from '@/lib/aws-clients';
+import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createListRepository } from '@/lib/repositories';
 
@@ -54,7 +54,8 @@ function createListService(): ListService {
     throw new Error(ERROR_MESSAGES.DYNAMODB_TABLE_NAME_REQUIRED);
   }
 
-  const docClient = getDocClient();
+  const docClient =
+    process.env.USE_IN_MEMORY_DB === 'true' ? undefined : getDynamoDBDocumentClient();
   const listRepository = createListRepository(docClient, tableName);
   return new ListService(listRepository);
 }

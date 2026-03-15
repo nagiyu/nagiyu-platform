@@ -1,5 +1,5 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
-import { createAuthConfig } from '@nagiyu/nextjs';
+import { createServiceAuthConfig } from '@nagiyu/nextjs';
 
 /**
  * Admin サービスの NextAuth 設定
@@ -10,10 +10,7 @@ import { createAuthConfig } from '@nagiyu/nextjs';
 export const authConfig: NextAuthConfig = {
   providers: [],
   trustHost: true,
-  ...createAuthConfig(),
-  pages: {
-    signIn: `${process.env.NEXT_PUBLIC_AUTH_URL}/signin`,
-  },
+  ...createServiceAuthConfig(),
 };
 
 const nextAuth = NextAuth(authConfig);

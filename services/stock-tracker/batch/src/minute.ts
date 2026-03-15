@@ -5,7 +5,7 @@
  */
 
 import { logger, withRetry } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from './lib/aws-clients.js';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { sendNotification, createAlertNotificationPayload } from './lib/web-push-client.js';
 import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';

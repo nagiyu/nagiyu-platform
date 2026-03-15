@@ -1,12 +1,12 @@
 import { handler } from '../../src/temporary-alert-expiry.js';
 import type { ScheduledEvent } from '../../src/temporary-alert-expiry.js';
-import * as awsClients from '../../src/lib/aws-clients.js';
+import * as awsClients from '@nagiyu/aws';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 
-jest.mock('../../src/lib/aws-clients.js');
+jest.mock('@nagiyu/aws');
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
   DynamoDBAlertRepository: jest.fn(),

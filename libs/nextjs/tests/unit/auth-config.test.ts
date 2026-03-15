@@ -3,6 +3,7 @@ import {
   createAuthCallbacks,
   createAuthConfig,
   createAuthCookieOptions,
+  createServiceAuthConfig,
 } from '../../src/auth-config';
 
 type SessionCallback = NonNullable<ReturnType<typeof createAuthCallbacks>['session']>;
@@ -83,5 +84,32 @@ describe('auth-config', () => {
     });
     expect(session.user).toBeDefined();
     expect(session.user!.id).toBe('explicit-user-id');
+  });
+
+  it('createServiceAuthConfig は共通の signIn ページを設定する', () => {
+    process.env.NEXT_PUBLIC_AUTH_URL = 'https://auth.example.com';
+
+    const config = createServiceAuthConfig();
+
+    expect(config.pages?.signIn).toBe('https://auth.example.com/signin');
+  });
+
+  it('createServiceAuthConfig は NEXT_PUBLIC_AUTH_URL 未設定時に /signin を使う', () => {
+    delete process.env.NEXT_PUBLIC_AUTH_URL;
+
+    const config = createServiceAuthConfig();
+
+    expect(config.pages?.signIn).toBe('/signin');
+  });
+
+  it('createServiceAuthConfig でも includeSubAsUserIdFallback を適用する', async () => {
+    const config = createServiceAuthConfig({ includeSubAsUserIdFallback: true });
+    expect(config.callbacks?.session).toBeDefined();
+
+    const session = await executeSessionCallback(config.callbacks!.session!, {
+      sub: 'service-auth-sub-user-id',
+    });
+    expect(session.user).toBeDefined();
+    expect(session.user!.id).toBe('service-auth-sub-user-id');
   });
 });
