@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import UrlEncoderClient from './UrlEncoderClient';
+import { toJsonLd, urlEncoderStructuredData } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'URL エンコーダー / デコーダー - Tools',
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function UrlEncoderPage() {
-  return <UrlEncoderClient />;
+  return (
+    <>
+      <script type="application/ld+json">{toJsonLd(urlEncoderStructuredData)}</script>
+      <UrlEncoderClient />
+    </>
+  );
 }

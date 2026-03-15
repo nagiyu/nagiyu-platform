@@ -9,11 +9,17 @@ import TimestampConverterPage, {
 } from '@/app/timestamp-converter/page';
 import TransitConverterLayout from '@/app/transit-converter/layout';
 import UrlEncoderPage, { metadata as urlEncoderMetadata } from '@/app/url-encoder/page';
+import VapidGeneratorPage from '@/app/vapid-generator/page';
 import {
+  base64StructuredData,
+  hashGeneratorStructuredData,
   homeStructuredData,
   jsonFormatterStructuredData,
+  timestampConverterStructuredData,
   toJsonLd,
   transitConverterStructuredData,
+  urlEncoderStructuredData,
+  vapidGeneratorStructuredData,
 } from '@/lib/structuredData';
 
 jest.mock('@/app/json-formatter/JsonFormatterClient', () => {
@@ -28,12 +34,17 @@ describe('コンテンツ整合性', () => {
 
     expect(html).toContain('JSON 整形ツール');
     expect(html).toContain('乗り換え変換ツール');
+    expect(html).toContain('VAPID キー生成ツール');
+    expect(html).toContain('Base64 エンコーダー / デコーダー');
+    expect(html).toContain('URL エンコーダー / デコーダー');
+    expect(html).toContain('ハッシュ生成ツール');
+    expect(html).toContain('タイムスタンプ変換ツール');
   });
 
-  it('aboutページの今後の展望からJSONフォーマッター表記が削除されている', () => {
+  it('aboutページから今後の展望セクションが削除されている', () => {
     const html = renderToStaticMarkup(AboutPage());
 
-    expect(html).not.toContain('JSON フォーマッター');
+    expect(html).not.toContain('今後の展望');
   });
 
   it('json-formatterページのmetadata descriptionが詳細化されている', () => {
@@ -127,5 +138,20 @@ describe('コンテンツ整合性', () => {
     expect(timestampConverterMetadata.description).toContain('Unixタイムスタンプ');
     expect(timestampConverterMetadata.description).toContain('相互');
     expect(timestampConverterHtml).toContain('タイムスタンプ変換ツール');
+  });
+
+  it('新規ツールページに WebApplication のJSON-LDが埋め込まれている', () => {
+    const vapidHtml = renderToStaticMarkup(<VapidGeneratorPage />);
+    const base64Html = renderToStaticMarkup(Base64Page());
+    const urlEncoderHtml = renderToStaticMarkup(UrlEncoderPage());
+    const hashGeneratorHtml = renderToStaticMarkup(HashGeneratorPage());
+    const timestampConverterHtml = renderToStaticMarkup(TimestampConverterPage());
+
+    expect(vapidHtml).toContain('application/ld+json');
+    expect(vapidHtml).toContain(toJsonLd(vapidGeneratorStructuredData));
+    expect(base64Html).toContain(toJsonLd(base64StructuredData));
+    expect(urlEncoderHtml).toContain(toJsonLd(urlEncoderStructuredData));
+    expect(hashGeneratorHtml).toContain(toJsonLd(hashGeneratorStructuredData));
+    expect(timestampConverterHtml).toContain(toJsonLd(timestampConverterStructuredData));
   });
 });

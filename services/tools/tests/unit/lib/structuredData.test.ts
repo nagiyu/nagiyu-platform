@@ -1,8 +1,13 @@
 import {
+  base64StructuredData,
+  hashGeneratorStructuredData,
   homeStructuredData,
   jsonFormatterStructuredData,
+  timestampConverterStructuredData,
   toJsonLd,
   transitConverterStructuredData,
+  urlEncoderStructuredData,
+  vapidGeneratorStructuredData,
 } from '@/lib/structuredData';
 
 describe('structuredData', () => {
@@ -29,6 +34,21 @@ describe('structuredData', () => {
 
     expect(jsonFormatterStructuredData['@type']).toBe('WebApplication');
     expect(jsonFormatterStructuredData.url).toBe('https://nagiyu.com/json-formatter');
+
+    expect(vapidGeneratorStructuredData['@type']).toBe('WebApplication');
+    expect(vapidGeneratorStructuredData.url).toBe('https://nagiyu.com/vapid-generator');
+
+    expect(base64StructuredData['@type']).toBe('WebApplication');
+    expect(base64StructuredData.url).toBe('https://nagiyu.com/base64');
+
+    expect(urlEncoderStructuredData['@type']).toBe('WebApplication');
+    expect(urlEncoderStructuredData.url).toBe('https://nagiyu.com/url-encoder');
+
+    expect(hashGeneratorStructuredData['@type']).toBe('WebApplication');
+    expect(hashGeneratorStructuredData.url).toBe('https://nagiyu.com/hash-generator');
+
+    expect(timestampConverterStructuredData['@type']).toBe('WebApplication');
+    expect(timestampConverterStructuredData.url).toBe('https://nagiyu.com/timestamp-converter');
   });
 
   it('JSON-LD 文字列としてシリアライズできる', () => {

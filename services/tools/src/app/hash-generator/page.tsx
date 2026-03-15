@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import HashGeneratorClient from './HashGeneratorClient';
+import { hashGeneratorStructuredData, toJsonLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'ハッシュ生成ツール - Tools',
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function HashGeneratorPage() {
-  return <HashGeneratorClient />;
+  return (
+    <>
+      <script type="application/ld+json">{toJsonLd(hashGeneratorStructuredData)}</script>
+      <HashGeneratorClient />
+    </>
+  );
 }

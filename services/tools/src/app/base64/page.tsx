@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Base64Client from './Base64Client';
+import { base64StructuredData, toJsonLd } from '@/lib/structuredData';
 
 export const metadata: Metadata = {
   title: 'Base64 エンコーダー / デコーダー - Tools',
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function Base64Page() {
-  return <Base64Client />;
+  return (
+    <>
+      <script type="application/ld+json">{toJsonLd(base64StructuredData)}</script>
+      <Base64Client />
+    </>
+  );
 }
