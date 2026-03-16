@@ -82,11 +82,6 @@ RootLayout (app/layout.tsx)
 
 ## 実装方針
 
-以下の 2 つのアプローチを検討する。いずれも「各ページから `<Navigation />` を除去する」点は共通。
-違いは `InvitationBadge` の扱いにある。
-
-### アプローチ A（推奨）: `headerSlot` を使った最小変更
-
 `ThemeRegistry.tsx` の `ServiceLayout` に `headerSlot={<Navigation />}` を指定することで、
 共通ヘッダーの代わりに既存の `Navigation` コンポーネントを使う。
 `Navigation.tsx` の改修は不要で、`InvitationBadge` もそのまま表示できる。
@@ -95,23 +90,9 @@ RootLayout (app/layout.tsx)
 - `ThemeRegistry.tsx`: `headerSlot={<Navigation />}` を追加
 - 各ページ（4 ファイル）: `<Navigation />` のレンダリングを除去
 
-この場合、`Navigation.tsx` は `headerSlot` 用コンポーネントとして保持する。
-将来的に共通ヘッダーへ完全移行する際に削除する。
-
-### アプローチ B: `@nagiyu/ui` `Header` への統合（将来対応）
-
-`Navigation.tsx` の機能をすべて共通ヘッダーへ移行する。
-
-1. `ThemeRegistry.tsx` の `headerProps.navigationItems` にナビゲーションリンクを追加
-2. `@nagiyu/ui` の `Header` に `headerActions?: ReactNode` スロットを追加（ライブラリ改修）
-3. `ThemeRegistry.tsx` で `InvitationBadge` を `headerActions` 経由で渡す
-4. 各ページから `<Navigation />` を除去し、`Navigation.tsx` を削除
-
-変更範囲が広いため、即時対応ではなく中長期の改善タスクとして扱う。
+`Navigation.tsx` は `headerSlot` 用コンポーネントとして保持する。
 
 ## タスク
-
-**アプローチ A を採用する場合（推奨）**
 
 - [ ] T001: `services/share-together/web/src/app/page.tsx` から `<Navigation />` を除去
 - [ ] T002: `services/share-together/web/src/app/lists/page.tsx` から `<Navigation />` を除去
@@ -121,24 +102,13 @@ RootLayout (app/layout.tsx)
 - [ ] T006: 既存テストの更新（各ページテスト）
 - [ ] T007: ビルド・テストの動作確認
 
-**アプローチ B を採用する場合（将来対応）**
-
-- [ ] B001: `libs/ui` の `Header` コンポーネントに `headerActions?: ReactNode` スロットを追加
-- [ ] B002: `ThemeRegistry.tsx` に `headerProps.navigationItems` と `headerActions` を追加
-- [ ] B003: 各ページ（4 ファイル）から `<Navigation />` を除去
-- [ ] B004: `Navigation.tsx` を削除
-- [ ] B005: 既存テストの更新（`Navigation.test.tsx`、各ページテスト）
-- [ ] B006: ビルド・テストの動作確認
-
 ## 参考ドキュメント
 
 - `docs/development/rules.md` — コーディング規約
 - `docs/development/architecture.md` — アーキテクチャ方針
 - `docs/development/shared-libraries.md` — 共通ライブラリの活用方針
 
-## 備考・未決定事項
+## 備考
 
-- `InvitationBadge` の統合方法（`headerSlot` vs `@nagiyu/ui` ライブラリ改修）は実装時に最終決定する
-- `Navigation.tsx` の削除は `InvitationBadge` の移行完了後に実施する
 - 将来的にユーザー情報（ログインユーザー名・ログアウトボタン）を共通ヘッダーに追加する場合は、
   `headerProps` の `user` / `onLogout` を活用する
