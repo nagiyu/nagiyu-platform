@@ -19,7 +19,6 @@
 |---------|---------|
 | `.github/workflows/templates/weekly-npm-body.md` | 修正（実装指示セクション削除） |
 | `.github/workflows/templates/weekly-review-body.md` | 修正（エージェント指示削除） |
-| `.github/workflows/create-task-issues.yml` | 修正（エージェントアサイン追加） |
 
 ---
 
@@ -55,24 +54,11 @@
 - `## 📋 チェックリスト`（Priority 1〜4 全て）
 - `## 📝 発見した問題`
 
-### 3. create-task-issues.yml 修正
-
-#### サブ Issue へのエージェントアサイン
-
-各サブ Issue 作成コマンドに `--assignee @copilot` を追加する。
-
-- 「タスクドキュメント作成」Issue: `--assignee @copilot`
-- 「実装」Issue: `--assignee @copilot`
-- 「クリーンアップ」Issue: `--assignee @copilot`
-
 ---
 
 ## 実装上の注意点
 
-### 既存の workflow_dispatch 動作の維持
-
-`create-task-issues.yml` の既存の `workflow_dispatch` トリガーおよび手動実行フローは変更しない。
-エージェントアサインのみを追加する。
+変更対象は Issue テンプレートファイルのみ。ワークフロー本体（`.yml`）は変更しない。
 
 ---
 
