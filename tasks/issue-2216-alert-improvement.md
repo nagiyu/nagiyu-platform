@@ -77,9 +77,14 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 ### 方針2: DynamoDB リポジトリの修正（バグ3 の根本対処）
 
 - `dynamodb-alert.repository.ts` の `update()` に `NotificationTitle` / `NotificationBody` の
-  更新式を追加する
-- 値が `undefined` の場合は `REMOVE` 式で属性を削除する
-  （ただし、方針1 でサーバー側バリデーションを強化すれば、undefined が渡るケースは減る）
+  `SET` 更新式を追加する
+- `REMOVE` 式は不要。理由:
+    - 方針1・方針3 のバリデーション（サーバー・クライアント双方）で空値は事前に弾くため、
+      リポジトリ層に `undefined` が到達しない
+    - 調査結果: 現状はフロントエンドが `formData.notificationTitle.trim()` を送信し、
+      サーバー側が `body.notificationTitle.trim() || undefined` でトリム後の空文字列を `undefined` に
+      変換している。方針1 でこのサーバー側変換を廃止してバリデーションエラーに切り替え、
+      方針3 でクライアント側も空値を送信しないようにすることで、`undefined` の到達経路は消滅する
 
 ### 方針3: クライアント側バリデーション強化
 
@@ -90,23 +95,43 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 
 - 条件（`conditionMode`・`operator`・`rangeType`）または価格（`targetPrice`・`minPrice`・`maxPrice`）
   が変化したとき、`notificationBody` の状態に関わらずデフォルト本文で上書きする
-- 実装アプローチ（いずれかを選択）:
-    - **アプローチA**: 各価格・条件の onChange ハンドラで `getDefaultNotificationText` を呼び出し、
-      `setNotificationBody` を更新する
-    - **アプローチB**: 価格・条件に依存する `useMemo` でデフォルト本文を計算し、
-      ユーザーが本文を手動編集していない場合のみ自動更新する（手動編集フラグを別途管理）
-    - **アプローチC（フォールバック）**: 状態遷移が複雑になる場合は、
-      「デフォルト本文に戻す」ボタンを UI に追加し、ユーザーが手動でリセットできるようにする
-- Issue の方針では「アラート本文の状態に関わらず上書きする」（アプローチA）が基本だが、
-  UX の観点で問題が生じればアプローチC を検討する
+- **方針5（通知ダイアログ分離）を採用する場合**: アプローチA の8箇所修正・React batching の問題は
+  不要になる。方針5 採用後は `AlertSettingsModal` 内の通知状態変数を `getDefaultNotificationText`
+  で直接上書きするだけで済む（下記参照）。**方針5 を推奨するが、採用しない場合は以下のアプローチA を適用する。**
 
-### 方針5: フリーズ問題の対処（優先度: 低）
+#### アプローチA のリスクと複雑度
 
-- 根本対応: 18 個以上の `useState` を `useReducer` またはフォームライブラリ（react-hook-form 等）に
-  統合し、再レンダリングを抑制する（大規模リファクタリングのため別 Issue での対応を推奨）
-- 暫定対応: `notificationBody` の `TextField` を `React.memo` 化または独立した子コンポーネントに
-  分離して再レンダリング範囲を限定する
-- 方針1〜4 の対応でフリーズが解消する可能性もあるため、対応後に再確認する
+- **修正箇所数**: 約 8 箇所（価格・条件の setState が発生する全 onChange ハンドラ）
+    - `conditionMode` onChange（1箇所）、`operator` onChange（1箇所）、`rangeType` onChange（1箇所）
+    - `targetPrice` 手動入力 onChange（1箇所）、`updateTargetPriceFromPercentage` 内（2箇所）
+    - `minPrice` / `maxPrice` 手動入力 onChange（各1箇所）、`updateRangePriceFromPercentage` 内（1箇所）
+- **React batching の罠**: 各ハンドラで `setState(newVal)` 後すぐに state 変数は更新されないため、
+  `getDefaultNotificationText` には state 変数ではなく **新しい値を直接渡す** 必要がある。
+  例: `setTargetPrice(newVal)` の直後に `formData.targetPrice` を使うと古い値を参照する。
+- **保守リスク**: 将来、価格・条件を変更する新しいハンドラを追加した際に、
+  通知本文の更新漏れが生じやすい。
+- **UX リスク**: ユーザーが手動で通知本文を入力している最中に価格を変えると、
+  入力中の本文が消える。Issue の方針は「上書きする」だが、ユーザーには驚きを与える可能性がある。
+
+### 方針5: フリーズ問題と通知編集の分離（推奨）
+
+`AlertSettingsModal.tsx` が 1,605 行・18 個以上の `useState` を抱えており、
+通知本文入力のたびにコンポーネント全体が再レンダリングされることがフリーズの原因と推測される。
+
+**推奨アプローチ: 通知編集を別ダイアログに分離する**
+
+- `AlertSettingsModal.tsx` から通知タイトル・本文の `TextField` を取り除き、
+  代わりに「通知設定を編集」ボタンを配置する
+- ボタン押下で `NotificationEditDialog`（新規コンポーネント）を開く
+- `NotificationEditDialog` は自前の `useState` でタイトル・本文を管理し、
+  保存ボタン押下時のみ親コンポーネント（`AlertSettingsModal`）にコールバックで値を返す
+- 主な利点:
+    - 通知入力中の再レンダリングが `NotificationEditDialog` 内部に限定され、フリーズが解消する
+    - 方針4（通知本文の自動更新）が単純化される:
+      条件・価格変更時は `AlertSettingsModal` 内の通知状態変数（コールバックで更新した値）を
+      直接 `getDefaultNotificationText` で上書きするだけで済む
+      （`TextField` が存在しないため React batching の問題が発生しない）
+    - `AlertSettingsModal` の責務が明確に分離される
 
 ## タスク
 
@@ -115,7 +140,7 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 - [ ] T001 `core/src/validation/index.ts` に `notificationTitle`・`notificationBody` の
       必須バリデーションを追加（空文字・空白のみはエラー）
 - [ ] T002 `core/src/repositories/dynamodb-alert.repository.ts` の `update()` に
-      `NotificationTitle`・`NotificationBody` の SET/REMOVE 更新式を追加
+      `NotificationTitle`・`NotificationBody` の `SET` 更新式を追加（`REMOVE` 不要）
 - [ ] T003 `tests/unit/validation/` に T001 の追加バリデーションに対応するテストを追加
 
 ### フェーズ2: サーバー層
@@ -128,10 +153,11 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 
 - [ ] T006 `web/components/AlertSettingsModal.tsx` のバリデーション処理に
       `notificationTitle`・`notificationBody` の必須チェックを追加
-- [ ] T007 条件・目標価格変更時（各 onChange）に `getDefaultNotificationText` を呼び出し、
-      `notificationBody` を上書きするロジックを実装（アプローチA 優先）
-- [ ] T008 フリーズ問題の再現確認を実施し、T001〜T007 の対応後も継続する場合は
-      `notificationBody` TextField の分離またはメモ化を検討
+- [ ] T007 通知編集の別ダイアログ分離（`NotificationEditDialog` コンポーネント新規作成）:
+      保存ボタン押下時のみ `AlertSettingsModal` に値を渡す構成にし、フリーズを解消する
+- [ ] T008 条件・目標価格変更時の通知本文自動更新:
+      `AlertSettingsModal` 内の条件・価格 onChange で `getDefaultNotificationText` を呼び出し、
+      通知状態変数（T007 のダイアログ分離後は内部変数）を上書きする
 
 ### フェーズ4: テストと動作確認
 
@@ -150,7 +176,9 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 
 ## 備考・未決定事項
 
-- 方針4 のアプローチ（A/B/C）は実装時に UX を考慮して最終決定する
-- バグ1（フリーズ）の大規模リファクタリング（useReducer 化）は別 Issue での対応を推奨
+- 方針4 と方針5 の関係: 方針5（通知ダイアログ分離）を採用することで、
+  方針4 のアプローチA で問題となる React batching・保守リスクが解消される。
+  方針5 を採用した場合、`AlertSettingsModal` 内の条件・価格 onChange で
+  `getDefaultNotificationText` を直接呼び出すだけで通知本文の自動更新が完結する。
 - 通知タイトル・本文を必須にすることで、既存の `notificationTitle`・`notificationBody` が
   `undefined` のアラートが存在する場合、既存データとの互換性を確認すること
