@@ -128,33 +128,33 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 
 ### フェーズ1: コア層（必須前提）
 
-- [ ] T001 `core/src/validation/index.ts` に `notificationTitle`・`notificationBody` の
+- [x] T001 `core/src/validation/index.ts` に `notificationTitle`・`notificationBody` の
       必須バリデーションを追加（空文字・空白のみはエラー）
-- [ ] T002 `core/src/repositories/dynamodb-alert.repository.ts` の `update()` に
+- [x] T002 `core/src/repositories/dynamodb-alert.repository.ts` の `update()` に
       `NotificationTitle`・`NotificationBody` の `SET` 更新式を追加（`REMOVE` 不要）
-- [ ] T003 `tests/unit/validation/` に T001 の追加バリデーションに対応するテストを追加
+- [x] T003 `tests/unit/validation/` に T001 の追加バリデーションに対応するテストを追加
 
 ### フェーズ2: サーバー層
 
-- [ ] T004 `web/app/api/alerts/route.ts`（POST）の `NotificationTitle`・`NotificationBody` 処理を
+- [x] T004 `web/app/api/alerts/route.ts`（POST）の `NotificationTitle`・`NotificationBody` 処理を
       `|| undefined` フォールバックから必須チェック＋エラーレスポンスに変更
-- [ ] T005 `web/app/api/alerts/[id]/route.ts`（PUT）も同様に修正
+- [x] T005 `web/app/api/alerts/[id]/route.ts`（PUT）も同様に修正
 
 ### フェーズ3: フロントエンド
 
-- [ ] T006 `web/components/AlertSettingsModal.tsx` のバリデーション処理に
+- [x] T006 `web/components/AlertSettingsModal.tsx` のバリデーション処理に
       `notificationTitle`・`notificationBody` の必須チェックを追加
-- [ ] T007 通知編集の別ダイアログ分離（`NotificationEditDialog` コンポーネント新規作成）:
+- [x] T007 通知編集の別ダイアログ分離（`NotificationEditDialog` コンポーネント新規作成）:
       保存ボタン押下時のみ `AlertSettingsModal` に値を渡す構成にし、フリーズを解消する
-- [ ] T008 条件・目標価格変更時の通知本文自動更新（確認ダイアログ対応）:
+- [x] T008 条件・目標価格変更時の通知本文自動更新（確認ダイアログ対応）:
       - 条件・価格の onChange で確認ダイアログ（`NotificationOverwriteConfirmDialog` または MUI の `Dialog`）を表示
       - ユーザーが「上書きする」を選択した場合のみ `getDefaultNotificationText` で通知本文を更新
       - 編集済みフラグは不要（常にダイアログを表示する）
 
 ### フェーズ4: テストと動作確認
 
-- [ ] T009 `tests/unit/components/alert-validation.test.ts` に T006 のバリデーション追加分のテストを追加
-- [ ] T010 `tests/e2e/alert-management.spec.ts` に以下のシナリオを追加・確認:
+- [x] T009 `tests/unit/components/alert-validation.test.ts` に T006 のバリデーション追加分のテストを追加
+- [x] T010 `tests/e2e/alert-management.spec.ts` に以下のシナリオを追加・確認:
     - 既存アラートのタイトル・本文を編集して保存し、再度開いたときに反映されていること
     - 条件や目標価格を変更すると、通知本文の上書き確認ダイアログが表示されること
     - 確認ダイアログで「上書きする」を選択すると通知本文がデフォルト値に更新されること

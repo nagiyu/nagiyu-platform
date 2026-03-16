@@ -116,7 +116,10 @@ describe('AlertSettingsModal performance', () => {
     );
 
     const initialCallCount = computeAlertLinesMock.mock.calls.length;
-    fireEvent.change(screen.getByLabelText('通知本文'), { target: { value: '通知本文テスト' } });
+    fireEvent.click(screen.getByRole('button', { name: '通知設定を編集' }));
+    fireEvent.change(screen.getAllByLabelText('通知本文')[1]!, {
+      target: { value: '通知本文テスト' },
+    });
 
     expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);
   });
@@ -139,7 +142,8 @@ describe('AlertSettingsModal performance', () => {
     );
 
     const initialCallCount = computeAlertLinesMock.mock.calls.length;
-    fireEvent.change(screen.getByLabelText('通知タイトル'), {
+    fireEvent.click(screen.getByRole('button', { name: '通知設定を編集' }));
+    fireEvent.change(screen.getAllByLabelText('通知タイトル')[1]!, {
       target: { value: '通知タイトルテスト' },
     });
 

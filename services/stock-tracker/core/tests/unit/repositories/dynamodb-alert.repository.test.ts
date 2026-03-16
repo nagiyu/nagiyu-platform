@@ -329,6 +329,57 @@ describe('DynamoDBAlertRepository', () => {
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 
+    it('通知タイトルと通知本文を更新式に含めて更新できる', async () => {
+      const mockUpdatedItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-123',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-123',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
+        NotificationTitle: '更新後タイトル',
+        NotificationBody: '更新後本文',
+        SubscriptionEndpoint: 'https://example.com/push',
+        SubscriptionKeysP256dh: 'p256dh-key',
+        SubscriptionKeysAuth: 'auth-secret',
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067300000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      await repository.update('user-123', 'alert-123', {
+        NotificationTitle: '更新後タイトル',
+        NotificationBody: '更新後本文',
+      });
+
+      const command = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: {
+          UpdateExpression: string;
+          ExpressionAttributeNames: Record<string, string>;
+          ExpressionAttributeValues: Record<string, unknown>;
+        };
+      };
+
+      expect(command.input.UpdateExpression).toContain('#notificationTitle = :notificationTitle');
+      expect(command.input.UpdateExpression).toContain('#notificationBody = :notificationBody');
+      expect(command.input.ExpressionAttributeNames['#notificationTitle']).toBe('NotificationTitle');
+      expect(command.input.ExpressionAttributeNames['#notificationBody']).toBe('NotificationBody');
+      expect(command.input.ExpressionAttributeValues[':notificationTitle']).toBe('更新後タイトル');
+      expect(command.input.ExpressionAttributeValues[':notificationBody']).toBe('更新後本文');
+    });
+
     it('存在しないアラートを更新しようとするとEntityNotFoundErrorをスローする', async () => {
       const conditionalCheckError = new Error('Conditional check failed');
       conditionalCheckError.name = 'ConditionalCheckFailedException';

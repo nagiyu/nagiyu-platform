@@ -18,6 +18,91 @@ async function grantNotificationPermission(page: Page): Promise<void> {
   await page.context().grantPermissions(['notifications']);
 }
 
+interface MockEditableAlert {
+  alertId: string;
+  tickerId: string;
+  symbol: string;
+  name: string;
+  mode: 'Buy' | 'Sell';
+  frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
+  conditions: Array<{ field: 'price'; operator: 'gte' | 'lte'; value: number }>;
+  enabled: boolean;
+  notificationTitle: string;
+  notificationBody: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+async function setupAlertsEditPage(
+  page: Page,
+  editableAlert: MockEditableAlert,
+  onUpdate?: (body: Record<string, unknown>) => void
+): Promise<void> {
+  const currentAlert = { ...editableAlert };
+
+  await page.route('**/api/exchanges', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        exchanges: [{ exchangeId: 'nasdaq', name: 'NASDAQ', key: 'NASDAQ' }],
+      }),
+    });
+  });
+
+  await page.route('**/api/alerts', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ alerts: [currentAlert] }),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.route('**/api/alerts/*', async (route) => {
+    if (route.request().method() !== 'PUT') {
+      await route.continue();
+      return;
+    }
+
+    const requestBody = route.request().postDataJSON() as Record<string, unknown>;
+    onUpdate?.(requestBody);
+
+    const nextTitle = requestBody.notificationTitle;
+    const nextBody = requestBody.notificationBody;
+    const nextConditions = requestBody.conditions;
+    if (typeof nextTitle === 'string') {
+      currentAlert.notificationTitle = nextTitle;
+    }
+    if (typeof nextBody === 'string') {
+      currentAlert.notificationBody = nextBody;
+    }
+    if (Array.isArray(nextConditions) && nextConditions.length > 0) {
+      const firstCondition = nextConditions[0];
+      if (firstCondition && typeof firstCondition === 'object' && 'value' in firstCondition) {
+        const nextValue = (firstCondition as { value?: number }).value;
+        if (typeof nextValue === 'number') {
+          currentAlert.conditions = [{ field: 'price', operator: 'lte', value: nextValue }];
+        }
+      }
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(currentAlert),
+    });
+  });
+
+  await page.goto('/alerts');
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('button', { name: '編集' }).first().click();
+  await expect(page.getByRole('dialog').first()).toBeVisible();
+}
+
 test.describe('アラート設定フロー (E2E-002 一部)', () => {
   let factory: TestDataFactory;
 
@@ -93,8 +178,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).toBeVisible();
       await expect(page.getByLabel('通知頻度')).toBeVisible();
       await expect(page.getByText('通知設定（任意）')).toBeVisible();
-      await expect(page.getByLabel('通知タイトル')).toBeVisible();
-      await expect(page.getByLabel('通知本文')).toBeVisible();
+      await expect(page.getByRole('button', { name: '通知設定を編集' })).toBeVisible();
 
       // 取引所とティッカーは変更不可（disabled）
       await expect(page.getByLabel('取引所')).toBeDisabled();
@@ -313,6 +397,101 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
       await expect(page.locator('tbody td', { hasText: firstSellSymbol }).first()).toBeVisible();
       await expect(page.locator('tbody td', { hasText: secondSellSymbol }).first()).toBeVisible();
+    });
+  });
+
+  test.describe('アラート編集の通知設定', () => {
+    const editableAlert: MockEditableAlert = {
+      alertId: 'editable-alert-1',
+      tickerId: 'NASDAQ:AAPL',
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      mode: 'Buy',
+      frequency: 'MINUTE_LEVEL',
+      conditions: [{ field: 'price', operator: 'lte', value: 180 }],
+      enabled: true,
+      notificationTitle: '初期タイトル',
+      notificationBody: '初期本文',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+
+    test('通知タイトル・本文を編集して保存後に再編集すると変更内容が保持される', async ({ page }) => {
+      await setupAlertsEditPage(page, editableAlert);
+
+      const alertDialog = page.getByRole('dialog').first();
+      await alertDialog.getByRole('button', { name: '通知設定を編集' }).click();
+
+      const notificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
+      await notificationDialog.getByRole('textbox', { name: '通知タイトル' }).fill('更新後タイトル');
+      await notificationDialog.getByRole('textbox', { name: '通知本文' }).fill('更新後本文');
+      await notificationDialog.getByRole('button', { name: '保存' }).click();
+
+      await alertDialog.getByRole('button', { name: '保存' }).click();
+      await expect(page.getByText('アラートを更新しました')).toBeVisible();
+
+      await page.getByRole('button', { name: '編集' }).first().click();
+      const reopenedDialog = page.getByRole('dialog').first();
+      await reopenedDialog.getByRole('button', { name: '通知設定を編集' }).click();
+
+      const reopenedNotificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
+      await expect(reopenedNotificationDialog.getByRole('textbox', { name: '通知タイトル' })).toHaveValue(
+        '更新後タイトル'
+      );
+      await expect(reopenedNotificationDialog.getByRole('textbox', { name: '通知本文' })).toHaveValue(
+        '更新後本文'
+      );
+    });
+
+    test('条件または価格変更時に上書き確認ダイアログが表示され、上書きするを選ぶと通知本文が更新される', async ({
+      page,
+    }) => {
+      await setupAlertsEditPage(page, editableAlert);
+
+      const alertDialog = page.getByRole('dialog').first();
+      await alertDialog.getByLabel('目標価格').fill('190');
+
+      const overwriteDialog = page.getByRole('dialog', { name: '通知本文を更新しますか？' });
+      await expect(overwriteDialog.getByText('通知本文を更新しますか？')).toBeVisible();
+      await overwriteDialog.getByRole('button', { name: '上書きする' }).click();
+
+      await expect(alertDialog.getByLabel('通知本文')).toHaveValue(
+        /現在価格 が目標価格 \$190\.00 .*になりました/
+      );
+    });
+
+    test('条件または価格変更時にこのまま維持するを選ぶと通知本文が維持される', async ({ page }) => {
+      await setupAlertsEditPage(page, editableAlert);
+
+      const alertDialog = page.getByRole('dialog').first();
+      const previousBody = await alertDialog.getByLabel('通知本文').inputValue();
+      await alertDialog.getByLabel('目標価格').fill('175');
+
+      const overwriteDialog = page.getByRole('dialog', { name: '通知本文を更新しますか？' });
+      await expect(overwriteDialog.getByText('通知本文を更新しますか？')).toBeVisible();
+      await overwriteDialog.getByRole('button', { name: 'このまま維持する' }).click();
+
+      await expect(alertDialog.getByLabel('通知本文')).toHaveValue(previousBody);
+    });
+
+    test('通知タイトルまたは本文を空にして保存しようとするとエラーになる', async ({ page }) => {
+      let updateCallCount = 0;
+      await setupAlertsEditPage(page, editableAlert, () => {
+        updateCallCount += 1;
+      });
+
+      const alertDialog = page.getByRole('dialog').first();
+      await alertDialog.getByRole('button', { name: '通知設定を編集' }).click();
+
+      const notificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
+      await notificationDialog.getByRole('textbox', { name: '通知タイトル' }).fill('');
+      await notificationDialog.getByRole('textbox', { name: '通知本文' }).fill('');
+      await notificationDialog.getByRole('button', { name: '保存' }).click();
+
+      await alertDialog.getByRole('button', { name: '保存' }).click();
+      await expect(alertDialog.getByText('通知タイトルは必須です')).toBeVisible();
+      await expect(alertDialog.getByText('通知本文は必須です')).toBeVisible();
+      expect(updateCallCount).toBe(0);
     });
   });
 
