@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import { useSearchParams } from 'next/navigation';
-import { Navigation } from '@/components/Navigation';
 import { ListWorkspace } from '@/components/ListWorkspace';
 import type { PersonalListsResponse } from '@/types';
 
@@ -17,7 +16,6 @@ const LISTS_PAGE_MESSAGES = {
 export default function ListsPage() {
   return (
     <main>
-      <Navigation />
       <Box component="section" sx={{ p: 2, maxWidth: 1080, mx: 'auto' }}>
         <Typography variant="h5" component="h1" gutterBottom>
           リスト
