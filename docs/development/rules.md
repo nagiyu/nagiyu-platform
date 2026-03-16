@@ -1199,11 +1199,11 @@ const config = {
 
 #### MUST: import される側のパッケージは `exports` / `types` / `main` を設定する
 
-他パッケージから import されるパッケージ（`libs/*`、`services/*/core`）は TypeScript のパス解決のために3フィールドをすべて設定する。設定例はセクション9.4を参照。
+他パッケージから import されるパッケージ（`libs/*`、`services/*/core`）は TypeScript のパス解決のために3フィールドをすべて設定する。設定例は後述のセクション9.4を参照。
 
 #### MUST NOT: 他パッケージから import されないパッケージに `exports` / `types` を設定しない
 
-`services/*/web`、`services/*/batch`、`infra/*` など他パッケージから import されないパッケージには `exports` / `types` は不要。実行エントリーポイントが必要な場合のみ `main` を設定する。
+`services/*/web`、`services/*/batch`、`infra/*` など他パッケージから import されないパッケージには `exports` / `types` は不要。Lambda 関数など直接実行されるパッケージの場合のみ `main` を設定する。
 
 ### 8.3 必須設定ファイル
 
