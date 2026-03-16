@@ -8,6 +8,10 @@ jest.mock('@mui/material-nextjs/v16-appRouter', () => ({
   AppRouterCacheProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock('@/components/Navigation', () => ({
+  Navigation: () => <div>Navigation</div>,
+}));
+
 describe('ThemeRegistry', () => {
   function ThemeConsumer() {
     const muiTheme = useTheme();
@@ -16,7 +20,7 @@ describe('ThemeRegistry', () => {
 
   it('子要素を描画する', () => {
     render(
-      <ThemeRegistry>
+      <ThemeRegistry version="1.0.0">
         <div>ThemeRegistry Child</div>
       </ThemeRegistry>
     );
@@ -24,9 +28,19 @@ describe('ThemeRegistry', () => {
     expect(screen.getByText('ThemeRegistry Child')).toBeInTheDocument();
   });
 
+  it('ヘッダースロットに Navigation を適用する', () => {
+    render(
+      <ThemeRegistry version="1.0.0">
+        <div>ThemeRegistry Child</div>
+      </ThemeRegistry>
+    );
+
+    expect(screen.getByText('Navigation')).toBeInTheDocument();
+  });
+
   it('MUI テーマと CssBaseline を適用する', () => {
     render(
-      <ThemeRegistry>
+      <ThemeRegistry version="1.0.0">
         <ThemeConsumer />
       </ThemeRegistry>
     );

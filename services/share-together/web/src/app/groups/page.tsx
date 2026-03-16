@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Box, Button, Snackbar, Stack, Typography } from '@mui/material';
-import { Navigation } from '@/components/Navigation';
 import { GroupCard } from '@/components/GroupCard';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { GroupDetailClient } from '@/components/GroupDetailClient';
@@ -138,7 +137,6 @@ export default function GroupsPage() {
 
   return (
     <main>
-      <Navigation />
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
           <Typography variant="h5" component="h1">
