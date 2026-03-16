@@ -2,11 +2,7 @@
 process.env.DYNAMODB_TABLE_NAME = 'test-table';
 
 import { mockClient } from 'aws-sdk-client-mock';
-import {
-  DynamoDBDocumentClient,
-  QueryCommand,
-  ScanCommand,
-} from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { listVideosWithSettings } from '../../src/db/videos';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);

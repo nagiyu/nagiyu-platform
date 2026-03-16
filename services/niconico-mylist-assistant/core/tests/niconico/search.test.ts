@@ -49,7 +49,9 @@ describe('searchVideos', () => {
 
     const result = await searchVideos('テスト');
 
-    expect(fetchMock).toHaveBeenCalledWith('https://www.nicovideo.jp/search/%E3%83%86%E3%82%B9%E3%83%88');
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.nicovideo.jp/search/%E3%83%86%E3%82%B9%E3%83%88'
+    );
     expect(batchSpy).toHaveBeenCalledWith(['sm9', 'so123']);
     expect(result).toHaveLength(1);
     expect(result[0].videoId).toBe('sm9');

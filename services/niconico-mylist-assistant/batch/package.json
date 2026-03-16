@@ -13,8 +13,8 @@
     "test:integration:headed": "HEADLESS=false playwright test",
     "test:integration:debug": "PWDEBUG=1 playwright test",
     "lint": "eslint src/**/*.ts",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\""
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@nagiyu/aws": "*",

@@ -197,10 +197,10 @@ CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`
 
 ### Phase 4: `scripts` の統一
 
-- [ ] T016: `niconico-mylist-assistant-core` の `format` / `format:check` を `"."` を対象にする形式に修正する（修正に伴い CI が失敗する場合は、合わせて修正する）
-- [ ] T017: `niconico-mylist-assistant-core` の `lint` に `tests/**/*.ts` を追加する（修正に伴い CI が失敗する場合は、合わせて修正する）
-- [ ] T018: `niconico-mylist-assistant-core` に `test:watch` スクリプトを追加する
-- [ ] T019: `niconico-mylist-assistant-batch` の `format` / `format:check` を `"."` を対象にする形式に修正する（修正に伴い CI が失敗する場合は、合わせて修正する）
+- [x] T016: `niconico-mylist-assistant-core` の `format` / `format:check` を `"."` を対象にする形式に修正する（修正に伴い CI が失敗する場合は、合わせて修正する）
+- [x] T017: `niconico-mylist-assistant-core` の `lint` に `tests/**/*.ts` を追加する（修正に伴い CI が失敗する場合は、合わせて修正する）
+- [x] T018: `niconico-mylist-assistant-core` に `test:watch` スクリプトを追加する
+- [x] T019: `niconico-mylist-assistant-batch` の `format` / `format:check` を `"."` を対象にする形式に修正する（修正に伴い CI が失敗する場合は、合わせて修正する）
 
 ### Phase 5: `devDependencies` の整理
 

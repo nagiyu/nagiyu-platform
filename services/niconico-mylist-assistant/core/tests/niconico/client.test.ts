@@ -6,7 +6,7 @@ describe('getVideoInfo', () => {
 
   beforeEach(() => {
     fetchMock = jest.fn();
-    global.fetch = fetchMock as any;
+    global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
