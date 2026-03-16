@@ -61,6 +61,8 @@ export interface CreateAlertOptions {
   mode?: 'Buy' | 'Sell';
   frequency?: 'MINUTE_LEVEL' | 'HOURLY_LEVEL';
   enabled?: boolean;
+  notificationTitle?: string;
+  notificationBody?: string;
   conditions?: Array<{
     field?: 'price';
     operator?: 'gte' | 'lte';
@@ -434,6 +436,9 @@ export class TestDataFactory {
       mode: options.mode || 'Sell',
       frequency: options.frequency || 'MINUTE_LEVEL',
       enabled: options.enabled ?? true,
+      notificationTitle:
+        options.notificationTitle || `${options.mode || 'Sell'}アラート: ${ticker.tickerId}`,
+      notificationBody: options.notificationBody || '現在価格 がアラート条件に一致しました',
       conditions: options.conditions || [
         {
           field: 'price' as const,

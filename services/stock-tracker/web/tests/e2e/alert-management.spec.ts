@@ -18,6 +18,14 @@ async function grantNotificationPermission(page: Page): Promise<void> {
   await page.context().grantPermissions(['notifications']);
 }
 
+async function resolveNotificationOverwriteDialogIfVisible(page: Page): Promise<void> {
+  const overwriteDialog = page.getByRole('dialog', { name: '通知本文を更新しますか？' });
+  const isVisible = await overwriteDialog.isVisible().catch(() => false);
+  if (isVisible) {
+    await overwriteDialog.getByRole('button', { name: '上書きする' }).click();
+  }
+}
+
 interface MockEditableAlert {
   alertId: string;
   tickerId: string;
@@ -605,6 +613,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 範囲を入力（100〜110ドル）
       await page.getByLabel(/最小価格/).fill('100');
       await page.getByLabel(/最大価格/).fill('110');
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -645,6 +654,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 条件タイプを「範囲指定」に変更
       await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲タイプを「範囲外（OR）」に変更
       await page.getByRole('combobox', { name: '範囲タイプ' }).click();
@@ -653,6 +663,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 範囲を入力（90ドル以下または120ドル以上）
       await page.getByLabel(/下限価格/).fill('90');
       await page.getByLabel(/上限価格/).fill('120');
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -699,6 +710,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 不正な範囲を入力（最小価格 > 最大価格）
       await page.getByLabel(/最小価格/).fill('110');
       await page.getByLabel(/最大価格/).fill('100');
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -730,6 +742,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 条件タイプを「範囲指定」に変更
       await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲タイプを「範囲外（OR）」に変更
       await page.getByRole('combobox', { name: '範囲タイプ' }).click();
@@ -738,6 +751,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 不正な範囲を入力（下限価格 >= 上限価格）
       await page.getByLabel(/下限価格/).fill('120');
       await page.getByLabel(/上限価格/).fill('90');
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -965,6 +979,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // パーセンテージで「+15%」を選択
       await page.locator('#percentage-select').click();
       await page.getByRole('option', { name: '+15%' }).click();
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 計算結果が表示される（基準価格100ドル × 1.15 = 115ドル）
       await expect(page.getByText(/=.*115\.00/)).toBeVisible();
@@ -1182,6 +1197,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 最大パーセンテージで「+5%」を選択
       await page.locator('#max-percentage-select').click();
       await page.getByRole('option', { name: '+5%' }).click();
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
