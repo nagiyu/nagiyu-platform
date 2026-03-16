@@ -19,9 +19,7 @@
 |---------|---------|
 | `.github/workflows/templates/weekly-npm-body.md` | 修正（実装指示セクション削除） |
 | `.github/workflows/templates/weekly-review-body.md` | 修正（エージェント指示削除） |
-| `.github/workflows/create-task-issues.yml` | 修正（workflow_call 追加、エージェントアサイン追加） |
-| `.github/workflows/weekly-npm-check.yml` | 修正（create-task-issues.yml 呼び出し追加） |
-| `.github/workflows/weekly-docs-review.yml` | 修正（create-task-issues.yml 呼び出し追加） |
+| `.github/workflows/create-task-issues.yml` | 修正（エージェントアサイン追加） |
 
 ---
 
@@ -59,29 +57,7 @@
 
 ### 3. create-task-issues.yml 修正
 
-#### 3.1 workflow_call トリガーの追加
-
-現状の `on: workflow_dispatch` に加えて `on: workflow_call` トリガーを追加する。
-`workflow_call` の inputs は `workflow_dispatch` と同じ `issue_number` と `mode` を受け付ける。
-
-```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      issue_number: ...
-      mode: ...
-  workflow_call:
-    inputs:
-      issue_number:
-        required: true
-        type: string
-      mode:
-        required: false
-        default: task-document-completion
-        type: string
-```
-
-#### 3.2 サブ Issue へのエージェントアサイン
+#### サブ Issue へのエージェントアサイン
 
 各サブ Issue 作成コマンドに `--assignee @copilot` を追加する。
 
@@ -89,60 +65,14 @@ on:
 - 「実装」Issue: `--assignee @copilot`
 - 「クリーンアップ」Issue: `--assignee @copilot`
 
-### 4. 定期 Workflow からの create-task-issues.yml 呼び出し
-
-#### 4.1 weekly-npm-check.yml
-
-「Create npm management issue」ステップの後に、`create-task-issues.yml` を呼び出す job を追加する。
-または同一 job 内で `uses:` ステップとして呼び出す。
-
-`on: workflow_call` を使うため、job レベルでの呼び出しが適切:
-
-```yaml
-call-create-task-issues:
-  needs: npm-check
-  uses: ./.github/workflows/create-task-issues.yml
-  with:
-    issue_number: ${{ needs.npm-check.outputs.issue_number }}
-    mode: task-document-completion
-  permissions:
-    issues: write
-```
-
-これに対応して、`npm-check` job で作成した Issue 番号を output として公開する必要がある。
-
-#### 4.2 weekly-docs-review.yml
-
-同様に `create-review-issue` job の後に `create-task-issues.yml` を呼び出す job を追加する。
-
 ---
 
 ## 実装上の注意点
 
-### workflow_call と workflow_dispatch の入力値共有
+### 既存の workflow_dispatch 動作の維持
 
-`workflow_call` と `workflow_dispatch` で同じ inputs を使う場合、
-各トリガーの inputs を同じキー名で定義する必要がある。
-
-`if` による条件分岐でトリガー種別を判定できる:
-- `github.event_name == 'workflow_dispatch'`
-- `github.event_name == 'workflow_call'`
-
-### Issue 番号の伝達
-
-`weekly-npm-check.yml` と `weekly-docs-review.yml` では、
-作成した Issue の URL から番号を抽出して job output に設定する必要がある。
-
-```bash
-ISSUE_URL=$(gh issue create ...)
-ISSUE_NUMBER="${ISSUE_URL##*/}"
-echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-```
-
-### permissions の継承
-
-`workflow_call` で呼び出す場合、呼び出し元ワークフローが `issues: write` 権限を持っていることを確認する。
-`create-task-issues.yml` は呼び出し元の権限を継承する。
+`create-task-issues.yml` の既存の `workflow_dispatch` トリガーおよび手動実行フローは変更しない。
+エージェントアサインのみを追加する。
 
 ---
 
@@ -151,4 +81,3 @@ echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
 <!-- 開発完了後にここを確認し、docs/ を更新してからこのディレクトリを削除する -->
 
 - [ ] `docs/` への統合は不要（GitHub Actions ワークフローの変更のみ）
-- [ ] `docs/development/flow.md` に定期 Issue フロー（親 Issue 作成 → create-task-issues.yml 自動呼び出し → サブ Issue 作成）の説明を追記する

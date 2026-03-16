@@ -17,9 +17,13 @@
 しかし現状では、作成される Issue の本文に実装手順や担当エージェントへの指示が直接含まれており、
 `task.implement` エージェントによる実装を前提とした構造になっている。
 
-本改善では、定期 Issue を「事実の記録のみ」に簡素化し、
-`create-task-issues.yml` ワークフローを経由して作業用サブ Issue（タスクドキュメント作成・実装・クリーンアップ）を
-自動的に作成・エージェントアサインする形に変更する。
+本改善では以下の 2 点を実施する:
+1. 定期 Issue を「事実の記録のみ」に簡素化する
+2. `create-task-issues.yml` で作業用サブ Issue（タスクドキュメント作成・実装・クリーンアップ）を作成する際に、
+   各 Issue に Copilot エージェントを自動アサインできるようにする
+
+なお、`create-task-issues.yml` は定期 Workflow から自動呼び出しするのではなく、
+親 Issue 作成後に手動で実行する後続ステップとして位置づける。
 
 ### 1.2 対象
 
@@ -44,7 +48,6 @@
     1. `weekly-npm-check.yml` が週次スケジュールで実行される
     2. NPM パッケージの状態（脆弱性・更新・重複・バージョン不整合）を検出する
     3. 検出結果のみを本文に含む親 Issue を作成する（実装指示を含まない）
-    4. `create-task-issues.yml` を呼び出し、3 つのサブ Issue を作成・エージェントアサインする
 
 #### UC-002: 週次ドキュメントレビュー Issue の事実化
 
@@ -54,24 +57,16 @@
     1. `weekly-docs-review.yml` が週次スケジュールで実行される
     2. ドキュメント更新状況・方針変更を検出する
     3. 検出結果のみを本文に含む親 Issue を作成する（エージェント指示を含まない）
-    4. `create-task-issues.yml` を呼び出し、3 つのサブ Issue を作成・エージェントアサインする
 
 #### UC-003: サブ Issue へのエージェント自動アサイン
 
 - **概要**: `create-task-issues.yml` で作成するサブ Issue に Copilot エージェントを自動アサインする
-- **アクター**: `create-task-issues.yml` ワークフロー
+- **アクター**: `create-task-issues.yml` ワークフロー（手動実行）
 - **正常フロー**:
-    1. 「タスクドキュメント作成」Issue を作成し、Copilot をアサインする
-    2. 「実装」Issue を作成し、Copilot をアサインする
-    3. 「クリーンアップ」Issue を作成し、Copilot をアサインする
-
-#### UC-004: create-task-issues.yml の workflow_call 対応
-
-- **概要**: `create-task-issues.yml` を他のワークフローから呼び出せるようにする
-- **アクター**: 定期 Workflow（weekly-npm-check.yml / weekly-docs-review.yml）
-- **正常フロー**:
-    1. 呼び出し元ワークフローが `issue_number` を渡して `create-task-issues.yml` を呼び出す
-    2. `create-task-issues.yml` がサブ Issue を作成してエージェントアサインする
+    1. 親 Issue 番号を指定して `create-task-issues.yml` を手動実行する
+    2. 「タスクドキュメント作成」Issue を作成し、Copilot をアサインする
+    3. 「実装」Issue を作成し、Copilot をアサインする
+    4. 「クリーンアップ」Issue を作成し、Copilot をアサインする
 
 ### 2.2 機能一覧
 
@@ -79,10 +74,7 @@
 | ------ | ------ | ---- | ------ |
 | F-001  | NPM Issue テンプレート簡素化 | 実装指示・受け入れ基準セクションを削除し、事実報告のみにする | 高 |
 | F-002  | docs-review Issue エージェント指示削除 | 担当者アサイン指示を削除し、検出情報のみにする | 高 |
-| F-003  | create-task-issues.yml workflow_call 対応 | 他ワークフローから呼び出せる `on: workflow_call` トリガーを追加する | 高 |
-| F-004  | サブ Issue へのエージェントアサイン | 作成するサブ Issue に Copilot をアサインする | 高 |
-| F-005  | weekly-npm-check.yml からの呼び出し | Issue 作成後に create-task-issues.yml を呼び出す | 高 |
-| F-006  | weekly-docs-review.yml からの呼び出し | Issue 作成後に create-task-issues.yml を呼び出す | 高 |
+| F-003  | サブ Issue へのエージェントアサイン | 作成するサブ Issue に Copilot をアサインする | 高 |
 
 ---
 
@@ -111,5 +103,5 @@
 ## 5. スコープ外
 
 - ❌ `daily-refactoring-check.yml` の変更（既に task.proposal エージェントへの指示形式になっている）
-- ❌ Issue テンプレートの内容変更以外のワークフロー機能追加
+- ❌ 定期 Workflow から `create-task-issues.yml` を自動呼び出しする仕組みの構築（手動実行で対応）
 - ❌ サブ Issue のラベル自動付与（必要に応じて後で追加）
