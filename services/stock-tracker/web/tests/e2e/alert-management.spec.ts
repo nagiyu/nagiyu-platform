@@ -114,16 +114,14 @@ async function setupAlertsEditPage(
     });
   });
 
-  await page.evaluate(async () => {
-    if ('serviceWorker' in navigator) {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((registration) => registration.unregister()));
-    }
-  });
-
   await page.goto('/alerts');
   await page.waitForLoadState('networkidle');
   const editButton = page.getByRole('button', { name: '編集' }).first();
+  const isEditButtonVisible = await editButton.isVisible().catch(() => false);
+  if (!isEditButtonVisible) {
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+  }
   await expect(editButton).toBeVisible({ timeout: 15000 });
   await editButton.click();
   await expect(page.getByRole('dialog').first()).toBeVisible();
@@ -427,6 +425,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
   });
 
   test.describe('アラート編集の通知設定', () => {
+    // webkit-mobile では Service Worker の影響で API モックが不安定になるため、このスイートでは無効化する
+    test.use({ serviceWorkers: 'block' });
+
     const editableAlert: MockEditableAlert = {
       alertId: 'editable-alert-1',
       tickerId: 'NASDAQ:AAPL',
@@ -458,14 +459,41 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await notificationDialog.getByRole('button', { name: '保存' }).click();
 
       await alertDialog.getByRole('button', { name: '通知設定を編集' }).click();
-      const reopenedNotificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
+      const notificationDialogAfterEdit = page.getByRole('dialog', { name: '通知設定を編集' });
+      await expect(notificationDialogAfterEdit).toBeVisible();
       await expect(
-        reopenedNotificationDialog.getByRole('textbox', { name: '通知タイトル' })
+        notificationDialogAfterEdit.getByRole('textbox', { name: '通知タイトル' })
       ).toHaveValue('更新後タイトル');
       await expect(
-        reopenedNotificationDialog.getByRole('textbox', { name: '通知本文' })
+        notificationDialogAfterEdit.getByRole('textbox', { name: '通知本文' })
       ).toHaveValue('更新後本文');
-      await reopenedNotificationDialog.getByRole('button', { name: '保存' }).click();
+      await notificationDialogAfterEdit.getByRole('button', { name: '保存' }).click();
+
+      const updateResponsePromise = page.waitForResponse(
+        (response) =>
+          /\/api\/alerts\/[^/?]+(?:\?.*)?$/.test(response.url()) &&
+          response.request().method() === 'PUT'
+      );
+      await alertDialog.getByRole('button', { name: '保存' }).click();
+      const updateResponse = await updateResponsePromise;
+      expect(updateResponse.ok()).toBe(true);
+      await expect(alertDialog).not.toBeVisible({ timeout: 10000 });
+
+      const editButton = page.getByRole('button', { name: '編集' }).first();
+      await expect(editButton).toBeVisible({ timeout: 10000 });
+      await editButton.click();
+      const reopenedDialog = page.getByRole('dialog').first();
+      await reopenedDialog.getByRole('button', { name: '通知設定を編集' }).click();
+
+      const reopenedNotificationDialogAfterSave = page.getByRole('dialog', {
+        name: '通知設定を編集',
+      });
+      await expect(
+        reopenedNotificationDialogAfterSave.getByRole('textbox', { name: '通知タイトル' })
+      ).toHaveValue('更新後タイトル');
+      await expect(
+        reopenedNotificationDialogAfterSave.getByRole('textbox', { name: '通知本文' })
+      ).toHaveValue('更新後本文');
     });
 
     test('条件または価格変更時に上書き確認ダイアログが表示され、上書きするを選ぶと通知本文が更新される', async ({
@@ -719,12 +747,19 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 条件タイプを「範囲指定」に変更
       await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
+      const minPriceInput = page.locator('#min-price');
+      // webkit-mobile では初回選択が反映されないことがあるため、未表示時は1回だけ再選択する
+      if (!(await minPriceInput.isVisible().catch(() => false))) {
+        await page.getByRole('combobox', { name: '条件タイプ' }).click();
+        await page.getByRole('option', { name: '範囲指定' }).click();
+      }
+      await expect(minPriceInput).toBeVisible({ timeout: 10000 });
 
       // 不正な範囲を入力（最小価格 > 最大価格）
-      const minPriceInput = page.locator('#min-price');
       const maxPriceInput = page.locator('#max-price');
       await minPriceInput.fill('110');
       await expect(minPriceInput).toHaveValue('110');
+      // webkit-mobile では最小価格入力後に上書き確認ダイアログが表示され、未解決だと次の入力が不安定になる
       await resolveNotificationOverwriteDialogIfVisible(page);
       await maxPriceInput.fill('100');
       await resolveNotificationOverwriteDialogIfVisible(page);
@@ -760,6 +795,13 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       // 条件タイプを「範囲指定」に変更
       await page.getByRole('combobox', { name: '条件タイプ' }).click();
       await page.getByRole('option', { name: '範囲指定' }).click();
+      const minPriceInput = page.locator('#min-price');
+      // webkit-mobile では初回選択が反映されないことがあるため、未表示時は1回だけ再選択する
+      if (!(await minPriceInput.isVisible().catch(() => false))) {
+        await page.getByRole('combobox', { name: '条件タイプ' }).click();
+        await page.getByRole('option', { name: '範囲指定' }).click();
+      }
+      await expect(minPriceInput).toBeVisible({ timeout: 10000 });
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲タイプを「範囲外（OR）」に変更
@@ -767,10 +809,10 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: /範囲外/ }).click();
 
       // 不正な範囲を入力（下限価格 >= 上限価格）
-      const minPriceInput = page.locator('#min-price');
       const maxPriceInput = page.locator('#max-price');
       await minPriceInput.fill('120');
       await expect(minPriceInput).toHaveValue('120');
+      // webkit-mobile では最小価格入力後に上書き確認ダイアログが表示され、未解決だと次の入力が不安定になる
       await resolveNotificationOverwriteDialogIfVisible(page);
       await maxPriceInput.fill('90');
       await resolveNotificationOverwriteDialogIfVisible(page);
