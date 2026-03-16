@@ -97,7 +97,7 @@ jobs:
       - name: Build Web application
         uses: ./.github/actions/build-web-app
         with:
-          workspace: 'tools'
+          workspace: '@nagiyu/tools'
           shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui'
 
       - name: Configure AWS credentials

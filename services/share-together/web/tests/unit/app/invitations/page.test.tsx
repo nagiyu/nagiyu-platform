@@ -2,10 +2,6 @@ import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import InvitationsPage from '@/app/invitations/page';
 
-jest.mock('@/components/Navigation', () => ({
-  Navigation: () => <div>Navigation</div>,
-}));
-
 const mockFetch = jest.fn((input: string | URL | Request, init?: RequestInit) => {
   const url = input.toString();
   const method = init?.method ?? 'GET';
@@ -50,7 +46,6 @@ describe('InvitationsPage', () => {
   it('招待カードと承認/拒否ボタンをAPI取得結果で表示する', async () => {
     render(<InvitationsPage />);
 
-    expect(screen.getByText('Navigation')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: '招待一覧' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('週末の買い出し')).toBeInTheDocument();

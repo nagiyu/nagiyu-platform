@@ -3,7 +3,7 @@ import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients } from '@nagiyu/aws';
-import { type Job, type JobStatus, selectJobDefinition } from 'codec-converter-core';
+import { type Job, type JobStatus, selectJobDefinition } from '@nagiyu/codec-converter-core';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {

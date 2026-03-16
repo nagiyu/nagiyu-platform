@@ -1193,6 +1193,18 @@ const config = {
 - ビルドエラー
 - 不必要なディスク使用量の増加
 
+#### MUST: すべてのパッケージに `private: true` を設定する
+
+公開パッケージは存在しないため、誤って npm publish されることを防ぐために全パッケージに設定する。
+
+#### MUST: import される側のパッケージは `exports` / `types` / `main` を設定する
+
+他パッケージから import されるパッケージ（`libs/*`、`services/*/core`）は TypeScript のパス解決のために3フィールドをすべて設定する。設定例は後述のセクション9.4を参照。
+
+#### MUST NOT: 他パッケージから import されないパッケージに `exports` / `types` を設定しない
+
+`services/*/web`、`services/*/batch`、`infra/*` など他パッケージから import されないパッケージには `exports` / `types` は不要。Lambda 関数など直接実行されるパッケージの場合のみ `main` を設定する。
+
 ### 8.3 必須設定ファイル
 
 #### MUST: package.json に標準スクリプトを定義
@@ -1386,12 +1398,18 @@ export default [
 
 **理由**: TypeScript が自動的に共通の親ディレクトリを判断
 
-#### MUST: package.json の exports で dist/src/index.js を指定
+#### MUST: import される側のパッケージの package.json に exports / types / main を設定する
+
+`libs/*` および `services/*/core` が対象。
 
 ```json
 {
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "exports": {
-    ".": "./dist/src/index.js"
+    ".": {
+      "import": "./dist/src/index.js"
+    }
   }
 }
 ```

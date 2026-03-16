@@ -14,7 +14,10 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBUserSettingRepository } from '../../../src/repositories/dynamodb-user-setting.repository.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
-import type { CreateUserSettingInput, UpdateUserSettingInput } from '../../../src/entities/user-setting.entity.js';
+import type {
+  CreateUserSettingInput,
+  UpdateUserSettingInput,
+} from '../../../src/entities/user-setting.entity.js';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 
