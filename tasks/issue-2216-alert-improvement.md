@@ -94,17 +94,10 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 ### 方針4: 条件・価格変更時の通知本文自動更新（方針5 と統合）
 
 - 条件（`conditionMode`・`operator`・`rangeType`）または価格（`targetPrice`・`minPrice`・`maxPrice`）
-  が変化したとき、通知本文をデフォルト値で更新する
+  が変化したとき、確認ダイアログを表示し、ユーザーが許可した場合のみ通知本文をデフォルト値で上書きする
 - **方針5 を採用するため、アプローチA（8箇所 onChange 修正）は不採用**
-- 方針5 採用後の実装:
-    - `AlertSettingsModal` 内に通知状態変数（`notificationTitle`・`notificationBody`）を保持する
-    - 条件・価格の onChange で、ユーザーが通知本文を手動編集済みかどうかを確認する
-    - **ユーザーが通知本文を手動編集していない場合**: `getDefaultNotificationText` で即座に上書きする
-    - **ユーザーが通知本文を手動編集済みの場合**: 確認ダイアログを表示し、
-      ユーザーが「上書きする」を選択した場合のみ `getDefaultNotificationText` で上書きする
-    - 手動編集済みフラグ（`isNotificationBodyEdited: boolean`）を `AlertSettingsModal` 内で管理する
-        - `NotificationEditDialog` の保存コールバック受信時に `true` に設定する
-        - デフォルト値で上書きした時点で `false` にリセットする
+- 編集済みフラグによる分岐は設けない（ユーザーが本文を変えていようが変えていまいが常にダイアログを表示）
+- 将来的にユーザビリティが悪いと判断された場合はその時点で改善を検討する
 
 #### 確認ダイアログの仕様
 
@@ -154,18 +147,16 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 - [ ] T007 通知編集の別ダイアログ分離（`NotificationEditDialog` コンポーネント新規作成）:
       保存ボタン押下時のみ `AlertSettingsModal` に値を渡す構成にし、フリーズを解消する
 - [ ] T008 条件・目標価格変更時の通知本文自動更新（確認ダイアログ対応）:
-      - `AlertSettingsModal` 内に `isNotificationBodyEdited` フラグを追加
-      - 未編集の場合: `getDefaultNotificationText` で即座に上書き
-      - 手動編集済みの場合: 確認ダイアログ（`NotificationOverwriteConfirmDialog` または MUI の `Dialog`）を表示し、
-        ユーザーが「上書きする」を選択した場合のみ上書き
+      - 条件・価格の onChange で確認ダイアログ（`NotificationOverwriteConfirmDialog` または MUI の `Dialog`）を表示
+      - ユーザーが「上書きする」を選択した場合のみ `getDefaultNotificationText` で通知本文を更新
+      - 編集済みフラグは不要（常にダイアログを表示する）
 
 ### フェーズ4: テストと動作確認
 
 - [ ] T009 `tests/unit/components/alert-validation.test.ts` に T006 のバリデーション追加分のテストを追加
 - [ ] T010 `tests/e2e/alert-management.spec.ts` に以下のシナリオを追加・確認:
     - 既存アラートのタイトル・本文を編集して保存し、再度開いたときに反映されていること
-    - 通知本文を編集していない状態で条件や目標価格を変更すると、通知本文が自動更新されること
-    - 通知本文を手動編集後に条件や目標価格を変更すると、確認ダイアログが表示されること
+    - 条件や目標価格を変更すると、通知本文の上書き確認ダイアログが表示されること
     - 確認ダイアログで「上書きする」を選択すると通知本文がデフォルト値に更新されること
     - 確認ダイアログで「このまま維持する」を選択すると通知本文が保持されること
     - タイトルまたは本文を空にして保存しようとするとエラーになること
@@ -180,10 +171,7 @@ Issue #2216 の方針に従い、以下の設計変更を行う。
 ## 備考・未決定事項
 
 - 方針5（通知ダイアログ分離）の採用が確定したため、アプローチA（8箇所 onChange 修正）は不採用
-- 方針4 と方針5 の関係: 方針5 採用後の確認ダイアログフロー:
-    1. `NotificationEditDialog` で保存 → `isNotificationBodyEdited = true` にセット
-    2. 条件・価格を変更 → `isNotificationBodyEdited` が `true` なら確認ダイアログを表示
-    3. 「上書きする」選択 → `getDefaultNotificationText` で上書き、`isNotificationBodyEdited = false` にリセット
-    4. 「このまま維持する」選択 → 何もせずダイアログを閉じる
+- 方針4 の確認ダイアログは編集済みフラグによる分岐なし。常にダイアログを表示する（シンプルな実装）
+  将来的にユーザビリティ改善が必要と判断された時点で変更を検討する
 - 通知タイトル・本文を必須にすることで、既存の `notificationTitle`・`notificationBody` が
   `undefined` のアラートが存在する場合、既存データとの互換性を確認すること
