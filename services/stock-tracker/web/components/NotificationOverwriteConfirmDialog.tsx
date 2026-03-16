@@ -1,6 +1,13 @@
 'use client';
 
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Typography,
+} from '@mui/material';
 
 interface NotificationOverwriteConfirmDialogProps {
   open: boolean;

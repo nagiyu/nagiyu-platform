@@ -374,7 +374,9 @@ describe('DynamoDBAlertRepository', () => {
 
       expect(command.input.UpdateExpression).toContain('#notificationTitle = :notificationTitle');
       expect(command.input.UpdateExpression).toContain('#notificationBody = :notificationBody');
-      expect(command.input.ExpressionAttributeNames['#notificationTitle']).toBe('NotificationTitle');
+      expect(command.input.ExpressionAttributeNames['#notificationTitle']).toBe(
+        'NotificationTitle'
+      );
       expect(command.input.ExpressionAttributeNames['#notificationBody']).toBe('NotificationBody');
       expect(command.input.ExpressionAttributeValues[':notificationTitle']).toBe('更新後タイトル');
       expect(command.input.ExpressionAttributeValues[':notificationBody']).toBe('更新後本文');

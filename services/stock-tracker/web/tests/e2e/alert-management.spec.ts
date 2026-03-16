@@ -416,14 +416,18 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       updatedAt: '2026-01-01T00:00:00.000Z',
     };
 
-    test('通知タイトル・本文を編集して保存後に再編集すると変更内容が保持される', async ({ page }) => {
+    test('通知タイトル・本文を編集して保存後に再編集すると変更内容が保持される', async ({
+      page,
+    }) => {
       await setupAlertsEditPage(page, editableAlert);
 
       const alertDialog = page.getByRole('dialog').first();
       await alertDialog.getByRole('button', { name: '通知設定を編集' }).click();
 
       const notificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
-      await notificationDialog.getByRole('textbox', { name: '通知タイトル' }).fill('更新後タイトル');
+      await notificationDialog
+        .getByRole('textbox', { name: '通知タイトル' })
+        .fill('更新後タイトル');
       await notificationDialog.getByRole('textbox', { name: '通知本文' }).fill('更新後本文');
       await notificationDialog.getByRole('button', { name: '保存' }).click();
 
@@ -435,12 +439,12 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await reopenedDialog.getByRole('button', { name: '通知設定を編集' }).click();
 
       const reopenedNotificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
-      await expect(reopenedNotificationDialog.getByRole('textbox', { name: '通知タイトル' })).toHaveValue(
-        '更新後タイトル'
-      );
-      await expect(reopenedNotificationDialog.getByRole('textbox', { name: '通知本文' })).toHaveValue(
-        '更新後本文'
-      );
+      await expect(
+        reopenedNotificationDialog.getByRole('textbox', { name: '通知タイトル' })
+      ).toHaveValue('更新後タイトル');
+      await expect(
+        reopenedNotificationDialog.getByRole('textbox', { name: '通知本文' })
+      ).toHaveValue('更新後本文');
     });
 
     test('条件または価格変更時に上書き確認ダイアログが表示され、上書きするを選ぶと通知本文が更新される', async ({
