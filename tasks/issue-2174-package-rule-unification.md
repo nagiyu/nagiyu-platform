@@ -204,7 +204,7 @@ CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`
 
 ### Phase 5: `devDependencies` の整理
 
-- [ ] T020: `stock-tracker-batch` の `devDependencies` から `jest`, `ts-jest`, `typescript` を除去する（ルート管理に委ねる）
+- [x] T020: `stock-tracker-batch` の `devDependencies` から `jest`, `ts-jest`, `typescript` を除去する（ルート管理に委ねる）
 
 ## 参考ドキュメント
 
