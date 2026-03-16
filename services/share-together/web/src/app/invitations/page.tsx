@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Navigation } from '@/components/Navigation';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   Box,
@@ -100,7 +99,6 @@ export default function InvitationsPage() {
 
   return (
     <main>
-      <Navigation />
       <Container maxWidth="sm" sx={{ py: 4 }}>
         <Typography component="h1" variant="h4" gutterBottom>
           招待一覧
