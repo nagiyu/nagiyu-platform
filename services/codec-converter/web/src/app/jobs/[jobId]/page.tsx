@@ -9,7 +9,7 @@ import {
   formatFileSize,
   formatDateTime,
   formatJobId,
-} from 'codec-converter-core';
+} from '@nagiyu/codec-converter-core';
 import {
   Container,
   Typography,

@@ -1,5 +1,5 @@
 {
-  "name": "@nagiyu/shared-infra",
+  "name": "@nagiyu/infra-shared",
   "version": "1.0.0",
   "private": true,
   "description": "Shared Infrastructure (VPC, IAM, ACM) for Nagiyu Platform",

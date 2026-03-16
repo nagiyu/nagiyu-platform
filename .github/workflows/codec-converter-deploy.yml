@@ -59,7 +59,7 @@ jobs:
         run: npm run build --workspace=@nagiyu/infra-common
 
       - name: Build CDK project
-        run: npm run build --workspace=codec-converter
+        run: npm run build --workspace=@nagiyu/infra-codec-converter
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -80,7 +80,7 @@ jobs:
           ACCOUNT_ID: ${{ steps.get-account-id.outputs.account-id }}
         run: |
           # Bootstrap is idempotent - safe to run on every deployment
-          npm run bootstrap --workspace=codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
+          npm run bootstrap --workspace=@nagiyu/infra-codec-converter -- aws://$ACCOUNT_ID/${{ env.AWS_REGION }} \
             --context env=${{ steps.setup-environment.outputs.environment }}
 
       - name: Check if Web ECR repository exists
@@ -111,7 +111,7 @@ jobs:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
           echo "Creating ECR repositories..."
-          npm run deploy --workspace=codec-converter -- ${{ steps.setup-environment.outputs.stack-name }} \
+          npm run deploy --workspace=@nagiyu/infra-codec-converter -- ${{ steps.setup-environment.outputs.stack-name }} \
             --context env=$ENVIRONMENT \
             --context deploymentPhase=ecr-only \
             --verbose
@@ -146,8 +146,8 @@ jobs:
       - name: Build Web application
         uses: ./.github/actions/build-web-app
         with:
-          workspace: 'codec-converter-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,codec-converter-core'
+          workspace: '@nagiyu/codec-converter-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/aws,@nagiyu/codec-converter-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -243,7 +243,7 @@ jobs:
         run: npm run build --workspace=@nagiyu/infra-common
 
       - name: Build CDK project
-        run: npm run build --workspace=codec-converter
+        run: npm run build --workspace=@nagiyu/infra-codec-converter
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -259,7 +259,7 @@ jobs:
           APP_VERSION: ${{ needs.build-web.outputs.app-version }}
         run: |
           echo "Deploying full stack..."
-          npm run deploy --workspace=codec-converter -- $STACK_NAME \
+          npm run deploy --workspace=@nagiyu/infra-codec-converter -- $STACK_NAME \
             --context env=$ENVIRONMENT \
             --context deploymentPhase=full \
             --verbose

@@ -601,14 +601,19 @@ libs/{library}/
 
 **サービス固有パッケージ**:
 
-- フォーマット: `{service}-{type}` または `@{service}/{type}`
-- 例: `tools-core`, `tools-web`, `tools-batch`
-- 例（スコープ付き）: `@tools/core`, `@tools/web`
+- フォーマット: `@nagiyu/{service-name}-{type}`（`{service-name}` はケバブケース）
+- 例: `@nagiyu/auth-core`, `@nagiyu/auth-web`, `@nagiyu/codec-converter-batch`
+- 単一パッケージのサービス: `@nagiyu/{service-name}`（例: `@nagiyu/tools`）
 
 **拡張パッケージ**:
 
-- フォーマット: `{service}-{type}-{suffix}`
-- 例: `tools-web-admin`, `tools-batch-daily`
+- フォーマット: `@nagiyu/{service-name}-{type}-{suffix}`
+- 例: `@nagiyu/auth-web-admin`, `@nagiyu/codec-converter-batch-daily`
+
+**インフラパッケージ**:
+
+- フォーマット: `@nagiyu/infra-{name}`
+- 例: `@nagiyu/infra-shared`, `@nagiyu/infra-common`, `@nagiyu/infra-auth`
 
 ### ディレクトリ名
 

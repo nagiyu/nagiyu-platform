@@ -24,10 +24,5 @@
     "openai": "^6.25.0",
     "web-push": "^3.6.7",
     "zod": "^4.3.6"
-  },
-  "devDependencies": {
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6",
-    "typescript": "^5"
   }
 }
