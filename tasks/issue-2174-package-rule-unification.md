@@ -167,16 +167,16 @@ CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`
 - tsconfig.json に `"rootDir": "./src", "outDir": "./dist"` が設定されている
 - TypeScript は rootDir からの相対パスを outDir に再現するため、`src/index.ts` → `dist/index.js`（`dist/src/` 配下ではない）
 - `package.json` の `main: dist/index.js` は tsconfig と整合しているが、プロジェクト標準（`dist/src/index.js`）と異なる
-- 標準化するには tsconfig から `"rootDir": "./src"` を除去する必要がある（除去後は `src/index.ts` → `dist/src/index.js`）
+- 標準化するには tsconfig の `outDir` を `./dist/src` に変更する必要がある（`rootDir: "./src"` は維持）
 - `batch/jest.config.ts` と `web/jest.config.ts` の `moduleNameMapper` は `src/index.ts` を直接参照しているため影響なし
 - `web/next.config.ts` の `transpilePackages` は `package.json` の `main`/`exports` を参照するため、ビルド成果物のパス変更の影響を受ける
 
 **`niconico-mylist-assistant-core`**:
 
-- tsconfig.json に `rootDir` 未指定（デフォルトはプロジェクトルート）、`"outDir": "./dist"` のため、`src/index.ts` → `dist/src/index.js`
+- tsconfig.json で `rootDir` 未指定かつ `include: ["src/**/*"]` のため実効的に `./src` が rootDir となり、`"outDir": "./dist"` の場合は `src/index.ts` → `dist/index.js`
 - `package.json` の `main: dist/index.js`・`types: dist/index.d.ts` は実際のビルド出力（`dist/src/`）と不整合
 - `batch/jest.config.ts` に `@nagiyu/niconico-mylist-assistant-core` の `moduleNameMapper` がなく、`main` フィールドを参照する。ランタイム時に不整合が発生している可能性がある
-- **修正**: `package.json` の `main` → `dist/src/index.js`、`types` → `dist/src/index.d.ts`（tsconfig の変更は不要）
+- **修正**: `package.json` の `main` → `dist/src/index.js`、`types` → `dist/src/index.d.ts` に変更し、tsconfig の `outDir` を `./dist/src`（`rootDir: "./src"`）に設定して出力先を `dist/src/` に揃える
 
 ### Phase 2: パッケージ名の修正
 
@@ -189,11 +189,11 @@ CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`
 
 ### Phase 3: `package.json` 構成の整理
 
-- [ ] T011: `private: true` が欠落しているパッケージ（codec-converter-core, codec-converter-batch, niconico-mylist-assistant-batch）に追加する
-- [ ] T012: サービスの batch / web パッケージから不要な `exports` / `types` フィールドを除去する（core は import される側のため除去しない）
-- [ ] T013: `niconico-mylist-assistant-core` の `types` パスを `dist/src/index.d.ts` に修正し、`main` / `tsconfig.json` のパス設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
-- [ ] T014: `stock-tracker-core` の `main` パスを `dist/src/index.js` に修正し、`tsconfig.json` の `outDir` 設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
-- [ ] T015: `infra/common` の `exports` を `require` 形式から `import` 形式に変更する。合わせて `infra/tsconfig.json`（ベース）の `module` を `NodeNext` に変更し、`infra/auth`・`infra/shared`・`infra/common` の tsconfig も `NodeNext` に対応させる（`infra/codec-converter` が NodeNext で CDK 動作している実績あり）
+- [x] T011: `private: true` が欠落しているパッケージ（codec-converter-core, codec-converter-batch, niconico-mylist-assistant-batch）に追加する
+- [x] T012: サービスの batch / web パッケージから不要な `exports` / `types` フィールドを除去する（core は import される側のため除去しない）
+- [x] T013: `niconico-mylist-assistant-core` の `types` パスを `dist/src/index.d.ts` に修正し、`main` / `tsconfig.json` のパス設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
+- [x] T014: `stock-tracker-core` の `main` パスを `dist/src/index.js` に修正し、`tsconfig.json` の `outDir` 設定を合わせる（Phase 1 の T004 の調査結果をもとに実施）
+- [x] T015: `infra/common` の `exports` を `require` 形式から `import` 形式に変更する。合わせて `infra/tsconfig.json`（ベース）の `module` を `NodeNext` に変更し、`infra/auth`・`infra/shared`・`infra/common` の tsconfig も `NodeNext` に対応させる（`infra/codec-converter` が NodeNext で CDK 動作している実績あり）
 
 ### Phase 4: `scripts` の統一
 
@@ -215,5 +215,5 @@ CDK v2（`aws-cdk-lib`）はデュアルパッケージ対応済みのため、`
 
 - T003 の調査結果より、`infra/codec-converter` が既に NodeNext で CDK 動作している実績があるため、全 infra パッケージを ESM（NodeNext）に統一する方針とした。T015 で `infra/common` の `exports` を `import` 形式に変更し、`infra/tsconfig.json` ベース設定を含む関連 tsconfig も ESM 対応に更新する。
 - T013・T014 は、T004 の調査結果をもとに実施すること。
-  - `niconico-mylist-assistant-core` の修正は tsconfig 変更不要で `package.json` のパス修正のみ。
-  - `stock-tracker-core` の修正は tsconfig から `rootDir: ./src` を除去する必要があり、`web/next.config.ts` の `transpilePackages` を使ったランタイム動作に影響するため CI での確認が必須。
+  - `niconico-mylist-assistant-core` の修正は `package.json` のパス修正に加え、tsconfig の `outDir` を `./dist/src`（`rootDir: "./src"`）に設定して `dist/src/` 出力に統一する。
+  - `stock-tracker-core` の修正は tsconfig の `outDir` を `./dist/src`（`rootDir: "./src"`）に変更して `dist/src/` 出力に統一する必要があり、`web/next.config.ts` の `transpilePackages` を使ったランタイム動作に影響するため CI での確認が必須。

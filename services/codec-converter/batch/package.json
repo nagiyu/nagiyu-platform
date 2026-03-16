@@ -1,6 +1,7 @@
 {
   "name": "@nagiyu/codec-converter-batch",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "main": "dist/src/index.js",
   "scripts": {
