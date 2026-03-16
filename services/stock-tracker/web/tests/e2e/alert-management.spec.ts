@@ -777,37 +777,42 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // モーダルが表示されるまで待つ
       await expect(page.getByRole('dialog')).toBeVisible();
+      const alertDialog = page.getByRole('dialog').first();
 
       // 初期状態は単一条件（条件タイプのデフォルト値確認）
-      await expect(page.getByLabel('条件タイプ')).toBeVisible();
-      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
-      await expect(page.getByLabel('目標価格')).toBeVisible();
+      await expect(alertDialog.getByLabel('条件タイプ')).toBeVisible();
+      await expect(alertDialog.getByLabel('条件', { exact: true })).toBeVisible();
+      await expect(alertDialog.getByLabel('目標価格')).toBeVisible();
 
       // 範囲指定に切り替え
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
+      const conditionTypeCombobox = alertDialog.getByRole('combobox', { name: '条件タイプ' });
+      await expect(conditionTypeCombobox).toBeVisible();
+      await conditionTypeCombobox.click();
       await page.getByRole('option', { name: '範囲指定' }).click();
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲指定のフィールドが表示される
-      await expect(page.getByLabel('範囲タイプ')).toBeVisible();
-      await expect(page.locator('#min-price')).toBeVisible();
-      await expect(page.locator('#max-price')).toBeVisible();
+      await expect(alertDialog.getByLabel('範囲タイプ')).toBeVisible();
+      await expect(alertDialog.locator('#min-price')).toBeVisible();
+      await expect(alertDialog.locator('#max-price')).toBeVisible();
 
       // 単一条件のフィールドが非表示になる
-      await expect(page.getByLabel('条件', { exact: true })).not.toBeVisible();
-      await expect(page.getByLabel('目標価格')).not.toBeVisible();
+      await expect(alertDialog.getByLabel('条件', { exact: true })).not.toBeVisible();
+      await expect(alertDialog.getByLabel('目標価格')).not.toBeVisible();
 
       // 単一条件に戻す
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
+      await conditionTypeCombobox.click();
       await page.getByRole('option', { name: /単一条件/ }).click();
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 単一条件のフィールドが表示される
-      await expect(page.getByLabel('条件', { exact: true })).toBeVisible();
-      await expect(page.getByLabel('目標価格')).toBeVisible();
+      await expect(alertDialog.getByLabel('条件', { exact: true })).toBeVisible();
+      await expect(alertDialog.getByLabel('目標価格')).toBeVisible();
 
       // 範囲指定のフィールドが非表示になる
-      await expect(page.getByLabel('範囲タイプ')).not.toBeVisible();
-      await expect(page.locator('#min-price')).not.toBeVisible();
-      await expect(page.locator('#max-price')).not.toBeVisible();
+      await expect(alertDialog.getByLabel('範囲タイプ')).not.toBeVisible();
+      await expect(alertDialog.locator('#min-price')).not.toBeVisible();
+      await expect(alertDialog.locator('#max-price')).not.toBeVisible();
     });
   });
 
