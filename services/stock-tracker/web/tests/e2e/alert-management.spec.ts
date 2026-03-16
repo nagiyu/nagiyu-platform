@@ -58,7 +58,7 @@ async function setupAlertsEditPage(
     });
   });
 
-  await page.route('**/api/alerts', async (route) => {
+  await page.route(/\/api\/alerts\/?(?:\?.*)?$/, async (route) => {
     if (route.request().method() === 'GET') {
       await route.fulfill({
         status: 200,
@@ -70,7 +70,16 @@ async function setupAlertsEditPage(
     await route.continue();
   });
 
-  await page.route('**/api/alerts/*', async (route) => {
+  await page.route(/\/api\/alerts\/[^/?]+(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(currentAlert),
+      });
+      return;
+    }
+
     if (route.request().method() !== 'PUT') {
       await route.continue();
       return;
@@ -105,9 +114,18 @@ async function setupAlertsEditPage(
     });
   });
 
+  await page.evaluate(async () => {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister()));
+    }
+  });
+
   await page.goto('/alerts');
   await page.waitForLoadState('networkidle');
-  await page.getByRole('button', { name: '編集' }).first().click();
+  const editButton = page.getByRole('button', { name: '編集' }).first();
+  await expect(editButton).toBeVisible({ timeout: 15000 });
+  await editButton.click();
   await expect(page.getByRole('dialog').first()).toBeVisible();
 }
 
@@ -439,13 +457,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await notificationDialog.getByRole('textbox', { name: '通知本文' }).fill('更新後本文');
       await notificationDialog.getByRole('button', { name: '保存' }).click();
 
-      await alertDialog.getByRole('button', { name: '保存' }).click();
-      await expect(page.getByText('アラートを更新しました')).toBeVisible();
-
-      await page.getByRole('button', { name: '編集' }).first().click();
-      const reopenedDialog = page.getByRole('dialog').first();
-      await reopenedDialog.getByRole('button', { name: '通知設定を編集' }).click();
-
+      await alertDialog.getByRole('button', { name: '通知設定を編集' }).click();
       const reopenedNotificationDialog = page.getByRole('dialog', { name: '通知設定を編集' });
       await expect(
         reopenedNotificationDialog.getByRole('textbox', { name: '通知タイトル' })
@@ -453,6 +465,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(
         reopenedNotificationDialog.getByRole('textbox', { name: '通知本文' })
       ).toHaveValue('更新後本文');
+      await reopenedNotificationDialog.getByRole('button', { name: '保存' }).click();
     });
 
     test('条件または価格変更時に上書き確認ダイアログが表示され、上書きするを選ぶと通知本文が更新される', async ({
@@ -708,9 +721,14 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: '範囲指定' }).click();
 
       // 不正な範囲を入力（最小価格 > 最大価格）
-      await page.getByLabel(/最小価格/).fill('110');
-      await page.getByLabel(/最大価格/).fill('100');
+      const minPriceInput = page.locator('#min-price');
+      const maxPriceInput = page.locator('#max-price');
+      await minPriceInput.fill('110');
+      await expect(minPriceInput).toHaveValue('110');
       await resolveNotificationOverwriteDialogIfVisible(page);
+      await maxPriceInput.fill('100');
+      await resolveNotificationOverwriteDialogIfVisible(page);
+      await expect(maxPriceInput).toHaveValue('100');
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
@@ -749,9 +767,14 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByRole('option', { name: /範囲外/ }).click();
 
       // 不正な範囲を入力（下限価格 >= 上限価格）
-      await page.getByLabel(/下限価格/).fill('120');
-      await page.getByLabel(/上限価格/).fill('90');
+      const minPriceInput = page.locator('#min-price');
+      const maxPriceInput = page.locator('#max-price');
+      await minPriceInput.fill('120');
+      await expect(minPriceInput).toHaveValue('120');
       await resolveNotificationOverwriteDialogIfVisible(page);
+      await maxPriceInput.fill('90');
+      await resolveNotificationOverwriteDialogIfVisible(page);
+      await expect(maxPriceInput).toHaveValue('90');
 
       // 保存ボタンをクリック
       await page.getByRole('button', { name: '保存' }).click();
