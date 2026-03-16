@@ -94,13 +94,13 @@ RootLayout (app/layout.tsx)
 
 ## タスク
 
-- [ ] T001: `services/share-together/web/src/app/page.tsx` から `<Navigation />` を除去
-- [ ] T002: `services/share-together/web/src/app/lists/page.tsx` から `<Navigation />` を除去
-- [ ] T003: `services/share-together/web/src/app/groups/page.tsx` から `<Navigation />` を除去
-- [ ] T004: `services/share-together/web/src/app/invitations/page.tsx` から `<Navigation />` を除去
-- [ ] T005: `ThemeRegistry.tsx` に `headerSlot={<Navigation />}` を追加
-- [ ] T006: 既存テストの更新（各ページテスト）
-- [ ] T007: ビルド・テストの動作確認
+- [x] T001: `services/share-together/web/src/app/page.tsx` から `<Navigation />` を除去
+- [x] T002: `services/share-together/web/src/app/lists/page.tsx` から `<Navigation />` を除去
+- [x] T003: `services/share-together/web/src/app/groups/page.tsx` から `<Navigation />` を除去
+- [x] T004: `services/share-together/web/src/app/invitations/page.tsx` から `<Navigation />` を除去
+- [x] T005: `ThemeRegistry.tsx` に `headerSlot={<Navigation />}` を追加
+- [x] T006: 既存テストの更新（各ページテスト）
+- [x] T007: ビルド・テストの動作確認
 
 ## 参考ドキュメント
 
