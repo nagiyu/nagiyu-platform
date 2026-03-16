@@ -12,33 +12,24 @@
 ## ドキュメント一覧
 
 <!-- 記入ガイド: このサービスのドキュメント一覧を表形式で記述してください -->
-<!-- 記入ガイド: 存在しないドキュメントは削除または [任意] を明記してください -->
+<!-- 記入ガイド: 存在しないドキュメントは削除してください -->
 
-| ドキュメント                         | 説明                                                 |
-| ------------------------------------ | ---------------------------------------------------- |
-| [requirements.md](./requirements.md) | ビジネス要件、機能要件、非機能要件、ユースケース     |
-| [architecture.md](./architecture.md) | システムアーキテクチャ、技術スタック、設計思想       |
-| [api-spec.md](./api-spec.md)         | API仕様（APIを提供するサービスのみ） <!-- [任意] --> |
-| [deployment.md](./deployment.md)     | デプロイ手順、CI/CD、監視、障害対応                  |
-| [testing.md](./testing.md)           | テスト戦略、カバレッジ目標、テストシナリオ           |
+| ドキュメント | 説明 |
+| ------------ | ---- |
+| [requirements.md](./requirements.md) | ビジネス要件・ユースケース・機能要件・ドメインオブジェクト |
+| [external-design.md](./external-design.md) | 画面設計・概念データモデル・設計上の決定事項 <!-- [任意] --> |
+| [architecture.md](./architecture.md) | アーキテクチャ設計決定記録（ADR） |
 
 ---
 
 ## クイックスタート
 
-<!-- 記入ガイド: 開発者と運用担当者向けの最初のステップを記述してください -->
-
-### 開発者向け
+<!-- 記入ガイド: 開発者向けの最初のステップを記述してください -->
 
 1. **要件を理解する**: [requirements.md](./requirements.md) を読む
-2. **設計を確認する**: [architecture.md](./architecture.md) を読む
-3. **実装を確認する**: ソースコード (`services/{service-name}/`) を参照
-
-### 運用担当者向け
-
-1. **デプロイ手順を確認**: [deployment.md](./deployment.md) を読む
-2. **監視・ログ確認**: CloudWatch Logs を参照
-3. **障害対応**: [deployment.md](./deployment.md) の障害対応セクションを参照
+2. **UI・データ構造を確認する**: [external-design.md](./external-design.md) を読む
+3. **設計の意図を確認する**: [architecture.md](./architecture.md) を読む
+4. **実装を確認する**: ソースコード (`services/{service-name}/`) を参照
 
 ---
 
@@ -56,9 +47,7 @@
 
 ## 関連ドキュメント
 
-<!-- 記入ガイド: プラットフォーム全体や関連サービスのドキュメントへのリンクを記述してください -->
-
-- [プラットフォーム全体ドキュメント](../../README.md)
+- [開発フロー](../../development/flow.md)
 - [ブランチ戦略](../../branching.md)
-- [インフラドキュメント](../../infra/README.md)
 - [開発ガイドライン](../../development/rules.md)
+- [インフラドキュメント](../../infra/README.md)
