@@ -453,6 +453,4 @@ type AuthSession = {
      段階的移行期間は mapper 側で旧形式の読み取りを許容する。
    - 新規作成・更新は `subscription` フィールドで保存する。
    - 旧形式データの一括変換（バックフィル）は別タスクで実施し、完了後に旧フィールド互換ロジックを削除する。
-
-3. **stock-tracker Alert エンティティの変更**: `SubscriptionEndpoint` 等フラットフィールドから `subscription: PushSubscription` への移行は
-   DynamoDB スキーマ変更を伴う可能性があるため、既存データのマイグレーション計画を事前に策定すること。
+   - バックフィルタスク作成後に、本項目へ Issue / タスクIDの参照を追記する。
