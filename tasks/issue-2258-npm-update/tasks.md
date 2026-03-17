@@ -44,8 +44,8 @@
 
 <!-- 本タスクではコード変更しない。調査結果を Issue として記録する -->
 
-- [ ] T017: `eslint` v10 / `@eslint/js` v10 の changelog を確認し、breaking changes と対応コストを見積もり、別 Issue を起票する（依存: なし、並列実行可能）
-- [ ] T018: `@types/node` v25 の changelog を確認し、breaking changes と対応コストを見積もり、別 Issue を起票する（依存: なし、並列実行可能）
+- [x] T017: `eslint` v10 / `@eslint/js` v10 の changelog を確認し、breaking changes と対応コストを見積もり、別 Issue を起票する（依存: なし、並列実行可能）
+- [x] T018: `@types/node` v25 の changelog を確認し、breaking changes と対応コストを見積もり、別 Issue を起票する（依存: なし、並列実行可能）
 
 ---
 
