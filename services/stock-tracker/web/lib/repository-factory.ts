@@ -43,13 +43,6 @@ const ERROR_MESSAGES = {
 // InMemorySingleTableStore のシングルトン
 let memoryStore: InMemorySingleTableStore | null = null;
 
-// 各リポジトリのシングルトンインスタンス
-let alertRepository: AlertRepository | null = null;
-let holdingRepository: HoldingRepository | null = null;
-let tickerRepository: TickerRepository | null = null;
-let exchangeRepository: ExchangeRepository | null = null;
-let dailySummaryRepository: DailySummaryRepository | null = null;
-
 /**
  * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
  *
@@ -69,11 +62,6 @@ function getOrCreateMemoryStore(): InMemorySingleTableStore {
  */
 export function clearMemoryStore(): void {
   memoryStore = null;
-  alertRepository = null;
-  holdingRepository = null;
-  tickerRepository = null;
-  exchangeRepository = null;
-  dailySummaryRepository = null;
   alertRepositoryFactory.resetRepository();
   holdingRepositoryFactory.resetRepository();
   tickerRepositoryFactory.resetRepository();
@@ -87,13 +75,7 @@ export function clearMemoryStore(): void {
  * @returns AlertRepository インスタンス
  */
 export function createAlertRepository(): AlertRepository {
-  return getOrCreateRepository(
-    alertRepository,
-    (repository) => {
-      alertRepository = repository;
-    },
-    () => alertRepositoryFactory.createRepository()
-  );
+  return alertRepositoryFactory.createRepository();
 }
 
 /**
@@ -102,13 +84,7 @@ export function createAlertRepository(): AlertRepository {
  * @returns HoldingRepository インスタンス
  */
 export function createHoldingRepository(): HoldingRepository {
-  return getOrCreateRepository(
-    holdingRepository,
-    (repository) => {
-      holdingRepository = repository;
-    },
-    () => holdingRepositoryFactory.createRepository()
-  );
+  return holdingRepositoryFactory.createRepository();
 }
 
 /**
@@ -117,13 +93,7 @@ export function createHoldingRepository(): HoldingRepository {
  * @returns TickerRepository インスタンス
  */
 export function createTickerRepository(): TickerRepository {
-  return getOrCreateRepository(
-    tickerRepository,
-    (repository) => {
-      tickerRepository = repository;
-    },
-    () => tickerRepositoryFactory.createRepository()
-  );
+  return tickerRepositoryFactory.createRepository();
 }
 
 /**
@@ -132,13 +102,7 @@ export function createTickerRepository(): TickerRepository {
  * @returns ExchangeRepository インスタンス
  */
 export function createExchangeRepository(): ExchangeRepository {
-  return getOrCreateRepository(
-    exchangeRepository,
-    (repository) => {
-      exchangeRepository = repository;
-    },
-    () => exchangeRepositoryFactory.createRepository()
-  );
+  return exchangeRepositoryFactory.createRepository();
 }
 
 /**
@@ -147,29 +111,7 @@ export function createExchangeRepository(): ExchangeRepository {
  * @returns DailySummaryRepository インスタンス
  */
 export function createDailySummaryRepository(): DailySummaryRepository {
-  return getOrCreateRepository(
-    dailySummaryRepository,
-    (repository) => {
-      dailySummaryRepository = repository;
-    },
-    () => dailySummaryRepositoryFactory.createRepository()
-  );
-}
-
-/**
- * リポジトリのシングルトン生成を共通化する。
- */
-function getOrCreateRepository<TRepository>(
-  repository: TRepository | null,
-  setRepository: (repository: TRepository) => void,
-  create: () => TRepository
-): TRepository {
-  if (repository) {
-    return repository;
-  }
-  const createdRepository = create();
-  setRepository(createdRepository);
-  return createdRepository;
+  return dailySummaryRepositoryFactory.createRepository();
 }
 
 function createDynamoDBRepository<TRepository>(
