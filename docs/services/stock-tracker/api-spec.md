@@ -144,8 +144,8 @@
 | `condition.threshold` | number | ○ | 閾値 |
 | `isActive` | boolean | ○ | 有効/無効 |
 | `lastTriggeredAt` | string | - | 最終通知日時 |
-| `notificationTitle` | string | - | カスタム通知タイトル（省略時は自動生成） |
-| `notificationBody` | string | - | カスタム通知本文（省略時は自動生成） |
+| `notificationTitle` | string | ○ | 通知タイトル |
+| `notificationBody` | string | ○ | 通知本文 |
 
 ### 3.5 チャートデータ (ChartData)
 
