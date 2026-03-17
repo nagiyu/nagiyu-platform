@@ -96,19 +96,36 @@ describe('ServiceWorkerRegistration', () => {
     });
   });
 
-  it('subscribeEndpoint 指定時に vapidPublicKeyEndpoint が未指定ならエラーを出力する', async () => {
+  it('subscribeEndpoint のみ指定時は Push 購読をスキップする', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
     render(<ServiceWorkerRegistration subscribeEndpoint="/api/push/subscribe" />);
 
     await waitFor(() => {
-      expect(errorSpy).toHaveBeenCalledWith(
-        SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES.VAPID_PUBLIC_KEY_ENDPOINT_NOT_SPECIFIED
-      );
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
     });
 
     expect(mockRegister).toHaveBeenCalledWith('/sw.js');
     expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(mockGetSubscription).not.toHaveBeenCalled();
+    expect(mockSubscribe).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it('vapidPublicKeyEndpoint のみ指定時は Push 購読をスキップする', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(<ServiceWorkerRegistration vapidPublicKeyEndpoint="/api/push/vapid-public-key" />);
+
+    await waitFor(() => {
+      expect(mockUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    expect(mockRegister).toHaveBeenCalledWith('/sw.js');
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(mockGetSubscription).not.toHaveBeenCalled();
+    expect(mockSubscribe).not.toHaveBeenCalled();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
   it('サブスクリプション未作成時は VAPID 公開鍵取得と購読作成を行う', async () => {

@@ -5,7 +5,6 @@ import { urlBase64ToUint8Array } from '@nagiyu/browser';
 
 export const SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES = {
   SERVICE_WORKER_REGISTRATION_FAILED: 'Service Workerの登録に失敗しました',
-  VAPID_PUBLIC_KEY_ENDPOINT_NOT_SPECIFIED: 'VAPID公開鍵エンドポイントが指定されていません',
   VAPID_PUBLIC_KEY_FETCH_FAILED: 'VAPID公開鍵の取得に失敗しました',
   PUSH_SUBSCRIPTION_CREATE_FAILED: 'Push通知の購読作成に失敗しました',
   PUSH_SUBSCRIPTION_REGISTER_FAILED: 'Push通知の購読情報送信に失敗しました',
@@ -30,14 +29,7 @@ export default function ServiceWorkerRegistration({
         const registration = await navigator.serviceWorker.register('/sw.js');
         registration.update();
 
-        if (!subscribeEndpoint) {
-          return;
-        }
-
-        if (!vapidPublicKeyEndpoint) {
-          console.error(
-            SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES.VAPID_PUBLIC_KEY_ENDPOINT_NOT_SPECIFIED
-          );
+        if (!subscribeEndpoint || !vapidPublicKeyEndpoint) {
           return;
         }
 
