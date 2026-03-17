@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
+import { ServiceWorkerRegistration } from '@nagiyu/ui';
 import ThemeRegistry from '@/components/ThemeRegistry';
 import UserRegistrationInitializer from '@/components/UserRegistrationInitializer';
 
