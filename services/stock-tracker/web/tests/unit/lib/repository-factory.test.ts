@@ -15,8 +15,15 @@ import {
 import * as aws from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-// DynamoDBクライアントをモック化
-jest.mock('@nagiyu/aws');
+// DynamoDBクライアントをモック化（createRepositoryFactory は実装を利用）
+jest.mock('@nagiyu/aws', () => {
+  const actual = jest.requireActual('@nagiyu/aws');
+  return {
+    ...actual,
+    getDynamoDBDocumentClient: jest.fn(),
+    getTableName: jest.fn(),
+  };
+});
 
 const mockedAws = aws as jest.Mocked<typeof aws>;
 

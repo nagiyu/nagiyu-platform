@@ -7,7 +7,12 @@
  * - シングルトンパターンでリポジトリインスタンスを管理
  */
 
-import { InMemorySingleTableStore, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import {
+  InMemorySingleTableStore,
+  createRepositoryFactory,
+  getDynamoDBDocumentClient,
+  getTableName,
+} from '@nagiyu/aws';
 import type {
   AlertRepository,
   HoldingRepository,
@@ -69,6 +74,11 @@ export function clearMemoryStore(): void {
   tickerRepository = null;
   exchangeRepository = null;
   dailySummaryRepository = null;
+  alertRepositoryFactory.resetRepository();
+  holdingRepositoryFactory.resetRepository();
+  tickerRepositoryFactory.resetRepository();
+  exchangeRepositoryFactory.resetRepository();
+  dailySummaryRepositoryFactory.resetRepository();
 }
 
 /**
@@ -77,27 +87,7 @@ export function clearMemoryStore(): void {
  * @returns AlertRepository インスタンス
  */
 export function createAlertRepository(): AlertRepository {
-  if (alertRepository) {
-    return alertRepository;
-  }
-
-  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
-
-  if (useInMemory) {
-    // InMemory実装を使用
-    const store = getOrCreateMemoryStore();
-    alertRepository = new InMemoryAlertRepository(store);
-  } else {
-    // DynamoDB実装を使用
-    try {
-      const docClient = getDynamoDBDocumentClient();
-      const tableName = getTableName();
-      alertRepository = new DynamoDBAlertRepository(docClient, tableName);
-    } catch {
-      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
-    }
-  }
-
+  alertRepository ??= alertRepositoryFactory.createRepository();
   return alertRepository;
 }
 
@@ -107,27 +97,7 @@ export function createAlertRepository(): AlertRepository {
  * @returns HoldingRepository インスタンス
  */
 export function createHoldingRepository(): HoldingRepository {
-  if (holdingRepository) {
-    return holdingRepository;
-  }
-
-  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
-
-  if (useInMemory) {
-    // InMemory実装を使用
-    const store = getOrCreateMemoryStore();
-    holdingRepository = new InMemoryHoldingRepository(store);
-  } else {
-    // DynamoDB実装を使用
-    try {
-      const docClient = getDynamoDBDocumentClient();
-      const tableName = getTableName();
-      holdingRepository = new DynamoDBHoldingRepository(docClient, tableName);
-    } catch {
-      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
-    }
-  }
-
+  holdingRepository ??= holdingRepositoryFactory.createRepository();
   return holdingRepository;
 }
 
@@ -137,27 +107,7 @@ export function createHoldingRepository(): HoldingRepository {
  * @returns TickerRepository インスタンス
  */
 export function createTickerRepository(): TickerRepository {
-  if (tickerRepository) {
-    return tickerRepository;
-  }
-
-  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
-
-  if (useInMemory) {
-    // InMemory実装を使用
-    const store = getOrCreateMemoryStore();
-    tickerRepository = new InMemoryTickerRepository(store);
-  } else {
-    // DynamoDB実装を使用
-    try {
-      const docClient = getDynamoDBDocumentClient();
-      const tableName = getTableName();
-      tickerRepository = new DynamoDBTickerRepository(docClient, tableName);
-    } catch {
-      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
-    }
-  }
-
+  tickerRepository ??= tickerRepositoryFactory.createRepository();
   return tickerRepository;
 }
 
@@ -167,27 +117,7 @@ export function createTickerRepository(): TickerRepository {
  * @returns ExchangeRepository インスタンス
  */
 export function createExchangeRepository(): ExchangeRepository {
-  if (exchangeRepository) {
-    return exchangeRepository;
-  }
-
-  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
-
-  if (useInMemory) {
-    // InMemory実装を使用
-    const store = getOrCreateMemoryStore();
-    exchangeRepository = new InMemoryExchangeRepository(store);
-  } else {
-    // DynamoDB実装を使用
-    try {
-      const docClient = getDynamoDBDocumentClient();
-      const tableName = getTableName();
-      exchangeRepository = new DynamoDBExchangeRepository(docClient, tableName);
-    } catch {
-      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
-    }
-  }
-
+  exchangeRepository ??= exchangeRepositoryFactory.createRepository();
   return exchangeRepository;
 }
 
@@ -197,24 +127,70 @@ export function createExchangeRepository(): ExchangeRepository {
  * @returns DailySummaryRepository インスタンス
  */
 export function createDailySummaryRepository(): DailySummaryRepository {
-  if (dailySummaryRepository) {
-    return dailySummaryRepository;
-  }
-
-  const useInMemory = process.env.USE_IN_MEMORY_REPOSITORY === 'true';
-
-  if (useInMemory) {
-    const store = getOrCreateMemoryStore();
-    dailySummaryRepository = new InMemoryDailySummaryRepository(store);
-  } else {
-    try {
-      const docClient = getDynamoDBDocumentClient();
-      const tableName = getTableName();
-      dailySummaryRepository = new DynamoDBDailySummaryRepository(docClient, tableName);
-    } catch {
-      throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG);
-    }
-  }
-
+  dailySummaryRepository ??= dailySummaryRepositoryFactory.createRepository();
   return dailySummaryRepository;
 }
+
+function createDynamoDBRepository<TRepository>(
+  createRepository: (
+    docClient: ReturnType<typeof getDynamoDBDocumentClient>,
+    tableName: string
+  ) => TRepository
+): TRepository {
+  try {
+    const docClient = getDynamoDBDocumentClient();
+    const tableName = getTableName();
+    return createRepository(docClient, tableName);
+  } catch (error) {
+    throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG, { cause: error });
+  }
+}
+
+const repositoryFactoryConfig = {
+  useInMemoryFlagName: 'USE_IN_MEMORY_REPOSITORY',
+} as const;
+
+const alertRepositoryFactory = createRepositoryFactory<AlertRepository>({
+  ...repositoryFactoryConfig,
+  createInMemoryRepository: () => new InMemoryAlertRepository(getOrCreateMemoryStore()),
+  createDynamoDBRepository: () =>
+    createDynamoDBRepository(
+      (docClient, tableName) => new DynamoDBAlertRepository(docClient, tableName)
+    ),
+});
+
+const holdingRepositoryFactory = createRepositoryFactory<HoldingRepository>({
+  ...repositoryFactoryConfig,
+  createInMemoryRepository: () => new InMemoryHoldingRepository(getOrCreateMemoryStore()),
+  createDynamoDBRepository: () =>
+    createDynamoDBRepository(
+      (docClient, tableName) => new DynamoDBHoldingRepository(docClient, tableName)
+    ),
+});
+
+const tickerRepositoryFactory = createRepositoryFactory<TickerRepository>({
+  ...repositoryFactoryConfig,
+  createInMemoryRepository: () => new InMemoryTickerRepository(getOrCreateMemoryStore()),
+  createDynamoDBRepository: () =>
+    createDynamoDBRepository(
+      (docClient, tableName) => new DynamoDBTickerRepository(docClient, tableName)
+    ),
+});
+
+const exchangeRepositoryFactory = createRepositoryFactory<ExchangeRepository>({
+  ...repositoryFactoryConfig,
+  createInMemoryRepository: () => new InMemoryExchangeRepository(getOrCreateMemoryStore()),
+  createDynamoDBRepository: () =>
+    createDynamoDBRepository(
+      (docClient, tableName) => new DynamoDBExchangeRepository(docClient, tableName)
+    ),
+});
+
+const dailySummaryRepositoryFactory = createRepositoryFactory<DailySummaryRepository>({
+  ...repositoryFactoryConfig,
+  createInMemoryRepository: () => new InMemoryDailySummaryRepository(getOrCreateMemoryStore()),
+  createDynamoDBRepository: () =>
+    createDynamoDBRepository(
+      (docClient, tableName) => new DynamoDBDailySummaryRepository(docClient, tableName)
+    ),
+});
