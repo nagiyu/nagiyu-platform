@@ -73,7 +73,9 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -139,7 +141,9 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
@@ -193,7 +197,9 @@ jobs:
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
-        run: npm run build --workspace @nagiyu/common
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/share-together-core
