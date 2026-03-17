@@ -415,14 +415,14 @@ type AuthSession = {
 
 ### フェーズ 3: 共通ロジック化（`@nagiyu/common` / `@nagiyu/nextjs`）
 
-- [ ] T006: `PushSubscription` 型を `@nagiyu/common/src/push/types.ts` に追加
+- [x] T006: `PushSubscription` 型を `@nagiyu/common/src/push/types.ts` に追加
     - 対象型: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `PushSubscription`
     - `@nagiyu/nextjs/src/push.ts` の `PushSubscriptionData` もこの型に統一
-- [ ] T007: stock-tracker の `Alert` エンティティを `PushSubscription` 型プロパティを持つ形に変更
+- [x] T007: stock-tracker の `Alert` エンティティを `PushSubscription` 型プロパティを持つ形に変更
     - `SubscriptionEndpoint`・`SubscriptionKeysP256dh`・`SubscriptionKeysAuth` をフラットなフィールドで持つ現状から
       `subscription: PushSubscription` プロパティを直接持つ形に変更
     - DynamoDB スキーマ変更を伴う場合は既存データのマイグレーション計画も策定する
-- [ ] T008: `@nagiyu/nextjs` に `createPushSubscribeRoute(options)` を追加
+- [x] T008: `@nagiyu/nextjs` に `createPushSubscribeRoute(options)` を追加
     - 対象: `services/niconico-mylist-assistant/web/src/app/api/push/subscribe/route.ts`・`services/stock-tracker/web/app/api/push/subscribe/route.ts`
 
 ### フェーズ 4: ThemeRegistry 削除（`layout.tsx` で ServiceLayout を直接使用）
@@ -448,5 +448,9 @@ type AuthSession = {
 2. **stock-tracker の ThemeRegistry**: `SessionProvider` と `SnackbarProvider` を含む複雑な構成のため、
    ThemeRegistry として残しつつ内部を整理する方向とする。
 
-3. **stock-tracker Alert エンティティの変更**: `SubscriptionEndpoint` 等フラットフィールドから `subscription: PushSubscription` への移行は
-   DynamoDB スキーマ変更を伴う可能性があるため、既存データのマイグレーション計画を事前に策定すること。
+3. **Alert サブスクリプションの DynamoDB マイグレーション計画（Phase 3）**:
+   - 既存データは `SubscriptionEndpoint` / `SubscriptionKeysP256dh` / `SubscriptionKeysAuth` を保持しているため、
+     段階的移行期間は mapper 側で旧形式の読み取りを許容する。
+   - 新規作成・更新は `subscription` フィールドで保存する。
+   - 旧形式データの一括変換（バックフィル）は別タスクで実施し、完了後に旧フィールド互換ロジックを削除する。
+   - バックフィルタスク作成後に、本項目へ Issue / タスクIDの参照を追記する。

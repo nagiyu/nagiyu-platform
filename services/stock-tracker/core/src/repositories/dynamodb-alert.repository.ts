@@ -268,20 +268,10 @@ export class DynamoDBAlertRepository implements AlertRepository {
         expressionAttributeNames['#conditionList'] = 'ConditionList';
         expressionAttributeValues[':conditionList'] = updates.ConditionList;
       }
-      if (updates.SubscriptionEndpoint !== undefined) {
-        updateExpressions.push('#subscriptionEndpoint = :subscriptionEndpoint');
-        expressionAttributeNames['#subscriptionEndpoint'] = 'SubscriptionEndpoint';
-        expressionAttributeValues[':subscriptionEndpoint'] = updates.SubscriptionEndpoint;
-      }
-      if (updates.SubscriptionKeysP256dh !== undefined) {
-        updateExpressions.push('#subscriptionKeysP256dh = :subscriptionKeysP256dh');
-        expressionAttributeNames['#subscriptionKeysP256dh'] = 'SubscriptionKeysP256dh';
-        expressionAttributeValues[':subscriptionKeysP256dh'] = updates.SubscriptionKeysP256dh;
-      }
-      if (updates.SubscriptionKeysAuth !== undefined) {
-        updateExpressions.push('#subscriptionKeysAuth = :subscriptionKeysAuth');
-        expressionAttributeNames['#subscriptionKeysAuth'] = 'SubscriptionKeysAuth';
-        expressionAttributeValues[':subscriptionKeysAuth'] = updates.SubscriptionKeysAuth;
+      if (updates.subscription !== undefined) {
+        updateExpressions.push('#subscription = :subscription');
+        expressionAttributeNames['#subscription'] = 'subscription';
+        expressionAttributeValues[':subscription'] = updates.subscription;
       }
       if (updates.NotificationTitle !== undefined) {
         updateExpressions.push('#notificationTitle = :notificationTitle');
