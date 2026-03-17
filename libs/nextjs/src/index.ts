@@ -54,4 +54,4 @@ export {
   validatePushSubscription,
   createSubscriptionId,
 } from './push.js';
-export type { PushSubscriptionData, CreatePushSubscribeRouteOptions } from './push.js';
+export type { CreatePushSubscribeRouteOptions } from './push.js';

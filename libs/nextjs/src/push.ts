@@ -17,17 +17,13 @@ type ErrorResponse = {
   message: string;
 };
 
-export type PushSubscriptionData = PushSubscription;
-
 /**
  * Push サブスクリプション情報を検証する。
  *
  * endpoint が有効な URL 形式であり、keys.p256dh と keys.auth が
  * 非空文字列で存在する場合に true を返す。
  */
-export function validatePushSubscription(
-  subscription: unknown
-): subscription is PushSubscriptionData {
+export function validatePushSubscription(subscription: unknown): subscription is PushSubscription {
   if (!subscription || typeof subscription !== 'object') {
     return false;
   }
