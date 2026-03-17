@@ -6,59 +6,118 @@
     次に作成するドキュメント: tasks/issue-1194-typesnode-v25/tasks.md
 -->
 
-# `@types/node` v25 対応 - 技術設計
+# Node.js v24 / `@types/node` v25 対応 - 技術設計
 
 ---
 
 ## 変更概要
 
-ルート `package.json` の `devDependencies` に定義されている `@types/node` を `^22` から `^25` へ変更する。
-モノレポ構成のため、ルート一箇所の変更がプラットフォーム全体に適用される。
+Node.js ランタイムを v22 から **v24（Active LTS）** へアップグレードし、合わせて `@types/node` を `^22` から `^25` に更新する。
+モノレポ全体にわたり、Docker・CI・DevContainer・`package.json` の全箇所を一括変更する。
 
 ---
 
-## 変更対象
+## バージョン選定
+
+### Node.js ランタイム
+
+| バージョン | LTS | サポート終了 | 推奨 |
+| --------- | --- | ---------- | ---- |
+| v22 | Active LTS | 2027年4月 | 現状 |
+| v24 | Active LTS（2025年10月〜）| 2028年4月 | **採用** |
+| v25 | なし（奇数バージョン）| - | 非推奨 |
+
+- **採用バージョン: v24**
+- Node.js v24 は 2025年10月28日に Active LTS に昇格。2028年4月まで長期サポートが保証されている
+- Node.js v25 は奇数バージョンのため LTS がなく、プロダクション環境での使用は非推奨
+
+### `@types/node`
+
+- **採用バージョン: `^25`**
+- 元の Issue #1194 の指定に基づき `^25` を採用
+- ランタイム（v24）より新しい型定義を使用するが、型エラーが発生した場合のみコード側を修正する
+- `@types/node` v25 は Node.js v25 系の型定義を提供するが、v24 ランタイムとの差分は軽微
+
+---
+
+## 変更対象一覧
+
+### 1. Dockerfile
 
 | ファイル | 変更内容 |
 | -------- | -------- |
-| `package.json`（ルート） | `"@types/node"` のバージョン指定を `^22` → `^25` に変更 |
+| `services/auth/web/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+| `services/codec-converter/batch/Dockerfile` | `FROM node:22-slim` → `node:24-slim` |
+| `services/codec-converter/web/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+| `services/stock-tracker/batch/Dockerfile` | `FROM public.ecr.aws/lambda/nodejs:22` → `nodejs:24` |
+| `services/stock-tracker/web/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+| `services/share-together/web/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+| `services/admin/web/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+| `services/niconico-mylist-assistant/web/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+| `services/tools/Dockerfile` | `FROM node:22-alpine` → `node:24-alpine` |
+
+> **注意**: `services/niconico-mylist-assistant/batch/Dockerfile` は `mcr.microsoft.com/playwright:v1.58.0-jammy` ベースであり、Node.js バージョンは Playwright イメージ側で管理されるため変更しない
+
+### 2. DevContainer Dockerfile
+
+| ファイル | 変更内容 |
+| -------- | -------- |
+| `.devcontainer/root/Dockerfile` | `mcr.microsoft.com/devcontainers/typescript-node:1-22-bullseye` → `4-24-bullseye` |
+| `.devcontainer/auth/Dockerfile` | 同上 |
+| `.devcontainer/codec-converter/Dockerfile` | 同上 |
+| `.devcontainer/stock-tracker/Dockerfile` | 同上 |
+| `.devcontainer/admin/Dockerfile` | 同上 |
+| `.devcontainer/infra/Dockerfile` | 同上 |
+| `.devcontainer/niconico-mylist-assistant/Dockerfile` | 同上 |
+| `.devcontainer/tools/Dockerfile` | 同上 |
+
+> **注意**: DevContainer イメージのメジャーバージョンが `1` → `4` に変わるため、イメージのタグ形式が変更される（`4-24-bullseye` を使用）
+
+### 3. GitHub Actions
+
+| ファイル | 変更内容 |
+| -------- | -------- |
+| `.github/actions/setup-node/action.yml` | `default: '22'` → `'24'` |
+| `.github/actions/build-web-app/action.yml` | `node-version: '22'` → `'24'` |
+| `.github/workflows/*.yml`（27ファイル） | `node-version: '22'` → `'24'`（ハードコーディング箇所を一括変更） |
+
+### 4. `package.json` engines
+
+| ファイル | 変更内容 |
+| -------- | -------- |
+| `package.json`（ルート） | `"node": ">=22.0.0"` → `">=24.0.0"` |
+| `infra/package.json` | 同上 |
+| `infra/stock-tracker/package.json` | 同上 |
+
+### 5. `@types/node` バージョン
+
+| ファイル | 変更内容 |
+| -------- | -------- |
+| `package.json`（ルート） | `"@types/node": "^22"` → `"^25"` |
 | `package-lock.json` | `npm install` により自動更新 |
-
----
-
-## 実装方針
-
-### バージョン選定
-
-- 目標バージョン: `^25`（現時点の最新: `25.5.0`）
-- `@types/node` v25 は Node.js v25 系の型定義を提供する
-- Node.js v25 は奇数バージョンのため LTS ではないが、型定義のみの参照であるためランタイムへの影響はない
-- Node.js ランタイムエンジン要件（`"node": ">=22.0.0"`）は変更しない
-
-### 型エラーへの対応方針
-
-バージョンアップ後に型エラーが発生した場合の対応優先順位:
-
-1. **型アサーションの修正**: 既存コードの型アサーションが v25 の型と不整合を起こしている場合は修正する
-2. **不要な型キャストの除去**: v25 で型推論が改善された箇所はキャストを外す
-3. **新規 API 型定義の活用**: v25 で追加された型定義を積極的に活用する
-
-### 影響範囲の評価
-
-- `@types/node` はルート `package.json` のみに定義されており、`services/`・`libs/`・`tools/`・`infra/` すべてのパッケージが対象
-- 型定義のみの変更であり、ランタイム動作への影響はない
-- CI/CD パイプラインの型チェック（`tsc --noEmit`）で検知可能
 
 ---
 
 ## 実装上の注意点
 
-### 依存関係・前提条件
+### AWS Lambda Node.js 24 への移行
 
-- ルート `package.json` の `devDependencies` を変更するのみで完結する
-- `npm install` 後に `package-lock.json` が更新されることを確認する
+- `public.ecr.aws/lambda/nodejs:24` イメージは利用可能（一般公開済み）
+- **重要**: Lambda Node.js 24 ではコールバックベースのハンドラーシグネチャがサポートされなくなった
+- 現在のすべての Lambda ハンドラー（`services/stock-tracker/batch/src/*.ts`）は `async function handler(...)` 形式で実装されているため、変更は不要
+
+### DevContainer イメージタグ形式の変更
+
+- `mcr.microsoft.com/devcontainers/typescript-node` のタグ形式が変更された
+    - 旧: `1-22-bullseye`（イメージ v1 + Node.js 22）
+    - 新: `4-24-bullseye`（イメージ v4 + Node.js 24）
+- DevContainer 再ビルドが必要
+
+### `@types/node` v25 と Node.js v24 ランタイムの差異
+
+- `@types/node@25` には Node.js v25 の型定義が含まれるが、v24 ランタイムで追加・変更された API と概ね互換性がある
+- v25 のみの API を誤って使用した場合にランタイムエラーが発生する可能性があるが、型チェックで検知できる
 
 ### セキュリティ考慮事項
 
-- 型定義パッケージへの変更のため、直接的なセキュリティリスクは低い
 - `npm audit` を実行し、新たな脆弱性が混入していないことを確認する
