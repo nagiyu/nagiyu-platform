@@ -77,6 +77,18 @@ export function createBatchJobRepository(
   return batchJobRepositoryFactory.createRepository(docClient, tableName);
 }
 
+/**
+ * Repository Factory のシングルトンインスタンスをリセットする。
+ *
+ * @remarks
+ * 主にユニットテストでテストケース間の状態を分離するために使用する。
+ */
+export function resetRepositoryFactories(): void {
+  videoRepositoryFactory.resetRepository();
+  userSettingRepositoryFactory.resetRepository();
+  batchJobRepositoryFactory.resetRepository();
+}
+
 const ERROR_MESSAGES = {
   DYNAMODB_PARAMS_REQUIRED: 'DynamoDB実装にはdocClientとtableNameが必要です',
 } as const;
@@ -95,7 +107,6 @@ const videoRepositoryFactory = createRepositoryFactory<
   VideoRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
 >({
-  singleton: false,
   createInMemoryRepository: () => new InMemoryVideoRepository(getInMemoryStore()),
   createDynamoDBRepository: (docClient, tableName) => {
     const params = requireDynamoParams(docClient, tableName);
@@ -107,7 +118,6 @@ const userSettingRepositoryFactory = createRepositoryFactory<
   UserSettingRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
 >({
-  singleton: false,
   createInMemoryRepository: () => new InMemoryUserSettingRepository(getInMemoryStore()),
   createDynamoDBRepository: (docClient, tableName) => {
     const params = requireDynamoParams(docClient, tableName);
@@ -119,7 +129,6 @@ const batchJobRepositoryFactory = createRepositoryFactory<
   BatchJobRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
 >({
-  singleton: false,
   createInMemoryRepository: () => new InMemoryBatchJobRepository(getInMemoryStore()),
   createDynamoDBRepository: (docClient, tableName) => {
     const params = requireDynamoParams(docClient, tableName);

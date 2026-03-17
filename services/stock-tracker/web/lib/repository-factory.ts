@@ -39,6 +39,9 @@ import {
 const ERROR_MESSAGES = {
   MISSING_DYNAMODB_CONFIG: 'DynamoDB設定が不正です。環境変数を確認してください。',
 } as const;
+// 既存運用との互換性維持のため、legacy フラグも受け付ける。
+// stock-tracker の実行環境設定が USE_IN_MEMORY_DB に移行完了後に削除する。
+const LEGACY_USE_IN_MEMORY_FLAG = 'USE_IN_MEMORY_REPOSITORY';
 
 // InMemorySingleTableStore のシングルトン
 let memoryStore: InMemorySingleTableStore | null = null;
@@ -49,6 +52,7 @@ let holdingRepository: HoldingRepository | null = null;
 let tickerRepository: TickerRepository | null = null;
 let exchangeRepository: ExchangeRepository | null = null;
 let dailySummaryRepository: DailySummaryRepository | null = null;
+let isInMemoryFlagSynced = false;
 
 /**
  * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
@@ -74,6 +78,7 @@ export function clearMemoryStore(): void {
   tickerRepository = null;
   exchangeRepository = null;
   dailySummaryRepository = null;
+  isInMemoryFlagSynced = false;
   alertRepositoryFactory.resetRepository();
   holdingRepositoryFactory.resetRepository();
   tickerRepositoryFactory.resetRepository();
@@ -87,8 +92,13 @@ export function clearMemoryStore(): void {
  * @returns AlertRepository インスタンス
  */
 export function createAlertRepository(): AlertRepository {
-  alertRepository ??= alertRepositoryFactory.createRepository();
-  return alertRepository;
+  return getOrCreateRepository(
+    alertRepository,
+    (repository) => {
+      alertRepository = repository;
+    },
+    () => alertRepositoryFactory.createRepository()
+  );
 }
 
 /**
@@ -97,8 +107,13 @@ export function createAlertRepository(): AlertRepository {
  * @returns HoldingRepository インスタンス
  */
 export function createHoldingRepository(): HoldingRepository {
-  holdingRepository ??= holdingRepositoryFactory.createRepository();
-  return holdingRepository;
+  return getOrCreateRepository(
+    holdingRepository,
+    (repository) => {
+      holdingRepository = repository;
+    },
+    () => holdingRepositoryFactory.createRepository()
+  );
 }
 
 /**
@@ -107,8 +122,13 @@ export function createHoldingRepository(): HoldingRepository {
  * @returns TickerRepository インスタンス
  */
 export function createTickerRepository(): TickerRepository {
-  tickerRepository ??= tickerRepositoryFactory.createRepository();
-  return tickerRepository;
+  return getOrCreateRepository(
+    tickerRepository,
+    (repository) => {
+      tickerRepository = repository;
+    },
+    () => tickerRepositoryFactory.createRepository()
+  );
 }
 
 /**
@@ -117,8 +137,13 @@ export function createTickerRepository(): TickerRepository {
  * @returns ExchangeRepository インスタンス
  */
 export function createExchangeRepository(): ExchangeRepository {
-  exchangeRepository ??= exchangeRepositoryFactory.createRepository();
-  return exchangeRepository;
+  return getOrCreateRepository(
+    exchangeRepository,
+    (repository) => {
+      exchangeRepository = repository;
+    },
+    () => exchangeRepositoryFactory.createRepository()
+  );
 }
 
 /**
@@ -127,8 +152,53 @@ export function createExchangeRepository(): ExchangeRepository {
  * @returns DailySummaryRepository インスタンス
  */
 export function createDailySummaryRepository(): DailySummaryRepository {
-  dailySummaryRepository ??= dailySummaryRepositoryFactory.createRepository();
-  return dailySummaryRepository;
+  return getOrCreateRepository(
+    dailySummaryRepository,
+    (repository) => {
+      dailySummaryRepository = repository;
+    },
+    () => dailySummaryRepositoryFactory.createRepository()
+  );
+}
+
+/**
+ * リポジトリのシングルトン生成を共通化する。
+ *
+ * @remarks
+ * 最初のリポジトリ生成時のみ legacy フラグ同期を行い、
+ * 2回目以降は既存インスタンスを返す。
+ */
+function getOrCreateRepository<TRepository>(
+  repository: TRepository | null,
+  setRepository: (repository: TRepository) => void,
+  create: () => TRepository
+): TRepository {
+  if (repository) {
+    return repository;
+  }
+  syncUseInMemoryFlag();
+  const createdRepository = create();
+  setRepository(createdRepository);
+  return createdRepository;
+}
+
+/**
+ * 旧環境変数 `USE_IN_MEMORY_REPOSITORY` を新環境変数 `USE_IN_MEMORY_DB` に同期する。
+ *
+ * @remarks
+ * 同期処理は初回のみ実行し、既に `USE_IN_MEMORY_DB` が設定済みの場合は上書きしない。
+ */
+function syncUseInMemoryFlag(): void {
+  if (isInMemoryFlagSynced) {
+    return;
+  }
+  isInMemoryFlagSynced = true;
+  if (process.env.USE_IN_MEMORY_DB !== undefined) {
+    return;
+  }
+  if (process.env[LEGACY_USE_IN_MEMORY_FLAG] !== undefined) {
+    process.env.USE_IN_MEMORY_DB = process.env[LEGACY_USE_IN_MEMORY_FLAG];
+  }
 }
 
 function createDynamoDBRepository<TRepository>(
@@ -146,12 +216,7 @@ function createDynamoDBRepository<TRepository>(
   }
 }
 
-const repositoryFactoryConfig = {
-  useInMemoryFlagName: 'USE_IN_MEMORY_REPOSITORY',
-} as const;
-
 const alertRepositoryFactory = createRepositoryFactory<AlertRepository>({
-  ...repositoryFactoryConfig,
   createInMemoryRepository: () => new InMemoryAlertRepository(getOrCreateMemoryStore()),
   createDynamoDBRepository: () =>
     createDynamoDBRepository(
@@ -160,7 +225,6 @@ const alertRepositoryFactory = createRepositoryFactory<AlertRepository>({
 });
 
 const holdingRepositoryFactory = createRepositoryFactory<HoldingRepository>({
-  ...repositoryFactoryConfig,
   createInMemoryRepository: () => new InMemoryHoldingRepository(getOrCreateMemoryStore()),
   createDynamoDBRepository: () =>
     createDynamoDBRepository(
@@ -169,7 +233,6 @@ const holdingRepositoryFactory = createRepositoryFactory<HoldingRepository>({
 });
 
 const tickerRepositoryFactory = createRepositoryFactory<TickerRepository>({
-  ...repositoryFactoryConfig,
   createInMemoryRepository: () => new InMemoryTickerRepository(getOrCreateMemoryStore()),
   createDynamoDBRepository: () =>
     createDynamoDBRepository(
@@ -178,7 +241,6 @@ const tickerRepositoryFactory = createRepositoryFactory<TickerRepository>({
 });
 
 const exchangeRepositoryFactory = createRepositoryFactory<ExchangeRepository>({
-  ...repositoryFactoryConfig,
   createInMemoryRepository: () => new InMemoryExchangeRepository(getOrCreateMemoryStore()),
   createDynamoDBRepository: () =>
     createDynamoDBRepository(
@@ -187,7 +249,6 @@ const exchangeRepositoryFactory = createRepositoryFactory<ExchangeRepository>({
 });
 
 const dailySummaryRepositoryFactory = createRepositoryFactory<DailySummaryRepository>({
-  ...repositoryFactoryConfig,
   createInMemoryRepository: () => new InMemoryDailySummaryRepository(getOrCreateMemoryStore()),
   createDynamoDBRepository: () =>
     createDynamoDBRepository(
