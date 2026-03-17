@@ -600,6 +600,8 @@ describe('validateAlert', () => {
     SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/...',
     SubscriptionKeysP256dh: 'BM...',
     SubscriptionKeysAuth: 'Abc...',
+    NotificationTitle: '買いアラート: NSDQ:AAPL',
+    NotificationBody: '現在価格が条件に一致しました',
     CreatedAt: Date.now(),
     UpdatedAt: Date.now(),
   };
@@ -809,6 +811,20 @@ describe('validateAlert', () => {
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Web Push認証シークレットは必須です');
+    });
+
+    it('NotificationTitleが空文字の場合はバリデーションに失敗する', () => {
+      const alert: Alert = { ...validAlert, NotificationTitle: '' };
+      const result = validateAlert(alert);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('通知タイトルは必須です');
+    });
+
+    it('NotificationBodyが空文字の場合はバリデーションに失敗する', () => {
+      const alert: Alert = { ...validAlert, NotificationBody: '' };
+      const result = validateAlert(alert);
+      expect(result.valid).toBe(false);
+      expect(result.errors).toContain('通知本文は必須です');
     });
   });
 
