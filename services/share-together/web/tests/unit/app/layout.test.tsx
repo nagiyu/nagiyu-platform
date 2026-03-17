@@ -6,12 +6,8 @@ import RootLayout, { metadata } from '@/app/layout';
 jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
   ...jest.requireActual('@nagiyu/ui'),
+  ServiceLayout: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ServiceWorkerRegistration: () => <div>ServiceWorkerRegistration</div>,
-}));
-
-jest.mock('@/components/ThemeRegistry', () => ({
-  __esModule: true,
-  default: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
 jest.mock('@/components/UserRegistrationInitializer', () => ({
