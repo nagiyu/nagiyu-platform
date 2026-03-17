@@ -406,7 +406,7 @@ type AuthSession = {
 
 ### フェーズ 2: 共通コンポーネント化（`@nagiyu/ui`）
 
-- [ ] T005: `ServiceWorkerRegistration` コンポーネントを `libs/ui/src/components/ServiceWorkerRegistration.tsx` に共通化
+- [x] T005: `ServiceWorkerRegistration` コンポーネントを `libs/ui/src/components/ServiceWorkerRegistration.tsx` に共通化
     - `subscribeEndpoint?: string` をプロパティで受け取る設計
     - プロパティあり → VAPID 取得 + サブスクリプション登録 + サーバー送信まで実行
     - プロパティなし → Service Worker 登録のみ（share-together 現行相当）
