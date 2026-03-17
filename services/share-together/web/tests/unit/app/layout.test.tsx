@@ -3,9 +3,10 @@ import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import RootLayout, { metadata } from '@/app/layout';
 
-jest.mock('@/components/ServiceWorkerRegistration', () => ({
+jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
-  default: () => <div>ServiceWorkerRegistration</div>,
+  ...jest.requireActual('@nagiyu/ui'),
+  ServiceWorkerRegistration: () => <div>ServiceWorkerRegistration</div>,
 }));
 
 jest.mock('@/components/ThemeRegistry', () => ({

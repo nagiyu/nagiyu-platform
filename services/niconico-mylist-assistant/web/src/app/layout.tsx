@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { ServiceWorkerRegistration } from '@nagiyu/ui';
 import ThemeRegistry from '@/components/ThemeRegistry';
-import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -22,7 +22,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ServiceWorkerRegistration />
+        <ServiceWorkerRegistration
+          subscribeEndpoint="/api/push/subscribe"
+          vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+        />
         <ThemeRegistry version={version}>{children}</ThemeRegistry>
       </body>
     </html>

@@ -77,7 +77,12 @@ describe('ServiceWorkerRegistration', () => {
     mockGetSubscription.mockResolvedValue(existingSubscription);
     (globalThis.fetch as jest.Mock).mockResolvedValue({ ok: true });
 
-    render(<ServiceWorkerRegistration subscribeEndpoint="/api/push/subscribe" />);
+    render(
+      <ServiceWorkerRegistration
+        subscribeEndpoint="/api/push/subscribe"
+        vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+      />
+    );
 
     await waitFor(() => {
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/push/subscribe', {
@@ -104,7 +109,12 @@ describe('ServiceWorkerRegistration', () => {
       })
       .mockResolvedValueOnce({ ok: true });
 
-    render(<ServiceWorkerRegistration subscribeEndpoint="/api/push/refresh" />);
+    render(
+      <ServiceWorkerRegistration
+        subscribeEndpoint="/api/push/refresh"
+        vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+      />
+    );
 
     await waitFor(() => {
       expect(urlBase64ToUint8Array).toHaveBeenCalledWith('test-public-key');
@@ -112,6 +122,7 @@ describe('ServiceWorkerRegistration', () => {
         userVisibleOnly: true,
         applicationServerKey: new Uint8Array([1, 2, 3]),
       });
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(1, '/api/push/vapid-public-key');
       expect(globalThis.fetch).toHaveBeenNthCalledWith(2, '/api/push/refresh', expect.any(Object));
     });
   });
@@ -122,7 +133,12 @@ describe('ServiceWorkerRegistration', () => {
     mockGetSubscription.mockResolvedValue(null);
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 
-    render(<ServiceWorkerRegistration subscribeEndpoint="/api/push/subscribe" />);
+    render(
+      <ServiceWorkerRegistration
+        subscribeEndpoint="/api/push/subscribe"
+        vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+      />
+    );
 
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalledWith(
@@ -144,7 +160,12 @@ describe('ServiceWorkerRegistration', () => {
       json: async () => ({ publicKey: 'test-public-key' }),
     });
 
-    render(<ServiceWorkerRegistration subscribeEndpoint="/api/push/subscribe" />);
+    render(
+      <ServiceWorkerRegistration
+        subscribeEndpoint="/api/push/subscribe"
+        vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+      />
+    );
 
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalledWith(
@@ -163,7 +184,12 @@ describe('ServiceWorkerRegistration', () => {
     mockGetSubscription.mockResolvedValue(existingSubscription);
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
 
-    render(<ServiceWorkerRegistration subscribeEndpoint="/api/push/subscribe" />);
+    render(
+      <ServiceWorkerRegistration
+        subscribeEndpoint="/api/push/subscribe"
+        vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+      />
+    );
 
     await waitFor(() => {
       expect(errorSpy).toHaveBeenCalledWith(

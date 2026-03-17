@@ -3,8 +3,6 @@
 import { useEffect } from 'react';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
 
-const VAPID_PUBLIC_KEY_ENDPOINT = '/api/push/vapid-public-key';
-
 export const SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES = {
   SERVICE_WORKER_REGISTRATION_FAILED: 'Service Workerの登録に失敗しました',
   VAPID_PUBLIC_KEY_FETCH_FAILED: 'VAPID公開鍵の取得に失敗しました',
@@ -12,12 +10,19 @@ export const SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES = {
   PUSH_SUBSCRIPTION_REGISTER_FAILED: 'Push通知の購読情報送信に失敗しました',
 } as const;
 
-export interface ServiceWorkerRegistrationProps {
-  subscribeEndpoint?: string;
-}
+export type ServiceWorkerRegistrationProps =
+  | {
+      subscribeEndpoint?: undefined;
+      vapidPublicKeyEndpoint?: undefined;
+    }
+  | {
+      subscribeEndpoint: string;
+      vapidPublicKeyEndpoint: string;
+    };
 
 export default function ServiceWorkerRegistration({
   subscribeEndpoint,
+  vapidPublicKeyEndpoint,
 }: ServiceWorkerRegistrationProps) {
   useEffect(() => {
     if (!('serviceWorker' in navigator)) {
@@ -43,7 +48,7 @@ export default function ServiceWorkerRegistration({
 
         if (!subscription) {
           try {
-            const vapidResponse = await fetch(VAPID_PUBLIC_KEY_ENDPOINT);
+            const vapidResponse = await fetch(vapidPublicKeyEndpoint);
             if (!vapidResponse.ok) {
               console.error(
                 SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES.VAPID_PUBLIC_KEY_FETCH_FAILED
@@ -96,7 +101,7 @@ export default function ServiceWorkerRegistration({
     };
 
     void initServiceWorker();
-  }, [subscribeEndpoint]);
+  }, [subscribeEndpoint, vapidPublicKeyEndpoint]);
 
   return null;
 }
