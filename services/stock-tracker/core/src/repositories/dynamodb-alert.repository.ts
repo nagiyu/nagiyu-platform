@@ -283,6 +283,16 @@ export class DynamoDBAlertRepository implements AlertRepository {
         expressionAttributeNames['#subscriptionKeysAuth'] = 'SubscriptionKeysAuth';
         expressionAttributeValues[':subscriptionKeysAuth'] = updates.SubscriptionKeysAuth;
       }
+      if (updates.NotificationTitle !== undefined) {
+        updateExpressions.push('#notificationTitle = :notificationTitle');
+        expressionAttributeNames['#notificationTitle'] = 'NotificationTitle';
+        expressionAttributeValues[':notificationTitle'] = updates.NotificationTitle;
+      }
+      if (updates.NotificationBody !== undefined) {
+        updateExpressions.push('#notificationBody = :notificationBody');
+        expressionAttributeNames['#notificationBody'] = 'NotificationBody';
+        expressionAttributeValues[':notificationBody'] = updates.NotificationBody;
+      }
 
       // UpdatedAt を常に更新
       updateExpressions.push('#updatedAt = :updatedAt');
