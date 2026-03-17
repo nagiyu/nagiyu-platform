@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { urlBase64ToUint8Array } from '@/lib/utils/push';
+import { urlBase64ToUint8Array } from '@nagiyu/browser';
 
 /**
  * Service Worker を登録し、Push 通知サブスクリプションを管理するコンポーネント

@@ -8,7 +8,7 @@ import type { ApiErrorResponse, GroupResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
+import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 
 const CORE_ERROR_MESSAGES = {
   GROUP_NOT_FOUND: 'グループが見つかりません',
