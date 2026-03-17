@@ -2,7 +2,7 @@
  * Repository Factory
  *
  * 環境変数に基づいてリポジトリインスタンスを生成するファクトリー関数群
- * - USE_IN_MEMORY_REPOSITORY=true の場合はインメモリ実装を返す
+ * - USE_IN_MEMORY_DB=true の場合はインメモリ実装を返す
  * - それ以外の場合は DynamoDB 実装を返す
  * - シングルトンパターンでリポジトリインスタンスを管理
  */
@@ -39,9 +39,6 @@ import {
 const ERROR_MESSAGES = {
   MISSING_DYNAMODB_CONFIG: 'DynamoDB設定が不正です。環境変数を確認してください。',
 } as const;
-// 既存運用との互換性維持のため、legacy フラグも受け付ける。
-// stock-tracker の実行環境設定が USE_IN_MEMORY_DB に移行完了後に削除する。
-const LEGACY_USE_IN_MEMORY_FLAG = 'USE_IN_MEMORY_REPOSITORY';
 
 // InMemorySingleTableStore のシングルトン
 let memoryStore: InMemorySingleTableStore | null = null;
@@ -52,7 +49,6 @@ let holdingRepository: HoldingRepository | null = null;
 let tickerRepository: TickerRepository | null = null;
 let exchangeRepository: ExchangeRepository | null = null;
 let dailySummaryRepository: DailySummaryRepository | null = null;
-let isInMemoryFlagSynced = false;
 
 /**
  * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
@@ -78,7 +74,6 @@ export function clearMemoryStore(): void {
   tickerRepository = null;
   exchangeRepository = null;
   dailySummaryRepository = null;
-  isInMemoryFlagSynced = false;
   alertRepositoryFactory.resetRepository();
   holdingRepositoryFactory.resetRepository();
   tickerRepositoryFactory.resetRepository();
@@ -163,10 +158,6 @@ export function createDailySummaryRepository(): DailySummaryRepository {
 
 /**
  * リポジトリのシングルトン生成を共通化する。
- *
- * @remarks
- * 最初のリポジトリ生成時のみ legacy フラグ同期を行い、
- * 2回目以降は既存インスタンスを返す。
  */
 function getOrCreateRepository<TRepository>(
   repository: TRepository | null,
@@ -176,29 +167,9 @@ function getOrCreateRepository<TRepository>(
   if (repository) {
     return repository;
   }
-  syncUseInMemoryFlag();
   const createdRepository = create();
   setRepository(createdRepository);
   return createdRepository;
-}
-
-/**
- * 旧環境変数 `USE_IN_MEMORY_REPOSITORY` を新環境変数 `USE_IN_MEMORY_DB` に同期する。
- *
- * @remarks
- * 同期処理は初回のみ実行し、既に `USE_IN_MEMORY_DB` が設定済みの場合は上書きしない。
- */
-function syncUseInMemoryFlag(): void {
-  if (isInMemoryFlagSynced) {
-    return;
-  }
-  isInMemoryFlagSynced = true;
-  if (process.env.USE_IN_MEMORY_DB !== undefined) {
-    return;
-  }
-  if (process.env[LEGACY_USE_IN_MEMORY_FLAG] !== undefined) {
-    process.env.USE_IN_MEMORY_DB = process.env[LEGACY_USE_IN_MEMORY_FLAG];
-  }
 }
 
 function createDynamoDBRepository<TRepository>(

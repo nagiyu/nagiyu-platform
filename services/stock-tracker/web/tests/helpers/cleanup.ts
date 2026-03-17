@@ -36,7 +36,7 @@ import { clearMemoryStore } from '../../lib/repository-factory';
  *
  * @remarks
  * - この関数は環境変数に関係なく常に実行されます
- * - `USE_IN_MEMORY_REPOSITORY=true` の場合: インメモリストアとリポジトリのシングルトンインスタンスがリセットされます
+ * - `USE_IN_MEMORY_DB=true` の場合: インメモリストアとリポジトリのシングルトンインスタンスがリセットされます
  * - DynamoDB モードの場合: リポジトリのシングルトンインスタンスのみがリセットされます
  * - **E2Eテストでは使用しないでください**: TestDataFactory.cleanup() を使用してください
  *
