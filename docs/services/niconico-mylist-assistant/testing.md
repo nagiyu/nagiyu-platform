@@ -103,3 +103,4 @@ npm run test:e2e
 - **core パッケージ**: 80% 以上（必須）
 - **web パッケージ**: API Routes を重点的にカバー
 - **batch パッケージ**: 統合テストで主要フローをカバー
+    - 実サイトに対する Playwright 統合テストを主軸としているため、Unit Test を前提とした `coverageThreshold` は設定しない
