@@ -16,8 +16,7 @@
 | 対象 | 変更内容 |
 | ---- | -------- |
 | `.github/workflows/templates/weekly-review-body.md` | リンクチェッカースクリプトの修正 |
-| `services/niconico-mylist-assistant/batch/jest.config.ts` | `coverageThreshold` の追加（方針Aの場合） |
-| `docs/development/testing.md` | batch 例外の明記（方針Bの場合） |
+| `docs/services/niconico-mylist-assistant/testing.md` | `coverageThreshold` 未設定の理由を追記 |
 
 ---
 
@@ -49,32 +48,15 @@
 
 ---
 
-## `niconico-mylist-assistant/batch` の coverageThreshold 設計
+## `niconico-mylist-assistant/batch` の coverageThreshold ドキュメント設計
 
-### 採用方針
+### 現状と対応方針
 
-**方針A（推奨）**: `coverageThreshold` を80%に設定する。
+`niconico-mylist-assistant/batch` は実際のニコニコ動画サイトへ Playwright でアクセスする統合テスト専用パッケージのため、`jest.config.ts` に `coverageThreshold` を設定しない設計が意図的に取られている。
 
-- **理由**: 他の batch パッケージ（codec-converter、stock-tracker）と統一し、標準パターンに従う
-- `niconico-mylist-assistant/batch` にも unit test が存在するため、カバレッジチェックは有効
-- コメントにある「integration tests で検証する」は unit test との補完関係であり、coverageThreshold 省略の正当な理由にはならない
+`docs/services/niconico-mylist-assistant/testing.md` のセクション5「カバレッジ目標」に、batch パッケージの `coverageThreshold` が設定されていない理由を追記する。
 
-### jest.config.ts への追加内容
-
-他の batch パッケージと同様の設定を追加する:
-
-```typescript
-coverageThreshold: {
-    global: {
-        branches: 80,
-        functions: 80,
-        lines: 80,
-        statements: 80,
-    },
-},
-```
-
-また、不正確なコメントを削除または修正する。
+プラットフォーム汎用ドキュメント（`docs/development/testing.md`）には個別サービスの事情は記載しない。
 
 ---
 
@@ -83,7 +65,7 @@ coverageThreshold: {
 ### 依存関係・前提条件
 
 - リンクチェッカースクリプトの修正は `.github/` 配下のテンプレートファイルへの変更であり、CI/CDの再実行により次回の週次レビューから反映される
-- `niconico-mylist-assistant/batch` の `coverageThreshold` 追加後、`npm run test:coverage` を実行してカバレッジが80%以上であることを確認する
+- `docs/services/niconico-mylist-assistant/testing.md` の追記のみで `jest.config.ts` のコードは変更しない
 
 ### セキュリティ考慮事項
 
@@ -95,7 +77,6 @@ coverageThreshold: {
 
 <!-- 開発完了後にここを確認し、docs/ を更新してからこのディレクトリを削除する -->
 
-- [ ] `docs/development/testing.md` に統合すること（方針Bを採用した場合のみ）：
-      batch パッケージの coverageThreshold 設定方針と例外条件を追記
-- [ ] `docs/services/niconico-mylist-assistant/testing.md` を確認すること：
-      coverageThreshold に関する記述があれば更新
+- [ ] `docs/development/testing.md` には追記不要（個別サービスの事情はサービス側ドキュメントに記載する）
+- [ ] `docs/services/niconico-mylist-assistant/testing.md` のセクション5を確認・更新すること：
+      batch パッケージの `coverageThreshold` が設定されていない理由（Playwright 統合テストで実サイトをテストするため Unit Test が困難）を明記

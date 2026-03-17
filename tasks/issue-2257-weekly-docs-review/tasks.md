@@ -30,12 +30,11 @@
 - [ ] T010: `.github/workflows/templates/weekly-review-body.md` のリンクチェックスクリプトを、ファイルごとの相対パスを正しく解決するロジックに修正する（依存: なし）
 - [ ] T011: 修正後のスクリプトをローカルで実行し、誤検知が出ないことを確認する（依存: T010）
 
-## Phase 3: `niconico-mylist-assistant/batch` の `coverageThreshold` 対応
+## Phase 3: `niconico-mylist-assistant/batch` の `coverageThreshold` ドキュメント追記
 
-<!-- 他の batch パッケージと統一する -->
+<!-- jest.config.ts に coverageThreshold が設定されていない理由をサービスドキュメントに明記する -->
 
-- [ ] T012: `services/niconico-mylist-assistant/batch/jest.config.ts` に `coverageThreshold`（80%）を追加し、不正確なコメントを削除する（依存: なし）
-- [ ] T013: `npm run test:coverage --workspace=@nagiyu/niconico-mylist-assistant-batch` を実行し、カバレッジが80%以上であることを確認する（依存: T012）
+- [ ] T012: `docs/services/niconico-mylist-assistant/testing.md` のセクション5「カバレッジ目標」に、batch パッケージの `coverageThreshold` が設定されていない理由（実際のニコニコ動画サイトへの Playwright 統合テストのため Unit Test が困難）を追記する（依存: なし）
 
 ## Phase 4: 不整合の修正
 
@@ -49,7 +48,7 @@
 
 - [ ] `requirements.md` の受け入れ条件をすべて満たしている
 - [ ] リンクチェッカーを修正後に実行し、誤検知がゼロであることを確認した
-- [ ] `niconico-mylist-assistant/batch` の `coverageThreshold` が設定済みで、テストが通過している
+- [ ] `docs/services/niconico-mylist-assistant/testing.md` に `coverageThreshold` 未設定の理由が明記されている
 - [ ] Priority 1-4 のチェック結果を Issue #2257 にコメントで記録した
 - [ ] Lint・型チェックがすべて通過している
 - [ ] `design.md` の「docs/ への移行メモ」を処理した
