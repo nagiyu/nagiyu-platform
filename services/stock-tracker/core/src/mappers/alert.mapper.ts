@@ -14,6 +14,7 @@ import {
 } from '@nagiyu/aws';
 import type { EntityMapper } from '@nagiyu/aws';
 import type { AlertEntity, AlertKey } from '../entities/alert.entity.js';
+import type { PushSubscription } from '@nagiyu/common';
 
 /**
  * Alert Mapper
@@ -51,9 +52,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       Frequency: entity.Frequency,
       Enabled: entity.Enabled,
       ConditionList: entity.ConditionList,
-      SubscriptionEndpoint: entity.SubscriptionEndpoint,
-      SubscriptionKeysP256dh: entity.SubscriptionKeysP256dh,
-      SubscriptionKeysAuth: entity.SubscriptionKeysAuth,
+      subscription: entity.subscription,
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -97,12 +96,7 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       ] as const),
       Enabled: validateBooleanField(item.Enabled, 'Enabled'),
       ConditionList: this.validateConditionList(item.ConditionList),
-      SubscriptionEndpoint: validateStringField(item.SubscriptionEndpoint, 'SubscriptionEndpoint'),
-      SubscriptionKeysP256dh: validateStringField(
-        item.SubscriptionKeysP256dh,
-        'SubscriptionKeysP256dh'
-      ),
-      SubscriptionKeysAuth: validateStringField(item.SubscriptionKeysAuth, 'SubscriptionKeysAuth'),
+      subscription: this.validateSubscription(item),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
@@ -150,5 +144,27 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
       );
     }
     return value;
+  }
+
+  private validateSubscription(item: DynamoDBItem): PushSubscription {
+    const subscription = item.subscription as Record<string, unknown> | undefined;
+    if (subscription && typeof subscription === 'object') {
+      const keys = subscription.keys as Record<string, unknown> | undefined;
+      return {
+        endpoint: validateStringField(subscription.endpoint, 'subscription.endpoint'),
+        keys: {
+          p256dh: validateStringField(keys?.p256dh, 'subscription.keys.p256dh'),
+          auth: validateStringField(keys?.auth, 'subscription.keys.auth'),
+        },
+      };
+    }
+
+    return {
+      endpoint: validateStringField(item.SubscriptionEndpoint, 'SubscriptionEndpoint'),
+      keys: {
+        p256dh: validateStringField(item.SubscriptionKeysP256dh, 'SubscriptionKeysP256dh'),
+        auth: validateStringField(item.SubscriptionKeysAuth, 'SubscriptionKeysAuth'),
+      },
+    };
   }
 }

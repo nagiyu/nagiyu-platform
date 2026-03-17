@@ -597,9 +597,13 @@ describe('validateAlert', () => {
         value: 200.0,
       },
     ],
-    SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/...',
-    SubscriptionKeysP256dh: 'BM...',
-    SubscriptionKeysAuth: 'Abc...',
+    subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/...',
+          keys: {
+            p256dh: 'BM...',
+            auth: 'Abc...',
+          },
+        },
     NotificationTitle: '買いアラート: NSDQ:AAPL',
     NotificationBody: '現在価格が条件に一致しました',
     CreatedAt: Date.now(),
@@ -792,22 +796,37 @@ describe('validateAlert', () => {
       expect(result.errors).toContain('条件値は0.01〜1,000,000の範囲で入力してください');
     });
 
-    it('SubscriptionEndpointが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, SubscriptionEndpoint: '' };
+    it('subscription.endpointが空文字の場合はバリデーションに失敗する', () => {
+      const alert: Alert = {
+        ...validAlert,
+        subscription: { ...validAlert.subscription, endpoint: '' },
+      };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Web Pushサブスクリプションエンドポイントは必須です');
     });
 
-    it('SubscriptionKeysP256dhが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, SubscriptionKeysP256dh: '' };
+    it('subscription.keys.p256dhが空文字の場合はバリデーションに失敗する', () => {
+      const alert: Alert = {
+        ...validAlert,
+        subscription: {
+          ...validAlert.subscription,
+          keys: { ...validAlert.subscription.keys, p256dh: '' },
+        },
+      };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Web Push公開鍵は必須です');
     });
 
-    it('SubscriptionKeysAuthが空文字の場合はバリデーションに失敗する', () => {
-      const alert: Alert = { ...validAlert, SubscriptionKeysAuth: '' };
+    it('subscription.keys.authが空文字の場合はバリデーションに失敗する', () => {
+      const alert: Alert = {
+        ...validAlert,
+        subscription: {
+          ...validAlert.subscription,
+          keys: { ...validAlert.subscription.keys, auth: '' },
+        },
+      };
       const result = validateAlert(alert);
       expect(result.valid).toBe(false);
       expect(result.errors).toContain('Web Push認証シークレットは必須です');

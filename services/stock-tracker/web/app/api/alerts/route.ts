@@ -262,9 +262,13 @@ export const POST = withAuth(
         TemporaryExpireDate: undefined,
         NotificationTitle: body.notificationTitle.trim(),
         NotificationBody: body.notificationBody.trim(),
-        SubscriptionEndpoint: subscription.endpoint,
-        SubscriptionKeysP256dh: subscription.keys.p256dh,
-        SubscriptionKeysAuth: subscription.keys.auth,
+        subscription: {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
+          },
+        },
         // AlertID は UUID v4 でリポジトリが自動生成
         AlertID: VALIDATION_PLACEHOLDER_UUID,
         CreatedAt: Date.now(),

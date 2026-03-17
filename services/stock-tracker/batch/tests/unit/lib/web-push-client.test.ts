@@ -33,9 +33,13 @@ describe('web-push-client', () => {
       Frequency: 'MINUTE_LEVEL',
       Enabled: true,
       ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-      SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-      SubscriptionKeysP256dh: 'test-p256dh',
-      SubscriptionKeysAuth: 'test-auth',
+      subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     };

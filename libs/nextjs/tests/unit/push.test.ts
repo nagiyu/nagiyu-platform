@@ -1,6 +1,8 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import type { NextRequest } from 'next/server';
 import {
   createVapidPublicKeyRoute,
+  createPushSubscribeRoute,
   validatePushSubscription,
   createSubscriptionId,
 } from '../../src/push';
@@ -96,5 +98,67 @@ describe('createSubscriptionId', () => {
     const subscriptionId2 = await createSubscriptionId(endpoint);
 
     expect(subscriptionId1).toBe(subscriptionId2);
+  });
+});
+
+describe('createPushSubscribeRoute', () => {
+  const createRequest = (body: unknown) =>
+    new Request('http://localhost/api/push/subscribe', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  const validSubscription = {
+    endpoint: 'https://example.com/push-endpoint',
+    keys: {
+      p256dh: 'test-p256dh-key',
+      auth: 'test-auth-key',
+    },
+  };
+
+  beforeEach(() => {
+    process.env.VAPID_PUBLIC_KEY = 'test-vapid-public-key';
+    process.env.VAPID_PRIVATE_KEY = 'test-vapid-private-key';
+  });
+
+  afterEach(() => {
+    delete process.env.VAPID_PUBLIC_KEY;
+    delete process.env.VAPID_PRIVATE_KEY;
+  });
+
+  it('未認証時は401を返す', async () => {
+    const POST = createPushSubscribeRoute({
+      getSession: async () => null,
+    });
+
+    const response = await POST(
+      createRequest({ subscription: validSubscription }) as unknown as NextRequest
+    );
+
+    expect(response.status).toBe(401);
+  });
+
+  it('有効なリクエスト時は201とsubscriptionIdを返す', async () => {
+    const POST = createPushSubscribeRoute({
+      getSession: async () =>
+        ({
+          user: {
+            userId: 'user-1',
+            email: 'test@example.com',
+            roles: ['stock-user'],
+          },
+        }) as never,
+      requiredPermission: 'stocks:write-own',
+    });
+
+    const response = await POST(
+      createRequest({ subscription: validSubscription }) as unknown as NextRequest
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.success).toBe(true);
+    expect(body.subscriptionId).toMatch(/^sub_[a-f0-9]{32}$/);
   });
 });

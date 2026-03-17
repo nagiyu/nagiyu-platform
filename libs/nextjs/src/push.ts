@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import type { Permission, PushSubscription } from '@nagiyu/common';
+import { getAuthError } from './auth.js';
+import type { AuthFunction } from './auth.js';
 
 const ERROR_MESSAGES = {
   MISSING_VAPID_KEY: 'VAPID公開鍵が設定されていません',
@@ -13,13 +17,7 @@ type ErrorResponse = {
   message: string;
 };
 
-export interface PushSubscriptionData {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-}
+export type PushSubscriptionData = PushSubscription;
 
 /**
  * Push サブスクリプション情報を検証する。
@@ -110,6 +108,114 @@ export function createVapidPublicKeyRoute() {
         {
           error: 'INTERNAL_ERROR',
           message: ERROR_MESSAGES.MISSING_VAPID_KEY,
+        },
+        { status: 500 }
+      );
+    }
+  };
+}
+
+const SUBSCRIBE_ERROR_MESSAGES = {
+  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  MISSING_SUBSCRIPTION: 'サブスクリプション情報が必要です',
+  INVALID_SUBSCRIPTION: 'サブスクリプション情報が不正です',
+  MISSING_VAPID_KEYS: 'VAPID キーが設定されていません',
+  INTERNAL_ERROR: 'サブスクリプションの登録に失敗しました',
+} as const;
+
+type SubscribeResponse = {
+  success: true;
+  subscriptionId: string;
+};
+
+type SubscribeErrorResponse = {
+  error: string;
+  message: string;
+};
+
+export interface CreatePushSubscribeRouteOptions {
+  getSession: AuthFunction;
+  requiredPermission?: Permission;
+}
+
+export function createPushSubscribeRoute(options: CreatePushSubscribeRouteOptions) {
+  return async function POST(
+    request: NextRequest
+  ): Promise<NextResponse<SubscribeResponse | SubscribeErrorResponse>> {
+    try {
+      const session = await options.getSession();
+      const authError = getAuthError(session, options.requiredPermission ?? null);
+
+      if (authError) {
+        return NextResponse.json(
+          {
+            error: authError.statusCode === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+            message: authError.message,
+          },
+          { status: authError.statusCode }
+        );
+      }
+
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: SUBSCRIBE_ERROR_MESSAGES.INVALID_REQUEST_BODY,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!body || typeof body !== 'object' || !('subscription' in body)) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: SUBSCRIBE_ERROR_MESSAGES.MISSING_SUBSCRIPTION,
+          },
+          { status: 400 }
+        );
+      }
+
+      const { subscription } = body as { subscription: unknown };
+      if (!validatePushSubscription(subscription)) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: SUBSCRIBE_ERROR_MESSAGES.INVALID_SUBSCRIPTION,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
+        console.error('VAPID keys are not configured');
+        return NextResponse.json(
+          {
+            error: 'INTERNAL_ERROR',
+            message: SUBSCRIBE_ERROR_MESSAGES.MISSING_VAPID_KEYS,
+          },
+          { status: 500 }
+        );
+      }
+
+      const subscriptionId = await createSubscriptionId(subscription.endpoint);
+
+      return NextResponse.json(
+        {
+          success: true,
+          subscriptionId,
+        },
+        { status: 201 }
+      );
+    } catch (error) {
+      console.error('Error subscribing to push notifications:', error);
+      return NextResponse.json(
+        {
+          error: 'INTERNAL_ERROR',
+          message: SUBSCRIBE_ERROR_MESSAGES.INTERNAL_ERROR,
         },
         { status: 500 }
       );
