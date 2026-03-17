@@ -3,7 +3,7 @@
     開発完了後に tasks/issue-1194-typesnode-v25/ ディレクトリごと削除します。
 -->
 
-# Node.js v24 / `@types/node` v25 対応 - 要件定義
+# Node.js v24 / `@types/node` v24 対応 - 要件定義
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### 1.1 背景・目的
 
-- TypeScript の型定義パッケージ `@types/node` を現在の `^22` から `^25` へアップグレードする
+- TypeScript の型定義パッケージ `@types/node` を現在の `^22` から **`^24`** へアップグレードする
 - 合わせて Node.js ランタイム自体も v22 から **v24（Active LTS）** へアップグレードする
 - Node.js v24 は 2025年10月28日に Active LTS に昇格しており、2028年4月30日まで長期サポートが保証されている
 - これにより、型安全性の向上・最新 API の活用・セキュリティアップデートの継続受信を実現する
@@ -23,7 +23,7 @@
 ### 1.3 ビジネスゴール
 
 - Node.js ランタイムを最新の Active LTS（v24）に追従させる
-- `@types/node` を v25 系に更新し、型安全性を高める
+- `@types/node` を v24 系に更新し、Node.js ランタイムと型定義バージョンを一致させる
 - Docker・CI・DevContainer を含むすべての環境で一貫した Node.js バージョンを使用する
 - 型チェック・Lint・テストがすべて通過する状態を維持する
 
@@ -49,11 +49,11 @@
 
 #### UC-002: `@types/node` のアップグレード
 
-- **概要**: ルート `package.json` の `@types/node` バージョン指定を `^22` から `^25` に変更する
+- **概要**: ルート `package.json` の `@types/node` バージョン指定を `^22` から `^24` に変更する
 - **アクター**: 開発者
 - **前提条件**: 現在の `@types/node` が `^22` で固定されている
 - **正常フロー**:
-    1. ルート `package.json` の `devDependencies` を `^25` に変更する
+    1. ルート `package.json` の `devDependencies` を `^24` に変更する
     2. `npm install` を実行し、`package-lock.json` を更新する
     3. TypeScript の型チェックがパスする
 - **例外フロー**: 型エラーが発生した場合は、変更箇所を特定して修正する
@@ -65,7 +65,7 @@
 | F-001 | Dockerfile 更新 | 全 Dockerfile の Node.js を v22 → v24 に変更する | 高 |
 | F-002 | CI ワークフロー更新 | 全 GitHub Actions ワークフローの `node-version` を `'22'` → `'24'` に変更する | 高 |
 | F-003 | `package.json` engines 更新 | `engines.node` を `>=22.0.0` → `>=24.0.0` に変更する | 高 |
-| F-004 | `@types/node` バージョン更新 | `@types/node` を `^22` → `^25` に変更する | 高 |
+| F-004 | `@types/node` バージョン更新 | `@types/node` を `^22` → `^24` に変更する | 高 |
 | F-005 | 型エラー・動作不整合の修正 | 変更に伴う型エラーや破壊的変更の修正 | 高 |
 
 ---

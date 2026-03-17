@@ -6,13 +6,13 @@
     次に作成するドキュメント: tasks/issue-1194-typesnode-v25/tasks.md
 -->
 
-# Node.js v24 / `@types/node` v25 対応 - 技術設計
+# Node.js v24 / `@types/node` v24 対応 - 技術設計
 
 ---
 
 ## 変更概要
 
-Node.js ランタイムを v22 から **v24（Active LTS）** へアップグレードし、合わせて `@types/node` を `^22` から `^25` に更新する。
+Node.js ランタイムを v22 から **v24（Active LTS）** へアップグレードし、合わせて `@types/node` を `^22` から **`^24`** に更新する。
 モノレポ全体にわたり、Docker・CI・DevContainer・`package.json` の全箇所を一括変更する。
 
 ---
@@ -33,10 +33,10 @@ Node.js ランタイムを v22 から **v24（Active LTS）** へアップグレ
 
 ### `@types/node`
 
-- **採用バージョン: `^25`**
-- 元の Issue #1194 の指定に基づき `^25` を採用
-- ランタイム（v24）より新しい型定義を使用するが、型エラーが発生した場合のみコード側を修正する
-- `@types/node` v25 は Node.js v25 系の型定義を提供するが、v24 ランタイムとの差分は軽微
+- **採用バージョン: `^24`**
+- `@types/node` のメジャーバージョンは Node.js ランタイムのメジャーバージョンと一致させるべきである（DefinitelyTyped メンテナーの推奨）
+- ランタイム（v24）より新しい `@types/node@25` を使用すると、v25 にしか存在しない API の型定義が参照可能になり、TypeScript コンパイルは通っても v24 ランタイムで実行エラーになるリスクがある
+- そのため `@types/node@^24` を採用し、ランタイムバージョンと型定義バージョンを一致させる
 
 ---
 
@@ -93,7 +93,7 @@ Node.js ランタイムを v22 から **v24（Active LTS）** へアップグレ
 
 | ファイル | 変更内容 |
 | -------- | -------- |
-| `package.json`（ルート） | `"@types/node": "^22"` → `"^25"` |
+| `package.json`（ルート） | `"@types/node": "^22"` → `"^24"` |
 | `package-lock.json` | `npm install` により自動更新 |
 
 ---
@@ -113,10 +113,11 @@ Node.js ランタイムを v22 から **v24（Active LTS）** へアップグレ
     - 新: `4-24-bullseye`（イメージ v4 + Node.js 24）
 - DevContainer 再ビルドが必要
 
-### `@types/node` v25 と Node.js v24 ランタイムの差異
+### `@types/node` v24 と Node.js v24 ランタイムの整合性
 
-- `@types/node@25` には Node.js v25 の型定義が含まれるが、v24 ランタイムで追加・変更された API と概ね互換性がある
-- v25 のみの API を誤って使用した場合にランタイムエラーが発生する可能性があるが、型チェックで検知できる
+- `@types/node@^24` は Node.js v24 の全 API を正確に型定義するため、ランタイムとの整合性が保証される
+- DefinitelyTyped のメンテナーは「`@types/node` のメジャーバージョンは使用する Node.js ランタイムのメジャーバージョンと一致させること」を推奨している
+- v25 の型定義を v24 ランタイムで使用すると、v25 固有の API を誤って使用した際に TypeScript では検知できないランタイムエラーが発生するリスクがある
 
 ### セキュリティ考慮事項
 

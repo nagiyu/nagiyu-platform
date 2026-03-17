@@ -7,13 +7,13 @@
     - tasks/issue-1194-typesnode-v25/design.md — 変更対象・実装方針
 -->
 
-# Node.js v24 / `@types/node` v25 対応 - 実装タスク
+# Node.js v24 / `@types/node` v24 対応 - 実装タスク
 
 ---
 
 ## Phase 1: `@types/node` バージョンアップ
 
-- [ ] T001: ルート `package.json` の `@types/node` を `^22` → `^25` に変更する（依存: なし）
+- [ ] T001: ルート `package.json` の `@types/node` を `^22` → `^24` に変更する（依存: なし）
 - [ ] T002: `npm install` を実行し、`package-lock.json` を更新する（依存: T001）
 - [ ] T003: `tsc --noEmit` を実行し、型エラーがないことを確認する（依存: T002）
 - [ ] T004: 型エラーが発生した場合、設計方針に従って修正する（依存: T003）
@@ -57,7 +57,7 @@
 ## 完了チェック
 
 - [ ] `requirements.md` の受け入れ条件をすべて満たしている
-- [ ] `@types/node` が `^25` に更新されている
+- [ ] `@types/node` が `^24` に更新されている
 - [ ] 全 Dockerfile の Node.js バージョンが `24` に更新されている
 - [ ] 全 DevContainer Dockerfile のイメージタグが `4-24-bullseye` に更新されている
 - [ ] 全 GitHub Actions ワークフローの `node-version` が `'24'` に更新されている
