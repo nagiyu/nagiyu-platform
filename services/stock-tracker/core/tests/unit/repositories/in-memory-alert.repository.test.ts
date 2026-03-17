@@ -208,12 +208,12 @@ describe('InMemoryAlertRepository', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
           subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
           },
-        },
         });
       }
 

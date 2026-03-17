@@ -56,12 +56,12 @@ describe('daily batch handler', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
           subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test1',
-          keys: {
-            p256dh: 'test-p256dh-1',
-            auth: 'test-auth-1',
+            endpoint: 'https://fcm.googleapis.com/fcm/send/test1',
+            keys: {
+              p256dh: 'test-p256dh-1',
+              auth: 'test-auth-1',
+            },
           },
-        },
           CreatedAt: Date.now(),
           UpdatedAt: Date.now(),
         },
@@ -75,12 +75,12 @@ describe('daily batch handler', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
           subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test2',
-          keys: {
-            p256dh: 'test-p256dh-2',
-            auth: 'test-auth-2',
+            endpoint: 'https://fcm.googleapis.com/fcm/send/test2',
+            keys: {
+              p256dh: 'test-p256dh-2',
+              auth: 'test-auth-2',
+            },
           },
-        },
           CreatedAt: Date.now(),
           UpdatedAt: Date.now(),
         },
@@ -121,12 +121,12 @@ describe('daily batch handler', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
           subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/valid',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
+            endpoint: 'https://fcm.googleapis.com/fcm/send/valid',
+            keys: {
+              p256dh: 'test-p256dh',
+              auth: 'test-auth',
+            },
           },
-        },
           CreatedAt: Date.now(),
           UpdatedAt: Date.now(),
         },
@@ -141,12 +141,12 @@ describe('daily batch handler', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
           subscription: {
-          endpoint: '',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
+            endpoint: '',
+            keys: {
+              p256dh: 'test-p256dh',
+              auth: 'test-auth',
+            },
           },
-        },
           CreatedAt: Date.now(),
           UpdatedAt: Date.now(),
         },
@@ -161,12 +161,12 @@ describe('daily batch handler', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'gte', value: 300.0 }],
           subscription: {
-          endpoint: 'invalid-url',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
+            endpoint: 'invalid-url',
+            keys: {
+              p256dh: 'test-p256dh',
+              auth: 'test-auth',
+            },
           },
-        },
           CreatedAt: Date.now(),
           UpdatedAt: Date.now(),
         },

@@ -491,10 +491,7 @@ export function validateAlert(alert: unknown): ValidationResult {
   }
 
   // subscription.keys.p256dh
-  if (
-    !alt.subscription?.keys?.p256dh ||
-    !isNonEmptyString(alt.subscription.keys.p256dh)
-  ) {
+  if (!alt.subscription?.keys?.p256dh || !isNonEmptyString(alt.subscription.keys.p256dh)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_P256DH_REQUIRED);
   }
 

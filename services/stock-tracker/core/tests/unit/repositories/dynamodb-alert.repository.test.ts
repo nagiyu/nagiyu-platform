@@ -187,12 +187,12 @@ describe('DynamoDBAlertRepository', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
           subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
           },
-        },
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         },
@@ -213,12 +213,12 @@ describe('DynamoDBAlertRepository', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
           subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
           },
-        },
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         },
@@ -276,12 +276,12 @@ describe('DynamoDBAlertRepository', () => {
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
           subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-secret',
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
           },
-        },
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         },

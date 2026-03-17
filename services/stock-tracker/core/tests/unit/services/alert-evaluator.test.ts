@@ -211,12 +211,12 @@ describe('Alert Evaluator Service', () => {
         },
       ],
       subscription: {
-          endpoint: 'https://example.com/push',
-          keys: {
-            p256dh: 'test-p256dh-key',
-            auth: 'test-auth-key',
-          },
+        endpoint: 'https://example.com/push',
+        keys: {
+          p256dh: 'test-p256dh-key',
+          auth: 'test-auth-key',
         },
+      },
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     });

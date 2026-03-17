@@ -598,12 +598,12 @@ describe('validateAlert', () => {
       },
     ],
     subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/...',
-          keys: {
-            p256dh: 'BM...',
-            auth: 'Abc...',
-          },
-        },
+      endpoint: 'https://fcm.googleapis.com/fcm/send/...',
+      keys: {
+        p256dh: 'BM...',
+        auth: 'Abc...',
+      },
+    },
     NotificationTitle: '買いアラート: NSDQ:AAPL',
     NotificationBody: '現在価格が条件に一致しました',
     CreatedAt: Date.now(),

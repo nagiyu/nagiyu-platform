@@ -72,12 +72,12 @@ describe('temporary alert expiry batch handler', () => {
       TemporaryExpireDate: '2026-03-04',
       ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
       subscription: {
-          endpoint: 'endpoint',
-          keys: {
-            p256dh: 'p256',
-            auth: 'auth',
-          },
+        endpoint: 'endpoint',
+        keys: {
+          p256dh: 'p256',
+          auth: 'auth',
         },
+      },
       CreatedAt: 1,
       UpdatedAt: 1,
     };
@@ -118,12 +118,12 @@ describe('temporary alert expiry batch handler', () => {
       Enabled: true,
       ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
       subscription: {
-          endpoint: 'endpoint',
-          keys: {
-            p256dh: 'p256',
-            auth: 'auth',
-          },
+        endpoint: 'endpoint',
+        keys: {
+          p256dh: 'p256',
+          auth: 'auth',
         },
+      },
       CreatedAt: 1,
       UpdatedAt: 1,
     };

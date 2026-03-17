@@ -162,24 +162,24 @@ export async function POST(
 
     // 各アラートのサブスクリプション情報を更新
     let updatedCount = 0;
-      for (const alert of alerts) {
-        // 現在のサブスクリプションと異なる場合のみ更新
-        if (
-          alert.subscription.endpoint !== subscription.endpoint ||
-          alert.subscription.keys.p256dh !== subscription.keys.p256dh ||
-          alert.subscription.keys.auth !== subscription.keys.auth
-        ) {
-          await alertRepo.update(userId, alert.AlertID, {
-            subscription: {
-              endpoint: subscription.endpoint,
-              keys: {
-                p256dh: subscription.keys.p256dh,
-                auth: subscription.keys.auth,
-              },
+    for (const alert of alerts) {
+      // 現在のサブスクリプションと異なる場合のみ更新
+      if (
+        alert.subscription.endpoint !== subscription.endpoint ||
+        alert.subscription.keys.p256dh !== subscription.keys.p256dh ||
+        alert.subscription.keys.auth !== subscription.keys.auth
+      ) {
+        await alertRepo.update(userId, alert.AlertID, {
+          subscription: {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.keys.p256dh,
+              auth: subscription.keys.auth,
             },
-          });
-          updatedCount++;
-        }
+          },
+        });
+        updatedCount++;
+      }
     }
 
     const response: RefreshResponse = {

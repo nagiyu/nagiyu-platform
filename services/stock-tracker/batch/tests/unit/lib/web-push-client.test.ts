@@ -34,12 +34,12 @@ describe('web-push-client', () => {
       Enabled: true,
       ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
       subscription: {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
+        endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+        keys: {
+          p256dh: 'test-p256dh',
+          auth: 'test-auth',
         },
+      },
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     };
