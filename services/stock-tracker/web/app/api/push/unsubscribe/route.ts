@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { getAuthError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 
 /**

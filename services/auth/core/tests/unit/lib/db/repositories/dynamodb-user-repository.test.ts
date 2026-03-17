@@ -4,14 +4,14 @@ import {
 } from '../../../../../src/db/repositories/dynamodb-user-repository';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { User } from '../../../../../src/db/types';
-import { getDynamoDb, getUsersTableName } from '../../../../../src/db/dynamodb-client';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 
 const USERS_TABLE_NAME = 'test-users-table';
 
-// Mock dynamodb-client to test default constructor parameter fallback
-jest.mock('../../../../../src/db/dynamodb-client', () => ({
-  getDynamoDb: jest.fn(),
-  getUsersTableName: jest.fn(),
+// Mock @nagiyu/aws to test default constructor parameter fallback
+jest.mock('@nagiyu/aws', () => ({
+  getDynamoDBDocumentClient: jest.fn(),
+  getTableName: jest.fn(),
 }));
 
 // Mock crypto.randomUUID
@@ -482,16 +482,16 @@ describe('DynamoDBUserRepository', () => {
   });
 
   describe('コンストラクタのデフォルト引数', () => {
-    it('引数なしで生成した場合、getDynamoDb と getUsersTableName が呼び出される', () => {
+    it('引数なしで生成した場合、getDynamoDBDocumentClient と getTableName が呼び出される', () => {
       const mockDefaultSend = jest.fn();
       const mockDefaultDynamoDb = { send: mockDefaultSend } as unknown as DynamoDBDocumentClient;
-      (getDynamoDb as jest.Mock).mockReturnValue(mockDefaultDynamoDb);
-      (getUsersTableName as jest.Mock).mockReturnValue('default-table');
+      (getDynamoDBDocumentClient as jest.Mock).mockReturnValue(mockDefaultDynamoDb);
+      (getTableName as jest.Mock).mockReturnValue('default-table');
 
       const defaultRepo = new DynamoDBUserRepository();
 
-      expect(getDynamoDb).toHaveBeenCalled();
-      expect(getUsersTableName).toHaveBeenCalled();
+      expect(getDynamoDBDocumentClient).toHaveBeenCalledWith();
+      expect(getTableName).toHaveBeenCalledWith('nagiyu-auth-users-dev');
       expect(defaultRepo).toBeInstanceOf(DynamoDBUserRepository);
     });
   });

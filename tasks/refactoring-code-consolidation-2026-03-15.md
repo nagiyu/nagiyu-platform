@@ -393,14 +393,14 @@ type AuthSession = {
 
 ### フェーズ 1: 削除・単純置換（影響が小さい・即座に対応可能）
 
-- [ ] T001: `services/niconico-mylist-assistant/web/src/lib/utils/push.ts` を削除し、import 先を `@nagiyu/browser` に直接変更
+- [x] T001: `services/niconico-mylist-assistant/web/src/lib/utils/push.ts` を削除し、import 先を `@nagiyu/browser` に直接変更
     - 影響ファイル: `services/niconico-mylist-assistant/web/src/components/ServiceWorkerRegistration.tsx`
-- [ ] T002: `services/share-together/web/src/lib/repositories.ts` を `core/repositories/factory.ts` の関数を直接使う形にリファクタリング
+- [x] T002: `services/share-together/web/src/lib/repositories.ts` を `core/repositories/factory.ts` の関数を直接使う形にリファクタリング
     - 影響ファイル: `services/share-together/web/src/app/api/*/route.ts` など
-- [ ] T003: stock-tracker の `getAuthError` import を `@nagiyu/stock-tracker-core` から `@nagiyu/nextjs` に変更
+- [x] T003: stock-tracker の `getAuthError` import を `@nagiyu/stock-tracker-core` から `@nagiyu/nextjs` に変更
     - 影響ファイル: `services/stock-tracker/web/app/api/push/subscribe/route.ts` など各 API ルート
     - 移行前後の動作検証として、認証・認可フローに関する統合テストを実施すること
-- [ ] T004: `services/auth/core/src/db/dynamodb-client.ts` を廃止し、`@nagiyu/aws` の直接呼び出しに移行
+- [x] T004: `services/auth/core/src/db/dynamodb-client.ts` を廃止し、`@nagiyu/aws` の直接呼び出しに移行
     - `services/auth/core/src/db/repositories/dynamodb-user-repository.ts` で直接 `getTableName('nagiyu-auth-users-dev')` を呼び出す形に変更
     - `services/niconico-mylist-assistant/core/src/db/client.ts` も同様に削除
 
