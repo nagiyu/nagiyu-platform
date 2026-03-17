@@ -112,11 +112,7 @@ describe('ServiceWorkerRegistration', () => {
         userVisibleOnly: true,
         applicationServerKey: new Uint8Array([1, 2, 3]),
       });
-      expect(globalThis.fetch).toHaveBeenNthCalledWith(
-        2,
-        '/api/push/refresh',
-        expect.any(Object)
-      );
+      expect(globalThis.fetch).toHaveBeenNthCalledWith(2, '/api/push/refresh', expect.any(Object));
     });
   });
 
