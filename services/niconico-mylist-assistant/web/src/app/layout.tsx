@@ -28,8 +28,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
         <ServiceLayout
           headerProps={{
-            title: 'niconico-mylist-assistant',
-            ariaLabel: 'niconico-mylist-assistant ホームページに戻る',
+            title: 'Niconico Mylist Assistant',
+            ariaLabel: 'Niconico Mylist Assistant ホームページに戻る',
           }}
           headerSlot={<Navigation />}
           footerProps={{ version }}
