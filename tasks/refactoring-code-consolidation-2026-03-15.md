@@ -427,7 +427,7 @@ type AuthSession = {
 
 ### フェーズ 4: ThemeRegistry 削除（`layout.tsx` で ServiceLayout を直接使用）
 
-- [ ] T009: admin, auth, codec-converter, share-together, niconico の `ThemeRegistry.tsx` を削除し、各 `layout.tsx` から `ServiceLayout` を直接呼び出す形に変更
+- [x] T009: admin, auth, codec-converter, share-together, niconico の `ThemeRegistry.tsx` を削除し、各 `layout.tsx` から `ServiceLayout` を直接呼び出す形に変更
     - 対象ファイルの削除: 各サービスの `ThemeRegistry.tsx`
     - 各 `layout.tsx` で `ServiceLayout` に title/ariaLabel/headerSlot を直接渡す
 - [ ] T010: `services/tools/src/components/ThemeRegistry.tsx` を `ServiceLayout` ベースに移行（独立した課題として対応）

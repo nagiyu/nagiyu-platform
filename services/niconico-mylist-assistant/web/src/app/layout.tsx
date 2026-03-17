@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import { ServiceWorkerRegistration } from '@nagiyu/ui';
-import ThemeRegistry from '@/components/ThemeRegistry';
+import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
+import { Navigation } from '@/components/Navigation';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -26,7 +26,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           subscribeEndpoint="/api/push/subscribe"
           vapidPublicKeyEndpoint="/api/push/vapid-public-key"
         />
-        <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        <ServiceLayout
+          headerProps={{
+            title: 'Niconico Mylist Assistant',
+            ariaLabel: 'Niconico Mylist Assistant ホームページに戻る',
+          }}
+          headerSlot={<Navigation />}
+          footerProps={{ version }}
+        >
+          {children}
+        </ServiceLayout>
       </body>
     </html>
   );

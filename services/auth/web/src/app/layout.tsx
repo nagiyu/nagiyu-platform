@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import ThemeRegistry from '@/components/ThemeRegistry';
+import { ServiceLayout } from '@nagiyu/ui';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,7 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
-        <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        <ServiceLayout
+          headerProps={{ title: 'Auth', ariaLabel: 'Auth ホームページに戻る' }}
+          footerProps={{ version }}
+        >
+          {children}
+        </ServiceLayout>
       </body>
     </html>
   );
