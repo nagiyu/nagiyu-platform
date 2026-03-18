@@ -1,6 +1,9 @@
 import { test, expect, type Page, type Response, type Locator } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
 
+const CHART_RENDER_TIMEOUT_MS = 15000;
+const SELECT_OPTIONS_TIMEOUT_MS = 10000;
+
 /**
  * チャート API レスポンスを待ってから、チャートまたはエラー/データなし表示を確認する。
  *
@@ -34,7 +37,7 @@ async function waitForChartOrError(page: Page, responsePromise: Promise<Response
         const isNoDataVisible = await page.getByText('チャートデータがありません').isVisible().catch(() => false);
         return isChartVisible || isErrorVisible || isNoDataVisible;
       },
-      { timeout: 15000 }
+      { timeout: CHART_RENDER_TIMEOUT_MS }
     )
     .toBeTruthy()
     .catch(() => undefined);
@@ -46,11 +49,11 @@ async function openSelectOptions(page: Page, label: string): Promise<Locator> {
   await select.click();
 
   const listbox = page.locator('[role="listbox"]').last();
-  await expect(listbox).toBeVisible({ timeout: 10000 });
+  await expect(listbox).toBeVisible({ timeout: SELECT_OPTIONS_TIMEOUT_MS });
 
   const options = listbox.locator('[role="option"]');
   await expect
-    .poll(async () => options.count(), { timeout: 10000 })
+    .poll(async () => options.count(), { timeout: SELECT_OPTIONS_TIMEOUT_MS })
     .toBeGreaterThan(0);
 
   return options;
