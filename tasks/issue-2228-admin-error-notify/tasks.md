@@ -43,10 +43,10 @@
 
 ## Phase 3: フロントエンド（PWA・通知購読）
 
-- [ ] `web/public/sw-push.js` を実装する: `push` イベントを受け取り `showNotification` でシステム通知を表示、通知タップでダッシュボードを開く（F-006）
-- [ ] `next.config.ts` でサービスワーカーファイルのキャッシュ除外設定を追加する
-- [ ] `web/src/components/notify/NotifyButton.tsx` を実装する: 通知許可ダイアログ呼び出し → PushSubscription 取得 → `/api/notify/subscribe` POST（F-007）
-- [ ] ダッシュボードページ (`web/src/app/(protected)/dashboard/page.tsx`) に `NotifyButton` を追加する。`hasPermission(user.roles, 'notifications:write')` が true のときのみ表示する（F-007）
+- [x] `web/public/sw-push.js` を実装する: `push` イベントを受け取り `showNotification` でシステム通知を表示、通知タップでダッシュボードを開く（F-006）
+- [x] `next.config.ts` でサービスワーカーファイルのキャッシュ除外設定を追加する
+- [x] `web/src/components/notify/NotifyButton.tsx` を実装する: 通知許可ダイアログ呼び出し → PushSubscription 取得 → `/api/notify/subscribe` POST（F-007）
+- [x] ダッシュボードページ (`web/src/app/(protected)/dashboard/page.tsx`) に `NotifyButton` を追加する。`hasPermission(user.roles, 'notifications:write')` が true のときのみ表示する（F-007）
 
 ## Phase 4: 既存アラームの移行（Stock Tracker）
 
