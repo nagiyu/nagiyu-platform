@@ -8,7 +8,7 @@ import {
   createGroupRepository,
   createMembershipRepository,
   createUserRepository,
-} from '@/lib/repositories';
+} from '@nagiyu/share-together-core';
 
 const USER_META_SK = '#META#';
 

@@ -5,6 +5,7 @@
 
 import webpush from 'web-push';
 import { logger, normalizeVapidKey } from '@nagiyu/common';
+import type { PushSubscription } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
@@ -70,13 +71,7 @@ export async function sendNotification(
     configureVapidKeys();
 
     // サブスクリプション情報を構築
-    const subscription = {
-      endpoint: alert.SubscriptionEndpoint,
-      keys: {
-        p256dh: alert.SubscriptionKeysP256dh,
-        auth: alert.SubscriptionKeysAuth,
-      },
-    };
+    const subscription: PushSubscription = alert.subscription;
 
     // Web Push 通知を送信
     const response = await webpush.sendNotification(subscription, JSON.stringify(payload));
@@ -86,7 +81,7 @@ export async function sendNotification(
       userId: alert.UserID,
       tickerId: alert.TickerID,
       statusCode: response.statusCode,
-      endpoint: alert.SubscriptionEndpoint,
+      endpoint: alert.subscription.endpoint,
     });
 
     return true;

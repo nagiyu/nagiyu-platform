@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
-import ThemeRegistry from '@/components/ThemeRegistry';
+import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
+import { Navigation } from '@/components/Navigation';
 import UserRegistrationInitializer from '@/components/UserRegistrationInitializer';
 
 export const metadata: Metadata = {
@@ -19,7 +19,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ServiceWorkerRegistration />
         <UserRegistrationInitializer />
-        <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        <ServiceLayout
+          headerProps={{ title: 'Share Together', ariaLabel: 'Share Together ホームページに戻る' }}
+          headerSlot={<Navigation />}
+          footerProps={{ version }}
+        >
+          {children}
+        </ServiceLayout>
       </body>
     </html>
   );

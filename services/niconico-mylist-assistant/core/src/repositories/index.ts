@@ -22,6 +22,7 @@ export {
   createVideoRepository,
   createUserSettingRepository,
   createBatchJobRepository,
+  resetRepositoryFactories,
 } from './factory.js';
 
 // Store

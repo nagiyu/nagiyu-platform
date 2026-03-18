@@ -7,8 +7,6 @@
  * 新しいコードでは、Repository を直接使用することを推奨します。
  */
 
-export * from './client.js';
-
 // 後方互換性のため、従来の関数をエクスポート
 // 内部実装はリポジトリパターンに移行
 export * from './videos.js';

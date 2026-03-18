@@ -26,9 +26,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -51,9 +55,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       });
@@ -69,9 +77,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -99,9 +111,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -129,9 +145,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -163,9 +183,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'lte', value: 200.0 },
         ],
         LogicalOperator: 'AND',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -189,9 +213,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
         LogicalOperator: 'OR',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -211,9 +239,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -235,9 +267,13 @@ describe('AlertMapper', () => {
         Temporary: true,
         TemporaryExpireDate: '2026-03-06',
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -258,9 +294,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -283,9 +323,13 @@ describe('AlertMapper', () => {
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
         NotificationTitle: 'カスタムタイトル',
         NotificationBody: 'カスタム本文',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -308,9 +352,13 @@ describe('AlertMapper', () => {
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
         NotificationTitle: '',
         NotificationBody: '',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -340,9 +388,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -358,9 +410,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       });
@@ -383,9 +439,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -414,9 +474,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -437,9 +501,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [], // 空配列
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -464,9 +532,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'lte', value: 200.0 },
         ],
         LogicalOperator: 'AND',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -493,9 +565,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
         LogicalOperator: 'OR',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -518,9 +594,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -547,9 +627,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'lte', value: 200.0 },
         ],
         LogicalOperator: 'INVALID',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -574,9 +658,13 @@ describe('AlertMapper', () => {
         Temporary: true,
         TemporaryExpireDate: '2026-03-06',
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -600,9 +688,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -627,9 +719,13 @@ describe('AlertMapper', () => {
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
         NotificationTitle: 'カスタムタイトル',
         NotificationBody: 'カスタム本文',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -679,9 +775,13 @@ describe('AlertMapper', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: false,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -706,9 +806,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'lte', value: 200.0 },
         ],
         LogicalOperator: 'AND',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -733,9 +837,13 @@ describe('AlertMapper', () => {
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
         LogicalOperator: 'OR',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -758,9 +866,13 @@ describe('AlertMapper', () => {
         ConditionList: [
           { field: 'price', operator: 'gte', value: 210.0, isPercentage: true, percentageValue: 5 },
         ],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -792,9 +904,13 @@ describe('AlertMapper', () => {
             basePrice: 200.0,
           },
         ],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -820,9 +936,13 @@ describe('AlertMapper', () => {
         ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
         NotificationTitle: 'カスタムタイトル',
         NotificationBody: 'カスタム本文',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -843,9 +963,13 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -870,9 +994,13 @@ describe('AlertMapper', () => {
         ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
         NotificationTitle: '',
         NotificationBody: '',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };

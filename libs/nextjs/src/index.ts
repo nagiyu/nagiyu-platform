@@ -50,7 +50,8 @@ export type { HealthRouteOptions } from './health.js';
 // Push module - Web Push route helper
 export {
   createVapidPublicKeyRoute,
+  createPushSubscribeRoute,
   validatePushSubscription,
   createSubscriptionId,
 } from './push.js';
-export type { PushSubscriptionData } from './push.js';
+export type { CreatePushSubscribeRouteOptions } from './push.js';

@@ -29,7 +29,9 @@ jest.mock('@nagiyu/aws', () => ({
 
 jest.mock('@nagiyu/share-together-core', () => ({
   DynamoDBGroupRepository: jest.fn(),
+  createGroupRepository: jest.fn(),
   DynamoDBMembershipRepository: jest.fn(),
+  createMembershipRepository: jest.fn(),
   leaveGroup: jest.fn(),
   removeMember: jest.fn(),
   ERROR_MESSAGES: {
@@ -39,6 +41,7 @@ jest.mock('@nagiyu/share-together-core', () => ({
 }));
 
 import {
+  DynamoDBGroupRepository,
   DynamoDBMembershipRepository,
   leaveGroup,
   removeMember,
@@ -53,9 +56,22 @@ const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunc
 const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
   typeof getDynamoDBDocumentClient
 >;
+const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
+  typeof DynamoDBGroupRepository
+>;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createGroupRepository: jest.Mock }
+).createGroupRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBGroupRepository(...args)
+);
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createMembershipRepository: jest.Mock }
+).createMembershipRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBMembershipRepository(...args)
+);
 const mockLeaveGroup = leaveGroup as jest.MockedFunction<typeof leaveGroup>;
 const mockRemoveMember = removeMember as jest.MockedFunction<typeof removeMember>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
@@ -68,6 +84,9 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
     mockGetDynamoDBDocumentClient.mockReturnValue({ send: jest.fn() } as ReturnType<
       typeof getDynamoDBDocumentClient
     >);
+    mockDynamoDBGroupRepository.mockImplementation(
+      () => ({}) as InstanceType<typeof DynamoDBGroupRepository>
+    );
     mockDynamoDBMembershipRepository.mockImplementation(
       () =>
         ({

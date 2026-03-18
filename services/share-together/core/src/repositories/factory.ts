@@ -1,4 +1,5 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { createRepositoryFactory } from '@nagiyu/aws';
 import type { GroupRepository } from './group/group-repository.interface.js';
 import { DynamoDBGroupRepository } from './group/dynamodb-group-repository.js';
 import { InMemoryGroupRepository } from './group/in-memory-group-repository.js';
@@ -19,33 +20,6 @@ const ERROR_MESSAGES = {
   DYNAMODB_PARAMS_REQUIRED: 'DynamoDB実装にはdocClientとtableNameが必要です',
 } as const;
 
-type InMemoryRepositories = {
-  groupRepository: InMemoryGroupRepository;
-  userRepository: InMemoryUserRepository;
-  membershipRepository: InMemoryMembershipRepository;
-  listRepository: InMemoryListRepository;
-  todoRepository: InMemoryTodoRepository;
-};
-
-let inMemoryRepositories: InMemoryRepositories | null = null;
-
-function createInMemoryRepositories(): InMemoryRepositories {
-  return {
-    groupRepository: new InMemoryGroupRepository(),
-    userRepository: new InMemoryUserRepository(),
-    membershipRepository: new InMemoryMembershipRepository(),
-    listRepository: new InMemoryListRepository(),
-    todoRepository: new InMemoryTodoRepository(),
-  };
-}
-
-function getInMemoryRepositories(): InMemoryRepositories {
-  if (!inMemoryRepositories) {
-    inMemoryRepositories = createInMemoryRepositories();
-  }
-  return inMemoryRepositories;
-}
-
 function requireDynamoParams(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
@@ -57,60 +31,99 @@ function requireDynamoParams(
 }
 
 export function resetInMemoryRepositories(): void {
-  inMemoryRepositories = createInMemoryRepositories();
+  groupRepositoryFactory.resetRepository();
+  userRepositoryFactory.resetRepository();
+  membershipRepositoryFactory.resetRepository();
+  listRepositoryFactory.resetRepository();
+  todoRepositoryFactory.resetRepository();
 }
 
 export function createGroupRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): GroupRepository {
-  if (process.env.USE_IN_MEMORY_DB === 'true') {
-    return getInMemoryRepositories().groupRepository;
-  }
-  const params = requireDynamoParams(docClient, tableName);
-  return new DynamoDBGroupRepository(params.docClient, params.tableName);
+  return groupRepositoryFactory.createRepository(docClient, tableName);
 }
 
 export function createUserRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): UserRepository {
-  if (process.env.USE_IN_MEMORY_DB === 'true') {
-    return getInMemoryRepositories().userRepository;
-  }
-  const params = requireDynamoParams(docClient, tableName);
-  return new DynamoDBUserRepository(params.docClient, params.tableName);
+  return userRepositoryFactory.createRepository(docClient, tableName);
 }
 
 export function createMembershipRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): MembershipRepository {
-  if (process.env.USE_IN_MEMORY_DB === 'true') {
-    return getInMemoryRepositories().membershipRepository;
-  }
-  const params = requireDynamoParams(docClient, tableName);
-  return new DynamoDBMembershipRepository(params.docClient, params.tableName);
+  return membershipRepositoryFactory.createRepository(docClient, tableName);
 }
 
 export function createListRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): ListRepository {
-  if (process.env.USE_IN_MEMORY_DB === 'true') {
-    return getInMemoryRepositories().listRepository;
-  }
-  const params = requireDynamoParams(docClient, tableName);
-  return new DynamoDBListRepository(params.docClient, params.tableName);
+  return listRepositoryFactory.createRepository(docClient, tableName);
 }
 
 export function createTodoRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): TodoRepository {
-  if (process.env.USE_IN_MEMORY_DB === 'true') {
-    return getInMemoryRepositories().todoRepository;
-  }
-  const params = requireDynamoParams(docClient, tableName);
-  return new DynamoDBTodoRepository(params.docClient, params.tableName);
+  return todoRepositoryFactory.createRepository(docClient, tableName);
 }
+
+const groupRepositoryFactory = createRepositoryFactory<
+  GroupRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryGroupRepository(),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBGroupRepository(params.docClient, params.tableName);
+  },
+});
+
+const userRepositoryFactory = createRepositoryFactory<
+  UserRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryUserRepository(),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBUserRepository(params.docClient, params.tableName);
+  },
+});
+
+const membershipRepositoryFactory = createRepositoryFactory<
+  MembershipRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryMembershipRepository(),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBMembershipRepository(params.docClient, params.tableName);
+  },
+});
+
+const listRepositoryFactory = createRepositoryFactory<
+  ListRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryListRepository(),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBListRepository(params.docClient, params.tableName);
+  },
+});
+
+const todoRepositoryFactory = createRepositoryFactory<
+  TodoRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryTodoRepository(),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBTodoRepository(params.docClient, params.tableName);
+  },
+});

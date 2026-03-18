@@ -28,6 +28,12 @@ jobs:
           node-version: '22'
           cache-dependency-path: './package-lock.json'
 
+      - name: Build @nagiyu/common (dependency)
+        run: npm run build --workspace=@nagiyu/common
+
+      - name: Build @nagiyu/browser (dependency)
+        run: npm run build --workspace=@nagiyu/browser
+
       - name: Build library
         run: npm run build --workspace=@nagiyu/ui
 

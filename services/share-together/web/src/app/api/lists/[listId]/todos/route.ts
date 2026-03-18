@@ -4,7 +4,7 @@ import type { ApiErrorResponse, TodoResponse, TodosResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository, createTodoRepository } from '@/lib/repositories';
+import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;
