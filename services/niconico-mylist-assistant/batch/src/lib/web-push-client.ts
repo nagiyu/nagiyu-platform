@@ -5,6 +5,7 @@
 
 import webpush from 'web-push';
 import { logger, normalizeVapidKey } from '@nagiyu/common';
+import type { PushSubscription } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -23,17 +24,6 @@ export type NotificationPayload = {
   icon?: string;
   data?: Record<string, unknown>;
 };
-
-/**
- * Push サブスクリプション情報
- */
-export interface PushSubscription {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-}
 
 /**
  * VAPID キーを環境変数から取得して設定する

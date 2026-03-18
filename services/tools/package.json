@@ -1,6 +1,6 @@
 {
-  "name": "tools",
-  "version": "1.2.0",
+  "name": "@nagiyu/tools",
+  "version": "1.2.1",
   "private": true,
   "scripts": {
     "dev": "next dev",

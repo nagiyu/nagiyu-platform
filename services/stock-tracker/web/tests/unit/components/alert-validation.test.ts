@@ -24,6 +24,8 @@ const ERROR_MESSAGES = {
     '計算された最小価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
   CALCULATED_MAX_PRICE_OUT_OF_RANGE:
     '計算された最大価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
+  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
+  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
 } as const;
 
 // FormData型定義（AlertSettingsModal.tsx から複製）
@@ -41,6 +43,8 @@ interface FormData {
   rangeInputMode?: 'manual' | 'percentage';
   minPercentage?: string;
   maxPercentage?: string;
+  notificationTitle?: string;
+  notificationBody?: string;
 }
 
 // バリデーション関数（AlertSettingsModal.tsx から抽出）
@@ -176,6 +180,14 @@ function validateForm(
         }
       }
     }
+  }
+
+  if ('notificationTitle' in formData && !formData.notificationTitle?.trim()) {
+    errors.notificationTitle = ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED;
+  }
+
+  if ('notificationBody' in formData && !formData.notificationBody?.trim()) {
+    errors.notificationBody = ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED;
   }
 
   return {
@@ -578,6 +590,33 @@ describe('AlertSettingsModal Validation', () => {
       expect(ERROR_MESSAGES.CALCULATED_PRICE_OUT_OF_RANGE).toBeDefined();
       expect(ERROR_MESSAGES.CALCULATED_MIN_PRICE_OUT_OF_RANGE).toBeDefined();
       expect(ERROR_MESSAGES.CALCULATED_MAX_PRICE_OUT_OF_RANGE).toBeDefined();
+    });
+  });
+
+  describe('通知設定バリデーション', () => {
+    const baseFormData: FormData = {
+      conditionMode: 'single',
+      operator: 'gte',
+      targetPrice: '100',
+      rangeType: 'inside',
+      minPrice: '',
+      maxPrice: '',
+      frequency: 'MINUTE_LEVEL',
+      inputMode: 'manual',
+      notificationTitle: 'タイトル',
+      notificationBody: '本文',
+    };
+
+    it('異常系: 通知タイトルが空文字の場合、エラーが返される', () => {
+      const result = validateForm({ ...baseFormData, notificationTitle: '' });
+      expect(result.valid).toBe(false);
+      expect(result.errors.notificationTitle).toBe(ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED);
+    });
+
+    it('異常系: 通知本文が空白のみの場合、エラーが返される', () => {
+      const result = validateForm({ ...baseFormData, notificationBody: '   ' });
+      expect(result.valid).toBe(false);
+      expect(result.errors.notificationBody).toBe(ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED);
     });
   });
 });

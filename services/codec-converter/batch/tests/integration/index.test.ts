@@ -16,7 +16,7 @@ import { Readable } from 'stream';
 import { promises as fs, createReadStream, ReadStream } from 'fs';
 import * as child_process from 'child_process';
 import type { ChildProcess } from 'child_process';
-import type { CodecType } from 'codec-converter-core';
+import type { CodecType } from '@nagiyu/codec-converter-core';
 import type { SdkStream } from '@smithy/types';
 
 // AWS SDK モック

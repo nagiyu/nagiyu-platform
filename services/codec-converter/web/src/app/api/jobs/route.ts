@@ -9,7 +9,7 @@ import {
   JOB_EXPIRATION_SECONDS,
   type Job,
   type CodecType,
-} from 'codec-converter-core';
+} from '@nagiyu/codec-converter-core';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
 const PRESIGNED_URL_EXPIRES_IN = 3600;

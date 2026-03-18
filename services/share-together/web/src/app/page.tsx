@@ -1,12 +1,10 @@
 'use client';
 
 import { Box, Button, Stack, Typography } from '@mui/material';
-import { Navigation } from '@/components/Navigation';
 
 export default function Home() {
   return (
     <main>
-      <Navigation />
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>
         <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
           Share Together へようこそ

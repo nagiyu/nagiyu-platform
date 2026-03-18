@@ -37,9 +37,13 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
@@ -63,9 +67,13 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const conditionalCheckError = new Error('Conditional check failed');
@@ -84,9 +92,13 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const dbError = new Error('Database connection failed');
@@ -114,9 +126,13 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067200000,
       };
@@ -170,9 +186,13 @@ describe('DynamoDBAlertRepository', () => {
           Frequency: 'MINUTE_LEVEL',
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-          SubscriptionEndpoint: 'https://example.com/push',
-          SubscriptionKeysP256dh: 'p256dh-key',
-          SubscriptionKeysAuth: 'auth-secret',
+          subscription: {
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
+          },
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         },
@@ -192,9 +212,13 @@ describe('DynamoDBAlertRepository', () => {
           Frequency: 'HOURLY_LEVEL',
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-          SubscriptionEndpoint: 'https://example.com/push',
-          SubscriptionKeysP256dh: 'p256dh-key',
-          SubscriptionKeysAuth: 'auth-secret',
+          subscription: {
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
+          },
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         },
@@ -251,9 +275,13 @@ describe('DynamoDBAlertRepository', () => {
           Frequency: 'MINUTE_LEVEL',
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-          SubscriptionEndpoint: 'https://example.com/push',
-          SubscriptionKeysP256dh: 'p256dh-key',
-          SubscriptionKeysAuth: 'auth-secret',
+          subscription: {
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
+          },
           CreatedAt: 1704067200000,
           UpdatedAt: 1704067200000,
         },
@@ -308,9 +336,13 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: false,
         ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067300000,
       };
@@ -327,6 +359,63 @@ describe('DynamoDBAlertRepository', () => {
       expect(result.Enabled).toBe(false);
       expect(result.ConditionList[0].value).toBe(140.0);
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('通知タイトルと通知本文を更新式に含めて更新できる', async () => {
+      const mockUpdatedItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-123',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-123',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-123',
+        AlertID: 'alert-123',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
+        NotificationTitle: '更新後タイトル',
+        NotificationBody: '更新後本文',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067300000,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Attributes: mockUpdatedItem,
+      });
+
+      await repository.update('user-123', 'alert-123', {
+        NotificationTitle: '更新後タイトル',
+        NotificationBody: '更新後本文',
+      });
+
+      const command = mockDocClient.send.mock.calls[0]?.[0] as {
+        input: {
+          UpdateExpression: string;
+          ExpressionAttributeNames: Record<string, string>;
+          ExpressionAttributeValues: Record<string, unknown>;
+        };
+      };
+
+      expect(command.input.UpdateExpression).toContain('#notificationTitle = :notificationTitle');
+      expect(command.input.UpdateExpression).toContain('#notificationBody = :notificationBody');
+      expect(command.input.ExpressionAttributeNames['#notificationTitle']).toBe(
+        'NotificationTitle'
+      );
+      expect(command.input.ExpressionAttributeNames['#notificationBody']).toBe('NotificationBody');
+      expect(command.input.ExpressionAttributeValues[':notificationTitle']).toBe('更新後タイトル');
+      expect(command.input.ExpressionAttributeValues[':notificationBody']).toBe('更新後本文');
     });
 
     it('存在しないアラートを更新しようとするとEntityNotFoundErrorをスローする', async () => {
@@ -369,9 +458,13 @@ describe('DynamoDBAlertRepository', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-        SubscriptionEndpoint: 'https://new.example.com/push',
-        SubscriptionKeysP256dh: 'new-p256dh-key',
-        SubscriptionKeysAuth: 'new-auth-secret',
+        subscription: {
+          endpoint: 'https://new.example.com/push',
+          keys: {
+            p256dh: 'new-p256dh-key',
+            auth: 'new-auth-secret',
+          },
+        },
         CreatedAt: 1704067200000,
         UpdatedAt: 1704067400000,
       };
@@ -385,15 +478,19 @@ describe('DynamoDBAlertRepository', () => {
         ExchangeID: 'NASDAQ',
         Mode: 'Sell',
         Frequency: 'HOURLY_LEVEL',
-        SubscriptionEndpoint: 'https://new.example.com/push',
-        SubscriptionKeysP256dh: 'new-p256dh-key',
-        SubscriptionKeysAuth: 'new-auth-secret',
+        subscription: {
+          endpoint: 'https://new.example.com/push',
+          keys: {
+            p256dh: 'new-p256dh-key',
+            auth: 'new-auth-secret',
+          },
+        },
       });
 
       expect(result.TickerID).toBe('NSDQ:NVDA');
       expect(result.Mode).toBe('Sell');
       expect(result.Frequency).toBe('HOURLY_LEVEL');
-      expect(result.SubscriptionEndpoint).toBe('https://new.example.com/push');
+      expect(result.subscription.endpoint).toBe('https://new.example.com/push');
       expect(mockDocClient.send).toHaveBeenCalledTimes(1);
     });
 

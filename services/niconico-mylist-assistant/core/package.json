@@ -4,20 +4,21 @@
   "description": "Core business logic for niconico-mylist-assistant",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
   "scripts": {
     "build": "tsc",
     "test": "jest",
+    "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "format": "prettier --write \"src/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\""
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.980.0",
-    "@aws-sdk/client-secrets-manager": "^3.982.0",
-    "@aws-sdk/lib-dynamodb": "^3.980.0",
+    "@aws-sdk/client-dynamodb": "^3.1010.0",
+    "@aws-sdk/client-secrets-manager": "^3.1010.0",
+    "@aws-sdk/lib-dynamodb": "^3.1010.0",
     "@nagiyu/aws": "*",
     "xml2js": "^0.6.2"
   },

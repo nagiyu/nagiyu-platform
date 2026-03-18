@@ -6,7 +6,7 @@ import type { ApiErrorResponse, UserResponse } from '@/types';
 import { getSession } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository, createUserRepository } from '@/lib/repositories';
+import { createListRepository, createUserRepository } from '@nagiyu/share-together-core';
 
 const DEFAULT_LIST_NAME = 'デフォルトリスト';
 const DEFAULT_ROLES: string[] = [];

@@ -26,6 +26,8 @@ import { TIMEFRAME_LABELS } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
 import { computeAlertLines, getChartAlertConditions } from '../lib/chart-overlay-lines';
 import StockChart from './StockChart';
+import NotificationEditDialog from './NotificationEditDialog';
+import NotificationOverwriteConfirmDialog from './NotificationOverwriteConfirmDialog';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -49,6 +51,8 @@ const ERROR_MESSAGES = {
   CALCULATED_MAX_PRICE_OUT_OF_RANGE:
     '計算された最大価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
   UPDATE_ALERT_ERROR: 'アラートの更新に失敗しました',
+  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
+  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
 } as const;
 
 const FREQUENCY_LABELS: Record<AlertFrequency, string> = {
@@ -347,6 +351,9 @@ export default function AlertSettingsModal({
   const [error, setError] = useState<string>('');
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_CHART_TIMEFRAME);
+  const [notificationEditDialogOpen, setNotificationEditDialogOpen] = useState<boolean>(false);
+  const [overwriteConfirmDialogOpen, setOverwriteConfirmDialogOpen] = useState<boolean>(false);
+  const [pendingNotificationBody, setPendingNotificationBody] = useState<string>('');
 
   const chartAlertLines = useMemo(
     () =>
@@ -382,6 +389,38 @@ export default function AlertSettingsModal({
     setNotificationBody(nextFormData.notificationBody);
   };
 
+  const openNotificationOverwriteDialog = (
+    nextFormData: Pick<
+      FormData,
+      'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice'
+    >
+  ) => {
+    const defaultNotificationText = getDefaultNotificationText(tradeMode, tickerId, nextFormData);
+    setPendingNotificationBody(defaultNotificationText.body);
+    setOverwriteConfirmDialogOpen(true);
+  };
+
+  const updateConditionField = <
+    K extends 'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice',
+  >(
+    field: K,
+    value: FormData[K]
+  ) => {
+    const nextFormData = {
+      conditionMode,
+      operator,
+      targetPrice,
+      rangeType,
+      minPrice,
+      maxPrice,
+      [field]: value,
+    } as Pick<
+      FormData,
+      'conditionMode' | 'operator' | 'targetPrice' | 'rangeType' | 'minPrice' | 'maxPrice'
+    >;
+    openNotificationOverwriteDialog(nextFormData);
+  };
+
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
     if (open) {
@@ -390,6 +429,9 @@ export default function AlertSettingsModal({
       setError('');
       setSubscription(null);
       setTimeframe(DEFAULT_CHART_TIMEFRAME);
+      setNotificationEditDialogOpen(false);
+      setOverwriteConfirmDialogOpen(false);
+      setPendingNotificationBody('');
     }
   }, [open, mode, tradeMode, editTarget, defaultTargetPrice, tickerId]);
 
@@ -557,6 +599,13 @@ export default function AlertSettingsModal({
           }
         }
       }
+
+      if (formData.notificationTitle.trim() === '') {
+        errors.notificationTitle = ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED;
+      }
+      if (formData.notificationBody.trim() === '') {
+        errors.notificationBody = ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED;
+      }
       setFormErrors(errors);
       return Object.keys(errors).length === 0;
     }
@@ -692,6 +741,13 @@ export default function AlertSettingsModal({
       }
     }
 
+    if (formData.notificationTitle.trim() === '') {
+      errors.notificationTitle = ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED;
+    }
+    if (formData.notificationBody.trim() === '') {
+      errors.notificationBody = ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED;
+    }
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -704,6 +760,26 @@ export default function AlertSettingsModal({
         return newErrors;
       });
     }
+  };
+
+  const handleNotificationEditSave = (nextTitle: string, nextBody: string) => {
+    setNotificationTitle(nextTitle);
+    setNotificationBody(nextBody);
+    clearFieldError('notificationTitle');
+    clearFieldError('notificationBody');
+    setNotificationEditDialogOpen(false);
+  };
+
+  const handleConfirmNotificationOverwrite = () => {
+    setNotificationBody(pendingNotificationBody);
+    clearFieldError('notificationBody');
+    setOverwriteConfirmDialogOpen(false);
+    setPendingNotificationBody('');
+  };
+
+  const handleCancelNotificationOverwrite = () => {
+    setOverwriteConfirmDialogOpen(false);
+    setPendingNotificationBody('');
   };
 
   const updateTargetPriceFromPercentage = (
@@ -719,7 +795,9 @@ export default function AlertSettingsModal({
     }
     try {
       const calculatedPrice = calculateTargetPriceFromPercentage(basePrice, parsedPercentage);
-      setTargetPrice(calculatedPrice.toString());
+      const nextTargetPrice = calculatedPrice.toString();
+      setTargetPrice(nextTargetPrice);
+      updateConditionField('targetPrice', nextTargetPrice);
     } catch (calculationError) {
       console.error('Error calculating target price:', calculationError);
     }
@@ -742,7 +820,9 @@ export default function AlertSettingsModal({
             basePrice,
             parsedMinPercentage
           );
-          setMinPrice(calculatedMinPrice.toString());
+          const nextMinPrice = calculatedMinPrice.toString();
+          setMinPrice(nextMinPrice);
+          updateConditionField('minPrice', nextMinPrice);
         } catch (calculationError) {
           console.error('Error calculating min price:', calculationError);
         }
@@ -757,7 +837,9 @@ export default function AlertSettingsModal({
             basePrice,
             parsedMaxPercentage
           );
-          setMaxPrice(calculatedMaxPrice.toString());
+          const nextMaxPrice = calculatedMaxPrice.toString();
+          setMaxPrice(nextMaxPrice);
+          updateConditionField('maxPrice', nextMaxPrice);
         } catch (calculationError) {
           console.error('Error calculating max price:', calculationError);
         }
@@ -995,8 +1077,8 @@ export default function AlertSettingsModal({
           conditions,
           subscription: sub.toJSON(),
           temporary: formData.temporary,
-          notificationTitle: formData.notificationTitle.trim() || undefined,
-          notificationBody: formData.notificationBody.trim() || undefined,
+          notificationTitle: formData.notificationTitle.trim(),
+          notificationBody: formData.notificationBody.trim(),
         };
 
         // LogicalOperatorを追加（範囲指定の場合のみ）
@@ -1130,7 +1212,9 @@ export default function AlertSettingsModal({
                 value={formData.conditionMode}
                 label="条件タイプ"
                 onChange={(e) => {
-                  setConditionMode(e.target.value as FormData['conditionMode']);
+                  const nextConditionMode = e.target.value as FormData['conditionMode'];
+                  setConditionMode(nextConditionMode);
+                  updateConditionField('conditionMode', nextConditionMode);
                   clearFieldError('conditionMode');
                 }}
               >
@@ -1160,7 +1244,9 @@ export default function AlertSettingsModal({
                     value={formData.operator}
                     label="条件"
                     onChange={(e) => {
-                      setOperator(e.target.value as FormData['operator']);
+                      const nextOperator = e.target.value as FormData['operator'];
+                      setOperator(nextOperator);
+                      updateConditionField('operator', nextOperator);
                       clearFieldError('operator');
                     }}
                   >
@@ -1206,7 +1292,9 @@ export default function AlertSettingsModal({
                   type="number"
                   value={formData.targetPrice}
                   onChange={(e) => {
-                    setTargetPrice(e.target.value);
+                    const nextTargetPrice = e.target.value;
+                    setTargetPrice(nextTargetPrice);
+                    updateConditionField('targetPrice', nextTargetPrice);
                     clearFieldError('targetPrice');
                   }}
                   error={!!formErrors.targetPrice}
@@ -1302,7 +1390,9 @@ export default function AlertSettingsModal({
                     value={formData.rangeType}
                     label="範囲タイプ"
                     onChange={(e) => {
-                      setRangeType(e.target.value as FormData['rangeType']);
+                      const nextRangeType = e.target.value as FormData['rangeType'];
+                      setRangeType(nextRangeType);
+                      updateConditionField('rangeType', nextRangeType);
                       clearFieldError('rangeType');
                     }}
                   >
@@ -1353,7 +1443,9 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.minPrice}
                     onChange={(e) => {
-                      setMinPrice(e.target.value);
+                      const nextMinPrice = e.target.value;
+                      setMinPrice(nextMinPrice);
+                      updateConditionField('minPrice', nextMinPrice);
                       clearFieldError('minPrice');
                     }}
                     error={!!formErrors.minPrice}
@@ -1371,7 +1463,9 @@ export default function AlertSettingsModal({
                     type="number"
                     value={formData.maxPrice}
                     onChange={(e) => {
-                      setMaxPrice(e.target.value);
+                      const nextMaxPrice = e.target.value;
+                      setMaxPrice(nextMaxPrice);
+                      updateConditionField('maxPrice', nextMaxPrice);
                       clearFieldError('maxPrice');
                     }}
                     error={!!formErrors.maxPrice}
@@ -1557,16 +1651,16 @@ export default function AlertSettingsModal({
           <Typography variant="subtitle1" sx={{ mt: 1 }}>
             通知設定（任意）
           </Typography>
+          <Button variant="outlined" onClick={() => setNotificationEditDialogOpen(true)}>
+            通知設定を編集
+          </Button>
           <TextField
             fullWidth
             label="通知タイトル"
             value={formData.notificationTitle}
-            onChange={(e) => {
-              setNotificationTitle(e.target.value);
-              clearFieldError('notificationTitle');
-            }}
-            helperText="未入力の場合は自動生成されたタイトルを使用します"
-            inputProps={{ maxLength: 120 }}
+            InputProps={{ readOnly: true }}
+            error={!!formErrors.notificationTitle}
+            helperText={formErrors.notificationTitle}
           />
           <TextField
             fullWidth
@@ -1574,12 +1668,9 @@ export default function AlertSettingsModal({
             minRows={2}
             label="通知本文"
             value={formData.notificationBody}
-            onChange={(e) => {
-              setNotificationBody(e.target.value);
-              clearFieldError('notificationBody');
-            }}
-            helperText="未入力の場合は現在の条件から自動生成された本文を使用します"
-            inputProps={{ maxLength: 500 }}
+            InputProps={{ readOnly: true }}
+            error={!!formErrors.notificationBody}
+            helperText={formErrors.notificationBody}
           />
 
           {/* Web Push通知の説明 */}
@@ -1599,6 +1690,23 @@ export default function AlertSettingsModal({
           {submitting ? <CircularProgress size={24} /> : '保存'}
         </Button>
       </DialogActions>
+
+      {notificationEditDialogOpen && (
+        <NotificationEditDialog
+          key={`${formData.notificationTitle}-${formData.notificationBody}`}
+          open={notificationEditDialogOpen}
+          title={formData.notificationTitle}
+          body={formData.notificationBody}
+          onClose={() => setNotificationEditDialogOpen(false)}
+          onSave={handleNotificationEditSave}
+        />
+      )}
+
+      <NotificationOverwriteConfirmDialog
+        open={overwriteConfirmDialogOpen}
+        onConfirm={handleConfirmNotificationOverwrite}
+        onCancel={handleCancelNotificationOverwrite}
+      />
     </Dialog>
   );
 }

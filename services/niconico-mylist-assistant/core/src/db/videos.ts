@@ -1,4 +1,4 @@
-import { getDocClient, getTableName } from './client.js';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
@@ -17,14 +17,17 @@ let userSettingRepositoryInstance: UserSettingRepository | null = null;
 
 function getVideoRepository(): VideoRepository {
   if (!videoRepositoryInstance) {
-    videoRepositoryInstance = createVideoRepository(getDocClient(), getTableName());
+    videoRepositoryInstance = createVideoRepository(getDynamoDBDocumentClient(), getTableName());
   }
   return videoRepositoryInstance;
 }
 
 function getUserSettingRepository(): UserSettingRepository {
   if (!userSettingRepositoryInstance) {
-    userSettingRepositoryInstance = createUserSettingRepository(getDocClient(), getTableName());
+    userSettingRepositoryInstance = createUserSettingRepository(
+      getDynamoDBDocumentClient(),
+      getTableName()
+    );
   }
   return userSettingRepositoryInstance;
 }

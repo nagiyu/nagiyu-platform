@@ -11,16 +11,23 @@ jest.mock('@/lib/auth/session', () => ({
   getSessionOrUnauthorized: jest.fn(),
 }));
 
-jest.mock('@nagiyu/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(),
-}));
+jest.mock('@nagiyu/aws', () => {
+  const actualAws = jest.requireActual('@nagiyu/aws');
+  return {
+    ...actualAws,
+    getDynamoDBDocumentClient: jest.fn(),
+  };
+});
 
 jest.mock('@nagiyu/share-together-core', () => {
   const actualCore = jest.requireActual('@nagiyu/share-together-core');
   return {
     DynamoDBGroupRepository: jest.fn(),
+    createGroupRepository: jest.fn(),
     DynamoDBMembershipRepository: jest.fn(),
+    createMembershipRepository: jest.fn(),
     DynamoDBUserRepository: jest.fn(),
+    createUserRepository: jest.fn(),
     inviteMember: jest.fn(),
     ERROR_MESSAGES: {
       DUPLICATE_INVITATION: actualCore.ERROR_MESSAGES.DUPLICATE_INVITATION,
@@ -50,12 +57,27 @@ const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFu
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createGroupRepository: jest.Mock }
+).createGroupRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBGroupRepository(...args)
+);
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createMembershipRepository: jest.Mock }
+).createMembershipRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBMembershipRepository(...args)
+);
 const mockDynamoDBUserRepository = DynamoDBUserRepository as jest.MockedClass<
   typeof DynamoDBUserRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createUserRepository: jest.Mock }
+).createUserRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBUserRepository(...args)
+);
 const mockInviteMember = inviteMember as jest.MockedFunction<typeof inviteMember>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 

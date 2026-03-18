@@ -1,6 +1,7 @@
 {
-  "name": "codec-converter-batch",
+  "name": "@nagiyu/codec-converter-batch",
   "version": "1.0.0",
+  "private": true,
   "type": "module",
   "main": "dist/src/index.js",
   "scripts": {
@@ -13,11 +14,11 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-batch": "^3.980.0",
-    "@aws-sdk/client-dynamodb": "^3.980.0",
-    "@aws-sdk/client-s3": "^3.980.0",
-    "@aws-sdk/lib-dynamodb": "^3.980.0",
-    "codec-converter-core": "*"
+    "@aws-sdk/client-batch": "^3.1010.0",
+    "@aws-sdk/client-dynamodb": "^3.1010.0",
+    "@aws-sdk/client-s3": "^3.1010.0",
+    "@aws-sdk/lib-dynamodb": "^3.1010.0",
+    "@nagiyu/codec-converter-core": "*"
   },
   "devDependencies": {
     "@aws-sdk/types": "^3.973.0",

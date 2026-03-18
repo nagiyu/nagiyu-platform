@@ -13,7 +13,10 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBBatchJobRepository } from '../../../src/repositories/dynamodb-batch-job.repository.js';
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
-import type { CreateBatchJobInput, UpdateBatchJobInput } from '../../../src/entities/batch-job.entity.js';
+import type {
+  CreateBatchJobInput,
+  UpdateBatchJobInput,
+} from '../../../src/entities/batch-job.entity.js';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 

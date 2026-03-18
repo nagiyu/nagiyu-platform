@@ -72,7 +72,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev --workspace=codec-converter-web',
+    command: 'npm run dev --workspace=@nagiyu/codec-converter-web',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 3 * 60 * 1000, // 3 minutes
