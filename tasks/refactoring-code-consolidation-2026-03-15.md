@@ -434,7 +434,7 @@ type AuthSession = {
 
 ### フェーズ 5: Repository Factory 共通化（`@nagiyu/aws`）
 
-- [ ] T011: `@nagiyu/aws` にジェネリックなファクトリーヘルパー `createRepositoryFactory<T>` を追加
+- [x] T011: `@nagiyu/aws` にジェネリックなファクトリーヘルパー `createRepositoryFactory<T>` を追加
     - 環境変数フラグによる DynamoDB / InMemory 切り替え・シングルトン管理・リセット機構を提供
     - 対象: niconico-mylist-assistant, share-together, stock-tracker の各 factory.ts
 

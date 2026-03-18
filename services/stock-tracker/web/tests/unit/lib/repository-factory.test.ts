@@ -15,8 +15,15 @@ import {
 import * as aws from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
-// DynamoDBクライアントをモック化
-jest.mock('@nagiyu/aws');
+// DynamoDBクライアントをモック化（createRepositoryFactory は実装を利用）
+jest.mock('@nagiyu/aws', () => {
+  const actual = jest.requireActual('@nagiyu/aws');
+  return {
+    ...actual,
+    getDynamoDBDocumentClient: jest.fn(),
+    getTableName: jest.fn(),
+  };
+});
 
 const mockedAws = aws as jest.Mocked<typeof aws>;
 
@@ -45,9 +52,9 @@ describe('Repository Factory', () => {
     jest.clearAllMocks();
   });
 
-  describe('USE_IN_MEMORY_REPOSITORY=true', () => {
+  describe('USE_IN_MEMORY_DB=true', () => {
     beforeEach(() => {
-      process.env.USE_IN_MEMORY_REPOSITORY = 'true';
+      process.env.USE_IN_MEMORY_DB = 'true';
     });
 
     it('createAlertRepository はInMemory実装を返す', () => {
@@ -104,9 +111,9 @@ describe('Repository Factory', () => {
     });
   });
 
-  describe('USE_IN_MEMORY_REPOSITORY=false (DynamoDB)', () => {
+  describe('USE_IN_MEMORY_DB=false (DynamoDB)', () => {
     beforeEach(() => {
-      process.env.USE_IN_MEMORY_REPOSITORY = 'false';
+      process.env.USE_IN_MEMORY_DB = 'false';
       process.env.DYNAMODB_TABLE_NAME = 'test-table';
       process.env.AWS_REGION = 'us-east-1';
     });
@@ -172,9 +179,9 @@ describe('Repository Factory', () => {
     });
   });
 
-  describe('USE_IN_MEMORY_REPOSITORY未設定 (デフォルト: DynamoDB)', () => {
+  describe('USE_IN_MEMORY_DB未設定 (デフォルト: DynamoDB)', () => {
     beforeEach(() => {
-      delete process.env.USE_IN_MEMORY_REPOSITORY;
+      delete process.env.USE_IN_MEMORY_DB;
       process.env.DYNAMODB_TABLE_NAME = 'test-table';
       process.env.AWS_REGION = 'us-east-1';
     });
@@ -202,7 +209,7 @@ describe('Repository Factory', () => {
 
   describe('DynamoDB設定エラー', () => {
     beforeEach(() => {
-      delete process.env.USE_IN_MEMORY_REPOSITORY;
+      delete process.env.USE_IN_MEMORY_DB;
       delete process.env.DYNAMODB_TABLE_NAME;
       clearMemoryStore();
     });

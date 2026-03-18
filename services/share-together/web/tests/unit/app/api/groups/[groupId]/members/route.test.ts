@@ -11,9 +11,13 @@ jest.mock('@/lib/auth/session', () => ({
   getSessionOrUnauthorized: jest.fn(),
 }));
 
-jest.mock('@nagiyu/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(),
-}));
+jest.mock('@nagiyu/aws', () => {
+  const actualAws = jest.requireActual('@nagiyu/aws');
+  return {
+    ...actualAws,
+    getDynamoDBDocumentClient: jest.fn(),
+  };
+});
 
 jest.mock('@nagiyu/share-together-core', () => {
   const actualCore = jest.requireActual('@nagiyu/share-together-core');

@@ -17,12 +17,12 @@ describe('Cleanup Helper', () => {
 
   beforeEach(() => {
     // インメモリモードを有効化
-    process.env.USE_IN_MEMORY_REPOSITORY = 'true';
+    process.env.USE_IN_MEMORY_DB = 'true';
   });
 
   afterEach(() => {
     // 環境変数を復元
-    process.env.USE_IN_MEMORY_REPOSITORY = originalEnv.USE_IN_MEMORY_REPOSITORY;
+    process.env.USE_IN_MEMORY_DB = originalEnv.USE_IN_MEMORY_DB;
   });
 
   describe('cleanupRepositories', () => {

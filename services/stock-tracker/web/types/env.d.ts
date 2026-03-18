@@ -31,7 +31,7 @@ declare global {
       readonly PROJECT?: string;
 
       // リポジトリ種別（E2Eテスト用）
-      readonly USE_IN_MEMORY_REPOSITORY?: string;
+      readonly USE_IN_MEMORY_DB?: string;
     }
   }
 }
