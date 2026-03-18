@@ -18,6 +18,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@nagiyu/admin-core": "^0.1.0",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
