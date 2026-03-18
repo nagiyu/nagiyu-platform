@@ -27,6 +27,8 @@ const ERROR_MESSAGES = {
   CREATE_ERROR: 'アラートの登録に失敗しました',
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
   EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
+  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
+  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
 } as const;
 
 /**
@@ -219,6 +221,26 @@ export const POST = withAuth(
         );
       }
 
+      if (typeof body.notificationTitle !== 'string' || body.notificationTitle.trim() === '') {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (typeof body.notificationBody !== 'string' || body.notificationBody.trim() === '') {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED,
+          },
+          { status: 400 }
+        );
+      }
+
       // ExchangeID の自動取得（tickerId から）
       const exchangeId = body.exchangeId || body.tickerId?.split(':')[0] || '';
 
@@ -238,11 +260,15 @@ export const POST = withAuth(
         LogicalOperator: body.logicalOperator,
         Temporary: body.temporary === true ? true : undefined,
         TemporaryExpireDate: undefined,
-        NotificationTitle: body.notificationTitle?.trim() || undefined,
-        NotificationBody: body.notificationBody?.trim() || undefined,
-        SubscriptionEndpoint: subscription.endpoint,
-        SubscriptionKeysP256dh: subscription.keys.p256dh,
-        SubscriptionKeysAuth: subscription.keys.auth,
+        NotificationTitle: body.notificationTitle.trim(),
+        NotificationBody: body.notificationBody.trim(),
+        subscription: {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.keys.p256dh,
+            auth: subscription.keys.auth,
+          },
+        },
         // AlertID は UUID v4 でリポジトリが自動生成
         AlertID: VALIDATION_PLACEHOLDER_UUID,
         CreatedAt: Date.now(),

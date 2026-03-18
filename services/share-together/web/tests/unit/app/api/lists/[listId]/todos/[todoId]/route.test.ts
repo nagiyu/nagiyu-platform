@@ -34,7 +34,9 @@ jest.mock('@nagiyu/aws', () => ({
 
 jest.mock('@nagiyu/share-together-core', () => ({
   DynamoDBListRepository: jest.fn(),
+  createListRepository: jest.fn(),
   DynamoDBTodoRepository: jest.fn(),
+  createTodoRepository: jest.fn(),
   TodoService: jest.fn(),
 }));
 
@@ -57,9 +59,19 @@ const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFu
 const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
   typeof DynamoDBListRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createListRepository: jest.Mock }
+).createListRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBListRepository(...args)
+);
 const mockDynamoDBTodoRepository = DynamoDBTodoRepository as jest.MockedClass<
   typeof DynamoDBTodoRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createTodoRepository: jest.Mock }
+).createTodoRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBTodoRepository(...args)
+);
 const mockTodoService = TodoService as jest.MockedClass<typeof TodoService>;
 type SessionOrUnauthorized = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 

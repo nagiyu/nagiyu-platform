@@ -4,7 +4,7 @@ import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } fr
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository } from '@/lib/repositories';
+import { createListRepository } from '@nagiyu/share-together-core';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,

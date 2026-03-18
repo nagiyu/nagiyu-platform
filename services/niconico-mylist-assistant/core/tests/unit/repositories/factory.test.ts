@@ -5,6 +5,7 @@
 import {
   createVideoRepository,
   createUserSettingRepository,
+  resetRepositoryFactories,
 } from '../../../src/repositories/factory';
 import { InMemoryVideoRepository } from '../../../src/repositories/inmemory-video.repository';
 import { InMemoryUserSettingRepository } from '../../../src/repositories/inmemory-user-setting.repository';
@@ -22,6 +23,7 @@ describe('Repository Factory', () => {
     delete process.env.USE_IN_MEMORY_DB;
     // ストアをクリア
     clearInMemoryStore();
+    resetRepositoryFactories();
     ddbMock.reset();
   });
 

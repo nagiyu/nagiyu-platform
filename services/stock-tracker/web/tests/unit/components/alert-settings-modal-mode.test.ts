@@ -143,6 +143,7 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
     expect(html).toContain('通知設定（任意）');
+    expect(html).toContain('通知設定を編集');
     expect(html).toContain('通知タイトル');
     expect(html).toContain('通知本文');
   });
@@ -165,6 +166,7 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
     expect(html).toContain('通知設定（任意）');
+    expect(html).toContain('通知設定を編集');
     expect(html).toContain('通知タイトル');
     expect(html).toContain('通知本文');
   });

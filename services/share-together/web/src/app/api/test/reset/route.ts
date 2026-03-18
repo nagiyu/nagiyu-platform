@@ -16,7 +16,7 @@ import {
   createTodoRepository,
   createUserRepository,
   resetInMemoryRepositories,
-} from '@/lib/repositories';
+} from '@nagiyu/share-together-core';
 
 type ResetSeedData = {
   users?: CreateUserInput[];

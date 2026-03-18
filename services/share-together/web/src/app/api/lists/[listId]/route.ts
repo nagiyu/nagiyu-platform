@@ -4,7 +4,7 @@ import type { ApiErrorResponse, PersonalListResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository } from '@/lib/repositories';
+import { createListRepository } from '@nagiyu/share-together-core';
 
 interface RouteContext {
   params: Promise<{ listId: string }>;

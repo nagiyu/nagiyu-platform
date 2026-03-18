@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
+import { ServiceWorkerRegistration } from '@nagiyu/ui';
 import ThemeRegistry from '@/components/ThemeRegistry';
-import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,7 +19,10 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <ServiceWorkerRegistration />
+        <ServiceWorkerRegistration
+          subscribeEndpoint="/api/push/refresh"
+          vapidPublicKeyEndpoint="/api/push/vapid-public-key"
+        />
         <ThemeRegistry version={version}>{children}</ThemeRegistry>
       </body>
     </html>

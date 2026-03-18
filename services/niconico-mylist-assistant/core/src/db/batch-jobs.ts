@@ -1,4 +1,4 @@
-import { getDocClient, getTableName } from './client.js';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { createBatchJobRepository } from '../repositories/factory.js';
 import type { BatchJobRepository } from '../repositories/batch-job.repository.interface.js';
 import type {
@@ -13,7 +13,10 @@ let batchJobRepositoryInstance: BatchJobRepository | null = null;
 
 function getBatchJobRepository(): BatchJobRepository {
   if (!batchJobRepositoryInstance) {
-    batchJobRepositoryInstance = createBatchJobRepository(getDocClient(), getTableName());
+    batchJobRepositoryInstance = createBatchJobRepository(
+      getDynamoDBDocumentClient(),
+      getTableName()
+    );
   }
   return batchJobRepositoryInstance;
 }

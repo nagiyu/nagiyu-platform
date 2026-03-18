@@ -11,15 +11,21 @@ jest.mock('@/lib/auth/session', () => ({
   getSessionOrUnauthorized: jest.fn(),
 }));
 
-jest.mock('@nagiyu/aws', () => ({
-  getDynamoDBDocumentClient: jest.fn(),
-}));
+jest.mock('@nagiyu/aws', () => {
+  const actualAws = jest.requireActual('@nagiyu/aws');
+  return {
+    ...actualAws,
+    getDynamoDBDocumentClient: jest.fn(),
+  };
+});
 
 jest.mock('@nagiyu/share-together-core', () => {
   const actualCore = jest.requireActual('@nagiyu/share-together-core');
   return {
     DynamoDBGroupRepository: jest.fn(),
+    createGroupRepository: jest.fn(),
     DynamoDBMembershipRepository: jest.fn(),
+    createMembershipRepository: jest.fn(),
     respondToInvitation: jest.fn(),
     ERROR_MESSAGES: {
       INVITATION_NOT_FOUND: actualCore.ERROR_MESSAGES.INVITATION_NOT_FOUND,
@@ -47,9 +53,19 @@ const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFu
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createGroupRepository: jest.Mock }
+).createGroupRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBGroupRepository(...args)
+);
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createMembershipRepository: jest.Mock }
+).createMembershipRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBMembershipRepository(...args)
+);
 const mockRespondToInvitation = respondToInvitation as jest.MockedFunction<
   typeof respondToInvitation
 >;
