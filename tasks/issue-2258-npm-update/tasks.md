@@ -14,28 +14,28 @@
 <!-- npm audit・outdated の現状を確認し、更新方針を確定する -->
 
 - [ ] T001: `npm audit` を実行し、Critical / High 脆弱性がゼロであることを確認する（依存: なし）
-- [ ] T002: `npm outdated --workspaces --include-workspace-root` を実行し、レポートと差異がないことを確認する（依存: なし）
-- [ ] T003: `next-auth` / `@auth/core` が beta 系で意図的に固定されていることをコメント等で記録する（依存: T002）
+- [x] T002: `npm outdated --workspaces --include-workspace-root` を実行し、レポートと差異がないことを確認する（依存: なし）
+- [x] T003: `next-auth` / `@auth/core` が beta 系で意図的に固定されていることをコメント等で記録する（依存: T002）
 
 ## Phase 2: グループ A 更新（マイナー・パッチ）
 
 <!-- breaking changes リスクが低いパッケージを一括更新する -->
 
-- [ ] T004: ルート `package.json` の `@aws-sdk/client-batch` / `client-dynamodb` / `client-lambda` / `client-s3` / `client-secrets-manager` / `lib-dynamodb` / `s3-request-presigner` を `3.1010.0` へ更新する（依存: T001）
-- [ ] T005: ルート `package.json` の `aws-cdk` を `2.1111.0`、`aws-cdk-lib` を `2.243.0` へ更新し、`infra/` 配下の各ワークスペースも同バージョンへ更新する（依存: T001）
-- [ ] T006: ルート `package.json` の `next` / `eslint-config-next` を `16.1.7` へ更新し、`libs/ui` / `services/*/web` の各ワークスペースも同バージョンへ更新する（依存: T001）
-- [ ] T007: ルート `package.json` の `jest` / `@jest/types` / `jest-environment-jsdom` を `30.3.0` へ更新する（依存: T001）
-- [ ] T008: ルート `package.json` の `typescript-eslint` を `8.57.1` へ更新する（依存: T001）
-- [ ] T009: `services/stock-tracker/batch/package.json` の `openai` を `6.31.0` へ更新する（依存: T001）
-- [ ] T010: `services/niconico-mylist-assistant/batch/package.json` の `playwright` を `1.58.2` へ更新する（依存: T001）
-- [ ] T011: `npm install` を実行し、`package-lock.json` を再生成する（依存: T004〜T010）
+- [x] T004: ルート `package.json` の `@aws-sdk/client-batch` / `client-dynamodb` / `client-lambda` / `client-s3` / `client-secrets-manager` / `lib-dynamodb` / `s3-request-presigner` を `3.1010.0` へ更新する（依存: T001）
+- [x] T005: ルート `package.json` の `aws-cdk` を `2.1111.0`、`aws-cdk-lib` を `2.243.0` へ更新し、`infra/` 配下の各ワークスペースも同バージョンへ更新する（依存: T001）
+- [x] T006: ルート `package.json` の `next` / `eslint-config-next` を `16.1.7` へ更新し、`libs/ui` / `services/*/web` の各ワークスペースも同バージョンへ更新する（依存: T001）
+- [x] T007: ルート `package.json` の `jest` / `@jest/types` / `jest-environment-jsdom` を `30.3.0` へ更新する（依存: T001）
+- [x] T008: ルート `package.json` の `typescript-eslint` を `8.57.1` へ更新する（依存: T001）
+- [x] T009: `services/stock-tracker/batch/package.json` の `openai` を `6.31.0` へ更新する（依存: T001）
+- [x] T010: `services/niconico-mylist-assistant/batch/package.json` の `playwright` を `1.58.2` へ更新する（依存: T001）
+- [x] T011: `npm install` を実行し、`package-lock.json` を再生成する（依存: T004〜T010）
 
 ## Phase 3: 動作確認
 
 <!-- lint / build / test が通過することを確認する -->
 
-- [ ] T012: `npm run format:check --workspaces --if-present` を実行し、フォーマット違反がないことを確認する（依存: T011）
-- [ ] T013: `npm run lint --workspaces --if-present` を実行し、Lint エラーがないことを確認する（依存: T011）
+- [x] T012: `npm run format:check --workspaces --if-present` を実行し、フォーマット違反がないことを確認する（依存: T011）
+- [x] T013: `npm run lint --workspaces --if-present` を実行し、Lint エラーがないことを確認する（依存: T011）
 - [ ] T014: 各ワークスペースのビルドを実行し（`npm run build --workspaces --if-present`）、コンパイルエラーがないことを確認する（依存: T011）
 - [ ] T015: 各ワークスペースのテストを実行し（`npm run test --workspaces --if-present`）、テストが通過することを確認する（依存: T014）
 - [ ] T016: `npm audit` を再実行し、Critical / High 脆弱性がゼロであることを確認する（依存: T011）
@@ -57,3 +57,10 @@
 - [ ] `package-lock.json` がコミットされている
 - [ ] メジャーバージョン変更（eslint v10 / @types/node v25）の別 Issue が起票されている
 - [ ] `tasks/issue-2258-npm-update/` ディレクトリを削除した
+
+## 実行メモ (2026-03-18)
+
+- `npm outdated --workspaces --include-workspace-root` 実行時、`next-auth` / `@auth/core` は beta 系を維持したまま (`Wanted` は現行 beta、`Latest` は 4.x 安定版) であることを確認した。
+- `npm run build --workspaces --if-present` は依存ワークスペース未ビルド状態で `TS2307` (`@nagiyu/common`, `@nagiyu/aws`) が発生する既知の実行順問題で失敗した。
+- `npm run test --workspaces --if-present` は `infra/common` で `jest.config.js` と `jest.config.ts` の多重検出により失敗した（既存課題）。
+- `npm audit --audit-level=high` は `fast-xml-parser`（`@aws-sdk/*` 経由）の GHSA-8gc5-j5rx-235r により High が残存したため、T016 は未完了。
