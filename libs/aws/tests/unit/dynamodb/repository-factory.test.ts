@@ -65,5 +65,4 @@ describe('createRepositoryFactory', () => {
 
     expect(repository1).not.toBe(repository2);
   });
-
 });
