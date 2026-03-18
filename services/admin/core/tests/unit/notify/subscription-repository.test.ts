@@ -40,8 +40,8 @@ describe('DynamoDBPushSubscriptionRepository', () => {
     });
 
     expect(result.userId).toBe('admin-user-1');
-    expect(result.endpoint).toBe('https://example.com/endpoint');
-    expect(result.keys.p256dh).toBe('p256dh-key');
+    expect(result.subscription.endpoint).toBe('https://example.com/endpoint');
+    expect(result.subscription.keys.p256dh).toBe('p256dh-key');
     expect(result.subscriptionId).toBeTruthy();
   });
 
@@ -85,7 +85,7 @@ describe('DynamoDBPushSubscriptionRepository', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].subscriptionId).toBe('sub-1');
-    expect(result[0].keys.auth).toBe('auth-1');
+    expect(result[0].subscription.keys.auth).toBe('auth-1');
   });
 
   it('endpointでサブスクリプションを削除できる', async () => {
@@ -116,9 +116,7 @@ describe('DynamoDBPushSubscriptionRepository', () => {
   });
 
   it('endpoint が空文字の場合は削除時にエラーを投げる', async () => {
-    await expect(repository.deleteByEndpoint('')).rejects.toThrow(
-      'endpoint は空文字にできません'
-    );
+    await expect(repository.deleteByEndpoint('')).rejects.toThrow('endpoint は空文字にできません');
   });
 });
 
@@ -143,7 +141,7 @@ describe('createPushSubscriptionRepository', () => {
     });
 
     const all = await repository.findAll();
-    const deleted = await repository.deleteByEndpoint(saved.endpoint);
+    const deleted = await repository.deleteByEndpoint(saved.subscription.endpoint);
 
     expect(all).toHaveLength(1);
     expect(deleted).toBe(1);

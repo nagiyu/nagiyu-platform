@@ -18,11 +18,7 @@ const ENDPOINT_INDEX_NAME = 'EndpointIndex';
 export type PushSubscriptionRecord = {
   subscriptionId: string;
   userId: string;
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
+  subscription: PushSubscription;
   createdAt: string;
   updatedAt: string;
 };
@@ -149,10 +145,12 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
     return {
       subscriptionId: item.subscriptionId,
       userId: item.userId,
-      endpoint: item.endpoint,
-      keys: {
-        p256dh: item.p256dhKey,
-        auth: item.authKey,
+      subscription: {
+        endpoint: item.endpoint,
+        keys: {
+          p256dh: item.p256dhKey,
+          auth: item.authKey,
+        },
       },
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
@@ -169,10 +167,12 @@ class InMemoryPushSubscriptionRepository implements PushSubscriptionRepository {
     const record: PushSubscriptionRecord = {
       subscriptionId,
       userId: input.userId,
-      endpoint: input.subscription.endpoint,
-      keys: {
-        p256dh: input.subscription.keys.p256dh,
-        auth: input.subscription.keys.auth,
+      subscription: {
+        endpoint: input.subscription.endpoint,
+        keys: {
+          p256dh: input.subscription.keys.p256dh,
+          auth: input.subscription.keys.auth,
+        },
       },
       createdAt: now,
       updatedAt: now,
@@ -189,7 +189,7 @@ class InMemoryPushSubscriptionRepository implements PushSubscriptionRepository {
   public async deleteByEndpoint(endpoint: string): Promise<number> {
     let deletedCount = 0;
     for (const [subscriptionId, record] of this.records.entries()) {
-      if (record.endpoint === endpoint) {
+      if (record.subscription.endpoint === endpoint) {
         this.records.delete(subscriptionId);
         deletedCount += 1;
       }

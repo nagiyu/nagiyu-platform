@@ -9,10 +9,12 @@ function createSubscription(endpoint: string): PushSubscriptionRecord {
   return {
     subscriptionId: `sub-${endpoint}`,
     userId: 'admin-user-1',
-    endpoint,
-    keys: {
-      p256dh: 'p256dh-key',
-      auth: 'auth-key',
+    subscription: {
+      endpoint,
+      keys: {
+        p256dh: 'p256dh-key',
+        auth: 'auth-key',
+      },
     },
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',

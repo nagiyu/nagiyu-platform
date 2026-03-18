@@ -1,12 +1,9 @@
 import type { PushSubscription } from '@nagiyu/common';
 import { normalizeVapidKey } from '@nagiyu/common';
 import webPush from 'web-push';
-import type {
-  PushSubscriptionRecord,
-  PushSubscriptionRepository,
-} from './subscription-repository.js';
+import type { PushSubscriptionRepository } from './subscription-repository.js';
 
-const DEFAULT_VAPID_SUBJECT = 'mailto:support@nagiyu.com';
+const DEFAULT_VAPID_SUBJECT = 'mailto:noreply@nagiyu.com';
 
 export type PushNotificationPayload = {
   title: string;
@@ -65,29 +62,19 @@ export class WebPushSender {
 
     for (const subscription of subscriptions) {
       try {
-        await this.client.sendNotification(toPushSubscription(subscription), encodedPayload);
+        await this.client.sendNotification(subscription.subscription, encodedPayload);
         sent += 1;
       } catch (error) {
         failed += 1;
         const statusCode = getStatusCode(error);
         if (statusCode === 404 || statusCode === 410) {
-          await this.repository.deleteByEndpoint(subscription.endpoint);
+          await this.repository.deleteByEndpoint(subscription.subscription.endpoint);
         }
       }
     }
 
     return { sent, failed };
   }
-}
-
-function toPushSubscription(record: PushSubscriptionRecord): PushSubscription {
-  return {
-    endpoint: record.endpoint,
-    keys: {
-      p256dh: record.keys.p256dh,
-      auth: record.keys.auth,
-    },
-  };
 }
 
 function getStatusCode(error: unknown): number | null {
