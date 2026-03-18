@@ -33,6 +33,10 @@ const stackEnv = {
 };
 
 const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
+const accountForAdminAlarmTopicArn = stackEnv.account || '000000000000';
+const adminAlarmTopicArn =
+  app.node.tryGetContext('adminAlarmTopicArn') ||
+  `arn:aws:sns:${stackEnv.region}:${accountForAdminAlarmTopicArn}:nagiyu-admin-alarms-${env}`;
 
 // 1. Secrets スタック（VAPID キー用）
 const secretsStack = new SecretsStack(app, `NagiyuStockTrackerSecrets${envSuffix}`, {
@@ -155,6 +159,7 @@ const alarmsStack = new CloudWatchAlarmsStack(
     batchDailyFunction: lambdaStack.batchDailyFunction,
     dynamoTable: dynamoStack.table,
     alarmTopic: snsStack.alarmTopic,
+    adminAlarmTopicArn,
     env: stackEnv,
     description: `Stock Tracker CloudWatch Alarms - ${env} environment`,
   }
