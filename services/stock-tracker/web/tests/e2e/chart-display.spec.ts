@@ -34,7 +34,10 @@ async function waitForChartOrError(page: Page, responsePromise: Promise<Response
           .locator('[role="alert"]')
           .isVisible()
           .catch(() => false);
-        const isNoDataVisible = await page.getByText('チャートデータがありません').isVisible().catch(() => false);
+        const isNoDataVisible = await page
+          .getByText('チャートデータがありません')
+          .isVisible()
+          .catch(() => false);
         return isChartVisible || isErrorVisible || isNoDataVisible;
       },
       { timeout: CHART_RENDER_TIMEOUT_MS }
