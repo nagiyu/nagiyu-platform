@@ -32,9 +32,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const result = await repository.create(input);
@@ -55,9 +59,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const input2: CreateAlertInput = {
@@ -68,9 +76,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const result1 = await repository.create(input1);
@@ -92,9 +104,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const created = await repository.create(input);
@@ -120,9 +136,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const alert2: CreateAlertInput = {
@@ -133,9 +153,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const alert3: CreateAlertInput = {
@@ -146,9 +170,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       await repository.create(alert1);
@@ -179,9 +207,13 @@ describe('InMemoryAlertRepository', () => {
           Frequency: 'MINUTE_LEVEL',
           Enabled: true,
           ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-          SubscriptionEndpoint: 'https://example.com/push',
-          SubscriptionKeysP256dh: 'p256dh-key',
-          SubscriptionKeysAuth: 'auth-secret',
+          subscription: {
+            endpoint: 'https://example.com/push',
+            keys: {
+              p256dh: 'p256dh-key',
+              auth: 'auth-secret',
+            },
+          },
         });
       }
 
@@ -207,9 +239,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const alert2: CreateAlertInput = {
@@ -220,9 +256,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 500.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const alert3: CreateAlertInput = {
@@ -233,9 +273,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 140.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       await repository.create(alert1);
@@ -269,9 +313,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const created = await repository.create(input);
@@ -304,9 +352,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const created = await repository.create(input);
@@ -327,9 +379,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const created = await repository.create(input);
@@ -360,9 +416,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       const created = await repository.create(input);
@@ -389,9 +449,13 @@ describe('InMemoryAlertRepository', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-secret',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
       };
 
       await expect(repository.create(input)).rejects.toThrow(

@@ -50,24 +50,24 @@ interface BatchStatistics {
  */
 function isValidSubscription(alert: Alert): boolean {
   // SubscriptionEndpoint が空または不正な形式の場合は無効
-  if (!alert.SubscriptionEndpoint || alert.SubscriptionEndpoint.trim() === '') {
+  if (!alert.subscription.endpoint || alert.subscription.endpoint.trim() === '') {
     return false;
   }
 
   // SubscriptionEndpoint が URL 形式であることを確認
   try {
-    new URL(alert.SubscriptionEndpoint);
+    new URL(alert.subscription.endpoint);
   } catch {
     return false;
   }
 
   // SubscriptionKeysP256dh が空の場合は無効
-  if (!alert.SubscriptionKeysP256dh || alert.SubscriptionKeysP256dh.trim() === '') {
+  if (!alert.subscription.keys.p256dh || alert.subscription.keys.p256dh.trim() === '') {
     return false;
   }
 
   // SubscriptionKeysAuth が空の場合は無効
-  if (!alert.SubscriptionKeysAuth || alert.SubscriptionKeysAuth.trim() === '') {
+  if (!alert.subscription.keys.auth || alert.subscription.keys.auth.trim() === '') {
     return false;
   }
 
@@ -130,7 +130,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
           alertId: alert.AlertID,
           userId: alert.UserID,
           tickerId: alert.TickerID,
-          subscriptionEndpoint: alert.SubscriptionEndpoint || '(empty)',
+          subscriptionEndpoint: alert.subscription.endpoint || '(empty)',
         });
       }
     }

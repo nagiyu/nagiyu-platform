@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import ThemeRegistry from '@/components/ThemeRegistry';
+import { ServiceLayout } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
   title: 'Codec Converter',
@@ -23,7 +23,15 @@ export default function RootLayout({
   return (
     <html lang="ja">
       <body>
-        <ThemeRegistry version={version}>{children}</ThemeRegistry>
+        <ServiceLayout
+          headerProps={{
+            title: 'Codec Converter',
+            ariaLabel: 'Codec Converter ホームページに戻る',
+          }}
+          footerProps={{ version }}
+        >
+          {children}
+        </ServiceLayout>
       </body>
     </html>
   );

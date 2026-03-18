@@ -17,7 +17,9 @@ jest.mock('@nagiyu/aws', () => ({
 
 jest.mock('@nagiyu/share-together-core', () => ({
   DynamoDBListRepository: jest.fn(),
+  createListRepository: jest.fn(),
   DynamoDBMembershipRepository: jest.fn(),
+  createMembershipRepository: jest.fn(),
 }));
 
 import { DynamoDBListRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
@@ -34,9 +36,19 @@ const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFu
 const mockDynamoDBListRepository = DynamoDBListRepository as jest.MockedClass<
   typeof DynamoDBListRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createListRepository: jest.Mock }
+).createListRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBListRepository(...args)
+);
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
+(
+  jest.requireMock('@nagiyu/share-together-core') as { createMembershipRepository: jest.Mock }
+).createMembershipRepository.mockImplementation((...args: unknown[]) =>
+  mockDynamoDBMembershipRepository(...args)
+);
 type SessionOrErrorResponse = Awaited<ReturnType<typeof getSessionOrUnauthorized>>;
 
 describe('/api/groups/[groupId]/lists route', () => {

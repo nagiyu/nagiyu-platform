@@ -210,9 +210,13 @@ describe('Alert Evaluator Service', () => {
           value: value,
         },
       ],
-      SubscriptionEndpoint: 'https://example.com/push',
-      SubscriptionKeysP256dh: 'test-p256dh-key',
-      SubscriptionKeysAuth: 'test-auth-key',
+      subscription: {
+        endpoint: 'https://example.com/push',
+        keys: {
+          p256dh: 'test-p256dh-key',
+          auth: 'test-auth-key',
+        },
+      },
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     });
@@ -269,9 +273,13 @@ describe('Alert Evaluator Service', () => {
           },
         ],
         LogicalOperator: 'AND',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'test-p256dh-key',
-        SubscriptionKeysAuth: 'test-auth-key',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'test-p256dh-key',
+            auth: 'test-auth-key',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       });
@@ -334,9 +342,13 @@ describe('Alert Evaluator Service', () => {
           },
         ],
         LogicalOperator: 'OR',
-        SubscriptionEndpoint: 'https://example.com/push',
-        SubscriptionKeysP256dh: 'test-p256dh-key',
-        SubscriptionKeysAuth: 'test-auth-key',
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'test-p256dh-key',
+            auth: 'test-auth-key',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       });

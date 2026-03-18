@@ -96,9 +96,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -163,9 +167,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: false, // 無効化
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -201,9 +209,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -249,9 +261,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -318,9 +334,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -368,9 +388,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -419,9 +443,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test1',
-        SubscriptionKeysP256dh: 'test-p256dh-1',
-        SubscriptionKeysAuth: 'test-auth-1',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test1',
+          keys: {
+            p256dh: 'test-p256dh-1',
+            auth: 'test-auth-1',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -435,9 +463,13 @@ describe('hourly batch handler', () => {
         Frequency: 'HOURLY_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test2',
-        SubscriptionKeysP256dh: 'test-p256dh-2',
-        SubscriptionKeysAuth: 'test-auth-2',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test2',
+          keys: {
+            p256dh: 'test-p256dh-2',
+            auth: 'test-auth-2',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -500,9 +532,13 @@ describe('hourly batch handler', () => {
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
         LogicalOperator: 'AND',
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -567,9 +603,13 @@ describe('hourly batch handler', () => {
           { field: 'price', operator: 'lte', value: 110.0 },
         ],
         // LogicalOperator は未指定（デフォルトで AND になる）
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
@@ -634,9 +674,13 @@ describe('hourly batch handler', () => {
           { field: 'price', operator: 'gte', value: 120.0 },
         ],
         LogicalOperator: 'OR',
-        SubscriptionEndpoint: 'https://fcm.googleapis.com/fcm/send/test',
-        SubscriptionKeysP256dh: 'test-p256dh',
-        SubscriptionKeysAuth: 'test-auth',
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: {
+            p256dh: 'test-p256dh',
+            auth: 'test-auth',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       };
