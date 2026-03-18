@@ -11,9 +11,9 @@
 
 ## Phase 0: 共通ライブラリ更新
 
-- [ ] `libs/common/src/auth/types.ts` に `notifications:write` を Permission 型へ追加する
-- [ ] `libs/common/src/auth/roles.ts` の `admin` ロールに `notifications:write` 権限を追加する
-- [ ] `libs/common` のユニットテストを更新する（`notifications:write` が admin ロールに含まれること）
+- [x] `libs/common/src/auth/types.ts` に `notifications:write` を Permission 型へ追加する
+- [x] `libs/common/src/auth/roles.ts` の `admin` ロールに `notifications:write` 権限を追加する
+- [x] `libs/common` のユニットテストを更新する（`notifications:write` が admin ロールに含まれること）
 
 ## Phase 1: インフラ構築
 

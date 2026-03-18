@@ -37,6 +37,7 @@ describe('ROLES', () => {
       expect(ROLES.admin.permissions).toContain('users:read');
       expect(ROLES.admin.permissions).toContain('users:write');
       expect(ROLES.admin.permissions).toContain('roles:assign');
+      expect(ROLES.admin.permissions).toContain('notifications:write');
     });
   });
 
