@@ -13,6 +13,7 @@ ENV APP_VERSION=${APP_VERSION}
 COPY package*.json ./
 COPY configs ./configs/
 COPY libs ./libs/
+COPY services/admin/core ./services/admin/core/
 COPY services/admin/web ./services/admin/web/
 
 # 依存関係をインストール（ソースコード存在下で実行）
@@ -21,9 +22,11 @@ RUN npm ci
 # モノレポのルートからビルド（共通ライブラリも含めて）
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build --workspace=libs/common
+RUN npm run build --workspace=libs/aws
 RUN npm run build --workspace=libs/browser
 RUN npm run build --workspace=libs/ui
 RUN npm run build --workspace=libs/nextjs
+RUN npm run build --workspace=@nagiyu/admin-core
 RUN npm run build --workspace=@nagiyu/admin
 
 # 本番ステージ
