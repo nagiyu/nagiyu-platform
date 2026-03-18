@@ -4,7 +4,7 @@ import type { ApiErrorResponse, GroupListsResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository, createMembershipRepository } from '@/lib/repositories';
+import { createListRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;

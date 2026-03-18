@@ -10,7 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthError } from '@nagiyu/stock-tracker-core';
+import { getAuthError } from '@nagiyu/nextjs';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 
@@ -165,14 +165,18 @@ export async function POST(
     for (const alert of alerts) {
       // 現在のサブスクリプションと異なる場合のみ更新
       if (
-        alert.SubscriptionEndpoint !== subscription.endpoint ||
-        alert.SubscriptionKeysP256dh !== subscription.keys.p256dh ||
-        alert.SubscriptionKeysAuth !== subscription.keys.auth
+        alert.subscription.endpoint !== subscription.endpoint ||
+        alert.subscription.keys.p256dh !== subscription.keys.p256dh ||
+        alert.subscription.keys.auth !== subscription.keys.auth
       ) {
         await alertRepo.update(userId, alert.AlertID, {
-          SubscriptionEndpoint: subscription.endpoint,
-          SubscriptionKeysP256dh: subscription.keys.p256dh,
-          SubscriptionKeysAuth: subscription.keys.auth,
+          subscription: {
+            endpoint: subscription.endpoint,
+            keys: {
+              p256dh: subscription.keys.p256dh,
+              auth: subscription.keys.auth,
+            },
+          },
         });
         updatedCount++;
       }

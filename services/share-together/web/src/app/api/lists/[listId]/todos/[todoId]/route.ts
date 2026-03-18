@@ -4,7 +4,7 @@ import type { ApiErrorResponse, TodoResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createListRepository, createTodoRepository } from '@/lib/repositories';
+import { createListRepository, createTodoRepository } from '@nagiyu/share-together-core';
 
 const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
   ERROR_MESSAGES.USER_ID_REQUIRED,

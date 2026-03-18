@@ -5,6 +5,7 @@
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { createRepositoryFactory } from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
 import type { UserSettingRepository } from './user-setting.repository.interface.js';
 import type { BatchJobRepository } from './batch-job.repository.interface.js';
@@ -31,18 +32,7 @@ export function createVideoRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): VideoRepository {
-  const useInMemory = process.env.USE_IN_MEMORY_DB === 'true';
-
-  if (useInMemory) {
-    const store = getInMemoryStore();
-    return new InMemoryVideoRepository(store);
-  }
-
-  if (!docClient || !tableName) {
-    throw new Error('DynamoDB実装にはdocClientとtableNameが必要です');
-  }
-
-  return new DynamoDBVideoRepository(docClient, tableName);
+  return videoRepositoryFactory.createRepository(docClient, tableName);
 }
 
 /**
@@ -63,18 +53,7 @@ export function createUserSettingRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): UserSettingRepository {
-  const useInMemory = process.env.USE_IN_MEMORY_DB === 'true';
-
-  if (useInMemory) {
-    const store = getInMemoryStore();
-    return new InMemoryUserSettingRepository(store);
-  }
-
-  if (!docClient || !tableName) {
-    throw new Error('DynamoDB実装にはdocClientとtableNameが必要です');
-  }
-
-  return new DynamoDBUserSettingRepository(docClient, tableName);
+  return userSettingRepositoryFactory.createRepository(docClient, tableName);
 }
 
 /**
@@ -95,16 +74,64 @@ export function createBatchJobRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): BatchJobRepository {
-  const useInMemory = process.env.USE_IN_MEMORY_DB === 'true';
-
-  if (useInMemory) {
-    const store = getInMemoryStore();
-    return new InMemoryBatchJobRepository(store);
-  }
-
-  if (!docClient || !tableName) {
-    throw new Error('DynamoDB実装にはdocClientとtableNameが必要です');
-  }
-
-  return new DynamoDBBatchJobRepository(docClient, tableName);
+  return batchJobRepositoryFactory.createRepository(docClient, tableName);
 }
+
+/**
+ * Repository Factory のシングルトンインスタンスをリセットする。
+ *
+ * @remarks
+ * 主にユニットテストでテストケース間の状態を分離するために使用する。
+ */
+export function resetRepositoryFactories(): void {
+  videoRepositoryFactory.resetRepository();
+  userSettingRepositoryFactory.resetRepository();
+  batchJobRepositoryFactory.resetRepository();
+}
+
+const ERROR_MESSAGES = {
+  DYNAMODB_PARAMS_REQUIRED: 'DynamoDB実装にはdocClientとtableNameが必要です',
+} as const;
+
+function requireDynamoParams(
+  docClient?: DynamoDBDocumentClient,
+  tableName?: string
+): { docClient: DynamoDBDocumentClient; tableName: string } {
+  if (!docClient || !tableName) {
+    throw new Error(ERROR_MESSAGES.DYNAMODB_PARAMS_REQUIRED);
+  }
+  return { docClient, tableName };
+}
+
+const videoRepositoryFactory = createRepositoryFactory<
+  VideoRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryVideoRepository(getInMemoryStore()),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBVideoRepository(params.docClient, params.tableName);
+  },
+});
+
+const userSettingRepositoryFactory = createRepositoryFactory<
+  UserSettingRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryUserSettingRepository(getInMemoryStore()),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBUserSettingRepository(params.docClient, params.tableName);
+  },
+});
+
+const batchJobRepositoryFactory = createRepositoryFactory<
+  BatchJobRepository,
+  [DynamoDBDocumentClient | undefined, string | undefined]
+>({
+  createInMemoryRepository: () => new InMemoryBatchJobRepository(getInMemoryStore()),
+  createDynamoDBRepository: (docClient, tableName) => {
+    const params = requireDynamoParams(docClient, tableName);
+    return new DynamoDBBatchJobRepository(params.docClient, params.tableName);
+  },
+});
