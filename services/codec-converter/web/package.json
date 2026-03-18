@@ -13,17 +13,17 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "@aws-sdk/client-batch": "^3.980.0",
-    "@aws-sdk/client-dynamodb": "^3.980.0",
-    "@aws-sdk/client-s3": "^3.980.0",
-    "@aws-sdk/lib-dynamodb": "^3.980.0",
-    "@aws-sdk/s3-request-presigner": "^3.980.0",
+    "@aws-sdk/client-batch": "^3.1010.0",
+    "@aws-sdk/client-dynamodb": "^3.1010.0",
+    "@aws-sdk/client-s3": "^3.1010.0",
+    "@aws-sdk/lib-dynamodb": "^3.1010.0",
+    "@aws-sdk/s3-request-presigner": "^3.1010.0",
     "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
+    "@nagiyu/codec-converter-core": "*",
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
-    "@nagiyu/codec-converter-core": "*",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
