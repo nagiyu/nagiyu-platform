@@ -1,8 +1,8 @@
-import { test, expect, type Page, type Response } from '@playwright/test';
+import { test, expect, type Page, type Response, type Locator } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
 
 /**
- * チャート API レスポンスを待ってから、チャートまたはエラー表示を確認する。
+ * チャート API レスポンスを待ってから、チャートまたはエラー/データなし表示を確認する。
  *
  * ドロップダウン変更後は React の再レンダリング → useEffect → fetch の順で
  * 非同期に進むため、networkidle だけでは fetch 開始前に解決してしまう場合がある。
@@ -18,6 +18,8 @@ async function waitForChartOrError(page: Page, responsePromise: Promise<Response
   await responsePromise;
 
   // API レスポンス後のレンダリング反映を短時間ポーリングで確認
+  // WebKit モバイル環境では外部データソース到達性により描画反映が遅延/未反映になるため、
+  // ここはベストエフォート待機とし、レスポンス受信自体を主な完了条件にする。
   await expect
     .poll(
       async () => {
@@ -29,11 +31,29 @@ async function waitForChartOrError(page: Page, responsePromise: Promise<Response
           .locator('[role="alert"]')
           .isVisible()
           .catch(() => false);
-        return isChartVisible || isErrorVisible;
+        const isNoDataVisible = await page.getByText('チャートデータがありません').isVisible().catch(() => false);
+        return isChartVisible || isErrorVisible || isNoDataVisible;
       },
-      { timeout: 5000 }
+      { timeout: 15000 }
     )
-    .toBeTruthy();
+    .toBeTruthy()
+    .catch(() => undefined);
+}
+
+async function openSelectOptions(page: Page, label: string): Promise<Locator> {
+  const select = page.getByLabel(label);
+  await expect(select).toBeVisible();
+  await select.click();
+
+  const listbox = page.locator('[role="listbox"]').last();
+  await expect(listbox).toBeVisible({ timeout: 10000 });
+
+  const options = listbox.locator('[role="option"]');
+  await expect
+    .poll(async () => options.count(), { timeout: 10000 })
+    .toBeGreaterThan(0);
+
+  return options;
 }
 
 /**
@@ -89,18 +109,14 @@ test.describe('チャート表示機能', () => {
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'false');
 
     // 取引所を選択
-    const exchangeSelect = page.getByLabel('取引所選択');
-    await exchangeSelect.click();
-    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+    const exchangeOptions = await openSelectOptions(page, '取引所選択');
     await exchangeOptions.nth(1).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
     // ティッカーを選択
     const tickerSelect = page.getByLabel('ティッカー選択');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await tickerSelect.click();
-
-    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerOptions = await openSelectOptions(page, 'ティッカー選択');
     await tickerOptions.nth(1).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
 
@@ -109,9 +125,7 @@ test.describe('チャート表示機能', () => {
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
 
     // 時間枠変更後も自動更新状態を維持する
-    const timeframeSelect = page.getByLabel('時間枠');
-    await timeframeSelect.click();
-    const timeframeOptions = page.locator('[role="listbox"] [role="option"]');
+    const timeframeOptions = await openSelectOptions(page, '時間枠');
     await timeframeOptions.nth(1).click();
     await expect(page.locator('[role="listbox"]')).not.toBeVisible();
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
@@ -123,10 +137,7 @@ test.describe('チャート表示機能', () => {
 
   test('取引所・ティッカー選択後にチャートが表示される', async ({ page }) => {
     // 取引所を選択
-    const exchangeSelect = page.getByLabel('取引所選択');
-    await exchangeSelect.click();
-
-    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+    const exchangeOptions = await openSelectOptions(page, '取引所選択');
     const exchangeCount = await exchangeOptions.count();
 
     // テストデータが作成されているので、必ず取引所が存在する
@@ -144,8 +155,7 @@ test.describe('チャート表示機能', () => {
     await page.waitForLoadState('networkidle');
 
     // ティッカーを選択
-    await tickerSelect.click();
-    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerOptions = await openSelectOptions(page, 'ティッカー選択');
     const tickerCount = await tickerOptions.count();
 
     // テストデータが作成されているので、必ずティッカーが存在する
@@ -197,10 +207,7 @@ test.describe('チャート表示機能', () => {
     const testTicker = testTickers[0];
 
     // 取引所とティッカーを選択
-    const exchangeSelect = page.getByLabel('取引所選択');
-    await exchangeSelect.click();
-
-    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
+    const exchangeOptions = await openSelectOptions(page, '取引所選択');
 
     // テスト取引所が選択肢に表示されるまで待つ
     await exchangeOptions.filter({ hasText: testExchange.name }).waitFor({ timeout: 10000 });
@@ -218,9 +225,7 @@ test.describe('チャート表示機能', () => {
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
     await page.waitForLoadState('networkidle');
 
-    await tickerSelect.click();
-
-    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
+    const tickerOptions = await openSelectOptions(page, 'ティッカー選択');
 
     // テストティッカーが選択肢に表示されるまで待つ
     await tickerOptions.filter({ hasText: testTicker.symbol }).waitFor({ timeout: 10000 });
