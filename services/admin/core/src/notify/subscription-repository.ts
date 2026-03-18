@@ -6,6 +6,7 @@ import { createRepositoryFactory } from '@nagiyu/aws';
 
 const ERROR_MESSAGES = {
   DYNAMODB_PARAMS_REQUIRED: 'DynamoDB 実装には docClient と tableName が必要です',
+  INVALID_ENDPOINT: 'endpoint は空文字にできません',
 } as const;
 
 const SUBSCRIPTION_PREFIX = 'SUBSCRIPTION#';
@@ -209,7 +210,17 @@ function requireDynamoParams(
   return { docClient, tableName };
 }
 
+/**
+ * Endpoint URL から GSI2PK 用のハッシュ値を生成する。
+ *
+ * DynamoDB のパーティションキー長制限を超えないように、
+ * Endpoint URL は SHA-256 の固定長ハッシュへ変換して保存する。
+ */
 function hashEndpoint(endpoint: string): string {
+  if (endpoint.length === 0) {
+    throw new Error(ERROR_MESSAGES.INVALID_ENDPOINT);
+  }
+
   return crypto.createHash('sha256').update(endpoint).digest('hex');
 }
 

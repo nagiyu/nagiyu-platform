@@ -45,6 +45,21 @@ describe('DynamoDBPushSubscriptionRepository', () => {
     expect(result.subscriptionId).toBeTruthy();
   });
 
+  it('endpoint が空文字の場合は保存時にエラーを投げる', async () => {
+    await expect(
+      repository.save({
+        userId: 'admin-user-1',
+        subscription: {
+          endpoint: '',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-key',
+          },
+        },
+      })
+    ).rejects.toThrow('endpoint は空文字にできません');
+  });
+
   it('全サブスクリプションを取得できる', async () => {
     ddbMock.on(ScanCommand).resolves({
       Items: [
@@ -98,6 +113,12 @@ describe('DynamoDBPushSubscriptionRepository', () => {
     const deletedCount = await repository.deleteByEndpoint('https://example.com/not-found');
 
     expect(deletedCount).toBe(0);
+  });
+
+  it('endpoint が空文字の場合は削除時にエラーを投げる', async () => {
+    await expect(repository.deleteByEndpoint('')).rejects.toThrow(
+      'endpoint は空文字にできません'
+    );
   });
 });
 

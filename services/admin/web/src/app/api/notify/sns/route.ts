@@ -8,6 +8,7 @@ import {
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 
 const ERROR_MESSAGES = {
+  INVALID_REQUEST: 'リクエストボディが不正です',
   INVALID_SIGNATURE: 'SNS 署名の検証に失敗しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
@@ -124,7 +125,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ success: true, ...sendResult }, { status: 200 });
   } catch (error) {
     if (error instanceof SyntaxError) {
-      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INTERNAL_ERROR);
+      return createErrorResponse(400, 'INVALID_REQUEST', ERROR_MESSAGES.INVALID_REQUEST);
     }
 
     console.error('SNS 通知受信 API の実行に失敗しました', { error });
