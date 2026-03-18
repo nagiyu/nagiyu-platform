@@ -28,18 +28,18 @@
 
 ## Phase 2: admin/core 新設・バックエンド実装
 
-- [ ] `services/admin/core/` を新設し、`package.json`・`tsconfig.json` を設定する
-- [ ] `@aws-sdk/sns-message-validator` と `web-push` を `services/admin/core` に追加する
-- [ ] `core/src/notify/sns-validator.ts` を実装する: `@aws-sdk/sns-message-validator` を使った SNS メッセージ検証（F-003）
-- [ ] `core/src/notify/sns-validator.ts` のユニットテストを追加する（正常系・署名不正）
-- [ ] `core/src/notify/subscription-repository.ts` を実装する: DynamoDB（Single Table）へのサブスクリプション CRUD（F-004）
-- [ ] `core/src/notify/subscription-repository.ts` のユニットテストを追加する
-- [ ] `core/src/notify/web-push-sender.ts` を実装する: VAPID 認証付き Web Push 一斉送信、失敗時の期限切れサブスクリプション削除（F-005）
-- [ ] `core/src/notify/web-push-sender.ts` のユニットテストを追加する（送信成功・410 Gone 時のサブスクリプション削除）
-- [ ] `services/admin/web` が `admin/core` に依存するよう `package.json` を更新する
-- [ ] `web/src/app/api/notify/sns/route.ts` を実装する: `SubscriptionConfirmation` / `Notification` / `UnsubscribeConfirmation` の分岐処理（F-002）
-- [ ] `web/src/app/api/notify/subscribe/route.ts` を実装する: POST でサブスクリプション登録・DELETE で削除（認可: `notifications:write`）（F-004）
-- [ ] `web/src/app/api/notify/vapid-key/route.ts` を実装する: VAPID 公開鍵を返す（認証不要）（F-005）
+- [x] `services/admin/core/` を新設し、`package.json`・`tsconfig.json` を設定する
+- [x] `sns-validator` と `web-push` を `services/admin/core` に追加する
+- [x] `core/src/notify/sns-validator.ts` を実装する: `sns-validator` を使った SNS メッセージ検証（F-003）
+- [x] `core/src/notify/sns-validator.ts` のユニットテストを追加する（正常系・署名不正）
+- [x] `core/src/notify/subscription-repository.ts` を実装する: DynamoDB（Single Table）へのサブスクリプション CRUD（F-004）
+- [x] `core/src/notify/subscription-repository.ts` のユニットテストを追加する
+- [x] `core/src/notify/web-push-sender.ts` を実装する: VAPID 認証付き Web Push 一斉送信、失敗時の期限切れサブスクリプション削除（F-005）
+- [x] `core/src/notify/web-push-sender.ts` のユニットテストを追加する（送信成功・410 Gone 時のサブスクリプション削除）
+- [x] `services/admin/web` が `admin/core` に依存するよう `package.json` を更新する
+- [x] `web/src/app/api/notify/sns/route.ts` を実装する: `SubscriptionConfirmation` / `Notification` / `UnsubscribeConfirmation` の分岐処理（F-002）
+- [x] `web/src/app/api/notify/subscribe/route.ts` を実装する: POST でサブスクリプション登録・DELETE で削除（認可: `notifications:write`）（F-004）
+- [x] `web/src/app/api/notify/vapid-key/route.ts` を実装する: VAPID 公開鍵を返す（認証不要）（F-005）
 
 ## Phase 3: フロントエンド（PWA・通知購読）
 
