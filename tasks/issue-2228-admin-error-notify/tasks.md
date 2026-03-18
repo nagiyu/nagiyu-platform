@@ -17,13 +17,13 @@
 
 ## Phase 1: インフラ構築
 
-- [ ] `infra/admin/lib/sns-stack.ts` を新規作成し、Admin 専用 SNS トピック (`nagiyu-admin-alarms-{env}`) を定義する（F-001）
-- [ ] `infra/admin/lib/dynamodb-stack.ts` を新規作成し、Single Table Design テーブル (`nagiyu-admin-main-{env}`) を定義する。GSI（UserIndex・EndpointIndex）も含める（F-008）
-- [ ] `infra/admin/lib/secrets-stack.ts` を新規作成し、VAPID 秘密鍵用 Secrets Manager リソースをプレースホルダー値で作成する（F-001 相当・CDK 管理）
-- [ ] `infra/admin/lib/sns-stack.ts` に CDK UrlSubscription で SNS → Admin HTTPS エンドポイントのサブスクリプションを追加する
-- [ ] `infra/admin/lib/admin-stack.ts` を更新して `SnsStack`・`DynamoDBStack`・`SecretsStack` を組み込む
-- [ ] `infra/admin/lib/lambda-stack.ts` を更新し、DynamoDB（PutItem, GetItem, Scan, DeleteItem, Query）と Secrets Manager（GetSecretValue）の権限を Lambda ロールに追加する（F-010）
-- [ ] `infra/admin/bin/admin.ts` を更新して新スタックをインスタンス化する
+- [x] `infra/admin/lib/sns-stack.ts` を新規作成し、Admin 専用 SNS トピック (`nagiyu-admin-alarms-{env}`) を定義する（F-001）
+- [x] `infra/admin/lib/dynamodb-stack.ts` を新規作成し、Single Table Design テーブル (`nagiyu-admin-main-{env}`) を定義する。GSI（UserIndex・EndpointIndex）も含める（F-008）
+- [x] `infra/admin/lib/secrets-stack.ts` を新規作成し、VAPID 秘密鍵用 Secrets Manager リソースをプレースホルダー値で作成する（F-001 相当・CDK 管理）
+- [x] `infra/admin/lib/sns-stack.ts` に CDK UrlSubscription で SNS → Admin HTTPS エンドポイントのサブスクリプションを追加する
+- [x] `infra/admin/lib/admin-stack.ts` を更新して `SnsStack`・`DynamoDBStack`・`SecretsStack` を組み込む
+- [x] `infra/admin/lib/lambda-stack.ts` を更新し、DynamoDB（PutItem, GetItem, Scan, DeleteItem, Query）と Secrets Manager（GetSecretValue）の権限を Lambda ロールに追加する（F-010）
+- [x] `infra/admin/bin/admin.ts` を更新して新スタックをインスタンス化する
 - [ ] CDK デプロイ後（CI による自動デプロイ）に Secrets Manager の VAPID 鍵ペア値（`web-push.generateVAPIDKeys()` で生成）を手動で更新する
 
 ## Phase 2: admin/core 新設・バックエンド実装

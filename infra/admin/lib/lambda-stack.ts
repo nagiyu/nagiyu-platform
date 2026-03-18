@@ -46,10 +46,25 @@ export class LambdaStack extends LambdaStackBase {
     const additionalPolicyStatements = [
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
+        actions: [
+          'dynamodb:PutItem',
+          'dynamodb:GetItem',
+          'dynamodb:Scan',
+          'dynamodb:DeleteItem',
+          'dynamodb:Query',
+        ],
+        resources: [
+          `arn:aws:dynamodb:*:*:table/nagiyu-admin-main-${environment}`,
+          `arn:aws:dynamodb:*:*:table/nagiyu-admin-main-${environment}/index/*`,
+        ],
+      }),
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
         resources: [
           // リージョンとアカウントIDは Lambda Stack 内で解決される
           `arn:aws:secretsmanager:*:*:secret:nagiyu-auth-nextauth-secret-${environment}-*`,
+          `arn:aws:secretsmanager:*:*:secret:nagiyu-admin-vapid-${environment}-*`,
         ],
       }),
     ];
