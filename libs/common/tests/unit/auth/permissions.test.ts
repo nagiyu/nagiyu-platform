@@ -15,6 +15,7 @@ describe('Permission Functions', () => {
       expect(hasPermission(['admin'], 'users:read')).toBe(true);
       expect(hasPermission(['admin'], 'users:write')).toBe(true);
       expect(hasPermission(['admin'], 'roles:assign')).toBe(true);
+      expect(hasPermission(['admin'], 'notifications:write')).toBe(true);
     });
 
     it('should return true for user-manager with users:read permission', () => {
