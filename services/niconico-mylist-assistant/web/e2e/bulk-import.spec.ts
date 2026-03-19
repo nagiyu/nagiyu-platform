@@ -160,6 +160,8 @@ test.describe('Bulk Import API with Authentication', () => {
 });
 
 test.describe('Bulk Import UI', () => {
+  test.use({ serviceWorkers: 'block' });
+
   test.beforeEach(async ({ request }) => {
     // 各テスト前にデータをクリア（API経由）
     await clearTestData(request);
@@ -297,7 +299,7 @@ test.describe('Bulk Import UI', () => {
     const searchDialog = page.getByRole('dialog', { name: '動画検索' });
     const firstMatchedVideo = page.getByRole('heading', { name: /レッツゴー[!！]陰陽師/ }).first();
     await expect(firstMatchedVideo).toBeVisible();
-    await searchDialog.getByRole('button', { name: '追加' }).first().click();
+    await searchDialog.getByRole('button', { name: '追加', exact: true }).first().click();
     await expect(page.getByRole('button', { name: '追加済み' })).toBeVisible();
   });
 });

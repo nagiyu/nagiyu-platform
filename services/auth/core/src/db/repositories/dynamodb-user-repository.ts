@@ -6,7 +6,7 @@ import {
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { getDynamoDb, getUsersTableName } from '../dynamodb-client';
+import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import type { User, CreateUserInput, UpdateUserInput } from '../types';
 import { randomUUID } from 'node:crypto';
 
@@ -27,8 +27,8 @@ export class DynamoDBUserRepository {
   private readonly tableName: string;
 
   constructor(docClient?: DynamoDBDocumentClient, tableName?: string) {
-    this.dynamoDb = docClient ?? getDynamoDb();
-    this.tableName = tableName ?? getUsersTableName();
+    this.dynamoDb = docClient ?? getDynamoDBDocumentClient();
+    this.tableName = tableName ?? getTableName('nagiyu-auth-users-dev');
   }
 
   /**

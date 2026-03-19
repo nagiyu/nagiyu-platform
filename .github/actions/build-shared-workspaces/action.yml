@@ -1,0 +1,21 @@
+name: Build Shared Workspaces
+description: Build shared npm workspaces in order
+
+inputs:
+  shared-workspaces:
+    description: Comma-separated workspaces to build in order
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build shared workspaces
+      shell: bash
+      run: |
+        IFS=',' read -r -a workspaces <<< "${{ inputs.shared-workspaces }}"
+        for workspace in "${workspaces[@]}"; do
+          trimmed_workspace="$(echo "$workspace" | xargs)"
+          if [[ -n "$trimmed_workspace" ]]; then
+            npm run build --workspace "$trimmed_workspace"
+          fi
+        done

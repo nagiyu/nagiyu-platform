@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { hasPermission } from '../../../../../libs/common/src/auth/permissions';
 
 /**
  * ダッシュボード表示テスト
@@ -61,6 +62,21 @@ test.describe('Dashboard Display', () => {
     // ログアウトボタンのリンク先を確認
     const href = await logoutButton.getAttribute('href');
     expect(href).toContain('/api/auth/signout');
+  });
+
+  test('should conditionally display notification settings card by role', async ({ page }) => {
+    const notificationHeading = page.getByRole('heading', { name: '通知設定' });
+    const notifyButton = page.getByRole('button', { name: '通知を有効にする' });
+    const canManageNotifications = hasPermission(testUserRoles, 'notifications:write');
+
+    if (canManageNotifications) {
+      await expect(notificationHeading).toBeVisible();
+      await expect(notifyButton).toBeVisible();
+      return;
+    }
+
+    await expect(notificationHeading).not.toBeVisible();
+    await expect(notifyButton).not.toBeVisible();
   });
 
   test('should display header with Admin title', async ({ page }) => {

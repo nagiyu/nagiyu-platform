@@ -56,7 +56,7 @@ jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
 }));
 
-jest.mock('@/lib/repositories', () => ({
+jest.mock('@nagiyu/share-together-core', () => ({
   createUserRepository: jest.fn(),
   createListRepository: jest.fn(),
 }));
@@ -65,7 +65,7 @@ import { POST } from '@/app/api/users/route';
 import type { Session } from 'next-auth';
 import { getSession } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
-import { createListRepository, createUserRepository } from '@/lib/repositories';
+import { createListRepository, createUserRepository } from '@nagiyu/share-together-core';
 
 const mockGetSession = getSession as jest.MockedFunction<typeof getSession>;
 const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
