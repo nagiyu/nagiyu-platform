@@ -5,10 +5,11 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ['node_modules/**', 'dist/**', 'build/**', 'coverage/**', '.next/**', 'out/**', '**/*.json'],
+    ignores: ['node_modules/**', 'dist/**', 'build/**', 'coverage/**', '.next/**', 'out/**', '**/*.json', '**/*.d.ts'],
   },
   {
     rules: {
+      'preserve-caught-error': 'off',
       // TypeScriptのフィールドはコンストラクタで定義しないこと
       '@typescript-eslint/parameter-properties': [
         'error',
