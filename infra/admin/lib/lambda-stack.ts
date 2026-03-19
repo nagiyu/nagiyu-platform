@@ -28,6 +28,8 @@ export class LambdaStack extends LambdaStackBase {
     // CDK context から secrets を取得
     // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
     const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
+    const vapidPublicKey = scope.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';
+    const vapidPrivateKey = scope.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
 
     // Auth サービスの URL
     const authUrl =
@@ -41,8 +43,6 @@ export class LambdaStack extends LambdaStackBase {
         ? 'https://admin.nagiyu.com'
         : `https://${environment}-admin.nagiyu.com`;
 
-    // Secrets Manager アクセス権限の定義
-    // Admin サービスが Auth サービスの NEXTAUTH_SECRET にアクセス
     const additionalPolicyStatements = [
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -56,15 +56,6 @@ export class LambdaStack extends LambdaStackBase {
         resources: [
           `arn:aws:dynamodb:*:*:table/nagiyu-admin-main-${environment}`,
           `arn:aws:dynamodb:*:*:table/nagiyu-admin-main-${environment}/index/*`,
-        ],
-      }),
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['secretsmanager:GetSecretValue'],
-        resources: [
-          // リージョンとアカウントIDは Lambda Stack 内で解決される
-          `arn:aws:secretsmanager:*:*:secret:nagiyu-auth-nextauth-secret-${environment}-*`,
-          `arn:aws:secretsmanager:*:*:secret:nagiyu-admin-vapid-${environment}-*`,
         ],
       }),
     ];
@@ -86,6 +77,8 @@ export class LambdaStack extends LambdaStackBase {
           APP_URL: adminUrl,
           // Auth サービスの URL（OAuth 認証のリダイレクト先）
           NEXT_PUBLIC_AUTH_URL: authUrl,
+          VAPID_PUBLIC_KEY: vapidPublicKey,
+          VAPID_PRIVATE_KEY: vapidPrivateKey,
         },
       },
       additionalPolicyStatements,
