@@ -9,7 +9,6 @@ export default tseslint.config(
   },
   {
     rules: {
-      'preserve-caught-error': 'off',
       // TypeScriptのフィールドはコンストラクタで定義しないこと
       '@typescript-eslint/parameter-properties': [
         'error',
