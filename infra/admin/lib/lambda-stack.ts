@@ -79,6 +79,7 @@ export class LambdaStack extends LambdaStackBase {
         environment: {
           NODE_ENV: environment,
           APP_VERSION: appVersion,
+          DYNAMODB_TABLE_NAME: `nagiyu-admin-main-${environment}`,
           // NextAuth v5 で使用される環境変数
           AUTH_SECRET: nextAuthSecret,
           // 自サービスのベース URL（callbackUrl 生成などに使用）
