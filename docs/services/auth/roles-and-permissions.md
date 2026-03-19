@@ -64,6 +64,7 @@ Phase 2 以降で追加されるサービス（Logs, Tools 等）の権限も同
 | `users:read` | ユーザー | 読み取り | ユーザー一覧・詳細の閲覧 |
 | `users:write` | ユーザー | 書き込み | ユーザー作成・更新・削除 |
 | `roles:assign` | ロール | 割り当て | ユーザーへのロール付与・剥奪 |
+| `notifications:write` | 通知 | 書き込み | プッシュ通知サブスクリプションの登録・削除 |
 
 ### Phase 2 以降で追加予定の権限
 
@@ -87,6 +88,7 @@ Phase 2 以降で追加されるサービス（Logs, Tools 等）の権限も同
 - `users:read`
 - `users:write`
 - `roles:assign`
+- `notifications:write`
 
 **説明:**
 
