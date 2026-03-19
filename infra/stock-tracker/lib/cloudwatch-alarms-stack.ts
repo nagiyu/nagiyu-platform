@@ -14,13 +14,14 @@ export interface CloudWatchAlarmsStackProps extends cdk.StackProps {
   batchDailyFunction: lambda.IFunction;
   dynamoTable: dynamodb.ITable;
   alarmTopic: sns.ITopic;
+  adminAlarmTopicArn: string;
 }
 
 /**
  * Stock Tracker CloudWatch Alarms Stack
  *
  * Lambda と DynamoDB のメトリクスを監視し、異常時に SNS トピックに通知します。
- * 合計13個のアラームを設定します。
+ * 合計14個のアラームを設定します。
  */
 export class CloudWatchAlarmsStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CloudWatchAlarmsStackProps) {
@@ -34,9 +35,16 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       batchDailyFunction,
       dynamoTable,
       alarmTopic,
+      adminAlarmTopicArn,
     } = props;
 
     const alarmAction = new cloudwatch_actions.SnsAction(alarmTopic);
+    const adminAlarmTopic = sns.Topic.fromTopicArn(
+      this,
+      'AdminAlarmTopic',
+      adminAlarmTopicArn
+    );
+    const adminAlarmAction = new cloudwatch_actions.SnsAction(adminAlarmTopic);
 
     // Lambda Web - エラー率アラーム
     const webErrorAlarm = new cloudwatch.Alarm(this, 'WebLambdaErrorAlarm', {
@@ -52,6 +60,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
     webErrorAlarm.addAlarmAction(alarmAction);
+    webErrorAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Web - 実行時間アラーム
     const webDurationAlarm = new cloudwatch.Alarm(this, 'WebLambdaDurationAlarm', {
@@ -67,6 +76,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
     webDurationAlarm.addAlarmAction(alarmAction);
+    webDurationAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Web - スロットリングアラーム
     const webThrottleAlarm = new cloudwatch.Alarm(this, 'WebLambdaThrottleAlarm', {
@@ -82,6 +92,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
     webThrottleAlarm.addAlarmAction(alarmAction);
+    webThrottleAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Minute - エラー率アラーム
     const batchMinuteErrorAlarm = new cloudwatch.Alarm(
@@ -101,6 +112,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchMinuteErrorAlarm.addAlarmAction(alarmAction);
+    batchMinuteErrorAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Minute - 実行時間アラーム
     const batchMinuteDurationAlarm = new cloudwatch.Alarm(
@@ -120,6 +132,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchMinuteDurationAlarm.addAlarmAction(alarmAction);
+    batchMinuteDurationAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Minute - スロットリングアラーム
     const batchMinuteThrottleAlarm = new cloudwatch.Alarm(
@@ -139,6 +152,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchMinuteThrottleAlarm.addAlarmAction(alarmAction);
+    batchMinuteThrottleAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Hourly - エラー率アラーム
     const batchHourlyErrorAlarm = new cloudwatch.Alarm(
@@ -158,6 +172,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchHourlyErrorAlarm.addAlarmAction(alarmAction);
+    batchHourlyErrorAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Hourly - 実行時間アラーム
     const batchHourlyDurationAlarm = new cloudwatch.Alarm(
@@ -177,6 +192,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchHourlyDurationAlarm.addAlarmAction(alarmAction);
+    batchHourlyDurationAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Hourly - スロットリングアラーム
     const batchHourlyThrottleAlarm = new cloudwatch.Alarm(
@@ -196,6 +212,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchHourlyThrottleAlarm.addAlarmAction(alarmAction);
+    batchHourlyThrottleAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Daily - エラー率アラーム
     const batchDailyErrorAlarm = new cloudwatch.Alarm(
@@ -215,6 +232,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchDailyErrorAlarm.addAlarmAction(alarmAction);
+    batchDailyErrorAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Daily - 実行時間アラーム
     const batchDailyDurationAlarm = new cloudwatch.Alarm(
@@ -234,6 +252,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchDailyDurationAlarm.addAlarmAction(alarmAction);
+    batchDailyDurationAlarm.addAlarmAction(adminAlarmAction);
 
     // Lambda Batch Daily - スロットリングアラーム
     const batchDailyThrottleAlarm = new cloudwatch.Alarm(
@@ -253,6 +272,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     batchDailyThrottleAlarm.addAlarmAction(alarmAction);
+    batchDailyThrottleAlarm.addAlarmAction(adminAlarmAction);
 
     // DynamoDB - Read Throttle Events アラーム
     const dynamoReadThrottleAlarm = new cloudwatch.Alarm(
@@ -273,6 +293,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     dynamoReadThrottleAlarm.addAlarmAction(alarmAction);
+    dynamoReadThrottleAlarm.addAlarmAction(adminAlarmAction);
 
     // DynamoDB - Write Throttle Events アラーム
     const dynamoWriteThrottleAlarm = new cloudwatch.Alarm(
@@ -293,6 +314,7 @@ export class CloudWatchAlarmsStack extends cdk.Stack {
       }
     );
     dynamoWriteThrottleAlarm.addAlarmAction(alarmAction);
+    dynamoWriteThrottleAlarm.addAlarmAction(adminAlarmAction);
 
     // タグの追加
     const allAlarms = [

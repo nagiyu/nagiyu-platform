@@ -50,8 +50,8 @@
 
 ## Phase 4: 既存アラームの移行（Stock Tracker）
 
-- [ ] `infra/stock-tracker/lib/cloudwatch-alarms-stack.ts` を更新して、既存アラームに Admin SNS トピックへのアクション追加を行う（既存トピックは維持する）（F-009）
-- [ ] `infra/stock-tracker/bin/stock-tracker.ts` を更新して Admin SNS トピック ARN を受け渡す
+- [x] `infra/stock-tracker/lib/cloudwatch-alarms-stack.ts` を更新して、既存アラームに Admin SNS トピックへのアクション追加を行う（既存トピックは維持する）（F-009）
+- [x] `infra/stock-tracker/bin/stock-tracker.ts` を更新して Admin SNS トピック ARN を受け渡す
 
 ## Phase 5: 動作確認
 
