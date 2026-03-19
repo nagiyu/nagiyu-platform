@@ -28,6 +28,8 @@ export class LambdaStack extends LambdaStackBase {
     // CDK context から secrets を取得
     // 未指定の場合はプレースホルダーを使用（deploy ジョブで実際の値に更新される）
     const nextAuthSecret = scope.node.tryGetContext('nextAuthSecret') || 'PLACEHOLDER';
+    const vapidPublicKey = scope.node.tryGetContext('vapidPublicKey') || 'PLACEHOLDER';
+    const vapidPrivateKey = scope.node.tryGetContext('vapidPrivateKey') || 'PLACEHOLDER';
 
     // Auth サービスの URL
     const authUrl =
@@ -86,6 +88,8 @@ export class LambdaStack extends LambdaStackBase {
           APP_URL: adminUrl,
           // Auth サービスの URL（OAuth 認証のリダイレクト先）
           NEXT_PUBLIC_AUTH_URL: authUrl,
+          VAPID_PUBLIC_KEY: vapidPublicKey,
+          VAPID_PRIVATE_KEY: vapidPrivateKey,
         },
       },
       additionalPolicyStatements,
