@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 const eslintConfig = defineConfig([
   ...baseConfig,
-  ...fixupConfigRules([...nextVitals].filter((c) => c.name !== 'next/typescript')),
+  ...fixupConfigRules(nextVitals.filter((c) => c.name !== 'next/typescript')),
   { languageOptions: { parser: tseslint.parser } },
   globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts']),
 ]);
