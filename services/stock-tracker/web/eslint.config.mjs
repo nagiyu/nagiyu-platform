@@ -5,7 +5,9 @@ import nextVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 
 // baseConfig 側の TypeScript 設定と重複して plugin 再定義エラーになるため、next/typescript は除外する
-const compatibleNextVitals = fixupConfigRules(nextVitals).filter((config) => config.name !== 'next/typescript');
+const compatibleNextVitals = fixupConfigRules(nextVitals).filter(
+  (config) => config.name !== 'next/typescript'
+);
 
 const eslintConfig = defineConfig([
   ...baseConfig,
