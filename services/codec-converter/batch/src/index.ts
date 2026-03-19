@@ -130,7 +130,9 @@ export async function downloadFromS3(
     await pipeline(readableStream, writeStream);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${ERROR_MESSAGES.S3_DOWNLOAD_FAILED}: ${message}`);
+    throw new Error(`${ERROR_MESSAGES.S3_DOWNLOAD_FAILED}: ${message}`, {
+      cause: error,
+    });
   }
 }
 
@@ -153,7 +155,9 @@ export async function uploadToS3(
     await s3Client.send(command);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${ERROR_MESSAGES.S3_UPLOAD_FAILED}: ${message}`);
+    throw new Error(`${ERROR_MESSAGES.S3_UPLOAD_FAILED}: ${message}`, {
+      cause: error,
+    });
   }
 }
 
@@ -204,7 +208,9 @@ export async function updateJobStatus(
     await dynamodbClient.send(command);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`${ERROR_MESSAGES.DYNAMODB_UPDATE_FAILED}: ${message}`);
+    throw new Error(`${ERROR_MESSAGES.DYNAMODB_UPDATE_FAILED}: ${message}`, {
+      cause: error,
+    });
   }
 }
 
