@@ -49,12 +49,6 @@ interface HoldingsListResponse {
   };
 }
 
-interface ErrorResponse {
-  error: string;
-  message: string;
-  details?: string[];
-}
-
 /**
  * Holding エンティティをレスポンス形式に変換
  */
