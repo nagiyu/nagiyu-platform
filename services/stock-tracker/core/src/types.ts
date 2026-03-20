@@ -4,6 +4,8 @@
  * DynamoDB Single Table Design に基づくエンティティの型定義
  */
 
+import type { PushSubscription } from '@nagiyu/common';
+
 /**
  * 取引所 (Exchange)
  *
@@ -192,9 +194,7 @@ export type Holding = {
  * - Frequency: "MINUTE_LEVEL" または "HOURLY_LEVEL"、必須
  * - Enabled: boolean、必須（アラートの一時無効化に使用）
  * - ConditionList: 配列、Phase 1は1条件のみ、必須
- * - SubscriptionEndpoint: Web Pushエンドポイント、必須
- * - SubscriptionKeysP256dh: Web Push公開鍵、必須
- * - SubscriptionKeysAuth: Web Push認証シークレット、必須
+ * - subscription: Web Pushサブスクリプション情報、必須
  * - CreatedAt: Unix timestamp、作成後変更不可
  * - UpdatedAt: Unix timestamp、更新時に自動更新
  *
@@ -235,12 +235,8 @@ export type Alert = {
   NotificationTitle?: string;
   /** カスタム通知本文（未指定時は自動生成） */
   NotificationBody?: string;
-  /** Web Push サブスクリプションエンドポイント - 必須 */
-  SubscriptionEndpoint: string;
-  /** Web Push 公開鍵 (p256dh) - 必須 */
-  SubscriptionKeysP256dh: string;
-  /** Web Push 認証シークレット - 必須 */
-  SubscriptionKeysAuth: string;
+  /** Web Push サブスクリプション情報 - 必須 */
+  subscription: PushSubscription;
   /** 作成日時 (Unix timestamp) - 変更不可 */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp) - 自動更新 */

@@ -4,7 +4,7 @@ import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
-import { createGroupRepository, createMembershipRepository } from '@/lib/repositories';
+import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 
 interface GroupSummary extends Group {
   isOwner: boolean;

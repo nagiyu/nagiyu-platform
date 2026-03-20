@@ -13,5 +13,8 @@
     "deploy": "cdk deploy",
     "diff": "cdk diff",
     "destroy": "cdk destroy"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.243.0"
   }
 }

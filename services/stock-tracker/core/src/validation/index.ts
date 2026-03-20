@@ -485,18 +485,18 @@ export function validateAlert(alert: unknown): ValidationResult {
     }
   }
 
-  // SubscriptionEndpoint
-  if (!alt.SubscriptionEndpoint || !isNonEmptyString(alt.SubscriptionEndpoint)) {
+  // subscription.endpoint
+  if (!alt.subscription?.endpoint || !isNonEmptyString(alt.subscription.endpoint)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_ENDPOINT_REQUIRED);
   }
 
-  // SubscriptionKeysP256dh
-  if (!alt.SubscriptionKeysP256dh || !isNonEmptyString(alt.SubscriptionKeysP256dh)) {
+  // subscription.keys.p256dh
+  if (!alt.subscription?.keys?.p256dh || !isNonEmptyString(alt.subscription.keys.p256dh)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_P256DH_REQUIRED);
   }
 
-  // SubscriptionKeysAuth
-  if (!alt.SubscriptionKeysAuth || !isNonEmptyString(alt.SubscriptionKeysAuth)) {
+  // subscription.keys.auth
+  if (!alt.subscription?.keys?.auth || !isNonEmptyString(alt.subscription.keys.auth)) {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED);
   }
 

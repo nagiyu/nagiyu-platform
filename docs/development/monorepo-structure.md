@@ -249,6 +249,7 @@ libs/aws (モノレポ内の他ライブラリに依存しない)
 **責務**: 完全フレームワーク非依存の汎用ユーティリティ
 
 - 共通型定義
+- Pushサブスクリプション共通型
 - 汎用関数
 - データ変換ロジック
 
@@ -289,9 +290,9 @@ libs/aws (モノレポ内の他ライブラリに依存しない)
 **責務**: Next.js + Material-UI 依存の UI コンポーネント
 
 - Header, Footer コンポーネント
-- ThemeRegistry（Material-UI プロバイダー）
 - テーマ設定（カラーパレット、タイポグラフィ）
 - グローバルCSS
+- ServiceWorkerRegistration
 
 **特徴**:
 
@@ -339,6 +340,7 @@ libs/aws (モノレポ内の他ライブラリに依存しない)
 - 抽象基底クラス（`AbstractDynamoDBRepository`）
 - バリデーション関数
 - ヘルパー関数
+- InMemory/DynamoDB 切り替えを含むリポジトリファクトリー共通化ヘルパー
 
 **特徴**:
 

@@ -3,13 +3,16 @@ import { GET } from '../../../../app/api/chart/[tickerId]/route';
 
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   getChartData: jest.fn(),
-  getAuthError: jest.fn(),
   SUPPORTED_TIMEFRAMES: ['60', 'D'],
   TRADINGVIEW_ERROR_MESSAGES: {
     TIMEOUT: 'timeout',
     RATE_LIMIT: 'rate limit',
     INVALID_TICKER: 'invalid ticker',
   },
+}));
+
+jest.mock('@nagiyu/nextjs', () => ({
+  getAuthError: jest.fn(),
 }));
 
 jest.mock('../../../../lib/auth', () => ({
@@ -20,7 +23,8 @@ jest.mock('../../../../lib/repository-factory', () => ({
   createHoldingRepository: jest.fn(),
 }));
 
-import { getChartData, getAuthError } from '@nagiyu/stock-tracker-core';
+import { getChartData } from '@nagiyu/stock-tracker-core';
+import { getAuthError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { createHoldingRepository } from '../../../../lib/repository-factory';
 

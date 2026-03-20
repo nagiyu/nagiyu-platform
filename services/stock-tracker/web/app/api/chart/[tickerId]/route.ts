@@ -10,11 +10,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { TimeFrame } from '@mathieuc/tradingview';
 import {
   getChartData,
-  getAuthError,
   SUPPORTED_TIMEFRAMES,
   TRADINGVIEW_ERROR_MESSAGES,
 } from '@nagiyu/stock-tracker-core';
 import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
+import { getAuthError } from '@nagiyu/nextjs';
 import { createHoldingRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 

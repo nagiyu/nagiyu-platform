@@ -8,7 +8,7 @@ import {
   createListRepository,
   createMembershipRepository,
   createTodoRepository,
-} from '@/lib/repositories';
+} from '@nagiyu/share-together-core';
 
 interface RouteParams {
   params: Promise<{ groupId: string; listId: string }>;

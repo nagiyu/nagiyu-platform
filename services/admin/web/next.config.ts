@@ -8,6 +8,19 @@ const nextConfig: NextConfig = {
   turbopack: {},
   // Transpile workspace packages
   transpilePackages: ['@nagiyu/ui', '@nagiyu/browser', '@nagiyu/common', '@nagiyu/nextjs'],
+  async headers() {
+    return [
+      {
+        source: '/sw-push.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-store, no-cache, must-revalidate',
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

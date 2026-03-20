@@ -36,9 +36,13 @@ describe('PUT /api/alerts/[id]', () => {
         ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
         NotificationTitle: '既存タイトル',
         NotificationBody: '既存本文',
-        SubscriptionEndpoint: 'https://example.com/endpoint',
-        SubscriptionKeysP256dh: 'p256dh-key',
-        SubscriptionKeysAuth: 'auth-key',
+        subscription: {
+          endpoint: 'https://example.com/endpoint',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-key',
+          },
+        },
         CreatedAt: Date.now(),
         UpdatedAt: Date.now(),
       }),

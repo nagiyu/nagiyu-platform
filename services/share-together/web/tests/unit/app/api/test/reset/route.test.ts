@@ -11,7 +11,7 @@ jest.mock('@/lib/auth/session', () => ({
   getSessionOrUnauthorized: jest.fn(),
 }));
 
-jest.mock('@/lib/repositories', () => ({
+jest.mock('@nagiyu/share-together-core', () => ({
   createUserRepository: jest.fn(),
   createGroupRepository: jest.fn(),
   createMembershipRepository: jest.fn(),
@@ -22,7 +22,7 @@ jest.mock('@/lib/repositories', () => ({
 
 import { POST, DELETE } from '@/app/api/test/reset/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { resetInMemoryRepositories } from '@/lib/repositories';
+import { resetInMemoryRepositories } from '@nagiyu/share-together-core';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized

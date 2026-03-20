@@ -1,5 +1,8 @@
 import { render, waitFor } from '@testing-library/react';
-import ServiceWorkerRegistration, { ERROR_MESSAGES } from '@/components/ServiceWorkerRegistration';
+import {
+  ServiceWorkerRegistration,
+  SERVICE_WORKER_REGISTRATION_ERROR_MESSAGES as ERROR_MESSAGES,
+} from '@nagiyu/ui';
 
 describe('ServiceWorkerRegistration', () => {
   afterEach(() => {

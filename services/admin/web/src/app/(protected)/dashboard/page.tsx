@@ -1,6 +1,8 @@
 import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material';
+import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
+import NotifyButton from '@/components/notify/NotifyButton';
 
 export default async function DashboardPage() {
   const session = await getSession();
@@ -52,6 +54,17 @@ export default async function DashboardPage() {
           </Typography>
         </CardContent>
       </Card>
+
+      {hasPermission(user.roles, 'notifications:write') && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              通知設定
+            </Typography>
+            <NotifyButton />
+          </CardContent>
+        </Card>
+      )}
 
       {/* ログアウトボタン */}
       <Button

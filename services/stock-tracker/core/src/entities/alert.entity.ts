@@ -4,6 +4,8 @@
  * アラートのビジネスオブジェクト（PK/SKを持たない純粋なエンティティ）
  */
 
+import type { PushSubscription } from '@nagiyu/common';
+
 /**
  * アラート条件
  */
@@ -54,12 +56,8 @@ export interface AlertEntity {
   NotificationTitle?: string;
   /** カスタム通知本文（未指定時は自動生成） */
   NotificationBody?: string;
-  /** Web Push サブスクリプションエンドポイント */
-  SubscriptionEndpoint: string;
-  /** Web Push 公開鍵 (p256dh) */
-  SubscriptionKeysP256dh: string;
-  /** Web Push 認証シークレット */
-  SubscriptionKeysAuth: string;
+  /** Web Push サブスクリプション情報 */
+  subscription: PushSubscription;
   /** 作成日時 (Unix timestamp) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp) */
@@ -88,9 +86,7 @@ export type UpdateAlertInput = Partial<
     | 'LogicalOperator'
     | 'NotificationTitle'
     | 'NotificationBody'
-    | 'SubscriptionEndpoint'
-    | 'SubscriptionKeysP256dh'
-    | 'SubscriptionKeysAuth'
+    | 'subscription'
   >
 >;
 

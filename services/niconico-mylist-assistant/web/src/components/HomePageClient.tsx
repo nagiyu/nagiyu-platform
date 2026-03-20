@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Container, Typography, Box, Button } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationPermissionDialog from './NotificationPermissionButton';
-import { urlBase64ToUint8Array } from '@/lib/utils/push';
+import { urlBase64ToUint8Array } from '@nagiyu/browser';
 
 interface HomePageClientProps {
   userName?: string;
