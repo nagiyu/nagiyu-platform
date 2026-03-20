@@ -13,10 +13,10 @@
 
 ## Phase 1: `@types/node` バージョンアップ
 
-- [ ] T001: ルート `package.json` の `@types/node` を `^22` → `^24` に変更する（依存: なし）
-- [ ] T002: `npm install` を実行し、`package-lock.json` を更新する（依存: T001）
-- [ ] T003: `tsc --noEmit` を実行し、型エラーがないことを確認する（依存: T002）
-- [ ] T004: 型エラーが発生した場合、設計方針に従って修正する（依存: T003）
+- [x] T001: ルート `package.json` の `@types/node` を `^22` → `^24` に変更する（依存: なし）
+- [x] T002: `npm install` を実行し、`package-lock.json` を更新する（依存: T001）
+- [x] T003: `tsc --noEmit` を実行し、型エラーがないことを確認する（依存: T002）
+- [x] T004: 型エラーが発生した場合、設計方針に従って修正する（依存: T003）
 
 ## Phase 2: `package.json` engines の更新
 
