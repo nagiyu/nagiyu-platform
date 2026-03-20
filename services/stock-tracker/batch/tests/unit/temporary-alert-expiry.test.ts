@@ -425,7 +425,9 @@ describe('temporary alert expiry batch handler', () => {
     mockExchangeRepo.getById.mockResolvedValue(exchange);
     (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
     (tradingHoursChecker.getLastTradingDate as jest.Mock).mockReturnValue('2026-03-04');
-    mockAlertRepo.update.mockRejectedValueOnce(new Error('update failed')).mockResolvedValueOnce(alert2);
+    mockAlertRepo.update
+      .mockRejectedValueOnce(new Error('update failed'))
+      .mockResolvedValueOnce(alert2);
 
     const response = await handler(mockEvent);
     const body = JSON.parse(response.body);
