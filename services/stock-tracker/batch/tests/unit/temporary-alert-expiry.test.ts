@@ -442,7 +442,7 @@ describe('temporary alert expiry batch handler', () => {
     );
   });
 
-  it('ページ上限到達時にワーニングログを出力する', async () => {
+  it('ページ上限到達時にワーニングログを出力し、HOURLY_LEVEL の処理を継続する', async () => {
     const minuteAlert: Alert = {
       AlertID: 'm1',
       UserID: 'u1',
@@ -465,6 +465,12 @@ describe('temporary alert expiry batch handler', () => {
       UpdatedAt: 1,
     };
 
+    const hourlyAlert: Alert = {
+      ...minuteAlert,
+      AlertID: 'h1',
+      Frequency: 'HOURLY_LEVEL',
+    };
+
     for (let i = 0; i < 20; i++) {
       mockAlertRepo.getByFrequency.mockResolvedValueOnce({
         items: [{ ...minuteAlert, AlertID: `m-${i}` }],
@@ -473,16 +479,19 @@ describe('temporary alert expiry batch handler', () => {
       });
     }
     mockAlertRepo.getByFrequency.mockResolvedValueOnce({
-      items: [],
+      items: [hourlyAlert],
       nextCursor: undefined,
-      count: 0,
+      count: 1,
     });
 
     const response = await handler(mockEvent);
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(body.statistics.totalAlerts).toBe(20);
+    expect(body.statistics.totalAlerts).toBe(21);
+    expect(mockAlertRepo.getByFrequency).toHaveBeenLastCalledWith('HOURLY_LEVEL', {
+      cursor: undefined,
+    });
     expect(logger.warn).toHaveBeenCalledWith(
       '一時通知アラート取得のページ上限に達したため途中終了します',
       expect.objectContaining({
