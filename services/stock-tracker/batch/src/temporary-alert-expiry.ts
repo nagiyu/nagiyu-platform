@@ -43,6 +43,37 @@ interface BatchStatistics {
   errors: number;
 }
 
+const MAX_PAGES_PER_FREQUENCY = 20;
+
+async function getAllAlertsByFrequency(
+  alertRepo: AlertRepository,
+  frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'
+): Promise<Alert[]> {
+  const alerts: Alert[] = [];
+  let cursor: string | undefined;
+  let page = 0;
+
+  while (page < MAX_PAGES_PER_FREQUENCY) {
+    const result = await alertRepo.getByFrequency(frequency, { cursor });
+    alerts.push(...result.items);
+    page++;
+
+    if (!result.nextCursor) {
+      return alerts;
+    }
+
+    cursor = result.nextCursor;
+  }
+
+  logger.warn('一時通知アラート取得のページ上限に達したため途中終了します', {
+    frequency,
+    maxPages: MAX_PAGES_PER_FREQUENCY,
+    fetchedAlerts: alerts.length,
+  });
+
+  return alerts;
+}
+
 async function processAlert(
   alert: Alert,
   alertRepo: AlertRepository,
@@ -113,9 +144,9 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
     const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
 
-    const minuteAlerts = await alertRepo.getByFrequency('MINUTE_LEVEL');
-    const hourlyAlerts = await alertRepo.getByFrequency('HOURLY_LEVEL');
-    const alerts = [...minuteAlerts.items, ...hourlyAlerts.items];
+    const minuteAlerts = await getAllAlertsByFrequency(alertRepo, 'MINUTE_LEVEL');
+    const hourlyAlerts = await getAllAlertsByFrequency(alertRepo, 'HOURLY_LEVEL');
+    const alerts = [...minuteAlerts, ...hourlyAlerts];
     stats.totalAlerts = alerts.length;
 
     for (const alert of alerts) {
