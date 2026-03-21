@@ -20,9 +20,9 @@
 
 ## Phase 2: `package.json` engines の更新
 
-- [ ] T005: ルート `package.json` の `engines.node` を `>=22.0.0` → `>=24.0.0` に変更する（依存: なし）
-- [ ] T006: `infra/package.json` の `engines.node` を同様に変更する（依存: なし）
-- [ ] T007: `infra/stock-tracker/package.json` の `engines.node` を同様に変更する（依存: なし）
+- [x] T005: ルート `package.json` の `engines.node` を `>=22.0.0` → `>=24.0.0` に変更する（依存: なし）
+- [x] T006: `infra/package.json` の `engines.node` を同様に変更する（依存: なし）
+- [x] T007: `infra/stock-tracker/package.json` の `engines.node` を同様に変更する（依存: なし）
 
 ## Phase 3: Dockerfile の更新
 
