@@ -38,7 +38,7 @@
 
 ## Phase 4: DevContainer Dockerfile の更新
 
-- [ ] T017: 各 `.devcontainer/*/Dockerfile` の `mcr.microsoft.com/devcontainers/typescript-node:1-22-bullseye` → `4-24-bullseye` に変更する（対象: root / auth / codec-converter / stock-tracker / admin / infra / niconico-mylist-assistant / tools の 8 ファイル）（依存: なし）
+- [x] T017: 各 `.devcontainer/*/Dockerfile` の `mcr.microsoft.com/devcontainers/typescript-node:1-22-bullseye` → `4-24-bullseye` に変更する（対象: root / auth / codec-converter / stock-tracker / admin / infra / niconico-mylist-assistant / tools の 8 ファイル）（依存: なし）
 
 ## Phase 5: GitHub Actions の更新
 
@@ -57,7 +57,7 @@
 - [ ] `requirements.md` の受け入れ条件をすべて満たしている
 - [ ] `@types/node` が `^24` に更新されている
 - [x] 全 Dockerfile の Node.js バージョンが `24` に更新されている
-- [ ] 全 DevContainer Dockerfile のイメージタグが `4-24-bullseye` に更新されている
+- [x] 全 DevContainer Dockerfile のイメージタグが `4-24-bullseye` に更新されている
 - [ ] 全 GitHub Actions ワークフローの `node-version` が `'24'` に更新されている
 - [ ] `package.json` の `engines.node` が `>=24.0.0` に更新されている（3 ファイル）
 - [ ] Lint・型チェックがすべて通過している
