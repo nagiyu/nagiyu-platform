@@ -42,9 +42,9 @@
 
 ## Phase 5: GitHub Actions の更新
 
-- [ ] T018: `.github/actions/setup-node/action.yml` の `default: '22'` → `'24'` に変更する（依存: なし）
-- [ ] T019: `.github/actions/build-web-app/action.yml` の `node-version: '22'` → `'24'` に変更する（依存: なし）
-- [ ] T020: 全ワークフロー（27 ファイル）の `node-version: '22'` → `'24'` に一括変更する（依存: なし）
+- [x] T018: `.github/actions/setup-node/action.yml` の `default: '22'` → `'24'` に変更する（依存: なし）
+- [x] T019: `.github/actions/build-web-app/action.yml` の `node-version: '22'` → `'24'` に変更する（依存: なし）
+- [x] T020: 全ワークフロー（27 ファイル）の `node-version: '22'` → `'24'` に一括変更する（依存: なし）
 
 ## Phase 6: 検証
 
@@ -58,7 +58,7 @@
 - [ ] `@types/node` が `^24` に更新されている
 - [x] 全 Dockerfile の Node.js バージョンが `24` に更新されている
 - [x] 全 DevContainer Dockerfile のイメージタグが `4-24-bullseye` に更新されている
-- [ ] 全 GitHub Actions ワークフローの `node-version` が `'24'` に更新されている
+- [x] 全 GitHub Actions ワークフローの `node-version` が `'24'` に更新されている
 - [ ] `package.json` の `engines.node` が `>=24.0.0` に更新されている（3 ファイル）
 - [ ] Lint・型チェックがすべて通過している
 - [ ] 既存テストがすべてパスしている

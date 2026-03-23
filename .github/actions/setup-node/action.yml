@@ -5,7 +5,7 @@ inputs:
   node-version:
     description: Node.js version to setup
     required: false
-    default: '22'
+    default: '24'
   cache-dependency-path:
     description: Path to dependency lock file for npm cache
     required: false
