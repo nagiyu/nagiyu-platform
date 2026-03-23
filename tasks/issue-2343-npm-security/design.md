@@ -64,15 +64,15 @@ eslint
 - `fast-xml-parser`: `5.5.5` → `5.5.8`（安全な最新版）
 - `flatted`: 新規追加 `3.4.2`（安全な最新版）
 
-#### `infra/codec-converter/package.json` - jest バージョン統一
+#### `infra/codec-converter/package.json` - jest 個別管理の廃止
+
+`infra/codec-converter` はルートの npm workspace（`infra/*`）に含まれるため、jest・ts-jest はルートの `package.json` から取得できる。個別の `devDependencies` 宣言を削除する。
 
 ```json
 "devDependencies": {
-  "jest": "^30.3.0"
+  // jest と ts-jest を削除する
 }
 ```
-
-- `^30.2.0` → `^30.3.0`（ルートの `package.json` に合わせる）
 
 ---
 
@@ -84,7 +84,7 @@ eslint
 | ----------- | -------- |
 | `package.json` | `overrides` の更新（fast-xml-parser, flatted） |
 | `package-lock.json` | overrides 更新後に自動再生成 |
-| `infra/codec-converter/package.json` | jest バージョン更新 |
+| `infra/codec-converter/package.json` | jest・ts-jest の個別 devDependencies 宣言を削除（ルート workspace 経由で取得） |
 | `infra/package-lock.json` | jest 更新後に自動再生成 |
 
 ---

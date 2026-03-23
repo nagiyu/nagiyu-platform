@@ -51,15 +51,15 @@
     2. `package-lock.json` を再生成する
     3. `npm audit` で脆弱性が解消されていることを確認する
 
-#### UC-003: jest バージョン不整合の解消
+#### UC-003: jest の個別管理を廃止してルートに一元化
 
-- **概要**: `infra/codec-converter` の jest バージョンをルートと統一する
+- **概要**: `infra/codec-converter` はルート npm workspace（`infra/*`）に含まれており、jest はルートで管理すべきである。workspace 個別に jest を宣言する必要はないため、`infra/codec-converter/package.json` から jest の個別指定を削除する
 - **アクター**: 開発者
-- **前提条件**: `infra/codec-converter/package.json` の jest が `^30.2.0`、ルートが `^30.3.0`
+- **前提条件**: `infra/codec-converter/package.json` の `devDependencies` に jest が個別定義されている
 - **正常フロー**:
-    1. `infra/codec-converter/package.json` の jest を `^30.3.0` に更新する
-    2. `infra/package-lock.json` を再生成する
-    3. テストが通ることを確認する
+    1. `infra/codec-converter/package.json` の `devDependencies` から `jest` と `ts-jest` を削除する
+    2. `npm install` を実行して `package-lock.json` を再生成する
+    3. `npm test --workspace=@nagiyu/infra-codec-converter` を実行してテストが通ることを確認する
 
 ### 2.2 機能一覧
 
@@ -67,7 +67,7 @@
 | ------ | ------ | ---- | ------ |
 | F-001 | fast-xml-parser override 更新 | `overrides.fast-xml-parser` を `5.5.8` に更新 | 高 |
 | F-002 | flatted override 追加 | `overrides.flatted` を `3.4.2` に追加 | 高 |
-| F-003 | jest バージョン不整合修正 | `infra/codec-converter` の jest を `^30.3.0` に統一 | 中 |
+| F-003 | jest 個別管理の廃止 | `infra/codec-converter/package.json` から jest・ts-jest を削除し、ルート管理に一元化 | 中 |
 
 ---
 

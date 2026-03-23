@@ -18,8 +18,8 @@
 
 ## Phase 2: バージョン不整合修正
 
-- [ ] T005: `infra/codec-converter/package.json` の `jest` を `^30.2.0` → `^30.3.0` に更新する（依存: なし）
-- [ ] T006: `npm install --workspace=@nagiyu/codec-converter-infra` を実行して `infra/package-lock.json` を再生成する（依存: T005）
+- [ ] T005: `infra/codec-converter/package.json` の `devDependencies` から `jest` と `ts-jest` を削除する（ルート workspace から取得するため個別管理不要）（依存: なし）
+- [ ] T006: `npm install` を実行して `package-lock.json` を再生成する（依存: T005）
 
 ## Phase 3: 検証
 
