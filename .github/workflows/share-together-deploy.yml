@@ -45,7 +45,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Setup deployment environment
         id: setup-environment
@@ -162,7 +162,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common

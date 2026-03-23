@@ -52,7 +52,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package
@@ -236,7 +236,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package
