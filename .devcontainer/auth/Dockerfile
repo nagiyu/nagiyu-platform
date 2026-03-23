@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/typescript-node:1-22-bullseye
+FROM mcr.microsoft.com/devcontainers/typescript-node:4-24-bullseye
 
 # Install Playwright dependencies as root
 USER root

@@ -23,7 +23,7 @@
     "format:check": "npm run format:check --workspaces --if-present"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=24.0.0",
     "npm": ">=10.0.0"
   },
   "overrides": {
@@ -40,7 +40,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22",
+    "@types/node": "^24",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@types/web-push": "^3.6.4",

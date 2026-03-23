@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Run ESLint on core
@@ -48,7 +48,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Check core formatting
@@ -69,7 +69,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -137,7 +137,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -163,7 +163,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -190,7 +190,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -219,7 +219,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -277,7 +277,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -335,7 +335,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
@@ -389,7 +389,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build common infrastructure package

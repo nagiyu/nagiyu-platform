@@ -1,8 +1,8 @@
 # Multi-stage build for Stock Tracker Batch Lambda
-# AWS Lambda 公式 Node.js 22 ベースイメージを使用
+# AWS Lambda 公式 Node.js 24 ベースイメージを使用
 
 # ベースイメージ
-FROM public.ecr.aws/lambda/nodejs:22 AS base
+FROM public.ecr.aws/lambda/nodejs:24 AS base
 
 # ビルドステージ
 FROM base AS builder
