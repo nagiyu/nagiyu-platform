@@ -19,8 +19,5 @@
     "aws-cdk-lib": "^2.243.0",
     "constructs": "^10.4.4"
   },
-  "devDependencies": {
-    "jest": "^30.2.0",
-    "ts-jest": "^29.4.6"
-  }
+  "devDependencies": {}
 }
