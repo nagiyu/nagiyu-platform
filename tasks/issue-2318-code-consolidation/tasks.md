@@ -45,31 +45,31 @@
 
 <!-- stock-tracker/web のコンポーネントを libs/ui に移動する -->
 
-- [ ] T020: `libs/ui/src/components/error/` ディレクトリを作成する（依存: なし）
-- [ ] T021: `libs/ui/src/components/loading/` ディレクトリを作成する（依存: なし）
-- [ ] T022: `libs/ui/src/components/error/ErrorBoundary.tsx` を作成する（依存: T020）
+- [x] T020: `libs/ui/src/components/error/` ディレクトリを作成する（依存: なし）
+- [x] T021: `libs/ui/src/components/loading/` ディレクトリを作成する（依存: なし）
+- [x] T022: `libs/ui/src/components/error/ErrorBoundary.tsx` を作成する（依存: T020）
     - `services/stock-tracker/web/components/ErrorBoundary.tsx` の内容をコピー
     - ファイル先頭の `'use client'` ディレクティブを維持
     - `@/` パスエイリアスは使用しない（ライブラリ規約）
-- [ ] T023: `libs/ui/src/components/error/ErrorAlert.tsx` を作成する（依存: T020）
+- [x] T023: `libs/ui/src/components/error/ErrorAlert.tsx` を作成する（依存: T020）
     - `services/stock-tracker/web/components/ErrorAlert.tsx` の内容をコピー
     - `'use client'` ディレクティブを維持
-- [ ] T024: `libs/ui/src/components/loading/LoadingState.tsx` を作成する（依存: T021）
+- [x] T024: `libs/ui/src/components/loading/LoadingState.tsx` を作成する（依存: T021）
     - `services/stock-tracker/web/components/LoadingState.tsx` の内容をコピー
     - `'use client'` ディレクティブを維持
-- [ ] T025: `libs/ui/src/index.ts` に `ErrorBoundary`, `ErrorAlert`, `LoadingState` のエクスポートを追加する（依存: T022〜T024）
-- [ ] T026: `libs/ui` のビルドが通過することを確認する（依存: T025）
+- [x] T025: `libs/ui/src/index.ts` に `ErrorBoundary`, `ErrorAlert`, `LoadingState` のエクスポートを追加する（依存: T022〜T024）
+- [x] T026: `libs/ui` のビルドが通過することを確認する（依存: T025）
 
 ## Phase 4: stock-tracker/web のインポート差し替え
 
 <!-- stock-tracker/web のローカルコンポーネントを libs/ui からのインポートに置き換える -->
 
-- [ ] T030: `stock-tracker/web` 内で `ErrorBoundary`, `ErrorAlert`, `LoadingState` を使用しているファイルを確認する（依存: Phase 3）
-- [ ] T031: 各ファイルのインポートを `@nagiyu/ui` 経由に変更する（依存: T030）
-- [ ] T032: `services/stock-tracker/web/components/ErrorBoundary.tsx` を削除する（依存: T031）
-- [ ] T033: `services/stock-tracker/web/components/ErrorAlert.tsx` を削除する（依存: T031）
-- [ ] T034: `services/stock-tracker/web/components/LoadingState.tsx` を削除する（依存: T031）
-- [ ] T035: stock-tracker/web のビルド・テスト・lint が通過することを確認する（依存: T032〜T034）
+- [x] T030: `stock-tracker/web` 内で `ErrorBoundary`, `ErrorAlert`, `LoadingState` を使用しているファイルを確認する（依存: Phase 3）
+- [x] T031: 各ファイルのインポートを `@nagiyu/ui` 経由に変更する（依存: T030）
+- [x] T032: `services/stock-tracker/web/components/ErrorBoundary.tsx` を削除する（依存: T031）
+- [x] T033: `services/stock-tracker/web/components/ErrorAlert.tsx` を削除する（依存: T031）
+- [x] T034: `services/stock-tracker/web/components/LoadingState.tsx` を削除する（依存: T031）
+- [x] T035: stock-tracker/web のビルド・テスト・lint が通過することを確認する（依存: T032〜T034）
 
 ---
 
