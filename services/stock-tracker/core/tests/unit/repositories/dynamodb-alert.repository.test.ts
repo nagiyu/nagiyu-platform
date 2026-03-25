@@ -8,6 +8,16 @@ import { DynamoDBAlertRepository } from '../../../src/repositories/dynamodb-aler
 import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { CreateAlertInput } from '../../../src/entities/alert.entity.js';
+import { logger } from '@nagiyu/common';
+
+jest.mock('@nagiyu/common', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    debug: jest.fn(),
+  },
+}));
 
 describe('DynamoDBAlertRepository', () => {
   let repository: DynamoDBAlertRepository;
@@ -254,6 +264,60 @@ describe('DynamoDBAlertRepository', () => {
 
       await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
     });
+
+    it('無効なアラートデータをスキップし、有効なデータのみ返す', async () => {
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-1',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+      const invalidItem = {
+        ...validItem,
+        PK: 'USER#user-123',
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+        subscription: undefined,
+        SubscriptionEndpoint: undefined,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [validItem, invalidItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByUserId('user-123');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({
+          pk: 'USER#user-123',
+          sk: 'ALERT#invalid-alert',
+        })
+      );
+    });
   });
 
   describe('getByFrequency', () => {
@@ -315,6 +379,60 @@ describe('DynamoDBAlertRepository', () => {
       mockDocClient.send.mockRejectedValueOnce(dbError);
 
       await expect(repository.getByFrequency('MINUTE_LEVEL')).rejects.toThrow(DatabaseError);
+    });
+
+    it('無効なアラートデータをスキップし、有効なデータのみ返す', async () => {
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-1',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+      const invalidItem = {
+        ...validItem,
+        PK: 'USER#user-123',
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+        subscription: undefined,
+        SubscriptionEndpoint: undefined,
+      };
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [invalidItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({
+          pk: 'USER#user-123',
+          sk: 'ALERT#invalid-alert',
+        })
+      );
     });
   });
 
