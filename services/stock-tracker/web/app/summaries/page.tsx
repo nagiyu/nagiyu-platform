@@ -303,7 +303,19 @@ export default function SummariesPage() {
         )}
       </Box>
 
-      <Dialog open={selectedTicker !== null} onClose={handleDialogClose} maxWidth="md" fullWidth>
+      <Dialog
+        open={selectedTicker !== null}
+        onClose={handleDialogClose}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            maxWidth: '100vw',
+            width: { xs: 'calc(100vw - 16px)', sm: '100%' },
+            overflow: 'hidden',
+          },
+        }}
+      >
         <DialogTitle
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
@@ -312,9 +324,9 @@ export default function SummariesPage() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ overflowX: 'hidden' }}>
           {selectedTicker && (
-            <Box sx={{ display: 'grid', gap: 2 }}>
+            <Box sx={{ display: 'grid', gap: 2, maxWidth: '100%', overflowX: 'hidden' }}>
               <Typography variant="h6">株価チャート</Typography>
               <StockChart
                 tickerId={selectedTicker.tickerId}
@@ -323,7 +335,7 @@ export default function SummariesPage() {
                 holdingPrice={selectedTicker.holding?.averagePrice}
               />
               <Divider />
-              <TableContainer>
+              <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
                 <Table size="small">
                   <TableBody>
                     <TableRow>
@@ -413,7 +425,7 @@ export default function SummariesPage() {
               <Typography variant="h6">パターン分析</Typography>
               <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
                 <Typography variant="subtitle2">買いパターン</Typography>
-                <TableContainer>
+                <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
                   <Table size="small">
                     <TableBody>
                       {buyPatternDetails.map((pattern) => (
@@ -467,7 +479,7 @@ export default function SummariesPage() {
               </Box>
               <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-sell">
                 <Typography variant="subtitle2">売りパターン</Typography>
-                <TableContainer>
+                <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
                   <Table size="small">
                     <TableBody>
                       {sellPatternDetails.map((pattern) => (
@@ -530,7 +542,7 @@ export default function SummariesPage() {
                       <Typography variant="subtitle2" color="text.secondary">
                         当日の値動き分析
                       </Typography>
-                      <Typography>
+                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {selectedTicker.aiAnalysisResult.priceMovementAnalysis}
                       </Typography>
                     </Box>
@@ -538,7 +550,9 @@ export default function SummariesPage() {
                       <Typography variant="subtitle2" color="text.secondary">
                         パターン分析
                       </Typography>
-                      <Typography>{selectedTicker.aiAnalysisResult.patternAnalysis}</Typography>
+                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                        {selectedTicker.aiAnalysisResult.patternAnalysis}
+                      </Typography>
                     </Box>
                     <Box>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -568,7 +582,9 @@ export default function SummariesPage() {
                       <Typography variant="subtitle2" color="text.secondary">
                         関連市場・セクター動向
                       </Typography>
-                      <Typography>{selectedTicker.aiAnalysisResult.relatedMarketTrend}</Typography>
+                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                        {selectedTicker.aiAnalysisResult.relatedMarketTrend}
+                      </Typography>
                     </Box>
                     <Box>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -589,7 +605,7 @@ export default function SummariesPage() {
                         size="small"
                         sx={{ mb: 1 }}
                       />
-                      <Typography>
+                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {selectedTicker.aiAnalysisResult.investmentJudgment.reason}
                       </Typography>
                     </Box>
