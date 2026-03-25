@@ -14,6 +14,7 @@ const config: Config.InitialOptions = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
   },
   transform: {
     '^.+\\.ts$': [

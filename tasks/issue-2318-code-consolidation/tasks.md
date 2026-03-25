@@ -27,19 +27,19 @@
 
 <!-- 各 batch サービスが libs/common の sendWebPushNotification を利用するよう修正する -->
 
-- [ ] T010: `services/stock-tracker/batch/src/lib/web-push-client.ts` を修正する（依存: Phase 1）
+- [x] T010: `services/stock-tracker/batch/src/lib/web-push-client.ts` を修正する（依存: Phase 1）
     - `sendNotification()` 内部で `sendWebPushNotification()` を呼び出す
     - 環境変数から `VapidConfig` を組み立てて引数で渡す
     - `createAlertNotificationPayload()` はそのまま保持
     - `NotificationPayload` 型は `@nagiyu/common` からインポートに変更
-- [ ] T011: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` を修正する（依存: Phase 1）
+- [x] T011: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` を修正する（依存: Phase 1）
     - `sendNotification()` 内部で `sendWebPushNotification()` を呼び出す
     - `vapidConfigured` フラグを削除し、VAPID 設定は `libs/common` 側に委譲
     - 環境変数から `VapidConfig` を組み立てて引数で渡す
     - ペイロード生成関数群はそのまま保持
     - `NotificationPayload` 型は `@nagiyu/common` からインポートに変更
-- [ ] T012: stock-tracker/batch のビルド・テストが通過することを確認する（依存: T010）
-- [ ] T013: niconico-mylist-assistant/batch のビルド・テストが通過することを確認する（依存: T011）
+- [x] T012: stock-tracker/batch のビルド・テストが通過することを確認する（依存: T010）
+- [x] T013: niconico-mylist-assistant/batch のビルド・テストが通過することを確認する（依存: T011）
 
 ## Phase 3: 汎用 UI コンポーネントの libs/ui 移行
 
