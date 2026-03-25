@@ -14,6 +14,8 @@ jest.mock('next-auth/react', () => {
 
 jest.mock('@nagiyu/ui', () => {
   return {
+    ErrorBoundary: ({ children }: { children: React.ReactNode }) =>
+      React.createElement(React.Fragment, null, children),
     ServiceLayout: ({
       children,
       headerProps,
@@ -31,19 +33,12 @@ jest.mock('@nagiyu/ui', () => {
         ),
         children
       ),
-  };
+    };
 });
 
 jest.mock('../../../components/SnackbarProvider', () => {
   return {
     SnackbarProvider: ({ children }: { children: React.ReactNode }) =>
-      React.createElement(React.Fragment, null, children),
-  };
-});
-
-jest.mock('../../../components/ErrorBoundary', () => {
-  return {
-    ErrorBoundary: ({ children }: { children: React.ReactNode }) =>
       React.createElement(React.Fragment, null, children),
   };
 });

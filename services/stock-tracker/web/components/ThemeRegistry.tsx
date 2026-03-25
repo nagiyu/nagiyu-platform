@@ -2,9 +2,8 @@
 
 import * as React from 'react';
 import { SessionProvider, useSession, signOut } from 'next-auth/react';
-import { ServiceLayout, type NavigationItem } from '@nagiyu/ui';
+import { ErrorBoundary, ServiceLayout, type NavigationItem } from '@nagiyu/ui';
 import { SnackbarProvider } from './SnackbarProvider';
-import { ErrorBoundary } from './ErrorBoundary';
 import { hasPermission } from '@nagiyu/common';
 
 interface ThemeRegistryProps {
