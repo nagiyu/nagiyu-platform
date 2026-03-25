@@ -240,6 +240,13 @@ coverageThreshold: {
 }
 ```
 
+**例外（niconico-mylist-assistant/batch）**:
+
+- `services/niconico-mylist-assistant/batch` のみ、`coverageThreshold` を設定していません
+- 理由: コアロジックである `src/playwright-automation.ts` が Playwright (`chromium`, `Browser`, `Page`) に直接依存しており、Jest 単体テストでのモック化が困難な構造のためです
+- これはバッチパッケージ全体の一般ルールではなく、当該パッケージ固有の構造的例外です（他のバッチパッケージは通常どおり 80% 閾値を設定します）
+- 将来方針: Playwright 依存コードと純粋ロジックを分離し、テスタビリティを改善するタスクを別途検討します
+
 **利点**:
 
 - 無関係な変更でワークフローが実行されず、CIリソースを節約
