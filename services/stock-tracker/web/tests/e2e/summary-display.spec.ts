@@ -3,8 +3,7 @@ import { test, expect } from '@playwright/test';
 const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
   priceMovementAnalysis:
     'モバイル幅検証のための非常に長いテキストABCDEFGHIJKLMNABCDEFGHIJKLMNABCDEFGHIJKLMN',
-  patternAnalysis:
-    'モバイル幅検証のための非常に長いテキストOPQRSTUVWXYZOPQRSTUVWXYZOPQRSTUVWXYZ',
+  patternAnalysis: 'モバイル幅検証のための非常に長いテキストOPQRSTUVWXYZOPQRSTUVWXYZOPQRSTUVWXYZ',
   relatedMarketTrend:
     'モバイル幅検証のための非常に長いテキスト1234567890123456789012345678901234567890',
   investmentReason:
