@@ -13,15 +13,15 @@
 
 <!-- Web Push 送信ロジックを libs/common に集約する -->
 
-- [ ] T001: `libs/common/src/push/types.ts` に `NotificationPayload` 型を追加する（依存: なし）
-- [ ] T002: `libs/common/src/push/client.ts` を新規作成する（依存: T001）
+- [x] T001: `libs/common/src/push/types.ts` に `NotificationPayload` 型を追加する（依存: なし）
+- [x] T002: `libs/common/src/push/client.ts` を新規作成する（依存: T001）
     - `sendWebPushNotification(subscription, payload, vapidConfig): Promise<boolean>` を実装
     - 410/404 の場合は `warn` ログ + `false` を返す
     - その他失敗は `error` ログ + `false` を返す
     - VAPID 未設定時は例外をスロー
-- [ ] T003: `libs/common/src/push/index.ts` に `NotificationPayload` と `sendWebPushNotification` をエクスポート追加する（依存: T001, T002）
-- [ ] T004: `libs/common` の `package.json` に `web-push` 依存を追加する（依存: なし）
-- [ ] T005: `libs/common` のビルド・テストが通過することを確認する（依存: T001〜T004）
+- [x] T003: `libs/common/src/push/index.ts` に `NotificationPayload` と `sendWebPushNotification` をエクスポート追加する（依存: T001, T002）
+- [x] T004: `libs/common` の `package.json` に `web-push` 依存を追加する（依存: なし）
+- [x] T005: `libs/common` のビルド・テストが通過することを確認する（依存: T001〜T004）
 
 ## Phase 2: バッチサービスの Web Push クライアント差し替え
 
