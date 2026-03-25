@@ -309,11 +309,11 @@ export default function SummariesPage() {
         maxWidth="md"
         fullWidth
         PaperProps={{
-          sx: {
+          sx: (theme) => ({
             maxWidth: '100vw',
-            width: { xs: 'calc(100vw - 16px)', sm: '100%' },
+            width: { xs: `calc(100vw - ${theme.spacing(2)})`, sm: '100%' },
             overflow: 'hidden',
-          },
+          }),
         }}
       >
         <DialogTitle

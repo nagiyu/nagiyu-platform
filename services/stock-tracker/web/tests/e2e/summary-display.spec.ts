@@ -1,5 +1,16 @@
 import { test, expect } from '@playwright/test';
 
+const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
+  priceMovementAnalysis:
+    'モバイル幅検証のための非常に長いテキストABCDEFGHIJKLMNABCDEFGHIJKLMNABCDEFGHIJKLMN',
+  patternAnalysis:
+    'モバイル幅検証のための非常に長いテキストOPQRSTUVWXYZOPQRSTUVWXYZOPQRSTUVWXYZ',
+  relatedMarketTrend:
+    'モバイル幅検証のための非常に長いテキスト1234567890123456789012345678901234567890',
+  investmentReason:
+    'モバイル幅検証のための非常に長いテキストabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
+} as const;
+
 test.describe('サマリー画面スモークテスト', () => {
   test('サマリー一覧テーブルに投資判断・シグナル数・アラート数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
@@ -437,7 +448,7 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('中立')).toBeVisible();
   });
 
-  test('詳細ダイアログはモバイル幅で横方向にはみ出さない', async ({ page }) => {
+  test('詳細ダイアログがモバイル幅で画面内に収まる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
         status: 200,
@@ -462,18 +473,14 @@ test.describe('サマリー画面スモークテスト', () => {
                   sellPatternCount: 0,
                   patternDetails: [],
                   aiAnalysisResult: {
-                    priceMovementAnalysis:
-                      'モバイル幅検証のための非常に長いテキストABCDEFGHIJKLMNABCDEFGHIJKLMNABCDEFGHIJKLMN',
-                    patternAnalysis:
-                      'モバイル幅検証のための非常に長いテキストOPQRSTUVWXYZOPQRSTUVWXYZOPQRSTUVWXYZ',
+                    priceMovementAnalysis: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.priceMovementAnalysis,
+                    patternAnalysis: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.patternAnalysis,
                     supportLevels: [100, 99, 98],
                     resistanceLevels: [110, 111, 112],
-                    relatedMarketTrend:
-                      'モバイル幅検証のための非常に長いテキスト1234567890123456789012345678901234567890',
+                    relatedMarketTrend: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.relatedMarketTrend,
                     investmentJudgment: {
                       signal: 'NEUTRAL',
-                      reason:
-                        'モバイル幅検証のための非常に長いテキストabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
+                      reason: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.investmentReason,
                     },
                   },
                   holding: {
@@ -524,11 +531,6 @@ test.describe('サマリー画面スモークテスト', () => {
     });
     expect(overflowInfo.rootOverflows).toBeFalsy();
     expect(overflowInfo.bodyOverflows).toBeFalsy();
-
-    await page.screenshot({
-      path: 'test-results/summary-dialog-mobile-overflow-fix.png',
-      fullPage: true,
-    });
   });
 
   test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
