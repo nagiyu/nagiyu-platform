@@ -24,13 +24,10 @@ runs:
       env:
         DOCKER_BUILDKIT: 0
       run: |
-        if [ -n "${{ inputs.app-version }}" ]; then
-          docker build --build-arg APP_VERSION="${{ inputs.app-version }}" \
-            -t "${{ inputs.image-tag }}" \
-            -f "${{ inputs.dockerfile }}" .
-        else
-          docker build -t "${{ inputs.image-tag }}" -f "${{ inputs.dockerfile }}" .
-        fi
+        ./.github/scripts/docker-build-with-retry.sh \
+          "${{ inputs.image-tag }}" \
+          "${{ inputs.dockerfile }}" \
+          "${{ inputs.app-version }}"
 
     - name: Release Docker build lock
       if: always()
