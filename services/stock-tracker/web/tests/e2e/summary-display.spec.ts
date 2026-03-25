@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+const LONG_TEXTS_FOR_MOBILE_DIALOG_TEST = {
+  priceMovementAnalysis:
+    'モバイル幅検証のための非常に長いテキストABCDEFGHIJKLMNABCDEFGHIJKLMNABCDEFGHIJKLMN',
+  patternAnalysis: 'モバイル幅検証のための非常に長いテキストOPQRSTUVWXYZOPQRSTUVWXYZOPQRSTUVWXYZ',
+  relatedMarketTrend:
+    'モバイル幅検証のための非常に長いテキスト1234567890123456789012345678901234567890',
+  investmentReason:
+    'モバイル幅検証のための非常に長いテキストabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz',
+} as const;
+
 test.describe('サマリー画面スモークテスト', () => {
   test('サマリー一覧テーブルに投資判断・シグナル数・アラート数を表示できる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
@@ -435,6 +445,91 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('当日の値動き分析')).toBeVisible();
     await expect(dialog.getByText('テスト用の値動き分析です。')).toBeVisible();
     await expect(dialog.getByText('中立')).toBeVisible();
+  });
+
+  test('詳細ダイアログがモバイル幅で画面内に収まる', async ({ page }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 110,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 1,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.priceMovementAnalysis,
+                    patternAnalysis: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.patternAnalysis,
+                    supportLevels: [100, 99, 98],
+                    resistanceLevels: [110, 111, 112],
+                    relatedMarketTrend: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.relatedMarketTrend,
+                    investmentJudgment: {
+                      signal: 'NEUTRAL',
+                      reason: LONG_TEXTS_FOR_MOBILE_DIALOG_TEST.investmentReason,
+                    },
+                  },
+                  holding: {
+                    quantity: 1,
+                    averagePrice: 100,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+    await page.route('**/api/chart/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          tickerId: 'TEST:AAA',
+          symbol: 'AAA',
+          timeframe: 'D',
+          data: [
+            { time: 1710000000000, open: 100, high: 110, low: 95, close: 105, volume: 1000000 },
+          ],
+        }),
+      });
+    });
+
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+
+    const viewportWidth = 375;
+    const dialogBox = await dialog.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(dialogBox!.width).toBeLessThanOrEqual(viewportWidth);
+
+    const overflowInfo = await page.evaluate(() => {
+      const root = document.documentElement;
+      const body = document.body;
+      return {
+        rootOverflows: root.scrollWidth > root.clientWidth,
+        bodyOverflows: body.scrollWidth > body.clientWidth,
+      };
+    });
+    expect(overflowInfo.rootOverflows).toBeFalsy();
+    expect(overflowInfo.bodyOverflows).toBeFalsy();
   });
 
   test('更新ボタンでバッチをキックした後に詳細ダイアログでAI解析セクションを表示できる', async ({
