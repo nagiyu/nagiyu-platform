@@ -35,7 +35,7 @@ describe('sendNotification', () => {
     delete process.env.VAPID_PRIVATE_KEY;
   });
 
-  test('共通 Web Push クライアントに VAPID 設定を組み立てて委譲する', async () => {
+  test('共通WebPushクライアントにVAPID設定を組み立てて委譲する', async () => {
     const payload = { title: 'テスト', body: '本文' };
     mockSendWebPushNotification.mockResolvedValue(true);
 
@@ -49,7 +49,7 @@ describe('sendNotification', () => {
     });
   });
 
-  test('VAPID 環境変数未設定時も共通クライアントへ空文字で委譲する', async () => {
+  test('VAPID環境変数未設定時も共通クライアントへ空文字で委譲する', async () => {
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
     const payload = { title: 'テスト', body: '本文' };

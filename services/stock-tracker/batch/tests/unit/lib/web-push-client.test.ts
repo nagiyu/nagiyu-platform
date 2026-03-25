@@ -121,7 +121,7 @@ describe('web-push-client', () => {
       expect(result).toBe(false);
     });
 
-    it('VAPID キーが未設定の場合でも共通クライアントに委譲し、戻り値を返す', async () => {
+    it('VAPIDキーが未設定の場合でも共通クライアントに委譲し、戻り値を返す', async () => {
       // Arrange
       delete process.env.VAPID_PUBLIC_KEY;
       delete process.env.VAPID_PRIVATE_KEY;
