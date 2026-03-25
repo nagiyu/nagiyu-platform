@@ -8,7 +8,7 @@ function ThrowError(): React.ReactNode {
   throw new Error('test error');
 }
 
-function ThrowWithHandler() {
+function ThrowWithHandler(): React.ReactNode {
   const handleError = useErrorHandler();
   return <button onClick={() => handleError(new Error('hook error'))}>throw with handler</button>;
 }
@@ -54,15 +54,19 @@ describe('ErrorBoundary', () => {
 
   it('useErrorHandler で送出したエラーを ErrorBoundary が捕捉する', async () => {
     const user = userEvent.setup();
+    const onError = jest.fn();
 
     render(
-      <ErrorBoundary>
+      <ErrorBoundary onError={onError}>
         <ThrowWithHandler />
       </ErrorBoundary>
     );
 
     await user.click(screen.getByRole('button', { name: 'throw with handler' }));
     expect(screen.getByText('エラーが発生しました')).toBeInTheDocument();
+    expect(onError).toHaveBeenCalledTimes(1);
+    const [error] = onError.mock.calls[0] as [Error, React.ErrorInfo];
+    expect(error.message).toBe('hook error');
   });
 
   it('デフォルトエラーUIで再読み込みボタンを表示する', () => {
