@@ -1,7 +1,11 @@
 import webpush from 'web-push';
 import { logger } from '../../../src/logger/index.js';
 import { sendWebPushNotification } from '../../../src/push/client.js';
-import type { NotificationPayload, PushSubscription, VapidConfig } from '../../../src/push/types.js';
+import type {
+  NotificationPayload,
+  PushSubscription,
+  VapidConfig,
+} from '../../../src/push/types.js';
 
 describe('sendWebPushNotification', () => {
   const subscription: PushSubscription = {
