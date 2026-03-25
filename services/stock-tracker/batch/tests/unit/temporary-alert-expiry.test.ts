@@ -69,7 +69,7 @@ describe('temporary alert expiry batch handler', () => {
     };
   });
 
-  it('期限切れ一時通知を無効化する', async () => {
+  it('期限切れ一時通知を削除する', async () => {
     const alert: Alert = {
       AlertID: 'a1',
       UserID: 'u1',
@@ -113,7 +113,7 @@ describe('temporary alert expiry batch handler', () => {
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockAlertRepo.update).toHaveBeenCalledWith('u1', 'a1', { Enabled: false });
+    expect(mockAlertRepo.delete).toHaveBeenCalledWith('u1', 'a1');
     expect(body.statistics.deactivated).toBe(1);
   });
 
@@ -146,7 +146,7 @@ describe('temporary alert expiry batch handler', () => {
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockAlertRepo.update).not.toHaveBeenCalled();
+    expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     expect(body.statistics.skippedNonTemporary).toBe(1);
   });
 
@@ -250,7 +250,7 @@ describe('temporary alert expiry batch handler', () => {
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockAlertRepo.update).not.toHaveBeenCalled();
+    expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     expect(body.statistics.skippedInvalidData).toBe(1);
   });
 
@@ -286,7 +286,7 @@ describe('temporary alert expiry batch handler', () => {
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockAlertRepo.update).not.toHaveBeenCalled();
+    expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     expect(body.statistics.errors).toBe(1);
   });
 
@@ -333,7 +333,7 @@ describe('temporary alert expiry batch handler', () => {
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockAlertRepo.update).not.toHaveBeenCalled();
+    expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     expect(body.statistics.skippedTradingHours).toBe(1);
   });
 
@@ -381,11 +381,11 @@ describe('temporary alert expiry batch handler', () => {
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockAlertRepo.update).not.toHaveBeenCalled();
+    expect(mockAlertRepo.delete).not.toHaveBeenCalled();
     expect(body.statistics.skippedNotExpired).toBe(1);
   });
 
-  it('update 失敗時は errors を加算して処理を継続する', async () => {
+  it('delete 失敗時は errors を加算して処理を継続する', async () => {
     const alert1: Alert = {
       AlertID: 'a1',
       UserID: 'u1',
@@ -425,8 +425,8 @@ describe('temporary alert expiry batch handler', () => {
     mockExchangeRepo.getById.mockResolvedValue(exchange);
     (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
     (tradingHoursChecker.getLastTradingDate as jest.Mock).mockReturnValue('2026-03-04');
-    mockAlertRepo.update
-      .mockRejectedValueOnce(new Error('update failed'))
+    mockAlertRepo.delete
+      .mockRejectedValueOnce(new Error('delete failed'))
       .mockResolvedValueOnce(alert2);
 
     const response = await handler(mockEvent);

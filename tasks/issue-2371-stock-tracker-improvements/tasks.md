@@ -13,17 +13,17 @@
 
 ### 1-1. 一時アラート失効処理の無効化→削除変更
 
-- [ ] T001: `batch/src/temporary-alert-expiry.ts` を開き、`alertRepo.update(userId, alertId, { Enabled: false })` の呼び出し箇所を `alertRepo.delete(userId, alertId)` に変更する（依存: なし）
-- [ ] T002: `batch/tests/unit/temporary-alert-expiry.test.ts` を更新し、モックの検証対象を `update` の呼び出し確認から `delete` の呼び出し確認に変更する（依存: T001）
-- [ ] T003: バッチの単体テストが通過することを確認する（依存: T002）
+- [x] T001: `batch/src/temporary-alert-expiry.ts` を開き、`alertRepo.update(userId, alertId, { Enabled: false })` の呼び出し箇所を `alertRepo.delete(userId, alertId)` に変更する（依存: なし）
+- [x] T002: `batch/tests/unit/temporary-alert-expiry.test.ts` を更新し、モックの検証対象を `update` の呼び出し確認から `delete` の呼び出し確認に変更する（依存: T001）
+- [x] T003: バッチの単体テストが通過することを確認する（依存: T002）
 
 ### 1-2. AI 解析 Web 検索強制化
 
-- [ ] T004: `batch/src/lib/openai-client.ts` の OpenAI Responses API 呼び出しオプションに `tool_choice: 'required'` を追加する（依存: なし）
-- [ ] T005: 同ファイルのプロンプト内 `relatedMarketTrend` フィールドの説明文を「必ずWeb検索を利用して最新情報を取得すること」に変更する（依存: T004）
-- [ ] T006: 可能であれば、決算発表・重要経済指標など直近のニュースも根拠として含めるよう指示をプロンプトに追加する（依存: T005）
-- [ ] T007: `batch/tests/unit/openai-client.test.ts` を更新し、呼び出しオプションに `tool_choice: 'required'` が含まれることを検証するアサーションを追加する（依存: T004）
-- [ ] T008: AI 解析関連の単体テストが通過することを確認する（依存: T007）
+- [x] T004: `batch/src/lib/openai-client.ts` の OpenAI Responses API 呼び出しオプションに `tool_choice: 'required'` を追加する（依存: なし）
+- [x] T005: 同ファイルのプロンプト内 `relatedMarketTrend` フィールドの説明文を「必ずWeb検索を利用して最新情報を取得すること」に変更する（依存: T004）
+- [x] T006: 可能であれば、決算発表・重要経済指標など直近のニュースも根拠として含めるよう指示をプロンプトに追加する（依存: T005）
+- [x] T007: `batch/tests/unit/openai-client.test.ts` を更新し、呼び出しオプションに `tool_choice: 'required'` が含まれることを検証するアサーションを追加する（依存: T004）
+- [x] T008: AI 解析関連の単体テストが通過することを確認する（依存: T007）
 
 ---
 
