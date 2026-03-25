@@ -5,11 +5,10 @@ import ReactECharts from 'echarts-for-react';
 import type { EChartsOption } from 'echarts';
 import { Box, Typography } from '@mui/material';
 import { DEFAULT_CHART_BAR_COUNT } from '@/types/stock';
+import { ErrorAlert, LoadingState } from '@nagiyu/ui';
 import type { AlertLine } from '../types/alert';
 import { buildChartMarkLines } from '../lib/chart-overlay-lines';
 import { AUTO_REFRESH_INTERVAL_MS } from '../lib/constants';
-import ErrorAlert from './ErrorAlert';
-import LoadingState from './LoadingState';
 
 /**
  * チャートデータポイント型定義

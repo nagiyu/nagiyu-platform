@@ -15,6 +15,12 @@ export { default as PrivacyPolicyDialog } from './components/dialogs/PrivacyPoli
 export type { PrivacyPolicyDialogProps } from './components/dialogs/PrivacyPolicyDialog';
 export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfServiceDialog';
 export type { TermsOfServiceDialogProps } from './components/dialogs/TermsOfServiceDialog';
+export { ErrorBoundary, useErrorHandler } from './components/error/ErrorBoundary';
+export type { ErrorBoundaryProps } from './components/error/ErrorBoundary';
+export { default as ErrorAlert } from './components/error/ErrorAlert';
+export type { ErrorAlertProps } from './components/error/ErrorAlert';
+export { default as LoadingState } from './components/loading/LoadingState';
+export type { LoadingStateProps } from './components/loading/LoadingState';
 
 // Export data
 export { privacyPolicySections } from './data/privacyPolicyData';

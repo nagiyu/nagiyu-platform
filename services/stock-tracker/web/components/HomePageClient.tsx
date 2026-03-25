@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { ErrorAlert } from '@nagiyu/ui';
 import type { Timeframe, ChartBarCount } from '@/types/stock';
 import type { TickerSummary } from '@/types/stock';
 import type { AlertResponse } from '@/types/alert';
@@ -28,7 +29,6 @@ import {
 } from '@/types/stock';
 import { computeAlertLines } from '@/lib/chart-overlay-lines';
 import StockChart from './StockChart';
-import ErrorAlert from './ErrorAlert';
 import EmptyState from './EmptyState';
 import TickerSummaryCard from './TickerSummaryCard';
 import HoldingCard from './HoldingCard';
