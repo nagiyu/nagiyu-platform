@@ -16,10 +16,12 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  InvalidEntityDataError,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
 } from '@nagiyu/aws';
+import { logger } from '@nagiyu/common';
 import type { AlertRepository } from './alert.repository.interface.js';
 import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
 import { AlertMapper } from '../mappers/alert.mapper.js';
@@ -102,9 +104,23 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
+      const items: AlertEntity[] = [];
+      for (const item of result.Items || []) {
+        try {
+          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+        } catch (error) {
+          if (error instanceof InvalidEntityDataError) {
+            const record = item as Record<string, unknown>;
+            logger.warn('無効なアラートデータをスキップしました', {
+              pk: record.PK,
+              sk: record.SK,
+              error: error.message,
+            });
+            continue;
+          }
+          throw error;
+        }
+      }
       const nextCursor = result.LastEvaluatedKey
         ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
         : undefined;
@@ -149,9 +165,23 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
 
-      const items = (result.Items || []).map((item) =>
-        this.mapper.toEntity(item as unknown as DynamoDBItem)
-      );
+      const items: AlertEntity[] = [];
+      for (const item of result.Items || []) {
+        try {
+          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+        } catch (error) {
+          if (error instanceof InvalidEntityDataError) {
+            const record = item as Record<string, unknown>;
+            logger.warn('無効なアラートデータをスキップしました', {
+              pk: record.PK,
+              sk: record.SK,
+              error: error.message,
+            });
+            continue;
+          }
+          throw error;
+        }
+      }
       const nextCursor = result.LastEvaluatedKey
         ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
         : undefined;
