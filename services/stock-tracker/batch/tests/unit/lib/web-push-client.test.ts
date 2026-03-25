@@ -65,15 +65,11 @@ describe('web-push-client', () => {
 
       // Assert
       expect(result).toBe(true);
-      expect(mockSendWebPushNotification).toHaveBeenCalledWith(
-        mockAlert.subscription,
-        payload,
-        {
-          publicKey: 'test-public-key',
-          privateKey: 'test-private-key',
-          subject: 'mailto:support@nagiyu.com',
-        }
-      );
+      expect(mockSendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, payload, {
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
     });
 
     it('無効なサブスクリプション (410 Gone) の場合、false を返す', async () => {
@@ -133,15 +129,11 @@ describe('web-push-client', () => {
 
       // Act & Assert
       await expect(sendNotification(mockAlert, payload)).resolves.toBe(false);
-      expect(mockSendWebPushNotification).toHaveBeenCalledWith(
-        mockAlert.subscription,
-        payload,
-        {
-          publicKey: '',
-          privateKey: '',
-          subject: 'mailto:support@nagiyu.com',
-        }
-      );
+      expect(mockSendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, payload, {
+        publicKey: '',
+        privateKey: '',
+        subject: 'mailto:support@nagiyu.com',
+      });
     });
   });
 
