@@ -3,10 +3,68 @@
  */
 
 import {
+  sendNotification,
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
+import type { PushSubscription } from '@nagiyu/common';
+
+const mockSendWebPushNotification = jest.fn();
+jest.mock('@nagiyu/common/push', () => ({
+  sendWebPushNotification: (...args: unknown[]) => mockSendWebPushNotification(...args),
+}));
+
+describe('sendNotification', () => {
+  const subscription: PushSubscription = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+    keys: {
+      p256dh: 'test-p256dh',
+      auth: 'test-auth',
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.VAPID_PUBLIC_KEY = 'test-public-key';
+    process.env.VAPID_PRIVATE_KEY = 'test-private-key';
+  });
+
+  afterEach(() => {
+    delete process.env.VAPID_PUBLIC_KEY;
+    delete process.env.VAPID_PRIVATE_KEY;
+  });
+
+  test('共通 Web Push クライアントに VAPID 設定を組み立てて委譲する', async () => {
+    const payload = { title: 'テスト', body: '本文' };
+    mockSendWebPushNotification.mockResolvedValue(true);
+
+    const result = await sendNotification(subscription, payload);
+
+    expect(result).toBe(true);
+    expect(mockSendWebPushNotification).toHaveBeenCalledWith(subscription, payload, {
+      publicKey: 'test-public-key',
+      privateKey: 'test-private-key',
+      subject: 'mailto:noreply@nagiyu.com',
+    });
+  });
+
+  test('VAPID 環境変数未設定時も共通クライアントへ空文字で委譲する', async () => {
+    delete process.env.VAPID_PUBLIC_KEY;
+    delete process.env.VAPID_PRIVATE_KEY;
+    const payload = { title: 'テスト', body: '本文' };
+    mockSendWebPushNotification.mockResolvedValue(false);
+
+    const result = await sendNotification(subscription, payload);
+
+    expect(result).toBe(false);
+    expect(mockSendWebPushNotification).toHaveBeenCalledWith(subscription, payload, {
+      publicKey: '',
+      privateKey: '',
+      subject: 'mailto:noreply@nagiyu.com',
+    });
+  });
+});
 
 describe('createBatchCompletionPayload', () => {
   test('全件成功時の通知ペイロード', () => {

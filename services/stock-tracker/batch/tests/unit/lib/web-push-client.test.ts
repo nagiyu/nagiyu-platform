@@ -7,11 +7,12 @@ import {
   createAlertNotificationPayload,
 } from '../../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
-import webpush from 'web-push';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
-// モックの設定
-jest.mock('web-push');
+const mockSendWebPushNotification = jest.fn();
+jest.mock('@nagiyu/common/push', () => ({
+  sendWebPushNotification: (...args: unknown[]) => mockSendWebPushNotification(...args),
+}));
 
 describe('web-push-client', () => {
   let mockAlert: Alert;
@@ -57,27 +58,21 @@ describe('web-push-client', () => {
         title: 'Test Alert',
         body: 'Test body',
       };
-      (webpush.sendNotification as jest.Mock).mockResolvedValue({});
+      mockSendWebPushNotification.mockResolvedValue(true);
 
       // Act
       const result = await sendNotification(mockAlert, payload);
 
       // Assert
       expect(result).toBe(true);
-      expect(webpush.setVapidDetails).toHaveBeenCalledWith(
-        'mailto:support@nagiyu.com',
-        'test-public-key',
-        'test-private-key'
-      );
-      expect(webpush.sendNotification).toHaveBeenCalledWith(
+      expect(mockSendWebPushNotification).toHaveBeenCalledWith(
+        mockAlert.subscription,
+        payload,
         {
-          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-          keys: {
-            p256dh: 'test-p256dh',
-            auth: 'test-auth',
-          },
-        },
-        JSON.stringify(payload)
+          publicKey: 'test-public-key',
+          privateKey: 'test-private-key',
+          subject: 'mailto:support@nagiyu.com',
+        }
       );
     });
 
@@ -87,7 +82,7 @@ describe('web-push-client', () => {
         title: 'Test Alert',
         body: 'Test body',
       };
-      (webpush.sendNotification as jest.Mock).mockRejectedValue(new Error('410 Gone'));
+      mockSendWebPushNotification.mockResolvedValue(false);
 
       // Act
       const result = await sendNotification(mockAlert, payload);
@@ -102,7 +97,7 @@ describe('web-push-client', () => {
         title: 'Test Alert',
         body: 'Test body',
       };
-      (webpush.sendNotification as jest.Mock).mockRejectedValue(new Error('404 Not Found'));
+      mockSendWebPushNotification.mockResolvedValue(false);
 
       // Act
       const result = await sendNotification(mockAlert, payload);
@@ -117,7 +112,7 @@ describe('web-push-client', () => {
         title: 'Test Alert',
         body: 'Test body',
       };
-      (webpush.sendNotification as jest.Mock).mockRejectedValue(new Error('Network error'));
+      mockSendWebPushNotification.mockResolvedValue(false);
 
       // Act
       const result = await sendNotification(mockAlert, payload);
@@ -126,7 +121,7 @@ describe('web-push-client', () => {
       expect(result).toBe(false);
     });
 
-    it('VAPID キーが未設定の場合、エラーをスローする', async () => {
+    it('VAPID キーが未設定の場合でも共通クライアントに委譲し、戻り値を返す', async () => {
       // Arrange
       delete process.env.VAPID_PUBLIC_KEY;
       delete process.env.VAPID_PRIVATE_KEY;
@@ -134,9 +129,19 @@ describe('web-push-client', () => {
         title: 'Test Alert',
         body: 'Test body',
       };
+      mockSendWebPushNotification.mockResolvedValue(false);
 
       // Act & Assert
       await expect(sendNotification(mockAlert, payload)).resolves.toBe(false);
+      expect(mockSendWebPushNotification).toHaveBeenCalledWith(
+        mockAlert.subscription,
+        payload,
+        {
+          publicKey: '',
+          privateKey: '',
+          subject: 'mailto:support@nagiyu.com',
+        }
+      );
     });
   });
 
