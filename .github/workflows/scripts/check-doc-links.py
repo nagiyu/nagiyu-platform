@@ -21,7 +21,18 @@ def extract_markdown_targets(content: str) -> list[str]:
             if not target:
                 continue
 
-        path_part = target.split()[0]
+        double_quote_separator = target.find(' "')
+        single_quote_separator = target.find(" '")
+        title_separator_indexes = [
+            index for index in (double_quote_separator, single_quote_separator) if index != -1
+        ]
+        if title_separator_indexes:
+            path_part = target[: min(title_separator_indexes)].strip()
+        else:
+            path_part = target
+
+        if not path_part:
+            continue
         if ".md" not in path_part:
             continue
         if path_part.startswith(("http://", "https://", "mailto:", "#")):
@@ -36,7 +47,7 @@ def extract_markdown_targets(content: str) -> list[str]:
 
 
 def find_broken_links() -> list[tuple[Path, str, Path]]:
-    docs_root = DOCS_DIR.resolve()
+    repo_root = Path.cwd().resolve()
     broken_links: list[tuple[Path, str, Path]] = []
 
     for markdown_file in sorted(DOCS_DIR.rglob("*.md")):
@@ -46,7 +57,7 @@ def find_broken_links() -> list[tuple[Path, str, Path]]:
             if resolved_target.exists():
                 continue
 
-            source_display = markdown_file.relative_to(docs_root.parent)
+            source_display = markdown_file.relative_to(repo_root)
             broken_links.append((source_display, target, resolved_target))
 
     return broken_links
