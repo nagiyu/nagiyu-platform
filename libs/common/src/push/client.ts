@@ -7,6 +7,23 @@ const ERROR_MESSAGES = {
   VAPID_NOT_CONFIGURED: 'VAPID キーが設定されていません',
 } as const;
 
+type WebPushError = {
+  statusCode?: number;
+  message?: string;
+};
+
+/**
+ * Web Push エラーが「無効なサブスクリプション」を示すか判定する。
+ * statusCode がある場合はそれを優先し、ない場合のみメッセージを補助的に判定する。
+ */
+function isInvalidSubscriptionError(statusCode: number | undefined, errorMessage: string): boolean {
+  if (typeof statusCode === 'number') {
+    return statusCode === 404 || statusCode === 410;
+  }
+
+  return /\b(404|410)\b/.test(errorMessage);
+}
+
 export async function sendWebPushNotification(
   subscription: PushSubscription,
   payload: NotificationPayload,
@@ -31,14 +48,24 @@ export async function sendWebPushNotification(
 
     return true;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const webPushError = error as WebPushError;
+    const statusCode = webPushError.statusCode;
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof webPushError.message === 'string'
+          ? webPushError.message
+          : String(error);
+    const isInvalidSubscription = isInvalidSubscriptionError(statusCode, errorMessage);
 
-    if (errorMessage.includes('410') || errorMessage.includes('404')) {
+    if (isInvalidSubscription) {
       logger.warn('無効な Web Push サブスクリプションです', {
+        statusCode,
         error: errorMessage,
       });
     } else {
       logger.error('Web Push 通知の送信に失敗しました', {
+        statusCode,
         error: errorMessage,
       });
     }
