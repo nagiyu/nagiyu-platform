@@ -25,14 +25,22 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
     () => summary?.aiAnalysisResult?.resistanceLevels ?? [],
     [summary]
   );
-  const investmentJudgment = summary?.aiAnalysisResult?.investmentJudgment?.signal
-    ? INVESTMENT_SIGNAL_LABELS[summary.aiAnalysisResult.investmentJudgment.signal]
-    : '未生成';
-  const aiJudgmentMessage = summary?.aiAnalysisResult
-    ? `${investmentJudgment}（${summary.aiAnalysisResult.investmentJudgment.reason}）`
-    : typeof summary?.aiAnalysisError === 'string'
-      ? ERROR_MESSAGES.AI_ANALYSIS_FAILED
-      : ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED;
+  const investmentJudgment = useMemo(
+    () =>
+      summary?.aiAnalysisResult?.investmentJudgment?.signal
+        ? INVESTMENT_SIGNAL_LABELS[summary.aiAnalysisResult.investmentJudgment.signal]
+        : '未生成',
+    [summary]
+  );
+  const aiJudgmentMessage = useMemo(
+    () =>
+      summary?.aiAnalysisResult
+        ? `${investmentJudgment}（${summary.aiAnalysisResult.investmentJudgment.reason}）`
+        : typeof summary?.aiAnalysisError === 'string'
+          ? ERROR_MESSAGES.AI_ANALYSIS_FAILED
+          : ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED,
+    [summary, investmentJudgment]
+  );
 
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
