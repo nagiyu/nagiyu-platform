@@ -11,7 +11,7 @@
 
 ## Phase 1: リトライロジックの実装
 
-- [ ] T001: `.github/actions/build-docker-image/action.yml` の「Build Docker image」ステップを修正し、`toomanyrequests` エラー検知とリトライループを組み込む（依存: なし）
+- [x] T001: `.github/actions/build-docker-image/action.yml` の「Build Docker image」ステップを修正し、`toomanyrequests` エラー検知とリトライループを組み込む（依存: なし）
     - `MAX_RETRIES=5`、`RETRY_WAIT_SECONDS=60` を定数として定義する
     - `docker build` の標準エラー出力を一時ファイルに保存し、終了コード失敗時に `toomanyrequests` を検知する
     - 検知時は待機後にリトライ、それ以外のエラーは即座に失敗させる
@@ -19,7 +19,7 @@
 
 ## Phase 2: 動作確認
 
-- [ ] T002: ローカル環境でシェルスクリプトの分岐ロジックを単体で確認する（依存: T001）
+- [x] T002: ローカル環境でシェルスクリプトの分岐ロジックを単体で確認する（依存: T001）
     - `toomanyrequests` を含む出力をモックして、リトライが発生することを確認する
     - それ以外のエラーでは即座に失敗することを確認する
     - リトライ上限（5 回）超過で失敗することを確認する
