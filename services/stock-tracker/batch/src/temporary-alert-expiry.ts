@@ -1,7 +1,7 @@
 /**
  * 1時間間隔バッチ処理のLambda Handler
  * EventBridge Scheduler から rate(1 hour) で実行される
- * 一時通知アラートの期限切れを判定して無効化する
+ * 一時通知アラートの期限切れを判定して削除する
  */
 
 import { logger } from '@nagiyu/common';
@@ -112,9 +112,7 @@ async function processAlert(
       return;
     }
 
-    await alertRepo.update(alert.UserID, alert.AlertID, {
-      Enabled: false,
-    });
+    await alertRepo.delete(alert.UserID, alert.AlertID);
     stats.deactivated++;
   } catch (error) {
     stats.errors++;
