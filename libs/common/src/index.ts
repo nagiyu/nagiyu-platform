@@ -20,8 +20,10 @@ export * from './api/index.js';
 // Retry module - Backend retry utilities
 export * from './retry/index.js';
 
-// Push module - Web Push utilities
-export * from './push/index.js';
+// Push module - Web Push utilities (browser-safe exports only)
+export { normalizeVapidKey } from './push/vapid.js';
+export type { VapidKeyName } from './push/vapid.js';
+export type { NotificationPayload, PushSubscription, VapidConfig } from './push/types.js';
 
 // Constants module - Common constants
 export { ERROR_CODES } from './constants/error-codes.js';
