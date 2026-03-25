@@ -24,65 +24,10 @@ runs:
       env:
         DOCKER_BUILDKIT: 0
       run: |
-        set -euo pipefail
-
-        readonly MAX_RETRIES=5
-        readonly RETRY_WAIT_SECONDS=60
-        readonly RATE_LIMIT_MESSAGE="toomanyrequests"
-        readonly ERROR_MESSAGE_MAX_RETRY_EXCEEDED="最大リトライ回数を超えました。"
-
-        stderr_file=""
-        cleanup_stderr_file() {
-          if [ -n "${stderr_file}" ] && [ -f "${stderr_file}" ]; then
-            rm -f "${stderr_file}"
-          fi
-        }
-        trap cleanup_stderr_file EXIT
-
-        retry_count=0
-        while true; do
-          stderr_file="$(mktemp "${RUNNER_TEMP:-/tmp}/docker-build-stderr.XXXXXX")"
-          build_status=0
-
-          if [ -n "${{ inputs.app-version }}" ]; then
-            docker build --build-arg APP_VERSION="${{ inputs.app-version }}" \
-              -t "${{ inputs.image-tag }}" \
-              -f "${{ inputs.dockerfile }}" . \
-              2>"${stderr_file}" || build_status=$?
-          else
-            docker build -t "${{ inputs.image-tag }}" -f "${{ inputs.dockerfile }}" . \
-              2>"${stderr_file}" || build_status=$?
-          fi
-
-          if [ "${build_status}" -eq 0 ]; then
-            cleanup_stderr_file
-            break
-          fi
-
-          if [ -f "${stderr_file}" ]; then
-            cat "${stderr_file}" >&2
-          fi
-
-          is_rate_limited=false
-          if [ -f "${stderr_file}" ] && grep -q "${RATE_LIMIT_MESSAGE}" "${stderr_file}"; then
-            is_rate_limited=true
-          fi
-
-          cleanup_stderr_file
-
-          if [ "${is_rate_limited}" = true ] && [ "${retry_count}" -lt "${MAX_RETRIES}" ]; then
-            retry_count=$((retry_count + 1))
-            echo "[retry ${retry_count}/${MAX_RETRIES}] Public ECR のレート制限（${RATE_LIMIT_MESSAGE}）を検知。${RETRY_WAIT_SECONDS} 秒待機してリトライします..."
-            sleep "${RETRY_WAIT_SECONDS}"
-            continue
-          fi
-
-          if [ "${is_rate_limited}" = true ]; then
-            echo "[error] ${ERROR_MESSAGE_MAX_RETRY_EXCEEDED}（${MAX_RETRIES} 回）" >&2
-          fi
-
-          exit "${build_status}"
-        done
+        ./.github/scripts/docker-build-with-retry.sh \
+          "${{ inputs.image-tag }}" \
+          "${{ inputs.dockerfile }}" \
+          "${{ inputs.app-version }}"
 
     - name: Release Docker build lock
       if: always()
