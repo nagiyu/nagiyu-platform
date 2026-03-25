@@ -70,6 +70,10 @@
 - [x] T033: `services/stock-tracker/web/components/ErrorAlert.tsx` を削除する（依存: T031）
 - [x] T034: `services/stock-tracker/web/components/LoadingState.tsx` を削除する（依存: T031）
 - [x] T035: stock-tracker/web のビルド・テスト・lint が通過することを確認する（依存: T032〜T034）
+    - 2026-03-25 確認済み:
+        - `npm run lint`（`services/stock-tracker/web`）
+        - `npm test`（`services/stock-tracker/web`）
+        - `npm run build -w libs/aws && npm run build -w libs/common && npm run build -w libs/browser && npm run build -w libs/react && npm run build -w libs/nextjs && npm run build -w libs/ui && npm run build -w services/stock-tracker/core && npm run build -w services/stock-tracker/web`
 
 ---
 
