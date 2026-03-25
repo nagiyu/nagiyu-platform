@@ -26,7 +26,8 @@ jest.mock('../../../components/StockChart', () => ({
 
 jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
-  ErrorAlert: ({ message }: { message: string }) => React.createElement('div', { role: 'alert' }, message),
+  ErrorAlert: ({ message }: { message: string }) =>
+    React.createElement('div', { role: 'alert' }, message),
 }));
 
 jest.mock('../../../components/EmptyState', () => ({

@@ -1,9 +1,16 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ErrorBoundary } from '../../../../src/components/error/ErrorBoundary';
+import { useErrorHandler } from '../../../../src/components/error/ErrorBoundary';
 
 function ThrowError(): React.ReactNode {
   throw new Error('test error');
+}
+
+function ThrowWithHandler() {
+  const handleError = useErrorHandler();
+  return <button onClick={() => handleError(new Error('hook error'))}>throw with handler</button>;
 }
 
 describe('ErrorBoundary', () => {
@@ -35,5 +42,32 @@ describe('ErrorBoundary', () => {
     );
 
     expect(screen.getByText('fallback content')).toBeInTheDocument();
+  });
+
+  it('onError が指定されている場合に呼び出される', () => {
+    const onError = jest.fn();
+
+    render(<ErrorBoundary onError={onError}>{React.createElement(ThrowError)}</ErrorBoundary>);
+
+    expect(onError).toHaveBeenCalledTimes(1);
+  });
+
+  it('useErrorHandler で送出したエラーを ErrorBoundary が捕捉する', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ErrorBoundary>
+        <ThrowWithHandler />
+      </ErrorBoundary>
+    );
+
+    await user.click(screen.getByRole('button', { name: 'throw with handler' }));
+    expect(screen.getByText('エラーが発生しました')).toBeInTheDocument();
+  });
+
+  it('デフォルトエラーUIで再読み込みボタンを表示する', () => {
+    render(<ErrorBoundary>{React.createElement(ThrowError)}</ErrorBoundary>);
+
+    expect(screen.getByRole('button', { name: 'ページを再読み込み' })).toBeInTheDocument();
   });
 });

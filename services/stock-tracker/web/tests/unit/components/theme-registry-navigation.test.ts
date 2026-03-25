@@ -33,7 +33,7 @@ jest.mock('@nagiyu/ui', () => {
         ),
         children
       ),
-    };
+  };
 });
 
 jest.mock('../../../components/SnackbarProvider', () => {
