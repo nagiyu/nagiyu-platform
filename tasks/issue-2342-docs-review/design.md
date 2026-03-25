@@ -75,18 +75,36 @@ python3 .github/workflows/scripts/check-doc-links.py
 
 ---
 
-## testing.md カバレッジ例外の追記方針
+## niconico-mylist-assistant/batch のカバレッジ未設定に関する方針
 
-### 追記対象セクション
+### 問題の構造（再調査）
 
-`docs/development/testing.md` の「coverageThreshold」または「テストカバレッジ」に関するセクション（行 222 付近）に、
-バッチパッケージの例外を説明するサブセクションまたは注釈を追記する。
+当初は「バッチパッケージ全般の例外」として整理していたが、レビューを経て以下が明確になった。
 
-### 追記内容の要件
+- **他のバッチパッケージ（例: stock-tracker/batch）は `coverageThreshold` を設定している**
+- niconico-mylist-assistant/batch に限って未設定である
+- 根本原因は `src/playwright-automation.ts`（728行）が Playwright (`chromium`, `Browser`, `Page`) を直接 import しており、通常の Jest 単体テストではモック化が困難な構造になっていること
+- 現状の単体テストは `constants.ts`, `utils.ts`, `web-push-client.ts` のみをカバーしており、主要ビジネスロジックである `playwright-automation.ts` と `index.ts` がカバレッジ対象から外れている
 
-- **設計判断**: バッチパッケージは `coverageThreshold` を設定しないこと
-- **理由**: バッチパッケージのロジックは結合テスト（integration test）で検証する戦略を採用しているため、Fast CI での単体カバレッジ閾値チェックは対象外
-- **適用範囲**: 現時点では `services/niconico-mylist-assistant/batch` が該当。新規バッチパッケージを追加する場合は同様の方針に従うこと
+### 対応方針の選択肢
+
+| アプローチ | 概要 | 特徴 |
+| ---------- | ---- | ---- |
+| **A: テストディレクトリ構造の整理と Playwright 依存コードの分離** | `src/` を「Playwright 依存層」と「純粋ロジック層」に明確に分割し、純粋ロジック層に対して単体テストとカバレッジ閾値を設定する | 根本解決。設計改善を伴うため工数が大きい |
+| **B: 現状維持 + docs への設計判断の明記** | coverageThreshold 未設定の状態を維持しつつ、testing.md にその理由（Playwright 依存構造）を明記する | 暫定対応。将来的に A への移行を検討する余地を残す |
+
+**選択**: まず **B（現状維持 + docs への明記）** を実施し、**A（設計改善）** は別タスクとして扱う。
+
+理由: A は niconico-mylist-assistant/batch の設計全体を見直す大きな変更であり、本タスク（週次ドキュメントレビュー対応）のスコープを超える。
+
+### testing.md への追記方針
+
+`docs/development/testing.md` のカバレッジに関するセクションに、以下の内容を追記する。
+
+- **対象パッケージ**: `services/niconico-mylist-assistant/batch`
+- **理由**: コアロジック（`playwright-automation.ts`）が Playwright に直接依存しており、Jest 単体テストでのモック化が困難な構造のため、`coverageThreshold` を設定していない
+- **補足**: この状況は一般的な「バッチパッケージはカバレッジ不要」というルールではなく、本パッケージ固有の構造的事情による例外
+- **将来方針**: Playwright 依存コードと純粋ロジックを分離してテスタビリティを改善することを検討する（別タスク）
 - **記述スタイル**: 既存の表形式または箇条書き形式に揃える
 
 ---
@@ -117,7 +135,7 @@ python3 .github/workflows/scripts/check-doc-links.py
 <!-- 開発完了後にここを確認し、docs/ を更新してからこのディレクトリを削除する -->
 
 - [ ] `docs/development/testing.md` に統合すること：
-      バッチパッケージの `coverageThreshold` 未設定に関する設計判断と理由（Fast CI 戦略）を追記する
+      niconico-mylist-assistant/batch の `coverageThreshold` 未設定の理由（Playwright 直接依存構造による例外）と将来方針を追記する
 - [ ] `.github/workflows/templates/weekly-review-body.md` の確認コマンドを修正済みスクリプトの呼び出しに差し替えた後、
       既存の誤ったワンライナーを削除して整合性を保つこと
 - [ ] `docs/services/` レベルへの統合は不要（インフラ・プラットフォームタスクのため）

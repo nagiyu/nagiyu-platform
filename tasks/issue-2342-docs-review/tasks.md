@@ -34,13 +34,13 @@
 
 ## Phase 4: testing.md のカバレッジ例外の明記
 
-- [ ] T006: `docs/development/testing.md` にバッチパッケージのカバレッジ例外を追記する（依存: なし、Phase 1-3 と並列実行可能）
+- [ ] T006: `docs/development/testing.md` に niconico-mylist-assistant/batch のカバレッジ例外を追記する（依存: なし、Phase 1-3 と並列実行可能）
     - 追記箇所: カバレッジ閾値に関するセクション（行 222 付近）
     - 追記内容:
-        - バッチパッケージは `coverageThreshold` を設定しない設計判断
-        - 理由: バッチパッケージのロジックは結合テストで検証する戦略を採用しており、Fast CI の単体カバレッジ閾値チェック対象外
-        - 適用例: `services/niconico-mylist-assistant/batch`
-        - 新規バッチパッケージ追加時の方針（同様の扱いで可）
+        - niconico-mylist-assistant/batch のみ `coverageThreshold` が未設定である旨
+        - 理由: `src/playwright-automation.ts`（コアロジック）が Playwright に直接依存しており、Jest 単体テストでのモック化が困難な構造のため
+        - 補足: これはバッチパッケージ全般のルールではなく、本パッケージ固有の構造的例外（他バッチパッケージは通常どおり 80% 閾値を設定する）
+        - 将来方針: Playwright 依存コードと純粋ロジックを分離してテスタビリティを改善することを別タスクで検討する
 
 ---
 
@@ -48,10 +48,10 @@
 
 - [ ] `requirements.md` の受け入れ条件をすべて満たしている
     - [ ] UC-001: 修正スクリプト実行で false positive が 0 件
-    - [ ] UC-002: `testing.md` にバッチパッケージのカバレッジ例外が明記されている
+    - [ ] UC-002: `testing.md` に niconico-mylist-assistant/batch のカバレッジ未設定理由（Playwright 依存構造）が明記されている
 - [ ] 修正スクリプト（`check-doc-links.py`）がリポジトリルートから実行できる
 - [ ] `weekly-review-body.md` の確認コマンドが修正スクリプト呼び出しに更新されている
-- [ ] `docs/development/testing.md` にカバレッジ例外の記述が追記されている
+- [ ] `docs/development/testing.md` に niconico-mylist-assistant/batch のカバレッジ例外（Playwright 依存構造）の記述が追記されている
 - [ ] Lint・型チェックは対象外（Python スクリプト・Markdown のみの変更）
 - [ ] `design.md` の「docs/ への移行メモ」を処理した
 - [ ] `tasks/issue-2342-docs-review/` ディレクトリを削除した

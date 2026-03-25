@@ -52,15 +52,16 @@
 - **代替フロー**: リンク切れが 0 件の場合、何も出力されず正常終了する
 - **例外フロー**: スクリプト実行エラー時はエラーメッセージを出力して異常終了する
 
-#### UC-002: バッチパッケージのカバレッジ例外を確認する
+#### UC-002: niconico-mylist-assistant/batch のカバレッジ未設定の背景を確認する
 
-- **概要**: 開発者が `docs/development/testing.md` を参照してバッチパッケージのカバレッジ設定の正当性を確認できる
+- **概要**: 開発者が `docs/development/testing.md` を参照して、niconico-mylist-assistant/batch のみ `coverageThreshold` が未設定である理由を正確に理解できる
 - **アクター**: 開発者・週次ドキュメントレビュー担当者
-- **前提条件**: `testing.md` にバッチパッケージの扱いに関するセクションが存在する
+- **前提条件**: `testing.md` に当該パッケージの例外理由が記載されている
 - **正常フロー**:
     1. 開発者が `testing.md` のカバレッジ方針セクションを参照する
-    2. バッチパッケージは `coverageThreshold` を設定しない設計判断とその理由が記載されている
-    3. 開発者が意図を理解した上でバッチパッケージのテスト戦略を判断できる
+    2. niconico-mylist-assistant/batch は `playwright-automation.ts` が Playwright に直接依存する構造のため例外的に未設定であることが記載されている
+    3. 他のバッチパッケージは `coverageThreshold` を設定する通常の方針が適用されることが明記されている
+    4. 将来的にテスタビリティ改善を検討する旨が記載されている
 - **例外フロー**: なし
 
 ### 2.2 機能一覧
@@ -68,7 +69,7 @@
 | 機能ID | 機能名 | 説明 | 優先度 |
 | ------ | ------ | ---- | ------ |
 | F-001 | リンク切れチェックスクリプト修正 | `weekly-review-body.md` の確認コマンドを相対パスを正しく解決するロジックに差し替える | 高 |
-| F-002 | testing.md カバレッジ例外の明記 | バッチパッケージが `coverageThreshold` を設定しない設計判断とその理由を `testing.md` に追記する | 中 |
+| F-002 | testing.md カバレッジ例外の明記 | niconico-mylist-assistant/batch が `coverageThreshold` を未設定である理由（Playwright 直接依存構造による固有の例外）と将来方針を `testing.md` に追記する | 中 |
 
 ### 2.3 想定画面の概要
 
@@ -122,7 +123,8 @@
 - ❌ 外部サイト（https://〜）へのリンク切れチェック
 - ❌ アンカーリンク（`#section-name`）の有効性チェック
 - ❌ `docs/` 以外のディレクトリ（`tasks/`, `services/` 等）のリンクチェック
-- ❌ niconico-mylist-assistant/batch 以外のバッチパッケージのカバレッジ設定変更
+- ❌ niconico-mylist-assistant/batch のテストディレクトリ構造整理・Playwright 依存コードの分離（別タスク）
+- ❌ niconico-mylist-assistant/batch への `coverageThreshold` 追加（Playwright 依存構造の解消が前提）
 - ❌ 週次レビュー workflow の自動化・CI 統合（スクリプト修正のみ対応）
 
 ---
