@@ -139,10 +139,7 @@ grep -r "ui → browser → common\|ui->browser->common" docs/ .github/ --includ
 
 **確認コマンド:**
 ```bash
-# Markdown リンクの抽出と存在確認
-grep -roh '\[.*\]([^)]*\.md[^)]*)' docs/ | sed 's/.*(\(.*\))/\1/' | sort -u | while read link; do
-  [ ! -f "docs/$link" ] && echo "❌ リンク切れ: $link"
-done
+python3 .github/workflows/scripts/check-doc-links.py
 ```
 
 #### 12. ドキュメント間の重複記述チェック
