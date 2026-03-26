@@ -83,7 +83,7 @@ createErrorResponse(status: number, error: string, message: string): NextRespons
 | --------- | ---- | ------- |
 | 引数型（niconico-mylist-assistant） | `PushSubscription` を直接渡す → `sendWebPushNotification()` の第1引数と同一型 | ✅ ラッパー不要（そのまま直接呼び出し可） |
 | 引数型（stock-tracker） | `Alert` 型を渡す → ラッパー内で `alert.subscription` を取り出している | ✅ 呼び出し元で `alert.subscription` を渡すよう変更すれば不要 |
-| VAPID subject の差異 | `noreply@nagiyu.com` vs `support@nagiyu.com` | ✅ `VAPID_SUBJECT` 環境変数で統一（挙動変更あり・許容済み） |
+| VAPID subject の差異 | `noreply@nagiyu.com` vs `support@nagiyu.com` | ✅ `mailto:support@nagiyu.com` にプロジェクト共通でハードコード統一（挙動変更あり・許容済み） |
 
 ### 対応方針
 
@@ -91,7 +91,7 @@ createErrorResponse(status: number, error: string, message: string): NextRespons
 - 呼び出し元が `sendWebPushNotification()` を直接呼び出す形に変更する
     - niconico-mylist-assistant の `index.ts`: `sendNotification(pushSubscription, payload)` → `sendWebPushNotification(pushSubscription, payload, vapidConfig)`
     - stock-tracker の `minute.ts`, `hourly.ts`: `sendNotification(alert, payload)` → `sendWebPushNotification(alert.subscription, payload, vapidConfig)`
-- VAPID subject は `VAPID_SUBJECT` 環境変数から取得する形に統一する
+- VAPID subject は `mailto:support@nagiyu.com` にプロジェクト共通でハードコード統一する（環境変数化しない）
 - `web-push-client.ts` にはペイロード生成関数（`createBatchCompletionPayload`, `createTwoFactorAuthRequiredPayload`, `createAlertNotificationPayload`）のみ残す
 
 ### コンポーネント設計

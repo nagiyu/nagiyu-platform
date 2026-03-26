@@ -54,12 +54,11 @@
 - **前提条件**: `libs/common/src/push/client.ts` に `sendWebPushNotification()` が存在する
 - **差異と吸収方法**:
     - **入力型の差異**: niconico-mylist-assistant は `PushSubscription` を直接渡すのに対し、stock-tracker は `Alert` 型（`alert.subscription` を内包）を渡している。呼び出し元で `alert.subscription` を渡すよう変更することで吸収できる（挙動変更なし）
-    - **VAPID subject の差異**: `mailto:noreply@nagiyu.com`（niconico-mylist-assistant）と `mailto:support@nagiyu.com`（stock-tracker）が異なる。環境変数 `VAPID_SUBJECT` で指定できるようにすることで統一する（挙動変更あり・許容済み）
+    - **VAPID subject の差異**: `mailto:noreply@nagiyu.com`（niconico-mylist-assistant）と `mailto:support@nagiyu.com`（stock-tracker）が異なる。プロジェクト共通として `mailto:support@nagiyu.com` にハードコードで統一する（挙動変更あり・許容済み）
 - **正常フロー**:
-    1. `VAPID_SUBJECT` 環境変数を追加し、各バッチの VAPID 設定で参照する
-    2. `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、呼び出し元（`index.ts`）が `sendWebPushNotification()` を直接呼び出す形に変更する
-    3. `services/stock-tracker/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、呼び出し元（`minute.ts`, `hourly.ts`）が `sendWebPushNotification(alert.subscription, payload, vapidConfig)` を直接呼び出す形に変更する
-    4. `web-push-client.ts` にはペイロード生成関数（`createBatchCompletionPayload` 等）のみ残す
+    1. `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、呼び出し元（`index.ts`）が `sendWebPushNotification()` を直接呼び出す形に変更する（VAPID subject は `mailto:support@nagiyu.com` に統一）
+    2. `services/stock-tracker/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、呼び出し元（`minute.ts`, `hourly.ts`）が `sendWebPushNotification(alert.subscription, payload, vapidConfig)` を直接呼び出す形に変更する
+    3. `web-push-client.ts` にはペイロード生成関数（`createBatchCompletionPayload` 等）のみ残す
 - **代替フロー**: なし（挙動変更が許容されているため差異を吸収して統一する）
 - **例外フロー**: 既存テストが失敗した場合はロールバックして原因を調査する
 
@@ -90,7 +89,7 @@
 | 機能ID | 機能名 | 説明 | 優先度 |
 | ------ | ------ | ---- | ------ |
 | F-001 | `createErrorResponse()` の共通化 | `libs/nextjs/src/error.ts` に統合し、重複ローカル実装を削除 | 高 |
-| F-002 | Web Push ラッパーの除去 | batch サービスの `sendNotification()` ラッパーを除去し、呼び出し元が `sendWebPushNotification()` を直接呼び出す形に統一する（VAPID subject は `VAPID_SUBJECT` 環境変数で統一） | 高 |
+| F-002 | Web Push ラッパーの除去 | batch サービスの `sendNotification()` ラッパーを除去し、呼び出し元が `sendWebPushNotification()` を直接呼び出す形に統一する（VAPID subject は `mailto:support@nagiyu.com` にプロジェクト共通でハードコード統一） | 高 |
 | F-003 | `ErrorResponse` 型の共通化 | ローカル型定義を `@nagiyu/common` の共通型に置き換え | 中 |
 | F-004 | Repository Factory の統一 | `createRepositoryFactory()` を admin・stock-tracker にも適用 | 中 |
 | F-005 | DynamoDB 抽象基底クラスの活用確認 | admin の Repository が `AbstractDynamoDBRepository` を継承しているか確認・修正 | 低 |

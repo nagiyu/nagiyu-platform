@@ -34,7 +34,7 @@
 
 <!-- 両サービスの sendNotification() ラッパーを除去し、sendWebPushNotification() を直接呼び出す形に統一する -->
 
-- [ ] T012: `VAPID_SUBJECT` 環境変数を追加し、niconico-mylist-assistant/batch と stock-tracker/batch の VAPID 設定で参照する形に変更する（依存: なし）
+- [ ] T012: niconico-mylist-assistant/batch と stock-tracker/batch の VAPID subject を `mailto:support@nagiyu.com` にプロジェクト共通でハードコード統一する（依存: なし）
 - [ ] T013: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、ペイロード生成関数のみ残す（依存: T012）
 - [ ] T014: `services/niconico-mylist-assistant/batch/src/index.ts` の `sendNotification()` 呼び出しを `sendWebPushNotification(pushSubscription, payload, vapidConfig)` に変更する（依存: T013）
 - [ ] T015: `services/stock-tracker/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、ペイロード生成関数のみ残す（依存: T012）
