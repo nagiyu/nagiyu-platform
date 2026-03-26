@@ -34,6 +34,7 @@ const ERROR_MESSAGES = {
   DELETE_SELL_ALERT_ERROR: '売りアラートの削除に失敗しました',
   DELETE_SELL_ALERT_PARTIAL_ERROR:
     '保有株式は削除しましたが、一部の売りアラートの削除に失敗しました',
+  FETCH_SELL_ALERTS_LOG: '削除対象の売りアラート取得中にエラーが発生しました',
   REQUIRED_FIELD: 'この項目は必須です',
   INVALID_QUANTITY: '保有数は0.0001以上、1,000,000,000以下で入力してください',
   INVALID_AVERAGE_PRICE: '平均取得価格は0.01以上、1,000,000以下で入力してください',
@@ -218,16 +219,27 @@ export default function HoldingCard({
         throw new Error(errorData.message || ERROR_MESSAGES.DELETE_HOLDING_ERROR);
       }
 
-      let sellAlertDeleteFailed = false;
-      for (const sellAlert of pendingSellAlerts) {
-        const alertDeleteResponse = await fetch(`/api/alerts/${encodeURIComponent(sellAlert.alertId)}`, {
-          method: 'DELETE',
-        });
-        if (!alertDeleteResponse.ok) {
-          sellAlertDeleteFailed = true;
-          console.error(ERROR_MESSAGES.DELETE_SELL_ALERT_ERROR, sellAlert.alertId);
+      const sellAlertDeleteResults = await Promise.allSettled(
+        pendingSellAlerts.map(async (sellAlert) => {
+          const alertDeleteResponse = await fetch(
+            `/api/alerts/${encodeURIComponent(sellAlert.alertId)}`,
+            {
+              method: 'DELETE',
+            }
+          );
+          if (!alertDeleteResponse.ok) {
+            throw new Error(sellAlert.alertId);
+          }
+        })
+      );
+
+      const sellAlertDeleteFailed = sellAlertDeleteResults.some((result) => {
+        if (result.status === 'rejected') {
+          console.error(ERROR_MESSAGES.DELETE_SELL_ALERT_ERROR, result.reason);
+          return true;
         }
-      }
+        return false;
+      });
 
       setDeleteDialogOpen(false);
       setPendingSellAlerts([]);
@@ -276,7 +288,7 @@ export default function HoldingCard({
         }));
       setPendingSellAlerts(sellAlerts);
     } catch (e) {
-      console.error('Error fetching sell alerts for delete:', e);
+      console.error(ERROR_MESSAGES.FETCH_SELL_ALERTS_LOG, e);
       setLocalError(ERROR_MESSAGES.FETCH_SELL_ALERTS_ERROR);
       setPendingSellAlerts([]);
     } finally {

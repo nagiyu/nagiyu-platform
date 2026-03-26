@@ -92,7 +92,11 @@ describe('チャート画面カードコンポーネント', () => {
     expect(screen.getByText('サポートレベル')).toBeTruthy();
     expect(screen.getByText('レジスタンスレベル')).toBeTruthy();
     expect(screen.getByText('100')).toBeTruthy();
+    expect(screen.getByText('95')).toBeTruthy();
+    expect(screen.getByText('90')).toBeTruthy();
     expect(screen.getByText('120')).toBeTruthy();
+    expect(screen.getByText('125')).toBeTruthy();
+    expect(screen.getByText('130')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '詳細' }));
     expect(screen.getByText('AI 解析')).toBeTruthy();

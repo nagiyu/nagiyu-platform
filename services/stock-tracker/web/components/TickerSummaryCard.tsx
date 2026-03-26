@@ -73,7 +73,7 @@ export default function TickerSummaryCard({
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   {supportLevels.map((level, index) => (
-                    <Chip key={`support-${level}-${index}`} label={`${level}`} size="small" />
+                    <Chip key={`support-${summary.tickerId}-${level}-${String(index + 1)}`} label={`${level}`} size="small" />
                   ))}
                 </Box>
               </Grid>
@@ -85,7 +85,11 @@ export default function TickerSummaryCard({
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   {resistanceLevels.map((level, index) => (
-                    <Chip key={`resistance-${level}-${index}`} label={`${level}`} size="small" />
+                    <Chip
+                      key={`resistance-${summary.tickerId}-${level}-${String(index + 1)}`}
+                      label={`${level}`}
+                      size="small"
+                    />
                   ))}
                 </Box>
               </Grid>
