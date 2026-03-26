@@ -55,8 +55,9 @@
 - [ ] T010: `design.md` の「docs/ への移行メモ」を確認し、
   `docs/services/stock-tracker/architecture.md` に Lambda モジュール二重ロード問題の
   ADR を追記する（依存: T009）
-- [ ] T011: Dockerfile のモジュール二重コピー問題（根本解決）を別 Issue として起票する
-  （依存: T009）
+- [ ] T011: Dockerfile のランタイムステージから `libs/*/dist` および
+  `services/stock-tracker/core/dist` の明示的 COPY 行を削除する根本解決を
+  別 Issue として起票する（依存: T009）
 - [ ] T012: `tasks/issue-2422-temp-alert-batch-error/` ディレクトリを削除する
   （依存: T010, T011）
 
