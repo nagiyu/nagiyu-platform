@@ -74,6 +74,7 @@ export async function generateAiAnalysis(
           model: OPENAI_MODEL,
           stream: false,
           tools: [{ type: 'web_search' }],
+          tool_choice: 'required',
           text: {
             format: zodTextFormat(aiAnalysisResultSchema, 'stock_ai_analysis'),
           },
@@ -139,7 +140,7 @@ function createPrompt(input: AiAnalysisInput): string {
     '- patternAnalysis: パターン分析結果の解釈（検出漏れを考慮し、必要に応じて添付画像を参照）',
     '- supportLevels: サポートレベルの価格を3件（数値）',
     '- resistanceLevels: レジスタンスレベルの価格を3件（数値）',
-    '- relatedMarketTrend: 関連する市場・セクター動向（必要に応じてWeb検索を利用）',
+    '- relatedMarketTrend: 関連する市場・セクター動向（必ずWeb検索を利用して最新情報を取得し、可能であれば決算発表・重要経済指標など直近ニュースも根拠に含める）',
     '- investmentJudgment.signal: BULLISH / NEUTRAL / BEARISH のいずれか',
     '- investmentJudgment.reason: 投資判断の理由',
     `ティッカーID: ${input.tickerId}`,
