@@ -7,14 +7,8 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   FormControl,
   Container,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -25,16 +19,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import { Close as CloseIcon } from '@mui/icons-material';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
-import type { PatternDetail, SummariesResponse, TickerSummary } from '@/types/stock';
-import { resolveAiAnalysisFallbackMessage, resolveInvestmentSignalLabel } from './ai-analysis';
-import AlertSettingsModal from '../../components/AlertSettingsModal';
-import StockChart from '../../components/StockChart';
+import type { SummariesResponse, TickerSummary } from '@/types/stock';
+import { resolveInvestmentSignalLabel } from './ai-analysis';
+import SummaryDetailDialog from '../../components/SummaryDetailDialog';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'サマリーの取得に失敗しました',
@@ -63,11 +54,6 @@ const formatLatestUpdatedAt = (summaries: TickerSummary[]): string => {
   return latest === null ? '-' : new Date(latest).toLocaleString('ja-JP');
 };
 
-const extractExchangeId = (tickerId: string): string => {
-  const [exchangeId, symbol] = tickerId.split(':');
-  return exchangeId && symbol ? exchangeId : '';
-};
-
 const formatAlertCount = (enabledCount: number, disabledCount: number): string => {
   if (enabledCount === 0 && disabledCount === 0) {
     return '0';
@@ -89,8 +75,6 @@ export default function SummariesPage() {
   const [selectedExchangeId, setSelectedExchangeId] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<TickerSummary | null>(null);
-  const [isBuyAlertOpen, setIsBuyAlertOpen] = useState(false);
-  const [isSellAlertOpen, setIsSellAlertOpen] = useState(false);
   const hasManageDataPermission =
     !!session?.user &&
     'roles' in session.user &&
@@ -154,21 +138,10 @@ export default function SummariesPage() {
     setSelectedTicker(ticker);
   };
 
-  const handleDialogClose = () => {
-    setIsBuyAlertOpen(false);
-    setIsSellAlertOpen(false);
-    setSelectedTicker(null);
-  };
+  const handleDialogClose = () => setSelectedTicker(null);
   const filteredExchanges = selectedExchangeId
     ? summaries.exchanges.filter((exchange) => exchange.exchangeId === selectedExchangeId)
     : summaries.exchanges;
-  const buyPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
-    (pattern) => pattern.signalType === 'BUY'
-  );
-  const sellPatternDetails: PatternDetail[] = (selectedTicker?.patternDetails ?? []).filter(
-    (pattern) => pattern.signalType === 'SELL'
-  );
-  const selectedTickerExchangeId = selectedTicker ? extractExchangeId(selectedTicker.tickerId) : '';
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
@@ -303,349 +276,11 @@ export default function SummariesPage() {
         )}
       </Box>
 
-      <Dialog
+      <SummaryDetailDialog
         open={selectedTicker !== null}
+        summary={selectedTicker}
         onClose={handleDialogClose}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: (theme) => ({
-            maxWidth: '100vw',
-            width: { xs: `calc(100vw - ${theme.spacing(2)})`, sm: '100%' },
-            overflow: 'hidden',
-          }),
-        }}
-      >
-        <DialogTitle
-          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-        >
-          {selectedTicker?.symbol}
-          <IconButton onClick={handleDialogClose} size="small" aria-label="閉じる">
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ overflowX: 'hidden' }}>
-          {selectedTicker && (
-            <Box sx={{ display: 'grid', gap: 2, maxWidth: '100%', overflowX: 'hidden' }}>
-              <Typography variant="h6">株価チャート</Typography>
-              <StockChart
-                tickerId={selectedTicker.tickerId}
-                timeframe="D"
-                count={50}
-                holdingPrice={selectedTicker.holding?.averagePrice}
-              />
-              <Divider />
-              <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                <Table size="small">
-                  <TableBody>
-                    <TableRow>
-                      <TableCell
-                        component="th"
-                        scope="row"
-                        sx={{ color: 'text.secondary', width: '40%' }}
-                      >
-                        銘柄名
-                      </TableCell>
-                      <TableCell>{selectedTicker.name}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        始値
-                      </TableCell>
-                      <TableCell align="right">{selectedTicker.open.toFixed(2)}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        高値
-                      </TableCell>
-                      <TableCell align="right">{selectedTicker.high.toFixed(2)}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        安値
-                      </TableCell>
-                      <TableCell align="right">{selectedTicker.low.toFixed(2)}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        終値
-                      </TableCell>
-                      <TableCell align="right">{selectedTicker.close.toFixed(2)}</TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        出来高
-                      </TableCell>
-                      <TableCell align="right">
-                        {selectedTicker.volume?.toLocaleString('ja-JP') ??
-                          UI_DISPLAY_VALUES.NOT_AVAILABLE}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        保有数
-                      </TableCell>
-                      <TableCell>
-                        {selectedTicker.holding?.quantity.toLocaleString('ja-JP') ?? '-'}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        平均取得価格
-                      </TableCell>
-                      <TableCell>
-                        {selectedTicker.holding
-                          ? selectedTicker.holding.averagePrice.toFixed(2)
-                          : '-'}
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
-                        更新日時
-                      </TableCell>
-                      <TableCell>
-                        {new Date(selectedTicker.updatedAt).toLocaleString('ja-JP')}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <Divider />
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="outlined" onClick={() => setIsBuyAlertOpen(true)}>
-                  買いアラート設定
-                </Button>
-                {selectedTicker.holding && (
-                  <Button variant="outlined" onClick={() => setIsSellAlertOpen(true)}>
-                    売りアラート設定
-                  </Button>
-                )}
-              </Box>
-              <Divider />
-              <Typography variant="h6">パターン分析</Typography>
-              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-buy">
-                <Typography variant="subtitle2">買いパターン</Typography>
-                <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableBody>
-                      {buyPatternDetails.map((pattern) => (
-                        <TableRow key={pattern.patternId}>
-                          <TableCell>
-                            <Tooltip title={pattern.description}>
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                aria-label={pattern.description}
-                                sx={{
-                                  textDecoration: 'underline',
-                                  textDecorationStyle: 'dotted',
-                                  cursor: 'help',
-                                }}
-                              >
-                                {pattern.name}
-                              </Typography>
-                            </Tooltip>
-                            {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                理由: {ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="right" sx={{ width: '10%' }}>
-                            <Typography
-                              component="span"
-                              data-testid={`pattern-status-${pattern.patternId}`}
-                              color={
-                                pattern.status === 'MATCHED'
-                                  ? 'success.main'
-                                  : pattern.status === 'INSUFFICIENT_DATA'
-                                    ? 'text.disabled'
-                                    : 'text.secondary'
-                              }
-                              fontWeight="bold"
-                            >
-                              {pattern.status === 'MATCHED'
-                                ? '✓'
-                                : pattern.status === 'INSUFFICIENT_DATA'
-                                  ? '-'
-                                  : '✗'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-              <Box sx={{ display: 'grid', gap: 1 }} data-testid="pattern-analysis-sell">
-                <Typography variant="subtitle2">売りパターン</Typography>
-                <TableContainer sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                  <Table size="small">
-                    <TableBody>
-                      {sellPatternDetails.map((pattern) => (
-                        <TableRow key={pattern.patternId}>
-                          <TableCell>
-                            <Tooltip title={pattern.description}>
-                              <Typography
-                                component="span"
-                                variant="body2"
-                                aria-label={pattern.description}
-                                sx={{
-                                  textDecoration: 'underline',
-                                  textDecorationStyle: 'dotted',
-                                  cursor: 'help',
-                                }}
-                              >
-                                {pattern.name}
-                              </Typography>
-                            </Tooltip>
-                            {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                理由: {ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
-                              </Typography>
-                            )}
-                          </TableCell>
-                          <TableCell align="right" sx={{ width: '10%' }}>
-                            <Typography
-                              component="span"
-                              data-testid={`pattern-status-${pattern.patternId}`}
-                              color={
-                                pattern.status === 'MATCHED'
-                                  ? 'success.main'
-                                  : pattern.status === 'INSUFFICIENT_DATA'
-                                    ? 'text.disabled'
-                                    : 'text.secondary'
-                              }
-                              fontWeight="bold"
-                            >
-                              {pattern.status === 'MATCHED'
-                                ? '✓'
-                                : pattern.status === 'INSUFFICIENT_DATA'
-                                  ? '-'
-                                  : '✗'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-              <Box component="section" aria-labelledby="ai-analysis-heading">
-                <Divider sx={{ mb: 2 }} />
-                <Typography id="ai-analysis-heading" variant="h6">
-                  AI 解析
-                </Typography>
-                {selectedTicker.aiAnalysisResult ? (
-                  <Box sx={{ mt: 2, display: 'grid', gap: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        当日の値動き分析
-                      </Typography>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {selectedTicker.aiAnalysisResult.priceMovementAnalysis}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        パターン分析
-                      </Typography>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {selectedTicker.aiAnalysisResult.patternAnalysis}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        サポートレベル
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {selectedTicker.aiAnalysisResult.supportLevels.map((level, index) => (
-                          <Chip key={`support-${level}-${index}`} label={`${level}`} size="small" />
-                        ))}
-                      </Box>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        レジスタンスレベル
-                      </Typography>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                        {selectedTicker.aiAnalysisResult.resistanceLevels.map((level, index) => (
-                          <Chip
-                            key={`resistance-${level}-${index}`}
-                            label={`${level}`}
-                            size="small"
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary">
-                        関連市場・セクター動向
-                      </Typography>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {selectedTicker.aiAnalysisResult.relatedMarketTrend}
-                      </Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        投資判断
-                      </Typography>
-                      <Chip
-                        label={resolveInvestmentSignalLabel(
-                          selectedTicker.aiAnalysisResult.investmentJudgment.signal
-                        )}
-                        color={
-                          selectedTicker.aiAnalysisResult.investmentJudgment.signal === 'BULLISH'
-                            ? 'success'
-                            : selectedTicker.aiAnalysisResult.investmentJudgment.signal ===
-                                'BEARISH'
-                              ? 'error'
-                              : 'default'
-                        }
-                        size="small"
-                        sx={{ mb: 1 }}
-                      />
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {selectedTicker.aiAnalysisResult.investmentJudgment.reason}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ) : (
-                  <Typography sx={{ mt: 2 }} color="text.secondary">
-                    {resolveAiAnalysisFallbackMessage(selectedTicker)}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          )}
-        </DialogContent>
-      </Dialog>
-      {selectedTicker && (
-        <>
-          <AlertSettingsModal
-            open={isBuyAlertOpen}
-            onClose={() => setIsBuyAlertOpen(false)}
-            tickerId={selectedTicker.tickerId}
-            symbol={selectedTicker.symbol}
-            exchangeId={selectedTickerExchangeId}
-            mode="create"
-            tradeMode="Buy"
-            defaultTargetPrice={selectedTicker.close}
-            basePrice={selectedTicker.close}
-          />
-          <AlertSettingsModal
-            open={isSellAlertOpen}
-            onClose={() => setIsSellAlertOpen(false)}
-            tickerId={selectedTicker.tickerId}
-            symbol={selectedTicker.symbol}
-            exchangeId={selectedTickerExchangeId}
-            mode="create"
-            tradeMode="Sell"
-            defaultTargetPrice={selectedTicker.close}
-            basePrice={selectedTicker.close}
-          />
-        </>
-      )}
+      />
     </Container>
   );
 }
