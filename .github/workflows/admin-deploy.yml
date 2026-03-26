@@ -85,6 +85,25 @@ jobs:
             "$ECR_STACK" \
             --require-approval never
 
+      - name: Deploy Infrastructure (AdminInfra)
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+        run: |
+          echo "Deploying AdminInfra stack..."
+
+          # Set stack name based on environment
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            ADMIN_INFRA_STACK="NagiyuAdminInfraProd"
+          else
+            ADMIN_INFRA_STACK="NagiyuAdminInfraDev"
+          fi
+
+          # Deploy AdminInfra stack
+          npm run deploy --workspace=@nagiyu/infra-admin -- \
+            --context env=$ENVIRONMENT \
+            "$ADMIN_INFRA_STACK" \
+            --require-approval never
+
   build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
