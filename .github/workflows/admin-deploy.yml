@@ -45,7 +45,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -111,7 +111,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/admin'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -189,7 +189,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: package-lock.json
 
       - name: Build common infrastructure package
@@ -211,6 +211,7 @@ jobs:
         with:
           secret-ids: |
             NEXTAUTH_SECRET,nagiyu-auth-nextauth-secret-${{ needs.build.outputs.environment }}
+            VAPID,nagiyu-admin-vapid-${{ needs.build.outputs.environment }}
           parse-json-secrets: true
 
       - name: Deploy Lambda and CloudFront (Full Stack)
@@ -218,6 +219,8 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           IMAGE_URI: ${{ needs.build.outputs.image-uri }}
           SECRET_VALUE: ${{ env.NEXTAUTH_SECRET }}
+          VAPID_PUBLIC: ${{ env.VAPID_PUBLICKEY }}
+          VAPID_PRIVATE: ${{ env.VAPID_PRIVATEKEY }}
           APP_VERSION: ${{ needs.build.outputs.app-version }} # CDK reads this via process.env.APP_VERSION (default: '1.0.0')
         run: |
           echo "Deploying full Admin infrastructure to $ENVIRONMENT environment..."
@@ -225,6 +228,8 @@ jobs:
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=$ENVIRONMENT \
             --context nextAuthSecret="$SECRET_VALUE" \
+            --context vapidPublicKey="$VAPID_PUBLIC" \
+            --context vapidPrivateKey="$VAPID_PRIVATE" \
             --all \
             --require-approval never
 
@@ -378,7 +383,7 @@ jobs:
   #     - name: Setup Node.js
   #       uses: actions/setup-node@v4
   #       with:
-  #         node-version: '22'
+  #         node-version: '24'
   #         cache: 'npm'
   #         cache-dependency-path: './package-lock.json'
   #

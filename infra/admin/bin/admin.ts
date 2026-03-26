@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { ECRStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
+import { AdminStack } from '../lib/admin-stack';
 
 const app = new cdk.App();
 
@@ -42,6 +43,13 @@ const lambdaStack = new LambdaStack(app, `NagiyuAdminLambda${envSuffix}`, {
   appVersion: appVersion,
   env: stackEnv,
   description: `Admin Service Lambda - ${env} environment`,
+});
+
+// Admin インフラスタックを作成（SNS / DynamoDB / Secrets）
+new AdminStack(app, `NagiyuAdminInfra${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Service Infra - ${env} environment`,
 });
 
 // CloudFront スタックを作成

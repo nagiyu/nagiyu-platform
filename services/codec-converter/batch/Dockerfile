@@ -1,5 +1,5 @@
-# ベースイメージ: Node.js 22 on Debian (FFmpeg含む)
-FROM node:22-slim AS base
+# ベースイメージ: Node.js 24 on Debian (FFmpeg含む)
+FROM node:24-slim AS base
 
 # FFmpegのインストール
 RUN apt-get update && \

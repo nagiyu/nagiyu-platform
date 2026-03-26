@@ -23,29 +23,32 @@
     "format:check": "npm run format:check --workspaces --if-present"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": ">=24.0.0",
     "npm": ">=10.0.0"
   },
   "overrides": {
-    "fast-xml-parser": "5.5.5",
+    "fast-xml-parser": "5.5.8",
+    "@aws-sdk/xml-builder": "3.972.15",
+    "flatted": "3.4.2",
     "@smithy/types": "^4.13.0"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
-    "@eslint/js": "^9.17.0",
+    "@eslint/compat": "^2.0.3",
+    "@eslint/js": "^10",
     "@jest/types": "^30.3.0",
     "@playwright/test": "^1.58.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/jest": "^30.0.0",
-    "@types/node": "^22",
+    "@types/node": "^24",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@types/web-push": "^3.6.4",
     "aws-cdk": "^2.1111.0",
     "dotenv": "^17.2.3",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "^16.1.7",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",

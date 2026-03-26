@@ -8,6 +8,10 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
+    },
+    "./push": {
+      "types": "./dist/src/push/index.d.ts",
+      "import": "./dist/src/push/index.js"
     }
   },
   "scripts": {
@@ -18,5 +22,8 @@
     "lint": "eslint src/**/*.ts tests/**/*.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "web-push": "^3.6.7"
   }
 }

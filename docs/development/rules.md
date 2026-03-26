@@ -1205,6 +1205,40 @@ const config = {
 
 `services/*/web`、`services/*/batch`、`infra/*` など他パッケージから import されないパッケージには `exports` / `types` は不要。Lambda 関数など直接実行されるパッケージの場合のみ `main` を設定する。
 
+#### MUST: Node.js は Active LTS バージョンを使用する
+
+Docker・CI・DevContainer・`package.json` の `engines.node` を含む全環境で、Node.js の **Active LTS** バージョンを使用する。
+
+- 奇数バージョン（v25、v27 等）は LTS 対象外のため、プロダクション環境での使用禁止
+- 偶数バージョンであっても Current 段階（Active LTS 昇格前）の使用は避ける
+- 現在採用バージョン: **v24**（Active LTS。2028年4月まで長期サポート）
+
+**理由**: Active LTS 以外のバージョンはセキュリティアップデートが保証されない。
+
+#### MUST: `@types/node` のメジャーバージョンは Node.js ランタイムと一致させる
+
+`@types/node` のメジャーバージョンは、使用している Node.js ランタイムのメジャーバージョンと必ず一致させる。
+
+- ランタイムより新しい `@types/node` を使用すると、そのランタイムに存在しない API の型定義が参照可能になる
+- TypeScript のコンパイルは通っても、実行時エラーになるリスクがある
+- 現在採用バージョン: **`^24`**（Node.js v24 ランタイムに対応）
+
+**理由**: ランタイムと型定義のバージョンを一致させることで、型チェックと実際の動作の整合性を保証する。
+
+#### MUST: High 以上の脆弱性は overrides で即時対応する
+
+直接依存ではないパッケージに High 以上のセキュリティ脆弱性が検出された場合は、ルートの `package.json` の `overrides` フィールドで安全なバージョンに強制固定する。
+
+- `npm audit --audit-level=high` を定期的に実行し、HIGH 以上の脆弱性がゼロであることを確認する
+- 修正バージョンが存在する場合は、`overrides` に最新の安全なバージョンを指定する
+- 修正後は `npm install` を実行して `package-lock.json` を再生成する
+
+**理由**: 間接依存は `npm update` では更新されないため、`overrides` による明示的な固定が唯一の確実な対処手段である。
+
+#### MUST NOT: workspace 個別の package.json に overrides を定義しない
+
+`overrides` はルートの `package.json` でのみ管理する。workspace 個別に `overrides` を定義しても npm の動作は保証されない。
+
 ### 8.3 必須設定ファイル
 
 #### MUST: package.json に標準スクリプトを定義

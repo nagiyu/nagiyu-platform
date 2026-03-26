@@ -28,7 +28,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Run lint
@@ -45,7 +45,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Check formatting
@@ -63,15 +63,17 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/admin-core
 
       - name: Run unit tests
         run: npm run test --workspace @nagiyu/admin
@@ -89,15 +91,17 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/admin-core
 
       - name: Run tests with coverage
         run: npm run test:coverage --workspace @nagiyu/admin
@@ -134,15 +138,17 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/admin-core
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -190,15 +196,17 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/admin-core
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
@@ -246,15 +254,17 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: '22'
+          node-version: '24'
           cache-dependency-path: './package-lock.json'
 
       - name: Build shared libraries
         run: |
           npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+          npm run build --workspace @nagiyu/admin-core
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit
@@ -299,7 +309,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/admin'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
 
   docker-build:
     name: Docker Build Verification

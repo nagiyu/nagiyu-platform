@@ -51,14 +51,6 @@ interface DeleteTickerResponse {
 }
 
 /**
- * エラーレスポンス型定義
- */
-interface ErrorResponse {
-  error: string;
-  message: string;
-}
-
-/**
  * PUT /api/tickers/{id}
  * ティッカー更新（stock-admin のみ）
  */

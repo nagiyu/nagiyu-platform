@@ -51,11 +51,6 @@ interface TickersListResponse {
   };
 }
 
-interface ErrorResponse {
-  error: string;
-  message: string;
-}
-
 /**
  * POST リクエストボディ型定義
  */
