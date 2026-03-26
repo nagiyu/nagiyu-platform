@@ -71,6 +71,8 @@ export default function HoldingCard({
     currency: 'USD',
   });
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof HoldingFormData, string>>>({});
+  const canAddHolding = !loading && !holding;
+  const displaySymbol = symbol || tickerId;
 
   const validateForm = (): boolean => {
     const nextErrors: Partial<Record<keyof HoldingFormData, string>> = {};
@@ -237,7 +239,7 @@ export default function HoldingCard({
             size="small"
             startIcon={<AddIcon />}
             onClick={handleOpenCreateModal}
-            disabled={loading || !!holding}
+            disabled={!canAddHolding}
           >
             追加
           </Button>
@@ -299,7 +301,7 @@ export default function HoldingCard({
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField fullWidth label="取引所" value={exchangeId} disabled />
-            <TextField fullWidth label="ティッカー" value={symbol || tickerId} disabled />
+            <TextField fullWidth label="ティッカー" value={displaySymbol} disabled />
             <TextField
               fullWidth
               label="保有数"
@@ -352,7 +354,7 @@ export default function HoldingCard({
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField fullWidth label="取引所" value={exchangeId} disabled />
-            <TextField fullWidth label="ティッカー" value={symbol || tickerId} disabled />
+            <TextField fullWidth label="ティッカー" value={displaySymbol} disabled />
             <TextField
               fullWidth
               label="保有数"

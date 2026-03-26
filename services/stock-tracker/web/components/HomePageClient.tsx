@@ -112,6 +112,26 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     [alerts]
   );
 
+  const fetchHoldingByTicker = async (targetTicker: string): Promise<HoldingResponse | null> => {
+    const response = await fetch(`/api/holdings/tickers/${encodeURIComponent(targetTicker)}`);
+    if (response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+    }
+    return (await response.json()) as HoldingResponse;
+  };
+
+  const fetchAlertsByTicker = async (targetTicker: string): Promise<AlertResponse[]> => {
+    const response = await fetch(`/api/alerts/tickers/${encodeURIComponent(targetTicker)}`);
+    if (!response.ok) {
+      throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
+    }
+    const data = (await response.json()) as { alerts?: AlertResponse[] };
+    return data.alerts ?? [];
+  };
+
   const refreshHoldingAndAlerts = async () => {
     if (!ticker) {
       return;
@@ -124,22 +144,8 @@ export default function HomePageClient({ children }: HomePageClientProps) {
 
     try {
       const [holdingResult, alertsResult] = await Promise.allSettled([
-        fetch(`/api/holdings/tickers/${encodeURIComponent(ticker)}`).then(async (response) => {
-          if (response.status === 404) {
-            return null;
-          }
-          if (!response.ok) {
-            throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
-          }
-          return (await response.json()) as HoldingResponse;
-        }),
-        fetch(`/api/alerts/tickers/${encodeURIComponent(ticker)}`).then(async (response) => {
-          if (!response.ok) {
-            throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
-          }
-          const data = (await response.json()) as { alerts?: AlertResponse[] };
-          return data.alerts ?? [];
-        }),
+        fetchHoldingByTicker(ticker),
+        fetchAlertsByTicker(ticker),
       ]);
 
       if (holdingResult.status === 'fulfilled') {
@@ -242,27 +248,8 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         return (await response.json()) as TickerSummary;
       });
 
-      const holdingPromise = fetch(`/api/holdings/tickers/${encodeURIComponent(ticker)}`).then(
-        async (response) => {
-          if (response.status === 404) {
-            return null;
-          }
-          if (!response.ok) {
-            throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
-          }
-          return (await response.json()) as HoldingResponse;
-        }
-      );
-
-      const alertsPromise = fetch(`/api/alerts/tickers/${encodeURIComponent(ticker)}`).then(
-        async (response) => {
-          if (!response.ok) {
-            throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
-          }
-          const data = (await response.json()) as { alerts?: AlertResponse[] };
-          return data.alerts ?? [];
-        }
-      );
+      const holdingPromise = fetchHoldingByTicker(ticker);
+      const alertsPromise = fetchAlertsByTicker(ticker);
 
       try {
         const [summaryResult, holdingResult, alertsResult] = await Promise.allSettled([
@@ -352,6 +339,8 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   const handleAutoRefreshToggle = () => {
     setAutoRefresh((prev) => !prev);
   };
+
+  const selectedTickerSymbol = tickers.find((item) => item.tickerId === ticker)?.symbol || ticker;
 
   return (
     <Container maxWidth="xl" sx={{ py: 3 }} role="main">
@@ -527,7 +516,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
           <HoldingCard
             holding={holding}
             tickerId={ticker}
-            symbol={tickers.find((item) => item.tickerId === ticker)?.symbol || ticker}
+            symbol={selectedTickerSymbol}
             exchangeId={exchange}
             loading={holdingLoading}
             error={holdingError}
@@ -536,7 +525,7 @@ export default function HomePageClient({ children }: HomePageClientProps) {
           <TickerAlertListCard
             alerts={alerts}
             tickerId={ticker}
-            symbol={tickers.find((item) => item.tickerId === ticker)?.symbol || ticker}
+            symbol={selectedTickerSymbol}
             exchangeId={exchange}
             loading={alertsLoading}
             error={alertsError}
