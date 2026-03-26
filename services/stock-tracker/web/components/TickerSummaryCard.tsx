@@ -1,7 +1,16 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Box, Button, Card, CardContent, Chip, CircularProgress, Grid, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Grid,
+  Typography,
+} from '@mui/material';
 import type { TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from './SummaryDetailDialog';
 
@@ -73,7 +82,11 @@ export default function TickerSummaryCard({
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   {supportLevels.map((level, index) => (
-                    <Chip key={`support-${summary.tickerId}-${level}-${String(index + 1)}`} label={`${level}`} size="small" />
+                    <Chip
+                      key={`support-${summary.tickerId}-${level}-${String(index + 1)}`}
+                      label={`${level}`}
+                      size="small"
+                    />
                   ))}
                 </Box>
               </Grid>
