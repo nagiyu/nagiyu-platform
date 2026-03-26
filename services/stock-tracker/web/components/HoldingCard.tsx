@@ -296,7 +296,12 @@ export default function HoldingCard({
         )}
       </CardContent>
 
-      <Dialog open={createModalOpen} onClose={() => setCreateModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>保有株式の登録</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -388,7 +393,12 @@ export default function HoldingCard({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>保有株式の削除</DialogTitle>
         <DialogContent>
           <Typography>
@@ -408,7 +418,8 @@ export default function HoldingCard({
                 <strong>保有数:</strong> {holding.quantity.toLocaleString()}
               </Typography>
               <Typography variant="body2">
-                <strong>平均取得価格:</strong> {holding.averagePrice.toLocaleString()} {holding.currency}
+                <strong>平均取得価格:</strong> {holding.averagePrice.toLocaleString()}{' '}
+                {holding.currency}
               </Typography>
             </Box>
           )}
