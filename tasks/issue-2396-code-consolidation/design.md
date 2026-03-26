@@ -62,31 +62,47 @@ createErrorResponse(status: number, error: string, message: string): NextRespons
 
 ---
 
-## F-002: Web Push ラッパーの共通化
+## F-002: Web Push ラッパーの除去
 
 ### 現状
 
 `libs/common/src/push/client.ts` に `sendWebPushNotification()` が存在するが、以下の2サービスのバッチに薄いラッパーが重複実装されている。
 
 - `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts`
-    - 引数: `(subscription: PushSubscription, payload: NotificationPayload)`
+    - `sendNotification(subscription: PushSubscription, payload: NotificationPayload)`
     - VAPID subject: `mailto:noreply@nagiyu.com`（ハードコード）
+    - 呼び出し元: `index.ts` の2箇所（`pushSubscription` 変数を直接渡している）
 - `services/stock-tracker/batch/src/lib/web-push-client.ts`
-    - 引数: `(alert: Alert, payload: NotificationPayload)`（Alert 型が subscription を内包）
+    - `sendNotification(alert: Alert, payload: NotificationPayload)`
     - VAPID subject: `mailto:support@nagiyu.com`（ハードコード）
+    - 呼び出し元: `minute.ts`, `hourly.ts` の各1箇所（`alert` 変数を渡している）
+
+### 差異と吸収可否の判断
+
+| 差異の種類 | 内容 | 吸収可否 |
+| --------- | ---- | ------- |
+| 引数型（niconico-mylist-assistant） | `PushSubscription` を直接渡す → `sendWebPushNotification()` の第1引数と同一型 | ✅ ラッパー不要（そのまま直接呼び出し可） |
+| 引数型（stock-tracker） | `Alert` 型を渡す → ラッパー内で `alert.subscription` を取り出している | ✅ 呼び出し元で `alert.subscription` を渡すよう変更すれば不要 |
+| VAPID subject の差異 | `noreply@nagiyu.com` vs `support@nagiyu.com` | ✅ `VAPID_SUBJECT` 環境変数で統一（挙動変更あり・許容済み） |
 
 ### 対応方針
 
-- **niconico-mylist-assistant/batch**: ラッパーを削除し、`sendWebPushNotification()` を直接呼び出す形に変更する
-- **stock-tracker/batch**: 引数型が `Alert`（サービス固有型）であるため、ラッパーは維持しつつ `sendWebPushNotification()` への委譲パターンを明確にする
-- VAPID subject の値（`mailto:...`）は環境変数（`VAPID_SUBJECT`）から取得する形に変更することを検討する
+- 両サービスともラッパー関数 `sendNotification()` を除去する
+- 呼び出し元が `sendWebPushNotification()` を直接呼び出す形に変更する
+    - niconico-mylist-assistant の `index.ts`: `sendNotification(pushSubscription, payload)` → `sendWebPushNotification(pushSubscription, payload, vapidConfig)`
+    - stock-tracker の `minute.ts`, `hourly.ts`: `sendNotification(alert, payload)` → `sendWebPushNotification(alert.subscription, payload, vapidConfig)`
+- VAPID subject は `VAPID_SUBJECT` 環境変数から取得する形に統一する
+- `web-push-client.ts` にはペイロード生成関数（`createBatchCompletionPayload`, `createTwoFactorAuthRequiredPayload`, `createAlertNotificationPayload`）のみ残す
 
 ### コンポーネント設計
 
 | モジュール | パス | 変更内容 |
 | --------- | ---- | -------- |
-| ラッパー削除候補 | `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` | 削除し直接呼び出しに変更 |
-| ラッパー維持・整理 | `services/stock-tracker/batch/src/lib/web-push-client.ts` | Alert 型の依存を維持しつつ委譲を明確化 |
+| `sendNotification` 削除 | `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` | `sendNotification()` を削除、ペイロード生成関数のみ残す |
+| 呼び出し元変更 | `services/niconico-mylist-assistant/batch/src/index.ts` | `sendWebPushNotification()` を直接呼び出す形に変更 |
+| `sendNotification` 削除 | `services/stock-tracker/batch/src/lib/web-push-client.ts` | `sendNotification()` を削除、ペイロード生成関数のみ残す |
+| 呼び出し元変更 | `services/stock-tracker/batch/src/minute.ts` | `sendWebPushNotification(alert.subscription, ...)` に変更 |
+| 呼び出し元変更 | `services/stock-tracker/batch/src/hourly.ts` | `sendWebPushNotification(alert.subscription, ...)` に変更 |
 
 ---
 
