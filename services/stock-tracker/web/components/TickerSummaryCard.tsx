@@ -1,15 +1,52 @@
 'use client';
 
-import { Card, CardContent, CircularProgress, Grid, Typography } from '@mui/material';
+import { useMemo, useState } from 'react';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Grid,
+  Typography,
+} from '@mui/material';
 import type { TickerSummary } from '@/types/stock';
+import SummaryDetailDialog from './SummaryDetailDialog';
+
+const INVESTMENT_SIGNAL_LABELS = {
+  BULLISH: '強気',
+  NEUTRAL: '中立',
+  BEARISH: '弱気',
+} as const;
 
 interface TickerSummaryCardProps {
   summary: TickerSummary | null;
   loading: boolean;
   error: string;
+  onChanged: () => Promise<void>;
 }
 
-export default function TickerSummaryCard({ summary, loading, error }: TickerSummaryCardProps) {
+export default function TickerSummaryCard({
+  summary,
+  loading,
+  error,
+  onChanged,
+}: TickerSummaryCardProps) {
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const supportLevels = useMemo(() => summary?.aiAnalysisResult?.supportLevels ?? [], [summary]);
+  const resistanceLevels = useMemo(
+    () => summary?.aiAnalysisResult?.resistanceLevels ?? [],
+    [summary]
+  );
+  const investmentJudgment = useMemo(
+    () =>
+      summary?.aiAnalysisResult?.investmentJudgment?.signal
+        ? INVESTMENT_SIGNAL_LABELS[summary.aiAnalysisResult.investmentJudgment.signal]
+        : '未生成',
+    [summary]
+  );
+
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
       <CardContent>
@@ -29,34 +66,45 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
         )}
         {!loading && !error && summary && (
           <Grid container spacing={1}>
-            <Grid size={6}>
-              <Typography variant="body2">始値: {summary.open.toLocaleString()}</Typography>
-            </Grid>
-            <Grid size={6}>
-              <Typography variant="body2">終値: {summary.close.toLocaleString()}</Typography>
-            </Grid>
-            <Grid size={6}>
-              <Typography variant="body2">高値: {summary.high.toLocaleString()}</Typography>
-            </Grid>
-            <Grid size={6}>
-              <Typography variant="body2">安値: {summary.low.toLocaleString()}</Typography>
-            </Grid>
             <Grid size={12}>
-              <Typography variant="body2">
-                出来高: {(summary.volume ?? 0).toLocaleString()}
-              </Typography>
+              <Typography variant="body2">投資判断: {investmentJudgment}</Typography>
             </Grid>
             <Grid size={6}>
-              <Typography variant="body2">買いシグナル: {summary.buyPatternCount}</Typography>
+              <Typography variant="body2">買いシグナル: {summary.buyPatternCount ?? 0}</Typography>
             </Grid>
             <Grid size={6}>
-              <Typography variant="body2">売りシグナル: {summary.sellPatternCount}</Typography>
+              <Typography variant="body2">売りシグナル: {summary.sellPatternCount ?? 0}</Typography>
             </Grid>
-            {summary.aiAnalysisResult?.investmentJudgment?.signal && (
+            {supportLevels.length > 0 && (
               <Grid size={12}>
-                <Typography variant="body2">
-                  AI判定: {summary.aiAnalysisResult.investmentJudgment.signal}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  サポートレベル
                 </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {supportLevels.map((level, index) => (
+                    <Chip
+                      key={`support-${summary.tickerId}-${level}-${String(index + 1)}`}
+                      label={`${level}`}
+                      size="small"
+                    />
+                  ))}
+                </Box>
+              </Grid>
+            )}
+            {resistanceLevels.length > 0 && (
+              <Grid size={12}>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  レジスタンスレベル
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {resistanceLevels.map((level, index) => (
+                    <Chip
+                      key={`resistance-${summary.tickerId}-${level}-${String(index + 1)}`}
+                      label={`${level}`}
+                      size="small"
+                    />
+                  ))}
+                </Box>
               </Grid>
             )}
             <Grid size={12}>
@@ -64,7 +112,20 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
                 更新: {new Date(summary.updatedAt).toLocaleString('ja-JP')}
               </Typography>
             </Grid>
+            <Grid size={12}>
+              <Button variant="outlined" size="small" onClick={() => setIsDetailDialogOpen(true)}>
+                詳細
+              </Button>
+            </Grid>
           </Grid>
+        )}
+        {!loading && !error && summary && (
+          <SummaryDetailDialog
+            open={isDetailDialogOpen}
+            summary={summary}
+            onClose={() => setIsDetailDialogOpen(false)}
+            onAlertChanged={onChanged}
+          />
         )}
       </CardContent>
     </Card>
