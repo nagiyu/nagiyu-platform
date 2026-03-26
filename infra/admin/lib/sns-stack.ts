@@ -3,15 +3,15 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
 
-export interface SNSStackProps extends cdk.StackProps {
+export interface SNSStackProps {
   environment: string;
 }
 
-export class SNSStack extends cdk.Stack {
+export class SNSStack extends Construct {
   public readonly alarmTopic: sns.Topic;
 
   constructor(scope: Construct, id: string, props: SNSStackProps) {
-    super(scope, id, props);
+    super(scope, id);
 
     const { environment } = props;
     const adminUrl =
