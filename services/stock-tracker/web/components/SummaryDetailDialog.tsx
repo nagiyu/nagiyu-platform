@@ -88,7 +88,9 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
           }),
         }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <DialogTitle
+          sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        >
           {summary?.symbol}
           <IconButton onClick={handleClose} size="small" aria-label="閉じる">
             <CloseIcon />
@@ -109,7 +111,11 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
                 <Table size="small">
                   <TableBody>
                     <TableRow>
-                      <TableCell component="th" scope="row" sx={{ color: 'text.secondary', width: '40%' }}>
+                      <TableCell
+                        component="th"
+                        scope="row"
+                        sx={{ color: 'text.secondary', width: '40%' }}
+                      >
                         銘柄名
                       </TableCell>
                       <TableCell>{summary.name}</TableCell>
@@ -150,7 +156,9 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
                       <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
                         保有数
                       </TableCell>
-                      <TableCell>{summary.holding?.quantity.toLocaleString('ja-JP') ?? '-'}</TableCell>
+                      <TableCell>
+                        {summary.holding?.quantity.toLocaleString('ja-JP') ?? '-'}
+                      </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell component="th" scope="row" sx={{ color: 'text.secondary' }}>
@@ -329,7 +337,11 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {summary.aiAnalysisResult.resistanceLevels.map((level, index) => (
-                          <Chip key={`resistance-${level}-${index}`} label={`${level}`} size="small" />
+                          <Chip
+                            key={`resistance-${level}-${index}`}
+                            label={`${level}`}
+                            size="small"
+                          />
                         ))}
                       </Box>
                     </Box>
@@ -346,7 +358,11 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
                         投資判断
                       </Typography>
                       <Chip
-                        label={INVESTMENT_SIGNAL_LABELS[summary.aiAnalysisResult.investmentJudgment.signal]}
+                        label={
+                          INVESTMENT_SIGNAL_LABELS[
+                            summary.aiAnalysisResult.investmentJudgment.signal
+                          ]
+                        }
                         color={
                           summary.aiAnalysisResult.investmentJudgment.signal === 'BULLISH'
                             ? 'success'
