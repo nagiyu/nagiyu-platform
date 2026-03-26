@@ -2,15 +2,15 @@ import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
 
-export interface DynamoDBStackProps extends cdk.StackProps {
+export interface DynamoDBStackProps {
   environment: string;
 }
 
-export class DynamoDBStack extends cdk.Stack {
+export class DynamoDBStack extends Construct {
   public readonly table: dynamodb.Table;
 
   constructor(scope: Construct, id: string, props: DynamoDBStackProps) {
-    super(scope, id, props);
+    super(scope, id);
 
     const { environment } = props;
 
