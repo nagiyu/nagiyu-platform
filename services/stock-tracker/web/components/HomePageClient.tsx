@@ -112,6 +112,53 @@ export default function HomePageClient({ children }: HomePageClientProps) {
     [alerts]
   );
 
+  const refreshHoldingAndAlerts = async () => {
+    if (!ticker) {
+      return;
+    }
+
+    setHoldingLoading(true);
+    setAlertsLoading(true);
+    setHoldingError('');
+    setAlertsError('');
+
+    try {
+      const [holdingResult, alertsResult] = await Promise.allSettled([
+        fetch(`/api/holdings/tickers/${encodeURIComponent(ticker)}`).then(async (response) => {
+          if (response.status === 404) {
+            return null;
+          }
+          if (!response.ok) {
+            throw new Error(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+          }
+          return (await response.json()) as HoldingResponse;
+        }),
+        fetch(`/api/alerts/tickers/${encodeURIComponent(ticker)}`).then(async (response) => {
+          if (!response.ok) {
+            throw new Error(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
+          }
+          const data = (await response.json()) as { alerts?: AlertResponse[] };
+          return data.alerts ?? [];
+        }),
+      ]);
+
+      if (holdingResult.status === 'fulfilled') {
+        setHolding(holdingResult.value);
+      } else {
+        setHoldingError(ERROR_MESSAGES.FETCH_HOLDING_ERROR);
+      }
+
+      if (alertsResult.status === 'fulfilled') {
+        setAlerts(alertsResult.value);
+      } else {
+        setAlertsError(ERROR_MESSAGES.FETCH_ALERTS_ERROR);
+      }
+    } finally {
+      setHoldingLoading(false);
+      setAlertsLoading(false);
+    }
+  };
+
   // 取引所一覧を取得
   useEffect(() => {
     const fetchExchanges = async () => {
@@ -477,8 +524,24 @@ export default function HomePageClient({ children }: HomePageClientProps) {
           }}
         >
           <TickerSummaryCard summary={summary} loading={summaryLoading} error={summaryError} />
-          <HoldingCard holding={holding} loading={holdingLoading} error={holdingError} />
-          <TickerAlertListCard alerts={alerts} loading={alertsLoading} error={alertsError} />
+          <HoldingCard
+            holding={holding}
+            tickerId={ticker}
+            symbol={tickers.find((item) => item.tickerId === ticker)?.symbol || ticker}
+            exchangeId={exchange}
+            loading={holdingLoading}
+            error={holdingError}
+            onChanged={refreshHoldingAndAlerts}
+          />
+          <TickerAlertListCard
+            alerts={alerts}
+            tickerId={ticker}
+            symbol={tickers.find((item) => item.tickerId === ticker)?.symbol || ticker}
+            exchangeId={exchange}
+            loading={alertsLoading}
+            error={alertsError}
+            onChanged={refreshHoldingAndAlerts}
+          />
         </Box>
       )}
 

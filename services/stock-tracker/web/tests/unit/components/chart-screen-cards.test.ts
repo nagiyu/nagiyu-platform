@@ -85,9 +85,20 @@ describe('チャート画面カードコンポーネント', () => {
   });
 
   it('HoldingCard: 保有なしを表示する', () => {
-    render(React.createElement(HoldingCard, { holding: null, loading: false, error: '' }));
+    render(
+      React.createElement(HoldingCard, {
+        holding: null,
+        tickerId: 'NASDAQ:NVDA',
+        symbol: 'NVDA',
+        exchangeId: 'NASDAQ',
+        loading: false,
+        error: '',
+        onChanged: jest.fn(async () => undefined),
+      })
+    );
 
     expect(screen.getByText('保有なし')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '追加' })).toBeTruthy();
   });
 
   it('TickerAlertListCard: アラート一覧を表示する', () => {
@@ -106,10 +117,24 @@ describe('チャート画面カードコンポーネント', () => {
       },
     ];
 
-    render(React.createElement(TickerAlertListCard, { alerts, loading: false, error: '' }));
+    render(
+      React.createElement(TickerAlertListCard, {
+        alerts,
+        tickerId: 'NASDAQ:NVDA',
+        symbol: 'NVDA',
+        exchangeId: 'NASDAQ',
+        loading: false,
+        error: '',
+        onChanged: jest.fn(async () => undefined),
+      })
+    );
 
     expect(screen.getByText('アラート')).toBeTruthy();
     expect(screen.getByText('以上 120')).toBeTruthy();
     expect(screen.getByText('有効')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '買い追加' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '売り追加' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '編集' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '削除' })).toBeTruthy();
   });
 });
