@@ -1,9 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, Card, CardContent, CircularProgress, Grid, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Grid,
+  Typography,
+} from '@mui/material';
 import type { TickerSummary } from '@/types/stock';
-import { ERROR_MESSAGES } from '@/lib/error-messages';
 import SummaryDetailDialog from './SummaryDetailDialog';
 
 const INVESTMENT_SIGNAL_LABELS = {
@@ -16,9 +24,15 @@ interface TickerSummaryCardProps {
   summary: TickerSummary | null;
   loading: boolean;
   error: string;
+  onChanged: () => Promise<void>;
 }
 
-export default function TickerSummaryCard({ summary, loading, error }: TickerSummaryCardProps) {
+export default function TickerSummaryCard({
+  summary,
+  loading,
+  error,
+  onChanged,
+}: TickerSummaryCardProps) {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const supportLevels = useMemo(() => summary?.aiAnalysisResult?.supportLevels ?? [], [summary]);
   const resistanceLevels = useMemo(
@@ -31,15 +45,6 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
         ? INVESTMENT_SIGNAL_LABELS[summary.aiAnalysisResult.investmentJudgment.signal]
         : '未生成',
     [summary]
-  );
-  const aiJudgmentMessage = useMemo(
-    () =>
-      summary?.aiAnalysisResult
-        ? `${investmentJudgment}（${summary.aiAnalysisResult.investmentJudgment.reason}）`
-        : typeof summary?.aiAnalysisError === 'string'
-          ? ERROR_MESSAGES.AI_ANALYSIS_FAILED
-          : ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED,
-    [summary, investmentJudgment]
   );
 
   return (
@@ -61,7 +66,7 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
         )}
         {!loading && !error && summary && (
           <Grid container spacing={1}>
-            <Grid size={6}>
+            <Grid size={12}>
               <Typography variant="body2">投資判断: {investmentJudgment}</Typography>
             </Grid>
             <Grid size={6}>
@@ -70,19 +75,36 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
             <Grid size={6}>
               <Typography variant="body2">売りシグナル: {summary.sellPatternCount ?? 0}</Typography>
             </Grid>
-            <Grid size={6}>
-              <Typography variant="body2">AI判定: {aiJudgmentMessage}</Typography>
-            </Grid>
             {supportLevels.length > 0 && (
               <Grid size={12}>
-                <Typography variant="body2">サポートレベル: {supportLevels.join(', ')}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  サポートレベル
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {supportLevels.map((level, index) => (
+                    <Chip
+                      key={`support-${summary.tickerId}-${level}-${String(index + 1)}`}
+                      label={`${level}`}
+                      size="small"
+                    />
+                  ))}
+                </Box>
               </Grid>
             )}
             {resistanceLevels.length > 0 && (
               <Grid size={12}>
-                <Typography variant="body2">
-                  レジスタンスレベル: {resistanceLevels.join(', ')}
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                  レジスタンスレベル
                 </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {resistanceLevels.map((level, index) => (
+                    <Chip
+                      key={`resistance-${summary.tickerId}-${level}-${String(index + 1)}`}
+                      label={`${level}`}
+                      size="small"
+                    />
+                  ))}
+                </Box>
               </Grid>
             )}
             <Grid size={12}>
@@ -102,6 +124,7 @@ export default function TickerSummaryCard({ summary, loading, error }: TickerSum
             open={isDetailDialogOpen}
             summary={summary}
             onClose={() => setIsDetailDialogOpen(false)}
+            onAlertChanged={onChanged}
           />
         )}
       </CardContent>

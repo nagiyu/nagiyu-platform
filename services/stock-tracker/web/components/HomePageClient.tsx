@@ -512,7 +512,12 @@ export default function HomePageClient({ children }: HomePageClientProps) {
             },
           }}
         >
-          <TickerSummaryCard summary={summary} loading={summaryLoading} error={summaryError} />
+          <TickerSummaryCard
+            summary={summary}
+            loading={summaryLoading}
+            error={summaryError}
+            onChanged={refreshHoldingAndAlerts}
+          />
           <HoldingCard
             holding={holding}
             tickerId={ticker}

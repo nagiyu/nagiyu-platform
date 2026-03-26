@@ -37,13 +37,19 @@ describe('チャート画面カードコンポーネント', () => {
       holding: null,
     };
 
-    render(React.createElement(TickerSummaryCard, { summary, loading: false, error: '' }));
+    render(
+      React.createElement(TickerSummaryCard, {
+        summary,
+        loading: false,
+        error: '',
+        onChanged: jest.fn(async () => undefined),
+      })
+    );
 
     expect(screen.getByText('サマリー')).toBeTruthy();
     expect(screen.getByText('投資判断: 未生成')).toBeTruthy();
     expect(screen.getByText('買いシグナル: 2')).toBeTruthy();
     expect(screen.getByText('売りシグナル: 1')).toBeTruthy();
-    expect(screen.getByText('AI判定: AI 解析はまだ生成されていません')).toBeTruthy();
     expect(screen.getByRole('button', { name: '詳細' })).toBeTruthy();
   });
 
@@ -74,10 +80,23 @@ describe('チャート画面カードコンポーネント', () => {
       },
     };
 
-    render(React.createElement(TickerSummaryCard, { summary, loading: false, error: '' }));
+    render(
+      React.createElement(TickerSummaryCard, {
+        summary,
+        loading: false,
+        error: '',
+        onChanged: jest.fn(async () => undefined),
+      })
+    );
 
-    expect(screen.getByText('サポートレベル: 100, 95, 90')).toBeTruthy();
-    expect(screen.getByText('レジスタンスレベル: 120, 125, 130')).toBeTruthy();
+    expect(screen.getByText('サポートレベル')).toBeTruthy();
+    expect(screen.getByText('レジスタンスレベル')).toBeTruthy();
+    expect(screen.getByText('100')).toBeTruthy();
+    expect(screen.getByText('95')).toBeTruthy();
+    expect(screen.getByText('90')).toBeTruthy();
+    expect(screen.getByText('120')).toBeTruthy();
+    expect(screen.getByText('125')).toBeTruthy();
+    expect(screen.getByText('130')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '詳細' }));
     expect(screen.getByText('AI 解析')).toBeTruthy();
@@ -134,7 +153,7 @@ describe('チャート画面カードコンポーネント', () => {
     expect(screen.getByText('有効')).toBeTruthy();
     expect(screen.getByRole('button', { name: '買い追加' })).toBeTruthy();
     expect(screen.getByRole('button', { name: '売り追加' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '編集' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '削除' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: '編集' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('button', { name: '削除' }).length).toBeGreaterThan(0);
   });
 });

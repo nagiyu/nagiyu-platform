@@ -9,7 +9,9 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  IconButton,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
@@ -179,30 +181,34 @@ export default function TickerAlertListCard({
                     .join(', ')}
                 </Typography>
                 <Chip label={alert.enabled ? '有効' : '無効'} size="small" variant="outlined" />
-                <Button
-                  variant="contained"
-                  color="warning"
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => {
-                    setSelectedAlert(alert);
-                    setEditModalOpen(true);
-                  }}
-                >
-                  編集
-                </Button>
-                <Button
-                  variant="contained"
-                  color="error"
-                  size="small"
-                  startIcon={<DeleteIcon />}
-                  onClick={() => {
-                    setSelectedAlert(alert);
-                    setDeleteDialogOpen(true);
-                  }}
-                >
-                  削除
-                </Button>
+                <Tooltip title="編集">
+                  <IconButton
+                    size="small"
+                    color="warning"
+                    aria-label="編集"
+                    sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
+                    onClick={() => {
+                      setSelectedAlert(alert);
+                      setEditModalOpen(true);
+                    }}
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="削除">
+                  <IconButton
+                    size="small"
+                    color="error"
+                    aria-label="削除"
+                    sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
+                    onClick={() => {
+                      setSelectedAlert(alert);
+                      setDeleteDialogOpen(true);
+                    }}
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Stack>
             ))}
           </Stack>
