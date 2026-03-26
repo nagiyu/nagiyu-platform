@@ -73,9 +73,10 @@
 ### 3.1 手順概要
 
 1. **ECR リポジトリ作成**: コンテナイメージ格納用リポジトリの作成
-2. **Docker イメージビルド**: アプリケーションのコンテナイメージを作成
-3. **インフラデプロイ**: Lambda, CloudFront などのリソースをデプロイ
-4. **動作確認**: ヘルスチェック・機能確認
+2. **AdminInfra スタック作成**: Secrets Manager を含む基盤スタックの作成
+3. **Docker イメージビルド**: アプリケーションのコンテナイメージを作成
+4. **アプリケーションリソースデプロイ**: Lambda, CloudFront などのリソースをデプロイ
+5. **動作確認**: ヘルスチェック・機能確認
 
 ### 3.2 ECR リポジトリの作成
 
@@ -133,6 +134,11 @@ curl https://admin-dev.nagiyu.com/api/health
   "timestamp": "2026-01-13T03:00:00.000Z"
 }
 ```
+
+### 3.6 GitHub Actions 実行時の補足
+
+`admin-deploy.yml` の `infrastructure` ジョブでは、ECR スタックの後に `NagiyuAdminInfra{Env}` を自動デプロイします。  
+これにより、`deploy` ジョブで Secrets Manager の `nagiyu-admin-vapid-{env}` を取得する前にシークレットが作成され、初回デプロイ時の `ResourceNotFoundException` を防止します。
 
 ---
 
@@ -215,10 +221,11 @@ on:
 
 **ジョブ構成**:
 
-1. **infrastructure**: ECR リポジトリの CDK スタックデプロイ
+1. **infrastructure**: ECR スタックと AdminInfra スタック（Secrets Manager を含む）の CDK デプロイ
 2. **build**: Docker イメージのビルドと ECR へのプッシュ
-3. **deploy**: Lambda と CloudFront の CDK デプロイ
-4. **verify**: デプロイ後のヘルスチェック
+3. **deploy**: Secrets Manager からシークレット取得後、Lambda と CloudFront を CDK デプロイ
+4. **cloudfront-invalidation**: CloudFront キャッシュ無効化
+5. **summary**: ジョブ結果のサマリー出力
 
 ### 4.2 ブランチ戦略とデプロイフロー
 
