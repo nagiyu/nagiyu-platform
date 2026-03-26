@@ -83,7 +83,8 @@ Stock Tracker の一時通知アラート失効バッチ（`temporary-alert-expi
 
 ### 3.4 保守性・拡張性要件
 
-- `InvalidEntityDataError` の検出方法を ESM/CJS 環境に依存しない実装にする
+- Lambda 用 Dockerfile では `libs/*/dist` の明示的 COPY は行わず、
+  `node_modules` のシンボリックリンク実体コピーのみでモジュールを解決する運用とする
 - 不正データの原因調査を可能にするため、スキップログを詳細に出力する
 
 ---
