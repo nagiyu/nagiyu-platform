@@ -15,18 +15,25 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
+  IconButton,
   Select,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { HoldingResponse } from '@/types/holding';
+import type { AlertResponse } from '@/types/alert';
 
 const ERROR_MESSAGES = {
   CREATE_HOLDING_ERROR: '保有株式の登録に失敗しました',
   UPDATE_HOLDING_ERROR: '保有株式の更新に失敗しました',
   DELETE_HOLDING_ERROR: '保有株式の削除に失敗しました',
+  FETCH_SELL_ALERTS_ERROR: '売りアラート情報の取得に失敗しました',
+  DELETE_SELL_ALERT_ERROR: '売りアラートの削除に失敗しました',
+  DELETE_SELL_ALERT_PARTIAL_ERROR:
+    '保有株式は削除しましたが、一部の売りアラートの削除に失敗しました',
   REQUIRED_FIELD: 'この項目は必須です',
   INVALID_QUANTITY: '保有数は0.0001以上、1,000,000,000以下で入力してください',
   INVALID_AVERAGE_PRICE: '平均取得価格は0.01以上、1,000,000以下で入力してください',
@@ -63,8 +70,12 @@ export default function HoldingCard({
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [deleteDialogLoading, setDeleteDialogLoading] = useState<boolean>(false);
   const [localError, setLocalError] = useState<string>('');
   const [localSuccess, setLocalSuccess] = useState<string>('');
+  const [pendingSellAlerts, setPendingSellAlerts] = useState<
+    Array<Pick<AlertResponse, 'alertId' | 'conditions'>>
+  >([]);
   const [formData, setFormData] = useState<HoldingFormData>({
     quantity: '',
     averagePrice: '',
@@ -206,13 +217,71 @@ export default function HoldingCard({
         const errorData = (await response.json()) as { message?: string };
         throw new Error(errorData.message || ERROR_MESSAGES.DELETE_HOLDING_ERROR);
       }
+
+      let sellAlertDeleteFailed = false;
+      for (const sellAlert of pendingSellAlerts) {
+        const alertDeleteResponse = await fetch(`/api/alerts/${encodeURIComponent(sellAlert.alertId)}`, {
+          method: 'DELETE',
+        });
+        if (!alertDeleteResponse.ok) {
+          sellAlertDeleteFailed = true;
+          console.error(ERROR_MESSAGES.DELETE_SELL_ALERT_ERROR, sellAlert.alertId);
+        }
+      }
+
       setDeleteDialogOpen(false);
-      setLocalSuccess('保有株式を削除しました');
+      setPendingSellAlerts([]);
+      if (sellAlertDeleteFailed) {
+        setLocalError(ERROR_MESSAGES.DELETE_SELL_ALERT_PARTIAL_ERROR);
+      } else {
+        setLocalSuccess('保有株式を削除しました');
+      }
       await onChanged();
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : ERROR_MESSAGES.DELETE_HOLDING_ERROR);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const getOperatorLabel = (operator: string): string => {
+    if (operator === 'gte') {
+      return '以上';
+    }
+    if (operator === 'lte') {
+      return '以下';
+    }
+    return operator;
+  };
+
+  const handleOpenDeleteDialog = async () => {
+    if (!holding) {
+      return;
+    }
+
+    setDeleteDialogLoading(true);
+    setLocalError('');
+    try {
+      const response = await fetch('/api/alerts');
+      if (!response.ok) {
+        throw new Error(ERROR_MESSAGES.FETCH_SELL_ALERTS_ERROR);
+      }
+
+      const data = (await response.json()) as { alerts?: AlertResponse[] };
+      const sellAlerts = (data.alerts ?? [])
+        .filter((alert) => alert.tickerId === holding.tickerId && alert.mode === 'Sell')
+        .map((alert) => ({
+          alertId: alert.alertId,
+          conditions: alert.conditions,
+        }));
+      setPendingSellAlerts(sellAlerts);
+    } catch (e) {
+      console.error('Error fetching sell alerts for delete:', e);
+      setLocalError(ERROR_MESSAGES.FETCH_SELL_ALERTS_ERROR);
+      setPendingSellAlerts([]);
+    } finally {
+      setDeleteDialogLoading(false);
+      setDeleteDialogOpen(true);
     }
   };
 
@@ -273,24 +342,28 @@ export default function HoldingCard({
             </Typography>
             <Typography variant="body2">通貨: {holding.currency}</Typography>
             <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                color="warning"
-                size="small"
-                startIcon={<EditIcon />}
-                onClick={handleOpenEditModal}
-              >
-                編集
-              </Button>
-              <Button
-                variant="contained"
-                color="error"
-                size="small"
-                startIcon={<DeleteIcon />}
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                削除
-              </Button>
+              <Tooltip title="編集">
+                <IconButton
+                  size="small"
+                  color="warning"
+                  aria-label="編集"
+                  sx={{ border: (theme) => `1px solid ${theme.palette.warning.main}` }}
+                  onClick={handleOpenEditModal}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="削除">
+                <IconButton
+                  size="small"
+                  color="error"
+                  aria-label="削除"
+                  sx={{ border: (theme) => `1px solid ${theme.palette.error.main}` }}
+                  onClick={() => void handleOpenDeleteDialog()}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           </>
         )}
@@ -423,6 +496,27 @@ export default function HoldingCard({
               </Typography>
             </Box>
           )}
+          {pendingSellAlerts.length > 0 && (
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 1 }}>
+                以下の売りアラートも合わせて削除されます。
+              </Alert>
+              <Box sx={{ p: 2, backgroundColor: 'warning.light', borderRadius: 1 }}>
+                {pendingSellAlerts.map((sellAlert, index) => {
+                  const conditionLabels = sellAlert.conditions.map((condition) => {
+                    const operatorLabel = getOperatorLabel(condition.operator);
+                    return `価格 ${condition.value.toLocaleString()} ${operatorLabel}`;
+                  });
+
+                  return (
+                    <Typography key={sellAlert.alertId} variant="body2">
+                      {index + 1}. {holding?.symbol}（{conditionLabels.join(' / ')}）
+                    </Typography>
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)} disabled={submitting}>
@@ -432,7 +526,7 @@ export default function HoldingCard({
             onClick={() => void handleDelete()}
             variant="contained"
             color="error"
-            disabled={submitting}
+            disabled={submitting || deleteDialogLoading}
           >
             {submitting ? <CircularProgress size={24} /> : '削除'}
           </Button>

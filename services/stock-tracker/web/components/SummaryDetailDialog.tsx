@@ -28,6 +28,7 @@ interface SummaryDetailDialogProps {
   open: boolean;
   summary: TickerSummary | null;
   onClose: () => void;
+  onAlertChanged?: () => Promise<void>;
 }
 
 const INVESTMENT_SIGNAL_LABELS = {
@@ -55,7 +56,12 @@ const resolveAiAnalysisFallbackMessage = (summary: TickerSummary): string => {
   return ERROR_MESSAGES.AI_ANALYSIS_NOT_GENERATED;
 };
 
-export default function SummaryDetailDialog({ open, summary, onClose }: SummaryDetailDialogProps) {
+export default function SummaryDetailDialog({
+  open,
+  summary,
+  onClose,
+  onAlertChanged,
+}: SummaryDetailDialogProps) {
   const [isBuyAlertOpen, setIsBuyAlertOpen] = useState(false);
   const [isSellAlertOpen, setIsSellAlertOpen] = useState(false);
 
@@ -393,6 +399,7 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
           <AlertSettingsModal
             open={isBuyAlertOpen}
             onClose={() => setIsBuyAlertOpen(false)}
+            onSuccess={onAlertChanged}
             tickerId={summary.tickerId}
             symbol={summary.symbol}
             exchangeId={selectedTickerExchangeId}
@@ -404,6 +411,7 @@ export default function SummaryDetailDialog({ open, summary, onClose }: SummaryD
           <AlertSettingsModal
             open={isSellAlertOpen}
             onClose={() => setIsSellAlertOpen(false)}
+            onSuccess={onAlertChanged}
             tickerId={summary.tickerId}
             symbol={summary.symbol}
             exchangeId={selectedTickerExchangeId}
