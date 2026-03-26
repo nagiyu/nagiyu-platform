@@ -13,7 +13,7 @@
 
 <!-- admin-deploy.yml の infrastructure ジョブに AdminInfra スタックのデプロイを追加する -->
 
-- [ ] T001: `.github/workflows/admin-deploy.yml` の `infrastructure` ジョブに「Deploy Infrastructure (AdminInfra)」ステップを追加する（依存: なし）
+- [x] T001: `.github/workflows/admin-deploy.yml` の `infrastructure` ジョブに「Deploy Infrastructure (AdminInfra)」ステップを追加する（依存: なし）
     - 既存の「Deploy Infrastructure (ECR)」ステップの後に追加
     - `NagiyuAdminInfra${envSuffix}` スタックを `npm run deploy --workspace=@nagiyu/infra-admin` で指定してデプロイ
     - `--context env=` と `--require-approval never` を付与
@@ -28,8 +28,8 @@
 
 ## Phase 3: ドキュメント更新
 
-- [ ] T005: `docs/services/admin/deployment.md` の「初回セットアップ」セクションに AdminInfra スタックが `infrastructure` ジョブで自動デプロイされる旨を追記する（依存: T002）
-- [ ] T006: `docs/services/admin/deployment.md` の CI/CD パイプライン説明（ジョブ構成）を最新の状態に更新する（依存: T005）
+- [x] T005: `docs/services/admin/deployment.md` の「初回セットアップ」セクションに AdminInfra スタックが `infrastructure` ジョブで自動デプロイされる旨を追記する（依存: T002）
+- [x] T006: `docs/services/admin/deployment.md` の CI/CD パイプライン説明（ジョブ構成）を最新の状態に更新する（依存: T005）
 
 ---
 
