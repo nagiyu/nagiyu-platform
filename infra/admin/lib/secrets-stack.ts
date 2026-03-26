@@ -2,15 +2,15 @@ import * as cdk from 'aws-cdk-lib';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
-export interface SecretsStackProps extends cdk.StackProps {
+export interface SecretsStackProps {
   environment: string;
 }
 
-export class SecretsStack extends cdk.Stack {
+export class SecretsStack extends Construct {
   public readonly vapidSecret: secretsmanager.ISecret;
 
   constructor(scope: Construct, id: string, props: SecretsStackProps) {
-    super(scope, id, props);
+    super(scope, id);
 
     const { environment } = props;
 
