@@ -48,6 +48,13 @@ export class DynamoDBAlertRepository implements AlertRepository {
     this.mapper = new AlertMapper();
   }
 
+  private isInvalidAlertDataError(error: unknown): error is Error {
+    return (
+      error instanceof InvalidEntityDataError ||
+      (error instanceof Error && error.name === 'InvalidEntityDataError')
+    );
+  }
+
   /**
    * ユーザーIDとアラートIDで単一のアラートを取得
    */
@@ -109,7 +116,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         try {
           items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
         } catch (error) {
-          if (error instanceof InvalidEntityDataError) {
+          if (this.isInvalidAlertDataError(error)) {
             const record = item as Record<string, unknown>;
             logger.warn('無効なアラートデータをスキップしました', {
               pk: record.PK,
@@ -170,7 +177,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         try {
           items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
         } catch (error) {
-          if (error instanceof InvalidEntityDataError) {
+          if (this.isInvalidAlertDataError(error)) {
             const record = item as Record<string, unknown>;
             logger.warn('無効なアラートデータをスキップしました', {
               pk: record.PK,

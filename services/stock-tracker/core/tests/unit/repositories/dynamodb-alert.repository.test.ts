@@ -318,6 +318,65 @@ describe('DynamoDBAlertRepository', () => {
         })
       );
     });
+
+    it('error.name が InvalidEntityDataError の場合もスキップする', async () => {
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-1',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+
+      const invalidNameError = new Error('エンティティデータが無効です: テスト');
+      invalidNameError.name = 'InvalidEntityDataError';
+
+      const mapper = (repository as unknown as { mapper: { toEntity: (item: unknown) => unknown } }).mapper;
+      const originalToEntity = mapper.toEntity.bind(mapper);
+      let called = false;
+      jest.spyOn(mapper, 'toEntity').mockImplementation((item: unknown) => {
+        if (!called) {
+          called = true;
+          return originalToEntity(item);
+        }
+        throw invalidNameError;
+      });
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [validItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByUserId('user-123');
+
+      expect(result.items).toHaveLength(1);
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({
+          pk: 'USER#user-123',
+          sk: 'ALERT#alert-1',
+        })
+      );
+    });
   });
 
   describe('getByFrequency', () => {
