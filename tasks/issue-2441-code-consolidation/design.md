@@ -57,7 +57,7 @@ services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts
 
 - `libs/common/src/push/` 配下はすでに存在するため、`getVapidConfig()` をそこに追加する
 - 関数シグネチャ: `getVapidConfig(): VapidConfig`
-- 環境変数: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`、subject は環境変数 `VAPID_SUBJECT` または固定値
+- 環境変数: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`、subject は固定値 `'mailto:support@nagiyu.com'`
 
 #### 依存関係の検証
 
@@ -113,6 +113,17 @@ services/auth/core/src/db/types.ts
     ← picture フィールドが追加されている
 ```
 
+#### `picture` フィールドの使用状況調査
+
+`services/auth/core` 内で `picture` フィールドが以下の箇所で実際に使用されている：
+
+- `services/auth/core/src/auth/auth.ts`: Google OAuth の `user.image` を `picture` にマッピング
+- `services/auth/core/src/db/repositories/dynamodb-user-repository.ts`: DynamoDB への保存・取得
+- `services/auth/core/src/repositories/in-memory-user-repository.ts`: インメモリ実装
+- `services/auth/core/src/repositories/user-repository.ts`: リポジトリインターフェース定義
+
+`picture` フィールドは `auth` サービスでのみ使用されており、他のサービスでは使用されていない。
+
 #### 変更方針
 
 - `libs/common` の `User` 型に `picture?: string` フィールドを追加して拡張
@@ -121,8 +132,8 @@ services/auth/core/src/db/types.ts
 
 #### 注意事項
 
-- `picture` フィールドの追加は `libs/common` の後方互換性を損なわない（optional）
-- 他のサービスで `User` 型を使用している箇所の型チェックが通ることを確認
+- `picture` フィールドの追加は `libs/common` の後方互換性を損なわない（optional フィールドのため）
+- `picture` を使用していない他のサービスの型チェックも引き続き通ることを確認
 
 ---
 
