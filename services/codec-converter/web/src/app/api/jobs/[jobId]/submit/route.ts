@@ -4,6 +4,7 @@ import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getAwsClients } from '@nagiyu/aws';
 import { type Job, type JobStatus, selectJobDefinition } from '@nagiyu/codec-converter-core';
+import type { ErrorResponse } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -25,14 +26,6 @@ function getEnvVars() {
     BATCH_JOB_DEFINITION_PREFIX: process.env.BATCH_JOB_DEFINITION_PREFIX || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   };
-}
-
-/**
- * エラーレスポンスの型定義
- */
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 /**

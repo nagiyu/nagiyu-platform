@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
+import type { ErrorResponse } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -25,11 +26,6 @@ const ERROR_MESSAGES = {
  */
 interface UnsubscribeResponse {
   success: true;
-}
-
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 /**

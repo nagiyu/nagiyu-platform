@@ -15,6 +15,7 @@ import {
 } from '@nagiyu/stock-tracker-core';
 import type { ChartData, ChartDataPoint } from '@nagiyu/stock-tracker-core';
 import { getAuthError } from '@nagiyu/nextjs';
+import type { ErrorResponse } from '@nagiyu/common';
 import { createHoldingRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 
@@ -29,14 +30,6 @@ const ERROR_MESSAGES = {
   NOT_FOUND: 'ティッカーが見つかりません',
   FETCH_HOLDING_FAILED: '保有情報の取得に失敗しました',
 } as const;
-
-/**
- * エラーレスポンス型定義
- */
-interface ErrorResponse {
-  error: string;
-  message: string;
-}
 
 /**
  * GET /api/chart/{tickerId}
