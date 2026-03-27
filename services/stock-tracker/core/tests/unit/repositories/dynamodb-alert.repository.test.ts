@@ -360,24 +360,22 @@ describe('DynamoDBAlertRepository', () => {
         AlertID: 'invalid-alert',
       };
 
-      const mapperSpy = jest
-        .spyOn(AlertMapper.prototype, 'toEntity')
-        .mockImplementation((item) => {
-          const record = item as unknown as { AlertID?: string };
-          if (record.AlertID === 'invalid-alert') {
-            const baseError = new InvalidEntityDataError(
-              'フィールド "SubscriptionEndpoint" が文字列ではありません'
-            );
-            const duplicatedModuleError = new Error(baseError.message);
-            duplicatedModuleError.name = INVALID_ENTITY_DATA_ERROR_NAME;
-            throw duplicatedModuleError;
-          }
+      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
+        const record = item as unknown as { AlertID?: string };
+        if (record.AlertID === 'invalid-alert') {
+          const baseError = new InvalidEntityDataError(
+            'フィールド "SubscriptionEndpoint" が文字列ではありません'
+          );
+          const duplicatedModuleError = new Error(baseError.message);
+          duplicatedModuleError.name = INVALID_ENTITY_DATA_ERROR_NAME;
+          throw duplicatedModuleError;
+        }
 
-          return {
-            ...validItem,
-            AlertID: record.AlertID || validItem.AlertID,
-          } as unknown as ReturnType<AlertMapper['toEntity']>;
-        });
+        return {
+          ...validItem,
+          AlertID: record.AlertID || validItem.AlertID,
+        } as unknown as ReturnType<AlertMapper['toEntity']>;
+      });
 
       mockDocClient.send.mockResolvedValueOnce({
         Items: [invalidItem, validItem],
