@@ -32,6 +32,23 @@ const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
 
+const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
+
+const isInvalidEntityDataError = (error: unknown): error is Error => {
+  if (error instanceof InvalidEntityDataError) {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === INVALID_ENTITY_DATA_ERROR_NAME &&
+    error.message.includes('エンティティデータが無効です')
+  );
+};
+
 /**
  * DynamoDB Alert Repository
  *
@@ -109,7 +126,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         try {
           items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
         } catch (error) {
-          if (error instanceof InvalidEntityDataError) {
+          if (isInvalidEntityDataError(error)) {
             const record = item as Record<string, unknown>;
             logger.warn('無効なアラートデータをスキップしました', {
               pk: record.PK,
@@ -170,7 +187,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         try {
           items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
         } catch (error) {
-          if (error instanceof InvalidEntityDataError) {
+          if (isInvalidEntityDataError(error)) {
             const record = item as Record<string, unknown>;
             logger.warn('無効なアラートデータをスキップしました', {
               pk: record.PK,

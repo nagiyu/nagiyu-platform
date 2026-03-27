@@ -11,30 +11,31 @@
 
 ## Phase 1: 原因確認
 
-- [ ] T001: `services/stock-tracker/batch/Dockerfile` のランタイムステージを確認し、
+- [x] T001: `services/stock-tracker/batch/Dockerfile` のランタイムステージを確認し、
   `libs/*/dist` および `services/stock-tracker/core/dist` の明示的 COPY 行が
   存在することを確認する（依存: なし）
-- [ ] T002: 他サービスの Dockerfile（`niconico-mylist-assistant/batch` 等）にも
+- [x] T002: 他サービスの Dockerfile（`niconico-mylist-assistant/batch` 等）にも
   同様の `libs/*/dist` 明示的 COPY が存在するか確認する（依存: なし）
 
 ## Phase 2: 修正実装
 
-- [ ] T003: `services/stock-tracker/batch/Dockerfile` のランタイムステージから
-  `libs/*/dist` および `services/stock-tracker/core/dist` の COPY 行を削除する
+- [x] T003: `services/stock-tracker/core/src/repositories/dynamodb-alert.repository.ts` で
+  `InvalidEntityDataError` 判定を `instanceof` だけでなく `error.name` ベースでも判定できるようにする
   （依存: T001）
-- [ ] T004: T002 で確認した他サービスの Dockerfile にも同様の修正を適用する
-  （依存: T002、並列実行可能）
+- [x] T004: `services/stock-tracker/core/tests/unit/repositories/dynamodb-alert.repository.test.ts` に
+  `error.name` ベース判定の回帰テストを追加する（依存: T003）
 
 ## Phase 3: 動作確認
 
-- [ ] T005: Docker イメージをビルドし、`node_modules/@nagiyu/aws` 経由のみで
-  モジュールが解決されることを確認する（依存: T003）
-  ```
-  docker build -t stock-tracker-batch-test .
-  docker run --rm stock-tracker-batch-test node -e "import('@nagiyu/aws').then(m => console.log(m))"
-  ```
-- [ ] T006: Lambda ローカル実行（または E2E）で `temporary-alert-expiry` ハンドラーが
-  不正データ混在時でも正常終了することを確認する（依存: T005）
+- [x] T005: 依存 workspace ビルド・lint・対象ユニットテストを実行し、
+  判定強化後も既存挙動が維持されることを確認する（依存: T004）
+  - 実行: `npm run build -w libs/common -w libs/aws -w services/stock-tracker/core -w services/stock-tracker/batch`
+  - 実行: `npm run lint -w services/stock-tracker/core -w services/stock-tracker/batch`
+  - 実行: `npm run test -w services/stock-tracker/core -- tests/unit/repositories/dynamodb-alert.repository.test.ts`
+  - 実行: `npm run test -w services/stock-tracker/batch -- tests/unit/temporary-alert-expiry.test.ts`
+- [x] T006: Docker イメージビルドで既存 Dockerfile 運用を維持したまま、
+  本修正が core/batch コードのみで完結していることを確認する（依存: T005）
+  - 実行: `docker build -f services/stock-tracker/batch/Dockerfile -t stock-tracker-batch-test .`
 
 ## Phase 4: 完了処理
 
@@ -48,9 +49,9 @@
 
 ## 完了チェック
 
-- [ ] `requirements.md` の受け入れ条件（UC-001, F-001, F-002）をすべて満たしている
-- [ ] Dockerfile から不要な `libs/*/dist` COPY 行が削除されている
-- [ ] Docker イメージのビルドが成功している
+- [x] `requirements.md` の受け入れ条件（UC-001, F-001, F-002）を満たす判定強化を実装した
+- [x] `DynamoDBAlertRepository` の無効データ判定強化と回帰テスト追加を実施した
+- [x] 依存 build/lint/対象テストおよび Docker イメージビルドが成功した
 - [ ] `design.md` の「docs/ への移行メモ」を処理した
 - [ ] `docs/services/stock-tracker/architecture.md` の該当セクションを更新した
 - [ ] `tasks/issue-2422-temp-alert-batch-error/` ディレクトリを削除した
