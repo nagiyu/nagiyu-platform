@@ -9,6 +9,7 @@ import { getBatchClient } from '@nagiyu/aws';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
+import type { ErrorResponse } from '@nagiyu/common';
 
 /**
  * リクエストボディの型定義
@@ -40,17 +41,6 @@ interface RegisterMylistResponse {
   message: string;
   estimatedVideos: number;
   selectedCount: number;
-}
-
-/**
- * エラーレスポンスの型定義
- */
-interface ErrorResponse {
-  error: {
-    code: string;
-    message: string;
-    details?: string;
-  };
 }
 
 const DYNAMODB_ERROR_NAMES = new Set([
@@ -110,10 +100,8 @@ export async function POST(
     if (!session?.user) {
       return NextResponse.json(
         {
-          error: {
-            code: 'UNAUTHORIZED',
-            message: ERROR_MESSAGES.UNAUTHORIZED,
-          },
+          error: 'UNAUTHORIZED',
+          message: ERROR_MESSAGES.UNAUTHORIZED,
         },
         { status: 401 }
       );
@@ -126,10 +114,8 @@ export async function POST(
     if (typeof body.maxCount !== 'number') {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.MAX_COUNT_MUST_BE_NUMBER,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.MAX_COUNT_MUST_BE_NUMBER,
         },
         { status: 400 }
       );
@@ -138,10 +124,8 @@ export async function POST(
     if (!Number.isInteger(body.maxCount)) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_MUST_BE_INTEGER,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_MUST_BE_INTEGER,
         },
         { status: 400 }
       );
@@ -150,10 +134,8 @@ export async function POST(
     if (body.maxCount < 1 || body.maxCount > 100) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.MYLIST_REGISTER_MAX_COUNT_INVALID_RANGE,
         },
         { status: 400 }
       );
@@ -163,10 +145,8 @@ export async function POST(
     if (!body.mylistName) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.MYLIST_NAME_REQUIRED,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.MYLIST_NAME_REQUIRED,
         },
         { status: 400 }
       );
@@ -175,10 +155,8 @@ export async function POST(
     if (typeof body.mylistName !== 'string') {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.MYLIST_NAME_MUST_BE_STRING,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.MYLIST_NAME_MUST_BE_STRING,
         },
         { status: 400 }
       );
@@ -188,10 +166,8 @@ export async function POST(
     if (!body.niconicoAccount) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NICONICO_ACCOUNT_REQUIRED,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.NICONICO_ACCOUNT_REQUIRED,
         },
         { status: 400 }
       );
@@ -200,10 +176,8 @@ export async function POST(
     if (!body.niconicoAccount.email) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NICONICO_EMAIL_REQUIRED,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.NICONICO_EMAIL_REQUIRED,
         },
         { status: 400 }
       );
@@ -212,10 +186,8 @@ export async function POST(
     if (!body.niconicoAccount.password) {
       return NextResponse.json(
         {
-          error: {
-            code: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NICONICO_PASSWORD_REQUIRED,
-          },
+          error: 'INVALID_REQUEST',
+          message: ERROR_MESSAGES.NICONICO_PASSWORD_REQUIRED,
         },
         { status: 400 }
       );
@@ -235,10 +207,8 @@ export async function POST(
       if (isDynamoDbError(error)) {
         return NextResponse.json(
           {
-            error: {
-              code: 'DATABASE_ERROR',
-              message: ERROR_MESSAGES.MYLIST_REGISTER_VIDEO_FETCH_FAILED,
-            },
+            error: 'DATABASE_ERROR',
+            message: ERROR_MESSAGES.MYLIST_REGISTER_VIDEO_FETCH_FAILED,
           },
           { status: 500 }
         );
@@ -250,10 +220,8 @@ export async function POST(
     if (selectedVideos.length === 0) {
       return NextResponse.json(
         {
-          error: {
-            code: 'NO_VIDEOS',
-            message: ERROR_MESSAGES.NO_VIDEOS_AVAILABLE,
-          },
+          error: 'NO_VIDEOS',
+          message: ERROR_MESSAGES.NO_VIDEOS_AVAILABLE,
         },
         { status: 400 }
       );
@@ -288,11 +256,9 @@ export async function POST(
       console.error('パスワード暗号化エラー:', error);
       return NextResponse.json(
         {
-          error: {
-            code: 'ENCRYPTION_ERROR',
-            message: ERROR_MESSAGES.PASSWORD_ENCRYPTION_FAILED,
-            details: error instanceof Error ? error.message : String(error),
-          },
+          error: 'ENCRYPTION_ERROR',
+          message: ERROR_MESSAGES.PASSWORD_ENCRYPTION_FAILED,
+          details: [error instanceof Error ? error.message : String(error)],
         },
         { status: 500 }
       );
@@ -323,11 +289,9 @@ export async function POST(
       console.error('Batch job submission returned no jobId:', submitResult.jobId);
       return NextResponse.json(
         {
-          error: {
-            code: 'BATCH_ERROR',
-            message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
-            details: 'ジョブIDが取得できませんでした',
-          },
+          error: 'BATCH_ERROR',
+          message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
+          details: ['ジョブIDが取得できませんでした'],
         },
         { status: 500 }
       );
@@ -349,11 +313,9 @@ export async function POST(
       // ジョブステータスが照会できないため
       return NextResponse.json(
         {
-          error: {
-            code: 'DATABASE_ERROR',
-            message: ERROR_MESSAGES.DATABASE_ERROR,
-            details: 'ジョブステータス管理レコードの作成に失敗しました',
-          },
+          error: 'DATABASE_ERROR',
+          message: ERROR_MESSAGES.DATABASE_ERROR,
+          details: ['ジョブステータス管理レコードの作成に失敗しました'],
         },
         { status: 500 }
       );
@@ -376,10 +338,8 @@ export async function POST(
     // AWS Batch エラー
     return NextResponse.json(
       {
-        error: {
-          code: 'BATCH_ERROR',
-          message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
-        },
+        error: 'BATCH_ERROR',
+        message: ERROR_MESSAGES.BATCH_JOB_SUBMISSION_FAILED,
       },
       { status: 500 }
     );

@@ -10,6 +10,7 @@ import {
   type Job,
   type CodecType,
 } from '@nagiyu/codec-converter-core';
+import type { ErrorResponse } from '@nagiyu/common';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
 const PRESIGNED_URL_EXPIRES_IN = 3600;
@@ -62,14 +63,6 @@ interface CreateJobResponse {
   jobId: string;
   uploadUrl: string;
   expiresIn: number;
-}
-
-/**
- * エラーレスポンスの型定義
- */
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 /**

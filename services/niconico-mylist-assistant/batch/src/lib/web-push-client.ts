@@ -1,34 +1,11 @@
-import { sendWebPushNotification } from '@nagiyu/common/push';
-import type { NotificationPayload, PushSubscription, VapidConfig } from '@nagiyu/common';
+import type { NotificationPayload, VapidConfig } from '@nagiyu/common';
 
-/**
- * Web Push 通知を送信する
- *
- * @param subscription - Push サブスクリプション情報
- * @param payload - 通知ペイロード
- * @returns 送信成功時は true、失敗時は false
- *
- * @example
- * ```typescript
- * const subscription: PushSubscription = { ... };
- * const payload = {
- *   title: 'バッチ完了',
- *   body: 'マイリスト登録が完了しました',
- * };
- * const success = await sendNotification(subscription, payload);
- * ```
- */
-export async function sendNotification(
-  subscription: PushSubscription,
-  payload: NotificationPayload
-): Promise<boolean> {
-  const vapidConfig: VapidConfig = {
+export function getVapidConfig(): VapidConfig {
+  return {
     publicKey: process.env.VAPID_PUBLIC_KEY ?? '',
     privateKey: process.env.VAPID_PRIVATE_KEY ?? '',
-    subject: 'mailto:noreply@nagiyu.com',
+    subject: 'mailto:support@nagiyu.com',
   };
-
-  return sendWebPushNotification(subscription, payload, vapidConfig);
 }
 
 /**

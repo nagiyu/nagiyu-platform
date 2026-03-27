@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { PushSubscription } from '@nagiyu/common';
 import { requirePermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { createErrorResponse } from '@nagiyu/nextjs';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
 import { getSession } from '@/lib/auth/session';
 
@@ -13,16 +14,6 @@ const ERROR_MESSAGES = {
   INTERNAL_ERROR: 'サブスクリプション処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',
 } as const;
-
-function createErrorResponse(status: number, error: string, message: string): NextResponse {
-  return NextResponse.json(
-    {
-      error,
-      message,
-    },
-    { status }
-  );
-}
 
 function isValidPushSubscription(value: unknown): value is PushSubscription {
   if (!value || typeof value !== 'object') {

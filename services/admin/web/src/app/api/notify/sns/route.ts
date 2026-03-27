@@ -6,6 +6,7 @@ import {
   type PushNotificationPayload,
 } from '@nagiyu/admin-core';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { createErrorResponse } from '@nagiyu/nextjs';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: 'リクエストボディが不正です',
@@ -20,16 +21,6 @@ type SnsNotificationMessage = {
   NewStateValue?: string;
   NewStateReason?: string;
 };
-
-function createErrorResponse(status: number, error: string, message: string): NextResponse {
-  return NextResponse.json(
-    {
-      error,
-      message,
-    },
-    { status }
-  );
-}
 
 function getRepository() {
   const docClient =

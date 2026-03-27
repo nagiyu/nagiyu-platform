@@ -6,7 +6,8 @@
 
 import { logger, withRetry } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { sendNotification, createAlertNotificationPayload } from './lib/web-push-client.js';
+import { sendWebPushNotification } from '@nagiyu/common/push';
+import { getVapidConfig, createAlertNotificationPayload } from './lib/web-push-client.js';
 import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
@@ -126,7 +127,11 @@ async function processAlert(
 
     // 6. 条件達成時、Web Push 通知送信
     const payload = createAlertNotificationPayload(alert, currentPrice);
-    const notificationSent = await sendNotification(alert, payload);
+    const notificationSent = await sendWebPushNotification(
+      alert.subscription,
+      payload,
+      getVapidConfig()
+    );
 
     if (notificationSent) {
       stats.notificationsSent++;

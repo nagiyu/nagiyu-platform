@@ -80,3 +80,25 @@ export function handleApiError(error: unknown): NextResponse<ErrorResponse> {
     { status: 500 }
   );
 }
+
+/**
+ * API用の標準エラーレスポンスを生成する
+ *
+ * @param status - HTTPステータスコード
+ * @param error - エラーコード
+ * @param message - エラーメッセージ
+ * @returns エラーレスポンス
+ */
+export function createErrorResponse(
+  status: number,
+  error: string,
+  message: string
+): NextResponse<ErrorResponse> {
+  return NextResponse.json(
+    {
+      error,
+      message,
+    },
+    { status }
+  );
+}

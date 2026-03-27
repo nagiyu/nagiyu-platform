@@ -7,6 +7,7 @@ import {
   type PatternDetailResponse,
   type TickerEntity,
 } from '@nagiyu/stock-tracker-core';
+import type { ErrorResponse } from '@nagiyu/common';
 import { withAuth } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import {
@@ -76,11 +77,6 @@ interface ExchangeSummaryGroupResponse {
 
 interface SummariesResponse {
   exchanges: ExchangeSummaryGroupResponse[];
-}
-
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 function isValidDateFormat(date: string): boolean {

@@ -4,6 +4,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getAwsClients } from '@nagiyu/aws';
 import { type Job } from '@nagiyu/codec-converter-core';
+import type { ErrorResponse } from '@nagiyu/common';
 
 // Presigned URLの有効期限（24時間 = 86400秒）
 const PRESIGNED_URL_EXPIRES_IN = 86400;
@@ -23,14 +24,6 @@ function getEnvVars() {
     S3_BUCKET: process.env.S3_BUCKET || '',
     AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   };
-}
-
-/**
- * エラーレスポンスの型定義
- */
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 /**

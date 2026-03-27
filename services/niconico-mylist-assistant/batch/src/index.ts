@@ -6,9 +6,10 @@
 
 import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
+import { sendWebPushNotification } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
 import {
-  sendNotification,
+  getVapidConfig,
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';
@@ -210,7 +211,11 @@ async function main() {
         try {
           console.log('二段階認証待機通知を送信中...');
           const notificationPayload = createTwoFactorAuthRequiredPayload(params.jobId);
-          const notificationSent = await sendNotification(pushSubscription, notificationPayload);
+          const notificationSent = await sendWebPushNotification(
+            pushSubscription,
+            notificationPayload,
+            getVapidConfig()
+          );
           if (notificationSent) {
             console.log('二段階認証待機通知を送信しました');
           } else {
@@ -311,7 +316,11 @@ async function main() {
               result.failedVideoIds.length,
               result.successVideoIds.length + result.failedVideoIds.length
             );
-            const notificationSent = await sendNotification(pushSubscription, notificationPayload);
+            const notificationSent = await sendWebPushNotification(
+              pushSubscription,
+              notificationPayload,
+              getVapidConfig()
+            );
             if (notificationSent) {
               console.log('バッチ完了通知を送信しました');
             } else {
