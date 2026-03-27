@@ -3,16 +3,11 @@
  */
 
 import {
-  sendNotification,
+  getVapidConfig,
   createAlertNotificationPayload,
 } from '../../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
-
-const mockSendWebPushNotification = jest.fn();
-jest.mock('@nagiyu/common/push', () => ({
-  sendWebPushNotification: (...args: unknown[]) => mockSendWebPushNotification(...args),
-}));
 
 describe('web-push-client', () => {
   let mockAlert: Alert;
@@ -51,85 +46,20 @@ describe('web-push-client', () => {
     delete process.env.VAPID_PRIVATE_KEY;
   });
 
-  describe('sendNotification', () => {
-    it('Web Push 通知を正常に送信する', async () => {
-      // Arrange
-      const payload = {
-        title: 'Test Alert',
-        body: 'Test body',
-      };
-      mockSendWebPushNotification.mockResolvedValue(true);
-
-      // Act
-      const result = await sendNotification(mockAlert, payload);
-
-      // Assert
-      expect(result).toBe(true);
-      expect(mockSendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, payload, {
+  describe('getVapidConfig', () => {
+    it('VAPID設定を返す', () => {
+      expect(getVapidConfig()).toEqual({
         publicKey: 'test-public-key',
         privateKey: 'test-private-key',
         subject: 'mailto:support@nagiyu.com',
       });
     });
 
-    it('無効なサブスクリプション (410 Gone) の場合、false を返す', async () => {
-      // Arrange
-      const payload = {
-        title: 'Test Alert',
-        body: 'Test body',
-      };
-      mockSendWebPushNotification.mockResolvedValue(false);
-
-      // Act
-      const result = await sendNotification(mockAlert, payload);
-
-      // Assert
-      expect(result).toBe(false);
-    });
-
-    it('存在しないサブスクリプション (404 Not Found) の場合、false を返す', async () => {
-      // Arrange
-      const payload = {
-        title: 'Test Alert',
-        body: 'Test body',
-      };
-      mockSendWebPushNotification.mockResolvedValue(false);
-
-      // Act
-      const result = await sendNotification(mockAlert, payload);
-
-      // Assert
-      expect(result).toBe(false);
-    });
-
-    it('通知送信エラー (その他のエラー) の場合、false を返す', async () => {
-      // Arrange
-      const payload = {
-        title: 'Test Alert',
-        body: 'Test body',
-      };
-      mockSendWebPushNotification.mockResolvedValue(false);
-
-      // Act
-      const result = await sendNotification(mockAlert, payload);
-
-      // Assert
-      expect(result).toBe(false);
-    });
-
-    it('VAPIDキーが未設定の場合でも共通クライアントに委譲し、戻り値を返す', async () => {
-      // Arrange
+    it('VAPID環境変数未設定時は空文字を返す', () => {
       delete process.env.VAPID_PUBLIC_KEY;
       delete process.env.VAPID_PRIVATE_KEY;
-      const payload = {
-        title: 'Test Alert',
-        body: 'Test body',
-      };
-      mockSendWebPushNotification.mockResolvedValue(false);
 
-      // Act & Assert
-      await expect(sendNotification(mockAlert, payload)).resolves.toBe(false);
-      expect(mockSendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, payload, {
+      expect(getVapidConfig()).toEqual({
         publicKey: '',
         privateKey: '',
         subject: 'mailto:support@nagiyu.com',

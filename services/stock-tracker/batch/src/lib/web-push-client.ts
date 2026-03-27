@@ -1,35 +1,12 @@
-import { sendWebPushNotification } from '@nagiyu/common/push';
 import type { NotificationPayload, VapidConfig } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
-/**
- * Web Push 通知を送信する
- *
- * @param alert - アラート情報（サブスクリプション情報を含む）
- * @param payload - 通知ペイロード
- * @returns 送信成功時は true、失敗時は false
- *
- * @example
- * ```typescript
- * const alert: Alert = { ... };
- * const payload = {
- *   title: '株価アラート',
- *   body: 'AAPL が目標価格に到達しました',
- * };
- * const success = await sendNotification(alert, payload);
- * ```
- */
-export async function sendNotification(
-  alert: Alert,
-  payload: NotificationPayload
-): Promise<boolean> {
-  const vapidConfig: VapidConfig = {
+export function getVapidConfig(): VapidConfig {
+  return {
     publicKey: process.env.VAPID_PUBLIC_KEY ?? '',
     privateKey: process.env.VAPID_PRIVATE_KEY ?? '',
     subject: 'mailto:support@nagiyu.com',
   };
-
-  return sendWebPushNotification(alert.subscription, payload, vapidConfig);
 }
 
 /**

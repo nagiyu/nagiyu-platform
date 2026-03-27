@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from '@jest/globals';
-import { handleApiError } from '../../src/error';
+import { handleApiError, createErrorResponse } from '../../src/error';
 
 describe('handleApiError', () => {
   it('NotFoundエラーを404レスポンスに変換する', () => {
@@ -83,5 +83,17 @@ describe('handleApiError', () => {
     error.name = 'InvalidHoldingDataError';
     const response = handleApiError(error);
     expect(response.status).toBe(400);
+  });
+});
+
+describe('createErrorResponse', () => {
+  it('指定された status/error/message の JSON レスポンスを返す', async () => {
+    const response = createErrorResponse(400, 'INVALID_REQUEST', 'リクエストが不正です');
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
   });
 });

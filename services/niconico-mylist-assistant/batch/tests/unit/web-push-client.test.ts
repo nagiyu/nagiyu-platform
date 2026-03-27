@@ -3,26 +3,12 @@
  */
 
 import {
-  sendNotification,
+  getVapidConfig,
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
-import type { PushSubscription } from '@nagiyu/common';
-
-const mockSendWebPushNotification = jest.fn();
-jest.mock('@nagiyu/common/push', () => ({
-  sendWebPushNotification: (...args: unknown[]) => mockSendWebPushNotification(...args),
-}));
-
-describe('sendNotification', () => {
-  const subscription: PushSubscription = {
-    endpoint: 'https://fcm.googleapis.com/fcm/send/test',
-    keys: {
-      p256dh: 'test-p256dh',
-      auth: 'test-auth',
-    },
-  };
+describe('getVapidConfig', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -35,33 +21,21 @@ describe('sendNotification', () => {
     delete process.env.VAPID_PRIVATE_KEY;
   });
 
-  test('共通WebPushクライアントにVAPID設定を組み立てて委譲する', async () => {
-    const payload = { title: 'テスト', body: '本文' };
-    mockSendWebPushNotification.mockResolvedValue(true);
-
-    const result = await sendNotification(subscription, payload);
-
-    expect(result).toBe(true);
-    expect(mockSendWebPushNotification).toHaveBeenCalledWith(subscription, payload, {
+  test('VAPID設定を返す', () => {
+    expect(getVapidConfig()).toEqual({
       publicKey: 'test-public-key',
       privateKey: 'test-private-key',
-      subject: 'mailto:noreply@nagiyu.com',
+      subject: 'mailto:support@nagiyu.com',
     });
   });
 
-  test('VAPID環境変数未設定時も共通クライアントへ空文字で委譲する', async () => {
+  test('VAPID環境変数未設定時は空文字を返す', () => {
     delete process.env.VAPID_PUBLIC_KEY;
     delete process.env.VAPID_PRIVATE_KEY;
-    const payload = { title: 'テスト', body: '本文' };
-    mockSendWebPushNotification.mockResolvedValue(false);
-
-    const result = await sendNotification(subscription, payload);
-
-    expect(result).toBe(false);
-    expect(mockSendWebPushNotification).toHaveBeenCalledWith(subscription, payload, {
+    expect(getVapidConfig()).toEqual({
       publicKey: '',
       privateKey: '',
-      subject: 'mailto:noreply@nagiyu.com',
+      subject: 'mailto:support@nagiyu.com',
     });
   });
 });

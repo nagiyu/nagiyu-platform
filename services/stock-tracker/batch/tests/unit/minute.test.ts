@@ -6,6 +6,7 @@ import { handler } from '../../src/minute.js';
 import type { ScheduledEvent } from '../../src/minute.js';
 import * as awsClients from '@nagiyu/aws';
 import * as webPushClient from '../../src/lib/web-push-client.js';
+import { sendWebPushNotification } from '@nagiyu/common/push';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
@@ -16,6 +17,9 @@ import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
 // モックの設定
 jest.mock('@nagiyu/aws');
 jest.mock('../../src/lib/web-push-client.js');
+jest.mock('@nagiyu/common/push', () => ({
+  sendWebPushNotification: jest.fn(),
+}));
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
   DynamoDBAlertRepository: jest.fn(),
@@ -123,10 +127,15 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(205.0);
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
         title: 'Test Alert',
         body: 'Test body',
+      });
+      (webPushClient.getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
       });
 
       // Act
@@ -142,9 +151,13 @@ describe('minute batch handler', () => {
       );
       expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
-      expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
+      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
         title: 'Test Alert',
         body: 'Test body',
+      }, {
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
       });
 
       const body = JSON.parse(response.body);
@@ -187,7 +200,7 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(mockExchangeRepo.getById).not.toHaveBeenCalled();
       expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
-      expect(webPushClient.sendNotification).not.toHaveBeenCalled();
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
       expect(body.statistics.totalAlerts).toBe(1);
@@ -241,7 +254,7 @@ describe('minute batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200);
       expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
-      expect(webPushClient.sendNotification).not.toHaveBeenCalled();
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
       expect(body.statistics.skippedOffHours).toBe(1);
@@ -294,7 +307,7 @@ describe('minute batch handler', () => {
 
       // Assert
       expect(response.statusCode).toBe(200);
-      expect(webPushClient.sendNotification).not.toHaveBeenCalled();
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(0);
@@ -314,7 +327,7 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(mockExchangeRepo.getById).not.toHaveBeenCalled();
       expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
-      expect(webPushClient.sendNotification).not.toHaveBeenCalled();
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
       expect(body.statistics.totalAlerts).toBe(0);
@@ -368,7 +381,7 @@ describe('minute batch handler', () => {
 
       // Assert
       expect(response.statusCode).toBe(200); // バッチ全体は成功
-      expect(webPushClient.sendNotification).not.toHaveBeenCalled();
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
       expect(body.statistics.errors).toBe(1);
@@ -408,7 +421,7 @@ describe('minute batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200);
       expect(tradingviewClient.getCurrentPrice).not.toHaveBeenCalled();
-      expect(webPushClient.sendNotification).not.toHaveBeenCalled();
+      expect(sendWebPushNotification).not.toHaveBeenCalled();
 
       const body = JSON.parse(response.body);
       expect(body.statistics.errors).toBe(1);
@@ -496,7 +509,7 @@ describe('minute batch handler', () => {
 
       // alert-2: 正常処理
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
         title: 'Test Alert',
         body: 'Test body',
@@ -563,7 +576,7 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(105.0);
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
         title: '売りアラート: NSDQ:AAPL',
         body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
@@ -576,10 +589,10 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
       expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
+      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
         title: '売りアラート: NSDQ:AAPL',
         body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-      });
+      }, expect.any(Object));
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
@@ -634,7 +647,7 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(105.0);
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
         title: '売りアラート: NSDQ:AAPL',
         body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
@@ -647,10 +660,10 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
       expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
+      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
         title: '売りアラート: NSDQ:AAPL',
         body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-      });
+      }, expect.any(Object));
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
@@ -705,7 +718,7 @@ describe('minute batch handler', () => {
       (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
       (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(85.0);
       (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
-      (webPushClient.sendNotification as jest.Mock).mockResolvedValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(true);
       (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
         title: '売りアラート: NSDQ:AAPL',
         body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
@@ -718,10 +731,10 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 85.0);
       expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 85.0);
-      expect(webPushClient.sendNotification).toHaveBeenCalledWith(mockAlert, {
+      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
         title: '売りアラート: NSDQ:AAPL',
         body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
-      });
+      }, expect.any(Object));
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
