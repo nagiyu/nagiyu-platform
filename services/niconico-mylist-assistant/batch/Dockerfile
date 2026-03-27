@@ -35,20 +35,16 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 
 # 共通ライブラリ
-COPY --from=builder /app/libs/common/package*.json ./libs/common/
-COPY --from=builder /app/libs/common/dist ./libs/common/dist
+COPY --from=builder /app/libs/common ./libs/common/
 
 # ブラウザライブラリ
-COPY --from=builder /app/libs/browser/package*.json ./libs/browser/
-COPY --from=builder /app/libs/browser/dist ./libs/browser/dist
+COPY --from=builder /app/libs/browser ./libs/browser/
 
 # AWS ライブラリ
-COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
-COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
+COPY --from=builder /app/libs/aws ./libs/aws/
 
 # Core パッケージ
-COPY --from=builder /app/services/niconico-mylist-assistant/core/package*.json ./services/niconico-mylist-assistant/core/
-COPY --from=builder /app/services/niconico-mylist-assistant/core/dist ./services/niconico-mylist-assistant/core/dist
+COPY --from=builder /app/services/niconico-mylist-assistant/core ./services/niconico-mylist-assistant/core/
 
 # Batch パッケージ
 COPY --from=builder /app/services/niconico-mylist-assistant/batch/package*.json ./services/niconico-mylist-assistant/batch/

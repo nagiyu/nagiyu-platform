@@ -37,8 +37,7 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # 必要なビルド成果物とpackage.jsonをコピー
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/services/codec-converter/core/package*.json ./services/codec-converter/core/
-COPY --from=builder /app/services/codec-converter/core/dist ./services/codec-converter/core/dist
+COPY --from=builder /app/services/codec-converter/core ./services/codec-converter/core/
 COPY --from=builder /app/services/codec-converter/batch/package*.json ./services/codec-converter/batch/
 COPY --from=builder /app/services/codec-converter/batch/dist ./services/codec-converter/batch/dist
 

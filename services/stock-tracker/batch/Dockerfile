@@ -36,16 +36,13 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
 
 # 共通ライブラリ
-COPY --from=builder /app/libs/common/package*.json ./libs/common/
-COPY --from=builder /app/libs/common/dist ./libs/common/dist
+COPY --from=builder /app/libs/common ./libs/common/
 
 # AWS ライブラリ
-COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
-COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
+COPY --from=builder /app/libs/aws ./libs/aws/
 
 # Core パッケージ
-COPY --from=builder /app/services/stock-tracker/core/package*.json ./services/stock-tracker/core/
-COPY --from=builder /app/services/stock-tracker/core/dist ./services/stock-tracker/core/dist
+COPY --from=builder /app/services/stock-tracker/core ./services/stock-tracker/core/
 
 # Batch パッケージ
 COPY --from=builder /app/services/stock-tracker/batch/package*.json ./services/stock-tracker/batch/
