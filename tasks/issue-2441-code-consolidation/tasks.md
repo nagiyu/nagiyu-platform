@@ -30,27 +30,17 @@
 - [ ] T010: `services/stock-tracker/batch/src/lib/web-push-client.ts` の `getVapidConfig()` を削除し、`@nagiyu/common/push` からの import に変更する（依存: T003）
 - [ ] T011: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `getVapidConfig()` を削除し、`@nagiyu/common/push` からの import に変更する（依存: T003）
 
-## Phase 3: 検証（高優先度）
-
-<!-- 全サービスのビルド・テストが通ることを確認する -->
-
-- [ ] T012: `services/auth/core` のビルド・テストが通ることを確認する（依存: T006）
-- [ ] T013: `services/stock-tracker/core` のビルド・テストが通ることを確認する（依存: T009）
-- [ ] T014: `services/stock-tracker/batch` のビルド・テストが通ることを確認する（依存: T010）
-- [ ] T015: `services/niconico-mylist-assistant/batch` のビルド・テストが通ることを確認する（依存: T011）
-
-## Phase 4: セッション取得関数の調査・共通化（中優先度）
+## Phase 3: セッション取得関数の調査・共通化（中優先度）
 
 <!-- セッション取得関数の実装を比較し、共通化可能か判断する -->
 
-- [ ] T016: 以下の各 `session.ts` の実装内容を比較し、差分を記録する（依存: Phase 3 完了）
+- [ ] T012: 以下の各 `session.ts` の実装内容を比較し、差分を記録する（依存: Phase 2 完了）
     - `services/admin/web/src/lib/auth/session.ts`
     - `services/auth/web/src/lib/auth/session.ts`
     - `services/niconico-mylist-assistant/web/src/lib/auth/session.ts`
     - `services/share-together/web/src/lib/auth/session.ts`
-- [ ] T017: 実装が共通化可能と判断した場合、`libs/browser/src/auth/session.ts` を新規作成する（依存: T016）
-- [ ] T018: 共通化した場合、各サービスの `session.ts` を `libs/browser` の実装を参照する形に変更する（依存: T017）
-- [ ] T019: 各 Web サービスのビルド・テスト・E2E テストが通ることを確認する（依存: T018）
+- [ ] T013: 実装が共通化可能と判断した場合、`libs/browser/src/auth/session.ts` を新規作成する（依存: T012）
+- [ ] T014: 共通化した場合、各サービスの `session.ts` を `libs/browser` の実装を参照する形に変更する（依存: T013）
 
 ---
 
