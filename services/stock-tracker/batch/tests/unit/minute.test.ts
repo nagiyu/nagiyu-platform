@@ -151,14 +151,18 @@ describe('minute batch handler', () => {
       );
       expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
-        title: 'Test Alert',
-        body: 'Test body',
-      }, {
-        publicKey: 'test-public-key',
-        privateKey: 'test-private-key',
-        subject: 'mailto:support@nagiyu.com',
-      });
+      expect(sendWebPushNotification).toHaveBeenCalledWith(
+        mockAlert.subscription,
+        {
+          title: 'Test Alert',
+          body: 'Test body',
+        },
+        {
+          publicKey: 'test-public-key',
+          privateKey: 'test-private-key',
+          subject: 'mailto:support@nagiyu.com',
+        }
+      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.totalAlerts).toBe(1);
@@ -589,10 +593,14 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
       expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
-        title: '売りアラート: NSDQ:AAPL',
-        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-      }, expect.any(Object));
+      expect(sendWebPushNotification).toHaveBeenCalledWith(
+        mockAlert.subscription,
+        {
+          title: '売りアラート: NSDQ:AAPL',
+          body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
+        },
+        expect.any(Object)
+      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
@@ -660,10 +668,14 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 105.0);
       expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 105.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
-        title: '売りアラート: NSDQ:AAPL',
-        body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
-      }, expect.any(Object));
+      expect(sendWebPushNotification).toHaveBeenCalledWith(
+        mockAlert.subscription,
+        {
+          title: '売りアラート: NSDQ:AAPL',
+          body: '現在価格 $105.00 が範囲 $100.00〜$110.00 内になりました',
+        },
+        expect.any(Object)
+      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
@@ -731,10 +743,14 @@ describe('minute batch handler', () => {
       expect(response.statusCode).toBe(200);
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 85.0);
       expect(webPushClient.createAlertNotificationPayload).toHaveBeenCalledWith(mockAlert, 85.0);
-      expect(sendWebPushNotification).toHaveBeenCalledWith(mockAlert.subscription, {
-        title: '売りアラート: NSDQ:AAPL',
-        body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
-      }, expect.any(Object));
+      expect(sendWebPushNotification).toHaveBeenCalledWith(
+        mockAlert.subscription,
+        {
+          title: '売りアラート: NSDQ:AAPL',
+          body: '現在価格 $85.00 が範囲外（$90.00 以下 または $120.00 以上）になりました',
+        },
+        expect.any(Object)
+      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);

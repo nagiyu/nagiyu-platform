@@ -9,7 +9,6 @@ import {
 } from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
 describe('getVapidConfig', () => {
-
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.VAPID_PUBLIC_KEY = 'test-public-key';

@@ -39,7 +39,7 @@
 - [ ] T014: `services/niconico-mylist-assistant/batch/src/index.ts` の `sendNotification()` 呼び出しを `sendWebPushNotification(pushSubscription, payload, vapidConfig)` に変更する（依存: T013）
 - [ ] T015: `services/stock-tracker/batch/src/lib/web-push-client.ts` の `sendNotification()` を削除し、ペイロード生成関数のみ残す（依存: T012）
 - [ ] T016: `services/stock-tracker/batch/src/minute.ts`, `hourly.ts` の `sendNotification(alert, ...)` 呼び出しを `sendWebPushNotification(alert.subscription, payload, vapidConfig)` に変更する（依存: T015）
-- [ ] T017: niconico-mylist-assistant/batch および stock-tracker/batch のテストを実行して動作を確認する（依存: T014, T016）
+- [x] T017: niconico-mylist-assistant/batch および stock-tracker/batch のテストを実行して動作を確認する（依存: T014, T016）
 
 ## Phase 4: `ErrorResponse` 型の共通化（優先度: 中）
 
