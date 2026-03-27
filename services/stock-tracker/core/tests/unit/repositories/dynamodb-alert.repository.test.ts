@@ -350,7 +350,7 @@ describe('DynamoDBAlertRepository', () => {
       const invalidNameError = new Error('エンティティデータが無効です: テスト');
       invalidNameError.name = 'InvalidEntityDataError';
 
-      const mapper = (repository as unknown as { mapper: { toEntity: (item: unknown) => unknown } }).mapper;
+      const mapper = repository['mapper'];
       const originalToEntity = mapper.toEntity.bind(mapper);
       let called = false;
       jest.spyOn(mapper, 'toEntity').mockImplementation((item: unknown) => {
