@@ -13,6 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError } from '@nagiyu/nextjs';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
+import type { ErrorResponse } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -43,11 +44,6 @@ interface RefreshRequest {
 interface RefreshResponse {
   success: true;
   updatedCount: number;
-}
-
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 /**

@@ -14,10 +14,10 @@
 <!-- 実装前に変更範囲と既存テストの状態を確認する -->
 
 - [x] T001: `libs/nextjs/src/error.ts` の現在の実装と公開 API を確認する（依存: なし）
-- [ ] T002: `libs/common/src/api/types.ts` の `ErrorResponse` 型の定義を確認し、各サービスのローカル定義との互換性を検証する（依存: なし）
-- [ ] T003: admin/batch/core の `DynamoDBPushSubscriptionRepository` の実装を確認し、`AbstractDynamoDBRepository` を継承しているか検証する（依存: なし）
-- [ ] T004: stock-tracker の Repository 実装と Factory パターンの使用状況を確認する（依存: なし）
-- [ ] T005: 各サービスの既存テストを実行し、ベースラインを確認する（依存: なし）
+- [x] T002: `libs/common/src/api/types.ts` の `ErrorResponse` 型の定義を確認し、各サービスのローカル定義との互換性を検証する（依存: なし）
+- [x] T003: admin/batch/core の `DynamoDBPushSubscriptionRepository` の実装を確認し、`AbstractDynamoDBRepository` を継承しているか検証する（依存: なし）
+- [x] T004: stock-tracker の Repository 実装と Factory パターンの使用状況を確認する（依存: なし）
+- [x] T005: 各サービスの既存テストを実行し、ベースラインを確認する（依存: なし）
 
 ## Phase 2: `createErrorResponse()` 関数の共通化（優先度: 高）
 
@@ -45,20 +45,20 @@
 
 <!-- ローカル型定義を libs/common の共通型に統一する -->
 
-- [ ] T018: `libs/common/src/api/types.ts` の `ErrorResponse` 型が各サービスのローカル定義と互換性を持つことを確認する（依存: T002）
-- [ ] T019: `services/codec-converter/web/src/app/api/jobs/route.ts` のローカル `interface ErrorResponse` を削除し、`@nagiyu/common` から import する（依存: T018）
-- [ ] T020: `services/niconico-mylist-assistant/web/src/app/api/mylist/register/route.ts` のローカル `interface ErrorResponse` を削除し、`@nagiyu/common` から import する（依存: T018）
-- [ ] T021: その他のサービスのローカル `ErrorResponse` 定義を調査し、同様に統一する（依存: T018）
-- [ ] T022: 変更対象サービスのビルドとテストを実行して動作を確認する（依存: T019, T020, T021）
+- [x] T018: `libs/common/src/api/types.ts` の `ErrorResponse` 型が各サービスのローカル定義と互換性を持つことを確認する（依存: T002）
+- [x] T019: `services/codec-converter/web/src/app/api/jobs/route.ts` のローカル `interface ErrorResponse` を削除し、`@nagiyu/common` から import する（依存: T018）
+- [x] T020: `services/niconico-mylist-assistant/web/src/app/api/mylist/register/route.ts` のローカル `interface ErrorResponse` を削除し、`@nagiyu/common` から import する（依存: T018）
+- [x] T021: その他のサービスのローカル `ErrorResponse` 定義を調査し、同様に統一する（依存: T018）
+- [x] T022: 変更対象サービスのビルドとテストを実行して動作を確認する（依存: T019, T020, T021）
 
 ## Phase 5: Repository Factory パターンの統一（優先度: 中）
 
 <!-- createRepositoryFactory() の適用を拡大する -->
 
-- [ ] T023: admin の `DynamoDBPushSubscriptionRepository` が `AbstractDynamoDBRepository` を継承しているか確認し、未継承の場合は修正する（依存: T003）
-- [ ] T024: admin の Repository Factory 実装を `createRepositoryFactory()` を使用する形に変更する（依存: T023）
-- [ ] T025: stock-tracker の Repository Factory 実装を `createRepositoryFactory()` を使用する形に変更する（依存: T004）
-- [ ] T026: admin/core および stock-tracker/core のビルドとテストを実行して動作を確認する（依存: T024, T025）
+- [x] T023: admin の `DynamoDBPushSubscriptionRepository` が `AbstractDynamoDBRepository` を継承しているか確認し、未継承の場合は修正する（依存: T003）
+- [x] T024: admin の Repository Factory 実装を `createRepositoryFactory()` を使用する形に変更する（依存: T023）
+- [x] T025: stock-tracker の Repository Factory 実装を `createRepositoryFactory()` を使用する形に変更する（依存: T004）
+- [x] T026: admin/core および stock-tracker/core のビルドとテストを実行して動作を確認する（依存: T024, T025）
 
 ## Phase 6: 最終確認・ドキュメント更新
 

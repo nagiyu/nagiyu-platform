@@ -23,6 +23,7 @@ import {
   MylistRegisterRequest,
   MylistRegisterResponse,
 } from '@/types/mylist';
+import { extractErrorMessage } from '@/lib/error-utils';
 
 interface MylistRegisterFormProps {
   onSuccess?: (response: MylistRegisterResponse) => void;
@@ -114,7 +115,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
           const contentType = response.headers.get('content-type');
           if (contentType?.includes('application/json')) {
             const errorData = await response.json();
-            errorMessage = errorData.error?.message || errorMessage;
+            errorMessage = extractErrorMessage(errorData, errorMessage);
           }
         } catch {
           // JSON パースに失敗した場合はデフォルトメッセージを使用

@@ -9,17 +9,13 @@ import {
   createTickerRepository,
 } from '../../../../lib/repository-factory';
 import { MAX_ALERTS_PER_USER } from '../../../../lib/constants';
+import type { ErrorResponse } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
   INVALID_TICKER_ID: 'ティッカーIDが不正です',
   NOT_FOUND: 'サマリーが見つかりません',
   INTERNAL_ERROR: 'サマリーの取得に失敗しました',
 } as const;
-
-interface ErrorResponse {
-  error: string;
-  message: string;
-}
 
 const dailySummaryMapper = new DailySummaryMapper();
 

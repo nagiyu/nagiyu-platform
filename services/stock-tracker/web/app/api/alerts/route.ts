@@ -17,6 +17,7 @@ import {
 } from '../../../lib/repository-factory';
 import { getSession } from '../../../lib/auth';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
+import type { ErrorResponse } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -57,12 +58,6 @@ interface AlertResponse {
   notificationBody?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-interface ErrorResponse {
-  error: string;
-  message: string;
-  details?: string[];
 }
 
 interface CreateAlertRequest {
