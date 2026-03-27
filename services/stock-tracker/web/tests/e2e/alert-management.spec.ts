@@ -328,6 +328,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
   });
 
   test.describe('アラート一覧フィルタリング', () => {
+    // webkit-mobile では Service Worker の影響で API モックが不安定になるため、このスイートでは無効化する
+    test.use({ serviceWorkers: 'block' });
+
     test('取引所とモードで絞り込み、クリアで全件表示に戻せる', async ({ page }) => {
       const suffix = Date.now().toString().slice(-6);
       const firstBuySymbol = `FA${suffix}1`;

@@ -53,7 +53,7 @@ test.describe('/api/mylist/register', () => {
     }
 
     expect(response.status()).toBe(500);
-    expect(body.error.code).toMatch(/ENCRYPTION_ERROR|BATCH_ERROR/);
+    expect(body.error).toMatch(/ENCRYPTION_ERROR|BATCH_ERROR/);
   });
 
   test('150件中50件指定でも100件超のケースを処理できる', async ({ request }) => {
@@ -71,7 +71,7 @@ test.describe('/api/mylist/register', () => {
     }
 
     expect(response.status()).toBe(500);
-    expect(body.error.code).toMatch(/ENCRYPTION_ERROR|BATCH_ERROR/);
+    expect(body.error).toMatch(/ENCRYPTION_ERROR|BATCH_ERROR/);
   });
 
   test('お気に入りフィルタ指定時に対象動画があれば処理される', async ({ request }) => {
@@ -88,7 +88,7 @@ test.describe('/api/mylist/register', () => {
     }
 
     expect(response.status()).toBe(500);
-    expect(body.error.code).toMatch(/ENCRYPTION_ERROR|BATCH_ERROR/);
+    expect(body.error).toMatch(/ENCRYPTION_ERROR|BATCH_ERROR/);
   });
 
   test('フィルタ後0件の場合は適切にエラーを返す', async ({ request }) => {
@@ -100,7 +100,7 @@ test.describe('/api/mylist/register', () => {
     expect(response.status()).toBe(400);
 
     const body = await response.json();
-    expect(body.error.code).toBe('NO_VIDEOS');
-    expect(body.error.message).toBe('登録可能な動画が見つかりませんでした');
+    expect(body.error).toBe('NO_VIDEOS');
+    expect(body.message).toBe('登録可能な動画が見つかりませんでした');
   });
 });

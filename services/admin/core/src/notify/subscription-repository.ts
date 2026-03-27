@@ -2,11 +2,15 @@ import crypto from 'node:crypto';
 import type { PushSubscription } from '@nagiyu/common';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DeleteCommand, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { createRepositoryFactory } from '@nagiyu/aws';
+import { AbstractDynamoDBRepository, createRepositoryFactory } from '@nagiyu/aws';
 
 const ERROR_MESSAGES = {
   DYNAMODB_PARAMS_REQUIRED: 'DynamoDB 実装には docClient と tableName が必要です',
   INVALID_ENDPOINT: 'endpoint は空文字にできません',
+  INVALID_SUBSCRIPTION_ID: 'subscriptionId は空文字にできません',
+  INVALID_USER_ID: 'userId は空文字にできません',
+  INVALID_P256DH_KEY: 'p256dhKey は空文字にできません',
+  INVALID_AUTH_KEY: 'authKey は空文字にできません',
 } as const;
 
 const SUBSCRIPTION_PREFIX = 'SUBSCRIPTION#';
@@ -50,48 +54,49 @@ type PushSubscriptionItem = {
   updatedAt: string;
 };
 
-export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepository {
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
+type SaveSubscriptionItem = Omit<PushSubscriptionItem, 'createdAt' | 'updatedAt'>;
+
+export class DynamoDBPushSubscriptionRepository
+  extends AbstractDynamoDBRepository<PushSubscriptionRecord, { subscriptionId: string }>
+  implements PushSubscriptionRepository
+{
+  private static readonly ENTITY_TYPE = SUBSCRIPTION_TYPE;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
+    super(docClient, {
+      tableName,
+      entityType: DynamoDBPushSubscriptionRepository.ENTITY_TYPE,
+    });
   }
 
   public async save(input: SavePushSubscriptionInput): Promise<PushSubscriptionRecord> {
     const subscriptionId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const item: PushSubscriptionItem = {
-      PK: `${SUBSCRIPTION_PREFIX}${subscriptionId}`,
-      SK: `${SUBSCRIPTION_PREFIX}${subscriptionId}`,
-      Type: SUBSCRIPTION_TYPE,
-      GSI1PK: `${USER_PREFIX}${input.userId}`,
-      GSI1SK: `${SUBSCRIPTION_PREFIX}${subscriptionId}`,
-      GSI2PK: `${ENDPOINT_PREFIX}${hashEndpoint(input.subscription.endpoint)}`,
+    const item = this.mapToItem({
       subscriptionId,
       userId: input.userId,
-      endpoint: input.subscription.endpoint,
-      p256dhKey: input.subscription.keys.p256dh,
-      authKey: input.subscription.keys.auth,
+      subscription: input.subscription,
+    });
+    const now = new Date().toISOString();
+    const itemWithTimestamps: PushSubscriptionItem = {
+      ...item,
       createdAt: now,
       updatedAt: now,
     };
 
     await this.docClient.send(
       new PutCommand({
-        TableName: this.tableName,
-        Item: item,
+        TableName: this.config.tableName,
+        Item: itemWithTimestamps,
       })
     );
 
-    return this.toRecord(item);
+    return this.toRecord(itemWithTimestamps);
   }
 
   public async findAll(): Promise<PushSubscriptionRecord[]> {
     const result = await this.docClient.send(
       new ScanCommand({
-        TableName: this.tableName,
+        TableName: this.config.tableName,
         FilterExpression: '#type = :type',
         ExpressionAttributeNames: {
           '#type': 'Type',
@@ -110,7 +115,7 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
     const endpointHash = hashEndpoint(endpoint);
     const queryResult = await this.docClient.send(
       new QueryCommand({
-        TableName: this.tableName,
+        TableName: this.config.tableName,
         IndexName: ENDPOINT_INDEX_NAME,
         KeyConditionExpression: 'GSI2PK = :gsi2pk',
         ExpressionAttributeValues: {
@@ -128,7 +133,7 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
       items.map((item) =>
         this.docClient.send(
           new DeleteCommand({
-            TableName: this.tableName,
+            TableName: this.config.tableName,
             Key: {
               PK: item.PK,
               SK: item.SK,
@@ -154,6 +159,49 @@ export class DynamoDBPushSubscriptionRepository implements PushSubscriptionRepos
       },
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
+    };
+  }
+
+  protected buildKeys(key: { subscriptionId: string }): { PK: string; SK: string } {
+    return {
+      PK: `${SUBSCRIPTION_PREFIX}${key.subscriptionId}`,
+      SK: `${SUBSCRIPTION_PREFIX}${key.subscriptionId}`,
+    };
+  }
+
+  protected mapToEntity(item: Record<string, unknown>): PushSubscriptionRecord {
+    return this.toRecord(item as PushSubscriptionItem);
+  }
+
+  protected mapToItem(
+    entity: Omit<PushSubscriptionRecord, 'createdAt' | 'updatedAt'>
+  ): SaveSubscriptionItem {
+    if (!entity.subscriptionId) {
+      throw new Error(ERROR_MESSAGES.INVALID_SUBSCRIPTION_ID);
+    }
+    if (!entity.userId) {
+      throw new Error(ERROR_MESSAGES.INVALID_USER_ID);
+    }
+    if (!entity.subscription.keys.p256dh) {
+      throw new Error(ERROR_MESSAGES.INVALID_P256DH_KEY);
+    }
+    if (!entity.subscription.keys.auth) {
+      throw new Error(ERROR_MESSAGES.INVALID_AUTH_KEY);
+    }
+
+    const subscriptionId = entity.subscriptionId;
+    const keys = this.buildKeys({ subscriptionId });
+    return {
+      ...keys,
+      Type: DynamoDBPushSubscriptionRepository.ENTITY_TYPE,
+      GSI1PK: `${USER_PREFIX}${entity.userId}`,
+      GSI1SK: `${SUBSCRIPTION_PREFIX}${subscriptionId}`,
+      GSI2PK: `${ENDPOINT_PREFIX}${hashEndpoint(entity.subscription.endpoint)}`,
+      subscriptionId,
+      userId: entity.userId,
+      endpoint: entity.subscription.endpoint,
+      p256dhKey: entity.subscription.keys.p256dh,
+      authKey: entity.subscription.keys.auth,
     };
   }
 }

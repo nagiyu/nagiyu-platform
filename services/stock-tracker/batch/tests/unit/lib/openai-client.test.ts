@@ -82,6 +82,7 @@ describe('generateAiAnalysis', () => {
       expect.objectContaining({
         model: 'gpt-5-mini',
         tools: [{ type: 'web_search' }],
+        tool_choice: 'required',
         input: [
           {
             role: 'user',
@@ -100,6 +101,8 @@ describe('generateAiAnalysis', () => {
     expect(promptText).toContain('日付, 始値, 高値, 安値, 終値, 出来高');
     expect(promptText).toContain('2026-03-03, 99, 105, 97, 103, 1800000');
     expect(promptText).toContain('2026-03-04, 100, 120, 95, 110, 2000000');
+    expect(promptText).toContain('必ずWeb検索を利用して最新情報を取得');
+    expect(promptText).toContain('決算発表・重要経済指標など直近ニュースも根拠に含める');
 
     const parseCallArgument = mockParse.mock.calls[0][0] as {
       text: {
