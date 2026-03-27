@@ -5,7 +5,12 @@
  */
 
 import { DynamoDBAlertRepository } from '../../../src/repositories/dynamodb-alert.repository.js';
-import { EntityAlreadyExistsError, EntityNotFoundError, DatabaseError } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  EntityNotFoundError,
+  DatabaseError,
+  InvalidEntityDataError,
+} from '@nagiyu/aws';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { CreateAlertInput } from '../../../src/entities/alert.entity.js';
 import { logger } from '@nagiyu/common';
@@ -347,7 +352,8 @@ describe('DynamoDBAlertRepository', () => {
         UpdatedAt: 1704067200000,
       };
 
-      const invalidNameError = new Error('エンティティデータが無効です: テスト');
+      const invalidNameError = new InvalidEntityDataError('テスト');
+      Object.setPrototypeOf(invalidNameError, Error.prototype);
       invalidNameError.name = 'InvalidEntityDataError';
 
       const mapper = repository['mapper'];
@@ -362,7 +368,14 @@ describe('DynamoDBAlertRepository', () => {
       });
 
       mockDocClient.send.mockResolvedValueOnce({
-        Items: [validItem, validItem],
+        Items: [
+          validItem,
+          {
+            ...validItem,
+            SK: 'ALERT#alert-2',
+            AlertID: 'alert-2',
+          },
+        ],
         Count: 2,
       });
 
@@ -373,7 +386,7 @@ describe('DynamoDBAlertRepository', () => {
         '無効なアラートデータをスキップしました',
         expect.objectContaining({
           pk: 'USER#user-123',
-          sk: 'ALERT#alert-1',
+          sk: 'ALERT#alert-2',
         })
       );
     });
