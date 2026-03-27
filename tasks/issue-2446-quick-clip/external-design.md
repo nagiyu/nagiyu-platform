@@ -17,8 +17,6 @@
 | SCR-002 | 処理中画面 | /jobs/{jobId} | UC-001 | 高 |
 | SCR-003 | 見どころ確認画面 | /jobs/{jobId}/highlights | UC-002, UC-003 | 高 |
 
-<!-- TODO: 認証が必要な場合はログイン画面 (SCR-000) を追加する -->
-
 ### 1.2 画面遷移図
 
 ```mermaid

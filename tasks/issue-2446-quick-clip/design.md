@@ -13,22 +13,18 @@
 
 ### ベース URL・認証
 
-<!-- TODO: 認証方式を確認（JWT / Cookie / 匿名） -->
-
 - ベース URL: `/api`
-- 認証: <!-- TODO: 認証方式を確認 -->
+- 認証: なし（匿名利用）
 
 ### エンドポイント一覧
 
 | メソッド | パス | 説明 | 認証 |
 |---------|------|------|------|
-| POST | /api/jobs | ジョブ作成（アップロード用 Presigned URL 取得） | <!-- TODO --> |
-| GET | /api/jobs/{jobId} | ジョブステータス取得 | <!-- TODO --> |
-| GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得 | <!-- TODO --> |
-| PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新 | <!-- TODO --> |
-| POST | /api/jobs/{jobId}/download | ダウンロード用 ZIP 生成リクエスト | <!-- TODO --> |
-
-<!-- TODO: エンドポイント設計はrequirements.md の TODO 解消後に詳細化する -->
+| POST | /api/jobs | ジョブ作成（アップロード用 Presigned URL 取得） | なし |
+| GET | /api/jobs/{jobId} | ジョブステータス取得 | なし |
+| GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得 | なし |
+| PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新 | なし |
+| POST | /api/jobs/{jobId}/download | ダウンロード用 ZIP 生成リクエスト | なし |
 
 ---
 
@@ -145,19 +141,20 @@ type Highlight = {
 
 - FFmpeg が batch コンテナに組み込まれていること
 - AWS S3・DynamoDB へのアクセス権限が付与されていること
-- <!-- TODO: 認証基盤（auth サービス等）との連携が必要かどうかを確認 -->
+- 認証基盤との連携は不要（匿名利用のため）
 
 ### パフォーマンス考慮事項
 
 - 動画は S3 に直接アップロード（Lambda/Next.js を経由しない Presigned URL 方式）
 - 大容量動画の処理は AWS Batch（Fargate）で非同期実行
-- <!-- TODO: 処理時間の目標値を確認してリソース設計に反映する -->
+- 見どころ抽出処理の目標: 30秒以内（目安）。リソース設計時に検証する
+- ZIP 生成の目標: 30秒以内（目安）
 
 ### セキュリティ考慮事項
 
 - S3 バケットは非公開。動画プレビューには Presigned URL を使用
 - ジョブ ID は UUID v4（128 ビット）で推測困難にする
-- <!-- TODO: ユーザー認証ありの場合は自分のジョブのみ閲覧可能とする認可チェックを追加 -->
+- ユーザー認証は不要（匿名利用）。ジョブ ID を知っている人のみアクセス可能
 
 ---
 
