@@ -324,7 +324,7 @@ describe('DynamoDBAlertRepository', () => {
       );
     });
 
-    it('error.name が InvalidEntityDataError の場合もスキップする', async () => {
+    it('モジュール経路差異で instanceof が失敗しても無効データをスキップする', async () => {
       const validItem = {
         PK: 'USER#user-123',
         SK: 'ALERT#alert-1',
@@ -352,9 +352,10 @@ describe('DynamoDBAlertRepository', () => {
         UpdatedAt: 1704067200000,
       };
 
-      const invalidNameError = new InvalidEntityDataError('テスト');
-      Object.setPrototypeOf(invalidNameError, Error.prototype);
-      invalidNameError.name = 'InvalidEntityDataError';
+      const crossModuleLikeError = new InvalidEntityDataError('テスト');
+      // モジュール読込経路差異で instanceof 判定が崩れるケースを再現する
+      Object.setPrototypeOf(crossModuleLikeError, Error.prototype);
+      crossModuleLikeError.name = 'InvalidEntityDataError';
 
       const mapper = repository['mapper'];
       const originalToEntity = mapper.toEntity.bind(mapper);
@@ -364,7 +365,7 @@ describe('DynamoDBAlertRepository', () => {
           called = true;
           return originalToEntity(item);
         }
-        throw invalidNameError;
+        throw crossModuleLikeError;
       });
 
       mockDocClient.send.mockResolvedValueOnce({
