@@ -33,6 +33,7 @@ const ERROR_MESSAGES = {
 } as const;
 
 const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
+const INVALID_ENTITY_DATA_MESSAGE_PREFIX = 'エンティティデータが無効です';
 
 const isInvalidEntityDataError = (error: unknown): error is Error => {
   if (error instanceof InvalidEntityDataError) {
@@ -45,7 +46,7 @@ const isInvalidEntityDataError = (error: unknown): error is Error => {
 
   return (
     error.name === INVALID_ENTITY_DATA_ERROR_NAME &&
-    error.message.includes('エンティティデータが無効です')
+    error.message.startsWith(INVALID_ENTITY_DATA_MESSAGE_PREFIX)
   );
 };
 

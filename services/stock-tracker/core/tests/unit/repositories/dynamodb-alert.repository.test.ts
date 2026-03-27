@@ -16,6 +16,8 @@ import type { CreateAlertInput } from '../../../src/entities/alert.entity.js';
 import { AlertMapper } from '../../../src/mappers/alert.mapper.js';
 import { logger } from '@nagiyu/common';
 
+const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
+
 jest.mock('@nagiyu/common', () => ({
   logger: {
     info: jest.fn(),
@@ -325,7 +327,7 @@ describe('DynamoDBAlertRepository', () => {
       );
     });
 
-    it('error.nameベースでも無効データをスキップし、有効なデータのみ返す', async () => {
+    it('モジュールインスタンス差異がある環境でも無効データをスキップし、有効なデータのみ返す', async () => {
       const validItem = {
         PK: 'USER#user-123',
         SK: 'ALERT#alert-1',
@@ -367,11 +369,14 @@ describe('DynamoDBAlertRepository', () => {
               'フィールド "SubscriptionEndpoint" が文字列ではありません'
             );
             const duplicatedModuleError = new Error(baseError.message);
-            duplicatedModuleError.name = 'InvalidEntityDataError';
+            duplicatedModuleError.name = INVALID_ENTITY_DATA_ERROR_NAME;
             throw duplicatedModuleError;
           }
 
-          return validItem as unknown as ReturnType<AlertMapper['toEntity']>;
+          return {
+            ...validItem,
+            AlertID: record.AlertID || validItem.AlertID,
+          } as unknown as ReturnType<AlertMapper['toEntity']>;
         });
 
       mockDocClient.send.mockResolvedValueOnce({
