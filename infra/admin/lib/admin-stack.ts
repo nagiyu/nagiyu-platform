@@ -14,18 +14,15 @@ export class AdminStack extends cdk.Stack {
 
     const { environment } = props;
 
-    new SNSStack(scope, `Admin-SNS-${environment}`, {
-      ...props,
+    new SNSStack(this, `Admin-SNS-${environment}`, {
       environment,
     });
 
-    new DynamoDBStack(scope, `Admin-DynamoDB-${environment}`, {
-      ...props,
+    new DynamoDBStack(this, `Admin-DynamoDB-${environment}`, {
       environment,
     });
 
-    new SecretsStack(scope, `Admin-Secrets-${environment}`, {
-      ...props,
+    new SecretsStack(this, `Admin-Secrets-${environment}`, {
       environment,
     });
   }
