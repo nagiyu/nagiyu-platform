@@ -9,7 +9,10 @@ export type {
 
 export type { JobRepository } from './repositories/job.repository.interface.js';
 export type { HighlightRepository } from './repositories/highlight.repository.interface.js';
-export type { EnvironmentVariables, BatchCommand } from './lib/environment.js';
+export type {
+  QuickClipBatchRunInput,
+  QuickClipBatchCommand,
+} from './libs/quick-clip-batch-runner.js';
 
 export type {
   ExtractedHighlight,
@@ -20,7 +23,6 @@ export type { ClipSplitterService } from './libs/clip-splitter.service.js';
 export { JobService } from './libs/job.service.js';
 export { HighlightService } from './libs/highlight.service.js';
 export { HighlightAggregationService } from './libs/highlight-aggregation.service.js';
-export { validateEnvironment } from './lib/environment.js';
 export { FfmpegVideoAnalyzer } from './libs/ffmpeg-video-analyzer.js';
 export { MotionHighlightService } from './libs/motion-highlight.service.js';
 export { VolumeHighlightService } from './libs/volume-highlight.service.js';

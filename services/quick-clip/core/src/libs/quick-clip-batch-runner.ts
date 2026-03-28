@@ -8,13 +8,25 @@ import { dirname } from 'node:path';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { Highlight, JobStatus } from '../types.js';
-import type { EnvironmentVariables } from '../lib/environment.js';
 import { FfmpegClipSplitter } from './ffmpeg-clip-splitter.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
 import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.repository.js';
 import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
+
+/** Batch 実行コマンド種別。 */
+export type QuickClipBatchCommand = 'extract' | 'split';
+
+/** quick-clip batch 実行に必要な入力。環境変数の解釈は呼び出し側で行う。 */
+export type QuickClipBatchRunInput = {
+  command: QuickClipBatchCommand;
+  /** ジョブID（英数字・アンダースコア・ハイフンのみ許可）。 */
+  jobId: string;
+  tableName: string;
+  bucketName: string;
+  awsRegion: string;
+};
 
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: 'ジョブが見つかりません',
@@ -151,7 +163,7 @@ const ensureCompletedJob = async (
   }
 };
 
-const runExtract = async (env: EnvironmentVariables): Promise<void> => {
+const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
 
   await updateJobStatus(env.jobId, 'PROCESSING', env.tableName, env.awsRegion);
@@ -161,7 +173,7 @@ const runExtract = async (env: EnvironmentVariables): Promise<void> => {
   await updateJobStatus(env.jobId, 'COMPLETED', env.tableName, env.awsRegion);
 };
 
-const runSplit = async (env: EnvironmentVariables): Promise<void> => {
+const runSplit = async (env: QuickClipBatchRunInput): Promise<void> => {
   const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
   const zipPath = ZIP_OUTPUT_PATH(env.jobId);
 
@@ -195,9 +207,9 @@ const runSplit = async (env: EnvironmentVariables): Promise<void> => {
   await uploadFile(env.bucketName, ZIP_OUTPUT_KEY(env.jobId), zipPath, env.awsRegion);
 };
 
-export const runQuickClipBatch = async (env: EnvironmentVariables): Promise<void> => {
+export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
   try {
-    if (env.batchCommand === 'extract') {
+    if (env.command === 'extract') {
       await runExtract(env);
     } else {
       await runSplit(env);

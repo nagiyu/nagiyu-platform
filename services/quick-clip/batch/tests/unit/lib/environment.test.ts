@@ -19,7 +19,7 @@ describe('validateEnvironment', () => {
     process.env.AWS_REGION = 'ap-northeast-1';
 
     expect(validateEnvironment()).toEqual({
-      batchCommand: 'extract',
+      command: 'extract',
       jobId: 'job-1',
       tableName: 'table',
       bucketName: 'bucket',

@@ -1,4 +1,5 @@
-import { runQuickClipBatch, validateEnvironment } from '@nagiyu/quick-clip-core';
+import { runQuickClipBatch } from '@nagiyu/quick-clip-core';
+import { validateEnvironment } from './lib/environment.js';
 
 export const main = async (): Promise<void> => {
   const env = validateEnvironment();
