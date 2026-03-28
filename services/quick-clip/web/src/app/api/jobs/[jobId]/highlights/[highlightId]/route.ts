@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { HighlightDomainService, isHighlightStatus } from '@/lib/server/domain-services';
+import {
+  DOMAIN_ERROR_MESSAGES,
+  HighlightDomainService,
+  isHighlightStatus,
+} from '@/lib/server/domain-services';
 import { getHighlightRepository } from '@/repositories/dynamodb-highlight.repository';
 import type { UpdateHighlightInput } from '@/types/quick-clip';
 
@@ -22,10 +26,10 @@ type RouteParams = {
   }>;
 };
 
-const VALIDATION_ERROR_MESSAGES = new Set([
-  '更新内容が指定されていません',
-  '開始時刻と終了時刻は0以上で指定してください',
-  '開始時刻は終了時刻より小さくしてください',
+const VALIDATION_ERROR_MESSAGES: ReadonlySet<string> = new Set([
+  DOMAIN_ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED,
+  DOMAIN_ERROR_MESSAGES.SECOND_VALUE_INVALID,
+  DOMAIN_ERROR_MESSAGES.RANGE_INVALID,
 ]);
 
 const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
@@ -75,7 +79,7 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
       const updated = await highlightService.updateHighlight(jobId, highlightId, body);
       return NextResponse.json(updated);
     } catch (error) {
-      if (error instanceof Error && error.message === '見どころが見つかりません') {
+      if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {
         return NextResponse.json(
           {
             error: 'HIGHLIGHT_NOT_FOUND',

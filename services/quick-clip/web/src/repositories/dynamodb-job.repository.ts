@@ -1,5 +1,6 @@
 import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
+import { DOMAIN_ERROR_MESSAGES } from '@/lib/server/domain-services';
 import type { JobRepository } from '@/types/repository';
 import type { Job } from '@/types/quick-clip';
 
@@ -92,7 +93,7 @@ class DynamoDBJobRepository implements JobRepository {
 
     const updated = await this.getById(jobId);
     if (!updated) {
-      throw new Error('ジョブが見つかりません');
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_UPDATED_FETCH_FAILED);
     }
     return updated;
   }

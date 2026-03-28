@@ -1,5 +1,6 @@
 import { GetCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
+import { DOMAIN_ERROR_MESSAGES } from '@/lib/server/domain-services';
 import type { HighlightRepository } from '@/types/repository';
 import type { Highlight, HighlightStatus, UpdateHighlightInput } from '@/types/quick-clip';
 
@@ -95,7 +96,7 @@ class DynamoDBHighlightRepository implements HighlightRepository {
     if (expressions.length === 0) {
       const current = await this.getById(jobId, highlightId);
       if (!current) {
-        throw new Error('見どころが見つかりません');
+        throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND);
       }
       return current;
     }
@@ -112,7 +113,7 @@ class DynamoDBHighlightRepository implements HighlightRepository {
 
     const updated = await this.getById(jobId, highlightId);
     if (!updated) {
-      throw new Error('見どころが見つかりません');
+      throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_UPDATED_FETCH_FAILED);
     }
     return updated;
   }

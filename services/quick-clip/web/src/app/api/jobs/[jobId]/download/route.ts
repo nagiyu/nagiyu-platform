@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { HighlightDomainService } from '@/lib/server/domain-services';
+import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 import {
   getAwsRegion,
   getBatchClient,
@@ -86,7 +86,7 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
       downloadUrl,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'ジョブIDは必須です') {
+    if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {
       return NextResponse.json(
         {
           error: 'JOB_NOT_FOUND',
