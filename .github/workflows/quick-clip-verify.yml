@@ -173,6 +173,7 @@ jobs:
     name: Report Results to PR
     runs-on: ubuntu-latest
     if: always()
+    # coverage は develop へのPRでのみ実行され、integration/** へのPRでは needs 依存により skipped となる
     needs: [lint, format-check, build-core, build-web, build-batch, build-infra, test-core, test-batch, coverage]
     permissions:
       contents: read
@@ -203,7 +204,7 @@ jobs:
             };
 
             const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
-            const isFull = github.base_ref === 'develop';
+            const isFull = context.payload.pull_request?.base?.ref === 'develop';
             const header = allSuccess
               ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
               : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
