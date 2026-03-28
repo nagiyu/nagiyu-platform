@@ -25,19 +25,21 @@
 ## Phase 2: UI PoC（外観調整・要件確認）
 
 <!--
-    PoC データ（ハードコード）で全画面を実装し、見た目を確認・調整する。
+    全画面と PoC 用 API Routes を実装し、見た目を確認・調整する。
     このフェーズが完了したら要件を再 Fix してから Phase 3 以降に進む。
 
-    PoC データを使用している箇所には必ず TODO コメントを残すこと:
-    // TODO(PoC): ダミーデータ。Phase 4 の API Routes 実装後に実 API 呼び出しに差し替える
+    UI は実 API エンドポイントをそのまま呼び出す。
+    PoC データ（ハードコード）は API Route ハンドラー側に置き、必ず TODO コメントを残すこと:
+    // TODO(PoC): ハードコードデータ。Phase 5 の本実装時に DynamoDB 実装に差し替える
 -->
 
-- [ ] アップロード画面（SCR-001: `web/src/app/page.tsx`）PoC 実装（依存: Phase 1）
-- [ ] 処理中画面（SCR-002: `web/src/app/jobs/[jobId]/page.tsx`）PoC 実装（依存: Phase 1）
-- [ ] 見どころ確認画面（SCR-003: `web/src/app/jobs/[jobId]/highlights/page.tsx`）PoC 実装（依存: Phase 1）
+- [ ] PoC 用 API Routes 実装（ハードコードデータを返す。`TODO(PoC)` コメントを各ハンドラーに付与）（依存: Phase 1）
+- [ ] アップロード画面（SCR-001: `web/src/app/page.tsx`）PoC 実装（依存: 上記）
+- [ ] 処理中画面（SCR-002: `web/src/app/jobs/[jobId]/page.tsx`）PoC 実装（依存: 上記）
+- [ ] 見どころ確認画面（SCR-003: `web/src/app/jobs/[jobId]/highlights/page.tsx`）PoC 実装（依存: 上記）
 - [ ] **要件再確認・Fix**（外観を確認しながら追加要件を洗い出し、`requirements.md` / `external-design.md` を更新する）（依存: 上記全て）
 
-> **PoC での API 通信方針**: 実 API の呼び出しを含める場合は、呼び出し先をスタブ関数として切り出し、`TODO(PoC)` コメントを付与しておく。Phase 4 完了後にスタブを実 API 呼び出しに差し替えやすくするため。
+> **PoC での API 通信方針**: UI は実 API エンドポイントをそのまま呼び出す。PoC データはサーバー側（API Route ハンドラー）でハードコードし、`TODO(PoC)` コメントを付与しておく。Phase 5 の本実装時に DynamoDB 実装へ差し替える。
 
 ## Phase 3: core 実装（ドメインロジック・インターフェース）
 
@@ -64,26 +66,25 @@
 - [ ] DynamoDB `HighlightRepository` 実装（`batch/src/repositories/dynamodb-highlight.repository.ts`）（依存: Phase 3）
 - [ ] `entrypoint` 実装（`batch/src/entrypoint.ts`）（依存: 上記全て）
 
-## Phase 5: API Routes 実装
+## Phase 5: API Routes 本実装
 
-<!-- Next.js API Routes の実装 -->
+<!-- Next.js API Routes の PoC 実装を DynamoDB 実装に差し替える。TODO(PoC) コメントをすべて解消する -->
 
 - [ ] DynamoDB `JobRepository` 実装（`web/src/repositories/dynamodb-job.repository.ts`）（依存: Phase 3）
 - [ ] DynamoDB `HighlightRepository` 実装（`web/src/repositories/dynamodb-highlight.repository.ts`）（依存: Phase 3）
-- [ ] `POST /api/jobs`（Presigned URL 生成・ジョブ作成）（依存: Phase 3）
-- [ ] `GET /api/jobs/[jobId]`（ジョブステータス取得）（依存: Phase 3）
-- [ ] `GET /api/jobs/[jobId]/highlights`（見どころ一覧取得）（依存: Phase 3）
-- [ ] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（採否・時間更新）（依存: Phase 3）
-- [ ] `POST /api/jobs/[jobId]/download`（ZIP 生成リクエスト・ダウンロード URL 取得）（依存: Phase 3）
+- [ ] `POST /api/jobs`（Presigned URL 生成・ジョブ作成）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [ ] `GET /api/jobs/[jobId]`（ジョブステータス取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [ ] `GET /api/jobs/[jobId]/highlights`（見どころ一覧取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [ ] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（採否・時間更新）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [ ] `POST /api/jobs/[jobId]/download`（ZIP 生成リクエスト・ダウンロード URL 取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [ ] API Routes 内に `TODO(PoC)` コメントが残っていないことを確認
 
-## Phase 6: UI 本実装（PoC → 本番への差し替え）
+## Phase 6: 結合確認・E2E テスト
 
-<!-- Phase 2 の PoC 実装を実 API 呼び出しに差し替え、TODO(PoC) コメントをすべて解消する -->
+<!-- Phase 5 の本実装後に UI + 実 API の結合動作を確認し、E2E テストを作成する -->
 
-- [ ] アップロード画面（SCR-001）の `TODO(PoC)` を実 API 呼び出しに差し替え（依存: Phase 5）
-- [ ] 処理中画面（SCR-002）の `TODO(PoC)` を実 API 呼び出しに差し替え（依存: Phase 5）
-- [ ] 見どころ確認画面（SCR-003）の `TODO(PoC)` を実 API 呼び出しに差し替え（依存: Phase 5）
-- [ ] `TODO(PoC)` コメントが残っていないことを確認
+- [ ] 全画面で実 API（DynamoDB）との結合動作を確認
+- [ ] `TODO(PoC)` コメントがリポジトリ内に残っていないことを確認
 - [ ] E2E テスト作成（依存: 上記全て）
 
 ## Phase 7: 検証・ドキュメント整備
