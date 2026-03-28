@@ -133,6 +133,8 @@ const updateJobStatus = async (
 };
 
 const createPseudoZip = async (files: string[], outputPath: string): Promise<void> => {
+  // Phase 4 では ZIP 実装を簡易化し、クリップ一覧インデックスを保存する。
+  // 実 ZIP 生成は Phase 5 以降で置き換える。
   const contentLines = ['quick-clip pseudo zip index'];
   for (const filePath of files) {
     contentLines.push(filePath);
@@ -182,18 +184,22 @@ const runSplit = async (env: EnvironmentVariables): Promise<void> => {
 
   const splitter = new FfmpegClipSplitter();
   const clipPaths = await splitter.splitClips(env.jobId, localVideoPath, highlights);
-  for (const highlight of highlights.filter((item) => item.status === 'accepted')) {
-    const clipPath = clipPaths.find((path) => path.endsWith(`${highlight.highlightId}.mp4`));
-    if (!clipPath) {
-      continue;
-    }
-    await uploadFile(
-      env.bucketName,
-      CLIP_OUTPUT_KEY(env.jobId, highlight.highlightId),
-      clipPath,
-      env.awsRegion
-    );
-  }
+  await Promise.all(
+    highlights
+      .filter((item) => item.status === 'accepted')
+      .map(async (highlight) => {
+        const clipPath = clipPaths.find((path) => path.endsWith(`${highlight.highlightId}.mp4`));
+        if (!clipPath) {
+          return;
+        }
+        await uploadFile(
+          env.bucketName,
+          CLIP_OUTPUT_KEY(env.jobId, highlight.highlightId),
+          clipPath,
+          env.awsRegion
+        );
+      })
+  );
 
   await createPseudoZip(clipPaths, zipPath);
   await uploadFile(env.bucketName, ZIP_OUTPUT_KEY(env.jobId), zipPath, env.awsRegion);

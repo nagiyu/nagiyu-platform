@@ -119,34 +119,36 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
   }
 
   public async createMany(highlights: Highlight[]): Promise<void> {
-    for (const highlight of highlights) {
-      await this.docClient.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: this.buildKeys(highlight.jobId, highlight.highlightId),
-          UpdateExpression:
-            'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status',
-          ExpressionAttributeNames: {
-            '#type': 'Type',
-            '#highlightId': 'highlightId',
-            '#jobId': 'jobId',
-            '#order': 'order',
-            '#startSec': 'startSec',
-            '#endSec': 'endSec',
-            '#status': 'status',
-          },
-          ExpressionAttributeValues: {
-            ':type': 'HIGHLIGHT',
-            ':highlightId': highlight.highlightId,
-            ':jobId': highlight.jobId,
-            ':order': highlight.order,
-            ':startSec': highlight.startSec,
-            ':endSec': highlight.endSec,
-            ':status': highlight.status,
-          },
-        })
-      );
-    }
+    await Promise.all(
+      highlights.map((highlight) =>
+        this.docClient.send(
+          new UpdateCommand({
+            TableName: this.tableName,
+            Key: this.buildKeys(highlight.jobId, highlight.highlightId),
+            UpdateExpression:
+              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status',
+            ExpressionAttributeNames: {
+              '#type': 'Type',
+              '#highlightId': 'highlightId',
+              '#jobId': 'jobId',
+              '#order': 'order',
+              '#startSec': 'startSec',
+              '#endSec': 'endSec',
+              '#status': 'status',
+            },
+            ExpressionAttributeValues: {
+              ':type': 'HIGHLIGHT',
+              ':highlightId': highlight.highlightId,
+              ':jobId': highlight.jobId,
+              ':order': highlight.order,
+              ':startSec': highlight.startSec,
+              ':endSec': highlight.endSec,
+              ':status': highlight.status,
+            },
+          })
+        )
+      )
+    );
   }
 
   private buildKeys(jobId: string, highlightId: string): { PK: string; SK: string } {

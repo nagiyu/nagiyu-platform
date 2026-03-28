@@ -47,15 +47,13 @@ export const validateEnvironment = (): EnvironmentVariables => {
   if (missing.length > 0) {
     throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: ${missing.join(', ')}`);
   }
-  if (!batchCommand) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: BATCH_COMMAND`);
-  }
   if (!/^[\w-]+$/u.test(jobId)) {
     throw new Error(ERROR_MESSAGES.INVALID_JOB_ID);
   }
+  const normalizedBatchCommand = batchCommand as BatchCommand;
 
   return {
-    batchCommand,
+    batchCommand: normalizedBatchCommand,
     jobId,
     tableName,
     bucketName,
