@@ -47,7 +47,11 @@ export class JobService {
     return this.jobRepository.getById(jobId);
   }
 
-  public async updateStatus(jobId: string, status: Job['status'], errorMessage?: string): Promise<Job> {
+  public async updateStatus(
+    jobId: string,
+    status: Job['status'],
+    errorMessage?: string
+  ): Promise<Job> {
     if (jobId.trim().length === 0) {
       throw new Error(ERROR_MESSAGES.JOB_ID_REQUIRED);
     }

@@ -16,9 +16,7 @@ describe('HighlightAggregationService', () => {
       { startSec: 10, endSec: 15, score: 20, source: 'motion' },
       { startSec: 5, endSec: 8, score: 30, source: 'motion' },
     ]);
-    const second = createExtractorMock([
-      { startSec: 12, endSec: 16, score: 25, source: 'volume' },
-    ]);
+    const second = createExtractorMock([{ startSec: 12, endSec: 16, score: 25, source: 'volume' }]);
     const service = new HighlightAggregationService([first, second]);
 
     const result = await service.aggregate('job-1', '/tmp/video.mp4');
@@ -50,12 +48,15 @@ describe('HighlightAggregationService', () => {
   });
 
   it('結果は最大20件に制限する', async () => {
-    const highlightsExceedingLimit: ExtractedHighlight[] = Array.from({ length: 25 }, (_, index) => ({
-      startSec: index,
-      endSec: index + 1,
-      score: 100 - index,
-      source: 'motion',
-    }));
+    const highlightsExceedingLimit: ExtractedHighlight[] = Array.from(
+      { length: 25 },
+      (_, index) => ({
+        startSec: index,
+        endSec: index + 1,
+        score: 100 - index,
+        source: 'motion',
+      })
+    );
     const extractor = createExtractorMock(highlightsExceedingLimit);
     const service = new HighlightAggregationService([extractor]);
 
