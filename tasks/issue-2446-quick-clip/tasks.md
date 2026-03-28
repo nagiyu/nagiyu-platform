@@ -45,14 +45,14 @@
 
 <!-- ビジネスロジックの実装。FFmpeg 非依存のため単体テストが容易 -->
 
-- [ ] `JobRepository` インターフェース定義（`core/src/repositories/job.repository.interface.ts`）（依存: Phase 2 要件 Fix）
-- [ ] `HighlightRepository` インターフェース定義（`core/src/repositories/highlight.repository.interface.ts`）（依存: Phase 2 要件 Fix）
-- [ ] `HighlightExtractorService` インターフェース定義（`core/src/libs/highlight-extractor.service.ts`）（依存: Phase 2 要件 Fix）
-- [ ] `ClipSplitterService` インターフェース定義（`core/src/libs/clip-splitter.service.ts`）（依存: Phase 2 要件 Fix）
-- [ ] `JobService` 実装（`core/src/libs/job.service.ts`）（依存: `JobRepository`）
-- [ ] `HighlightService` 実装（`core/src/libs/highlight.service.ts`）（依存: `HighlightRepository`）
-- [ ] `HighlightAggregationService` 実装（`core/src/libs/highlight-aggregation.service.ts`）（依存: `HighlightExtractorService`）
-- [ ] core ユニットテスト（カバレッジ 80% 以上）（依存: 上記全て）
+- [x] `JobRepository` インターフェース定義（`core/src/repositories/job.repository.interface.ts`）（依存: Phase 2 要件 Fix）
+- [x] `HighlightRepository` インターフェース定義（`core/src/repositories/highlight.repository.interface.ts`）（依存: Phase 2 要件 Fix）
+- [x] `HighlightExtractorService` インターフェース定義（`core/src/libs/highlight-extractor.service.ts`）（依存: Phase 2 要件 Fix）
+- [x] `ClipSplitterService` インターフェース定義（`core/src/libs/clip-splitter.service.ts`）（依存: Phase 2 要件 Fix）
+- [x] `JobService` 実装（`core/src/libs/job.service.ts`）（依存: `JobRepository`）
+- [x] `HighlightService` 実装（`core/src/libs/highlight.service.ts`）（依存: `HighlightRepository`）
+- [x] `HighlightAggregationService` 実装（`core/src/libs/highlight-aggregation.service.ts`）（依存: `HighlightExtractorService`）
+- [x] core ユニットテスト（カバレッジ 80% 以上）（依存: 上記全て）
 
 ## Phase 4: batch 実装（FFmpeg 依存の具象実装）
 
