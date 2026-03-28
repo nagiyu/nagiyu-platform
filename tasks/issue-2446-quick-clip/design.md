@@ -128,9 +128,10 @@ type Highlight = {
 
 | モジュール | パス | 役割 |
 |----------|------|------|
-| `highlight-extractor` | `batch/src/highlight-extractor.ts` | メインエントリーポイント（抽出処理） |
-| `VideoAnalyzer` | `batch/src/libs/video-analyzer.ts` | FFmpegを用いた変化量・音量分析 |
-| `HighlightDetector` | `batch/src/libs/highlight-detector.ts` | スコアリングと見どころ区間の検出 |
+| `highlight-extractor` | `batch/src/highlight-extractor.ts` | メインエントリーポイント（各具象サービスを呼び出して結果を統合） |
+| `IHighlightExtractorService` | `batch/src/libs/highlight-extractor.service.ts` | 見どころ抽出サービスの抽象インターフェース |
+| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | 変化量（フレーム差分）で上位10件を抽出する具象実装 |
+| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | 音量で上位10件を抽出する具象実装 |
 | `ClipExporter` | `batch/src/libs/clip-exporter.ts` | 採用された見どころの分割書き出し |
 
 ---
