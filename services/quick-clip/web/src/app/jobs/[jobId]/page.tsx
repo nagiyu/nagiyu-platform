@@ -12,7 +12,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import type { JobStatus, PocJob } from '@/lib/poc-types';
+import type { Job, JobStatus } from '@/types/quick-clip';
 
 const POLLING_INTERVAL_MS = 10000;
 
@@ -39,9 +39,13 @@ type JobPageProps = {
   params: Promise<{ jobId: string }>;
 };
 
+type JobApiResponse = Job & {
+  downloadUrl?: string;
+};
+
 export default function JobPage({ params }: JobPageProps) {
   const [jobId, setJobId] = useState<string>('');
-  const [job, setJob] = useState<PocJob | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -78,7 +82,7 @@ export default function JobPage({ params }: JobPageProps) {
           return;
         }
 
-        const data = (await response.json()) as PocJob;
+        const data = (await response.json()) as JobApiResponse;
         setJob(data);
         setErrorMessage(null);
       } catch {

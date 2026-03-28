@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { updatePocHighlight } from '@/lib/poc-data';
-import type { HighlightStatus } from '@/lib/poc-types';
+import { HighlightDomainService, isHighlightStatus } from '@/lib/server/domain-services';
+import { getHighlightRepository } from '@/repositories/dynamodb-highlight.repository';
+import type { UpdateHighlightInput } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: '更新内容が不正です',
   HIGHLIGHT_NOT_FOUND: '指定された見どころが見つかりません',
+  INTERNAL_SERVER_ERROR: '見どころの更新に失敗しました',
 } as const;
 
 type UpdateHighlightRequest = {
-  startSec?: number;
-  endSec?: number;
-  status?: HighlightStatus;
+  startSec?: UpdateHighlightInput['startSec'];
+  endSec?: UpdateHighlightInput['endSec'];
+  status?: UpdateHighlightInput['status'];
 };
 
 type RouteParams = {
@@ -20,7 +22,11 @@ type RouteParams = {
   }>;
 };
 
-const VALID_STATUSES: ReadonlyArray<HighlightStatus> = ['accepted', 'rejected', 'pending'];
+const VALIDATION_ERROR_MESSAGES = new Set([
+  '更新内容が指定されていません',
+  '開始時刻と終了時刻は0以上で指定してください',
+  '開始時刻は終了時刻より小さくしてください',
+]);
 
 const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
   if (typeof body !== 'object' || body === null) {
@@ -30,16 +36,14 @@ const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
   const request = body as UpdateHighlightRequest;
   const hasStart = request.startSec === undefined || typeof request.startSec === 'number';
   const hasEnd = request.endSec === undefined || typeof request.endSec === 'number';
-  const hasStatus =
-    request.status === undefined ||
-    (typeof request.status === 'string' && VALID_STATUSES.includes(request.status));
+  const hasStatus = request.status === undefined || isHighlightStatus(request.status);
 
   return hasStart && hasEnd && hasStatus;
 };
 
 export async function PATCH(request: Request, { params }: RouteParams): Promise<NextResponse> {
-  // TODO(PoC): ハードコードデータ。Phase 5 の本実装時に DynamoDB 実装に差し替える
   const { jobId, highlightId } = await params;
+  const highlightService = new HighlightDomainService(getHighlightRepository());
 
   try {
     const body = await request.json();
@@ -67,18 +71,38 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
       );
     }
 
-    const updated = updatePocHighlight(jobId, highlightId, body);
-    if (!updated) {
+    try {
+      const updated = await highlightService.updateHighlight(jobId, highlightId, body);
+      return NextResponse.json(updated);
+    } catch (error) {
+      if (error instanceof Error && error.message === '見どころが見つかりません') {
+        return NextResponse.json(
+          {
+            error: 'HIGHLIGHT_NOT_FOUND',
+            message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      if (error instanceof Error && VALIDATION_ERROR_MESSAGES.has(error.message)) {
+        return NextResponse.json(
+          {
+            error: 'INVALID_REQUEST',
+            message: ERROR_MESSAGES.INVALID_REQUEST,
+          },
+          { status: 400 }
+        );
+      }
+
       return NextResponse.json(
         {
-          error: 'HIGHLIGHT_NOT_FOUND',
-          message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+          error: 'INTERNAL_SERVER_ERROR',
+          message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         },
-        { status: 404 }
+        { status: 500 }
       );
     }
-
-    return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
       {

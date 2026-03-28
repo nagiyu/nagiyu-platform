@@ -1,0 +1,105 @@
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getBatchClient } from '@/lib/server/aws';
+import { POST } from '@/app/api/jobs/[jobId]/download/route';
+
+const mockGetByJobId = jest.fn();
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: jest.fn(),
+}));
+
+jest.mock('@/repositories/dynamodb-highlight.repository', () => ({
+  getHighlightRepository: jest.fn(() => ({
+    getByJobId: mockGetByJobId,
+    getById: jest.fn(),
+    update: jest.fn(),
+  })),
+}));
+
+jest.mock('@/lib/server/aws', () => ({
+  getAwsRegion: jest.fn(() => 'us-east-1'),
+  getBatchClient: jest.fn(),
+  getBatchJobDefinitionArn: jest.fn(
+    () => 'arn:aws:batch:us-east-1:123456789012:job-definition/quick-clip:1'
+  ),
+  getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
+  getBucketName: jest.fn(() => 'test-bucket'),
+  getS3Client: jest.fn(() => ({})),
+  getTableName: jest.fn(() => 'test-table'),
+}));
+
+jest.mock('next/server', () => ({
+  NextResponse: {
+    json: (body: unknown, init?: { status?: number }) => ({
+      status: init?.status ?? 200,
+      json: async () => body,
+    }),
+  },
+}));
+
+describe('POST /api/jobs/[jobId]/download', () => {
+  const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+  const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
+  const batchSend = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedGetSignedUrl.mockResolvedValue('https://example.com/download');
+    mockedGetBatchClient.mockReturnValue({
+      send: batchSend.mockResolvedValue({}),
+    } as unknown as ReturnType<typeof getBatchClient>);
+  });
+
+  const mockRequest = {} as Request;
+
+  it('正常系: ダウンロードURL生成とBatch投入を行う', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      jobId: 'job-1',
+      fileName: 'job-1-clips.zip',
+      downloadUrl: 'https://example.com/download',
+    });
+    expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
+    expect(batchSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('異常系: 採用見どころがない場合は400を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'rejected',
+      },
+    ]);
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'DOWNLOAD_NOT_AVAILABLE',
+      message: '採用された見どころがありません',
+    });
+  });
+});
