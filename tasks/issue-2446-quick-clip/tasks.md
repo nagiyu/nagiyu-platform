@@ -14,13 +14,13 @@
 
 <!-- サービス骨格・インフラ・共通設定のセットアップ -->
 
-- [ ] サービスディレクトリ構成の作成（`services/quick-clip/{core,web,batch}`）（依存: なし）
-- [ ] モノレポへのワークスペース追加（ルート `package.json` の `workspaces` に追加）（依存: 上記）
-- [ ] `core` パッケージ初期設定（`tsconfig`・`jest` 設定・`package.json`）（依存: 上記）
-- [ ] `web` パッケージ初期設定（Next.js アプリ骨格・`tsconfig`・`package.json`）（依存: 上記）
-- [ ] `batch` パッケージ初期設定（`tsconfig`・`jest` 設定・`package.json`・Dockerfile）（依存: 上記）
-- [ ] AWS インフラ構成（S3・DynamoDB・Batch・CloudFront）（依存: なし）
-- [ ] CI/CD パイプラインの設定（依存: 上記）
+- [x] サービスディレクトリ構成の作成（`services/quick-clip/{core,web,batch}`）（依存: なし）
+- [x] モノレポへのワークスペース追加（ルート `package.json` の `workspaces` に追加）（依存: 上記）
+- [x] `core` パッケージ初期設定（`tsconfig`・`jest` 設定・`package.json`）（依存: 上記）
+- [x] `web` パッケージ初期設定（Next.js アプリ骨格・`tsconfig`・`package.json`）（依存: 上記）
+- [x] `batch` パッケージ初期設定（`tsconfig`・`jest` 設定・`package.json`・Dockerfile）（依存: 上記）
+- [x] AWS インフラ構成（S3・DynamoDB・Batch・CloudFront）（依存: なし）
+- [x] CI/CD パイプラインの設定（依存: 上記）
 
 ## Phase 2: UI PoC（外観調整・要件確認）
 
