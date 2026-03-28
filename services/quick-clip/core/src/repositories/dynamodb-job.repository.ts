@@ -4,7 +4,8 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import type { Job, JobRepository, JobStatus } from '@nagiyu/quick-clip-core';
+import type { Job, JobStatus } from '../types.js';
+import type { JobRepository } from './job.repository.interface.js';
 
 type JobItem = {
   PK: string;

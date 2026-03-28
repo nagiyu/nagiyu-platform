@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import type { ClipSplitterService, Highlight } from '@nagiyu/quick-clip-core';
+import type { ClipSplitterService } from './clip-splitter.service.js';
+import type { Highlight } from '../types.js';
 
 const ERROR_MESSAGES = {
   SPLIT_FAILED: 'クリップ分割に失敗しました',

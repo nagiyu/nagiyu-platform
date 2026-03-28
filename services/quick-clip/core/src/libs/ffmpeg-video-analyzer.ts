@@ -12,6 +12,7 @@ const ERROR_MESSAGES = {
 
 const DEFAULT_WINDOW_SECONDS = 10;
 const MIN_HIGHLIGHT_WINDOW_SECONDS = 3;
+const DURATION_PROBE_ARGS_LENGTH = 3;
 
 const parseFps = (input: string): number => {
   const direct = Number.parseFloat(input);
@@ -173,7 +174,8 @@ export class FfmpegVideoAnalyzer {
       });
 
       ffmpeg.on('close', (code) => {
-        if (code === 0 || (args.length === 3 && code === 1)) {
+        // `ffmpeg -hide_banner -i <file>` は情報表示のみのため code=1 で終了する。
+        if (code === 0 || (args.length === DURATION_PROBE_ARGS_LENGTH && code === 1)) {
           resolve(stderr);
           return;
         }

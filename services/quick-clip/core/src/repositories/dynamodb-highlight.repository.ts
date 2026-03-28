@@ -4,12 +4,8 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import type {
-  Highlight,
-  HighlightRepository,
-  HighlightStatus,
-  UpdateHighlightInput,
-} from '@nagiyu/quick-clip-core';
+import type { Highlight, HighlightStatus, UpdateHighlightInput } from '../types.js';
+import type { HighlightRepository } from './highlight.repository.interface.js';
 
 type HighlightItem = {
   PK: string;
@@ -119,6 +115,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
   }
 
   public async createMany(highlights: Highlight[]): Promise<void> {
+    // 既存データとの差分適用を許容するため、Phase 4 では UpdateCommand で upsert として扱う。
     await Promise.all(
       highlights.map((highlight) =>
         this.docClient.send(

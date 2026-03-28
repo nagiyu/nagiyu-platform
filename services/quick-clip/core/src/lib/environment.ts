@@ -50,10 +50,9 @@ export const validateEnvironment = (): EnvironmentVariables => {
   if (!/^[\w-]+$/u.test(jobId)) {
     throw new Error(ERROR_MESSAGES.INVALID_JOB_ID);
   }
-  const normalizedBatchCommand = batchCommand as BatchCommand;
 
   return {
-    batchCommand: normalizedBatchCommand,
+    batchCommand: batchCommand as BatchCommand,
     jobId,
     tableName,
     bucketName,

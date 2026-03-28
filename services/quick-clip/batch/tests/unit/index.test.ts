@@ -1,24 +1,33 @@
-import { validateEnvironment } from '../../src/lib/environment.js';
+import { main } from '../../src/index.js';
+import * as quickClipCore from '@nagiyu/quick-clip-core';
+
+jest.mock('@nagiyu/quick-clip-core', () => ({
+  validateEnvironment: jest.fn(() => ({
+    batchCommand: 'extract',
+    jobId: 'job-1',
+    tableName: 'table',
+    bucketName: 'bucket',
+    awsRegion: 'ap-northeast-1',
+  })),
+  runQuickClipBatch: jest.fn().mockResolvedValue(undefined),
+}));
+
+const coreMocks = quickClipCore as unknown as {
+  validateEnvironment: jest.Mock;
+  runQuickClipBatch: jest.Mock;
+};
 
 describe('quick-clip batch', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
-    process.env = { ...originalEnv };
+    coreMocks.validateEnvironment.mockClear();
+    coreMocks.runQuickClipBatch.mockClear();
   });
 
-  afterAll(() => {
-    process.env = originalEnv;
-  });
+  it('main: core の validateEnvironment と runQuickClipBatch を呼び出す', async () => {
+    await main();
 
-  it('validateEnvironment: 必須環境変数を読み取れる', () => {
-    process.env.BATCH_COMMAND = 'extract';
-    process.env.JOB_ID = 'job-1';
-    process.env.DYNAMODB_TABLE_NAME = 'table';
-    process.env.S3_BUCKET = 'bucket';
-    process.env.AWS_REGION = 'ap-northeast-1';
-
-    expect(validateEnvironment()).toEqual({
+    expect(coreMocks.validateEnvironment).toHaveBeenCalledTimes(1);
+    expect(coreMocks.runQuickClipBatch).toHaveBeenCalledWith({
       batchCommand: 'extract',
       jobId: 'job-1',
       tableName: 'table',
@@ -27,25 +36,9 @@ describe('quick-clip batch', () => {
     });
   });
 
-  it('validateEnvironment: 必須環境変数不足でエラーになる', () => {
-    delete process.env.BATCH_COMMAND;
-    delete process.env.JOB_ID;
-    delete process.env.DYNAMODB_TABLE_NAME;
-    delete process.env.S3_BUCKET;
-    delete process.env.AWS_REGION;
+  it('main: core のエラーをそのまま伝搬する', async () => {
+    coreMocks.runQuickClipBatch.mockRejectedValueOnce(new Error('core error'));
 
-    expect(() => validateEnvironment()).toThrow(
-      '必要な環境変数が設定されていません: BATCH_COMMAND, JOB_ID, DYNAMODB_TABLE_NAME, S3_BUCKET, AWS_REGION'
-    );
-  });
-
-  it('validateEnvironment: 不正な jobId でエラーになる', () => {
-    process.env.BATCH_COMMAND = 'extract';
-    process.env.JOB_ID = 'job id';
-    process.env.DYNAMODB_TABLE_NAME = 'table';
-    process.env.S3_BUCKET = 'bucket';
-    process.env.AWS_REGION = 'ap-northeast-1';
-
-    expect(() => validateEnvironment()).toThrow('ジョブIDが不正です');
+    await expect(main()).rejects.toThrow('core error');
   });
 });
