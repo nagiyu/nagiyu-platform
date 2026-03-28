@@ -43,12 +43,10 @@ export class HighlightService {
       throw new Error(ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED);
     }
 
-    const startSec = updates.startSec;
-    if (hasStart && (startSec === undefined || !Number.isFinite(startSec) || startSec < 0)) {
+    if (hasStart && !this.isNonNegativeFiniteNumber(updates.startSec)) {
       throw new Error(ERROR_MESSAGES.SECOND_VALUE_INVALID);
     }
-    const endSec = updates.endSec;
-    if (hasEnd && (endSec === undefined || !Number.isFinite(endSec) || endSec < 0)) {
+    if (hasEnd && !this.isNonNegativeFiniteNumber(updates.endSec)) {
       throw new Error(ERROR_MESSAGES.SECOND_VALUE_INVALID);
     }
 
@@ -57,19 +55,16 @@ export class HighlightService {
       throw new Error(ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND);
     }
 
-    let nextStart = current.startSec;
-    if (hasStart && startSec !== undefined) {
-      nextStart = startSec;
-    }
-
-    let nextEnd = current.endSec;
-    if (hasEnd && endSec !== undefined) {
-      nextEnd = endSec;
-    }
+    const nextStart = updates.startSec ?? current.startSec;
+    const nextEnd = updates.endSec ?? current.endSec;
     if (nextStart >= nextEnd) {
       throw new Error(ERROR_MESSAGES.RANGE_INVALID);
     }
 
     return this.highlightRepository.update(jobId, highlightId, updates);
+  }
+
+  private isNonNegativeFiniteNumber(value: number | undefined): value is number {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
   }
 }

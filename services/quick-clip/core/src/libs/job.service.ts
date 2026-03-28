@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { JobRepository } from '../repositories/job.repository.interface.js';
 import type { CreateJobInput, Job } from '../types.js';
 
@@ -28,7 +29,7 @@ export class JobService {
 
     const createdAt = Math.floor(Date.now() / 1000);
     const job: Job = {
-      jobId: crypto.randomUUID(),
+      jobId: randomUUID(),
       status: 'PENDING',
       originalFileName,
       fileSize: input.fileSize,
@@ -51,7 +52,7 @@ export class JobService {
       throw new Error(ERROR_MESSAGES.JOB_ID_REQUIRED);
     }
 
-    const normalizedErrorMessage = errorMessage?.trim();
+    const normalizedErrorMessage = errorMessage?.trim() || undefined;
     if (status === 'FAILED' && !normalizedErrorMessage) {
       throw new Error(ERROR_MESSAGES.ERROR_MESSAGE_REQUIRED);
     }
