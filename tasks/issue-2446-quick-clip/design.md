@@ -59,9 +59,7 @@ type Highlight = {
 
 ### 物理モデル
 
-<!-- TODO: DynamoDB or 他のデータストアを選定する -->
-
-#### DynamoDB テーブル設計（案）
+#### DynamoDB テーブル設計
 
 **Jobs テーブル**
 
@@ -76,9 +74,7 @@ type Highlight = {
 | expiresAt | number | TTL（Unix timestamp） |
 | errorMessage | string | エラーメッセージ（FAILED 時のみ） |
 
-**Highlights テーブル（または Jobs テーブルに同居）**
-
-<!-- TODO: Highlights の保存先（Jobs テーブルに同居か分離か）を確認 -->
+**Highlights（Jobs テーブルに同居。シングルテーブル設計）**
 
 | 属性 | 型 | 説明 |
 |-----|----|----|
@@ -97,9 +93,13 @@ type Highlight = {
 
 | パッケージ | 責務 |
 |----------|------|
-| `quick-clip/core` | 見どころ抽出ロジック・ジョブ管理・リポジトリインターフェース |
+| `quick-clip/core` | ドメインモデル・リポジトリインターフェース・ジョブ管理・見どころ抽出インターフェース＆集約ロジック・クリップ分割インターフェース |
 | `quick-clip/web` | UI・API Routes・ファイルアップロード |
-| `quick-clip/batch` | 動画処理・見どころ抽出・クリップ分割（FFmpeg） |
+| `quick-clip/batch` | バッチトリガー・FFmpeg 依存の具象実装（動画解析・クリップ書き出し） |
+
+> **設計方針**: バッチは「FFmpeg 呼び出し等の I/O に特化したトリガー層」に絞る。  
+> 見どころ抽出アルゴリズム・集約ロジック・クリップ分割インターフェースは `core` に置き、  
+> 単体テストを FFmpeg 環境なしで実行できるようにする。
 
 ### 実装モジュール一覧
 
@@ -107,10 +107,13 @@ type Highlight = {
 
 | モジュール | パス | 役割 |
 |----------|------|------|
-| `IJobRepository` | `core/src/repositories/job.repository.ts` | ジョブCRUDインターフェース |
-| `IHighlightRepository` | `core/src/repositories/highlight.repository.ts` | 見どころCRUDインターフェース |
+| `IJobRepository` | `core/src/repositories/job.repository.ts` | ジョブ CRUD インターフェース |
+| `IHighlightRepository` | `core/src/repositories/highlight.repository.ts` | 見どころ CRUD インターフェース |
 | `JobService` | `core/src/libs/job.service.ts` | ジョブ作成・ステータス管理 |
-| `HighlightService` | `core/src/libs/highlight.service.ts` | 見どころ更新・選別ロジック |
+| `HighlightService` | `core/src/libs/highlight.service.ts` | 見どころ更新・選別ロジック（web API から利用） |
+| `IHighlightExtractorService` | `core/src/libs/highlight-extractor.service.ts` | 見どころ抽出サービスの抽象インターフェース |
+| `HighlightAggregationService` | `core/src/libs/highlight-aggregation.service.ts` | 複数 Extractor の結果を統合し上位10件×2種＝計20件に絞る集約ロジック |
+| `IClipSplitterService` | `core/src/libs/clip-splitter.service.ts` | クリップ分割サービスの抽象インターフェース |
 
 **web**
 
@@ -128,11 +131,11 @@ type Highlight = {
 
 | モジュール | パス | 役割 |
 |----------|------|------|
-| `highlight-extractor` | `batch/src/highlight-extractor.ts` | メインエントリーポイント（各具象サービスを呼び出して結果を統合） |
-| `IHighlightExtractorService` | `batch/src/libs/highlight-extractor.service.ts` | 見どころ抽出サービスの抽象インターフェース |
-| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | 変化量（フレーム差分）で上位10件を抽出する具象実装 |
-| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | 音量で上位10件を抽出する具象実装 |
-| `ClipExporter` | `batch/src/libs/clip-exporter.ts` | 採用された見どころの分割書き出し |
+| `entrypoint` | `batch/src/entrypoint.ts` | バッチトリガー。DI で各サービスを組み立てて処理を開始する |
+| `FfmpegVideoAnalyzer` | `batch/src/libs/ffmpeg-video-analyzer.ts` | FFmpeg を使ったフレーム差分・音量データの抽出（インフラ層） |
+| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | `IHighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い変化量で上位10件を返す |
+| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | `IHighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い音量で上位10件を返す |
+| `FfmpegClipSplitter` | `batch/src/libs/ffmpeg-clip-splitter.ts` | `IClipSplitterService` の具象実装。FFmpeg で採用クリップを書き出す |
 
 ---
 
