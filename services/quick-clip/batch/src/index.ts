@@ -1,7 +1,2 @@
-export const createBatchBootstrapMessage = (): string => {
-  return 'quick-clip-batch bootstrap: ok';
-};
-
-if (process.env.NODE_ENV !== 'test') {
-  console.log(createBatchBootstrapMessage());
-}
+export { main } from './entrypoint.js';
+export { validateEnvironment } from './lib/environment.js';

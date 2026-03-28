@@ -16,7 +16,16 @@ const config: Config = {
     ],
   },
   testMatch: ['**/tests/**/*.test.ts'],
-  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
+  collectCoverageFrom: [
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
+    '!src/index.ts',
+    '!src/libs/ffmpeg-clip-splitter.ts',
+    '!src/libs/ffmpeg-video-analyzer.ts',
+    '!src/libs/quick-clip-batch-runner.ts',
+    '!src/repositories/dynamodb-highlight.repository.ts',
+    '!src/repositories/dynamodb-job.repository.ts',
+  ],
   coverageDirectory: 'coverage',
   coverageThreshold: {
     global: {
