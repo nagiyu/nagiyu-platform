@@ -107,13 +107,13 @@ type Highlight = {
 
 | モジュール | パス | 役割 |
 |----------|------|------|
-| `IJobRepository` | `core/src/repositories/job.repository.ts` | ジョブ CRUD インターフェース |
-| `IHighlightRepository` | `core/src/repositories/highlight.repository.ts` | 見どころ CRUD インターフェース |
+| `JobRepository` | `core/src/repositories/job.repository.interface.ts` | ジョブ CRUD インターフェース |
+| `HighlightRepository` | `core/src/repositories/highlight.repository.interface.ts` | 見どころ CRUD インターフェース |
 | `JobService` | `core/src/libs/job.service.ts` | ジョブ作成・ステータス管理 |
 | `HighlightService` | `core/src/libs/highlight.service.ts` | 見どころ更新・選別ロジック（web API から利用） |
-| `IHighlightExtractorService` | `core/src/libs/highlight-extractor.service.ts` | 見どころ抽出サービスの抽象インターフェース |
+| `HighlightExtractorService` | `core/src/libs/highlight-extractor.service.ts` | 見どころ抽出サービスの抽象インターフェース |
 | `HighlightAggregationService` | `core/src/libs/highlight-aggregation.service.ts` | 複数 Extractor の結果を統合し上位10件×2種＝計20件に絞る集約ロジック |
-| `IClipSplitterService` | `core/src/libs/clip-splitter.service.ts` | クリップ分割サービスの抽象インターフェース |
+| `ClipSplitterService` | `core/src/libs/clip-splitter.service.ts` | クリップ分割サービスの抽象インターフェース |
 
 **web**
 
@@ -133,9 +133,9 @@ type Highlight = {
 |----------|------|------|
 | `entrypoint` | `batch/src/entrypoint.ts` | バッチトリガー。DI で各サービスを組み立てて処理を開始する |
 | `FfmpegVideoAnalyzer` | `batch/src/libs/ffmpeg-video-analyzer.ts` | FFmpeg を使ったフレーム差分・音量データの抽出（インフラ層） |
-| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | `IHighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い変化量で上位10件を返す |
-| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | `IHighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い音量で上位10件を返す |
-| `FfmpegClipSplitter` | `batch/src/libs/ffmpeg-clip-splitter.ts` | `IClipSplitterService` の具象実装。FFmpeg で採用クリップを書き出す |
+| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | `HighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い変化量で上位10件を返す |
+| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | `HighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い音量で上位10件を返す |
+| `FfmpegClipSplitter` | `batch/src/libs/ffmpeg-clip-splitter.ts` | `ClipSplitterService` の具象実装。FFmpeg で採用クリップを書き出す |
 
 ---
 
