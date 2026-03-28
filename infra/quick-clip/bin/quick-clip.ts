@@ -7,13 +7,15 @@ import { BatchStack } from '../lib/batch-stack';
 import { EcrStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
+import type { QuickClipEnvironment } from '../lib/environment';
 
 const app = new cdk.App();
-const env = app.node.tryGetContext('env') || 'dev';
+const env = (app.node.tryGetContext('env') || 'dev') as string;
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
   throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
 }
+const typedEnv = env as QuickClipEnvironment;
 const envSuffix = env.charAt(0).toUpperCase() + env.slice(1);
 const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
@@ -21,25 +23,25 @@ const stackEnv = {
 };
 
 const storageStack = new StorageStack(app, `NagiyuQuickClipStorage${envSuffix}`, {
-  environment: env,
+  environment: typedEnv,
   env: stackEnv,
   description: `QuickClip Storage - ${env} environment`,
 });
 
 const dynamoStack = new DynamoDBStack(app, `NagiyuQuickClipDynamoDB${envSuffix}`, {
-  environment: env,
+  environment: typedEnv,
   env: stackEnv,
   description: `QuickClip DynamoDB - ${env} environment`,
 });
 
 const ecrStack = new EcrStack(app, `NagiyuQuickClipECR${envSuffix}`, {
-  environment: env,
+  environment: typedEnv,
   env: stackEnv,
   description: `QuickClip ECR - ${env} environment`,
 });
 
 const batchStack = new BatchStack(app, `NagiyuQuickClipBatch${envSuffix}`, {
-  environment: env,
+  environment: typedEnv,
   env: stackEnv,
   storageBucket: storageStack.storageBucket,
   jobsTable: dynamoStack.jobsTable,
@@ -50,14 +52,14 @@ batchStack.addDependency(dynamoStack);
 batchStack.addDependency(ecrStack);
 
 const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
-  environment: env,
+  environment: typedEnv,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });
 lambdaStack.addDependency(ecrStack);
 
 const cloudFrontStack = new CloudFrontStack(app, `NagiyuQuickClipCloudFront${envSuffix}`, {
-  environment: env,
+  environment: typedEnv,
   functionUrl: lambdaStack.functionUrl.url,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,

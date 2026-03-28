@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
+import type { QuickClipEnvironment } from './environment';
 
 export interface LambdaStackProps extends cdk.StackProps {
-  environment: string;
+  environment: QuickClipEnvironment;
 }
 
 export class LambdaStack extends cdk.Stack {

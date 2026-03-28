@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import { Construct } from 'constructs';
+import type { QuickClipEnvironment } from './environment';
 
 export interface StorageStackProps extends cdk.StackProps {
-  environment: string;
+  environment: QuickClipEnvironment;
 }
 
 export class StorageStack extends cdk.Stack {

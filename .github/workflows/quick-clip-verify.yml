@@ -164,7 +164,7 @@ jobs:
   build-infra:
     name: Build Infrastructure Package
     runs-on: ubuntu-latest
-    needs: [infra-lint, infra-format-check]
+    needs: [lint, format-check, infra-lint, infra-format-check]
 
     steps:
       - name: Checkout code

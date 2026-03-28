@@ -6,9 +6,10 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import type { QuickClipEnvironment } from './environment';
 
 export interface BatchStackProps extends cdk.StackProps {
-  environment: string;
+  environment: QuickClipEnvironment;
   storageBucket: s3.IBucket;
   jobsTable: dynamodb.ITable;
 }

@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { EcrStackBase, EcrStackBaseProps } from '@nagiyu/infra-common';
+import type { QuickClipEnvironment } from './environment';
 
 export interface EcrStackProps extends cdk.StackProps {
-  environment: string;
+  environment: QuickClipEnvironment;
 }
 
 export class EcrStack extends EcrStackBase {
@@ -13,7 +14,7 @@ export class EcrStack extends EcrStackBase {
     const baseProps: EcrStackBaseProps = {
       ...stackProps,
       serviceName: 'quick-clip',
-      environment: environment as 'dev' | 'prod',
+      environment,
     };
 
     super(scope, id, baseProps);

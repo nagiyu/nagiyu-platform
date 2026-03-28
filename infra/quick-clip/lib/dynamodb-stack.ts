@@ -1,9 +1,10 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import type { QuickClipEnvironment } from './environment';
 
 export interface DynamoDBStackProps extends cdk.StackProps {
-  environment: string;
+  environment: QuickClipEnvironment;
 }
 
 export class DynamoDBStack extends cdk.Stack {
