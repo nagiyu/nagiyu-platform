@@ -11,6 +11,7 @@ import type { QuickClipEnvironment } from '../lib/environment';
 
 const app = new cdk.App();
 const env = (app.node.tryGetContext('env') || 'dev') as string;
+const appVersion = process.env.APP_VERSION || app.node.tryGetContext('appVersion') || '0.1.0';
 const allowedEnvironments = ['dev', 'prod'];
 if (!allowedEnvironments.includes(env)) {
   throw new Error(`Invalid environment: ${env}. Allowed values: ${allowedEnvironments.join(', ')}`);
@@ -53,6 +54,8 @@ batchStack.addDependency(ecrStack);
 
 const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   environment: typedEnv,
+  appVersion,
+  webEcrRepositoryName: `nagiyu-quick-clip-ecr-${typedEnv}`,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });

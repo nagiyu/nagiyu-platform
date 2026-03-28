@@ -135,14 +135,14 @@ jobs:
         uses: ./.github/actions/build-docker-image
         with:
           dockerfile: services/quick-clip/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ steps.get-version.outputs.app-version }}
           app-version: ${{ steps.get-version.outputs.app-version }}
 
       - name: Push Web Docker image
         id: build-image
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: latest
+          IMAGE_TAG: ${{ steps.get-version.outputs.app-version }}
         run: |
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
@@ -243,6 +243,7 @@ jobs:
         env:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          APP_VERSION: ${{ needs.build-web.outputs.app-version }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy \
             NagiyuQuickClipStorage${STACK_SUFFIX} \
@@ -251,6 +252,7 @@ jobs:
             NagiyuQuickClipLambda${STACK_SUFFIX} \
             NagiyuQuickClipCloudFront${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
+            --context appVersion="$APP_VERSION" \
             --require-approval never
 
   verify:
