@@ -132,7 +132,9 @@ export const getPocDownloadUrl = (jobId: string): string | null => {
     return null;
   }
 
-  const acceptedCount = record.highlights.filter((highlight) => highlight.status === 'accepted').length;
+  const acceptedCount = record.highlights.filter(
+    (highlight) => highlight.status === 'accepted'
+  ).length;
   if (acceptedCount === 0) {
     return null;
   }

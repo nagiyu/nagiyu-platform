@@ -13,7 +13,9 @@ describe('Home', () => {
     render(<Home />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'QuickClip' })).toBeInTheDocument();
-    expect(screen.getByText('動画をアップロードして見どころ抽出を開始します。')).toBeInTheDocument();
+    expect(
+      screen.getByText('動画をアップロードして見どころ抽出を開始します。')
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
   });
 });

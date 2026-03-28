@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Alert, Button, Chip, CircularProgress, Container, Paper, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Chip,
+  CircularProgress,
+  Container,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
 import type { JobStatus, PocJob } from '@/lib/poc-types';
 
 const POLLING_INTERVAL_MS = 10000;
@@ -120,7 +129,11 @@ export default function JobPage({ params }: JobPageProps) {
         {job && (
           <Stack spacing={2}>
             <Typography>ジョブID: {job.jobId}</Typography>
-            <Chip label={STATUS_LABELS[job.status]} color={STATUS_COLORS[job.status]} sx={{ width: 'fit-content' }} />
+            <Chip
+              label={STATUS_LABELS[job.status]}
+              color={STATUS_COLORS[job.status]}
+              sx={{ width: 'fit-content' }}
+            />
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
               <Typography color="text.secondary">

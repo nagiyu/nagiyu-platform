@@ -131,7 +131,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     const updated = (await response.json()) as PocHighlight;
 
     setHighlights((current) =>
-      current.map((highlight) => (highlight.highlightId === updated.highlightId ? updated : highlight))
+      current.map((highlight) =>
+        highlight.highlightId === updated.highlightId ? updated : highlight
+      )
     );
   };
 
@@ -298,7 +300,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           type="number"
                           value={highlight.endSec}
                           inputProps={{ min: 1, step: 1 }}
-                          onChange={(event) => void onUpdateRange(highlight, 'endSec', event.target.value)}
+                          onChange={(event) =>
+                            void onUpdateRange(highlight, 'endSec', event.target.value)
+                          }
                         />
                       </TableCell>
                     </TableRow>
@@ -311,7 +315,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
               採用中の見どころ: {acceptedCount} 件
             </Typography>
 
-            <Button variant="contained" onClick={onDownload} disabled={acceptedCount === 0 || isDownloading}>
+            <Button
+              variant="contained"
+              onClick={onDownload}
+              disabled={acceptedCount === 0 || isDownloading}
+            >
               {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
             </Button>
           </Stack>
