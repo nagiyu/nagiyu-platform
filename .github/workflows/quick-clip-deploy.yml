@@ -135,16 +135,18 @@ jobs:
         uses: ./.github/actions/build-docker-image
         with:
           dockerfile: services/quick-clip/web/Dockerfile
-          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ steps.get-version.outputs.app-version }}
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
           app-version: ${{ steps.get-version.outputs.app-version }}
 
       - name: Push Web Docker image
         id: build-image
         env:
           REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
-          IMAGE_TAG: ${{ steps.get-version.outputs.app-version }}
+          IMAGE_TAG: ${{ github.sha }}
         run: |
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
   build-batch:
@@ -254,6 +256,35 @@ jobs:
             --context env="$ENVIRONMENT" \
             --context appVersion="$APP_VERSION" \
             --require-approval never
+
+      - name: Update Lambda function code with latest image
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="$ECR_REGISTRY/nagiyu-quick-clip-ecr-$ENVIRONMENT:latest"
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-quick-clip-web-$ENVIRONMENT" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: Lambda 関数コードの更新に失敗しました。"
+            exit 1
+          }
+
+      - name: Wait for Lambda update to complete
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          set -euo pipefail
+          aws lambda wait function-updated \
+            --function-name "nagiyu-quick-clip-web-$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: Lambda 関数の更新完了待機でタイムアウトまたは失敗しました。"
+            exit 1
+          }
 
   verify:
     name: Verify Deployment

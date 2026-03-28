@@ -63,7 +63,7 @@ lambdaStack.addDependency(ecrStack);
 
 const cloudFrontStack = new CloudFrontStack(app, `NagiyuQuickClipCloudFront${envSuffix}`, {
   environment: typedEnv,
-  functionUrl: lambdaStack.functionUrl.url,
+  functionUrl: lambdaStack.functionUrl!.url,
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1',
