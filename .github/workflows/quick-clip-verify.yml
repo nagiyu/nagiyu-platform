@@ -1,0 +1,228 @@
+name: QuickClip - Verification
+
+on:
+  pull_request:
+    branches:
+      - integration/**
+      - develop
+    paths:
+      - 'services/quick-clip/**'
+      - 'infra/quick-clip/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/quick-clip-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Run ESLint on core
+        run: npm run lint --workspace=@nagiyu/quick-clip-core
+      - name: Run ESLint on web
+        run: npm run lint --workspace=@nagiyu/quick-clip-web
+      - name: Run ESLint on batch
+        run: npm run lint --workspace=@nagiyu/quick-clip-batch
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Check core formatting
+        run: npm run format:check --workspace=@nagiyu/quick-clip-core
+      - name: Check web formatting
+        run: npm run format:check --workspace=@nagiyu/quick-clip-web
+      - name: Check batch formatting
+        run: npm run format:check --workspace=@nagiyu/quick-clip-batch
+
+  build-core:
+    name: Build Core Package
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+
+  build-web:
+    name: Build Web Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/quick-clip-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui,@nagiyu/quick-clip-core'
+
+  build-batch:
+    name: Build Batch Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+      - name: Build batch package
+        run: npm run build --workspace=@nagiyu/quick-clip-batch
+
+  build-infra:
+    name: Build Infrastructure Package
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+      - name: Build infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-quick-clip
+
+  test-core:
+    name: Core Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+      - name: Run core tests
+        run: npm run test --workspace=@nagiyu/quick-clip-core
+
+  test-batch:
+    name: Batch Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-batch]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+      - name: Build batch package
+        run: npm run build --workspace=@nagiyu/quick-clip-batch
+      - name: Run batch tests
+        run: npm run test --workspace=@nagiyu/quick-clip-batch
+
+  coverage:
+    name: Coverage Check (80% threshold)
+    runs-on: ubuntu-latest
+    needs: [build-core]
+    if: github.base_ref == 'develop'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+      - name: Run coverage check
+        run: npm run test:coverage --workspace=@nagiyu/quick-clip-core
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [lint, format-check, build-core, build-web, build-batch, build-infra, test-core, test-batch, coverage]
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Build Core': '${{ needs.build-core.result }}',
+              'Build Web': '${{ needs.build-web.result }}',
+              'Build Batch': '${{ needs.build-batch.result }}',
+              'Build Infra': '${{ needs.build-infra.result }}',
+              'Test Core': '${{ needs.test-core.result }}',
+              'Test Batch': '${{ needs.test-batch.result }}',
+              'Coverage (80%)': '${{ needs.coverage.result }}'
+            };
+
+            const statusEmoji = {
+              success: '✅',
+              failure: '❌',
+              cancelled: '⚠️',
+              skipped: '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = github.base_ref === 'develop';
+            const header = allSuccess
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
+
+            let body = `${header}\n\n`;
+            body += isFull ? '**QuickClip - Full Verification**\n\n' : '**QuickClip - Fast Verification**\n\n';
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });

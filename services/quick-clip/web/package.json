@@ -1,0 +1,17 @@
+{
+  "name": "@nagiyu/quick-clip-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "npm run build --workspace=@nagiyu/nextjs && next build --webpack",
+    "start": "next start",
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@nagiyu/nextjs": "*",
+    "@nagiyu/ui": "*"
+  }
+}

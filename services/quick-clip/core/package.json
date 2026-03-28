@@ -1,0 +1,17 @@
+{
+  "name": "@nagiyu/quick-clip-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/src/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  }
+}

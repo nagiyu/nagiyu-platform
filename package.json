@@ -5,6 +5,9 @@
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [
     "services/tools",
+    "services/quick-clip/core",
+    "services/quick-clip/web",
+    "services/quick-clip/batch",
     "services/*/core",
     "services/*/web",
     "services/*/web-*",
@@ -13,6 +16,7 @@
     "services/*/api",
     "libs/*",
     "infra",
+    "infra/quick-clip",
     "infra/*"
   ],
   "scripts": {
