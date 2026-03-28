@@ -33,11 +33,11 @@
     // TODO(PoC): ハードコードデータ。Phase 5 の本実装時に DynamoDB 実装に差し替える
 -->
 
-- [ ] PoC 用 API Routes 実装（ハードコードデータを返す。`TODO(PoC)` コメントを各ハンドラーに付与）（依存: Phase 1）
-- [ ] アップロード画面（SCR-001: `web/src/app/page.tsx`）PoC 実装（依存: 上記）
-- [ ] 処理中画面（SCR-002: `web/src/app/jobs/[jobId]/page.tsx`）PoC 実装（依存: 上記）
-- [ ] 見どころ確認画面（SCR-003: `web/src/app/jobs/[jobId]/highlights/page.tsx`）PoC 実装（依存: 上記）
-- [ ] **要件再確認・Fix**（外観を確認しながら追加要件を洗い出し、`requirements.md` / `external-design.md` を更新する）（依存: 上記全て）
+- [x] PoC 用 API Routes 実装（ハードコードデータを返す。`TODO(PoC)` コメントを各ハンドラーに付与）（依存: Phase 1）
+- [x] アップロード画面（SCR-001: `web/src/app/page.tsx`）PoC 実装（依存: 上記）
+- [x] 処理中画面（SCR-002: `web/src/app/jobs/[jobId]/page.tsx`）PoC 実装（依存: 上記）
+- [x] 見どころ確認画面（SCR-003: `web/src/app/jobs/[jobId]/highlights/page.tsx`）PoC 実装（依存: 上記）
+- [x] **要件再確認・Fix**（外観を確認しながら追加要件を洗い出し、`requirements.md` / `external-design.md` を更新する）（依存: 上記全て）
 
 > **PoC での API 通信方針**: UI は実 API エンドポイントをそのまま呼び出す。PoC データはサーバー側（API Route ハンドラー）でハードコードし、`TODO(PoC)` コメントを付与しておく。Phase 5 の本実装時に DynamoDB 実装へ差し替える。
 

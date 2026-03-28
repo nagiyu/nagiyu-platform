@@ -2,13 +2,18 @@ import '@testing-library/jest-dom';
 import { render, screen } from '@testing-library/react';
 import Home from '@/app/page';
 
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+  }),
+}));
+
 describe('Home', () => {
-  it('QuickClip の見出しと説明文を表示する', () => {
+  it('アップロード画面の主要要素を表示する', () => {
     render(<Home />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'QuickClip' })).toBeInTheDocument();
-    expect(
-      screen.getByText('Phase 1 では基盤のみを提供します。画面機能は Phase 2 で実装予定です。')
-    ).toBeInTheDocument();
+    expect(screen.getByText('動画をアップロードして見どころ抽出を開始します。')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
   });
 });
