@@ -16,8 +16,7 @@
     "incremental": true,
     "isolatedModules": true,
     "paths": {
-      "@/*": ["./src/*"],
-      "@nagiyu/quick-clip-core": ["../core/src"]
+      "@/*": ["./src/*"]
     },
     "plugins": [
       {

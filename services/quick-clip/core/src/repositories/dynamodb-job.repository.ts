@@ -6,6 +6,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { Job, JobStatus } from '../types.js';
 import type { JobRepository } from './job.repository.interface.js';
+import { DOMAIN_ERROR_MESSAGES } from '../libs/domain-error-messages.js';
 
 type JobItem = {
   PK: string;
@@ -90,7 +91,7 @@ export class DynamoDBJobRepository implements JobRepository {
 
     const updated = await this.getById(jobId);
     if (!updated) {
-      throw new Error('ジョブが見つかりません');
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_UPDATED_FETCH_FAILED);
     }
     return updated;
   }
