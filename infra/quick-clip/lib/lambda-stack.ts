@@ -65,7 +65,7 @@ export class LambdaStack extends LambdaStackBase {
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
           actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:Query'],
-          resources: [jobsTableArn],
+          resources: [jobsTableArn, `${jobsTableArn}/index/*`],
         }),
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
@@ -79,7 +79,13 @@ export class LambdaStack extends LambdaStackBase {
         }),
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
-          actions: ['batch:SubmitJob', 'batch:DescribeJobs'],
+          actions: ['batch:SubmitJob'],
+          resources: [batchJobQueueArn, batchJobDefinitionArn],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['batch:DescribeJobs'],
+          // DescribeJobs はリソースレベル権限制御をサポートしないため '*' が必要
           resources: ['*'],
         }),
       ],
