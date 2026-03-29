@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
 import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
@@ -13,13 +14,30 @@ export interface LambdaStackProps extends cdk.StackProps {
   environment: QuickClipEnvironment;
   appVersion: string;
   webEcrRepositoryName: string;
+  jobsTableName: string;
+  jobsTableArn: string;
+  storageBucketName: string;
+  storageBucketArn: string;
+  batchJobQueueArn: string;
+  batchJobDefinitionArn: string;
 }
 
 export class LambdaStack extends LambdaStackBase {
   public readonly webFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
-    const { environment, appVersion, webEcrRepositoryName, ...stackProps } = props;
+    const {
+      environment,
+      appVersion,
+      webEcrRepositoryName,
+      jobsTableName,
+      jobsTableArn,
+      storageBucketName,
+      storageBucketArn,
+      batchJobQueueArn,
+      batchJobDefinitionArn,
+      ...stackProps
+    } = props;
 
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
@@ -37,8 +55,34 @@ export class LambdaStack extends LambdaStackBase {
           NODE_ENV: environment === 'prod' ? 'production' : 'development',
           DEPLOY_ENV: environment,
           APP_VERSION: appVersion,
+          DYNAMODB_TABLE_NAME: jobsTableName,
+          S3_BUCKET: storageBucketName,
+          BATCH_JOB_QUEUE_ARN: batchJobQueueArn,
+          BATCH_JOB_DEFINITION_ARN: batchJobDefinitionArn,
         },
       },
+      additionalPolicyStatements: [
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:Query'],
+          resources: [jobsTableArn],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['s3:ListBucket'],
+          resources: [storageBucketArn],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['s3:GetObject', 's3:PutObject'],
+          resources: [`${storageBucketArn}/*`],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['batch:SubmitJob', 'batch:DescribeJobs'],
+          resources: ['*'],
+        }),
+      ],
       enableFunctionUrl: true,
       functionUrlCorsConfig: {
         allowedOrigins: QUICK_CLIP_ALLOWED_ORIGINS[environment],
