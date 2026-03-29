@@ -58,6 +58,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
+      computeEnvironmentName: `nagiyu-quick-clip-${props.environment}`,
       type: 'MANAGED',
       state: 'ENABLED',
       computeResources: {
@@ -69,6 +70,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     const jobQueue = new batch.CfnJobQueue(this, 'JobQueue', {
+      jobQueueName: `nagiyu-quick-clip-${props.environment}`,
       priority: 1,
       state: 'ENABLED',
       computeEnvironmentOrder: [
@@ -79,12 +81,14 @@ export class BatchStack extends cdk.Stack {
       ],
     });
 
+    const batchRepositoryName = `nagiyu-quick-clip-ecr-${props.environment}`;
+    const batchImage = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${batchRepositoryName}:batch-latest`;
     const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
+      jobDefinitionName: `nagiyu-quick-clip-${props.environment}`,
       type: 'container',
       platformCapabilities: ['FARGATE'],
       containerProperties: {
-        image: 'public.ecr.aws/docker/library/busybox:latest',
-        command: ['sh', '-c', 'echo quick-clip batch bootstrap'],
+        image: batchImage,
         resourceRequirements: [
           { type: 'VCPU', value: '1' },
           { type: 'MEMORY', value: '2048' },
@@ -102,6 +106,20 @@ export class BatchStack extends cdk.Stack {
             'awslogs-stream-prefix': 'batch',
           },
         },
+        environment: [
+          {
+            name: 'DYNAMODB_TABLE_NAME',
+            value: props.jobsTable.tableName,
+          },
+          {
+            name: 'S3_BUCKET',
+            value: props.storageBucket.bucketName,
+          },
+          {
+            name: 'AWS_REGION',
+            value: this.region,
+          },
+        ],
       },
       timeout: { attemptDurationSeconds: 3600 },
       retryStrategy: { attempts: 1 },
