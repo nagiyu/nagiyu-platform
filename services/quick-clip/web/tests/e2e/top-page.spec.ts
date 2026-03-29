@@ -12,12 +12,26 @@ test.describe('QuickClip Top Page', () => {
 
   test('動画アップロード後に処理中画面へ遷移する', async ({ page }) => {
     await page.goto('/');
+    await page.route('**/api/jobs', async (route) => {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          jobId: 'e2e-job-id',
+          status: 'PENDING',
+          uploadUrl: 'https://example.com/upload',
+          expiresIn: 3600,
+        }),
+      });
+    });
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(path.join(__dirname, '../fixtures/sample.mp4'));
 
-    await page.getByRole('button', { name: 'アップロードして処理開始' }).click();
-    await page.waitForURL(/\/jobs\//);
+    await Promise.all([
+      page.waitForURL(/\/jobs\//),
+      page.getByRole('button', { name: 'アップロードして処理開始' }).click(),
+    ]);
 
     await expect(page.getByRole('heading', { level: 1, name: '処理中画面' })).toBeVisible();
   });
