@@ -64,7 +64,12 @@ export class LambdaStack extends LambdaStackBase {
       additionalPolicyStatements: [
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
-          actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem', 'dynamodb:Query'],
+          actions: [
+            'dynamodb:GetItem',
+            'dynamodb:PutItem',
+            'dynamodb:UpdateItem',
+            'dynamodb:Query',
+          ],
           resources: [jobsTableArn, `${jobsTableArn}/index/*`],
         }),
         new iam.PolicyStatement({
