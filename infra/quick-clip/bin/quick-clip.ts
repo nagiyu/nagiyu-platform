@@ -56,10 +56,19 @@ const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   environment: typedEnv,
   appVersion,
   webEcrRepositoryName: `nagiyu-quick-clip-ecr-${typedEnv}`,
+  jobsTableName: dynamoStack.jobsTable.tableName,
+  jobsTableArn: dynamoStack.jobsTable.tableArn,
+  storageBucketName: storageStack.storageBucket.bucketName,
+  storageBucketArn: storageStack.storageBucket.bucketArn,
+  batchJobQueueArn: batchStack.jobQueueArn,
+  batchJobDefinitionArn: batchStack.jobDefinitionArn,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });
 lambdaStack.addDependency(ecrStack);
+lambdaStack.addDependency(storageStack);
+lambdaStack.addDependency(dynamoStack);
+lambdaStack.addDependency(batchStack);
 
 const cloudFrontStack = new CloudFrontStack(app, `NagiyuQuickClipCloudFront${envSuffix}`, {
   environment: typedEnv,
