@@ -70,14 +70,14 @@
 
 <!-- Next.js API Routes の PoC 実装を DynamoDB 実装に差し替える。TODO(PoC) コメントをすべて解消する -->
 
-- [ ] DynamoDB `JobRepository` 実装（`web/src/repositories/dynamodb-job.repository.ts`）（依存: Phase 3）
-- [ ] DynamoDB `HighlightRepository` 実装（`web/src/repositories/dynamodb-highlight.repository.ts`）（依存: Phase 3）
-- [ ] `POST /api/jobs`（Presigned URL 生成・ジョブ作成）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
-- [ ] `GET /api/jobs/[jobId]`（ジョブステータス取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
-- [ ] `GET /api/jobs/[jobId]/highlights`（見どころ一覧取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
-- [ ] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（採否・時間更新）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
-- [ ] `POST /api/jobs/[jobId]/download`（ZIP 生成リクエスト・ダウンロード URL 取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
-- [ ] API Routes 内に `TODO(PoC)` コメントが残っていないことを確認
+- [x] DynamoDB `JobRepository` 実装（`web/src/repositories/dynamodb-job.repository.ts`）（依存: Phase 3）
+- [x] DynamoDB `HighlightRepository` 実装（`web/src/repositories/dynamodb-highlight.repository.ts`）（依存: Phase 3）
+- [x] `POST /api/jobs`（Presigned URL 生成・ジョブ作成）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [x] `GET /api/jobs/[jobId]`（ジョブステータス取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [x] `GET /api/jobs/[jobId]/highlights`（見どころ一覧取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [x] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（採否・時間更新）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [x] `POST /api/jobs/[jobId]/download`（ZIP 生成リクエスト・ダウンロード URL 取得）の `TODO(PoC)` を本実装に差し替え（依存: Phase 3）
+- [x] API Routes 内に `TODO(PoC)` コメントが残っていないことを確認
 
 ## Phase 6: 結合確認・E2E テスト
 

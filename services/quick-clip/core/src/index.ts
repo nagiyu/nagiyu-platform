@@ -22,6 +22,7 @@ export type { ClipSplitterService } from './libs/clip-splitter.service.js';
 
 export { JobService } from './libs/job.service.js';
 export { HighlightService } from './libs/highlight.service.js';
+export { DOMAIN_ERROR_MESSAGES } from './libs/domain-error-messages.js';
 export { HighlightAggregationService } from './libs/highlight-aggregation.service.js';
 export { FfmpegVideoAnalyzer } from './libs/ffmpeg-video-analyzer.js';
 export { MotionHighlightService } from './libs/motion-highlight.service.js';

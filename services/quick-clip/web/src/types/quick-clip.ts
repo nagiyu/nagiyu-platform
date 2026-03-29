@@ -2,7 +2,7 @@ export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export type HighlightStatus = 'accepted' | 'rejected' | 'pending';
 
-export type PocJob = {
+export type Job = {
   jobId: string;
   status: JobStatus;
   originalFileName: string;
@@ -12,11 +12,17 @@ export type PocJob = {
   errorMessage?: string;
 };
 
-export type PocHighlight = {
+export type Highlight = {
   highlightId: string;
   jobId: string;
   order: number;
   startSec: number;
   endSec: number;
   status: HighlightStatus;
+};
+
+export type UpdateHighlightInput = {
+  startSec?: number;
+  endSec?: number;
+  status?: HighlightStatus;
 };

@@ -19,7 +19,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import type { PocHighlight } from '@/lib/poc-types';
+import type { Highlight } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
@@ -33,17 +33,18 @@ type HighlightsPageProps = {
 };
 
 type HighlightsResponse = {
-  highlights: PocHighlight[];
+  highlights: Highlight[];
 };
 
 type DownloadResponse = {
+  jobId: string;
   fileName: string;
   downloadUrl: string;
 };
 
 export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [jobId, setJobId] = useState<string>('');
-  const [highlights, setHighlights] = useState<PocHighlight[]>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -128,7 +129,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       throw new Error(ERROR_MESSAGES.UPDATE_FAILED);
     }
 
-    const updated = (await response.json()) as PocHighlight;
+    const updated = (await response.json()) as Highlight;
 
     setHighlights((current) =>
       current.map((highlight) =>
@@ -137,7 +138,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     );
   };
 
-  const onToggleAccepted = async (highlight: PocHighlight, checked: boolean) => {
+  const onToggleAccepted = async (highlight: Highlight, checked: boolean) => {
     try {
       await updateHighlight(highlight.highlightId, {
         status: checked ? 'accepted' : 'rejected',
@@ -149,7 +150,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   };
 
   const onUpdateRange = async (
-    highlight: PocHighlight,
+    highlight: Highlight,
     field: 'startSec' | 'endSec',
     value: string
   ): Promise<void> => {

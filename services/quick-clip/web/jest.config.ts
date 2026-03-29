@@ -10,7 +10,6 @@ const config: Config = {
   testEnvironment: 'jsdom',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    '^@nagiyu/quick-clip-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/nextjs$': '<rootDir>/../../../libs/nextjs/src/index.ts',
     '^@nagiyu/nextjs/(.*)$': '<rootDir>/../../../libs/nextjs/src/$1.ts',
     '^@nagiyu/ui$': '<rootDir>/../../../libs/ui/src/index.ts',
