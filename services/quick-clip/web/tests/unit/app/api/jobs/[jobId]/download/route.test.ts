@@ -1,4 +1,5 @@
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getBatchClient } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/download/route';
 
@@ -8,12 +9,16 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(),
 }));
 
-jest.mock('@/repositories/dynamodb-highlight.repository', () => ({
-  getHighlightRepository: jest.fn(() => ({
-    getByJobId: mockGetByJobId,
-    getById: jest.fn(),
-    update: jest.fn(),
-  })),
+jest.mock('@nagiyu/quick-clip-core', () => ({
+  ...jest.requireActual('@nagiyu/quick-clip-core'),
+  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+    () =>
+      ({
+        getByJobId: mockGetByJobId,
+        getById: jest.fn(),
+        update: jest.fn(),
+      }) as unknown as HighlightRepository
+  ),
 }));
 
 jest.mock('@/lib/server/aws', () => ({
@@ -24,6 +29,7 @@ jest.mock('@/lib/server/aws', () => ({
   ),
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
   getBucketName: jest.fn(() => 'test-bucket'),
+  getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
 }));

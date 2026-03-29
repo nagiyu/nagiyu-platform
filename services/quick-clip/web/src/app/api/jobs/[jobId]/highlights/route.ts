@@ -1,7 +1,7 @@
+import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
+import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
 import { HighlightDomainService, JobDomainService } from '@/lib/server/domain-services';
-import { getHighlightRepository } from '@/repositories/dynamodb-highlight.repository';
-import { getJobRepository } from '@/repositories/dynamodb-job.repository';
 
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
@@ -17,7 +17,9 @@ type RouteParams = {
 export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { jobId } = await params;
-    const jobService = new JobDomainService(getJobRepository());
+    const jobService = new JobDomainService(
+      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
+    );
     const job = await jobService.getJob(jobId);
     if (!job) {
       return NextResponse.json(
@@ -29,7 +31,9 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       );
     }
 
-    const highlightService = new HighlightDomainService(getHighlightRepository());
+    const highlightService = new HighlightDomainService(
+      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
+    );
     const highlights = await highlightService.getHighlights(jobId);
 
     return NextResponse.json({ highlights });

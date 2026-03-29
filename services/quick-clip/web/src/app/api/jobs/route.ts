@@ -1,3 +1,4 @@
+import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -8,11 +9,11 @@ import {
   getBatchJobDefinitionArn,
   getBatchJobQueueArn,
   getBucketName,
+  getDynamoDBDocumentClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
 import { JobDomainService } from '@/lib/server/domain-services';
-import { getJobRepository } from '@/repositories/dynamodb-job.repository';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: 'リクエストが不正です',
@@ -80,7 +81,9 @@ export async function POST(request: Request): Promise<NextResponse> {
       );
     }
 
-    const jobService = new JobDomainService(getJobRepository());
+    const jobService = new JobDomainService(
+      new DynamoDBJobRepository(getDynamoDBDocumentClient(), getTableName())
+    );
     const job = await jobService.createJob({
       originalFileName: normalizedFileName,
       fileSize: body.fileSize,

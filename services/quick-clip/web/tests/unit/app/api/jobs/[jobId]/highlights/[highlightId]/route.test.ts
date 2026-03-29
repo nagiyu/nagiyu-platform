@@ -1,14 +1,20 @@
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
+import type { HighlightRepository } from '@nagiyu/quick-clip-core';
+import { getDynamoDBDocumentClient } from '@/lib/server/aws';
 
 const mockUpdate = jest.fn();
 const mockGetById = jest.fn();
 
-jest.mock('@/repositories/dynamodb-highlight.repository', () => ({
-  getHighlightRepository: jest.fn(() => ({
-    getByJobId: jest.fn(),
-    getById: mockGetById,
-    update: mockUpdate,
-  })),
+jest.mock('@nagiyu/quick-clip-core', () => ({
+  ...jest.requireActual('@nagiyu/quick-clip-core'),
+  DynamoDBHighlightRepository: jest.fn().mockImplementation(
+    () =>
+      ({
+        getByJobId: jest.fn(),
+        getById: mockGetById,
+        update: mockUpdate,
+      }) as unknown as HighlightRepository
+  ),
 }));
 
 jest.mock('next/server', () => ({
@@ -20,9 +26,21 @@ jest.mock('next/server', () => ({
   },
 }));
 
+jest.mock('@/lib/server/aws', () => ({
+  getDynamoDBDocumentClient: jest.fn(() => ({})),
+  getTableName: jest.fn(() => 'test-table'),
+}));
+
 describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
+  const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
+    typeof getDynamoDBDocumentClient
+  >;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetDynamoDBDocumentClient.mockReturnValue(
+      {} as ReturnType<typeof getDynamoDBDocumentClient>
+    );
   });
 
   const createRequest = (body: unknown): Request =>

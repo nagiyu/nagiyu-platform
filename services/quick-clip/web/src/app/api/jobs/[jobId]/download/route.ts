@@ -1,3 +1,4 @@
+import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -9,10 +10,10 @@ import {
   getBatchJobDefinitionArn,
   getBatchJobQueueArn,
   getBucketName,
+  getDynamoDBDocumentClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
-import { getHighlightRepository } from '@/repositories/dynamodb-highlight.repository';
 
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
@@ -29,7 +30,9 @@ type RouteParams = {
 export async function POST(_request: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
     const { jobId } = await params;
-    const highlightService = new HighlightDomainService(getHighlightRepository());
+    const highlightService = new HighlightDomainService(
+      new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
+    );
     const highlights = await highlightService.getHighlights(jobId);
     if (highlights.length === 0) {
       return NextResponse.json(

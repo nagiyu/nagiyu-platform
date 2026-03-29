@@ -1,10 +1,11 @@
+import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
+import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,
   isHighlightStatus,
 } from '@/lib/server/domain-services';
-import { getHighlightRepository } from '@/repositories/dynamodb-highlight.repository';
 import type { UpdateHighlightInput } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
@@ -47,7 +48,9 @@ const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
 
 export async function PATCH(request: Request, { params }: RouteParams): Promise<NextResponse> {
   const { jobId, highlightId } = await params;
-  const highlightService = new HighlightDomainService(getHighlightRepository());
+  const highlightService = new HighlightDomainService(
+    new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
+  );
 
   try {
     const body = await request.json();
