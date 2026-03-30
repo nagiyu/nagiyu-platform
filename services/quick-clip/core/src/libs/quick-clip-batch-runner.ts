@@ -32,6 +32,8 @@ const ERROR_MESSAGES = {
   JOB_NOT_FOUND: 'ジョブが見つかりません',
   JOB_NOT_COMPLETED: 'ジョブの処理が完了していません',
   DOWNLOAD_FAILED: '動画ファイルのダウンロードに失敗しました',
+  SOURCE_VIDEO_NOT_FOUND: (sourceVideoKey: string): string =>
+    `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
 } as const;
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
@@ -40,6 +42,28 @@ const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`
 const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
 const ZIP_OUTPUT_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
+const DOWNLOAD_RETRY_COUNT = 20;
+const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
+
+type S3Error = {
+  name?: string;
+  Code?: string;
+};
+
+type ErrorWithCause = Error & { cause?: unknown };
+
+const isNoSuchKeyError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const s3Error = error as S3Error;
+  return s3Error.name === 'NoSuchKey' || s3Error.Code === 'NoSuchKey';
+};
+
+const wait = async (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 const createDynamoDBDocumentClient = (region: string): DynamoDBDocumentClient =>
   DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
@@ -55,20 +79,46 @@ const downloadSourceVideo = async (
   awsRegion: string
 ): Promise<void> => {
   const s3Client = new S3Client({ region: awsRegion });
-  const response = await s3Client.send(
-    new GetObjectCommand({
-      Bucket: bucketName,
-      Key: SOURCE_VIDEO_KEY(jobId),
-    })
-  );
+  const sourceVideoKey = SOURCE_VIDEO_KEY(jobId);
 
-  if (!response.Body) {
-    throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
+  for (let retryCount = 1; retryCount <= DOWNLOAD_RETRY_COUNT; retryCount += 1) {
+    try {
+      const response = await s3Client.send(
+        new GetObjectCommand({
+          Bucket: bucketName,
+          Key: sourceVideoKey,
+        })
+      );
+
+      if (!response.Body) {
+        throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
+      }
+
+      await mkdir(dirname(localPath), { recursive: true });
+      const bytes = await response.Body.transformToByteArray();
+      await writeFile(localPath, Buffer.from(bytes));
+      return;
+    } catch (error) {
+      if (isNoSuchKeyError(error)) {
+        if (retryCount === DOWNLOAD_RETRY_COUNT) {
+          const missingSourceError = new Error(
+            ERROR_MESSAGES.SOURCE_VIDEO_NOT_FOUND(sourceVideoKey)
+          ) as ErrorWithCause;
+          missingSourceError.cause = error;
+          throw missingSourceError;
+        }
+        await wait(DOWNLOAD_RETRY_INTERVAL_MS);
+        continue;
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      const downloadError = new Error(
+        `${ERROR_MESSAGES.DOWNLOAD_FAILED}: ${message}`
+      ) as ErrorWithCause;
+      downloadError.cause = error;
+      throw downloadError;
+    }
   }
-
-  await mkdir(dirname(localPath), { recursive: true });
-  const bytes = await response.Body.transformToByteArray();
-  await writeFile(localPath, Buffer.from(bytes));
 };
 
 const uploadFile = async (
