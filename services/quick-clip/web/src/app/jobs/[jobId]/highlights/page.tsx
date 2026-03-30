@@ -137,14 +137,25 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     }
 
     const preview = previewRef.current;
-    const handleTimeUpdate = () => {
+    const clampToRange = () => {
+      if (preview.currentTime < selectedHighlight.startSec) {
+        preview.currentTime = selectedHighlight.startSec;
+      }
       if (preview.currentTime >= selectedHighlight.endSec) {
         preview.pause();
       }
     };
+    const handleTimeUpdate = () => {
+      clampToRange();
+    };
+    const handleSeeking = () => {
+      clampToRange();
+    };
     preview.addEventListener('timeupdate', handleTimeUpdate);
+    preview.addEventListener('seeking', handleSeeking);
     return () => {
       preview.removeEventListener('timeupdate', handleTimeUpdate);
+      preview.removeEventListener('seeking', handleSeeking);
     };
   }, [selectedHighlight]);
 
