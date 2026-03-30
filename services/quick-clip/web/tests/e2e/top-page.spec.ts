@@ -24,6 +24,12 @@ test.describe('QuickClip Top Page', () => {
         }),
       });
     });
+    await page.route('https://example.com/upload', async (route) => {
+      await route.fulfill({
+        status: 200,
+        body: '',
+      });
+    });
 
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(path.join(__dirname, '../fixtures/sample.mp4'));
