@@ -105,9 +105,7 @@ describe('Home', () => {
     fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('動画ファイルのアップロードに失敗しました')
-      ).toBeInTheDocument();
+      expect(screen.getByText('動画ファイルのアップロードに失敗しました')).toBeInTheDocument();
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith('動画アップロードに失敗しました', {
       status: undefined,
@@ -135,9 +133,7 @@ describe('Home', () => {
     fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('動画ファイルのアップロードに失敗しました')
-      ).toBeInTheDocument();
+      expect(screen.getByText('動画ファイルのアップロードに失敗しました')).toBeInTheDocument();
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '動画アップロード時に予期しないエラーが発生しました',
