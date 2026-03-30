@@ -1,10 +1,11 @@
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import JSZip from 'jszip';
 import { randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, dirname } from 'node:path';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { Highlight, JobStatus } from '../types.js';
@@ -184,16 +185,23 @@ const updateJobStatus = async (
   await service.updateStatus(jobId, status, errorMessage);
 };
 
-const createPseudoZip = async (files: string[], outputPath: string): Promise<void> => {
-  // Phase 4 では ZIP 実装を簡易化し、クリップ一覧インデックスを保存する。
-  // 実 ZIP 生成は Phase 5 以降で置き換える。
-  const contentLines = ['quick-clip pseudo zip index'];
-  for (const filePath of files) {
-    contentLines.push(filePath);
+const createZip = async (files: string[], outputPath: string): Promise<void> => {
+  const zip = new JSZip();
+  const fileData = await Promise.all(
+    files.map(async (filePath) => ({
+      fileName: basename(filePath),
+      fileContent: await readFile(filePath),
+    }))
+  );
+  for (const { fileName, fileContent } of fileData) {
+    zip.file(fileName, fileContent);
   }
+  const zipBuffer = await zip.generateAsync({
+    type: 'nodebuffer',
+    compression: 'DEFLATE',
+  });
   await mkdir(dirname(outputPath), { recursive: true });
-  await rm(outputPath, { force: true });
-  await writeFile(outputPath, contentLines.join('\n'));
+  await writeFile(outputPath, zipBuffer);
 };
 
 const ensureCompletedJob = async (
@@ -253,7 +261,7 @@ const runSplit = async (env: QuickClipBatchRunInput): Promise<void> => {
       })
   );
 
-  await createPseudoZip(clipPaths, zipPath);
+  await createZip(clipPaths, zipPath);
   await uploadFile(env.bucketName, ZIP_OUTPUT_KEY(env.jobId), zipPath, env.awsRegion);
 };
 
