@@ -4,6 +4,11 @@ const mockWriteFile = jest.fn();
 const mockUpdateStatus = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
+const TEST_ERRORS = {
+  NO_SUCH_KEY: { name: 'NoSuchKey', Code: 'NoSuchKey' } as const,
+};
+const DOWNLOAD_RETRY_COUNT = 20;
+const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
 
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({
@@ -104,13 +109,11 @@ describe('runQuickClipBatch', () => {
 
   it('NoSuchKey が一時的に発生してもリトライで取得できれば処理を継続する', async () => {
     jest.useFakeTimers();
-    mockS3Send
-      .mockRejectedValueOnce({ name: 'NoSuchKey', Code: 'NoSuchKey' })
-      .mockResolvedValueOnce({
-        Body: {
-          transformToByteArray: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
-        },
-      });
+    mockS3Send.mockRejectedValueOnce(TEST_ERRORS.NO_SUCH_KEY).mockResolvedValueOnce({
+      Body: {
+        transformToByteArray: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+      },
+    });
 
     const runPromise = runQuickClipBatch(input);
     await jest.advanceTimersByTimeAsync(3000);
@@ -124,12 +127,12 @@ describe('runQuickClipBatch', () => {
 
   it('NoSuchKey が解消しない場合は FAILED として動画未検出メッセージを記録する', async () => {
     jest.useFakeTimers();
-    mockS3Send.mockRejectedValue({ name: 'NoSuchKey', Code: 'NoSuchKey' });
+    mockS3Send.mockRejectedValue(TEST_ERRORS.NO_SUCH_KEY);
 
     const assertion = expect(runQuickClipBatch(input)).rejects.toThrow(
       'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4'
     );
-    await jest.advanceTimersByTimeAsync(57000);
+    await jest.advanceTimersByTimeAsync((DOWNLOAD_RETRY_COUNT - 1) * DOWNLOAD_RETRY_INTERVAL_MS);
     await assertion;
 
     expect(mockS3Send).toHaveBeenCalledTimes(20);

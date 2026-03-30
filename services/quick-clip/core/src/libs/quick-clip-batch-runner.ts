@@ -32,7 +32,8 @@ const ERROR_MESSAGES = {
   JOB_NOT_FOUND: 'ジョブが見つかりません',
   JOB_NOT_COMPLETED: 'ジョブの処理が完了していません',
   DOWNLOAD_FAILED: '動画ファイルのダウンロードに失敗しました',
-  SOURCE_VIDEO_NOT_FOUND: 'アップロード済みの動画ファイルが見つかりません',
+  SOURCE_VIDEO_NOT_FOUND: (sourceVideoKey: string): string =>
+    `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
 } as const;
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
@@ -48,6 +49,8 @@ type S3Error = {
   name?: string;
   Code?: string;
 };
+
+type ErrorWithCause = Error & { cause?: unknown };
 
 const isNoSuchKeyError = (error: unknown): boolean => {
   if (typeof error !== 'object' || error === null) {
@@ -78,7 +81,7 @@ const downloadSourceVideo = async (
   const s3Client = new S3Client({ region: awsRegion });
   const sourceVideoKey = SOURCE_VIDEO_KEY(jobId);
 
-  for (let attempt = 1; attempt <= DOWNLOAD_RETRY_COUNT; attempt += 1) {
+  for (let retryCount = 1; retryCount <= DOWNLOAD_RETRY_COUNT; retryCount += 1) {
     try {
       const response = await s3Client.send(
         new GetObjectCommand({
@@ -97,10 +100,10 @@ const downloadSourceVideo = async (
       return;
     } catch (error) {
       if (isNoSuchKeyError(error)) {
-        if (attempt === DOWNLOAD_RETRY_COUNT) {
+        if (retryCount === DOWNLOAD_RETRY_COUNT) {
           const missingSourceError = new Error(
-            `${ERROR_MESSAGES.SOURCE_VIDEO_NOT_FOUND}: ${sourceVideoKey}`
-          ) as Error & { cause?: unknown };
+            ERROR_MESSAGES.SOURCE_VIDEO_NOT_FOUND(sourceVideoKey)
+          ) as ErrorWithCause;
           missingSourceError.cause = error;
           throw missingSourceError;
         }
@@ -109,9 +112,9 @@ const downloadSourceVideo = async (
       }
 
       const message = error instanceof Error ? error.message : String(error);
-      const downloadError = new Error(`${ERROR_MESSAGES.DOWNLOAD_FAILED}: ${message}`) as Error & {
-        cause?: unknown;
-      };
+      const downloadError = new Error(
+        `${ERROR_MESSAGES.DOWNLOAD_FAILED}: ${message}`
+      ) as ErrorWithCause;
       downloadError.cause = error;
       throw downloadError;
     }
