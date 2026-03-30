@@ -11,8 +11,23 @@ jest.mock('next/navigation', () => ({
 }));
 
 describe('Home', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
+  const selectFile = () => {
+    const file = new File(['dummy'], 'input.mp4', { type: 'video/mp4' });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    return file;
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   it('アップロード画面の主要要素を表示する', () => {
@@ -42,9 +57,7 @@ describe('Home', () => {
 
     render(<Home />);
 
-    const file = new File(['dummy'], 'input.mp4', { type: 'video/mp4' });
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    fireEvent.change(fileInput, { target: { files: [file] } });
+    const file = selectFile();
 
     fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
 
@@ -69,5 +82,68 @@ describe('Home', () => {
       );
       expect(mockPush).toHaveBeenCalledWith('/jobs/job-1');
     });
+  });
+
+  it('動画アップロードが失敗した場合はエラーを表示して遷移しない', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jobId: 'job-1',
+          uploadUrl: 'https://example.com/upload',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+      });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('動画ファイルのアップロードに失敗しました')
+      ).toBeInTheDocument();
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith('動画アップロードに失敗しました', {
+      status: undefined,
+    });
+    expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('アップロード時に例外が発生した場合はアップロード失敗エラーを表示して遷移しない', async () => {
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jobId: 'job-1',
+          uploadUrl: 'https://example.com/upload',
+        }),
+      })
+      .mockRejectedValueOnce(new Error('network error'));
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('動画ファイルのアップロードに失敗しました')
+      ).toBeInTheDocument();
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '動画アップロード時に予期しないエラーが発生しました',
+      expect.any(Error)
+    );
+    expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

@@ -8,7 +8,14 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 const ERROR_MESSAGES = {
   SELECT_FILE: '動画ファイルを選択してください',
   CREATE_JOB_FAILED: 'アップロード処理の開始に失敗しました',
+  UPLOAD_FAILED: '動画ファイルのアップロードに失敗しました',
   UNKNOWN: '予期しないエラーが発生しました',
+} as const;
+
+const LOG_MESSAGES = {
+  UPLOAD_FAILED: '動画アップロードに失敗しました',
+  UPLOAD_EXCEPTION: '動画アップロード時に予期しないエラーが発生しました',
+  UNKNOWN: 'アップロード処理の開始時に予期しないエラーが発生しました',
 } as const;
 
 const ACCEPTED_FILE_TYPE = 'video/mp4';
@@ -84,22 +91,34 @@ export default function Home() {
       }
 
       const data = (await response.json()) as CreateJobResponse;
-      const uploadResponse = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': ACCEPTED_FILE_TYPE,
-        },
-        body: file,
-      });
 
-      if (!uploadResponse.ok) {
-        setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
+      try {
+        const uploadResponse = await fetch(data.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': ACCEPTED_FILE_TYPE,
+          },
+          body: file,
+        });
+
+        if (!uploadResponse.ok) {
+          console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+            status: uploadResponse.status,
+          });
+          setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+          setIsSubmitting(false);
+          return;
+        }
+      } catch (error) {
+        console.error(LOG_MESSAGES.UPLOAD_EXCEPTION, error);
+        setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
         setIsSubmitting(false);
         return;
       }
 
       router.push(`/jobs/${data.jobId}`);
-    } catch {
+    } catch (error) {
+      console.error(LOG_MESSAGES.UNKNOWN, error);
       setErrorMessage(ERROR_MESSAGES.UNKNOWN);
       setIsSubmitting(false);
     }
