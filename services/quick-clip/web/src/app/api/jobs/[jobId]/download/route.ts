@@ -157,6 +157,7 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
       );
     }
 
+    console.error('[POST /api/jobs/[jobId]/download] ダウンロード準備に失敗しました', error);
     return NextResponse.json(
       {
         error: 'INTERNAL_SERVER_ERROR',

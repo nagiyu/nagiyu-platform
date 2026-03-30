@@ -127,7 +127,8 @@ export async function POST(request: Request): Promise<NextResponse> {
       },
       { status: 201 }
     );
-  } catch {
+  } catch (error) {
+    console.error('[POST /api/jobs] ジョブの作成に失敗しました', error);
     return NextResponse.json(
       {
         error: 'INTERNAL_SERVER_ERROR',

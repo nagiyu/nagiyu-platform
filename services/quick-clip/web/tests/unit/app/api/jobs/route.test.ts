@@ -45,13 +45,19 @@ describe('POST /api/jobs', () => {
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
   const batchSend = jest.fn();
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetSignedUrl.mockResolvedValue('https://example.com/upload');
     mockedGetBatchClient.mockReturnValue({
       send: batchSend.mockResolvedValue({}),
     } as unknown as ReturnType<typeof getBatchClient>);
+  });
+
+  afterEach(() => {
+    consoleErrorSpy.mockRestore();
   });
 
   const createRequest = (body: unknown): Request =>
@@ -97,5 +103,28 @@ describe('POST /api/jobs', () => {
       error: 'INVALID_FILE_TYPE',
       message: 'MP4 形式の動画ファイルのみアップロードできます',
     });
+  });
+
+  it('異常系: Batchジョブ作成に失敗した場合は500を返しエラーログを出力する', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+    });
+    const batchError = new Error('submit failed');
+    batchSend.mockRejectedValueOnce(batchError);
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'ジョブの作成に失敗しました',
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[POST /api/jobs] ジョブの作成に失敗しました',
+      batchError
+    );
   });
 });
