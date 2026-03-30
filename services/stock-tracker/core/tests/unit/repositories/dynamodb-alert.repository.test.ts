@@ -394,6 +394,71 @@ describe('DynamoDBAlertRepository', () => {
       );
       mapperSpy.mockRestore();
     });
+
+    it('name が異なるエラーでもメッセージが無効データ形式ならスキップする', async () => {
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        Type: 'Alert',
+        GSI1PK: 'user-123',
+        GSI1SK: 'Alert#alert-1',
+        GSI2PK: 'ALERT#MINUTE_LEVEL',
+        GSI2SK: 'user-123#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Buy',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
+        subscription: {
+          endpoint: 'https://example.com/push',
+          keys: {
+            p256dh: 'p256dh-key',
+            auth: 'auth-secret',
+          },
+        },
+        CreatedAt: 1704067200000,
+        UpdatedAt: 1704067200000,
+      };
+      const invalidItem = {
+        ...validItem,
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+      };
+
+      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
+        const record = item as unknown as { AlertID?: string };
+        if (record.AlertID === 'invalid-alert') {
+          throw new Error(
+            'エンティティデータが無効です: フィールド "SubscriptionEndpoint" が文字列ではありません'
+          );
+        }
+
+        return {
+          ...validItem,
+          AlertID: record.AlertID || validItem.AlertID,
+        } as unknown as ReturnType<AlertMapper['toEntity']>;
+      });
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [invalidItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({
+          sk: 'ALERT#invalid-alert',
+        })
+      );
+      mapperSpy.mockRestore();
+    });
   });
 
   describe('getByFrequency', () => {
