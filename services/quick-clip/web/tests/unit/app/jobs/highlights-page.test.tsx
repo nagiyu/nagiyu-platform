@@ -46,7 +46,7 @@ describe('HighlightsPage', () => {
     );
   });
 
-  it('選択区間の終了時刻に到達したらプレビューを停止する', async () => {
+  it('選択区間を超えて再生された場合は終了時刻で停止する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -71,13 +71,58 @@ describe('HighlightsPage', () => {
     });
 
     const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
+    const endSec = 20;
+    let currentTime = endSec + 1;
     Object.defineProperty(video, 'currentTime', {
       configurable: true,
-      get: () => 20,
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value;
+      },
     });
     fireEvent(video, new Event('timeupdate'));
 
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
+    expect(currentTime).toBe(20);
+  });
+
+  it('選択区間の終了時刻ちょうどでもプレビューを停止する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sourceVideoUrl: 'https://example.com/source.mp4',
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            status: 'accepted',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
+    });
+
+    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
+    let currentTime = 20;
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value;
+      },
+    });
+    fireEvent(video, new Event('timeupdate'));
+
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
+    expect(currentTime).toBe(20);
   });
 
   it('選択区間より前へシークした場合は開始時刻まで戻す', async () => {
@@ -105,16 +150,54 @@ describe('HighlightsPage', () => {
     });
 
     const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
-    let currentTimeValue = 4;
+    let currentTime = 4;
     Object.defineProperty(video, 'currentTime', {
       configurable: true,
-      get: () => currentTimeValue,
+      get: () => currentTime,
       set: (value: number) => {
-        currentTimeValue = value;
+        currentTime = value;
       },
     });
     fireEvent(video, new Event('seeking'));
 
-    expect(currentTimeValue).toBe(10);
+    expect(currentTime).toBe(10);
+  });
+
+  it('選択区間より前で timeupdate が発生した場合も開始時刻まで戻す', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sourceVideoUrl: 'https://example.com/source.mp4',
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            status: 'accepted',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
+    });
+
+    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
+    let currentTime = 4;
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => currentTime,
+      set: (value: number) => {
+        currentTime = value;
+      },
+    });
+    fireEvent(video, new Event('timeupdate'));
+
+    expect(currentTime).toBe(10);
   });
 });
