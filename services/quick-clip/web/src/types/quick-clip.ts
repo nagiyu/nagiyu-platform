@@ -19,6 +19,7 @@ export type Highlight = {
   startSec: number;
   endSec: number;
   status: HighlightStatus;
+  previewUrl?: string;
 };
 
 export type UpdateHighlightInput = {
