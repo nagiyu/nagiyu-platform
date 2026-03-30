@@ -104,6 +104,22 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     [highlights, selectedId]
   );
 
+  useEffect(() => {
+    if (!previewRef.current) {
+      return;
+    }
+
+    const preview = previewRef.current;
+    if (!selectedHighlight?.previewUrl) {
+      preview.removeAttribute('src');
+      preview.load();
+      return;
+    }
+
+    preview.src = selectedHighlight.previewUrl;
+    preview.load();
+  }, [selectedHighlight]);
+
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
     [highlights]
@@ -237,7 +253,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
               <video
                 ref={previewRef}
                 controls
-                aria-label="見どころ動画プレビュー（PoC 版は再生ソース未連携）"
+                aria-label="見どころ動画プレビュー"
                 style={{ width: '100%' }}
               >
                 お使いのブラウザは video 要素に対応していません。
@@ -248,9 +264,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   {selectedHighlight.endSec}s)
                 </Typography>
               )}
-              <Typography variant="caption" color="text.secondary">
-                PoC 版ではプレビュー再生ソースは未連携です。
-              </Typography>
             </Box>
 
             <TableContainer component={Paper} variant="outlined">
