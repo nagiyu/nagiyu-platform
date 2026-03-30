@@ -15,6 +15,7 @@ const ACCEPTED_FILE_TYPE = 'video/mp4';
 
 type CreateJobResponse = {
   jobId: string;
+  uploadUrl: string;
 };
 
 export default function Home() {
@@ -83,6 +84,20 @@ export default function Home() {
       }
 
       const data = (await response.json()) as CreateJobResponse;
+      const uploadResponse = await fetch(data.uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': ACCEPTED_FILE_TYPE,
+        },
+        body: file,
+      });
+
+      if (!uploadResponse.ok) {
+        setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
+        setIsSubmitting(false);
+        return;
+      }
+
       router.push(`/jobs/${data.jobId}`);
     } catch {
       setErrorMessage(ERROR_MESSAGES.UNKNOWN);
