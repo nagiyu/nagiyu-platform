@@ -11,7 +11,7 @@ const mockGetJob = jest.fn();
 const TEST_ERRORS = {
   NO_SUCH_KEY: { name: 'NoSuchKey', Code: 'NoSuchKey' } as const,
 };
-const DOWNLOAD_RETRY_COUNT = 20;
+const DOWNLOAD_RETRY_COUNT = 600;
 const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
 
 jest.mock('@aws-sdk/client-s3', () => ({
@@ -145,7 +145,7 @@ describe('runQuickClipBatch', () => {
     await jest.advanceTimersByTimeAsync((DOWNLOAD_RETRY_COUNT - 1) * DOWNLOAD_RETRY_INTERVAL_MS);
     await assertion;
 
-    expect(mockS3Send).toHaveBeenCalledTimes(20);
+    expect(mockS3Send).toHaveBeenCalledTimes(DOWNLOAD_RETRY_COUNT);
     expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'PROCESSING', undefined);
     expect(mockUpdateStatus).toHaveBeenCalledWith(
       'job-1',
