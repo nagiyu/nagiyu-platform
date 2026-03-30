@@ -1,6 +1,6 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
@@ -18,8 +18,55 @@ import {
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
   NO_ACCEPTED_HIGHLIGHTS: '採用された見どころがありません',
+  DOWNLOAD_PREPARATION_TIMEOUT: 'ダウンロードファイルの準備に時間がかかっています',
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',
 } as const;
+
+const ZIP_READY_RETRY_COUNT = 20;
+const ZIP_READY_RETRY_INTERVAL_MS = 3000;
+
+type S3Error = {
+  name?: string;
+  Code?: string;
+};
+
+const isNoSuchKeyError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const s3Error = error as S3Error;
+  return s3Error.name === 'NoSuchKey' || s3Error.Code === 'NoSuchKey';
+};
+
+const wait = async (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const waitForZipReady = async (bucketName: string, outputKey: string): Promise<void> => {
+  const s3Client = getS3Client();
+
+  for (let retryCount = 1; retryCount <= ZIP_READY_RETRY_COUNT; retryCount += 1) {
+    try {
+      await s3Client.send(
+        new HeadObjectCommand({
+          Bucket: bucketName,
+          Key: outputKey,
+        })
+      );
+      return;
+    } catch (error) {
+      if (isNoSuchKeyError(error)) {
+        if (retryCount === ZIP_READY_RETRY_COUNT) {
+          throw new Error(ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT);
+        }
+        await wait(ZIP_READY_RETRY_INTERVAL_MS);
+        continue;
+      }
+      throw error;
+    }
+  }
+};
 
 type RouteParams = {
   params: Promise<{
@@ -57,14 +104,6 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
 
     const bucketName = getBucketName();
     const outputKey = `outputs/${jobId}/clips.zip`;
-    const downloadUrl = await getSignedUrl(
-      getS3Client(),
-      new GetObjectCommand({
-        Bucket: bucketName,
-        Key: outputKey,
-      }),
-      { expiresIn: 3600 }
-    );
 
     await getBatchClient().send(
       new SubmitJobCommand({
@@ -83,10 +122,20 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
       })
     );
 
+    await waitForZipReady(bucketName, outputKey);
+
+    const s3Client = getS3Client();
     return NextResponse.json({
       jobId,
       fileName: `${jobId}-clips.zip`,
-      downloadUrl,
+      downloadUrl: await getSignedUrl(
+        s3Client,
+        new GetObjectCommand({
+          Bucket: bucketName,
+          Key: outputKey,
+        }),
+        { expiresIn: 3600 }
+      ),
     });
   } catch (error) {
     if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {

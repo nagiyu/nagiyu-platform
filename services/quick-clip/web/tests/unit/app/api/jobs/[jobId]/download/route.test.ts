@@ -1,6 +1,7 @@
+import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import { getBatchClient } from '@/lib/server/aws';
+import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/download/route';
 
 const mockGetByJobId = jest.fn();
@@ -46,7 +47,10 @@ jest.mock('next/server', () => ({
 describe('POST /api/jobs/[jobId]/download', () => {
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
+  const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
   const batchSend = jest.fn();
+  const s3Send = jest.fn();
+  let setTimeoutSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -54,6 +58,21 @@ describe('POST /api/jobs/[jobId]/download', () => {
     mockedGetBatchClient.mockReturnValue({
       send: batchSend.mockResolvedValue({}),
     } as unknown as ReturnType<typeof getBatchClient>);
+    mockedGetS3Client.mockReturnValue({
+      send: s3Send.mockResolvedValue({}),
+    } as unknown as ReturnType<typeof getS3Client>);
+    setTimeoutSpy = jest
+      .spyOn(global, 'setTimeout')
+      .mockImplementation((callback: TimerHandler): NodeJS.Timeout => {
+        if (typeof callback === 'function') {
+          callback();
+        }
+        return {} as NodeJS.Timeout;
+      });
+  });
+
+  afterEach(() => {
+    setTimeoutSpy.mockRestore();
   });
 
   const mockRequest = {} as Request;
@@ -83,6 +102,14 @@ describe('POST /api/jobs/[jobId]/download', () => {
     });
     expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
     expect(batchSend).toHaveBeenCalledTimes(1);
+    expect(s3Send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: {
+          Bucket: 'test-bucket',
+          Key: 'outputs/job-1/clips.zip',
+        },
+      })
+    );
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {
@@ -107,5 +134,33 @@ describe('POST /api/jobs/[jobId]/download', () => {
       error: 'DOWNLOAD_NOT_AVAILABLE',
       message: '採用された見どころがありません',
     });
+  });
+
+  it('異常系: Zipが生成されない場合は500を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+      },
+    ]);
+    s3Send.mockRejectedValue(Object.assign(new Error('missing'), { name: 'NoSuchKey' }));
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'ダウンロードの準備に失敗しました',
+    });
+    expect(s3Send).toHaveBeenCalledTimes(20);
+    expect(s3Send).toHaveBeenLastCalledWith(expect.any(HeadObjectCommand));
+    expect(mockedGetSignedUrl).not.toHaveBeenCalled();
   });
 });
