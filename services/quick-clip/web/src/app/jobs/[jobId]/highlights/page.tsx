@@ -34,6 +34,7 @@ type HighlightsPageProps = {
 
 type HighlightsResponse = {
   highlights: Highlight[];
+  sourceVideoUrl: string;
 };
 
 type DownloadResponse = {
@@ -49,6 +50,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sourceVideoUrl, setSourceVideoUrl] = useState<string>('');
   const previewRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -80,6 +82,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
         setHighlights(data.highlights);
         setSelectedId(data.highlights[0]?.highlightId ?? null);
+        setSourceVideoUrl(data.sourceVideoUrl);
         setErrorMessage(null);
       } catch {
         if (active) {
@@ -110,14 +113,39 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     }
 
     const preview = previewRef.current;
-    if (!selectedHighlight?.previewUrl) {
+    if (!sourceVideoUrl || !selectedHighlight) {
       preview.removeAttribute('src');
       preview.load();
       return;
     }
 
-    preview.src = selectedHighlight.previewUrl;
+    preview.src = sourceVideoUrl;
+    const seekToStart = () => {
+      preview.currentTime = selectedHighlight.startSec;
+      preview.removeEventListener('loadedmetadata', seekToStart);
+    };
+    preview.addEventListener('loadedmetadata', seekToStart);
     preview.load();
+    return () => {
+      preview.removeEventListener('loadedmetadata', seekToStart);
+    };
+  }, [selectedHighlight, sourceVideoUrl]);
+
+  useEffect(() => {
+    if (!previewRef.current || !selectedHighlight) {
+      return;
+    }
+
+    const preview = previewRef.current;
+    const handleTimeUpdate = () => {
+      if (preview.currentTime >= selectedHighlight.endSec) {
+        preview.pause();
+      }
+    };
+    preview.addEventListener('timeupdate', handleTimeUpdate);
+    return () => {
+      preview.removeEventListener('timeupdate', handleTimeUpdate);
+    };
   }, [selectedHighlight]);
 
   const acceptedCount = useMemo(

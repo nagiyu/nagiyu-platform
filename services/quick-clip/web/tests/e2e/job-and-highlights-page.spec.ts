@@ -57,7 +57,10 @@ test.describe('QuickClip Highlights Page', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ highlights }),
+        body: JSON.stringify({
+          highlights,
+          sourceVideoUrl: 'https://example.com/source.mp4',
+        }),
       });
     });
 
@@ -121,7 +124,7 @@ test.describe('QuickClip Highlights Page', () => {
     await expect(page.getByText('採用中の見どころ: 1 件')).toBeVisible();
     await expect(page.locator('video')).toHaveAttribute(
       'src',
-      'https://example.com/preview-h-1.mp4'
+      'https://example.com/source.mp4'
     );
 
     await page.getByRole('checkbox', { name: /見どころ2.*使える/ }).click();

@@ -15,10 +15,9 @@ const ERROR_MESSAGES = {
   INTERNAL_SERVER_ERROR: '見どころ一覧の取得に失敗しました',
 } as const;
 
-// 見どころ確認画面での操作時間を考慮し、プレビューURLは1時間有効とする。
-const PREVIEW_URL_EXPIRES_IN = 3600;
-const buildPreviewClipKey = (jobId: string, highlightId: string): string =>
-  `outputs/${jobId}/clips/${highlightId}.mp4`;
+// 見どころ確認画面での操作時間を考慮し、元動画URLは1時間有効とする。
+const SOURCE_VIDEO_URL_EXPIRES_IN = 3600;
+const buildSourceVideoKey = (jobId: string): string => `uploads/${jobId}/input.mp4`;
 
 type RouteParams = {
   params: Promise<{
@@ -48,35 +47,16 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     );
     const highlights = await highlightService.getHighlights(jobId);
     const bucketName = getBucketName();
-    const enrichedHighlights = await Promise.all(
-      highlights.map(async (highlight) => {
-        try {
-          const previewUrl = await getSignedUrl(
-            getS3Client(),
-            new GetObjectCommand({
-              Bucket: bucketName,
-              Key: buildPreviewClipKey(jobId, highlight.highlightId),
-            }),
-            { expiresIn: PREVIEW_URL_EXPIRES_IN }
-          );
-          return {
-            ...highlight,
-            previewUrl,
-          };
-        } catch (error) {
-          console.error('見どころプレビューURLの生成に失敗しました', {
-            jobId,
-            highlightId: highlight.highlightId,
-            error,
-          });
-          return {
-            ...highlight,
-          };
-        }
-      })
+    const sourceVideoUrl = await getSignedUrl(
+      getS3Client(),
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: buildSourceVideoKey(jobId),
+      }),
+      { expiresIn: SOURCE_VIDEO_URL_EXPIRES_IN }
     );
 
-    return NextResponse.json({ highlights: enrichedHighlights });
+    return NextResponse.json({ highlights, sourceVideoUrl });
   } catch {
     return NextResponse.json(
       {

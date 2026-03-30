@@ -1,23 +1,27 @@
 import '@testing-library/jest-dom';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
 
 describe('HighlightsPage', () => {
   const originalLoad = HTMLMediaElement.prototype.load;
+  const originalPause = HTMLMediaElement.prototype.pause;
 
   beforeEach(() => {
     jest.clearAllMocks();
     HTMLMediaElement.prototype.load = jest.fn();
+    HTMLMediaElement.prototype.pause = jest.fn();
   });
 
   afterEach(() => {
     HTMLMediaElement.prototype.load = originalLoad;
+    HTMLMediaElement.prototype.pause = originalPause;
   });
 
-  it('見どころ取得時に previewUrl を video 要素へ反映する', async () => {
+  it('見どころ取得時に元動画URLを video 要素へ反映する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
+        sourceVideoUrl: 'https://example.com/source.mp4',
         highlights: [
           {
             highlightId: 'h-1',
@@ -26,7 +30,6 @@ describe('HighlightsPage', () => {
             startSec: 10,
             endSec: 20,
             status: 'accepted',
-            previewUrl: 'https://example.com/preview-h-1.mp4',
           },
         ],
       }),
@@ -39,14 +42,15 @@ describe('HighlightsPage', () => {
     });
     expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
       'src',
-      'https://example.com/preview-h-1.mp4'
+      'https://example.com/source.mp4'
     );
   });
 
-  it('previewUrl が無い場合は video 要素の src を設定しない', async () => {
+  it('選択区間の終了時刻に到達したらプレビューを停止する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
+        sourceVideoUrl: 'https://example.com/source.mp4',
         highlights: [
           {
             highlightId: 'h-1',
@@ -65,6 +69,14 @@ describe('HighlightsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
     });
-    expect(screen.getByLabelText('見どころ動画プレビュー')).not.toHaveAttribute('src');
+
+    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
+    Object.defineProperty(video, 'currentTime', {
+      configurable: true,
+      get: () => 20,
+    });
+    fireEvent(video, new Event('timeupdate'));
+
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
   });
 });
