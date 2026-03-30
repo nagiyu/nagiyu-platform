@@ -136,7 +136,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
     });
   });
 
-  it('異常系: Zipが生成されない場合は500を返す', async () => {
+  it('異常系: Zipが生成されない場合は503を返す', async () => {
     mockGetByJobId.mockResolvedValue([
       {
         highlightId: 'h1',
@@ -154,13 +154,19 @@ describe('POST /api/jobs/[jobId]/download', () => {
     });
     const body = await response.json();
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(503);
     expect(body).toEqual({
-      error: 'INTERNAL_SERVER_ERROR',
-      message: 'ダウンロードの準備に失敗しました',
+      error: 'DOWNLOAD_PREPARATION_TIMEOUT',
+      message: 'ダウンロードファイルの準備に時間がかかっています',
     });
     expect(s3Send).toHaveBeenCalledTimes(20);
     expect(s3Send).toHaveBeenLastCalledWith(expect.any(HeadObjectCommand));
     expect(mockedGetSignedUrl).not.toHaveBeenCalled();
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(19);
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.any(Function),
+      3000
+    );
   });
 });

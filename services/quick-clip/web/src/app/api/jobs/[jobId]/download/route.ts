@@ -61,9 +61,10 @@ const waitForZipReady = async (bucketName: string, outputKey: string): Promise<v
           throw new Error(ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT);
         }
         await wait(ZIP_READY_RETRY_INTERVAL_MS);
-        continue;
       }
-      throw error;
+      else {
+        throw error;
+      }
     }
   }
 };
@@ -145,6 +146,18 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
           message: ERROR_MESSAGES.JOB_NOT_FOUND,
         },
         { status: 404 }
+      );
+    }
+    if (
+      error instanceof Error &&
+      error.message === ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT
+    ) {
+      return NextResponse.json(
+        {
+          error: 'DOWNLOAD_PREPARATION_TIMEOUT',
+          message: ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT,
+        },
+        { status: 503 }
       );
     }
 
