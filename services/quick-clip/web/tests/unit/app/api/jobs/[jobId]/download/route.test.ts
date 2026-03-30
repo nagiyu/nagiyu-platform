@@ -163,10 +163,6 @@ describe('POST /api/jobs/[jobId]/download', () => {
     expect(s3Send).toHaveBeenLastCalledWith(expect.any(HeadObjectCommand));
     expect(mockedGetSignedUrl).not.toHaveBeenCalled();
     expect(setTimeoutSpy).toHaveBeenCalledTimes(19);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(
-      1,
-      expect.any(Function),
-      3000
-    );
+    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 3000);
   });
 });

@@ -61,8 +61,7 @@ const waitForZipReady = async (bucketName: string, outputKey: string): Promise<v
           throw new Error(ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT);
         }
         await wait(ZIP_READY_RETRY_INTERVAL_MS);
-      }
-      else {
+      } else {
         throw error;
       }
     }
@@ -148,10 +147,7 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         { status: 404 }
       );
     }
-    if (
-      error instanceof Error &&
-      error.message === ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT
-    ) {
+    if (error instanceof Error && error.message === ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT) {
       return NextResponse.json(
         {
           error: 'DOWNLOAD_PREPARATION_TIMEOUT',
