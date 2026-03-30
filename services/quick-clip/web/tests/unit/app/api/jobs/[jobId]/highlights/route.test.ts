@@ -68,7 +68,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     jest.restoreAllMocks();
   });
 
-  it('正常系: 見どころ一覧を返す', async () => {
+  it('正常系: 見どころ一覧と元動画URLを返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
       status: 'COMPLETED',
@@ -95,10 +95,10 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
+      sourceVideoUrl: 'https://example.com/highlight.mp4',
       highlights: [
         expect.objectContaining({
           highlightId: 'h1',
-          previewUrl: 'https://example.com/highlight.mp4',
         }),
       ],
     });
@@ -120,7 +120,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     });
   });
 
-  it('正常系: プレビューURL生成に失敗した見どころも一覧として返す', async () => {
+  it('異常系: 元動画URL生成失敗時は500を返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
       status: 'COMPLETED',
@@ -140,22 +140,16 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       },
     ]);
     mockedGetSignedUrl.mockRejectedValueOnce(new Error('signed-url-failed'));
-    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(500);
     expect(body).toEqual({
-      highlights: [
-        expect.objectContaining({
-          highlightId: 'h1',
-        }),
-      ],
+      error: 'INTERNAL_SERVER_ERROR',
+      message: '見どころ一覧の取得に失敗しました',
     });
-    expect(body.highlights[0]).not.toHaveProperty('previewUrl');
-    expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
   });
 });
