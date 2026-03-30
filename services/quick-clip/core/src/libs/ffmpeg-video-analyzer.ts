@@ -85,7 +85,7 @@ export class FfmpegVideoAnalyzer {
     ]);
 
     const sceneEntries = Array.from(
-      stderr.matchAll(/pts_time:([\d.]+).*?scene_score=([\d.]+)/g),
+      stderr.matchAll(/pts_time:([\d.]+)[\s\S]*?(?:lavfi\.)?scene_score=([-\d.]+)/g),
       (match) => ({
         second: Number.parseFloat(match[1] ?? ''),
         score: Number.parseFloat(match[2] ?? ''),
@@ -118,7 +118,9 @@ export class FfmpegVideoAnalyzer {
     const fps = parseFps(fpsMatch?.[1] ?? '');
 
     const entries = Array.from(
-      stderr.matchAll(/frame:(\d+)\s+pts:[\d-]+\s+pts_time:([\d.]+).*?RMS_level=([-\d.]+)/g),
+      stderr.matchAll(
+        /frame:(\d+)[\s\S]*?pts_time:([\d.]+)[\s\S]*?(?:lavfi\.astats\.Overall\.)?RMS_level=([-\d.]+)/g
+      ),
       (match) => {
         const frame = Number.parseInt(match[1] ?? '', 10);
         const ptsTime = Number.parseFloat(match[2] ?? '');
