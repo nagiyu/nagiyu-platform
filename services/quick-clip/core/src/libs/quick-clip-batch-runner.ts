@@ -43,8 +43,9 @@ const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`
 const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
 const ZIP_OUTPUT_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
-const DOWNLOAD_RETRY_COUNT = 20;
 const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
+const DOWNLOAD_RETRY_TIMEOUT_MS = 30 * 60 * 1000;
+const DOWNLOAD_RETRY_COUNT = Math.floor(DOWNLOAD_RETRY_TIMEOUT_MS / DOWNLOAD_RETRY_INTERVAL_MS);
 
 type S3Error = {
   name?: string;
