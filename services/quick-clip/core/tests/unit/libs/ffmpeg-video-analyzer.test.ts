@@ -7,14 +7,16 @@ jest.mock('node:child_process', () => ({
   spawn: (...args: unknown[]) => spawnMock(...args),
 }));
 
-const createFfmpegProcessMock = (stderrOutput: string, code = 0): EventEmitter & { stderr: EventEmitter } => {
-  const process = new EventEmitter() as EventEmitter & { stderr: EventEmitter };
-  process.stderr = new EventEmitter();
-  globalThis.process.nextTick(() => {
-    process.stderr.emit('data', Buffer.from(stderrOutput));
-    process.emit('close', code);
+type MockFfmpegProcess = EventEmitter & { stderr: EventEmitter };
+
+const createFfmpegProcessMock = (stderrOutput: string, code = 0): MockFfmpegProcess => {
+  const ffmpegProcess = new EventEmitter() as MockFfmpegProcess;
+  ffmpegProcess.stderr = new EventEmitter();
+  setImmediate(() => {
+    ffmpegProcess.stderr.emit('data', Buffer.from(stderrOutput));
+    ffmpegProcess.emit('close', code);
   });
-  return process;
+  return ffmpegProcess;
 };
 
 describe('FfmpegVideoAnalyzer', () => {
@@ -53,27 +55,81 @@ describe('FfmpegVideoAnalyzer', () => {
     ]);
   });
 
+  it('analyzeMotion: 不正な scene_score は除外される', async () => {
+    spawnMock.mockReturnValue(
+      createFfmpegProcessMock(
+        [
+          'frame:1 pts:100 pts_time:10.5',
+          'lavfi.scene_score=abc',
+          'frame:2 pts:200 pts_time:20.2',
+          'lavfi.scene_score=0.30',
+        ].join('\n')
+      )
+    );
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    const result = await analyzer.analyzeMotion('/tmp/input.mp4', 10);
+
+    expect(result).toEqual([{ startSec: 20, endSec: 30, score: 0.3 }]);
+  });
+
   it('analyzeVolume: metadata が改行される形式でも RMS_level を抽出できる', async () => {
-    spawnMock
-      .mockReturnValueOnce(
-        createFfmpegProcessMock(
-          [
-            '30 fps',
-            'frame:300 pts:0 pts_time:10.0',
-            'lavfi.astats.Overall.RMS_level=-20.0',
-            'frame:630 pts:0 pts_time:21.0',
-            'lavfi.astats.Overall.RMS_level=-30.0',
-          ].join('\n')
-        )
-      );
+    spawnMock.mockReturnValue(
+      createFfmpegProcessMock(
+        [
+          '30 fps',
+          'frame:300 pts:0 pts_time:10.0',
+          'lavfi.astats.Overall.RMS_level=-20.0',
+          'frame:630 pts:0 pts_time:21.0',
+          'lavfi.astats.Overall.RMS_level=-30.0',
+        ].join('\n')
+      )
+    );
 
     const analyzer = new FfmpegVideoAnalyzer();
     const result = await analyzer.analyzeVolume('/tmp/input.mp4', 10);
+    const expectedScoreFromMinus20dB = Math.pow(10, -20 / 20);
+    const expectedScoreFromMinus30dB = Math.pow(10, -30 / 20);
 
     expect(result).toHaveLength(2);
     expect(result[0]).toMatchObject({ startSec: 10, endSec: 20 });
     expect(result[1]).toMatchObject({ startSec: 20, endSec: 30 });
-    expect(result[0]!.score).toBeCloseTo(0.1, 6);
-    expect(result[1]!.score).toBeCloseTo(0.0316227, 6);
+    expect(result[0]!.score).toBeCloseTo(expectedScoreFromMinus20dB, 6);
+    expect(result[1]!.score).toBeCloseTo(expectedScoreFromMinus30dB, 6);
+  });
+
+  it('analyzeVolume: 不正な RMS_level は除外される', async () => {
+    spawnMock.mockReturnValue(
+      createFfmpegProcessMock(
+        [
+          '30 fps',
+          'frame:300 pts:0 pts_time:10.0',
+          'lavfi.astats.Overall.RMS_level=abc',
+          'frame:630 pts:0 pts_time:21.0',
+          'lavfi.astats.Overall.RMS_level=-30.0',
+        ].join('\n')
+      )
+    );
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    const result = await analyzer.analyzeVolume('/tmp/input.mp4', 10);
+    const expectedScoreFromMinus30dB = Math.pow(10, -30 / 20);
+
+    expect(result).toEqual([
+      {
+        startSec: 20,
+        endSec: 30,
+        score: expectedScoreFromMinus30dB,
+      },
+    ]);
+  });
+
+  it('analyzeMotion: ffmpeg が異常終了した場合はエラーを投げる', async () => {
+    spawnMock.mockReturnValue(createFfmpegProcessMock('ffmpeg error', 2));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await expect(analyzer.analyzeMotion('/tmp/input.mp4', 10)).rejects.toThrow(
+      'FFmpeg の解析に失敗しました: exit code 2, stderr: ffmpeg error'
+    );
   });
 });

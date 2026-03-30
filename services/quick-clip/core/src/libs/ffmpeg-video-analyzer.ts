@@ -84,19 +84,28 @@ export class FfmpegVideoAnalyzer {
       '-',
     ]);
 
-    const sceneEntries = Array.from(
-      stderr.matchAll(/pts_time:([\d.]+)[\s\S]*?(?:lavfi\.)?scene_score=([-\d.]+)/g),
-      (match) => ({
-        second: Number.parseFloat(match[1] ?? ''),
-        score: Number.parseFloat(match[2] ?? ''),
-      })
-    ).filter(
-      (entry) =>
-        Number.isFinite(entry.second) &&
-        entry.second >= 0 &&
-        Number.isFinite(entry.score) &&
-        entry.score > 0
-    );
+    const sceneEntries: Array<{ second: number; score: number }> = [];
+    let currentPtsTime: number | null = null;
+    for (const line of stderr.split(/\r?\n/)) {
+      const ptsMatch = line.match(/pts_time:([\d.]+)/);
+      if (ptsMatch) {
+        const parsedPtsTime = Number.parseFloat(ptsMatch[1] ?? '');
+        if (Number.isFinite(parsedPtsTime)) {
+          currentPtsTime = parsedPtsTime;
+        }
+      }
+      const scoreMatch = line.match(/(?:lavfi\.)?scene_score=([-\d.]+)/);
+      if (scoreMatch && currentPtsTime !== null) {
+        const parsedScore = Number.parseFloat(scoreMatch[1] ?? '');
+        if (!Number.isFinite(parsedScore)) {
+          continue;
+        }
+        sceneEntries.push({
+          second: currentPtsTime,
+          score: parsedScore,
+        });
+      }
+    }
 
     return toTopWindows(sceneEntries, limit);
   }
@@ -117,27 +126,45 @@ export class FfmpegVideoAnalyzer {
     const fpsMatch = stderr.match(/([\d./]+)\s+fps/);
     const fps = parseFps(fpsMatch?.[1] ?? '');
 
-    const entries = Array.from(
-      stderr.matchAll(
-        /frame:(\d+)[\s\S]*?pts_time:([\d.]+)[\s\S]*?(?:lavfi\.astats\.Overall\.)?RMS_level=([-\d.]+)/g
-      ),
-      (match) => {
-        const frame = Number.parseInt(match[1] ?? '', 10);
-        const ptsTime = Number.parseFloat(match[2] ?? '');
-        const rmsLevel = Number.parseFloat(match[3] ?? '');
+    const entries: Array<{ second: number; score: number }> = [];
+    let currentFrame: number | null = null;
+    let currentPtsTime: number | null = null;
+    for (const line of stderr.split(/\r?\n/)) {
+      const frameMatch = line.match(/frame:(\d+)/);
+      if (frameMatch) {
+        const parsedFrame = Number.parseInt(frameMatch[1] ?? '', 10);
+        if (Number.isFinite(parsedFrame)) {
+          currentFrame = parsedFrame;
+        }
+      }
 
-        const secondFromPts = Number.isFinite(ptsTime) ? ptsTime : Number.NaN;
-        const secondFromFrame = Number.isFinite(frame) && fps > 0 ? frame / fps : Number.NaN;
+      const ptsTimeMatch = line.match(/pts_time:([\d.]+)/);
+      if (ptsTimeMatch) {
+        const parsedPtsTime = Number.parseFloat(ptsTimeMatch[1] ?? '');
+        if (Number.isFinite(parsedPtsTime)) {
+          currentPtsTime = parsedPtsTime;
+        }
+      }
+
+      const rmsLevelMatch = line.match(/(?:lavfi\.astats\.Overall\.)?RMS_level=([-\d.]+)/);
+      if (rmsLevelMatch) {
+        const rmsLevel = Number.parseFloat(rmsLevelMatch[1] ?? '');
+        if (!Number.isFinite(rmsLevel)) {
+          continue;
+        }
+        const secondFromPts = currentPtsTime !== null ? currentPtsTime : Number.NaN;
+        const secondFromFrame = currentFrame !== null && fps > 0 ? currentFrame / fps : Number.NaN;
         const second = Number.isFinite(secondFromPts) ? secondFromPts : secondFromFrame;
         const amplitude = Number.isFinite(rmsLevel) ? Math.pow(10, rmsLevel / 20) : 0;
-
-        return {
+        if (!Number.isFinite(second) || second < 0 || amplitude <= 0) {
+          continue;
+        }
+        entries.push({
           second,
           score: amplitude,
-        };
+        });
       }
-    ).filter((entry) => Number.isFinite(entry.second) && entry.second >= 0 && entry.score > 0);
-
+    }
     return toTopWindows(entries, limit);
   }
 
