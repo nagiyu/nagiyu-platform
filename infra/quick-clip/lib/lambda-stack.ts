@@ -139,7 +139,6 @@ export class LambdaStack extends LambdaStackBase {
         DEPLOY_ENV: environment,
         DYNAMODB_TABLE_NAME: jobsTableName,
         S3_BUCKET: storageBucketName,
-        AWS_REGION: this.region,
       },
     });
     this.clipFunction.addToRolePolicy(
@@ -177,7 +176,6 @@ export class LambdaStack extends LambdaStackBase {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         DEPLOY_ENV: environment,
         S3_BUCKET: storageBucketName,
-        AWS_REGION: this.region,
       },
     });
     this.zipFunction.addToRolePolicy(
