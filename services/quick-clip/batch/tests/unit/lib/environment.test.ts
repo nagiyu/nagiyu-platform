@@ -48,4 +48,16 @@ describe('validateEnvironment', () => {
 
     expect(() => validateEnvironment()).toThrow('ジョブIDが不正です');
   });
+
+  it('extract 以外の BATCH_COMMAND でエラーになる', () => {
+    process.env.BATCH_COMMAND = 'split';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+
+    expect(() => validateEnvironment()).toThrow(
+      '必要な環境変数が設定されていません: BATCH_COMMAND'
+    );
+  });
 });

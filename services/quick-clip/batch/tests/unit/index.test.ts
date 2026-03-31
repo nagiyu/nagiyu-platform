@@ -41,6 +41,15 @@ describe('quick-clip batch', () => {
     });
   });
 
+  it('main: split コマンドをそのまま受けず validateEnvironment のエラーを伝搬する', async () => {
+    envMocks.validateEnvironment.mockImplementationOnce(() => {
+      throw new Error('必要な環境変数が設定されていません: BATCH_COMMAND');
+    });
+
+    await expect(main()).rejects.toThrow('必要な環境変数が設定されていません: BATCH_COMMAND');
+    expect(coreMocks.runQuickClipBatch).not.toHaveBeenCalled();
+  });
+
   it('main: validateEnvironment のエラーをそのまま伝搬する', async () => {
     envMocks.validateEnvironment.mockImplementationOnce(() => {
       throw new Error('env error');

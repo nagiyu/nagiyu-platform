@@ -1,13 +1,9 @@
 const mockS3Send = jest.fn();
 const mockMkdir = jest.fn();
 const mockWriteFile = jest.fn();
-const mockReadFile = jest.fn();
 const mockUpdateStatus = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
-const mockSplitClips = jest.fn();
-const mockGetByJobId = jest.fn();
-const mockGetJob = jest.fn();
 const TEST_ERRORS = {
   NO_SUCH_KEY: { name: 'NoSuchKey', Code: 'NoSuchKey' } as const,
 };
@@ -19,7 +15,6 @@ jest.mock('@aws-sdk/client-s3', () => ({
     send: mockS3Send,
   })),
   GetObjectCommand: jest.fn().mockImplementation((input: unknown) => input),
-  PutObjectCommand: jest.fn().mockImplementation((input: unknown) => input),
 }));
 
 jest.mock('@aws-sdk/client-dynamodb', () => ({
@@ -34,7 +29,6 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 
 jest.mock('node:fs/promises', () => ({
   mkdir: mockMkdir,
-  readFile: mockReadFile,
   writeFile: mockWriteFile,
 }));
 
@@ -53,14 +47,12 @@ jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
 jest.mock('../../../src/repositories/dynamodb-highlight.repository.js', () => ({
   DynamoDBHighlightRepository: jest.fn().mockImplementation(() => ({
     createMany: mockCreateMany,
-    getByJobId: mockGetByJobId,
   })),
 }));
 
 jest.mock('../../../src/libs/job.service.js', () => ({
   JobService: jest.fn().mockImplementation(() => ({
     updateStatus: mockUpdateStatus,
-    getJob: mockGetJob,
   })),
 }));
 
@@ -80,12 +72,6 @@ jest.mock('../../../src/libs/volume-highlight.service.js', () => ({
 
 jest.mock('../../../src/libs/ffmpeg-video-analyzer.js', () => ({
   FfmpegVideoAnalyzer: jest.fn(),
-}));
-
-jest.mock('../../../src/libs/ffmpeg-clip-splitter.js', () => ({
-  FfmpegClipSplitter: jest.fn().mockImplementation(() => ({
-    splitClips: mockSplitClips,
-  })),
 }));
 
 import {
@@ -111,10 +97,6 @@ describe('runQuickClipBatch', () => {
     mockCreateMany.mockResolvedValue(undefined);
     mockAggregate.mockResolvedValue([]);
     mockUpdateStatus.mockResolvedValue(undefined);
-    mockReadFile.mockResolvedValue(Buffer.from([1, 2, 3]));
-    mockSplitClips.mockResolvedValue([]);
-    mockGetByJobId.mockResolvedValue([]);
-    mockGetJob.mockResolvedValue(null);
   });
 
   it('NoSuchKey が一時的に発生してもリトライで取得できれば処理を継続する', async () => {
@@ -154,41 +136,37 @@ describe('runQuickClipBatch', () => {
     );
   });
 
-  it('split コマンドでは実際の ZIP バイナリを生成してアップロードする', async () => {
-    const acceptedHighlights = [
-      {
-        jobId: 'job-1',
-        highlightId: 'highlight-1',
-        order: 1,
-        startSec: 0,
-        endSec: 5,
-        status: 'accepted',
-      },
-    ] as const;
-    mockGetByJobId.mockResolvedValue(acceptedHighlights);
-    mockSplitClips.mockResolvedValue(['/tmp/job-1-highlight-1.mp4']);
-    mockReadFile.mockResolvedValue(Buffer.from([0x11, 0x22, 0x33]));
-    mockGetJob.mockResolvedValue({
-      jobId: 'job-1',
-      status: 'COMPLETED',
-      createdAt: '2026-01-01T00:00:00.000Z',
-      updatedAt: '2026-01-01T00:00:00.000Z',
-    });
+  it('extract コマンドで生成する見どころは clipStatus を PENDING で保存する', async () => {
     mockS3Send.mockResolvedValue({
       Body: {
         transformToByteArray: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
       },
     });
+    mockAggregate.mockResolvedValue([
+      { startSec: 1, endSec: 3 },
+      { startSec: 5, endSec: 8 },
+    ]);
 
-    await expect(runQuickClipBatch({ ...input, command: 'split' })).resolves.toBeUndefined();
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
 
-    expect(mockWriteFile).toHaveBeenCalledTimes(2);
-    const zipWriteCall = mockWriteFile.mock.calls.find(
-      ([outputPath]) => typeof outputPath === 'string' && outputPath.endsWith('/clips.zip')
+    expect(mockCreateMany).toHaveBeenCalledTimes(1);
+    expect(mockCreateMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          jobId: 'job-1',
+          startSec: 1,
+          endSec: 3,
+          status: 'pending',
+          clipStatus: 'PENDING',
+        }),
+        expect.objectContaining({
+          jobId: 'job-1',
+          startSec: 5,
+          endSec: 8,
+          status: 'pending',
+          clipStatus: 'PENDING',
+        }),
+      ])
     );
-    expect(zipWriteCall).toBeDefined();
-    const zipBuffer = zipWriteCall?.[1];
-    expect(Buffer.isBuffer(zipBuffer)).toBe(true);
-    expect((zipBuffer as Buffer).subarray(0, 4).toString('hex')).toBe('504b0304');
   });
 });

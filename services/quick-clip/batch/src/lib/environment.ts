@@ -6,7 +6,7 @@ const ERROR_MESSAGES = {
 } as const;
 
 const toBatchCommand = (value: string | undefined): QuickClipBatchCommand | null => {
-  if (value === 'extract' || value === 'split') {
+  if (value === 'extract') {
     return value;
   }
   return null;
