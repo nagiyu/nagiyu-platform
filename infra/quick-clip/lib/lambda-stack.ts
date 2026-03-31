@@ -66,6 +66,8 @@ export class LambdaStack extends LambdaStackBase {
           S3_BUCKET: storageBucketName,
           BATCH_JOB_QUEUE_ARN: batchJobQueueArn,
           BATCH_JOB_DEFINITION_ARN: batchJobDefinitionArn,
+          CLIP_REGENERATE_FUNCTION_NAME: `nagiyu-quick-clip-clip-regenerate-${environment}`,
+          ZIP_GENERATOR_FUNCTION_NAME: `nagiyu-quick-clip-zip-generator-${environment}`,
         },
       },
       additionalPolicyStatements: [
@@ -99,6 +101,14 @@ export class LambdaStack extends LambdaStackBase {
           actions: ['batch:DescribeJobs'],
           // DescribeJobs はリソースレベル権限制御をサポートしないため '*' が必要
           resources: ['*'],
+        }),
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            `arn:aws:lambda:${this.region}:${this.account}:function:nagiyu-quick-clip-clip-regenerate-${environment}`,
+            `arn:aws:lambda:${this.region}:${this.account}:function:nagiyu-quick-clip-zip-generator-${environment}`,
+          ],
         }),
       ],
       enableFunctionUrl: true,

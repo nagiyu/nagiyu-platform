@@ -94,4 +94,24 @@ describe('HighlightService', () => {
     });
     expect(result).toEqual(updated);
   });
+
+  it('clipStatus のみでも更新できる', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    const updated: Highlight = {
+      ...baseHighlight,
+      clipStatus: 'GENERATING',
+    };
+    repository.getById.mockResolvedValue(baseHighlight);
+    repository.update.mockResolvedValue(updated);
+
+    const result = await service.updateHighlight('job-1', 'h1', {
+      clipStatus: 'GENERATING',
+    });
+
+    expect(repository.update).toHaveBeenCalledWith('job-1', 'h1', {
+      clipStatus: 'GENERATING',
+    });
+    expect(result).toEqual(updated);
+  });
 });

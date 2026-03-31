@@ -1,70 +1,31 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
-import { GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { SubmitJobCommand } from '@aws-sdk/client-batch';
+import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { DOMAIN_ERROR_MESSAGES, HighlightDomainService } from '@/lib/server/domain-services';
 import {
-  getAwsRegion,
-  getBatchClient,
-  getBatchJobDefinitionArn,
-  getBatchJobQueueArn,
-  getBucketName,
+  getZipGeneratorFunctionName,
   getDynamoDBDocumentClient,
-  getS3Client,
+  getLambdaClient,
   getTableName,
 } from '@/lib/server/aws';
 
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
   NO_ACCEPTED_HIGHLIGHTS: '採用された見どころがありません',
-  DOWNLOAD_PREPARATION_TIMEOUT: 'ダウンロードファイルの準備に時間がかかっています',
+  CLIP_GENERATION_INCOMPLETE: '採用された見どころのクリップ生成が完了していません',
+  ZIP_GENERATION_FAILED: 'ダウンロードファイルの生成に失敗しました',
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',
 } as const;
 
-const ZIP_READY_RETRY_COUNT = 120;
-const ZIP_READY_RETRY_INTERVAL_MS = 3000;
-
-type S3Error = {
-  name?: string;
-  Code?: string;
+type ZipGeneratorResponse = {
+  downloadUrl: string;
 };
 
-const isNoSuchKeyError = (error: unknown): boolean => {
-  if (typeof error !== 'object' || error === null) {
-    return false;
-  }
-  const s3Error = error as S3Error;
-  return s3Error.name === 'NoSuchKey' || s3Error.Code === 'NoSuchKey';
-};
-
-const wait = async (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-
-const waitForZipReady = async (bucketName: string, outputKey: string): Promise<void> => {
-  const s3Client = getS3Client();
-
-  for (let retryCount = 1; retryCount <= ZIP_READY_RETRY_COUNT; retryCount += 1) {
-    try {
-      await s3Client.send(
-        new HeadObjectCommand({
-          Bucket: bucketName,
-          Key: outputKey,
-        })
-      );
-      return;
-    } catch (error) {
-      if (isNoSuchKeyError(error)) {
-        if (retryCount === ZIP_READY_RETRY_COUNT) {
-          throw new Error(ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT);
-        }
-        await wait(ZIP_READY_RETRY_INTERVAL_MS);
-      } else {
-        throw error;
-      }
-    }
+const parseZipGeneratorResponse = (payload: Uint8Array): ZipGeneratorResponse => {
+  try {
+    return JSON.parse(Buffer.from(payload).toString('utf-8')) as ZipGeneratorResponse;
+  } catch {
+    throw new Error(ERROR_MESSAGES.ZIP_GENERATION_FAILED);
   }
 };
 
@@ -101,41 +62,42 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         { status: 400 }
       );
     }
-
-    const bucketName = getBucketName();
-    const outputKey = `outputs/${jobId}/clips.zip`;
-
-    await getBatchClient().send(
-      new SubmitJobCommand({
-        jobName: `quick-clip-split-${jobId}`.slice(0, 128),
-        jobQueue: getBatchJobQueueArn(),
-        jobDefinition: getBatchJobDefinitionArn(),
-        containerOverrides: {
-          environment: [
-            { name: 'BATCH_COMMAND', value: 'split' },
-            { name: 'JOB_ID', value: jobId },
-            { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
-            { name: 'S3_BUCKET', value: bucketName },
-            { name: 'AWS_REGION', value: getAwsRegion() },
-          ],
+    const hasIncompleteAcceptedHighlights = acceptedHighlights.some(
+      (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
+    );
+    if (hasIncompleteAcceptedHighlights) {
+      return NextResponse.json(
+        {
+          error: 'CLIP_GENERATION_INCOMPLETE',
+          message: ERROR_MESSAGES.CLIP_GENERATION_INCOMPLETE,
         },
+        { status: 409 }
+      );
+    }
+
+    const lambdaResponse = await getLambdaClient().send(
+      new InvokeCommand({
+        FunctionName: getZipGeneratorFunctionName(),
+        Payload: Buffer.from(
+          JSON.stringify({
+            jobId,
+            highlightIds: acceptedHighlights.map((highlight) => highlight.highlightId),
+          })
+        ),
       })
     );
+    if (!lambdaResponse.Payload) {
+      throw new Error(ERROR_MESSAGES.ZIP_GENERATION_FAILED);
+    }
+    const zipResult = parseZipGeneratorResponse(lambdaResponse.Payload);
+    if (typeof zipResult.downloadUrl !== 'string' || zipResult.downloadUrl.length === 0) {
+      throw new Error(ERROR_MESSAGES.ZIP_GENERATION_FAILED);
+    }
 
-    await waitForZipReady(bucketName, outputKey);
-
-    const s3Client = getS3Client();
     return NextResponse.json({
       jobId,
       fileName: `${jobId}-clips.zip`,
-      downloadUrl: await getSignedUrl(
-        s3Client,
-        new GetObjectCommand({
-          Bucket: bucketName,
-          Key: outputKey,
-        }),
-        { expiresIn: 3600 }
-      ),
+      downloadUrl: zipResult.downloadUrl,
     });
   } catch (error) {
     if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {
@@ -147,13 +109,13 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         { status: 404 }
       );
     }
-    if (error instanceof Error && error.message === ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT) {
+    if (error instanceof Error && error.message === ERROR_MESSAGES.ZIP_GENERATION_FAILED) {
       return NextResponse.json(
         {
-          error: 'DOWNLOAD_PREPARATION_TIMEOUT',
-          message: ERROR_MESSAGES.DOWNLOAD_PREPARATION_TIMEOUT,
+          error: 'ZIP_GENERATION_FAILED',
+          message: ERROR_MESSAGES.ZIP_GENERATION_FAILED,
         },
-        { status: 503 }
+        { status: 500 }
       );
     }
 

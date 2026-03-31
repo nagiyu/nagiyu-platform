@@ -31,7 +31,8 @@ export class HighlightService {
     const hasStart = updates.startSec !== undefined;
     const hasEnd = updates.endSec !== undefined;
     const hasStatus = updates.status !== undefined;
-    if (!hasStart && !hasEnd && !hasStatus) {
+    const hasClipStatus = updates.clipStatus !== undefined;
+    if (!hasStart && !hasEnd && !hasStatus && !hasClipStatus) {
       throw new Error(DOMAIN_ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED);
     }
 

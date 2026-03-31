@@ -1,14 +1,8 @@
-import { HeadObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import { getBatchClient, getS3Client } from '@/lib/server/aws';
+import { getLambdaClient } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/download/route';
 
 const mockGetByJobId = jest.fn();
-
-jest.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: jest.fn(),
-}));
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
@@ -23,15 +17,9 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
 }));
 
 jest.mock('@/lib/server/aws', () => ({
-  getAwsRegion: jest.fn(() => 'us-east-1'),
-  getBatchClient: jest.fn(),
-  getBatchJobDefinitionArn: jest.fn(
-    () => 'arn:aws:batch:us-east-1:123456789012:job-definition/quick-clip:1'
-  ),
-  getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
-  getBucketName: jest.fn(() => 'test-bucket'),
+  getLambdaClient: jest.fn(),
+  getZipGeneratorFunctionName: jest.fn(() => 'zip-generator'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getS3Client: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
 }));
 
@@ -45,39 +33,19 @@ jest.mock('next/server', () => ({
 }));
 
 describe('POST /api/jobs/[jobId]/download', () => {
-  const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
-  const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
-  const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
-  const batchSend = jest.fn();
-  const s3Send = jest.fn();
-  let setTimeoutSpy: jest.SpyInstance;
+  const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
+  const lambdaSend = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockedGetSignedUrl.mockResolvedValue('https://example.com/download');
-    mockedGetBatchClient.mockReturnValue({
-      send: batchSend.mockResolvedValue({}),
-    } as unknown as ReturnType<typeof getBatchClient>);
-    mockedGetS3Client.mockReturnValue({
-      send: s3Send.mockResolvedValue({}),
-    } as unknown as ReturnType<typeof getS3Client>);
-    setTimeoutSpy = jest
-      .spyOn(global, 'setTimeout')
-      .mockImplementation((callback: TimerHandler): NodeJS.Timeout => {
-        if (typeof callback === 'function') {
-          callback();
-        }
-        return {} as NodeJS.Timeout;
-      });
-  });
-
-  afterEach(() => {
-    setTimeoutSpy.mockRestore();
+    mockedGetLambdaClient.mockReturnValue({
+      send: lambdaSend,
+    } as ReturnType<typeof getLambdaClient>);
   });
 
   const mockRequest = {} as Request;
 
-  it('正常系: ダウンロードURL生成とBatch投入を行う', async () => {
+  it('正常系: zip-generator Lambda を同期 Invoke してダウンロードURLを返す', async () => {
     mockGetByJobId.mockResolvedValue([
       {
         highlightId: 'h1',
@@ -86,8 +54,21 @@ describe('POST /api/jobs/[jobId]/download', () => {
         startSec: 10,
         endSec: 20,
         status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 30,
+        endSec: 40,
+        status: 'accepted',
+        clipStatus: 'FAILED',
       },
     ]);
+    lambdaSend.mockResolvedValue({
+      Payload: Buffer.from(JSON.stringify({ downloadUrl: 'https://example.com/download' })),
+    });
 
     const response = await POST(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
@@ -100,16 +81,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
       fileName: 'job-1-clips.zip',
       downloadUrl: 'https://example.com/download',
     });
-    expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
-    expect(batchSend).toHaveBeenCalledTimes(1);
-    expect(s3Send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        input: {
-          Bucket: 'test-bucket',
-          Key: 'outputs/job-1/clips.zip',
-        },
-      })
-    );
+    expect(lambdaSend).toHaveBeenCalledTimes(1);
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {
@@ -121,6 +93,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
         startSec: 10,
         endSec: 20,
         status: 'rejected',
+        clipStatus: 'GENERATED',
       },
     ]);
 
@@ -134,9 +107,10 @@ describe('POST /api/jobs/[jobId]/download', () => {
       error: 'DOWNLOAD_NOT_AVAILABLE',
       message: '採用された見どころがありません',
     });
+    expect(lambdaSend).not.toHaveBeenCalled();
   });
 
-  it('異常系: Zipが生成されない場合は503を返す', async () => {
+  it('異常系: 採用見どころに PENDING がある場合は409を返す', async () => {
     mockGetByJobId.mockResolvedValue([
       {
         highlightId: 'h1',
@@ -145,24 +119,48 @@ describe('POST /api/jobs/[jobId]/download', () => {
         startSec: 10,
         endSec: 20,
         status: 'accepted',
+        clipStatus: 'PENDING',
       },
     ]);
-    s3Send.mockRejectedValue(Object.assign(new Error('missing'), { name: 'NoSuchKey' }));
 
     const response = await POST(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
     const body = await response.json();
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(409);
     expect(body).toEqual({
-      error: 'DOWNLOAD_PREPARATION_TIMEOUT',
-      message: 'ダウンロードファイルの準備に時間がかかっています',
+      error: 'CLIP_GENERATION_INCOMPLETE',
+      message: '採用された見どころのクリップ生成が完了していません',
     });
-    expect(s3Send).toHaveBeenCalledTimes(120);
-    expect(s3Send).toHaveBeenLastCalledWith(expect.any(HeadObjectCommand));
-    expect(mockedGetSignedUrl).not.toHaveBeenCalled();
-    expect(setTimeoutSpy).toHaveBeenCalledTimes(119);
-    expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 3000);
+    expect(lambdaSend).not.toHaveBeenCalled();
+  });
+
+  it('異常系: Lambda 応答に URL がない場合は500を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+    ]);
+    lambdaSend.mockResolvedValue({
+      Payload: Buffer.from(JSON.stringify({})),
+    });
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'ZIP_GENERATION_FAILED',
+      message: 'ダウンロードファイルの生成に失敗しました',
+    });
   });
 });
