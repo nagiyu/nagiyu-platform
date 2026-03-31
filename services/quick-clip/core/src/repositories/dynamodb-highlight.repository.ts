@@ -90,6 +90,11 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
       names['#status'] = 'status';
       values[':status'] = updates.status;
     }
+    if (typeof updates.clipStatus === 'string') {
+      expressions.push('#clipStatus = :clipStatus');
+      names['#clipStatus'] = 'clipStatus';
+      values[':clipStatus'] = updates.clipStatus;
+    }
 
     if (expressions.length === 0) {
       const current = await this.getById(jobId, highlightId);

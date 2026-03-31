@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
@@ -14,6 +15,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   environment: QuickClipEnvironment;
   appVersion: string;
   webEcrRepositoryName: string;
+  clipEcrRepositoryName: string;
   jobsTableName: string;
   jobsTableArn: string;
   storageBucketName: string;
@@ -24,12 +26,15 @@ export interface LambdaStackProps extends cdk.StackProps {
 
 export class LambdaStack extends LambdaStackBase {
   public readonly webFunction: lambda.Function;
+  public readonly clipFunction: lambda.Function;
+  public readonly zipFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: LambdaStackProps) {
     const {
       environment,
       appVersion,
       webEcrRepositoryName,
+      clipEcrRepositoryName,
       jobsTableName,
       jobsTableArn,
       storageBucketName,
@@ -106,6 +111,92 @@ export class LambdaStack extends LambdaStackBase {
     super(scope, id, baseProps);
 
     this.webFunction = this.lambdaFunction;
+
+    const lambdaRepository = ecr.Repository.fromRepositoryName(
+      this,
+      'LambdaEcrRepository',
+      clipEcrRepositoryName
+    );
+
+    this.clipFunction = new lambda.Function(this, 'ClipRegenerateFunction', {
+      functionName: `nagiyu-quick-clip-clip-regenerate-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      handler: lambda.Handler.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(lambdaRepository, {
+        tagOrDigest: 'clip-latest',
+      }),
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(120),
+      environment: {
+        NODE_ENV: environment === 'prod' ? 'production' : 'development',
+        DEPLOY_ENV: environment,
+        DYNAMODB_TABLE_NAME: jobsTableName,
+        S3_BUCKET: storageBucketName,
+        AWS_REGION: this.region,
+      },
+    });
+    this.clipFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['dynamodb:GetItem', 'dynamodb:UpdateItem'],
+        resources: [jobsTableArn, `${jobsTableArn}/index/*`],
+      })
+    );
+    this.clipFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:ListBucket'],
+        resources: [storageBucketArn],
+      })
+    );
+    this.clipFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:GetObject', 's3:PutObject'],
+        resources: [`${storageBucketArn}/*`],
+      })
+    );
+
+    this.zipFunction = new lambda.Function(this, 'ZipGeneratorFunction', {
+      functionName: `nagiyu-quick-clip-zip-generator-${environment}`,
+      runtime: lambda.Runtime.FROM_IMAGE,
+      handler: lambda.Handler.FROM_IMAGE,
+      code: lambda.Code.fromEcrImage(lambdaRepository, {
+        tagOrDigest: 'zip-latest',
+      }),
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(120),
+      environment: {
+        NODE_ENV: environment === 'prod' ? 'production' : 'development',
+        DEPLOY_ENV: environment,
+        S3_BUCKET: storageBucketName,
+        AWS_REGION: this.region,
+      },
+    });
+    this.zipFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:ListBucket'],
+        resources: [storageBucketArn],
+      })
+    );
+    this.zipFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['s3:GetObject', 's3:PutObject'],
+        resources: [`${storageBucketArn}/*`],
+      })
+    );
+
+    new cdk.CfnOutput(this, 'ClipRegenerateFunctionArn', {
+      value: this.clipFunction.functionArn,
+      description: 'Clip Regenerate Lambda Function ARN',
+    });
+
+    new cdk.CfnOutput(this, 'ZipGeneratorFunctionArn', {
+      value: this.zipFunction.functionArn,
+      description: 'Zip Generator Lambda Function ARN',
+    });
 
     new cdk.CfnOutput(this, 'WebFunctionArn', {
       value: this.webFunction.functionArn,
