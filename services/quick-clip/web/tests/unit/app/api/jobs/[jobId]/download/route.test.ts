@@ -159,10 +159,10 @@ describe('POST /api/jobs/[jobId]/download', () => {
       error: 'DOWNLOAD_PREPARATION_TIMEOUT',
       message: 'ダウンロードファイルの準備に時間がかかっています',
     });
-    expect(s3Send).toHaveBeenCalledTimes(20);
+    expect(s3Send).toHaveBeenCalledTimes(120);
     expect(s3Send).toHaveBeenLastCalledWith(expect.any(HeadObjectCommand));
     expect(mockedGetSignedUrl).not.toHaveBeenCalled();
-    expect(setTimeoutSpy).toHaveBeenCalledTimes(19);
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(119);
     expect(setTimeoutSpy).toHaveBeenNthCalledWith(1, expect.any(Function), 3000);
   });
 });

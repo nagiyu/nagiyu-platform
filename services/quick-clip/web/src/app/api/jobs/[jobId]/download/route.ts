@@ -22,7 +22,7 @@ const ERROR_MESSAGES = {
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',
 } as const;
 
-const ZIP_READY_RETRY_COUNT = 20;
+const ZIP_READY_RETRY_COUNT = 120;
 const ZIP_READY_RETRY_INTERVAL_MS = 3000;
 
 type S3Error = {
