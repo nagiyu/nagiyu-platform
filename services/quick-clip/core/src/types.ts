@@ -32,4 +32,5 @@ export type UpdateHighlightInput = {
   startSec?: number;
   endSec?: number;
   status?: HighlightStatus;
+  clipStatus?: ClipStatus;
 };

@@ -123,20 +123,24 @@
 **clip-regenerate Lambda（FFmpeg 必要）**
 
 - [ ] 新規パッケージ作成（`services/quick-clip/lambda/clip/`）
+- [x] 新規パッケージ作成（`services/quick-clip/lambda/clip/`）
   - 入力: `{ jobId, highlightId, startSec, endSec }`
   - S3 から元動画取得 → FFmpeg でクリップ切り出し → S3 保存（`outputs/{jobId}/clips/{highlightId}.mp4`）→ DynamoDB の `clipStatus='GENERATED'` 更新
   - エラー時は `clipStatus='FAILED'` に更新
   - FFmpeg はコンテナイメージに同梱（Batch と同方針）
 - [ ] インフラ（Lambda 関数・ECR リポジトリ・IAM 権限）を CDK で追加（`infra/quick-clip/`）
-- [ ] テスト作成
+- [x] インフラ（Lambda 関数・ECR リポジトリ・IAM 権限）を CDK で追加（`infra/quick-clip/`）
+- [x] テスト作成
 
 **zip-generator Lambda（FFmpeg 不要）**
 
 - [ ] 新規パッケージ作成（`services/quick-clip/lambda/zip/`）
+- [x] 新規パッケージ作成（`services/quick-clip/lambda/zip/`）
   - 入力: `{ jobId, highlightIds: string[] }`
   - S3 から clip ファイルを並列取得 → メモリ上で ZIP 組み立て → S3 保存（`outputs/{jobId}/clips.zip`）→ Presigned URL 返却
 - [ ] インフラ（Lambda 関数・IAM 権限・タイムアウト設定）を CDK で追加（`infra/quick-clip/`）
-- [ ] テスト作成
+- [x] インフラ（Lambda 関数・IAM 権限・タイムアウト設定）を CDK で追加（`infra/quick-clip/`）
+- [x] テスト作成
 
 ### 7-5. Web API 修正（依存: 7-4）
 

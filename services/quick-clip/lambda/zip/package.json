@@ -1,0 +1,21 @@
+{
+  "name": "@nagiyu/quick-clip-lambda-zip",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/src/handler.js",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts tests/**/*.ts",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1010.0",
+    "@aws-sdk/s3-request-presigner": "^3.1010.0",
+    "jszip": "^3.10.1"
+  }
+}

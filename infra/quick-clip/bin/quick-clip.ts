@@ -56,6 +56,8 @@ const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   environment: typedEnv,
   appVersion,
   webEcrRepositoryName: `nagiyu-quick-clip-ecr-${typedEnv}`,
+  clipLambdaEcrRepositoryName: `nagiyu-quick-clip-lambda-clip-ecr-${typedEnv}`,
+  zipLambdaEcrRepositoryName: `nagiyu-quick-clip-lambda-zip-ecr-${typedEnv}`,
   jobsTableName: dynamoStack.jobsTable.tableName,
   jobsTableArn: dynamoStack.jobsTable.tableArn,
   storageBucketName: storageStack.storageBucket.bucketName,

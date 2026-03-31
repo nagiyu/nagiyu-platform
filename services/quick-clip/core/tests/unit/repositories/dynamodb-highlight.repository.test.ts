@@ -114,4 +114,33 @@ describe('DynamoDBHighlightRepository', () => {
       clipStatus: 'FAILED',
     });
   });
+
+  it('update は clipStatus を更新できる', async () => {
+    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        PK: 'JOB#job-1',
+        SK: 'HIGHLIGHT#h1',
+        Type: 'HIGHLIGHT',
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'pending',
+        clipStatus: 'GENERATED',
+      },
+    });
+
+    const result = await repository.update('job-1', 'h1', { clipStatus: 'GENERATED' });
+
+    const updateCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
+    expect(updateCommand).toBeInstanceOf(UpdateCommand);
+    expect(updateCommand.input.ExpressionAttributeNames).toMatchObject({
+      '#clipStatus': 'clipStatus',
+    });
+    expect(updateCommand.input.ExpressionAttributeValues).toMatchObject({
+      ':clipStatus': 'GENERATED',
+    });
+    expect(result.clipStatus).toBe('GENERATED');
+  });
 });
