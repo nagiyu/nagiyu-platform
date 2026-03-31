@@ -1,4 +1,9 @@
-import { QueryCommand, UpdateCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  GetCommand,
+  QueryCommand,
+  UpdateCommand,
+  type DynamoDBDocumentClient,
+} from '@aws-sdk/lib-dynamodb';
 import { DynamoDBHighlightRepository } from '../../../src/repositories/dynamodb-highlight.repository.js';
 
 describe('DynamoDBHighlightRepository', () => {
@@ -77,5 +82,36 @@ describe('DynamoDBHighlightRepository', () => {
         clipStatus: 'GENERATED',
       },
     ]);
+  });
+
+  it('getById は clipStatus を含めて返す', async () => {
+    mockSend.mockResolvedValue({
+      Item: {
+        PK: 'JOB#job-1',
+        SK: 'HIGHLIGHT#h1',
+        Type: 'HIGHLIGHT',
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'pending',
+        clipStatus: 'FAILED',
+      },
+    });
+
+    const result = await repository.getById('job-1', 'h1');
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as GetCommand;
+    expect(sentCommand).toBeInstanceOf(GetCommand);
+    expect(result).toEqual({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      status: 'pending',
+      clipStatus: 'FAILED',
+    });
   });
 });
