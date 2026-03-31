@@ -12,7 +12,8 @@ const ERROR_MESSAGES = {
   CLIP_NOT_FOUND: 'クリップファイルが見つかりません',
 } as const;
 
-const CLIP_KEY = (jobId: string, highlightId: string): string => `outputs/${jobId}/clips/${highlightId}.mp4`;
+const CLIP_KEY = (jobId: string, highlightId: string): string =>
+  `outputs/${jobId}/clips/${highlightId}.mp4`;
 const ZIP_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
 const ZIP_LOCAL_PATH = (jobId: string, requestId: string): string =>
   `/tmp/quick-clip/zip/${requestId}/${jobId}/clips.zip`;

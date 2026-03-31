@@ -116,22 +116,20 @@ describe('DynamoDBHighlightRepository', () => {
   });
 
   it('update は clipStatus を更新できる', async () => {
-    mockSend
-      .mockResolvedValueOnce({})
-      .mockResolvedValueOnce({
-        Item: {
-          PK: 'JOB#job-1',
-          SK: 'HIGHLIGHT#h1',
-          Type: 'HIGHLIGHT',
-          highlightId: 'h1',
-          jobId: 'job-1',
-          order: 1,
-          startSec: 10,
-          endSec: 20,
-          status: 'pending',
-          clipStatus: 'GENERATED',
-        },
-      });
+    mockSend.mockResolvedValueOnce({}).mockResolvedValueOnce({
+      Item: {
+        PK: 'JOB#job-1',
+        SK: 'HIGHLIGHT#h1',
+        Type: 'HIGHLIGHT',
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'pending',
+        clipStatus: 'GENERATED',
+      },
+    });
 
     const result = await repository.update('job-1', 'h1', { clipStatus: 'GENERATED' });
 
