@@ -54,9 +54,16 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const previewRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
+    let active = true;
     params.then((resolved) => {
-      setJobId(resolved.jobId);
+      if (!active) {
+        return;
+      }
+      setJobId((current) => (current === resolved.jobId ? current : resolved.jobId));
     });
+    return () => {
+      active = false;
+    };
   }, [params]);
 
   useEffect(() => {

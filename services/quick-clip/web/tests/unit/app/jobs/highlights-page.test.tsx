@@ -46,6 +46,38 @@ describe('HighlightsPage', () => {
     );
   });
 
+  it('再レンダリング時に同一 jobId で見どころ取得を重複実行しない', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        sourceVideoUrl: 'https://example.com/source.mp4',
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            status: 'accepted',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    const { rerender } = render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    rerender(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('選択区間を超えて再生された場合は終了時刻で停止する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
