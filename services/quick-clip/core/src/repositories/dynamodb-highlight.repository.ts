@@ -4,7 +4,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import type { Highlight, HighlightStatus, UpdateHighlightInput } from '../types.js';
+import type { ClipStatus, Highlight, HighlightStatus, UpdateHighlightInput } from '../types.js';
 import type { HighlightRepository } from './highlight.repository.interface.js';
 import { DOMAIN_ERROR_MESSAGES } from '../libs/domain-error-messages.js';
 
@@ -18,6 +18,7 @@ type HighlightItem = {
   startSec: number;
   endSec: number;
   status: HighlightStatus;
+  clipStatus: ClipStatus;
 };
 
 export class DynamoDBHighlightRepository implements HighlightRepository {
@@ -124,7 +125,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
             TableName: this.tableName,
             Key: this.buildKeys(highlight.jobId, highlight.highlightId),
             UpdateExpression:
-              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status',
+              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status, #clipStatus = :clipStatus',
             ExpressionAttributeNames: {
               '#type': 'Type',
               '#highlightId': 'highlightId',
@@ -133,6 +134,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
               '#startSec': 'startSec',
               '#endSec': 'endSec',
               '#status': 'status',
+              '#clipStatus': 'clipStatus',
             },
             ExpressionAttributeValues: {
               ':type': 'HIGHLIGHT',
@@ -142,6 +144,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
               ':startSec': highlight.startSec,
               ':endSec': highlight.endSec,
               ':status': highlight.status,
+              ':clipStatus': highlight.clipStatus,
             },
           })
         )
@@ -164,6 +167,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
       startSec: item.startSec,
       endSec: item.endSec,
       status: item.status,
+      clipStatus: item.clipStatus,
     };
   }
 }

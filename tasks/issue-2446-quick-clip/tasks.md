@@ -108,9 +108,9 @@
 
 ### 7-2. データモデル修正（依存: 7-1）
 
-- [ ] `Highlight` 型に `clipStatus: 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED'` 追加（`core/src/types.ts`）
-- [ ] `DynamoDBHighlightRepository` の save / find に `clipStatus` を反映（`core/src/repositories/dynamodb-highlight.repository.ts`）
-- [ ] ユニットテスト更新
+- [x] `Highlight` 型に `clipStatus: 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED'` 追加（`core/src/types.ts`）
+- [x] `DynamoDBHighlightRepository` の save / find に `clipStatus` を反映（`core/src/repositories/dynamodb-highlight.repository.ts`）
+- [x] ユニットテスト更新
 
 ### 7-3. Batch 修正（依存: 7-2）
 
