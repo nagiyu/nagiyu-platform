@@ -14,7 +14,8 @@ RUN npm run build --workspace=@nagiyu/quick-clip-lambda-clip
 FROM public.ecr.aws/lambda/nodejs:24 AS runner
 WORKDIR ${LAMBDA_TASK_ROOT}
 
-RUN dnf install -y ffmpeg && dnf clean all
+COPY --from=builder /app/node_modules/ffmpeg-static/ffmpeg /usr/local/bin/ffmpeg
+RUN chmod +x /usr/local/bin/ffmpeg
 
 ENV NODE_ENV=production
 
