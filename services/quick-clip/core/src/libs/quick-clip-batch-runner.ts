@@ -152,6 +152,7 @@ const persistHighlights = async (
       ...highlight,
       jobId,
       status: 'pending',
+      clipStatus: 'PENDING',
     }))
   );
 };
@@ -170,6 +171,7 @@ const buildHighlights = async (jobId: string, localPath: string): Promise<Highli
     startSec: item.startSec,
     endSec: item.endSec,
     status: 'pending',
+    clipStatus: 'PENDING',
   }));
 };
 

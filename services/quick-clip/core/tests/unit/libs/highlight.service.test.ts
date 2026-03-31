@@ -15,6 +15,7 @@ const baseHighlight: Highlight = {
   startSec: 10,
   endSec: 20,
   status: 'pending',
+  clipStatus: 'PENDING',
 };
 
 describe('HighlightService', () => {

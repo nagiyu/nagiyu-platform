@@ -1,6 +1,7 @@
 export type {
   JobStatus,
   HighlightStatus,
+  ClipStatus,
   Job,
   Highlight,
   CreateJobInput,

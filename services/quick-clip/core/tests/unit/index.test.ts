@@ -9,6 +9,7 @@ import {
   type HighlightExtractorService,
   type HighlightRepository,
   type HighlightStatus,
+  type ClipStatus,
   type Job,
   type JobRepository,
   type JobStatus,
@@ -25,6 +26,7 @@ describe('quick-clip core exports', () => {
   it('主要な型が利用できる', () => {
     const status: JobStatus = 'PENDING';
     const highlightStatus: HighlightStatus = 'pending';
+    const clipStatus: ClipStatus = 'PENDING';
 
     const job: Job = {
       jobId: 'job-1',
@@ -42,6 +44,7 @@ describe('quick-clip core exports', () => {
       startSec: 10,
       endSec: 20,
       status: highlightStatus,
+      clipStatus,
     };
 
     const createInput: CreateJobInput = {
