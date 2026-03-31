@@ -104,6 +104,7 @@
 - [x] `requirements.md` 更新（プレビュー方式・ダウンロード方式・ハイライト数）
 - [x] `external-design.md` 更新（SCR-003 プレビュー・ダウンロード・GENERATING 状態）
 - [x] `design.md` 更新（データモデル・API レスポンス・コンポーネント構成）
+- [x] `requirements.md` / `external-design.md` のドメインオブジェクト定義に `clipStatus` を反映（仕様整合）
 
 ### 7-2. データモデル修正（依存: 7-1）
 
