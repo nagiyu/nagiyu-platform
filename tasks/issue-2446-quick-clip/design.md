@@ -22,9 +22,21 @@
 |---------|------|------|------|
 | POST | /api/jobs | ジョブ作成（アップロード用 Presigned URL 取得） | なし |
 | GET | /api/jobs/{jobId} | ジョブステータス取得 | なし |
-| GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得 | なし |
-| PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新 | なし |
-| POST | /api/jobs/{jobId}/download | ダウンロード用 ZIP 生成リクエスト | なし |
+| GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得・クリップ生成トリガー | なし |
+| PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新（時間変更時はクリップ再生成） | なし |
+| POST | /api/jobs/{jobId}/download | ZIP 生成・ダウンロード URL 取得（採用クリップが全件 GENERATED の場合のみ） | なし |
+
+**GET /api/jobs/{jobId}/highlights の補足**
+
+- レスポンスの各 Highlight に `clipStatus` と `clipUrl` (GENERATED のもののみ Presigned URL) を含める
+- `sourceVideoUrl` は返却しない
+- clipStatus が `PENDING` のハイライトが存在する場合、clip-regenerate Lambda を非同期 Invoke し clipStatus を `GENERATING` に更新してから返却する
+
+**POST /api/jobs/{jobId}/download の補足**
+
+- 採用ハイライトに `PENDING` / `GENERATING` が含まれる場合は `409 Conflict` を返す
+- zip-generator Lambda を同期 Invoke し、Presigned URL を返却する
+- Batch submit・S3 ポーリングは行わない
 
 ---
 
@@ -36,6 +48,9 @@
 type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 type HighlightStatus = 'accepted' | 'rejected' | 'pending';
+
+/** クリップ切り出しの生成状態 */
+type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
 
 type Job = {
     jobId: string; // UUID v4
@@ -54,6 +69,8 @@ type Highlight = {
     startSec: number; // 開始時刻（秒）
     endSec: number; // 終了時刻（秒）
     status: HighlightStatus;
+    clipStatus: ClipStatus; // クリップ切り出し状態
+    // クリップ S3 キーは outputs/{jobId}/clips/{highlightId}.mp4 として導出（DB には保存しない）
 };
 ```
 
@@ -84,6 +101,9 @@ type Highlight = {
 | startSec | number | 開始時刻（秒） |
 | endSec | number | 終了時刻（秒） |
 | status | string | accepted / rejected / pending |
+| clipStatus | string | PENDING / GENERATING / GENERATED / FAILED |
+
+> クリップの S3 キーは `outputs/{jobId}/clips/{highlightId}.mp4` として導出するため DynamoDB には保存しない。
 
 ---
 
@@ -94,12 +114,12 @@ type Highlight = {
 | パッケージ | 責務 |
 |----------|------|
 | `quick-clip/core` | ドメインモデル・リポジトリインターフェース・ジョブ管理・見どころ抽出インターフェース＆集約ロジック・クリップ分割インターフェース |
-| `quick-clip/web` | UI・API Routes・ファイルアップロード |
-| `quick-clip/batch` | バッチトリガー・FFmpeg 依存の具象実装（動画解析・クリップ書き出し） |
+| `quick-clip/web` | UI・API Routes・ファイルアップロード・Lambda Invoke |
+| `quick-clip/batch` | バッチトリガー・FFmpeg 依存の具象実装（動画解析のみ。クリップ生成は Lambda に委譲） |
+| `quick-clip/lambda/clip` | clip-regenerate Lambda（FFmpeg でクリップ切り出し・S3 保存・DynamoDB 更新） |
+| `quick-clip/lambda/zip` | zip-generator Lambda（S3 からクリップ収集・ZIP 組み立て・S3 保存） |
 
-> **設計方針**: バッチは「FFmpeg 呼び出し等の I/O に特化したトリガー層」に絞る。  
-> 見どころ抽出アルゴリズム・集約ロジック・クリップ分割インターフェースは `core` に置き、  
-> 単体テストを FFmpeg 環境なしで実行できるようにする。
+> **設計方針**: バッチは動画解析（抽出）のみに責務を絞る。クリップ生成・ZIP 作成はそれぞれ専用 Lambda に委譲し、Web API から必要に応じて Invoke する。単体テストを FFmpeg 環境なしで実行できるようにする。
 
 ### 実装モジュール一覧
 
@@ -131,11 +151,23 @@ type Highlight = {
 
 | モジュール | パス | 役割 |
 |----------|------|------|
-| `entrypoint` | `batch/src/entrypoint.ts` | バッチトリガー。DI で各サービスを組み立てて処理を開始する |
+| `entrypoint` | `batch/src/entrypoint.ts` | バッチトリガー。DI で各サービスを組み立てて動画解析処理を開始する（split コマンドは廃止） |
 | `FfmpegVideoAnalyzer` | `batch/src/libs/ffmpeg-video-analyzer.ts` | FFmpeg を使ったフレーム差分・音量データの抽出（インフラ層） |
 | `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | `HighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い変化量で上位10件を返す |
 | `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | `HighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い音量で上位10件を返す |
-| `FfmpegClipSplitter` | `batch/src/libs/ffmpeg-clip-splitter.ts` | `ClipSplitterService` の具象実装。FFmpeg で採用クリップを書き出す |
+| `FfmpegClipSplitter` | `batch/src/libs/ffmpeg-clip-splitter.ts` | `ClipSplitterService` の具象実装。FFmpeg でクリップを書き出す（clip-regenerate Lambda から利用） |
+
+**lambda/clip（新規）**
+
+| モジュール | パス | 役割 |
+|----------|------|------|
+| `handler` | `lambda/clip/src/handler.ts` | clip-regenerate Lambda エントリーポイント。S3 から元動画取得 → FFmpeg でクリップ切り出し → S3 保存 → DynamoDB 更新 |
+
+**lambda/zip（新規）**
+
+| モジュール | パス | 役割 |
+|----------|------|------|
+| `handler` | `lambda/zip/src/handler.ts` | zip-generator Lambda エントリーポイント。S3 からクリップ並列取得 → ZIP 組み立て → S3 保存 → Presigned URL 返却 |
 
 ---
 
@@ -168,4 +200,4 @@ type Highlight = {
 
 - [ ] `docs/services/quick-clip/requirements.md` に統合すること
 - [ ] `docs/services/quick-clip/external-design.md` に統合すること
-- [ ] `docs/services/quick-clip/architecture.md` に ADR として追記すること（見どころ抽出アルゴリズムの選定理由など）
+- [ ] `docs/services/quick-clip/architecture.md` に ADR として追記すること（見どころ抽出アルゴリズムの選定理由、クリップ生成 Lambda 分離の設計判断など）

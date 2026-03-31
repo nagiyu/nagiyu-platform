@@ -87,7 +87,83 @@
 - [x] `TODO(PoC)` コメントがリポジトリ内に残っていないことを確認
 - [x] E2E テスト作成（依存: 上記全て）
 
-## Phase 7: 検証・ドキュメント整備
+## Phase 7: アーキテクチャ修正
+
+<!--
+    Phase 6 完了後に判明した不備（プレビュー・ダウンロード・ハイライト数）を解消するためのアーキテクチャ修正。
+    設計方針:
+    - Batch は動画解析のみ（split コマンド廃止）
+    - クリップ生成は clip-regenerate Lambda に委譲（Web から非同期 Invoke）
+    - ZIP 生成は zip-generator Lambda に委譲（Web から同期 Invoke）
+    - clipStatus (PENDING/GENERATING/GENERATED/FAILED) で生成状態を管理
+    - クリップ S3 キーは outputs/{jobId}/clips/{highlightId}.mp4 として導出（DynamoDB に保存しない）
+-->
+
+### 7-1. 仕様更新（依存: なし）
+
+- [x] `requirements.md` 更新（プレビュー方式・ダウンロード方式・ハイライト数）
+- [x] `external-design.md` 更新（SCR-003 プレビュー・ダウンロード・GENERATING 状態）
+- [x] `design.md` 更新（データモデル・API レスポンス・コンポーネント構成）
+
+### 7-2. データモデル修正（依存: 7-1）
+
+- [ ] `Highlight` 型に `clipStatus: 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED'` 追加（`core/src/types.ts`）
+- [ ] `DynamoDBHighlightRepository` の save / find に `clipStatus` を反映（`core/src/repositories/dynamodb-highlight.repository.ts`）
+- [ ] ユニットテスト更新
+
+### 7-3. Batch 修正（依存: 7-2）
+
+- [ ] `QuickClipBatchRunner.extract()` の末尾からクリップ生成処理を除去し、全ハイライトの `clipStatus='PENDING'` 保存のみに変更（`core/src/libs/quick-clip-batch-runner.ts`）
+- [ ] バッチの "split" コマンドを廃止（`batch/src/entrypoint.ts` から削除）
+- [ ] テスト更新
+
+### 7-4. 新規 Lambda 実装（依存: 7-2）
+
+**clip-regenerate Lambda（FFmpeg 必要）**
+
+- [ ] 新規パッケージ作成（`services/quick-clip/lambda/clip/`）
+  - 入力: `{ jobId, highlightId, startSec, endSec }`
+  - S3 から元動画取得 → FFmpeg でクリップ切り出し → S3 保存（`outputs/{jobId}/clips/{highlightId}.mp4`）→ DynamoDB の `clipStatus='GENERATED'` 更新
+  - エラー時は `clipStatus='FAILED'` に更新
+  - FFmpeg はコンテナイメージに同梱（Batch と同方針）
+- [ ] インフラ（Lambda 関数・ECR リポジトリ・IAM 権限）を CDK で追加（`infra/quick-clip/`）
+- [ ] テスト作成
+
+**zip-generator Lambda（FFmpeg 不要）**
+
+- [ ] 新規パッケージ作成（`services/quick-clip/lambda/zip/`）
+  - 入力: `{ jobId, highlightIds: string[] }`
+  - S3 から clip ファイルを並列取得 → メモリ上で ZIP 組み立て → S3 保存（`outputs/{jobId}/clips.zip`）→ Presigned URL 返却
+- [ ] インフラ（Lambda 関数・IAM 権限・タイムアウト設定）を CDK で追加（`infra/quick-clip/`）
+- [ ] テスト作成
+
+### 7-5. Web API 修正（依存: 7-4）
+
+- [ ] `GET /api/jobs/[jobId]/highlights`（`web/src/app/api/jobs/[jobId]/highlights/route.ts`）
+  - `sourceVideoUrl` の返却を廃止
+  - `clipStatus='PENDING'` のハイライトに対し clip-regenerate Lambda を非同期 Invoke
+  - Invoke 直後に `clipStatus='GENERATING'` に更新
+  - 各 Highlight に `clipUrl`（`GENERATED` のもののみ Presigned URL）を追加して返却
+- [ ] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（`web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`）
+  - 時間変更（startSec / endSec）がある場合、DynamoDB 更新後に clip-regenerate Lambda を非同期 Invoke
+  - Invoke 直後に `clipStatus='GENERATING'` で返却
+- [ ] `POST /api/jobs/[jobId]/download`（`web/src/app/api/jobs/[jobId]/download/route.ts`）
+  - accepted ハイライトに `PENDING` / `GENERATING` が含まれる場合は `409 Conflict` を返す
+  - Batch Submit・S3 ポーリングを廃止
+  - zip-generator Lambda を同期 Invoke → Presigned URL を返却
+- [ ] ユニットテスト更新
+
+### 7-6. ハイライト確認画面修正（依存: 7-5）
+
+- [ ] `jobs/[jobId]/highlights/page.tsx`
+  - `sourceVideoUrl` 参照を廃止
+  - `GENERATING` / `PENDING` 状態の行はローディングインジケーターを表示
+  - `PENDING` / `GENERATING` のハイライトが存在する間、GET /highlights を数秒おきにポーリング
+  - `GENERATED` になったら `clipUrl` で `<video>` を直接再生（シーク・timeupdate ロジックを削除）
+  - 時間調整後は該当行が `GENERATING` → `GENERATED` に遷移するまでローディング表示
+  - 採用クリップに `GENERATED` 以外が含まれる場合はダウンロードボタンを無効化
+
+## Phase 8: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
 - [ ] `docs/services/quick-clip/` ドキュメントを作成・更新
@@ -100,7 +176,6 @@
 - [ ] `requirements.md` の受け入れ条件をすべて満たしている
 - [ ] テストカバレッジ 80% 以上（`quick-clip/core`）
 - [ ] Lint・型チェックがすべて通過している
-- [ ] `TODO(PoC)` コメントがすべて解消されている
 - [ ] `design.md` の「docs/ への移行メモ」を処理した
 - [ ] `docs/services/quick-clip/` の該当ファイルを更新した
 - [ ] `tasks/issue-2446-quick-clip/` ディレクトリを削除した
