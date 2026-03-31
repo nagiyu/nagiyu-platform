@@ -45,6 +45,8 @@ export class LambdaStack extends LambdaStackBase {
       batchJobDefinitionArn,
       ...stackProps
     } = props;
+    const stackRegion = stackProps.env?.region ?? '*';
+    const stackAccount = stackProps.env?.account ?? '*';
 
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
@@ -106,8 +108,8 @@ export class LambdaStack extends LambdaStackBase {
           effect: iam.Effect.ALLOW,
           actions: ['lambda:InvokeFunction'],
           resources: [
-            `arn:aws:lambda:${this.region}:${this.account}:function:nagiyu-quick-clip-clip-regenerate-${environment}`,
-            `arn:aws:lambda:${this.region}:${this.account}:function:nagiyu-quick-clip-zip-generator-${environment}`,
+            `arn:aws:lambda:${stackRegion}:${stackAccount}:function:nagiyu-quick-clip-clip-regenerate-${environment}`,
+            `arn:aws:lambda:${stackRegion}:${stackAccount}:function:nagiyu-quick-clip-zip-generator-${environment}`,
           ],
         }),
       ],
