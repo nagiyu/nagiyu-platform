@@ -124,30 +124,30 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
           new UpdateCommand({
             TableName: this.tableName,
             Key: this.buildKeys(highlight.jobId, highlight.highlightId),
-             UpdateExpression:
-               'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status, #clipStatus = :clipStatus',
-             ExpressionAttributeNames: {
-               '#type': 'Type',
-               '#highlightId': 'highlightId',
-               '#jobId': 'jobId',
-               '#order': 'order',
-               '#startSec': 'startSec',
-               '#endSec': 'endSec',
-               '#status': 'status',
-               '#clipStatus': 'clipStatus',
-             },
-             ExpressionAttributeValues: {
-               ':type': 'HIGHLIGHT',
-               ':highlightId': highlight.highlightId,
-               ':jobId': highlight.jobId,
-               ':order': highlight.order,
-               ':startSec': highlight.startSec,
-               ':endSec': highlight.endSec,
-               ':status': highlight.status,
-               ':clipStatus': highlight.clipStatus,
-             },
-           })
-         )
+            UpdateExpression:
+              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status, #clipStatus = :clipStatus',
+            ExpressionAttributeNames: {
+              '#type': 'Type',
+              '#highlightId': 'highlightId',
+              '#jobId': 'jobId',
+              '#order': 'order',
+              '#startSec': 'startSec',
+              '#endSec': 'endSec',
+              '#status': 'status',
+              '#clipStatus': 'clipStatus',
+            },
+            ExpressionAttributeValues: {
+              ':type': 'HIGHLIGHT',
+              ':highlightId': highlight.highlightId,
+              ':jobId': highlight.jobId,
+              ':order': highlight.order,
+              ':startSec': highlight.startSec,
+              ':endSec': highlight.endSec,
+              ':status': highlight.status,
+              ':clipStatus': highlight.clipStatus,
+            },
+          })
+        )
       )
     );
   }
