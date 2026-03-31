@@ -114,9 +114,9 @@
 
 ### 7-3. Batch 修正（依存: 7-2）
 
-- [ ] `QuickClipBatchRunner.extract()` の末尾からクリップ生成処理を除去し、全ハイライトの `clipStatus='PENDING'` 保存のみに変更（`core/src/libs/quick-clip-batch-runner.ts`）
-- [ ] バッチの "split" コマンドを廃止（`batch/src/entrypoint.ts` から削除）
-- [ ] テスト更新
+- [x] `QuickClipBatchRunner.extract()` の末尾からクリップ生成処理を除去し、全ハイライトの `clipStatus='PENDING'` 保存のみに変更（`core/src/libs/quick-clip-batch-runner.ts`）
+- [x] バッチの "split" コマンドを廃止（`batch/src/entrypoint.ts` から削除）
+- [x] テスト更新
 
 ### 7-4. 新規 Lambda 実装（依存: 7-2）
 

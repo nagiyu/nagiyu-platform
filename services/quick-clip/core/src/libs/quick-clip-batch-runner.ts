@@ -1,15 +1,12 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import JSZip from 'jszip';
 import { randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { basename, dirname } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { Highlight, JobStatus } from '../types.js';
-import { FfmpegClipSplitter } from './ffmpeg-clip-splitter.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
@@ -17,7 +14,7 @@ import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.
 import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
 
 /** Batch 実行コマンド種別。 */
-export type QuickClipBatchCommand = 'extract' | 'split';
+export type QuickClipBatchCommand = 'extract';
 
 /** quick-clip batch 実行に必要な入力。環境変数の解釈は呼び出し側で行う。 */
 export type QuickClipBatchRunInput = {
@@ -30,19 +27,13 @@ export type QuickClipBatchRunInput = {
 };
 
 const ERROR_MESSAGES = {
-  JOB_NOT_FOUND: 'ジョブが見つかりません',
-  JOB_NOT_COMPLETED: 'ジョブの処理が完了していません',
   DOWNLOAD_FAILED: '動画ファイルのダウンロードに失敗しました',
   SOURCE_VIDEO_NOT_FOUND: (sourceVideoKey: string): string =>
     `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
 } as const;
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
-const ZIP_OUTPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/clips.zip`;
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
-const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
-  `outputs/${jobId}/clips/${highlightId}.mp4`;
-const ZIP_OUTPUT_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
 const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
 const DOWNLOAD_RETRY_TIMEOUT_MS = 30 * 60 * 1000;
 const DOWNLOAD_RETRY_COUNT = Math.floor(DOWNLOAD_RETRY_TIMEOUT_MS / DOWNLOAD_RETRY_INTERVAL_MS);
@@ -123,22 +114,6 @@ const downloadSourceVideo = async (
   }
 };
 
-const uploadFile = async (
-  bucketName: string,
-  key: string,
-  localPath: string,
-  awsRegion: string
-): Promise<void> => {
-  const s3Client = new S3Client({ region: awsRegion });
-  await s3Client.send(
-    new PutObjectCommand({
-      Bucket: bucketName,
-      Key: key,
-      Body: createReadStream(localPath),
-    })
-  );
-};
-
 const persistHighlights = async (
   jobId: string,
   highlights: Highlight[],
@@ -188,42 +163,6 @@ const updateJobStatus = async (
   await service.updateStatus(jobId, status, errorMessage);
 };
 
-const createZip = async (files: string[], outputPath: string): Promise<void> => {
-  const zip = new JSZip();
-  const fileData = await Promise.all(
-    files.map(async (filePath) => ({
-      fileName: basename(filePath),
-      fileContent: await readFile(filePath),
-    }))
-  );
-  for (const { fileName, fileContent } of fileData) {
-    zip.file(fileName, fileContent);
-  }
-  const zipBuffer = await zip.generateAsync({
-    type: 'nodebuffer',
-    compression: 'DEFLATE',
-  });
-  await mkdir(dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, zipBuffer);
-};
-
-const ensureCompletedJob = async (
-  jobId: string,
-  tableName: string,
-  awsRegion: string
-): Promise<void> => {
-  const docClient = createDynamoDBDocumentClient(awsRegion);
-  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
-  const service = new JobService(jobRepo);
-  const job = await service.getJob(jobId);
-  if (!job) {
-    throw new Error(ERROR_MESSAGES.JOB_NOT_FOUND);
-  }
-  if (job.status !== 'COMPLETED') {
-    throw new Error(ERROR_MESSAGES.JOB_NOT_COMPLETED);
-  }
-};
-
 const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
 
@@ -234,47 +173,9 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   await updateJobStatus(env.jobId, 'COMPLETED', env.tableName, env.awsRegion);
 };
 
-const runSplit = async (env: QuickClipBatchRunInput): Promise<void> => {
-  const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
-  const zipPath = ZIP_OUTPUT_PATH(env.jobId);
-
-  await ensureCompletedJob(env.jobId, env.tableName, env.awsRegion);
-  await downloadSourceVideo(env.bucketName, env.jobId, localVideoPath, env.awsRegion);
-
-  const docClient = createDynamoDBDocumentClient(env.awsRegion);
-  const highlightRepo = new DynamoDBHighlightRepository(docClient, env.tableName);
-  const highlights = await highlightRepo.getByJobId(env.jobId);
-
-  const splitter = new FfmpegClipSplitter();
-  const clipPaths = await splitter.splitClips(env.jobId, localVideoPath, highlights);
-  await Promise.all(
-    highlights
-      .filter((item) => item.status === 'accepted')
-      .map(async (highlight) => {
-        const clipPath = clipPaths.find((path) => path.endsWith(`${highlight.highlightId}.mp4`));
-        if (!clipPath) {
-          return;
-        }
-        await uploadFile(
-          env.bucketName,
-          CLIP_OUTPUT_KEY(env.jobId, highlight.highlightId),
-          clipPath,
-          env.awsRegion
-        );
-      })
-  );
-
-  await createZip(clipPaths, zipPath);
-  await uploadFile(env.bucketName, ZIP_OUTPUT_KEY(env.jobId), zipPath, env.awsRegion);
-};
-
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
   try {
-    if (env.command === 'extract') {
-      await runExtract(env);
-    } else {
-      await runSplit(env);
-    }
+    await runExtract(env);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await updateJobStatus(env.jobId, 'FAILED', env.tableName, env.awsRegion, message);
