@@ -15,7 +15,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   environment: QuickClipEnvironment;
   appVersion: string;
   webEcrRepositoryName: string;
-  clipEcrRepositoryName: string;
+  clipLambdaEcrRepositoryName: string;
+  zipLambdaEcrRepositoryName: string;
   jobsTableName: string;
   jobsTableArn: string;
   storageBucketName: string;
@@ -34,7 +35,8 @@ export class LambdaStack extends LambdaStackBase {
       environment,
       appVersion,
       webEcrRepositoryName,
-      clipEcrRepositoryName,
+      clipLambdaEcrRepositoryName,
+      zipLambdaEcrRepositoryName,
       jobsTableName,
       jobsTableArn,
       storageBucketName,
@@ -112,18 +114,23 @@ export class LambdaStack extends LambdaStackBase {
 
     this.webFunction = this.lambdaFunction;
 
-    const lambdaRepository = ecr.Repository.fromRepositoryName(
+    const clipLambdaRepository = ecr.Repository.fromRepositoryName(
       this,
-      'LambdaEcrRepository',
-      clipEcrRepositoryName
+      'ClipLambdaEcrRepository',
+      clipLambdaEcrRepositoryName
+    );
+    const zipLambdaRepository = ecr.Repository.fromRepositoryName(
+      this,
+      'ZipLambdaEcrRepository',
+      zipLambdaEcrRepositoryName
     );
 
     this.clipFunction = new lambda.Function(this, 'ClipRegenerateFunction', {
       functionName: `nagiyu-quick-clip-clip-regenerate-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(lambdaRepository, {
-        tagOrDigest: 'clip-latest',
+      code: lambda.Code.fromEcrImage(clipLambdaRepository, {
+        tagOrDigest: 'latest',
       }),
       memorySize: 1024,
       timeout: cdk.Duration.seconds(120),
@@ -161,8 +168,8 @@ export class LambdaStack extends LambdaStackBase {
       functionName: `nagiyu-quick-clip-zip-generator-${environment}`,
       runtime: lambda.Runtime.FROM_IMAGE,
       handler: lambda.Handler.FROM_IMAGE,
-      code: lambda.Code.fromEcrImage(lambdaRepository, {
-        tagOrDigest: 'zip-latest',
+      code: lambda.Code.fromEcrImage(zipLambdaRepository, {
+        tagOrDigest: 'latest',
       }),
       memorySize: 1024,
       timeout: cdk.Duration.seconds(120),

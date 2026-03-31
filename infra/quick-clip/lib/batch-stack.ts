@@ -81,7 +81,7 @@ export class BatchStack extends cdk.Stack {
       ],
     });
 
-    const batchRepositoryName = `nagiyu-quick-clip-ecr-${props.environment}`;
+    const batchRepositoryName = `nagiyu-quick-clip-batch-ecr-${props.environment}`;
     const batchImage = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${batchRepositoryName}:batch-latest`;
     const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
       jobDefinitionName: `nagiyu-quick-clip-${props.environment}`,

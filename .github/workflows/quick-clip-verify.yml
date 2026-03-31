@@ -40,6 +40,12 @@ jobs:
       - name: Run ESLint on batch
         run: npm run lint --workspace=@nagiyu/quick-clip-batch
 
+      - name: Run ESLint on clip lambda
+        run: npm run lint --workspace=@nagiyu/quick-clip-lambda-clip
+
+      - name: Run ESLint on zip lambda
+        run: npm run lint --workspace=@nagiyu/quick-clip-lambda-zip
+
   format-check:
     name: Format Check
     runs-on: ubuntu-latest
@@ -62,6 +68,12 @@ jobs:
 
       - name: Check batch formatting
         run: npm run format:check --workspace=@nagiyu/quick-clip-batch
+
+      - name: Check clip lambda formatting
+        run: npm run format:check --workspace=@nagiyu/quick-clip-lambda-clip
+
+      - name: Check zip lambda formatting
+        run: npm run format:check --workspace=@nagiyu/quick-clip-lambda-zip
 
   infra-lint:
     name: Infrastructure Lint Check
@@ -160,6 +172,47 @@ jobs:
 
       - name: Build batch package
         run: npm run build --workspace=@nagiyu/quick-clip-batch
+
+  build-lambda-clip:
+    name: Build Lambda Clip Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+
+      - name: Build lambda clip package
+        run: npm run build --workspace=@nagiyu/quick-clip-lambda-clip
+
+  build-lambda-zip:
+    name: Build Lambda Zip Package
+    runs-on: ubuntu-latest
+    needs: [build-core]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build lambda zip package
+        run: npm run build --workspace=@nagiyu/quick-clip-lambda-zip
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
 
   build-infra:
     name: Build Infrastructure Package
@@ -263,6 +316,53 @@ jobs:
       - name: Run batch tests
         run: npm run test --workspace=@nagiyu/quick-clip-batch
 
+  test-lambda-clip:
+    name: Lambda Clip Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-lambda-clip]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+
+      - name: Build lambda clip package
+        run: npm run build --workspace=@nagiyu/quick-clip-lambda-clip
+
+      - name: Run lambda clip tests
+        run: npm run test --workspace=@nagiyu/quick-clip-lambda-clip
+
+  test-lambda-zip:
+    name: Lambda Zip Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build-lambda-zip]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build lambda zip package
+        run: npm run build --workspace=@nagiyu/quick-clip-lambda-zip
+      - name: Build core package
+        run: npm run build --workspace=@nagiyu/quick-clip-core
+
+      - name: Run lambda zip tests
+        run: npm run test --workspace=@nagiyu/quick-clip-lambda-zip
+
   coverage:
     name: Coverage Check (80% threshold)
     runs-on: ubuntu-latest
@@ -348,6 +448,66 @@ jobs:
         with:
           dockerfile: services/quick-clip/batch/Dockerfile
           image-tag: quick-clip-batch-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+  docker-build-lambda-clip:
+    name: Docker Build Lambda Clip
+    runs-on: ubuntu-latest
+    needs: [build-lambda-clip]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/lambda/clip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Build Lambda Clip Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/lambda/clip/Dockerfile
+          image-tag: quick-clip-lambda-clip-verify-full-test
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+  docker-build-lambda-zip:
+    name: Docker Build Lambda Zip
+    runs-on: ubuntu-latest
+    needs: [build-lambda-zip]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/lambda/zip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Build Lambda Zip Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/lambda/zip/Dockerfile
+          image-tag: quick-clip-lambda-zip-verify-full-test
           app-version: ${{ steps.get-version.outputs.app-version }}
 
   e2e-test-web-chromium-mobile:
@@ -521,13 +681,19 @@ jobs:
         build-core,
         build-web,
         build-batch,
+        build-lambda-clip,
+        build-lambda-zip,
         build-infra,
         test-core,
         test-web,
         test-batch,
+        test-lambda-clip,
+        test-lambda-zip,
         coverage,
         docker-build-web,
         docker-build-batch,
+        docker-build-lambda-clip,
+        docker-build-lambda-zip,
         e2e-test-web-chromium-mobile,
         e2e-test-web-chromium-desktop,
         e2e-test-web-webkit-mobile,
@@ -549,13 +715,19 @@ jobs:
               'Build Core': '${{ needs.build-core.result }}',
               'Build Web': '${{ needs.build-web.result }}',
               'Build Batch': '${{ needs.build-batch.result }}',
+              'Build Lambda Clip': '${{ needs.build-lambda-clip.result }}',
+              'Build Lambda Zip': '${{ needs.build-lambda-zip.result }}',
               'Build Infra': '${{ needs.build-infra.result }}',
               'Test Core': '${{ needs.test-core.result }}',
               'Test Web': '${{ needs.test-web.result }}',
               'Test Batch': '${{ needs.test-batch.result }}',
+              'Test Lambda Clip': '${{ needs.test-lambda-clip.result }}',
+              'Test Lambda Zip': '${{ needs.test-lambda-zip.result }}',
               'Coverage (80%)': '${{ needs.coverage.result }}',
               'Docker Build Web': '${{ needs.docker-build-web.result }}',
               'Docker Build Batch': '${{ needs.docker-build-batch.result }}',
+              'Docker Build Lambda Clip': '${{ needs.docker-build-lambda-clip.result }}',
+              'Docker Build Lambda Zip': '${{ needs.docker-build-lambda-zip.result }}',
               'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-web-chromium-mobile.result }}',
               'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-web-chromium-desktop.result }}',
               'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-web-webkit-mobile.result }}'

@@ -184,7 +184,7 @@ jobs:
 
           REPOSITORY_URI=$(aws cloudformation describe-stacks \
             --stack-name "$STACK_NAME" \
-            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --query "Stacks[0].Outputs[?OutputKey=='BatchRepositoryUri'].OutputValue" \
             --output text \
             --region "${{ env.AWS_REGION }}")
 
@@ -214,10 +214,140 @@ jobs:
           docker push "$REPOSITORY_URI:$IMAGE_TAG"
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
+  build-lambda-clip:
+    name: Build and Push Lambda Clip Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/lambda/clip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ClipLambdaRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Clip Lambda ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Lambda Clip Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/lambda/clip/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Lambda Clip Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: latest
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-lambda-zip:
+    name: Build and Push Lambda Zip Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/lambda/zip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ZipLambdaRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Zip Lambda ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Lambda Zip Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/lambda/zip/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Lambda Zip Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: latest
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
   infrastructure-app:
     name: Deploy Application Infrastructure
     runs-on: ubuntu-latest
-    needs: [infrastructure-ecr, build-web, build-batch]
+    needs: [infrastructure-ecr, build-web, build-batch, build-lambda-clip, build-lambda-zip]
 
     steps:
       - name: Checkout code
@@ -336,4 +466,6 @@ jobs:
           echo "- **Environment**: $ENVIRONMENT" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Web Image**: \`${{ needs.build-web.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Batch Image**: \`${{ needs.build-batch.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Lambda Clip Image**: \`${{ needs.build-lambda-clip.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Lambda Zip Image**: \`${{ needs.build-lambda-zip.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- **CloudFront Domain**: $CF_DOMAIN" >> "$GITHUB_STEP_SUMMARY"
