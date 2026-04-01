@@ -1,5 +1,6 @@
 import { BatchClient } from '@aws-sdk/client-batch';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { LambdaClient } from '@aws-sdk/client-lambda';
 import { S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
@@ -10,11 +11,15 @@ const ERROR_MESSAGES = {
   MISSING_S3_BUCKET: '環境変数 S3_BUCKET が設定されていません',
   MISSING_BATCH_JOB_QUEUE_ARN: '環境変数 BATCH_JOB_QUEUE_ARN が設定されていません',
   MISSING_BATCH_JOB_DEFINITION_ARN: '環境変数 BATCH_JOB_DEFINITION_ARN が設定されていません',
+  MISSING_CLIP_REGENERATE_FUNCTION_NAME:
+    '環境変数 CLIP_REGENERATE_FUNCTION_NAME が設定されていません',
+  MISSING_ZIP_GENERATOR_FUNCTION_NAME: '環境変数 ZIP_GENERATOR_FUNCTION_NAME が設定されていません',
 } as const;
 
 let cachedDocClient: DynamoDBDocumentClient | null = null;
 let cachedS3Client: S3Client | null = null;
 let cachedBatchClient: BatchClient | null = null;
+let cachedLambdaClient: LambdaClient | null = null;
 
 const getRegion = (): string => process.env.AWS_REGION || DEFAULT_REGION;
 
@@ -53,6 +58,13 @@ export const getBatchClient = (): BatchClient => {
   return cachedBatchClient;
 };
 
+export const getLambdaClient = (): LambdaClient => {
+  if (!cachedLambdaClient) {
+    cachedLambdaClient = new LambdaClient({ region: getRegion() });
+  }
+  return cachedLambdaClient;
+};
+
 export const getTableName = (): string =>
   getRequiredEnv(process.env.DYNAMODB_TABLE_NAME, ERROR_MESSAGES.MISSING_DYNAMODB_TABLE_NAME);
 
@@ -66,6 +78,18 @@ export const getBatchJobDefinitionArn = (): string =>
   getRequiredEnv(
     process.env.BATCH_JOB_DEFINITION_ARN,
     ERROR_MESSAGES.MISSING_BATCH_JOB_DEFINITION_ARN
+  );
+
+export const getClipRegenerateFunctionName = (): string =>
+  getRequiredEnv(
+    process.env.CLIP_REGENERATE_FUNCTION_NAME,
+    ERROR_MESSAGES.MISSING_CLIP_REGENERATE_FUNCTION_NAME
+  );
+
+export const getZipGeneratorFunctionName = (): string =>
+  getRequiredEnv(
+    process.env.ZIP_GENERATOR_FUNCTION_NAME,
+    ERROR_MESSAGES.MISSING_ZIP_GENERATOR_FUNCTION_NAME
   );
 
 export const getAwsRegion = (): string => getRegion();

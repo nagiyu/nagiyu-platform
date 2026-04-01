@@ -1,10 +1,13 @@
 import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
+import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   getBucketName,
+  getClipRegenerateFunctionName,
   getDynamoDBDocumentClient,
+  getLambdaClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
@@ -15,9 +18,9 @@ const ERROR_MESSAGES = {
   INTERNAL_SERVER_ERROR: '見どころ一覧の取得に失敗しました',
 } as const;
 
-// 見どころ確認画面での操作時間を考慮し、元動画URLは1時間有効とする。
-const SOURCE_VIDEO_URL_EXPIRES_IN = 3600;
-const buildSourceVideoKey = (jobId: string): string => `uploads/${jobId}/input.mp4`;
+const CLIP_URL_EXPIRES_IN = 3600;
+const buildClipKey = (jobId: string, highlightId: string): string =>
+  `outputs/${jobId}/clips/${highlightId}.mp4`;
 
 type RouteParams = {
   params: Promise<{
@@ -47,16 +50,49 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     );
     const highlights = await highlightService.getHighlights(jobId);
     const bucketName = getBucketName();
-    const sourceVideoUrl = await getSignedUrl(
-      getS3Client(),
-      new GetObjectCommand({
-        Bucket: bucketName,
-        Key: buildSourceVideoKey(jobId),
-      }),
-      { expiresIn: SOURCE_VIDEO_URL_EXPIRES_IN }
+    const lambdaClient = getLambdaClient();
+    const clipRegenerateFunctionName = getClipRegenerateFunctionName();
+
+    const results = await Promise.all(
+      highlights.map(async (highlight) => {
+        if (highlight.clipStatus === 'PENDING') {
+          await lambdaClient.send(
+            new InvokeCommand({
+              FunctionName: clipRegenerateFunctionName,
+              InvocationType: 'Event',
+              Payload: Buffer.from(
+                JSON.stringify({
+                  jobId,
+                  highlightId: highlight.highlightId,
+                  startSec: highlight.startSec,
+                  endSec: highlight.endSec,
+                })
+              ),
+            })
+          );
+          const updated = await highlightService.updateHighlight(jobId, highlight.highlightId, {
+            clipStatus: 'GENERATING',
+          });
+          return { ...updated, clipUrl: undefined };
+        }
+
+        if (highlight.clipStatus === 'GENERATED') {
+          const clipUrl = await getSignedUrl(
+            getS3Client(),
+            new GetObjectCommand({
+              Bucket: bucketName,
+              Key: buildClipKey(jobId, highlight.highlightId),
+            }),
+            { expiresIn: CLIP_URL_EXPIRES_IN }
+          );
+          return { ...highlight, clipUrl };
+        }
+
+        return { ...highlight, clipUrl: undefined };
+      })
     );
 
-    return NextResponse.json({ highlights, sourceVideoUrl });
+    return NextResponse.json({ highlights: results });
   } catch {
     return NextResponse.json(
       {

@@ -144,19 +144,19 @@
 
 ### 7-5. Web API 修正（依存: 7-4）
 
-- [ ] `GET /api/jobs/[jobId]/highlights`（`web/src/app/api/jobs/[jobId]/highlights/route.ts`）
+- [x] `GET /api/jobs/[jobId]/highlights`（`web/src/app/api/jobs/[jobId]/highlights/route.ts`）
   - `sourceVideoUrl` の返却を廃止
   - `clipStatus='PENDING'` のハイライトに対し clip-regenerate Lambda を非同期 Invoke
   - Invoke 直後に `clipStatus='GENERATING'` に更新
   - 各 Highlight に `clipUrl`（`GENERATED` のもののみ Presigned URL）を追加して返却
-- [ ] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（`web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`）
+- [x] `PATCH /api/jobs/[jobId]/highlights/[highlightId]`（`web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`）
   - 時間変更（startSec / endSec）がある場合、DynamoDB 更新後に clip-regenerate Lambda を非同期 Invoke
   - Invoke 直後に `clipStatus='GENERATING'` で返却
-- [ ] `POST /api/jobs/[jobId]/download`（`web/src/app/api/jobs/[jobId]/download/route.ts`）
+- [x] `POST /api/jobs/[jobId]/download`（`web/src/app/api/jobs/[jobId]/download/route.ts`）
   - accepted ハイライトに `PENDING` / `GENERATING` が含まれる場合は `409 Conflict` を返す
   - Batch Submit・S3 ポーリングを廃止
   - zip-generator Lambda を同期 Invoke → Presigned URL を返却
-- [ ] ユニットテスト更新
+- [x] ユニットテスト更新
 
 ### 7-6. ハイライト確認画面修正（依存: 7-5）
 
