@@ -3,9 +3,11 @@ import * as batch from 'aws-cdk-lib/aws-batch';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
+import { SSM_PARAMETERS } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -21,15 +23,23 @@ export class BatchStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
 
-    const vpc = new ec2.Vpc(this, 'BatchVpc', {
-      maxAzs: 1,
-      natGateways: 0,
-      subnetConfiguration: [
-        {
-          name: 'public',
-          subnetType: ec2.SubnetType.PUBLIC,
-        },
-      ],
+    const vpcId = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.VPC_ID(props.environment)
+    );
+    const publicSubnetIdsStr = ssm.StringParameter.valueForStringParameter(
+      this,
+      SSM_PARAMETERS.PUBLIC_SUBNET_IDS(props.environment)
+    );
+    const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
+    const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
+      vpcId,
+      availabilityZones:
+        props.environment === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+      publicSubnetIds:
+        props.environment === 'prod'
+          ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
+          : [cdk.Fn.select(0, publicSubnetIds)],
     });
 
     const securityGroup = new ec2.SecurityGroup(this, 'BatchSecurityGroup', {
@@ -64,7 +74,7 @@ export class BatchStack extends cdk.Stack {
       computeResources: {
         type: 'FARGATE',
         maxvCpus: 4,
-        subnets: vpc.publicSubnets.map((subnet) => subnet.subnetId),
+        subnets: publicSubnetIds,
         securityGroupIds: [securityGroup.securityGroupId],
       },
     });
