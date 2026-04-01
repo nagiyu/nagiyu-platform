@@ -283,7 +283,9 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('選択中: #1 (10s - 20s)')).not.toBeInTheDocument();
-      expect(screen.getByText('クリップ生成中のため、生成完了までお待ちください。')).toBeInTheDocument();
+      expect(
+        screen.getByText('クリップ生成中のため、生成完了までお待ちください。')
+      ).toBeInTheDocument();
     });
   });
 

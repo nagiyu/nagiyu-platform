@@ -68,16 +68,15 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
         status: 'accepted',
         clipStatus: 'PENDING',
       });
-    mockUpdate
-      .mockResolvedValueOnce({
-        highlightId: 'h1',
-        jobId: 'job-1',
-        order: 1,
-        startSec: 11,
-        endSec: 21,
-        status: 'accepted',
-        clipStatus: 'PENDING',
-      });
+    mockUpdate.mockResolvedValueOnce({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 11,
+      endSec: 21,
+      status: 'accepted',
+      clipStatus: 'PENDING',
+    });
 
     const request = createRequest({
       startSec: 11,

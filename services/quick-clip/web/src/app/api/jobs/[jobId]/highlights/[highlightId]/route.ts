@@ -1,9 +1,6 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
-import {
-  getDynamoDBDocumentClient,
-  getTableName,
-} from '@/lib/server/aws';
+import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,

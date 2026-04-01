@@ -411,7 +411,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                             variant="outlined"
                             onClick={() => void onRegenerate(highlight)}
                             disabled={
-                              highlight.clipStatus !== 'PENDING' && highlight.clipStatus !== 'FAILED'
+                              highlight.clipStatus !== 'PENDING' &&
+                              highlight.clipStatus !== 'FAILED'
                             }
                           >
                             再生成
