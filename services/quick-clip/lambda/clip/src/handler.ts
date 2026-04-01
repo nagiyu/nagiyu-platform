@@ -1,24 +1,26 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 
 const ERROR_MESSAGES = {
   MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_INPUT: '入力値が不正です',
-  PRESIGNED_URL_FAILED: 'Presigned URL の生成に失敗しました',
+  DOWNLOAD_FAILED: '動画ファイルのダウンロードに失敗しました',
   SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
 
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
 const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
+const VIDEO_INPUT_PATH = (jobId: string, requestId: string): string =>
+  `/tmp/quick-clip/clip/${requestId}/${jobId}/input.mp4`;
 const CLIP_OUTPUT_PATH = (jobId: string, highlightId: string, requestId: string): string =>
   `/tmp/quick-clip/clip/${requestId}/${jobId}/${highlightId}.mp4`;
 
@@ -72,32 +74,28 @@ const validateEnvironment = (): { tableName: string; bucketName: string; awsRegi
   return { tableName, bucketName, awsRegion };
 };
 
-const getPresignedVideoUrl = async (
+const downloadSourceVideo = async (
   s3Client: S3Client,
   bucketName: string,
-  jobId: string
-): Promise<string> => {
-  try {
-    return await getSignedUrl(
-      s3Client,
-      new GetObjectCommand({
-        Bucket: bucketName,
-        Key: SOURCE_VIDEO_KEY(jobId),
-      }),
-      { expiresIn: 3600 }
-    );
-  } catch (error) {
-    throw new Error(
-      `${ERROR_MESSAGES.PRESIGNED_URL_FAILED}: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      { cause: error }
-    );
+  jobId: string,
+  localPath: string
+): Promise<void> => {
+  const response = await s3Client.send(
+    new GetObjectCommand({
+      Bucket: bucketName,
+      Key: SOURCE_VIDEO_KEY(jobId),
+    })
+  );
+  if (!response.Body) {
+    throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
   }
+  await mkdir(dirname(localPath), { recursive: true });
+  const fileStream = createWriteStream(localPath);
+  await pipeline(response.Body as NodeJS.ReadableStream, fileStream);
 };
 
 const splitClip = async (
-  inputUrl: string,
+  inputPath: string,
   outputPath: string,
   startSec: number,
   endSec: number
@@ -112,7 +110,7 @@ const splitClip = async (
       '-t',
       String(duration),
       '-i',
-      inputUrl,
+      inputPath,
       '-c',
       'copy',
       '-y',
@@ -168,13 +166,14 @@ export const handler = async (event: ClipRegenerateEvent): Promise<ClipRegenerat
   const { tableName, bucketName, awsRegion } = validateEnvironment();
   // Lambda の /tmp は実行環境内で共有され得るため、衝突回避のために一意な作業ディレクトリを使う。
   const requestId = randomUUID();
+  const localInputPath = VIDEO_INPUT_PATH(event.jobId, requestId);
   const localOutputPath = CLIP_OUTPUT_PATH(event.jobId, event.highlightId, requestId);
   const s3Client = new S3Client({ region: awsRegion });
   const docClient = createDynamoDBDocumentClient(awsRegion);
 
   try {
-    const sourceVideoUrl = await getPresignedVideoUrl(s3Client, bucketName, event.jobId);
-    await splitClip(sourceVideoUrl, localOutputPath, event.startSec, event.endSec);
+    await downloadSourceVideo(s3Client, bucketName, event.jobId, localInputPath);
+    await splitClip(localInputPath, localOutputPath, event.startSec, event.endSec);
     await uploadClip(s3Client, bucketName, event.jobId, event.highlightId, localOutputPath);
     await updateClipStatus(docClient, tableName, event, 'GENERATED');
     return { clipStatus: 'GENERATED' };
@@ -182,6 +181,6 @@ export const handler = async (event: ClipRegenerateEvent): Promise<ClipRegenerat
     await updateClipStatus(docClient, tableName, event, 'FAILED');
     throw error;
   } finally {
-    await rm(dirname(localOutputPath), { recursive: true, force: true });
+    await rm(dirname(localInputPath), { recursive: true, force: true });
   }
 };

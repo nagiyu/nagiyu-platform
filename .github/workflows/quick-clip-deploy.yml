@@ -394,13 +394,28 @@ jobs:
           set -euo pipefail
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          IMAGE_URI="$ECR_REGISTRY/nagiyu-quick-clip-ecr-$ENVIRONMENT:latest"
 
           aws lambda update-function-code \
             --function-name "nagiyu-quick-clip-web-$ENVIRONMENT" \
-            --image-uri "$IMAGE_URI" \
+            --image-uri "$ECR_REGISTRY/nagiyu-quick-clip-ecr-$ENVIRONMENT:latest" \
             --region "${{ env.AWS_REGION }}" || {
-            echo "Error: Lambda 関数コードの更新に失敗しました。"
+            echo "Error: web Lambda 関数コードの更新に失敗しました。"
+            exit 1
+          }
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-quick-clip-clip-regenerate-$ENVIRONMENT" \
+            --image-uri "$ECR_REGISTRY/nagiyu-quick-clip-lambda-clip-ecr-$ENVIRONMENT:latest" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: clip Lambda 関数コードの更新に失敗しました。"
+            exit 1
+          }
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-quick-clip-zip-generator-$ENVIRONMENT" \
+            --image-uri "$ECR_REGISTRY/nagiyu-quick-clip-lambda-zip-ecr-$ENVIRONMENT:latest" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: zip Lambda 関数コードの更新に失敗しました。"
             exit 1
           }
 
@@ -409,12 +424,17 @@ jobs:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
         run: |
           set -euo pipefail
-          aws lambda wait function-updated \
-            --function-name "nagiyu-quick-clip-web-$ENVIRONMENT" \
-            --region "${{ env.AWS_REGION }}" || {
-            echo "Error: Lambda 関数の更新完了待機でタイムアウトまたは失敗しました。"
-            exit 1
-          }
+          for FUNCTION_NAME in \
+            "nagiyu-quick-clip-web-$ENVIRONMENT" \
+            "nagiyu-quick-clip-clip-regenerate-$ENVIRONMENT" \
+            "nagiyu-quick-clip-zip-generator-$ENVIRONMENT"; do
+            aws lambda wait function-updated \
+              --function-name "$FUNCTION_NAME" \
+              --region "${{ env.AWS_REGION }}" || {
+              echo "Error: $FUNCTION_NAME の更新完了待機でタイムアウトまたは失敗しました。"
+              exit 1
+            }
+          done
 
   verify:
     name: Verify Deployment

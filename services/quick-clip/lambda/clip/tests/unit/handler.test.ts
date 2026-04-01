@@ -4,7 +4,8 @@ const mockSpawn = jest.fn();
 const mockMkdir = jest.fn();
 const mockRm = jest.fn();
 const mockCreateReadStream = jest.fn();
-const mockGetSignedUrl = jest.fn();
+const mockCreateWriteStream = jest.fn();
+const mockPipeline = jest.fn();
 
 jest.mock('@aws-sdk/client-s3', () => {
   class GetObjectCommand {
@@ -24,10 +25,6 @@ jest.mock('@aws-sdk/client-s3', () => {
   }
   return { S3Client, GetObjectCommand, PutObjectCommand };
 });
-
-jest.mock('@aws-sdk/s3-request-presigner', () => ({
-  getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
-}));
 
 jest.mock('@aws-sdk/client-dynamodb', () => ({
   DynamoDBClient: class DynamoDBClient {},
@@ -56,6 +53,11 @@ jest.mock('node:fs/promises', () => ({
 
 jest.mock('node:fs', () => ({
   createReadStream: (...args: unknown[]) => mockCreateReadStream(...args),
+  createWriteStream: (...args: unknown[]) => mockCreateWriteStream(...args),
+}));
+
+jest.mock('node:stream/promises', () => ({
+  pipeline: (...args: unknown[]) => mockPipeline(...args),
 }));
 
 describe('clip lambda handler', () => {
@@ -75,9 +77,17 @@ describe('clip lambda handler', () => {
     mockMkdir.mockResolvedValue(undefined);
     mockRm.mockResolvedValue(undefined);
     mockCreateReadStream.mockReturnValue('stream');
-    mockGetSignedUrl.mockResolvedValue('https://example.com/input.mp4');
+    mockCreateWriteStream.mockReturnValue('writeStream');
+    mockPipeline.mockResolvedValue(undefined);
 
-    mockSend.mockResolvedValue({});
+    mockSend.mockImplementation((command: { constructor: { name: string } }) => {
+      if (command.constructor.name === 'GetObjectCommand') {
+        return Promise.resolve({
+          Body: {},
+        });
+      }
+      return Promise.resolve({});
+    });
 
     mockSpawn.mockImplementation(() => ({
       stderr: {
@@ -96,7 +106,6 @@ describe('clip lambda handler', () => {
     const result = await handler(baseEvent);
     expect(result).toEqual({ clipStatus: 'GENERATED' });
     expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'GENERATED' });
-    expect(mockGetSignedUrl).toHaveBeenCalledTimes(1);
   });
 
   it('異常系ではFAILEDへ更新して例外を送出する', async () => {
@@ -116,14 +125,6 @@ describe('clip lambda handler', () => {
 
     const { handler } = await import('../../src/handler.js');
     await expect(handler(baseEvent)).rejects.toThrow('クリップ分割に失敗しました');
-    expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
-  });
-
-  it('Presigned URL 生成失敗時はFAILEDへ更新して例外を送出する', async () => {
-    mockGetSignedUrl.mockRejectedValue(new Error('presign failed'));
-
-    const { handler } = await import('../../src/handler.js');
-    await expect(handler(baseEvent)).rejects.toThrow('Presigned URL の生成に失敗しました');
     expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
   });
 });
