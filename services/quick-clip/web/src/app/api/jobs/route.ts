@@ -1,4 +1,4 @@
-import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 import {
   getAwsRegion,
   getBatchClient,
-  getBatchJobDefinitionArn,
+  getBatchJobDefinitionPrefix,
   getBatchJobQueueArn,
   getBucketName,
   getDynamoDBDocumentClient,
@@ -105,7 +105,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       new SubmitJobCommand({
         jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
         jobQueue: getBatchJobQueueArn(),
-        jobDefinition: getBatchJobDefinitionArn(),
+        jobDefinition: `${getBatchJobDefinitionPrefix()}-${selectJobDefinition(body.fileSize)}`,
         containerOverrides: {
           environment: [
             { name: 'BATCH_COMMAND', value: 'extract' },

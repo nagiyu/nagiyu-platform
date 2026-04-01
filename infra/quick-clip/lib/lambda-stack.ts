@@ -22,7 +22,8 @@ export interface LambdaStackProps extends cdk.StackProps {
   storageBucketName: string;
   storageBucketArn: string;
   batchJobQueueArn: string;
-  batchJobDefinitionArn: string;
+  batchJobDefinitionPrefix: string;
+  batchJobDefinitionArns: string[];
 }
 
 export class LambdaStack extends LambdaStackBase {
@@ -42,7 +43,8 @@ export class LambdaStack extends LambdaStackBase {
       storageBucketName,
       storageBucketArn,
       batchJobQueueArn,
-      batchJobDefinitionArn,
+      batchJobDefinitionPrefix,
+      batchJobDefinitionArns,
       ...stackProps
     } = props;
     const region = stackProps.env?.region ?? cdk.Aws.REGION;
@@ -67,7 +69,7 @@ export class LambdaStack extends LambdaStackBase {
           DYNAMODB_TABLE_NAME: jobsTableName,
           S3_BUCKET: storageBucketName,
           BATCH_JOB_QUEUE_ARN: batchJobQueueArn,
-          BATCH_JOB_DEFINITION_ARN: batchJobDefinitionArn,
+          BATCH_JOB_DEFINITION_PREFIX: batchJobDefinitionPrefix,
           CLIP_REGENERATE_FUNCTION_NAME: `nagiyu-quick-clip-clip-regenerate-${environment}`,
           ZIP_GENERATOR_FUNCTION_NAME: `nagiyu-quick-clip-zip-generator-${environment}`,
         },
@@ -96,7 +98,7 @@ export class LambdaStack extends LambdaStackBase {
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
           actions: ['batch:SubmitJob'],
-          resources: [batchJobQueueArn, batchJobDefinitionArn],
+          resources: [batchJobQueueArn, ...batchJobDefinitionArns],
         }),
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,

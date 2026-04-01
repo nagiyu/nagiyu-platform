@@ -282,28 +282,28 @@
       large (≥ 1GB): 2 vCPU / 8GB / 3h
 -->
 
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
   - `downloadSourceVideo`: `transformToByteArray()` + `writeFile()` → `pipeline(Body as NodeJS.ReadableStream, createWriteStream())` に変更（Clip Lambda と同パターン）
-- [ ] `services/quick-clip/core/src/libs/job-definition-selector.ts`（新規）
+- [x] `services/quick-clip/core/src/libs/job-definition-selector.ts`（新規）
   - `selectJobDefinition(fileSize: number): 'small' | 'large'`（閾値: 1 GB）
-- [ ] `services/quick-clip/core/src/index.ts`
+- [x] `services/quick-clip/core/src/index.ts`
   - `selectJobDefinition` / `JobDefinitionSize` をエクスポート追加
-- [ ] `infra/quick-clip/lib/batch-stack.ts`
+- [x] `infra/quick-clip/lib/batch-stack.ts`
   - 単一 Job Definition → `small` / `large` の2種定義
   - `maxvCpus`: 4 → 8
   - `jobDefinitionArn` → `jobDefinitionPrefix: string` + `jobDefinitionArns: string[]` をエクスポート
-- [ ] `infra/quick-clip/lib/lambda-stack.ts`
+- [x] `infra/quick-clip/lib/lambda-stack.ts`
   - `batchJobDefinitionArn` prop → `batchJobDefinitionPrefix` + `batchJobDefinitionArns` に変更
   - 環境変数: `BATCH_JOB_DEFINITION_ARN` → `BATCH_JOB_DEFINITION_PREFIX`
   - IAM: 全 Job Definition ARN を `batch:SubmitJob` の `resources` に追加
-- [ ] `infra/quick-clip/bin/quick-clip.ts`
+- [x] `infra/quick-clip/bin/quick-clip.ts`
   - `BatchStack` → `LambdaStack` への接続を新 prop に対応
-- [ ] `services/quick-clip/web/src/lib/server/aws.ts`
+- [x] `services/quick-clip/web/src/lib/server/aws.ts`
   - `getBatchJobDefinitionArn` → `getBatchJobDefinitionPrefix` に変更
-- [ ] `services/quick-clip/web/src/app/api/jobs/route.ts`
+- [x] `services/quick-clip/web/src/app/api/jobs/route.ts`
   - `selectJobDefinition(body.fileSize)` でサイズを選択し `${prefix}-${size}` を `jobDefinition` に指定
-- [ ] テスト更新（`quick-clip-batch-runner.test.ts`: S3 Body モックを Readable stream に変更）
-- [ ] テスト追加（`job-definition-selector.test.ts`）
+- [x] テスト更新（`quick-clip-batch-runner.test.ts`: S3 Body モックを Readable stream に変更）
+- [x] テスト追加（`job-definition-selector.test.ts`）
 
 ### 8-3. ハイライト抽出根拠・ソート改善（依存: 8-1）
 
