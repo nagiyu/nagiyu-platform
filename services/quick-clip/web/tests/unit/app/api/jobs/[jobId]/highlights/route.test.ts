@@ -171,11 +171,11 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     expect(response.status).toBe(200);
     expect(body.highlights[0]).toEqual(
       expect.objectContaining({
-          highlightId: 'h1',
-          source: 'both',
-          clipStatus: 'GENERATED',
-          clipUrl: 'https://example.com/highlight.mp4',
-        })
+        highlightId: 'h1',
+        source: 'both',
+        clipStatus: 'GENERATED',
+        clipUrl: 'https://example.com/highlight.mp4',
+      })
     );
     expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
   });
