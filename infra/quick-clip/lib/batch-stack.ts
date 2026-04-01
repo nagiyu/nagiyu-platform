@@ -34,7 +34,8 @@ export class BatchStack extends cdk.Stack {
     const publicSubnetIds = cdk.Fn.split(',', publicSubnetIdsStr);
     const vpc = ec2.Vpc.fromVpcAttributes(this, 'SharedVpc', {
       vpcId,
-      availabilityZones: props.environment === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
+      availabilityZones:
+        props.environment === 'prod' ? ['us-east-1a', 'us-east-1b'] : ['us-east-1a'],
       publicSubnetIds:
         props.environment === 'prod'
           ? [cdk.Fn.select(0, publicSubnetIds), cdk.Fn.select(1, publicSubnetIds)]
