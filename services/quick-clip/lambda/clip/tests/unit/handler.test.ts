@@ -118,4 +118,12 @@ describe('clip lambda handler', () => {
     await expect(handler(baseEvent)).rejects.toThrow('クリップ分割に失敗しました');
     expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
   });
+
+  it('Presigned URL 生成失敗時はFAILEDへ更新して例外を送出する', async () => {
+    mockGetSignedUrl.mockRejectedValue(new Error('presign failed'));
+
+    const { handler } = await import('../../src/handler.js');
+    await expect(handler(baseEvent)).rejects.toThrow('Presigned URL の生成に失敗しました');
+    expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
+  });
 });

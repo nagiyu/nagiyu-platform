@@ -12,6 +12,7 @@ import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 const ERROR_MESSAGES = {
   MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_INPUT: '入力値が不正です',
+  PRESIGNED_URL_FAILED: 'Presigned URL の生成に失敗しました',
   SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
 
@@ -75,15 +76,25 @@ const getPresignedVideoUrl = async (
   s3Client: S3Client,
   bucketName: string,
   jobId: string
-): Promise<string> =>
-  getSignedUrl(
-    s3Client,
-    new GetObjectCommand({
-      Bucket: bucketName,
-      Key: SOURCE_VIDEO_KEY(jobId),
-    }),
-    { expiresIn: 3600 }
-  );
+): Promise<string> => {
+  try {
+    return await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: SOURCE_VIDEO_KEY(jobId),
+      }),
+      { expiresIn: 3600 }
+    );
+  } catch (error) {
+    throw new Error(
+      `${ERROR_MESSAGES.PRESIGNED_URL_FAILED}: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error }
+    );
+  }
+};
 
 const splitClip = async (
   inputUrl: string,
