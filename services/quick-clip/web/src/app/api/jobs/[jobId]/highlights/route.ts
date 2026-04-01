@@ -1,13 +1,10 @@
 import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
-import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   getBucketName,
-  getClipRegenerateFunctionName,
   getDynamoDBDocumentClient,
-  getLambdaClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
@@ -50,32 +47,9 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
     );
     const highlights = await highlightService.getHighlights(jobId);
     const bucketName = getBucketName();
-    const lambdaClient = getLambdaClient();
-    const clipRegenerateFunctionName = getClipRegenerateFunctionName();
 
     const results = await Promise.all(
       highlights.map(async (highlight) => {
-        if (highlight.clipStatus === 'PENDING') {
-          await lambdaClient.send(
-            new InvokeCommand({
-              FunctionName: clipRegenerateFunctionName,
-              InvocationType: 'Event',
-              Payload: Buffer.from(
-                JSON.stringify({
-                  jobId,
-                  highlightId: highlight.highlightId,
-                  startSec: highlight.startSec,
-                  endSec: highlight.endSec,
-                })
-              ),
-            })
-          );
-          const updated = await highlightService.updateHighlight(jobId, highlight.highlightId, {
-            clipStatus: 'GENERATING',
-          });
-          return { ...updated, clipUrl: undefined };
-        }
-
         if (highlight.clipStatus === 'GENERATED') {
           const clipUrl = await getSignedUrl(
             getS3Client(),

@@ -1,6 +1,6 @@
 import { GET } from '@/app/api/jobs/[jobId]/highlights/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient, getLambdaClient, getS3Client } from '@/lib/server/aws';
+import { getDynamoDBDocumentClient, getS3Client } from '@/lib/server/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 jest.mock('next/server', () => ({
@@ -15,10 +15,6 @@ jest.mock('next/server', () => ({
 jest.mock('@/lib/server/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(() => ({})),
-  getLambdaClient: jest.fn(() => ({
-    send: jest.fn(),
-  })),
-  getClipRegenerateFunctionName: jest.fn(() => 'clip-regenerate'),
   getBucketName: jest.fn(() => 'test-bucket'),
   getTableName: jest.fn(() => 'test-table'),
 }));
@@ -29,9 +25,6 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 
 const mockGetJob = jest.fn();
 const mockGetHighlights = jest.fn();
-const mockGetById = jest.fn();
-const mockUpdate = jest.fn();
-
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
   DynamoDBJobRepository: jest.fn().mockImplementation(
@@ -46,8 +39,8 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
     () =>
       ({
         getByJobId: mockGetHighlights,
-        getById: mockGetById,
-        update: mockUpdate,
+        getById: jest.fn(),
+        update: jest.fn(),
       }) as unknown as HighlightRepository
   ),
 }));
@@ -57,9 +50,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     typeof getDynamoDBDocumentClient
   >;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
-  const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
-  const lambdaSend = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -67,9 +58,6 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       {} as ReturnType<typeof getDynamoDBDocumentClient>
     );
     mockedGetS3Client.mockReturnValue({} as ReturnType<typeof getS3Client>);
-    mockedGetLambdaClient.mockReturnValue({
-      send: lambdaSend.mockResolvedValue({}),
-    } as ReturnType<typeof getLambdaClient>);
     mockedGetSignedUrl.mockResolvedValue('https://example.com/highlight.mp4');
     mockGetById.mockResolvedValue({
       highlightId: 'h1',
@@ -99,7 +87,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     jest.restoreAllMocks();
   });
 
-  it('正常系: PENDING を GENERATING に更新し highlights を返す', async () => {
+  it('正常系: PENDING をそのまま返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
       status: 'COMPLETED',
@@ -137,7 +125,6 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         }),
       ],
     });
-    expect(lambdaSend).toHaveBeenCalledTimes(1);
     expect(mockedGetSignedUrl).not.toHaveBeenCalled();
   });
 

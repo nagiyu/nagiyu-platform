@@ -2,6 +2,7 @@ import {
   HighlightAggregationService,
   HighlightService,
   JobService,
+  selectJobDefinition,
   type ClipSplitterService,
   type CreateJobInput,
   type ExtractedHighlight,
@@ -11,6 +12,7 @@ import {
   type HighlightStatus,
   type ClipStatus,
   type Job,
+  type JobDefinitionSize,
   type JobRepository,
   type JobStatus,
   type UpdateHighlightInput,
@@ -27,6 +29,7 @@ describe('quick-clip core exports', () => {
     const status: JobStatus = 'PENDING';
     const highlightStatus: HighlightStatus = 'pending';
     const clipStatus: ClipStatus = 'PENDING';
+    const jobDefinitionSize: JobDefinitionSize = selectJobDefinition(1024);
 
     const job: Job = {
       jobId: 'job-1',
@@ -86,6 +89,7 @@ describe('quick-clip core exports', () => {
     };
 
     expect(createInput.fileSize).toBe(100);
+    expect(jobDefinitionSize).toBe('small');
     expect(updateInput.status).toBe('accepted');
     expect(jobRepository).toBeDefined();
     expect(highlightRepository).toBeDefined();

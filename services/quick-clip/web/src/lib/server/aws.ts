@@ -10,7 +10,7 @@ const ERROR_MESSAGES = {
   MISSING_DYNAMODB_TABLE_NAME: '環境変数 DYNAMODB_TABLE_NAME が設定されていません',
   MISSING_S3_BUCKET: '環境変数 S3_BUCKET が設定されていません',
   MISSING_BATCH_JOB_QUEUE_ARN: '環境変数 BATCH_JOB_QUEUE_ARN が設定されていません',
-  MISSING_BATCH_JOB_DEFINITION_ARN: '環境変数 BATCH_JOB_DEFINITION_ARN が設定されていません',
+  MISSING_BATCH_JOB_DEFINITION_PREFIX: '環境変数 BATCH_JOB_DEFINITION_PREFIX が設定されていません',
   MISSING_CLIP_REGENERATE_FUNCTION_NAME:
     '環境変数 CLIP_REGENERATE_FUNCTION_NAME が設定されていません',
   MISSING_ZIP_GENERATOR_FUNCTION_NAME: '環境変数 ZIP_GENERATOR_FUNCTION_NAME が設定されていません',
@@ -74,10 +74,10 @@ export const getBucketName = (): string =>
 export const getBatchJobQueueArn = (): string =>
   getRequiredEnv(process.env.BATCH_JOB_QUEUE_ARN, ERROR_MESSAGES.MISSING_BATCH_JOB_QUEUE_ARN);
 
-export const getBatchJobDefinitionArn = (): string =>
+export const getBatchJobDefinitionPrefix = (): string =>
   getRequiredEnv(
-    process.env.BATCH_JOB_DEFINITION_ARN,
-    ERROR_MESSAGES.MISSING_BATCH_JOB_DEFINITION_ARN
+    process.env.BATCH_JOB_DEFINITION_PREFIX,
+    ERROR_MESSAGES.MISSING_BATCH_JOB_DEFINITION_PREFIX
   );
 
 export const getClipRegenerateFunctionName = (): string =>

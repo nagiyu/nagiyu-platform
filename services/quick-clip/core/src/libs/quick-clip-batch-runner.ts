@@ -2,8 +2,10 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { Highlight, JobStatus } from '../types.js';
@@ -88,8 +90,7 @@ const downloadSourceVideo = async (
       }
 
       await mkdir(dirname(localPath), { recursive: true });
-      const bytes = await response.Body.transformToByteArray();
-      await writeFile(localPath, Buffer.from(bytes));
+      await pipeline(response.Body as NodeJS.ReadableStream, createWriteStream(localPath));
       return;
     } catch (error) {
       if (isNoSuchKeyError(error)) {

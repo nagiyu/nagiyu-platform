@@ -1,6 +1,7 @@
 const mockS3Send = jest.fn();
 const mockMkdir = jest.fn();
-const mockWriteFile = jest.fn();
+const mockCreateWriteStream = jest.fn();
+const mockPipeline = jest.fn();
 const mockUpdateStatus = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
@@ -29,11 +30,14 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 
 jest.mock('node:fs/promises', () => ({
   mkdir: mockMkdir,
-  writeFile: mockWriteFile,
 }));
 
 jest.mock('node:fs', () => ({
-  createReadStream: jest.fn(),
+  createWriteStream: mockCreateWriteStream,
+}));
+
+jest.mock('node:stream/promises', () => ({
+  pipeline: mockPipeline,
 }));
 
 jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
@@ -93,7 +97,8 @@ describe('runQuickClipBatch', () => {
     jest.useRealTimers();
 
     mockMkdir.mockResolvedValue(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
+    mockCreateWriteStream.mockReturnValue({} as NodeJS.WritableStream);
+    mockPipeline.mockResolvedValue(undefined);
     mockCreateMany.mockResolvedValue(undefined);
     mockAggregate.mockResolvedValue([]);
     mockUpdateStatus.mockResolvedValue(undefined);
@@ -103,7 +108,7 @@ describe('runQuickClipBatch', () => {
     jest.useFakeTimers();
     mockS3Send.mockRejectedValueOnce(TEST_ERRORS.NO_SUCH_KEY).mockResolvedValueOnce({
       Body: {
-        transformToByteArray: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+        pipe: jest.fn(),
       },
     });
 
@@ -139,7 +144,7 @@ describe('runQuickClipBatch', () => {
   it('extract コマンドで生成する見どころは clipStatus を PENDING で保存する', async () => {
     mockS3Send.mockResolvedValue({
       Body: {
-        transformToByteArray: jest.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+        pipe: jest.fn(),
       },
     });
     mockAggregate.mockResolvedValue([

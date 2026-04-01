@@ -19,9 +19,7 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 jest.mock('@/lib/server/aws', () => ({
   getAwsRegion: jest.fn(() => 'us-east-1'),
   getBatchClient: jest.fn(),
-  getBatchJobDefinitionArn: jest.fn(
-    () => 'arn:aws:batch:us-east-1:123456789012:job-definition/quick-clip:1'
-  ),
+  getBatchJobDefinitionPrefix: jest.fn(() => 'nagiyu-quick-clip-dev'),
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
   getBucketName: jest.fn(() => 'test-bucket'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
@@ -86,6 +84,13 @@ describe('POST /api/jobs', () => {
     );
     expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
     expect(batchSend).toHaveBeenCalledTimes(1);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          jobDefinition: 'nagiyu-quick-clip-dev-small',
+        }),
+      })
+    );
   });
 
   it('異常系: MP4以外のファイルは400を返す', async () => {
