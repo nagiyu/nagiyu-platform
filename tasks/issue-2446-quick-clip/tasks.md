@@ -178,19 +178,19 @@
     ffmpeg は HTTP Range Request で必要区間のみ取得するためメモリを消費しない。
 -->
 
-- [ ] `services/quick-clip/lambda/clip/src/handler.ts`
+- [x] `services/quick-clip/lambda/clip/src/handler.ts`
   - `downloadSourceVideo` 関数・`VIDEO_INPUT_PATH` 定数を廃止
   - `getPresignedVideoUrl(s3Client, bucketName, jobId): Promise<string>` を追加（`getSignedUrl` from `@aws-sdk/s3-request-presigner`、有効期限 3600 秒）
   - `splitClip` の第 1 引数を `inputPath` → `inputUrl` に変更（ffmpeg の `-i` に URL を渡す、内部ロジックは変更なし）
   - `handler` 内の `localInputPath` を削除し、presigned URL を `splitClip` に渡す
   - `finally` の `rm` 対象を `dirname(localOutputPath)` のみに変更（input ディレクトリがなくなるため）
-- [ ] `services/quick-clip/lambda/clip/package.json`
+- [x] `services/quick-clip/lambda/clip/package.json`
   - `@aws-sdk/s3-request-presigner: ^3.1010.0` を追加
-- [ ] `services/quick-clip/lambda/clip/tests/unit/handler.test.ts`
+- [x] `services/quick-clip/lambda/clip/tests/unit/handler.test.ts`
   - `mockPipeline`・`mockCreateWriteStream` を削除
   - `mockGetSignedUrl` を追加（`jest.mock('@aws-sdk/s3-request-presigner')`）
   - `GetObjectCommand` の `Body` モックを削除（send は presignedURL 取得時に内部で使われるだけ）
-- [ ] `tasks/issue-2446-quick-clip/design.md`
+- [x] `tasks/issue-2446-quick-clip/design.md`
   - `lambda/clip` の handler 役割説明を「S3 Presigned URL を ffmpeg の `-i` に渡しクリップ切り出し → S3 保存 → DynamoDB 更新」に更新
 
 ## Phase 8: 検証・ドキュメント整備

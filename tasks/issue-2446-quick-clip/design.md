@@ -161,7 +161,7 @@ type Highlight = {
 
 | モジュール | パス | 役割 |
 |----------|------|------|
-| `handler` | `lambda/clip/src/handler.ts` | clip-regenerate Lambda エントリーポイント。S3 から元動画取得 → FFmpeg でクリップ切り出し → S3 保存 → DynamoDB 更新 |
+| `handler` | `lambda/clip/src/handler.ts` | clip-regenerate Lambda エントリーポイント。S3 Presigned URL を FFmpeg の `-i` に渡してクリップ切り出し → S3 保存 → DynamoDB 更新 |
 
 **lambda/zip（新規）**
 
