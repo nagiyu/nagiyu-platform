@@ -338,19 +338,19 @@
     - ZIP ボタン制御（hasUngeneratedAcceptedClip で disabled 制御済み）
 -->
 
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`（GET）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`（GET）
   - PENDING クリップへの自動 Lambda 発火・`GENERATING` 更新を削除（一覧返却のみ）
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`（PATCH）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`（PATCH）
   - 時間変更時: Lambda 発火を削除し `clipStatus: 'PENDING'` リセットのみに変更
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route.ts`（新規: POST）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route.ts`（新規: POST）
   - clip-regenerate Lambda を非同期 Invoke → `clipStatus='GENERATING'` に更新 → 更新後ハイライトを返却
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
   - 再生成ボタンを各行に追加（PENDING/FAILED → 活性、GENERATING → ローディング、GENERATED → 非活性）
   - `onRegenerate` ハンドラー追加（POST `.../regenerate` を呼び出し）
   - `onUpdateRange`: 対象ハイライトが選択中の場合 `setSelectedId(null)` で即時選択解除
   - ポーリング条件: `hasPendingOrGenerating` → `hasGenerating`（GENERATING のみポーリング）
-- [ ] テスト更新（GET / PATCH の挙動変更）
-- [ ] テスト追加（`regenerate/route.test.ts`）
+- [x] テスト更新（GET / PATCH の挙動変更）
+- [x] テスト追加（`regenerate/route.test.ts`）
 
 ## Phase 9: 検証・ドキュメント整備
 

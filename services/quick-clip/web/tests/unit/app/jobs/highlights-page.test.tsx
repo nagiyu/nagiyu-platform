@@ -79,7 +79,7 @@ describe('HighlightsPage', () => {
     expect(preview).toHaveAttribute('src', 'https://example.com/h-2.mp4');
   });
 
-  it('PENDING/GENERATING がある間は 3 秒ごとにポーリングする', async () => {
+  it('GENERATING がある間は 3 秒ごとにポーリングする', async () => {
     jest.useFakeTimers();
 
     global.fetch = jest
@@ -127,6 +127,163 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('PENDING のみの場合はポーリングしない', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            status: 'accepted',
+            clipStatus: 'PENDING',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    jest.advanceTimersByTime(6000);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('PENDING の再生成ボタン押下で regenerate API を呼び出す', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              status: 'accepted',
+              clipStatus: 'PENDING',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlightId: 'h-1',
+          jobId: 'job-1',
+          order: 1,
+          startSec: 10,
+          endSec: 20,
+          status: 'accepted',
+          clipStatus: 'GENERATING',
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    const regenerateButton = await screen.findByRole('button', { name: '再生成' });
+    fireEvent.click(regenerateButton);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/jobs/job-1/highlights/h-1/regenerate',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+  });
+
+  it('再生成 API 失敗時はエラーメッセージを表示する', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              status: 'accepted',
+              clipStatus: 'PENDING',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    const regenerateButton = await screen.findByRole('button', { name: '再生成' });
+    fireEvent.click(regenerateButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('クリップの再生成に失敗しました')).toBeInTheDocument();
+    });
+  });
+
+  it('時間調整成功時は選択中の行を解除する', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              status: 'accepted',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1.mp4',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlightId: 'h-1',
+          jobId: 'job-1',
+          order: 1,
+          startSec: 11,
+          endSec: 20,
+          status: 'accepted',
+          clipStatus: 'PENDING',
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await screen.findByText('選択中: #1 (10s - 20s)');
+    const startInputs = await screen.findAllByRole('spinbutton');
+    fireEvent.change(startInputs[0], { target: { value: '11' } });
+
+    await waitFor(() => {
+      expect(screen.queryByText('選択中: #1 (10s - 20s)')).not.toBeInTheDocument();
+      expect(screen.getByText('クリップ生成中のため、生成完了までお待ちください。')).toBeInTheDocument();
     });
   });
 

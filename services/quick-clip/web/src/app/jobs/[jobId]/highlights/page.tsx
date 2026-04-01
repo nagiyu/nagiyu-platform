@@ -24,11 +24,12 @@ import type { Highlight } from '@/types/quick-clip';
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
   UPDATE_FAILED: '見どころの更新に失敗しました',
+  REGENERATE_FAILED: 'クリップの再生成に失敗しました',
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
 } as const;
 const CLIP_STATUS_LABELS = {
-  PENDING: '生成中',
+  PENDING: '未生成',
   GENERATING: '生成中',
   GENERATED: '生成完了',
   FAILED: '生成失敗',
@@ -137,16 +138,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     [highlights, selectedId]
   );
 
-  const hasPendingOrGenerating = useMemo(
-    () =>
-      highlights.some(
-        (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
-      ),
+  const hasGenerating = useMemo(
+    () => highlights.some((highlight) => highlight.clipStatus === 'GENERATING'),
     [highlights]
   );
 
   useEffect(() => {
-    if (!jobId || !hasPendingOrGenerating) {
+    if (!jobId || !hasGenerating) {
       return;
     }
 
@@ -157,7 +155,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchHighlights, hasPendingOrGenerating, jobId]);
+  }, [fetchHighlights, hasGenerating, jobId]);
 
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
@@ -233,9 +231,33 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         startSec,
         endSec,
       });
+      if (selectedId === highlight.highlightId) {
+        setSelectedId(null);
+      }
       setErrorMessage(null);
     } catch {
       setErrorMessage(ERROR_MESSAGES.UPDATE_FAILED);
+    }
+  };
+
+  const onRegenerate = async (highlight: Highlight): Promise<void> => {
+    try {
+      const response = await fetch(
+        `/api/jobs/${jobId}/highlights/${highlight.highlightId}/regenerate`,
+        {
+          method: 'POST',
+        }
+      );
+      if (!response.ok) {
+        throw new Error(ERROR_MESSAGES.REGENERATE_FAILED);
+      }
+      const updated = (await response.json()) as Highlight;
+      setHighlights((current) =>
+        current.map((item) => (item.highlightId === updated.highlightId ? updated : item))
+      );
+      setErrorMessage(null);
+    } catch {
+      setErrorMessage(ERROR_MESSAGES.REGENERATE_FAILED);
     }
   };
 
@@ -327,6 +349,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                     <TableCell>使える</TableCell>
                     <TableCell>開始調整</TableCell>
                     <TableCell>終了調整</TableCell>
+                    <TableCell>再生成</TableCell>
                     <TableCell>生成状態</TableCell>
                   </TableRow>
                 </TableHead>
@@ -376,9 +399,27 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           }
                         />
                       </TableCell>
+                      <TableCell onClick={(event) => event.stopPropagation()}>
+                        {highlight.clipStatus === 'GENERATING' ? (
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CircularProgress size={16} />
+                            <Typography variant="body2">再生成中</Typography>
+                          </Stack>
+                        ) : (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => void onRegenerate(highlight)}
+                            disabled={
+                              highlight.clipStatus !== 'PENDING' && highlight.clipStatus !== 'FAILED'
+                            }
+                          >
+                            再生成
+                          </Button>
+                        )}
+                      </TableCell>
                       <TableCell>
-                        {highlight.clipStatus === 'PENDING' ||
-                        highlight.clipStatus === 'GENERATING' ? (
+                        {highlight.clipStatus === 'GENERATING' ? (
                           <Stack direction="row" spacing={1} alignItems="center">
                             <CircularProgress size={16} />
                             <Typography variant="body2">生成中</Typography>

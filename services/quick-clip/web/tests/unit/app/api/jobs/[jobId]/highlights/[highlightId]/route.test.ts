@@ -1,6 +1,6 @@
 import { PATCH } from '@/app/api/jobs/[jobId]/highlights/[highlightId]/route';
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient, getLambdaClient } from '@/lib/server/aws';
+import { getDynamoDBDocumentClient } from '@/lib/server/aws';
 
 const mockUpdate = jest.fn();
 const mockGetById = jest.fn();
@@ -28,10 +28,6 @@ jest.mock('next/server', () => ({
 
 jest.mock('@/lib/server/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getLambdaClient: jest.fn(() => ({
-    send: jest.fn(),
-  })),
-  getClipRegenerateFunctionName: jest.fn(() => 'clip-regenerate'),
   getTableName: jest.fn(() => 'test-table'),
 }));
 
@@ -39,17 +35,12 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
   const mockedGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
     typeof getDynamoDBDocumentClient
   >;
-  const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
-  const lambdaSend = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetDynamoDBDocumentClient.mockReturnValue(
       {} as ReturnType<typeof getDynamoDBDocumentClient>
     );
-    mockedGetLambdaClient.mockReturnValue({
-      send: lambdaSend.mockResolvedValue({}),
-    } as ReturnType<typeof getLambdaClient>);
   });
 
   const createRequest = (body: unknown): Request =>
@@ -57,7 +48,7 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
       json: async () => body,
     }) as Request;
 
-  it('正常系: 見どころ更新結果を返す', async () => {
+  it('正常系: 時間更新時は clipStatus を PENDING にして返す', async () => {
     mockGetById
       .mockResolvedValueOnce({
         highlightId: 'h1',
@@ -86,15 +77,6 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
         endSec: 21,
         status: 'accepted',
         clipStatus: 'PENDING',
-      })
-      .mockResolvedValueOnce({
-        highlightId: 'h1',
-        jobId: 'job-1',
-        order: 1,
-        startSec: 11,
-        endSec: 21,
-        status: 'accepted',
-        clipStatus: 'GENERATING',
       });
 
     const request = createRequest({
@@ -113,13 +95,12 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
       expect.objectContaining({
         highlightId: 'h1',
         status: 'accepted',
-        clipStatus: 'GENERATING',
+        clipStatus: 'PENDING',
       })
     );
-    expect(lambdaSend).toHaveBeenCalledTimes(1);
   });
 
-  it('正常系: 時間変更なしの更新は Lambda を呼ばない', async () => {
+  it('正常系: 時間変更なしの更新は通常更新する', async () => {
     mockGetById.mockResolvedValue({
       highlightId: 'h1',
       jobId: 'job-1',
@@ -154,7 +135,6 @@ describe('PATCH /api/jobs/[jobId]/highlights/[highlightId]', () => {
         status: 'accepted',
       })
     );
-    expect(lambdaSend).not.toHaveBeenCalled();
   });
 
   it('異常系: 不正なレンジは400を返す', async () => {

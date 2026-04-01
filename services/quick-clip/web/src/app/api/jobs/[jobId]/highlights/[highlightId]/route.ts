@@ -1,10 +1,7 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
-import { InvokeCommand } from '@aws-sdk/client-lambda';
 import {
-  getClipRegenerateFunctionName,
   getDynamoDBDocumentClient,
-  getLambdaClient,
   getTableName,
 } from '@/lib/server/aws';
 import {
@@ -87,30 +84,18 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
     try {
       const hasTimeUpdateRequest =
         typeof body.startSec === 'number' || typeof body.endSec === 'number';
-      const updated = await highlightService.updateHighlight(jobId, highlightId, body);
       if (!hasTimeUpdateRequest) {
+        const updated = await highlightService.updateHighlight(jobId, highlightId, body);
         return NextResponse.json(updated);
       }
 
-      await getLambdaClient().send(
-        new InvokeCommand({
-          FunctionName: getClipRegenerateFunctionName(),
-          InvocationType: 'Event',
-          Payload: Buffer.from(
-            JSON.stringify({
-              jobId,
-              highlightId,
-              startSec: updated.startSec,
-              endSec: updated.endSec,
-            })
-          ),
-        })
-      );
-      const generatingHighlight = await highlightService.updateHighlight(jobId, highlightId, {
-        clipStatus: 'GENERATING',
-      });
+      const updates = {
+        ...body,
+        clipStatus: 'PENDING' as const,
+      };
 
-      return NextResponse.json(generatingHighlight);
+      const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
+      return NextResponse.json(updated);
     } catch (error) {
       if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {
         return NextResponse.json(
