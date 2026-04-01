@@ -193,7 +193,166 @@
 - [x] `tasks/issue-2446-quick-clip/design.md`
   - `lambda/clip` の handler 役割説明を「S3 Presigned URL を ffmpeg の `-i` に渡しクリップ切り出し → S3 保存 → DynamoDB 更新」に更新
 
-## Phase 8: 検証・ドキュメント整備
+## Phase 8: パフォーマンス改善・UX 改善
+
+<!--
+    仕様相談を経て追加された改善項目。
+    - Batch OOM 根本対応（ストリーミング化）とサイズ別 Job Definition 切り替え
+    - 再生成ボタン導入（Lambda の手動トリガー化）
+    - ハイライト抽出根拠（motion / volume / both）の表示
+    - ハイライト表示順を開始時間順に変更
+-->
+
+### 8-1. 仕様更新（依存: なし）
+
+#### requirements.md
+
+- [x] 非機能要件に Batch パフォーマンス要件を追記
+  - 4GB 超の動画を処理可能なこと
+  - ファイルサイズに応じて Batch リソースを自動選択すること（< 1GB: small、≥ 1GB: large）
+- [x] 機能要件に再生成ボタン仕様を追記
+  - クリップの再生成はユーザーが明示的に再生成ボタンを押下した場合のみ実行されること
+  - 時間範囲を変更しただけでは自動再生成されないこと
+- [x] 機能要件にハイライト抽出根拠の表示を追記
+  - 各ハイライトが motion（画面変化）・volume（音量）・both（両方）のどれで検出されたかを表示すること
+- [x] 機能要件にハイライト表示順を追記
+  - ハイライトは動画内の開始時間の昇順で表示すること
+
+#### external-design.md
+
+- [x] SCR-003（見どころ確認画面）のテーブル列定義を更新
+  - 「根拠」列を追加（モーション / 音量 / 両方 のチップ表示）
+  - ハイライトは開始時間昇順で表示される旨を明記
+- [x] SCR-003 に再生成ボタンの仕様を追記
+  - 各ハイライト行に「再生成」ボタンを配置
+  - clipStatus が `GENERATED` のとき: ボタン非活性（グレー）
+  - clipStatus が `GENERATING` のとき: ローディング表示（非活性）
+  - clipStatus が `PENDING` または `FAILED` のとき: ボタン活性
+  - 時間範囲を変更すると clipStatus が `PENDING` にリセットされ、ボタンが活性化する
+  - ボタン押下でのみクリップ再生成が開始される（時間変更だけでは再生成されない）
+  - 行を選択中に時間範囲を変更すると選択が解除される
+
+#### design.md
+
+- [x] API 一覧テーブルを更新
+  - `GET /api/jobs/{jobId}/highlights` の説明を「見どころ一覧取得」に変更（クリップ生成トリガーの記述を削除）
+  - `PATCH /api/jobs/{jobId}/highlights/{highlightId}` の説明を「見どころの採否・時間調整を更新（時間変更時は clipStatus を PENDING にリセット）」に変更
+  - `POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate` を追加（「クリップ再生成トリガー」）
+- [x] `GET /api/jobs/{jobId}/highlights` の補足を更新
+  - 「PENDING のハイライトに対し clip-regenerate Lambda を非同期 Invoke し GENERATING に更新」の記述を削除
+  - clipUrl（GENERATED のもののみ Presigned URL）を返すことのみ記載
+- [x] `PATCH /api/jobs/{jobId}/highlights/{highlightId}` の補足を追記
+  - 時間変更（startSec / endSec）がある場合、clipStatus を `PENDING` にリセットして返却する（Lambda は呼び出さない）
+- [x] `POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate` の補足を追記
+  - clip-regenerate Lambda を非同期 Invoke し、clipStatus を `GENERATING` に更新して返却する
+- [x] `Highlight` 型に `source` フィールドを追加
+  ```typescript
+  type HighlightSource = 'motion' | 'volume' | 'both';
+
+  type Highlight = {
+      // ...既存フィールド...
+      source: HighlightSource; // 抽出根拠（motion: 画面変化 / volume: 音量 / both: 両方）
+  };
+  ```
+  - `order` フィールドの説明を「開始時間昇順の連番（スコア順ではない）」に変更
+- [x] DynamoDB Highlights テーブルに `source` カラムを追加
+  | source | string | 抽出根拠: motion / volume / both |
+- [x] コンポーネント設計の web API 一覧に `POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate` を追加
+- [x] Batch Job Definition 設計セクションを追加（以下の内容）
+  - `small`（ファイルサイズ < 1 GB）: 1 vCPU / 4 GB メモリ / タイムアウト 1 時間
+  - `large`（ファイルサイズ ≥ 1 GB）: 2 vCPU / 8 GB メモリ / タイムアウト 3 時間
+  - Job Definition 名: `nagiyu-quick-clip-{env}-{size}`（例: `nagiyu-quick-clip-dev-large`）
+  - 環境変数: `BATCH_JOB_DEFINITION_ARN`（単一）→ `BATCH_JOB_DEFINITION_PREFIX`（プレフィックス）に変更
+  - ジョブ投入時に `selectJobDefinition(fileSize)` でサイズを選択し `{prefix}-{size}` を指定
+- [x] パフォーマンス考慮事項を更新
+  - S3 ダウンロードはストリーミング（`pipeline`）で行いメモリに全量展開しないこと
+  - ファイルサイズに応じて Batch Job Definition を選択すること（閾値 1 GB）
+  - `HighlightAggregationService` はオーバーラップする motion / volume 結果を1件にマージすること（時間範囲はユニオン、スコアは最大値、source は `'both'`）
+  - ハイライトは上位 20 件をスコアで選出後、開始時間昇順に並び替えてから `order` を付与すること
+
+### 8-2. Batch パフォーマンス改善（依存: 8-1）
+
+<!--
+    4GB 動画で OutOfMemoryError (container killed) が発生。
+    transformToByteArray() が全量をメモリに展開するため。
+    ストリーミング化で OOM を解消し、サイズ別 Job Definition で処理速度・タイムアウトを最適化する。
+
+    Job Definition サイズ基準:
+      small (< 1GB): 1 vCPU / 4GB / 1h
+      large (≥ 1GB): 2 vCPU / 8GB / 3h
+-->
+
+- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
+  - `downloadSourceVideo`: `transformToByteArray()` + `writeFile()` → `pipeline(Body as NodeJS.ReadableStream, createWriteStream())` に変更（Clip Lambda と同パターン）
+- [ ] `services/quick-clip/core/src/libs/job-definition-selector.ts`（新規）
+  - `selectJobDefinition(fileSize: number): 'small' | 'large'`（閾値: 1 GB）
+- [ ] `services/quick-clip/core/src/index.ts`
+  - `selectJobDefinition` / `JobDefinitionSize` をエクスポート追加
+- [ ] `infra/quick-clip/lib/batch-stack.ts`
+  - 単一 Job Definition → `small` / `large` の2種定義
+  - `maxvCpus`: 4 → 8
+  - `jobDefinitionArn` → `jobDefinitionPrefix: string` + `jobDefinitionArns: string[]` をエクスポート
+- [ ] `infra/quick-clip/lib/lambda-stack.ts`
+  - `batchJobDefinitionArn` prop → `batchJobDefinitionPrefix` + `batchJobDefinitionArns` に変更
+  - 環境変数: `BATCH_JOB_DEFINITION_ARN` → `BATCH_JOB_DEFINITION_PREFIX`
+  - IAM: 全 Job Definition ARN を `batch:SubmitJob` の `resources` に追加
+- [ ] `infra/quick-clip/bin/quick-clip.ts`
+  - `BatchStack` → `LambdaStack` への接続を新 prop に対応
+- [ ] `services/quick-clip/web/src/lib/server/aws.ts`
+  - `getBatchJobDefinitionArn` → `getBatchJobDefinitionPrefix` に変更
+- [ ] `services/quick-clip/web/src/app/api/jobs/route.ts`
+  - `selectJobDefinition(body.fileSize)` でサイズを選択し `${prefix}-${size}` を `jobDefinition` に指定
+- [ ] テスト更新（`quick-clip-batch-runner.test.ts`: S3 Body モックを Readable stream に変更）
+- [ ] テスト追加（`job-definition-selector.test.ts`）
+
+### 8-3. ハイライト抽出根拠・ソート改善（依存: 8-1）
+
+<!--
+    各ハイライトが motion / volume / both のどれで検出されたかを UI に表示する。
+    同じ時間帯が両方で検出された場合は1件にマージして source='both' とする。
+    表示順を開始時間昇順に変更する（現状はスコア降順）。
+-->
+
+- [ ] `services/quick-clip/core/src/libs/highlight-extractor.service.ts`
+  - `source: string` → `source: 'motion' | 'volume' | 'both'`（`HighlightSource` 型として export）
+- [ ] `services/quick-clip/core/src/libs/highlight-aggregation.service.ts`
+  - `aggregate()` にオーバーラップマージロジックを追加（時間帯がオーバーラップする motion/volume 結果を1件に統合: 時間はユニオン・スコアは最大値・`source='both'`）
+- [ ] `services/quick-clip/core/src/types.ts`
+  - `Highlight` 型に `source: HighlightSource` を追加
+- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
+  - `buildHighlights()`: `extracted` を `startSec` 昇順で再ソートしてから `order` を割り当て（`source` フィールドも保持）
+- [ ] `services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts`
+  - `HighlightItem` 型・`createMany()` の UpdateExpression・`mapToEntity()` に `source` を追加
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+  - テーブルに「根拠」列を追加（`motion` → モーション / `volume` → 音量 / `both` → 両方 のチップ表示）
+- [ ] テスト更新・追加（aggregation マージロジック・batch-runner の source 保持・ソート順）
+
+### 8-4. 再生成ボタン実装（依存: 8-1）
+
+<!--
+    時間調整のたびに Lambda が発火するため編集しにくい問題を解消する。
+    再生成ボタン押下時のみ Lambda を発火させる。
+
+    既存実装で対応済みの要件:
+    - 未再生成クリップの行選択不可（clipStatus !== GENERATED → onClick 無効、既実装）
+    - ZIP ボタン制御（hasUngeneratedAcceptedClip で disabled 制御済み）
+-->
+
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`（GET）
+  - PENDING クリップへの自動 Lambda 発火・`GENERATING` 更新を削除（一覧返却のみ）
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`（PATCH）
+  - 時間変更時: Lambda 発火を削除し `clipStatus: 'PENDING'` リセットのみに変更
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route.ts`（新規: POST）
+  - clip-regenerate Lambda を非同期 Invoke → `clipStatus='GENERATING'` に更新 → 更新後ハイライトを返却
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+  - 再生成ボタンを各行に追加（PENDING/FAILED → 活性、GENERATING → ローディング、GENERATED → 非活性）
+  - `onRegenerate` ハンドラー追加（POST `.../regenerate` を呼び出し）
+  - `onUpdateRange`: 対象ハイライトが選択中の場合 `setSelectedId(null)` で即時選択解除
+  - ポーリング条件: `hasPendingOrGenerating` → `hasGenerating`（GENERATING のみポーリング）
+- [ ] テスト更新（GET / PATCH の挙動変更）
+- [ ] テスト追加（`regenerate/route.test.ts`）
+
+## Phase 9: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
 - [ ] `docs/services/quick-clip/` ドキュメントを作成・更新

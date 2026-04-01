@@ -22,15 +22,26 @@
 |---------|------|------|------|
 | POST | /api/jobs | ジョブ作成（アップロード用 Presigned URL 取得） | なし |
 | GET | /api/jobs/{jobId} | ジョブステータス取得 | なし |
-| GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得・クリップ生成トリガー | なし |
-| PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新（時間変更時はクリップ再生成） | なし |
+| GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得 | なし |
+| PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新（時間変更時は clipStatus を PENDING にリセット） | なし |
+| POST | /api/jobs/{jobId}/highlights/{highlightId}/regenerate | クリップ再生成トリガー | なし |
 | POST | /api/jobs/{jobId}/download | ZIP 生成・ダウンロード URL 取得（採用クリップが全件 GENERATED の場合のみ） | なし |
 
 **GET /api/jobs/{jobId}/highlights の補足**
 
 - レスポンスの各 Highlight に `clipStatus` と `clipUrl` (GENERATED のもののみ Presigned URL) を含める
 - `sourceVideoUrl` は返却しない
-- clipStatus が `PENDING` のハイライトが存在する場合、clip-regenerate Lambda を非同期 Invoke し clipStatus を `GENERATING` に更新してから返却する
+- Lambda の自動 Invoke は行わない（クリップ生成は regenerate エンドポイント経由のみ）
+
+**PATCH /api/jobs/{jobId}/highlights/{highlightId} の補足**
+
+- 時間変更（startSec / endSec）がある場合、DynamoDB 更新時に `clipStatus` を `PENDING` にリセットして返却する（Lambda は呼び出さない）
+- ステータス（accepted / rejected）のみの変更の場合は `clipStatus` を変更しない
+
+**POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate の補足**
+
+- clip-regenerate Lambda を非同期 Invoke（InvocationType: Event）する
+- Invoke 直後に `clipStatus` を `GENERATING` に更新し、更新後の Highlight を返却する
 
 **POST /api/jobs/{jobId}/download の補足**
 
@@ -62,14 +73,18 @@ type Job = {
     errorMessage?: string; // FAILED 時のみ
 };
 
+/** ハイライト抽出根拠 */
+type HighlightSource = 'motion' | 'volume' | 'both';
+
 type Highlight = {
     highlightId: string;
     jobId: string;
-    order: number; // 抽出順
+    order: number; // 開始時間昇順の連番（スコード順ではない）
     startSec: number; // 開始時刻（秒）
     endSec: number; // 終了時刻（秒）
     status: HighlightStatus;
     clipStatus: ClipStatus; // クリップ切り出し状態
+    source: HighlightSource; // 抽出根拠（motion: 画面変化 / volume: 音量 / both: 両方）
     // クリップ S3 キーは outputs/{jobId}/clips/{highlightId}.mp4 として導出（DB には保存しない）
 };
 ```
@@ -97,11 +112,12 @@ type Highlight = {
 |-----|----|----|
 | PK | string | `JOB#{jobId}` |
 | SK | string | `HIGHLIGHT#{highlightId}` |
-| order | number | 抽出順 |
+| order | number | 開始時間昇順の連番 |
 | startSec | number | 開始時刻（秒） |
 | endSec | number | 終了時刻（秒） |
 | status | string | accepted / rejected / pending |
 | clipStatus | string | PENDING / GENERATING / GENERATED / FAILED |
+| source | string | 抽出根拠: motion / volume / both |
 
 > クリップの S3 キーは `outputs/{jobId}/clips/{highlightId}.mp4` として導出するため DynamoDB には保存しない。
 
@@ -146,6 +162,7 @@ type Highlight = {
 | `GET /api/jobs/[jobId]` | `web/src/app/api/jobs/[jobId]/route.ts` | ジョブ取得 API |
 | `GET /api/jobs/[jobId]/highlights` | `web/src/app/api/jobs/[jobId]/highlights/route.ts` | 見どころ一覧 API |
 | `PATCH /api/jobs/[jobId]/highlights/[highlightId]` | `web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts` | 見どころ更新 API |
+| `POST /api/jobs/[jobId]/highlights/[highlightId]/regenerate` | `web/src/app/api/jobs/[jobId]/highlights/[highlightId]/regenerate/route.ts` | クリップ再生成 API |
 
 **batch**
 
@@ -179,12 +196,29 @@ type Highlight = {
 - AWS S3・DynamoDB へのアクセス権限が付与されていること
 - 認証基盤との連携は不要（匿名利用のため）
 
+### Batch Job Definition 設計
+
+ファイルサイズに応じて2種類の Job Definition を使い分ける。ジョブ投入時に `selectJobDefinition(fileSize)` でサイズを選択し、`{prefix}-{size}` 形式のジョブ定義名を使用する。
+
+| サイズ | 対象ファイルサイズ | vCPU | メモリ | タイムアウト |
+|-------|----------------|------|------|----------|
+| small | < 1 GB | 1 | 4 GB | 1 時間 |
+| large | ≥ 1 GB | 2 | 8 GB | 3 時間 |
+
+- Job Definition 名: `nagiyu-quick-clip-{env}-{size}`（例: `nagiyu-quick-clip-dev-large`）
+- 環境変数: `BATCH_JOB_DEFINITION_ARN`（単一）→ `BATCH_JOB_DEFINITION_PREFIX`（プレフィックス文字列）に変更
+- S3 ダウンロードはストリーミング（`pipeline(Body as NodeJS.ReadableStream, createWriteStream())`）で行い、全量をメモリに展開しない
+
 ### パフォーマンス考慮事項
 
 - 動画は S3 に直接アップロード（Lambda/Next.js を経由しない Presigned URL 方式）
 - 大容量動画の処理は AWS Batch（Fargate）で非同期実行
+- Batch の S3 ダウンロードはストリーミング処理（メモリに全量展開しない）
+- ファイルサイズに応じて Batch Job Definition を自動選択（閾値 1 GB）
 - 見どころ抽出処理の目標: 30秒以内（目安）。リソース設計時に検証する
 - ZIP 生成の目標: 30秒以内（目安）
+- `HighlightAggregationService` はオーバーラップする motion / volume 結果を1件にマージする（時間範囲はユニオン、スコアは最大値、source は `'both'`）
+- ハイライトは上位 20 件をスコードで選出後、開始時間昇順に並び替えてから `order` を付与する
 
 ### セキュリティ考慮事項
 
