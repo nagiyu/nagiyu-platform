@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -27,6 +27,12 @@ const ERROR_MESSAGES = {
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
 } as const;
+const CLIP_STATUS_LABELS = {
+  PENDING: '生成中',
+  GENERATING: '生成中',
+  GENERATED: '生成完了',
+  FAILED: '生成失敗',
+} as const;
 
 type HighlightsPageProps = {
   params: Promise<{ jobId: string }>;
@@ -49,6 +55,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -64,10 +71,16 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   }, [params]);
 
   const fetchHighlights = useCallback(
-    async (isInitialLoad: boolean = false) => {
+    async (options?: { isInitialLoad?: boolean; skipIfFetching?: boolean }) => {
+      const isInitialLoad = options?.isInitialLoad ?? false;
+      const skipIfFetching = options?.skipIfFetching ?? false;
       if (!jobId) {
         return;
       }
+      if (skipIfFetching && isFetchingRef.current) {
+        return;
+      }
+      isFetchingRef.current = true;
       try {
         const response = await fetch(`/api/jobs/${jobId}/highlights`);
         if (!response.ok) {
@@ -94,6 +107,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       } catch {
         setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
       } finally {
+        isFetchingRef.current = false;
         if (isInitialLoad) {
           setIsLoading(false);
         }
@@ -109,7 +123,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
     let active = true;
 
-    void fetchHighlights(true);
+    void fetchHighlights({ isInitialLoad: true });
 
     return () => {
       active = false;
@@ -132,7 +146,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     }
 
     const intervalId = window.setInterval(() => {
-      void fetchHighlights();
+      void fetchHighlights({ skipIfFetching: true });
     }, 3000);
 
     return () => {
@@ -313,7 +327,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                 </TableHead>
                 <TableBody>
                   {highlights.map((highlight) => (
-                    <TableRow
+                      <TableRow
                       key={highlight.highlightId}
                       hover
                       selected={highlight.highlightId === selectedId}
@@ -322,7 +336,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                            setSelectedId(highlight.highlightId);
                          }
                        }}
-                       sx={{ cursor: 'pointer' }}
+                       sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}
                      >
                       <TableCell>#{highlight.order}</TableCell>
                       <TableCell>
@@ -364,7 +378,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                              <Typography variant="body2">生成中</Typography>
                            </Stack>
                          ) : (
-                           highlight.clipStatus
+                           CLIP_STATUS_LABELS[highlight.clipStatus]
                          )}
                        </TableCell>
                      </TableRow>
