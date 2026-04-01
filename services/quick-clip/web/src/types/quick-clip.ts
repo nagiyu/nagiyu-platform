@@ -2,6 +2,7 @@ export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export type HighlightStatus = 'accepted' | 'rejected' | 'pending';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
+export type HighlightSource = 'motion' | 'volume' | 'both';
 
 export type Job = {
   jobId: string;
@@ -19,6 +20,7 @@ export type Highlight = {
   order: number;
   startSec: number;
   endSec: number;
+  source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
 };

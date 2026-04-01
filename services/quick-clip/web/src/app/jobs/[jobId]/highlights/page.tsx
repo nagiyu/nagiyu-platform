@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Checkbox,
   CircularProgress,
   Container,
@@ -33,6 +34,11 @@ const CLIP_STATUS_LABELS = {
   GENERATING: '生成中',
   GENERATED: '生成完了',
   FAILED: '生成失敗',
+} as const;
+const HIGHLIGHT_SOURCE_LABELS = {
+  motion: 'モーション',
+  volume: '音量',
+  both: '両方',
 } as const;
 
 type HighlightsPageProps = {
@@ -346,6 +352,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   <TableRow>
                     <TableCell>No.</TableCell>
                     <TableCell>開始〜終了(秒)</TableCell>
+                    <TableCell>根拠</TableCell>
                     <TableCell>使える</TableCell>
                     <TableCell>開始調整</TableCell>
                     <TableCell>終了調整</TableCell>
@@ -369,6 +376,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       <TableCell>#{highlight.order}</TableCell>
                       <TableCell>
                         {highlight.startSec}s〜{highlight.endSec}s
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={HIGHLIGHT_SOURCE_LABELS[highlight.source]}
+                          size="small"
+                          color={highlight.source === 'both' ? 'primary' : 'default'}
+                        />
                       </TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>
                         <Checkbox

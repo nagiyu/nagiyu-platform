@@ -14,6 +14,7 @@ const baseHighlight: Highlight = {
   order: 1,
   startSec: 10,
   endSec: 20,
+  source: 'motion',
   status: 'pending',
   clipStatus: 'PENDING',
 };

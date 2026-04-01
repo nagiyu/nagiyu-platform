@@ -24,7 +24,7 @@ describe('DynamoDBHighlightRepository', () => {
     jest.clearAllMocks();
   });
 
-  it('createMany は clipStatus を保存する', async () => {
+  it('createMany は clipStatus と source を保存する', async () => {
     mockSend.mockResolvedValue({});
 
     await repository.createMany([
@@ -34,6 +34,7 @@ describe('DynamoDBHighlightRepository', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'motion',
         status: 'pending',
         clipStatus: 'PENDING',
       },
@@ -43,13 +44,15 @@ describe('DynamoDBHighlightRepository', () => {
     expect(sentCommand).toBeInstanceOf(UpdateCommand);
     expect(sentCommand.input.ExpressionAttributeNames).toMatchObject({
       '#clipStatus': 'clipStatus',
+      '#source': 'source',
     });
     expect(sentCommand.input.ExpressionAttributeValues).toMatchObject({
       ':clipStatus': 'PENDING',
+      ':source': 'motion',
     });
   });
 
-  it('getByJobId は clipStatus を含めて返す', async () => {
+  it('getByJobId は clipStatus と source を含めて返す', async () => {
     mockSend.mockResolvedValue({
       Items: [
         {
@@ -61,6 +64,7 @@ describe('DynamoDBHighlightRepository', () => {
           order: 1,
           startSec: 10,
           endSec: 20,
+          source: 'both',
           status: 'pending',
           clipStatus: 'GENERATED',
         },
@@ -78,13 +82,14 @@ describe('DynamoDBHighlightRepository', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'both',
         status: 'pending',
         clipStatus: 'GENERATED',
       },
     ]);
   });
 
-  it('getById は clipStatus を含めて返す', async () => {
+  it('getById は clipStatus と source を含めて返す', async () => {
     mockSend.mockResolvedValue({
       Item: {
         PK: 'JOB#job-1',
@@ -95,6 +100,7 @@ describe('DynamoDBHighlightRepository', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'volume',
         status: 'pending',
         clipStatus: 'FAILED',
       },
@@ -110,6 +116,7 @@ describe('DynamoDBHighlightRepository', () => {
       order: 1,
       startSec: 10,
       endSec: 20,
+      source: 'volume',
       status: 'pending',
       clipStatus: 'FAILED',
     });
@@ -126,6 +133,7 @@ describe('DynamoDBHighlightRepository', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'motion',
         status: 'pending',
         clipStatus: 'GENERATED',
       },

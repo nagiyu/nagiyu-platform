@@ -5,6 +5,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import type { ClipStatus, Highlight, HighlightStatus, UpdateHighlightInput } from '../types.js';
+import type { HighlightSource } from '../libs/highlight-extractor.service.js';
 import type { HighlightRepository } from './highlight.repository.interface.js';
 import { DOMAIN_ERROR_MESSAGES } from '../libs/domain-error-messages.js';
 
@@ -17,6 +18,7 @@ type HighlightItem = {
   order: number;
   startSec: number;
   endSec: number;
+  source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
 };
@@ -130,7 +132,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
             TableName: this.tableName,
             Key: this.buildKeys(highlight.jobId, highlight.highlightId),
             UpdateExpression:
-              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #status = :status, #clipStatus = :clipStatus',
+              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #source = :source, #status = :status, #clipStatus = :clipStatus',
             ExpressionAttributeNames: {
               '#type': 'Type',
               '#highlightId': 'highlightId',
@@ -138,6 +140,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
               '#order': 'order',
               '#startSec': 'startSec',
               '#endSec': 'endSec',
+              '#source': 'source',
               '#status': 'status',
               '#clipStatus': 'clipStatus',
             },
@@ -148,6 +151,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
               ':order': highlight.order,
               ':startSec': highlight.startSec,
               ':endSec': highlight.endSec,
+              ':source': highlight.source,
               ':status': highlight.status,
               ':clipStatus': highlight.clipStatus,
             },
@@ -171,6 +175,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
       order: item.order,
       startSec: item.startSec,
       endSec: item.endSec,
+      source: item.source,
       status: item.status,
       clipStatus: item.clipStatus,
     };

@@ -46,6 +46,7 @@ describe('quick-clip core exports', () => {
       order: 1,
       startSec: 10,
       endSec: 20,
+      source: 'motion',
       status: highlightStatus,
       clipStatus,
     };

@@ -140,12 +140,14 @@ const buildHighlights = async (jobId: string, localPath: string): Promise<Highli
     new VolumeHighlightService(analyzer),
   ]);
   const extracted = await aggregationService.aggregate(jobId, localPath);
-  return extracted.map((item, index) => ({
+  const sortedByStartSec = extracted.slice().sort((a, b) => a.startSec - b.startSec);
+  return sortedByStartSec.map((item, index) => ({
     highlightId: randomUUID(),
     jobId,
     order: index + 1,
     startSec: item.startSec,
     endSec: item.endSec,
+    source: item.source,
     status: 'pending',
     clipStatus: 'PENDING',
   }));

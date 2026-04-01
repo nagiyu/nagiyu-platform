@@ -25,6 +25,8 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 
 const mockGetJob = jest.fn();
 const mockGetHighlights = jest.fn();
+const mockGetById = jest.fn();
+const mockUpdate = jest.fn();
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
   DynamoDBJobRepository: jest.fn().mockImplementation(
@@ -39,8 +41,8 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
     () =>
       ({
         getByJobId: mockGetHighlights,
-        getById: jest.fn(),
-        update: jest.fn(),
+        getById: mockGetById,
+        update: mockUpdate,
       }) as unknown as HighlightRepository
   ),
 }));
@@ -59,6 +61,26 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     );
     mockedGetS3Client.mockReturnValue({} as ReturnType<typeof getS3Client>);
     mockedGetSignedUrl.mockResolvedValue('https://example.com/highlight.mp4');
+    mockGetById.mockResolvedValue({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'pending',
+      clipStatus: 'PENDING',
+    });
+    mockUpdate.mockResolvedValue({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'pending',
+      clipStatus: 'GENERATING',
+    });
   });
 
   const mockRequest = {} as Request;
@@ -83,6 +105,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'motion',
         status: 'pending',
         clipStatus: 'PENDING',
       },
@@ -98,6 +121,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       highlights: [
         expect.objectContaining({
           highlightId: 'h1',
+          source: 'motion',
           clipStatus: 'PENDING',
           clipUrl: undefined,
         }),
@@ -122,6 +146,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'both',
         status: 'accepted',
         clipStatus: 'GENERATED',
       },
@@ -136,6 +161,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     expect(body.highlights[0]).toEqual(
       expect.objectContaining({
         highlightId: 'h1',
+        source: 'both',
         clipStatus: 'GENERATED',
         clipUrl: 'https://example.com/highlight.mp4',
       })
@@ -174,6 +200,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'volume',
         status: 'pending',
         clipStatus: 'GENERATED',
       },

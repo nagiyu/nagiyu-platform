@@ -313,19 +313,19 @@
     表示順を開始時間昇順に変更する（現状はスコア降順）。
 -->
 
-- [ ] `services/quick-clip/core/src/libs/highlight-extractor.service.ts`
+- [x] `services/quick-clip/core/src/libs/highlight-extractor.service.ts`
   - `source: string` → `source: 'motion' | 'volume' | 'both'`（`HighlightSource` 型として export）
-- [ ] `services/quick-clip/core/src/libs/highlight-aggregation.service.ts`
+- [x] `services/quick-clip/core/src/libs/highlight-aggregation.service.ts`
   - `aggregate()` にオーバーラップマージロジックを追加（時間帯がオーバーラップする motion/volume 結果を1件に統合: 時間はユニオン・スコアは最大値・`source='both'`）
-- [ ] `services/quick-clip/core/src/types.ts`
+- [x] `services/quick-clip/core/src/types.ts`
   - `Highlight` 型に `source: HighlightSource` を追加
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
   - `buildHighlights()`: `extracted` を `startSec` 昇順で再ソートしてから `order` を割り当て（`source` フィールドも保持）
-- [ ] `services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts`
+- [x] `services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts`
   - `HighlightItem` 型・`createMany()` の UpdateExpression・`mapToEntity()` に `source` を追加
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
   - テーブルに「根拠」列を追加（`motion` → モーション / `volume` → 音量 / `both` → 両方 のチップ表示）
-- [ ] テスト更新・追加（aggregation マージロジック・batch-runner の source 保持・ソート順）
+- [x] テスト更新・追加（aggregation マージロジック・batch-runner の source 保持・ソート順）
 
 ### 8-4. 再生成ボタン実装（依存: 8-1）
 

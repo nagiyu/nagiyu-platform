@@ -23,8 +23,7 @@ describe('HighlightAggregationService', () => {
 
     expect(result).toEqual([
       { startSec: 5, endSec: 8, score: 30, source: 'motion' },
-      { startSec: 12, endSec: 16, score: 25, source: 'volume' },
-      { startSec: 10, endSec: 15, score: 20, source: 'motion' },
+      { startSec: 10, endSec: 16, score: 25, source: 'both' },
     ]);
     expect(first.extractHighlights).toHaveBeenCalledWith('job-1', '/tmp/video.mp4');
     expect(second.extractHighlights).toHaveBeenCalledWith('job-1', '/tmp/video.mp4');
@@ -65,5 +64,21 @@ describe('HighlightAggregationService', () => {
     expect(result).toHaveLength(20);
     expect(result[0]?.score).toBe(100);
     expect(result[19]?.score).toBe(81);
+  });
+
+  it('motion と volume がオーバーラップする場合は both として統合する', async () => {
+    const first = createExtractorMock([
+      { startSec: 10, endSec: 20, score: 50, source: 'motion' },
+      { startSec: 30, endSec: 35, score: 40, source: 'motion' },
+    ]);
+    const second = createExtractorMock([{ startSec: 15, endSec: 25, score: 60, source: 'volume' }]);
+    const service = new HighlightAggregationService([first, second]);
+
+    const result = await service.aggregate('job-1', '/tmp/video.mp4');
+
+    expect(result).toEqual([
+      { startSec: 10, endSec: 25, score: 60, source: 'both' },
+      { startSec: 30, endSec: 35, score: 40, source: 'motion' },
+    ]);
   });
 });

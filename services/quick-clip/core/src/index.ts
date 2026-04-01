@@ -17,6 +17,7 @@ export type {
 
 export type {
   ExtractedHighlight,
+  HighlightSource,
   HighlightExtractorService,
 } from './libs/highlight-extractor.service.js';
 export type { ClipSplitterService } from './libs/clip-splitter.service.js';
