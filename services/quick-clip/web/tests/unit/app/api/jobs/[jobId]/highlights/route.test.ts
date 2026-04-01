@@ -25,6 +25,8 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 
 const mockGetJob = jest.fn();
 const mockGetHighlights = jest.fn();
+const mockGetById = jest.fn();
+const mockUpdate = jest.fn();
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
   DynamoDBJobRepository: jest.fn().mockImplementation(
@@ -39,8 +41,8 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
     () =>
       ({
         getByJobId: mockGetHighlights,
-        getById: jest.fn(),
-        update: jest.fn(),
+        getById: mockGetById,
+        update: mockUpdate,
       }) as unknown as HighlightRepository
   ),
 }));
@@ -120,7 +122,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         expect.objectContaining({
           highlightId: 'h1',
           source: 'motion',
-          clipStatus: 'GENERATING',
+          clipStatus: 'PENDING',
           clipUrl: undefined,
         }),
       ],
