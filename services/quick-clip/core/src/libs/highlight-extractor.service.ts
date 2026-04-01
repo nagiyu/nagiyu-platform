@@ -1,8 +1,10 @@
+export type HighlightSource = 'motion' | 'volume' | 'both';
+
 export type ExtractedHighlight = {
   startSec: number;
   endSec: number;
   score: number;
-  source: string;
+  source: HighlightSource;
 };
 
 export interface HighlightExtractorService {

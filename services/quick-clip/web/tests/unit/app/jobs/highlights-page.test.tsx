@@ -19,6 +19,7 @@ describe('HighlightsPage', () => {
             order: 1,
             startSec: 10,
             endSec: 20,
+            source: 'motion',
             status: 'accepted',
             clipStatus: 'GENERATED',
             clipUrl: 'https://example.com/h-1.mp4',
@@ -49,6 +50,7 @@ describe('HighlightsPage', () => {
             order: 1,
             startSec: 10,
             endSec: 20,
+            source: 'volume',
             status: 'accepted',
             clipStatus: 'GENERATING',
           },
@@ -58,6 +60,7 @@ describe('HighlightsPage', () => {
             order: 2,
             startSec: 30,
             endSec: 40,
+            source: 'both',
             status: 'accepted',
             clipStatus: 'GENERATED',
             clipUrl: 'https://example.com/h-2.mp4',
@@ -94,6 +97,7 @@ describe('HighlightsPage', () => {
               order: 1,
               startSec: 10,
               endSec: 20,
+              source: 'motion',
               status: 'accepted',
               clipStatus: 'GENERATING',
             },
@@ -110,6 +114,7 @@ describe('HighlightsPage', () => {
               order: 1,
               startSec: 10,
               endSec: 20,
+              source: 'motion',
               status: 'accepted',
               clipStatus: 'GENERATING',
             },
@@ -141,6 +146,7 @@ describe('HighlightsPage', () => {
             order: 1,
             startSec: 10,
             endSec: 20,
+            source: 'motion',
             status: 'accepted',
             clipStatus: 'GENERATING',
           },
@@ -153,5 +159,45 @@ describe('HighlightsPage', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'ZIP ダウンロード' })).toBeDisabled();
     });
+  });
+
+  it('根拠列に抽出根拠のチップを表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+          {
+            highlightId: 'h-2',
+            jobId: 'job-1',
+            order: 2,
+            startSec: 30,
+            endSec: 45,
+            source: 'both',
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-2.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('根拠')).toBeInTheDocument();
+    });
+    expect(screen.getByText('モーション')).toBeInTheDocument();
+    expect(screen.getByText('両方')).toBeInTheDocument();
   });
 });

@@ -143,8 +143,8 @@ describe('runQuickClipBatch', () => {
       },
     });
     mockAggregate.mockResolvedValue([
-      { startSec: 1, endSec: 3 },
-      { startSec: 5, endSec: 8 },
+      { startSec: 5, endSec: 8, source: 'volume' },
+      { startSec: 1, endSec: 3, source: 'motion' },
     ]);
 
     await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
@@ -156,6 +156,8 @@ describe('runQuickClipBatch', () => {
           jobId: 'job-1',
           startSec: 1,
           endSec: 3,
+          order: 1,
+          source: 'motion',
           status: 'pending',
           clipStatus: 'PENDING',
         }),
@@ -163,6 +165,8 @@ describe('runQuickClipBatch', () => {
           jobId: 'job-1',
           startSec: 5,
           endSec: 8,
+          order: 2,
+          source: 'volume',
           status: 'pending',
           clipStatus: 'PENDING',
         }),

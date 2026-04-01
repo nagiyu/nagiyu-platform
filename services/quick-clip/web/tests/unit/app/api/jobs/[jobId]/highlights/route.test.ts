@@ -77,6 +77,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       order: 1,
       startSec: 10,
       endSec: 20,
+      source: 'motion',
       status: 'pending',
       clipStatus: 'PENDING',
     });
@@ -86,6 +87,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       order: 1,
       startSec: 10,
       endSec: 20,
+      source: 'motion',
       status: 'pending',
       clipStatus: 'GENERATING',
     });
@@ -113,6 +115,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'motion',
         status: 'pending',
         clipStatus: 'PENDING',
       },
@@ -128,6 +131,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       highlights: [
         expect.objectContaining({
           highlightId: 'h1',
+          source: 'motion',
           clipStatus: 'GENERATING',
           clipUrl: undefined,
         }),
@@ -153,6 +157,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'both',
         status: 'accepted',
         clipStatus: 'GENERATED',
       },
@@ -166,10 +171,11 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     expect(response.status).toBe(200);
     expect(body.highlights[0]).toEqual(
       expect.objectContaining({
-        highlightId: 'h1',
-        clipStatus: 'GENERATED',
-        clipUrl: 'https://example.com/highlight.mp4',
-      })
+          highlightId: 'h1',
+          source: 'both',
+          clipStatus: 'GENERATED',
+          clipUrl: 'https://example.com/highlight.mp4',
+        })
     );
     expect(mockedGetSignedUrl).toHaveBeenCalledTimes(1);
   });
@@ -205,6 +211,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         order: 1,
         startSec: 10,
         endSec: 20,
+        source: 'volume',
         status: 'pending',
         clipStatus: 'GENERATED',
       },
