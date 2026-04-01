@@ -2,8 +2,10 @@ const mockSend = jest.fn();
 const mockUpdate = jest.fn();
 const mockSpawn = jest.fn();
 const mockMkdir = jest.fn();
-const mockWriteFile = jest.fn();
+const mockRm = jest.fn();
 const mockCreateReadStream = jest.fn();
+const mockCreateWriteStream = jest.fn();
+const mockPipeline = jest.fn();
 
 jest.mock('@aws-sdk/client-s3', () => {
   class GetObjectCommand {
@@ -46,11 +48,16 @@ jest.mock('node:child_process', () => ({
 
 jest.mock('node:fs/promises', () => ({
   mkdir: (...args: unknown[]) => mockMkdir(...args),
-  writeFile: (...args: unknown[]) => mockWriteFile(...args),
+  rm: (...args: unknown[]) => mockRm(...args),
 }));
 
 jest.mock('node:fs', () => ({
   createReadStream: (...args: unknown[]) => mockCreateReadStream(...args),
+  createWriteStream: (...args: unknown[]) => mockCreateWriteStream(...args),
+}));
+
+jest.mock('node:stream/promises', () => ({
+  pipeline: (...args: unknown[]) => mockPipeline(...args),
 }));
 
 describe('clip lambda handler', () => {
@@ -68,15 +75,15 @@ describe('clip lambda handler', () => {
     jest.clearAllMocks();
 
     mockMkdir.mockResolvedValue(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
+    mockRm.mockResolvedValue(undefined);
     mockCreateReadStream.mockReturnValue('stream');
+    mockCreateWriteStream.mockReturnValue('writeStream');
+    mockPipeline.mockResolvedValue(undefined);
 
     mockSend.mockImplementation((command: { constructor: { name: string } }) => {
       if (command.constructor.name === 'GetObjectCommand') {
         return Promise.resolve({
-          Body: {
-            transformToByteArray: async () => new Uint8Array([1, 2]),
-          },
+          Body: {},
         });
       }
       return Promise.resolve({});

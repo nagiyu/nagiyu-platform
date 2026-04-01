@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { pipeline } from 'node:stream/promises';
 import { spawn } from 'node:child_process';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -89,8 +90,8 @@ const downloadSourceVideo = async (
     throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
   }
   await mkdir(dirname(localPath), { recursive: true });
-  const bytes = await response.Body.transformToByteArray();
-  await writeFile(localPath, Buffer.from(bytes));
+  const fileStream = createWriteStream(localPath);
+  await pipeline(response.Body as NodeJS.ReadableStream, fileStream);
 };
 
 const splitClip = async (
@@ -179,5 +180,7 @@ export const handler = async (event: ClipRegenerateEvent): Promise<ClipRegenerat
   } catch (error) {
     await updateClipStatus(docClient, tableName, event, 'FAILED');
     throw error;
+  } finally {
+    await rm(dirname(localInputPath), { recursive: true, force: true });
   }
 };
