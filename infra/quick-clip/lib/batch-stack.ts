@@ -18,7 +18,8 @@ export interface BatchStackProps extends cdk.StackProps {
 
 export class BatchStack extends cdk.Stack {
   public readonly jobQueueArn: string;
-  public readonly jobDefinitionArn: string;
+  public readonly jobDefinitionPrefix: string;
+  public readonly jobDefinitionArns: string[];
 
   constructor(scope: Construct, id: string, props: BatchStackProps) {
     super(scope, id, props);
@@ -73,7 +74,7 @@ export class BatchStack extends cdk.Stack {
       state: 'ENABLED',
       computeResources: {
         type: 'FARGATE',
-        maxvCpus: 4,
+        maxvCpus: 8,
         subnets: publicSubnetIds,
         securityGroupIds: [securityGroup.securityGroupId],
       },
@@ -93,8 +94,10 @@ export class BatchStack extends cdk.Stack {
 
     const batchRepositoryName = `nagiyu-quick-clip-batch-ecr-${props.environment}`;
     const batchImage = `${this.account}.dkr.ecr.${this.region}.amazonaws.com/${batchRepositoryName}:batch-latest`;
-    const jobDefinition = new batch.CfnJobDefinition(this, 'JobDefinition', {
-      jobDefinitionName: `nagiyu-quick-clip-${props.environment}`,
+    const jobDefinitionPrefix = `nagiyu-quick-clip-${props.environment}`;
+
+    const smallJobDefinition = new batch.CfnJobDefinition(this, 'SmallJobDefinition', {
+      jobDefinitionName: `${jobDefinitionPrefix}-small`,
       type: 'container',
       platformCapabilities: ['FARGATE'],
       containerProperties: {
@@ -135,15 +138,65 @@ export class BatchStack extends cdk.Stack {
       retryStrategy: { attempts: 1 },
     });
 
+    const largeJobDefinition = new batch.CfnJobDefinition(this, 'LargeJobDefinition', {
+      jobDefinitionName: `${jobDefinitionPrefix}-large`,
+      type: 'container',
+      platformCapabilities: ['FARGATE'],
+      containerProperties: {
+        image: batchImage,
+        resourceRequirements: [
+          { type: 'VCPU', value: '2' },
+          { type: 'MEMORY', value: '8192' },
+        ],
+        executionRoleArn: executionRole.roleArn,
+        jobRoleArn: jobRole.roleArn,
+        networkConfiguration: {
+          assignPublicIp: 'ENABLED',
+        },
+        logConfiguration: {
+          logDriver: 'awslogs',
+          options: {
+            'awslogs-group': batchLogGroup.logGroupName,
+            'awslogs-region': this.region,
+            'awslogs-stream-prefix': 'batch',
+          },
+        },
+        environment: [
+          {
+            name: 'DYNAMODB_TABLE_NAME',
+            value: props.jobsTable.tableName,
+          },
+          {
+            name: 'S3_BUCKET',
+            value: props.storageBucket.bucketName,
+          },
+          {
+            name: 'AWS_REGION',
+            value: this.region,
+          },
+        ],
+      },
+      timeout: { attemptDurationSeconds: 3 * 3600 },
+      retryStrategy: { attempts: 1 },
+    });
+
     this.jobQueueArn = jobQueue.attrJobQueueArn;
-    this.jobDefinitionArn = jobDefinition.attrJobDefinitionArn;
+    this.jobDefinitionPrefix = jobDefinitionPrefix;
+    this.jobDefinitionArns = [
+      smallJobDefinition.attrJobDefinitionArn,
+      largeJobDefinition.attrJobDefinitionArn,
+    ];
 
     new cdk.CfnOutput(this, 'BatchJobQueueArn', {
       value: this.jobQueueArn,
     });
 
-    new cdk.CfnOutput(this, 'BatchJobDefinitionArn', {
-      value: this.jobDefinitionArn,
+    new cdk.CfnOutput(this, 'BatchJobDefinitionPrefix', {
+      value: this.jobDefinitionPrefix,
+    });
+
+    new cdk.CfnOutput(this, 'BatchJobDefinitionArns', {
+      value: cdk.Fn.join(',', this.jobDefinitionArns),
     });
   }
 }

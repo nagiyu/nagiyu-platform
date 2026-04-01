@@ -63,7 +63,8 @@ const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   storageBucketName: storageStack.storageBucket.bucketName,
   storageBucketArn: storageStack.storageBucket.bucketArn,
   batchJobQueueArn: batchStack.jobQueueArn,
-  batchJobDefinitionArn: batchStack.jobDefinitionArn,
+  batchJobDefinitionPrefix: batchStack.jobDefinitionPrefix,
+  batchJobDefinitionArns: batchStack.jobDefinitionArns,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });
