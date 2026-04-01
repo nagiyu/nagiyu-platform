@@ -40,7 +40,8 @@ test.describe('QuickClip Highlights Page', () => {
         startSec: 10,
         endSec: 20,
         status: 'accepted',
-        previewUrl: 'https://example.com/preview-h-1.mp4',
+        clipStatus: 'GENERATED',
+        clipUrl: 'https://example.com/clip-h-1.mp4',
       },
       {
         highlightId: 'h-2',
@@ -49,7 +50,8 @@ test.describe('QuickClip Highlights Page', () => {
         startSec: 30,
         endSec: 45,
         status: 'rejected',
-        previewUrl: 'https://example.com/preview-h-2.mp4',
+        clipStatus: 'GENERATED',
+        clipUrl: 'https://example.com/clip-h-2.mp4',
       },
     ];
 
@@ -59,7 +61,6 @@ test.describe('QuickClip Highlights Page', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           highlights,
-          sourceVideoUrl: 'https://example.com/source.mp4',
         }),
       });
     });
@@ -122,7 +123,7 @@ test.describe('QuickClip Highlights Page', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: '見どころ確認画面' })).toBeVisible();
     await expect(page.getByText('採用中の見どころ: 1 件')).toBeVisible();
-    await expect(page.locator('video')).toHaveAttribute('src', 'https://example.com/source.mp4');
+    await expect(page.locator('video')).toHaveAttribute('src', 'https://example.com/clip-h-1.mp4');
 
     await page.getByRole('checkbox', { name: /見どころ2.*使える/ }).click();
     await expect(page.getByText('採用中の見どころ: 2 件')).toBeVisible();

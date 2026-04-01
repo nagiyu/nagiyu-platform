@@ -160,7 +160,7 @@
 
 ### 7-6. ハイライト確認画面修正（依存: 7-5）
 
-- [ ] `jobs/[jobId]/highlights/page.tsx`
+- [x] `jobs/[jobId]/highlights/page.tsx`
   - `sourceVideoUrl` 参照を廃止
   - `GENERATING` / `PENDING` 状態の行はローディングインジケーターを表示
   - `PENDING` / `GENERATING` のハイライトが存在する間、GET /highlights を数秒おきにポーリング

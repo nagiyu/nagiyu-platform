@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -27,14 +27,19 @@ const ERROR_MESSAGES = {
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
 } as const;
+const CLIP_STATUS_LABELS = {
+  PENDING: '生成中',
+  GENERATING: '生成中',
+  GENERATED: '生成完了',
+  FAILED: '生成失敗',
+} as const;
 
 type HighlightsPageProps = {
   params: Promise<{ jobId: string }>;
 };
 
 type HighlightsResponse = {
-  highlights: Highlight[];
-  sourceVideoUrl: string;
+  highlights: Array<Highlight & { clipUrl?: string }>;
 };
 
 type DownloadResponse = {
@@ -45,13 +50,12 @@ type DownloadResponse = {
 
 export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [jobId, setJobId] = useState<string>('');
-  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [highlights, setHighlights] = useState<Array<Highlight & { clipUrl?: string }>>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [sourceVideoUrl, setSourceVideoUrl] = useState<string>('');
-  const previewRef = useRef<HTMLVideoElement>(null);
+  const isFetchingRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -66,6 +70,54 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     };
   }, [params]);
 
+  const fetchHighlights = useCallback(
+    async (options?: { isInitialLoad?: boolean; skipIfFetching?: boolean }) => {
+      const isInitialLoad = options?.isInitialLoad ?? false;
+      const skipIfFetching = options?.skipIfFetching ?? false;
+      if (!jobId) {
+        return;
+      }
+      if (skipIfFetching && isFetchingRef.current) {
+        return;
+      }
+      isFetchingRef.current = true;
+      try {
+        const response = await fetch(`/api/jobs/${jobId}/highlights`);
+        if (!response.ok) {
+          setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
+          return;
+        }
+
+        const data = (await response.json()) as HighlightsResponse;
+        setHighlights(data.highlights);
+        setSelectedId((current) => {
+          if (
+            current &&
+            data.highlights.some(
+              (highlight) =>
+                highlight.highlightId === current && highlight.clipStatus === 'GENERATED'
+            )
+          ) {
+            return current;
+          }
+          return (
+            data.highlights.find((highlight) => highlight.clipStatus === 'GENERATED')
+              ?.highlightId ?? null
+          );
+        });
+        setErrorMessage(null);
+      } catch {
+        setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
+      } finally {
+        isFetchingRef.current = false;
+        if (isInitialLoad) {
+          setIsLoading(false);
+        }
+      }
+    },
+    [jobId]
+  );
+
   useEffect(() => {
     if (!jobId) {
       return;
@@ -73,100 +125,49 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
     let active = true;
 
-    const fetchHighlights = async () => {
-      try {
-        const response = await fetch(`/api/jobs/${jobId}/highlights`);
-        if (!response.ok) {
-          setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
-          setIsLoading(false);
-          return;
-        }
-
-        const data = (await response.json()) as HighlightsResponse;
-        if (!active) {
-          return;
-        }
-
-        setHighlights(data.highlights);
-        setSelectedId(data.highlights[0]?.highlightId ?? null);
-        setSourceVideoUrl(data.sourceVideoUrl);
-        setErrorMessage(null);
-      } catch {
-        if (active) {
-          setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
-        }
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void fetchHighlights();
+    void fetchHighlights({ isInitialLoad: true });
 
     return () => {
       active = false;
     };
-  }, [jobId]);
+  }, [fetchHighlights, jobId]);
 
   const selectedHighlight = useMemo(
     () => highlights.find((highlight) => highlight.highlightId === selectedId) ?? null,
     [highlights, selectedId]
   );
 
-  useEffect(() => {
-    if (!previewRef.current) {
-      return;
-    }
-
-    const preview = previewRef.current;
-    if (!sourceVideoUrl || !selectedHighlight) {
-      preview.removeAttribute('src');
-      preview.load();
-      return;
-    }
-
-    preview.src = sourceVideoUrl;
-    const seekToStart = () => {
-      preview.currentTime = selectedHighlight.startSec;
-      preview.removeEventListener('loadedmetadata', seekToStart);
-    };
-    preview.addEventListener('loadedmetadata', seekToStart);
-    preview.load();
-    return () => {
-      preview.removeEventListener('loadedmetadata', seekToStart);
-    };
-  }, [selectedHighlight, sourceVideoUrl]);
+  const hasPendingOrGenerating = useMemo(
+    () =>
+      highlights.some(
+        (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
+      ),
+    [highlights]
+  );
 
   useEffect(() => {
-    if (!previewRef.current || !selectedHighlight) {
+    if (!jobId || !hasPendingOrGenerating) {
       return;
     }
 
-    const preview = previewRef.current;
-    const clampToRange = () => {
-      if (preview.currentTime < selectedHighlight.startSec) {
-        preview.currentTime = selectedHighlight.startSec;
-        return;
-      }
-      if (preview.currentTime >= selectedHighlight.endSec) {
-        if (preview.currentTime > selectedHighlight.endSec) {
-          preview.currentTime = selectedHighlight.endSec;
-        }
-        preview.pause();
-        return;
-      }
-    };
-    preview.addEventListener('timeupdate', clampToRange);
-    preview.addEventListener('seeking', clampToRange);
+    const intervalId = window.setInterval(() => {
+      void fetchHighlights({ skipIfFetching: true });
+    }, 3000);
+
     return () => {
-      preview.removeEventListener('timeupdate', clampToRange);
-      preview.removeEventListener('seeking', clampToRange);
+      window.clearInterval(intervalId);
     };
-  }, [selectedHighlight]);
+  }, [fetchHighlights, hasPendingOrGenerating, jobId]);
 
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
+    [highlights]
+  );
+  const hasUngeneratedAcceptedClip = useMemo(
+    () =>
+      highlights.some(
+        (highlight) => highlight.status === 'accepted' && highlight.clipStatus !== 'GENERATED'
+      ),
     [highlights]
   );
 
@@ -293,12 +294,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           <Stack spacing={2}>
             <Box>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                動画プレビュー
+                クリッププレビュー
               </Typography>
               <video
-                ref={previewRef}
+                key={selectedHighlight?.highlightId ?? 'no-selection'}
                 controls
                 aria-label="見どころ動画プレビュー"
+                src={selectedHighlight?.clipUrl}
                 style={{ width: '100%' }}
               >
                 お使いのブラウザは video 要素に対応していません。
@@ -307,6 +309,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   選択中: #{selectedHighlight.order} ({selectedHighlight.startSec}s -{' '}
                   {selectedHighlight.endSec}s)
+                </Typography>
+              )}
+              {!selectedHighlight && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  クリップ生成中のため、生成完了までお待ちください。
                 </Typography>
               )}
             </Box>
@@ -320,6 +327,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                     <TableCell>使える</TableCell>
                     <TableCell>開始調整</TableCell>
                     <TableCell>終了調整</TableCell>
+                    <TableCell>生成状態</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -328,8 +336,12 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       key={highlight.highlightId}
                       hover
                       selected={highlight.highlightId === selectedId}
-                      onClick={() => setSelectedId(highlight.highlightId)}
-                      sx={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        if (highlight.clipStatus === 'GENERATED') {
+                          setSelectedId(highlight.highlightId);
+                        }
+                      }}
+                      sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}
                     >
                       <TableCell>#{highlight.order}</TableCell>
                       <TableCell>
@@ -364,6 +376,17 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           }
                         />
                       </TableCell>
+                      <TableCell>
+                        {highlight.clipStatus === 'PENDING' ||
+                        highlight.clipStatus === 'GENERATING' ? (
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CircularProgress size={16} />
+                            <Typography variant="body2">生成中</Typography>
+                          </Stack>
+                        ) : (
+                          CLIP_STATUS_LABELS[highlight.clipStatus]
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -377,7 +400,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
             <Button
               variant="contained"
               onClick={onDownload}
-              disabled={acceptedCount === 0 || isDownloading}
+              disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip || isDownloading}
             >
               {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
             </Button>

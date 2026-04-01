@@ -3,25 +3,15 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
 
 describe('HighlightsPage', () => {
-  const originalLoad = HTMLMediaElement.prototype.load;
-  const originalPause = HTMLMediaElement.prototype.pause;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    HTMLMediaElement.prototype.load = jest.fn();
-    HTMLMediaElement.prototype.pause = jest.fn();
+    jest.useRealTimers();
   });
 
-  afterEach(() => {
-    HTMLMediaElement.prototype.load = originalLoad;
-    HTMLMediaElement.prototype.pause = originalPause;
-  });
-
-  it('見どころ取得時に元動画URLを video 要素へ反映する', async () => {
+  it('GENERATED の clipUrl を video 要素に反映して表示する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        sourceVideoUrl: 'https://example.com/source.mp4',
         highlights: [
           {
             highlightId: 'h-1',
@@ -30,6 +20,8 @@ describe('HighlightsPage', () => {
             startSec: 10,
             endSec: 20,
             status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
           },
         ],
       }),
@@ -42,15 +34,14 @@ describe('HighlightsPage', () => {
     });
     expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
       'src',
-      'https://example.com/source.mp4'
+      'https://example.com/h-1.mp4'
     );
   });
 
-  it('再レンダリング時に同一 jobId で見どころ取得を重複実行しない', async () => {
+  it('GENERATING 行ではローディングインジケーターを表示し、クリックしても選択しない', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        sourceVideoUrl: 'https://example.com/source.mp4',
         highlights: [
           {
             highlightId: 'h-1',
@@ -59,30 +50,90 @@ describe('HighlightsPage', () => {
             startSec: 10,
             endSec: 20,
             status: 'accepted',
+            clipStatus: 'GENERATING',
+          },
+          {
+            highlightId: 'h-2',
+            jobId: 'job-1',
+            order: 2,
+            startSec: 30,
+            endSec: 40,
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-2.mp4',
           },
         ],
       }),
     }) as jest.Mock;
 
-    const { rerender } = render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
+      expect(screen.getByText('採用中の見どころ: 2 件')).toBeInTheDocument();
     });
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('生成中')).toBeInTheDocument();
 
-    rerender(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+    const preview = screen.getByLabelText('見どころ動画プレビュー');
+    expect(preview).toHaveAttribute('src', 'https://example.com/h-2.mp4');
+    fireEvent.click(screen.getByText('#1'));
+    expect(preview).toHaveAttribute('src', 'https://example.com/h-2.mp4');
+  });
+
+  it('PENDING/GENERATING がある間は 3 秒ごとにポーリングする', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              status: 'accepted',
+              clipStatus: 'GENERATING',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              status: 'accepted',
+              clipStatus: 'GENERATING',
+            },
+          ],
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(1);
     });
+
+    jest.advanceTimersByTime(3000);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
   });
 
-  it('選択区間を超えて再生された場合は終了時刻で停止する', async () => {
+  it('採用クリップに GENERATED 以外が含まれる場合はダウンロードボタンを無効化する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        sourceVideoUrl: 'https://example.com/source.mp4',
         highlights: [
           {
             highlightId: 'h-1',
@@ -91,6 +142,7 @@ describe('HighlightsPage', () => {
             startSec: 10,
             endSec: 20,
             status: 'accepted',
+            clipStatus: 'GENERATING',
           },
         ],
       }),
@@ -99,137 +151,7 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'ZIP ダウンロード' })).toBeDisabled();
     });
-
-    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
-    const endSec = 20;
-    let currentTime = endSec + 1;
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => currentTime,
-      set: (value: number) => {
-        currentTime = value;
-      },
-    });
-    fireEvent(video, new Event('timeupdate'));
-
-    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
-    expect(currentTime).toBe(20);
-  });
-
-  it('選択区間の終了時刻ちょうどでもプレビューを停止する', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        sourceVideoUrl: 'https://example.com/source.mp4',
-        highlights: [
-          {
-            highlightId: 'h-1',
-            jobId: 'job-1',
-            order: 1,
-            startSec: 10,
-            endSec: 20,
-            status: 'accepted',
-          },
-        ],
-      }),
-    }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
-    });
-
-    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
-    let currentTime = 20;
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => currentTime,
-      set: (value: number) => {
-        currentTime = value;
-      },
-    });
-    fireEvent(video, new Event('timeupdate'));
-
-    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
-    expect(currentTime).toBe(20);
-  });
-
-  it('選択区間より前へシークした場合は開始時刻まで戻す', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        sourceVideoUrl: 'https://example.com/source.mp4',
-        highlights: [
-          {
-            highlightId: 'h-1',
-            jobId: 'job-1',
-            order: 1,
-            startSec: 10,
-            endSec: 20,
-            status: 'accepted',
-          },
-        ],
-      }),
-    }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
-    });
-
-    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
-    let currentTime = 4;
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => currentTime,
-      set: (value: number) => {
-        currentTime = value;
-      },
-    });
-    fireEvent(video, new Event('seeking'));
-
-    expect(currentTime).toBe(10);
-  });
-
-  it('選択区間より前で timeupdate が発生した場合も開始時刻まで戻す', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        sourceVideoUrl: 'https://example.com/source.mp4',
-        highlights: [
-          {
-            highlightId: 'h-1',
-            jobId: 'job-1',
-            order: 1,
-            startSec: 10,
-            endSec: 20,
-            status: 'accepted',
-          },
-        ],
-      }),
-    }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
-    });
-
-    const video = screen.getByLabelText('見どころ動画プレビュー') as HTMLVideoElement;
-    let currentTime = 4;
-    Object.defineProperty(video, 'currentTime', {
-      configurable: true,
-      get: () => currentTime,
-      set: (value: number) => {
-        currentTime = value;
-      },
-    });
-    fireEvent(video, new Event('timeupdate'));
-
-    expect(currentTime).toBe(10);
   });
 });
