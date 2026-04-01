@@ -36,22 +36,20 @@ export class HighlightAggregationService {
       this.extractors.map((extractor) => extractor.extractHighlights(jobId, videoFilePath))
     );
 
-    const merged = extractionResults
-      .flat()
-      .reduce<ExtractedHighlight[]>((current, candidate) => {
-        const overlappingIndex = current.findIndex(
-          (existing) => isOverlapping(existing, candidate) && canMergeSource(existing, candidate)
-        );
+    const merged = extractionResults.flat().reduce<ExtractedHighlight[]>((current, candidate) => {
+      const overlappingIndex = current.findIndex(
+        (existing) => isOverlapping(existing, candidate) && canMergeSource(existing, candidate)
+      );
 
-        if (overlappingIndex === -1) {
-          current.push(candidate);
-          return current;
-        }
-
-        const existing = current[overlappingIndex] as ExtractedHighlight;
-        current[overlappingIndex] = mergeHighlights(existing, candidate);
+      if (overlappingIndex === -1) {
+        current.push(candidate);
         return current;
-      }, []);
+      }
+
+      const existing = current[overlappingIndex] as ExtractedHighlight;
+      current[overlappingIndex] = mergeHighlights(existing, candidate);
+      return current;
+    }, []);
 
     return merged
       .sort((a, b) => {

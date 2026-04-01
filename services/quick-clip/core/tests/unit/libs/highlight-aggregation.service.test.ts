@@ -71,9 +71,7 @@ describe('HighlightAggregationService', () => {
       { startSec: 10, endSec: 20, score: 50, source: 'motion' },
       { startSec: 30, endSec: 35, score: 40, source: 'motion' },
     ]);
-    const second = createExtractorMock([
-      { startSec: 15, endSec: 25, score: 60, source: 'volume' },
-    ]);
+    const second = createExtractorMock([{ startSec: 15, endSec: 25, score: 60, source: 'volume' }]);
     const service = new HighlightAggregationService([first, second]);
 
     const result = await service.aggregate('job-1', '/tmp/video.mp4');
