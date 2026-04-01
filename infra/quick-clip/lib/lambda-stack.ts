@@ -144,8 +144,8 @@ export class LambdaStack extends LambdaStackBase {
       code: lambda.Code.fromEcrImage(clipLambdaRepository, {
         tagOrDigest: 'latest',
       }),
-      memorySize: 1024,
-      timeout: cdk.Duration.seconds(120),
+      memorySize: 2048,
+      timeout: cdk.Duration.seconds(300),
       environment: {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         DEPLOY_ENV: environment,
