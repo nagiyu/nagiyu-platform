@@ -94,13 +94,15 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           if (
             current &&
             data.highlights.some(
-              (highlight) => highlight.highlightId === current && highlight.clipStatus === 'GENERATED'
+              (highlight) =>
+                highlight.highlightId === current && highlight.clipStatus === 'GENERATED'
             )
           ) {
             return current;
           }
           return (
-            data.highlights.find((highlight) => highlight.clipStatus === 'GENERATED')?.highlightId ?? null
+            data.highlights.find((highlight) => highlight.clipStatus === 'GENERATED')
+              ?.highlightId ?? null
           );
         });
         setErrorMessage(null);
@@ -136,7 +138,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   );
 
   const hasPendingOrGenerating = useMemo(
-    () => highlights.some((highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'),
+    () =>
+      highlights.some(
+        (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
+      ),
     [highlights]
   );
 
@@ -327,17 +332,17 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                 </TableHead>
                 <TableBody>
                   {highlights.map((highlight) => (
-                      <TableRow
+                    <TableRow
                       key={highlight.highlightId}
                       hover
                       selected={highlight.highlightId === selectedId}
-                       onClick={() => {
-                         if (highlight.clipStatus === 'GENERATED') {
-                           setSelectedId(highlight.highlightId);
-                         }
-                       }}
-                       sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}
-                     >
+                      onClick={() => {
+                        if (highlight.clipStatus === 'GENERATED') {
+                          setSelectedId(highlight.highlightId);
+                        }
+                      }}
+                      sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}
+                    >
                       <TableCell>#{highlight.order}</TableCell>
                       <TableCell>
                         {highlight.startSec}s〜{highlight.endSec}s
@@ -349,8 +354,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           inputProps={{ 'aria-label': `見どころ${highlight.order}を使えるにする` }}
                         />
                       </TableCell>
-                       <TableCell onClick={(event) => event.stopPropagation()}>
-                         <TextField
+                      <TableCell onClick={(event) => event.stopPropagation()}>
+                        <TextField
                           size="small"
                           type="number"
                           value={highlight.startSec}
@@ -369,19 +374,20 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           onChange={(event) =>
                             void onUpdateRange(highlight, 'endSec', event.target.value)
                           }
-                         />
-                       </TableCell>
-                       <TableCell>
-                         {highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING' ? (
-                           <Stack direction="row" spacing={1} alignItems="center">
-                             <CircularProgress size={16} />
-                             <Typography variant="body2">生成中</Typography>
-                           </Stack>
-                         ) : (
-                           CLIP_STATUS_LABELS[highlight.clipStatus]
-                         )}
-                       </TableCell>
-                     </TableRow>
+                        />
+                      </TableCell>
+                      <TableCell>
+                        {highlight.clipStatus === 'PENDING' ||
+                        highlight.clipStatus === 'GENERATING' ? (
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <CircularProgress size={16} />
+                            <Typography variant="body2">生成中</Typography>
+                          </Stack>
+                        ) : (
+                          CLIP_STATUS_LABELS[highlight.clipStatus]
+                        )}
+                      </TableCell>
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>
