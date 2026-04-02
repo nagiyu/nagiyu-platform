@@ -479,7 +479,7 @@
         → video src はポーリングで変化しなくなる
 -->
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
     - `highlights` の state 型を `Highlight[]` に変更（`clipUrl` は持たない）
         - `HighlightsResponse` 型（API レスポンスの parse 用）は変更しない。`clipUrl` は引き続きレスポンスに含まれるが、state には格納しない
         - `updateHighlight` の `setHighlights` map callback は `Highlight` を返すため型変更で自然に整合する
@@ -511,7 +511,7 @@
           return { ...highlight, clipUrl: clipUrls[highlight.highlightId] };
         }, [highlights, clipUrls, selectedId]);
         ```
-- [ ] `services/quick-clip/web/tests/unit/app/jobs/highlights-page.test.tsx`
+- [x] `services/quick-clip/web/tests/unit/app/jobs/highlights-page.test.tsx`
     - 既存テストのパターン（`jest.useFakeTimers()`・`mockResolvedValueOnce` の連鎖・`act` + `jest.advanceTimersByTime`）に倣って追加する
     - 追加するテスト 1「ポーリング後も選択中 GENERATED クリップの video src が保持される」:
         - 1 回目の fetch: h-1=GENERATED(clipUrl=url-1), h-2=GENERATING を返す

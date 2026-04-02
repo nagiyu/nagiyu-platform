@@ -100,7 +100,8 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
 
 export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [jobId, setJobId] = useState<string>('');
-  const [highlights, setHighlights] = useState<Array<Highlight & { clipUrl?: string }>>([]);
+  const [highlights, setHighlights] = useState<Highlight[]>([]);
+  const [clipUrls, setClipUrls] = useState<Record<string, string>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -140,6 +141,24 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
         const data = (await response.json()) as HighlightsResponse;
         setHighlights(data.highlights);
+        setClipUrls((current) => {
+          const updated = { ...current };
+          let changed = false;
+          data.highlights.forEach((highlight) => {
+            if (
+              highlight.clipStatus === 'GENERATED' &&
+              highlight.clipUrl &&
+              !current[highlight.highlightId]
+            ) {
+              updated[highlight.highlightId] = highlight.clipUrl;
+              changed = true;
+            } else if (highlight.clipStatus !== 'GENERATED' && current[highlight.highlightId]) {
+              delete updated[highlight.highlightId];
+              changed = true;
+            }
+          });
+          return changed ? updated : current;
+        });
         setSelectedId((current) => {
           if (
             current &&
@@ -182,10 +201,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     };
   }, [fetchHighlights, jobId]);
 
-  const selectedHighlight = useMemo(
-    () => highlights.find((highlight) => highlight.highlightId === selectedId) ?? null,
-    [highlights, selectedId]
-  );
+  const selectedHighlight = useMemo(() => {
+    const highlight = highlights.find((item) => item.highlightId === selectedId);
+    if (!highlight) {
+      return null;
+    }
+    return { ...highlight, clipUrl: clipUrls[highlight.highlightId] };
+  }, [clipUrls, highlights, selectedId]);
 
   const hasGenerating = useMemo(
     () => highlights.some((highlight) => highlight.clipStatus === 'GENERATING'),
