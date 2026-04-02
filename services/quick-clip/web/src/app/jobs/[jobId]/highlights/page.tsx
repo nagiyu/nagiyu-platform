@@ -21,6 +21,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { Highlight } from '@/types/quick-clip';
+import { clearSelectedIdIfHighlightMatches } from './selection';
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
@@ -57,11 +58,6 @@ type DownloadResponse = {
 };
 
 class RangeInvalidError extends Error {}
-
-export const clearSelectedIdIfHighlightMatches =
-  (highlightId: string) =>
-  (current: string | null): string | null =>
-    current === highlightId ? null : current;
 
 type TimeInputProps = {
   value: number;

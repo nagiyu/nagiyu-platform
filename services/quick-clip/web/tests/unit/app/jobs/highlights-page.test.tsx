@@ -1,8 +1,7 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import HighlightsPage, {
-  clearSelectedIdIfHighlightMatches,
-} from '@/app/jobs/[jobId]/highlights/page';
+import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
+import { clearSelectedIdIfHighlightMatches } from '@/app/jobs/[jobId]/highlights/selection';
 
 describe('HighlightsPage', () => {
   beforeEach(() => {
