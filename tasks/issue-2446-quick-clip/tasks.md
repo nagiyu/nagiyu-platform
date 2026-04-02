@@ -407,6 +407,54 @@
         - cleanup 関数で `selectionTimeoutRef.current !== null` なら `window.clearTimeout(selectionTimeoutRef.current)`
     - TableRow の `onClick` 内の `setSelectedId(highlight.highlightId)` を `onSelectHighlight(highlight.highlightId)` に変更
 
+### 8-7. 再生成中の選択・プレビューバグ修正（依存: 8-4, 8-6）
+
+<!--
+    症状: クリップ再生成中に別のクリップを選択しようとすると、プレビューが壊れ選択も効かなくなる。
+
+    原因 1: onRegenerate が selectedId を更新しない
+        onUpdateRange は完了後に setSelectedId(null) を呼ぶが、onRegenerate には対応する処理がない。
+        → 再生成対象クリップが選択中の場合、clipUrl が undefined になった後も selectedId が残り、
+          プレビューが即座に壊れる。次のポーリング（最大 3 秒後）まで壊れたまま。
+
+    原因 2: 200ms デバウンス（8-6）がポーリングの自動選択と干渉する
+        selectedId = A（GENERATING）の状態でユーザーが B をクリックすると:
+        1. onSelectHighlight(B) → 200ms デバウンス開始（selectedId はまだ A）
+        2. デバウンス中にポーリングが走る
+           → setSelectedId callback: current=A(GENERATING) → 最初のGENERATED(C) に飛ぶ
+        3. デバウンス発火 → setSelectedId(B) → ようやく B が選択される
+        ユーザーは 200ms の間 C が表示されるのを見て「クリックが効いていない」と誤解し
+        再クリックする → デバウンスがリセット → また 200ms 待ち → 悪循環。
+
+    修正方針:
+        Fix 1: onRegenerate に selectedId 即時解除を追加（onUpdateRange と対称化）
+        Fix 2: 8-6 のデバウンスを廃止し、選択を即時反映する
+            廃止理由: デバウンス中のポーリング干渉による UX 混乱の方が、
+            rapid クリック時の video リクエスト重複（ブラウザが abort する）より問題が大きい。
+-->
+
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+    - `onRegenerate` の `setHighlights` 呼び出しの直後に選択解除を追加:
+        ```typescript
+        setSelectedId((current) =>
+          current === highlight.highlightId ? null : current
+        );
+        ```
+    - `selectionTimeoutRef` の `useRef` 行を削除（`isFetchingRef` の隣）
+    - アンマウント時クリーンアップ用 `useEffect`（`selectionTimeoutRef.current` を `clearTimeout` するもの）を削除
+    - `onSelectHighlight` 関数を削除
+    - TableRow の `onClick` を `onSelectHighlight` から直接 `setSelectedId` に戻す:
+        ```typescript
+        onClick={() => {
+          if (highlight.clipStatus === 'GENERATED') {
+            setSelectedId(highlight.highlightId);
+          }
+        }}
+        ```
+- [ ] `services/quick-clip/web/tests/unit/app/jobs/highlights-page.test.tsx`
+    - 「GENERATED 行クリック時は 200ms 後に選択を反映する」テストを修正（デバウンスなしの即時反映に変更）
+    - `onRegenerate` 後に選択中クリップの `selectedId` が null になることを確認するテストを追加
+
 ## Phase 9: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
