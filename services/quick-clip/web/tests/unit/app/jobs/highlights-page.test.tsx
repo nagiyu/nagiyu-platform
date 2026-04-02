@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
 
 describe('HighlightsPage', () => {
@@ -476,5 +476,71 @@ describe('HighlightsPage', () => {
     });
     expect(screen.getByText('モーション')).toBeInTheDocument();
     expect(screen.getByText('両方')).toBeInTheDocument();
+  });
+
+  it('GENERATED 行クリック時は 200ms 後に選択を反映する', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+          {
+            highlightId: 'h-2',
+            jobId: 'job-1',
+            order: 2,
+            startSec: 30,
+            endSec: 40,
+            source: 'volume',
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-2.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('採用中の見どころ: 2 件')).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+      'src',
+      'https://example.com/h-1.mp4'
+    );
+
+    expect(screen.getByText('選択中: #1 (10s - 20s)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('#2'));
+    expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+      'src',
+      'https://example.com/h-1.mp4'
+    );
+    expect(screen.getByText('選択中: #1 (10s - 20s)')).toBeInTheDocument();
+
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+        'src',
+        'https://example.com/h-2.mp4'
+      );
+      expect(screen.getByText('選択中: #2 (30s - 40s)')).toBeInTheDocument();
+    });
   });
 });
