@@ -1,6 +1,8 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
+import HighlightsPage, {
+  clearSelectedIdIfHighlightMatches,
+} from '@/app/jobs/[jobId]/highlights/page';
 
 describe('HighlightsPage', () => {
   beforeEach(() => {
@@ -530,4 +532,18 @@ describe('HighlightsPage', () => {
     expect(screen.getByText('選択中: #2 (30s - 40s)')).toBeInTheDocument();
   });
 
+});
+
+describe('clearSelectedIdIfHighlightMatches', () => {
+  it('対象highlightIdと一致するselectedIdをnullにする', () => {
+    expect(clearSelectedIdIfHighlightMatches('h-1')('h-1')).toBeNull();
+  });
+
+  it('対象highlightIdと一致しないselectedIdは維持する', () => {
+    expect(clearSelectedIdIfHighlightMatches('h-1')('h-2')).toBe('h-2');
+  });
+
+  it('selectedIdがnullの場合はnullを維持する', () => {
+    expect(clearSelectedIdIfHighlightMatches('h-1')(null)).toBeNull();
+  });
 });

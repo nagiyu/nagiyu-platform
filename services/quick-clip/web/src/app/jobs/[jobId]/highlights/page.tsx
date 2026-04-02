@@ -58,6 +58,11 @@ type DownloadResponse = {
 
 class RangeInvalidError extends Error {}
 
+export const clearSelectedIdIfHighlightMatches =
+  (highlightId: string) =>
+  (current: string | null): string | null =>
+    current === highlightId ? null : current;
+
 type TimeInputProps = {
   value: number;
   min?: number;
@@ -302,7 +307,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       setHighlights((current) =>
         current.map((item) => (item.highlightId === updated.highlightId ? updated : item))
       );
-      setSelectedId((current) => (current === highlight.highlightId ? null : current));
+      setSelectedId(clearSelectedIdIfHighlightMatches(highlight.highlightId));
       setErrorMessage(null);
     } catch {
       setErrorMessage(ERROR_MESSAGES.REGENERATE_FAILED);
