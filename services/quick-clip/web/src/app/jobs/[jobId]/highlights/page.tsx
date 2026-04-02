@@ -145,7 +145,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           const updated = { ...current };
           let changed = false;
           data.highlights.forEach((highlight) => {
-            if (highlight.clipStatus === 'GENERATED' && highlight.clipUrl && !current[highlight.highlightId]) {
+            if (
+              highlight.clipStatus === 'GENERATED' &&
+              highlight.clipUrl &&
+              !current[highlight.highlightId]
+            ) {
               updated[highlight.highlightId] = highlight.clipUrl;
               changed = true;
             } else if (highlight.clipStatus !== 'GENERATED' && current[highlight.highlightId]) {
