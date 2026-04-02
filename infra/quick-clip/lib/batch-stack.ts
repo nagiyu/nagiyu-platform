@@ -150,6 +150,9 @@ export class BatchStack extends cdk.Stack {
         ],
         executionRoleArn: executionRole.roleArn,
         jobRoleArn: jobRole.roleArn,
+        ephemeralStorage: {
+          sizeInGiB: 30,
+        },
         networkConfiguration: {
           assignPublicIp: 'ENABLED',
         },
@@ -180,11 +183,57 @@ export class BatchStack extends cdk.Stack {
       retryStrategy: { attempts: 1 },
     });
 
+    const xlargeJobDefinition = new batch.CfnJobDefinition(this, 'XlargeJobDefinition', {
+      jobDefinitionName: `${jobDefinitionPrefix}-xlarge`,
+      type: 'container',
+      platformCapabilities: ['FARGATE'],
+      containerProperties: {
+        image: batchImage,
+        resourceRequirements: [
+          { type: 'VCPU', value: '4' },
+          { type: 'MEMORY', value: '16384' },
+        ],
+        executionRoleArn: executionRole.roleArn,
+        jobRoleArn: jobRole.roleArn,
+        ephemeralStorage: {
+          sizeInGiB: 60,
+        },
+        networkConfiguration: {
+          assignPublicIp: 'ENABLED',
+        },
+        logConfiguration: {
+          logDriver: 'awslogs',
+          options: {
+            'awslogs-group': batchLogGroup.logGroupName,
+            'awslogs-region': this.region,
+            'awslogs-stream-prefix': 'batch',
+          },
+        },
+        environment: [
+          {
+            name: 'DYNAMODB_TABLE_NAME',
+            value: props.jobsTable.tableName,
+          },
+          {
+            name: 'S3_BUCKET',
+            value: props.storageBucket.bucketName,
+          },
+          {
+            name: 'AWS_REGION',
+            value: this.region,
+          },
+        ],
+      },
+      timeout: { attemptDurationSeconds: 8 * 3600 },
+      retryStrategy: { attempts: 1 },
+    });
+
     this.jobQueueArn = jobQueue.attrJobQueueArn;
     this.jobDefinitionPrefix = jobDefinitionPrefix;
     this.jobDefinitionArns = [
       smallJobDefinition.attrJobDefinitionArn,
       largeJobDefinition.attrJobDefinitionArn,
+      xlargeJobDefinition.attrJobDefinitionArn,
     ];
 
     new cdk.CfnOutput(this, 'BatchJobQueueArn', {
