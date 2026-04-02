@@ -352,6 +352,61 @@
 - [x] テスト更新（GET / PATCH の挙動変更）
 - [x] テスト追加（`regenerate/route.test.ts`）
 
+### 8-5. 時刻入力 UX 改善（依存: 8-4）
+
+<!--
+    現状: onChange のたびに onUpdateRange が呼ばれ PATCH が毎キーストローク発火する。
+    その結果、入力がもっさりし、中間値（startSec >= endSec が一時的に成立する状態）で
+    クライアントバリデーションが失敗して早期 return されるため末尾の数字が削除できない。
+
+    方針: ローカル draft state + onBlur でコミットするパターン（React Hook Form の mode:'onBlur' と同思想）。
+    小さな TimeInput コンポーネントを切り出し、blur 時のみバリデーション・API 呼び出しを行う。
+    onCommit が throw した場合（range 違反・API エラー共通）、TimeInput 側で draft を元の value にリセットする。
+-->
+
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+    - `HighlightsPage` の上に `TimeInput` コンポーネントを追加（同ファイル内に定義）
+        - props: `value: number`・`min?: number`（デフォルト 0）・`onCommit: (value: number) => Promise<void>`
+        - `useState(String(value))` でローカル draft state を管理
+        - `useEffect([value])` で `value` prop 変化時に draft を同期（他フィールド更新後のずれ防止）
+        - `onChange`: `setDraft(e.target.value)` のみ（API 呼び出しなし）
+        - `onBlur`: `Number(draft)` を parse し、`!Number.isFinite(parsed) || parsed < min` なら `setDraft(String(value))` で revert して return。それ以外は `await onCommit(parsed)` を try/catch し、catch では `setDraft(String(value))` で revert
+        - レンダリングは既存と同じ `<TextField size="small" type="number" ...>` を返す
+    - `ERROR_MESSAGES` に `RANGE_INVALID: '開始時刻は終了時刻より小さくしてください'` を追加
+      （現在は startSec >= endSec 時に silent return しておりユーザーへのフィードバックがない）
+    - `onUpdateRange` を変更
+        - 引数 `value: string` → `value: number` に変更（NaN チェックは `TimeInput` 側に移管済み）
+        - `Number.isNaN` チェック・早期 return を削除
+        - `startSec >= endSec` 時: `setErrorMessage(ERROR_MESSAGES.RANGE_INVALID)` してから `throw new Error(...)` する
+          （`TimeInput` の catch が draft を revert するため API は呼ばれない）
+        - `updateHighlight` の catch ブロック: `setErrorMessage(ERROR_MESSAGES.UPDATE_FAILED)` してから `throw` で re-throw する
+          （`TimeInput` の catch が draft を revert する）
+        - 成功時: `setErrorMessage(null)` は維持
+    - startSec の `<TextField>` を `<TimeInput value={highlight.startSec} min={0} onCommit={(v) => onUpdateRange(highlight, 'startSec', v)} />` に置き換え
+    - endSec の `<TextField>` を `<TimeInput value={highlight.endSec} min={1} onCommit={(v) => onUpdateRange(highlight, 'endSec', v)} />` に置き換え
+
+### 8-6. プレビューリクエスト重複防止（依存: 8-4）
+
+<!--
+    現状: <video key={selectedHighlight?.highlightId}> は selectedId 変化のたびに video 要素を
+    アンマウント → 再マウントし、ブラウザが clipUrl へのネットワークリクエストを新たに開始する。
+    行を短時間で連続してクリックすると、クリックごとにリクエストが重複して発生する。
+
+    方針: setSelectedId を 200ms デバウンスする。
+    最後のクリックから 200ms 経過して初めて selectedId を更新することで、
+    連続クリック時のビデオリクエストを1回に絞る。
+    200ms は通常のクリックでは視覚的に気にならないレベル。
+-->
+
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+    - `selectionTimeoutRef = useRef<number | null>(null)` を追加（`isFetchingRef` の隣）
+    - `onSelectHighlight(highlightId: string)` 関数を追加
+        - `selectionTimeoutRef.current !== null` なら `window.clearTimeout(selectionTimeoutRef.current)`
+        - `window.setTimeout(() => { setSelectedId(highlightId); selectionTimeoutRef.current = null; }, 200)` の戻り値を `selectionTimeoutRef.current` に代入
+    - アンマウント時クリーンアップ用 `useEffect`（依存配列 `[]`）を追加
+        - cleanup 関数で `selectionTimeoutRef.current !== null` なら `window.clearTimeout(selectionTimeoutRef.current)`
+    - TableRow の `onClick` 内の `setSelectedId(highlight.highlightId)` を `onSelectHighlight(highlight.highlightId)` に変更
+
 ## Phase 9: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
