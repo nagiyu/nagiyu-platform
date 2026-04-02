@@ -531,7 +531,6 @@ describe('HighlightsPage', () => {
     );
     expect(screen.getByText('選択中: #2 (30s - 40s)')).toBeInTheDocument();
   });
-
 });
 
 describe('clearSelectedIdIfHighlightMatches', () => {
