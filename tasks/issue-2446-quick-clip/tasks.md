@@ -455,7 +455,74 @@
     - 「GENERATED 行クリック時は 200ms 後に選択を反映する」テストを修正（デバウンスなしの即時反映に変更）
     - `onRegenerate` 後に選択中クリップの `selectedId` が null になることを確認するテストを追加
 
-## Phase 9: 検証・ドキュメント整備
+## Phase 9: highlights state の設計見直し（clipUrl の分離）
+
+<!--
+    8-7 の修正（onRegenerate での selectedId 解除・デバウンス廃止）を適用後も、
+    再生成中に GENERATED クリップを選択するとプレビューが 3 秒ごとに開閉してロードが終わらない症状が残った。
+
+    根本原因:
+        fetchHighlights が setHighlights(data.highlights) でハイライト配列を全置換しており、
+        GET /api/highlights が毎回 getSignedUrl を呼び出して新しい署名付き URL を生成するため、
+        S3 オブジェクトが変わっていなくても URL 文字列がポーリングのたびに変わる。
+        → selectedHighlight.clipUrl が 3 秒ごとに変化 → video src が更新 → ブラウザが動画を再ロード → 無限ループ。
+
+    本質的な問題:
+        highlights: Array<Highlight & { clipUrl?: string }> という型が、
+        エンティティデータ（ステータス・時間範囲）と派生データ（S3 URL）を混在させている。
+        ポーリングで状態を更新すると URL も一緒に上書きされる。
+
+    修正方針:
+        highlights（ステータスデータ）と clipUrls（URL レジストリ）を分離する。
+        - highlights はポーリングで自由に全置換可
+        - clipUrls は clipStatus が GENERATED に遷移したときのみ更新
+        → video src はポーリングで変化しなくなる
+-->
+
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+    - `highlights` の state 型を `Highlight[]` に変更（`clipUrl` は持たない）
+        - `HighlightsResponse` 型（API レスポンスの parse 用）は変更しない。`clipUrl` は引き続きレスポンスに含まれるが、state には格納しない
+        - `updateHighlight` の `setHighlights` map callback は `Highlight` を返すため型変更で自然に整合する
+    - `clipUrls` state を追加: `useState<Record<string, string>>({})`
+    - `fetchHighlights` 内の `setHighlights(data.highlights)` の直後に `setClipUrls` を追加:
+        ```typescript
+        setClipUrls((current) => {
+          const updated = { ...current };
+          let changed = false;
+          data.highlights.forEach((h) => {
+            if (h.clipStatus === 'GENERATED' && h.clipUrl && !current[h.highlightId]) {
+              updated[h.highlightId] = h.clipUrl;
+              changed = true;
+            } else if (h.clipStatus !== 'GENERATED' && current[h.highlightId]) {
+              delete updated[h.highlightId];
+              changed = true;
+            }
+          });
+          return changed ? updated : current;
+        });
+        ```
+        - `onRegenerate`・`updateHighlight` は `clipUrls` を直接操作しない。
+          GENERATING になったクリップの URL 削除は次のポーリングで `setClipUrls` が行う
+    - `selectedHighlight` useMemo を変更:
+        ```typescript
+        const selectedHighlight = useMemo(() => {
+          const highlight = highlights.find((h) => h.highlightId === selectedId);
+          if (!highlight) return null;
+          return { ...highlight, clipUrl: clipUrls[highlight.highlightId] };
+        }, [highlights, clipUrls, selectedId]);
+        ```
+- [ ] `services/quick-clip/web/tests/unit/app/jobs/highlights-page.test.tsx`
+    - 既存テストのパターン（`jest.useFakeTimers()`・`mockResolvedValueOnce` の連鎖・`act` + `jest.advanceTimersByTime`）に倣って追加する
+    - 追加するテスト 1「ポーリング後も選択中 GENERATED クリップの video src が保持される」:
+        - 1 回目の fetch: h-1=GENERATED(clipUrl=url-1), h-2=GENERATING を返す
+        - 2 回目の fetch（ポーリング）: h-1=GENERATED(clipUrl=url-2), h-2=GENERATING を返す（url が変わっている）
+        - ポーリング後も video src が url-1 のままであることを確認（url-2 に変わらない）
+    - 追加するテスト 2「GENERATING → GENERATED に遷移したクリップの clipUrl が video src に反映される」:
+        - 1 回目の fetch: h-1=GENERATED(url-1), h-2=GENERATING を返す。h-2 を選択できない
+        - 2 回目の fetch（ポーリング）: h-1=GENERATED(url-1), h-2=GENERATED(url-2) を返す
+        - ポーリング後 h-2 が選択可能になり、h-2 をクリックすると video src が url-2 になることを確認
+
+## Phase 10: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
 - [ ] `docs/services/quick-clip/` ドキュメントを作成・更新
