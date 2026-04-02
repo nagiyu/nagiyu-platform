@@ -25,6 +25,7 @@ import type { Highlight } from '@/types/quick-clip';
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
   UPDATE_FAILED: '見どころの更新に失敗しました',
+  RANGE_INVALID: '開始時刻は終了時刻より小さくしてください',
   REGENERATE_FAILED: 'クリップの再生成に失敗しました',
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
@@ -54,6 +55,47 @@ type DownloadResponse = {
   fileName: string;
   downloadUrl: string;
 };
+
+class RangeInvalidError extends Error {}
+
+type TimeInputProps = {
+  value: number;
+  min?: number;
+  onCommit: (value: number) => Promise<void>;
+};
+
+function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  const handleBlur = async (): Promise<void> => {
+    const parsed = Number(draft);
+    if (!Number.isFinite(parsed) || parsed < min) {
+      setDraft(String(value));
+      return;
+    }
+
+    try {
+      await onCommit(parsed);
+    } catch {
+      setDraft(String(value));
+    }
+  };
+
+  return (
+    <TextField
+      size="small"
+      type="number"
+      value={draft}
+      inputProps={{ min, step: 1 }}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => void handleBlur()}
+    />
+  );
+}
 
 export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [jobId, setJobId] = useState<string>('');
@@ -218,18 +260,14 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const onUpdateRange = async (
     highlight: Highlight,
     field: 'startSec' | 'endSec',
-    value: string
+    value: number
   ): Promise<void> => {
-    const parsed = Number(value);
-    if (Number.isNaN(parsed)) {
-      return;
-    }
-
-    const startSec = field === 'startSec' ? parsed : highlight.startSec;
-    const endSec = field === 'endSec' ? parsed : highlight.endSec;
+    const startSec = field === 'startSec' ? value : highlight.startSec;
+    const endSec = field === 'endSec' ? value : highlight.endSec;
 
     if (startSec >= endSec) {
-      return;
+      setErrorMessage(ERROR_MESSAGES.RANGE_INVALID);
+      throw new RangeInvalidError(ERROR_MESSAGES.RANGE_INVALID);
     }
 
     try {
@@ -241,8 +279,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         setSelectedId(null);
       }
       setErrorMessage(null);
-    } catch {
-      setErrorMessage(ERROR_MESSAGES.UPDATE_FAILED);
+    } catch (error) {
+      if (!(error instanceof RangeInvalidError)) {
+        setErrorMessage(ERROR_MESSAGES.UPDATE_FAILED);
+      }
+      throw error;
     }
   };
 
@@ -392,25 +433,17 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         />
                       </TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>
-                        <TextField
-                          size="small"
-                          type="number"
+                        <TimeInput
                           value={highlight.startSec}
-                          inputProps={{ min: 0, step: 1 }}
-                          onChange={(event) =>
-                            void onUpdateRange(highlight, 'startSec', event.target.value)
-                          }
+                          min={0}
+                          onCommit={(value) => onUpdateRange(highlight, 'startSec', value)}
                         />
                       </TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>
-                        <TextField
-                          size="small"
-                          type="number"
+                        <TimeInput
                           value={highlight.endSec}
-                          inputProps={{ min: 1, step: 1 }}
-                          onChange={(event) =>
-                            void onUpdateRange(highlight, 'endSec', event.target.value)
-                          }
+                          min={1}
+                          onCommit={(value) => onUpdateRange(highlight, 'endSec', value)}
                         />
                       </TableCell>
                       <TableCell onClick={(event) => event.stopPropagation()}>

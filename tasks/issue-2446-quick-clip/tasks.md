@@ -364,7 +364,7 @@
     onCommit が throw した場合（range 違反・API エラー共通）、TimeInput 側で draft を元の value にリセットする。
 -->
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
     - `HighlightsPage` の上に `TimeInput` コンポーネントを追加（同ファイル内に定義）
         - props: `value: number`・`min?: number`（デフォルト 0）・`onCommit: (value: number) => Promise<void>`
         - `useState(String(value))` でローカル draft state を管理
