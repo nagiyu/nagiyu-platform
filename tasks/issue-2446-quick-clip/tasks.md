@@ -398,7 +398,7 @@
     200ms は通常のクリックでは視覚的に気にならないレベル。
 -->
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
     - `selectionTimeoutRef = useRef<number | null>(null)` を追加（`isFetchingRef` の隣）
     - `onSelectHighlight(highlightId: string)` 関数を追加
         - `selectionTimeoutRef.current !== null` なら `window.clearTimeout(selectionTimeoutRef.current)`

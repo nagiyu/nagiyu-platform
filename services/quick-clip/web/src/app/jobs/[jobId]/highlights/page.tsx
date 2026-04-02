@@ -105,6 +105,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
+  const selectionTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -204,6 +205,25 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       window.clearInterval(intervalId);
     };
   }, [fetchHighlights, hasGenerating, jobId]);
+
+  useEffect(() => {
+    return () => {
+      if (selectionTimeoutRef.current !== null) {
+        window.clearTimeout(selectionTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const onSelectHighlight = useCallback((highlightId: string) => {
+    if (selectionTimeoutRef.current !== null) {
+      window.clearTimeout(selectionTimeoutRef.current);
+    }
+
+    selectionTimeoutRef.current = window.setTimeout(() => {
+      setSelectedId(highlightId);
+      selectionTimeoutRef.current = null;
+    }, 200);
+  }, []);
 
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
@@ -409,7 +429,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       selected={highlight.highlightId === selectedId}
                       onClick={() => {
                         if (highlight.clipStatus === 'GENERATED') {
-                          setSelectedId(highlight.highlightId);
+                          onSelectHighlight(highlight.highlightId);
                         }
                       }}
                       sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}
