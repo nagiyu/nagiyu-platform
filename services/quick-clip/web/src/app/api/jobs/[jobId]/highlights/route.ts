@@ -17,6 +17,8 @@ import type { Highlight } from '@/types/quick-clip';
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
   INTERNAL_SERVER_ERROR: '見どころ一覧の取得に失敗しました',
+  INITIAL_CLIP_GENERATION_START_FAILED: '初回クリップ生成の起動に失敗しました',
+  INITIAL_CLIP_GENERATION_UPDATE_FAILED: '初回クリップ生成状態の更新に失敗しました',
 } as const;
 
 const CLIP_URL_EXPIRES_IN = 3600;
@@ -39,45 +41,91 @@ const startInitialClipGeneration = async (
     return highlights;
   }
 
-  const invokeResults = await Promise.allSettled(
+  const invokeResults = await Promise.all(
     highlights.map(async (highlight) => {
-      await getLambdaClient().send(
-        new InvokeCommand({
-          FunctionName: getClipRegenerateFunctionName(),
-          InvocationType: 'Event',
-          Payload: Buffer.from(
-            JSON.stringify({
-              jobId,
-              highlightId: highlight.highlightId,
-              startSec: highlight.startSec,
-              endSec: highlight.endSec,
-            })
-          ),
-        })
-      );
-      return highlight.highlightId;
+      try {
+        await getLambdaClient().send(
+          new InvokeCommand({
+            FunctionName: getClipRegenerateFunctionName(),
+            InvocationType: 'Event',
+            Payload: Buffer.from(
+              JSON.stringify({
+                jobId,
+                highlightId: highlight.highlightId,
+                startSec: highlight.startSec,
+                endSec: highlight.endSec,
+              })
+            ),
+          })
+        );
+        return { highlightId: highlight.highlightId, success: true as const };
+      } catch (error) {
+        return { highlightId: highlight.highlightId, success: false as const, error };
+      }
     })
   );
 
+  invokeResults.forEach((result) => {
+    if (!result.success) {
+      console.error(`[GET /api/jobs/[jobId]/highlights] ${ERROR_MESSAGES.INITIAL_CLIP_GENERATION_START_FAILED}`, {
+        jobId,
+        highlightId: result.highlightId,
+        error: result.error,
+      });
+    }
+  });
+
   const succeededHighlightIds = new Set(
     invokeResults
-      .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
-      .map((result) => result.value)
+      .filter(
+        (result): result is { highlightId: string; success: true } => result.success === true
+      )
+      .map((result) => result.highlightId)
   );
   if (succeededHighlightIds.size === 0) {
     return highlights;
   }
 
-  const updates = await Promise.all(
-    highlights
-      .filter((highlight) => succeededHighlightIds.has(highlight.highlightId))
-      .map((highlight) =>
-        highlightService.updateHighlight(jobId, highlight.highlightId, {
-          clipStatus: 'GENERATING',
-        })
-      )
+  const targetHighlights = highlights.filter((highlight) =>
+    succeededHighlightIds.has(highlight.highlightId)
   );
-  const updatedById = new Map(updates.map((highlight) => [highlight.highlightId, highlight]));
+  const updates = await Promise.all(
+    targetHighlights.map(async (highlight) => ({
+      highlightId: highlight.highlightId,
+      result: await (async () => {
+        try {
+          const updated = await highlightService.updateHighlight(jobId, highlight.highlightId, {
+            clipStatus: 'GENERATING',
+          });
+          return { success: true as const, updated };
+        } catch (error) {
+          return { success: false as const, error };
+        }
+      })(),
+    }))
+  );
+
+  updates.forEach((result) => {
+    if (!result.result.success) {
+      console.error(
+        `[GET /api/jobs/[jobId]/highlights] ${ERROR_MESSAGES.INITIAL_CLIP_GENERATION_UPDATE_FAILED}`,
+        {
+          jobId,
+          highlightId: result.highlightId,
+          error: result.result.error,
+        }
+      );
+    }
+  });
+
+  const updatedById = new Map(
+    updates
+      .filter(
+        (result): result is { highlightId: string; result: { success: true; updated: Highlight } } =>
+          result.result.success
+      )
+      .map((result) => [result.highlightId, result.result.updated])
+  );
 
   return highlights.map((highlight) => updatedById.get(highlight.highlightId) ?? highlight);
 };

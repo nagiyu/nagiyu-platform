@@ -70,9 +70,11 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     getClipRegenerateFunctionName as jest.MockedFunction<typeof getClipRegenerateFunctionName>;
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
   const mockedInvokeCommand = InvokeCommand as jest.MockedFunction<typeof InvokeCommand>;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetDynamoDBDocumentClient.mockReturnValue(
       {} as ReturnType<typeof getDynamoDBDocumentClient>
     );
@@ -109,6 +111,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    consoleErrorSpy.mockRestore();
   });
 
   it('正常系: 初回（全件PENDING）では全クリップ生成を開始して GENERATING を返す', async () => {
@@ -212,6 +215,142 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     );
     expect(mockLambdaSend).not.toHaveBeenCalled();
     expect(mockUpdate).not.toHaveBeenCalled();
+  });
+
+  it('正常系: 初回時に一部の起動が失敗しても成功分のみ GENERATING に更新する', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      status: 'COMPLETED',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    mockGetHighlights.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'motion',
+        status: 'pending',
+        clipStatus: 'PENDING',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 25,
+        endSec: 35,
+        source: 'volume',
+        status: 'pending',
+        clipStatus: 'PENDING',
+      },
+    ]);
+    mockLambdaSend.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('invoke failed'));
+    mockUpdate.mockResolvedValueOnce({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'pending',
+      clipStatus: 'GENERATING',
+    });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.highlights).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ highlightId: 'h1', clipStatus: 'GENERATING' }),
+        expect.objectContaining({ highlightId: 'h2', clipStatus: 'PENDING' }),
+      ])
+    );
+    expect(mockLambdaSend).toHaveBeenCalledTimes(2);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[GET /api/jobs/[jobId]/highlights] 初回クリップ生成の起動に失敗しました',
+      expect.objectContaining({
+        jobId: 'job-1',
+        highlightId: 'h2',
+        error: expect.any(Error),
+      })
+    );
+  });
+
+  it('正常系: 初回時に更新失敗があっても他の見どころ取得は継続する', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      status: 'COMPLETED',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    mockGetHighlights.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'motion',
+        status: 'pending',
+        clipStatus: 'PENDING',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 25,
+        endSec: 35,
+        source: 'volume',
+        status: 'pending',
+        clipStatus: 'PENDING',
+      },
+    ]);
+    mockLambdaSend.mockResolvedValue({});
+    mockUpdate
+      .mockRejectedValueOnce(new Error('update failed'))
+      .mockResolvedValueOnce({
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 25,
+        endSec: 35,
+        source: 'volume',
+        status: 'pending',
+        clipStatus: 'GENERATING',
+      });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.highlights).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ highlightId: 'h1', clipStatus: 'PENDING' }),
+        expect.objectContaining({ highlightId: 'h2', clipStatus: 'GENERATING' }),
+      ])
+    );
+    expect(mockLambdaSend).toHaveBeenCalledTimes(2);
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[GET /api/jobs/[jobId]/highlights] 初回クリップ生成状態の更新に失敗しました',
+      expect.objectContaining({
+        jobId: 'job-1',
+        highlightId: 'h1',
+        error: expect.any(Error),
+      })
+    );
   });
 
   it('正常系: GENERATED には clipUrl を付与して返す', async () => {
