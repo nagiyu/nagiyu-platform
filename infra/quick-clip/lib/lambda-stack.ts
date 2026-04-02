@@ -10,6 +10,7 @@ const QUICK_CLIP_ALLOWED_ORIGINS: Record<QuickClipEnvironment, string[]> = {
   prod: ['https://quick-clip.nagiyu.com'],
   dev: ['https://dev-quick-clip.nagiyu.com'],
 };
+const BATCH_JOB_DEFINITION_VARIANTS = ['small', 'large'] as const;
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: QuickClipEnvironment;
@@ -49,6 +50,21 @@ export class LambdaStack extends LambdaStackBase {
     } = props;
     const region = stackProps.env?.region ?? cdk.Aws.REGION;
     const account = stackProps.env?.account ?? cdk.Aws.ACCOUNT_ID;
+    const jobDefinitionArnsWithAndWithoutVersions = BATCH_JOB_DEFINITION_VARIANTS.flatMap(
+      (variant) => [
+        `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-${variant}`,
+        `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-${variant}:*`,
+      ]
+    );
+    // batchJobDefinitionArns に CloudFormation が返す具体バージョン ARN（...:1 など）が入り、
+    // 同時に明示的なパターン ARN も追加するため重複し得る。Set で重複を除外して最小化する。
+    const batchSubmitJobResources = Array.from(
+      new Set([
+        batchJobQueueArn,
+        ...batchJobDefinitionArns,
+        ...jobDefinitionArnsWithAndWithoutVersions,
+      ])
+    );
 
     const baseProps: LambdaStackBaseProps = {
       ...stackProps,
@@ -98,12 +114,7 @@ export class LambdaStack extends LambdaStackBase {
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
           actions: ['batch:SubmitJob'],
-          resources: [
-            batchJobQueueArn,
-            ...batchJobDefinitionArns,
-            `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-*`,
-            `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-*:*`,
-          ],
+          resources: batchSubmitJobResources,
         }),
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
