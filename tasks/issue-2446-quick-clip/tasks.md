@@ -550,14 +550,14 @@
 
 ### Phase 10-2: ジョブ定義 3 段階化
 
-- [ ] `services/quick-clip/core/src/libs/job-definition-selector.ts`
+- [x] `services/quick-clip/core/src/libs/job-definition-selector.ts`
     - `JobDefinitionSize = 'small' | 'large' | 'xlarge'` に型拡張
     - 閾値: `< 1 GiB → small`、`1 GiB ≤ x < 8 GiB → large`、`>= 8 GiB → xlarge`
-- [ ] `infra/quick-clip/lib/batch-stack.ts`
+- [x] `infra/quick-clip/lib/batch-stack.ts`
     - xlarge ジョブ定義を追加（4 vCPU、16 GB RAM、8 時間タイムアウト、60 GB エフェメラルストレージ）
     - large ジョブ定義にエフェメラルストレージ 30 GB を明示追加
     - `jobDefinitionArns` 配列に xlarge を追加
-- [ ] `services/quick-clip/core/tests/unit/libs/job-definition-selector.test.ts`
+- [x] `services/quick-clip/core/tests/unit/libs/job-definition-selector.test.ts`
     - 境界値テストを 3 段階対応に更新（1 GiB 未満 / 1 GiB / 8 GiB 未満 / 8 GiB 以上）
 
 ### Phase 10-3: アップロード上限変更
