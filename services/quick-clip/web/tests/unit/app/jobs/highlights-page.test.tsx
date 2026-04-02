@@ -602,7 +602,7 @@ describe('HighlightsPage', () => {
       );
     });
 
-    await act(async () => {
+    act(() => {
       jest.advanceTimersByTime(3000);
     });
 
@@ -687,19 +687,22 @@ describe('HighlightsPage', () => {
       );
     });
 
-    await act(async () => {
+    act(() => {
       jest.advanceTimersByTime(3000);
     });
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(screen.getAllByText('生成完了')).toHaveLength(2);
     });
 
-    fireEvent.click(screen.getByText('#2'));
-    expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
-      'src',
-      'https://example.com/h-2.mp4'
-    );
+    fireEvent.click(screen.getAllByRole('row')[2]);
+    await waitFor(() => {
+      expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+        'src',
+        'https://example.com/h-2.mp4'
+      );
+    });
   });
 });
 
