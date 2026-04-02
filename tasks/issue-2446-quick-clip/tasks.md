@@ -562,7 +562,7 @@
 
 ### Phase 10-3: アップロード上限変更
 
-- [ ] `services/quick-clip/web/src/app/api/jobs/route.ts`
+- [x] `services/quick-clip/web/src/app/api/jobs/route.ts`
     - `MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024`（20 GB）に変更
     - マルチパート対応のレスポンス分岐を実装（5 GB 未満: 既存 single PUT、5 GB 以上: multipart）
     - 5 GB 以上のファイルでは `CreateMultipartUploadCommand` → `UploadPartCommand` × N の presigned URL 生成
