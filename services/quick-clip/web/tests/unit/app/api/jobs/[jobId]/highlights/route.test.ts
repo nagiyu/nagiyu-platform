@@ -66,8 +66,9 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
   >;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
   const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
-  const mockedGetClipRegenerateFunctionName =
-    getClipRegenerateFunctionName as jest.MockedFunction<typeof getClipRegenerateFunctionName>;
+  const mockedGetClipRegenerateFunctionName = getClipRegenerateFunctionName as jest.MockedFunction<
+    typeof getClipRegenerateFunctionName
+  >;
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
   const mockedInvokeCommand = InvokeCommand as jest.MockedFunction<typeof InvokeCommand>;
   let consoleErrorSpy: jest.SpyInstance;
@@ -316,18 +317,16 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       },
     ]);
     mockLambdaSend.mockResolvedValue({});
-    mockUpdate
-      .mockRejectedValueOnce(new Error('update failed'))
-      .mockResolvedValueOnce({
-        highlightId: 'h2',
-        jobId: 'job-1',
-        order: 2,
-        startSec: 25,
-        endSec: 35,
-        source: 'volume',
-        status: 'pending',
-        clipStatus: 'GENERATING',
-      });
+    mockUpdate.mockRejectedValueOnce(new Error('update failed')).mockResolvedValueOnce({
+      highlightId: 'h2',
+      jobId: 'job-1',
+      order: 2,
+      startSec: 25,
+      endSec: 35,
+      source: 'volume',
+      status: 'pending',
+      clipStatus: 'GENERATING',
+    });
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),

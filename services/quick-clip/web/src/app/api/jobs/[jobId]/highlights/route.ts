@@ -67,19 +67,20 @@ const startInitialClipGeneration = async (
 
   invokeResults.forEach((result) => {
     if (!result.success) {
-      console.error(`[GET /api/jobs/[jobId]/highlights] ${ERROR_MESSAGES.INITIAL_CLIP_GENERATION_START_FAILED}`, {
-        jobId,
-        highlightId: result.highlightId,
-        error: result.error,
-      });
+      console.error(
+        `[GET /api/jobs/[jobId]/highlights] ${ERROR_MESSAGES.INITIAL_CLIP_GENERATION_START_FAILED}`,
+        {
+          jobId,
+          highlightId: result.highlightId,
+          error: result.error,
+        }
+      );
     }
   });
 
   const succeededHighlightIds = new Set(
     invokeResults
-      .filter(
-        (result): result is { highlightId: string; success: true } => result.success === true
-      )
+      .filter((result): result is { highlightId: string; success: true } => result.success === true)
       .map((result) => result.highlightId)
   );
   if (succeededHighlightIds.size === 0) {
@@ -121,7 +122,9 @@ const startInitialClipGeneration = async (
   const updatedById = new Map(
     updates
       .filter(
-        (result): result is { highlightId: string; result: { success: true; updated: Highlight } } =>
+        (
+          result
+        ): result is { highlightId: string; result: { success: true; updated: Highlight } } =>
           result.result.success
       )
       .map((result) => [result.highlightId, result.result.updated])
