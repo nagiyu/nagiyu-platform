@@ -1,7 +1,13 @@
 import { GET } from '@/app/api/jobs/[jobId]/highlights/route';
 import type { HighlightRepository, JobRepository } from '@nagiyu/quick-clip-core';
-import { getDynamoDBDocumentClient, getS3Client } from '@/lib/server/aws';
+import {
+  getClipRegenerateFunctionName,
+  getDynamoDBDocumentClient,
+  getLambdaClient,
+  getS3Client,
+} from '@/lib/server/aws';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { InvokeCommand } from '@aws-sdk/client-lambda';
 
 jest.mock('next/server', () => ({
   NextResponse: {
@@ -15,6 +21,8 @@ jest.mock('next/server', () => ({
 jest.mock('@/lib/server/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getS3Client: jest.fn(() => ({})),
+  getLambdaClient: jest.fn(() => ({ send: jest.fn() })),
+  getClipRegenerateFunctionName: jest.fn(() => 'clip-regenerate'),
   getBucketName: jest.fn(() => 'test-bucket'),
   getTableName: jest.fn(() => 'test-table'),
 }));
@@ -23,10 +31,15 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: jest.fn(),
 }));
 
+jest.mock('@aws-sdk/client-lambda', () => ({
+  InvokeCommand: jest.fn().mockImplementation((input: unknown) => input),
+}));
+
 const mockGetJob = jest.fn();
 const mockGetHighlights = jest.fn();
 const mockGetById = jest.fn();
 const mockUpdate = jest.fn();
+const mockLambdaSend = jest.fn();
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
   DynamoDBJobRepository: jest.fn().mockImplementation(
@@ -52,7 +65,11 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     typeof getDynamoDBDocumentClient
   >;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
+  const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
+  const mockedGetClipRegenerateFunctionName =
+    getClipRegenerateFunctionName as jest.MockedFunction<typeof getClipRegenerateFunctionName>;
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
+  const mockedInvokeCommand = InvokeCommand as jest.MockedFunction<typeof InvokeCommand>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -60,7 +77,12 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       {} as ReturnType<typeof getDynamoDBDocumentClient>
     );
     mockedGetS3Client.mockReturnValue({} as ReturnType<typeof getS3Client>);
+    mockedGetLambdaClient.mockReturnValue({
+      send: mockLambdaSend,
+    } as ReturnType<typeof getLambdaClient>);
+    mockedGetClipRegenerateFunctionName.mockReturnValue('clip-regenerate');
     mockedGetSignedUrl.mockResolvedValue('https://example.com/highlight.mp4');
+    mockLambdaSend.mockResolvedValue({});
     mockGetById.mockResolvedValue({
       highlightId: 'h1',
       jobId: 'job-1',
@@ -89,7 +111,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     jest.restoreAllMocks();
   });
 
-  it('正常系: PENDING をそのまま返す', async () => {
+  it('正常系: 初回（全件PENDING）では全クリップ生成を開始して GENERATING を返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
       status: 'COMPLETED',
@@ -122,12 +144,74 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         expect.objectContaining({
           highlightId: 'h1',
           source: 'motion',
-          clipStatus: 'PENDING',
+          clipStatus: 'GENERATING',
           clipUrl: undefined,
         }),
       ],
     });
+    expect(mockedInvokeCommand).toHaveBeenCalledWith({
+      FunctionName: 'clip-regenerate',
+      InvocationType: 'Event',
+      Payload: Buffer.from(
+        JSON.stringify({
+          jobId: 'job-1',
+          highlightId: 'h1',
+          startSec: 10,
+          endSec: 20,
+        })
+      ),
+    });
+    expect(mockLambdaSend).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h1', { clipStatus: 'GENERATING' });
     expect(mockedGetSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it('正常系: 初回でない場合はクリップ生成開始を行わない', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      status: 'COMPLETED',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    mockGetHighlights.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'motion',
+        status: 'pending',
+        clipStatus: 'PENDING',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 25,
+        endSec: 35,
+        source: 'volume',
+        status: 'pending',
+        clipStatus: 'GENERATING',
+      },
+    ]);
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.highlights).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ highlightId: 'h1', clipStatus: 'PENDING' }),
+        expect.objectContaining({ highlightId: 'h2', clipStatus: 'GENERATING' }),
+      ])
+    );
+    expect(mockLambdaSend).not.toHaveBeenCalled();
+    expect(mockUpdate).not.toHaveBeenCalled();
   });
 
   it('正常系: GENERATED には clipUrl を付与して返す', async () => {

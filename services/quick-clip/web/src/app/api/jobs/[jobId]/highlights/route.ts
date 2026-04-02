@@ -1,14 +1,18 @@
 import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
+import { InvokeCommand } from '@aws-sdk/client-lambda';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   getBucketName,
+  getClipRegenerateFunctionName,
   getDynamoDBDocumentClient,
+  getLambdaClient,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
 import { HighlightDomainService, JobDomainService } from '@/lib/server/domain-services';
+import type { Highlight } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
@@ -18,6 +22,65 @@ const ERROR_MESSAGES = {
 const CLIP_URL_EXPIRES_IN = 3600;
 const buildClipKey = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
+
+const isInitialPendingState = (highlights: Highlight[]): boolean => {
+  if (highlights.length === 0) {
+    return false;
+  }
+  return highlights.every((highlight) => highlight.clipStatus === 'PENDING');
+};
+
+const startInitialClipGeneration = async (
+  jobId: string,
+  highlights: Highlight[],
+  highlightService: HighlightDomainService
+): Promise<Highlight[]> => {
+  if (!isInitialPendingState(highlights)) {
+    return highlights;
+  }
+
+  const invokeResults = await Promise.allSettled(
+    highlights.map(async (highlight) => {
+      await getLambdaClient().send(
+        new InvokeCommand({
+          FunctionName: getClipRegenerateFunctionName(),
+          InvocationType: 'Event',
+          Payload: Buffer.from(
+            JSON.stringify({
+              jobId,
+              highlightId: highlight.highlightId,
+              startSec: highlight.startSec,
+              endSec: highlight.endSec,
+            })
+          ),
+        })
+      );
+      return highlight.highlightId;
+    })
+  );
+
+  const succeededHighlightIds = new Set(
+    invokeResults
+      .filter((result): result is PromiseFulfilledResult<string> => result.status === 'fulfilled')
+      .map((result) => result.value)
+  );
+  if (succeededHighlightIds.size === 0) {
+    return highlights;
+  }
+
+  const updates = await Promise.all(
+    highlights
+      .filter((highlight) => succeededHighlightIds.has(highlight.highlightId))
+      .map((highlight) =>
+        highlightService.updateHighlight(jobId, highlight.highlightId, {
+          clipStatus: 'GENERATING',
+        })
+      )
+  );
+  const updatedById = new Map(updates.map((highlight) => [highlight.highlightId, highlight]));
+
+  return highlights.map((highlight) => updatedById.get(highlight.highlightId) ?? highlight);
+};
 
 type RouteParams = {
   params: Promise<{
@@ -46,10 +109,15 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       new DynamoDBHighlightRepository(getDynamoDBDocumentClient(), getTableName())
     );
     const highlights = await highlightService.getHighlights(jobId);
+    const highlightsWithInitialGeneration = await startInitialClipGeneration(
+      jobId,
+      highlights,
+      highlightService
+    );
     const bucketName = getBucketName();
 
     const results = await Promise.all(
-      highlights.map(async (highlight) => {
+      highlightsWithInitialGeneration.map(async (highlight) => {
         if (highlight.clipStatus === 'GENERATED') {
           const clipUrl = await getSignedUrl(
             getS3Client(),
