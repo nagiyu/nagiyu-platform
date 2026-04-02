@@ -1,5 +1,9 @@
 import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  CreateMultipartUploadCommand,
+  PutObjectCommand,
+  UploadPartCommand,
+} from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NextResponse } from 'next/server';
@@ -19,6 +23,7 @@ const ERROR_MESSAGES = {
   INVALID_REQUEST: 'リクエストが不正です',
   INVALID_FILE_TYPE: 'MP4 形式の動画ファイルのみアップロードできます',
   INVALID_FILE_SIZE: 'ファイルサイズが不正です',
+  MULTIPART_UPLOAD_ID_NOT_FOUND: 'マルチパートアップロード ID の取得に失敗しました',
   INTERNAL_SERVER_ERROR: 'ジョブの作成に失敗しました',
 } as const;
 
@@ -29,7 +34,9 @@ type CreateJobRequest = {
 };
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
+const MULTIPART_UPLOAD_THRESHOLD_BYTES = 5 * 1024 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE_BYTES = 500 * 1024 * 1024;
 
 const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
   if (typeof body !== 'object' || body === null) {
@@ -91,6 +98,59 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     const bucketName = getBucketName();
     const uploadKey = `uploads/${job.jobId}/input.mp4`;
+
+    if (body.fileSize >= MULTIPART_UPLOAD_THRESHOLD_BYTES) {
+      const s3Client = getS3Client();
+      const createMultipartUploadResponse = await s3Client.send(
+        new CreateMultipartUploadCommand({
+          Bucket: bucketName,
+          Key: uploadKey,
+          ContentType: 'video/mp4',
+        })
+      );
+
+      const uploadId = createMultipartUploadResponse.UploadId;
+      if (!uploadId) {
+        return NextResponse.json(
+          {
+            error: 'MULTIPART_UPLOAD_ID_NOT_FOUND',
+            message: ERROR_MESSAGES.MULTIPART_UPLOAD_ID_NOT_FOUND,
+          },
+          { status: 500 }
+        );
+      }
+
+      const partCount = Math.ceil(body.fileSize / MULTIPART_CHUNK_SIZE_BYTES);
+      const uploadUrls = await Promise.all(
+        Array.from({ length: partCount }, (_, index) =>
+          getSignedUrl(
+            s3Client,
+            new UploadPartCommand({
+              Bucket: bucketName,
+              Key: uploadKey,
+              UploadId: uploadId,
+              PartNumber: index + 1,
+            }),
+            { expiresIn: UPLOAD_URL_EXPIRES_IN }
+          )
+        )
+      );
+
+      return NextResponse.json(
+        {
+          jobId: job.jobId,
+          status: job.status,
+          multipart: {
+            uploadId,
+            uploadUrls,
+            chunkSize: MULTIPART_CHUNK_SIZE_BYTES,
+          },
+          expiresIn: UPLOAD_URL_EXPIRES_IN,
+        },
+        { status: 201 }
+      );
+    }
+
     const uploadUrl = await getSignedUrl(
       getS3Client(),
       new PutObjectCommand({
