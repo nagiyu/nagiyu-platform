@@ -522,7 +522,71 @@
         - 2 回目の fetch（ポーリング）: h-1=GENERATED(url-1), h-2=GENERATED(url-2) を返す
         - ポーリング後 h-2 が選択可能になり、h-2 をクリックすると video src が url-2 になることを確認
 
-## Phase 10: 検証・ドキュメント整備
+## Phase 10: アップロード上限拡張（20 GB）とジョブ定義 3 段階化
+
+<!--
+    背景:
+        YouTube 配信者が 2〜4 時間の配信録画（8〜16 GB）から切り抜きを作成できるようにする。
+        実績値: 2 時間 → 9.74 GB、2.5 時間 → 10.9 GB、4 時間 → 16.4 GB（約 4〜5 GB/h）
+
+    現状の問題:
+        - MAX_FILE_SIZE_BYTES = 5 GiB でブロック。7 GB 以上がアップロード不可
+        - AWS S3 single presigned PUT URL には 5 GB の上限があり、20 GB 対応にはマルチパートアップロードが必須
+        - Fargate エフェメラルストレージが未設定（デフォルト 20 GB）のため、large ジョブで 16 GB 超の処理不可
+
+    決定事項:
+        - アップロード上限: 20 GB
+        - ジョブ定義: small / large / xlarge の 3 段階
+        - マルチパート切り替え閾値: 5 GB（AWS 制限）
+        - チャンクサイズ: 500 MB / パーツ
+
+    設計詳細: tasks/issue-2446-quick-clip/design.md の「Batch Job Definition 設計」「API 仕様」を参照
+-->
+
+### Phase 10-1: ドキュメント更新
+
+- [x] `tasks/issue-2446-quick-clip/requirements.md` — ファイルサイズ上限・Batch 選択条件を更新
+- [x] `tasks/issue-2446-quick-clip/design.md` — API 仕様・Batch Job Definition を更新
+
+### Phase 10-2: ジョブ定義 3 段階化
+
+- [ ] `services/quick-clip/core/src/libs/job-definition-selector.ts`
+    - `JobDefinitionSize = 'small' | 'large' | 'xlarge'` に型拡張
+    - 閾値: `< 1 GiB → small`、`1 GiB ≤ x < 8 GiB → large`、`>= 8 GiB → xlarge`
+- [ ] `infra/quick-clip/lib/batch-stack.ts`
+    - xlarge ジョブ定義を追加（4 vCPU、16 GB RAM、8 時間タイムアウト、60 GB エフェメラルストレージ）
+    - large ジョブ定義にエフェメラルストレージ 30 GB を明示追加
+    - `jobDefinitionArns` 配列に xlarge を追加
+- [ ] `services/quick-clip/core/tests/unit/libs/job-definition-selector.test.ts`
+    - 境界値テストを 3 段階対応に更新（1 GiB 未満 / 1 GiB / 8 GiB 未満 / 8 GiB 以上）
+
+### Phase 10-3: アップロード上限変更
+
+- [ ] `services/quick-clip/web/src/app/api/jobs/route.ts`
+    - `MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024`（20 GB）に変更
+    - マルチパート対応のレスポンス分岐を実装（5 GB 未満: 既存 single PUT、5 GB 以上: multipart）
+    - 5 GB 以上のファイルでは `CreateMultipartUploadCommand` → `UploadPartCommand` × N の presigned URL 生成
+    - 5 GB 以上では Batch ジョブサブミットをこの時点では行わない（complete-upload 後に委譲）
+    - レスポンス: `{ jobId, uploadUrl }` または `{ jobId, multipart: { uploadId, uploadUrls, chunkSize } }`
+
+### Phase 10-4: complete-upload エンドポイント追加
+
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts`（新規）
+    - リクエストボディ: `{ uploadId: string; parts: { PartNumber: number; ETag: string }[] }`
+    - 処理: DynamoDB から Job 取得 → `CompleteMultipartUploadCommand` → Batch ジョブサブミット → Job ステータスを PROCESSING に更新
+    - レスポンス: 200 OK（ボディなし）
+- [ ] `services/quick-clip/web/tests/unit/app/api/jobs/[jobId]/complete-upload/route.test.ts`（新規）
+
+### Phase 10-5: フロントエンド マルチパートアップロード対応
+
+- [ ] `services/quick-clip/web/src/app/page.tsx`
+    - `POST /api/jobs` のレスポンスに `multipart` があるか判定
+    - `multipart` あり: ファイルを `chunkSize` ずつ `slice` → 各パートを順次 PUT → ETag 収集 → `POST /api/jobs/{jobId}/complete-upload`
+    - `multipart` なし: 既存 single PUT フロー（変更なし）
+- [ ] `services/quick-clip/web/tests/unit/app/page.test.tsx`
+    - マルチパートフローのテストを追加
+
+## Phase 11: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
 - [ ] `docs/services/quick-clip/` ドキュメントを作成・更新

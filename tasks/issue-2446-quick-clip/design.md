@@ -20,7 +20,8 @@
 
 | メソッド | パス | 説明 | 認証 |
 |---------|------|------|------|
-| POST | /api/jobs | ジョブ作成（アップロード用 Presigned URL 取得） | なし |
+| POST | /api/jobs | ジョブ作成（アップロード用 URL 取得。5 GB 未満: Presigned PUT URL、5 GB 以上: マルチパートアップロード用 URL 群） | なし |
+| POST | /api/jobs/{jobId}/complete-upload | マルチパートアップロード完了・Batch ジョブ投入 | なし |
 | GET | /api/jobs/{jobId} | ジョブステータス取得 | なし |
 | GET | /api/jobs/{jobId}/highlights | 見どころ一覧取得 | なし |
 | PATCH | /api/jobs/{jobId}/highlights/{highlightId} | 見どころの採否・時間調整を更新（時間変更時は clipStatus を PENDING にリセット） | なし |
@@ -196,25 +197,73 @@ type Highlight = {
 - AWS S3・DynamoDB へのアクセス権限が付与されていること
 - 認証基盤との連携は不要（匿名利用のため）
 
+### POST /api/jobs 詳細（アップロード URL 生成）
+
+ファイルサイズに応じてアップロード方式を切り替える。
+
+**5 GB 未満（single PUT）:**
+
+```ts
+// レスポンス
+{ jobId: string; uploadUrl: string }
+```
+
+- `PutObjectCommand` の presigned URL を生成して返す
+- Batch ジョブはこの時点でサブミットする（既存フロー）
+
+**5 GB 以上（マルチパート）:**
+
+```ts
+// レスポンス
+{ jobId: string; multipart: { uploadId: string; uploadUrls: string[]; chunkSize: number } }
+```
+
+- `CreateMultipartUploadCommand` で uploadId を取得
+- `chunkSize = 500 * 1024 * 1024`（500 MB）で必要パーツ数を計算
+- 各パーツの `UploadPartCommand` presigned URL を生成して `uploadUrls` に格納
+- Batch ジョブは **サブミットしない**（`POST /api/jobs/{jobId}/complete-upload` で行う）
+
+### POST /api/jobs/{jobId}/complete-upload 詳細
+
+マルチパートアップロード完了通知 + Batch ジョブ投入エンドポイント。
+
+```ts
+// リクエストボディ
+{ uploadId: string; parts: { PartNumber: number; ETag: string }[] }
+
+// 処理フロー
+// 1. DynamoDB から Job を取得（PENDING 状態か確認）
+// 2. CompleteMultipartUploadCommand を呼び出す
+// 3. selectJobDefinition(fileSize) でティア選択して Batch ジョブをサブミット
+// 4. DynamoDB の Job ステータスを PROCESSING に更新
+
+// レスポンス: 200 OK（ボディなし）
+```
+
 ### Batch Job Definition 設計
 
-ファイルサイズに応じて2種類の Job Definition を使い分ける。ジョブ投入時に `selectJobDefinition(fileSize)` でサイズを選択し、`{prefix}-{size}` 形式のジョブ定義名を使用する。
+ファイルサイズに応じて3種類の Job Definition を使い分ける。ジョブ投入時に `selectJobDefinition(fileSize)` でサイズを選択し、`{prefix}-{size}` 形式のジョブ定義名を使用する。
 
-| サイズ | 対象ファイルサイズ | vCPU | メモリ | タイムアウト |
-|-------|----------------|------|------|----------|
-| small | < 1 GB | 1 | 4 GB | 1 時間 |
-| large | ≥ 1 GB | 2 | 8 GB | 3 時間 |
+| サイズ | 対象ファイルサイズ | vCPU | メモリ | タイムアウト | エフェメラルストレージ |
+|-------|----------------|------|------|----------|----------------|
+| small | < 1 GiB | 1 | 4 GB | 1 時間 | 20 GB（デフォルト） |
+| large | 1 GiB 以上 8 GiB 未満 | 2 | 8 GB | 3 時間 | 30 GB |
+| xlarge | 8 GiB 以上 | 4 | 16 GB | 8 時間 | 60 GB |
 
-- Job Definition 名: `nagiyu-quick-clip-{env}-{size}`（例: `nagiyu-quick-clip-dev-large`）
-- 環境変数: `BATCH_JOB_DEFINITION_ARN`（単一）→ `BATCH_JOB_DEFINITION_PREFIX`（プレフィックス文字列）に変更
+- Job Definition 名: `nagiyu-quick-clip-{env}-{size}`（例: `nagiyu-quick-clip-dev-xlarge`）
+- 環境変数: `BATCH_JOB_DEFINITION_PREFIX`（プレフィックス文字列）
 - S3 ダウンロードはストリーミング（`pipeline(Body as NodeJS.ReadableStream, createWriteStream())`）で行い、全量をメモリに展開しない
+- `maxvCpus: 8`（xlarge 同時 2 ジョブ）
 
 ### パフォーマンス考慮事項
 
-- 動画は S3 に直接アップロード（Lambda/Next.js を経由しない Presigned URL 方式）
+- 動画は S3 に直接アップロード（Lambda/Next.js を経由しない方式）
+    - 5 GB 未満: presigned PUT URL（single リクエスト）
+    - 5 GB 以上: マルチパートアップロード（500 MB チャンク、最大 40 パーツ/20 GB）
+- アップロード上限: 20 GB
 - 大容量動画の処理は AWS Batch（Fargate）で非同期実行
 - Batch の S3 ダウンロードはストリーミング処理（メモリに全量展開しない）
-- ファイルサイズに応じて Batch Job Definition を自動選択（閾値 1 GB）
+- ファイルサイズに応じて Batch Job Definition を自動選択（small / large / xlarge の 3 段階）
 - 見どころ抽出処理の目標: 30秒以内（目安）。リソース設計時に検証する
 - ZIP 生成の目標: 30秒以内（目安）
 - `HighlightAggregationService` はオーバーラップする motion / volume 結果を1件にマージする（時間範囲はユニオン、スコアは最大値、source は `'both'`）
