@@ -98,7 +98,12 @@ export class LambdaStack extends LambdaStackBase {
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
           actions: ['batch:SubmitJob'],
-          resources: [batchJobQueueArn, ...batchJobDefinitionArns],
+          resources: [
+            batchJobQueueArn,
+            ...batchJobDefinitionArns,
+            `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-*`,
+            `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-*:*`,
+          ],
         }),
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
