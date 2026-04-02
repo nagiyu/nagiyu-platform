@@ -105,7 +105,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
-  const selectionTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -206,25 +205,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     };
   }, [fetchHighlights, hasGenerating, jobId]);
 
-  useEffect(() => {
-    return () => {
-      if (selectionTimeoutRef.current !== null) {
-        window.clearTimeout(selectionTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const onSelectHighlight = useCallback((highlightId: string) => {
-    if (selectionTimeoutRef.current !== null) {
-      window.clearTimeout(selectionTimeoutRef.current);
-    }
-
-    selectionTimeoutRef.current = window.setTimeout(() => {
-      setSelectedId(highlightId);
-      selectionTimeoutRef.current = null;
-    }, 200);
-  }, []);
-
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
     [highlights]
@@ -322,6 +302,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       setHighlights((current) =>
         current.map((item) => (item.highlightId === updated.highlightId ? updated : item))
       );
+      setSelectedId((current) => (current === highlight.highlightId ? null : current));
       setErrorMessage(null);
     } catch {
       setErrorMessage(ERROR_MESSAGES.REGENERATE_FAILED);
@@ -429,7 +410,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       selected={highlight.highlightId === selectedId}
                       onClick={() => {
                         if (highlight.clipStatus === 'GENERATED') {
-                          onSelectHighlight(highlight.highlightId);
+                          setSelectedId(highlight.highlightId);
                         }
                       }}
                       sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}

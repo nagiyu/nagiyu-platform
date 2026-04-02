@@ -433,7 +433,7 @@
             rapid クリック時の video リクエスト重複（ブラウザが abort する）より問題が大きい。
 -->
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
     - `onRegenerate` の `setHighlights` 呼び出しの直後に選択解除を追加:
         ```typescript
         setSelectedId((current) =>
@@ -451,7 +451,7 @@
           }
         }}
         ```
-- [ ] `services/quick-clip/web/tests/unit/app/jobs/highlights-page.test.tsx`
+- [x] `services/quick-clip/web/tests/unit/app/jobs/highlights-page.test.tsx`
     - 「GENERATED 行クリック時は 200ms 後に選択を反映する」テストを修正（デバウンスなしの即時反映に変更）
     - `onRegenerate` 後に選択中クリップの `selectedId` が null になることを確認するテストを追加
 
