@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import HighlightsPage from '@/app/jobs/[jobId]/highlights/page';
+import { clearSelectedIdIfHighlightMatches } from '@/app/jobs/[jobId]/highlights/selection';
 
 describe('HighlightsPage', () => {
   beforeEach(() => {
@@ -478,9 +479,7 @@ describe('HighlightsPage', () => {
     expect(screen.getByText('両方')).toBeInTheDocument();
   });
 
-  it('GENERATED 行クリック時は 200ms 後に選択を反映する', async () => {
-    jest.useFakeTimers();
-
+  it('GENERATED 行クリック時は選択を即時反映する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -527,20 +526,22 @@ describe('HighlightsPage', () => {
     fireEvent.click(screen.getByText('#2'));
     expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
       'src',
-      'https://example.com/h-1.mp4'
+      'https://example.com/h-2.mp4'
     );
-    expect(screen.getByText('選択中: #1 (10s - 20s)')).toBeInTheDocument();
+    expect(screen.getByText('選択中: #2 (30s - 40s)')).toBeInTheDocument();
+  });
+});
 
-    await act(async () => {
-      jest.advanceTimersByTime(200);
-    });
+describe('clearSelectedIdIfHighlightMatches', () => {
+  it('対象highlightIdと一致するselectedIdをnullにする', () => {
+    expect(clearSelectedIdIfHighlightMatches('h-1')('h-1')).toBeNull();
+  });
 
-    await waitFor(() => {
-      expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
-        'src',
-        'https://example.com/h-2.mp4'
-      );
-      expect(screen.getByText('選択中: #2 (30s - 40s)')).toBeInTheDocument();
-    });
+  it('対象highlightIdと一致しないselectedIdは維持する', () => {
+    expect(clearSelectedIdIfHighlightMatches('h-1')('h-2')).toBe('h-2');
+  });
+
+  it('selectedIdがnullの場合はnullを維持する', () => {
+    expect(clearSelectedIdIfHighlightMatches('h-1')(null)).toBeNull();
   });
 });
