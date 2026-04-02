@@ -531,7 +531,7 @@ describe('HighlightsPage', () => {
     );
     expect(screen.getByText('選択中: #1 (10s - 20s)')).toBeInTheDocument();
 
-    act(() => {
+    await act(async () => {
       jest.advanceTimersByTime(200);
     });
 
