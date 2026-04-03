@@ -28,6 +28,7 @@ export class StorageStack extends cdk.Stack {
           allowedOrigins,
           allowedMethods: [s3.HttpMethods.PUT],
           allowedHeaders: ['Content-Type', 'x-amz-*'],
+          exposedHeaders: ['ETag'],
         },
       ],
       removalPolicy: cdk.RemovalPolicy.DESTROY,
