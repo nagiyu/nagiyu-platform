@@ -6,8 +6,8 @@ import {
   type ClipSplitterService,
   type CreateJobInput,
   type ExtractedHighlight,
+  type HighlightScore,
   type Highlight,
-  type HighlightExtractorService,
   type HighlightRepository,
   type HighlightStatus,
   type ClipStatus,
@@ -60,16 +60,15 @@ describe('quick-clip core exports', () => {
       status: 'accepted',
     };
 
-    const extractor: HighlightExtractorService = {
-      extractHighlights: async () =>
-        [
-          {
-            startSec: 1,
-            endSec: 2,
-            score: 10,
-            source: 'motion',
-          },
-        ] as ExtractedHighlight[],
+    const extractedHighlight: ExtractedHighlight = {
+      startSec: 1,
+      endSec: 2,
+      score: 10,
+      source: 'motion',
+    };
+    const highlightScore: HighlightScore = {
+      second: 1,
+      score: 10,
     };
 
     const clipSplitter: ClipSplitterService = {
@@ -93,7 +92,8 @@ describe('quick-clip core exports', () => {
     expect(updateInput.status).toBe('accepted');
     expect(jobRepository).toBeDefined();
     expect(highlightRepository).toBeDefined();
-    expect(extractor).toBeDefined();
+    expect(extractedHighlight).toBeDefined();
+    expect(highlightScore).toBeDefined();
     expect(clipSplitter).toBeDefined();
   });
 });

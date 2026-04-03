@@ -1,18 +1,17 @@
-import type {
-  ExtractedHighlight,
-  HighlightExtractorService,
-} from './highlight-extractor.service.js';
+import type { ExtractedHighlight, HighlightScore, HighlightSource } from './highlight-extractor.service.js';
 
 const MAX_HIGHLIGHTS = 20;
+const CLIP_HALF_WINDOW_SECONDS = 10;
 
-// 境界が接する場合（endSec === startSec）も同一帯域として扱い、統合対象に含める。
 const isOverlapping = (left: ExtractedHighlight, right: ExtractedHighlight): boolean =>
-  left.startSec <= right.endSec && right.startSec <= left.endSec;
+  left.startSec < right.endSec && right.startSec < left.endSec;
 
-// 同種同士は個別候補として維持し、motion/volume の組み合わせのみ統合する。
-const canMergeSource = (left: ExtractedHighlight, right: ExtractedHighlight): boolean =>
-  (left.source === 'motion' && right.source === 'volume') ||
-  (left.source === 'volume' && right.source === 'motion');
+const mergeSource = (left: HighlightSource, right: HighlightSource): HighlightSource => {
+  if (left === right) {
+    return left;
+  }
+  return 'both';
+};
 
 const mergeHighlights = (
   left: ExtractedHighlight,
@@ -21,46 +20,89 @@ const mergeHighlights = (
   startSec: Math.min(left.startSec, right.startSec),
   endSec: Math.max(left.endSec, right.endSec),
   score: Math.max(left.score, right.score),
-  source: 'both',
+  source: mergeSource(left.source, right.source),
 });
 
-export class HighlightAggregationService {
-  private readonly extractors: ReadonlyArray<HighlightExtractorService>;
+const toClip = (
+  peak: HighlightScore,
+  source: Exclude<HighlightSource, 'both'>,
+  duration: number
+): ExtractedHighlight => ({
+  startSec: Math.max(0, peak.second - CLIP_HALF_WINDOW_SECONDS),
+  endSec: Math.min(duration, peak.second + CLIP_HALF_WINDOW_SECONDS),
+  score: peak.score,
+  source,
+});
 
-  constructor(extractors: ReadonlyArray<HighlightExtractorService>) {
-    this.extractors = extractors;
+const mergeIntoAccepted = (
+  accepted: ExtractedHighlight[],
+  candidate: ExtractedHighlight
+): ExtractedHighlight[] => {
+  let mergedCandidate = candidate;
+  const remained: ExtractedHighlight[] = [];
+  for (const existing of accepted) {
+    if (isOverlapping(existing, mergedCandidate)) {
+      mergedCandidate = mergeHighlights(existing, mergedCandidate);
+      continue;
+    }
+    remained.push(existing);
   }
+  remained.push(mergedCandidate);
+  return remained;
+};
 
-  public async aggregate(jobId: string, videoFilePath: string): Promise<ExtractedHighlight[]> {
-    const extractionResults = await Promise.all(
-      this.extractors.map((extractor) => extractor.extractHighlights(jobId, videoFilePath))
-    );
+export class HighlightAggregationService {
+  public aggregate(
+    motionScores: HighlightScore[],
+    volumeScores: HighlightScore[],
+    duration: number
+  ): ExtractedHighlight[] {
+    const sortedMotion = [...motionScores].sort((a, b) => b.score - a.score);
+    const sortedVolume = [...volumeScores].sort((a, b) => b.score - a.score);
+    let motionIndex = 0;
+    let volumeIndex = 0;
+    let pickMotion = true;
+    let accepted: ExtractedHighlight[] = [];
 
-    const merged = extractionResults.flat().reduce<ExtractedHighlight[]>((current, candidate) => {
-      const overlappingIndex = current.findIndex(
-        (existing) => isOverlapping(existing, candidate) && canMergeSource(existing, candidate)
-      );
-
-      if (overlappingIndex === -1) {
-        current.push(candidate);
-        return current;
+    while (accepted.length < MAX_HIGHLIGHTS) {
+      const hasMotion = motionIndex < sortedMotion.length;
+      const hasVolume = volumeIndex < sortedVolume.length;
+      if (!hasMotion && !hasVolume) {
+        break;
       }
 
-      const existing = current[overlappingIndex] as ExtractedHighlight;
-      current[overlappingIndex] = mergeHighlights(existing, candidate);
-      return current;
-    }, []);
+      const shouldPickMotion = hasMotion && (!hasVolume || pickMotion);
+      const picked = shouldPickMotion
+        ? toClip(sortedMotion[motionIndex] as HighlightScore, 'motion', duration)
+        : toClip(sortedVolume[volumeIndex] as HighlightScore, 'volume', duration);
 
-    return merged
-      .sort((a, b) => {
-        if (b.score !== a.score) {
-          return b.score - a.score;
-        }
-        if (a.startSec !== b.startSec) {
-          return a.startSec - b.startSec;
-        }
+      if (shouldPickMotion) {
+        motionIndex += 1;
+      } else {
+        volumeIndex += 1;
+      }
+      pickMotion = !pickMotion;
+
+      accepted = mergeIntoAccepted(accepted, picked);
+      if (accepted.length > MAX_HIGHLIGHTS) {
+        accepted = accepted.slice(0, MAX_HIGHLIGHTS);
+      }
+    }
+
+    return accepted.sort((a, b) => {
+      if (a.startSec !== b.startSec) {
+        return a.startSec - b.startSec;
+      }
+      if (a.endSec !== b.endSec) {
         return a.endSec - b.endSec;
-      })
-      .slice(0, MAX_HIGHLIGHTS);
+      }
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      if (a.source !== b.source) {
+        return a.source.localeCompare(b.source);
+      }
+      return 0;
+    });
   }
 }

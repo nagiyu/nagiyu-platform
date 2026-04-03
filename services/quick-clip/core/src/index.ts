@@ -17,8 +17,8 @@ export type {
 
 export type {
   ExtractedHighlight,
+  HighlightScore,
   HighlightSource,
-  HighlightExtractorService,
 } from './libs/highlight-extractor.service.js';
 export type { ClipSplitterService } from './libs/clip-splitter.service.js';
 export type { JobDefinitionSize } from './libs/job-definition-selector.js';

@@ -1,17 +1,10 @@
 import { spawn } from 'node:child_process';
-
-export type TimeWindowScore = {
-  startSec: number;
-  endSec: number;
-  score: number;
-};
+import type { HighlightScore } from './highlight-extractor.service.js';
 
 const ERROR_MESSAGES = {
   FFMPEG_FAILED: 'FFmpeg の解析に失敗しました',
 } as const;
 
-const DEFAULT_WINDOW_SECONDS = 10;
-const MIN_HIGHLIGHT_WINDOW_SECONDS = 3;
 const DURATION_PROBE_ARGS_LENGTH = 3;
 
 const parseFps = (input: string): number => {
@@ -44,34 +37,8 @@ const parseTimeToSeconds = (value: string): number => {
   return hours * 3600 + minutes * 60 + seconds;
 };
 
-const toTopWindows = (
-  entries: Array<{ second: number; score: number }>,
-  limit: number
-): TimeWindowScore[] => {
-  const merged = new Map<number, number>();
-  for (const entry of entries) {
-    const secondKey = Math.floor(entry.second / DEFAULT_WINDOW_SECONDS) * DEFAULT_WINDOW_SECONDS;
-    const current = merged.get(secondKey) ?? 0;
-    merged.set(secondKey, current + entry.score);
-  }
-
-  return Array.from(merged.entries())
-    .map(([startSec, score]) => ({
-      startSec,
-      endSec: startSec + DEFAULT_WINDOW_SECONDS,
-      score,
-    }))
-    .sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-      return a.startSec - b.startSec;
-    })
-    .slice(0, limit);
-};
-
 export class FfmpegVideoAnalyzer {
-  public async analyzeMotion(videoFilePath: string, limit = 10): Promise<TimeWindowScore[]> {
+  public async analyzeMotion(videoFilePath: string): Promise<HighlightScore[]> {
     const stderr = await this.runFfmpeg([
       '-hide_banner',
       '-i',
@@ -84,7 +51,7 @@ export class FfmpegVideoAnalyzer {
       '-',
     ]);
 
-    const sceneEntries: Array<{ second: number; score: number }> = [];
+    const sceneEntries: HighlightScore[] = [];
     let currentPtsTime: number | null = null;
     for (const line of stderr.split(/\r?\n/)) {
       const ptsMatch = line.match(/pts_time:([\d.]+)/);
@@ -107,10 +74,10 @@ export class FfmpegVideoAnalyzer {
       }
     }
 
-    return toTopWindows(sceneEntries, limit);
+    return sceneEntries;
   }
 
-  public async analyzeVolume(videoFilePath: string, limit = 10): Promise<TimeWindowScore[]> {
+  public async analyzeVolume(videoFilePath: string): Promise<HighlightScore[]> {
     const stderr = await this.runFfmpeg([
       '-hide_banner',
       '-i',
@@ -126,7 +93,7 @@ export class FfmpegVideoAnalyzer {
     const fpsMatch = stderr.match(/([\d./]+)\s+fps/);
     const fps = parseFps(fpsMatch?.[1] ?? '');
 
-    const entries: Array<{ second: number; score: number }> = [];
+    const entries: HighlightScore[] = [];
     let currentFrame: number | null = null;
     let currentPtsTime: number | null = null;
     for (const line of stderr.split(/\r?\n/)) {
@@ -165,28 +132,14 @@ export class FfmpegVideoAnalyzer {
         });
       }
     }
-    return toTopWindows(entries, limit);
+    return entries;
   }
 
   public async getDurationSec(videoFilePath: string): Promise<number> {
     const stderr = await this.runFfmpeg(['-hide_banner', '-i', videoFilePath]);
     const durationMatch = stderr.match(/Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/);
     const duration = parseTimeToSeconds(durationMatch?.[1] ?? '');
-    return Number.isFinite(duration) && duration > 0 ? duration : DEFAULT_WINDOW_SECONDS;
-  }
-
-  public ensureMinimumDuration(
-    startSec: number,
-    endSec: number
-  ): { startSec: number; endSec: number } {
-    if (endSec - startSec >= MIN_HIGHLIGHT_WINDOW_SECONDS) {
-      return { startSec, endSec };
-    }
-
-    return {
-      startSec,
-      endSec: startSec + MIN_HIGHLIGHT_WINDOW_SECONDS,
-    };
+    return Number.isFinite(duration) && duration > 0 ? duration : 10;
   }
 
   private runFfmpeg(args: string[]): Promise<string> {

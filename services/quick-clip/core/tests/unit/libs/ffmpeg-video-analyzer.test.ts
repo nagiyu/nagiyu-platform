@@ -24,16 +24,6 @@ describe('FfmpegVideoAnalyzer', () => {
     jest.clearAllMocks();
   });
 
-  it('ensureMinimumDuration: 3秒未満の区間を3秒に補正する', () => {
-    const analyzer = new FfmpegVideoAnalyzer();
-    expect(analyzer.ensureMinimumDuration(10, 11)).toEqual({ startSec: 10, endSec: 13 });
-  });
-
-  it('ensureMinimumDuration: 3秒以上の区間はそのまま返す', () => {
-    const analyzer = new FfmpegVideoAnalyzer();
-    expect(analyzer.ensureMinimumDuration(10, 15)).toEqual({ startSec: 10, endSec: 15 });
-  });
-
   it('analyzeMotion: metadata が改行される形式でも scene_score を抽出できる', async () => {
     spawnMock.mockReturnValue(
       createFfmpegProcessMock(
@@ -47,11 +37,11 @@ describe('FfmpegVideoAnalyzer', () => {
     );
 
     const analyzer = new FfmpegVideoAnalyzer();
-    const result = await analyzer.analyzeMotion('/tmp/input.mp4', 10);
+    const result = await analyzer.analyzeMotion('/tmp/input.mp4');
 
     expect(result).toEqual([
-      { startSec: 10, endSec: 20, score: 0.44 },
-      { startSec: 20, endSec: 30, score: 0.3 },
+      { second: 10.5, score: 0.44 },
+      { second: 20.2, score: 0.3 },
     ]);
   });
 
@@ -68,9 +58,9 @@ describe('FfmpegVideoAnalyzer', () => {
     );
 
     const analyzer = new FfmpegVideoAnalyzer();
-    const result = await analyzer.analyzeMotion('/tmp/input.mp4', 10);
+    const result = await analyzer.analyzeMotion('/tmp/input.mp4');
 
-    expect(result).toEqual([{ startSec: 20, endSec: 30, score: 0.3 }]);
+    expect(result).toEqual([{ second: 20.2, score: 0.3 }]);
   });
 
   it('analyzeVolume: metadata が改行される形式でも RMS_level を抽出できる', async () => {
@@ -87,13 +77,13 @@ describe('FfmpegVideoAnalyzer', () => {
     );
 
     const analyzer = new FfmpegVideoAnalyzer();
-    const result = await analyzer.analyzeVolume('/tmp/input.mp4', 10);
+    const result = await analyzer.analyzeVolume('/tmp/input.mp4');
     const expectedScoreFromMinus20dB = Math.pow(10, -20 / 20);
     const expectedScoreFromMinus30dB = Math.pow(10, -30 / 20);
 
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ startSec: 10, endSec: 20 });
-    expect(result[1]).toMatchObject({ startSec: 20, endSec: 30 });
+    expect(result[0]).toMatchObject({ second: 10 });
+    expect(result[1]).toMatchObject({ second: 21 });
     expect(result[0]!.score).toBeCloseTo(expectedScoreFromMinus20dB, 6);
     expect(result[1]!.score).toBeCloseTo(expectedScoreFromMinus30dB, 6);
   });
@@ -112,13 +102,12 @@ describe('FfmpegVideoAnalyzer', () => {
     );
 
     const analyzer = new FfmpegVideoAnalyzer();
-    const result = await analyzer.analyzeVolume('/tmp/input.mp4', 10);
+    const result = await analyzer.analyzeVolume('/tmp/input.mp4');
     const expectedScoreFromMinus30dB = Math.pow(10, -30 / 20);
 
     expect(result).toEqual([
       {
-        startSec: 20,
-        endSec: 30,
+        second: 21,
         score: expectedScoreFromMinus30dB,
       },
     ]);
@@ -128,7 +117,7 @@ describe('FfmpegVideoAnalyzer', () => {
     spawnMock.mockReturnValue(createFfmpegProcessMock('ffmpeg error', 2));
 
     const analyzer = new FfmpegVideoAnalyzer();
-    await expect(analyzer.analyzeMotion('/tmp/input.mp4', 10)).rejects.toThrow(
+    await expect(analyzer.analyzeMotion('/tmp/input.mp4')).rejects.toThrow(
       'FFmpeg の解析に失敗しました: exit code 2, stderr: ffmpeg error'
     );
   });

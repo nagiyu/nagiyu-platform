@@ -5,6 +5,9 @@ const mockPipeline = jest.fn();
 const mockUpdateStatus = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
+const mockGetDurationSec = jest.fn();
+const mockAnalyzeMotion = jest.fn();
+const mockAnalyzeVolume = jest.fn();
 const TEST_ERRORS = {
   NO_SUCH_KEY: { name: 'NoSuchKey', Code: 'NoSuchKey' } as const,
 };
@@ -67,15 +70,21 @@ jest.mock('../../../src/libs/highlight-aggregation.service.js', () => ({
 }));
 
 jest.mock('../../../src/libs/motion-highlight.service.js', () => ({
-  MotionHighlightService: jest.fn(),
+  MotionHighlightService: jest.fn().mockImplementation(() => ({
+    analyzeMotion: mockAnalyzeMotion,
+  })),
 }));
 
 jest.mock('../../../src/libs/volume-highlight.service.js', () => ({
-  VolumeHighlightService: jest.fn(),
+  VolumeHighlightService: jest.fn().mockImplementation(() => ({
+    analyzeVolume: mockAnalyzeVolume,
+  })),
 }));
 
 jest.mock('../../../src/libs/ffmpeg-video-analyzer.js', () => ({
-  FfmpegVideoAnalyzer: jest.fn(),
+  FfmpegVideoAnalyzer: jest.fn().mockImplementation(() => ({
+    getDurationSec: mockGetDurationSec,
+  })),
 }));
 
 import {
@@ -100,7 +109,10 @@ describe('runQuickClipBatch', () => {
     mockCreateWriteStream.mockReturnValue({} as NodeJS.WritableStream);
     mockPipeline.mockResolvedValue(undefined);
     mockCreateMany.mockResolvedValue(undefined);
-    mockAggregate.mockResolvedValue([]);
+    mockAggregate.mockReturnValue([]);
+    mockGetDurationSec.mockResolvedValue(120);
+    mockAnalyzeMotion.mockResolvedValue([]);
+    mockAnalyzeVolume.mockResolvedValue([]);
     mockUpdateStatus.mockResolvedValue(undefined);
   });
 
@@ -120,6 +132,8 @@ describe('runQuickClipBatch', () => {
     expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'PROCESSING', undefined);
     expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'COMPLETED', undefined);
     expect(mockUpdateStatus).not.toHaveBeenCalledWith('job-1', 'FAILED', expect.anything());
+    expect(mockGetDurationSec).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
+    expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
   });
 
   it('NoSuchKey が解消しない場合は FAILED として動画未検出メッセージを記録する', async () => {
@@ -147,7 +161,9 @@ describe('runQuickClipBatch', () => {
         pipe: jest.fn(),
       },
     });
-    mockAggregate.mockResolvedValue([
+    mockAnalyzeMotion.mockResolvedValue([{ second: 1, score: 100 }]);
+    mockAnalyzeVolume.mockResolvedValue([{ second: 5, score: 90 }]);
+    mockAggregate.mockReturnValue([
       { startSec: 5, endSec: 8, source: 'volume' },
       { startSec: 1, endSec: 3, source: 'motion' },
     ]);
@@ -176,6 +192,11 @@ describe('runQuickClipBatch', () => {
           clipStatus: 'PENDING',
         }),
       ])
+    );
+    expect(mockAggregate).toHaveBeenCalledWith(
+      [{ second: 1, score: 100 }],
+      [{ second: 5, score: 90 }],
+      120
     );
   });
 });
