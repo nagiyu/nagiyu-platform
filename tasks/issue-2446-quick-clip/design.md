@@ -32,15 +32,19 @@
 
 - レスポンスの各 Highlight に `clipStatus` と `clipUrl` (GENERATED のもののみ Presigned URL) を含める
 - `sourceVideoUrl` は返却しない
-- Lambda の自動 Invoke は行わない（クリップ生成は regenerate エンドポイント経由のみ）
+- **PENDING のハイライトが 1 件以上存在する場合、全件の clip-regenerate Lambda を非同期 Invoke し clipStatus を `GENERATING` に更新する（初回ロード時の自動生成）**
 
 **PATCH /api/jobs/{jobId}/highlights/{highlightId} の補足**
 
-- 時間変更（startSec / endSec）がある場合、DynamoDB 更新時に `clipStatus` を `PENDING` にリセットして返却する（Lambda は呼び出さない）
-- ステータス（accepted / rejected）のみの変更の場合は `clipStatus` を変更しない
+- 時間変更（startSec / endSec）がある場合:
+    - clip-regenerate Lambda を非同期 Invoke（InvocationType: Event）する
+    - `clipStatus` を `GENERATING` に更新して返却する（`PENDING` 経由なし）
+    - `status` が `accepted` または `rejected` の場合は `unconfirmed` にリセットする
+- ステータス（accepted / rejected / unconfirmed）のみの変更の場合は `clipStatus` を変更しない
 
 **POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate の補足**
 
+- **FAILED クリップのリトライ専用エンドポイント**（通常フローでは使用しない）
 - clip-regenerate Lambda を非同期 Invoke（InvocationType: Event）する
 - Invoke 直後に `clipStatus` を `GENERATING` に更新し、更新後の Highlight を返却する
 
@@ -59,7 +63,7 @@
 ```typescript
 type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
-type HighlightStatus = 'accepted' | 'rejected' | 'pending';
+type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 
 /** クリップ切り出しの生成状態 */
 type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
@@ -83,7 +87,7 @@ type Highlight = {
     order: number; // 開始時間昇順の連番（スコード順ではない）
     startSec: number; // 開始時刻（秒）
     endSec: number; // 終了時刻（秒）
-    status: HighlightStatus;
+    status: HighlightStatus; // unconfirmed: 未確認（初期値・時間調整時リセット）/ accepted: 使える / rejected: 使えない
     clipStatus: ClipStatus; // クリップ切り出し状態
     source: HighlightSource; // 抽出根拠（motion: 画面変化 / volume: 音量 / both: 両方）
     // クリップ S3 キーは outputs/{jobId}/clips/{highlightId}.mp4 として導出（DB には保存しない）
@@ -116,7 +120,7 @@ type Highlight = {
 | order | number | 開始時間昇順の連番 |
 | startSec | number | 開始時刻（秒） |
 | endSec | number | 終了時刻（秒） |
-| status | string | accepted / rejected / pending |
+| status | string | accepted / rejected / unconfirmed |
 | clipStatus | string | PENDING / GENERATING / GENERATED / FAILED |
 | source | string | 抽出根拠: motion / volume / both |
 

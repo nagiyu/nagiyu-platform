@@ -664,7 +664,74 @@
     - `duration` を `FfmpegVideoAnalyzer.getDurationSec()` から取得して渡す
 - [x] `services/quick-clip/core/tests/unit/libs/quick-clip-batch-runner.test.ts` を更新
 
-## Phase 11: 検証・ドキュメント整備
+## Phase 11: UX 改善（マスター/ディテールレイアウト・3状態ステータス・自動生成）
+
+<!--
+    背景:
+    - 下部クリップ選択後にプレビューのために画面上部まで戻る操作が煩わしい
+    - 採否ステータスの確認済み/未確認が区別できない
+    - 再生成ボタンが必要な理由が左右分割構成では薄れた
+
+    変更概要:
+    1. SCR-003 を左右マスター/ディテール構成に変更（左: 選択クリップの詳細、右: 簡易一覧）
+    2. HighlightStatus を 3 状態化（accepted / rejected / unconfirmed）し、
+       時間調整時に confirmed なステータスを unconfirmed にリセット
+    3. クリップ生成の自動化（初回ロード + 時間調整 onBlur）。再生成ボタンを廃止。
+       FAILED クリップのみリトライボタンを左パネルに表示。
+
+    参照ドキュメント:
+    - tasks/issue-2446-quick-clip/requirements.md — F-005/F-006/F-010/UC-002/クリップ生成フロー
+    - tasks/issue-2446-quick-clip/external-design.md — SCR-003 レイアウト・UI 要素・インタラクション
+    - tasks/issue-2446-quick-clip/design.md — HighlightStatus 型・API 補足
+
+    実装上の注意:
+    - Phase 9 の clipUrls 分離設計（highlights と clipUrls を別 state で管理）を維持すること
+    - Phase 8-5 の TimeInput（onBlur コミット方式）の onCommit から自動生成を発火させること
+    - HighlightStatus 型変更: 'pending' → 'unconfirmed'。影響範囲は core/src/types.ts、
+      DynamoDB リポジトリ (batch/web 両方)、batch の entrypoint
+    - GET /highlights の自動生成は冪等性に注意: PENDING クリップが存在する場合のみ Invoke
+    - POST .../regenerate エンドポイントは廃止せず FAILED 専用として維持する
+-->
+
+### 11-1. 仕様更新（依存: なし）
+
+- [x] `requirements.md` 更新（F-005/F-006/F-010/UC-002/クリップ生成フロー）
+- [x] `external-design.md` 更新（SCR-003 レイアウト・UI 要素・インタラクション・表示条件）
+- [x] `design.md` 更新（HighlightStatus 型変更・API 補足更新）
+
+### 11-2. HighlightStatus 型変更（依存: 11-1）
+
+- [ ] `services/quick-clip/core/src/types.ts`: `HighlightStatus` の `'pending'` → `'unconfirmed'`
+- [ ] 全パッケージ (`core` / `web` / `batch`) の `'pending'` 参照を `'unconfirmed'` に変更
+- [ ] `core/src/repositories/dynamodb-highlight.repository.ts`: mapper 更新（TTL 1 日のため既存レコードの移行不要。新規保存のみ変更）
+- [ ] `batch/src/` の `DynamoDB HighlightRepository` 同様に更新
+- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: 初期 status = `'unconfirmed'` に変更
+- [ ] テスト更新
+
+### 11-3. GET /highlights 修正（依存: 11-2）
+
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`
+    - PENDING のハイライトが 1 件以上存在する場合、全件の clip-regenerate Lambda を非同期 Invoke
+    - Invoke 直後に clipStatus を `GENERATING` に更新して返却する
+- [ ] テスト更新
+
+### 11-4. PATCH /highlights/{id} 修正（依存: 11-2）
+
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`
+    - 時間変更時: clip-regenerate Lambda を非同期 Invoke + clipStatus = `GENERATING` + status リセット（`accepted` / `rejected` → `unconfirmed`）
+- [ ] テスト更新
+
+### 11-5. HighlightsPage 修正（依存: 11-3, 11-4）
+
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+    - 左右マスター/ディテール レイアウトに変更
+    - 右パネル: 簡易一覧テーブル（No. / 時間範囲 / 採否ステータスチップ）+ ZIP ダウンロードボタン。全行クリック可能
+    - 左パネル: 未選択時プレースホルダー / 選択時: 動画プレビュー + 根拠チップ + 採否ラジオ（3状態） + 時間調整 + FAILED 時リトライボタン
+    - ポーリング条件を PENDING または GENERATING が存在する間に変更
+    - 通常の再生成ボタンを廃止
+- [ ] テスト更新・追加
+
+## Phase 12: 検証・ドキュメント整備（旧 Phase 11）
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
 - [ ] `docs/services/quick-clip/` ドキュメントを作成・更新
