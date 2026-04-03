@@ -1,11 +1,10 @@
 const mockSend = jest.fn();
 const mockUpdate = jest.fn();
 const mockSpawn = jest.fn();
+const mockGetSignedUrl = jest.fn();
 const mockMkdir = jest.fn();
 const mockRm = jest.fn();
 const mockCreateReadStream = jest.fn();
-const mockCreateWriteStream = jest.fn();
-const mockPipeline = jest.fn();
 
 jest.mock('@aws-sdk/client-s3', () => {
   class GetObjectCommand {
@@ -53,11 +52,10 @@ jest.mock('node:fs/promises', () => ({
 
 jest.mock('node:fs', () => ({
   createReadStream: (...args: unknown[]) => mockCreateReadStream(...args),
-  createWriteStream: (...args: unknown[]) => mockCreateWriteStream(...args),
 }));
 
-jest.mock('node:stream/promises', () => ({
-  pipeline: (...args: unknown[]) => mockPipeline(...args),
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
 }));
 
 describe('clip lambda handler', () => {
@@ -77,17 +75,9 @@ describe('clip lambda handler', () => {
     mockMkdir.mockResolvedValue(undefined);
     mockRm.mockResolvedValue(undefined);
     mockCreateReadStream.mockReturnValue('stream');
-    mockCreateWriteStream.mockReturnValue('writeStream');
-    mockPipeline.mockResolvedValue(undefined);
+    mockGetSignedUrl.mockResolvedValue('https://example.com/input.mp4');
 
-    mockSend.mockImplementation((command: { constructor: { name: string } }) => {
-      if (command.constructor.name === 'GetObjectCommand') {
-        return Promise.resolve({
-          Body: {},
-        });
-      }
-      return Promise.resolve({});
-    });
+    mockSend.mockResolvedValue({});
 
     mockSpawn.mockImplementation(() => ({
       stderr: {
