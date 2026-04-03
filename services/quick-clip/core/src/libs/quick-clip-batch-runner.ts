@@ -135,11 +135,15 @@ const persistHighlights = async (
 
 const buildHighlights = async (jobId: string, localPath: string): Promise<Highlight[]> => {
   const analyzer = new FfmpegVideoAnalyzer();
-  const aggregationService = new HighlightAggregationService([
-    new MotionHighlightService(analyzer),
-    new VolumeHighlightService(analyzer),
+  const motionService = new MotionHighlightService(analyzer);
+  const volumeService = new VolumeHighlightService(analyzer);
+  const duration = await analyzer.getDurationSec(localPath);
+  const [motionScores, volumeScores] = await Promise.all([
+    motionService.analyzeMotion(localPath),
+    volumeService.analyzeVolume(localPath),
   ]);
-  const extracted = await aggregationService.aggregate(jobId, localPath);
+  const aggregationService = new HighlightAggregationService();
+  const extracted = aggregationService.aggregate(motionScores, volumeScores, duration);
   const sortedByStartSec = extracted.slice().sort((a, b) => a.startSec - b.startSec);
   return sortedByStartSec.map((item, index) => ({
     highlightId: randomUUID(),
