@@ -460,11 +460,11 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                       row
                       value={selectedHighlight.status}
                       onChange={(event) => {
-                        const status = event.target.value as
-                          | 'unconfirmed'
-                          | 'accepted'
-                          | 'rejected';
-                        void onChangeStatus(selectedHighlight, status);
+                        const val = event.target.value;
+                        if (val !== 'unconfirmed' && val !== 'accepted' && val !== 'rejected') {
+                          return;
+                        }
+                        void onChangeStatus(selectedHighlight, val);
                       }}
                     >
                       <FormControlLabel
