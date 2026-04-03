@@ -84,10 +84,7 @@ describe('ListWorkspace', () => {
           } as Response);
         }
 
-        if (
-          requestUrl === '/api/groups/group-1/lists/group-list-1' &&
-          init?.method === 'DELETE'
-        ) {
+        if (requestUrl === '/api/groups/group-1/lists/group-list-1' && init?.method === 'DELETE') {
           return Promise.resolve({
             ok: true,
             status: 200,
@@ -375,7 +372,9 @@ describe('ListWorkspace', () => {
     fireEvent.click(screen.getByRole('option', { name: '共有' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '買い物リスト（共有）を編集' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: '買い物リスト（共有）を編集' })
+      ).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を編集' }));
 
@@ -389,7 +388,9 @@ describe('ListWorkspace', () => {
       );
     });
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '買い物リスト（更新）を編集' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: '買い物リスト（更新）を編集' })
+      ).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByText('共有リスト名を更新しました。')).toBeInTheDocument();
@@ -405,7 +406,9 @@ describe('ListWorkspace', () => {
     fireEvent.click(screen.getByRole('option', { name: '共有' }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: '買い物リスト（共有）を削除' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: '買い物リスト（共有）を削除' })
+      ).toBeInTheDocument();
     });
     fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を削除' }));
 
@@ -416,7 +419,9 @@ describe('ListWorkspace', () => {
       );
     });
     await waitFor(() => {
-      expect(screen.queryByRole('button', { name: '買い物リスト（共有）を削除' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: '買い物リスト（共有）を削除' })
+      ).not.toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByText('共有リストを削除しました。')).toBeInTheDocument();
