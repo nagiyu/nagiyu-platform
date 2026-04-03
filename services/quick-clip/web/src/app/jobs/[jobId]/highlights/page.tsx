@@ -574,6 +574,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   </Table>
                 </TableContainer>
 
+                <Typography variant="body2" color="text.secondary">
+                  採用中の見どころ: {acceptedCount} 件
+                </Typography>
+
                 <Button
                   variant="contained"
                   onClick={onDownload}
