@@ -8,13 +8,17 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 const ERROR_MESSAGES = {
   SELECT_FILE: '動画ファイルを選択してください',
   CREATE_JOB_FAILED: 'アップロード処理の開始に失敗しました',
+  INVALID_UPLOAD_PARAMETERS: 'アップロードパラメータが不正です',
   UPLOAD_FAILED: '動画ファイルのアップロードに失敗しました',
+  COMPLETE_UPLOAD_FAILED: 'アップロード完了処理に失敗しました',
   UNKNOWN: '予期しないエラーが発生しました',
 } as const;
 
 const LOG_MESSAGES = {
   UPLOAD_FAILED: '動画アップロードに失敗しました',
   UPLOAD_EXCEPTION: '動画アップロード時に予期しないエラーが発生しました',
+  COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
+  INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
   UNKNOWN: 'アップロード処理の開始時に予期しないエラーが発生しました',
 } as const;
 
@@ -99,10 +103,31 @@ export default function Home() {
 
       try {
         if (data.multipart) {
+          const chunkSizeBytes = data.multipart.chunkSize;
+          if (!Number.isInteger(chunkSizeBytes) || chunkSizeBytes <= 0) {
+            console.error(LOG_MESSAGES.INVALID_MULTIPART_PARAMETERS, {
+              chunkSizeBytes,
+            });
+            setErrorMessage(ERROR_MESSAGES.INVALID_UPLOAD_PARAMETERS);
+            setIsSubmitting(false);
+            return;
+          }
+
+          const expectedPartCount = Math.ceil(file.size / chunkSizeBytes);
+          if (expectedPartCount <= 0 || expectedPartCount !== data.multipart.uploadUrls.length) {
+            console.error(LOG_MESSAGES.INVALID_MULTIPART_PARAMETERS, {
+              expectedPartCount,
+              uploadUrlCount: data.multipart.uploadUrls.length,
+            });
+            setErrorMessage(ERROR_MESSAGES.INVALID_UPLOAD_PARAMETERS);
+            setIsSubmitting(false);
+            return;
+          }
+
           const parts: Array<{ PartNumber: number; ETag: string }> = [];
           for (const [index, uploadUrl] of data.multipart.uploadUrls.entries()) {
-            const start = index * data.multipart.chunkSize;
-            const end = Math.min(start + data.multipart.chunkSize, file.size);
+            const start = index * chunkSizeBytes;
+            const end = Math.min(start + chunkSizeBytes, file.size);
             const chunk = file.slice(start, end);
             const uploadResponse = await fetch(uploadUrl, {
               method: 'PUT',
@@ -113,9 +138,20 @@ export default function Home() {
             });
 
             const eTag = uploadResponse.headers.get('ETag');
-            if (!uploadResponse.ok || !eTag) {
+            if (!uploadResponse.ok) {
               console.error(LOG_MESSAGES.UPLOAD_FAILED, {
                 status: uploadResponse.status,
+                partNumber: index + 1,
+              });
+              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+              setIsSubmitting(false);
+              return;
+            }
+            if (!eTag) {
+              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+                partNumber: index + 1,
+                eTag,
+                reason: 'ETagが取得できませんでした',
               });
               setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
               setIsSubmitting(false);
@@ -140,10 +176,10 @@ export default function Home() {
           });
 
           if (!completeUploadResponse.ok) {
-            console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+            console.error(LOG_MESSAGES.COMPLETE_UPLOAD_FAILED, {
               status: completeUploadResponse.status,
             });
-            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+            setErrorMessage(ERROR_MESSAGES.COMPLETE_UPLOAD_FAILED);
             setIsSubmitting(false);
             return;
           }

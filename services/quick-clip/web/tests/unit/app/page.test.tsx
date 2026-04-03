@@ -154,7 +154,7 @@ describe('Home', () => {
           multipart: {
             uploadId: 'upload-1',
             uploadUrls: ['https://example.com/upload/1', 'https://example.com/upload/2'],
-            chunkSize: 2,
+            chunkSize: 3,
           },
         }),
       })
@@ -216,7 +216,10 @@ describe('Home', () => {
       expect(mockPush).toHaveBeenCalledWith('/jobs/job-1');
     });
 
-    const completeUploadRequest = mockFetch.mock.calls[3]?.[1] as { body: string };
+    const COMPLETE_UPLOAD_CALL_INDEX = 3;
+    const completeUploadRequest = mockFetch.mock.calls[COMPLETE_UPLOAD_CALL_INDEX]?.[1] as {
+      body: string;
+    };
     expect(JSON.parse(completeUploadRequest.body)).toEqual({
       uploadId: 'upload-1',
       parts: [
@@ -224,5 +227,71 @@ describe('Home', () => {
         { PartNumber: 2, ETag: '"etag-2"' },
       ],
     });
+  });
+
+  it('multipartレスポンスのchunkSizeが不正な場合はエラーを表示して遷移しない', async () => {
+    const file = new File(['dummy'], 'input.mp4', { type: 'video/mp4' });
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        multipart: {
+          uploadId: 'upload-1',
+          uploadUrls: ['https://example.com/upload/1'],
+          chunkSize: 0,
+        },
+      }),
+    });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('アップロードパラメータが不正です')).toBeInTheDocument();
+    });
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('multipart完了APIが失敗した場合は専用エラーを表示して遷移しない', async () => {
+    const file = new File(['dummy'], 'input.mp4', { type: 'video/mp4' });
+    const mockFetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jobId: 'job-1',
+          multipart: {
+            uploadId: 'upload-1',
+            uploadUrls: ['https://example.com/upload/1'],
+            chunkSize: 5,
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: {
+          get: () => '"etag-1"',
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('アップロード完了処理に失敗しました')).toBeInTheDocument();
+    });
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });
