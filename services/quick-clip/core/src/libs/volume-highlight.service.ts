@@ -1,6 +1,4 @@
-import type {
-  HighlightScore,
-} from './highlight-extractor.service.js';
+import type { HighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 
 export class VolumeHighlightService {

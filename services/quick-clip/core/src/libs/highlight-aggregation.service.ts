@@ -1,4 +1,8 @@
-import type { ExtractedHighlight, HighlightScore, HighlightSource } from './highlight-extractor.service.js';
+import type {
+  ExtractedHighlight,
+  HighlightScore,
+  HighlightSource,
+} from './highlight-extractor.service.js';
 
 const MAX_HIGHLIGHTS = 20;
 const CLIP_HALF_WINDOW_SECONDS = 10;
