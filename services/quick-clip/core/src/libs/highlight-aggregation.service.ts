@@ -86,20 +86,6 @@ export class HighlightAggregationService {
       accepted = mergeIntoAccepted(accepted, picked);
     }
 
-    return accepted.sort((a, b) => {
-      if (a.startSec !== b.startSec) {
-        return a.startSec - b.startSec;
-      }
-      if (a.endSec !== b.endSec) {
-        return a.endSec - b.endSec;
-      }
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-      if (a.source !== b.source) {
-        return a.source.localeCompare(b.source);
-      }
-      return 0;
-    });
+    return accepted.sort((a, b) => a.startSec - b.startSec);
   }
 }
