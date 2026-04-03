@@ -149,7 +149,7 @@ type Highlight = {
 | `JobService` | `core/src/libs/job.service.ts` | ジョブ作成・ステータス管理 |
 | `HighlightService` | `core/src/libs/highlight.service.ts` | 見どころ更新・選別ロジック（web API から利用） |
 | `HighlightExtractorService` | `core/src/libs/highlight-extractor.service.ts` | 見どころ抽出サービスの抽象インターフェース |
-| `HighlightAggregationService` | `core/src/libs/highlight-aggregation.service.ts` | 複数 Extractor の結果を統合し上位10件×2種＝計20件に絞る集約ロジック |
+| `HighlightAggregationService` | `core/src/libs/highlight-aggregation.service.ts` | Motion / Volume の生スコアリストを受け取り、貪欲クリップ選択アルゴリズムで最大 20 件のハイライトを生成する |
 | `ClipSplitterService` | `core/src/libs/clip-splitter.service.ts` | クリップ分割サービスの抽象インターフェース |
 
 **web**
@@ -170,9 +170,9 @@ type Highlight = {
 | モジュール | パス | 役割 |
 |----------|------|------|
 | `entrypoint` | `batch/src/entrypoint.ts` | バッチトリガー。DI で各サービスを組み立てて動画解析処理を開始する（split コマンドは廃止） |
-| `FfmpegVideoAnalyzer` | `batch/src/libs/ffmpeg-video-analyzer.ts` | FFmpeg を使ったフレーム差分・音量データの抽出（インフラ層） |
-| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | `HighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い変化量で上位10件を返す |
-| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | `HighlightExtractorService` の具象実装。`FfmpegVideoAnalyzer` を使い音量で上位10件を返す |
+| `FfmpegVideoAnalyzer` | `batch/src/libs/ffmpeg-video-analyzer.ts` | FFmpeg を使ったフレーム差分・音量データの抽出（インフラ層）。ウィンドウ集約を行わず、閾値を超えた全フレームの生スコア `{ second: number; score: number }[]` を返す |
+| `MotionHighlightService` | `batch/src/libs/motion-highlight.service.ts` | `HighlightAggregationService` に生スコアを渡す薄いアダプター。上位件数制限は行わない |
+| `VolumeHighlightService` | `batch/src/libs/volume-highlight.service.ts` | `HighlightAggregationService` に生スコアを渡す薄いアダプター。上位件数制限は行わない |
 | `FfmpegClipSplitter` | `batch/src/libs/ffmpeg-clip-splitter.ts` | `ClipSplitterService` の具象実装。FFmpeg でクリップを書き出す（clip-regenerate Lambda から利用） |
 
 **lambda/clip（新規）**
@@ -266,8 +266,25 @@ type Highlight = {
 - ファイルサイズに応じて Batch Job Definition を自動選択（small / large / xlarge の 3 段階）
 - 見どころ抽出処理の目標: 30秒以内（目安）。リソース設計時に検証する
 - ZIP 生成の目標: 30秒以内（目安）
-- `HighlightAggregationService` はオーバーラップする motion / volume 結果を1件にマージする（時間範囲はユニオン、スコアは最大値、source は `'both'`）
-- ハイライトは上位 20 件をスコードで選出後、開始時間昇順に並び替えてから `order` を付与する
+- **ハイライト抽出アルゴリズム（貪欲クリップ選択）**
+
+  `FfmpegVideoAnalyzer.analyzeMotion()` / `analyzeVolume()` はウィンドウ集約を行わず、閾値を超えた全フレームの生スコア `{ second: number; score: number }[]` をそのまま返す。
+
+  `HighlightAggregationService` が以下の貪欲選択を実行する：
+
+  1. Motion スコアリストと Volume スコアリストをそれぞれスコア降順にソート
+  2. 両者を **交互に** 1 件ずつ取り出しながら処理する（Motion → Volume → Motion → …）
+  3. 取り出した peak 時刻 `t` に対して理想クリップ `[t - 10, t + 10]` を計算
+  4. 動画端でクランプ: `start = max(0, t - 10)`、`end = min(duration, t + 10)`（短くなることを許容）
+  5. 採用済みクリップリストと区間が少しでも重複する場合 → 既存クリップを拡張して統合
+     - `startSec = min(既存.startSec, 新.startSec)`
+     - `endSec = max(既存.endSec, 新.endSec)`
+     - 連鎖統合も許容（長いクリップになることを許容）
+     - `source` は統合元に応じて `'motion'` / `'volume'` / `'both'` を設定
+  6. 重複なし → 新規クリップとして追加
+  7. 採用済みクリップ数が **20 件** に達したら終了
+
+  最後に開始時間昇順にソートして `order` を付与する。
 
 ### セキュリティ考慮事項
 

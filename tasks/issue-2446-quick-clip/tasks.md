@@ -586,6 +586,84 @@
 - [x] `services/quick-clip/web/tests/unit/app/page.test.tsx`
     - マルチパートフローのテストを追加
 
+## Phase 10-6: ハイライト抽出アルゴリズム改善
+
+<!--
+    クリップ生成アルゴリズムを固定 10 秒ウィンドウから「ピーク中心の前後 10 秒・貪欲統合」方式に変更する。
+
+    背景:
+        現状は動画を 0〜10秒, 10〜20秒, … と固定窓に区切り、窓内のスコアを合計してランキングする。
+        問題: ウィンドウ境界とトリガー時刻がずれると退屈な区間がクリップの大半を占める。
+        またクリップ長が 10 秒と短く、前後の文脈が取れない。
+
+    新方式:
+        1. FfmpegVideoAnalyzer は閾値を超えた全フレームの生スコア { second, score }[] を返す（集約しない）
+        2. HighlightAggregationService が Motion/Volume のスコアリストを交互に参照しながら
+           ピーク時刻 t を中心に [max(0, t-10), min(duration, t+10)] のクリップを生成する（目安 20 秒）
+        3. 既存クリップと区間が重複すれば拡張統合（連鎖統合・長いクリップを許容）
+        4. 20 件に達したら終了
+
+    詳細仕様: design.md のパフォーマンス考慮事項「ハイライト抽出アルゴリズム（貪欲クリップ選択）」を参照
+-->
+
+### 10-6-1. 仕様更新（依存: なし）
+
+- [ ] `design.md` のパフォーマンス考慮事項を新アルゴリズム仕様に更新（上記参照）
+- [ ] `design.md` のコンポーネント設計（batch / core）の役割説明を更新
+
+### 10-6-2. FfmpegVideoAnalyzer 変更（依存: 10-6-1）
+
+対象: `services/quick-clip/core/src/libs/ffmpeg-video-analyzer.ts`
+
+- [ ] `toTopWindows()` 関数を削除
+- [ ] `analyzeMotion()` の戻り値を `TimeWindowScore[]` → `{ second: number; score: number }[]` に変更
+    - `sceneEntries` をそのまま返す（集約・ソート・スライスを行わない）
+    - `limit` パラメーターを削除
+- [ ] `analyzeVolume()` の戻り値を同様に変更
+    - `entries` をそのまま返す
+    - `limit` パラメーターを削除
+- [ ] `TimeWindowScore` 型のエクスポートを削除（不要になる）
+- [ ] `DEFAULT_WINDOW_SECONDS` 定数を削除
+- [ ] `MIN_HIGHLIGHT_WINDOW_SECONDS` 定数を削除
+- [ ] `ensureMinimumDuration()` メソッドを削除
+- [ ] `services/quick-clip/core/tests/unit/libs/ffmpeg-video-analyzer.test.ts` を更新
+
+### 10-6-3. MotionHighlightService / VolumeHighlightService 変更（依存: 10-6-2）
+
+対象:
+- `services/quick-clip/core/src/libs/motion-highlight.service.ts`
+- `services/quick-clip/core/src/libs/volume-highlight.service.ts`
+
+- [ ] `MotionHighlightService.extractHighlights()` を廃止し、生スコアリストを返す `analyzeMotion()` ラッパーに変更
+    - `ensureMinimumDuration()` 呼び出しを削除
+    - 戻り値の型を `{ second: number; score: number }[]` に変更
+- [ ] `VolumeHighlightService` も同様に変更
+- [ ] `HighlightExtractorService` インターフェースの変更要否を確認・対応
+    - インターフェースが `ExtractedHighlight[]` を返す契約になっている場合は廃止または変更する
+- [ ] テストを更新
+
+### 10-6-4. HighlightAggregationService 変更（依存: 10-6-3）
+
+対象: `services/quick-clip/core/src/libs/highlight-aggregation.service.ts`
+
+- [ ] 既存の `aggregate()` メソッドを新しい貪欲クリップ選択アルゴリズムで置き換え
+    - 引数: `motionScores: { second: number; score: number }[]`, `volumeScores: { second: number; score: number }[]`, `duration: number`
+    - Motion/Volume を交互にスコア降順で取り出す
+    - 各 peak に対して `[max(0, t-10), min(duration, t+10)]` のクリップを生成
+    - 採用済みクリップと重複（1 秒でも被る）する場合は拡張統合（連鎖統合も許容）
+    - 採用クリップ数が 20 件に達したら終了
+    - `source` は `'motion'` / `'volume'` / `'both'` を適切に設定
+    - 最後に `startSec` 昇順でソート
+- [ ] `services/quick-clip/core/tests/unit/libs/highlight-aggregation.service.test.ts` を新アルゴリズムに合わせて更新
+
+### 10-6-5. QuickClipBatchRunner 呼び出し側修正（依存: 10-6-4）
+
+対象: `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`
+
+- [ ] `HighlightAggregationService` の新インターフェースに合わせて呼び出し側を修正
+    - `duration` を `FfmpegVideoAnalyzer.getDurationSec()` から取得して渡す
+- [ ] `services/quick-clip/core/tests/unit/libs/quick-clip-batch-runner.test.ts` を更新
+
 ## Phase 11: 検証・ドキュメント整備
 
 - [ ] 受け入れテスト（`requirements.md` のユースケースを全件手動確認）
