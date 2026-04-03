@@ -22,7 +22,12 @@ const ACCEPTED_FILE_TYPE = 'video/mp4';
 
 type CreateJobResponse = {
   jobId: string;
-  uploadUrl: string;
+  uploadUrl?: string;
+  multipart?: {
+    uploadId: string;
+    uploadUrls: string[];
+    chunkSize: number;
+  };
 };
 
 export default function Home() {
@@ -93,19 +98,74 @@ export default function Home() {
       const data = (await response.json()) as CreateJobResponse;
 
       try {
-        const uploadResponse = await fetch(data.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': ACCEPTED_FILE_TYPE,
-          },
-          body: file,
-        });
+        if (data.multipart) {
+          const parts: Array<{ PartNumber: number; ETag: string }> = [];
+          for (const [index, uploadUrl] of data.multipart.uploadUrls.entries()) {
+            const start = index * data.multipart.chunkSize;
+            const end = Math.min(start + data.multipart.chunkSize, file.size);
+            const chunk = file.slice(start, end);
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': ACCEPTED_FILE_TYPE,
+              },
+              body: chunk,
+            });
 
-        if (!uploadResponse.ok) {
-          console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-            status: uploadResponse.status,
+            const eTag = uploadResponse.headers.get('ETag');
+            if (!uploadResponse.ok || !eTag) {
+              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+                status: uploadResponse.status,
+              });
+              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+              setIsSubmitting(false);
+              return;
+            }
+
+            parts.push({
+              PartNumber: index + 1,
+              ETag: eTag,
+            });
+          }
+
+          const completeUploadResponse = await fetch(`/api/jobs/${data.jobId}/complete-upload`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              uploadId: data.multipart.uploadId,
+              parts,
+            }),
           });
-          setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+
+          if (!completeUploadResponse.ok) {
+            console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+              status: completeUploadResponse.status,
+            });
+            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+            setIsSubmitting(false);
+            return;
+          }
+        } else if (data.uploadUrl) {
+          const uploadResponse = await fetch(data.uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': ACCEPTED_FILE_TYPE,
+            },
+            body: file,
+          });
+
+          if (!uploadResponse.ok) {
+            console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+              status: uploadResponse.status,
+            });
+            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+            setIsSubmitting(false);
+            return;
+          }
+        } else {
+          setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
           setIsSubmitting(false);
           return;
         }

@@ -579,11 +579,11 @@
 
 ### Phase 10-5: フロントエンド マルチパートアップロード対応
 
-- [ ] `services/quick-clip/web/src/app/page.tsx`
+- [x] `services/quick-clip/web/src/app/page.tsx`
     - `POST /api/jobs` のレスポンスに `multipart` があるか判定
     - `multipart` あり: ファイルを `chunkSize` ずつ `slice` → 各パートを順次 PUT → ETag 収集 → `POST /api/jobs/{jobId}/complete-upload`
     - `multipart` なし: 既存 single PUT フロー（変更なし）
-- [ ] `services/quick-clip/web/tests/unit/app/page.test.tsx`
+- [x] `services/quick-clip/web/tests/unit/app/page.test.tsx`
     - マルチパートフローのテストを追加
 
 ## Phase 11: 検証・ドキュメント整備
