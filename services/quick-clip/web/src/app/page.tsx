@@ -8,13 +8,17 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 const ERROR_MESSAGES = {
   SELECT_FILE: '動画ファイルを選択してください',
   CREATE_JOB_FAILED: 'アップロード処理の開始に失敗しました',
+  INVALID_UPLOAD_PARAMETERS: 'アップロードパラメータが不正です',
   UPLOAD_FAILED: '動画ファイルのアップロードに失敗しました',
+  COMPLETE_UPLOAD_FAILED: 'アップロード完了処理に失敗しました',
   UNKNOWN: '予期しないエラーが発生しました',
 } as const;
 
 const LOG_MESSAGES = {
   UPLOAD_FAILED: '動画アップロードに失敗しました',
   UPLOAD_EXCEPTION: '動画アップロード時に予期しないエラーが発生しました',
+  COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
+  INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
   UNKNOWN: 'アップロード処理の開始時に予期しないエラーが発生しました',
 } as const;
 
@@ -22,7 +26,12 @@ const ACCEPTED_FILE_TYPE = 'video/mp4';
 
 type CreateJobResponse = {
   jobId: string;
-  uploadUrl: string;
+  uploadUrl?: string;
+  multipart?: {
+    uploadId: string;
+    uploadUrls: string[];
+    chunkSize: number;
+  };
 };
 
 export default function Home() {
@@ -93,19 +102,106 @@ export default function Home() {
       const data = (await response.json()) as CreateJobResponse;
 
       try {
-        const uploadResponse = await fetch(data.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': ACCEPTED_FILE_TYPE,
-          },
-          body: file,
-        });
+        if (data.multipart) {
+          const chunkSizeBytes = data.multipart.chunkSize;
+          if (!Number.isInteger(chunkSizeBytes) || chunkSizeBytes <= 0) {
+            console.error(LOG_MESSAGES.INVALID_MULTIPART_PARAMETERS, {
+              chunkSizeBytes,
+            });
+            setErrorMessage(ERROR_MESSAGES.INVALID_UPLOAD_PARAMETERS);
+            setIsSubmitting(false);
+            return;
+          }
 
-        if (!uploadResponse.ok) {
-          console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-            status: uploadResponse.status,
+          const expectedPartCount = Math.ceil(file.size / chunkSizeBytes);
+          if (expectedPartCount <= 0 || expectedPartCount !== data.multipart.uploadUrls.length) {
+            console.error(LOG_MESSAGES.INVALID_MULTIPART_PARAMETERS, {
+              expectedPartCount,
+              uploadUrlCount: data.multipart.uploadUrls.length,
+            });
+            setErrorMessage(ERROR_MESSAGES.INVALID_UPLOAD_PARAMETERS);
+            setIsSubmitting(false);
+            return;
+          }
+
+          const parts: Array<{ PartNumber: number; ETag: string }> = [];
+          for (const [index, uploadUrl] of data.multipart.uploadUrls.entries()) {
+            const start = index * chunkSizeBytes;
+            const end = Math.min(start + chunkSizeBytes, file.size);
+            const chunk = file.slice(start, end);
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': ACCEPTED_FILE_TYPE,
+              },
+              body: chunk,
+            });
+
+            const eTag = uploadResponse.headers.get('ETag');
+            if (!uploadResponse.ok) {
+              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+                status: uploadResponse.status,
+                partNumber: index + 1,
+              });
+              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+              setIsSubmitting(false);
+              return;
+            }
+            if (!eTag) {
+              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+                partNumber: index + 1,
+                eTag,
+                reason: 'ETagが取得できませんでした',
+              });
+              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+              setIsSubmitting(false);
+              return;
+            }
+
+            parts.push({
+              PartNumber: index + 1,
+              ETag: eTag,
+            });
+          }
+
+          const completeUploadResponse = await fetch(`/api/jobs/${data.jobId}/complete-upload`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              uploadId: data.multipart.uploadId,
+              parts,
+            }),
           });
-          setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+
+          if (!completeUploadResponse.ok) {
+            console.error(LOG_MESSAGES.COMPLETE_UPLOAD_FAILED, {
+              status: completeUploadResponse.status,
+            });
+            setErrorMessage(ERROR_MESSAGES.COMPLETE_UPLOAD_FAILED);
+            setIsSubmitting(false);
+            return;
+          }
+        } else if (data.uploadUrl) {
+          const uploadResponse = await fetch(data.uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': ACCEPTED_FILE_TYPE,
+            },
+            body: file,
+          });
+
+          if (!uploadResponse.ok) {
+            console.error(LOG_MESSAGES.UPLOAD_FAILED, {
+              status: uploadResponse.status,
+            });
+            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+            setIsSubmitting(false);
+            return;
+          }
+        } else {
+          setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
           setIsSubmitting(false);
           return;
         }
