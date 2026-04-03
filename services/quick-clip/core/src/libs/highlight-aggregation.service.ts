@@ -3,10 +3,14 @@ import type { ExtractedHighlight, HighlightScore, HighlightSource } from './high
 const MAX_HIGHLIGHTS = 20;
 const CLIP_HALF_WINDOW_SECONDS = 10;
 
+// 「1秒でも被る場合のみ統合」のため、境界接触 (end === start) は重複とみなさない。
 const isOverlapping = (left: ExtractedHighlight, right: ExtractedHighlight): boolean =>
   left.startSec < right.endSec && right.startSec < left.endSec;
 
 const mergeSource = (left: HighlightSource, right: HighlightSource): HighlightSource => {
+  if (left === 'both' || right === 'both') {
+    return 'both';
+  }
   if (left === right) {
     return left;
   }
