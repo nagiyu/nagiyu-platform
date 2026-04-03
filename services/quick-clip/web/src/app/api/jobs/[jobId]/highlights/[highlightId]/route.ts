@@ -1,17 +1,24 @@
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
-import { getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
+import { InvokeCommand } from '@aws-sdk/client-lambda';
+import {
+  getDynamoDBDocumentClient,
+  getClipRegenerateFunctionName,
+  getLambdaClient,
+  getTableName,
+} from '@/lib/server/aws';
 import {
   DOMAIN_ERROR_MESSAGES,
   HighlightDomainService,
   isHighlightStatus,
 } from '@/lib/server/domain-services';
-import type { UpdateHighlightInput } from '@/types/quick-clip';
+import type { Highlight, UpdateHighlightInput } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
   INVALID_REQUEST: '更新内容が不正です',
   HIGHLIGHT_NOT_FOUND: '指定された見どころが見つかりません',
   INTERNAL_SERVER_ERROR: '見どころの更新に失敗しました',
+  CLIP_REGENERATE_INVOKE_FAILED: 'クリップ再生成の起動に失敗しました',
 } as const;
 
 type UpdateHighlightRequest = {
@@ -44,6 +51,23 @@ const isUpdateRequest = (body: unknown): body is UpdateHighlightRequest => {
   const hasStatus = request.status === undefined || isHighlightStatus(request.status);
 
   return hasStart && hasEnd && hasStatus;
+};
+
+const invokeClipRegenerate = async (jobId: string, highlight: Highlight): Promise<void> => {
+  await getLambdaClient().send(
+    new InvokeCommand({
+      FunctionName: getClipRegenerateFunctionName(),
+      InvocationType: 'Event',
+      Payload: Buffer.from(
+        JSON.stringify({
+          jobId,
+          highlightId: highlight.highlightId,
+          startSec: highlight.startSec,
+          endSec: highlight.endSec,
+        })
+      ),
+    })
+  );
 };
 
 export async function PATCH(request: Request, { params }: RouteParams): Promise<NextResponse> {
@@ -86,12 +110,43 @@ export async function PATCH(request: Request, { params }: RouteParams): Promise<
         return NextResponse.json(updated);
       }
 
+      const currentHighlight = await highlightService.getHighlight(jobId, highlightId);
+      if (!currentHighlight) {
+        return NextResponse.json(
+          {
+            error: 'HIGHLIGHT_NOT_FOUND',
+            message: ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND,
+          },
+          { status: 404 }
+        );
+      }
+
+      const statusReset =
+        currentHighlight.status === 'accepted' || currentHighlight.status === 'rejected'
+          ? { status: 'unconfirmed' as const }
+          : {};
+
       const updates = {
         ...body,
-        clipStatus: 'PENDING' as const,
+        ...statusReset,
+        clipStatus: 'GENERATING' as const,
       };
 
       const updated = await highlightService.updateHighlight(jobId, highlightId, updates);
+
+      try {
+        await invokeClipRegenerate(jobId, updated);
+      } catch (invokeError) {
+        console.error(
+          `[PATCH /api/jobs/[jobId]/highlights/[highlightId]] ${ERROR_MESSAGES.CLIP_REGENERATE_INVOKE_FAILED}`,
+          {
+            jobId,
+            highlightId,
+            error: invokeError,
+          }
+        );
+      }
+
       return NextResponse.json(updated);
     } catch (error) {
       if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.HIGHLIGHT_NOT_FOUND) {

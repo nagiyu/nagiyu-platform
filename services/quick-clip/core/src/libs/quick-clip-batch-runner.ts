@@ -127,7 +127,7 @@ const persistHighlights = async (
     highlights.map((highlight) => ({
       ...highlight,
       jobId,
-      status: 'pending',
+      status: 'unconfirmed',
       clipStatus: 'PENDING',
     }))
   );
@@ -152,7 +152,7 @@ const buildHighlights = async (jobId: string, localPath: string): Promise<Highli
     startSec: item.startSec,
     endSec: item.endSec,
     source: item.source,
-    status: 'pending',
+    status: 'unconfirmed',
     clipStatus: 'PENDING',
   }));
 };

@@ -15,7 +15,7 @@ const baseHighlight: Highlight = {
   startSec: 10,
   endSec: 20,
   source: 'motion',
-  status: 'pending',
+  status: 'unconfirmed',
   clipStatus: 'PENDING',
 };
 
@@ -29,6 +29,27 @@ describe('HighlightService', () => {
 
     expect(result).toEqual([baseHighlight]);
     expect(repository.getByJobId).toHaveBeenCalledWith('job-1');
+  });
+
+  it('getHighlight: 存在する見どころを取得する', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue(baseHighlight);
+
+    const result = await service.getHighlight('job-1', 'h1');
+
+    expect(result).toEqual(baseHighlight);
+    expect(repository.getById).toHaveBeenCalledWith('job-1', 'h1');
+  });
+
+  it('getHighlight: 存在しない見どころは null を返す', async () => {
+    const repository = createRepositoryMock();
+    const service = new HighlightService(repository);
+    repository.getById.mockResolvedValue(null);
+
+    const result = await service.getHighlight('job-1', 'missing');
+
+    expect(result).toBeNull();
   });
 
   it('更新項目が空の場合はエラー', async () => {

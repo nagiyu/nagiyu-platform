@@ -179,7 +179,7 @@ describe('runQuickClipBatch', () => {
           endSec: 3,
           order: 1,
           source: 'motion',
-          status: 'pending',
+          status: 'unconfirmed',
           clipStatus: 'PENDING',
         }),
         expect.objectContaining({
@@ -188,7 +188,7 @@ describe('runQuickClipBatch', () => {
           endSec: 8,
           order: 2,
           source: 'volume',
-          status: 'pending',
+          status: 'unconfirmed',
           clipStatus: 'PENDING',
         }),
       ])

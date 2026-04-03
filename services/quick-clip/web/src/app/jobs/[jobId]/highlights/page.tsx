@@ -6,10 +6,12 @@ import {
   Box,
   Button,
   Chip,
-  Checkbox,
   CircularProgress,
   Container,
+  FormControlLabel,
   Paper,
+  Radio,
+  RadioGroup,
   Stack,
   Table,
   TableBody,
@@ -20,8 +22,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import ReplayIcon from '@mui/icons-material/Replay';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import type { Highlight } from '@/types/quick-clip';
-import { clearSelectedIdIfHighlightMatches } from './selection';
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
@@ -31,16 +34,23 @@ const ERROR_MESSAGES = {
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
 } as const;
-const CLIP_STATUS_LABELS = {
-  PENDING: '未生成',
-  GENERATING: '生成中',
-  GENERATED: '生成完了',
-  FAILED: '生成失敗',
-} as const;
 const HIGHLIGHT_SOURCE_LABELS = {
   motion: 'モーション',
   volume: '音量',
   both: '両方',
+} as const;
+const HIGHLIGHT_STATUS_LABELS = {
+  unconfirmed: '未確認',
+  accepted: '使える',
+  rejected: '使えない',
+} as const;
+const HIGHLIGHT_STATUS_COLORS: Record<
+  'unconfirmed' | 'accepted' | 'rejected',
+  'default' | 'success' | 'error'
+> = {
+  unconfirmed: 'default',
+  accepted: 'success',
+  rejected: 'error',
 } as const;
 
 type HighlightsPageProps = {
@@ -159,21 +169,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           });
           return changed ? updated : current;
         });
-        setSelectedId((current) => {
-          if (
-            current &&
-            data.highlights.some(
-              (highlight) =>
-                highlight.highlightId === current && highlight.clipStatus === 'GENERATED'
-            )
-          ) {
-            return current;
-          }
-          return (
-            data.highlights.find((highlight) => highlight.clipStatus === 'GENERATED')
-              ?.highlightId ?? null
-          );
-        });
         setErrorMessage(null);
       } catch {
         setErrorMessage(ERROR_MESSAGES.LOAD_FAILED);
@@ -192,13 +187,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       return;
     }
 
-    let active = true;
-
     void fetchHighlights({ isInitialLoad: true });
-
-    return () => {
-      active = false;
-    };
   }, [fetchHighlights, jobId]);
 
   const selectedHighlight = useMemo(() => {
@@ -209,13 +198,16 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     return { ...highlight, clipUrl: clipUrls[highlight.highlightId] };
   }, [clipUrls, highlights, selectedId]);
 
-  const hasGenerating = useMemo(
-    () => highlights.some((highlight) => highlight.clipStatus === 'GENERATING'),
+  const hasPendingOrGenerating = useMemo(
+    () =>
+      highlights.some(
+        (highlight) => highlight.clipStatus === 'PENDING' || highlight.clipStatus === 'GENERATING'
+      ),
     [highlights]
   );
 
   useEffect(() => {
-    if (!jobId || !hasGenerating) {
+    if (!jobId || !hasPendingOrGenerating) {
       return;
     }
 
@@ -226,7 +218,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [fetchHighlights, hasGenerating, jobId]);
+  }, [fetchHighlights, hasPendingOrGenerating, jobId]);
 
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
@@ -245,7 +237,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     values: {
       startSec?: number;
       endSec?: number;
-      status?: 'accepted' | 'rejected' | 'pending';
+      status?: 'accepted' | 'rejected' | 'unconfirmed';
     }
   ): Promise<void> => {
     const response = await fetch(`/api/jobs/${jobId}/highlights/${highlightId}`, {
@@ -269,11 +261,12 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     );
   };
 
-  const onToggleAccepted = async (highlight: Highlight, checked: boolean) => {
+  const onChangeStatus = async (
+    highlight: Highlight,
+    status: 'accepted' | 'rejected' | 'unconfirmed'
+  ) => {
     try {
-      await updateHighlight(highlight.highlightId, {
-        status: checked ? 'accepted' : 'rejected',
-      });
+      await updateHighlight(highlight.highlightId, { status });
       setErrorMessage(null);
     } catch {
       setErrorMessage(ERROR_MESSAGES.UPDATE_FAILED);
@@ -298,9 +291,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         startSec,
         endSec,
       });
-      if (selectedId === highlight.highlightId) {
-        setSelectedId(null);
-      }
       setErrorMessage(null);
     } catch (error) {
       if (!(error instanceof RangeInvalidError)) {
@@ -325,7 +315,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       setHighlights((current) =>
         current.map((item) => (item.highlightId === updated.highlightId ? updated : item))
       );
-      setSelectedId(clearSelectedIdIfHighlightMatches(highlight.highlightId));
       setErrorMessage(null);
     } catch {
       setErrorMessage(ERROR_MESSAGES.REGENERATE_FAILED);
@@ -358,8 +347,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Paper sx={{ p: 4 }}>
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Paper sx={{ p: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           見どころ確認画面
         </Typography>
@@ -384,139 +373,220 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         )}
 
         {highlights.length > 0 && (
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                クリッププレビュー
-              </Typography>
-              <video
-                key={selectedHighlight?.highlightId ?? 'no-selection'}
-                controls
-                aria-label="見どころ動画プレビュー"
-                src={selectedHighlight?.clipUrl}
-                style={{ width: '100%' }}
-              >
-                お使いのブラウザは video 要素に対応していません。
-              </video>
-              {selectedHighlight && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  選択中: #{selectedHighlight.order} ({selectedHighlight.startSec}s -{' '}
-                  {selectedHighlight.endSec}s)
-                </Typography>
-              )}
-              {!selectedHighlight && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  クリップ生成中のため、生成完了までお待ちください。
-                </Typography>
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
+            {/* 左パネル: ディテール */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {!selectedHighlight ? (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    height: 300,
+                    border: '1px dashed',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                  }}
+                >
+                  <Typography color="text.secondary">クリップを選択してください</Typography>
+                </Box>
+              ) : (
+                <Stack spacing={2}>
+                  {/* クリッププレビュー */}
+                  {selectedHighlight.clipStatus === 'GENERATED' && (
+                    <video
+                      key={selectedHighlight.highlightId}
+                      controls
+                      aria-label="見どころ動画プレビュー"
+                      src={selectedHighlight.clipUrl}
+                      style={{ width: '100%' }}
+                    >
+                      お使いのブラウザは video 要素に対応していません。
+                    </video>
+                  )}
+                  {(selectedHighlight.clipStatus === 'PENDING' ||
+                    selectedHighlight.clipStatus === 'GENERATING') && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: 200,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <CircularProgress size={20} />
+                        <Typography>クリップ生成中...</Typography>
+                      </Stack>
+                    </Box>
+                  )}
+                  {selectedHighlight.clipStatus === 'FAILED' && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: 200,
+                        border: '1px solid',
+                        borderColor: 'error.main',
+                        borderRadius: 1,
+                        color: 'error.main',
+                      }}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <ErrorOutlineIcon />
+                        <Typography>クリップ生成に失敗しました</Typography>
+                      </Stack>
+                    </Box>
+                  )}
+
+                  {/* クリップ情報 */}
+                  <Box>
+                    <Typography variant="subtitle2" color="text.secondary">
+                      #{selectedHighlight.order} |{' '}
+                      {HIGHLIGHT_SOURCE_LABELS[selectedHighlight.source]}
+                    </Typography>
+                  </Box>
+
+                  {/* 採否ステータス */}
+                  <Box>
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      採否ステータス:
+                    </Typography>
+                    <RadioGroup
+                      row
+                      value={selectedHighlight.status}
+                      onChange={(event) => {
+                        const val = event.target.value;
+                        if (val !== 'unconfirmed' && val !== 'accepted' && val !== 'rejected') {
+                          return;
+                        }
+                        void onChangeStatus(selectedHighlight, val);
+                      }}
+                    >
+                      <FormControlLabel
+                        value="unconfirmed"
+                        control={<Radio size="small" />}
+                        label="未確認"
+                      />
+                      <FormControlLabel
+                        value="accepted"
+                        control={<Radio size="small" />}
+                        label="使える"
+                      />
+                      <FormControlLabel
+                        value="rejected"
+                        control={<Radio size="small" />}
+                        label="使えない"
+                      />
+                    </RadioGroup>
+                  </Box>
+
+                  {/* 時間調整 */}
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        開始(秒):
+                      </Typography>
+                      <TimeInput
+                        value={selectedHighlight.startSec}
+                        min={0}
+                        onCommit={(value) => onUpdateRange(selectedHighlight, 'startSec', value)}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        終了(秒):
+                      </Typography>
+                      <TimeInput
+                        value={selectedHighlight.endSec}
+                        min={1}
+                        onCommit={(value) => onUpdateRange(selectedHighlight, 'endSec', value)}
+                      />
+                    </Box>
+                  </Stack>
+
+                  {/* リトライボタン (FAILED 時のみ) */}
+                  {selectedHighlight.clipStatus === 'FAILED' && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<ReplayIcon />}
+                      onClick={() => void onRegenerate(selectedHighlight)}
+                    >
+                      リトライ
+                    </Button>
+                  )}
+                </Stack>
               )}
             </Box>
 
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>No.</TableCell>
-                    <TableCell>開始〜終了(秒)</TableCell>
-                    <TableCell>根拠</TableCell>
-                    <TableCell>使える</TableCell>
-                    <TableCell>開始調整</TableCell>
-                    <TableCell>終了調整</TableCell>
-                    <TableCell>再生成</TableCell>
-                    <TableCell>生成状態</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {highlights.map((highlight) => (
-                    <TableRow
-                      key={highlight.highlightId}
-                      hover
-                      selected={highlight.highlightId === selectedId}
-                      onClick={() => {
-                        if (highlight.clipStatus === 'GENERATED') {
-                          setSelectedId(highlight.highlightId);
-                        }
-                      }}
-                      sx={{ cursor: highlight.clipStatus === 'GENERATED' ? 'pointer' : 'default' }}
-                    >
-                      <TableCell>#{highlight.order}</TableCell>
-                      <TableCell>
-                        {highlight.startSec}s〜{highlight.endSec}s
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={HIGHLIGHT_SOURCE_LABELS[highlight.source]}
-                          size="small"
-                          color={highlight.source === 'both' ? 'primary' : 'default'}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(event) => event.stopPropagation()}>
-                        <Checkbox
-                          checked={highlight.status === 'accepted'}
-                          onChange={(event) => onToggleAccepted(highlight, event.target.checked)}
-                          inputProps={{ 'aria-label': `見どころ${highlight.order}を使えるにする` }}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(event) => event.stopPropagation()}>
-                        <TimeInput
-                          value={highlight.startSec}
-                          min={0}
-                          onCommit={(value) => onUpdateRange(highlight, 'startSec', value)}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(event) => event.stopPropagation()}>
-                        <TimeInput
-                          value={highlight.endSec}
-                          min={1}
-                          onCommit={(value) => onUpdateRange(highlight, 'endSec', value)}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(event) => event.stopPropagation()}>
-                        {highlight.clipStatus === 'GENERATING' ? (
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CircularProgress size={16} />
-                            <Typography variant="body2">再生成中</Typography>
-                          </Stack>
-                        ) : (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => void onRegenerate(highlight)}
-                            disabled={
-                              highlight.clipStatus !== 'PENDING' &&
-                              highlight.clipStatus !== 'FAILED'
-                            }
-                          >
-                            再生成
-                          </Button>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {highlight.clipStatus === 'GENERATING' ? (
-                          <Stack direction="row" spacing={1} alignItems="center">
-                            <CircularProgress size={16} />
-                            <Typography variant="body2">生成中</Typography>
-                          </Stack>
-                        ) : (
-                          CLIP_STATUS_LABELS[highlight.clipStatus]
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            {/* 右パネル: マスター一覧 */}
+            <Box sx={{ width: 400, flexShrink: 0 }}>
+              <Stack spacing={2}>
+                <TableContainer
+                  component={Paper}
+                  variant="outlined"
+                  sx={{ maxHeight: 480, overflow: 'auto' }}
+                >
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>No.</TableCell>
+                        <TableCell>開始〜終了(秒)</TableCell>
+                        <TableCell>採否</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {highlights.map((highlight) => (
+                        <TableRow
+                          key={highlight.highlightId}
+                          hover
+                          selected={highlight.highlightId === selectedId}
+                          onClick={() => setSelectedId(highlight.highlightId)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell>#{highlight.order}</TableCell>
+                          <TableCell>
+                            {highlight.startSec}〜{highlight.endSec}
+                          </TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <Chip
+                                label={HIGHLIGHT_STATUS_LABELS[highlight.status]}
+                                size="small"
+                                color={HIGHLIGHT_STATUS_COLORS[highlight.status]}
+                              />
+                              {highlight.clipStatus === 'GENERATING' && (
+                                <CircularProgress size={12} />
+                              )}
+                              {highlight.clipStatus === 'FAILED' && (
+                                <ErrorOutlineIcon fontSize="small" color="error" />
+                              )}
+                            </Stack>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
 
-            <Typography variant="body2" color="text.secondary">
-              採用中の見どころ: {acceptedCount} 件
-            </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  採用中の見どころ: {acceptedCount} 件
+                </Typography>
 
-            <Button
-              variant="contained"
-              onClick={onDownload}
-              disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip || isDownloading}
-            >
-              {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
-            </Button>
+                <Button
+                  variant="contained"
+                  onClick={onDownload}
+                  disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip || isDownloading}
+                >
+                  {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
+                </Button>
+              </Stack>
+            </Box>
           </Stack>
         )}
       </Paper>

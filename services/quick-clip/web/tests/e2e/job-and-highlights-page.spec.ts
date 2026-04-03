@@ -70,7 +70,7 @@ test.describe('QuickClip Highlights Page', () => {
       const body = request.postDataJSON() as {
         startSec?: number;
         endSec?: number;
-        status?: 'accepted' | 'rejected' | 'pending';
+        status?: 'accepted' | 'rejected' | 'unconfirmed';
       };
       const requestUrl = new URL(request.url());
       const highlightId = requestUrl.pathname.split('/').at(-1) ?? '';
@@ -123,9 +123,14 @@ test.describe('QuickClip Highlights Page', () => {
 
     await expect(page.getByRole('heading', { level: 1, name: '見どころ確認画面' })).toBeVisible();
     await expect(page.getByText('採用中の見どころ: 1 件')).toBeVisible();
+
+    // クリックして h-1 の動画プレビューを表示
+    await page.getByText('#1').click();
     await expect(page.locator('video')).toHaveAttribute('src', 'https://example.com/clip-h-1.mp4');
 
-    await page.getByRole('checkbox', { name: /見どころ2.*使える/ }).click();
+    // h-2 を選択して採否ラジオで「使える」に変更
+    await page.getByText('#2').click();
+    await page.getByRole('radio', { name: '使える' }).click();
     await expect(page.getByText('採用中の見どころ: 2 件')).toBeVisible();
 
     await page.getByRole('button', { name: 'ZIP ダウンロード' }).click();

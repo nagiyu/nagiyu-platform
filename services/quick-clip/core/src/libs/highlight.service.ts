@@ -16,6 +16,16 @@ export class HighlightService {
     return this.highlightRepository.getByJobId(jobId);
   }
 
+  public async getHighlight(jobId: string, highlightId: string): Promise<Highlight | null> {
+    if (jobId.trim().length === 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
+    }
+    if (highlightId.trim().length === 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.HIGHLIGHT_ID_REQUIRED);
+    }
+    return this.highlightRepository.getById(jobId, highlightId);
+  }
+
   public async updateHighlight(
     jobId: string,
     highlightId: string,

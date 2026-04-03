@@ -93,7 +93,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       startSec: 10,
       endSec: 20,
       source: 'motion',
-      status: 'pending',
+      status: 'unconfirmed',
       clipStatus: 'PENDING',
     });
     mockUpdate.mockResolvedValue({
@@ -103,7 +103,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       startSec: 10,
       endSec: 20,
       source: 'motion',
-      status: 'pending',
+      status: 'unconfirmed',
       clipStatus: 'GENERATING',
     });
   });
@@ -132,7 +132,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 10,
         endSec: 20,
         source: 'motion',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
     ]);
@@ -170,7 +170,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     expect(mockedGetSignedUrl).not.toHaveBeenCalled();
   });
 
-  it('正常系: 初回でない場合はクリップ生成開始を行わない', async () => {
+  it('正常系: PENDING と GENERATING が混在する場合は PENDING のみ対象に起動する', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
       status: 'COMPLETED',
@@ -187,7 +187,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 10,
         endSec: 20,
         source: 'motion',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
       {
@@ -197,10 +197,20 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 25,
         endSec: 35,
         source: 'volume',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'GENERATING',
       },
     ]);
+    mockUpdate.mockResolvedValueOnce({
+      highlightId: 'h1',
+      jobId: 'job-1',
+      order: 1,
+      startSec: 10,
+      endSec: 20,
+      source: 'motion',
+      status: 'unconfirmed',
+      clipStatus: 'GENERATING',
+    });
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
@@ -210,7 +220,58 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
     expect(response.status).toBe(200);
     expect(body.highlights).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ highlightId: 'h1', clipStatus: 'PENDING' }),
+        expect.objectContaining({ highlightId: 'h1', clipStatus: 'GENERATING' }),
+        expect.objectContaining({ highlightId: 'h2', clipStatus: 'GENERATING' }),
+      ])
+    );
+    expect(mockLambdaSend).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h1', { clipStatus: 'GENERATING' });
+  });
+
+  it('正常系: PENDING が存在しない場合はクリップ生成開始を行わない', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-1',
+      status: 'COMPLETED',
+      originalFileName: 'movie.mp4',
+      fileSize: 100,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    mockGetHighlights.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'motion',
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+        clipUrl: 'https://example.com/h1.mp4',
+      },
+      {
+        highlightId: 'h2',
+        jobId: 'job-1',
+        order: 2,
+        startSec: 25,
+        endSec: 35,
+        source: 'volume',
+        status: 'unconfirmed',
+        clipStatus: 'GENERATING',
+      },
+    ]);
+    mockedGetSignedUrl.mockResolvedValue('https://example.com/h1.mp4');
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.highlights).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ highlightId: 'h1', clipStatus: 'GENERATED' }),
         expect.objectContaining({ highlightId: 'h2', clipStatus: 'GENERATING' }),
       ])
     );
@@ -235,7 +296,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 10,
         endSec: 20,
         source: 'motion',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
       {
@@ -245,7 +306,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 25,
         endSec: 35,
         source: 'volume',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
     ]);
@@ -257,7 +318,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       startSec: 10,
       endSec: 20,
       source: 'motion',
-      status: 'pending',
+      status: 'unconfirmed',
       clipStatus: 'GENERATING',
     });
 
@@ -302,7 +363,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 10,
         endSec: 20,
         source: 'motion',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
       {
@@ -312,7 +373,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 25,
         endSec: 35,
         source: 'volume',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
     ]);
@@ -324,7 +385,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
       startSec: 25,
       endSec: 35,
       source: 'volume',
-      status: 'pending',
+      status: 'unconfirmed',
       clipStatus: 'GENERATING',
     });
 
@@ -423,7 +484,7 @@ describe('GET /api/jobs/[jobId]/highlights', () => {
         startSec: 10,
         endSec: 20,
         source: 'volume',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'GENERATED',
       },
     ]);
