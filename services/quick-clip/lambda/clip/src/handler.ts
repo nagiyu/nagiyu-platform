@@ -20,7 +20,7 @@ const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
 const CLIP_OUTPUT_PATH = (jobId: string, highlightId: string, requestId: string): string =>
   `/tmp/quick-clip/clip/${requestId}/${jobId}/${highlightId}.mp4`;
-const SOURCE_VIDEO_URL_EXPIRES_SECONDS = 300;
+const PRESIGNED_URL_EXPIRATION_SECONDS = 3600;
 
 export type ClipRegenerateEvent = {
   jobId: string;
@@ -83,11 +83,11 @@ const createSourceVideoUrl = async (
       Bucket: bucketName,
       Key: SOURCE_VIDEO_KEY(jobId),
     }),
-    { expiresIn: SOURCE_VIDEO_URL_EXPIRES_SECONDS }
+    { expiresIn: PRESIGNED_URL_EXPIRATION_SECONDS }
   );
 
 const splitClip = async (
-  inputSource: string,
+  sourceVideoUrl: string,
   outputPath: string,
   startSec: number,
   endSec: number
@@ -102,7 +102,7 @@ const splitClip = async (
       '-t',
       String(duration),
       '-i',
-      inputSource,
+      sourceVideoUrl,
       '-c',
       'copy',
       '-y',
