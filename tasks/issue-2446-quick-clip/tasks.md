@@ -571,11 +571,11 @@
 
 ### Phase 10-4: complete-upload エンドポイント追加
 
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts`（新規）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts`（新規）
     - リクエストボディ: `{ uploadId: string; parts: { PartNumber: number; ETag: string }[] }`
     - 処理: DynamoDB から Job 取得 → `CompleteMultipartUploadCommand` → Batch ジョブサブミット → Job ステータスを PROCESSING に更新
     - レスポンス: 200 OK（ボディなし）
-- [ ] `services/quick-clip/web/tests/unit/app/api/jobs/[jobId]/complete-upload/route.test.ts`（新規）
+- [x] `services/quick-clip/web/tests/unit/app/api/jobs/[jobId]/complete-upload/route.test.ts`（新規）
 
 ### Phase 10-5: フロントエンド マルチパートアップロード対応
 
