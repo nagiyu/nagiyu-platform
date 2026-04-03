@@ -24,4 +24,4 @@ export class HighlightDomainService extends HighlightService {
 }
 
 export const isHighlightStatus = (value: unknown): value is HighlightStatus =>
-  value === 'accepted' || value === 'rejected' || value === 'pending';
+  value === 'accepted' || value === 'rejected' || value === 'unconfirmed';

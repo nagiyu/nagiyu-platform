@@ -29,7 +29,7 @@ const isInitialPendingState = (highlights: Highlight[]): boolean => {
   if (highlights.length === 0) {
     return false;
   }
-  return highlights.every((highlight) => highlight.clipStatus === 'PENDING');
+  return highlights.some((highlight) => highlight.clipStatus === 'PENDING');
 };
 
 const startInitialClipGeneration = async (
@@ -41,8 +41,9 @@ const startInitialClipGeneration = async (
     return highlights;
   }
 
+  const pendingHighlights = highlights.filter((h) => h.clipStatus === 'PENDING');
   const invokeResults = await Promise.all(
-    highlights.map(async (highlight) => {
+    pendingHighlights.map(async (highlight) => {
       try {
         await getLambdaClient().send(
           new InvokeCommand({

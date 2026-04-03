@@ -9,6 +9,69 @@ describe('HighlightsPage', () => {
     jest.useRealTimers();
   });
 
+  it('初期状態は右パネルの一覧を表示し、左パネルはプレースホルダーを表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+    expect(screen.getByText('クリップを選択してください')).toBeInTheDocument();
+  });
+
+  it('右パネルの行をクリックすると左パネルに詳細を表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('#1'));
+
+    expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+      'src',
+      'https://example.com/h-1.mp4'
+    );
+    expect(screen.getByText('#1 | モーション')).toBeInTheDocument();
+  });
+
   it('GENERATED の clipUrl を video 要素に反映して表示する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -32,15 +95,18 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 1 件')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
     });
+
+    fireEvent.click(screen.getByText('#1'));
+
     expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
       'src',
       'https://example.com/h-1.mp4'
     );
   });
 
-  it('GENERATING 行ではローディングインジケーターを表示し、クリックしても選択しない', async () => {
+  it('GENERATING 行クリックで左パネルにローディングを表示する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -52,19 +118,8 @@ describe('HighlightsPage', () => {
             startSec: 10,
             endSec: 20,
             source: 'volume',
-            status: 'accepted',
+            status: 'unconfirmed',
             clipStatus: 'GENERATING',
-          },
-          {
-            highlightId: 'h-2',
-            jobId: 'job-1',
-            order: 2,
-            startSec: 30,
-            endSec: 40,
-            source: 'both',
-            status: 'accepted',
-            clipStatus: 'GENERATED',
-            clipUrl: 'https://example.com/h-2.mp4',
           },
         ],
       }),
@@ -73,14 +128,236 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 2 件')).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
     });
-    expect(screen.getByText('生成中')).toBeInTheDocument();
 
-    const preview = screen.getByLabelText('見どころ動画プレビュー');
-    expect(preview).toHaveAttribute('src', 'https://example.com/h-2.mp4');
     fireEvent.click(screen.getByText('#1'));
-    expect(preview).toHaveAttribute('src', 'https://example.com/h-2.mp4');
+
+    expect(screen.getByText('クリップ生成中...')).toBeInTheDocument();
+    expect(screen.queryByLabelText('見どころ動画プレビュー')).not.toBeInTheDocument();
+  });
+
+  it('FAILED 行クリックで左パネルにエラーとリトライボタンを表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'FAILED',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('#1'));
+
+    expect(screen.getByText('クリップ生成に失敗しました')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'リトライ' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('見どころ動画プレビュー')).not.toBeInTheDocument();
+  });
+
+  it('FAILED 時のリトライボタン押下で regenerate API を呼び出す', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'unconfirmed',
+              clipStatus: 'FAILED',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlightId: 'h-1',
+          jobId: 'job-1',
+          order: 1,
+          startSec: 10,
+          endSec: 20,
+          source: 'motion',
+          status: 'unconfirmed',
+          clipStatus: 'GENERATING',
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('#1'));
+
+    const retryButton = await screen.findByRole('button', { name: 'リトライ' });
+    fireEvent.click(retryButton);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/jobs/job-1/highlights/h-1/regenerate',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+  });
+
+  it('GENERATED 以外の行でも全行クリック可能', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'PENDING',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('#1'));
+
+    expect(screen.getByText('クリップ生成中...')).toBeInTheDocument();
+  });
+
+  it('右パネルの採否チップを表示する（未確認/使える/使えない）', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+          {
+            highlightId: 'h-2',
+            jobId: 'job-1',
+            order: 2,
+            startSec: 30,
+            endSec: 40,
+            source: 'volume',
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-2.mp4',
+          },
+          {
+            highlightId: 'h-3',
+            jobId: 'job-1',
+            order: 3,
+            startSec: 50,
+            endSec: 60,
+            source: 'both',
+            status: 'rejected',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-3.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('未確認')).toBeInTheDocument();
+    });
+    expect(screen.getByText('使える')).toBeInTheDocument();
+    expect(screen.getByText('使えない')).toBeInTheDocument();
+  });
+
+  it('左パネルの採否ラジオで status を変更する', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'unconfirmed',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1.mp4',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlightId: 'h-1',
+          jobId: 'job-1',
+          order: 1,
+          startSec: 10,
+          endSec: 20,
+          source: 'motion',
+          status: 'accepted',
+          clipStatus: 'GENERATED',
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('#1'));
+
+    const acceptedRadio = await screen.findByRole('radio', { name: '使える' });
+    fireEvent.click(acceptedRadio);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        '/api/jobs/job-1/highlights/h-1',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ status: 'accepted' }),
+        })
+      );
+    });
   });
 
   it('GENERATING がある間は 3 秒ごとにポーリングする', async () => {
@@ -99,7 +376,7 @@ describe('HighlightsPage', () => {
               startSec: 10,
               endSec: 20,
               source: 'motion',
-              status: 'accepted',
+              status: 'unconfirmed',
               clipStatus: 'GENERATING',
             },
           ],
@@ -116,7 +393,7 @@ describe('HighlightsPage', () => {
               startSec: 10,
               endSec: 20,
               source: 'motion',
-              status: 'accepted',
+              status: 'unconfirmed',
               clipStatus: 'GENERATING',
             },
           ],
@@ -136,7 +413,60 @@ describe('HighlightsPage', () => {
     });
   });
 
-  it('PENDING のみの場合はポーリングしない', async () => {
+  it('PENDING がある間は 3 秒ごとにポーリングする', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'unconfirmed',
+              clipStatus: 'PENDING',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'unconfirmed',
+              clipStatus: 'PENDING',
+            },
+          ],
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    jest.advanceTimersByTime(3000);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('PENDING も GENERATING もない場合はポーリングしない', async () => {
     jest.useFakeTimers();
 
     global.fetch = jest.fn().mockResolvedValue({
@@ -149,8 +479,10 @@ describe('HighlightsPage', () => {
             order: 1,
             startSec: 10,
             endSec: 20,
+            source: 'motion',
             status: 'accepted',
-            clipStatus: 'PENDING',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
           },
         ],
       }),
@@ -169,7 +501,7 @@ describe('HighlightsPage', () => {
     });
   });
 
-  it('PENDING の再生成ボタン押下で regenerate API を呼び出す', async () => {
+  it('時刻入力中は PATCH を呼ばず、blur 時にのみ呼び出す', async () => {
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce({
@@ -182,85 +514,7 @@ describe('HighlightsPage', () => {
               order: 1,
               startSec: 10,
               endSec: 20,
-              status: 'accepted',
-              clipStatus: 'PENDING',
-            },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          highlightId: 'h-1',
-          jobId: 'job-1',
-          order: 1,
-          startSec: 10,
-          endSec: 20,
-          status: 'accepted',
-          clipStatus: 'GENERATING',
-        }),
-      }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    const regenerateButton = await screen.findByRole('button', { name: '再生成' });
-    fireEvent.click(regenerateButton);
-
-    await waitFor(() => {
-      expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
-        '/api/jobs/job-1/highlights/h-1/regenerate',
-        expect.objectContaining({ method: 'POST' })
-      );
-    });
-  });
-
-  it('再生成 API 失敗時はエラーメッセージを表示する', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          highlights: [
-            {
-              highlightId: 'h-1',
-              jobId: 'job-1',
-              order: 1,
-              startSec: 10,
-              endSec: 20,
-              status: 'accepted',
-              clipStatus: 'PENDING',
-            },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-      }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    const regenerateButton = await screen.findByRole('button', { name: '再生成' });
-    fireEvent.click(regenerateButton);
-
-    await waitFor(() => {
-      expect(screen.getByText('クリップの再生成に失敗しました')).toBeInTheDocument();
-    });
-  });
-
-  it('時間調整成功時は選択中の行を解除する', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          highlights: [
-            {
-              highlightId: 'h-1',
-              jobId: 'job-1',
-              order: 1,
-              startSec: 10,
-              endSec: 20,
+              source: 'motion',
               status: 'accepted',
               clipStatus: 'GENERATED',
               clipUrl: 'https://example.com/h-1.mp4',
@@ -277,58 +531,16 @@ describe('HighlightsPage', () => {
           startSec: 11,
           endSec: 20,
           status: 'accepted',
-          clipStatus: 'PENDING',
+          clipStatus: 'GENERATING',
         }),
       }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    await screen.findByText('選択中: #1 (10s - 20s)');
-    const startInputs = await screen.findAllByRole('spinbutton');
-    fireEvent.change(startInputs[0], { target: { value: '11' } });
-    fireEvent.blur(startInputs[0]);
 
     await waitFor(() => {
-      expect(screen.queryByText('選択中: #1 (10s - 20s)')).not.toBeInTheDocument();
-      expect(
-        screen.getByText('クリップ生成中のため、生成完了までお待ちください。')
-      ).toBeInTheDocument();
+      expect(screen.getByText('#1')).toBeInTheDocument();
     });
-  });
-
-  it('時刻入力中は PATCH を呼ばず、blur 時にのみ呼び出す', async () => {
-    global.fetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          highlights: [
-            {
-              highlightId: 'h-1',
-              jobId: 'job-1',
-              order: 1,
-              startSec: 10,
-              endSec: 20,
-              status: 'accepted',
-              clipStatus: 'PENDING',
-            },
-          ],
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          highlightId: 'h-1',
-          jobId: 'job-1',
-          order: 1,
-          startSec: 11,
-          endSec: 20,
-          status: 'accepted',
-          clipStatus: 'PENDING',
-        }),
-      }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+    fireEvent.click(screen.getByText('#1'));
 
     const startInputs = await screen.findAllByRole('spinbutton');
     fireEvent.change(startInputs[0], { target: { value: '11' } });
@@ -358,14 +570,21 @@ describe('HighlightsPage', () => {
             order: 1,
             startSec: 10,
             endSec: 20,
+            source: 'motion',
             status: 'accepted',
-            clipStatus: 'PENDING',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
           },
         ],
       }),
     }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('#1'));
 
     const startInputs = await screen.findAllByRole('spinbutton');
     fireEvent.change(startInputs[0], { target: { value: '20' } });
@@ -390,8 +609,10 @@ describe('HighlightsPage', () => {
               order: 1,
               startSec: 10,
               endSec: 20,
+              source: 'motion',
               status: 'accepted',
-              clipStatus: 'PENDING',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1.mp4',
             },
           ],
         }),
@@ -401,6 +622,11 @@ describe('HighlightsPage', () => {
       }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByText('#1'));
 
     const startInputs = await screen.findAllByRole('spinbutton');
     fireEvent.change(startInputs[0], { target: { value: '11' } });
@@ -439,7 +665,7 @@ describe('HighlightsPage', () => {
     });
   });
 
-  it('根拠列に抽出根拠のチップを表示する', async () => {
+  it('採用0件の場合はダウンロードボタンを無効化する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -451,20 +677,9 @@ describe('HighlightsPage', () => {
             startSec: 10,
             endSec: 20,
             source: 'motion',
-            status: 'accepted',
+            status: 'unconfirmed',
             clipStatus: 'GENERATED',
             clipUrl: 'https://example.com/h-1.mp4',
-          },
-          {
-            highlightId: 'h-2',
-            jobId: 'job-1',
-            order: 2,
-            startSec: 30,
-            endSec: 45,
-            source: 'both',
-            status: 'accepted',
-            clipStatus: 'GENERATED',
-            clipUrl: 'https://example.com/h-2.mp4',
           },
         ],
       }),
@@ -473,62 +688,8 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(screen.getByText('根拠')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'ZIP ダウンロード' })).toBeDisabled();
     });
-    expect(screen.getByText('モーション')).toBeInTheDocument();
-    expect(screen.getByText('両方')).toBeInTheDocument();
-  });
-
-  it('GENERATED 行クリック時は選択を即時反映する', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        highlights: [
-          {
-            highlightId: 'h-1',
-            jobId: 'job-1',
-            order: 1,
-            startSec: 10,
-            endSec: 20,
-            source: 'motion',
-            status: 'accepted',
-            clipStatus: 'GENERATED',
-            clipUrl: 'https://example.com/h-1.mp4',
-          },
-          {
-            highlightId: 'h-2',
-            jobId: 'job-1',
-            order: 2,
-            startSec: 30,
-            endSec: 40,
-            source: 'volume',
-            status: 'accepted',
-            clipStatus: 'GENERATED',
-            clipUrl: 'https://example.com/h-2.mp4',
-          },
-        ],
-      }),
-    }) as jest.Mock;
-
-    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
-
-    await waitFor(() => {
-      expect(screen.getByText('採用中の見どころ: 2 件')).toBeInTheDocument();
-    });
-
-    expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
-      'src',
-      'https://example.com/h-1.mp4'
-    );
-
-    expect(screen.getByText('選択中: #1 (10s - 20s)')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('#2'));
-    expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
-      'src',
-      'https://example.com/h-2.mp4'
-    );
-    expect(screen.getByText('選択中: #2 (30s - 40s)')).toBeInTheDocument();
   });
 
   it('ポーリング後も選択中 GENERATED クリップの video src を保持する', async () => {
@@ -594,6 +755,12 @@ describe('HighlightsPage', () => {
       }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('#1'));
 
     await waitFor(() => {
       expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
@@ -681,6 +848,12 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('#1'));
+
+    await waitFor(() => {
       expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
         'src',
         'https://example.com/h-1.mp4'
@@ -693,10 +866,9 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledTimes(2);
-      expect(screen.getAllByText('生成完了')).toHaveLength(2);
     });
 
-    fireEvent.click(screen.getAllByRole('row')[2]);
+    fireEvent.click(screen.getByText('#2'));
     await waitFor(() => {
       expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
         'src',

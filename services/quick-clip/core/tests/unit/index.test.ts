@@ -27,7 +27,7 @@ describe('quick-clip core exports', () => {
 
   it('主要な型が利用できる', () => {
     const status: JobStatus = 'PENDING';
-    const highlightStatus: HighlightStatus = 'pending';
+    const highlightStatus: HighlightStatus = 'unconfirmed';
     const clipStatus: ClipStatus = 'PENDING';
     const jobDefinitionSize: JobDefinitionSize = selectJobDefinition(1024);
 

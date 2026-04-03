@@ -35,7 +35,7 @@ describe('DynamoDBHighlightRepository', () => {
         startSec: 10,
         endSec: 20,
         source: 'motion',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'PENDING',
       },
     ]);
@@ -65,7 +65,7 @@ describe('DynamoDBHighlightRepository', () => {
           startSec: 10,
           endSec: 20,
           source: 'both',
-          status: 'pending',
+          status: 'unconfirmed',
           clipStatus: 'GENERATED',
         },
       ],
@@ -83,7 +83,7 @@ describe('DynamoDBHighlightRepository', () => {
         startSec: 10,
         endSec: 20,
         source: 'both',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'GENERATED',
       },
     ]);
@@ -101,7 +101,7 @@ describe('DynamoDBHighlightRepository', () => {
         startSec: 10,
         endSec: 20,
         source: 'volume',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'FAILED',
       },
     });
@@ -117,7 +117,7 @@ describe('DynamoDBHighlightRepository', () => {
       startSec: 10,
       endSec: 20,
       source: 'volume',
-      status: 'pending',
+      status: 'unconfirmed',
       clipStatus: 'FAILED',
     });
   });
@@ -134,7 +134,7 @@ describe('DynamoDBHighlightRepository', () => {
         startSec: 10,
         endSec: 20,
         source: 'motion',
-        status: 'pending',
+        status: 'unconfirmed',
         clipStatus: 'GENERATED',
       },
     });

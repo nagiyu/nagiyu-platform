@@ -701,35 +701,35 @@
 
 ### 11-2. HighlightStatus 型変更（依存: 11-1）
 
-- [ ] `services/quick-clip/core/src/types.ts`: `HighlightStatus` の `'pending'` → `'unconfirmed'`
-- [ ] 全パッケージ (`core` / `web` / `batch`) の `'pending'` 参照を `'unconfirmed'` に変更
-- [ ] `core/src/repositories/dynamodb-highlight.repository.ts`: mapper 更新（TTL 1 日のため既存レコードの移行不要。新規保存のみ変更）
-- [ ] `batch/src/` の `DynamoDB HighlightRepository` 同様に更新
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: 初期 status = `'unconfirmed'` に変更
-- [ ] テスト更新
+- [x] `services/quick-clip/core/src/types.ts`: `HighlightStatus` の `'pending'` → `'unconfirmed'`
+- [x] 全パッケージ (`core` / `web` / `batch`) の `'pending'` 参照を `'unconfirmed'` に変更
+- [x] `core/src/repositories/dynamodb-highlight.repository.ts`: mapper 更新（TTL 1 日のため既存レコードの移行不要。新規保存のみ変更）
+- [x] `batch/src/` の `DynamoDB HighlightRepository` 同様に更新
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: 初期 status = `'unconfirmed'` に変更
+- [x] テスト更新
 
 ### 11-3. GET /highlights 修正（依存: 11-2）
 
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`
     - PENDING のハイライトが 1 件以上存在する場合、全件の clip-regenerate Lambda を非同期 Invoke
     - Invoke 直後に clipStatus を `GENERATING` に更新して返却する
-- [ ] テスト更新
+- [x] テスト更新
 
 ### 11-4. PATCH /highlights/{id} 修正（依存: 11-2）
 
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/[highlightId]/route.ts`
     - 時間変更時: clip-regenerate Lambda を非同期 Invoke + clipStatus = `GENERATING` + status リセット（`accepted` / `rejected` → `unconfirmed`）
-- [ ] テスト更新
+- [x] テスト更新
 
 ### 11-5. HighlightsPage 修正（依存: 11-3, 11-4）
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/highlights/page.tsx`
     - 左右マスター/ディテール レイアウトに変更
     - 右パネル: 簡易一覧テーブル（No. / 時間範囲 / 採否ステータスチップ）+ ZIP ダウンロードボタン。全行クリック可能
     - 左パネル: 未選択時プレースホルダー / 選択時: 動画プレビュー + 根拠チップ + 採否ラジオ（3状態） + 時間調整 + FAILED 時リトライボタン
     - ポーリング条件を PENDING または GENERATING が存在する間に変更
     - 通常の再生成ボタンを廃止
-- [ ] テスト更新・追加
+- [x] テスト更新・追加
 
 ## Phase 12: 検証・ドキュメント整備（旧 Phase 11）
 

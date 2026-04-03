@@ -70,7 +70,7 @@ test.describe('QuickClip Highlights Page', () => {
       const body = request.postDataJSON() as {
         startSec?: number;
         endSec?: number;
-        status?: 'accepted' | 'rejected' | 'pending';
+        status?: 'accepted' | 'rejected' | 'unconfirmed';
       };
       const requestUrl = new URL(request.url());
       const highlightId = requestUrl.pathname.split('/').at(-1) ?? '';

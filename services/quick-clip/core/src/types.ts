@@ -2,7 +2,7 @@ import type { HighlightSource } from './libs/highlight-extractor.service.js';
 
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
-export type HighlightStatus = 'accepted' | 'rejected' | 'pending';
+export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
 
 export type Job = {
