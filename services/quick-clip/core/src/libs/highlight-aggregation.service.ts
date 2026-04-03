@@ -84,9 +84,6 @@ export class HighlightAggregationService {
       pickMotion = !pickMotion;
 
       accepted = mergeIntoAccepted(accepted, picked);
-      if (accepted.length > MAX_HIGHLIGHTS) {
-        accepted = accepted.slice(0, MAX_HIGHLIGHTS);
-      }
     }
 
     return accepted.sort((a, b) => {
