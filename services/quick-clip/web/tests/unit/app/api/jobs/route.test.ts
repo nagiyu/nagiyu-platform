@@ -142,7 +142,7 @@ describe('POST /api/jobs', () => {
           uploadUrls: partUrls,
           chunkSize: 500 * 1024 * 1024,
         },
-        expiresIn: 3600,
+        expiresIn: 24 * 60 * 60,
       })
     );
     expect(s3Send).toHaveBeenCalledTimes(1);

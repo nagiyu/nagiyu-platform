@@ -34,6 +34,7 @@ type CreateJobRequest = {
 };
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
+const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 5 * 1024 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 500 * 1024 * 1024;
@@ -131,7 +132,7 @@ export async function POST(request: Request): Promise<NextResponse> {
               UploadId: uploadId,
               PartNumber: index + 1,
             }),
-            { expiresIn: UPLOAD_URL_EXPIRES_IN }
+            { expiresIn: MULTIPART_UPLOAD_URL_EXPIRES_IN }
           )
         )
       );
@@ -145,7 +146,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             uploadUrls,
             chunkSize: MULTIPART_CHUNK_SIZE_BYTES,
           },
-          expiresIn: UPLOAD_URL_EXPIRES_IN,
+          expiresIn: MULTIPART_UPLOAD_URL_EXPIRES_IN,
         },
         { status: 201 }
       );
