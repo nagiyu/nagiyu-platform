@@ -10,7 +10,7 @@ const QUICK_CLIP_ALLOWED_ORIGINS: Record<QuickClipEnvironment, string[]> = {
   prod: ['https://quick-clip.nagiyu.com'],
   dev: ['https://dev-quick-clip.nagiyu.com'],
 };
-const BATCH_JOB_DEFINITION_VARIANTS = ['small', 'large'] as const;
+const BATCH_JOB_DEFINITION_VARIANTS = ['small', 'large', 'xlarge'] as const;
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: QuickClipEnvironment;
