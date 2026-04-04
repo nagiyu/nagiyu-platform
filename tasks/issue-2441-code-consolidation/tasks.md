@@ -13,11 +13,11 @@
 
 <!-- libs/common に共通関数・型を追加し、重複の統合先を整備する -->
 
-- [ ] T001: `libs/common/src/auth/types.ts` の `User` 型に `picture?: string` フィールドを追加する（依存: なし）
-- [ ] T002: `libs/common/src/push/config.ts` を新規作成し `getVapidConfig()` 関数を実装する（依存: なし）
-- [ ] T003: `libs/common/src/push/index.ts`（または既存の push モジュール export ファイル）に `getVapidConfig` を追加する（依存: T002）
-- [ ] T004: `libs/common` のユニットテストに `getVapidConfig()` のテストを追加する（依存: T002）
-- [ ] T005: `libs/common` のビルド・テスト・カバレッジチェックが通ることを確認する（依存: T001, T003, T004）
+- [x] T001: `libs/common/src/auth/types.ts` の `User` 型に `picture?: string` フィールドを追加する（依存: なし）
+- [x] T002: `libs/common/src/push/config.ts` を新規作成し `getVapidConfig()` 関数を実装する（依存: なし）
+- [x] T003: `libs/common/src/push/index.ts`（または既存の push モジュール export ファイル）に `getVapidConfig` を追加する（依存: T002）
+- [x] T004: `libs/common` のユニットテストに `getVapidConfig()` のテストを追加する（依存: T002）
+- [x] T005: `libs/common` のビルド・テスト・カバレッジチェックが通ることを確認する（依存: T001, T003, T004）
 
 ## Phase 2: 重複実装の削除（高優先度）
 
