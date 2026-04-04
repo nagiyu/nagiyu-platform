@@ -344,7 +344,9 @@ test.describe('個人リスト管理', () => {
     const createListResponse = await createListResponsePromise;
     expect(createListResponse.status()).toBe(201);
 
-    await expect(page.getByRole('button', { name: 'E2E共有作成リスト' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'E2E共有作成リスト', exact: true })
+    ).toBeVisible();
     await expect(page.getByText('共有リスト「E2E共有作成リスト」を作成しました。')).toBeVisible();
   });
 });

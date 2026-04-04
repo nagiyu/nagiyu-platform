@@ -10,9 +10,13 @@ jest.mock('next/navigation', () => ({
 
 describe('ListWorkspace', () => {
   let originalFetch: typeof globalThis.fetch | undefined;
+  let promptSpy: jest.SpyInstance;
+  let confirmSpy: jest.SpyInstance;
 
   beforeEach(() => {
     originalFetch = globalThis.fetch;
+    promptSpy = jest.spyOn(window, 'prompt');
+    confirmSpy = jest.spyOn(window, 'confirm');
     const fetchMock = jest
       .fn()
       .mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -60,6 +64,31 @@ describe('ListWorkspace', () => {
                 createdBy: 'test-user',
               },
             }),
+          } as Response);
+        }
+
+        if (requestUrl === '/api/groups/group-1/lists/group-list-1' && init?.method === 'PUT') {
+          const body =
+            typeof init.body === 'string' ? (JSON.parse(init.body) as { name?: string }) : {};
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: {
+                listId: 'group-list-1',
+                groupId: 'group-1',
+                name: body.name ?? '未設定',
+                createdBy: 'test-user',
+              },
+            }),
+          } as Response);
+        }
+
+        if (requestUrl === '/api/groups/group-1/lists/group-list-1' && init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({}),
           } as Response);
         }
 
@@ -198,6 +227,8 @@ describe('ListWorkspace', () => {
       writable: true,
       value: originalFetch,
     });
+    promptSpy.mockRestore();
+    confirmSpy.mockRestore();
   });
 
   it('個人と共有を切り替えると共有グループと共有ToDoをAPIから表示する', async () => {
@@ -330,5 +361,79 @@ describe('ListWorkspace', () => {
       expect(screen.getByText('共有リスト名が不正です')).toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: '失敗する共有リスト' })).not.toBeInTheDocument();
+  });
+
+  it('共有スコープで編集ボタンをクリックすると共有リスト名を更新できる', async () => {
+    promptSpy.mockReturnValue('買い物リスト（更新）');
+
+    render(<ListWorkspace initialListId="mock-default-list" />);
+
+    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
+    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: '買い物リスト（共有）を編集' })
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を編集' }));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/groups/group-1/lists/group-list-1',
+        expect.objectContaining({
+          method: 'PUT',
+          body: JSON.stringify({ name: '買い物リスト（更新）' }),
+        })
+      );
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: '買い物リスト（更新）を編集' })
+      ).toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('共有リスト名を更新しました。')).toBeInTheDocument();
+    });
+  });
+
+  it('共有スコープで削除ボタンをクリックすると共有リストを削除できる', async () => {
+    confirmSpy.mockReturnValue(true);
+
+    render(<ListWorkspace initialListId="mock-default-list" />);
+
+    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
+    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: '買い物リスト（共有）を削除' })
+      ).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: '買い物リスト（共有）を削除' }));
+
+    await waitFor(() => {
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/groups/group-1/lists/group-list-1',
+        expect.objectContaining({ method: 'DELETE' })
+      );
+    });
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: '買い物リスト（共有）を削除' })
+      ).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(screen.getByText('共有リストを削除しました。')).toBeInTheDocument();
+    });
+  });
+
+  it('個人スコープでは共有リストの編集・削除ボタンが表示されない', async () => {
+    render(<ListWorkspace initialListId="mock-default-list" />);
+
+    expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /を編集$/ })).not.toBeInTheDocument();
+    });
   });
 });
