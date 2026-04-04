@@ -34,13 +34,14 @@
 
 <!-- セッション取得関数の実装を比較し、共通化可能か判断する -->
 
-- [ ] T012: 以下の各 `session.ts` の実装内容を比較し、差分を記録する（依存: Phase 2 完了）
+- [x] T012: 以下の各 `session.ts` の実装内容を比較し、差分を記録する（依存: Phase 2 完了）
     - `services/admin/web/src/lib/auth/session.ts`
     - `services/auth/web/src/lib/auth/session.ts`
     - `services/niconico-mylist-assistant/web/src/lib/auth/session.ts`
     - `services/share-together/web/src/lib/auth/session.ts`
-- [ ] T013: 実装が共通化可能と判断した場合、`libs/browser/src/auth/session.ts` を新規作成する（依存: T012）
-- [ ] T014: 共通化した場合、各サービスの `session.ts` を `libs/browser` の実装を参照する形に変更する（依存: T013）
+    - **調査結果**: `design.md` の「B-1: セッション取得関数の共通化」に記録済み。各サービスで返却型・mapSession・createTestSession が異なり、共通化は不適切と判断。
+- [x] T013: ~~実装が共通化可能と判断した場合、`libs/browser/src/auth/session.ts` を新規作成する~~（T012 の調査結果により、共通化不適切のため実施しない）
+- [x] T014: ~~共通化した場合、各サービスの `session.ts` を `libs/browser` の実装を参照する形に変更する~~（T013 未実施のため実施しない）
 
 ---
 

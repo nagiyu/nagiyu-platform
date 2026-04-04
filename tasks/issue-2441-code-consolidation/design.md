@@ -146,18 +146,43 @@ services/auth/core/src/db/types.ts
 4 つのサービス（admin/web, auth/web, niconico-mylist-assistant/web, share-together/web）に
 それぞれ `session.ts` が存在し、`getSession()` 関数が重複実装されている可能性がある。
 
-#### 事前調査が必要な項目
+#### T012 調査結果（Phase 3 完了）
 
-実装前に以下を確認する：
+##### NextAuth.js バージョン
 
-1. 各 `session.ts` の実装内容が実際に一致しているかを確認
-2. NextAuth.js のバージョンや設定が各サービスで同一かを確認
-3. `libs/browser` が NextAuth.js に依存することが問題ないかを確認
+全 4 サービスで同一バージョン `^5.0.0-beta.30` を使用している。
 
-#### 共通化方針（調査後に確定）
+##### 各 `session.ts` の実装比較
 
-- 共通実装が確認された場合: `libs/browser/src/auth/session.ts` に統合
-- サービス固有の差分がある場合: 共通部分のみを抽出し、差分は各サービスで上書き
+| 項目 | admin/web | auth/web | niconico-mylist-assistant/web | share-together/web |
+|------|-----------|----------|-------------------------------|-------------------|
+| 返却型 | `next-auth` の `Session` | `next-auth` の `Session` | `@nagiyu/common` の `Session` | `next-auth` の `Session` |
+| AuthSession 型 | `Session['user'] & { id?, roles? }` | `Session['user'] & { id?, roles? }` | 独自定義なし（next-auth 標準の `Session` 型をそのまま使用） | `Session['user'] & { id? }` (roles なし) |
+| mapSession | id / email / name / image / roles を明示マッピング | セッションをスプレッドし expires のみ設定 | userId / googleId / roles / createdAt / updatedAt にマッピング | id / email / name のみ |
+| createTestSession | `TEST_SESSION_DEFAULTS` 定数使用、環境変数充実 | 一部ハードコード値、一部環境変数 | userId / googleId / createdAt / updatedAt を含む `@nagiyu/common` の `Session` 型全フィールドに対応 | 環境変数のみ、roles なし |
+| 追加関数 | なし | なし | なし | `createUnauthorizedResponse()`, `getSessionOrUnauthorized()` |
+| auth import 元 | ローカル `../../auth` | `@nagiyu/auth-core` | ローカル `../../auth` | ローカル `../../../auth` |
+
+##### libs/browser が NextAuth.js に依存することの問題
+
+- `libs/browser` は `@nagiyu/common` のみに依存するブラウザ API 専用ライブラリである
+- `next-auth` 依存を追加するとライブラリの目的・スコープを逸脱する
+- セッション取得関数はサーバーサイドで動作するため、ブラウザ用ライブラリに配置するのは意味的に不適切
+- `libs/nextjs` がすでに Next.js 専用ユーティリティとして `createSessionGetter` を提供している
+
+##### 共通化の可否判断
+
+**共通化は不適切（実施しない）**
+
+理由:
+
+1. 返却型が異なる（`next-auth` の `Session` と `@nagiyu/common` の `Session`）
+2. `mapSession` の実装がサービス固有（各サービスで必要なフィールドが異なる）
+3. `libs/browser` はブラウザ API 専用ライブラリであり、サーバーサイドの NextAuth セッション取得の配置先として不適切
+4. セッション取得の共通抽象化（`createSessionGetter`）はすでに `libs/nextjs` に存在する
+5. `libs/browser` に `next-auth` 依存を追加することはライブラリの目的に反する
+
+T013・T014 は実施しない。
 
 ---
 
@@ -168,7 +193,7 @@ services/auth/core/src/db/types.ts
 | パッケージ | 責務 | 変更内容 |
 |----------|------|--------|
 | `libs/common` | 全環境共通ロジック（型、定数、純粋関数） | `push/config.ts` に `getVapidConfig()` 追加、`User` 型に `picture` 追加 |
-| `libs/browser` | ブラウザ環境専用（LocalStorage, Clipboard, セッション） | Phase 2 でセッション取得関数を追加 |
+| `libs/browser` | ブラウザ環境専用（LocalStorage, Clipboard, セッション） | 変更なし（Phase 3 調査の結果、セッション取得関数の共通化は不適切と判断） |
 | `libs/aws` | AWS SDK ラッパー | 変更なし |
 | `services/stock-tracker/core` | stock-tracker ビジネスロジック | `auth.ts` の `checkPermission()` 削除 |
 | `services/auth/core` | auth ビジネスロジック | `db/types.ts` の `User` 独自定義削除 |
@@ -184,11 +209,11 @@ services/auth/core/src/db/types.ts
 | push/config | `libs/common/src/push/config.ts` | `getVapidConfig()` 関数を追加（新規ファイル） |
 | auth/types | `libs/common/src/auth/types.ts` | `User` 型に `picture?: string` フィールドを追加 |
 
-**libs/browser の追加（Phase 2）**
+**libs/browser の追加（Phase 3 で調査の結果、実施なし）**
 
 | モジュール | パス | 変更内容 |
 |----------|------|--------|
-| auth/session | `libs/browser/src/auth/session.ts` | `getSession()` 関数を追加（新規ファイル） |
+| auth/session | `libs/browser/src/auth/session.ts` | 実施なし（T012 調査の結果、共通化不適切と判断） |
 
 **各サービスの削除・変更（Phase 1）**
 
