@@ -23,12 +23,12 @@
 
 <!-- 各サービスの重複実装を削除し、libs/common を参照するよう変更する -->
 
-- [ ] T006: `services/auth/core/src/db/types.ts` の `User` 独自定義を削除し、`@nagiyu/common` からの import に変更する（依存: T001）
-- [ ] T007: `services/stock-tracker/core/src/services/auth.ts` で `checkPermission()` の呼び出し箇所を特定する（依存: なし）
-- [ ] T008: `checkPermission()` の呼び出し箇所を `libs/common` の `hasPermission()` の直接呼び出しに変更する（依存: T007）
-- [ ] T009: `services/stock-tracker/core/src/services/auth.ts` の `checkPermission()` 関数を削除する（ファイルが空になる場合はファイルごと削除）（依存: T008）
-- [ ] T010: `services/stock-tracker/batch/src/lib/web-push-client.ts` の `getVapidConfig()` を削除し、`@nagiyu/common/push` からの import に変更する（依存: T003）
-- [ ] T011: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `getVapidConfig()` を削除し、`@nagiyu/common/push` からの import に変更する（依存: T003）
+- [x] T006: `services/auth/core/src/db/types.ts` の `User` 独自定義を削除し、`@nagiyu/common` からの import に変更する（依存: T001）
+- [x] T007: `services/stock-tracker/core/src/services/auth.ts` で `checkPermission()` の呼び出し箇所を特定する（依存: なし）
+- [x] T008: `checkPermission()` の呼び出し箇所を `libs/common` の `hasPermission()` の直接呼び出しに変更する（依存: T007）
+- [x] T009: `services/stock-tracker/core/src/services/auth.ts` の `checkPermission()` 関数を削除する（ファイルが空になる場合はファイルごと削除）（依存: T008）
+- [x] T010: `services/stock-tracker/batch/src/lib/web-push-client.ts` の `getVapidConfig()` を削除し、`@nagiyu/common/push` からの import に変更する（依存: T003）
+- [x] T011: `services/niconico-mylist-assistant/batch/src/lib/web-push-client.ts` の `getVapidConfig()` を削除し、`@nagiyu/common/push` からの import に変更する（依存: T003）
 
 ## Phase 3: セッション取得関数の調査・共通化（中優先度）
 
