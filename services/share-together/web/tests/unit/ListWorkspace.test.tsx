@@ -291,7 +291,10 @@ describe('ListWorkspace', () => {
     await waitFor(() => {
       expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
     });
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-personal-list-1/todos');
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/lists/api-personal-list-1/todos',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it('共有リスト選択時は URL を変更せず ToDo を切り替える', async () => {

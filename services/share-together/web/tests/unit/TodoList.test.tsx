@@ -82,7 +82,10 @@ describe('TodoList', () => {
     await waitFor(() => {
       expect(screen.getByText('API ToDo')).toBeInTheDocument();
     });
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos');
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/lists/api-list/todos',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it('scope=group の場合はグループ ToDo API から取得する', async () => {
@@ -109,7 +112,10 @@ describe('TodoList', () => {
     await waitFor(() => {
       expect(screen.getByText('グループAPI ToDo')).toBeInTheDocument();
     });
-    expect(globalThis.fetch).toHaveBeenCalledWith('/api/groups/group-1/lists/list-1/todos');
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/groups/group-1/lists/list-1/todos',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 
   it('scope=group かつ groupId 未指定の場合は API 呼び出しを行わない', () => {
@@ -179,7 +185,10 @@ describe('TodoList', () => {
     render(<TodoList listId="api-list" />);
 
     await waitFor(() => {
-      expect(globalThis.fetch).toHaveBeenCalledWith('/api/lists/api-list/todos');
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/lists/api-list/todos',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
     });
 
     fireEvent.change(screen.getByRole('textbox', { name: 'タイトル' }), {
