@@ -175,4 +175,60 @@ describe('ListSidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: '旅行準備' }));
     expect(handleSelect).toHaveBeenCalledWith('shared-1');
   });
+
+  it('onRenameList が渡された場合は編集ボタンをクリックするとコールバックを呼ぶ', () => {
+    const fetchMock = jest.fn();
+    const handleRename = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(
+      <ListSidebar
+        heading="共有リスト"
+        createButtonLabel="共有リストを作成"
+        selectedListId="shared-1"
+        lists={[
+          { listId: 'shared-1', name: '旅行準備' },
+          { listId: 'shared-2', name: '買い出し' },
+        ]}
+        hrefPrefix="/groups/group-1/lists"
+        onRenameList={handleRename}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '旅行準備を編集' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '旅行準備を編集' }));
+    expect(handleRename).toHaveBeenCalledWith({ listId: 'shared-1', name: '旅行準備' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('onDeleteList が渡された場合は削除ボタンをクリックするとコールバックを呼ぶ', () => {
+    const fetchMock = jest.fn();
+    const handleDelete = jest.fn();
+    Object.defineProperty(globalThis, 'fetch', {
+      writable: true,
+      value: fetchMock,
+    });
+
+    render(
+      <ListSidebar
+        heading="共有リスト"
+        createButtonLabel="共有リストを作成"
+        selectedListId="shared-1"
+        lists={[
+          { listId: 'shared-1', name: '旅行準備' },
+          { listId: 'shared-2', name: '買い出し' },
+        ]}
+        hrefPrefix="/groups/group-1/lists"
+        onDeleteList={handleDelete}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: '旅行準備を削除' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '旅行準備を削除' }));
+    expect(handleDelete).toHaveBeenCalledWith({ listId: 'shared-1', name: '旅行準備' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

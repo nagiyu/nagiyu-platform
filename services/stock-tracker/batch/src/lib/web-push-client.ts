@@ -1,13 +1,6 @@
-import type { NotificationPayload, VapidConfig } from '@nagiyu/common';
+export { getVapidConfig } from '@nagiyu/common/push';
+import type { NotificationPayload } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
-
-export function getVapidConfig(): VapidConfig {
-  return {
-    publicKey: process.env.VAPID_PUBLIC_KEY ?? '',
-    privateKey: process.env.VAPID_PRIVATE_KEY ?? '',
-    subject: 'mailto:support@nagiyu.com',
-  };
-}
 
 /**
  * アラート通知のペイロードを生成する

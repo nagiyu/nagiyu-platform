@@ -35,6 +35,8 @@ type ListSidebarProps = {
   hrefPrefix: string;
   onCreateList?: () => void;
   onListSelect?: (listId: string) => void;
+  onRenameList?: (list: SidebarList) => void;
+  onDeleteList?: (list: SidebarList) => void;
 };
 
 const ERROR_MESSAGES = {
@@ -70,6 +72,8 @@ export function ListSidebar({
   hrefPrefix,
   onCreateList,
   onListSelect,
+  onRenameList,
+  onDeleteList,
 }: ListSidebarProps) {
   const router = useRouter();
   const [apiLists, setApiLists] = useState<readonly SidebarList[]>([]);
@@ -77,6 +81,8 @@ export function ListSidebar({
   const hasExternalLists = lists !== undefined;
   const displayedLists = lists ?? apiLists;
   const isPersonalListLimitReached = !hasExternalLists && displayedLists.length >= 100;
+  const shouldShowListActions =
+    !hasExternalLists || onRenameList !== undefined || onDeleteList !== undefined;
   const navigateToList = (listId: string) => {
     if (onListSelect) {
       onListSelect(listId);
@@ -236,7 +242,7 @@ export function ListSidebar({
             key={list.listId}
             disablePadding
             secondaryAction={
-              !hasExternalLists ? (
+              shouldShowListActions ? (
                 <Stack direction="row" spacing={0.5}>
                   <IconButton
                     aria-label={`${list.name}を編集`}
@@ -244,7 +250,11 @@ export function ListSidebar({
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
-                      handleRenameList(list);
+                      if (onRenameList) {
+                        onRenameList(list);
+                      } else {
+                        handleRenameList(list);
+                      }
                     }}
                   >
                     <EditIcon fontSize="small" />
@@ -256,7 +266,11 @@ export function ListSidebar({
                     onClick={(event) => {
                       event.preventDefault();
                       event.stopPropagation();
-                      handleDeleteList(list);
+                      if (onDeleteList) {
+                        onDeleteList(list);
+                      } else {
+                        handleDeleteList(list);
+                      }
                     }}
                   >
                     <DeleteIcon fontSize="small" />

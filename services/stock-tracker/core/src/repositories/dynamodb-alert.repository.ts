@@ -44,9 +44,12 @@ const isInvalidEntityDataError = (error: unknown): error is Error => {
     return false;
   }
 
+  // 実行環境差異により Error のクラス名解決が崩れるケースがあるため、
+  // 「name一致」または「InvalidEntityDataError のメッセージ接頭辞一致」の
+  // どちらかを満たす場合は無効データとして扱う。
   return (
-    error.name === INVALID_ENTITY_DATA_ERROR_NAME &&
-    error.message.startsWith(INVALID_ENTITY_DATA_MESSAGE_PREFIX)
+    error.message.startsWith(INVALID_ENTITY_DATA_MESSAGE_PREFIX) ||
+    error.name === INVALID_ENTITY_DATA_ERROR_NAME
   );
 };
 
