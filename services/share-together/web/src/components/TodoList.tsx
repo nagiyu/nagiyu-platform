@@ -63,9 +63,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
 
-  const fetchTodos = (targetListId: string) => {
+  const fetchTodos = (targetListId: string, signal?: AbortSignal) => {
     void globalThis
-      .fetch(createTodosApiPath(scope, targetListId, groupId))
+      .fetch(createTodosApiPath(scope, targetListId, groupId), { signal })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
@@ -74,6 +74,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
         setTodos(result.data.todos.map(toDisplayTodo));
       })
       .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         console.error(ERROR_MESSAGES.TODOS_FETCH_FAILED, { error, listId: targetListId });
         setSnackbarMessage(ERROR_MESSAGES.TODOS_FETCH_FAILED_NOTICE);
       });
@@ -87,7 +90,11 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
-    fetchTodos(listId);
+    const controller = new AbortController();
+    fetchTodos(listId, controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [groupId, listId, scope]);
 
   const handleToggleComplete = (todoId: string) => {
