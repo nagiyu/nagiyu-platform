@@ -122,10 +122,12 @@ test.describe('グループ共有 ToDo 管理', () => {
     expect(response.status()).toBe(200);
 
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    const updatedListButton = page.getByRole('button', { name: updatedListName });
+    const updatedListButton = page.getByRole('button', { name: updatedListName, exact: true });
     await expect(updatedListButton).toHaveCount(1);
     await expect(updatedListButton).toBeVisible();
-    await expect(page.getByRole('button', { name: EXISTING_LIST_NAME })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: EXISTING_LIST_NAME, exact: true })).toHaveCount(
+      0
+    );
   });
 
   test('共有リストを削除できる', async ({ page, request }) => {
