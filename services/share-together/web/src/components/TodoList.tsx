@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { List, Paper, Snackbar, Stack, Typography } from '@mui/material';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TodoForm } from '@/components/TodoForm';
@@ -62,10 +62,14 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
   );
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  const fetchControllerRef = useRef<AbortController | null>(null);
 
-  const fetchTodos = (targetListId: string, signal?: AbortSignal) => {
+  const fetchTodos = (targetListId: string) => {
+    fetchControllerRef.current?.abort();
+    const controller = new AbortController();
+    fetchControllerRef.current = controller;
     void globalThis
-      .fetch(createTodosApiPath(scope, targetListId, groupId), { signal })
+      .fetch(createTodosApiPath(scope, targetListId, groupId), { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
@@ -90,10 +94,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
-    const controller = new AbortController();
-    fetchTodos(listId, controller.signal);
+    fetchTodos(listId);
     return () => {
-      controller.abort();
+      fetchControllerRef.current?.abort();
     };
   }, [groupId, listId, scope]);
 
@@ -107,6 +110,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
+    fetchControllerRef.current?.abort();
     const nextCompleted = !targetTodo.isCompleted;
     void globalThis
       .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
@@ -137,6 +141,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
+    fetchControllerRef.current?.abort();
     void globalThis
       .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
         method: 'PUT',
