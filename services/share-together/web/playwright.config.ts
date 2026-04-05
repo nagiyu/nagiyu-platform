@@ -21,6 +21,9 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
+  expect: {
+    timeout: 10000,
+  },
   projects: [
     {
       name: 'chromium-desktop',

@@ -143,7 +143,15 @@ export function ListWorkspace({
   const selectedInCurrentScope = sidebarLists.find((list) => list.listId === selectedListId);
   let currentListId: string;
   if (scope === 'shared') {
-    currentListId = selectedInCurrentScope?.listId ?? sidebarLists[0]?.listId ?? '';
+    // URL に scope=shared が指定された初期ロード時（initialScope==='shared'）で、
+    // グループ/リストデータがまだ取得されていない場合、selectedListId（= initialListId）を
+    // 直接使用して TodoList を即座にレンダリングし、グループ/リスト取得と並行して
+    // ToDo を取得できるようにする。これにより初期ページロード時の逐次 API コールを回避する。
+    const isInitialSharedLoad = initialScope === 'shared' && sidebarLists.length === 0;
+    currentListId =
+      selectedInCurrentScope?.listId ??
+      sidebarLists[0]?.listId ??
+      (isInitialSharedLoad ? selectedListId : '');
   } else {
     currentListId = selectedListId;
   }

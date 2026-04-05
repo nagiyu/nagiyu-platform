@@ -439,4 +439,18 @@ describe('ListWorkspace', () => {
       expect(screen.queryByRole('button', { name: /を編集$/ })).not.toBeInTheDocument();
     });
   });
+
+  it('initialScope=shared で初期表示した場合は共有ToDoをすぐに取得する', async () => {
+    render(
+      <ListWorkspace initialListId="group-list-1" initialScope="shared" initialGroupId="group-1" />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/groups/group-1/lists/group-list-1/todos',
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
+  });
 });
