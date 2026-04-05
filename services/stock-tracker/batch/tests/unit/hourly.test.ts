@@ -19,6 +19,7 @@ jest.mock('@nagiyu/aws');
 jest.mock('../../src/lib/web-push-client.js');
 jest.mock('@nagiyu/common/push', () => ({
   sendWebPushNotification: jest.fn(),
+  getVapidConfig: jest.fn(),
 }));
 jest.mock('@nagiyu/stock-tracker-core', () => ({
   ...jest.requireActual('@nagiyu/stock-tracker-core'),
