@@ -14,14 +14,14 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1010.0",
-    "@aws-sdk/lib-dynamodb": "^3.1010.0",
+    "@aws-sdk/client-dynamodb": "^3.1024.0",
+    "@aws-sdk/lib-dynamodb": "^3.1024.0",
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/stock-tracker-core": "*",
     "@resvg/resvg-js": "^2.6.2",
     "echarts": "^6.0.0",
-    "openai": "^6.31.0",
+    "openai": "^6.33.0",
     "web-push": "^3.6.7",
     "zod": "^4.3.6"
   }
