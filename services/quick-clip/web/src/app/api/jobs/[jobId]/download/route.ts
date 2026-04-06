@@ -114,12 +114,16 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
 
     const bucketName = getBucketName();
     const s3Client = getS3Client();
-    await s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: ZIP_KEY(jobId),
-      })
-    );
+    try {
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: ZIP_KEY(jobId),
+        })
+      );
+    } catch (deleteError) {
+      console.warn('[POST /api/jobs/[jobId]/download] 旧 ZIP の削除に失敗しました', deleteError);
+    }
 
     await getLambdaClient().send(
       new InvokeCommand({

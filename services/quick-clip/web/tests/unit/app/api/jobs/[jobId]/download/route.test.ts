@@ -1,6 +1,7 @@
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
 import { getLambdaClient, getS3Client } from '@/lib/server/aws';
 import { GET, POST } from '@/app/api/jobs/[jobId]/download/route';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 const mockGetByJobId = jest.fn();
 const mockGetSignedUrl = jest.fn();
@@ -25,6 +26,13 @@ jest.mock('@/lib/server/aws', () => ({
   getTableName: jest.fn(() => 'test-table'),
   getBucketName: jest.fn(() => 'test-bucket'),
 }));
+
+jest.mock('@aws-sdk/client-s3', () => {
+  const actual = jest.requireActual('@aws-sdk/client-s3') as Record<string, unknown>;
+  return {
+    ...actual,
+  };
+});
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
@@ -152,8 +160,8 @@ describe('POST /api/jobs/[jobId]/download', () => {
     });
 
     expect(s3Send).toHaveBeenCalledTimes(1);
-    const deleteCall = s3Send.mock.calls[0][0] as { constructor: { name: string } };
-    expect(deleteCall.constructor.name).toBe('DeleteObjectCommand');
+    const deleteCall = s3Send.mock.calls[0][0];
+    expect(deleteCall).toBeInstanceOf(DeleteObjectCommand);
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {
