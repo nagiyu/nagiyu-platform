@@ -122,7 +122,14 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         })
       );
     } catch (deleteError) {
-      console.warn('[POST /api/jobs/[jobId]/download] 旧 ZIP の削除に失敗しました', deleteError);
+      if (
+        !(
+          deleteError instanceof Error &&
+          (deleteError.name === 'NoSuchKey' || deleteError.name === 'NotFound')
+        )
+      ) {
+        console.warn('[POST /api/jobs/[jobId]/download] 旧 ZIP の削除に失敗しました', deleteError);
+      }
     }
 
     await getLambdaClient().send(

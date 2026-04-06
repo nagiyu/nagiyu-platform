@@ -77,7 +77,8 @@ describe('GET /api/jobs/[jobId]/download', () => {
   });
 
   it('正常系: ZIP が S3 に存在しない場合は202を返す', async () => {
-    s3Send.mockRejectedValue(new Error('NotFound'));
+    const noSuchKey = Object.assign(new Error('NoSuchKey'), { name: 'NoSuchKey' });
+    s3Send.mockRejectedValue(noSuchKey);
 
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
@@ -161,6 +162,30 @@ describe('POST /api/jobs/[jobId]/download', () => {
     expect(s3Send).toHaveBeenCalledTimes(1);
     const deleteCall = s3Send.mock.calls[0][0];
     expect(deleteCall).toBeInstanceOf(DeleteObjectCommand);
+  });
+
+  it('正常系: 旧 ZIP の削除が失敗しても Lambda を Invoke して202を返す', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+    ]);
+    s3Send.mockRejectedValue(new Error('AccessDenied'));
+
+    const response = await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = (await response.json()) as { status: string };
+
+    expect(response.status).toBe(202);
+    expect(body).toEqual({ status: 'PROCESSING' });
+    expect(lambdaSend).toHaveBeenCalledTimes(1);
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {

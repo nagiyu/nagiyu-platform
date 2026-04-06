@@ -346,6 +346,12 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
       const startTime = Date.now();
       while (true) {
+        if (Date.now() - startTime > ZIP_POLL_TIMEOUT_MS) {
+          throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, ZIP_POLL_INTERVAL_MS));
+
         const getResponse = await fetch(`/api/jobs/${jobId}/download`);
 
         if (getResponse.status === 200) {
@@ -362,12 +368,6 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         if (getResponse.status !== 202) {
           throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
         }
-
-        if (Date.now() - startTime > ZIP_POLL_TIMEOUT_MS) {
-          throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, ZIP_POLL_INTERVAL_MS));
       }
     } catch {
       setErrorMessage(ERROR_MESSAGES.DOWNLOAD_FAILED);
