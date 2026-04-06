@@ -272,6 +272,7 @@ test.describe('個人リスト管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
+    await page.waitForLoadState('networkidle');
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
 
     const scopeSelect = page.getByRole('combobox', { name: '表示範囲' }).first();
@@ -344,7 +345,9 @@ test.describe('個人リスト管理', () => {
     const createListResponse = await createListResponsePromise;
     expect(createListResponse.status()).toBe(201);
 
-    await expect(page.getByRole('button', { name: 'E2E共有作成リスト' })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'E2E共有作成リスト', exact: true })
+    ).toBeVisible();
     await expect(page.getByText('共有リスト「E2E共有作成リスト」を作成しました。')).toBeVisible();
   });
 });

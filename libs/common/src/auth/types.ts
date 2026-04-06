@@ -27,6 +27,8 @@ export interface User {
   updatedAt: string;
   /** ISO 8601 timestamp of last login (optional) */
   lastLoginAt?: string;
+  /** Profile picture URL (optional, from OAuth provider) */
+  picture?: string;
 }
 
 /**

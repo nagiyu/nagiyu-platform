@@ -17,17 +17,6 @@ export const AUTH_ERROR_MESSAGES = {
 } as const;
 
 /**
- * ユーザーが指定された権限を持っているかチェック
- *
- * @param session - セッション情報
- * @param permission - 必要な権限
- * @returns 権限がある場合は true
- */
-export function checkPermission(session: Session, permission: Permission): boolean {
-  return hasPermission(session.user.roles, permission);
-}
-
-/**
  * セッションから認証エラーを生成
  *
  * @param session - セッション情報（null の場合は未認証）
@@ -45,7 +34,7 @@ export function getAuthError(
     };
   }
 
-  if (!checkPermission(session, permission)) {
+  if (!hasPermission(session.user.roles, permission)) {
     return {
       message: AUTH_ERROR_MESSAGES.FORBIDDEN,
       statusCode: 403,

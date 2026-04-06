@@ -20,6 +20,8 @@ const ERROR_MESSAGES = {
   SHARED_GROUPS_FETCH_FAILED: '共有グループ一覧の取得に失敗しました',
   SHARED_LISTS_FETCH_FAILED: '共有リスト一覧の取得に失敗しました',
   SHARED_LIST_CREATE_FAILED: '共有リストの作成に失敗しました。',
+  SHARED_LIST_RENAME_FAILED: '共有リスト名の更新に失敗しました。',
+  SHARED_LIST_DELETE_FAILED: '共有リストの削除に失敗しました。',
   OPERATION_FAILED: '操作に失敗しました。',
   SHARED_LIST_CREATE_SHARED_SCOPE_ONLY: '共有リスト作成は共有スコープでのみ利用できます。',
 } as const;
@@ -189,6 +191,78 @@ export function ListWorkspace({
     }
   };
 
+  const handleRenameSharedList = async (list: SharedList) => {
+    const name = globalThis.prompt('共有リスト名を入力してください。', list.name);
+    if (!name?.trim() || name.trim() === list.name) {
+      return;
+    }
+
+    const targetGroupId = selectedGroupId;
+    try {
+      const response = await globalThis.fetch(
+        `/api/groups/${encodeURIComponent(targetGroupId)}/lists/${encodeURIComponent(list.listId)}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name.trim() }),
+        }
+      );
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      const result = (await response.json()) as GroupListResponse;
+      const updatedList: SharedList = { listId: result.data.listId, name: result.data.name };
+      setSharedListsByGroup((previous) => ({
+        ...previous,
+        [targetGroupId]: (previous[targetGroupId] ?? []).map((target) =>
+          target.listId === list.listId ? updatedList : target
+        ),
+      }));
+      setSnackbarMessage(`共有リスト名を更新しました。`);
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : ERROR_MESSAGES.SHARED_LIST_RENAME_FAILED
+      );
+    }
+  };
+
+  const handleDeleteSharedList = async (list: SharedList) => {
+    if (!globalThis.confirm(`「${list.name}」を削除しますか？`)) {
+      return;
+    }
+
+    const targetGroupId = selectedGroupId;
+    try {
+      const response = await globalThis.fetch(
+        `/api/groups/${encodeURIComponent(targetGroupId)}/lists/${encodeURIComponent(list.listId)}`,
+        {
+          method: 'DELETE',
+        }
+      );
+      if (!response.ok) {
+        throw new Error(await getErrorMessage(response));
+      }
+
+      setSharedListsByGroup((previous) => {
+        const updated = (previous[targetGroupId] ?? []).filter(
+          (target) => target.listId !== list.listId
+        );
+        if (list.listId === selectedListId && updated.length > 0) {
+          setSelectedListId(updated[0].listId);
+        } else if (list.listId === selectedListId) {
+          setSelectedListId('');
+        }
+        return { ...previous, [targetGroupId]: updated };
+      });
+      setSnackbarMessage(`共有リストを削除しました。`);
+    } catch (error) {
+      setSnackbarMessage(
+        error instanceof Error ? error.message : ERROR_MESSAGES.SHARED_LIST_DELETE_FAILED
+      );
+    }
+  };
+
   return (
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
       <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
@@ -255,6 +329,8 @@ export function ListWorkspace({
             hrefPrefix={scope === 'personal' ? '/lists' : `/groups/${selectedGroupId}/lists`}
             onCreateList={scope === 'shared' ? () => setCreateDialogOpen(true) : undefined}
             onListSelect={(listId) => setSelectedListId(listId)}
+            onRenameList={scope === 'shared' ? handleRenameSharedList : undefined}
+            onDeleteList={scope === 'shared' ? handleDeleteSharedList : undefined}
           />
         </Stack>
       </Box>
