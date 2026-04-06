@@ -108,7 +108,7 @@ export class LambdaStack extends LambdaStackBase {
         }),
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
-          actions: ['s3:GetObject', 's3:PutObject'],
+          actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject'],
           resources: [`${storageBucketArn}/*`],
         }),
         new iam.PolicyStatement({
