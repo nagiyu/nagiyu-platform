@@ -76,54 +76,69 @@ export function createTodoRepository(
 const groupRepositoryFactory = createRepositoryFactory<
   GroupRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryGroupRepository(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBGroupRepository(params.docClient, params.tableName);
+>(
+  {
+    createInMemoryRepository: () => new InMemoryGroupRepository(),
+    createDynamoDBRepository: (docClient, tableName) => {
+      const params = requireDynamoParams(docClient, tableName);
+      return new DynamoDBGroupRepository(params.docClient, params.tableName);
+    },
   },
-});
+  'share-together-group'
+);
 
 const userRepositoryFactory = createRepositoryFactory<
   UserRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryUserRepository(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBUserRepository(params.docClient, params.tableName);
+>(
+  {
+    createInMemoryRepository: () => new InMemoryUserRepository(),
+    createDynamoDBRepository: (docClient, tableName) => {
+      const params = requireDynamoParams(docClient, tableName);
+      return new DynamoDBUserRepository(params.docClient, params.tableName);
+    },
   },
-});
+  'share-together-user'
+);
 
 const membershipRepositoryFactory = createRepositoryFactory<
   MembershipRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryMembershipRepository(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBMembershipRepository(params.docClient, params.tableName);
+>(
+  {
+    createInMemoryRepository: () => new InMemoryMembershipRepository(),
+    createDynamoDBRepository: (docClient, tableName) => {
+      const params = requireDynamoParams(docClient, tableName);
+      return new DynamoDBMembershipRepository(params.docClient, params.tableName);
+    },
   },
-});
+  'share-together-membership'
+);
 
 const listRepositoryFactory = createRepositoryFactory<
   ListRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryListRepository(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBListRepository(params.docClient, params.tableName);
+>(
+  {
+    createInMemoryRepository: () => new InMemoryListRepository(),
+    createDynamoDBRepository: (docClient, tableName) => {
+      const params = requireDynamoParams(docClient, tableName);
+      return new DynamoDBListRepository(params.docClient, params.tableName);
+    },
   },
-});
+  'share-together-list'
+);
 
 const todoRepositoryFactory = createRepositoryFactory<
   TodoRepository,
   [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryTodoRepository(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBTodoRepository(params.docClient, params.tableName);
+>(
+  {
+    createInMemoryRepository: () => new InMemoryTodoRepository(),
+    createDynamoDBRepository: (docClient, tableName) => {
+      const params = requireDynamoParams(docClient, tableName);
+      return new DynamoDBTodoRepository(params.docClient, params.tableName);
+    },
   },
-});
+  'share-together-todo'
+);
