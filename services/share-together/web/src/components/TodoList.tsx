@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { List, Paper, Snackbar, Stack, Typography } from '@mui/material';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TodoForm } from '@/components/TodoForm';
@@ -62,10 +62,14 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
   );
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [snackbarMessage, setSnackbarMessage] = useState<string | null>(null);
+  const fetchControllerRef = useRef<AbortController | null>(null);
 
   const fetchTodos = (targetListId: string) => {
+    fetchControllerRef.current?.abort();
+    const controller = new AbortController();
+    fetchControllerRef.current = controller;
     void globalThis
-      .fetch(createTodosApiPath(scope, targetListId, groupId))
+      .fetch(createTodosApiPath(scope, targetListId, groupId), { signal: controller.signal })
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
@@ -74,6 +78,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
         setTodos(result.data.todos.map(toDisplayTodo));
       })
       .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
         console.error(ERROR_MESSAGES.TODOS_FETCH_FAILED, { error, listId: targetListId });
         setSnackbarMessage(ERROR_MESSAGES.TODOS_FETCH_FAILED_NOTICE);
       });
@@ -88,6 +95,9 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
     }
 
     fetchTodos(listId);
+    return () => {
+      fetchControllerRef.current?.abort();
+    };
   }, [groupId, listId, scope]);
 
   const handleToggleComplete = (todoId: string) => {
@@ -100,6 +110,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
+    fetchControllerRef.current?.abort();
     const nextCompleted = !targetTodo.isCompleted;
     void globalThis
       .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
@@ -130,6 +141,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
       return;
     }
 
+    fetchControllerRef.current?.abort();
     void globalThis
       .fetch(createTodosApiPath(scope, listId, groupId, todoId), {
         method: 'PUT',
