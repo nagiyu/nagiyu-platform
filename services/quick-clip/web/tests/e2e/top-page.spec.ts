@@ -5,7 +5,7 @@ test.describe('QuickClip Top Page', () => {
   test('トップページの基本要素を表示する', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'QuickClip' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'さくっとクリップ' })).toBeVisible();
     await expect(page.getByText('動画をアップロードして見どころ抽出を開始します。')).toBeVisible();
     await expect(page.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
   });

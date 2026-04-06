@@ -23,7 +23,7 @@ describe('Home', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => { });
   });
 
   afterEach(() => {
@@ -33,7 +33,7 @@ describe('Home', () => {
   it('アップロード画面の主要要素を表示する', () => {
     render(<Home />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'QuickClip' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'さくっとクリップ' })).toBeInTheDocument();
     expect(
       screen.getByText('動画をアップロードして見どころ抽出を開始します。')
     ).toBeInTheDocument();

@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { ServiceLayout } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
-  title: 'QuickClip',
+  title: 'さくっとクリップ',
   description: '動画の見どころを抽出するサービス',
   icons: {
     icon: '/favicon.ico',
@@ -25,8 +25,8 @@ export default function RootLayout({
       <body>
         <ServiceLayout
           headerProps={{
-            title: 'QuickClip',
-            ariaLabel: 'QuickClip ホームページに戻る',
+            title: 'さくっとクリップ',
+            ariaLabel: 'さくっとクリップ ホームページに戻る',
           }}
           footerProps={{ version }}
         >
