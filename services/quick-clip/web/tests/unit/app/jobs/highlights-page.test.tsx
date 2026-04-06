@@ -782,6 +782,106 @@ describe('HighlightsPage', () => {
     });
   });
 
+  it('時刻調整後にポーリングで即 GENERATED が返った場合、新しいクリップ URL を video src に反映する', async () => {
+    jest.useFakeTimers();
+
+    global.fetch = jest
+      .fn()
+      // Initial load: h-1 is GENERATED with old URL
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'accepted',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1-old.mp4',
+            },
+          ],
+        }),
+      })
+      // PATCH: time range update → returns GENERATING
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlightId: 'h-1',
+          jobId: 'job-1',
+          order: 1,
+          startSec: 11,
+          endSec: 20,
+          source: 'motion',
+          status: 'unconfirmed',
+          clipStatus: 'GENERATING',
+        }),
+      })
+      // Poll: regeneration finished quickly, returns GENERATED with new URL
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 11,
+              endSec: 20,
+              source: 'motion',
+              status: 'unconfirmed',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1-new.mp4',
+            },
+          ],
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('#1'));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+        'src',
+        'https://example.com/h-1-old.mp4'
+      );
+    });
+
+    // Adjust start time
+    const startInputs = screen.getAllByRole('spinbutton');
+    fireEvent.change(startInputs[0], { target: { value: '11' } });
+    fireEvent.blur(startInputs[0]);
+
+    // After PATCH returns GENERATING, spinner is shown and video is hidden
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(screen.getByText('クリップ生成中...')).toBeInTheDocument();
+      expect(screen.queryByLabelText('見どころ動画プレビュー')).not.toBeInTheDocument();
+    });
+
+    // Advance timer to trigger polling
+    act(() => {
+      jest.advanceTimersByTime(3000);
+    });
+
+    // After polling returns GENERATED with new URL, video should show new URL
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
+        'src',
+        'https://example.com/h-1-new.mp4'
+      );
+    });
+  });
+
   it('GENERATING から GENERATED に遷移したクリップの clipUrl を選択時の video src に反映する', async () => {
     jest.useFakeTimers();
 

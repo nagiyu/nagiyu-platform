@@ -259,6 +259,15 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         highlight.highlightId === updated.highlightId ? updated : highlight
       )
     );
+
+    if (updated.clipStatus !== 'GENERATED') {
+      setClipUrls((current) => {
+        if (!current[updated.highlightId]) return current;
+        const next = { ...current };
+        delete next[updated.highlightId];
+        return next;
+      });
+    }
   };
 
   const onChangeStatus = async (
