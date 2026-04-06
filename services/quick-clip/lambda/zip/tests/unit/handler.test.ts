@@ -1,8 +1,5 @@
 const mockSend = jest.fn();
 const mockGetSignedUrl = jest.fn();
-const mockMkdir = jest.fn();
-const mockWriteFile = jest.fn();
-const mockCreateReadStream = jest.fn();
 
 jest.mock('@aws-sdk/client-s3', () => {
   class GetObjectCommand {
@@ -27,23 +24,11 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
 }));
 
-jest.mock('node:fs/promises', () => ({
-  mkdir: (...args: unknown[]) => mockMkdir(...args),
-  writeFile: (...args: unknown[]) => mockWriteFile(...args),
-}));
-
-jest.mock('node:fs', () => ({
-  createReadStream: (...args: unknown[]) => mockCreateReadStream(...args),
-}));
-
 describe('zip lambda handler', () => {
   beforeEach(() => {
     process.env.S3_BUCKET = 'bucket';
     process.env.AWS_REGION = 'ap-northeast-1';
     jest.clearAllMocks();
-    mockMkdir.mockResolvedValue(undefined);
-    mockWriteFile.mockResolvedValue(undefined);
-    mockCreateReadStream.mockReturnValue('stream');
     mockGetSignedUrl.mockResolvedValue('https://example.com/clips.zip');
     mockSend.mockImplementation((command: { constructor: { name: string } }) => {
       if (command.constructor.name === 'GetObjectCommand') {
@@ -66,6 +51,22 @@ describe('zip lambda handler', () => {
     expect(result).toEqual({ downloadUrl: 'https://example.com/clips.zip' });
     expect(mockSend).toHaveBeenCalled();
     expect(mockGetSignedUrl).toHaveBeenCalled();
+  });
+
+  it('PutObjectCommand に ContentLength が設定される', async () => {
+    const { handler } = await import('../../src/handler.js');
+    await handler({
+      jobId: 'job-1',
+      highlightIds: ['h1'],
+    });
+    const putCall = mockSend.mock.calls.find(
+      (call: unknown[]) =>
+        (call[0] as { constructor: { name: string } }).constructor.name === 'PutObjectCommand'
+    );
+    expect(putCall).toBeDefined();
+    const putCommand = putCall![0] as { input: { ContentLength: number; Body: Buffer } };
+    expect(typeof putCommand.input.ContentLength).toBe('number');
+    expect(putCommand.input.ContentLength).toBe(putCommand.input.Body.length);
   });
 
   it('highlightIds が空の場合はエラー', async () => {
