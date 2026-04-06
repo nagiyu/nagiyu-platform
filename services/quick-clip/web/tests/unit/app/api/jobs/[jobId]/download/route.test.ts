@@ -3,6 +3,12 @@ import { getLambdaClient, getS3Client } from '@/lib/server/aws';
 import { GET, POST } from '@/app/api/jobs/[jobId]/download/route';
 import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 
+type DownloadResponse = {
+  jobId: string;
+  fileName: string;
+  downloadUrl: string;
+};
+
 const mockGetByJobId = jest.fn();
 const mockGetSignedUrl = jest.fn();
 
@@ -26,13 +32,6 @@ jest.mock('@/lib/server/aws', () => ({
   getTableName: jest.fn(() => 'test-table'),
   getBucketName: jest.fn(() => 'test-bucket'),
 }));
-
-jest.mock('@aws-sdk/client-s3', () => {
-  const actual = jest.requireActual('@aws-sdk/client-s3') as Record<string, unknown>;
-  return {
-    ...actual,
-  };
-});
 
 jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
@@ -67,11 +66,7 @@ describe('GET /api/jobs/[jobId]/download', () => {
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
-    const body = (await response.json()) as {
-      jobId: string;
-      fileName: string;
-      downloadUrl: string;
-    };
+    const body = (await response.json()) as DownloadResponse;
 
     expect(response.status).toBe(200);
     expect(body).toEqual({

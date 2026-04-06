@@ -345,7 +345,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
       }
 
       const startTime = Date.now();
-      for (;;) {
+      while (true) {
         const getResponse = await fetch(`/api/jobs/${jobId}/download`);
 
         if (getResponse.status === 200) {
@@ -367,7 +367,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
         }
 
-        await new Promise<void>((resolve) => setTimeout(resolve, ZIP_POLL_INTERVAL_MS));
+        await new Promise((resolve) => setTimeout(resolve, ZIP_POLL_INTERVAL_MS));
       }
     } catch {
       setErrorMessage(ERROR_MESSAGES.DOWNLOAD_FAILED);
