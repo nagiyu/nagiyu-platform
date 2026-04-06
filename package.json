@@ -30,14 +30,17 @@
     "fast-xml-parser": "5.5.8",
     "@aws-sdk/xml-builder": "3.972.15",
     "flatted": "3.4.2",
-    "@smithy/types": "^4.13.0"
+    "@smithy/types": "^4.13.0",
+    "handlebars": "^4.7.9",
+    "path-to-regexp": "^8.4.0",
+    "picomatch": "^4.0.4"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@eslint/compat": "^2.0.3",
     "@eslint/js": "^10",
     "@jest/types": "^30.3.0",
-    "@playwright/test": "^1.58.0",
+    "@playwright/test": "^1.59.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -46,17 +49,18 @@
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
     "@types/web-push": "^3.6.4",
-    "aws-cdk": "^2.1111.0",
+    "aws-cdk": "^2.1117.0",
+    "aws-sdk-client-mock": "^4.1.0",
     "dotenv": "^17.2.3",
     "eslint": "^10",
-    "eslint-config-next": "^16.1.7",
+    "eslint-config-next": "^16.2.2",
     "jest": "^30.3.0",
     "jest-environment-jsdom": "^30.3.0",
     "prettier": "^3.7.4",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5",
-    "typescript-eslint": "^8.57.1"
+    "typescript-eslint": "^8.58.0"
   },
   "dependencies": {
     "@aws-sdk/middleware-endpoint-discovery": "^3.972.8",
@@ -65,7 +69,7 @@
     "@mui/icons-material": "^7.3.7",
     "@mui/material": "^7.3.7",
     "@mui/material-nextjs": "^7.3.7",
-    "next": "^16.1.7",
+    "next": "^16.2.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   }
