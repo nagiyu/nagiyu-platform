@@ -1,0 +1,491 @@
+name: QuickClip - Build and Deploy
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'services/quick-clip/**'
+      - 'infra/quick-clip/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/quick-clip-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  infrastructure-ecr:
+    name: Deploy ECR Repository
+    runs-on: ubuntu-latest
+
+    outputs:
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-quick-clip
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECR Stack
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy NagiyuQuickClipECR${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
+            --require-approval never
+
+  build-web:
+    name: Build and Push Web Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/quick-clip-web'
+          shared-workspaces: >
+            @nagiyu/common,@nagiyu/browser,@nagiyu/react,
+            @nagiyu/nextjs,@nagiyu/ui,@nagiyu/quick-clip-core
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Web Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/web/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Web Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-batch:
+    name: Build and Push Batch Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/batch
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='BatchRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/batch/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:batch-latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Batch Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: batch-latest
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-lambda-clip:
+    name: Build and Push Lambda Clip Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/lambda/clip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ClipLambdaRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Clip Lambda ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Lambda Clip Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/lambda/clip/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Lambda Clip Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: latest
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  build-lambda-zip:
+    name: Build and Push Lambda Zip Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/quick-clip/lambda/zip
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipECR${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='ZipLambdaRepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Zip Lambda ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Lambda Zip Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/quick-clip/lambda/zip/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          app-version: ${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Lambda Zip Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: latest
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  infrastructure-app:
+    name: Deploy Application Infrastructure
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-web, build-batch, build-lambda-clip, build-lambda-zip]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra-quick-clip
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Application Stacks
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+          APP_VERSION: ${{ needs.build-web.outputs.app-version }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy \
+            NagiyuQuickClipStorage${STACK_SUFFIX} \
+            NagiyuQuickClipDynamoDB${STACK_SUFFIX} \
+            NagiyuQuickClipBatch${STACK_SUFFIX} \
+            NagiyuQuickClipLambda${STACK_SUFFIX} \
+            NagiyuQuickClipCloudFront${STACK_SUFFIX} \
+            --context env="$ENVIRONMENT" \
+            --context appVersion="$APP_VERSION" \
+            --require-approval never
+
+      - name: Update Lambda function code with latest image
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="$ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-quick-clip-web-$ENVIRONMENT" \
+            --image-uri "$ECR_REGISTRY/nagiyu-quick-clip-ecr-$ENVIRONMENT:latest" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: web Lambda 関数コードの更新に失敗しました。"
+            exit 1
+          }
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-quick-clip-clip-regenerate-$ENVIRONMENT" \
+            --image-uri "$ECR_REGISTRY/nagiyu-quick-clip-lambda-clip-ecr-$ENVIRONMENT:latest" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: clip Lambda 関数コードの更新に失敗しました。"
+            exit 1
+          }
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-quick-clip-zip-generator-$ENVIRONMENT" \
+            --image-uri "$ECR_REGISTRY/nagiyu-quick-clip-lambda-zip-ecr-$ENVIRONMENT:latest" \
+            --region "${{ env.AWS_REGION }}" || {
+            echo "Error: zip Lambda 関数コードの更新に失敗しました。"
+            exit 1
+          }
+
+      - name: Wait for Lambda update to complete
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+        run: |
+          set -euo pipefail
+          for FUNCTION_NAME in \
+            "nagiyu-quick-clip-web-$ENVIRONMENT" \
+            "nagiyu-quick-clip-clip-regenerate-$ENVIRONMENT" \
+            "nagiyu-quick-clip-zip-generator-$ENVIRONMENT"; do
+            aws lambda wait function-updated \
+              --function-name "$FUNCTION_NAME" \
+              --region "${{ env.AWS_REGION }}" || {
+              echo "Error: $FUNCTION_NAME の更新完了待機でタイムアウトまたは失敗しました。"
+              exit 1
+            }
+          done
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [infrastructure-ecr, build-web, build-batch, infrastructure-app]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify deployment
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuQuickClipLambda${STACK_SUFFIX}"
+          FUNCTION_URL=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='FunctionUrl'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$FUNCTION_URL" ]; then
+            echo "Error: Failed to get Function URL from CDK stack."
+            exit 1
+          fi
+
+          if ! curl -f -s -o /dev/null -w "%{http_code}" "${FUNCTION_URL}" | grep -q "200"; then
+            echo "Error: Health check failed."
+            exit 1
+          fi
+
+      - name: Display deployment information
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          CF_STACK_NAME="NagiyuQuickClipCloudFront${STACK_SUFFIX}"
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$CF_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          echo "=== Deployment Summary ===" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Environment**: $ENVIRONMENT" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Web Image**: \`${{ needs.build-web.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Batch Image**: \`${{ needs.build-batch.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Lambda Clip Image**: \`${{ needs.build-lambda-clip.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Lambda Zip Image**: \`${{ needs.build-lambda-zip.outputs.image-uri }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **CloudFront Domain**: $CF_DOMAIN" >> "$GITHUB_STEP_SUMMARY"
