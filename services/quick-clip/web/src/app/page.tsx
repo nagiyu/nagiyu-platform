@@ -224,7 +224,7 @@ export default function Home() {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          QuickClip
+          さくっとクリップ
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           動画をアップロードして見どころ抽出を開始します。
