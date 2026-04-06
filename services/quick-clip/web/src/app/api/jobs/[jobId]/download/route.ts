@@ -42,8 +42,11 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
           Key: ZIP_KEY(jobId),
         })
       );
-    } catch {
-      return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'NoSuchKey' || error.name === 'NotFound')) {
+        return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
+      }
+      throw error;
     }
 
     const downloadUrl = await getSignedUrl(
@@ -122,12 +125,10 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         })
       );
     } catch (deleteError) {
-      if (
-        !(
-          deleteError instanceof Error &&
-          (deleteError.name === 'NoSuchKey' || deleteError.name === 'NotFound')
-        )
-      ) {
+      const isExpectedError =
+        deleteError instanceof Error &&
+        (deleteError.name === 'NoSuchKey' || deleteError.name === 'NotFound');
+      if (!isExpectedError) {
         console.warn('[POST /api/jobs/[jobId]/download] 旧 ZIP の削除に失敗しました', deleteError);
       }
     }

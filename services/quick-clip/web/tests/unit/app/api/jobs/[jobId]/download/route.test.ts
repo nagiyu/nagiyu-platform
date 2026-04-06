@@ -88,6 +88,17 @@ describe('GET /api/jobs/[jobId]/download', () => {
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
   });
+
+  it('異常系: S3 アクセスエラーの場合は500を返す', async () => {
+    const accessDenied = Object.assign(new Error('AccessDenied'), { name: 'AccessDenied' });
+    s3Send.mockRejectedValue(accessDenied);
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(response.status).toBe(500);
+  });
 });
 
 describe('POST /api/jobs/[jobId]/download', () => {
