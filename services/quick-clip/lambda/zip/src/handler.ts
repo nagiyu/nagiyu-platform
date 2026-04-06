@@ -1,7 +1,3 @@
-import { randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import JSZip from 'jszip';
@@ -15,8 +11,6 @@ const ERROR_MESSAGES = {
 const CLIP_KEY = (jobId: string, highlightId: string): string =>
   `outputs/${jobId}/clips/${highlightId}.mp4`;
 const ZIP_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
-const ZIP_LOCAL_PATH = (jobId: string, requestId: string): string =>
-  `/tmp/quick-clip/zip/${requestId}/${jobId}/clips.zip`;
 
 export type ZipGeneratorEvent = {
   jobId: string;
@@ -97,16 +91,12 @@ const uploadZip = async (
   event: ZipGeneratorEvent,
   zipBuffer: Buffer
 ): Promise<void> => {
-  // Lambda の /tmp は実行環境内で共有され得るため、衝突回避のために一意な作業ディレクトリを使う。
-  const requestId = randomUUID();
-  const localPath = ZIP_LOCAL_PATH(event.jobId, requestId);
-  await mkdir(dirname(localPath), { recursive: true });
-  await writeFile(localPath, zipBuffer);
   await s3Client.send(
     new PutObjectCommand({
       Bucket: bucketName,
       Key: ZIP_KEY(event.jobId),
-      Body: createReadStream(localPath),
+      Body: zipBuffer,
+      ContentLength: zipBuffer.length,
       ContentType: 'application/zip',
     })
   );
