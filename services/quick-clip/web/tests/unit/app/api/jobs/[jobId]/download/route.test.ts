@@ -67,7 +67,11 @@ describe('GET /api/jobs/[jobId]/download', () => {
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
-    const body = await response.json();
+    const body = (await response.json()) as {
+      jobId: string;
+      fileName: string;
+      downloadUrl: string;
+    };
 
     expect(response.status).toBe(200);
     expect(body).toEqual({
@@ -83,7 +87,7 @@ describe('GET /api/jobs/[jobId]/download', () => {
     const response = await GET(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
-    const body = await response.json();
+    const body = (await response.json()) as { status: string };
 
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
@@ -135,7 +139,7 @@ describe('POST /api/jobs/[jobId]/download', () => {
     const response = await POST(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
-    const body = await response.json();
+    const body = (await response.json()) as { status: string };
 
     expect(response.status).toBe(202);
     expect(body).toEqual({ status: 'PROCESSING' });
