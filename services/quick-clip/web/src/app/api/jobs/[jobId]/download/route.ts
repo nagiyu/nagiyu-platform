@@ -1,3 +1,5 @@
+import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -7,33 +9,68 @@ import {
   getDynamoDBDocumentClient,
   getLambdaClient,
   getTableName,
+  getS3Client,
+  getBucketName,
 } from '@/lib/server/aws';
 
 const ERROR_MESSAGES = {
   JOB_NOT_FOUND: '指定されたジョブが見つかりません',
   NO_ACCEPTED_HIGHLIGHTS: '採用された見どころがありません',
   CLIP_GENERATION_INCOMPLETE: '採用された見どころのクリップ生成が完了していません',
-  ZIP_GENERATION_FAILED: 'ダウンロードファイルの生成に失敗しました',
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',
 } as const;
 
-type ZipGeneratorResponse = {
-  downloadUrl: string;
-};
-
-const parseZipGeneratorResponse = (payload: Uint8Array): ZipGeneratorResponse => {
-  try {
-    return JSON.parse(Buffer.from(payload).toString('utf-8')) as ZipGeneratorResponse;
-  } catch {
-    throw new Error(ERROR_MESSAGES.ZIP_GENERATION_FAILED);
-  }
-};
+const ZIP_KEY = (jobId: string): string => `outputs/${jobId}/clips.zip`;
+const ZIP_PRESIGNED_URL_EXPIRES_IN = 300;
 
 type RouteParams = {
   params: Promise<{
     jobId: string;
   }>;
 };
+
+export async function GET(_request: Request, { params }: RouteParams): Promise<NextResponse> {
+  try {
+    const { jobId } = await params;
+    const bucketName = getBucketName();
+    const s3Client = getS3Client();
+
+    try {
+      await s3Client.send(
+        new HeadObjectCommand({
+          Bucket: bucketName,
+          Key: ZIP_KEY(jobId),
+        })
+      );
+    } catch {
+      return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
+    }
+
+    const downloadUrl = await getSignedUrl(
+      s3Client,
+      new GetObjectCommand({
+        Bucket: bucketName,
+        Key: ZIP_KEY(jobId),
+      }),
+      { expiresIn: ZIP_PRESIGNED_URL_EXPIRES_IN }
+    );
+
+    return NextResponse.json({
+      jobId,
+      fileName: `${jobId}-clips.zip`,
+      downloadUrl,
+    });
+  } catch (error) {
+    console.error('[GET /api/jobs/[jobId]/download] ZIP 確認に失敗しました', error);
+    return NextResponse.json(
+      {
+        error: 'INTERNAL_SERVER_ERROR',
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(_request: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
@@ -75,9 +112,19 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
       );
     }
 
-    const lambdaResponse = await getLambdaClient().send(
+    const bucketName = getBucketName();
+    const s3Client = getS3Client();
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: bucketName,
+        Key: ZIP_KEY(jobId),
+      })
+    );
+
+    await getLambdaClient().send(
       new InvokeCommand({
         FunctionName: getZipGeneratorFunctionName(),
+        InvocationType: 'Event',
         Payload: Buffer.from(
           JSON.stringify({
             jobId,
@@ -86,19 +133,8 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
         ),
       })
     );
-    if (!lambdaResponse.Payload) {
-      throw new Error(ERROR_MESSAGES.ZIP_GENERATION_FAILED);
-    }
-    const zipResult = parseZipGeneratorResponse(lambdaResponse.Payload);
-    if (typeof zipResult.downloadUrl !== 'string' || zipResult.downloadUrl.length === 0) {
-      throw new Error(ERROR_MESSAGES.ZIP_GENERATION_FAILED);
-    }
 
-    return NextResponse.json({
-      jobId,
-      fileName: `${jobId}-clips.zip`,
-      downloadUrl: zipResult.downloadUrl,
-    });
+    return NextResponse.json({ status: 'PROCESSING' }, { status: 202 });
   } catch (error) {
     if (error instanceof Error && error.message === DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED) {
       return NextResponse.json(
@@ -107,15 +143,6 @@ export async function POST(_request: Request, { params }: RouteParams): Promise<
           message: ERROR_MESSAGES.JOB_NOT_FOUND,
         },
         { status: 404 }
-      );
-    }
-    if (error instanceof Error && error.message === ERROR_MESSAGES.ZIP_GENERATION_FAILED) {
-      return NextResponse.json(
-        {
-          error: 'ZIP_GENERATION_FAILED',
-          message: ERROR_MESSAGES.ZIP_GENERATION_FAILED,
-        },
-        { status: 500 }
       );
     }
 

@@ -67,6 +67,9 @@ type DownloadResponse = {
   downloadUrl: string;
 };
 
+const ZIP_POLL_INTERVAL_MS = 3000;
+const ZIP_POLL_TIMEOUT_MS = 300000;
+
 class RangeInvalidError extends Error {}
 
 type TimeInputProps = {
@@ -333,21 +336,39 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const onDownload = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch(`/api/jobs/${jobId}/download`, {
+      const postResponse = await fetch(`/api/jobs/${jobId}/download`, {
         method: 'POST',
       });
 
-      if (!response.ok) {
+      if (!postResponse.ok && postResponse.status !== 202) {
         throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
       }
 
-      const data = (await response.json()) as DownloadResponse;
-      const link = document.createElement('a');
-      link.href = data.downloadUrl;
-      link.download = data.fileName;
-      link.click();
-      link.remove();
-      setErrorMessage(null);
+      const startTime = Date.now();
+      for (;;) {
+        if (Date.now() - startTime > ZIP_POLL_TIMEOUT_MS) {
+          throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
+        }
+
+        await new Promise<void>((resolve) => setTimeout(resolve, ZIP_POLL_INTERVAL_MS));
+
+        const getResponse = await fetch(`/api/jobs/${jobId}/download`);
+
+        if (getResponse.status === 200) {
+          const data = (await getResponse.json()) as DownloadResponse;
+          const link = document.createElement('a');
+          link.href = data.downloadUrl;
+          link.download = data.fileName;
+          link.click();
+          link.remove();
+          setErrorMessage(null);
+          return;
+        }
+
+        if (getResponse.status !== 202) {
+          throw new Error(ERROR_MESSAGES.DOWNLOAD_FAILED);
+        }
+      }
     } catch {
       setErrorMessage(ERROR_MESSAGES.DOWNLOAD_FAILED);
     } finally {

@@ -1,8 +1,9 @@
 import type { HighlightRepository } from '@nagiyu/quick-clip-core';
-import { getLambdaClient } from '@/lib/server/aws';
-import { POST } from '@/app/api/jobs/[jobId]/download/route';
+import { getLambdaClient, getS3Client } from '@/lib/server/aws';
+import { GET, POST } from '@/app/api/jobs/[jobId]/download/route';
 
 const mockGetByJobId = jest.fn();
+const mockGetSignedUrl = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
@@ -18,9 +19,15 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
 
 jest.mock('@/lib/server/aws', () => ({
   getLambdaClient: jest.fn(),
+  getS3Client: jest.fn(),
   getZipGeneratorFunctionName: jest.fn(() => 'zip-generator'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
+  getBucketName: jest.fn(() => 'test-bucket'),
+}));
+
+jest.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
 }));
 
 jest.mock('next/server', () => ({
@@ -32,20 +39,70 @@ jest.mock('next/server', () => ({
   },
 }));
 
+describe('GET /api/jobs/[jobId]/download', () => {
+  const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
+  const s3Send = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedGetS3Client.mockReturnValue({
+      send: s3Send,
+    } as ReturnType<typeof getS3Client>);
+    mockGetSignedUrl.mockResolvedValue('https://example.com/clips.zip?signed=1');
+  });
+
+  const mockRequest = {} as Request;
+
+  it('正常系: ZIP が S3 に存在する場合は署名URL を返す', async () => {
+    s3Send.mockResolvedValue({});
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      jobId: 'job-1',
+      fileName: 'job-1-clips.zip',
+      downloadUrl: 'https://example.com/clips.zip?signed=1',
+    });
+  });
+
+  it('正常系: ZIP が S3 に存在しない場合は202を返す', async () => {
+    s3Send.mockRejectedValue(new Error('NotFound'));
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(body).toEqual({ status: 'PROCESSING' });
+  });
+});
+
 describe('POST /api/jobs/[jobId]/download', () => {
   const mockedGetLambdaClient = getLambdaClient as jest.MockedFunction<typeof getLambdaClient>;
+  const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
   const lambdaSend = jest.fn();
+  const s3Send = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetLambdaClient.mockReturnValue({
       send: lambdaSend,
     } as ReturnType<typeof getLambdaClient>);
+    mockedGetS3Client.mockReturnValue({
+      send: s3Send,
+    } as ReturnType<typeof getS3Client>);
+    s3Send.mockResolvedValue({});
+    lambdaSend.mockResolvedValue({ StatusCode: 202 });
   });
 
   const mockRequest = {} as Request;
 
-  it('正常系: zip-generator Lambda を同期 Invoke してダウンロードURLを返す', async () => {
+  it('正常系: zip-generator Lambda を非同期 Invoke して202を返す', async () => {
     mockGetByJobId.mockResolvedValue([
       {
         highlightId: 'h1',
@@ -66,22 +123,37 @@ describe('POST /api/jobs/[jobId]/download', () => {
         clipStatus: 'FAILED',
       },
     ]);
-    lambdaSend.mockResolvedValue({
-      Payload: Buffer.from(JSON.stringify({ downloadUrl: 'https://example.com/download' })),
-    });
 
     const response = await POST(mockRequest, {
       params: Promise.resolve({ jobId: 'job-1' }),
     });
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body).toEqual({
-      jobId: 'job-1',
-      fileName: 'job-1-clips.zip',
-      downloadUrl: 'https://example.com/download',
-    });
+    expect(response.status).toBe(202);
+    expect(body).toEqual({ status: 'PROCESSING' });
     expect(lambdaSend).toHaveBeenCalledTimes(1);
+  });
+
+  it('正常系: Lambda 呼び出し前に旧 ZIP を S3 から削除する', async () => {
+    mockGetByJobId.mockResolvedValue([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        status: 'accepted',
+        clipStatus: 'GENERATED',
+      },
+    ]);
+
+    await POST(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-1' }),
+    });
+
+    expect(s3Send).toHaveBeenCalledTimes(1);
+    const deleteCall = s3Send.mock.calls[0][0] as { constructor: { name: string } };
+    expect(deleteCall.constructor.name).toBe('DeleteObjectCommand');
   });
 
   it('異常系: 採用見どころがない場合は400を返す', async () => {
@@ -134,33 +206,5 @@ describe('POST /api/jobs/[jobId]/download', () => {
       message: '採用された見どころのクリップ生成が完了していません',
     });
     expect(lambdaSend).not.toHaveBeenCalled();
-  });
-
-  it('異常系: Lambda 応答に URL がない場合は500を返す', async () => {
-    mockGetByJobId.mockResolvedValue([
-      {
-        highlightId: 'h1',
-        jobId: 'job-1',
-        order: 1,
-        startSec: 10,
-        endSec: 20,
-        status: 'accepted',
-        clipStatus: 'GENERATED',
-      },
-    ]);
-    lambdaSend.mockResolvedValue({
-      Payload: Buffer.from(JSON.stringify({})),
-    });
-
-    const response = await POST(mockRequest, {
-      params: Promise.resolve({ jobId: 'job-1' }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body).toEqual({
-      error: 'ZIP_GENERATION_FAILED',
-      message: 'ダウンロードファイルの生成に失敗しました',
-    });
   });
 });
