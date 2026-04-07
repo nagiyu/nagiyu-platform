@@ -15,7 +15,7 @@ Codec Converterサービスの品質を保証し、以下を実現します:
 
 ### 1.2 テスト方針
 
-- **PCターゲット**: Codec Converterは大容量ファイルを扱うため、PC環境を優先
+- **マルチデバイス対応**: Fast CI はモバイル（chromium-mobile）、Full CI はモバイル + デスクトップ + webkit でテスト
 - **カバレッジ重視**: ビジネスロジック（`lib/`）は80%以上のカバレッジを確保
 - **自動化**: CI/CDパイプラインで自動テストを実行
 - **E2Eでクリティカルパスをカバー**: 主要な変換フローを重点的にテスト
@@ -26,22 +26,19 @@ Codec Converterサービスの品質を保証し、以下を実現します:
 
 ### 2.1 Playwright デバイス構成
 
-Codec Converterは**PCターゲット**のサービスです。
-
 | デバイス名       | 用途               | 画面サイズ  | User Agent          |
 | ---------------- | ------------------ | ----------- | ------------------- |
+| chromium-mobile  | スマートフォンChrome | 390x844   | Chrome (最新安定版) |
 | chromium-desktop | デスクトップChrome | 1920x1080   | Chrome (最新安定版) |
-
-**注**: 本プラットフォームの標準テスト戦略ではスマホファースト（chromium-mobile優先）を推奨していますが、Codec Converterは大容量ファイルを扱うサービス特性上、PC環境のみを対象とします。
+| webkit-mobile    | スマートフォンSafari | 390x844  | Safari (最新安定版) |
 
 ### 2.2 テスト優先順位
 
 プラットフォーム共通のCI戦略については、[ブランチ戦略 - CI/CD戦略](../../branching.md#cicd-戦略) を参照してください。
 
 **Codec Converter 固有の設定**:
-- **Fast CI**: `integration/codec-converter` へのPR時に chromium-desktop のみでテスト
-- **Full CI**: `develop` へのPR時に chromium-desktop のみでテストし、カバレッジ80%以上を必須とする
-- **注**: サービス特性上、モバイルデバイスはテスト対象外
+- **Fast CI**: `integration/codec-converter` へのPR時に chromium-mobile でテスト
+- **Full CI**: `develop` へのPR時に chromium-mobile + chromium-desktop + webkit-mobile でテストし、カバレッジ80%以上を必須とする
 
 ---
 
@@ -85,9 +82,9 @@ npm run test:coverage -w services/codec-converter
 
 | シナリオID | シナリオ名                           | 概要                                         | 優先度 | 対象デバイス     |
 | ---------- | ------------------------------------ | -------------------------------------------- | ------ | ---------------- |
-| E2E-001    | 正常系（H.264変換）                  | アップロード → 変換 → ダウンロード          | 高     | chromium-desktop |
-| E2E-002    | エラーハンドリング（ファイルサイズ） | 500MB超のファイルのバリデーションエラー      | 高     | chromium-desktop |
-| E2E-003    | エラーハンドリング（不正な形式）     | MP4以外のファイルのバリデーションエラー      | 高     | chromium-desktop |
+| E2E-001    | 正常系（H.264変換）                  | アップロード → 変換 → ダウンロード          | 高     | 全デバイス       |
+| E2E-002    | エラーハンドリング（ファイルサイズ） | 500MB超のファイルのバリデーションエラー      | 高     | 全デバイス       |
+| E2E-003    | エラーハンドリング（不正な形式）     | MP4以外のファイルのバリデーションエラー      | 高     | 全デバイス       |
 
 ### 4.2 シナリオ詳細
 
@@ -276,15 +273,15 @@ npm run test:e2e:headed -w services/codec-converter
 
 GitHub Actions で自動実行されます:
 
-**Fast CI** (`.github/workflows/codec-converter-verify-fast.yml`):
+**Fast CI** (`.github/workflows/codec-converter-verify.yml`):
 
 - トリガー: `integration/codec-converter` ブランチへのPR
-- テスト: ビルド、ユニットテスト、E2E (chromium-desktop)
+- テスト: ビルド、ユニットテスト、E2E (chromium-mobile)
 
-**Full CI** (`.github/workflows/codec-converter-verify-full.yml`):
+**Full CI** (`.github/workflows/codec-converter-verify.yml`):
 
 - トリガー: `develop` ブランチへのPR
-- テスト: ビルド、ユニットテスト、カバレッジチェック (80%以上)、E2E (chromium-desktop)
+- テスト: ビルド、ユニットテスト、カバレッジチェック (80%以上)、E2E (chromium-mobile + chromium-desktop + webkit-mobile)
 - カバレッジ: 80%未満で失敗
 
 #### 環境変数
@@ -306,8 +303,8 @@ AWS_SECRET_ACCESS_KEY=<開発用IAMユーザーのシークレットキー>
 
 | ワークフロー                 | トリガー                          | 実行内容                                     |
 | ---------------------------- | --------------------------------- | -------------------------------------------- |
-| codec-converter-verify-fast  | PR to `integration/codec-converter` | ビルド、ユニット、E2E (chromium-desktop)      |
-| codec-converter-verify-full  | PR to `develop`                   | ビルド、ユニット、カバレッジ、E2E (chromium-desktop) |
+| codec-converter-verify  | PR to `integration/codec-converter` | ビルド、ユニット、E2E (chromium-mobile)      |
+| codec-converter-verify  | PR to `develop`                   | ビルド、ユニット、カバレッジ、E2E (chromium-mobile + chromium-desktop + webkit-mobile) |
 | codec-converter-deploy       | Push to `develop` or `master`     | デプロイ（テストは verify で完了済み）       |
 
 ### 7.2 ブランチ保護ルール
