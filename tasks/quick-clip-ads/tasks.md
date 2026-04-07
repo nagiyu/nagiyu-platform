@@ -48,7 +48,7 @@
 
 現状は `APP_VERSION` の有無だけで分岐している。これを廃止し、環境変数 `DOCKER_BUILD_ARGS`（`KEY=VALUE` のスペース区切り）を受け取って `--build-arg` に展開する形に変更する。
 
-- [ ] `.github/scripts/docker-build-with-retry.sh` を変更する（依存: なし）
+- [x] `.github/scripts/docker-build-with-retry.sh` を変更する（依存: なし）
     - `APP_VERSION` を引数 `$3` で受け取る処理を廃止
     - 環境変数 `DOCKER_BUILD_ARGS`（例: `APP_VERSION=1.0.0 NEXT_PUBLIC_VAST_TAG_URL=https://...`）を読み取り、スペース区切りで `--build-arg KEY=VALUE` に展開する処理を追加
     - `DOCKER_BUILD_ARGS` が空の場合は `--build-arg` なしでビルド（後方互換）
@@ -67,7 +67,7 @@ docker build "${build_args_flags[@]}" -t "${IMAGE_TAG}" -f "${DOCKERFILE}" .
 
 ### 1-2. `build-docker-image` action の変更
 
-- [ ] `.github/actions/build-docker-image/action.yml` を変更する（依存: 1-1）
+- [x] `.github/actions/build-docker-image/action.yml` を変更する（依存: 1-1）
     - `app-version` input を廃止し `build-args` input（複数行テキスト、任意）に変更
     - `build-args` の値を環境変数 `DOCKER_BUILD_ARGS` としてスクリプトに渡す
 
@@ -81,15 +81,15 @@ inputs:
 
 ### 1-3. 既存の呼び出し側の変更
 
-- [ ] `docker-build-with-retry.sh` または `build-docker-image` action を呼び出しているすべての workflow を `build-args:` 形式に変更する（依存: 1-2）
+- [x] `docker-build-with-retry.sh` または `build-docker-image` action を呼び出しているすべての workflow を `build-args:` 形式に変更する（依存: 1-2）
     - 対象: quick-clip 以外のサービスも含む全 workflow の `app-version:` 指定箇所
 
 ### 1-4. quick-clip 固有の設定
 
-- [ ] `services/quick-clip/web/Dockerfile` の `next build` 前に `ARG NEXT_PUBLIC_VAST_TAG_URL` を追加する（依存: なし）
-- [ ] `.github/workflows/quick-clip-deploy.yml` の Docker ビルドステップで `build-args` に `NEXT_PUBLIC_VAST_TAG_URL=${{ vars.QUICK_CLIP_VAST_TAG_URL_DEV }}` または `_PROD` を環境に応じて渡す（依存: 1-2・1-4）
-- [ ] `services/quick-clip/web/.env.local.example` に `NEXT_PUBLIC_VAST_TAG_URL=` を追加してコメントで説明する（依存: なし）
-- [ ] `services/quick-clip/web/package.json` の `devDependencies` に `@types/google.ima` を追加し `npm install` を実行する（依存: なし）
+- [x] `services/quick-clip/web/Dockerfile` の `next build` 前に `ARG NEXT_PUBLIC_VAST_TAG_URL` を追加する（依存: なし）
+- [x] `.github/workflows/quick-clip-deploy.yml` の Docker ビルドステップで `build-args` に `NEXT_PUBLIC_VAST_TAG_URL=${{ vars.QUICK_CLIP_VAST_TAG_URL_DEV }}` または `_PROD` を環境に応じて渡す（依存: 1-2・1-4）
+- [x] `services/quick-clip/web/.env.local.example` に `NEXT_PUBLIC_VAST_TAG_URL=` を追加してコメントで説明する（依存: なし）
+- [x] `@types/google.ima` は npm に存在しないため、`services/quick-clip/web/src/types/google.ima.d.ts` としてローカル型宣言ファイルを作成した（依存: なし）
 
 ## Phase 2: `VideoAd` コンポーネント実装
 

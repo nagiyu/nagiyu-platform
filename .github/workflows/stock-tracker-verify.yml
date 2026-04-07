@@ -130,7 +130,7 @@ jobs:
         with:
           dockerfile: services/stock-tracker/web/Dockerfile
           image-tag: stock-tracker-web-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   docker-build-batch:
     name: Docker Build Verification (Batch)
@@ -160,7 +160,7 @@ jobs:
         with:
           dockerfile: services/stock-tracker/batch/Dockerfile
           image-tag: stock-tracker-batch-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   test-web:
     name: Run Web Unit Tests

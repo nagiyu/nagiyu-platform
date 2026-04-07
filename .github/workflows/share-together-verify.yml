@@ -123,7 +123,7 @@ jobs:
         with:
           dockerfile: services/share-together/web/Dockerfile
           image-tag: share-together-web-verify-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   test-core:
     name: Core Unit Tests

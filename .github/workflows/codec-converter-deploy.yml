@@ -129,7 +129,7 @@ jobs:
       contents: read
 
     outputs:
-      app-version: ${{ steps.get-version.outputs.app-version }}
+      build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
@@ -165,7 +165,7 @@ jobs:
         with:
           dockerfile: services/codec-converter/web/Dockerfile
           image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-codec-converter-${{ needs.prepare-infrastructure.outputs.environment }}:latest
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Web Docker image to ECR
         env:
@@ -211,7 +211,7 @@ jobs:
         with:
           dockerfile: services/codec-converter/batch/Dockerfile
           image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-codec-converter-ffmpeg-${{ needs.prepare-infrastructure.outputs.environment }}:latest
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Batch worker Docker image to ECR
         env:
