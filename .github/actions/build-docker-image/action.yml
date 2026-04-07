@@ -1,5 +1,5 @@
 name: Build Docker Image
-description: Build Docker image with docker build lock and optional APP_VERSION build arg
+description: Build Docker image with docker build lock and optional build args
 
 inputs:
   dockerfile:
@@ -8,8 +8,8 @@ inputs:
   image-tag:
     description: Docker image tag to build
     required: true
-  app-version:
-    description: APP_VERSION value for --build-arg APP_VERSION (optional)
+  build-args:
+    description: 'Build args as KEY=VALUE lines (e.g. APP_VERSION=1.0.0)'
     required: false
     default: ''
 
@@ -23,11 +23,11 @@ runs:
       shell: bash
       env:
         DOCKER_BUILDKIT: 0
+        DOCKER_BUILD_ARGS: ${{ inputs.build-args }}
       run: |
         ./.github/scripts/docker-build-with-retry.sh \
           "${{ inputs.image-tag }}" \
-          "${{ inputs.dockerfile }}" \
-          "${{ inputs.app-version }}"
+          "${{ inputs.dockerfile }}"
 
     - name: Release Docker build lock
       if: always()

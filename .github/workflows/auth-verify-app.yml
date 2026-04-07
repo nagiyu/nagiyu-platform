@@ -334,7 +334,7 @@ jobs:
         with:
           dockerfile: services/auth/web/Dockerfile
           image-tag: auth-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   report:
     name: Report Results to PR

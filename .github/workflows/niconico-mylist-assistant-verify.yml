@@ -263,7 +263,7 @@ jobs:
         with:
           dockerfile: services/niconico-mylist-assistant/web/Dockerfile
           image-tag: niconico-mylist-assistant-web-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   docker-build-batch:
     name: Docker Build Batch
@@ -296,7 +296,7 @@ jobs:
         with:
           dockerfile: services/niconico-mylist-assistant/batch/Dockerfile
           image-tag: niconico-mylist-assistant-batch-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   test-batch:
     name: Batch Unit Tests

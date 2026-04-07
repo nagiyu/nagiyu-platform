@@ -5,11 +5,10 @@ readonly MAX_RETRIES="${DOCKER_BUILD_MAX_RETRIES:-5}"
 readonly RETRY_WAIT_SECONDS="${DOCKER_BUILD_RETRY_WAIT_SECONDS:-60}"
 readonly RATE_LIMIT_MESSAGE="toomanyrequests"
 readonly ERROR_MESSAGE_MAX_RETRY_EXCEEDED="最大リトライ回数を超えました。"
-readonly ERROR_MESSAGE_USAGE="使用方法: $0 <image-tag> <dockerfile> [app-version]"
+readonly ERROR_MESSAGE_USAGE="使用方法: $0 <image-tag> <dockerfile>"
 
 readonly IMAGE_TAG="${1:-}"
 readonly DOCKERFILE="${2:-}"
-readonly APP_VERSION="${3:-}"
 
 if [ -z "${IMAGE_TAG}" ] || [ -z "${DOCKERFILE}" ]; then
   echo "${ERROR_MESSAGE_USAGE}" >&2
@@ -29,15 +28,15 @@ while true; do
   stderr_file="$(mktemp "${RUNNER_TEMP:-/tmp}/docker-build-stderr.XXXXXX")"
   build_status=0
 
-  if [ -n "${APP_VERSION}" ]; then
-    docker build --build-arg APP_VERSION="${APP_VERSION}" \
-      -t "${IMAGE_TAG}" \
-      -f "${DOCKERFILE}" . \
-      2>"${stderr_file}" || build_status=$?
-  else
-    docker build -t "${IMAGE_TAG}" -f "${DOCKERFILE}" . \
-      2>"${stderr_file}" || build_status=$?
+  build_args_flags=()
+  if [ -n "${DOCKER_BUILD_ARGS:-}" ]; then
+    while IFS= read -r arg || [ -n "${arg}" ]; do
+      [ -n "${arg}" ] && build_args_flags+=(--build-arg "${arg}")
+    done <<< "${DOCKER_BUILD_ARGS}"
   fi
+
+  docker build ${build_args_flags:+"${build_args_flags[@]}"} -t "${IMAGE_TAG}" -f "${DOCKERFILE}" . \
+    2>"${stderr_file}" || build_status=$?
 
   if [ "${build_status}" -eq 0 ]; then
     cleanup_stderr_file

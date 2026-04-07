@@ -60,7 +60,7 @@ jobs:
         with:
           dockerfile: services/tools/Dockerfile
           image-tag: tools-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   test:
     name: Run Unit Tests
