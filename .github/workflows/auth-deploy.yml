@@ -97,7 +97,7 @@ jobs:
     outputs:
       image-uri: ${{ steps.build-image.outputs.image-uri }}
       environment: ${{ needs.infrastructure.outputs.environment }}
-      build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
