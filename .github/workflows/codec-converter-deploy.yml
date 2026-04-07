@@ -129,7 +129,7 @@ jobs:
       contents: read
 
     outputs:
-      build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
 
     steps:
       - name: Checkout code
