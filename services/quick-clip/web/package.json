@@ -1,0 +1,30 @@
+{
+  "name": "@nagiyu/quick-clip-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "npm run build --workspace=@nagiyu/nextjs && next build --webpack",
+    "start": "next start",
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
+  },
+  "dependencies": {
+    "@aws-sdk/client-batch": "^3.1010.0",
+    "@aws-sdk/client-dynamodb": "^3.1010.0",
+    "@aws-sdk/client-lambda": "^3.1010.0",
+    "@aws-sdk/client-s3": "^3.1010.0",
+    "@aws-sdk/lib-dynamodb": "^3.1010.0",
+    "@aws-sdk/s3-request-presigner": "^3.1010.0",
+    "@nagiyu/nextjs": "*",
+    "@nagiyu/ui": "*"
+  }
+}
