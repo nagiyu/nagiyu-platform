@@ -37,6 +37,7 @@ const ERROR_MESSAGES = {
 const HIGHLIGHT_SOURCE_LABELS = {
   motion: 'モーション',
   volume: '音量',
+  emotion: '感情',
   both: '両方',
 } as const;
 const HIGHLIGHT_STATUS_LABELS = {

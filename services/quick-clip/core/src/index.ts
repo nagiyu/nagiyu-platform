@@ -19,6 +19,10 @@ export type {
   ExtractedHighlight,
   HighlightScore,
   HighlightSource,
+  EmotionLabel,
+  EmotionFilter,
+  EmotionScore,
+  EmotionHighlightScore,
 } from './libs/highlight-extractor.service.js';
 export type { ClipSplitterService } from './libs/clip-splitter.service.js';
 export type { JobDefinitionSize } from './libs/job-definition-selector.js';
