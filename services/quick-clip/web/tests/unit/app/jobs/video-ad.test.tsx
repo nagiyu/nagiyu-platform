@@ -136,12 +136,9 @@ describe('VideoAd', () => {
     delete process.env.NEXT_PUBLIC_VAST_TAG_URL;
     const onAdFinished = jest.fn();
 
-    let container: HTMLElement;
-    await act(async () => {
-      ({ container } = render(<VideoAd onAdFinished={onAdFinished} />));
-    });
+    const { container } = render(<VideoAd onAdFinished={onAdFinished} />);
 
-    const videoEl = container!.querySelector('video');
+    const videoEl = container.querySelector('video');
     expect(videoEl).toBeInTheDocument();
   });
 
@@ -351,7 +348,7 @@ describe('VideoAd', () => {
     });
 
     act(() => {
-      unmount!();
+      unmount();
     });
 
     expect(mockAdsManager.destroy).toHaveBeenCalled();
@@ -362,7 +359,7 @@ describe('VideoAd', () => {
     const onAdFinished = jest.fn();
 
     // SDK ロードを制御するためのプロミス
-    let resolveIma: ((ima: MockIma) => void) | null = null;
+    let resolveIma!: (ima: MockIma) => void;
     const sdkPromise = new Promise<MockIma>((resolve) => {
       resolveIma = resolve;
     });
@@ -400,12 +397,12 @@ describe('VideoAd', () => {
 
     // アンマウント（active = false にする）
     act(() => {
-      unmount!();
+      unmount();
     });
 
     // その後で SDK ロードを完了させる（active = false なので何もしない）
     await act(async () => {
-      resolveIma!(ima);
+      resolveIma(ima);
       await Promise.resolve();
       await Promise.resolve();
     });
