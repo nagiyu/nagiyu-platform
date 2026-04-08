@@ -11,7 +11,7 @@
 
 ## Phase 1: 依存ライブラリ追加
 
-- [ ] `services/quick-clip/core/package.json` に `openai ^6.33.0`・`zod`・`@nagiyu/common` を追加する（依存: なし）
+- [x] `services/quick-clip/core/package.json` に `openai ^6.33.0`・`zod`・`@nagiyu/common` を追加する（依存: なし）
 
 ## Phase 2: 型定義・共通型の更新
 
