@@ -5,9 +5,11 @@ WORKDIR /app
 
 COPY package*.json ./
 COPY configs ./configs/
+COPY libs ./libs/
 COPY services/quick-clip ./services/quick-clip/
 
 RUN npm ci
+RUN npm run build --workspace=@nagiyu/common
 RUN npm run build --workspace=@nagiyu/quick-clip-core
 RUN npm run build --workspace=@nagiyu/quick-clip-lambda-clip
 

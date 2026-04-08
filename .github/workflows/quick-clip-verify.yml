@@ -342,6 +342,11 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
+      - name: Build shared libraries
+        uses: ./.github/actions/build-shared-workspaces
+        with:
+          shared-workspaces: '@nagiyu/common'
+
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
 
@@ -368,8 +373,6 @@ jobs:
 
       - name: Build lambda zip package
         run: npm run build --workspace=@nagiyu/quick-clip-lambda-zip
-      - name: Build core package
-        run: npm run build --workspace=@nagiyu/quick-clip-core
 
       - name: Run lambda zip tests
         run: npm run test --workspace=@nagiyu/quick-clip-lambda-zip
