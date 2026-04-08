@@ -74,14 +74,14 @@ jobs:
         with:
           dockerfile: services/codec-converter/web/Dockerfile
           image-tag: codec-converter-web-verify-full-test
-          app-version: ${{ steps.get-web-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-web-version.outputs.app-version }}
 
       - name: Build Batch Docker image
         uses: ./.github/actions/build-docker-image
         with:
           dockerfile: services/codec-converter/batch/Dockerfile
           image-tag: codec-converter-batch-verify-full-test
-          app-version: ${{ steps.get-batch-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-batch-version.outputs.app-version }}
 
   test:
     name: Run Unit Tests

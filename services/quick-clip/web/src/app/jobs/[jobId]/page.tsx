@@ -13,6 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import type { Job, JobStatus } from '@/types/quick-clip';
+import { VideoAd } from './VideoAd';
 
 const POLLING_INTERVAL_MS = 10000;
 
@@ -48,6 +49,7 @@ export default function JobPage({ params }: JobPageProps) {
   const [job, setJob] = useState<Job | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [adFinished, setAdFinished] = useState(false);
 
   useEffect(() => {
     params.then((resolved) => {
@@ -108,7 +110,10 @@ export default function JobPage({ params }: JobPageProps) {
     };
   }, [jobId]);
 
-  const canMoveToHighlights = useMemo(() => job?.status === 'COMPLETED', [job?.status]);
+  const canMoveToHighlights = useMemo(
+    () => job?.status === 'COMPLETED' && adFinished,
+    [job?.status, adFinished]
+  );
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -147,6 +152,10 @@ export default function JobPage({ params }: JobPageProps) {
 
             {job.status === 'FAILED' && (
               <Typography color="error">{job.errorMessage ?? '処理に失敗しました'}</Typography>
+            )}
+
+            {job.status !== 'FAILED' && !adFinished && (
+              <VideoAd onAdFinished={() => setAdFinished(true)} />
             )}
 
             {canMoveToHighlights && (

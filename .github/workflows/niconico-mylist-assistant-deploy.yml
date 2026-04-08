@@ -151,7 +151,7 @@ jobs:
         with:
           dockerfile: services/niconico-mylist-assistant/web/Dockerfile
           image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-niconico-mylist-assistant-web-ecr-${{ needs.prepare-infrastructure.outputs.environment }}:${{ github.sha }}
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Web Docker image to ECR
         env:
@@ -207,7 +207,7 @@ jobs:
         with:
           dockerfile: services/niconico-mylist-assistant/batch/Dockerfile
           image-tag: ${{ steps.login-ecr.outputs.registry }}/nagiyu-niconico-mylist-assistant-batch-ecr-${{ needs.prepare-infrastructure.outputs.environment }}:${{ github.sha }}
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Batch worker Docker image to ECR
         env:

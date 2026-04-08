@@ -131,12 +131,27 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Resolve VAST tag URL
+        id: resolve-vast-url
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
+          VAST_TAG_URL_DEV: ${{ vars.QUICK_CLIP_VAST_TAG_URL_DEV }}
+          VAST_TAG_URL_PROD: ${{ vars.QUICK_CLIP_VAST_TAG_URL_PROD }}
+        run: |
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            echo "vast-tag-url=$VAST_TAG_URL_PROD" >> "$GITHUB_OUTPUT"
+          else
+            echo "vast-tag-url=$VAST_TAG_URL_DEV" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build Web Docker image
         uses: ./.github/actions/build-docker-image
         with:
           dockerfile: services/quick-clip/web/Dockerfile
           image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: |
+            APP_VERSION=${{ steps.get-version.outputs.app-version }}
+            NEXT_PUBLIC_VAST_TAG_URL=${{ steps.resolve-vast-url.outputs.vast-tag-url }}
 
       - name: Push Web Docker image
         id: build-image
@@ -203,7 +218,7 @@ jobs:
         with:
           dockerfile: services/quick-clip/batch/Dockerfile
           image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:batch-latest
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Batch Docker image
         id: build-image
@@ -268,7 +283,7 @@ jobs:
         with:
           dockerfile: services/quick-clip/lambda/clip/Dockerfile
           image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Lambda Clip Docker image
         id: build-image
@@ -333,7 +348,7 @@ jobs:
         with:
           dockerfile: services/quick-clip/lambda/zip/Dockerfile
           image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Lambda Zip Docker image
         id: build-image
