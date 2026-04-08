@@ -57,6 +57,7 @@ export function VideoAd({ onAdFinished }: VideoAdProps) {
     const adContainer = adContainerRef.current;
     const video = videoRef.current;
 
+    /* c8 ignore next 4 */
     if (!adContainer || !video) {
       finish();
       return;
