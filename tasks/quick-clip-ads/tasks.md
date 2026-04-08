@@ -93,7 +93,7 @@ inputs:
 
 ## Phase 2: `VideoAd` コンポーネント実装
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/VideoAd.tsx` を新規作成する（依存: Phase 1）
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/VideoAd.tsx` を新規作成する（依存: Phase 1）
     - `VideoAdProps` 型（`onAdFinished: () => void`）の定義
     - `loadImaSdk()` ユーティリティ関数の実装（`useEffect` 内からのみ呼ぶこと。`window.google?.ima` のキャッシュチェックを含む）
     - `useEffect` 内で `NEXT_PUBLIC_VAST_TAG_URL` が空なら即 `onAdFinished()` を呼ぶフォールバック
@@ -106,7 +106,7 @@ inputs:
 
 ## Phase 3: `JobPage` への組み込み
 
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/page.tsx` を変更する（依存: Phase 2）
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/page.tsx` を変更する（依存: Phase 2）
     - `adFinished` state（`useState(false)`）を追加
     - `canMoveToHighlights` の条件に `&& adFinished` を追加
     - `VideoAd` のインポートを追加
@@ -114,13 +114,13 @@ inputs:
 
 ## Phase 4: テスト
 
-- [ ] `services/quick-clip/web/tests/unit/app/jobs/job-page.test.tsx` を変更する（依存: Phase 3）
+- [x] `services/quick-clip/web/tests/unit/app/jobs/job-page.test.tsx` を変更する（依存: Phase 3）
     - `VideoAd` の `jest.mock` を追加（即座に `onAdFinished()` を呼ぶモック）
     - 既存テスト（COMPLETED でボタン表示）が引き続きパスすることを確認
     - 追加テスト: 広告未完了のとき COMPLETED でもボタンが非表示になることを確認
     - 追加テスト: FAILED のとき `VideoAd` が表示されないことを確認
-- [ ] `npm run test` でテストがすべてパスすることを確認（依存: 上記）
-- [ ] Lint・型チェックがすべて通過することを確認（依存: Phase 3）
+- [x] `npm run test` でテストがすべてパスすることを確認（依存: 上記）
+- [x] Lint・型チェックがすべて通過することを確認（依存: Phase 3）
 
 ---
 
