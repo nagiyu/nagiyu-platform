@@ -5,6 +5,7 @@
   "description": "Nagiyu Platform Monorepo",
   "workspaces": [
     "services/tools",
+    "services/portal/web",
     "services/*/core",
     "services/*/web",
     "services/*/web-*",
