@@ -21,11 +21,11 @@
 
 ## Phase 3: OpenAI クライアント・サービス実装（並列実行可能）
 
-- [ ] `services/quick-clip/core/src/libs/openai-client.ts` を新規作成する（`createOpenAIClient(apiKey: string): OpenAI`。design.md の「openai-client.ts」セクション参照。Stock Tracker の `services/stock-tracker/batch/src/lib/openai-client.ts` を参考にする）（依存: Phase 1）
-- [ ] `services/quick-clip/core/src/libs/transcription.service.ts` を新規作成する（`TranscriptionService` クラス。design.md の「transcription.service.ts」セクション参照）（依存: 上記）
-- [ ] `services/quick-clip/core/src/libs/emotion-highlight.service.ts` を新規作成する（`EmotionHighlightService` クラス。design.md の「emotion-highlight.service.ts」セクション参照。`withRetry` と `withTimeout` を使用する）（依存: Phase 2）
-- [ ] `TranscriptionService` の単体テストを作成する（`core/tests/unit/libs/transcription.service.test.ts`。OpenAI クライアントをモックして `TranscriptSegment[]` が正しく変換されるか検証）（依存: 上記）
-- [ ] `EmotionHighlightService` の単体テストを作成する（`core/tests/unit/libs/emotion-highlight.service.test.ts`。Responses API レスポンスをモックして各 `EmotionFilter` の動作・`dominantEmotion` の設定を検証）（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/openai-client.ts` を新規作成する（`createOpenAIClient(apiKey: string): OpenAI`。design.md の「openai-client.ts」セクション参照。Stock Tracker の `services/stock-tracker/batch/src/lib/openai-client.ts` を参考にする）（依存: Phase 1）
+- [x] `services/quick-clip/core/src/libs/transcription.service.ts` を新規作成する（`TranscriptionService` クラス。design.md の「transcription.service.ts」セクション参照）（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/emotion-highlight.service.ts` を新規作成する（`EmotionHighlightService` クラス。design.md の「emotion-highlight.service.ts」セクション参照。`withRetry` と `withTimeout` を使用する）（依存: Phase 2）
+- [x] `TranscriptionService` の単体テストを作成する（`core/tests/unit/libs/transcription.service.test.ts`。OpenAI クライアントをモックして `TranscriptSegment[]` が正しく変換されるか検証）（依存: 上記）
+- [x] `EmotionHighlightService` の単体テストを作成する（`core/tests/unit/libs/emotion-highlight.service.test.ts`。Responses API レスポンスをモックして各 `EmotionFilter` の動作・`dominantEmotion` の設定を検証）（依存: 上記）
 
 ## Phase 4: 集計ロジック拡張
 
