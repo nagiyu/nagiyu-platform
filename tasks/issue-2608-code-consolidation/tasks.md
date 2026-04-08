@@ -39,7 +39,7 @@
 <!-- libs/common の共通実装を活用 -->
 
 - [ ] T007: `services/admin/core/src/notify/web-push-sender.ts` の `WebPushSender.sendAll()` 内部実装を `libs/common/src/push/client.ts` の `sendWebPushNotification` を活用する形にリファクタリングする（依存: なし）
-    - `sendWebPushNotification` の戻り値（`false` が 404/410 を意味するか）を確認してから実装
+    - **前提条件の確認が必要**: `sendWebPushNotification` の戻り値セマンティクスを確認すること（`false` が 404/410 エラーを意味するか、その場合の購読解除の責務が呼び出し元にあるか）
     - 購読解除処理（`deleteByEndpoint`）は引き続き `admin/core` 側で行う
     - 既存のテスト（`web-push-sender.test.ts`）が引き続き通ることを確認
 

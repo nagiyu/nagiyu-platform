@@ -74,7 +74,10 @@
     - `services/share-together/core/src/repositories/membership/dynamodb-membership-repository.ts`
     - `services/share-together/core/src/repositories/todo/dynamodb-todo-repository.ts`
     - `services/share-together/core/src/repositories/user/dynamodb-user-repository.ts`
-- **備考**: 各リポジトリの QueryCommand 等のカスタムクエリメソッドは引き続き独自実装となる。基底クラスで提供される CRUD 操作（getById, create, update, delete）に限定して移行を検討する。移行の費用対効果を評価してから実施する
+- **備考**:
+    - カスタムクエリメソッド（QueryCommand を用いた一覧取得等）は引き続き独自実装を維持する
+    - 基底クラスで提供される CRUD 操作（getById, create, update, delete）に限定して移行を検討する
+    - 移行の費用対効果を評価してから実施する（費用対効果が低い場合は見送る）
 
 #### UC-004: admin/core の WebPushSender と libs/common/push の統合
 

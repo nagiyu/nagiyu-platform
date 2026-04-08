@@ -104,8 +104,6 @@ AbstractDynamoDBRepository は以下のメソッドを提供している:
 
 **推奨方針**: 移行コストと利益のバランスを考慮し、新規追加するリポジトリから AbstractDynamoDBRepository を適用する。既存リポジトリの移行は優先度を低に設定し、バグ修正や大きな変更が発生したタイミングで段階的に対応する。
 
-**先行確認**: `AbstractDynamoDBRepository` の `update` メソッドのシグネチャ（`Partial<TEntity>` を受け取る形式）が、各リポジトリの `UpdateXxxInput` 型と整合するか確認が必要。
-
 ---
 
 ### F-004: admin/core WebPushSender と libs/common/push の統合
@@ -200,7 +198,8 @@ codec-converter/core の `validation.ts` 内のエラーメッセージ（ファ
 ### 依存関係・前提条件
 
 - F-001 の変更は `@nagiyu/aws` が `codec-converter/web` の依存関係に含まれていることを前提とする（`package.json` 確認が必要）
-- F-004 は `libs/common` の `sendWebPushNotification` の戻り値セマンティクス（`false` が 404/410 を意味するか否か）を確認してから実装する
+- F-003 の移行前に `AbstractDynamoDBRepository` の `update()` メソッドのシグネチャ（`Partial<TEntity>` を受け取る形式）が各リポジトリの `UpdateXxxInput` 型と整合するか確認が必要
+- F-004 の実装前に `sendWebPushNotification` の戻り値セマンティクスを確認すること（`false` が 404/410 エラーを意味し、その場合に呼び出し元が購読解除処理を行う責務があることの確認）
 
 ### パフォーマンス考慮事項
 
