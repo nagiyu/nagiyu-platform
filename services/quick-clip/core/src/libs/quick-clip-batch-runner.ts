@@ -9,6 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { Highlight, JobStatus } from '../types.js';
+import type { EmotionFilter } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
@@ -26,6 +27,10 @@ export type QuickClipBatchRunInput = {
   tableName: string;
   bucketName: string;
   awsRegion: string;
+  /** OpenAI API キー（未設定時は感情分析をスキップ）。 */
+  openAiApiKey?: string;
+  /** 感情フィルター（未指定時は 'any'）。 */
+  emotionFilter?: EmotionFilter;
 };
 
 const ERROR_MESSAGES = {

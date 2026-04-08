@@ -15,9 +15,9 @@
 
 ## Phase 2: 型定義・共通型の更新
 
-- [ ] `services/quick-clip/core/src/libs/highlight-extractor.service.ts` に `EmotionLabel`・`EmotionFilter`・`EmotionScore`・`EmotionHighlightScore` を追加し、`HighlightSource` に `'emotion'` を追加し、`ExtractedHighlight` に `dominantEmotion?: EmotionLabel` を追加する（依存: Phase 1）
-- [ ] `services/quick-clip/core/src/types.ts` の `Highlight` に `dominantEmotion?: EmotionLabel` を追加する（依存: 上記）
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` の `QuickClipBatchRunInput` に `openAiApiKey?: string`・`emotionFilter?: EmotionFilter` を追加する（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/highlight-extractor.service.ts` に `EmotionLabel`・`EmotionFilter`・`EmotionScore`・`EmotionHighlightScore` を追加し、`HighlightSource` に `'emotion'` を追加し、`ExtractedHighlight` に `dominantEmotion?: EmotionLabel` を追加する（依存: Phase 1）
+- [x] `services/quick-clip/core/src/types.ts` の `Highlight` に `dominantEmotion?: EmotionLabel` を追加する（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` の `QuickClipBatchRunInput` に `openAiApiKey?: string`・`emotionFilter?: EmotionFilter` を追加する（依存: 上記）
 
 ## Phase 3: OpenAI クライアント・サービス実装（並列実行可能）
 
