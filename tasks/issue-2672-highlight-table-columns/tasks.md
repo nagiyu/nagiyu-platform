@@ -11,13 +11,12 @@
 
 ## Phase 1: 定数・型の追加
 
-<!-- 列定義と localStorage キーの基盤を整備する -->
+<!-- 列定義の基盤を整備する -->
 
 - [ ] T001: 列定義定数ファイルの作成（依存: なし）
     - `web/src/constants/highlightTableColumns.ts` を新規作成する
     - `ColumnDefinition` 型（id / label / fixed / defaultVisible）を定義する
-    - 固定列（No. / 開始〜終了 / 採否）と オプション列（抽出根拠）の定義配列を作成する
-    - localStorage のキー定数（`COLUMN_VISIBILITY_STORAGE_KEY`）を同ファイルに定義する
+    - 固定列（No. / 開始〜終了 / 採否）とオプション列（抽出根拠）の定義配列を作成する
 
 ## Phase 2: カスタムフックの実装
 
@@ -26,16 +25,12 @@
 - [ ] T002: `useColumnVisibility` フックの実装（依存: T001）
     - `web/src/hooks/useColumnVisibility.ts` を新規作成する
     - 引数として `ColumnDefinition[]` を受け取る
-    - localStorage から保存済みの表示状態を初期値として読み込む（存在しない列は `defaultVisible` を使用）
-    - localStorage に保存する際、期待する型・値の範囲内かバリデーションする
+    - `defaultVisible` を初期値として列表示状態を管理する
     - 列の表示状態トグル関数と現在の表示状態マップを返す
-    - 状態変更のたびにオプション列の設定を localStorage へ保存する
 - [ ] T003: `useColumnVisibility` フックの単体テスト（依存: T002）
     - `web/src/hooks/useColumnVisibility.test.ts` を新規作成する
-    - 初期値として `defaultVisible` が使用されることをテストする
-    - localStorage の保存済み値が優先されることをテストする
-    - トグル操作後に localStorage へ保存されることをテストする
-    - localStorage の値が不正な場合に `defaultVisible` にフォールバックすることをテストする
+    - `defaultVisible` が初期状態として使用されることをテストする
+    - トグル操作後に表示状態が反転することをテストする
 
 ## Phase 3: UI コンポーネントの実装
 
@@ -66,7 +61,6 @@
     - 初回表示時に「抽出根拠」列が非表示であることを確認する
     - 列設定ボタンをクリックしてポップオーバーが開くことを確認する
     - 「抽出根拠」をチェックするとテーブルに列が即座に追加されることを確認する
-    - ページ再読み込み後も設定が維持されることを確認する（localStorage に保存されていることを確認する）
     - 既存の No. / 開始〜終了 / 採否 列が常時表示であることを確認する
 - [ ] T007: Lint・型チェックの通過確認（依存: T005）
     - `pnpm lint` および `pnpm tsc --noEmit` が通過することを確認する
@@ -79,6 +73,6 @@
 - [ ] テストカバレッジ 80% 以上（`useColumnVisibility` フック）
 - [ ] Lint・型チェックがすべて通過している
 - [ ] `design.md` の「docs/ への移行メモ」を処理した
-- [ ] `docs/services/quick-clip/requirements.md` の F-003 を更新し、F-014・F-015 を追記した
+- [ ] `docs/services/quick-clip/requirements.md` の F-003 を更新し、F-014 を追記した
 - [ ] `docs/services/quick-clip/external-design.md` の SCR-003 を更新した
 - [ ] `tasks/issue-2672-highlight-table-columns/` ディレクトリを削除した

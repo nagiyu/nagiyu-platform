@@ -24,12 +24,6 @@
   - defaultVisible: 初回表示時のデフォルト表示状態
 ```
 
-### localStorage 保存スキーマ（概念レベル）
-
-- キー: `quick-clip:highlight-table-columns`
-- 値: オプション列の id をキー、表示状態（boolean）を値とするオブジェクト
-- 固定列は保存対象外とする
-
 ---
 
 ## コンポーネント設計
@@ -38,7 +32,7 @@
 
 | パッケージ          | 責務                                       |
 | ------------------- | ------------------------------------------ |
-| `quick-clip/web`    | UI・状態管理・localStorage との読み書き    |
+| `quick-clip/web`    | UI・状態管理                               |
 | `quick-clip/core`   | 変更なし（Highlight 型は既存を流用する）   |
 
 ### 実装モジュール一覧
@@ -48,7 +42,7 @@
 | モジュール                     | パス                                                                           | 役割                                                                              |
 | ------------------------------ | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
 | `ColumnVisibilityButton`       | `web/src/components/highlights/ColumnVisibilityButton.tsx`                     | 列設定ボタン + ポップオーバーをまとめたコンポーネント。チェックボックスリストを表示 |
-| `useColumnVisibility`          | `web/src/hooks/useColumnVisibility.ts`                                         | 列表示状態の管理・localStorage 同期を担うカスタムフック                           |
+| `useColumnVisibility`          | `web/src/hooks/useColumnVisibility.ts`                                         | 列表示状態の管理を担うカスタムフック                           |
 | `highlightTableColumns`        | `web/src/constants/highlightTableColumns.ts`                                   | 列定義（ColumnDefinition の配列）を管理する定数モジュール                         |
 | `HighlightsPage`（既存・変更） | `web/src/app/jobs/[jobId]/highlights/page.tsx`                                 | `useColumnVisibility` を利用して列の表示 / 非表示を制御する                       |
 
@@ -60,8 +54,7 @@
 - 返り値:
     - 各列の現在の表示状態（id → boolean のマップ）
     - 特定列の表示状態をトグルする関数
-- 副作用: 表示状態が変化するたびに localStorage に保存する
-- 初期化: localStorage に保存済みの値があればそれを優先し、なければ `defaultVisible` を使用する
+- 初期化: `defaultVisible` を使用して初期状態を構築する
 
 **`ColumnVisibilityButton` コンポーネント**
 
@@ -85,12 +78,10 @@
 ### パフォーマンス考慮事項
 
 - 列表示の切り替えはクライアント側の状態変更のみであり、API 通信は発生しない
-- localStorage の読み書きは初回マウント時と状態変更時のみ行い、ポーリング処理との競合はない
 
 ### セキュリティ考慮事項
 
-- localStorage に保存するのは列表示フラグ（boolean）のみであり、機密情報は含まない
-- 外部入力をそのまま localStorage から復元する際は、期待する型・値の範囲内であることをバリデーションする
+- 列表示状態はメモリ（React state）のみで管理し、外部ストレージには保存しない
 
 ---
 
@@ -100,10 +91,10 @@
 
 - [ ] `docs/services/quick-clip/requirements.md` に統合すること：
       - F-003 の説明文を「各行に抽出根拠（モーション・音量・両方）をオプション列で表示する（デフォルト OFF）」に更新する
-      - F-014（列表示設定）・F-015（列設定の永続化）を機能一覧に追記する
+      - F-014（列表示設定）を機能一覧に追記する
 - [ ] `docs/services/quick-clip/external-design.md` に統合すること：
       - SCR-003 の「主要 UI 要素」テーブルに「列設定ボタン」を追加する
       - SCR-003 の「ユーザーインタラクション」テーブルに列設定操作を追加する
       - レイアウト図に「列設定」ボタンを追記する
 - [ ] `docs/services/quick-clip/architecture.md` に ADR として追記すること（重要な設計決定があれば）：
-      - localStorage を使った列設定の永続化方針
+      - オプション列のデフォルト OFF 方針（ADR-101）
