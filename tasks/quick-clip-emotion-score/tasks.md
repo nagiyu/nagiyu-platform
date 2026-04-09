@@ -49,9 +49,9 @@
 
 ## Phase 8: Web API 変更
 
-- [ ] `services/quick-clip/web/src/lib/server/aws.ts` に `getOpenAiApiKey(): string | undefined` を追加する（`OPENAI_API_KEY` が未設定の場合 `undefined` を返す。エラーを throw しない）（依存: なし）
-- [ ] `services/quick-clip/web/src/app/api/jobs/route.ts` の `CreateJobRequest` に `emotionFilter?: EmotionFilter` を追加し、`isCreateJobRequest` バリデーターを更新し、Batch `containerOverrides.environment` に `OPENAI_API_KEY`・`EMOTION_FILTER` を追加する（依存: Phase 2、上記）
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts` の `CompleteUploadRequest` に `emotionFilter?: EmotionFilter` を追加し、Batch env に `OPENAI_API_KEY`・`EMOTION_FILTER` を追加する（依存: Phase 2、上記）
+- [x] ~~`services/quick-clip/web/src/lib/server/aws.ts` に `getOpenAiApiKey(): string | undefined` を追加する~~ → 不採用: `OPENAI_API_KEY` は Batch 側で直接保持するため Web 側での取得は不要
+- [x] `services/quick-clip/web/src/app/api/jobs/route.ts` の `CreateJobRequest` に `emotionFilter?: EmotionFilter` を追加し、`isCreateJobRequest` バリデーターを更新し、Batch `containerOverrides.environment` に `EMOTION_FILTER` を追加する（依存: Phase 2）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/complete-upload/route.ts` の `CompleteUploadRequest` に `emotionFilter?: EmotionFilter` を追加し、Batch env に `EMOTION_FILTER` を追加する（依存: Phase 2）
 
 ## Phase 9: インフラ変更
 
