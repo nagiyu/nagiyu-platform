@@ -87,7 +87,9 @@ describe('HighlightAggregationService', () => {
 
     const result = service.aggregate(motionScores, [], 200, emotionScores);
 
+    // motion (score=100) が emotion (score=80) より高スコアのため dominantEmotion は引き継がれない
     expect(result).toEqual([{ startSec: 20, endSec: 45, score: 100, source: 'both' }]);
+    expect(result[0]?.dominantEmotion).toBeUndefined();
   });
 
   it('emotionScores が空配列の場合は2ソース動作を維持する', () => {

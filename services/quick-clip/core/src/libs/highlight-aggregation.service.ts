@@ -26,13 +26,16 @@ const mergeSource = (left: HighlightSource, right: HighlightSource): HighlightSo
 const mergeHighlights = (
   left: ExtractedHighlight,
   right: ExtractedHighlight
-): ExtractedHighlight => ({
-  startSec: Math.min(left.startSec, right.startSec),
-  endSec: Math.max(left.endSec, right.endSec),
-  score: Math.max(left.score, right.score),
-  source: mergeSource(left.source, right.source),
-  dominantEmotion: left.score >= right.score ? left.dominantEmotion : right.dominantEmotion,
-});
+): ExtractedHighlight => {
+  const winner = left.score >= right.score ? left : right;
+  return {
+    startSec: Math.min(left.startSec, right.startSec),
+    endSec: Math.max(left.endSec, right.endSec),
+    score: Math.max(left.score, right.score),
+    source: mergeSource(left.source, right.source),
+    ...(winner.dominantEmotion !== undefined ? { dominantEmotion: winner.dominantEmotion } : {}),
+  };
+};
 
 const toClip = (
   peak: HighlightScore,
