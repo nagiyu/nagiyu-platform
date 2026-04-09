@@ -386,11 +386,19 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get secrets from Secrets Manager
+        uses: aws-actions/aws-secretsmanager-get-secrets@v2
+        with:
+          secret-ids: |
+            OPENAI_API_KEY,nagiyu-quick-clip-openai-api-key-${{ needs.infrastructure-ecr.outputs.environment }}
+          parse-json-secrets: true
+
       - name: Deploy Application Stacks
         env:
           ENVIRONMENT: ${{ needs.infrastructure-ecr.outputs.environment }}
           STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
           APP_VERSION: ${{ needs.build-web.outputs.app-version }}
+          OPENAI_API_KEY: ${{ env.OPENAI_API_KEY_APIKEY }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-quick-clip -- deploy \
             NagiyuQuickClipStorage${STACK_SUFFIX} \
@@ -400,6 +408,7 @@ jobs:
             NagiyuQuickClipCloudFront${STACK_SUFFIX} \
             --context env="$ENVIRONMENT" \
             --context appVersion="$APP_VERSION" \
+            --context openAiApiKey="$OPENAI_API_KEY" \
             --require-approval never
 
       - name: Update Lambda function code with latest image

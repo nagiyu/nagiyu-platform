@@ -56,6 +56,7 @@ const batchStack = new BatchStack(app, `NagiyuQuickClipBatch${envSuffix}`, {
   env: stackEnv,
   storageBucket: storageStack.storageBucket,
   jobsTable: dynamoStack.jobsTable,
+  openAiApiKey,
   description: `QuickClip Batch - ${env} environment`,
 });
 batchStack.addDependency(storageStack);
@@ -75,7 +76,6 @@ const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   batchJobQueueArn: batchStack.jobQueueArn,
   batchJobDefinitionPrefix: batchStack.jobDefinitionPrefix,
   batchJobDefinitionArns: batchStack.jobDefinitionArns,
-  openAiApiKey,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });
