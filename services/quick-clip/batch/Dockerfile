@@ -9,6 +9,7 @@ COPY libs ./libs/
 COPY services/quick-clip ./services/quick-clip/
 
 RUN npm install --prefer-offline --no-audit
+RUN npm run build --workspace=@nagiyu/common
 RUN npm run build --workspace=@nagiyu/quick-clip-core
 RUN npm run build --workspace=@nagiyu/quick-clip-batch
 
