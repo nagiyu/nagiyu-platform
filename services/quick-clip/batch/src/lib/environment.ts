@@ -1,4 +1,8 @@
-import type { EmotionFilter, QuickClipBatchCommand, QuickClipBatchRunInput } from '@nagiyu/quick-clip-core';
+import type {
+  EmotionFilter,
+  QuickClipBatchCommand,
+  QuickClipBatchRunInput,
+} from '@nagiyu/quick-clip-core';
 
 const ERROR_MESSAGES = {
   MISSING_ENV: '必要な環境変数が設定されていません',
