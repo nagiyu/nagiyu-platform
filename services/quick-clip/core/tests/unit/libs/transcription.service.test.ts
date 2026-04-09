@@ -179,9 +179,7 @@ describe('TranscriptionService', () => {
   });
 
   it('ffmpeg spawn エラー時は例外をスローする', async () => {
-    mockSpawn.mockImplementation(() =>
-      createFfmpegMock({ spawnError: new Error('spawn failed') })
-    );
+    mockSpawn.mockImplementation(() => createFfmpegMock({ spawnError: new Error('spawn failed') }));
 
     const service = new TranscriptionService(mockClient);
 
