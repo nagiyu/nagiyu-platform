@@ -16,10 +16,13 @@ const toBatchCommand = (value: string | undefined): QuickClipBatchCommand | null
 };
 
 const toEmotionFilter = (value: string | undefined): EmotionFilter => {
-  if (value === undefined || value.trim().length === 0) {
+  if (value === undefined) {
     return 'any';
   }
   const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return 'any';
+  }
   if (!VALID_EMOTION_FILTERS.includes(trimmed)) {
     throw new Error(ERROR_MESSAGES.INVALID_EMOTION_FILTER);
   }
