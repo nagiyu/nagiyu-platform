@@ -29,8 +29,8 @@
 
 ## Phase 4: 集計ロジック拡張
 
-- [ ] `services/quick-clip/core/src/libs/highlight-aggregation.service.ts` を3ソース round-robin 対応に変更する（design.md の「highlight-aggregation.service.ts」セクション参照。`emotionScores` が未指定・空配列の場合は既存の2ソース動作を維持する）（依存: Phase 2）
-- [ ] `highlight-aggregation.service.ts` の既存テストがすべてパスすることを確認し、emotion ソースの動作を検証するテストケースを追加する（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/highlight-aggregation.service.ts` を3ソース round-robin 対応に変更する（design.md の「highlight-aggregation.service.ts」セクション参照。`emotionScores` が未指定・空配列の場合は既存の2ソース動作を維持する）（依存: Phase 2）
+- [x] `highlight-aggregation.service.ts` の既存テストがすべてパスすることを確認し、emotion ソースの動作を検証するテストケースを追加する（依存: 上記）
 
 ## Phase 5: バッチランナー統合
 
