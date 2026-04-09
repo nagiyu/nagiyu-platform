@@ -40,7 +40,7 @@
 
 ## Phase 6: DynamoDB リポジトリ変更
 
-- [ ] `services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts` の `HighlightItem` に `dominantEmotion?: string` を追加し、`createMany`・`mapToEntity` を変更する（design.md の「DynamoDB 変更」セクション参照）（依存: Phase 2）
+- [x] `services/quick-clip/core/src/repositories/dynamodb-highlight.repository.ts` の `HighlightItem` に `dominantEmotion?: string` を追加し、`createMany`・`mapToEntity` を変更する（design.md の「DynamoDB 変更」セクション参照）（依存: Phase 2）
 
 ## Phase 7: バッチ環境変数
 
