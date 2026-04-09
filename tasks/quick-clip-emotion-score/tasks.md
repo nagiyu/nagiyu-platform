@@ -34,9 +34,9 @@
 
 ## Phase 5: バッチランナー統合
 
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` の `buildHighlights` を変更する（design.md の「buildHighlights」セクション参照。`openAiApiKey` と `emotionFilter` を受け取り、感情分析を実行。失敗時は graceful degradation）（依存: Phase 3、Phase 4）
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` の `runExtract` で `openAiApiKey`・`emotionFilter` を `buildHighlights` に渡す（依存: 上記）
-- [ ] `quick-clip-batch-runner.ts` の既存テストが引き続きパスすることを確認する（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` の `buildHighlights` を変更する（design.md の「buildHighlights」セクション参照。`openAiApiKey` と `emotionFilter` を受け取り、感情分析を実行。失敗時は graceful degradation）（依存: Phase 3、Phase 4）
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` の `runExtract` で `openAiApiKey`・`emotionFilter` を `buildHighlights` に渡す（依存: 上記）
+- [x] `quick-clip-batch-runner.ts` の既存テストが引き続きパスすることを確認する（依存: 上記）
 
 ## Phase 6: DynamoDB リポジトリ変更
 

@@ -8,6 +8,8 @@ const mockAggregate = jest.fn();
 const mockGetDurationSec = jest.fn();
 const mockAnalyzeMotion = jest.fn();
 const mockAnalyzeVolume = jest.fn();
+const mockTranscribe = jest.fn();
+const mockGetScores = jest.fn();
 const TEST_ERRORS = {
   NO_SUCH_KEY: { name: 'NoSuchKey', Code: 'NoSuchKey' } as const,
 };
@@ -87,6 +89,22 @@ jest.mock('../../../src/libs/ffmpeg-video-analyzer.js', () => ({
   })),
 }));
 
+jest.mock('../../../src/libs/openai-client.js', () => ({
+  createOpenAIClient: jest.fn().mockReturnValue({}),
+}));
+
+jest.mock('../../../src/libs/transcription.service.js', () => ({
+  TranscriptionService: jest.fn().mockImplementation(() => ({
+    transcribe: mockTranscribe,
+  })),
+}));
+
+jest.mock('../../../src/libs/emotion-highlight.service.js', () => ({
+  EmotionHighlightService: jest.fn().mockImplementation(() => ({
+    getScores: mockGetScores,
+  })),
+}));
+
 import {
   runQuickClipBatch,
   type QuickClipBatchRunInput,
@@ -114,6 +132,8 @@ describe('runQuickClipBatch', () => {
     mockAnalyzeMotion.mockResolvedValue([]);
     mockAnalyzeVolume.mockResolvedValue([]);
     mockUpdateStatus.mockResolvedValue(undefined);
+    mockTranscribe.mockResolvedValue([]);
+    mockGetScores.mockResolvedValue([]);
   });
 
   it('NoSuchKey が一時的に発生してもリトライで取得できれば処理を継続する', async () => {
@@ -198,5 +218,81 @@ describe('runQuickClipBatch', () => {
       [{ second: 5, score: 90 }],
       120
     );
+  });
+
+  it('openAiApiKey が指定された場合、感情分析を実行して aggregate に emotionScores を渡す', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([
+      { start: 1.0, end: 3.0, text: 'やばい！' },
+    ]);
+    mockGetScores.mockResolvedValue([
+      { second: 1, score: 0.9, dominantEmotion: 'excite' },
+    ]);
+    mockAggregate.mockReturnValue([
+      { startSec: 0, endSec: 11, score: 0.9, source: 'emotion', dominantEmotion: 'excite' },
+    ]);
+
+    const inputWithKey: QuickClipBatchRunInput = {
+      ...input,
+      openAiApiKey: 'sk-test-key',
+      emotionFilter: 'excite',
+    };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    expect(mockTranscribe).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
+    expect(mockGetScores).toHaveBeenCalledWith([{ start: 1.0, end: 3.0, text: 'やばい！' }], 'excite');
+    expect(mockAggregate).toHaveBeenCalledWith(
+      [],
+      [],
+      120,
+      [{ second: 1, score: 0.9, dominantEmotion: 'excite' }]
+    );
+    expect(mockCreateMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'emotion',
+          dominantEmotion: 'excite',
+          status: 'unconfirmed',
+          clipStatus: 'PENDING',
+        }),
+      ])
+    );
+  });
+
+  it('openAiApiKey が指定されても transcribe が空配列を返した場合、getScores は呼ばれない', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([]);
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    expect(mockTranscribe).toHaveBeenCalledTimes(1);
+    expect(mockGetScores).not.toHaveBeenCalled();
+    expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
+  });
+
+  it('感情分析が失敗した場合は graceful degradation で motion・volume のみで処理を継続する', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockRejectedValue(new Error('transcription failed'));
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
+    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'COMPLETED', undefined);
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith('job-1', 'FAILED', expect.anything());
+  });
+
+  it('getScores が失敗した場合も graceful degradation で motion・volume のみで処理を継続する', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([{ start: 0, end: 1, text: 'テスト' }]);
+    mockGetScores.mockRejectedValue(new Error('emotion API error'));
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
+    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'COMPLETED', undefined);
+    expect(mockUpdateStatus).not.toHaveBeenCalledWith('job-1', 'FAILED', expect.anything());
   });
 });
