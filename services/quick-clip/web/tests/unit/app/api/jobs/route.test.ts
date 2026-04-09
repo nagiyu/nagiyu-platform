@@ -1,6 +1,6 @@
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { JobRepository } from '@nagiyu/quick-clip-core';
-import { getBatchClient, getOpenAiApiKey, getS3Client } from '@/lib/server/aws';
+import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/route';
 
 jest.mock('next/server', () => ({
@@ -23,7 +23,6 @@ jest.mock('@/lib/server/aws', () => ({
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
   getBucketName: jest.fn(() => 'test-bucket'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
-  getOpenAiApiKey: jest.fn(() => undefined),
   getS3Client: jest.fn(() => ({})),
   getTableName: jest.fn(() => 'test-table'),
 }));
@@ -44,7 +43,6 @@ describe('POST /api/jobs', () => {
   const mockedGetSignedUrl = getSignedUrl as jest.MockedFunction<typeof getSignedUrl>;
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
-  const mockedGetOpenAiApiKey = getOpenAiApiKey as jest.MockedFunction<typeof getOpenAiApiKey>;
   const batchSend = jest.fn();
   const s3Send = jest.fn();
   let consoleErrorSpy: jest.SpyInstance;
@@ -279,10 +277,7 @@ describe('POST /api/jobs', () => {
       expect.objectContaining({
         input: expect.objectContaining({
           containerOverrides: expect.objectContaining({
-            environment: expect.arrayContaining([
-              { name: 'OPENAI_API_KEY', value: '' },
-              { name: 'EMOTION_FILTER', value: 'any' },
-            ]),
+            environment: expect.arrayContaining([{ name: 'EMOTION_FILTER', value: 'any' }]),
           }),
         }),
       })
@@ -296,7 +291,6 @@ describe('POST /api/jobs', () => {
       contentType: 'video/mp4',
       emotionFilter: 'laugh',
     });
-    mockedGetOpenAiApiKey.mockReturnValueOnce('sk-test-key');
 
     await POST(request);
 
@@ -304,10 +298,7 @@ describe('POST /api/jobs', () => {
       expect.objectContaining({
         input: expect.objectContaining({
           containerOverrides: expect.objectContaining({
-            environment: expect.arrayContaining([
-              { name: 'OPENAI_API_KEY', value: 'sk-test-key' },
-              { name: 'EMOTION_FILTER', value: 'laugh' },
-            ]),
+            environment: expect.arrayContaining([{ name: 'EMOTION_FILTER', value: 'laugh' }]),
           }),
         }),
       })

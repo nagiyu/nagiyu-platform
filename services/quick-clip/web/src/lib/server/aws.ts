@@ -93,8 +93,3 @@ export const getZipGeneratorFunctionName = (): string =>
   );
 
 export const getAwsRegion = (): string => getRegion();
-
-export const getOpenAiApiKey = (): string | undefined => {
-  const value = process.env.OPENAI_API_KEY?.trim() ?? '';
-  return value.length > 0 ? value : undefined;
-};

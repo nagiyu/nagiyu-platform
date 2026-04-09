@@ -10,7 +10,6 @@ import {
   getBatchJobQueueArn,
   getBucketName,
   getDynamoDBDocumentClient,
-  getOpenAiApiKey,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
@@ -144,7 +143,6 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
             { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
             { name: 'S3_BUCKET', value: bucketName },
             { name: 'AWS_REGION', value: getAwsRegion() },
-            { name: 'OPENAI_API_KEY', value: getOpenAiApiKey() ?? '' },
             { name: 'EMOTION_FILTER', value: body.emotionFilter ?? 'any' },
           ],
         },
