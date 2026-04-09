@@ -222,12 +222,8 @@ describe('runQuickClipBatch', () => {
 
   it('openAiApiKey が指定された場合、感情分析を実行して aggregate に emotionScores を渡す', async () => {
     mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
-    mockTranscribe.mockResolvedValue([
-      { start: 1.0, end: 3.0, text: 'やばい！' },
-    ]);
-    mockGetScores.mockResolvedValue([
-      { second: 1, score: 0.9, dominantEmotion: 'excite' },
-    ]);
+    mockTranscribe.mockResolvedValue([{ start: 1.0, end: 3.0, text: 'やばい！' }]);
+    mockGetScores.mockResolvedValue([{ second: 1, score: 0.9, dominantEmotion: 'excite' }]);
     mockAggregate.mockReturnValue([
       { startSec: 0, endSec: 11, score: 0.9, source: 'emotion', dominantEmotion: 'excite' },
     ]);
@@ -240,13 +236,13 @@ describe('runQuickClipBatch', () => {
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
     expect(mockTranscribe).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
-    expect(mockGetScores).toHaveBeenCalledWith([{ start: 1.0, end: 3.0, text: 'やばい！' }], 'excite');
-    expect(mockAggregate).toHaveBeenCalledWith(
-      [],
-      [],
-      120,
-      [{ second: 1, score: 0.9, dominantEmotion: 'excite' }]
+    expect(mockGetScores).toHaveBeenCalledWith(
+      [{ start: 1.0, end: 3.0, text: 'やばい！' }],
+      'excite'
     );
+    expect(mockAggregate).toHaveBeenCalledWith([], [], 120, [
+      { second: 1, score: 0.9, dominantEmotion: 'excite' },
+    ]);
     expect(mockCreateMany).toHaveBeenCalledWith(
       expect.arrayContaining([
         expect.objectContaining({
