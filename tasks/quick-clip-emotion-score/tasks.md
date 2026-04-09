@@ -44,8 +44,8 @@
 
 ## Phase 7: バッチ環境変数
 
-- [ ] `services/quick-clip/batch/src/lib/environment.ts` の `validateEnvironment` に `OPENAI_API_KEY`（任意）と `EMOTION_FILTER`（任意・デフォルト `'any'`）の読み取りを追加し、`QuickClipBatchRunInput` に設定する（依存: Phase 2）
-- [ ] `batch/tests/unit/lib/environment.test.ts` を更新して新しい環境変数の動作を検証する（依存: 上記）
+- [x] `services/quick-clip/batch/src/lib/environment.ts` の `validateEnvironment` に `OPENAI_API_KEY`（任意）と `EMOTION_FILTER`（任意・デフォルト `'any'`）の読み取りを追加し、`QuickClipBatchRunInput` に設定する（依存: Phase 2）
+- [x] `batch/tests/unit/lib/environment.test.ts` を更新して新しい環境変数の動作を検証する（依存: 上記）
 
 ## Phase 8: Web API 変更
 
