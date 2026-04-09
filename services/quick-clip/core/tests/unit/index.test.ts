@@ -2,6 +2,9 @@ import {
   HighlightAggregationService,
   HighlightService,
   JobService,
+  TranscriptionService,
+  EmotionHighlightService,
+  createOpenAIClient,
   selectJobDefinition,
   type ClipSplitterService,
   type CreateJobInput,
@@ -16,6 +19,11 @@ import {
   type JobRepository,
   type JobStatus,
   type UpdateHighlightInput,
+  type EmotionLabel,
+  type EmotionFilter,
+  type EmotionScore,
+  type EmotionHighlightScore,
+  type TranscriptSegment,
 } from '../../src/index.js';
 
 describe('quick-clip core exports', () => {
@@ -95,5 +103,63 @@ describe('quick-clip core exports', () => {
     expect(extractedHighlight).toBeDefined();
     expect(highlightScore).toBeDefined();
     expect(clipSplitter).toBeDefined();
+  });
+
+  it('感情スコア関連の型が利用できる', () => {
+    // EmotionLabel は 'laugh' | 'excite' | 'touch' | 'tension' の union 型
+    // TypeScript コンパイル時に不正な値は拒否される
+    const emotionLabel: EmotionLabel = 'laugh';
+    const allEmotionLabels: EmotionLabel[] = ['laugh', 'excite', 'touch', 'tension'];
+
+    // EmotionFilter は EmotionLabel | 'any' の union 型
+    const emotionFilter: EmotionFilter = 'any';
+    const allEmotionFilters: EmotionFilter[] = ['laugh', 'excite', 'touch', 'tension', 'any'];
+
+    // EmotionScore: スコアは 0.0〜1.0 の範囲（仕様上の制約）
+    const emotionScore: EmotionScore = {
+      second: 10,
+      laugh: 0.8,
+      excite: 0.5,
+      touch: 0.2,
+      tension: 0.3,
+    };
+
+    // スコアが 0.0〜1.0 の範囲内であることを確認
+    expect(emotionScore.laugh).toBeGreaterThanOrEqual(0);
+    expect(emotionScore.laugh).toBeLessThanOrEqual(1);
+    expect(emotionScore.excite).toBeGreaterThanOrEqual(0);
+    expect(emotionScore.excite).toBeLessThanOrEqual(1);
+    expect(emotionScore.touch).toBeGreaterThanOrEqual(0);
+    expect(emotionScore.touch).toBeLessThanOrEqual(1);
+    expect(emotionScore.tension).toBeGreaterThanOrEqual(0);
+    expect(emotionScore.tension).toBeLessThanOrEqual(1);
+
+    const emotionHighlightScore: EmotionHighlightScore = {
+      second: 10,
+      score: 0.8,
+      dominantEmotion: 'laugh',
+    };
+
+    // dominantEmotion は EmotionLabel のいずれか
+    expect(allEmotionLabels).toContain(emotionHighlightScore.dominantEmotion);
+
+    const transcriptSegment: TranscriptSegment = {
+      start: 0,
+      end: 5,
+      text: 'こんにちは',
+    };
+
+    expect(emotionLabel).toBe('laugh');
+    expect(emotionFilter).toBe('any');
+    expect(allEmotionFilters).toHaveLength(5);
+    expect(emotionScore.second).toBe(10);
+    expect(emotionHighlightScore.dominantEmotion).toBe('laugh');
+    expect(transcriptSegment.text).toBe('こんにちは');
+  });
+
+  it('感情分析サービスがエクスポートされている', () => {
+    expect(TranscriptionService).toBeDefined();
+    expect(EmotionHighlightService).toBeDefined();
+    expect(createOpenAIClient).toBeDefined();
   });
 });
