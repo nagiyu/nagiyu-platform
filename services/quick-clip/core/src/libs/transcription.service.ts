@@ -85,7 +85,9 @@ export class TranscriptionService {
         text: s.text,
       }));
     } finally {
-      await unlink(audioFilePath).catch(() => undefined);
+      await unlink(audioFilePath).catch((err: unknown) => {
+        console.warn('[TranscriptionService] 一時音声ファイルの削除に失敗しました:', err);
+      });
     }
   }
 }
