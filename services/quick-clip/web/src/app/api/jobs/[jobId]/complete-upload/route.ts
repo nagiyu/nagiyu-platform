@@ -14,6 +14,7 @@ import {
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
@@ -52,14 +53,6 @@ const isCompletedPart = (part: unknown): part is CompletedPart =>
       candidate.ETag.trim().length > 0
     );
   })();
-
-const VALID_EMOTION_FILTERS: ReadonlySet<string> = new Set([
-  'any',
-  'laugh',
-  'excite',
-  'touch',
-  'tension',
-]);
 
 const isCompleteUploadRequest = (body: unknown): body is CompleteUploadRequest => {
   if (typeof body !== 'object' || body === null) {

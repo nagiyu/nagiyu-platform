@@ -19,6 +19,7 @@ import {
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
@@ -41,14 +42,6 @@ const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
 const MULTIPART_UPLOAD_THRESHOLD_BYTES = 5 * 1024 * 1024 * 1024;
 const MULTIPART_CHUNK_SIZE_BYTES = 500 * 1024 * 1024;
-
-const VALID_EMOTION_FILTERS: ReadonlySet<string> = new Set([
-  'any',
-  'laugh',
-  'excite',
-  'touch',
-  'tension',
-]);
 
 const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
   if (typeof body !== 'object' || body === null) {
