@@ -1,5 +1,5 @@
 import type { JobRepository } from '@nagiyu/quick-clip-core';
-import { getBatchClient, getS3Client } from '@/lib/server/aws';
+import { getBatchClient, getOpenAiApiKey, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/complete-upload/route';
 
 const mockGetById = jest.fn();
@@ -24,6 +24,7 @@ jest.mock('@/lib/server/aws', () => ({
   getBatchJobQueueArn: jest.fn(() => 'arn:aws:batch:us-east-1:123456789012:job-queue/quick-clip'),
   getBucketName: jest.fn(() => 'test-bucket'),
   getDynamoDBDocumentClient: jest.fn(() => ({})),
+  getOpenAiApiKey: jest.fn(() => undefined),
   getS3Client: jest.fn(),
   getTableName: jest.fn(() => 'test-table'),
 }));
@@ -40,6 +41,7 @@ jest.mock('next/server', () => ({
 describe('POST /api/jobs/[jobId]/complete-upload', () => {
   const mockedGetBatchClient = getBatchClient as jest.MockedFunction<typeof getBatchClient>;
   const mockedGetS3Client = getS3Client as jest.MockedFunction<typeof getS3Client>;
+  const mockedGetOpenAiApiKey = getOpenAiApiKey as jest.MockedFunction<typeof getOpenAiApiKey>;
   const batchSend = jest.fn();
   const s3Send = jest.fn();
   let consoleErrorSpy: jest.SpyInstance;
@@ -238,5 +240,80 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       '[POST /api/jobs/[jobId]/complete-upload] アップロード完了処理に失敗しました',
       multipartError
     );
+  });
+
+  it('正常系: emotionFilter未指定時はBatch envにEMOTION_FILTER=anyが設定される', async () => {
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([
+              { name: 'OPENAI_API_KEY', value: '' },
+              { name: 'EMOTION_FILTER', value: 'any' },
+            ]),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('正常系: emotionFilter指定時はBatch envに反映される', async () => {
+    mockedGetOpenAiApiKey.mockReturnValueOnce('sk-test-key');
+
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+        emotionFilter: 'excite',
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([
+              { name: 'OPENAI_API_KEY', value: 'sk-test-key' },
+              { name: 'EMOTION_FILTER', value: 'excite' },
+            ]),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('異常系: 不正なemotionFilterは400を返す', async () => {
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+        emotionFilter: 'invalid',
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
   });
 });

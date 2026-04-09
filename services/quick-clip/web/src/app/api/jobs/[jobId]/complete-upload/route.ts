@@ -1,4 +1,5 @@
 import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { NextResponse } from 'next/server';
@@ -9,6 +10,7 @@ import {
   getBatchJobQueueArn,
   getBucketName,
   getDynamoDBDocumentClient,
+  getOpenAiApiKey,
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
@@ -35,6 +37,7 @@ type CompletedPart = {
 type CompleteUploadRequest = {
   uploadId: string;
   parts: CompletedPart[];
+  emotionFilter?: EmotionFilter;
 };
 
 const isCompletedPart = (part: unknown): part is CompletedPart =>
@@ -50,14 +53,41 @@ const isCompletedPart = (part: unknown): part is CompletedPart =>
     );
   })();
 
-const isCompleteUploadRequest = (body: unknown): body is CompleteUploadRequest =>
-  typeof body === 'object' &&
-  body !== null &&
-  typeof (body as { uploadId?: unknown }).uploadId === 'string' &&
-  (body as { uploadId: string }).uploadId.trim().length > 0 &&
-  Array.isArray((body as { parts?: unknown }).parts) &&
-  (body as { parts: unknown[] }).parts.length > 0 &&
-  (body as { parts: unknown[] }).parts.every(isCompletedPart);
+const VALID_EMOTION_FILTERS: ReadonlySet<string> = new Set([
+  'any',
+  'laugh',
+  'excite',
+  'touch',
+  'tension',
+]);
+
+const isCompleteUploadRequest = (body: unknown): body is CompleteUploadRequest => {
+  if (typeof body !== 'object' || body === null) {
+    return false;
+  }
+  const candidate = body as {
+    uploadId?: unknown;
+    parts?: unknown;
+    emotionFilter?: unknown;
+  };
+  if (typeof candidate.uploadId !== 'string' || candidate.uploadId.trim().length === 0) {
+    return false;
+  }
+  if (
+    !Array.isArray(candidate.parts) ||
+    candidate.parts.length === 0 ||
+    !candidate.parts.every(isCompletedPart)
+  ) {
+    return false;
+  }
+  if (
+    candidate.emotionFilter !== undefined &&
+    !VALID_EMOTION_FILTERS.has(candidate.emotionFilter as string)
+  ) {
+    return false;
+  }
+  return true;
+};
 
 export async function POST(request: Request, { params }: RouteParams): Promise<NextResponse> {
   try {
@@ -121,6 +151,8 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
             { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
             { name: 'S3_BUCKET', value: bucketName },
             { name: 'AWS_REGION', value: getAwsRegion() },
+            { name: 'OPENAI_API_KEY', value: getOpenAiApiKey() ?? '' },
+            { name: 'EMOTION_FILTER', value: body.emotionFilter ?? 'any' },
           ],
         },
       })
