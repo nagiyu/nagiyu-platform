@@ -23,6 +23,8 @@ RUN apt-get update \
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/libs/common/package*.json ./libs/common/
+COPY --from=builder /app/libs/common/dist ./libs/common/dist
 COPY --from=builder /app/services/quick-clip/core/package*.json ./services/quick-clip/core/
 COPY --from=builder /app/services/quick-clip/core/dist ./services/quick-clip/core/dist
 COPY --from=builder /app/services/quick-clip/batch/package*.json ./services/quick-clip/batch/
