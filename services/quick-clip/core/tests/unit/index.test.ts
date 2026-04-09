@@ -2,6 +2,9 @@ import {
   HighlightAggregationService,
   HighlightService,
   JobService,
+  TranscriptionService,
+  EmotionHighlightService,
+  createOpenAIClient,
   selectJobDefinition,
   type ClipSplitterService,
   type CreateJobInput,
@@ -16,6 +19,11 @@ import {
   type JobRepository,
   type JobStatus,
   type UpdateHighlightInput,
+  type EmotionLabel,
+  type EmotionFilter,
+  type EmotionScore,
+  type EmotionHighlightScore,
+  type TranscriptSegment,
 } from '../../src/index.js';
 
 describe('quick-clip core exports', () => {
@@ -95,5 +103,42 @@ describe('quick-clip core exports', () => {
     expect(extractedHighlight).toBeDefined();
     expect(highlightScore).toBeDefined();
     expect(clipSplitter).toBeDefined();
+  });
+
+  it('感情スコア関連の型が利用できる', () => {
+    const emotionLabel: EmotionLabel = 'laugh';
+    const emotionFilter: EmotionFilter = 'any';
+
+    const emotionScore: EmotionScore = {
+      second: 10,
+      laugh: 0.8,
+      excite: 0.5,
+      touch: 0.2,
+      tension: 0.3,
+    };
+
+    const emotionHighlightScore: EmotionHighlightScore = {
+      second: 10,
+      score: 0.8,
+      dominantEmotion: 'laugh',
+    };
+
+    const transcriptSegment: TranscriptSegment = {
+      start: 0,
+      end: 5,
+      text: 'こんにちは',
+    };
+
+    expect(emotionLabel).toBe('laugh');
+    expect(emotionFilter).toBe('any');
+    expect(emotionScore.second).toBe(10);
+    expect(emotionHighlightScore.dominantEmotion).toBe('laugh');
+    expect(transcriptSegment.text).toBe('こんにちは');
+  });
+
+  it('感情分析サービスがエクスポートされている', () => {
+    expect(TranscriptionService).toBeDefined();
+    expect(EmotionHighlightService).toBeDefined();
+    expect(createOpenAIClient).toBeDefined();
   });
 });

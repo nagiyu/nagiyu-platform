@@ -60,7 +60,7 @@
 
 ## Phase 10: エクスポート確認
 
-- [ ] `services/quick-clip/core/src/index.ts` から新規型（`EmotionLabel`・`EmotionFilter`・`EmotionScore`・`EmotionHighlightScore`）と新規サービス（`TranscriptionService`・`EmotionHighlightService`・`createOpenAIClient`）が適切にエクスポートされているか確認・追加する（依存: Phase 3）
+- [x] `services/quick-clip/core/src/index.ts` から新規型（`EmotionLabel`・`EmotionFilter`・`EmotionScore`・`EmotionHighlightScore`）と新規サービス（`TranscriptionService`・`EmotionHighlightService`・`createOpenAIClient`）が適切にエクスポートされているか確認・追加する（依存: Phase 3）
 
 ---
 
