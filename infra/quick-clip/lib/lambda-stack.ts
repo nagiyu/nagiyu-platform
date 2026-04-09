@@ -25,6 +25,7 @@ export interface LambdaStackProps extends cdk.StackProps {
   batchJobQueueArn: string;
   batchJobDefinitionPrefix: string;
   batchJobDefinitionArns: string[];
+  openAiApiKey: string;
 }
 
 export class LambdaStack extends LambdaStackBase {
@@ -46,6 +47,7 @@ export class LambdaStack extends LambdaStackBase {
       batchJobQueueArn,
       batchJobDefinitionPrefix,
       batchJobDefinitionArns,
+      openAiApiKey,
       ...stackProps
     } = props;
     const region = stackProps.env?.region ?? cdk.Aws.REGION;
@@ -88,6 +90,7 @@ export class LambdaStack extends LambdaStackBase {
           BATCH_JOB_DEFINITION_PREFIX: batchJobDefinitionPrefix,
           CLIP_REGENERATE_FUNCTION_NAME: `nagiyu-quick-clip-clip-regenerate-${environment}`,
           ZIP_GENERATOR_FUNCTION_NAME: `nagiyu-quick-clip-zip-generator-${environment}`,
+          OPENAI_API_KEY: openAiApiKey,
         },
       },
       additionalPolicyStatements: [

@@ -55,8 +55,8 @@
 
 ## Phase 9: インフラ変更
 
-- [ ] `infra/quick-clip/` に `SecretsStack` を追加し、`nagiyu-quick-clip-openai-api-key-{environment}` シークレットを PLACEHOLDER 値で作成する（`infra/stock-tracker/lib/secrets-stack.ts` を参照）（依存: なし）
-- [ ] quick-clip の `bin/quick-clip.ts` で `tryGetContext('openAiApiKey') || 'PLACEHOLDER'` として受け取り、Lambda（Web）スタックの `environment: { OPENAI_API_KEY: openAiApiKey }` で Lambda 環境変数として注入する（ランタイムで Secrets Manager を呼ばない。`infra/stock-tracker/bin/stock-tracker.ts` と `infra/stock-tracker/lib/lambda-stack.ts` を参照）（依存: 上記）
+- [x] `infra/quick-clip/` に `SecretsStack` を追加し、`nagiyu-quick-clip-openai-api-key-{environment}` シークレットを PLACEHOLDER 値で作成する（`infra/stock-tracker/lib/secrets-stack.ts` を参照）（依存: なし）
+- [x] quick-clip の `bin/quick-clip.ts` で `tryGetContext('openAiApiKey') || 'PLACEHOLDER'` として受け取り、Lambda（Web）スタックの `environment: { OPENAI_API_KEY: openAiApiKey }` で Lambda 環境変数として注入する（ランタイムで Secrets Manager を呼ばない。`infra/stock-tracker/bin/stock-tracker.ts` と `infra/stock-tracker/lib/lambda-stack.ts` を参照）（依存: 上記）
 
 ## Phase 10: エクスポート確認
 
