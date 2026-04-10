@@ -17,8 +17,7 @@ export class MotionHighlightService {
       return scores;
     }
     return scores.filter(
-      ({ second }) =>
-        !uniformIntervals.some(({ start, end }) => second >= start && second <= end),
+      ({ second }) => !uniformIntervals.some(({ start, end }) => second >= start && second <= end)
     );
   }
 }
