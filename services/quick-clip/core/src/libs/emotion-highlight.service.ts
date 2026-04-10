@@ -11,7 +11,7 @@ import type { TranscriptSegment } from './transcription.service.js';
 
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 300_000;
 
 const ERROR_MESSAGES = {
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
@@ -123,7 +123,11 @@ export class EmotionHighlightService {
           }),
           REQUEST_TIMEOUT_MS
         ),
-      { maxRetries: MAX_RETRIES }
+      {
+        maxRetries: MAX_RETRIES,
+        shouldRetry: (error) =>
+          !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
+      }
     );
 
     const items = response.output_parsed?.items ?? [];
