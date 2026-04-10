@@ -77,8 +77,22 @@ describe('TranscriptionService', () => {
     mockCreate.mockResolvedValue({
       text: 'やばい！これは面白すぎるwww',
       segments: [
-        { start: 0.0, end: 5.0, text: 'やばい！これは面白すぎるwww' },
-        { start: 5.3, end: 10.0, text: 'マジで？どういうことだよ' },
+        {
+          start: 0.0,
+          end: 5.0,
+          text: 'やばい！これは面白すぎるwww',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.3,
+          end: 10.0,
+          text: 'マジで？どういうことだよ',
+          no_speech_prob: 0.2,
+          avg_logprob: -0.3,
+          compression_ratio: 1.2,
+        },
       ],
     });
 
@@ -203,8 +217,32 @@ describe('TranscriptionService', () => {
     stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
 
     mockCreate
-      .mockResolvedValueOnce({ text: '', segments: [{ start: 0.0, end: 5.0, text: 'chunk1' }] })
-      .mockResolvedValueOnce({ text: '', segments: [{ start: 1.0, end: 3.0, text: 'chunk2' }] });
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 0.0,
+            end: 5.0,
+            text: 'chunk1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 1.0,
+            end: 3.0,
+            text: 'chunk2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      });
 
     const service = new TranscriptionService(mockClient);
     const result = await service.transcribe('/tmp/video.mp4');
@@ -223,8 +261,32 @@ describe('TranscriptionService', () => {
     stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
 
     mockCreate
-      .mockResolvedValueOnce({ text: '', segments: [{ start: 0.0, end: 5.0, text: 'chunk1' }] })
-      .mockResolvedValueOnce({ text: '', segments: [{ start: 1.0, end: 3.0, text: 'chunk2' }] });
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 0.0,
+            end: 5.0,
+            text: 'chunk1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 1.0,
+            end: 3.0,
+            text: 'chunk2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      });
 
     const service = new TranscriptionService(mockClient);
     const result = await service.transcribe('/tmp/video.mp4');
@@ -246,5 +308,182 @@ describe('TranscriptionService', () => {
 
     expect(unlink).toHaveBeenCalledWith(expect.stringContaining('-chunk-0.mp3'));
     expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
+  });
+
+  it('no_speech_prob > 0.6 のセグメントが除外される', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 1024 * 1024 });
+    mockCreate.mockResolvedValue({
+      text: '',
+      segments: [
+        {
+          start: 0.0,
+          end: 5.0,
+          text: '正常セグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: 'ハルシネーション',
+          no_speech_prob: 0.7,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+      ],
+    });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('正常セグメント');
+  });
+
+  it('avg_logprob < -1.0 のセグメントが除外される', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 1024 * 1024 });
+    mockCreate.mockResolvedValue({
+      text: '',
+      segments: [
+        {
+          start: 0.0,
+          end: 5.0,
+          text: '正常セグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: '不確かなセグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -1.5,
+          compression_ratio: 1.0,
+        },
+      ],
+    });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('正常セグメント');
+  });
+
+  it('compression_ratio > 2.4 のセグメントが除外される', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 1024 * 1024 });
+    mockCreate.mockResolvedValue({
+      text: '',
+      segments: [
+        {
+          start: 0.0,
+          end: 5.0,
+          text: '正常セグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: '繰り返しセグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 2.5,
+        },
+      ],
+    });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(1);
+    expect(result[0].text).toBe('正常セグメント');
+  });
+
+  it('境界値のセグメントは保持される（閾値と同値は許容）', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 1024 * 1024 });
+    mockCreate.mockResolvedValue({
+      text: '',
+      segments: [
+        {
+          start: 0.0,
+          end: 5.0,
+          text: 'セグメント1',
+          no_speech_prob: 0.0,
+          avg_logprob: -0.1,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: 'セグメント2',
+          no_speech_prob: 0.6,
+          avg_logprob: -1.0,
+          compression_ratio: 2.4,
+        },
+      ],
+    });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].text).toBe('セグメント1');
+    expect(result[1].text).toBe('セグメント2');
+  });
+
+  it('チャンク分割時もフィルタリングが機能する', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+
+    mockCreate
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 0.0,
+            end: 5.0,
+            text: '正常チャンク1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+          {
+            start: 5.0,
+            end: 10.0,
+            text: 'ハルシネーション',
+            no_speech_prob: 0.9,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 0.0,
+            end: 3.0,
+            text: '正常チャンク2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].text).toBe('正常チャンク1');
+    expect(result[1].text).toBe('正常チャンク2');
   });
 });

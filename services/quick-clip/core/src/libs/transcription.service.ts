@@ -18,6 +18,19 @@ const MAX_FILE_SIZE_BYTES = 24 * 1024 * 1024;
 const MP3_BYTES_PER_SEC = 32000 / 8;
 const CHUNK_DURATION_SEC = Math.floor(MAX_FILE_SIZE_BYTES / MP3_BYTES_PER_SEC);
 
+const NO_SPEECH_PROB_THRESHOLD = 0.6; // Whisper 公式の無音声判定値
+const AVG_LOGPROB_THRESHOLD = -1.0; // モデルの不確かさ閾値
+const COMPRESSION_RATIO_THRESHOLD = 2.4; // 繰り返しテキスト検出値
+
+type RawSegment = {
+  start: number;
+  end: number;
+  text: string;
+  no_speech_prob: number;
+  avg_logprob: number;
+  compression_ratio: number;
+};
+
 export class TranscriptionService {
   private readonly client: OpenAI;
 
@@ -100,18 +113,24 @@ export class TranscriptionService {
       language: 'ja',
     });
 
-    const segments = (response as { segments?: { start: number; end: number; text: string }[] })
-      .segments;
+    const segments = (response as { segments?: RawSegment[] }).segments;
 
     if (!segments) {
       return [];
     }
 
-    return segments.map((s) => ({
-      start: s.start,
-      end: s.end,
-      text: s.text,
-    }));
+    return segments
+      .filter(
+        (s) =>
+          s.no_speech_prob <= NO_SPEECH_PROB_THRESHOLD &&
+          s.avg_logprob >= AVG_LOGPROB_THRESHOLD &&
+          s.compression_ratio <= COMPRESSION_RATIO_THRESHOLD
+      )
+      .map((s) => ({
+        start: s.start,
+        end: s.end,
+        text: s.text,
+      }));
   }
 
   public async transcribe(videoFilePath: string): Promise<TranscriptSegment[]> {
