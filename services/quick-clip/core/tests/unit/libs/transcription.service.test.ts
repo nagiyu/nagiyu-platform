@@ -20,6 +20,7 @@ jest.mock('node:fs', () => ({
 
 jest.mock('node:fs/promises', () => ({
   unlink: jest.fn().mockResolvedValue(undefined),
+  stat: jest.fn().mockResolvedValue({ size: 1024 * 1024 }),
 }));
 
 jest.mock('node:crypto', () => ({
@@ -144,7 +145,17 @@ describe('TranscriptionService', () => {
 
     expect(mockSpawn).toHaveBeenCalledWith(
       'ffmpeg',
-      expect.arrayContaining(['-i', '/tmp/video.mp4', '-vn', '-f', 'wav'])
+      expect.arrayContaining([
+        '-i',
+        '/tmp/video.mp4',
+        '-vn',
+        '-c:a',
+        'libmp3lame',
+        '-b:a',
+        '32k',
+        '-f',
+        'mp3',
+      ])
     );
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
@@ -156,7 +167,7 @@ describe('TranscriptionService', () => {
     const service = new TranscriptionService(mockClient);
     await service.transcribe('/tmp/video.mp4');
 
-    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.wav');
+    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
   });
 
   it('API エラー時でも一時ファイルを削除する', async () => {
@@ -166,7 +177,7 @@ describe('TranscriptionService', () => {
     const service = new TranscriptionService(mockClient);
     await expect(service.transcribe('/tmp/video.mp4')).rejects.toThrow('API error');
 
-    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.wav');
+    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
   });
 
   it('ffmpeg が失敗した場合は例外をスローする', async () => {
@@ -185,5 +196,54 @@ describe('TranscriptionService', () => {
 
     await expect(service.transcribe('/tmp/video.mp4')).rejects.toThrow('音声の抽出に失敗しました');
     expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('24MB 超のファイルはチャンク分割して送信する', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+
+    mockCreate
+      .mockResolvedValueOnce({ text: '', segments: [{ start: 0.0, end: 5.0, text: 'chunk1' }] })
+      .mockResolvedValueOnce({ text: '', segments: [{ start: 1.0, end: 3.0, text: 'chunk2' }] });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(2);
+    expect(result[0].start).toBe(0.0);
+    expect(result[0].end).toBe(5.0);
+    expect(result[0].text).toBe('chunk1');
+  });
+
+  it('2 チャンク目のタイムスタンプにオフセットが加算される', async () => {
+    const CHUNK_DURATION_SEC = Math.floor((24 * 1024 * 1024) / (32000 / 8));
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+
+    mockCreate
+      .mockResolvedValueOnce({ text: '', segments: [{ start: 0.0, end: 5.0, text: 'chunk1' }] })
+      .mockResolvedValueOnce({ text: '', segments: [{ start: 1.0, end: 3.0, text: 'chunk2' }] });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(result[1].start).toBeCloseTo(1.0 + CHUNK_DURATION_SEC);
+    expect(result[1].end).toBeCloseTo(3.0 + CHUNK_DURATION_SEC);
+    expect(result[1].text).toBe('chunk2');
+  });
+
+  it('チャンク API エラー時にチャンクファイルを削除する', async () => {
+    const { stat, unlink } = jest.requireMock<{ stat: jest.Mock; unlink: jest.Mock }>(
+      'node:fs/promises'
+    );
+    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+    mockCreate.mockRejectedValue(new Error('API error'));
+
+    const service = new TranscriptionService(mockClient);
+    await expect(service.transcribe('/tmp/video.mp4')).rejects.toThrow('API error');
+
+    expect(unlink).toHaveBeenCalledWith(expect.stringContaining('-chunk-0.mp3'));
+    expect(unlink).toHaveBeenCalledWith('/tmp/quick-clip-audio-test-uuid.mp3');
   });
 });
