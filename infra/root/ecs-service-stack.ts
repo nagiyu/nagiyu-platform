@@ -126,7 +126,7 @@ export class EcsServiceStack extends cdk.Stack {
       ],
     });
 
-    const ecrRepoName = getEcrRepositoryName('tools', environment as 'dev' | 'prod');
+    const ecrRepoName = getEcrRepositoryName('portal', environment as 'dev' | 'prod');
     const ecrRepositoryArn = `arn:aws:ecr:${this.region}:${this.account}:repository/${ecrRepoName}`;
 
     // Add ECR permissions to Task Execution Role (scoped to specific repository)
@@ -176,8 +176,8 @@ export class EcsServiceStack extends cdk.Stack {
     );
 
     // Add container to Task Definition
-    const container = this.taskDefinition.addContainer('tools-app', {
-      containerName: 'tools-app',
+    const container = this.taskDefinition.addContainer('portal-app', {
+      containerName: 'portal-app',
       image: ecs.ContainerImage.fromRegistry(`${ecrRepositoryUri}:${imageTag}`),
       logging: ecs.LogDriver.awsLogs({
         streamPrefix: 'ecs',

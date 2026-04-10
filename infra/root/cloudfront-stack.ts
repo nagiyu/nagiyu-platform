@@ -37,11 +37,8 @@ export class CloudFrontStack extends cdk.Stack {
       certificateArn
     );
 
-    // Import domain name from SSM Parameter Store
-    const domainName = ssm.StringParameter.valueForStringParameter(
-      this,
-      SSM_PARAMETERS.ACM_DOMAIN_NAME
-    );
+    // Import domain name based on environment
+    const domainName = environment === 'prod' ? 'nagiyu.com' : 'dev.nagiyu.com';
 
     // Create CloudFront Distribution
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {

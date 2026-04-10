@@ -66,14 +66,14 @@
 
 <!-- インフラの変更。詳細は tasks/portal/design.md の「インフラ設計」セクションを参照 -->
 
-- [ ] `infra/bin/nagiyu-platform.ts` に portal ECR リポジトリスタックを追加（依存: なし）
+- [x] `infra/bin/nagiyu-platform.ts` に portal ECR リポジトリスタックを追加（依存: なし）
       - 既存の tools ECR スタック定義を参考に同じパターンで追加
-- [ ] `infra/root/lib/ecs-service-stack.ts` の ECR イメージ参照を `portal` に変更
+- [x] `infra/root/lib/ecs-service-stack.ts` の ECR イメージ参照を `portal` に変更
       - `getEcrRepositoryName('tools', environment)` → `getEcrRepositoryName('portal', environment)`
-- [ ] `infra/root/lib/cloudfront-stack.ts` にドメイン環境分岐を追加（依存: なし）
+- [x] `infra/root/lib/cloudfront-stack.ts` にドメイン環境分岐を追加（依存: なし）
       - prod → `nagiyu.com` / dev → `dev.nagiyu.com`
       - 詳細は `design.md` のコードスニペットを参照
-- [ ] `.github/workflows/root-deploy.yml` に dev/prod 環境分岐を追加
+- [x] `.github/workflows/root-deploy.yml` に dev/prod 環境分岐を追加
       - `tools-deploy.yml` の `setup-environment` アクション使用パターンを参考にする
       - `develop` ブランチ → dev 環境 / `master` ブランチ → prod 環境
 

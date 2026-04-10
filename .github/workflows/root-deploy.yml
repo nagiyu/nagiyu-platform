@@ -1,8 +1,6 @@
 name: Root Domain - CDK Deploy
 
-# This workflow deploys CDK stacks for the root domain (example.com)
-# Note: infra/root/** directory will be created in future issues
-# Currently only validates CDK synth until actual stacks are implemented
+# This workflow deploys CDK stacks for the root domain (nagiyu.com / dev.nagiyu.com)
 
 on:
   push:
@@ -19,6 +17,14 @@ on:
       - 'infra/tsconfig.json'
       - '.github/workflows/root-deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   AWS_REGION: us-east-1
@@ -36,9 +42,17 @@ jobs:
       contents: read
       actions: read
 
+    outputs:
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
@@ -54,7 +68,7 @@ jobs:
 
       - name: CDK Synth
         env:
-          ENVIRONMENT: prod
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: npm run synth --workspace=@nagiyu/infra
 
       - name: Upload CloudFormation templates
@@ -103,15 +117,18 @@ jobs:
 
       - name: CDK Deploy
         env:
-          ENVIRONMENT: prod
+          ENVIRONMENT: ${{ needs.cdk-synth.outputs.environment }}
           IMAGE_TAG: ${{ steps.get-image-tag.outputs.image-tag }}
         run: npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
 
       - name: Display deployment summary
+        env:
+          ENVIRONMENT: ${{ needs.cdk-synth.outputs.environment }}
         run: |
           echo ""
           echo "=== CDK Deployment Complete ==="
           echo "Region: ${{ env.AWS_REGION }}"
+          echo "Environment: $ENVIRONMENT"
           echo "Branch: ${{ github.ref_name }}"
           echo "Commit: ${{ github.sha }}"
           echo ""

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
+import { EcrStack } from '../root/ecr-stack';
 import { EcsClusterStack } from '../root/ecs-cluster-stack';
 import { AlbStack } from '../root/alb-stack';
 import { EcsServiceStack } from '../root/ecs-service-stack';
@@ -14,6 +15,13 @@ const environment = process.env.ENVIRONMENT || 'dev';
 const envSuffix = environment.charAt(0).toUpperCase() + environment.slice(1);
 const account = process.env.CDK_DEFAULT_ACCOUNT;
 const region = 'us-east-1';
+
+// Portal ECR Repository Stack
+const ecrStack = new EcrStack(app, `NagiyuPortalEcr${envSuffix}`, {
+  env: { account, region },
+  environment,
+  description: `Portal ECR Repository (${environment})`,
+});
 
 // ECS Cluster Stack for root domain
 const ecsClusterStack = new EcsClusterStack(
@@ -59,6 +67,8 @@ const cloudFrontStack = new CloudFrontStack(
 // EcsService reads Cluster SSM and ALB SSM → must wait for both
 ecsServiceStack.addDependency(ecsClusterStack);
 ecsServiceStack.addDependency(albStack);
+// EcsService uses portal ECR image → must wait for ECR
+ecsServiceStack.addDependency(ecrStack);
 // CloudFront reads ALB DNS SSM → must wait for ALB
 cloudFrontStack.addDependency(albStack);
 
