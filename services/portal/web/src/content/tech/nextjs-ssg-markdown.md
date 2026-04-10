@@ -94,6 +94,7 @@ import remarkParse from 'remark-parse';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import rehypeHighlight from 'rehype-highlight';
+import DOMPurify from 'isomorphic-dompurify';
 import type { ServiceDoc, TechArticle } from '@/types/content';
 
 const contentDirectory = path.join(process.cwd(), 'src/content');
@@ -106,7 +107,8 @@ export async function markdownToHtml(markdown: string): Promise<string> {
     .use(rehypeStringify)
     .process(markdown);
 
-  return result.toString();
+  // XSS 対策として DOMPurify でサニタイズ
+  return DOMPurify.sanitize(result.toString());
 }
 
 export async function getServiceDoc(
@@ -190,13 +192,12 @@ export default async function ServiceDocPage({ params }: Props) {
   const doc = await getServiceDoc(params.service, params.type);
   if (!doc) notFound();
 
+  // htmlContent は markdownToHtml() 内で DOMPurify.sanitize() 済み
   return (
     <article>
       <h1>{doc.frontmatter.title}</h1>
       <p>最終更新: {doc.frontmatter.updatedAt}</p>
-      <div
-        dangerouslySetInnerHTML={{ __html: doc.htmlContent }}
-      />
+      <MarkdownContent html={doc.htmlContent} />
     </article>
   );
 }
