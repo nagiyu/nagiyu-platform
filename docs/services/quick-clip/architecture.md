@@ -154,3 +154,31 @@ Google IMA SDK（HTML5）を CDN から動的ロードして使用する。VAST 
 - FAILED 時は広告を表示しない（失敗時にさらに広告を見せるのはユーザー体験を著しく損なうため）
 - 広告エラー・SDK ロード失敗・no fill 時はすべて `onAdFinished()` を即時呼び出すフォールバックにより、広告に起因したサービス利用不能を防ぐ
 - トレードオフ: `VideoAd` の `active` フラグによるべき等な `finish()` 実装が必要になる
+
+---
+
+### ADR-007: 感情スコアによる見どころ抽出（gpt-4o-mini-transcribe + gpt-5-mini Responses API）
+
+**背景・問題**
+
+既存の見どころ抽出は映像変化量（motion）と音量（volume）の2要素のみで、発言内容の感情的な盛り上がりを考慮できなかった。ゲーム実況アーカイブのような長時間配信から「笑いが多い場面」「テンションが上がる場面」を切り出したいニーズに対応するため、感情的強度を第3の見どころソースとして追加する方法を決定する必要があった。
+
+**決定**
+
+OpenAI の文字起こし API（gpt-4o-mini-transcribe）と感情分析（gpt-5-mini Responses API）を組み合わせ、発言内容の感情的強度を見どころスコアの第3ソースとして追加する。
+
+- **文字起こし**: `gpt-4o-mini-transcribe` でセグメント単位のタイムスタンプ付き文字起こしを取得する
+- **感情分析**: `gpt-5-mini` Responses API（`zodTextFormat`）でセグメント単位の感情カテゴリ別スコア（laugh / excite / touch / tension: 各 0.0〜1.0）を算出する
+- **3ソース round-robin**: motion → volume → emotion → motion → ... の順番で交互にピークを選択し、最大 20 件のハイライトを抽出する
+- **感情フィルタ**: ジョブ作成時に `emotionFilter`（laugh / excite / touch / tension / any）を指定できる。`any` は全カテゴリの最大値でスコアリングする
+- **graceful degradation**: `OPENAI_API_KEY` 未設定時・API 呼び出し失敗時は感情分析をスキップし、motion・volume のみで既存の動作を継続する（ジョブ全体は FAILED にしない）
+- **音声ファイルサイズ対応**: 音声を WAV ではなく MP3（32kbps mono）に変換することで OpenAI API の 25 MB 上限に適合させる。25 MB を超える場合はチャンク分割して順次 transcribe し、タイムスタンプにオフセットを加算して結合する
+- **ハルシネーションフィルタリング**: Whisper が無音区間などで繰り返しパターンを出力するハルシネーションをフィルタリングし、信頼性の低いセグメントを除外する
+
+**根拠・トレードオフ**
+
+- gpt-4o-mini-transcribe はコスト効率が高く、セグメント単位のタイムスタンプを取得できるため感情スコアとの時刻マッピングに適している
+- Responses API（`zodTextFormat`）により感情スコアを型安全に構造化出力できる
+- 3ソース round-robin により既存の motion・volume ソースと感情ソースが均等に選出され、特定ソースへの偏りを防げる
+- graceful degradation により `OPENAI_API_KEY` を設定しない環境（ローカル・テスト）では既存動作と完全に互換性を保つ
+- トレードオフ: 感情分析が有効な場合、処理時間が +60 秒程度増加する（文字起こし + 感情分析 API 呼び出しのオーバーヘッド）
