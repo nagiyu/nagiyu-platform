@@ -233,6 +233,37 @@ export class TranscriptionService {
 }
 ```
 
+##### 音声ファイルサイズ対応（バグ修正）
+
+**問題**: WAV (16kHz mono) は ~1.875 MB/分のため、~13 分超の動画で Whisper API の 25MB 上限を超え 413 エラーになる。さくっとクリップは 3 時間程度の動画も受け付けるため対応が必要。
+
+**対応**: WAV → MP3 (32kbps mono) に変換し、24MB 超の場合はチャンク分割して送信する。
+
+**定数**:
+- `MAX_FILE_SIZE_BYTES = 24 * 1024 * 1024`（安全マージン）
+- `MP3_BYTES_PER_SEC = 32000 / 8`（32kbps mono = 4000 bytes/sec）
+- `CHUNK_DURATION_SEC = Math.floor(MAX_FILE_SIZE_BYTES / MP3_BYTES_PER_SEC)`（≈ 6144 sec ≈ 102 分）
+
+**処理フロー（変更後の `transcribe()`）**:
+
+1. `extractAudio()` で MP3 (32kbps mono) に変換（FFmpeg: `-c:a libmp3lame -b:a 32k -f mp3`）
+2. `fs.stat()` でファイルサイズ確認
+3. サイズ ≤ 24MB → `transcribeFile()` で直接送信（~102 分以内をカバー）
+4. サイズ > 24MB → チャンク分割:
+    - `estimatedDurationSec = size / MP3_BYTES_PER_SEC` でおおよその長さを推定
+    - `numChunks = Math.ceil(estimatedDurationSec / CHUNK_DURATION_SEC)`
+    - 各チャンクを `extractAudioChunk()` で MP3 から時間切り出し（FFmpeg: `-ss -t -c:a copy`）
+    - `transcribeFile()` で送信し、セグメントに `startSec` オフセットを加算
+    - チャンクファイルを `finally` で削除
+5. 元の MP3 ファイルを `finally` で削除
+
+**追加 private メソッド**:
+- `runFfmpeg(args: string[]): Promise<void>` — 共通 FFmpeg 実行（既存 `extractAudio` 内ロジックを移動）
+- `extractAudioChunk(audioFilePath, chunkOutputPath, startSec, durationSec): Promise<void>`
+- `transcribeFile(audioFilePath): Promise<TranscriptSegment[]>` — 単一ファイルを API 送信
+
+**インポート追加**: `stat` from `node:fs/promises`
+
 #### `emotion-highlight.service.ts`
 
 ```typescript

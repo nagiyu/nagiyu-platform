@@ -62,6 +62,21 @@
 
 - [x] `services/quick-clip/core/src/index.ts` から新規型（`EmotionLabel`・`EmotionFilter`・`EmotionScore`・`EmotionHighlightScore`）と新規サービス（`TranscriptionService`・`EmotionHighlightService`・`createOpenAIClient`）が適切にエクスポートされているか確認・追加する（依存: Phase 3）
 
+## Phase 11: 音声ファイルサイズ上限対応（バグ修正）
+
+- [ ] `services/quick-clip/core/src/libs/transcription.service.ts` を変更する:
+  - `extractAudio()` の FFmpeg 出力を WAV → MP3 (32kbps mono) に変更する（`-f wav` → `-c:a libmp3lame -b:a 32k -f mp3`、一時ファイル拡張子も `.wav` → `.mp3`）
+  - `runFfmpeg()`・`extractAudioChunk()`・`transcribeFile()` の private メソッドを追加する
+  - `transcribe()` にファイルサイズチェック → チャンク分割ロジックを追加する（design.md の「音声ファイルサイズ対応」セクション参照）
+  - `stat` を `node:fs/promises` からインポートする
+  （依存: なし）
+- [ ] `services/quick-clip/core/tests/unit/libs/transcription.service.test.ts` を更新する:
+  - `node:fs/promises` モックに `stat` を追加する（デフォルト戻り値: `{ size: 1024 * 1024 }`）
+  - FFmpeg 引数の期待値を更新する（`-f wav` → `-c:a libmp3lame -b:a 32k -f mp3`）
+  - `unlink` の期待パスを更新する（`.wav` → `.mp3`）
+  - 24MB 超のファイルでチャンク分割されること・2 チャンク目のタイムスタンプにオフセットが加算されること・API エラー時にチャンクファイルが削除されることをテストするケースを追加する
+  （依存: 上記）
+
 ---
 
 ## 完了チェック
