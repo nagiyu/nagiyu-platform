@@ -220,13 +220,27 @@ describe('TranscriptionService', () => {
       .mockResolvedValueOnce({
         text: '',
         segments: [
-          { start: 0.0, end: 5.0, text: 'chunk1', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
+          {
+            start: 0.0,
+            end: 5.0,
+            text: 'chunk1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
         ],
       })
       .mockResolvedValueOnce({
         text: '',
         segments: [
-          { start: 1.0, end: 3.0, text: 'chunk2', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
+          {
+            start: 1.0,
+            end: 3.0,
+            text: 'chunk2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
         ],
       });
 
@@ -250,13 +264,27 @@ describe('TranscriptionService', () => {
       .mockResolvedValueOnce({
         text: '',
         segments: [
-          { start: 0.0, end: 5.0, text: 'chunk1', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
+          {
+            start: 0.0,
+            end: 5.0,
+            text: 'chunk1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
         ],
       })
       .mockResolvedValueOnce({
         text: '',
         segments: [
-          { start: 1.0, end: 3.0, text: 'chunk2', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
+          {
+            start: 1.0,
+            end: 3.0,
+            text: 'chunk2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
         ],
       });
 
@@ -288,8 +316,22 @@ describe('TranscriptionService', () => {
     mockCreate.mockResolvedValue({
       text: '',
       segments: [
-        { start: 0.0, end: 5.0, text: '正常セグメント', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
-        { start: 5.0, end: 10.0, text: 'ハルシネーション', no_speech_prob: 0.7, avg_logprob: -0.5, compression_ratio: 1.0 },
+        {
+          start: 0.0,
+          end: 5.0,
+          text: '正常セグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: 'ハルシネーション',
+          no_speech_prob: 0.7,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
       ],
     });
 
@@ -306,8 +348,22 @@ describe('TranscriptionService', () => {
     mockCreate.mockResolvedValue({
       text: '',
       segments: [
-        { start: 0.0, end: 5.0, text: '正常セグメント', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
-        { start: 5.0, end: 10.0, text: '不確かなセグメント', no_speech_prob: 0.1, avg_logprob: -1.5, compression_ratio: 1.0 },
+        {
+          start: 0.0,
+          end: 5.0,
+          text: '正常セグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: '不確かなセグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -1.5,
+          compression_ratio: 1.0,
+        },
       ],
     });
 
@@ -324,8 +380,22 @@ describe('TranscriptionService', () => {
     mockCreate.mockResolvedValue({
       text: '',
       segments: [
-        { start: 0.0, end: 5.0, text: '正常セグメント', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
-        { start: 5.0, end: 10.0, text: '繰り返しセグメント', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 2.5 },
+        {
+          start: 0.0,
+          end: 5.0,
+          text: '正常セグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: '繰り返しセグメント',
+          no_speech_prob: 0.1,
+          avg_logprob: -0.5,
+          compression_ratio: 2.5,
+        },
       ],
     });
 
@@ -342,8 +412,22 @@ describe('TranscriptionService', () => {
     mockCreate.mockResolvedValue({
       text: '',
       segments: [
-        { start: 0.0, end: 5.0, text: 'セグメント1', no_speech_prob: 0.0, avg_logprob: -0.1, compression_ratio: 1.0 },
-        { start: 5.0, end: 10.0, text: 'セグメント2', no_speech_prob: 0.6, avg_logprob: -1.0, compression_ratio: 2.4 },
+        {
+          start: 0.0,
+          end: 5.0,
+          text: 'セグメント1',
+          no_speech_prob: 0.0,
+          avg_logprob: -0.1,
+          compression_ratio: 1.0,
+        },
+        {
+          start: 5.0,
+          end: 10.0,
+          text: 'セグメント2',
+          no_speech_prob: 0.6,
+          avg_logprob: -1.0,
+          compression_ratio: 2.4,
+        },
       ],
     });
 
@@ -363,14 +447,35 @@ describe('TranscriptionService', () => {
       .mockResolvedValueOnce({
         text: '',
         segments: [
-          { start: 0.0, end: 5.0, text: '正常チャンク1', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
-          { start: 5.0, end: 10.0, text: 'ハルシネーション', no_speech_prob: 0.9, avg_logprob: -0.5, compression_ratio: 1.0 },
+          {
+            start: 0.0,
+            end: 5.0,
+            text: '正常チャンク1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+          {
+            start: 5.0,
+            end: 10.0,
+            text: 'ハルシネーション',
+            no_speech_prob: 0.9,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
         ],
       })
       .mockResolvedValueOnce({
         text: '',
         segments: [
-          { start: 0.0, end: 3.0, text: '正常チャンク2', no_speech_prob: 0.1, avg_logprob: -0.5, compression_ratio: 1.0 },
+          {
+            start: 0.0,
+            end: 3.0,
+            text: '正常チャンク2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
         ],
       });
 
