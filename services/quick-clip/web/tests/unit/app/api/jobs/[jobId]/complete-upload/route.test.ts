@@ -239,4 +239,71 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
       multipartError
     );
   });
+
+  it('正常系: emotionFilter未指定時はBatch envにEMOTION_FILTER=anyが設定される', async () => {
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([{ name: 'EMOTION_FILTER', value: 'any' }]),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('正常系: emotionFilter指定時はBatch envに反映される', async () => {
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+        emotionFilter: 'excite',
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([{ name: 'EMOTION_FILTER', value: 'excite' }]),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('異常系: 不正なemotionFilterは400を返す', async () => {
+    const response = await POST(
+      createRequest({
+        uploadId: 'upload-1',
+        parts: [{ PartNumber: 1, ETag: '"etag-1"' }],
+        emotionFilter: 'invalid',
+      }),
+      {
+        params: Promise.resolve({ jobId: 'job-1' }),
+      }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
+  });
 });

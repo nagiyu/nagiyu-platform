@@ -5,6 +5,11 @@ const ERROR_MESSAGES = {
   FFMPEG_FAILED: 'FFmpeg の解析に失敗しました',
 } as const;
 
+export type UniformInterval = {
+  start: number;
+  end: number;
+};
+
 const DURATION_PROBE_ARGS_LENGTH = 3;
 
 const parseFps = (input: string): number => {
@@ -21,6 +26,22 @@ const parseFps = (input: string): number => {
   }
 
   return 0;
+};
+
+const parseUniformIntervals = (stderr: string): UniformInterval[] => {
+  const intervals: UniformInterval[] = [];
+  for (const line of stderr.split(/\r?\n/)) {
+    const startMatch = line.match(/black_start:([\d.]+)/);
+    const endMatch = line.match(/black_end:([\d.]+)/);
+    if (startMatch && endMatch) {
+      const start = Number.parseFloat(startMatch[1] ?? '');
+      const end = Number.parseFloat(endMatch[1] ?? '');
+      if (Number.isFinite(start) && Number.isFinite(end)) {
+        intervals.push({ start, end });
+      }
+    }
+  }
+  return intervals;
 };
 
 const parseTimeToSeconds = (value: string): number => {
@@ -140,6 +161,34 @@ export class FfmpegVideoAnalyzer {
     const durationMatch = stderr.match(/Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)/);
     const duration = parseTimeToSeconds(durationMatch?.[1] ?? '');
     return Number.isFinite(duration) && duration > 0 ? duration : 10;
+  }
+
+  public async detectUniformIntervals(videoFilePath: string): Promise<UniformInterval[]> {
+    const [darkStderr, brightStderr] = await Promise.all([
+      this.runFfmpeg([
+        '-hide_banner',
+        '-i',
+        videoFilePath,
+        '-vf',
+        'blackdetect=d=0:pix_th=0.10',
+        '-an',
+        '-f',
+        'null',
+        '-',
+      ]),
+      this.runFfmpeg([
+        '-hide_banner',
+        '-i',
+        videoFilePath,
+        '-vf',
+        'negate,blackdetect=d=0:pix_th=0.10',
+        '-an',
+        '-f',
+        'null',
+        '-',
+      ]),
+    ]);
+    return parseUniformIntervals(darkStderr + '\n' + brightStderr);
   }
 
   private runFfmpeg(args: string[]): Promise<string> {

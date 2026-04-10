@@ -121,4 +121,71 @@ describe('FfmpegVideoAnalyzer', () => {
       'FFmpeg の解析に失敗しました: exit code 2, stderr: ffmpeg error'
     );
   });
+
+  it('detectUniformIntervals: black_start/black_end から区間を抽出できる', async () => {
+    spawnMock
+      .mockReturnValueOnce(
+        createFfmpegProcessMock(
+          [
+            '[blackdetect @ 0x...] black_start:5 black_end:6.5 black_duration:1.5',
+            '[blackdetect @ 0x...] black_start:30.2 black_end:31.0 black_duration:0.8',
+          ].join('\n')
+        )
+      )
+      .mockReturnValueOnce(createFfmpegProcessMock(''));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    const result = await analyzer.detectUniformIntervals('/tmp/input.mp4');
+
+    expect(result).toEqual([
+      { start: 5, end: 6.5 },
+      { start: 30.2, end: 31 },
+    ]);
+  });
+
+  it('detectUniformIntervals: black_start のみの行は無視される', async () => {
+    spawnMock
+      .mockReturnValueOnce(
+        createFfmpegProcessMock('[blackdetect @ 0x...] black_start:5 black_duration:1.5')
+      )
+      .mockReturnValueOnce(createFfmpegProcessMock(''));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    const result = await analyzer.detectUniformIntervals('/tmp/input.mp4');
+
+    expect(result).toEqual([]);
+  });
+
+  it('detectUniformIntervals: 均一フレームが存在しない動画では空配列を返す', async () => {
+    spawnMock
+      .mockReturnValueOnce(createFfmpegProcessMock(''))
+      .mockReturnValueOnce(createFfmpegProcessMock(''));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    const result = await analyzer.detectUniformIntervals('/tmp/input.mp4');
+
+    expect(result).toEqual([]);
+  });
+
+  it('detectUniformIntervals: 暗転・白転の両方の区間を返す', async () => {
+    spawnMock
+      .mockReturnValueOnce(
+        createFfmpegProcessMock(
+          '[blackdetect @ 0x...] black_start:5 black_end:6.5 black_duration:1.5'
+        )
+      )
+      .mockReturnValueOnce(
+        createFfmpegProcessMock(
+          '[blackdetect @ 0x...] black_start:20 black_end:21.0 black_duration:1.0'
+        )
+      );
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    const result = await analyzer.detectUniformIntervals('/tmp/input.mp4');
+
+    expect(result).toEqual([
+      { start: 5, end: 6.5 },
+      { start: 20, end: 21 },
+    ]);
+  });
 });

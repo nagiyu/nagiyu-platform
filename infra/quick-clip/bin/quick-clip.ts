@@ -7,6 +7,7 @@ import { BatchStack } from '../lib/batch-stack';
 import { EcrStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
+import { SecretsStack } from '../lib/secrets-stack';
 import type { QuickClipEnvironment } from '../lib/environment';
 
 const app = new cdk.App();
@@ -22,6 +23,15 @@ const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
+
+// OpenAI API キー（デプロイ時に --context openAiApiKey=xxx で渡す、未指定の場合は PLACEHOLDER）
+const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER';
+
+const secretsStack = new SecretsStack(app, `NagiyuQuickClipSecrets${envSuffix}`, {
+  environment: typedEnv,
+  env: stackEnv,
+  description: `QuickClip Secrets - ${env} environment`,
+});
 
 const storageStack = new StorageStack(app, `NagiyuQuickClipStorage${envSuffix}`, {
   environment: typedEnv,
@@ -46,6 +56,7 @@ const batchStack = new BatchStack(app, `NagiyuQuickClipBatch${envSuffix}`, {
   env: stackEnv,
   storageBucket: storageStack.storageBucket,
   jobsTable: dynamoStack.jobsTable,
+  openAiApiKey,
   description: `QuickClip Batch - ${env} environment`,
 });
 batchStack.addDependency(storageStack);
@@ -72,6 +83,7 @@ lambdaStack.addDependency(ecrStack);
 lambdaStack.addDependency(storageStack);
 lambdaStack.addDependency(dynamoStack);
 lambdaStack.addDependency(batchStack);
+lambdaStack.addDependency(secretsStack);
 
 const cloudFrontStack = new CloudFrontStack(app, `NagiyuQuickClipCloudFront${envSuffix}`, {
   environment: typedEnv,

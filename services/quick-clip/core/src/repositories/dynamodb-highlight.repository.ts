@@ -5,7 +5,7 @@ import {
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
 import type { ClipStatus, Highlight, HighlightStatus, UpdateHighlightInput } from '../types.js';
-import type { HighlightSource } from '../libs/highlight-extractor.service.js';
+import type { EmotionLabel, HighlightSource } from '../libs/highlight-extractor.service.js';
 import type { HighlightRepository } from './highlight.repository.interface.js';
 import { DOMAIN_ERROR_MESSAGES } from '../libs/domain-error-messages.js';
 
@@ -21,6 +21,7 @@ type HighlightItem = {
   source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
+  dominantEmotion?: string;
 };
 
 export class DynamoDBHighlightRepository implements HighlightRepository {
@@ -126,38 +127,57 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
   public async createMany(highlights: Highlight[]): Promise<void> {
     // 既存データとの差分適用を許容するため、Phase 4 では UpdateCommand で upsert として扱う。
     await Promise.all(
-      highlights.map((highlight) =>
-        this.docClient.send(
+      highlights.map((highlight) => {
+        const expressionParts = [
+          '#type = :type',
+          '#highlightId = :highlightId',
+          '#jobId = :jobId',
+          '#order = :order',
+          '#startSec = :startSec',
+          '#endSec = :endSec',
+          '#source = :source',
+          '#status = :status',
+          '#clipStatus = :clipStatus',
+        ];
+        const names: Record<string, string> = {
+          '#type': 'Type',
+          '#highlightId': 'highlightId',
+          '#jobId': 'jobId',
+          '#order': 'order',
+          '#startSec': 'startSec',
+          '#endSec': 'endSec',
+          '#source': 'source',
+          '#status': 'status',
+          '#clipStatus': 'clipStatus',
+        };
+        const values: Record<string, unknown> = {
+          ':type': 'HIGHLIGHT',
+          ':highlightId': highlight.highlightId,
+          ':jobId': highlight.jobId,
+          ':order': highlight.order,
+          ':startSec': highlight.startSec,
+          ':endSec': highlight.endSec,
+          ':source': highlight.source,
+          ':status': highlight.status,
+          ':clipStatus': highlight.clipStatus,
+        };
+
+        if (highlight.dominantEmotion !== undefined) {
+          expressionParts.push('#dominantEmotion = :dominantEmotion');
+          names['#dominantEmotion'] = 'dominantEmotion';
+          values[':dominantEmotion'] = highlight.dominantEmotion;
+        }
+
+        return this.docClient.send(
           new UpdateCommand({
             TableName: this.tableName,
             Key: this.buildKeys(highlight.jobId, highlight.highlightId),
-            UpdateExpression:
-              'SET #type = :type, #highlightId = :highlightId, #jobId = :jobId, #order = :order, #startSec = :startSec, #endSec = :endSec, #source = :source, #status = :status, #clipStatus = :clipStatus',
-            ExpressionAttributeNames: {
-              '#type': 'Type',
-              '#highlightId': 'highlightId',
-              '#jobId': 'jobId',
-              '#order': 'order',
-              '#startSec': 'startSec',
-              '#endSec': 'endSec',
-              '#source': 'source',
-              '#status': 'status',
-              '#clipStatus': 'clipStatus',
-            },
-            ExpressionAttributeValues: {
-              ':type': 'HIGHLIGHT',
-              ':highlightId': highlight.highlightId,
-              ':jobId': highlight.jobId,
-              ':order': highlight.order,
-              ':startSec': highlight.startSec,
-              ':endSec': highlight.endSec,
-              ':source': highlight.source,
-              ':status': highlight.status,
-              ':clipStatus': highlight.clipStatus,
-            },
+            UpdateExpression: `SET ${expressionParts.join(', ')}`,
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: values,
           })
-        )
-      )
+        );
+      })
     );
   }
 
@@ -178,6 +198,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
       source: item.source,
       status: item.status,
       clipStatus: item.clipStatus,
+      dominantEmotion: item.dominantEmotion as EmotionLabel | undefined,
     };
   }
 }
