@@ -9,11 +9,15 @@ import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { Highlight, JobStatus } from '../types.js';
+import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
 import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.repository.js';
 import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
+import { createOpenAIClient } from './openai-client.js';
+import { TranscriptionService } from './transcription.service.js';
+import { EmotionHighlightService } from './emotion-highlight.service.js';
 
 /** Batch 実行コマンド種別。 */
 export type QuickClipBatchCommand = 'extract';
@@ -26,6 +30,10 @@ export type QuickClipBatchRunInput = {
   tableName: string;
   bucketName: string;
   awsRegion: string;
+  /** OpenAI API キー（未設定時は感情分析をスキップ）。 */
+  openAiApiKey?: string;
+  /** 感情フィルター（未指定時は 'any'）。 */
+  emotionFilter?: EmotionFilter;
 };
 
 const ERROR_MESSAGES = {
@@ -133,7 +141,12 @@ const persistHighlights = async (
   );
 };
 
-const buildHighlights = async (jobId: string, localPath: string): Promise<Highlight[]> => {
+const buildHighlights = async (
+  jobId: string,
+  localPath: string,
+  openAiApiKey?: string,
+  emotionFilter?: EmotionFilter
+): Promise<Highlight[]> => {
   const analyzer = new FfmpegVideoAnalyzer();
   const motionService = new MotionHighlightService(analyzer);
   const volumeService = new VolumeHighlightService(analyzer);
@@ -142,8 +155,28 @@ const buildHighlights = async (jobId: string, localPath: string): Promise<Highli
     motionService.analyzeMotion(localPath),
     volumeService.analyzeVolume(localPath),
   ]);
+
+  let emotionScores: EmotionHighlightScore[] = [];
+  if (openAiApiKey) {
+    try {
+      const openai = createOpenAIClient(openAiApiKey);
+      const transcriptionService = new TranscriptionService(openai);
+      const emotionService = new EmotionHighlightService(openai);
+      const segments = await transcriptionService.transcribe(localPath);
+      if (segments.length > 0) {
+        emotionScores = await emotionService.getScores(segments, emotionFilter ?? 'any');
+      }
+    } catch (error) {
+      // 感情分析失敗は graceful degradation（motion・volume のみで継続）
+      console.warn('[buildHighlights] 感情分析をスキップします:', error);
+    }
+  }
+
   const aggregationService = new HighlightAggregationService();
-  const extracted = aggregationService.aggregate(motionScores, volumeScores, duration);
+  const extracted =
+    emotionScores.length > 0
+      ? aggregationService.aggregate(motionScores, volumeScores, duration, emotionScores)
+      : aggregationService.aggregate(motionScores, volumeScores, duration);
   const sortedByStartSec = extracted.slice().sort((a, b) => a.startSec - b.startSec);
   return sortedByStartSec.map((item, index) => ({
     highlightId: randomUUID(),
@@ -152,6 +185,7 @@ const buildHighlights = async (jobId: string, localPath: string): Promise<Highli
     startSec: item.startSec,
     endSec: item.endSec,
     source: item.source,
+    dominantEmotion: item.dominantEmotion,
     status: 'unconfirmed',
     clipStatus: 'PENDING',
   }));
@@ -175,7 +209,12 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
 
   await updateJobStatus(env.jobId, 'PROCESSING', env.tableName, env.awsRegion);
   await downloadSourceVideo(env.bucketName, env.jobId, localVideoPath, env.awsRegion);
-  const highlights = await buildHighlights(env.jobId, localVideoPath);
+  const highlights = await buildHighlights(
+    env.jobId,
+    localVideoPath,
+    env.openAiApiKey,
+    env.emotionFilter
+  );
   await persistHighlights(env.jobId, highlights, env.tableName, env.awsRegion);
   await updateJobStatus(env.jobId, 'COMPLETED', env.tableName, env.awsRegion);
 };

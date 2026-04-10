@@ -1,4 +1,5 @@
 import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import type { EmotionFilter } from '@nagiyu/quick-clip-core';
 import {
   CreateMultipartUploadCommand,
   PutObjectCommand,
@@ -17,6 +18,7 @@ import {
   getS3Client,
   getTableName,
 } from '@/lib/server/aws';
+import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
@@ -31,6 +33,7 @@ type CreateJobRequest = {
   fileName: string;
   fileSize: number;
   contentType?: string;
+  emotionFilter?: EmotionFilter;
 };
 
 const UPLOAD_URL_EXPIRES_IN = 3600;
@@ -45,7 +48,16 @@ const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
   }
 
   const request = body as Partial<CreateJobRequest>;
-  return typeof request.fileName === 'string' && typeof request.fileSize === 'number';
+  if (typeof request.fileName !== 'string' || typeof request.fileSize !== 'number') {
+    return false;
+  }
+  if (
+    request.emotionFilter !== undefined &&
+    !VALID_EMOTION_FILTERS.has(request.emotionFilter as string)
+  ) {
+    return false;
+  }
+  return true;
 };
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -174,6 +186,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             { name: 'DYNAMODB_TABLE_NAME', value: getTableName() },
             { name: 'S3_BUCKET', value: bucketName },
             { name: 'AWS_REGION', value: getAwsRegion() },
+            { name: 'EMOTION_FILTER', value: body.emotionFilter ?? 'any' },
           ],
         },
       })

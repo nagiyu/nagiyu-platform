@@ -24,6 +24,8 @@ describe('validateEnvironment', () => {
       tableName: 'table',
       bucketName: 'bucket',
       awsRegion: 'ap-northeast-1',
+      openAiApiKey: undefined,
+      emotionFilter: 'any',
     });
   });
 
@@ -59,5 +61,84 @@ describe('validateEnvironment', () => {
     expect(() => validateEnvironment()).toThrow(
       '必要な環境変数が設定されていません: BATCH_COMMAND'
     );
+  });
+
+  it('OPENAI_API_KEY が設定されている場合に openAiApiKey として読み取れる', () => {
+    process.env.BATCH_COMMAND = 'extract';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.OPENAI_API_KEY = 'sk-test-key';
+
+    const result = validateEnvironment();
+
+    expect(result.openAiApiKey).toBe('sk-test-key');
+  });
+
+  it('OPENAI_API_KEY が未設定の場合に openAiApiKey が undefined になる', () => {
+    process.env.BATCH_COMMAND = 'extract';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    delete process.env.OPENAI_API_KEY;
+
+    const result = validateEnvironment();
+
+    expect(result.openAiApiKey).toBeUndefined();
+  });
+
+  it('OPENAI_API_KEY が空文字列の場合に openAiApiKey が undefined になる', () => {
+    process.env.BATCH_COMMAND = 'extract';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.OPENAI_API_KEY = '';
+
+    const result = validateEnvironment();
+
+    expect(result.openAiApiKey).toBeUndefined();
+  });
+
+  it('EMOTION_FILTER が未設定の場合にデフォルト値 any になる', () => {
+    process.env.BATCH_COMMAND = 'extract';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    delete process.env.EMOTION_FILTER;
+
+    const result = validateEnvironment();
+
+    expect(result.emotionFilter).toBe('any');
+  });
+
+  it.each(['any', 'laugh', 'excite', 'touch', 'tension'] as const)(
+    'EMOTION_FILTER = %s を正常に読み取れる',
+    (filter) => {
+      process.env.BATCH_COMMAND = 'extract';
+      process.env.JOB_ID = 'job-1';
+      process.env.DYNAMODB_TABLE_NAME = 'table';
+      process.env.S3_BUCKET = 'bucket';
+      process.env.AWS_REGION = 'ap-northeast-1';
+      process.env.EMOTION_FILTER = filter;
+
+      const result = validateEnvironment();
+
+      expect(result.emotionFilter).toBe(filter);
+    }
+  );
+
+  it('不正な EMOTION_FILTER でエラーになる', () => {
+    process.env.BATCH_COMMAND = 'extract';
+    process.env.JOB_ID = 'job-1';
+    process.env.DYNAMODB_TABLE_NAME = 'table';
+    process.env.S3_BUCKET = 'bucket';
+    process.env.AWS_REGION = 'ap-northeast-1';
+    process.env.EMOTION_FILTER = 'invalid';
+
+    expect(() => validateEnvironment()).toThrow('EMOTION_FILTER の値が不正です');
   });
 });

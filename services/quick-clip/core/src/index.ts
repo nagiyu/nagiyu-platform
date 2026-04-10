@@ -19,6 +19,10 @@ export type {
   ExtractedHighlight,
   HighlightScore,
   HighlightSource,
+  EmotionLabel,
+  EmotionFilter,
+  EmotionScore,
+  EmotionHighlightScore,
 } from './libs/highlight-extractor.service.js';
 export type { ClipSplitterService } from './libs/clip-splitter.service.js';
 export type { JobDefinitionSize } from './libs/job-definition-selector.js';
@@ -35,3 +39,7 @@ export { selectJobDefinition } from './libs/job-definition-selector.js';
 export { runQuickClipBatch } from './libs/quick-clip-batch-runner.js';
 export { DynamoDBJobRepository } from './repositories/dynamodb-job.repository.js';
 export { DynamoDBHighlightRepository } from './repositories/dynamodb-highlight.repository.js';
+export { createOpenAIClient } from './libs/openai-client.js';
+export { TranscriptionService } from './libs/transcription.service.js';
+export type { TranscriptSegment } from './libs/transcription.service.js';
+export { EmotionHighlightService } from './libs/emotion-highlight.service.js';

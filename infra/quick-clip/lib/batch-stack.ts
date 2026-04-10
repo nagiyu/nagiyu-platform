@@ -14,6 +14,7 @@ export interface BatchStackProps extends cdk.StackProps {
   environment: QuickClipEnvironment;
   storageBucket: s3.IBucket;
   jobsTable: dynamodb.ITable;
+  openAiApiKey: string;
 }
 
 export class BatchStack extends cdk.Stack {
@@ -132,6 +133,10 @@ export class BatchStack extends cdk.Stack {
             name: 'AWS_REGION',
             value: this.region,
           },
+          {
+            name: 'OPENAI_API_KEY',
+            value: props.openAiApiKey,
+          },
         ],
       },
       timeout: { attemptDurationSeconds: 3600 },
@@ -177,6 +182,10 @@ export class BatchStack extends cdk.Stack {
             name: 'AWS_REGION',
             value: this.region,
           },
+          {
+            name: 'OPENAI_API_KEY',
+            value: props.openAiApiKey,
+          },
         ],
       },
       timeout: { attemptDurationSeconds: 3 * 3600 },
@@ -221,6 +230,10 @@ export class BatchStack extends cdk.Stack {
           {
             name: 'AWS_REGION',
             value: this.region,
+          },
+          {
+            name: 'OPENAI_API_KEY',
+            value: props.openAiApiKey,
           },
         ],
       },
