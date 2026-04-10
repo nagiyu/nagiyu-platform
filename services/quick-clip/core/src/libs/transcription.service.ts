@@ -66,7 +66,7 @@ export class TranscriptionService {
 
     try {
       const response = await this.client.audio.transcriptions.create({
-        model: 'gpt-4o-mini-transcribe',
+        model: 'whisper-1',
         file: createReadStream(audioFilePath),
         response_format: 'verbose_json',
         language: 'ja',

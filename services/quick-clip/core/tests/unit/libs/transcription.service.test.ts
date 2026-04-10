@@ -129,7 +129,7 @@ describe('TranscriptionService', () => {
 
     expect(mockCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'gpt-4o-mini-transcribe',
+        model: 'whisper-1',
         response_format: 'verbose_json',
         language: 'ja',
       })
