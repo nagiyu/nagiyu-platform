@@ -264,6 +264,59 @@ export class TranscriptionService {
 
 **インポート追加**: `stat` from `node:fs/promises`
 
+##### ハルシネーションフィルタリング
+
+**問題**: `whisper-1` はゲームBGM・SEなどの無音声区間で「2021年」のようなテキストを繰り返し生成するハルシネーションが発生する。`verbose_json` レスポンスにはハルシネーション検出用フィールドが含まれているが、現実装では `start`/`end`/`text` しか利用していない。
+
+**対応**: `verbose_json` レスポンスに含まれる3フィールドでセグメントをフィルタリングする。
+
+**ハルシネーション判定定数**:
+
+```typescript
+const NO_SPEECH_PROB_THRESHOLD = 0.6;    // Whisper 公式の無音声判定値
+const AVG_LOGPROB_THRESHOLD = -1.0;      // モデルの不確かさ閾値
+const COMPRESSION_RATIO_THRESHOLD = 2.4; // 繰り返しテキスト検出値
+```
+
+**`transcribeFile()` のセグメント型拡張**:
+
+```typescript
+type RawSegment = {
+    start: number;
+    end: number;
+    text: string;
+    no_speech_prob: number;    // 無音声確率。> 0.6 でハルシネーション
+    avg_logprob: number;       // 平均対数確率。< -1.0 で不確か
+    compression_ratio: number; // テキスト繰り返し率。> 2.4 で異常
+};
+```
+
+**フィルタリング実装**:
+
+```typescript
+const segments = (response as { segments?: RawSegment[] }).segments;
+
+if (!segments) {
+    return [];
+}
+
+return segments
+    .filter((s) =>
+        s.no_speech_prob <= NO_SPEECH_PROB_THRESHOLD &&
+        s.avg_logprob >= AVG_LOGPROB_THRESHOLD &&
+        s.compression_ratio <= COMPRESSION_RATIO_THRESHOLD
+    )
+    .map((s) => ({ start: s.start, end: s.end, text: s.text }));
+```
+
+**テストケース**:
+
+- `no_speech_prob > 0.6` のセグメントが除外される
+- `avg_logprob < -1.0` のセグメントが除外される
+- `compression_ratio > 2.4` のセグメントが除外される
+- 3条件すべて正常なセグメントは保持される
+- チャンク分割時もフィルタリングが機能する（各チャンクの `transcribeFile()` 呼び出し時にフィルタされる）
+
 #### `emotion-highlight.service.ts`
 
 ```typescript

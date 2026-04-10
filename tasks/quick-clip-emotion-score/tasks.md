@@ -77,6 +77,11 @@
   - 24MB 超のファイルでチャンク分割されること・2 チャンク目のタイムスタンプにオフセットが加算されること・API エラー時にチャンクファイルが削除されることをテストするケースを追加する
   （依存: 上記）
 
+## Phase 12: Whisper ハルシネーションフィルタリング（バグ修正）
+
+- [ ] `services/quick-clip/core/src/libs/transcription.service.ts` にハルシネーション判定定数を追加し、`transcribeFile()` でフィルタリングを実施する（design.md の「ハルシネーションフィルタリング」セクション参照）（依存: Phase 11）
+- [ ] `services/quick-clip/core/tests/unit/libs/transcription.service.test.ts` にフィルタリングのテストケースを追加する（依存: 上記）
+
 ---
 
 ## 完了チェック
