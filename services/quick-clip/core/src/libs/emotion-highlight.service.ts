@@ -11,7 +11,7 @@ import type { TranscriptSegment } from './transcription.service.js';
 
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 300_000;
 
 const ERROR_MESSAGES = {
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
