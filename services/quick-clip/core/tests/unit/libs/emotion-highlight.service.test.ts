@@ -137,7 +137,7 @@ describe('EmotionHighlightService', () => {
     expect(mockParse).toHaveBeenCalledTimes(4);
   });
 
-  it('タイムアウト時はエラーをスローする', async () => {
+  it('タイムアウト時はリトライせずにエラーをスローする', async () => {
     mockParse.mockImplementation(() => new Promise(() => undefined));
 
     const service = new EmotionHighlightService(mockClient);
@@ -146,6 +146,7 @@ describe('EmotionHighlightService', () => {
 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toContain('タイムアウト');
+    expect(mockParse).toHaveBeenCalledTimes(1);
   });
 
   it('リトライ: 1回目失敗後の2回目で成功する', async () => {

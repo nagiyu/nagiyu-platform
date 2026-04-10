@@ -123,7 +123,11 @@ export class EmotionHighlightService {
           }),
           REQUEST_TIMEOUT_MS
         ),
-      { maxRetries: MAX_RETRIES }
+      {
+        maxRetries: MAX_RETRIES,
+        shouldRetry: (error) =>
+          !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
+      }
     );
 
     const items = response.output_parsed?.items ?? [];
