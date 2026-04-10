@@ -126,6 +126,7 @@ export class TranscriptionService {
         return await this.transcribeFile(audioFilePath);
       }
 
+      // ファイルサイズからおおよその長さを推定し、チャンク数を算出する
       const estimatedDurationSec = size / MP3_BYTES_PER_SEC;
       const numChunks = Math.ceil(estimatedDurationSec / CHUNK_DURATION_SEC);
       const allSegments: TranscriptSegment[] = [];

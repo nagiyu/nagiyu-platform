@@ -217,7 +217,8 @@ describe('TranscriptionService', () => {
   });
 
   it('2 チャンク目のタイムスタンプにオフセットが加算される', async () => {
-    const CHUNK_DURATION_SEC = Math.floor((24 * 1024 * 1024) / (32000 / 8));
+    // CHUNK_DURATION_SEC = Math.floor(24 * 1024 * 1024 / 4000) = 6291
+    const expectedChunkDurationSec = 6291;
     const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
     stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
 
@@ -228,8 +229,8 @@ describe('TranscriptionService', () => {
     const service = new TranscriptionService(mockClient);
     const result = await service.transcribe('/tmp/video.mp4');
 
-    expect(result[1].start).toBeCloseTo(1.0 + CHUNK_DURATION_SEC);
-    expect(result[1].end).toBeCloseTo(3.0 + CHUNK_DURATION_SEC);
+    expect(result[1].start).toBeCloseTo(1.0 + expectedChunkDurationSec);
+    expect(result[1].end).toBeCloseTo(3.0 + expectedChunkDurationSec);
     expect(result[1].text).toBe('chunk2');
   });
 
