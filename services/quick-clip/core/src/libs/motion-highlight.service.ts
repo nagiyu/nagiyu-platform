@@ -9,6 +9,16 @@ export class MotionHighlightService {
   }
 
   public async analyzeMotion(videoFilePath: string): Promise<HighlightScore[]> {
-    return this.analyzer.analyzeMotion(videoFilePath);
+    const [scores, uniformIntervals] = await Promise.all([
+      this.analyzer.analyzeMotion(videoFilePath),
+      this.analyzer.detectUniformIntervals(videoFilePath),
+    ]);
+    if (uniformIntervals.length === 0) {
+      return scores;
+    }
+    return scores.filter(
+      ({ second }) =>
+        !uniformIntervals.some(({ start, end }) => second >= start && second <= end),
+    );
   }
 }
