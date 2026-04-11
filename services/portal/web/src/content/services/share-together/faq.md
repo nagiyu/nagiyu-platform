@@ -1,9 +1,9 @@
 ---
-title: "Share Together - よくある質問"
-description: "Share Together に関するよくある質問。ログイン不要の利用・データの保存期間・リアルタイム同期の仕組み・パスワード保護設定などについて解説します。"
-service: "share-together"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'Share Together - よくある質問'
+description: 'Share Together に関するよくある質問。ログイン不要の利用・データの保存期間・リアルタイム同期の仕組み・パスワード保護設定などについて解説します。'
+service: 'share-together'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問

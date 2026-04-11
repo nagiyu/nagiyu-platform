@@ -1,6 +1,6 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
 import { fixupConfigRules } from '@eslint/compat';
-import baseConfig from '../../configs/eslint.config.base.mjs';
+import baseConfig from '../../../configs/eslint.config.base.mjs';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 

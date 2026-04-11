@@ -1,9 +1,9 @@
 ---
-title: "Codec Converter - よくある質問"
-description: "Codec Converter に関するよくある質問と回答。対応フォーマット・変換時間・AV1とH.264の違いなど、コーデック変換に関する疑問をまとめました。"
-service: "codec-converter"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'Codec Converter - よくある質問'
+description: 'Codec Converter に関するよくある質問と回答。対応フォーマット・変換時間・AV1とH.264の違いなど、コーデック変換に関する疑問をまとめました。'
+service: 'codec-converter'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問

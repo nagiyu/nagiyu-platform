@@ -1,0 +1,372 @@
+name: Portal - Verification
+
+on:
+  pull_request:
+    branches:
+      - integration/**
+      - develop
+    paths:
+      - 'services/portal/**'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/portal-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Run lint
+        run: npm run lint --workspace @nagiyu/portal-web
+
+  format-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Check formatting
+        run: npm run format:check --workspace @nagiyu/portal-web
+
+  build:
+    name: Next.js Build Verification
+    runs-on: ubuntu-latest
+    needs: [lint, format-check]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Next.js application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/portal-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs'
+
+  docker-build:
+    name: Docker Build Verification
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/portal/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/portal/web/Dockerfile
+          image-tag: portal-verify-test
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+
+  unit-test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Run unit tests
+        run: npm run test --workspace @nagiyu/portal-web
+
+  coverage:
+    name: Test Coverage Check
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Run tests with coverage
+        run: npm run test:coverage --workspace @nagiyu/portal-web
+
+  e2e-test-chromium-mobile:
+    name: Run E2E Tests (chromium-mobile)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/portal/web
+
+      - name: Run Playwright tests (chromium-mobile)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace @nagiyu/portal-web -- --project=chromium-mobile
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-chromium-mobile
+          path: services/portal/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-chromium-mobile
+          path: services/portal/web/test-results/
+          retention-days: 30
+
+  e2e-test-chromium-desktop:
+    name: Run E2E Tests (chromium-desktop)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ./services/portal/web
+
+      - name: Run Playwright tests (chromium-desktop)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace @nagiyu/portal-web -- --project=chromium-desktop
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-chromium-desktop
+          path: services/portal/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-chromium-desktop
+          path: services/portal/web/test-results/
+          retention-days: 30
+
+  e2e-test-webkit-mobile:
+    name: Run E2E Tests (webkit-mobile)
+    runs-on: ubuntu-latest
+    needs: [unit-test]
+    if: github.base_ref == 'develop'
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        run: |
+          npm run build --workspace @nagiyu/common
+          npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/ui
+          npm run build --workspace @nagiyu/nextjs
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps webkit
+        working-directory: ./services/portal/web
+
+      - name: Run Playwright tests (webkit-mobile)
+        env:
+          CI: true
+        run: npm run test:e2e --workspace @nagiyu/portal-web -- --project=webkit-mobile
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-webkit-mobile
+          path: services/portal/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-webkit-mobile
+          path: services/portal/web/test-results/
+          retention-days: 30
+
+  report:
+    name: Report Results to PR
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      [
+        lint,
+        format-check,
+        build,
+        docker-build,
+        unit-test,
+        coverage,
+        e2e-test-chromium-mobile,
+        e2e-test-chromium-desktop,
+        e2e-test-webkit-mobile,
+      ]
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Create PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const results = {
+              'Lint': '${{ needs.lint.result }}',
+              'Format Check': '${{ needs.format-check.result }}',
+              'Next.js Build': '${{ needs.build.result }}',
+              'Docker Build': '${{ needs.docker-build.result }}',
+              'Unit Tests': '${{ needs.unit-test.result }}',
+              'Coverage Check': '${{ needs.coverage.result }}',
+              'E2E Tests (chromium-mobile)': '${{ needs.e2e-test-chromium-mobile.result }}',
+              'E2E Tests (chromium-desktop)': '${{ needs.e2e-test-chromium-desktop.result }}',
+              'E2E Tests (webkit-mobile)': '${{ needs.e2e-test-webkit-mobile.result }}'
+            };
+
+            const statusEmoji = {
+              'success': '✅',
+              'failure': '❌',
+              'cancelled': '⚠️',
+              'skipped': '⏭️'
+            };
+
+            const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
+            const isFull = '${{ github.base_ref }}' === 'develop';
+            const header = allSuccess
+              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
+              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
+
+            let body = `${header}\n\n`;
+            body += isFull
+              ? '**Portal - Full Verification**\n\n'
+              : '**Portal - Fast Verification**\n\n';
+            body += '| Job | Status |\n';
+            body += '|-----|--------|\n';
+
+            for (const [job, result] of Object.entries(results)) {
+              const emoji = statusEmoji[result] || '❓';
+              body += `| ${job} | ${emoji} ${result} |\n`;
+            }
+
+            body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });

@@ -1,9 +1,9 @@
 ---
-title: "Quick Clip - よくある質問"
-description: "Quick Clip に関するよくある質問と回答。対応フォーマット・処理時間・ファイルサイズ制限・データの保持期間などについて解説します。"
-service: "quick-clip"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'Quick Clip - よくある質問'
+description: 'Quick Clip に関するよくある質問と回答。対応フォーマット・処理時間・ファイルサイズ制限・データの保持期間などについて解説します。'
+service: 'quick-clip'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問

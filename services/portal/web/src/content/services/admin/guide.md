@@ -1,9 +1,9 @@
 ---
-title: "nagiyu Admin - 使い方ガイド"
-description: "nagiyu Admin の使い方を詳しく解説します。ユーザー管理・サービス設定・システム監視・メンテナンスモードの切り替えなど管理機能の操作手順を説明します。"
-service: "admin"
-type: "guide"
-updatedAt: "2026-04-10"
+title: 'nagiyu Admin - 使い方ガイド'
+description: 'nagiyu Admin の使い方を詳しく解説します。ユーザー管理・サービス設定・システム監視・メンテナンスモードの切り替えなど管理機能の操作手順を説明します。'
+service: 'admin'
+type: 'guide'
+updatedAt: '2026-04-10'
 ---
 
 ## nagiyu Admin の使い方ガイド

@@ -1,9 +1,9 @@
 ---
-title: "Share Together - 使い方ガイド"
-description: "Share Together の使い方を詳しく解説します。リストの作成・URL共有・アイテム追加・チェック・共同編集など全操作手順をステップごとに説明します。"
-service: "share-together"
-type: "guide"
-updatedAt: "2026-04-10"
+title: 'Share Together - 使い方ガイド'
+description: 'Share Together の使い方を詳しく解説します。リストの作成・URL共有・アイテム追加・チェック・共同編集など全操作手順をステップごとに説明します。'
+service: 'share-together'
+type: 'guide'
+updatedAt: '2026-04-10'
 ---
 
 ## Share Together の使い方ガイド

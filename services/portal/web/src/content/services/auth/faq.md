@@ -1,9 +1,9 @@
 ---
-title: "nagiyu Auth - よくある質問"
-description: "nagiyu Auth に関するよくある質問。Google OAuth・セキュリティ・複数アカウント・セッションの有効期限などについて解説します。"
-service: "auth"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'nagiyu Auth - よくある質問'
+description: 'nagiyu Auth に関するよくある質問。Google OAuth・セキュリティ・複数アカウント・セッションの有効期限などについて解説します。'
+service: 'auth'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問

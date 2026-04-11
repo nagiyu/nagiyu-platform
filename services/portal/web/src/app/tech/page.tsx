@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import {
   Container,
   Typography,
@@ -51,7 +50,11 @@ export default function TechPage() {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {article.description}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 1 }}
+                  >
                     {article.publishedAt}
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -61,7 +64,7 @@ export default function TechPage() {
                   </Box>
                 </CardContent>
                 <CardActions>
-                  <Button size="small" component={Link} href={`/tech/${article.slug}`}>
+                  <Button size="small" href={`/tech/${article.slug}`}>
                     記事を読む
                   </Button>
                 </CardActions>

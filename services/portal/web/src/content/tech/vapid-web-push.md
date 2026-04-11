@@ -1,9 +1,9 @@
 ---
-title: "Web Push通知をVAPIDキーで実装する方法"
-description: "VAPIDキーを使ったWeb Push通知の実装方法を解説。サービスワーカーの設定・Push APIのサブスクリプション管理・web-pushライブラリでのサーバーサイド送信・ブラウザサポートまで詳しく説明します。"
-slug: "vapid-web-push"
-publishedAt: "2026-04-10"
-tags: ["Web Push", "VAPID", "通知"]
+title: 'Web Push通知をVAPIDキーで実装する方法'
+description: 'VAPIDキーを使ったWeb Push通知の実装方法を解説。サービスワーカーの設定・Push APIのサブスクリプション管理・web-pushライブラリでのサーバーサイド送信・ブラウザサポートまで詳しく説明します。'
+slug: 'vapid-web-push'
+publishedAt: '2026-04-10'
+tags: ['Web Push', 'VAPID', '通知']
 ---
 
 ## はじめに
@@ -78,9 +78,7 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = atob(base64);
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
@@ -124,9 +122,7 @@ self.addEventListener('push', (event) => {
     data: { url: data.url },
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
@@ -194,10 +190,7 @@ export async function sendPushNotification(
   payload: PushPayload
 ): Promise<boolean> {
   try {
-    await webPush.sendNotification(
-      subscription,
-      JSON.stringify(payload)
-    );
+    await webPush.sendNotification(subscription, JSON.stringify(payload));
     return true;
   } catch (error: unknown) {
     if (
@@ -216,13 +209,13 @@ export async function sendPushNotification(
 
 ## ブラウザサポート
 
-| ブラウザ | デスクトップ | モバイル |
-|--------|-----------|--------|
-| Chrome | ✅ 対応 | ✅ 対応（Android） |
-| Firefox | ✅ 対応 | ✅ 対応（Android） |
-| Edge | ✅ 対応 | ✅ 対応 |
-| Safari | ✅ macOS 13 以降 | ✅ iOS 16.4 以降 |
-| Samsung Internet | — | ✅ 対応 |
+| ブラウザ         | デスクトップ     | モバイル           |
+| ---------------- | ---------------- | ------------------ |
+| Chrome           | ✅ 対応          | ✅ 対応（Android） |
+| Firefox          | ✅ 対応          | ✅ 対応（Android） |
+| Edge             | ✅ 対応          | ✅ 対応            |
+| Safari           | ✅ macOS 13 以降 | ✅ iOS 16.4 以降   |
+| Samsung Internet | —                | ✅ 対応            |
 
 ## セキュリティに関する注意事項
 

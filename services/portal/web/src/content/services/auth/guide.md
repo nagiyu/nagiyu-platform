@@ -1,9 +1,9 @@
 ---
-title: "nagiyu Auth - 使い方ガイド"
-description: "nagiyu Auth の使い方を詳しく解説します。Google アカウントでのログイン・アカウント設定・セッション管理・ログアウト手順を説明します。"
-service: "auth"
-type: "guide"
-updatedAt: "2026-04-10"
+title: 'nagiyu Auth - 使い方ガイド'
+description: 'nagiyu Auth の使い方を詳しく解説します。Google アカウントでのログイン・アカウント設定・セッション管理・ログアウト手順を説明します。'
+service: 'auth'
+type: 'guide'
+updatedAt: '2026-04-10'
 ---
 
 ## nagiyu Auth の使い方ガイド
