@@ -13,7 +13,7 @@
 
 <!-- 列定義の基盤を整備する -->
 
-- [ ] T001: 列定義定数ファイルの作成（依存: なし）
+- [x] T001: 列定義定数ファイルの作成（依存: なし）
     - `web/src/constants/highlightTableColumns.ts` を新規作成する
     - `ColumnDefinition` 型（id / label / fixed / defaultVisible）を定義する
     - 固定列（No. / 開始〜終了 / 採否）とオプション列（抽出根拠）の定義配列を作成する
