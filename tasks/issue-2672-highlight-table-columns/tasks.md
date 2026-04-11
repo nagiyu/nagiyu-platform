@@ -36,7 +36,7 @@
 
 <!-- 列設定ボタン + ポップオーバーコンポーネントを実装する -->
 
-- [ ] T004: `ColumnVisibilityButton` コンポーネントの実装（依存: T001）
+- [x] T004: `ColumnVisibilityButton` コンポーネントの実装（依存: T001）
     - `web/src/components/highlights/ColumnVisibilityButton.tsx` を新規作成する
     - アイコンボタン（設定アイコン）をクリックするとポップオーバーが開閉する
     - ポップオーバー内にオプション列のチェックボックスリストを表示する
