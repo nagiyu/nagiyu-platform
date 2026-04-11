@@ -47,7 +47,7 @@
 
 <!-- 既存ページコンポーネントに列表示切り替えを組み込む -->
 
-- [ ] T005: `HighlightsPage` の右パネルテーブルへの統合（依存: T002, T004）
+- [x] T005: `HighlightsPage` の右パネルテーブルへの統合（依存: T002, T004）
     - `web/src/app/jobs/[jobId]/highlights/page.tsx` を変更する
     - `useColumnVisibility` フックを呼び出し、列表示状態を取得する
     - テーブルヘッダーの右上に `ColumnVisibilityButton` を配置する
