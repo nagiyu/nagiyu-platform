@@ -39,28 +39,28 @@
 
 **サービスドキュメント（8 サービス × 3 ファイル）:**
 
-- [ ] `content/services/tools/{index,guide,faq}.md`（index: 500 字以上、guide: 800 字以上、faq: 400 字以上）
-- [ ] `content/services/quick-clip/{index,guide,faq}.md`
-- [ ] `content/services/codec-converter/{index,guide,faq}.md`
-- [ ] `content/services/stock-tracker/{index,guide,faq}.md`
-- [ ] `content/services/niconico-mylist-assistant/{index,guide,faq}.md`
-- [ ] `content/services/share-together/{index,guide,faq}.md`
-- [ ] `content/services/auth/{index,guide,faq}.md`
-- [ ] `content/services/admin/{index,guide,faq}.md`
+- [x] `content/services/tools/{index,guide,faq}.md`（index: 500 字以上、guide: 800 字以上、faq: 400 字以上）
+- [x] `content/services/quick-clip/{index,guide,faq}.md`
+- [x] `content/services/codec-converter/{index,guide,faq}.md`
+- [x] `content/services/stock-tracker/{index,guide,faq}.md`
+- [x] `content/services/niconico-mylist-assistant/{index,guide,faq}.md`
+- [x] `content/services/share-together/{index,guide,faq}.md`
+- [x] `content/services/auth/{index,guide,faq}.md`
+- [x] `content/services/admin/{index,guide,faq}.md`
 
 **その他ページ:**
 
-- [ ] About ページコンテンツ（`app/about/page.tsx` に直接記述、開発者プロフィール含む）
-- [ ] 利用規約ページ（`app/terms/page.tsx`）
-- [ ] プライバシーポリシーページ（`app/privacy/page.tsx`）
+- [x] About ページコンテンツ（`app/about/page.tsx` に直接記述、開発者プロフィール含む）
+- [x] 利用規約ページ（`app/terms/page.tsx`）
+- [x] プライバシーポリシーページ（`app/privacy/page.tsx`）
 
 **技術記事（5 本、各 800 字以上）:**
 
-- [ ] `content/tech/aws-batch-architecture.md`
-- [ ] `content/tech/nextjs-ssg-markdown.md`
-- [ ] `content/tech/vapid-web-push.md`
-- [ ] `content/tech/video-codec-comparison.md`
-- [ ] `content/tech/cloudfront-ecs-deployment.md`
+- [x] `content/tech/aws-batch-architecture.md`
+- [x] `content/tech/nextjs-ssg-markdown.md`
+- [x] `content/tech/vapid-web-push.md`
+- [x] `content/tech/video-codec-comparison.md`
+- [x] `content/tech/cloudfront-ecs-deployment.md`
 
 ## Phase 3: インフラ構築
 
