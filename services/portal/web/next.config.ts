@@ -3,7 +3,7 @@ import path from 'path';
 
 const nextConfig: NextConfig = {
   output: 'standalone', // Lambda デプロイ用
-  outputFileTracingRoot: path.join(__dirname, '../../'), // モノレポルート
+  outputFileTracingRoot: path.join(__dirname, '../../../'), // モノレポルート
   // Silence Turbopack warning when using webpack config
   turbopack: {},
   // Transpile workspace packages
