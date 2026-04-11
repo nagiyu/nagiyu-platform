@@ -1,9 +1,9 @@
 ---
-title: "Next.jsでMarkdownを静的ページに変換する実装方法"
-description: "Next.jsのSSGとMarkdownファイルを組み合わせた静的サイト生成の実装方法を解説。gray-matterによるフロントマター解析・remark/rehypeによるレンダリング・generateStaticParamsの活用まで詳しく説明します。"
-slug: "nextjs-ssg-markdown"
-publishedAt: "2026-04-10"
-tags: ["Next.js", "Markdown", "SSG"]
+title: 'Next.jsでMarkdownを静的ページに変換する実装方法'
+description: 'Next.jsのSSGとMarkdownファイルを組み合わせた静的サイト生成の実装方法を解説。gray-matterによるフロントマター解析・remark/rehypeによるレンダリング・generateStaticParamsの活用まで詳しく説明します。'
+slug: 'nextjs-ssg-markdown'
+publishedAt: '2026-04-10'
+tags: ['Next.js', 'Markdown', 'SSG']
 ---
 
 ## はじめに
@@ -111,16 +111,8 @@ export async function markdownToHtml(markdown: string): Promise<string> {
   return DOMPurify.sanitize(result.toString());
 }
 
-export async function getServiceDoc(
-  service: string,
-  type: string
-): Promise<ServiceDoc | null> {
-  const filePath = path.join(
-    contentDirectory,
-    'services',
-    service,
-    `${type}.md`
-  );
+export async function getServiceDoc(service: string, type: string): Promise<ServiceDoc | null> {
+  const filePath = path.join(contentDirectory, 'services', service, `${type}.md`);
 
   if (!fs.existsSync(filePath)) return null;
 
@@ -217,9 +209,7 @@ const techDirectory = path.join(process.cwd(), 'src/content/tech');
 
 export function getAllTechSlugs(): string[] {
   const files = fs.readdirSync(techDirectory);
-  return files
-    .filter((f) => f.endsWith('.md'))
-    .map((f) => f.replace('.md', ''));
+  return files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''));
 }
 
 export async function getTechArticle(slug: string): Promise<TechArticle | null> {
@@ -239,9 +229,7 @@ export async function getTechArticle(slug: string): Promise<TechArticle | null> 
 
 export async function getAllTechArticles(): Promise<TechArticle[]> {
   const slugs = getAllTechSlugs();
-  const articles = await Promise.all(
-    slugs.map((slug) => getTechArticle(slug))
-  );
+  const articles = await Promise.all(slugs.map((slug) => getTechArticle(slug)));
   return articles
     .filter((a): a is TechArticle => a !== null)
     .sort(

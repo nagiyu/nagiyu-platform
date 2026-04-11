@@ -22,8 +22,9 @@ export default function AboutPage() {
           サイトの目的
         </Typography>
         <Typography variant="body1" paragraph>
-          nagiyu は、個人開発者が提供する各種 Web サービスのポータルサイトです。
-          Tools・Quick Clip・Codec Converter・Stock Tracker をはじめとする便利なサービスのドキュメント・使い方ガイド・技術記事を掲載しています。
+          nagiyu は、個人開発者が提供する各種 Web サービスのポータルサイトです。 Tools・Quick
+          Clip・Codec Converter・Stock Tracker
+          をはじめとする便利なサービスのドキュメント・使い方ガイド・技術記事を掲載しています。
         </Typography>
         <Typography variant="body1" paragraph>
           各サービスのドキュメントはサービスの機能追加・変更に合わせて随時更新しています。
@@ -39,7 +40,8 @@ export default function AboutPage() {
           なぎゆー（個人開発者）
         </Typography>
         <Typography variant="body1" paragraph>
-          モノレポ構成のプラットフォーム「nagiyu-platform」として複数の Web サービスを開発・運用しています。
+          モノレポ構成のプラットフォーム「nagiyu-platform」として複数の Web
+          サービスを開発・運用しています。
           AWS（ECS・Lambda・CloudFront・Batch）を活用したサーバーレスアーキテクチャを採用し、
           Next.js・TypeScript を中心としたモダンな技術スタックで構築しています。
         </Typography>
@@ -65,7 +67,8 @@ export default function AboutPage() {
               Tools
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              乗り換え変換・JSON 整形・VAPID キー生成・Base64・URL エンコード・ハッシュ生成など、日常作業を効率化する無料のブラウザ完結型ツール集。
+              乗り換え変換・JSON 整形・VAPID キー生成・Base64・URL
+              エンコード・ハッシュ生成など、日常作業を効率化する無料のブラウザ完結型ツール集。
             </Typography>
           </Box>
           <Box component="li" sx={{ mb: 2 }}>
@@ -73,7 +76,8 @@ export default function AboutPage() {
               Quick Clip
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              動画のクリップ・ハイライト自動生成サービス。AWS Batch を活用したサーバーレス処理で大容量動画に対応。
+              動画のクリップ・ハイライト自動生成サービス。AWS Batch
+              を活用したサーバーレス処理で大容量動画に対応。
             </Typography>
           </Box>
           <Box component="li" sx={{ mb: 2 }}>
@@ -133,12 +137,14 @@ export default function AboutPage() {
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body1">
-              <strong>AWS（ECS・Lambda・CloudFront・Batch・ECR）</strong> - スケーラブルなクラウドインフラ
+              <strong>AWS（ECS・Lambda・CloudFront・Batch・ECR）</strong> -
+              スケーラブルなクラウドインフラ
             </Typography>
           </Box>
           <Box component="li" sx={{ mb: 1 }}>
             <Typography variant="body1">
-              <strong>gray-matter + remark/rehype</strong> - Markdown コンテンツのフロントマター解析・HTML 変換
+              <strong>gray-matter + remark/rehype</strong> - Markdown
+              コンテンツのフロントマター解析・HTML 変換
             </Typography>
           </Box>
         </Box>
@@ -149,13 +155,11 @@ export default function AboutPage() {
           プライバシーとセキュリティ
         </Typography>
         <Typography variant="body1" paragraph>
-          ユーザーのプライバシーを最優先に考えています。
-          Google Analytics による匿名のアクセス統計と、Google AdSense による広告配信のみ行っています。
+          ユーザーのプライバシーを最優先に考えています。 Google Analytics
+          による匿名のアクセス統計と、Google AdSense による広告配信のみ行っています。
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          詳細は{' '}
-          <Link href="/privacy">プライバシーポリシー</Link>{' '}
-          をご確認ください。
+          詳細は <Link href="/privacy">プライバシーポリシー</Link> をご確認ください。
         </Typography>
       </Box>
     </Container>

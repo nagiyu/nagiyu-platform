@@ -1,9 +1,9 @@
 ---
-title: "ニコニコマイリストアシスタント - よくある質問"
-description: "ニコニコマイリストアシスタントに関するよくある質問。アカウント連携・データの安全性・操作の取り消し・ニコニコプレミアムとの関係などについて解説します。"
-service: "niconico-mylist-assistant"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'ニコニコマイリストアシスタント - よくある質問'
+description: 'ニコニコマイリストアシスタントに関するよくある質問。アカウント連携・データの安全性・操作の取り消し・ニコニコプレミアムとの関係などについて解説します。'
+service: 'niconico-mylist-assistant'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問

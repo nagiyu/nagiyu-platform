@@ -1,9 +1,9 @@
 ---
-title: "nagiyu Admin - よくある質問"
-description: "nagiyu Admin に関するよくある質問。管理者権限の取得・監査ログ・メンテナンスモードの影響・ユーザーデータの扱いなどについて解説します。"
-service: "admin"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'nagiyu Admin - よくある質問'
+description: 'nagiyu Admin に関するよくある質問。管理者権限の取得・監査ログ・メンテナンスモードの影響・ユーザーデータの扱いなどについて解説します。'
+service: 'admin'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問

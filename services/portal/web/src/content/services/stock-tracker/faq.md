@@ -1,9 +1,9 @@
 ---
-title: "Stock Tracker - よくある質問"
-description: "Stock Tracker に関するよくある質問と回答。Web Push通知の設定・対応ブラウザ・株価データの更新頻度・アラートの動作仕様などについて解説します。"
-service: "stock-tracker"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'Stock Tracker - よくある質問'
+description: 'Stock Tracker に関するよくある質問と回答。Web Push通知の設定・対応ブラウザ・株価データの更新頻度・アラートの動作仕様などについて解説します。'
+service: 'stock-tracker'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問
@@ -19,6 +19,7 @@ updatedAt: "2026-04-10"
 ### Q. 通知が届かない場合はどうすればよいですか？
 
 **A.** 以下を確認してください。
+
 - ブラウザの通知設定で stock-tracker.nagiyu.com が「許可」になっているか
 - OS の通知設定でブラウザの通知が有効になっているか
 - スマートフォンの場合、おやすみモードや集中モードが有効になっていないか

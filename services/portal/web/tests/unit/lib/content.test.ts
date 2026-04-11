@@ -13,10 +13,7 @@ jest.mock('path', () => {
       const joined = actual.join(...args);
       const marker = actual.join('src', 'content');
       if (joined.includes(marker)) {
-        return joined.replace(
-          actual.join(process.cwd(), 'src', 'content'),
-          FIXTURE_DIR
-        );
+        return joined.replace(actual.join(process.cwd(), 'src', 'content'), FIXTURE_DIR);
       }
       return joined;
     },
@@ -32,6 +29,7 @@ describe('content', () => {
     });
 
     it('存在しないディレクトリの場合は空配列を返す', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       jest.spyOn(require('fs'), 'existsSync').mockReturnValueOnce(false);
       const slugs = getAllServiceSlugs();
       expect(slugs).toEqual([]);
@@ -61,6 +59,7 @@ describe('content', () => {
     });
 
     it('存在しないディレクトリの場合は空配列を返す', () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       jest.spyOn(require('fs'), 'existsSync').mockReturnValueOnce(false);
       const articles = getAllArticles();
       expect(articles).toEqual([]);

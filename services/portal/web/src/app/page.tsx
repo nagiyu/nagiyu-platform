@@ -1,6 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Container, Typography, Grid, Box, Card, CardContent, CardActions, Button, Chip } from '@mui/material';
+import {
+  Container,
+  Typography,
+  Grid,
+  Box,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Chip,
+} from '@mui/material';
 import { getAllServiceSlugs, getServiceDocument, getAllArticles } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 
@@ -43,7 +53,8 @@ export default async function HomePage() {
           nagiyu
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 700, mx: 'auto' }}>
-          nagiyu が提供する各種サービスのドキュメント・使い方ガイド・技術記事を掲載したポータルサイトです。
+          nagiyu
+          が提供する各種サービスのドキュメント・使い方ガイド・技術記事を掲載したポータルサイトです。
           Tools・Quick Clip・Codec Converter など、便利なサービスをご活用ください。
         </Typography>
       </Box>
@@ -67,19 +78,10 @@ export default async function HomePage() {
                     </Typography>
                   </CardContent>
                   <CardActions>
-                    <Button
-                      size="small"
-                      component={Link}
-                      href={`/services/${card.slug}`}
-                    >
+                    <Button size="small" component={Link} href={`/services/${card.slug}`}>
                       ドキュメント
                     </Button>
-                    <Button
-                      size="small"
-                      href={card.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <Button size="small" href={card.url} target="_blank" rel="noopener noreferrer">
                       サービスを開く
                     </Button>
                   </CardActions>

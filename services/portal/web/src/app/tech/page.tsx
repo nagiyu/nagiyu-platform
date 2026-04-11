@@ -51,7 +51,11 @@ export default function TechPage() {
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     {article.description}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: 'block', mb: 1 }}
+                  >
                     {article.publishedAt}
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>

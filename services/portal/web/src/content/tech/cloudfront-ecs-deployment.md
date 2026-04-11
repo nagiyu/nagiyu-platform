@@ -1,9 +1,9 @@
 ---
-title: "CloudFront+ECSでNext.jsをデプロイする構成解説"
-description: "CloudFront + ECS FargateでNext.jsをデプロイするAWS構成を解説。ECSサービス設定・ALB構成・CloudFrontディストリビューション・キャッシュ設定・GitHub ActionsでのCI/CDまで詳しく説明します。"
-slug: "cloudfront-ecs-deployment"
-publishedAt: "2026-04-10"
-tags: ["AWS", "CloudFront", "ECS", "Next.js"]
+title: 'CloudFront+ECSでNext.jsをデプロイする構成解説'
+description: 'CloudFront + ECS FargateでNext.jsをデプロイするAWS構成を解説。ECSサービス設定・ALB構成・CloudFrontディストリビューション・キャッシュ設定・GitHub ActionsでのCI/CDまで詳しく説明します。'
+slug: 'cloudfront-ecs-deployment'
+publishedAt: '2026-04-10'
+tags: ['AWS', 'CloudFront', 'ECS', 'Next.js']
 ---
 
 ## はじめに
@@ -72,7 +72,7 @@ CMD ["node", "server.js"]
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  output: 'standalone',  // スタンドアロンモードを有効化
+  output: 'standalone', // スタンドアロンモードを有効化
   // CloudFront経由の場合のホスト設定
   async headers() {
     return [
@@ -113,9 +113,7 @@ export default nextConfig;
           "protocol": "tcp"
         }
       ],
-      "environment": [
-        { "name": "NODE_ENV", "value": "production" }
-      ],
+      "environment": [{ "name": "NODE_ENV", "value": "production" }],
       "secrets": [
         {
           "name": "DATABASE_URL",

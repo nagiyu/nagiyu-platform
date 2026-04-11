@@ -4,7 +4,8 @@ import { privacyPolicySections } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
   title: 'プライバシーポリシー',
-  description: 'nagiyu のプライバシーポリシーです。Cookie の取り扱い・アクセスログ収集・個人情報の保護方針について説明します。',
+  description:
+    'nagiyu のプライバシーポリシーです。Cookie の取り扱い・アクセスログ収集・個人情報の保護方針について説明します。',
   alternates: { canonical: 'https://nagiyu.com/privacy' },
 };
 

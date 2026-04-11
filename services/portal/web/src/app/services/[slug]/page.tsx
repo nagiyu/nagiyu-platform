@@ -62,12 +62,7 @@ export default async function ServicePage({ params }: Params) {
       {/* 外部リンク */}
       {serviceUrl && (
         <Box sx={{ mb: 3 }}>
-          <Button
-            variant="contained"
-            href={serviceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <Button variant="contained" href={serviceUrl} target="_blank" rel="noopener noreferrer">
             {serviceName} を開く
           </Button>
         </Box>

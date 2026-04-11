@@ -1,15 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  Container,
-  Typography,
-  Grid,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-} from '@mui/material';
+import { Container, Typography, Grid, Card, CardContent, CardActions, Button } from '@mui/material';
 import { getAllServiceSlugs, getServiceDocument } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 
@@ -50,7 +41,8 @@ export default async function ServicesPage() {
       </Typography>
 
       <Typography variant="body1" paragraph align="center" sx={{ mb: 4 }}>
-        nagiyu が提供する各種 Web サービスの一覧です。各サービスのドキュメントや使い方ガイドをご確認ください。
+        nagiyu が提供する各種 Web
+        サービスの一覧です。各サービスのドキュメントや使い方ガイドをご確認ください。
       </Typography>
 
       <Grid container spacing={3}>
@@ -69,12 +61,7 @@ export default async function ServicesPage() {
                 <Button size="small" component={Link} href={`/services/${card.slug}`}>
                   ドキュメント
                 </Button>
-                <Button
-                  size="small"
-                  href={card.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <Button size="small" href={card.url} target="_blank" rel="noopener noreferrer">
                   サービスを開く
                 </Button>
               </CardActions>

@@ -1,9 +1,9 @@
 ---
-title: "AWS Batchで重い処理をサーバーレス化する構成解説"
-description: "動画変換・画像処理などの重いバッチ処理をAWS Batchでサーバーレス化する構成を解説。ジョブ定義・ジョブキュー・コンピューティング環境・S3トリガー・コスト最適化まで詳しく説明します。"
-slug: "aws-batch-architecture"
-publishedAt: "2026-04-10"
-tags: ["AWS", "AWS Batch", "サーバーレス"]
+title: 'AWS Batchで重い処理をサーバーレス化する構成解説'
+description: '動画変換・画像処理などの重いバッチ処理をAWS Batchでサーバーレス化する構成を解説。ジョブ定義・ジョブキュー・コンピューティング環境・S3トリガー・コスト最適化まで詳しく説明します。'
+slug: 'aws-batch-architecture'
+publishedAt: '2026-04-10'
+tags: ['AWS', 'AWS Batch', 'サーバーレス']
 ---
 
 ## はじめに
@@ -29,9 +29,7 @@ AWS Batch は、AWS 上でバッチコンピューティングワークロード
     "vcpus": 4,
     "memory": 8192,
     "command": ["python", "convert.py"],
-    "environment": [
-      { "name": "AWS_REGION", "value": "ap-northeast-1" }
-    ],
+    "environment": [{ "name": "AWS_REGION", "value": "ap-northeast-1" }],
     "jobRoleArn": "arn:aws:iam::123456789:role/BatchJobRole"
   }
 }
@@ -159,13 +157,13 @@ if __name__ == '__main__':
 
 ## Lambda との比較・使い分け
 
-| 項目 | Lambda | AWS Batch |
-|------|--------|-----------|
-| 最大実行時間 | 15 分 | 無制限（実質無制限） |
-| メモリ上限 | 10 GB | インスタンスタイプに依存 |
-| 起動時間 | 数秒 | 1〜2 分（コールドスタート） |
-| コスト | 実行時間課金 | EC2/Fargate 課金 |
-| 適した処理 | 軽量・短時間 | 重処理・長時間バッチ |
+| 項目         | Lambda       | AWS Batch                   |
+| ------------ | ------------ | --------------------------- |
+| 最大実行時間 | 15 分        | 無制限（実質無制限）        |
+| メモリ上限   | 10 GB        | インスタンスタイプに依存    |
+| 起動時間     | 数秒         | 1〜2 分（コールドスタート） |
+| コスト       | 実行時間課金 | EC2/Fargate 課金            |
+| 適した処理   | 軽量・短時間 | 重処理・長時間バッチ        |
 
 動画変換・機械学習の推論・大量データ処理など、15 分を超えるか大量のリソースを必要とする処理には AWS Batch が適しています。
 

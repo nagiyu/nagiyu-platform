@@ -1,9 +1,9 @@
 ---
-title: "nagiyu Tools - よくある質問"
-description: "nagiyu Tools に関するよくある質問と回答をまとめました。データの安全性・オフライン利用・対応ブラウザなどについて解説します。"
-service: "tools"
-type: "faq"
-updatedAt: "2026-04-10"
+title: 'nagiyu Tools - よくある質問'
+description: 'nagiyu Tools に関するよくある質問と回答をまとめました。データの安全性・オフライン利用・対応ブラウザなどについて解説します。'
+service: 'tools'
+type: 'faq'
+updatedAt: '2026-04-10'
 ---
 
 ## よくある質問
