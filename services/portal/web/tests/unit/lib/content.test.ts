@@ -1,11 +1,31 @@
 import path from 'path';
 import { getAllServiceSlugs, getServiceDocument, getAllArticles, getArticle } from '@/lib/content';
 
-// content ディレクトリをテスト用に設定
-const FIXTURE_DIR = path.join(__dirname, '../../../fixtures/content');
+// ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
+jest.mock('remark', () => ({
+  remark: jest.fn(() => {
+    const processor = {
+      use: jest.fn().mockReturnThis(),
+      process: jest.fn(async (text: string) => ({ toString: () => text })),
+    };
+    return processor;
+  }),
+}));
+jest.mock('remark-rehype', () => ({}));
+jest.mock('rehype-stringify', () => ({}));
 
+// isomorphic-dompurify も jsdom 依存のためモック化する
+jest.mock('isomorphic-dompurify', () => {
+  const sanitize = jest.fn((html: string) => html);
+  return { __esModule: true, default: { sanitize } };
+});
+
+// content ディレクトリをテスト用に設定
+// FIXTURE_DIR は jest.mock('path') のファクトリ内で計算する（ホイスティング対策）
 jest.mock('path', () => {
   const actual = jest.requireActual<typeof path>('path');
+  // jest.mock ファクトリは他の変数より先に実行されるため、ここで計算する
+  const fixtureDir = actual.join(__dirname, '../../../fixtures/content');
   return {
     ...actual,
     join: (...args: string[]) => {
@@ -13,7 +33,7 @@ jest.mock('path', () => {
       const joined = actual.join(...args);
       const marker = actual.join('src', 'content');
       if (joined.includes(marker)) {
-        return joined.replace(actual.join(process.cwd(), 'src', 'content'), FIXTURE_DIR);
+        return joined.replace(actual.join(process.cwd(), 'src', 'content'), fixtureDir);
       }
       return joined;
     },
