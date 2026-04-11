@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { Container, Typography, Box, Button, Tabs, Tab } from '@mui/material';
+import { Container, Typography, Box, Button } from '@mui/material';
 import { getAllServiceSlugs, getServiceDocument } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 import MarkdownContent from '@/components/MarkdownContent';
+import ServiceDocumentNav from '@/components/ServiceDocumentNav';
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -51,13 +51,7 @@ export default async function ServicePage({ params }: Params) {
       </Typography>
 
       {/* サブページナビゲーション */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={0} aria-label="サービスドキュメントナビゲーション">
-          <Tab label="概要" component={Link} href={`/services/${slug}`} />
-          <Tab label="使い方ガイド" component={Link} href={`/services/${slug}/guide`} />
-          <Tab label="FAQ" component={Link} href={`/services/${slug}/faq`} />
-        </Tabs>
-      </Box>
+      <ServiceDocumentNav slug={slug} value={0} />
 
       {/* 外部リンク */}
       {serviceUrl && (

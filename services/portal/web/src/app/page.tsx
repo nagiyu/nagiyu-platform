@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import {
   Container,
   Typography,
@@ -78,7 +77,7 @@ export default async function HomePage() {
                     </Typography>
                   </CardContent>
                   <CardActions>
-                    <Button size="small" component={Link} href={`/services/${card.slug}`}>
+                    <Button size="small" href={`/services/${card.slug}`}>
                       ドキュメント
                     </Button>
                     <Button size="small" href={card.url} target="_blank" rel="noopener noreferrer">
@@ -116,7 +115,7 @@ export default async function HomePage() {
                     </Box>
                   </CardContent>
                   <CardActions>
-                    <Button size="small" component={Link} href={`/tech/${article.slug}`}>
+                    <Button size="small" href={`/tech/${article.slug}`}>
                       記事を読む
                     </Button>
                   </CardActions>
@@ -125,7 +124,7 @@ export default async function HomePage() {
             ))}
           </Grid>
           <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Button component={Link} href="/tech" variant="outlined">
+            <Button href="/tech" variant="outlined">
               すべての技術記事を見る
             </Button>
           </Box>

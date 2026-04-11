@@ -37,7 +37,7 @@ export default function MarkdownContent({ html, sx }: MarkdownContentProps) {
   return (
     <Box
       dangerouslySetInnerHTML={{ __html: html }}
-      sx={[DEFAULT_CONTENT_SX, ...(sx ? [sx] : [])]}
+      sx={[DEFAULT_CONTENT_SX, ...(sx == null ? [] : Array.isArray(sx) ? sx : [sx])]}
     />
   );
 }
