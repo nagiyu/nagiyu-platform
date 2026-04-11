@@ -22,13 +22,13 @@
 
 <!-- 列表示状態の管理ロジックを hooks に分離する -->
 
-- [ ] T002: `useColumnVisibility` フックの実装（依存: T001）
+- [x] T002: `useColumnVisibility` フックの実装（依存: T001）
     - `web/src/hooks/useColumnVisibility.ts` を新規作成する
     - 引数として `ColumnDefinition[]` を受け取る
     - `defaultVisible` を初期値として列表示状態を管理する
     - 列の表示状態トグル関数と現在の表示状態マップを返す
-- [ ] T003: `useColumnVisibility` フックの単体テスト（依存: T002）
-    - `web/src/hooks/useColumnVisibility.test.ts` を新規作成する
+- [x] T003: `useColumnVisibility` フックの単体テスト（依存: T002）
+    - `web/tests/unit/hooks/useColumnVisibility.test.ts` を新規作成する
     - `defaultVisible` が初期状態として使用されることをテストする
     - トグル操作後に表示状態が反転することをテストする
 
