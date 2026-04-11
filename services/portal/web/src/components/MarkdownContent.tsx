@@ -34,5 +34,10 @@ interface MarkdownContentProps {
  * コンテンツは lib/content.ts の markdownToHtml() で DOMPurify.sanitize() 済みです。
  */
 export default function MarkdownContent({ html, sx }: MarkdownContentProps) {
-  return <Box dangerouslySetInnerHTML={{ __html: html }} sx={{ ...DEFAULT_CONTENT_SX, ...sx }} />;
+  return (
+    <Box
+      dangerouslySetInnerHTML={{ __html: html }}
+      sx={[DEFAULT_CONTENT_SX, ...(sx ? [sx] : [])]}
+    />
+  );
 }
