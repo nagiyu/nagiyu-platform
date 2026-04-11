@@ -24,7 +24,6 @@ export interface LambdaStackProps extends cdk.StackProps {
   storageBucketArn: string;
   batchJobQueueArn: string;
   batchJobDefinitionPrefix: string;
-  batchJobDefinitionArns: string[];
 }
 
 export class LambdaStack extends LambdaStackBase {
@@ -45,7 +44,6 @@ export class LambdaStack extends LambdaStackBase {
       storageBucketArn,
       batchJobQueueArn,
       batchJobDefinitionPrefix,
-      batchJobDefinitionArns,
       ...stackProps
     } = props;
     const region = stackProps.env?.region ?? cdk.Aws.REGION;
@@ -56,14 +54,8 @@ export class LambdaStack extends LambdaStackBase {
         `arn:aws:batch:${region}:${account}:job-definition/${batchJobDefinitionPrefix}-${variant}:*`,
       ]
     );
-    // batchJobDefinitionArns に CloudFormation が返す具体バージョン ARN（...:1 など）が入り、
-    // 同時に明示的なパターン ARN も追加するため重複し得る。Set で重複を除外して最小化する。
     const batchSubmitJobResources = Array.from(
-      new Set([
-        batchJobQueueArn,
-        ...batchJobDefinitionArns,
-        ...jobDefinitionArnsWithAndWithoutVersions,
-      ])
+      new Set([batchJobQueueArn, ...jobDefinitionArnsWithAndWithoutVersions])
     );
 
     const baseProps: LambdaStackBaseProps = {
