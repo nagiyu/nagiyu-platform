@@ -25,6 +25,9 @@ import {
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import type { Highlight } from '@/types/quick-clip';
+import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibilityButton';
+import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
+import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: '見どころ一覧の取得に失敗しました',
@@ -70,6 +73,8 @@ type DownloadResponse = {
 
 const ZIP_POLL_INTERVAL_MS = 3000;
 const ZIP_POLL_TIMEOUT_MS = 300000;
+const COLUMN_DEFINITIONS = [...HIGHLIGHT_TABLE_COLUMNS];
+const OPTIONAL_COLUMNS = HIGHLIGHT_TABLE_COLUMNS.filter((col) => !col.fixed);
 
 class RangeInvalidError extends Error {}
 
@@ -121,6 +126,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isFetchingRef = useRef(false);
+  const { visibilityMap, toggleColumn } = useColumnVisibility(COLUMN_DEFINITIONS);
 
   useEffect(() => {
     let active = true;
@@ -558,6 +564,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
             {/* 右パネル: マスター一覧 */}
             <Box sx={{ width: 400, flexShrink: 0 }}>
               <Stack spacing={2}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <ColumnVisibilityButton
+                    columns={OPTIONAL_COLUMNS}
+                    visibilityMap={visibilityMap}
+                    onToggle={toggleColumn}
+                  />
+                </Box>
                 <TableContainer
                   component={Paper}
                   variant="outlined"
@@ -569,6 +582,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         <TableCell>No.</TableCell>
                         <TableCell>開始〜終了(秒)</TableCell>
                         <TableCell>採否</TableCell>
+                        {visibilityMap['source'] && <TableCell>抽出根拠</TableCell>}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -599,6 +613,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                               )}
                             </Stack>
                           </TableCell>
+                          {visibilityMap['source'] && (
+                            <TableCell>{HIGHLIGHT_SOURCE_LABELS[highlight.source]}</TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
