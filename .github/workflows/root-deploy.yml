@@ -1,8 +1,4 @@
-name: Root Domain - CDK Deploy
-
-# This workflow deploys CDK stacks for the root domain (example.com)
-# Note: infra/root/** directory will be created in future issues
-# Currently only validates CDK synth until actual stacks are implemented
+name: Root Domain - Build and Deploy
 
 on:
   push:
@@ -11,30 +7,41 @@ on:
       - integration/**
       - master
     paths:
+      - 'services/portal/**'
       - 'infra/bin/**'
-      - 'infra/shared/vpc/**'
       - 'infra/root/**'
+      - 'infra/common/**'
       - 'infra/package.json'
       - 'infra/cdk.json'
       - 'infra/tsconfig.json'
+      - 'libs/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/root-deploy.yml'
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   AWS_REGION: us-east-1
-  NODE_VERSION: '22'
 
 permissions:
   contents: read
-  id-token: write # Required for AWS OIDC authentication (future use)
 
 jobs:
-  cdk-synth:
-    name: CDK Synth (Validation)
+  infrastructure-ecr:
+    name: Deploy ECR Repository
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
+
+    outputs:
+      environment: ${{ steps.setup-environment.outputs.environment }}
+      stack-suffix: ${{ steps.setup-environment.outputs.stack-suffix }}
 
     steps:
       - name: Checkout code
@@ -43,49 +50,16 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache-dependency-path: './package-lock.json'
+          node-version: '24'
 
-      - name: Build @nagiyu/infra-common
+      - name: Setup deployment environment
+        id: setup-environment
+        uses: ./.github/actions/setup-environment
+
+      - name: Build common infrastructure package
         run: npm run build --workspace=@nagiyu/infra-common
 
-      - name: Build TypeScript
-        run: npm run build --workspace=@nagiyu/infra
-
-      - name: CDK Synth
-        env:
-          ENVIRONMENT: prod
-        run: npm run synth --workspace=@nagiyu/infra
-
-      - name: Upload CloudFormation templates
-        uses: actions/upload-artifact@v4
-        with:
-          name: cdk-templates
-          path: infra/cdk.out/
-          retention-days: 7
-
-  cdk-deploy:
-    name: CDK Deploy (All Stacks)
-    runs-on: ubuntu-latest
-    needs: cdk-synth
-    permissions:
-      contents: read
-      id-token: write # Required for AWS credentials
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js and install dependencies
-        uses: ./.github/actions/setup-node
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache-dependency-path: './package-lock.json'
-
-      - name: Build @nagiyu/infra-common
-        run: npm run build --workspace=@nagiyu/infra-common
-
-      - name: Build TypeScript
+      - name: Build CDK TypeScript
         run: npm run build --workspace=@nagiyu/infra
 
       - name: Configure AWS credentials
@@ -95,24 +69,224 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Set ECR image tag
-        id: get-image-tag
-        run: |
-          echo "::notice::Using latest tag for ECS deployment"
-          echo "image-tag=latest" >> "$GITHUB_OUTPUT"
-
-      - name: CDK Deploy
+      - name: Deploy ECR Stack
         env:
-          ENVIRONMENT: prod
-          IMAGE_TAG: ${{ steps.get-image-tag.outputs.image-tag }}
-        run: npm run deploy --workspace=@nagiyu/infra -- --all --require-approval never
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra -- deploy NagiyuPortalEcr${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "ECR repository deployed (environment: $ENVIRONMENT)"
+
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure-ecr
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+      environment: ${{ needs.infrastructure-ecr.outputs.environment }}
+      stack-suffix: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+      app-version: ${{ steps.get-version.outputs.app-version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from package.json
+        id: get-version
+        working-directory: ./services/portal/web
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "app-version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Application version: $VERSION"
+
+      - name: Build Web application
+        uses: ./.github/actions/build-web-app
+        with:
+          workspace: '@nagiyu/portal-web'
+          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/ui'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository from CDK stack
+        id: get-ecr
+        env:
+          STACK_SUFFIX: ${{ needs.infrastructure-ecr.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuPortalEcr${STACK_SUFFIX}"
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find ECR repository URI from CDK stack $STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/portal/web/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:latest
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
+
+      - name: Push Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: latest
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+  infrastructure-app:
+    name: Deploy Application Infrastructure
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+
+      - name: Build common infrastructure package
+        run: npm run build --workspace=@nagiyu/infra-common
+
+      - name: Build CDK TypeScript
+        run: npm run build --workspace=@nagiyu/infra
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy ECS Cluster, ALB, ECS Service and CloudFront Stacks
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
+          IMAGE_TAG: latest
+        run: |
+          npm run cdk --workspace=@nagiyu/infra -- deploy \
+            NagiyuRootCluster${STACK_SUFFIX} \
+            NagiyuRootAlb${STACK_SUFFIX} \
+            NagiyuRootService${STACK_SUFFIX} \
+            NagiyuRootCloudFront${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "ECS Cluster, ALB, Service and CloudFront deployed (environment: $ENVIRONMENT)"
+
+      - name: Force new ECS service deployment
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          aws ecs update-service \
+            --cluster "nagiyu-root-cluster-${ENVIRONMENT}" \
+            --service "nagiyu-root-service-${ENVIRONMENT}" \
+            --force-new-deployment \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "ECS service deployment triggered."
+
+      - name: Wait for ECS service to stabilize
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster "nagiyu-root-cluster-${ENVIRONMENT}" \
+            --services "nagiyu-root-service-${ENVIRONMENT}" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "ECS service is stable."
+
+  verify:
+    name: Verify Deployment
+    runs-on: ubuntu-latest
+    needs: [build, infrastructure-app]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify deployment
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
+        run: |
+          STACK_NAME="NagiyuRootCloudFront${STACK_SUFFIX}"
+
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [ -z "$CF_DOMAIN" ]; then
+            echo "Warning: Failed to get CloudFront domain from CDK stack."
+          else
+            echo "CloudFront Domain: $CF_DOMAIN"
+
+            HTTP_CODE=$(curl -f -s -o /dev/null -w "%{http_code}" "https://${CF_DOMAIN}/api/health" || echo "000")
+            echo "Health check response: $HTTP_CODE"
+
+            if [ "$HTTP_CODE" == "200" ]; then
+              echo "Health check passed successfully!"
+            else
+              echo "Warning: Health check returned $HTTP_CODE"
+            fi
+          fi
 
       - name: Display deployment summary
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
         run: |
-          echo ""
-          echo "=== CDK Deployment Complete ==="
-          echo "Region: ${{ env.AWS_REGION }}"
-          echo "Branch: ${{ github.ref_name }}"
-          echo "Commit: ${{ github.sha }}"
-          echo ""
-          echo "All CDK stacks have been deployed successfully."
+          CF_STACK_NAME="NagiyuRootCloudFront${STACK_SUFFIX}"
+          CF_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name "$CF_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}")
+
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            CUSTOM_DOMAIN="nagiyu.com"
+          else
+            CUSTOM_DOMAIN="dev.nagiyu.com"
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "=== Deployment Summary ===" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment**: $ENVIRONMENT" >> $GITHUB_STEP_SUMMARY
+          echo "- **App Version**: ${{ needs.build.outputs.app-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ needs.build.outputs.image-uri }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **CloudFront Domain**: $CF_DOMAIN" >> $GITHUB_STEP_SUMMARY
+          echo "- **Custom Domain**: https://$CUSTOM_DOMAIN" >> $GITHUB_STEP_SUMMARY
