@@ -1,0 +1,30 @@
+{
+  "name": "@nagiyu/portal-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "npm run build --workspace=@nagiyu/nextjs && next build --webpack",
+    "lint": "eslint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
+  },
+  "dependencies": {
+    "@nagiyu/browser": "*",
+    "@nagiyu/common": "*",
+    "@nagiyu/nextjs": "*",
+    "@nagiyu/ui": "*",
+    "gray-matter": "^4.0.3",
+    "isomorphic-dompurify": "^3.7.1",
+    "rehype-stringify": "^10.0.1",
+    "remark": "^15.0.1",
+    "remark-rehype": "^11.1.1"
+  }
+}

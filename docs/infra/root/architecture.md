@@ -715,6 +715,29 @@ aws s3 ls s3://nagiyu-alb-logs-{env}/
 
 ---
 
+## 設計決定記録（ADR）
+
+### ADR-001: Dev は Lambda・Prod は ALB + ECS でスタック構成を分岐した理由
+
+**背景・問題**
+
+Portal（ルートドメイン）を Dev 環境にデプロイする際、Dev VPC がシングル AZ（us-east-1a のみ）のため ALB が使用できない（ALB は最低 2 AZ を要求）。一方 Prod では AdSense 審査期間中のコールドスタートを避けるため常時稼働のコンテナが必要。
+
+**決定**
+
+環境によってスタック構成を切り替える。
+
+- **Dev**: ECR → Lambda（Function URL）→ CloudFront（dev.nagiyu.com）
+- **Prod**: ECR → ECS Cluster + ALB → ECS Service → CloudFront（nagiyu.com）
+
+**根拠・トレードオフ**
+
+- Dev VPC のシングル AZ 制約を Lambda Function URL で回避し、Dev 環境と Prod 環境で同じコンテナイメージを使用できる
+- Prod では ALB + ECS Fargate でコールドスタートを排除し、審査担当者が常に正常なページを閲覧できる
+- 将来的に Prod も Lambda に統一する場合はスタック分岐条件の変更のみで移行可能
+
+---
+
 ## 参考資料
 
 ### AWS ドキュメント
@@ -738,3 +761,4 @@ aws s3 ls s3://nagiyu-alb-logs-{env}/
 - [デプロイ手順](../deploy.md) - 日常的なデプロイ操作
 - [VPC 詳細](../shared/vpc.md) - VPC リソースの詳細設計
 - [ACM 詳細](../shared/acm.md) - SSL/TLS 証明書の管理
+- [Portal アーキテクチャ](../../services/portal/architecture.md) - Portal サービスの設計決定記録
