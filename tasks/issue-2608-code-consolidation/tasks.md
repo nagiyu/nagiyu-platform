@@ -27,12 +27,12 @@
 
 <!-- コーディング規約への準拠 -->
 
-- [ ] T004: `services/codec-converter/web/src/lib/constants/errors.ts` を新規作成し、`ERROR_MESSAGES` オブジェクトを定義する（依存: なし）
+- [x] T004: `services/codec-converter/web/src/lib/constants/errors.ts` を新規作成し、`ERROR_MESSAGES` オブジェクトを定義する（依存: なし）
     - 対象メッセージ: `'必須フィールドが不足しています'`, `'無効なコーデックが指定されました'`, `'ジョブの作成に失敗しました'`
 
-- [ ] T005: `codec-converter/web/src/app/api/jobs/route.ts` 内の文字列リテラルのエラーメッセージを `ERROR_MESSAGES` の参照に置き換える（依存: T004）
+- [x] T005: `codec-converter/web/src/app/api/jobs/route.ts` 内の文字列リテラルのエラーメッセージを `ERROR_MESSAGES` の参照に置き換える（依存: T004）
 
-- [ ] T006: `codec-converter/web/src/app/api/jobs/[jobId]/route.ts` および `[jobId]/submit/route.ts` にエラーメッセージの文字列リテラルがないか確認し、あれば T004 で定義した定数に置き換える（依存: T004）
+- [x] T006: `codec-converter/web/src/app/api/jobs/[jobId]/route.ts` および `[jobId]/submit/route.ts` にエラーメッセージの文字列リテラルがないか確認し、あれば T004 で定義した定数に置き換える（依存: T004）
 
 ## Phase 3: WebPushSender の統合（中優先度）
 
