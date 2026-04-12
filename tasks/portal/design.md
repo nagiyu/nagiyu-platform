@@ -14,7 +14,7 @@
 ## API 仕様
 
 Portal は外部公開 API を持たない（全ページ静的生成）。
-ヘルスチェック用に `/api/health` のみ実装する（ECS ALB ヘルスチェック用）。
+ヘルスチェック用に `/api/health` のみ実装する（Prod: ECS ALB ヘルスチェック用 / Dev: 動作確認用）。
 
 ### ベース URL・認証
 
@@ -24,7 +24,7 @@ Portal は外部公開 API を持たない（全ページ静的生成）。
 
 | メソッド | パス | 説明 | 認証 |
 | ------- | ---- | ---- | ---- |
-| GET | /api/health | ECS ALB ヘルスチェック用 | 不要 |
+| GET | /api/health | ヘルスチェック用（Prod: ALB / Dev: 動作確認） | 不要 |
 
 ---
 
@@ -217,45 +217,108 @@ services/portal/web/
 
 ### ルートドメイン移行方針
 
+Dev VPC はシングル AZ（us-east-1a のみ）のため ALB が使用不可（ALB は最低 2 AZ 要求）。
+そのため **環境によってスタック構成を切り替える**。
+
+**Dev 環境:**
 ```
-現在: nagiyu.com → CloudFront → ALB → ECS（nagiyu/tools イメージ）
-変更: nagiyu.com → CloudFront → ALB → ECS（nagiyu/portal イメージ）
+ECR → Lambda（Function URL）→ CloudFront
+dev.nagiyu.com → CloudFront → Lambda Function URL
 ```
 
-ECS スタック・ALB スタック・CloudFront スタックはそのまま流用する。
-変更が必要なファイルは以下のみ：
+**Prod 環境:**
+```
+ECR → ECS Cluster + ALB → ECS Service → CloudFront
+nagiyu.com → CloudFront → ALB → ECS Fargate
+```
 
-**`infra/root/lib/ecs-service-stack.ts`**
+**将来の Prod Lambda 移行パス:**
+```
+nagiyu-platform.ts の分岐条件を変更するだけで Prod も Lambda に切り替え可能
+（ALB + ECS スタックを cdk destroy した後、Lambda パスに統一する）
+```
+
+### 新規作成ファイル（Dev 用）
+
+**`infra/root/portal-lambda-stack.ts`**
+
+`LambdaStackBase` を継承し、portal サービス用の Lambda 関数を作成する。
+ECR リポジトリ名は命名規則（`nagiyu-portal-ecr-dev`）で自動解決される。
 
 ```typescript
-// 変更前
-getEcrRepositoryName('tools', environment)
-
-// 変更後
-getEcrRepositoryName('portal', environment)
+export class PortalLambdaStack extends LambdaStackBase {
+    constructor(scope: Construct, id: string, props: { environment: Environment } & cdk.StackProps) {
+        super(scope, id, {
+            ...props,
+            serviceName: 'portal',
+            lambdaConfig: {
+                memorySize: 1024,
+                timeout: 30,
+                environment: {
+                    NODE_ENV: 'development',
+                    PORT: '3000',
+                },
+            },
+        });
+    }
+}
 ```
+
+**`infra/root/cloudfront-lambda-stack.ts`**
+
+`CloudFrontStackBase` を継承し、Lambda Function URL をオリジンとする CloudFront ディストリビューションを作成する。
+ポータルはルートドメインのため、`cloudfrontConfig.domainName` でドメインをオーバーライドする。
+
+```typescript
+export class CloudFrontLambdaStack extends CloudFrontStackBase {
+    constructor(
+        scope: Construct,
+        id: string,
+        props: { environment: Environment; functionUrl: string } & cdk.StackProps
+    ) {
+        super(scope, id, {
+            ...props,
+            serviceName: 'portal',
+            functionUrl: props.functionUrl,
+            cloudfrontConfig: {
+                domainName: props.environment === 'prod' ? 'nagiyu.com' : 'dev.nagiyu.com',
+                enableSecurityHeaders: true,
+            },
+        });
+    }
+}
+```
+
+### 変更ファイル
 
 **`infra/bin/nagiyu-platform.ts`**
 
-portal の ECR リポジトリスタックを追加する（既存の tools ECR と同じパターン）。
-
-### dev 環境ドメイン追加
-
-ACM ワイルドカード証明書（`*.nagiyu.com`）は既に対応済みのため証明書変更は不要。
-
-**`infra/root/lib/cloudfront-stack.ts`**
+環境によってスタック構成を分岐する。ECR スタックは共通。
 
 ```typescript
-// 変更前（共有 SSM パラメータから固定ドメインを取得）
-const domainName = ssm.StringParameter.valueForStringParameter(
-    this,
-    SSM_PARAMETERS.ACM_DOMAIN_NAME
-);
+const ecrStack = new EcrStack(app, `NagiyuPortalEcr${envSuffix}`, { ... });
 
-// 変更後（環境別ドメイン）
-const domainName = environment === 'prod'
-    ? 'nagiyu.com'
-    : 'dev.nagiyu.com';
+if (environment === 'dev') {
+    // Lambda パス（Dev）
+    const lambdaStack = new PortalLambdaStack(app, `NagiyuPortalLambda${envSuffix}`, { ... });
+    lambdaStack.addDependency(ecrStack);
+    const cloudFrontStack = new CloudFrontLambdaStack(app, `NagiyuRootCloudFront${envSuffix}`, {
+        functionUrl: lambdaStack.functionUrl!.url,
+        crossRegionReferences: true,
+        ...
+    });
+    cloudFrontStack.addDependency(lambdaStack);
+} else {
+    // ALB + ECS パス（Prod）
+    const ecsClusterStack = new EcsClusterStack(...);
+    const albStack = new AlbStack(...);
+    const ecsServiceStack = new EcsServiceStack(...);
+    ecsServiceStack.addDependency(ecsClusterStack);
+    ecsServiceStack.addDependency(albStack);
+    ecsServiceStack.addDependency(ecrStack);
+    const cloudFrontStack = new CloudFrontStack(...); // 既存の ALB オリジン版
+    cloudFrontStack.addDependency(albStack);
+}
 ```
 
 **`.github/workflows/root-deploy.yml`**
@@ -263,6 +326,11 @@ const domainName = environment === 'prod'
 - `setup-environment` アクションを追加（`tools-deploy.yml` の実装を参考）
 - `develop` ブランチ → dev 環境
 - `master` ブランチ → prod 環境
+
+### dev 環境ドメイン
+
+ACM ワイルドカード証明書（`*.nagiyu.com`）は既に対応済みのため証明書変更は不要。
+`CloudFrontStackBase` が SSM から `ACM_CERTIFICATE_ARN` を自動参照する。
 
 ### AdSense / Analytics 組み込み
 
@@ -289,9 +357,14 @@ const domainName = environment === 'prod'
 | [services/tools/src/app/page.tsx](../../services/tools/src/app/page.tsx) | Next.js + MUI ページ実装パターン |
 | [services/tools/package.json](../../services/tools/package.json) | パッケージ設定・依存関係の参考 |
 | [services/tools/Dockerfile](../../services/tools/Dockerfile) | Dockerfile 構成の参考 |
-| [infra/root/lib/cloudfront-stack.ts](../../infra/root/lib/cloudfront-stack.ts) | ドメイン環境分岐の追加先 |
-| [infra/root/lib/ecs-service-stack.ts](../../infra/root/lib/ecs-service-stack.ts) | ECR イメージ参照の変更先 |
-| [infra/bin/nagiyu-platform.ts](../../infra/bin/nagiyu-platform.ts) | ECR リポジトリスタック追加先 |
+| [infra/common/src/stacks/lambda-stack-base.ts](../../infra/common/src/stacks/lambda-stack-base.ts) | LambdaStackBase（Dev Lambda スタックの継承元） |
+| [infra/common/src/stacks/cloudfront-stack-base.ts](../../infra/common/src/stacks/cloudfront-stack-base.ts) | CloudFrontStackBase（Dev CloudFront スタックの継承元） |
+| [infra/tools/lib/lambda-stack.ts](../../infra/tools/lib/lambda-stack.ts) | LambdaStackBase 継承パターンの参考実装 |
+| [infra/tools/lib/cloudfront-stack.ts](../../infra/tools/lib/cloudfront-stack.ts) | CloudFrontStackBase 継承パターンの参考実装 |
+| [infra/tools/bin/tools.ts](../../infra/tools/bin/tools.ts) | Lambda + CloudFront の依存管理パターン |
+| [infra/root/cloudfront-stack.ts](../../infra/root/cloudfront-stack.ts) | 既存 ALB オリジン CloudFront（Prod 用・変更なし） |
+| [infra/root/ecs-service-stack.ts](../../infra/root/ecs-service-stack.ts) | 既存 ECS サービス（Prod 用・変更なし） |
+| [infra/bin/nagiyu-platform.ts](../../infra/bin/nagiyu-platform.ts) | 環境分岐を追加する対象ファイル |
 | [.github/workflows/root-deploy.yml](../../.github/workflows/root-deploy.yml) | CI/CD の変更先 |
 | [.github/workflows/tools-deploy.yml](../../.github/workflows/tools-deploy.yml) | dev/prod 分岐の参考実装 |
 
@@ -328,5 +401,5 @@ const domainName = environment === 'prod'
 - [ ] `docs/services/portal/architecture.md` を新規作成し以下の ADR を追記すること：
       - ADR: ドキュメント型ポータルを採択した理由（AdSense 承認戦略）
       - ADR: gray-matter + remark/rehype を採択した理由
-      - ADR: ECS スタック流用・ECR イメージのみ変更した理由
+      - ADR: Dev は Lambda・Prod は ALB + ECS とした理由（Dev VPC シングル AZ 制約、Prod 審査期間のコールドスタート回避）
 - [ ] `docs/infra/root/` の deploy.md・architecture.md を Portal 対応に更新すること
