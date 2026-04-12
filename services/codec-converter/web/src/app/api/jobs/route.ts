@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -11,30 +10,13 @@ import {
   type CodecType,
 } from '@nagiyu/codec-converter-core';
 import type { ErrorResponse } from '@nagiyu/common';
+import { getAwsClients } from '@nagiyu/aws';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
 const PRESIGNED_URL_EXPIRES_IN = 3600;
 
 // 有効なコーデックのリスト
 const VALID_CODECS: CodecType[] = ['h264', 'vp9', 'av1'];
-
-// AWS クライアントのシングルトン
-let cachedDocClient: DynamoDBDocumentClient | null = null;
-let cachedS3Client: S3Client | null = null;
-
-/**
- * AWS クライアントを取得（シングルトンパターン）
- */
-function getAwsClients() {
-  if (!cachedDocClient || !cachedS3Client) {
-    const AWS_REGION = process.env.AWS_REGION || 'us-east-1';
-    const dynamoClient = new DynamoDBClient({ region: AWS_REGION });
-    cachedDocClient = DynamoDBDocumentClient.from(dynamoClient);
-    cachedS3Client = new S3Client({ region: AWS_REGION });
-  }
-
-  return { docClient: cachedDocClient, s3Client: cachedS3Client };
-}
 
 /**
  * 環境変数を取得
