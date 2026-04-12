@@ -1,4 +1,6 @@
 import type {
+  EmotionHighlightScore,
+  EmotionLabel,
   ExtractedHighlight,
   HighlightScore,
   HighlightSource,
@@ -24,22 +26,28 @@ const mergeSource = (left: HighlightSource, right: HighlightSource): HighlightSo
 const mergeHighlights = (
   left: ExtractedHighlight,
   right: ExtractedHighlight
-): ExtractedHighlight => ({
-  startSec: Math.min(left.startSec, right.startSec),
-  endSec: Math.max(left.endSec, right.endSec),
-  score: Math.max(left.score, right.score),
-  source: mergeSource(left.source, right.source),
-});
+): ExtractedHighlight => {
+  const winner = left.score >= right.score ? left : right;
+  return {
+    startSec: Math.min(left.startSec, right.startSec),
+    endSec: Math.max(left.endSec, right.endSec),
+    score: Math.max(left.score, right.score),
+    source: mergeSource(left.source, right.source),
+    ...(winner.dominantEmotion !== undefined ? { dominantEmotion: winner.dominantEmotion } : {}),
+  };
+};
 
 const toClip = (
   peak: HighlightScore,
   source: Exclude<HighlightSource, 'both'>,
-  duration: number
+  duration: number,
+  dominantEmotion?: EmotionLabel
 ): ExtractedHighlight => ({
   startSec: Math.max(0, peak.second - CLIP_HALF_WINDOW_SECONDS),
   endSec: Math.min(duration, peak.second + CLIP_HALF_WINDOW_SECONDS),
   score: peak.score,
   source,
+  dominantEmotion,
 });
 
 const mergeIntoAccepted = (
@@ -63,33 +71,53 @@ export class HighlightAggregationService {
   public aggregate(
     motionScores: HighlightScore[],
     volumeScores: HighlightScore[],
-    duration: number
+    duration: number,
+    emotionScores?: EmotionHighlightScore[]
   ): ExtractedHighlight[] {
     const sortedMotion = [...motionScores].sort((a, b) => b.score - a.score);
     const sortedVolume = [...volumeScores].sort((a, b) => b.score - a.score);
+    const sortedEmotion = emotionScores ? [...emotionScores].sort((a, b) => b.score - a.score) : [];
+    const hasEmotion = sortedEmotion.length > 0;
+    const sourceCount = hasEmotion ? 3 : 2;
     let motionIndex = 0;
     let volumeIndex = 0;
-    let pickMotion = true;
+    let emotionIndex = 0;
+    let currentSourceIdx = 0;
     let accepted: ExtractedHighlight[] = [];
 
     while (accepted.length < MAX_HIGHLIGHTS) {
       const hasMotion = motionIndex < sortedMotion.length;
       const hasVolume = volumeIndex < sortedVolume.length;
-      if (!hasMotion && !hasVolume) {
+      const hasEmotionLeft = emotionIndex < sortedEmotion.length;
+      if (!hasMotion && !hasVolume && !hasEmotionLeft) {
         break;
       }
 
-      const shouldPickMotion = hasMotion && (!hasVolume || pickMotion);
-      const picked = shouldPickMotion
-        ? toClip(sortedMotion[motionIndex] as HighlightScore, 'motion', duration)
-        : toClip(sortedVolume[volumeIndex] as HighlightScore, 'volume', duration);
+      const sourceSlot = currentSourceIdx % sourceCount;
+      currentSourceIdx++;
 
-      if (shouldPickMotion) {
-        motionIndex += 1;
+      let picked: ExtractedHighlight | null = null;
+      if (sourceSlot === 0) {
+        if (hasMotion) {
+          picked = toClip(sortedMotion[motionIndex] as HighlightScore, 'motion', duration);
+          motionIndex++;
+        }
+      } else if (sourceSlot === 1) {
+        if (hasVolume) {
+          picked = toClip(sortedVolume[volumeIndex] as HighlightScore, 'volume', duration);
+          volumeIndex++;
+        }
       } else {
-        volumeIndex += 1;
+        if (hasEmotionLeft) {
+          const peak = sortedEmotion[emotionIndex] as EmotionHighlightScore;
+          picked = toClip(peak, 'emotion', duration, peak.dominantEmotion);
+          emotionIndex++;
+        }
       }
-      pickMotion = !pickMotion;
+
+      if (picked === null) {
+        continue;
+      }
 
       accepted = mergeIntoAccepted(accepted, picked);
     }

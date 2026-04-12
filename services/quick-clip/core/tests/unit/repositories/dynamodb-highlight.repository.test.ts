@@ -52,6 +52,57 @@ describe('DynamoDBHighlightRepository', () => {
     });
   });
 
+  it('createMany は dominantEmotion が指定された場合に保存する', async () => {
+    mockSend.mockResolvedValue({});
+
+    await repository.createMany([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'emotion',
+        status: 'unconfirmed',
+        clipStatus: 'PENDING',
+        dominantEmotion: 'laugh',
+      },
+    ]);
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
+    expect(sentCommand).toBeInstanceOf(UpdateCommand);
+    expect(sentCommand.input.ExpressionAttributeNames).toMatchObject({
+      '#dominantEmotion': 'dominantEmotion',
+    });
+    expect(sentCommand.input.ExpressionAttributeValues).toMatchObject({
+      ':dominantEmotion': 'laugh',
+    });
+    expect(sentCommand.input.UpdateExpression).toContain('#dominantEmotion = :dominantEmotion');
+  });
+
+  it('createMany は dominantEmotion が未指定の場合に保存しない', async () => {
+    mockSend.mockResolvedValue({});
+
+    await repository.createMany([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'motion',
+        status: 'unconfirmed',
+        clipStatus: 'PENDING',
+      },
+    ]);
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
+    expect(sentCommand).toBeInstanceOf(UpdateCommand);
+    expect(sentCommand.input.ExpressionAttributeNames).not.toHaveProperty('#dominantEmotion');
+    expect(sentCommand.input.ExpressionAttributeValues).not.toHaveProperty(':dominantEmotion');
+    expect(sentCommand.input.UpdateExpression).not.toContain('dominantEmotion');
+  });
+
   it('getByJobId は clipStatus と source を含めて返す', async () => {
     mockSend.mockResolvedValue({
       Items: [
@@ -85,8 +136,34 @@ describe('DynamoDBHighlightRepository', () => {
         source: 'both',
         status: 'unconfirmed',
         clipStatus: 'GENERATED',
+        dominantEmotion: undefined,
       },
     ]);
+  });
+
+  it('getByJobId は dominantEmotion を含めて返す', async () => {
+    mockSend.mockResolvedValue({
+      Items: [
+        {
+          PK: 'JOB#job-1',
+          SK: 'HIGHLIGHT#h1',
+          Type: 'HIGHLIGHT',
+          highlightId: 'h1',
+          jobId: 'job-1',
+          order: 1,
+          startSec: 10,
+          endSec: 20,
+          source: 'emotion',
+          status: 'unconfirmed',
+          clipStatus: 'PENDING',
+          dominantEmotion: 'excite',
+        },
+      ],
+    });
+
+    const result = await repository.getByJobId('job-1');
+
+    expect(result[0]?.dominantEmotion).toBe('excite');
   });
 
   it('getById は clipStatus と source を含めて返す', async () => {
@@ -119,6 +196,7 @@ describe('DynamoDBHighlightRepository', () => {
       source: 'volume',
       status: 'unconfirmed',
       clipStatus: 'FAILED',
+      dominantEmotion: undefined,
     });
   });
 

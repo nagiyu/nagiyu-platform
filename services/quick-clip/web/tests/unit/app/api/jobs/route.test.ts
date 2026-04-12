@@ -263,4 +263,63 @@ describe('POST /api/jobs', () => {
       batchError
     );
   });
+
+  it('正常系: emotionFilter未指定時はBatch envにEMOTION_FILTER=anyが設定される', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+    });
+
+    await POST(request);
+
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([{ name: 'EMOTION_FILTER', value: 'any' }]),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('正常系: emotionFilter指定時はBatch envに反映される', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      emotionFilter: 'laugh',
+    });
+
+    await POST(request);
+
+    expect(batchSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          containerOverrides: expect.objectContaining({
+            environment: expect.arrayContaining([{ name: 'EMOTION_FILTER', value: 'laugh' }]),
+          }),
+        }),
+      })
+    );
+  });
+
+  it('異常系: 不正なemotionFilterは400を返す', async () => {
+    const request = createRequest({
+      fileName: 'movie.mp4',
+      fileSize: 1024,
+      contentType: 'video/mp4',
+      emotionFilter: 'invalid',
+    });
+
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'INVALID_REQUEST',
+      message: 'リクエストが不正です',
+    });
+  });
 });

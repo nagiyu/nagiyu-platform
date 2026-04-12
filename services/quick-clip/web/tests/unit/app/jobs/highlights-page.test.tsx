@@ -976,6 +976,147 @@ describe('HighlightsPage', () => {
       );
     });
   });
+  it('デフォルト状態では抽出根拠列が非表示である', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('抽出根拠')).not.toBeInTheDocument();
+    expect(screen.queryByText('モーション')).not.toBeInTheDocument();
+  });
+
+  it('列設定ボタンをクリックするとポップオーバーが開く', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '列設定' }));
+
+    expect(screen.getByRole('checkbox', { name: '抽出根拠' })).toBeInTheDocument();
+  });
+
+  it('抽出根拠チェックをONにするとテーブルに列が追加される', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+          {
+            highlightId: 'h-2',
+            jobId: 'job-1',
+            order: 2,
+            startSec: 30,
+            endSec: 40,
+            source: 'volume',
+            status: 'accepted',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-2.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: '列設定' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '抽出根拠' }));
+
+    // 抽出根拠ラベルがテーブル本体に表示される（ポップオーバーには存在しない値）
+    expect(screen.getByText('モーション')).toBeInTheDocument();
+    expect(screen.getByText('音量')).toBeInTheDocument();
+  });
+
+  it('抽出根拠チェックをOFFにするとテーブルから列が非表示になる', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+            clipUrl: 'https://example.com/h-1.mp4',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    // まずONにする
+    fireEvent.click(screen.getByRole('button', { name: '列設定' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '抽出根拠' }));
+    expect(screen.getByText('モーション')).toBeInTheDocument();
+
+    // 再度クリックしてOFFにする
+    fireEvent.click(screen.getByRole('checkbox', { name: '抽出根拠' }));
+    expect(screen.queryByText('モーション')).not.toBeInTheDocument();
+  });
 });
 
 describe('clearSelectedIdIfHighlightMatches', () => {
