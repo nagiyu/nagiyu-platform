@@ -17,10 +17,7 @@ import {
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
-import type {
-  ExchangeEntity,
-  UpdateExchangeInput,
-} from '../entities/exchange.entity.js';
+import type { ExchangeEntity, UpdateExchangeInput } from '../entities/exchange.entity.js';
 import { ExchangeMapper } from '../mappers/exchange.mapper.js';
 
 // エラーメッセージ定数

@@ -20,10 +20,7 @@ import {
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { TickerRepository } from './ticker.repository.interface.js';
-import type {
-  TickerEntity,
-  UpdateTickerInput,
-} from '../entities/ticker.entity.js';
+import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
 
 // エラーメッセージ定数
