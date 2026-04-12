@@ -184,7 +184,50 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy ECS Cluster, ALB, ECS Service and CloudFront Stacks
+      # Dev 環境: Lambda + CloudFront スタック
+      - name: Deploy Lambda and CloudFront Stacks (dev)
+        if: needs.build.outputs.environment == 'dev'
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+          STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra -- deploy \
+            NagiyuPortalLambda${STACK_SUFFIX} \
+            NagiyuRootCloudFront${STACK_SUFFIX} \
+            --require-approval never
+
+          echo "Lambda and CloudFront deployed (environment: $ENVIRONMENT)"
+
+      - name: Update Lambda function with latest image (dev)
+        if: needs.build.outputs.environment == 'dev'
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          IMAGE_URI="${ECR_REGISTRY}/nagiyu-portal-ecr-${ENVIRONMENT}:latest"
+
+          aws lambda update-function-code \
+            --function-name "nagiyu-portal-lambda-${ENVIRONMENT}" \
+            --image-uri "$IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Lambda function updated with latest image."
+
+      - name: Wait for Lambda update to complete (dev)
+        if: needs.build.outputs.environment == 'dev'
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          aws lambda wait function-updated \
+            --function-name "nagiyu-portal-lambda-${ENVIRONMENT}" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Lambda function update complete."
+
+      # Prod 環境: ECS Cluster + ALB + ECS Service + CloudFront スタック
+      - name: Deploy ECS Cluster, ALB, ECS Service and CloudFront Stacks (prod)
+        if: needs.build.outputs.environment == 'prod'
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
@@ -199,7 +242,8 @@ jobs:
 
           echo "ECS Cluster, ALB, Service and CloudFront deployed (environment: $ENVIRONMENT)"
 
-      - name: Force new ECS service deployment
+      - name: Force new ECS service deployment (prod)
+        if: needs.build.outputs.environment == 'prod'
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |
@@ -211,7 +255,8 @@ jobs:
 
           echo "ECS service deployment triggered."
 
-      - name: Wait for ECS service to stabilize
+      - name: Wait for ECS service to stabilize (prod)
+        if: needs.build.outputs.environment == 'prod'
         env:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
         run: |

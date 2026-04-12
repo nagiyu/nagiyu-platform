@@ -77,19 +77,19 @@
 - [x] `infra/root/cloudfront-stack.ts` にドメイン環境分岐を追加済み（prod: `nagiyu.com` / dev: `dev.nagiyu.com`）
 
 <!-- 新規タスク（Dev Lambda 対応） -->
-- [ ] `infra/root/portal-lambda-stack.ts` を新規作成（依存: なし）
+- [x] `infra/root/portal-lambda-stack.ts` を新規作成（依存: なし）
       - `LambdaStackBase` を継承（`infra/tools/lib/lambda-stack.ts` を参考）
       - `serviceName: 'portal'`、`memorySize: 1024`、`timeout: 30`
       - ECR リポジトリ名は命名規則で自動解決（`nagiyu-portal-ecr-dev`）
-- [ ] `infra/root/cloudfront-lambda-stack.ts` を新規作成（依存: なし）
+- [x] `infra/root/cloudfront-lambda-stack.ts` を新規作成（依存: なし）
       - `CloudFrontStackBase` を継承（`infra/tools/lib/cloudfront-stack.ts` を参考）
       - `cloudfrontConfig.domainName` で `dev.nagiyu.com` / `nagiyu.com` をオーバーライド
       - `enableSecurityHeaders: true`
-- [ ] `infra/bin/nagiyu-platform.ts` を更新：環境による条件分岐でスタック構成を切り替え
+- [x] `infra/bin/nagiyu-platform.ts` を更新：環境による条件分岐でスタック構成を切り替え
       - `dev` → ECR + `PortalLambdaStack` + `CloudFrontLambdaStack`（`crossRegionReferences: true`）
       - `prod` → ECR + `EcsClusterStack` + `AlbStack` + `EcsServiceStack` + `CloudFrontStack`（既存）
       - 詳細は `design.md` のコードスニペットを参照
-- [ ] `.github/workflows/root-deploy.yml` に dev/prod 環境分岐を追加
+- [x] `.github/workflows/root-deploy.yml` に dev/prod 環境分岐を追加
       - `tools-deploy.yml` の `setup-environment` アクション使用パターンを参考にする
       - `develop` ブランチ → dev 環境 / `master` ブランチ → prod 環境
 
