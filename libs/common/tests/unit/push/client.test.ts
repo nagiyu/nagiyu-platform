@@ -94,15 +94,15 @@ describe('sendWebPushNotification', () => {
     });
   });
 
-  test('404/410 以外のエラー時に error ログを出して false を返す', async () => {
+  test('404/410 以外のエラー時に error ログを出して例外をスローする', async () => {
     jest.spyOn(webpush, 'setVapidDetails').mockImplementation();
     jest.spyOn(webpush, 'sendNotification').mockRejectedValue(new Error('network timeout'));
     const warnSpy = jest.spyOn(logger, 'warn').mockImplementation();
     const errorSpy = jest.spyOn(logger, 'error').mockImplementation();
 
-    const result = await sendWebPushNotification(subscription, payload, vapidConfig);
-
-    expect(result).toBe(false);
+    await expect(sendWebPushNotification(subscription, payload, vapidConfig)).rejects.toThrow(
+      'network timeout'
+    );
     expect(warnSpy).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalledWith('Web Push 通知の送信に失敗しました', {
       statusCode: undefined,
