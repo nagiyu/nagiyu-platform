@@ -2,5 +2,5 @@ import { createHealthRoute } from '@nagiyu/nextjs';
 
 export const GET = createHealthRoute({
   service: 'stock-tracker',
-  version: '1.0.0',
+  version: process.env.APP_VERSION || '1.0.0',
 });

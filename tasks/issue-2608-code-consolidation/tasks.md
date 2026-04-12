@@ -13,15 +13,15 @@
 
 <!-- バグ修正レベルの単純な統一作業 -->
 
-- [ ] T001: `codec-converter/web/src/app/api/jobs/route.ts` の AWS クライアント初期化を `@nagiyu/aws` の `getAwsClients()` に置き換える（依存: なし）
+- [x] T001: `codec-converter/web/src/app/api/jobs/route.ts` の AWS クライアント初期化を `@nagiyu/aws` の `getAwsClients()` に置き換える（依存: なし）
     - 独自のキャッシュ変数（`cachedDocClient`, `cachedS3Client`）とローカルの `getAwsClients()` 関数を削除
     - `@aws-sdk/client-dynamodb`、`@aws-sdk/lib-dynamodb`、`@aws-sdk/client-s3` の直接 import を削除
     - `@nagiyu/aws` の `getAwsClients()` を import して使用
     - `codec-converter/web/package.json` に `@nagiyu/aws` が追加済みか確認し、未追加であれば追加
 
-- [ ] T002: `stock-tracker/web/app/api/health/route.ts` のバージョンを `process.env.APP_VERSION || '1.0.0'` に変更（依存: なし）
+- [x] T002: `stock-tracker/web/app/api/health/route.ts` のバージョンを `process.env.APP_VERSION || '1.0.0'` に変更（依存: なし）
 
-- [ ] T003: `auth/web/src/app/api/health/route.ts` のバージョンを `process.env.APP_VERSION || '1.0.0'` に変更（依存: なし）
+- [x] T003: `auth/web/src/app/api/health/route.ts` のバージョンを `process.env.APP_VERSION || '1.0.0'` に変更（依存: なし）
 
 ## Phase 2: エラーメッセージ定数化（中優先度）
 
