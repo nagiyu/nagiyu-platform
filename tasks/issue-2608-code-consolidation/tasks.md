@@ -47,22 +47,36 @@
 
 <!-- 新規追加分から AbstractDynamoDBRepository を適用 -->
 
-- [ ] T008: 移行の費用対効果の評価
+- [x] T008: 移行の費用対効果の評価
     - 各リポジトリの CRUD メソッドの実装を `AbstractDynamoDBRepository` が提供するものと比較し、移行によって削減できるコード量を見積もる
     - 特に `update()` メソッドのシグネチャ（`Partial<TEntity>` vs `UpdateXxxInput`）の整合性を確認
     - 費用対効果が高いリポジトリから優先的に移行対象とする
+    - **評価結果**:
+        - 単一キー（`string`）の `getById`/`create`/`delete` は委譲可能（`TKey = string` 時）
+        - `update()` は既存実装が `ReturnValues: 'ALL_NEW'` で 1 回の API 呼び出し（基底クラスは get+update の 2 回）のためオーバーライドが必要
+        - 複数パラメータのキー（例: `getById(userId, alertId)`）を持つリポジトリは基底クラスシグネチャと非互換のため移行コスト高
+        - GSI キー更新ロジックを持つリポジトリ（AlertRepository の `GSI2PK` 更新など）は移行不可
+        - 非標準インターフェース（`createMany`、`upsert`、`updateStatus` など）を持つリポジトリは委譲できない
+        - quick-clip と share-together は設計パターンが異なり移行コストが高い
 
-- [ ] T009: `services/stock-tracker/core` の DynamoDB リポジトリへの `AbstractDynamoDBRepository` 適用（依存: T008、優先度評価後に実施）
-    - 対象: `dynamodb-ticker.repository.ts`, `dynamodb-alert.repository.ts`, `dynamodb-holding.repository.ts`, `dynamodb-exchange.repository.ts`, `dynamodb-daily-summary.repository.ts`
+- [x] T009: `services/stock-tracker/core` の DynamoDB リポジトリへの `AbstractDynamoDBRepository` 適用（依存: T008、優先度評価後に実施）
+    - [x] `dynamodb-ticker.repository.ts`: 単一キー・標準 CRUD のため移行完了（`getById`/`create`/`delete` を基底クラスに委譲、`update` はシグネチャ互換のため維持）
+    - [x] `dynamodb-exchange.repository.ts`: 単一キー・標準 CRUD のため移行完了（同上）
+    - [ ] `dynamodb-alert.repository.ts`: 複数キー (`userId`+`alertId`) かつ `update` 時の `GSI2PK` 更新ロジックがあるため延期
+    - [ ] `dynamodb-holding.repository.ts`: 複数キー (`userId`+`tickerId`) のため延期
+    - [ ] `dynamodb-daily-summary.repository.ts`: 非標準インターフェース（`upsert`、`getByTickerAndDate`）のため延期
 
 - [ ] T010: `services/niconico-mylist-assistant/core` の DynamoDB リポジトリへの `AbstractDynamoDBRepository` 適用（依存: T008、優先度評価後に実施）
     - 対象: `dynamodb-batch-job.repository.ts`, `dynamodb-user-setting.repository.ts`, `dynamodb-video.repository.ts`
+    - 評価: 全リポジトリが複数パラメータのキーまたは非標準インターフェースを持つため移行コストが高い。延期。
 
 - [ ] T011: `services/quick-clip/core` の DynamoDB リポジトリへの `AbstractDynamoDBRepository` 適用（依存: T008、優先度評価後に実施）
     - 対象: `dynamodb-job.repository.ts`, `dynamodb-highlight.repository.ts`
+    - 評価: `JobRepository` は `create(job: Job)` でフルエンティティを受け取る、`updateStatus` が非標準 CRUD など、インターフェース設計が基底クラスと非互換のため延期。
 
 - [ ] T012: `services/share-together/core` の DynamoDB リポジトリへの `AbstractDynamoDBRepository` 適用（依存: T008、優先度評価後に実施）
     - 対象: `dynamodb-group-repository.ts`, `dynamodb-list-repository.ts`, `dynamodb-membership-repository.ts`, `dynamodb-todo-repository.ts`, `dynamodb-user-repository.ts`
+    - 評価: `@nagiyu/aws` の型を使用しない、BatchGet/BatchWrite など独自操作が多い、複数パラメータキーを持つリポジトリが大半のため移行コストが高く延期。
 
 ## Phase 5: ドキュメント更新
 
