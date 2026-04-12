@@ -5,29 +5,22 @@
  */
 
 import {
-  GetCommand,
-  PutCommand,
   UpdateCommand,
-  DeleteCommand,
   QueryCommand,
   ScanCommand,
   type DynamoDBDocumentClient,
   type ScanCommandInput,
 } from '@aws-sdk/lib-dynamodb';
 import {
+  AbstractDynamoDBRepository,
   EntityNotFoundError,
-  EntityAlreadyExistsError,
   DatabaseError,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { TickerRepository } from './ticker.repository.interface.js';
-import type {
-  TickerEntity,
-  CreateTickerInput,
-  UpdateTickerInput,
-} from '../entities/ticker.entity.js';
+import type { TickerEntity, UpdateTickerInput } from '../entities/ticker.entity.js';
 import { TickerMapper } from '../mappers/ticker.mapper.js';
 
 // エラーメッセージ定数
@@ -40,40 +33,41 @@ const ERROR_MESSAGES = {
  *
  * DynamoDBを使用したティッカーリポジトリの実装
  */
-export class DynamoDBTickerRepository implements TickerRepository {
+export class DynamoDBTickerRepository
+  extends AbstractDynamoDBRepository<TickerEntity, string>
+  implements TickerRepository
+{
   private readonly mapper: TickerMapper;
-  private readonly docClient: DynamoDBDocumentClient;
-  private readonly tableName: string;
 
   constructor(docClient: DynamoDBDocumentClient, tableName: string) {
-    this.docClient = docClient;
-    this.tableName = tableName;
+    super(docClient, { tableName, entityType: 'Ticker' });
     this.mapper = new TickerMapper();
   }
 
-  /**
-   * ティッカーIDで単一のティッカーを取得
-   */
-  public async getById(tickerId: string): Promise<TickerEntity | null> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ tickerId });
+  protected buildKeys(tickerId: string): { PK: string; SK: string } {
+    const { pk, sk } = this.mapper.buildKeys({ tickerId });
+    return { PK: pk, SK: sk };
+  }
 
-      const result = await this.docClient.send(
-        new GetCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-        })
-      );
+  protected mapToEntity(item: Record<string, unknown>): TickerEntity {
+    return this.mapper.toEntity(item as DynamoDBItem);
+  }
 
-      if (!result.Item) {
-        return null;
-      }
-
-      return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
-    }
+  protected mapToItem(
+    entity: Omit<TickerEntity, 'CreatedAt' | 'UpdatedAt'>
+  ): Omit<DynamoDBItem, 'CreatedAt' | 'UpdatedAt'> {
+    const { pk, sk } = this.mapper.buildKeys({ tickerId: entity.TickerID });
+    return {
+      PK: pk,
+      SK: sk,
+      Type: 'Ticker',
+      GSI3PK: entity.ExchangeID,
+      GSI3SK: `TICKER#${entity.TickerID}`,
+      TickerID: entity.TickerID,
+      Symbol: entity.Symbol,
+      Name: entity.Name,
+      ExchangeID: entity.ExchangeID,
+    };
   }
 
   /**
@@ -91,7 +85,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
 
       const result = await this.docClient.send(
         new QueryCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           IndexName: 'ExchangeTickerIndex',
           KeyConditionExpression: '#gsi3pk = :exchangeId',
           ExpressionAttributeNames: {
@@ -137,7 +131,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
         do {
           const result = await this.docClient.send(
             new ScanCommand({
-              TableName: this.tableName,
+              TableName: this.config.tableName,
               FilterExpression: '#type = :type',
               ExpressionAttributeNames: {
                 '#type': 'Type',
@@ -172,7 +166,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
 
       const result = await this.docClient.send(
         new ScanCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           FilterExpression: '#type = :type',
           ExpressionAttributeNames: {
             '#type': 'Type',
@@ -198,39 +192,6 @@ export class DynamoDBTickerRepository implements TickerRepository {
         count: result.Count,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
-    }
-  }
-
-  /**
-   * 新しいティッカーを作成
-   */
-  public async create(input: CreateTickerInput): Promise<TickerEntity> {
-    try {
-      const now = Date.now();
-      const entity: TickerEntity = {
-        ...input,
-        CreatedAt: now,
-        UpdatedAt: now,
-      };
-
-      const item = this.mapper.toItem(entity);
-
-      await this.docClient.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression: 'attribute_not_exists(PK)',
-        })
-      );
-
-      return entity;
-    } catch (error) {
-      // 条件付き保存の失敗（既存アイテムが存在）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('Ticker', input.TickerID);
-      }
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
@@ -272,7 +233,7 @@ export class DynamoDBTickerRepository implements TickerRepository {
 
       const result = await this.docClient.send(
         new UpdateCommand({
-          TableName: this.tableName,
+          TableName: this.config.tableName,
           Key: { PK: pk, SK: sk },
           UpdateExpression: `SET ${updateExpressions.join(', ')}`,
           ExpressionAttributeNames: expressionAttributeNames,
@@ -295,30 +256,6 @@ export class DynamoDBTickerRepository implements TickerRepository {
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;
-      }
-      const message = error instanceof Error ? error.message : String(error);
-      throw new DatabaseError(message, error instanceof Error ? error : undefined);
-    }
-  }
-
-  /**
-   * ティッカーを削除
-   */
-  public async delete(tickerId: string): Promise<void> {
-    try {
-      const { pk, sk } = this.mapper.buildKeys({ tickerId });
-
-      await this.docClient.send(
-        new DeleteCommand({
-          TableName: this.tableName,
-          Key: { PK: pk, SK: sk },
-          ConditionExpression: 'attribute_exists(PK)',
-        })
-      );
-    } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Ticker', tickerId);
       }
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
