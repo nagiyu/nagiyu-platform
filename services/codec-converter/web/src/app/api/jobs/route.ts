@@ -11,6 +11,7 @@ import {
 } from '@nagiyu/codec-converter-core';
 import type { ErrorResponse } from '@nagiyu/common';
 import { getAwsClients } from '@nagiyu/aws';
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
 const PRESIGNED_URL_EXPIRES_IN = 3600;
@@ -68,7 +69,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'INVALID_REQUEST',
-          message: '必須フィールドが不足しています',
+          message: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS,
         },
         { status: 400 }
       );
@@ -92,7 +93,7 @@ export async function POST(
       return NextResponse.json(
         {
           error: 'INVALID_CODEC',
-          message: '無効なコーデックが指定されました',
+          message: ERROR_MESSAGES.INVALID_CODEC,
         },
         { status: 400 }
       );
@@ -152,7 +153,7 @@ export async function POST(
     return NextResponse.json(
       {
         error: 'INTERNAL_SERVER_ERROR',
-        message: 'ジョブの作成に失敗しました',
+        message: ERROR_MESSAGES.JOB_CREATION_FAILED,
       },
       { status: 500 }
     );
