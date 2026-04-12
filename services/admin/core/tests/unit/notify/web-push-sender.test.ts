@@ -4,6 +4,13 @@ import type {
   PushSubscriptionRepository,
 } from '../../../src/notify/subscription-repository.js';
 import { WebPushSender } from '../../../src/notify/web-push-sender.js';
+import { sendWebPushNotification } from '@nagiyu/common/push';
+
+jest.mock('@nagiyu/common/push', () => ({
+  sendWebPushNotification: jest.fn(),
+}));
+
+const mockSendWebPushNotification = sendWebPushNotification as jest.Mock;
 
 function createSubscription(endpoint: string): PushSubscriptionRecord {
   return {
@@ -29,6 +36,7 @@ describe('WebPushSender', () => {
   beforeEach(() => {
     subscriptions = [createSubscription('https://example.com/subscription-1')];
     deletedEndpoints = [];
+    mockSendWebPushNotification.mockReset();
 
     repository = {
       save: async () => {
@@ -43,18 +51,13 @@ describe('WebPushSender', () => {
   });
 
   it('通知送信成功時に件数を返す', async () => {
-    const setVapidDetails = jest.fn();
-    const sendNotification = jest.fn().mockResolvedValue({ statusCode: 201 });
+    mockSendWebPushNotification.mockResolvedValue(true);
 
     const sender = new WebPushSender({
       repository,
       vapidPublicKey:
         'BEl62iUYgUivjCD3XPAUjcR-m9WwRhtgyMIEqKxOX9FvN7dHFisG_V_A75MvqMaI-MgCYB2EnKMb8mQaHjgzy18',
       vapidPrivateKey: '5MByveLiA8z8Q-yjA4vuk2N43N03p9qi8u4XW8yfXYo',
-      client: {
-        setVapidDetails,
-        sendNotification,
-      },
     });
 
     const result = await sender.sendAll({
@@ -63,20 +66,17 @@ describe('WebPushSender', () => {
     });
 
     expect(result).toEqual({ sent: 1, failed: 0 });
-    expect(setVapidDetails).toHaveBeenCalledTimes(1);
-    expect(sendNotification).toHaveBeenCalledTimes(1);
+    expect(mockSendWebPushNotification).toHaveBeenCalledTimes(1);
   });
 
   it('410 Gone のときにサブスクリプションを削除する', async () => {
+    mockSendWebPushNotification.mockResolvedValue(false);
+
     const sender = new WebPushSender({
       repository,
       vapidPublicKey:
         'BEl62iUYgUivjCD3XPAUjcR-m9WwRhtgyMIEqKxOX9FvN7dHFisG_V_A75MvqMaI-MgCYB2EnKMb8mQaHjgzy18',
       vapidPrivateKey: '5MByveLiA8z8Q-yjA4vuk2N43N03p9qi8u4XW8yfXYo',
-      client: {
-        setVapidDetails: jest.fn(),
-        sendNotification: jest.fn().mockRejectedValue({ statusCode: 410 }),
-      },
     });
 
     const result = await sender.sendAll({
@@ -90,17 +90,12 @@ describe('WebPushSender', () => {
 
   it('サブスクリプションが0件の場合は送信しない', async () => {
     subscriptions = [];
-    const sendNotification = jest.fn();
 
     const sender = new WebPushSender({
       repository,
       vapidPublicKey:
         'BEl62iUYgUivjCD3XPAUjcR-m9WwRhtgyMIEqKxOX9FvN7dHFisG_V_A75MvqMaI-MgCYB2EnKMb8mQaHjgzy18',
       vapidPrivateKey: '5MByveLiA8z8Q-yjA4vuk2N43N03p9qi8u4XW8yfXYo',
-      client: {
-        setVapidDetails: jest.fn(),
-        sendNotification,
-      },
     });
 
     const result = await sender.sendAll({
@@ -109,19 +104,17 @@ describe('WebPushSender', () => {
     });
 
     expect(result).toEqual({ sent: 0, failed: 0 });
-    expect(sendNotification).not.toHaveBeenCalled();
+    expect(mockSendWebPushNotification).not.toHaveBeenCalled();
   });
 
   it('404/410以外のエラーでは削除しない', async () => {
+    mockSendWebPushNotification.mockRejectedValue(new Error('network timeout'));
+
     const sender = new WebPushSender({
       repository,
       vapidPublicKey:
         'BEl62iUYgUivjCD3XPAUjcR-m9WwRhtgyMIEqKxOX9FvN7dHFisG_V_A75MvqMaI-MgCYB2EnKMb8mQaHjgzy18',
       vapidPrivateKey: '5MByveLiA8z8Q-yjA4vuk2N43N03p9qi8u4XW8yfXYo',
-      client: {
-        setVapidDetails: jest.fn(),
-        sendNotification: jest.fn().mockRejectedValue(new Error('network timeout')),
-      },
     });
 
     const result = await sender.sendAll({

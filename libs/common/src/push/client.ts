@@ -63,13 +63,13 @@ export async function sendWebPushNotification(
         statusCode,
         error: errorMessage,
       });
+      return false;
     } else {
       logger.error('Web Push 通知の送信に失敗しました', {
         statusCode,
         error: errorMessage,
       });
+      throw error;
     }
-
-    return false;
   }
 }
