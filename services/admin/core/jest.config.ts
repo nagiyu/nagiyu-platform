@@ -9,6 +9,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
+    '^@nagiyu/common/push$': '<rootDir>/../../../libs/common/src/push/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/index.ts'],

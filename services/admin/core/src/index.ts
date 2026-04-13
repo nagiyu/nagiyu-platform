@@ -12,9 +12,5 @@ export {
   DynamoDBPushSubscriptionRepository,
 } from './notify/subscription-repository.js';
 
-export type {
-  PushNotificationPayload,
-  SendAllResult,
-  WebPushClient,
-} from './notify/web-push-sender.js';
+export type { PushNotificationPayload, SendAllResult } from './notify/web-push-sender.js';
 export { WebPushSender } from './notify/web-push-sender.js';
