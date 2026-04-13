@@ -150,7 +150,7 @@ export class BatchStack extends cdk.Stack {
       containerProperties: {
         image: batchImage,
         resourceRequirements: [
-          { type: 'VCPU', value: '2' },
+          { type: 'VCPU', value: '4' },
           { type: 'MEMORY', value: '8192' },
         ],
         executionRoleArn: executionRole.roleArn,
