@@ -23,6 +23,13 @@ const testSegments: TranscriptSegment[] = [
   { start: 5.3, end: 10.0, text: 'マジで？どういうことだよ' },
 ];
 
+const makeSegments = (count: number): TranscriptSegment[] =>
+  Array.from({ length: count }, (_, i) => ({
+    start: i * 5.0,
+    end: i * 5.0 + 4.9,
+    text: `セグメント${i + 1}`,
+  }));
+
 const mockOutputItems = [
   { second: 0.0, laugh: 0.9, excite: 0.5, touch: 0.1, tension: 0.2 },
   { second: 5.3, laugh: 0.2, excite: 0.8, touch: 0.3, tension: 0.7 },
@@ -188,5 +195,48 @@ describe('EmotionHighlightService', () => {
         ],
       })
     );
+  });
+
+  it('チャンク境界: 50件のセグメントでは mockParse が1回だけ呼ばれる', async () => {
+    mockParse.mockResolvedValue({ output_parsed: { items: [] } });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(50), 'any');
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(mockParse).toHaveBeenCalledTimes(1);
+  });
+
+  it('チャンク境界: 51件のセグメントでは mockParse が2回呼ばれ、結果が結合される', async () => {
+    const chunk1Items = [{ second: 0.0, laugh: 0.9, excite: 0.5, touch: 0.1, tension: 0.2 }];
+    const chunk2Items = [{ second: 250.0, laugh: 0.2, excite: 0.8, touch: 0.3, tension: 0.7 }];
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: chunk1Items } })
+      .mockResolvedValueOnce({ output_parsed: { items: chunk2Items } });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(51), 'any');
+    await jest.runAllTimersAsync();
+    const result = await promise;
+
+    expect(mockParse).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(2);
+    expect(result[0].second).toBe(0.0);
+    expect(result[1].second).toBe(250.0);
+  });
+
+  it('チャンク内リトライ: 1チャンク目が1回失敗後に成功する', async () => {
+    mockParse
+      .mockRejectedValueOnce(new Error('一時的なエラー'))
+      .mockResolvedValue({ output_parsed: { items: mockOutputItems } });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(50), 'any');
+    await jest.runAllTimersAsync();
+    const result = await promise;
+
+    expect(mockParse).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(2);
   });
 });

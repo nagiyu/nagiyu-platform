@@ -12,6 +12,7 @@ import type { TranscriptSegment } from './transcription.service.js';
 const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
+const SEGMENTS_PER_CHUNK = 50;
 
 const ERROR_MESSAGES = {
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
@@ -46,6 +47,14 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
       clearTimeout(timeoutId);
     }
   }
+}
+
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
 }
 
 function createPrompt(segments: TranscriptSegment[]): string {
@@ -100,39 +109,50 @@ export class EmotionHighlightService {
     segments: TranscriptSegment[],
     filter: EmotionFilter
   ): Promise<EmotionHighlightScore[]> {
-    const response = await withRetry(
-      async () =>
-        withTimeout(
-          this.client.responses.parse({
-            model: OPENAI_MODEL,
-            stream: false,
-            text: {
-              format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
-            },
-            input: [
-              {
-                role: 'user',
-                content: [
-                  {
-                    type: 'input_text',
-                    text: createPrompt(segments),
-                  },
-                ],
+    const chunks = chunkArray(segments, SEGMENTS_PER_CHUNK);
+    const allItems: Array<{
+      second: number;
+      laugh: number;
+      excite: number;
+      touch: number;
+      tension: number;
+    }> = [];
+
+    for (const chunk of chunks) {
+      const response = await withRetry(
+        async () =>
+          withTimeout(
+            this.client.responses.parse({
+              model: OPENAI_MODEL,
+              stream: false,
+              text: {
+                format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
               },
-            ],
-          }),
-          REQUEST_TIMEOUT_MS
-        ),
-      {
-        maxRetries: MAX_RETRIES,
-        shouldRetry: (error) =>
-          !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
-      }
-    );
+              input: [
+                {
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'input_text',
+                      text: createPrompt(chunk),
+                    },
+                  ],
+                },
+              ],
+            }),
+            REQUEST_TIMEOUT_MS
+          ),
+        {
+          maxRetries: MAX_RETRIES,
+          shouldRetry: (error) =>
+            !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
+        }
+      );
 
-    const items = response.output_parsed?.items ?? [];
+      allItems.push(...(response.output_parsed?.items ?? []));
+    }
 
-    return items.map((item) => ({
+    return allItems.map((item) => ({
       second: item.second,
       score: toScore(item, filter),
       dominantEmotion: toDominantEmotion(item),
