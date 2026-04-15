@@ -1,4 +1,4 @@
-import type { HighlightSource } from './libs/highlight-extractor.service.js';
+import type { EmotionLabel, HighlightSource } from './libs/highlight-extractor.service.js';
 
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
@@ -24,6 +24,7 @@ export type Highlight = {
   source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
+  dominantEmotion?: EmotionLabel;
 };
 
 export type CreateJobInput = {

@@ -7,7 +7,9 @@ import { BatchStack } from '../lib/batch-stack';
 import { EcrStack } from '../lib/ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
+import { SecretsStack } from '../lib/secrets-stack';
 import type { QuickClipEnvironment } from '../lib/environment';
+import { getBatchJobQueueArn } from '@nagiyu/infra-common';
 
 const app = new cdk.App();
 const env = (app.node.tryGetContext('env') || 'dev') as string;
@@ -22,6 +24,15 @@ const stackEnv = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region: process.env.CDK_DEFAULT_REGION || 'us-east-1',
 };
+
+// OpenAI API キー（デプロイ時に --context openAiApiKey=xxx で渡す、未指定の場合は PLACEHOLDER）
+const openAiApiKey = app.node.tryGetContext('openAiApiKey') || 'PLACEHOLDER';
+
+const secretsStack = new SecretsStack(app, `NagiyuQuickClipSecrets${envSuffix}`, {
+  environment: typedEnv,
+  env: stackEnv,
+  description: `QuickClip Secrets - ${env} environment`,
+});
 
 const storageStack = new StorageStack(app, `NagiyuQuickClipStorage${envSuffix}`, {
   environment: typedEnv,
@@ -46,11 +57,23 @@ const batchStack = new BatchStack(app, `NagiyuQuickClipBatch${envSuffix}`, {
   env: stackEnv,
   storageBucket: storageStack.storageBucket,
   jobsTable: dynamoStack.jobsTable,
+  openAiApiKey,
   description: `QuickClip Batch - ${env} environment`,
 });
 batchStack.addDependency(storageStack);
 batchStack.addDependency(dynamoStack);
 batchStack.addDependency(ecrStack);
+
+// Batch ARN を命名規則から直接計算し、CloudFormation Export/Import 依存を回避する
+// batchStack.jobQueueArn / jobDefinitionArns (Fn::GetAtt トークン) を渡すと CDK が自動的に
+// BatchStack に Export を作成し LambdaStack に Fn::ImportValue を生成する。
+// Job Definition の更新（リビジョン変更）時に Export 値が変わり CF が更新を拒否するため、
+// リテラル文字列で ARN を構築して Export/Import を使わない設計にする。
+const batchJobQueueArn = getBatchJobQueueArn(
+  stackEnv.region,
+  stackEnv.account!,
+  `nagiyu-quick-clip-${typedEnv}`
+);
 
 const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   environment: typedEnv,
@@ -62,16 +85,15 @@ const lambdaStack = new LambdaStack(app, `NagiyuQuickClipLambda${envSuffix}`, {
   jobsTableArn: dynamoStack.jobsTable.tableArn,
   storageBucketName: storageStack.storageBucket.bucketName,
   storageBucketArn: storageStack.storageBucket.bucketArn,
-  batchJobQueueArn: batchStack.jobQueueArn,
+  batchJobQueueArn,
   batchJobDefinitionPrefix: batchStack.jobDefinitionPrefix,
-  batchJobDefinitionArns: batchStack.jobDefinitionArns,
   env: stackEnv,
   description: `QuickClip Lambda - ${env} environment`,
 });
 lambdaStack.addDependency(ecrStack);
 lambdaStack.addDependency(storageStack);
 lambdaStack.addDependency(dynamoStack);
-lambdaStack.addDependency(batchStack);
+lambdaStack.addDependency(secretsStack);
 
 const cloudFrontStack = new CloudFrontStack(app, `NagiyuQuickClipCloudFront${envSuffix}`, {
   environment: typedEnv,

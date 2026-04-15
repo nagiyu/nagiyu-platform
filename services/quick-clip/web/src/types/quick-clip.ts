@@ -2,7 +2,7 @@ export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
 
 export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
-export type HighlightSource = 'motion' | 'volume' | 'both';
+export type HighlightSource = 'motion' | 'volume' | 'emotion' | 'both';
 
 export type Job = {
   jobId: string;

@@ -161,7 +161,7 @@ jobs:
         with:
           dockerfile: services/auth/web/Dockerfile
           image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
       - name: Push Docker image
         id: build-image

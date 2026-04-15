@@ -339,7 +339,7 @@ jobs:
         with:
           dockerfile: services/admin/web/Dockerfile
           image-tag: admin-verify-full-test
-          app-version: ${{ steps.get-version.outputs.app-version }}
+          build-args: APP_VERSION=${{ steps.get-version.outputs.app-version }}
 
   report:
     name: Report Results to PR
