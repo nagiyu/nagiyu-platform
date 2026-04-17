@@ -21,7 +21,7 @@
 - [x] T003: ルート `package.json` の `devDependencies.eslint-config-next` を `^16.2.3` に更新する（依存: T002）
 - [x] T004: `npm install` を実行して `package-lock.json` を更新する（依存: T001〜T003）
 - [x] T005: `npm audit` を実行し、Critical・High 脆弱性がゼロになったことを確認する（依存: T004）
-- [ ] T006: ビルドとユニットテストが全ワークスペースで通過することを確認する（依存: T004）
+- [x] T006: ビルドとユニットテストが全ワークスペースで通過することを確認する（依存: T004）
 
 ## Phase 2: バージョン不整合の解消
 
@@ -37,17 +37,17 @@
     - 対象: `@aws-sdk/client-s3`、`@aws-sdk/s3-request-presigner`
 - [x] T011: `infra/quick-clip/package.json` の `aws-cdk-lib` を `^2.248.0`、`constructs` を `^10.6.0` に更新する（並列実行可能）
 - [x] T012: `npm install` を実行して `package-lock.json` を更新する（依存: T007〜T011）
-- [ ] T013: ビルドとユニットテストが quick-clip 関連ワークスペースで通過することを確認する（依存: T012）
+- [x] T013: ビルドとユニットテストが quick-clip 関連ワークスペースで通過することを確認する（依存: T012）
 
 ---
 
 ## 完了チェック
 
-- [ ] `requirements.md` の受け入れ条件をすべて満たしている
+- [x] `requirements.md` の受け入れ条件をすべて満たしている
     - `npm audit` で Critical・High 脆弱性がゼロ
     - quick-clip の `@aws-sdk` バージョンが他サービスと統一されている
     - `infra/quick-clip` の CDK パッケージが他インフラと統一されている
-- [ ] Lint・型チェックが全ワークスペースで通過している
-- [ ] ビルドが全ワークスペースで成功している
+- [x] Lint・型チェックが全ワークスペースで通過している
+- [x] ビルドが全ワークスペースで成功している
 - [ ] `design.md` の「docs/ への移行メモ」を処理した
 - [ ] `tasks/issue-2773-npm-security-update/` ディレクトリを削除した
