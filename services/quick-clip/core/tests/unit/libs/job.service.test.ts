@@ -69,7 +69,9 @@ describe('JobService', () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);
 
-    await expect(service.updateBatchJobId('   ', 'batch-job-1')).rejects.toThrow('ジョブIDは必須です');
+    await expect(service.updateBatchJobId('   ', 'batch-job-1')).rejects.toThrow(
+      'ジョブIDは必須です'
+    );
   });
 
   it('updateBatchJobId: リポジトリの updateBatchJobId を呼ぶ', async () => {
@@ -87,7 +89,9 @@ describe('JobService', () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);
 
-    await expect(service.updateBatchStage('   ', 'downloading')).rejects.toThrow('ジョブIDは必須です');
+    await expect(service.updateBatchStage('   ', 'downloading')).rejects.toThrow(
+      'ジョブIDは必須です'
+    );
   });
 
   it('updateBatchStage: リポジトリの updateBatchStage を呼ぶ', async () => {
@@ -105,7 +109,9 @@ describe('JobService', () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);
 
-    await expect(service.updateErrorMessage('   ', 'エラー発生')).rejects.toThrow('ジョブIDは必須です');
+    await expect(service.updateErrorMessage('   ', 'エラー発生')).rejects.toThrow(
+      'ジョブIDは必須です'
+    );
   });
 
   it('updateErrorMessage: エラーメッセージが空の場合はエラー', async () => {
