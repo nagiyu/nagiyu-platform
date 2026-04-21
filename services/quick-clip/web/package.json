@@ -18,12 +18,12 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
-    "@aws-sdk/client-batch": "^3.1010.0",
-    "@aws-sdk/client-dynamodb": "^3.1010.0",
-    "@aws-sdk/client-lambda": "^3.1010.0",
-    "@aws-sdk/client-s3": "^3.1010.0",
-    "@aws-sdk/lib-dynamodb": "^3.1010.0",
-    "@aws-sdk/s3-request-presigner": "^3.1010.0",
+    "@aws-sdk/client-batch": "^3.1024.0",
+    "@aws-sdk/client-dynamodb": "^3.1024.0",
+    "@aws-sdk/client-lambda": "^3.1024.0",
+    "@aws-sdk/client-s3": "^3.1024.0",
+    "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@aws-sdk/s3-request-presigner": "^3.1024.0",
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*"
   }
