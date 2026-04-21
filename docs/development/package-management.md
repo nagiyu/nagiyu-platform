@@ -46,6 +46,7 @@ devDependencies は可能な限りモノレポルートで一元管理する。
 以下のような脆弱性が overrides の対象となる：
 
 - JavaScript Injection、Prototype Pollution（Critical / High）
+- SSRF（Server-Side Request Forgery）（Critical）
 - DoS、ReDoS（High）
 - Method Injection（High / Moderate）
 
