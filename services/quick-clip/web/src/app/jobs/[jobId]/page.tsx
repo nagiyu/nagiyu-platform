@@ -12,7 +12,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import type { Job, JobStatus } from '@/types/quick-clip';
+import type { BatchStage, JobStatus } from '@/types/quick-clip';
 import { VideoAd } from './VideoAd';
 
 const POLLING_INTERVAL_MS = 10000;
@@ -40,14 +40,21 @@ type JobPageProps = {
   params: Promise<{ jobId: string }>;
 };
 
-type JobApiResponse = Job & {
+type JobApiResponse = {
+  jobId: string;
   status: JobStatus;
+  originalFileName: string;
+  fileSize: number;
+  createdAt: number;
+  expiresAt: number;
+  batchStage?: BatchStage;
+  errorMessage?: string;
   downloadUrl?: string;
 };
 
 export default function JobPage({ params }: JobPageProps) {
   const [jobId, setJobId] = useState<string>('');
-  const [job, setJob] = useState<Job | null>(null);
+  const [job, setJob] = useState<JobApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [adFinished, setAdFinished] = useState(false);
