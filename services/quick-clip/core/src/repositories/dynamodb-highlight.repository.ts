@@ -22,6 +22,7 @@ type HighlightItem = {
   status: HighlightStatus;
   clipStatus: ClipStatus;
   dominantEmotion?: string;
+  expiresAt: number;
 };
 
 export class DynamoDBHighlightRepository implements HighlightRepository {
@@ -138,6 +139,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
           '#source = :source',
           '#status = :status',
           '#clipStatus = :clipStatus',
+          '#expiresAt = :expiresAt',
         ];
         const names: Record<string, string> = {
           '#type': 'Type',
@@ -149,6 +151,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
           '#source': 'source',
           '#status': 'status',
           '#clipStatus': 'clipStatus',
+          '#expiresAt': 'expiresAt',
         };
         const values: Record<string, unknown> = {
           ':type': 'HIGHLIGHT',
@@ -160,6 +163,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
           ':source': highlight.source,
           ':status': highlight.status,
           ':clipStatus': highlight.clipStatus,
+          ':expiresAt': highlight.expiresAt,
         };
 
         if (highlight.dominantEmotion !== undefined) {
@@ -199,6 +203,7 @@ export class DynamoDBHighlightRepository implements HighlightRepository {
       status: item.status,
       clipStatus: item.clipStatus,
       dominantEmotion: item.dominantEmotion as EmotionLabel | undefined,
+      expiresAt: item.expiresAt,
     };
   }
 }

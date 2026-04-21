@@ -23,6 +23,7 @@ export type Highlight = {
   source: HighlightSource;
   status: HighlightStatus;
   clipStatus: ClipStatus;
+  expiresAt: number;
 };
 
 export type UpdateHighlightInput = {

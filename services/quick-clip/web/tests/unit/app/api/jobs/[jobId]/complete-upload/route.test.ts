@@ -3,7 +3,7 @@ import { getBatchClient, getS3Client } from '@/lib/server/aws';
 import { POST } from '@/app/api/jobs/[jobId]/complete-upload/route';
 
 const mockGetById = jest.fn();
-const mockUpdateStatus = jest.fn();
+const mockUpdateBatchJobId = jest.fn();
 
 jest.mock('@nagiyu/quick-clip-core', () => ({
   ...jest.requireActual('@nagiyu/quick-clip-core'),
@@ -12,7 +12,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
       ({
         create: jest.fn(),
         getById: mockGetById,
-        updateStatus: mockUpdateStatus,
+        updateBatchJobId: mockUpdateBatchJobId,
       }) as unknown as JobRepository
   ),
 }));
@@ -48,27 +48,19 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     jest.clearAllMocks();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetBatchClient.mockReturnValue({
-      send: batchSend.mockResolvedValue({}),
+      send: batchSend.mockResolvedValue({ jobId: 'batch-job-1' }),
     } as ReturnType<typeof getBatchClient>);
     mockedGetS3Client.mockReturnValue({
       send: s3Send.mockResolvedValue({}),
     } as ReturnType<typeof getS3Client>);
     mockGetById.mockResolvedValue({
       jobId: 'job-1',
-      status: 'PENDING',
       originalFileName: 'movie.mp4',
       fileSize: 1024,
       createdAt: 1,
       expiresAt: 2,
     });
-    mockUpdateStatus.mockResolvedValue({
-      jobId: 'job-1',
-      status: 'PROCESSING',
-      originalFileName: 'movie.mp4',
-      fileSize: 1024,
-      createdAt: 1,
-      expiresAt: 2,
-    });
+    mockUpdateBatchJobId.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -104,13 +96,12 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
         }),
       })
     );
-    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'PROCESSING', undefined);
+    expect(mockUpdateBatchJobId).toHaveBeenCalledWith('job-1', 'batch-job-1');
   });
 
   it('正常系: 大容量ファイルではxlargeジョブ定義でBatch投入する', async () => {
     mockGetById.mockResolvedValueOnce({
       jobId: 'job-1',
-      status: 'PENDING',
       originalFileName: 'movie.mp4',
       fileSize: 9 * 1024 * 1024 * 1024,
       createdAt: 1,
@@ -156,7 +147,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     });
     expect(s3Send).not.toHaveBeenCalled();
     expect(batchSend).not.toHaveBeenCalled();
-    expect(mockUpdateStatus).not.toHaveBeenCalled();
+    expect(mockUpdateBatchJobId).not.toHaveBeenCalled();
   });
 
   it('異常系: ジョブが存在しない場合は404を返す', async () => {
@@ -180,13 +171,13 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     });
     expect(s3Send).not.toHaveBeenCalled();
     expect(batchSend).not.toHaveBeenCalled();
-    expect(mockUpdateStatus).not.toHaveBeenCalled();
+    expect(mockUpdateBatchJobId).not.toHaveBeenCalled();
   });
 
   it('異常系: ジョブがPENDING以外の場合は409を返す', async () => {
     mockGetById.mockResolvedValueOnce({
       jobId: 'job-1',
-      status: 'PROCESSING',
+      batchJobId: 'existing-batch-job-1',
       originalFileName: 'movie.mp4',
       fileSize: 1024,
       createdAt: 1,
@@ -211,7 +202,7 @@ describe('POST /api/jobs/[jobId]/complete-upload', () => {
     });
     expect(s3Send).not.toHaveBeenCalled();
     expect(batchSend).not.toHaveBeenCalled();
-    expect(mockUpdateStatus).not.toHaveBeenCalled();
+    expect(mockUpdateBatchJobId).not.toHaveBeenCalled();
   });
 
   it('異常系: CompleteMultipartUpload失敗時は500を返す', async () => {
