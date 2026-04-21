@@ -41,6 +41,7 @@ type JobPageProps = {
 };
 
 type JobApiResponse = Job & {
+  status: JobStatus;
   downloadUrl?: string;
 };
 

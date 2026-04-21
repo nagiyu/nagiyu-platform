@@ -1,4 +1,5 @@
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type BatchStage = 'downloading' | 'analyzing' | 'aggregating';
 
 export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
@@ -6,7 +7,8 @@ export type HighlightSource = 'motion' | 'volume' | 'emotion' | 'both';
 
 export type Job = {
   jobId: string;
-  status: JobStatus;
+  batchJobId?: string;
+  batchStage?: BatchStage;
   originalFileName: string;
   fileSize: number;
   createdAt: number;
