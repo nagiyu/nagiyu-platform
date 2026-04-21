@@ -8,7 +8,6 @@ const createJobRepositoryMock = (): jest.Mocked<JobRepository> => ({
   updateBatchJobId: jest.fn(),
   updateBatchStage: jest.fn(),
   updateErrorMessage: jest.fn(),
-  createMany: jest.fn(),
 });
 
 describe('JobService', () => {
