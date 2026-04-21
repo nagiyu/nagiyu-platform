@@ -25,7 +25,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
       ({
         create: jest.fn(),
         getById: mockGetJob,
-        updateStatus: jest.fn(),
+        updateBatchJobId: jest.fn(),
       }) as unknown as JobRepository
   ),
 }));
@@ -47,7 +47,7 @@ describe('GET /api/jobs/[jobId]', () => {
   it('正常系: ジョブ情報を返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-1',
-      status: 'PROCESSING',
+      batchStage: 'analyzing',
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
@@ -63,7 +63,7 @@ describe('GET /api/jobs/[jobId]', () => {
     expect(body).toEqual(
       expect.objectContaining({
         jobId: 'job-1',
-        status: 'PROCESSING',
+        batchStage: 'analyzing',
       })
     );
   });

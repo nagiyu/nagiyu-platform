@@ -34,7 +34,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
       ({
         create: jest.fn(async (job) => job),
         getById: jest.fn(),
-        updateStatus: jest.fn(),
+        updateBatchJobId: jest.fn(),
       }) as unknown as JobRepository
   ),
 }));
@@ -52,7 +52,7 @@ describe('POST /api/jobs', () => {
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetSignedUrl.mockResolvedValue('https://example.com/upload');
     mockedGetBatchClient.mockReturnValue({
-      send: batchSend.mockResolvedValue({}),
+      send: batchSend.mockResolvedValue({ jobId: 'batch-job-1' }),
     } as unknown as ReturnType<typeof getBatchClient>);
     mockedGetS3Client.mockReturnValue({
       send: s3Send.mockResolvedValue({ UploadId: 'upload-id-1' }),
@@ -82,7 +82,6 @@ describe('POST /api/jobs', () => {
     expect(body).toEqual(
       expect.objectContaining({
         jobId: expect.any(String),
-        status: 'PENDING',
         uploadUrl: 'https://example.com/upload',
         expiresIn: 3600,
       })
@@ -136,7 +135,6 @@ describe('POST /api/jobs', () => {
     expect(body).toEqual(
       expect.objectContaining({
         jobId: expect.any(String),
-        status: 'PENDING',
         multipart: {
           uploadId: 'upload-id-1',
           uploadUrls: partUrls,
