@@ -5,7 +5,10 @@ import type { Job } from '../../../src/types.js';
 const createJobRepositoryMock = (): jest.Mocked<JobRepository> => ({
   getById: jest.fn(),
   create: jest.fn(),
-  updateStatus: jest.fn(),
+  updateBatchJobId: jest.fn(),
+  updateBatchStage: jest.fn(),
+  updateErrorMessage: jest.fn(),
+  createMany: jest.fn(),
 });
 
 describe('JobService', () => {
@@ -23,7 +26,8 @@ describe('JobService', () => {
     expect(repository.create).toHaveBeenCalledTimes(1);
     const createdJob = repository.create.mock.calls[0][0] as Job;
     expect(createdJob.originalFileName).toBe('movie.mp4');
-    expect(createdJob.status).toBe('PENDING');
+    expect(createdJob.batchJobId).toBeUndefined();
+    expect(createdJob.batchStage).toBeUndefined();
     expect(createdJob.fileSize).toBe(1024);
     expect(createdJob.expiresAt).toBe(createdJob.createdAt + 24 * 60 * 60);
 
@@ -61,33 +65,66 @@ describe('JobService', () => {
     await expect(service.getJob('   ')).rejects.toThrow('ジョブIDは必須です');
   });
 
-  it('ステータス更新時に FAILED でエラーメッセージが空ならエラー', async () => {
+  it('updateBatchJobId: ジョブIDが空の場合はエラー', async () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);
 
-    await expect(service.updateStatus('job-1', 'FAILED')).rejects.toThrow(
+    await expect(service.updateBatchJobId('   ', 'batch-job-1')).rejects.toThrow('ジョブIDは必須です');
+  });
+
+  it('updateBatchJobId: リポジトリの updateBatchJobId を呼ぶ', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    repository.updateBatchJobId.mockResolvedValue(undefined);
+
+    await service.updateBatchJobId('job-1', 'batch-job-1');
+
+    expect(repository.updateBatchJobId).toHaveBeenCalledWith('job-1', 'batch-job-1');
+  });
+
+  it('updateBatchStage: ジョブIDが空の場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    await expect(service.updateBatchStage('   ', 'downloading')).rejects.toThrow('ジョブIDは必須です');
+  });
+
+  it('updateBatchStage: リポジトリの updateBatchStage を呼ぶ', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    repository.updateBatchStage.mockResolvedValue(undefined);
+
+    await service.updateBatchStage('job-1', 'analyzing');
+
+    expect(repository.updateBatchStage).toHaveBeenCalledWith('job-1', 'analyzing');
+  });
+
+  it('updateErrorMessage: ジョブIDが空の場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    await expect(service.updateErrorMessage('   ', 'エラー発生')).rejects.toThrow('ジョブIDは必須です');
+  });
+
+  it('updateErrorMessage: エラーメッセージが空の場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    await expect(service.updateErrorMessage('job-1', '   ')).rejects.toThrow(
       'FAILEDステータスではエラーメッセージが必須です'
     );
   });
 
-  it('ステータス更新時にエラーメッセージを trim して渡す', async () => {
+  it('updateErrorMessage: エラーメッセージを trim してリポジトリに渡す', async () => {
     const repository = createJobRepositoryMock();
     const service = new JobService(repository);
 
-    const updatedJob: Job = {
-      jobId: 'job-1',
-      status: 'FAILED',
-      originalFileName: 'movie.mp4',
-      fileSize: 1,
-      createdAt: 1,
-      expiresAt: 2,
-      errorMessage: '解析失敗',
-    };
-    repository.updateStatus.mockResolvedValue(updatedJob);
+    repository.updateErrorMessage.mockResolvedValue(undefined);
 
-    const result = await service.updateStatus('job-1', 'FAILED', ' 解析失敗 ');
+    await service.updateErrorMessage('job-1', ' 解析失敗 ');
 
-    expect(repository.updateStatus).toHaveBeenCalledWith('job-1', 'FAILED', '解析失敗');
-    expect(result).toEqual(updatedJob);
+    expect(repository.updateErrorMessage).toHaveBeenCalledWith('job-1', '解析失敗');
   });
 });

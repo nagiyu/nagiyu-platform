@@ -2,7 +2,9 @@ const mockS3Send = jest.fn();
 const mockMkdir = jest.fn();
 const mockCreateWriteStream = jest.fn();
 const mockPipeline = jest.fn();
-const mockUpdateStatus = jest.fn();
+const mockUpdateBatchStage = jest.fn();
+const mockUpdateErrorMessage = jest.fn();
+const mockGetJob = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
 const mockGetDurationSec = jest.fn();
@@ -49,7 +51,9 @@ jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
   DynamoDBJobRepository: jest.fn().mockImplementation(() => ({
     getById: jest.fn(),
     create: jest.fn(),
-    updateStatus: jest.fn(),
+    updateBatchJobId: jest.fn(),
+    updateBatchStage: jest.fn(),
+    updateErrorMessage: jest.fn(),
   })),
 }));
 
@@ -61,7 +65,9 @@ jest.mock('../../../src/repositories/dynamodb-highlight.repository.js', () => ({
 
 jest.mock('../../../src/libs/job.service.js', () => ({
   JobService: jest.fn().mockImplementation(() => ({
-    updateStatus: mockUpdateStatus,
+    updateBatchStage: mockUpdateBatchStage,
+    updateErrorMessage: mockUpdateErrorMessage,
+    getJob: mockGetJob,
   })),
 }));
 
@@ -118,6 +124,8 @@ const input: QuickClipBatchRunInput = {
   awsRegion: 'ap-northeast-1',
 };
 
+const JOB_EXPIRES_AT = 1234567890;
+
 describe('runQuickClipBatch', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -131,7 +139,9 @@ describe('runQuickClipBatch', () => {
     mockGetDurationSec.mockResolvedValue(120);
     mockAnalyzeMotion.mockResolvedValue([]);
     mockAnalyzeVolume.mockResolvedValue([]);
-    mockUpdateStatus.mockResolvedValue(undefined);
+    mockUpdateBatchStage.mockResolvedValue(undefined);
+    mockUpdateErrorMessage.mockResolvedValue(undefined);
+    mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
     mockTranscribe.mockResolvedValue([]);
     mockGetScores.mockResolvedValue([]);
   });
@@ -149,14 +159,15 @@ describe('runQuickClipBatch', () => {
     await expect(runPromise).resolves.toBeUndefined();
 
     expect(mockS3Send).toHaveBeenCalledTimes(2);
-    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'PROCESSING', undefined);
-    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'COMPLETED', undefined);
-    expect(mockUpdateStatus).not.toHaveBeenCalledWith('job-1', 'FAILED', expect.anything());
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'downloading');
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'analyzing');
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
+    expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
     expect(mockGetDurationSec).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
   });
 
-  it('NoSuchKey が解消しない場合は FAILED として動画未検出メッセージを記録する', async () => {
+  it('NoSuchKey が解消しない場合は errorMessage を記録する', async () => {
     jest.useFakeTimers();
     mockS3Send.mockRejectedValue(TEST_ERRORS.NO_SUCH_KEY);
 
@@ -167,10 +178,9 @@ describe('runQuickClipBatch', () => {
     await assertion;
 
     expect(mockS3Send).toHaveBeenCalledTimes(DOWNLOAD_RETRY_COUNT);
-    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'PROCESSING', undefined);
-    expect(mockUpdateStatus).toHaveBeenCalledWith(
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'downloading');
+    expect(mockUpdateErrorMessage).toHaveBeenCalledWith(
       'job-1',
-      'FAILED',
       'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4'
     );
   });
@@ -201,6 +211,7 @@ describe('runQuickClipBatch', () => {
           source: 'motion',
           status: 'unconfirmed',
           clipStatus: 'PENDING',
+          expiresAt: JOB_EXPIRES_AT,
         }),
         expect.objectContaining({
           jobId: 'job-1',
@@ -210,6 +221,7 @@ describe('runQuickClipBatch', () => {
           source: 'volume',
           status: 'unconfirmed',
           clipStatus: 'PENDING',
+          expiresAt: JOB_EXPIRES_AT,
         }),
       ])
     );
@@ -250,6 +262,7 @@ describe('runQuickClipBatch', () => {
           dominantEmotion: 'excite',
           status: 'unconfirmed',
           clipStatus: 'PENDING',
+          expiresAt: JOB_EXPIRES_AT,
         }),
       ])
     );
@@ -275,8 +288,8 @@ describe('runQuickClipBatch', () => {
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
-    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'COMPLETED', undefined);
-    expect(mockUpdateStatus).not.toHaveBeenCalledWith('job-1', 'FAILED', expect.anything());
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
+    expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
 
   it('getScores が失敗した場合も graceful degradation で motion・volume のみで処理を継続する', async () => {
@@ -288,7 +301,7 @@ describe('runQuickClipBatch', () => {
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
-    expect(mockUpdateStatus).toHaveBeenCalledWith('job-1', 'COMPLETED', undefined);
-    expect(mockUpdateStatus).not.toHaveBeenCalledWith('job-1', 'FAILED', expect.anything());
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
+    expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
 });

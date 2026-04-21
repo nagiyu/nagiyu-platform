@@ -8,7 +8,7 @@ import { dirname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
-import type { Highlight, JobStatus } from '../types.js';
+import type { BatchStage, Highlight } from '../types.js';
 import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
@@ -126,6 +126,7 @@ const downloadSourceVideo = async (
 const persistHighlights = async (
   jobId: string,
   highlights: Highlight[],
+  expiresAt: number,
   tableName: string,
   awsRegion: string
 ): Promise<void> => {
@@ -135,6 +136,7 @@ const persistHighlights = async (
     highlights.map((highlight) => ({
       ...highlight,
       jobId,
+      expiresAt,
       status: 'unconfirmed',
       clipStatus: 'PENDING',
     }))
@@ -186,37 +188,68 @@ const buildHighlights = async (
     endSec: item.endSec,
     source: item.source,
     dominantEmotion: item.dominantEmotion,
+    expiresAt: 0, // persistHighlights で上書きされる
     status: 'unconfirmed',
     clipStatus: 'PENDING',
   }));
 };
 
-const updateJobStatus = async (
+const updateBatchStage = async (
   jobId: string,
-  status: JobStatus,
+  batchStage: BatchStage,
   tableName: string,
-  awsRegion: string,
-  errorMessage?: string
+  awsRegion: string
 ): Promise<void> => {
   const docClient = createDynamoDBDocumentClient(awsRegion);
   const jobRepo = new DynamoDBJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
-  await service.updateStatus(jobId, status, errorMessage);
+  await service.updateBatchStage(jobId, batchStage);
+};
+
+const updateErrorMessage = async (
+  jobId: string,
+  errorMessage: string,
+  tableName: string,
+  awsRegion: string
+): Promise<void> => {
+  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const service = new JobService(jobRepo);
+  await service.updateErrorMessage(jobId, errorMessage);
+};
+
+const getJobExpiresAt = async (
+  jobId: string,
+  tableName: string,
+  awsRegion: string
+): Promise<number> => {
+  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const service = new JobService(jobRepo);
+  const job = await service.getJob(jobId);
+  if (!job) {
+    throw new Error(`ジョブが見つかりません: ${jobId}`);
+  }
+  return job.expiresAt;
 };
 
 const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
 
-  await updateJobStatus(env.jobId, 'PROCESSING', env.tableName, env.awsRegion);
+  await updateBatchStage(env.jobId, 'downloading', env.tableName, env.awsRegion);
   await downloadSourceVideo(env.bucketName, env.jobId, localVideoPath, env.awsRegion);
+
+  await updateBatchStage(env.jobId, 'analyzing', env.tableName, env.awsRegion);
   const highlights = await buildHighlights(
     env.jobId,
     localVideoPath,
     env.openAiApiKey,
     env.emotionFilter
   );
-  await persistHighlights(env.jobId, highlights, env.tableName, env.awsRegion);
-  await updateJobStatus(env.jobId, 'COMPLETED', env.tableName, env.awsRegion);
+
+  await updateBatchStage(env.jobId, 'aggregating', env.tableName, env.awsRegion);
+  const expiresAt = await getJobExpiresAt(env.jobId, env.tableName, env.awsRegion);
+  await persistHighlights(env.jobId, highlights, expiresAt, env.tableName, env.awsRegion);
 };
 
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
@@ -224,7 +257,7 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
     await runExtract(env);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await updateJobStatus(env.jobId, 'FAILED', env.tableName, env.awsRegion, message);
+    await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
     throw error;
   }
 };
