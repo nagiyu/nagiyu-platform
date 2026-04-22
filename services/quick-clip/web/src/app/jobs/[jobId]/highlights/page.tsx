@@ -37,6 +37,10 @@ const ERROR_MESSAGES = {
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
 } as const;
+
+const INFO_MESSAGES = {
+  EXPIRES_AT_PREFIX: 'データの有効期限: ',
+} as const;
 const HIGHLIGHT_SOURCE_LABELS = {
   motion: 'モーション',
   volume: '音量',
@@ -125,6 +129,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const isFetchingRef = useRef(false);
   const { visibilityMap, toggleColumn } = useColumnVisibility(COLUMN_DEFINITIONS);
 
@@ -200,6 +205,22 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     void fetchHighlights({ isInitialLoad: true });
   }, [fetchHighlights, jobId]);
 
+  useEffect(() => {
+    if (!jobId) return;
+    const fetchExpiresAt = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { expiresAt: number };
+        setExpiresAt(data.expiresAt);
+      } catch (error) {
+        // 有効期限取得失敗は非致命的
+        console.warn('有効期限の取得に失敗しました', error);
+      }
+    };
+    void fetchExpiresAt();
+  }, [jobId]);
+
   const selectedHighlight = useMemo(() => {
     const highlight = highlights.find((item) => item.highlightId === selectedId);
     if (!highlight) {
@@ -232,6 +253,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
+    [highlights]
+  );
+  const generatedCount = useMemo(
+    () => highlights.filter((h) => h.clipStatus === 'GENERATED').length,
     [highlights]
   );
   const hasUngeneratedAcceptedClip = useMemo(
@@ -403,6 +428,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           </Alert>
         )}
 
+        {expiresAt !== null && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {INFO_MESSAGES.EXPIRES_AT_PREFIX}
+            {new Date(expiresAt * 1000).toLocaleString('ja-JP')}
+          </Typography>
+        )}
+
         {!isLoading && highlights.length === 0 && (
           <Alert severity="info" sx={{ mb: 2 }}>
             {ERROR_MESSAGES.NO_HIGHLIGHTS}
@@ -564,7 +596,21 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
             {/* 右パネル: マスター一覧 */}
             <Box sx={{ width: 400, flexShrink: 0 }}>
               <Stack spacing={2}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: hasPendingOrGenerating ? 'space-between' : 'flex-end',
+                    alignItems: 'center',
+                  }}
+                >
+                  {hasPendingOrGenerating && (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">
+                        {generatedCount} / {highlights.length} 件生成済
+                      </Typography>
+                    </Stack>
+                  )}
                   <ColumnVisibilityButton
                     columns={OPTIONAL_COLUMNS}
                     visibilityMap={visibilityMap}

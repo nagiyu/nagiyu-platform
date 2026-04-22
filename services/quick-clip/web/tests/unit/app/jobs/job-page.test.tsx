@@ -92,4 +92,93 @@ describe('JobPage', () => {
 
     expect(screen.queryByTestId('video-ad')).not.toBeInTheDocument();
   });
+
+  it('MUI Stepper が COMPLETED で step 3 まで表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-4',
+        status: 'COMPLETED',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-4' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('アップロード')).toBeInTheDocument();
+      expect(screen.getByText('解析')).toBeInTheDocument();
+      expect(screen.getByText('切り出し')).toBeInTheDocument();
+    });
+  });
+
+  it('MUI Stepper が PROCESSING で batchStage サブラベルを表示する', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-5',
+        status: 'PROCESSING',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+        batchStage: 'analyzing',
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-5' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('解析中')).toBeInTheDocument();
+    });
+  });
+
+  it('有効期限が表示される', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-6',
+        status: 'PROCESSING',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-6' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/データの有効期限:/)).toBeInTheDocument();
+    });
+  });
+
+  it('PENDING/PROCESSING 時にタブ閉じ OK 通知が表示される', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-7',
+        status: 'PROCESSING',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-7' })} />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('タブを閉じても処理は続きます。URLを控えておくと後で確認できます。')
+      ).toBeInTheDocument();
+    });
+  });
 });
