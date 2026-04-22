@@ -2,7 +2,15 @@
 
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, Box, Button, Container, Paper, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  Container,
+  LinearProgress,
+  Paper,
+  Typography,
+} from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const ERROR_MESSAGES = {
@@ -20,6 +28,12 @@ const LOG_MESSAGES = {
   COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
   INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
   UNKNOWN: 'アップロード処理の開始時に予期しないエラーが発生しました',
+  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+} as const;
+
+const CONSTRAINT_MESSAGES = {
+  NO_TAB_CLOSE: 'アップロード中はタブを閉じないでください。',
+  DATA_EXPIRES: 'データは 24 時間で自動削除されます。',
 } as const;
 
 const ACCEPTED_FILE_TYPE = 'video/mp4';
@@ -39,6 +53,7 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -69,6 +84,33 @@ export default function Home() {
     setSelectedFile(selected);
   };
 
+  const resetSubmitting = () => {
+    setIsSubmitting(false);
+    setUploadProgress(null);
+  };
+
+  const uploadWithProgress = (url: string, fileToUpload: File): Promise<void> =>
+    new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url);
+      xhr.setRequestHeader('Content-Type', ACCEPTED_FILE_TYPE);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          setUploadProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setUploadProgress(100);
+          resolve();
+        } else {
+          reject(new Error(`${LOG_MESSAGES.UPLOAD_FAILED}: ${xhr.status}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error(LOG_MESSAGES.NETWORK_ERROR));
+      xhr.send(fileToUpload);
+    });
+
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -78,6 +120,7 @@ export default function Home() {
     }
 
     setIsSubmitting(true);
+    setUploadProgress(0);
     setErrorMessage(null);
 
     try {
@@ -95,7 +138,7 @@ export default function Home() {
 
       if (!response.ok) {
         setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
-        setIsSubmitting(false);
+        resetSubmitting();
         return;
       }
 
@@ -109,7 +152,7 @@ export default function Home() {
               chunkSizeBytes,
             });
             setErrorMessage(ERROR_MESSAGES.INVALID_UPLOAD_PARAMETERS);
-            setIsSubmitting(false);
+            resetSubmitting();
             return;
           }
 
@@ -120,11 +163,12 @@ export default function Home() {
               uploadUrlCount: data.multipart.uploadUrls.length,
             });
             setErrorMessage(ERROR_MESSAGES.INVALID_UPLOAD_PARAMETERS);
-            setIsSubmitting(false);
+            resetSubmitting();
             return;
           }
 
           const parts: Array<{ PartNumber: number; ETag: string }> = [];
+          let uploadedBytes = 0;
           for (const [index, uploadUrl] of data.multipart.uploadUrls.entries()) {
             const start = index * chunkSizeBytes;
             const end = Math.min(start + chunkSizeBytes, file.size);
@@ -144,7 +188,7 @@ export default function Home() {
                 partNumber: index + 1,
               });
               setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-              setIsSubmitting(false);
+              resetSubmitting();
               return;
             }
             if (!eTag) {
@@ -154,14 +198,13 @@ export default function Home() {
                 reason: 'ETagが取得できませんでした',
               });
               setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-              setIsSubmitting(false);
+              resetSubmitting();
               return;
             }
 
-            parts.push({
-              PartNumber: index + 1,
-              ETag: eTag,
-            });
+            uploadedBytes += chunk.size;
+            setUploadProgress(Math.round((uploadedBytes / file.size) * 100));
+            parts.push({ PartNumber: index + 1, ETag: eTag });
           }
 
           const completeUploadResponse = await fetch(`/api/jobs/${data.jobId}/complete-upload`, {
@@ -180,35 +223,20 @@ export default function Home() {
               status: completeUploadResponse.status,
             });
             setErrorMessage(ERROR_MESSAGES.COMPLETE_UPLOAD_FAILED);
-            setIsSubmitting(false);
+            resetSubmitting();
             return;
           }
         } else if (data.uploadUrl) {
-          const uploadResponse = await fetch(data.uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': ACCEPTED_FILE_TYPE,
-            },
-            body: file,
-          });
-
-          if (!uploadResponse.ok) {
-            console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-              status: uploadResponse.status,
-            });
-            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-            setIsSubmitting(false);
-            return;
-          }
+          await uploadWithProgress(data.uploadUrl, file);
         } else {
           setErrorMessage(ERROR_MESSAGES.CREATE_JOB_FAILED);
-          setIsSubmitting(false);
+          resetSubmitting();
           return;
         }
       } catch (error) {
         console.error(LOG_MESSAGES.UPLOAD_EXCEPTION, error);
         setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-        setIsSubmitting(false);
+        resetSubmitting();
         return;
       }
 
@@ -216,7 +244,7 @@ export default function Home() {
     } catch (error) {
       console.error(LOG_MESSAGES.UNKNOWN, error);
       setErrorMessage(ERROR_MESSAGES.UNKNOWN);
-      setIsSubmitting(false);
+      resetSubmitting();
     }
   };
 
@@ -231,6 +259,12 @@ export default function Home() {
         </Typography>
 
         <form onSubmit={onSubmit}>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {CONSTRAINT_MESSAGES.NO_TAB_CLOSE}
+            <br />
+            {CONSTRAINT_MESSAGES.DATA_EXPIRES}
+          </Alert>
+
           <Paper
             variant="outlined"
             sx={{
@@ -284,8 +318,27 @@ export default function Home() {
             </Alert>
           )}
 
+          {isSubmitting && (
+            <Box sx={{ mb: 2 }}>
+              <LinearProgress
+                variant="determinate"
+                value={uploadProgress ?? 0}
+                sx={{ mb: 1 }}
+              />
+              <Typography variant="body2" color="text.secondary">
+                {(uploadProgress ?? 0) < 100
+                  ? `アップロード中... ${uploadProgress ?? 0}%`
+                  : '処理開始中...'}
+              </Typography>
+            </Box>
+          )}
+
           <Button type="submit" variant="contained" disabled={!file || isSubmitting}>
-            {isSubmitting ? '開始中...' : 'アップロードして処理開始'}
+            {!isSubmitting
+              ? 'アップロードして処理開始'
+              : (uploadProgress ?? 0) < 100
+                ? `アップロード中... ${uploadProgress ?? 0}%`
+                : '処理開始中...'}
           </Button>
         </form>
       </Paper>

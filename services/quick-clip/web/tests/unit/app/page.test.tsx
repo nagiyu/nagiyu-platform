@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Home from '@/app/page';
 
 const mockPush = jest.fn();
@@ -10,8 +10,19 @@ jest.mock('next/navigation', () => ({
   }),
 }));
 
+type MockXHR = {
+  open: jest.Mock;
+  setRequestHeader: jest.Mock;
+  send: jest.Mock;
+  upload: { onprogress: ((e: ProgressEvent) => void) | null };
+  onload: (() => void) | null;
+  onerror: (() => void) | null;
+  status: number;
+};
+
 describe('Home', () => {
   let consoleErrorSpy: jest.SpyInstance;
+  let mockXHR: MockXHR;
 
   const selectFile = () => {
     const file = new File(['dummy'], 'input.mp4', { type: 'video/mp4' });
@@ -24,6 +35,17 @@ describe('Home', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+    mockXHR = {
+      open: jest.fn(),
+      setRequestHeader: jest.fn(),
+      send: jest.fn(),
+      upload: { onprogress: null },
+      onload: null,
+      onerror: null,
+      status: 200,
+    };
+    global.XMLHttpRequest = jest.fn(() => mockXHR) as unknown as typeof XMLHttpRequest;
   });
 
   afterEach(() => {
@@ -40,19 +62,21 @@ describe('Home', () => {
     expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).toBeDisabled();
   });
 
+  it('制約通知 Alert が表示される', () => {
+    render(<Home />);
+
+    expect(screen.getByText(/アップロード中はタブを閉じないでください/)).toBeInTheDocument();
+    expect(screen.getByText(/データは 24 時間で自動削除されます/)).toBeInTheDocument();
+  });
+
   it('ジョブ作成後に署名付きURLへ動画ファイルをアップロードして遷移する', async () => {
-    const mockFetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          jobId: 'job-1',
-          uploadUrl: 'https://example.com/upload',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-      });
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
     global.fetch = mockFetch as jest.Mock;
 
     render(<Home />);
@@ -69,34 +93,29 @@ describe('Home', () => {
           method: 'POST',
         })
       );
-      expect(mockFetch).toHaveBeenNthCalledWith(
-        2,
-        'https://example.com/upload',
-        expect.objectContaining({
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'video/mp4',
-          },
-          body: file,
-        })
-      );
+      expect(mockXHR.open).toHaveBeenCalledWith('PUT', 'https://example.com/upload');
+      expect(mockXHR.send).toHaveBeenCalledWith(file);
+    });
+
+    // Simulate XHR success
+    act(() => {
+      mockXHR.status = 200;
+      mockXHR.onload?.();
+    });
+
+    await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/jobs/job-1');
     });
   });
 
   it('動画アップロードが失敗した場合はエラーを表示して遷移しない', async () => {
-    const mockFetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          jobId: 'job-1',
-          uploadUrl: 'https://example.com/upload',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-      });
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
     global.fetch = mockFetch as jest.Mock;
 
     render(<Home />);
@@ -105,32 +124,14 @@ describe('Home', () => {
     fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
 
     await waitFor(() => {
-      expect(screen.getByText('動画ファイルのアップロードに失敗しました')).toBeInTheDocument();
+      expect(mockXHR.send).toHaveBeenCalled();
     });
-    expect(consoleErrorSpy).toHaveBeenCalledWith('動画アップロードに失敗しました', {
-      status: undefined,
+
+    // Simulate XHR failure (non-2xx status)
+    act(() => {
+      mockXHR.status = 500;
+      mockXHR.onload?.();
     });
-    expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
-    expect(mockPush).not.toHaveBeenCalled();
-  });
-
-  it('アップロード時に例外が発生した場合はアップロード失敗エラーを表示して遷移しない', async () => {
-    const mockFetch = jest
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          jobId: 'job-1',
-          uploadUrl: 'https://example.com/upload',
-        }),
-      })
-      .mockRejectedValueOnce(new Error('network error'));
-    global.fetch = mockFetch as jest.Mock;
-
-    render(<Home />);
-
-    selectFile();
-    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
 
     await waitFor(() => {
       expect(screen.getByText('動画ファイルのアップロードに失敗しました')).toBeInTheDocument();
@@ -141,6 +142,94 @@ describe('Home', () => {
     );
     expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('アップロード時に例外が発生した場合はアップロード失敗エラーを表示して遷移しない', async () => {
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(mockXHR.send).toHaveBeenCalled();
+    });
+
+    // Simulate XHR network error
+    act(() => {
+      mockXHR.onerror?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('動画ファイルのアップロードに失敗しました')).toBeInTheDocument();
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '動画アップロード時に予期しないエラーが発生しました',
+      expect.any(Error)
+    );
+    expect(screen.getByRole('button', { name: 'アップロードして処理開始' })).not.toBeDisabled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('LinearProgress と進捗テキストがアップロード中に表示される', async () => {
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(mockXHR.send).toHaveBeenCalled();
+    });
+
+    expect(screen.getAllByText('アップロード中... 0%').length).toBeGreaterThan(0);
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  it('XHR progress イベントでプログレスバーが更新される', async () => {
+    const mockFetch = jest.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        jobId: 'job-1',
+        uploadUrl: 'https://example.com/upload',
+      }),
+    });
+    global.fetch = mockFetch as jest.Mock;
+
+    render(<Home />);
+
+    selectFile();
+    fireEvent.click(screen.getByRole('button', { name: 'アップロードして処理開始' }));
+
+    await waitFor(() => {
+      expect(mockXHR.send).toHaveBeenCalled();
+    });
+
+    act(() => {
+      mockXHR.upload.onprogress?.(
+        new ProgressEvent('progress', { loaded: 50, total: 100, lengthComputable: true })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText('アップロード中... 50%').length).toBeGreaterThan(0);
+    });
   });
 
   it('multipartレスポンス時は分割アップロード後にcomplete-uploadを呼び出して遷移する', async () => {

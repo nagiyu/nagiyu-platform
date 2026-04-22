@@ -4,18 +4,22 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Alert,
+  Box,
   Button,
   Chip,
   CircularProgress,
   Container,
   Paper,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   Typography,
 } from '@mui/material';
 import type { BatchStage, JobStatus } from '@/types/quick-clip';
 import { VideoAd } from './VideoAd';
 
-const POLLING_INTERVAL_MS = 10000;
+const POLLING_INTERVAL_MS = 5000;
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: 'ジョブ情報の取得に失敗しました',
@@ -35,6 +39,17 @@ const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'>
   COMPLETED: 'success',
   FAILED: 'error',
 };
+
+const BATCH_STAGE_LABELS: Record<BatchStage, string> = {
+  downloading: 'ダウンロード中',
+  analyzing: '解析中',
+  aggregating: '集計中',
+};
+
+const INFO_MESSAGES = {
+  TAB_CLOSE_OK: 'タブを閉じても処理は続きます。URLを控えておくと後で確認できます。',
+  EXPIRES_AT_PREFIX: 'データの有効期限: ',
+} as const;
 
 type JobPageProps = {
   params: Promise<{ jobId: string }>;
@@ -123,6 +138,12 @@ export default function JobPage({ params }: JobPageProps) {
     [job?.status, adFinished]
   );
 
+  const activeStep = useMemo(() => {
+    if (!job) return 1;
+    if (job.status === 'COMPLETED') return 2;
+    return 1; // PENDING, PROCESSING, FAILED
+  }, [job]);
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
@@ -145,6 +166,30 @@ export default function JobPage({ params }: JobPageProps) {
 
         {job && (
           <Stack spacing={2}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              <Step completed={true}>
+                <StepLabel>アップロード</StepLabel>
+              </Step>
+              <Step>
+                <StepLabel
+                  optional={
+                    job.status === 'PROCESSING' && job.batchStage
+                      ? (
+                        <Typography variant="caption">
+                          {BATCH_STAGE_LABELS[job.batchStage]}
+                        </Typography>
+                      )
+                      : undefined
+                  }
+                >
+                  解析
+                </StepLabel>
+              </Step>
+              <Step>
+                <StepLabel>切り出し</StepLabel>
+              </Step>
+            </Stepper>
+
             <Typography>ジョブID: {job.jobId}</Typography>
             <Chip
               label={STATUS_LABELS[job.status]}
@@ -154,9 +199,14 @@ export default function JobPage({ params }: JobPageProps) {
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
               <Typography color="text.secondary">
-                見どころ抽出を実行中です。10秒ごとに自動更新します。
+                {INFO_MESSAGES.TAB_CLOSE_OK}
               </Typography>
             )}
+
+            <Typography variant="body2" color="text.secondary">
+              {INFO_MESSAGES.EXPIRES_AT_PREFIX}
+              {new Date(job.expiresAt * 1000).toLocaleString('ja-JP')}
+            </Typography>
 
             {job.status === 'FAILED' && (
               <Typography color="error">{job.errorMessage ?? '処理に失敗しました'}</Typography>
