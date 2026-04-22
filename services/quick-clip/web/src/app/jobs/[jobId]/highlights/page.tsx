@@ -210,7 +210,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     const fetchExpiresAt = async () => {
       try {
         const res = await fetch(`/api/jobs/${jobId}`);
-        if (!res || !res.ok) return;
+        if (!res.ok) return;
         const data = (await res.json()) as { expiresAt: number };
         setExpiresAt(data.expiresAt);
       } catch (error) {
