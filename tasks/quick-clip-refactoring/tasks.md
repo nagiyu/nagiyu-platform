@@ -38,13 +38,13 @@ Core パッケージの変更完了後に実施する。
 
 Core パッケージの変更完了後に実施する（Phase 2 と並列実行可能）。
 
-- [ ] `web/src/types/quick-clip.ts`: `Job` 型を更新（`status` 削除、`batchJobId?` / `batchStage?` 追加）、`BatchStage` 型を追加する（依存: Phase 1）
-- [ ] `web/src/lib/server/aws.ts`: `getBatchClient()` が利用可能であることを確認する（既存実装のため変更不要の可能性あり）（依存: なし）
-- [ ] `web/src/app/api/jobs/route.ts`: `SubmitJobCommand` のレスポンスから `batchJobId` を取得し、`jobService.updateBatchJobId()` で Job レコードに保存する（依存: Phase 1 + Core の Job サービス）
-- [ ] `web/src/app/api/jobs/[jobId]/complete-upload/route.ts`: 同様に `batchJobId` を保存する（依存: Phase 1）
-- [ ] `web/src/app/api/jobs/[jobId]/route.ts`: `DescribeJobsCommand` を使った状態導出ロジックを実装する（design.md の「GET /api/jobs/[jobId] の変更」を参照）（依存: Phase 1、AWS IAM 権限確認が必要）
-- [ ] `infra/quick-clip/lib/lambda-stack.ts`（または該当 IAM 設定）: Lambda (Web) の IAM ロールに `batch:DescribeJobs` 権限を追加する（依存: なし）
-- [ ] Web API のユニットテストを更新・追加する（依存: 上記全て）
+- [x] `web/src/types/quick-clip.ts`: `Job` 型を更新（`status` 削除、`batchJobId?` / `batchStage?` 追加）、`BatchStage` 型を追加する（依存: Phase 1）
+- [x] `web/src/lib/server/aws.ts`: `getBatchClient()` が利用可能であることを確認する（既存実装のため変更不要の可能性あり）（依存: なし）
+- [x] `web/src/app/api/jobs/route.ts`: `SubmitJobCommand` のレスポンスから `batchJobId` を取得し、`jobService.updateBatchJobId()` で Job レコードに保存する（依存: Phase 1 + Core の Job サービス）
+- [x] `web/src/app/api/jobs/[jobId]/complete-upload/route.ts`: 同様に `batchJobId` を保存する（依存: Phase 1）
+- [x] `web/src/app/api/jobs/[jobId]/route.ts`: `DescribeJobsCommand` を使った状態導出ロジックを実装する（design.md の「GET /api/jobs/[jobId] の変更」を参照）（依存: Phase 1、AWS IAM 権限確認が必要）
+- [x] `infra/quick-clip/lib/lambda-stack.ts`（または該当 IAM 設定）: Lambda (Web) の IAM ロールに `batch:DescribeJobs` 権限を追加する（依存: なし）
+- [x] Web API のユニットテストを更新・追加する（依存: 上記全て）
 
 ## Phase 4: Web フロントエンド
 
