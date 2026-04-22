@@ -213,8 +213,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         if (!res || !res.ok) return;
         const data = (await res.json()) as { expiresAt: number };
         setExpiresAt(data.expiresAt);
-      } catch {
+      } catch (error) {
         // 有効期限取得失敗は非致命的
+        console.warn('有効期限の取得に失敗しました', error);
       }
     };
     void fetchExpiresAt();
@@ -595,7 +596,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
             {/* 右パネル: マスター一覧 */}
             <Box sx={{ width: 400, flexShrink: 0 }}>
               <Stack spacing={2}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: hasPendingOrGenerating ? 'space-between' : 'flex-end',
+                    alignItems: 'center',
+                  }}
+                >
                   {hasPendingOrGenerating && (
                     <Stack direction="row" spacing={1} alignItems="center">
                       <CircularProgress size={16} />
