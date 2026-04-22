@@ -199,8 +199,8 @@ describe('Home', () => {
     });
 
     expect(screen.getByRole('progressbar')).toBeInTheDocument();
-    // Check that the progress Typography is shown (distinct from the button label)
-    expect(screen.getAllByText('アップロード中... 0%').length).toBeGreaterThanOrEqual(1);
+    // ボタンラベルがアップロード中表示に変わり、disabled になっていることを確認
+    expect(screen.getByRole('button', { name: 'アップロード中... 0%' })).toBeDisabled();
   });
 
   it('XHR progress イベントでプログレスバーが更新される', async () => {
@@ -229,7 +229,8 @@ describe('Home', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByText('アップロード中... 50%').length).toBeGreaterThanOrEqual(1);
+      // ボタンラベルが 50% 表示に更新されることを確認
+      expect(screen.getByRole('button', { name: 'アップロード中... 50%' })).toBeDisabled();
     });
   });
 
