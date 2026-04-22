@@ -563,25 +563,27 @@ describe('HighlightsPage', () => {
   });
 
   it('開始時刻が終了時刻以上の入力はエラー表示し、PATCHを呼ばない', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        highlights: [
-          {
-            highlightId: 'h-1',
-            jobId: 'job-1',
-            order: 1,
-            startSec: 10,
-            endSec: 20,
-            source: 'motion',
-            status: 'accepted',
-            clipStatus: 'GENERATED',
-            clipUrl: 'https://example.com/h-1.mp4',
-          },
-        ],
-      }),
-    })
-    .mockResolvedValue({ ok: false }) as jest.Mock;
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'accepted',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1.mp4',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 

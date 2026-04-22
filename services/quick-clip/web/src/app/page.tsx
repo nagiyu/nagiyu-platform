@@ -2,15 +2,7 @@
 
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  LinearProgress,
-  Paper,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Container, LinearProgress, Paper, Typography } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const ERROR_MESSAGES = {
@@ -320,11 +312,7 @@ export default function Home() {
 
           {isSubmitting && (
             <Box sx={{ mb: 2 }}>
-              <LinearProgress
-                variant="determinate"
-                value={uploadProgress ?? 0}
-                sx={{ mb: 1 }}
-              />
+              <LinearProgress variant="determinate" value={uploadProgress ?? 0} sx={{ mb: 1 }} />
               <Typography variant="body2" color="text.secondary">
                 {(uploadProgress ?? 0) < 100
                   ? `アップロード中... ${uploadProgress ?? 0}%`

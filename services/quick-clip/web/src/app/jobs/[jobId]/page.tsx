@@ -173,13 +173,11 @@ export default function JobPage({ params }: JobPageProps) {
               <Step>
                 <StepLabel
                   optional={
-                    job.status === 'PROCESSING' && job.batchStage
-                      ? (
-                        <Typography variant="caption">
-                          {BATCH_STAGE_LABELS[job.batchStage]}
-                        </Typography>
-                      )
-                      : undefined
+                    job.status === 'PROCESSING' && job.batchStage ? (
+                      <Typography variant="caption">
+                        {BATCH_STAGE_LABELS[job.batchStage]}
+                      </Typography>
+                    ) : undefined
                   }
                 >
                   解析
@@ -198,9 +196,7 @@ export default function JobPage({ params }: JobPageProps) {
             />
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
-              <Typography color="text.secondary">
-                {INFO_MESSAGES.TAB_CLOSE_OK}
-              </Typography>
+              <Typography color="text.secondary">{INFO_MESSAGES.TAB_CLOSE_OK}</Typography>
             )}
 
             <Typography variant="body2" color="text.secondary">
