@@ -4,16 +4,16 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import type { Job, JobStatus } from '../types.js';
+import type { BatchStage, Job } from '../types.js';
 import type { JobRepository } from './job.repository.interface.js';
-import { DOMAIN_ERROR_MESSAGES } from '../libs/domain-error-messages.js';
 
 type JobItem = {
   PK: string;
   SK: string;
   Type: 'JOB';
   jobId: string;
-  status: JobStatus;
+  batchJobId?: string;
+  batchStage?: string;
   originalFileName: string;
   fileSize: number;
   createdAt: number;
@@ -55,45 +55,55 @@ export class DynamoDBJobRepository implements JobRepository {
     return job;
   }
 
-  public async updateStatus(
-    jobId: string,
-    status: JobStatus,
-    errorMessage?: string | undefined
-  ): Promise<Job> {
+  public async updateBatchJobId(jobId: string, batchJobId: string): Promise<void> {
     const key = this.buildKeys(jobId);
-    const shouldSetError = status === 'FAILED' && typeof errorMessage === 'string';
-
     await this.docClient.send(
       new UpdateCommand({
         TableName: this.tableName,
         Key: key,
-        UpdateExpression: shouldSetError
-          ? 'SET #status = :status, #errorMessage = :errorMessage'
-          : 'SET #status = :status REMOVE #errorMessage',
+        UpdateExpression: 'SET #batchJobId = :batchJobId',
         ExpressionAttributeNames: {
-          '#status': 'status',
-          '#errorMessage': 'errorMessage',
+          '#batchJobId': 'batchJobId',
         },
-        ...(shouldSetError
-          ? {
-              ExpressionAttributeValues: {
-                ':status': status,
-                ':errorMessage': errorMessage,
-              },
-            }
-          : {
-              ExpressionAttributeValues: {
-                ':status': status,
-              },
-            }),
+        ExpressionAttributeValues: {
+          ':batchJobId': batchJobId,
+        },
       })
     );
+  }
 
-    const updated = await this.getById(jobId);
-    if (!updated) {
-      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_UPDATED_FETCH_FAILED);
-    }
-    return updated;
+  public async updateBatchStage(jobId: string, batchStage: BatchStage): Promise<void> {
+    const key = this.buildKeys(jobId);
+    await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: key,
+        UpdateExpression: 'SET #batchStage = :batchStage',
+        ExpressionAttributeNames: {
+          '#batchStage': 'batchStage',
+        },
+        ExpressionAttributeValues: {
+          ':batchStage': batchStage,
+        },
+      })
+    );
+  }
+
+  public async updateErrorMessage(jobId: string, errorMessage: string): Promise<void> {
+    const key = this.buildKeys(jobId);
+    await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: key,
+        UpdateExpression: 'SET #errorMessage = :errorMessage',
+        ExpressionAttributeNames: {
+          '#errorMessage': 'errorMessage',
+        },
+        ExpressionAttributeValues: {
+          ':errorMessage': errorMessage,
+        },
+      })
+    );
   }
 
   private buildKeys(jobId: string): { PK: string; SK: string } {
@@ -106,7 +116,8 @@ export class DynamoDBJobRepository implements JobRepository {
   private mapToEntity(item: JobItem): Job {
     return {
       jobId: item.jobId,
-      status: item.status,
+      ...(item.batchJobId ? { batchJobId: item.batchJobId } : {}),
+      ...(item.batchStage ? { batchStage: item.batchStage as BatchStage } : {}),
       originalFileName: item.originalFileName,
       fileSize: item.fileSize,
       createdAt: item.createdAt,
@@ -120,7 +131,8 @@ export class DynamoDBJobRepository implements JobRepository {
       ...this.buildKeys(job.jobId),
       Type: 'JOB',
       jobId: job.jobId,
-      status: job.status,
+      ...(job.batchJobId ? { batchJobId: job.batchJobId } : {}),
+      ...(job.batchStage ? { batchStage: job.batchStage } : {}),
       originalFileName: job.originalFileName,
       fileSize: job.fileSize,
       createdAt: job.createdAt,

@@ -152,7 +152,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json(
         {
           jobId: job.jobId,
-          status: job.status,
           multipart: {
             uploadId,
             uploadUrls,
@@ -174,7 +173,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       { expiresIn: UPLOAD_URL_EXPIRES_IN }
     );
 
-    await getBatchClient().send(
+    const submitResponse = await getBatchClient().send(
       new SubmitJobCommand({
         jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
         jobQueue: getBatchJobQueueArn(),
@@ -192,10 +191,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       })
     );
 
+    await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
+
     return NextResponse.json(
       {
         jobId: job.jobId,
-        status: job.status,
         uploadUrl,
         expiresIn: UPLOAD_URL_EXPIRES_IN,
       },

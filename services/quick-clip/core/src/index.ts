@@ -1,5 +1,6 @@
 export type {
   JobStatus,
+  BatchStage,
   HighlightStatus,
   ClipStatus,
   Job,

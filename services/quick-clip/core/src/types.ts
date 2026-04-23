@@ -1,13 +1,15 @@
 import type { EmotionLabel, HighlightSource } from './libs/highlight-extractor.service.js';
 
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+export type BatchStage = 'downloading' | 'analyzing' | 'aggregating';
 
 export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
 
 export type Job = {
   jobId: string;
-  status: JobStatus;
+  batchJobId?: string;
+  batchStage?: BatchStage;
   originalFileName: string;
   fileSize: number;
   createdAt: number;
@@ -25,6 +27,7 @@ export type Highlight = {
   status: HighlightStatus;
   clipStatus: ClipStatus;
   dominantEmotion?: EmotionLabel;
+  expiresAt: number;
 };
 
 export type CreateJobInput = {
