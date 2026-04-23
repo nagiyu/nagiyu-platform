@@ -16,6 +16,7 @@ const ERROR_MESSAGES = {
 
 const LOG_MESSAGES = {
   UPLOAD_FAILED: '動画アップロードに失敗しました',
+  ABORT_UPLOAD_FAILED: 'マルチパートアップロード中断処理に失敗しました',
   UPLOAD_EXCEPTION: '動画アップロード時に予期しないエラーが発生しました',
   COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
   INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
@@ -159,8 +160,9 @@ export default function Home() {
             return;
           }
 
-          let parts: Array<{ PartNumber: number; ETag: string }>;
-          try {
+          const uploadPartsInParallel = async (): Promise<
+            Array<{ PartNumber: number; ETag: string }>
+          > => {
             const results = await Promise.all(
               data.multipart.uploadUrls.map(async (uploadUrl, index) => {
                 const start = index * chunkSizeBytes;
@@ -189,7 +191,12 @@ export default function Home() {
               })
             );
             setUploadProgress(100);
-            parts = results;
+            return results;
+          };
+
+          let parts: Array<{ PartNumber: number; ETag: string }>;
+          try {
+            parts = await uploadPartsInParallel();
           } catch (uploadError) {
             console.error(LOG_MESSAGES.UPLOAD_FAILED, uploadError);
             await fetch(`/api/jobs/${data.jobId}/abort-upload`, {
@@ -197,7 +204,7 @@ export default function Home() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ uploadId: data.multipart.uploadId }),
             }).catch((abortError: unknown) => {
-              console.error(LOG_MESSAGES.UPLOAD_FAILED, abortError);
+              console.error(LOG_MESSAGES.ABORT_UPLOAD_FAILED, abortError);
             });
             setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
             resetSubmitting();
