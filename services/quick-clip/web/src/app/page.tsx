@@ -199,6 +199,7 @@ export default function Home() {
             parts = await uploadPartsInParallel();
           } catch (uploadError) {
             console.error(LOG_MESSAGES.UPLOAD_FAILED, uploadError);
+            // 中断処理の失敗はユーザー体験に影響しないため console.error のみとする（設計方針）
             await fetch(`/api/jobs/${data.jobId}/abort-upload`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
