@@ -231,6 +231,37 @@ FFmpeg の `blackdetect` フィルターで黒フレーム区間を検出し、`
 
 ---
 
+### ADR-011: AWS Batch を Job 実行状態の正（Source of Truth）とする
+
+**背景・問題**
+
+AWS Batch コンテナが OOM やスポット中断によって強制終了されると、DynamoDB の Job レコードの `status` フィールドが `PROCESSING` のまま残る問題があった。クライアントがポーリングする限り「処理中」を表示し続け、失敗を検知できない状態となる。
+
+**決定**
+
+Job レコードの `status` フィールドを DynamoDB から削除し、代わりに AWS Batch job ID（`batchJobId`）を Job レコードに保存する。Web API は `DescribeJobsCommand` で AWS Batch の実状態を取得し、以下のルールでクライアントに返す `status` を導出する。
+
+| batchJobId | AWS Batch 状態 | クライアントへの status |
+|------------|--------------|----------------------|
+| 未設定 | N/A | `PENDING` |
+| 設定済み | SUBMITTED / PENDING / RUNNABLE / STARTING | `PENDING` |
+| 設定済み | RUNNING | `PROCESSING`（DynamoDB の `batchStage` を添付） |
+| 設定済み | SUCCEEDED | `COMPLETED` |
+| 設定済み | FAILED | `FAILED`（DynamoDB の `errorMessage` を添付） |
+
+Batch コンテナは `status` を更新せず、処理ステップ開始前に `batchStage`（`downloading` / `analyzing` / `aggregating`）を更新し、失敗時のみ `errorMessage` を書き込む。Web API の GET リクエストは DynamoDB への書き込みを行わない（read-only）。
+
+DynamoDB に保存していた `batchStage` フィールドは引き続き保持し、`RUNNING` 状態のジョブに対してのみクライアントへ添付する。Highlight レコードには Job の `expiresAt` を同値で設定し、Job と同時に TTL 削除されるようにする。
+
+**根拠・トレードオフ**
+
+- Batch コンテナが強制終了されても Batch 側の状態は `FAILED` に遷移するため、クライアントが適切に失敗を検知できる
+- DynamoDB への書き込み責務を削減し、コンテナのコードをシンプルにできる
+- クライアントへの API レスポンスの `status` フィールドの値は変わらず、後方互換性を維持できる
+- トレードオフ: ポーリングのたびに `DescribeJobsCommand` を呼び出すため、AWS Batch API への呼び出し回数が増加する（ただし API rate limit に対して問題ないレベル）
+
+---
+
 ### ADR-010: 感情分析のセグメントチャンク分割処理の採用
 
 **背景・問題**
