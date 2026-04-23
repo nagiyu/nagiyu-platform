@@ -486,4 +486,64 @@ describe('TranscriptionService', () => {
     expect(result[0].text).toBe('正常チャンク1');
     expect(result[1].text).toBe('正常チャンク2');
   });
+
+  it('並列化: 複数チャンクが Promise.all で並列処理されタイムスタンプ順に結合される', async () => {
+    // CHUNK_DURATION_SEC = Math.floor(24 * 1024 * 1024 / 4000) = 6291
+    const expectedChunkDurationSec = 6291;
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    // 3チャンク相当のサイズ: 3 * CHUNK_DURATION_SEC * MP3_BYTES_PER_SEC (ちょうど3チャンクになるよう設定)
+    stat.mockResolvedValue({ size: 3 * expectedChunkDurationSec * 4000 });
+
+    mockCreate
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 0.0,
+            end: 5.0,
+            text: 'chunk1',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 1.0,
+            end: 3.0,
+            text: 'chunk2',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: '',
+        segments: [
+          {
+            start: 2.0,
+            end: 4.0,
+            text: 'chunk3',
+            no_speech_prob: 0.1,
+            avg_logprob: -0.5,
+            compression_ratio: 1.0,
+          },
+        ],
+      });
+
+    const service = new TranscriptionService(mockClient);
+    const result = await service.transcribe('/tmp/video.mp4');
+
+    expect(mockCreate).toHaveBeenCalledTimes(3);
+    expect(result).toHaveLength(3);
+    expect(result[0].text).toBe('chunk1');
+    expect(result[1].text).toBe('chunk2');
+    expect(result[1].start).toBeCloseTo(1.0 + expectedChunkDurationSec);
+    expect(result[2].text).toBe('chunk3');
+    expect(result[2].start).toBeCloseTo(2.0 + 2 * expectedChunkDurationSec);
+  });
 });

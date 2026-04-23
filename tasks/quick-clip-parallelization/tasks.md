@@ -22,9 +22,9 @@ Web 層の変更はすべて独立しており、Core 層に依存しない。
 
 Core 層の変更は Web 層に依存しない。Phase 1 と並行して作業可能。
 
-- [ ] `services/quick-clip/core/src/libs/transcription.service.ts`: `transcribe` メソッド内のチャンク処理 `for` ループを `Promise.all` 化する。`extractAudioChunk → transcribeFile → unlink` を1チャンクずつの async 関数にまとめて並列実行し、結果を `flat()` で結合する（依存: なし）
-- [ ] `services/quick-clip/core/src/libs/emotion-highlight.service.ts`: `getScores` メソッド内のチャンク処理 `for` ループを concurrency limiter 付き `Promise.all` 化する。`EMOTION_SCORING_CONCURRENCY = 3` 定数を定義し、`runWithConcurrency` ヘルパーで実装する（依存: なし）
-- [ ] Phase 2 のテストを追加・更新する（依存: 上記）
+- [x] `services/quick-clip/core/src/libs/transcription.service.ts`: `transcribe` メソッド内のチャンク処理 `for` ループを `Promise.all` 化する。`extractAudioChunk → transcribeFile → unlink` を1チャンクずつの async 関数にまとめて並列実行し、結果を `flat()` で結合する（依存: なし）
+- [x] `services/quick-clip/core/src/libs/emotion-highlight.service.ts`: `getScores` メソッド内のチャンク処理 `for` ループを concurrency limiter 付き `Promise.all` 化する。`EMOTION_SCORING_CONCURRENCY = 3` 定数を定義し、`runWithConcurrency` ヘルパーで実装する（依存: なし）
+- [x] Phase 2 のテストを追加・更新する（依存: 上記）
 
 ## 完了チェック
 
