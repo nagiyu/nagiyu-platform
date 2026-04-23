@@ -6,6 +6,7 @@ import {
   EmotionHighlightService,
   createOpenAIClient,
   selectJobDefinition,
+  type BatchStage,
   type ClipSplitterService,
   type CreateJobInput,
   type ExtractedHighlight,
@@ -35,13 +36,15 @@ describe('quick-clip core exports', () => {
 
   it('主要な型が利用できる', () => {
     const status: JobStatus = 'PENDING';
+    const batchStage: BatchStage = 'downloading';
     const highlightStatus: HighlightStatus = 'unconfirmed';
     const clipStatus: ClipStatus = 'PENDING';
     const jobDefinitionSize: JobDefinitionSize = selectJobDefinition(1024);
 
     const job: Job = {
       jobId: 'job-1',
-      status,
+      batchJobId: 'batch-1',
+      batchStage,
       originalFileName: 'movie.mp4',
       fileSize: 100,
       createdAt: 1,
@@ -57,6 +60,7 @@ describe('quick-clip core exports', () => {
       source: 'motion',
       status: highlightStatus,
       clipStatus,
+      expiresAt: 2,
     };
 
     const createInput: CreateJobInput = {
@@ -86,15 +90,19 @@ describe('quick-clip core exports', () => {
     const jobRepository: JobRepository = {
       getById: async () => job,
       create: async (item) => item,
-      updateStatus: async () => job,
+      updateBatchJobId: async () => undefined,
+      updateBatchStage: async () => undefined,
+      updateErrorMessage: async () => undefined,
     };
 
     const highlightRepository: HighlightRepository = {
       getByJobId: async () => [highlight],
       getById: async () => highlight,
       update: async () => highlight,
+      createMany: async () => undefined,
     };
 
+    expect(status).toBe('PENDING');
     expect(createInput.fileSize).toBe(100);
     expect(jobDefinitionSize).toBe('small');
     expect(updateInput.status).toBe('accepted');

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { JobRepository } from '../repositories/job.repository.interface.js';
-import type { CreateJobInput, Job } from '../types.js';
+import type { BatchStage, CreateJobInput, Job } from '../types.js';
 import { DOMAIN_ERROR_MESSAGES } from './domain-error-messages.js';
 
 const JOB_TTL_SECONDS = 24 * 60 * 60;
@@ -24,7 +24,6 @@ export class JobService {
     const createdAt = Math.floor(Date.now() / 1000);
     const job: Job = {
       jobId: randomUUID(),
-      status: 'PENDING',
       originalFileName,
       fileSize: input.fileSize,
       createdAt,
@@ -41,20 +40,28 @@ export class JobService {
     return this.jobRepository.getById(jobId);
   }
 
-  public async updateStatus(
-    jobId: string,
-    status: Job['status'],
-    errorMessage?: string
-  ): Promise<Job> {
+  public async updateBatchJobId(jobId: string, batchJobId: string): Promise<void> {
     if (jobId.trim().length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
     }
+    return this.jobRepository.updateBatchJobId(jobId, batchJobId);
+  }
 
-    const normalizedErrorMessage = errorMessage?.trim() || undefined;
-    if (status === 'FAILED' && !normalizedErrorMessage) {
+  public async updateBatchStage(jobId: string, batchStage: BatchStage): Promise<void> {
+    if (jobId.trim().length === 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
+    }
+    return this.jobRepository.updateBatchStage(jobId, batchStage);
+  }
+
+  public async updateErrorMessage(jobId: string, errorMessage: string): Promise<void> {
+    if (jobId.trim().length === 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
+    }
+    const normalizedErrorMessage = errorMessage.trim();
+    if (normalizedErrorMessage.length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.ERROR_MESSAGE_REQUIRED);
     }
-
-    return this.jobRepository.updateStatus(jobId, status, normalizedErrorMessage);
+    return this.jobRepository.updateErrorMessage(jobId, normalizedErrorMessage);
   }
 }

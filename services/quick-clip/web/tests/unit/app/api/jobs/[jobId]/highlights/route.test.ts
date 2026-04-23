@@ -47,7 +47,7 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
       ({
         create: jest.fn(),
         getById: mockGetJob,
-        updateStatus: jest.fn(),
+        updateBatchJobId: jest.fn(),
       }) as unknown as JobRepository
   ),
   DynamoDBHighlightRepository: jest.fn().mockImplementation(

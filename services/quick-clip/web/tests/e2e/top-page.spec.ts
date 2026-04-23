@@ -39,6 +39,6 @@ test.describe('QuickClip Top Page', () => {
       page.getByRole('button', { name: 'アップロードして処理開始' }).click(),
     ]);
 
-    await expect(page.getByRole('heading', { level: 1, name: '処理中画面' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '処理中' })).toBeVisible();
   });
 });
