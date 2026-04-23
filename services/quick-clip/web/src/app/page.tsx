@@ -179,12 +179,12 @@ export default function Home() {
                 const eTag = uploadResponse.headers.get('ETag');
                 if (!uploadResponse.ok) {
                   throw new Error(
-                    `${LOG_MESSAGES.UPLOAD_FAILED}: status=${uploadResponse.status}, partNumber=${index + 1}`
+                    `${LOG_MESSAGES.UPLOAD_FAILED}: ステータス=${uploadResponse.status}, パート番号=${index + 1}`
                   );
                 }
                 if (!eTag) {
                   throw new Error(
-                    `${LOG_MESSAGES.UPLOAD_FAILED}: ETagが取得できませんでした, partNumber=${index + 1}`
+                    `${LOG_MESSAGES.UPLOAD_FAILED}: ETagが取得できませんでした, パート番号=${index + 1}`
                   );
                 }
                 return { PartNumber: index + 1, ETag: eTag };
