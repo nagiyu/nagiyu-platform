@@ -13,6 +13,7 @@ const OPENAI_MODEL = 'gpt-5-mini';
 const MAX_RETRIES = 3;
 const REQUEST_TIMEOUT_MS = 600_000;
 const SEGMENTS_PER_CHUNK = 50;
+const EMOTION_SCORING_CONCURRENCY = 3;
 
 const ERROR_MESSAGES = {
   TIMEOUT: 'OpenAI APIの呼び出しがタイムアウトしました',
@@ -98,6 +99,24 @@ function toDominantEmotion(item: {
   return entries.reduce((best, current) => (current[1] > best[1] ? current : best))[0];
 }
 
+async function runWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let index = 0;
+
+  async function worker(): Promise<void> {
+    while (index < tasks.length) {
+      const i = index++;
+      results[i] = await tasks[i]();
+    }
+  }
+
+  await Promise.all(Array.from({ length: concurrency }, worker));
+  return results;
+}
+
 export class EmotionHighlightService {
   private readonly client: OpenAI;
 
@@ -118,37 +137,42 @@ export class EmotionHighlightService {
       tension: number;
     }> = [];
 
-    for (const chunk of chunks) {
-      const response = await withRetry(
-        async () =>
-          withTimeout(
-            this.client.responses.parse({
-              model: OPENAI_MODEL,
-              stream: false,
-              text: {
-                format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
-              },
-              input: [
-                {
-                  role: 'user',
-                  content: [
+    const responses = await runWithConcurrency(
+      chunks.map(
+        (chunk) => () =>
+          withRetry(
+            async () =>
+              withTimeout(
+                this.client.responses.parse({
+                  model: OPENAI_MODEL,
+                  stream: false,
+                  text: {
+                    format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
+                  },
+                  input: [
                     {
-                      type: 'input_text',
-                      text: createPrompt(chunk),
+                      role: 'user',
+                      content: [
+                        {
+                          type: 'input_text',
+                          text: createPrompt(chunk),
+                        },
+                      ],
                     },
                   ],
-                },
-              ],
-            }),
-            REQUEST_TIMEOUT_MS
-          ),
-        {
-          maxRetries: MAX_RETRIES,
-          shouldRetry: (error) =>
-            !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
-        }
-      );
-
+                }),
+                REQUEST_TIMEOUT_MS
+              ),
+            {
+              maxRetries: MAX_RETRIES,
+              shouldRetry: (error) =>
+                !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
+            }
+          )
+      ),
+      EMOTION_SCORING_CONCURRENCY
+    );
+    for (const response of responses) {
       allItems.push(...(response.output_parsed?.items ?? []));
     }
 

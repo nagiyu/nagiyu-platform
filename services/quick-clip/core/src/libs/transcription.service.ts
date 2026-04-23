@@ -148,29 +148,27 @@ export class TranscriptionService {
       // ファイルサイズからおおよその長さを推定し、チャンク数を算出する
       const estimatedDurationSec = size / MP3_BYTES_PER_SEC;
       const numChunks = Math.ceil(estimatedDurationSec / CHUNK_DURATION_SEC);
-      const allSegments: TranscriptSegment[] = [];
-
-      for (let i = 0; i < numChunks; i++) {
-        const startSec = i * CHUNK_DURATION_SEC;
-        const chunkPath = `/tmp/quick-clip-audio-${randomUUID()}-chunk-${i}.mp3`;
-        await this.extractAudioChunk(audioFilePath, chunkPath, startSec, CHUNK_DURATION_SEC);
-        try {
-          const segments = await this.transcribeFile(chunkPath);
-          allSegments.push(
-            ...segments.map((s) => ({
+      const chunkSegments = await Promise.all(
+        Array.from({ length: numChunks }, async (_, i) => {
+          const startSec = i * CHUNK_DURATION_SEC;
+          const chunkPath = `/tmp/quick-clip-audio-${randomUUID()}-chunk-${i}.mp3`;
+          await this.extractAudioChunk(audioFilePath, chunkPath, startSec, CHUNK_DURATION_SEC);
+          try {
+            const segments = await this.transcribeFile(chunkPath);
+            return segments.map((s) => ({
               start: s.start + startSec,
               end: s.end + startSec,
               text: s.text,
-            }))
-          );
-        } finally {
-          await unlink(chunkPath).catch((err: unknown) => {
-            console.warn('[TranscriptionService] チャンクファイルの削除に失敗しました:', err);
-          });
-        }
-      }
+            }));
+          } finally {
+            await unlink(chunkPath).catch((err: unknown) => {
+              console.warn('[TranscriptionService] チャンクファイルの削除に失敗しました:', err);
+            });
+          }
+        })
+      );
 
-      return allSegments;
+      return chunkSegments.flat();
     } finally {
       await unlink(audioFilePath).catch((err: unknown) => {
         console.warn('[TranscriptionService] 一時音声ファイルの削除に失敗しました:', err);

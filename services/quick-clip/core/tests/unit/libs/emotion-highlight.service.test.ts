@@ -239,4 +239,28 @@ describe('EmotionHighlightService', () => {
     expect(mockParse).toHaveBeenCalledTimes(2);
     expect(result).toHaveLength(2);
   });
+
+  it('並列化: 4チャンク（EMOTION_SCORING_CONCURRENCY=3）でも全チャンクの結果が順序通り結合される', async () => {
+    const segmentsPerChunk = 50;
+    const makeItems = (second: number) => [
+      { second, laugh: 0.1, excite: 0.2, touch: 0.3, tension: 0.4 },
+    ];
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(0.0) } })
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(50.0) } })
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(100.0) } })
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(150.0) } });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(4 * segmentsPerChunk), 'any');
+    await jest.runAllTimersAsync();
+    const result = await promise;
+
+    expect(mockParse).toHaveBeenCalledTimes(4);
+    expect(result).toHaveLength(4);
+    expect(result[0].second).toBe(0.0);
+    expect(result[1].second).toBe(50.0);
+    expect(result[2].second).toBe(100.0);
+    expect(result[3].second).toBe(150.0);
+  });
 });
