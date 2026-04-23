@@ -16,6 +16,7 @@ const ERROR_MESSAGES = {
 
 const LOG_MESSAGES = {
   UPLOAD_FAILED: '動画アップロードに失敗しました',
+  ABORT_UPLOAD_FAILED: 'マルチパートアップロード中断処理に失敗しました',
   UPLOAD_EXCEPTION: '動画アップロード時に予期しないエラーが発生しました',
   COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
   INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
@@ -159,44 +160,57 @@ export default function Home() {
             return;
           }
 
-          const parts: Array<{ PartNumber: number; ETag: string }> = [];
-          let uploadedBytes = 0;
-          for (const [index, uploadUrl] of data.multipart.uploadUrls.entries()) {
-            const start = index * chunkSizeBytes;
-            const end = Math.min(start + chunkSizeBytes, file.size);
-            const chunk = file.slice(start, end);
-            const uploadResponse = await fetch(uploadUrl, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': ACCEPTED_FILE_TYPE,
-              },
-              body: chunk,
+          const multipart = data.multipart;
+          const uploadPartsInParallel = async (): Promise<
+            Array<{ PartNumber: number; ETag: string }>
+          > => {
+            const results = await Promise.all(
+              multipart.uploadUrls.map(async (uploadUrl, index) => {
+                const start = index * chunkSizeBytes;
+                const end = Math.min(start + chunkSizeBytes, file.size);
+                const chunk = file.slice(start, end);
+                const uploadResponse = await fetch(uploadUrl, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': ACCEPTED_FILE_TYPE,
+                  },
+                  body: chunk,
+                });
+
+                const eTag = uploadResponse.headers.get('ETag');
+                if (!uploadResponse.ok) {
+                  throw new Error(
+                    `${LOG_MESSAGES.UPLOAD_FAILED}: ステータス=${uploadResponse.status}, パート番号=${index + 1}`
+                  );
+                }
+                if (!eTag) {
+                  throw new Error(
+                    `${LOG_MESSAGES.UPLOAD_FAILED}: ETagが取得できませんでした, パート番号=${index + 1}`
+                  );
+                }
+                return { PartNumber: index + 1, ETag: eTag };
+              })
+            );
+            setUploadProgress(100);
+            return results;
+          };
+
+          let parts: Array<{ PartNumber: number; ETag: string }>;
+          try {
+            parts = await uploadPartsInParallel();
+          } catch (uploadError) {
+            console.error(LOG_MESSAGES.UPLOAD_FAILED, uploadError);
+            // 中断処理の失敗はユーザー体験に影響しないため console.error のみとする（設計方針）
+            await fetch(`/api/jobs/${data.jobId}/abort-upload`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uploadId: multipart.uploadId }),
+            }).catch((abortError: unknown) => {
+              console.error(LOG_MESSAGES.ABORT_UPLOAD_FAILED, abortError);
             });
-
-            const eTag = uploadResponse.headers.get('ETag');
-            if (!uploadResponse.ok) {
-              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-                status: uploadResponse.status,
-                partNumber: index + 1,
-              });
-              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-              resetSubmitting();
-              return;
-            }
-            if (!eTag) {
-              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-                partNumber: index + 1,
-                eTag,
-                reason: 'ETagが取得できませんでした',
-              });
-              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-              resetSubmitting();
-              return;
-            }
-
-            uploadedBytes += chunk.size;
-            setUploadProgress(Math.round((uploadedBytes / file.size) * 100));
-            parts.push({ PartNumber: index + 1, ETag: eTag });
+            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+            resetSubmitting();
+            return;
           }
 
           const completeUploadResponse = await fetch(`/api/jobs/${data.jobId}/complete-upload`, {

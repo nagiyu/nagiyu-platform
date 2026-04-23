@@ -13,10 +13,10 @@
 
 Web 層の変更はすべて独立しており、Core 層に依存しない。
 
-- [ ] `services/quick-clip/web/src/app/api/jobs/route.ts`: `MULTIPART_UPLOAD_THRESHOLD_BYTES` を 100MB に、`MULTIPART_CHUNK_SIZE_BYTES` を 50MB に変更する（依存: なし）
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/abort-upload/route.ts`: 新規作成。`AbortMultipartUploadCommand` を呼ぶ POST エンドポイントを実装する。`complete-upload/route.ts` の構造を参考にする（依存: なし）
-- [ ] `services/quick-clip/web/src/app/page.tsx`: チャンク PUT を `Promise.all` 化し、エラー時に abort-upload API を呼ぶように修正する。進捗表示は全チャンク完了後に 100% にする（依存: abort-upload エンドポイント）
-- [ ] Phase 1 のテストを追加・更新する（依存: 上記）
+- [x] `services/quick-clip/web/src/app/api/jobs/route.ts`: `MULTIPART_UPLOAD_THRESHOLD_BYTES` を 100MB に、`MULTIPART_CHUNK_SIZE_BYTES` を 50MB に変更する（依存: なし）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/abort-upload/route.ts`: 新規作成。`AbortMultipartUploadCommand` を呼ぶ POST エンドポイントを実装する。`complete-upload/route.ts` の構造を参考にする（依存: なし）
+- [x] `services/quick-clip/web/src/app/page.tsx`: チャンク PUT を `Promise.all` 化し、エラー時に abort-upload API を呼ぶように修正する。進捗表示は全チャンク完了後に 100% にする（依存: abort-upload エンドポイント）
+- [x] Phase 1 のテストを追加・更新する（依存: 上記）
 
 ## Phase 2: バッチ処理並列化（Core 層）
 
