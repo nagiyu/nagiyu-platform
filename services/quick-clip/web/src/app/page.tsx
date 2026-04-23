@@ -159,44 +159,49 @@ export default function Home() {
             return;
           }
 
-          const parts: Array<{ PartNumber: number; ETag: string }> = [];
-          let uploadedBytes = 0;
-          for (const [index, uploadUrl] of data.multipart.uploadUrls.entries()) {
-            const start = index * chunkSizeBytes;
-            const end = Math.min(start + chunkSizeBytes, file.size);
-            const chunk = file.slice(start, end);
-            const uploadResponse = await fetch(uploadUrl, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': ACCEPTED_FILE_TYPE,
-              },
-              body: chunk,
+          let parts: Array<{ PartNumber: number; ETag: string }>;
+          try {
+            const results = await Promise.all(
+              data.multipart.uploadUrls.map(async (uploadUrl, index) => {
+                const start = index * chunkSizeBytes;
+                const end = Math.min(start + chunkSizeBytes, file.size);
+                const chunk = file.slice(start, end);
+                const uploadResponse = await fetch(uploadUrl, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': ACCEPTED_FILE_TYPE,
+                  },
+                  body: chunk,
+                });
+
+                const eTag = uploadResponse.headers.get('ETag');
+                if (!uploadResponse.ok) {
+                  throw new Error(
+                    `${LOG_MESSAGES.UPLOAD_FAILED}: status=${uploadResponse.status}, partNumber=${index + 1}`
+                  );
+                }
+                if (!eTag) {
+                  throw new Error(
+                    `${LOG_MESSAGES.UPLOAD_FAILED}: ETagが取得できませんでした, partNumber=${index + 1}`
+                  );
+                }
+                return { PartNumber: index + 1, ETag: eTag };
+              })
+            );
+            setUploadProgress(100);
+            parts = results;
+          } catch (uploadError) {
+            console.error(LOG_MESSAGES.UPLOAD_FAILED, uploadError);
+            await fetch(`/api/jobs/${data.jobId}/abort-upload`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uploadId: data.multipart.uploadId }),
+            }).catch((abortError: unknown) => {
+              console.error(LOG_MESSAGES.UPLOAD_FAILED, abortError);
             });
-
-            const eTag = uploadResponse.headers.get('ETag');
-            if (!uploadResponse.ok) {
-              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-                status: uploadResponse.status,
-                partNumber: index + 1,
-              });
-              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-              resetSubmitting();
-              return;
-            }
-            if (!eTag) {
-              console.error(LOG_MESSAGES.UPLOAD_FAILED, {
-                partNumber: index + 1,
-                eTag,
-                reason: 'ETagが取得できませんでした',
-              });
-              setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
-              resetSubmitting();
-              return;
-            }
-
-            uploadedBytes += chunk.size;
-            setUploadProgress(Math.round((uploadedBytes / file.size) * 100));
-            parts.push({ PartNumber: index + 1, ETag: eTag });
+            setErrorMessage(ERROR_MESSAGES.UPLOAD_FAILED);
+            resetSubmitting();
+            return;
           }
 
           const completeUploadResponse = await fetch(`/api/jobs/${data.jobId}/complete-upload`, {

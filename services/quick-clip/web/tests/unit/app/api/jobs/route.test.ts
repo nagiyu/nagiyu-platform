@@ -114,9 +114,9 @@ describe('POST /api/jobs', () => {
     });
   });
 
-  it('正常系: 5GB以上のファイルはマルチパートアップロードURLを返す', async () => {
+  it('正常系: 100MB以上のファイルはマルチパートアップロードURLを返す', async () => {
     const partUrls = Array.from(
-      { length: 11 },
+      { length: 2 },
       (_, index) => `https://example.com/upload-part-${index + 1}`
     );
     partUrls.forEach((url) => {
@@ -124,7 +124,7 @@ describe('POST /api/jobs', () => {
     });
     const request = createRequest({
       fileName: 'movie.mp4',
-      fileSize: 5 * 1024 * 1024 * 1024 + 1,
+      fileSize: 100 * 1024 * 1024,
       contentType: 'video/mp4',
     });
 
@@ -138,19 +138,19 @@ describe('POST /api/jobs', () => {
         multipart: {
           uploadId: 'upload-id-1',
           uploadUrls: partUrls,
-          chunkSize: 500 * 1024 * 1024,
+          chunkSize: 50 * 1024 * 1024,
         },
         expiresIn: 24 * 60 * 60,
       })
     );
     expect(s3Send).toHaveBeenCalledTimes(1);
-    expect(mockedGetSignedUrl).toHaveBeenCalledTimes(11);
+    expect(mockedGetSignedUrl).toHaveBeenCalledTimes(2);
     expect(batchSend).not.toHaveBeenCalled();
   });
 
-  it('正常系: 20GBちょうどのファイルは41パートのURLを返す', async () => {
+  it('正常系: 20GBちょうどのファイルは410パートのURLを返す', async () => {
     const partUrls = Array.from(
-      { length: 41 },
+      { length: 410 },
       (_, index) => `https://example.com/upload-part-${index + 1}`
     );
     partUrls.forEach((url) => {
@@ -170,11 +170,11 @@ describe('POST /api/jobs', () => {
       expect.objectContaining({
         multipart: expect.objectContaining({
           uploadUrls: partUrls,
-          chunkSize: 500 * 1024 * 1024,
+          chunkSize: 50 * 1024 * 1024,
         }),
       })
     );
-    expect(mockedGetSignedUrl).toHaveBeenCalledTimes(41);
+    expect(mockedGetSignedUrl).toHaveBeenCalledTimes(410);
     expect(batchSend).not.toHaveBeenCalled();
   });
 
@@ -199,7 +199,7 @@ describe('POST /api/jobs', () => {
     mockedGetSignedUrl.mockRejectedValueOnce(new Error('sign failed'));
     const request = createRequest({
       fileName: 'movie.mp4',
-      fileSize: 5 * 1024 * 1024 * 1024 + 1,
+      fileSize: 100 * 1024 * 1024,
       contentType: 'video/mp4',
     });
 
@@ -221,7 +221,7 @@ describe('POST /api/jobs', () => {
     s3Send.mockRejectedValueOnce(new Error('create multipart failed'));
     const request = createRequest({
       fileName: 'movie.mp4',
-      fileSize: 5 * 1024 * 1024 * 1024 + 1,
+      fileSize: 100 * 1024 * 1024,
       contentType: 'video/mp4',
     });
 
