@@ -160,11 +160,12 @@ export default function Home() {
             return;
           }
 
+          const multipart = data.multipart;
           const uploadPartsInParallel = async (): Promise<
             Array<{ PartNumber: number; ETag: string }>
           > => {
             const results = await Promise.all(
-              data.multipart.uploadUrls.map(async (uploadUrl, index) => {
+              multipart.uploadUrls.map(async (uploadUrl, index) => {
                 const start = index * chunkSizeBytes;
                 const end = Math.min(start + chunkSizeBytes, file.size);
                 const chunk = file.slice(start, end);
@@ -203,7 +204,7 @@ export default function Home() {
             await fetch(`/api/jobs/${data.jobId}/abort-upload`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ uploadId: data.multipart.uploadId }),
+              body: JSON.stringify({ uploadId: multipart.uploadId }),
             }).catch((abortError: unknown) => {
               console.error(LOG_MESSAGES.ABORT_UPLOAD_FAILED, abortError);
             });
