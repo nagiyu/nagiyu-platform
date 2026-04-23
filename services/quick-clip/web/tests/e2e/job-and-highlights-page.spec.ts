@@ -21,7 +21,7 @@ test.describe('QuickClip Job Page', () => {
 
     await page.goto('/jobs/e2e-job-completed');
 
-    await expect(page.getByRole('heading', { level: 1, name: '処理中画面' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: '処理中' })).toBeVisible();
     await expect(page.getByText('処理完了')).toBeVisible();
     await page.getByRole('link', { name: '見どころを確認する' }).click();
     await expect(page).toHaveURL(/\/jobs\/e2e-job-completed\/highlights$/);
