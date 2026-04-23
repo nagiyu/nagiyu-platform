@@ -148,7 +148,7 @@ export default function JobPage({ params }: JobPageProps) {
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          処理中画面
+          処理中
         </Typography>
 
         {isLoading && (
