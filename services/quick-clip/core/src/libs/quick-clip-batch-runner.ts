@@ -173,9 +173,14 @@ const buildHighlights = async (
 
   // mutable な共有オブジェクトを then チェーンで更新する
   // （Node.js シングルスレッドのためコールバック間の競合なし）
-  const progress = { ...initialProgress };
+  // let を使用してプロパティ変更を明示的に示す
+  // eslint-disable-next-line prefer-const
+  let progress = { ...initialProgress };
 
   let emotionScores: EmotionHighlightScore[] = [];
+
+  // OpenAI クライアントは Promise.all 開始前に作成して初期化コストを最小化
+  const openai = openAiApiKey ? createOpenAIClient(openAiApiKey) : null;
 
   console.info(`[buildHighlights] モーション・音量・文字起こし 並列分析開始: jobId=${jobId}`);
 
@@ -192,9 +197,8 @@ const buildHighlights = async (
       console.info(`[buildHighlights] 音量分析完了: jobId=${jobId} scores=${scores.length}`);
       return scores;
     }),
-    openAiApiKey
+    openai
       ? (async (): Promise<TranscriptSegment[]> => {
-          const openai = createOpenAIClient(openAiApiKey);
           const transcriptionService = new TranscriptionService(openai);
           console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
           try {
@@ -229,13 +233,12 @@ const buildHighlights = async (
   );
 
   // 感情分析は3つ全て完了後に開始
-  if (openAiApiKey && segments.length > 0) {
+  if (openai && segments.length > 0) {
     progress.emotionScoring = { status: 'in_progress' };
     await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
 
     console.info(`[buildHighlights] 感情分析開始: jobId=${jobId}`);
     try {
-      const openai = createOpenAIClient(openAiApiKey);
       const emotionService = new EmotionHighlightService(openai);
       emotionScores = await emotionService.getScores(
         segments,
