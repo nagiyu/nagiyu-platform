@@ -44,6 +44,18 @@ Phase 1・2 の実装完了後に判明した不具合・改善点。
     - `services/quick-clip/core/src/libs/transcription.service.ts`: 音声抽出の開始・完了（ファイルサイズ）、単一ファイル vs チャンク分割の選択結果、チャンク分割時のチャンク総数・各チャンクの開始（何番目・サイズ）・完了
     - `services/quick-clip/core/src/libs/emotion-highlight.service.ts`: `getScores` 入口（セグメント数・チャンク数）、各チャンクの API 呼び出し開始・完了・リトライ発生
 
+## Phase 5: 解析進捗可視化 & モーション+音量+文字起こし並列化
+
+- [ ] `services/quick-clip/core/src/types.ts`: `AnalysisProgressItem` 型・`AnalysisProgress` 型を追加する。`Job` 型に `analysisProgress?: AnalysisProgress` を追加する（依存: なし）
+- [ ] `services/quick-clip/core/src/libs/dynamodb-job.repository.ts`: `updateAnalysisProgress(jobId, progress)` を追加する。`updateBatchStage` と同じパターンで `analysisProgress` フィールドを SET する（依存: 型定義）
+- [ ] `services/quick-clip/core/src/libs/job.service.ts`: `updateAnalysisProgress()` ラッパーメソッドを追加する（依存: repository）
+- [ ] `services/quick-clip/core/src/libs/transcription.service.ts`: `transcribe()` にオプション引数 `onProgress?: (completed: number, total: number) => Promise<void>` を追加する。チャンク分割時（numChunks > 1）のみ各チャンク完了後に呼ぶ（依存: なし）
+- [ ] `services/quick-clip/core/src/libs/emotion-highlight.service.ts`: `getScores()` にオプション引数 `onProgress?: (completed: number, total: number) => Promise<void>` を追加する。チャンク数 > 1 のみ各チャンク完了後に呼ぶ（依存: なし）
+- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: モーション・音量・文字起こしを `Promise.all` で並列実行するよう変更する。進捗オブジェクトを共有しコールバックで DynamoDB を更新する。感情分析は3つ完了後に開始する。design.md Phase 5-3 の実装方針に従う（依存: 上記すべて）
+- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts`: レスポンスに `analysisProgress` を追加する（batchStage=analyzing かつ存在する場合のみ）（依存: core 型定義）
+- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/page.tsx`: `JobApiResponse` 型に `analysisProgress` を追加し、解析ステップにサブ項目 UI を実装する。design.md Phase 5-7 の仕様に従う（依存: API 変更）
+- [ ] Phase 5 のテストを追加・更新する（依存: 上記）
+
 ## 完了チェック
 
 - [ ] requirements.md の受け入れ条件をすべて満たしている

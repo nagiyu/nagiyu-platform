@@ -235,6 +235,221 @@ for (const response of responses) {
 
 ---
 
+## Phase 5: 解析進捗可視化 & モーション+音量+文字起こし並列化
+
+### 変更対象ファイル（Phase 5）
+
+| ファイル | 変更種別 | 内容 |
+|---------|---------|------|
+| `services/quick-clip/core/src/types.ts` | 修正 | `AnalysisProgress` 型・`Job` 型に `analysisProgress` フィールド追加 |
+| `services/quick-clip/core/src/libs/job.service.ts` | 修正 | `updateAnalysisProgress()` メソッド追加 |
+| `services/quick-clip/core/src/libs/dynamodb-job.repository.ts` | 修正 | `updateAnalysisProgress()` DynamoDB 実装追加 |
+| `services/quick-clip/core/src/libs/transcription.service.ts` | 修正 | `transcribe()` にオプションの進捗コールバック追加 |
+| `services/quick-clip/core/src/libs/emotion-highlight.service.ts` | 修正 | `getScores()` にオプションの進捗コールバック追加 |
+| `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts` | 修正 | 並列実行への変更・各処理の進捗コールバックで DynamoDB 更新 |
+| `services/quick-clip/web/src/app/api/jobs/[jobId]/route.ts` | 修正 | レスポンスに `analysisProgress` を追加 |
+| `services/quick-clip/web/src/app/jobs/[jobId]/page.tsx` | 修正 | 解析ステップにサブ項目 UI を追加 |
+
+---
+
+### 5-1. データモデル（`services/quick-clip/core/src/types.ts`）
+
+```typescript
+export interface AnalysisProgressItem {
+    status: 'in_progress' | 'done' | 'failed';
+    completed?: number; // total > 1 のチャンク分割時のみ設定
+    total?: number;     // total > 1 のチャンク分割時のみ設定
+}
+
+export interface AnalysisProgress {
+    motion: AnalysisProgressItem;
+    volume: AnalysisProgressItem;
+    transcription?: AnalysisProgressItem;  // openAiApiKey 設定時のみ
+    emotionScoring?: AnalysisProgressItem; // 文字起こし完了後・感情分析開始時に追加
+}
+```
+
+`Job` 型に `analysisProgress?: AnalysisProgress` フィールドを追加する。
+
+---
+
+### 5-2. DynamoDB 更新メソッド
+
+**`dynamodb-job.repository.ts`** に `updateAnalysisProgress(jobId, progress)` を追加する。
+既存の `updateBatchStage()` と同じパターンで `analysisProgress` フィールドを SET する。
+
+**`job.service.ts`** に対応するラッパーメソッドを追加する。
+
+---
+
+### 5-3. 並列実行への変更（`quick-clip-batch-runner.ts`）
+
+**変更前（現状）:**
+```typescript
+const [motionScores, volumeScores] = await Promise.all([
+    motionService.analyzeMotion(localPath),
+    volumeService.analyzeVolume(localPath),
+]);
+// 完了後に逐次実行
+const segments = await transcriptionService.transcribe(localPath);
+```
+
+**変更後:**
+```typescript
+// 並列実行開始前に初期進捗を DynamoDB に書き込む
+const initialProgress: AnalysisProgress = {
+    motion: { status: 'in_progress' },
+    volume: { status: 'in_progress' },
+    ...(openAiApiKey ? { transcription: { status: 'in_progress' } } : {}),
+};
+await updateAnalysisProgress(jobId, initialProgress, ...);
+
+// mutable な共有オブジェクトを then チェーンで更新する
+// （Node.js シングルスレッドのためコールバック間の競合なし）
+const progress = { ...initialProgress };
+
+const [motionScores, volumeScores, segments] = await Promise.all([
+    motionService.analyzeMotion(localPath).then(async (scores) => {
+        progress.motion = { status: 'done' };
+        await updateAnalysisProgress(jobId, progress, ...);
+        return scores;
+    }),
+    volumeService.analyzeVolume(localPath).then(async (scores) => {
+        progress.volume = { status: 'done' };
+        await updateAnalysisProgress(jobId, progress, ...);
+        return scores;
+    }),
+    openAiApiKey
+        ? transcriptionService.transcribe(localPath, async (completed, total) => {
+              progress.transcription = {
+                  status: completed === total ? 'done' : 'in_progress',
+                  ...(total > 1 ? { completed, total } : {}),
+              };
+              await updateAnalysisProgress(jobId, progress, ...);
+          }).catch(async (err) => {
+              console.warn('[buildHighlights] 文字起こしをスキップします:', err);
+              progress.transcription = { status: 'failed' };
+              await updateAnalysisProgress(jobId, progress, ...);
+              return [] as Segment[];
+          })
+        : Promise.resolve([] as Segment[]),
+]);
+
+// 感情分析は 3 つ全て完了後に開始
+if (openAiApiKey && segments.length > 0) {
+    progress.emotionScoring = { status: 'in_progress' };
+    await updateAnalysisProgress(jobId, progress, ...);
+
+    try {
+        emotionScores = await emotionService.getScores(
+            segments,
+            emotionFilter ?? 'any',
+            async (completed, total) => {
+                progress.emotionScoring = {
+                    status: completed === total ? 'done' : 'in_progress',
+                    ...(total > 1 ? { completed, total } : {}),
+                };
+                await updateAnalysisProgress(jobId, progress, ...);
+            }
+        );
+    } catch (err) {
+        console.warn('[buildHighlights] 感情分析をスキップします:', err);
+        progress.emotionScoring = { status: 'failed' };
+        await updateAnalysisProgress(jobId, progress, ...);
+    }
+}
+```
+
+---
+
+### 5-4. TranscriptionService への進捗コールバック追加
+
+```typescript
+// 変更後のシグネチャ
+async transcribe(
+    videoFilePath: string,
+    onProgress?: (completed: number, total: number) => Promise<void>
+): Promise<Segment[]>
+```
+
+**呼び出しタイミング:**
+- チャンク分割あり（numChunks > 1）: 各チャンクの処理完了時に `onProgress(完了数, numChunks)` を呼ぶ
+    - 既存の `Promise.all` 内で、各チャンクの処理完了後にアトミックにカウンターをインクリメントして呼ぶ
+- チャンク分割なし（numChunks === 1 または単一ファイル処理）: `onProgress` は呼ばない
+    - `total=1` の場合はサブ表示不要（UI 側でも `total > 1` 条件で分岐）
+
+---
+
+### 5-5. EmotionHighlightService への進捗コールバック追加
+
+```typescript
+// 変更後のシグネチャ
+async getScores(
+    segments: Segment[],
+    emotionFilter: EmotionFilter,
+    onProgress?: (completed: number, total: number) => Promise<void>
+): Promise<EmotionHighlightScore[]>
+```
+
+**呼び出しタイミング:**
+- 各チャンク処理完了後に `onProgress(完了数, chunks.length)` を呼ぶ
+- chunks.length === 1 の場合は `onProgress` は呼ばない
+
+既存の `runWithConcurrency` 内で、各タスクの完了後にコールバックを呼ぶ形で実装する。
+completedCount は並列実行されるがシングルスレッドなので安全にインクリメントできる。
+
+---
+
+### 5-6. Web API 変更（`/api/jobs/[jobId]/route.ts`）
+
+レスポンスに `analysisProgress` を追加する。
+返却条件: `status === 'PROCESSING'` かつ `batchStage === 'analyzing'` かつ `job.analysisProgress` が存在する場合。
+
+```typescript
+...(status === 'PROCESSING' && job.batchStage === 'analyzing' && job.analysisProgress
+    ? { analysisProgress: job.analysisProgress }
+    : {}),
+```
+
+---
+
+### 5-7. UI 変更（`/jobs/[jobId]/page.tsx`）
+
+`JobApiResponse` 型に `analysisProgress?: AnalysisProgress` を追加する（`AnalysisProgress` / `AnalysisProgressItem` 型は core から import するか同等の型をローカル定義する）。
+
+解析ステップの `StepLabel` の `optional` を、`analysisProgress` がある場合はサブ項目リストに差し替える。
+
+```tsx
+// サブ項目の表示例（MUI の Typography + CircularProgress / CheckCircle / Warning アイコンで実装）
+{job.analysisProgress ? (
+    <Stack spacing={0.5}>
+        <AnalysisItem label="モーション解析" item={job.analysisProgress.motion} />
+        <AnalysisItem label="音量解析" item={job.analysisProgress.volume} />
+        {job.analysisProgress.transcription && (
+            <AnalysisItem label="文字起こし" item={job.analysisProgress.transcription} />
+        )}
+        {job.analysisProgress.emotionScoring && (
+            <AnalysisItem label="感情分析" item={job.analysisProgress.emotionScoring} />
+        )}
+    </Stack>
+) : (
+    <Typography variant="caption">{BATCH_STAGE_LABELS[job.batchStage]}</Typography>
+)}
+```
+
+`AnalysisItem` はファイル内のローカルコンポーネントとして実装する（新規ファイル不要）。
+
+| 状態 | 表示 |
+|-----|------|
+| `status: 'in_progress'`、`total` なし | `CircularProgress (size=12)` + "ラベル" |
+| `status: 'in_progress'`、`total > 1` | `CircularProgress (size=12)` + "ラベル (X/Y)" |
+| `status: 'done'` | CheckCircle アイコン（緑）+ "ラベル" |
+| `status: 'failed'` | Warning アイコン（橙）+ "ラベル（スキップ）" |
+
+`failed` は文字起こし・感情分析の graceful degradation 時のみ発生する（モーション・音量は失敗するとジョブ全体が FAILED になるため `failed` 状態にはならない）。
+
+---
+
 ## docs/ への移行メモ
 
 <!-- 開発完了後にここを確認し、docs/ を更新してからこのディレクトリを削除する -->
