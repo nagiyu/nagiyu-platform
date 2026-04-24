@@ -38,7 +38,7 @@ Phase 1・2 の実装完了後に判明した不具合・改善点。
 
 現状は warn/error 系 4 件のみで正常系・異常系ともにほぼブラックボックス。障害時の再現条件（動画サイズ・チャンク数・どのステージで失敗したか）が特定できない。
 
-- [ ] バッチ処理の主要フローにログを追加する。追加対象と観点:
+- [x] バッチ処理の主要フローにログを追加する。追加対象と観点:
     - `services/quick-clip/batch/src/entrypoint.ts`: ジョブ開始ログ（ジョブ ID 等のコンテキスト）
     - `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: 各ステージ遷移の開始（downloading / analyzing / aggregating）、`buildHighlights` 入口（動画ファイルサイズ）、ダウンロードリトライ（リトライ回数・エラー内容）、並列分析（モーション・音量・文字起こし・感情）の開始・完了、ハイライト保存完了（保存件数）
     - `services/quick-clip/core/src/libs/transcription.service.ts`: 音声抽出の開始・完了（ファイルサイズ）、単一ファイル vs チャンク分割の選択結果、チャンク分割時のチャンク総数・各チャンクの開始（何番目・サイズ）・完了

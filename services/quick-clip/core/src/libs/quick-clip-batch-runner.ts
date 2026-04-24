@@ -3,7 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
@@ -109,6 +109,9 @@ const downloadSourceVideo = async (
           missingSourceError.cause = error;
           throw missingSourceError;
         }
+        console.info(
+          `[downloadSourceVideo] NoSuchKey リトライ: ${retryCount}/${DOWNLOAD_RETRY_COUNT} key=${sourceVideoKey}`
+        );
         await wait(DOWNLOAD_RETRY_INTERVAL_MS);
         continue;
       }
@@ -149,14 +152,24 @@ const buildHighlights = async (
   openAiApiKey?: string,
   emotionFilter?: EmotionFilter
 ): Promise<Highlight[]> => {
+  const { size: videoFileSizeBytes } = await stat(localPath);
+  console.info(
+    `[buildHighlights] 開始: jobId=${jobId} videoFileSize=${videoFileSizeBytes}bytes`
+  );
+
   const analyzer = new FfmpegVideoAnalyzer();
   const motionService = new MotionHighlightService(analyzer);
   const volumeService = new VolumeHighlightService(analyzer);
   const duration = await analyzer.getDurationSec(localPath);
+
+  console.info(`[buildHighlights] モーション・音量分析 開始: jobId=${jobId}`);
   const [motionScores, volumeScores] = await Promise.all([
     motionService.analyzeMotion(localPath),
     volumeService.analyzeVolume(localPath),
   ]);
+  console.info(
+    `[buildHighlights] モーション・音量分析 完了: jobId=${jobId} motionScores=${motionScores.length} volumeScores=${volumeScores.length}`
+  );
 
   let emotionScores: EmotionHighlightScore[] = [];
   if (openAiApiKey) {
@@ -164,9 +177,19 @@ const buildHighlights = async (
       const openai = createOpenAIClient(openAiApiKey);
       const transcriptionService = new TranscriptionService(openai);
       const emotionService = new EmotionHighlightService(openai);
+
+      console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
       const segments = await transcriptionService.transcribe(localPath);
+      console.info(
+        `[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${segments.length}`
+      );
+
       if (segments.length > 0) {
+        console.info(`[buildHighlights] 感情分析開始: jobId=${jobId}`);
         emotionScores = await emotionService.getScores(segments, emotionFilter ?? 'any');
+        console.info(
+          `[buildHighlights] 感情分析完了: jobId=${jobId} emotionScores=${emotionScores.length}`
+        );
       }
     } catch (error) {
       // 感情分析失敗は graceful degradation（motion・volume のみで継続）
@@ -236,9 +259,11 @@ const getJobExpiresAt = async (
 const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
 
+  console.info(`[runExtract] downloading ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'downloading', env.tableName, env.awsRegion);
   await downloadSourceVideo(env.bucketName, env.jobId, localVideoPath, env.awsRegion);
 
+  console.info(`[runExtract] analyzing ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'analyzing', env.tableName, env.awsRegion);
   const highlights = await buildHighlights(
     env.jobId,
@@ -247,9 +272,13 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
     env.emotionFilter
   );
 
+  console.info(`[runExtract] aggregating ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'aggregating', env.tableName, env.awsRegion);
   const expiresAt = await getJobExpiresAt(env.jobId, env.tableName, env.awsRegion);
   await persistHighlights(env.jobId, highlights, expiresAt, env.tableName, env.awsRegion);
+  console.info(
+    `[runExtract] ハイライト保存完了: jobId=${env.jobId} count=${highlights.length}`
+  );
 };
 
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
