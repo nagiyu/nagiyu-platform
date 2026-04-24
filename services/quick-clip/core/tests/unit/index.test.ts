@@ -92,6 +92,7 @@ describe('quick-clip core exports', () => {
       create: async (item) => item,
       updateBatchJobId: async () => undefined,
       updateBatchStage: async () => undefined,
+      updateAnalysisProgress: async () => undefined,
       updateErrorMessage: async () => undefined,
     };
 

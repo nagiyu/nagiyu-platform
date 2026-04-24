@@ -105,6 +105,35 @@ describe('GET /api/jobs/[jobId]', () => {
     });
   });
 
+  it('正常系: batchStage=analyzing かつ analysisProgress がある場合は analysisProgress も返す', async () => {
+    const analysisProgress = {
+      motion: { status: 'done' },
+      volume: { status: 'processing' },
+      transcription: { status: 'processing', completed: 2, total: 5 },
+    };
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-2b',
+      batchJobId: 'batch-1b',
+      batchStage: 'analyzing',
+      analysisProgress,
+      originalFileName: 'movie.mp4',
+      fileSize: 200,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    batchSend.mockResolvedValue({ jobs: [{ status: 'RUNNING' }] });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-2b' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('PROCESSING');
+    expect(body.batchStage).toBe('analyzing');
+    expect(body.analysisProgress).toEqual(analysisProgress);
+  });
+
   it('正常系: Batch状態がSUCCEEDEDの場合はstatus=COMPLETEDを返す', async () => {
     mockGetJob.mockResolvedValue({
       jobId: 'job-3',

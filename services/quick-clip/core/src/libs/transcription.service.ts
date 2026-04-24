@@ -158,7 +158,10 @@ export class TranscriptionService {
       }));
   }
 
-  public async transcribe(videoFilePath: string): Promise<TranscriptSegment[]> {
+  public async transcribe(
+    videoFilePath: string,
+    onProgress?: (completed: number, total: number) => Promise<void>
+  ): Promise<TranscriptSegment[]> {
     const audioFilePath = `/tmp/quick-clip-audio-${randomUUID()}.mp3`;
 
     console.info(`[TranscriptionService] 音声抽出開始: videoFile=${videoFilePath}`);
@@ -184,6 +187,7 @@ export class TranscriptionService {
       console.info(
         `[TranscriptionService] チャンク分割して文字起こし: size=${size}bytes numChunks=${numChunks}`
       );
+      let completedCount = 0;
       const chunkSegments = await Promise.all(
         Array.from({ length: numChunks }, async (_, i) => {
           const startSec = i * CHUNK_DURATION_SEC;
@@ -201,6 +205,10 @@ export class TranscriptionService {
             console.info(
               `[TranscriptionService] チャンク${i + 1}/${numChunks} 文字起こし完了: segments=${segments.length}`
             );
+            completedCount++;
+            if (onProgress && numChunks > 1) {
+              await onProgress(completedCount, numChunks);
+            }
             return segments.map((s) => ({
               start: s.start + startSec,
               end: s.end + startSec,

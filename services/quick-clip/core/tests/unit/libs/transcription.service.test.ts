@@ -660,4 +660,36 @@ describe('TranscriptionService', () => {
     expect(result).toEqual([]);
     expect(mockCreate).toHaveBeenCalledTimes(4); // chunk0の再試行1回 + chunk0,1,2の成功
   });
+
+  it('onProgress: 複数チャンクのとき各チャンク完了後に onProgress が呼ばれる', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    // 25MB > MAX_FILE_SIZE_BYTES(24MB) → チャンク分割 (numChunks=3)
+    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+
+    mockCreate.mockResolvedValue({ text: '', segments: [] });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new TranscriptionService(mockClient);
+    const promise = service.transcribe('/tmp/video.mp4', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).toHaveBeenCalledTimes(3);
+    expect(onProgress).toHaveBeenCalledWith(expect.any(Number), 3);
+  });
+
+  it('onProgress: チャンクが1つのとき onProgress は呼ばれない', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    // 1MB → MAX_FILE_SIZE_BYTES(24MB) 以下 → 単一ファイル処理
+    stat.mockResolvedValue({ size: 1024 * 1024 });
+    mockCreate.mockResolvedValue({ text: '', segments: [] });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new TranscriptionService(mockClient);
+    const promise = service.transcribe('/tmp/video.mp4', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).not.toHaveBeenCalled();
+  });
 });

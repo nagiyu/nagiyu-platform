@@ -4,6 +4,7 @@ const mockStat = jest.fn();
 const mockCreateWriteStream = jest.fn();
 const mockPipeline = jest.fn();
 const mockUpdateBatchStage = jest.fn();
+const mockUpdateAnalysisProgress = jest.fn();
 const mockUpdateErrorMessage = jest.fn();
 const mockGetJob = jest.fn();
 const mockCreateMany = jest.fn();
@@ -55,6 +56,7 @@ jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
     create: jest.fn(),
     updateBatchJobId: jest.fn(),
     updateBatchStage: jest.fn(),
+    updateAnalysisProgress: jest.fn(),
     updateErrorMessage: jest.fn(),
   })),
 }));
@@ -68,6 +70,7 @@ jest.mock('../../../src/repositories/dynamodb-highlight.repository.js', () => ({
 jest.mock('../../../src/libs/job.service.js', () => ({
   JobService: jest.fn().mockImplementation(() => ({
     updateBatchStage: mockUpdateBatchStage,
+    updateAnalysisProgress: mockUpdateAnalysisProgress,
     updateErrorMessage: mockUpdateErrorMessage,
     getJob: mockGetJob,
   })),
@@ -143,6 +146,7 @@ describe('runQuickClipBatch', () => {
     mockAnalyzeMotion.mockResolvedValue([]);
     mockAnalyzeVolume.mockResolvedValue([]);
     mockUpdateBatchStage.mockResolvedValue(undefined);
+    mockUpdateAnalysisProgress.mockResolvedValue(undefined);
     mockUpdateErrorMessage.mockResolvedValue(undefined);
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
     mockTranscribe.mockResolvedValue([]);
@@ -250,10 +254,11 @@ describe('runQuickClipBatch', () => {
     };
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
-    expect(mockTranscribe).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
+    expect(mockTranscribe).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4', expect.any(Function));
     expect(mockGetScores).toHaveBeenCalledWith(
       [{ start: 1.0, end: 3.0, text: 'やばい！' }],
-      'excite'
+      'excite',
+      expect.any(Function)
     );
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120, [
       { second: 1, score: 0.9, dominantEmotion: 'excite' },

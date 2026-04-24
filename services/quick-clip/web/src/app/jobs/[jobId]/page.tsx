@@ -16,7 +16,10 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
 import type { BatchStage, JobStatus } from '@/types/quick-clip';
+import type { AnalysisProgress, AnalysisProgressItem } from '@nagiyu/quick-clip-core';
 import { VideoAd } from './VideoAd';
 
 const POLLING_INTERVAL_MS = 5000;
@@ -63,9 +66,48 @@ type JobApiResponse = {
   createdAt: number;
   expiresAt: number;
   batchStage?: BatchStage;
+  analysisProgress?: AnalysisProgress;
   errorMessage?: string;
   downloadUrl?: string;
 };
+
+type AnalysisItemProps = {
+  label: string;
+  item: AnalysisProgressItem;
+};
+
+function AnalysisItem({ label, item }: AnalysisItemProps) {
+  const progressLabel =
+    item.total !== undefined && item.total > 1 ? ` (${item.completed ?? 0}/${item.total})` : '';
+
+  if (item.status === 'done') {
+    return (
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+        <Typography variant="caption">{label}</Typography>
+      </Stack>
+    );
+  }
+
+  if (item.status === 'failed') {
+    return (
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+        <Typography variant="caption">{label}（スキップ）</Typography>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      <CircularProgress size={12} />
+      <Typography variant="caption">
+        {label}
+        {progressLabel}
+      </Typography>
+    </Stack>
+  );
+}
 
 export default function JobPage({ params }: JobPageProps) {
   const [jobId, setJobId] = useState<string>('');
@@ -144,6 +186,31 @@ export default function JobPage({ params }: JobPageProps) {
     return 1; // PENDING, PROCESSING, FAILED
   }, [job]);
 
+  const analysisOptional = useMemo(() => {
+    if (!job || job.status !== 'PROCESSING' || !job.batchStage) {
+      return undefined;
+    }
+
+    if (job.analysisProgress) {
+      return (
+        <Stack spacing={0.5}>
+          <AnalysisItem label="モーション解析" item={job.analysisProgress.motion} />
+          <AnalysisItem label="音量解析" item={job.analysisProgress.volume} />
+          {job.analysisProgress.transcription && (
+            <AnalysisItem label="文字起こし" item={job.analysisProgress.transcription} />
+          )}
+          {job.analysisProgress.emotionScoring && (
+            <AnalysisItem label="感情分析" item={job.analysisProgress.emotionScoring} />
+          )}
+        </Stack>
+      );
+    }
+
+    return (
+      <Typography variant="caption">{BATCH_STAGE_LABELS[job.batchStage]}</Typography>
+    );
+  }, [job]);
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
@@ -171,17 +238,7 @@ export default function JobPage({ params }: JobPageProps) {
                 <StepLabel>アップロード</StepLabel>
               </Step>
               <Step>
-                <StepLabel
-                  optional={
-                    job.status === 'PROCESSING' && job.batchStage ? (
-                      <Typography variant="caption">
-                        {BATCH_STAGE_LABELS[job.batchStage]}
-                      </Typography>
-                    ) : undefined
-                  }
-                >
-                  解析
-                </StepLabel>
+                <StepLabel optional={analysisOptional}>解析</StepLabel>
               </Step>
               <Step>
                 <StepLabel>切り出し</StepLabel>
@@ -229,3 +286,4 @@ export default function JobPage({ params }: JobPageProps) {
     </Container>
   );
 }
+

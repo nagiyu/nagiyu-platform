@@ -139,4 +139,25 @@ describe('DynamoDBJobRepository', () => {
       ':errorMessage': '解析に失敗しました',
     });
   });
+
+  it('updateAnalysisProgress は analysisProgress を更新する', async () => {
+    mockSend.mockResolvedValue({});
+
+    const progress = {
+      motion: { status: 'done' as const },
+      volume: { status: 'in_progress' as const },
+    };
+
+    await repository.updateAnalysisProgress('job-1', progress);
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
+    expect(sentCommand).toBeInstanceOf(UpdateCommand);
+    expect(sentCommand.input.UpdateExpression).toContain('#analysisProgress = :analysisProgress');
+    expect(sentCommand.input.ExpressionAttributeNames).toMatchObject({
+      '#analysisProgress': 'analysisProgress',
+    });
+    expect(sentCommand.input.ExpressionAttributeValues).toMatchObject({
+      ':analysisProgress': progress,
+    });
+  });
 });

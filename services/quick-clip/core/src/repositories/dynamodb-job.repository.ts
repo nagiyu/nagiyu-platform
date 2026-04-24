@@ -4,7 +4,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import type { BatchStage, Job } from '../types.js';
+import type { AnalysisProgress, BatchStage, Job } from '../types.js';
 import type { JobRepository } from './job.repository.interface.js';
 
 type JobItem = {
@@ -14,6 +14,7 @@ type JobItem = {
   jobId: string;
   batchJobId?: string;
   batchStage?: string;
+  analysisProgress?: AnalysisProgress;
   originalFileName: string;
   fileSize: number;
   createdAt: number;
@@ -89,6 +90,23 @@ export class DynamoDBJobRepository implements JobRepository {
     );
   }
 
+  public async updateAnalysisProgress(jobId: string, progress: AnalysisProgress): Promise<void> {
+    const key = this.buildKeys(jobId);
+    await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: key,
+        UpdateExpression: 'SET #analysisProgress = :analysisProgress',
+        ExpressionAttributeNames: {
+          '#analysisProgress': 'analysisProgress',
+        },
+        ExpressionAttributeValues: {
+          ':analysisProgress': progress,
+        },
+      })
+    );
+  }
+
   public async updateErrorMessage(jobId: string, errorMessage: string): Promise<void> {
     const key = this.buildKeys(jobId);
     await this.docClient.send(
@@ -118,6 +136,7 @@ export class DynamoDBJobRepository implements JobRepository {
       jobId: item.jobId,
       ...(item.batchJobId ? { batchJobId: item.batchJobId } : {}),
       ...(item.batchStage ? { batchStage: item.batchStage as BatchStage } : {}),
+      ...(item.analysisProgress ? { analysisProgress: item.analysisProgress } : {}),
       originalFileName: item.originalFileName,
       fileSize: item.fileSize,
       createdAt: item.createdAt,
@@ -133,6 +152,7 @@ export class DynamoDBJobRepository implements JobRepository {
       jobId: job.jobId,
       ...(job.batchJobId ? { batchJobId: job.batchJobId } : {}),
       ...(job.batchStage ? { batchStage: job.batchStage } : {}),
+      ...(job.analysisProgress ? { analysisProgress: job.analysisProgress } : {}),
       originalFileName: job.originalFileName,
       fileSize: job.fileSize,
       createdAt: job.createdAt,

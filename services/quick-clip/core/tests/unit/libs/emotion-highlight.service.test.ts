@@ -263,4 +263,34 @@ describe('EmotionHighlightService', () => {
     expect(result[2].second).toBe(100.0);
     expect(result[3].second).toBe(150.0);
   });
+
+  it('onProgress: 複数チャンクのとき各チャンク完了後に onProgress が呼ばれる', async () => {
+    const chunk1Items = [{ second: 0.0, laugh: 0.9, excite: 0.5, touch: 0.1, tension: 0.2 }];
+    const chunk2Items = [{ second: 250.0, laugh: 0.2, excite: 0.8, touch: 0.3, tension: 0.7 }];
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: chunk1Items } })
+      .mockResolvedValueOnce({ output_parsed: { items: chunk2Items } });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(51), 'any', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).toHaveBeenCalledTimes(2);
+    expect(onProgress).toHaveBeenCalledWith(1, 2);
+    expect(onProgress).toHaveBeenCalledWith(2, 2);
+  });
+
+  it('onProgress: チャンクが1つのとき onProgress は呼ばれない', async () => {
+    mockParse.mockResolvedValue({ output_parsed: { items: mockOutputItems } });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(testSegments, 'any', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).not.toHaveBeenCalled();
+  });
 });

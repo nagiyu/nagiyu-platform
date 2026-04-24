@@ -6,10 +6,24 @@ export type BatchStage = 'downloading' | 'analyzing' | 'aggregating';
 export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
 
+export type AnalysisProgressItem = {
+  status: 'in_progress' | 'done' | 'failed';
+  completed?: number; // total > 1 のチャンク分割時のみ設定
+  total?: number; // total > 1 のチャンク分割時のみ設定
+};
+
+export type AnalysisProgress = {
+  motion: AnalysisProgressItem;
+  volume: AnalysisProgressItem;
+  transcription?: AnalysisProgressItem; // openAiApiKey 設定時のみ
+  emotionScoring?: AnalysisProgressItem; // 文字起こし完了後・感情分析開始時に追加
+};
+
 export type Job = {
   jobId: string;
   batchJobId?: string;
   batchStage?: BatchStage;
+  analysisProgress?: AnalysisProgress;
   originalFileName: string;
   fileSize: number;
   createdAt: number;
