@@ -98,12 +98,8 @@ function AnalysisItem({ label, item }: AnalysisItemProps) {
   return (
     <Stack direction="row" spacing={0.5} alignItems="center">
       {item.status === 'in_progress' && <CircularProgress size={12} />}
-      {item.status === 'done' && (
-        <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
-      )}
-      {item.status === 'failed' && (
-        <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />
-      )}
+      {item.status === 'done' && <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />}
+      {item.status === 'failed' && <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />}
       <Typography variant="caption">{text}</Typography>
     </Stack>
   );

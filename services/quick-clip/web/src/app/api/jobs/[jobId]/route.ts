@@ -76,9 +76,7 @@ export async function GET(_request: Request, { params }: RouteParams): Promise<N
       createdAt: job.createdAt,
       expiresAt: job.expiresAt,
       ...(status === 'PROCESSING' && job.batchStage ? { batchStage: job.batchStage } : {}),
-      ...(status === 'PROCESSING' &&
-      job.batchStage === 'analyzing' &&
-      job.analysisProgress
+      ...(status === 'PROCESSING' && job.batchStage === 'analyzing' && job.analysisProgress
         ? { analysisProgress: job.analysisProgress }
         : {}),
       ...(status === 'FAILED' && job.errorMessage ? { errorMessage: job.errorMessage } : {}),
