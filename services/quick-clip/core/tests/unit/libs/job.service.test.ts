@@ -8,6 +8,7 @@ const createJobRepositoryMock = (): jest.Mocked<JobRepository> => ({
   updateBatchJobId: jest.fn(),
   updateBatchStage: jest.fn(),
   updateErrorMessage: jest.fn(),
+  updateAnalysisProgress: jest.fn(),
 });
 
 describe('JobService', () => {
@@ -131,5 +132,30 @@ describe('JobService', () => {
     await service.updateErrorMessage('job-1', ' 解析失敗 ');
 
     expect(repository.updateErrorMessage).toHaveBeenCalledWith('job-1', '解析失敗');
+  });
+
+  it('updateAnalysisProgress: ジョブIDが空の場合はエラー', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    const progress = { motion: { status: 'done' as const }, volume: { status: 'done' as const } };
+    await expect(service.updateAnalysisProgress('   ', progress)).rejects.toThrow(
+      'ジョブIDは必須です'
+    );
+  });
+
+  it('updateAnalysisProgress: リポジトリの updateAnalysisProgress を呼ぶ', async () => {
+    const repository = createJobRepositoryMock();
+    const service = new JobService(repository);
+
+    repository.updateAnalysisProgress.mockResolvedValue(undefined);
+
+    const progress = {
+      motion: { status: 'done' as const },
+      volume: { status: 'in_progress' as const },
+    };
+    await service.updateAnalysisProgress('job-1', progress);
+
+    expect(repository.updateAnalysisProgress).toHaveBeenCalledWith('job-1', progress);
   });
 });

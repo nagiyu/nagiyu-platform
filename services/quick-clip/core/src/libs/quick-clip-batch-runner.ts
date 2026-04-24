@@ -8,7 +8,7 @@ import { dirname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
-import type { BatchStage, Highlight } from '../types.js';
+import type { AnalysisProgress, BatchStage, Highlight } from '../types.js';
 import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
@@ -17,6 +17,7 @@ import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.
 import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
 import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
+import type { TranscriptSegment } from './transcription.service.js';
 import { EmotionHighlightService } from './emotion-highlight.service.js';
 
 /** Batch 実行コマンド種別。 */
@@ -149,6 +150,8 @@ const persistHighlights = async (
 const buildHighlights = async (
   jobId: string,
   localPath: string,
+  tableName: string,
+  awsRegion: string,
   openAiApiKey?: string,
   emotionFilter?: EmotionFilter
 ): Promise<Highlight[]> => {
@@ -160,36 +163,92 @@ const buildHighlights = async (
   const volumeService = new VolumeHighlightService(analyzer);
   const duration = await analyzer.getDurationSec(localPath);
 
-  console.info(`[buildHighlights] モーション・音量分析 開始: jobId=${jobId}`);
-  const [motionScores, volumeScores] = await Promise.all([
-    motionService.analyzeMotion(localPath),
-    volumeService.analyzeVolume(localPath),
+  const initialProgress: AnalysisProgress = {
+    motion: { status: 'in_progress' },
+    volume: { status: 'in_progress' },
+    ...(openAiApiKey ? { transcription: { status: 'in_progress' } } : {}),
+  };
+  await updateAnalysisProgress(jobId, initialProgress, tableName, awsRegion);
+
+  const progress = { ...initialProgress };
+
+  console.info(`[buildHighlights] モーション・音量・文字起こし並列分析 開始: jobId=${jobId}`);
+  const [motionScores, volumeScores, segments] = await Promise.all([
+    motionService.analyzeMotion(localPath).then(async (scores) => {
+      progress.motion = { status: 'done' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      console.info(
+        `[buildHighlights] モーション分析 完了: jobId=${jobId} motionScores=${scores.length}`
+      );
+      return scores;
+    }),
+    volumeService.analyzeVolume(localPath).then(async (scores) => {
+      progress.volume = { status: 'done' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      console.info(`[buildHighlights] 音量分析 完了: jobId=${jobId} volumeScores=${scores.length}`);
+      return scores;
+    }),
+    openAiApiKey
+      ? ((): Promise<TranscriptSegment[]> => {
+          const transcriptionService = new TranscriptionService(createOpenAIClient(openAiApiKey));
+          console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
+          return transcriptionService
+            .transcribe(localPath, async (completed, total) => {
+              progress.transcription = {
+                status: completed === total ? 'done' : 'in_progress',
+                ...(total > 1 ? { completed, total } : {}),
+              };
+              await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+            })
+            .then(async (segs) => {
+              progress.transcription = { status: 'done' };
+              await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+              console.info(
+                `[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${segs.length}`
+              );
+              return segs;
+            })
+            .catch(async (err: unknown) => {
+              console.warn('[buildHighlights] 文字起こしをスキップします:', err);
+              progress.transcription = { status: 'failed' };
+              await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+              return [] as TranscriptSegment[];
+            });
+        })()
+      : Promise.resolve([] as TranscriptSegment[]),
   ]);
   console.info(
-    `[buildHighlights] モーション・音量分析 完了: jobId=${jobId} motionScores=${motionScores.length} volumeScores=${volumeScores.length}`
+    `[buildHighlights] モーション・音量・文字起こし並列分析 完了: jobId=${jobId} motionScores=${motionScores.length} volumeScores=${volumeScores.length} segments=${segments.length}`
   );
 
   let emotionScores: EmotionHighlightScore[] = [];
-  if (openAiApiKey) {
+  if (openAiApiKey && segments.length > 0) {
+    progress.emotionScoring = { status: 'in_progress' };
+    await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+
     try {
-      const openai = createOpenAIClient(openAiApiKey);
-      const transcriptionService = new TranscriptionService(openai);
-      const emotionService = new EmotionHighlightService(openai);
-
-      console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
-      const segments = await transcriptionService.transcribe(localPath);
-      console.info(`[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${segments.length}`);
-
-      if (segments.length > 0) {
-        console.info(`[buildHighlights] 感情分析開始: jobId=${jobId}`);
-        emotionScores = await emotionService.getScores(segments, emotionFilter ?? 'any');
-        console.info(
-          `[buildHighlights] 感情分析完了: jobId=${jobId} emotionScores=${emotionScores.length}`
-        );
-      }
+      const emotionService = new EmotionHighlightService(createOpenAIClient(openAiApiKey));
+      console.info(`[buildHighlights] 感情分析開始: jobId=${jobId}`);
+      emotionScores = await emotionService.getScores(
+        segments,
+        emotionFilter ?? 'any',
+        async (completed, total) => {
+          progress.emotionScoring = {
+            status: completed === total ? 'done' : 'in_progress',
+            ...(total > 1 ? { completed, total } : {}),
+          };
+          await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+        }
+      );
+      progress.emotionScoring = { status: 'done' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      console.info(
+        `[buildHighlights] 感情分析完了: jobId=${jobId} emotionScores=${emotionScores.length}`
+      );
     } catch (error) {
-      // 感情分析失敗は graceful degradation（motion・volume のみで継続）
       console.warn('[buildHighlights] 感情分析をスキップします:', error);
+      progress.emotionScoring = { status: 'failed' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
     }
   }
 
@@ -223,6 +282,18 @@ const updateBatchStage = async (
   const jobRepo = new DynamoDBJobRepository(docClient, tableName);
   const service = new JobService(jobRepo);
   await service.updateBatchStage(jobId, batchStage);
+};
+
+const updateAnalysisProgress = async (
+  jobId: string,
+  progress: AnalysisProgress,
+  tableName: string,
+  awsRegion: string
+): Promise<void> => {
+  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const service = new JobService(jobRepo);
+  await service.updateAnalysisProgress(jobId, progress);
 };
 
 const updateErrorMessage = async (
@@ -264,6 +335,8 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const highlights = await buildHighlights(
     env.jobId,
     localVideoPath,
+    env.tableName,
+    env.awsRegion,
     env.openAiApiKey,
     env.emotionFilter
   );

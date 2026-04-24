@@ -126,7 +126,8 @@ export class EmotionHighlightService {
 
   public async getScores(
     segments: TranscriptSegment[],
-    filter: EmotionFilter
+    filter: EmotionFilter,
+    onProgress?: (completed: number, total: number) => Promise<void>
   ): Promise<EmotionHighlightScore[]> {
     const chunks = chunkArray(segments, SEGMENTS_PER_CHUNK);
     console.info(
@@ -191,6 +192,9 @@ export class EmotionHighlightService {
         console.info(
           `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し完了`
         );
+        if (onProgress && chunks.length > 1) {
+          await onProgress(chunkIndex + 1, chunks.length);
+        }
         return response;
       }),
       EMOTION_SCORING_CONCURRENCY

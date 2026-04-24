@@ -93,6 +93,7 @@ describe('quick-clip core exports', () => {
       updateBatchJobId: async () => undefined,
       updateBatchStage: async () => undefined,
       updateErrorMessage: async () => undefined,
+      updateAnalysisProgress: async () => undefined,
     };
 
     const highlightRepository: HighlightRepository = {

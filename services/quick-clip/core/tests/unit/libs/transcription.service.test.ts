@@ -660,4 +660,38 @@ describe('TranscriptionService', () => {
     expect(result).toEqual([]);
     expect(mockCreate).toHaveBeenCalledTimes(4); // chunk0の再試行1回 + chunk0,1,2の成功
   });
+
+  it('onProgress コールバックはチャンク分割時のみ各チャンク完了後に呼ばれる', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 25 * 1024 * 1024 });
+
+    mockCreate.mockResolvedValue({ text: '', segments: [] });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new TranscriptionService(mockClient);
+    const promise = service.transcribe('/tmp/video.mp4', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).toHaveBeenCalled();
+    // numChunks 回呼ばれ、最後の呼び出しは (numChunks, numChunks)
+    const calls = onProgress.mock.calls as Array<[number, number]>;
+    const lastCall = calls[calls.length - 1];
+    expect(lastCall[0]).toBe(lastCall[1]); // completed === total
+  });
+
+  it('onProgress コールバックは単一ファイル処理時には呼ばれない', async () => {
+    const { stat } = jest.requireMock<{ stat: jest.Mock }>('node:fs/promises');
+    stat.mockResolvedValue({ size: 1024 * 1024 }); // 1MB (< 24MB)
+
+    mockCreate.mockResolvedValue({ text: '', segments: [] });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new TranscriptionService(mockClient);
+    const promise = service.transcribe('/tmp/video.mp4', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).not.toHaveBeenCalled();
+  });
 });

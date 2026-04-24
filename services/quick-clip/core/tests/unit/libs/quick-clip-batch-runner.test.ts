@@ -5,6 +5,7 @@ const mockCreateWriteStream = jest.fn();
 const mockPipeline = jest.fn();
 const mockUpdateBatchStage = jest.fn();
 const mockUpdateErrorMessage = jest.fn();
+const mockUpdateAnalysisProgress = jest.fn();
 const mockGetJob = jest.fn();
 const mockCreateMany = jest.fn();
 const mockAggregate = jest.fn();
@@ -69,6 +70,7 @@ jest.mock('../../../src/libs/job.service.js', () => ({
   JobService: jest.fn().mockImplementation(() => ({
     updateBatchStage: mockUpdateBatchStage,
     updateErrorMessage: mockUpdateErrorMessage,
+    updateAnalysisProgress: mockUpdateAnalysisProgress,
     getJob: mockGetJob,
   })),
 }));
@@ -144,6 +146,7 @@ describe('runQuickClipBatch', () => {
     mockAnalyzeVolume.mockResolvedValue([]);
     mockUpdateBatchStage.mockResolvedValue(undefined);
     mockUpdateErrorMessage.mockResolvedValue(undefined);
+    mockUpdateAnalysisProgress.mockResolvedValue(undefined);
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
     mockTranscribe.mockResolvedValue([]);
     mockGetScores.mockResolvedValue([]);
@@ -250,10 +253,14 @@ describe('runQuickClipBatch', () => {
     };
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
-    expect(mockTranscribe).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
+    expect(mockTranscribe).toHaveBeenCalledWith(
+      '/tmp/quick-clip/job-1/input.mp4',
+      expect.any(Function)
+    );
     expect(mockGetScores).toHaveBeenCalledWith(
       [{ start: 1.0, end: 3.0, text: 'やばい！' }],
-      'excite'
+      'excite',
+      expect.any(Function)
     );
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120, [
       { second: 1, score: 0.9, dominantEmotion: 'excite' },
@@ -295,16 +302,57 @@ describe('runQuickClipBatch', () => {
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
 
-  it('getScores が失敗した場合も graceful degradation で motion・volume のみで処理を継続する', async () => {
+  it('openAiApiKey がない場合、初期進捗は motion・volume のみで設定される', async () => {
     mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
-    mockTranscribe.mockResolvedValue([{ start: 0, end: 1, text: 'テスト' }]);
-    mockGetScores.mockRejectedValue(new Error('emotion API error'));
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith('job-1', {
+      motion: { status: 'in_progress' },
+      volume: { status: 'in_progress' },
+    });
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        motion: { status: 'done' },
+      })
+    );
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        volume: { status: 'done' },
+      })
+    );
+  });
+
+  it('openAiApiKey が指定された場合、初期進捗に transcription が含まれる', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
 
     const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
-    expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
-    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
-    expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith('job-1', {
+      motion: { status: 'in_progress' },
+      volume: { status: 'in_progress' },
+      transcription: { status: 'in_progress' },
+    });
+  });
+
+  it('文字起こし失敗時は transcription の status が failed になる', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockRejectedValue(new Error('transcription failed'));
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    const calls = mockUpdateAnalysisProgress.mock.calls as Array<[string, unknown]>;
+    const failCall = calls.find(
+      ([, p]) =>
+        typeof p === 'object' &&
+        p !== null &&
+        (p as Record<string, unknown>).transcription !== undefined &&
+        (p as Record<string, { status: string }>).transcription.status === 'failed'
+    );
+    expect(failCall).toBeDefined();
   });
 });

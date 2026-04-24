@@ -243,4 +243,53 @@ describe('GET /api/jobs/[jobId]', () => {
       message: '指定されたジョブが見つかりません',
     });
   });
+
+  it('正常系: batchStage=analyzing かつ analysisProgress がある場合にレスポンスに含まれる', async () => {
+    const progress = {
+      motion: { status: 'done' },
+      volume: { status: 'in_progress' },
+      transcription: { status: 'in_progress', completed: 1, total: 3 },
+    };
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-ap',
+      batchJobId: 'batch-ap',
+      batchStage: 'analyzing',
+      analysisProgress: progress,
+      originalFileName: 'movie.mp4',
+      fileSize: 500,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    batchSend.mockResolvedValue({ jobs: [{ status: 'RUNNING' }] });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-ap' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.analysisProgress).toEqual(progress);
+  });
+
+  it('正常系: batchStage=downloading のときは analysisProgress がレスポンスに含まれない', async () => {
+    mockGetJob.mockResolvedValue({
+      jobId: 'job-ap2',
+      batchJobId: 'batch-ap2',
+      batchStage: 'downloading',
+      analysisProgress: { motion: { status: 'in_progress' }, volume: { status: 'in_progress' } },
+      originalFileName: 'movie.mp4',
+      fileSize: 500,
+      createdAt: 1,
+      expiresAt: 2,
+    });
+    batchSend.mockResolvedValue({ jobs: [{ status: 'RUNNING' }] });
+
+    const response = await GET(mockRequest, {
+      params: Promise.resolve({ jobId: 'job-ap2' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.analysisProgress).toBeUndefined();
+  });
 });
