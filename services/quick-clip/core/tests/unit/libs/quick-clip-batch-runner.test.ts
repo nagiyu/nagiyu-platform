@@ -311,12 +311,18 @@ describe('runQuickClipBatch', () => {
       motion: { status: 'in_progress' },
       volume: { status: 'in_progress' },
     });
-    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith('job-1', expect.objectContaining({
-      motion: { status: 'done' },
-    }));
-    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith('job-1', expect.objectContaining({
-      volume: { status: 'done' },
-    }));
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        motion: { status: 'done' },
+      })
+    );
+    expect(mockUpdateAnalysisProgress).toHaveBeenCalledWith(
+      'job-1',
+      expect.objectContaining({
+        volume: { status: 'done' },
+      })
+    );
   });
 
   it('openAiApiKey が指定された場合、初期進捗に transcription が含まれる', async () => {
@@ -342,8 +348,10 @@ describe('runQuickClipBatch', () => {
     const calls = mockUpdateAnalysisProgress.mock.calls as Array<[string, unknown]>;
     const failCall = calls.find(
       ([, p]) =>
-        typeof p === 'object' && p !== null && (p as Record<string, unknown>).transcription !== undefined &&
-        ((p as Record<string, { status: string }>).transcription.status === 'failed')
+        typeof p === 'object' &&
+        p !== null &&
+        (p as Record<string, unknown>).transcription !== undefined &&
+        (p as Record<string, { status: string }>).transcription.status === 'failed'
     );
     expect(failCall).toBeDefined();
   });

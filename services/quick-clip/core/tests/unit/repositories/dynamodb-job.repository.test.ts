@@ -152,9 +152,7 @@ describe('DynamoDBJobRepository', () => {
 
     const sentCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
     expect(sentCommand).toBeInstanceOf(UpdateCommand);
-    expect(sentCommand.input.UpdateExpression).toContain(
-      '#analysisProgress = :analysisProgress'
-    );
+    expect(sentCommand.input.UpdateExpression).toContain('#analysisProgress = :analysisProgress');
     expect(sentCommand.input.ExpressionAttributeNames).toMatchObject({
       '#analysisProgress': 'analysisProgress',
     });

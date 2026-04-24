@@ -185,9 +185,7 @@ const buildHighlights = async (
     volumeService.analyzeVolume(localPath).then(async (scores) => {
       progress.volume = { status: 'done' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
-      console.info(
-        `[buildHighlights] 音量分析 完了: jobId=${jobId} volumeScores=${scores.length}`
-      );
+      console.info(`[buildHighlights] 音量分析 完了: jobId=${jobId} volumeScores=${scores.length}`);
       return scores;
     }),
     openAiApiKey

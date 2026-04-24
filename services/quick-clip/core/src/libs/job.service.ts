@@ -65,10 +65,7 @@ export class JobService {
     return this.jobRepository.updateErrorMessage(jobId, normalizedErrorMessage);
   }
 
-  public async updateAnalysisProgress(
-    jobId: string,
-    progress: AnalysisProgress
-  ): Promise<void> {
+  public async updateAnalysisProgress(jobId: string, progress: AnalysisProgress): Promise<void> {
     if (jobId.trim().length === 0) {
       throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
     }
