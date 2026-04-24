@@ -3,6 +3,7 @@ import { stat, unlink } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import type OpenAI from 'openai';
+import { withRetry } from '@nagiyu/common';
 
 export type TranscriptSegment = {
   start: number;
@@ -12,11 +13,35 @@ export type TranscriptSegment = {
 
 const ERROR_MESSAGES = {
   AUDIO_EXTRACT_FAILED: '音声の抽出に失敗しました',
+  TIMEOUT: 'Whisper APIの呼び出しがタイムアウトしました',
 } as const;
 
-const MAX_FILE_SIZE_BYTES = 24 * 1024 * 1024;
+const MAX_FILE_SIZE_BYTES = 24 * 1024 * 1024; // チャンク判定閾値（変更しない）
+const CHUNK_TARGET_SIZE_BYTES = 10 * 1024 * 1024; // チャンクサイズ計算用
 const MP3_BYTES_PER_SEC = 32000 / 8;
-const CHUNK_DURATION_SEC = Math.floor(MAX_FILE_SIZE_BYTES / MP3_BYTES_PER_SEC);
+const CHUNK_DURATION_SEC = Math.floor(CHUNK_TARGET_SIZE_BYTES / MP3_BYTES_PER_SEC);
+
+const MAX_RETRIES = 3;
+const REQUEST_TIMEOUT_MS = 600_000;
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(ERROR_MESSAGES.TIMEOUT));
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
 
 const NO_SPEECH_PROB_THRESHOLD = 0.6; // Whisper 公式の無音声判定値
 const AVG_LOGPROB_THRESHOLD = -1.0; // モデルの不確かさ閾値
@@ -142,7 +167,10 @@ export class TranscriptionService {
       const { size } = await stat(audioFilePath);
 
       if (size <= MAX_FILE_SIZE_BYTES) {
-        return await this.transcribeFile(audioFilePath);
+        return await withRetry(
+          async () => withTimeout(this.transcribeFile(audioFilePath), REQUEST_TIMEOUT_MS),
+          { maxRetries: MAX_RETRIES }
+        );
       }
 
       // ファイルサイズからおおよその長さを推定し、チャンク数を算出する
@@ -154,7 +182,10 @@ export class TranscriptionService {
           const chunkPath = `/tmp/quick-clip-audio-${randomUUID()}-chunk-${i}.mp3`;
           await this.extractAudioChunk(audioFilePath, chunkPath, startSec, CHUNK_DURATION_SEC);
           try {
-            const segments = await this.transcribeFile(chunkPath);
+            const segments = await withRetry(
+              async () => withTimeout(this.transcribeFile(chunkPath), REQUEST_TIMEOUT_MS),
+              { maxRetries: MAX_RETRIES }
+            );
             return segments.map((s) => ({
               start: s.start + startSec,
               end: s.end + startSec,

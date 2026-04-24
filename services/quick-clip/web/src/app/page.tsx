@@ -161,6 +161,8 @@ export default function Home() {
           }
 
           const multipart = data.multipart;
+          const totalChunks = multipart.uploadUrls.length;
+          let completedChunks = 0;
           const uploadPartsInParallel = async (): Promise<
             Array<{ PartNumber: number; ETag: string }>
           > => {
@@ -188,10 +190,11 @@ export default function Home() {
                     `${LOG_MESSAGES.UPLOAD_FAILED}: ETagが取得できませんでした, パート番号=${index + 1}`
                   );
                 }
+                completedChunks++;
+                setUploadProgress(Math.round((completedChunks / totalChunks) * 100));
                 return { PartNumber: index + 1, ETag: eTag };
               })
             );
-            setUploadProgress(100);
             return results;
           };
 
