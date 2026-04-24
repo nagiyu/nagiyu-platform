@@ -202,7 +202,7 @@ const buildHighlights = async (
               localPath,
               async (completed, total) => {
                 progress.transcription = {
-                  status: completed === total ? 'done' : 'in_progress',
+                  status: 'in_progress',
                   ...(total > 1 ? { completed, total } : {}),
                 };
                 await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
@@ -242,7 +242,7 @@ const buildHighlights = async (
         emotionFilter ?? 'any',
         async (completed, total) => {
           progress.emotionScoring = {
-            status: completed === total ? 'done' : 'in_progress',
+            status: 'in_progress',
             ...(total > 1 ? { completed, total } : {}),
           };
           await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
