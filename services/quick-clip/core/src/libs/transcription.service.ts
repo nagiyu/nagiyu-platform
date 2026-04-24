@@ -161,12 +161,17 @@ export class TranscriptionService {
   public async transcribe(videoFilePath: string): Promise<TranscriptSegment[]> {
     const audioFilePath = `/tmp/quick-clip-audio-${randomUUID()}.mp3`;
 
+    console.info(`[TranscriptionService] 音声抽出開始: videoFile=${videoFilePath}`);
     await this.extractAudio(videoFilePath, audioFilePath);
 
     try {
       const { size } = await stat(audioFilePath);
+      console.info(
+        `[TranscriptionService] 音声抽出完了: audioFile=${audioFilePath} size=${size}bytes`
+      );
 
       if (size <= MAX_FILE_SIZE_BYTES) {
+        console.info(`[TranscriptionService] 単一ファイルで文字起こし: size=${size}bytes`);
         return await withRetry(
           async () => withTimeout(this.transcribeFile(audioFilePath), REQUEST_TIMEOUT_MS),
           { maxRetries: MAX_RETRIES }
@@ -176,15 +181,25 @@ export class TranscriptionService {
       // ファイルサイズからおおよその長さを推定し、チャンク数を算出する
       const estimatedDurationSec = size / MP3_BYTES_PER_SEC;
       const numChunks = Math.ceil(estimatedDurationSec / CHUNK_DURATION_SEC);
+      console.info(
+        `[TranscriptionService] チャンク分割して文字起こし: size=${size}bytes numChunks=${numChunks}`
+      );
       const chunkSegments = await Promise.all(
         Array.from({ length: numChunks }, async (_, i) => {
           const startSec = i * CHUNK_DURATION_SEC;
           const chunkPath = `/tmp/quick-clip-audio-${randomUUID()}-chunk-${i}.mp3`;
           await this.extractAudioChunk(audioFilePath, chunkPath, startSec, CHUNK_DURATION_SEC);
+          const { size: chunkSize } = await stat(chunkPath);
+          console.info(
+            `[TranscriptionService] チャンク${i + 1}/${numChunks} 文字起こし開始: size=${chunkSize}bytes`
+          );
           try {
             const segments = await withRetry(
               async () => withTimeout(this.transcribeFile(chunkPath), REQUEST_TIMEOUT_MS),
               { maxRetries: MAX_RETRIES }
+            );
+            console.info(
+              `[TranscriptionService] チャンク${i + 1}/${numChunks} 文字起こし完了: segments=${segments.length}`
             );
             return segments.map((s) => ({
               start: s.start + startSec,

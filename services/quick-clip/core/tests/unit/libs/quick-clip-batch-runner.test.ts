@@ -1,5 +1,6 @@
 const mockS3Send = jest.fn();
 const mockMkdir = jest.fn();
+const mockStat = jest.fn();
 const mockCreateWriteStream = jest.fn();
 const mockPipeline = jest.fn();
 const mockUpdateBatchStage = jest.fn();
@@ -37,6 +38,7 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
 
 jest.mock('node:fs/promises', () => ({
   mkdir: mockMkdir,
+  stat: mockStat,
 }));
 
 jest.mock('node:fs', () => ({
@@ -132,6 +134,7 @@ describe('runQuickClipBatch', () => {
     jest.useRealTimers();
 
     mockMkdir.mockResolvedValue(undefined);
+    mockStat.mockResolvedValue({ size: 10 * 1024 * 1024 });
     mockCreateWriteStream.mockReturnValue({} as NodeJS.WritableStream);
     mockPipeline.mockResolvedValue(undefined);
     mockCreateMany.mockResolvedValue(undefined);
