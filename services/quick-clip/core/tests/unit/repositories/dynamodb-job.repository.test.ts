@@ -139,4 +139,52 @@ describe('DynamoDBJobRepository', () => {
       ':errorMessage': '解析に失敗しました',
     });
   });
+
+  it('updateAnalysisProgress は analysisProgress を更新する', async () => {
+    mockSend.mockResolvedValue({});
+
+    const progress = {
+      motion: { status: 'done' as const },
+      volume: { status: 'in_progress' as const },
+    };
+
+    await repository.updateAnalysisProgress('job-1', progress);
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
+    expect(sentCommand).toBeInstanceOf(UpdateCommand);
+    expect(sentCommand.input.UpdateExpression).toContain(
+      '#analysisProgress = :analysisProgress'
+    );
+    expect(sentCommand.input.ExpressionAttributeNames).toMatchObject({
+      '#analysisProgress': 'analysisProgress',
+    });
+    expect(sentCommand.input.ExpressionAttributeValues).toMatchObject({
+      ':analysisProgress': progress,
+    });
+  });
+
+  it('getById は analysisProgress フィールドを含むジョブを返す', async () => {
+    const progress = {
+      motion: { status: 'done' },
+      volume: { status: 'done' },
+      transcription: { status: 'in_progress', completed: 1, total: 3 },
+    };
+    mockSend.mockResolvedValue({
+      Item: {
+        PK: 'JOB#job-2',
+        SK: 'JOB#job-2',
+        Type: 'JOB',
+        jobId: 'job-2',
+        originalFileName: 'video.mp4',
+        fileSize: 1024,
+        createdAt: 1000000,
+        expiresAt: 1086400,
+        analysisProgress: progress,
+      },
+    });
+
+    const result = await repository.getById('job-2');
+
+    expect(result?.analysisProgress).toEqual(progress);
+  });
 });

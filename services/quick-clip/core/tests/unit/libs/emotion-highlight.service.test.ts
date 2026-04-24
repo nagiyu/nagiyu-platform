@@ -263,4 +263,31 @@ describe('EmotionHighlightService', () => {
     expect(result[2].second).toBe(100.0);
     expect(result[3].second).toBe(150.0);
   });
+
+  it('onProgress コールバックはチャンク数 > 1 のみ各チャンク完了後に呼ばれる', async () => {
+    const segmentsPerChunk = 50;
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: [] } })
+      .mockResolvedValueOnce({ output_parsed: { items: [] } });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(2 * segmentsPerChunk), 'any', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).toHaveBeenCalledTimes(2);
+  });
+
+  it('onProgress コールバックはチャンク数 === 1 のときは呼ばれない', async () => {
+    mockParse.mockResolvedValueOnce({ output_parsed: { items: [] } });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(testSegments, 'any', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).not.toHaveBeenCalled();
+  });
 });

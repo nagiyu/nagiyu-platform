@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Alert,
-  Box,
   Button,
   Chip,
   CircularProgress,
@@ -16,6 +15,8 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
 import type { BatchStage, JobStatus } from '@/types/quick-clip';
 import { VideoAd } from './VideoAd';
 
@@ -51,6 +52,19 @@ const INFO_MESSAGES = {
   EXPIRES_AT_PREFIX: 'データの有効期限: ',
 } as const;
 
+type AnalysisProgressItem = {
+  status: 'in_progress' | 'done' | 'failed';
+  completed?: number;
+  total?: number;
+};
+
+type AnalysisProgress = {
+  motion: AnalysisProgressItem;
+  volume: AnalysisProgressItem;
+  transcription?: AnalysisProgressItem;
+  emotionScoring?: AnalysisProgressItem;
+};
+
 type JobPageProps = {
   params: Promise<{ jobId: string }>;
 };
@@ -65,7 +79,35 @@ type JobApiResponse = {
   batchStage?: BatchStage;
   errorMessage?: string;
   downloadUrl?: string;
+  analysisProgress?: AnalysisProgress;
 };
+
+type AnalysisItemProps = {
+  label: string;
+  item: AnalysisProgressItem;
+};
+
+function AnalysisItem({ label, item }: AnalysisItemProps) {
+  const text =
+    item.status === 'in_progress' && item.total !== undefined && item.total > 1
+      ? `${label} (${item.completed ?? 0}/${item.total})`
+      : item.status === 'failed'
+        ? `${label}（スキップ）`
+        : label;
+
+  return (
+    <Stack direction="row" spacing={0.5} alignItems="center">
+      {item.status === 'in_progress' && <CircularProgress size={12} />}
+      {item.status === 'done' && (
+        <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />
+      )}
+      {item.status === 'failed' && (
+        <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />
+      )}
+      <Typography variant="caption">{text}</Typography>
+    </Stack>
+  );
+}
 
 export default function JobPage({ params }: JobPageProps) {
   const [jobId, setJobId] = useState<string>('');
@@ -174,9 +216,28 @@ export default function JobPage({ params }: JobPageProps) {
                 <StepLabel
                   optional={
                     job.status === 'PROCESSING' && job.batchStage ? (
-                      <Typography variant="caption">
-                        {BATCH_STAGE_LABELS[job.batchStage]}
-                      </Typography>
+                      job.analysisProgress ? (
+                        <Stack spacing={0.5} alignItems="flex-start">
+                          <AnalysisItem label="モーション解析" item={job.analysisProgress.motion} />
+                          <AnalysisItem label="音量解析" item={job.analysisProgress.volume} />
+                          {job.analysisProgress.transcription && (
+                            <AnalysisItem
+                              label="文字起こし"
+                              item={job.analysisProgress.transcription}
+                            />
+                          )}
+                          {job.analysisProgress.emotionScoring && (
+                            <AnalysisItem
+                              label="感情分析"
+                              item={job.analysisProgress.emotionScoring}
+                            />
+                          )}
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption">
+                          {BATCH_STAGE_LABELS[job.batchStage]}
+                        </Typography>
+                      )
                     ) : undefined
                   }
                 >

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { JobRepository } from '../repositories/job.repository.interface.js';
-import type { BatchStage, CreateJobInput, Job } from '../types.js';
+import type { AnalysisProgress, BatchStage, CreateJobInput, Job } from '../types.js';
 import { DOMAIN_ERROR_MESSAGES } from './domain-error-messages.js';
 
 const JOB_TTL_SECONDS = 24 * 60 * 60;
@@ -63,5 +63,15 @@ export class JobService {
       throw new Error(DOMAIN_ERROR_MESSAGES.ERROR_MESSAGE_REQUIRED);
     }
     return this.jobRepository.updateErrorMessage(jobId, normalizedErrorMessage);
+  }
+
+  public async updateAnalysisProgress(
+    jobId: string,
+    progress: AnalysisProgress
+  ): Promise<void> {
+    if (jobId.trim().length === 0) {
+      throw new Error(DOMAIN_ERROR_MESSAGES.JOB_ID_REQUIRED);
+    }
+    return this.jobRepository.updateAnalysisProgress(jobId, progress);
   }
 }
