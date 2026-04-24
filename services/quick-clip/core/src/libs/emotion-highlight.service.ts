@@ -141,60 +141,58 @@ export class EmotionHighlightService {
     }> = [];
 
     const responses = await runWithConcurrency(
-      chunks.map(
-        (chunk, chunkIndex) => async () => {
-          console.info(
-            `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し開始`
-          );
-          const response = await withRetry(
-            async () =>
-              withTimeout(
-                this.client.responses.parse({
-                  model: OPENAI_MODEL,
-                  stream: false,
-                  text: {
-                    format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
+      chunks.map((chunk, chunkIndex) => async () => {
+        console.info(
+          `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し開始`
+        );
+        const response = await withRetry(
+          async () =>
+            withTimeout(
+              this.client.responses.parse({
+                model: OPENAI_MODEL,
+                stream: false,
+                text: {
+                  format: zodTextFormat(emotionScoresSchema, 'emotion_scores'),
+                },
+                input: [
+                  {
+                    role: 'user',
+                    content: [
+                      {
+                        type: 'input_text',
+                        text: createPrompt(chunk),
+                      },
+                    ],
                   },
-                  input: [
-                    {
-                      role: 'user',
-                      content: [
-                        {
-                          type: 'input_text',
-                          text: createPrompt(chunk),
-                        },
-                      ],
-                    },
-                  ],
-                }),
-                REQUEST_TIMEOUT_MS
-              ),
-            {
-              maxRetries: MAX_RETRIES,
-              shouldRetry: (error) =>
-                !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
-              logger: {
-                warn: (message: string, meta?: Record<string, unknown>) => {
-                  console.warn(
-                    `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} リトライ: ${message}`,
-                    meta
-                  );
-                },
-                error: (message: string, meta?: Record<string, unknown>) => {
-                  console.error(
-                    `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} リトライ上限: ${message}`,
-                    meta
-                  );
-                },
+                ],
+              }),
+              REQUEST_TIMEOUT_MS
+            ),
+          {
+            maxRetries: MAX_RETRIES,
+            shouldRetry: (error) =>
+              !(error instanceof Error && error.message === ERROR_MESSAGES.TIMEOUT),
+            logger: {
+              warn: (message: string, meta?: Record<string, unknown>) => {
+                console.warn(
+                  `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} リトライ: ${message}`,
+                  meta
+                );
               },
-            }
-          );
-          console.info(
-            `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し完了`
-          );
-          return response;
-        }
-      ),
+              error: (message: string, meta?: Record<string, unknown>) => {
+                console.error(
+                  `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} リトライ上限: ${message}`,
+                  meta
+                );
+              },
+            },
+          }
+        );
+        console.info(
+          `[EmotionHighlightService] チャンク${chunkIndex + 1}/${chunks.length} API 呼び出し完了`
+        );
+        return response;
+      }),
       EMOTION_SCORING_CONCURRENCY
     );
     for (const response of responses) {

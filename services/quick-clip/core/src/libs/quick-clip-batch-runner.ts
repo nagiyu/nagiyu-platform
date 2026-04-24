@@ -153,9 +153,7 @@ const buildHighlights = async (
   emotionFilter?: EmotionFilter
 ): Promise<Highlight[]> => {
   const { size: videoFileSizeBytes } = await stat(localPath);
-  console.info(
-    `[buildHighlights] 開始: jobId=${jobId} videoFileSize=${videoFileSizeBytes}bytes`
-  );
+  console.info(`[buildHighlights] 開始: jobId=${jobId} videoFileSize=${videoFileSizeBytes}bytes`);
 
   const analyzer = new FfmpegVideoAnalyzer();
   const motionService = new MotionHighlightService(analyzer);
@@ -180,9 +178,7 @@ const buildHighlights = async (
 
       console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
       const segments = await transcriptionService.transcribe(localPath);
-      console.info(
-        `[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${segments.length}`
-      );
+      console.info(`[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${segments.length}`);
 
       if (segments.length > 0) {
         console.info(`[buildHighlights] 感情分析開始: jobId=${jobId}`);
@@ -276,9 +272,7 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   await updateBatchStage(env.jobId, 'aggregating', env.tableName, env.awsRegion);
   const expiresAt = await getJobExpiresAt(env.jobId, env.tableName, env.awsRegion);
   await persistHighlights(env.jobId, highlights, expiresAt, env.tableName, env.awsRegion);
-  console.info(
-    `[runExtract] ハイライト保存完了: jobId=${env.jobId} count=${highlights.length}`
-  );
+  console.info(`[runExtract] ハイライト保存完了: jobId=${env.jobId} count=${highlights.length}`);
 };
 
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {
