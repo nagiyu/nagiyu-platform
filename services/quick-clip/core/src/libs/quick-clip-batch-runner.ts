@@ -9,7 +9,7 @@ import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
 import type { AnalysisProgress, BatchStage, Highlight } from '../types.js';
-import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor.service.js';
+import type { EmotionFilter, EmotionHighlightScore, HighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
 import { VolumeHighlightService } from './volume-highlight.service.js';
@@ -171,11 +171,10 @@ const buildHighlights = async (
   };
   await updateAnalysisProgressInDB(jobId, initialProgress, tableName, awsRegion);
 
-  // mutable な共有オブジェクトを then チェーンで更新する
-  // （Node.js シングルスレッドのためコールバック間の競合なし）
-  // let を使用してプロパティ変更を明示的に示す
-  // eslint-disable-next-line prefer-const
-  let progress = { ...initialProgress };
+  // 進捗オブジェクト：各タスク完了時にプロパティを更新し DynamoDB に書き込む
+  // Node.js はシングルスレッドなのでコールバック間のプロパティ変更に競合はない
+  // （書き込み順序は Promise 解決順に依存するが、最終状態は常に正確）
+  const progress = { ...initialProgress };
 
   let emotionScores: EmotionHighlightScore[] = [];
 
@@ -184,48 +183,55 @@ const buildHighlights = async (
 
   console.info(`[buildHighlights] モーション・音量・文字起こし 並列分析開始: jobId=${jobId}`);
 
+  const runMotionAnalysis = async (): Promise<HighlightScore[]> => {
+    const scores = await motionService.analyzeMotion(localPath);
+    progress.motion = { status: 'done' };
+    await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
+    console.info(`[buildHighlights] モーション分析完了: jobId=${jobId} scores=${scores.length}`);
+    return scores;
+  };
+
+  const runVolumeAnalysis = async (): Promise<HighlightScore[]> => {
+    const scores = await volumeService.analyzeVolume(localPath);
+    progress.volume = { status: 'done' };
+    await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
+    console.info(`[buildHighlights] 音量分析完了: jobId=${jobId} scores=${scores.length}`);
+    return scores;
+  };
+
+  const runTranscription = async (): Promise<TranscriptSegment[]> => {
+    if (!openai) return [];
+    const transcriptionService = new TranscriptionService(openai);
+    console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
+    try {
+      const result = await transcriptionService.transcribe(
+        localPath,
+        async (completed, total) => {
+          progress.transcription = {
+            status: 'in_progress',
+            ...(total > 1 ? { completed, total } : {}),
+          };
+          await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
+        }
+      );
+      progress.transcription = { status: 'done' };
+      await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
+      console.info(
+        `[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${result.length}`
+      );
+      return result;
+    } catch (err) {
+      console.warn('[buildHighlights] 文字起こしをスキップします:', err);
+      progress.transcription = { status: 'failed' };
+      await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
+      return [];
+    }
+  };
+
   const [motionScores, volumeScores, segments] = await Promise.all([
-    motionService.analyzeMotion(localPath).then(async (scores) => {
-      progress.motion = { status: 'done' };
-      await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
-      console.info(`[buildHighlights] モーション分析完了: jobId=${jobId} scores=${scores.length}`);
-      return scores;
-    }),
-    volumeService.analyzeVolume(localPath).then(async (scores) => {
-      progress.volume = { status: 'done' };
-      await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
-      console.info(`[buildHighlights] 音量分析完了: jobId=${jobId} scores=${scores.length}`);
-      return scores;
-    }),
-    openai
-      ? (async (): Promise<TranscriptSegment[]> => {
-          const transcriptionService = new TranscriptionService(openai);
-          console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
-          try {
-            const result = await transcriptionService.transcribe(
-              localPath,
-              async (completed, total) => {
-                progress.transcription = {
-                  status: 'in_progress',
-                  ...(total > 1 ? { completed, total } : {}),
-                };
-                await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
-              }
-            );
-            progress.transcription = { status: 'done' };
-            await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
-            console.info(
-              `[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${result.length}`
-            );
-            return result;
-          } catch (err) {
-            console.warn('[buildHighlights] 文字起こしをスキップします:', err);
-            progress.transcription = { status: 'failed' };
-            await updateAnalysisProgressInDB(jobId, progress, tableName, awsRegion);
-            return [];
-          }
-        })()
-      : Promise.resolve([] as TranscriptSegment[]),
+    runMotionAnalysis(),
+    runVolumeAnalysis(),
+    runTranscription(),
   ]);
 
   console.info(
