@@ -169,7 +169,7 @@ jobs:
           if [ -n "$(git status --porcelain)" ]; then
             git add -A
             git commit -m "feat: Codex による自動実装 (#${ISSUE_NUMBER})"
-            git push
+            git push -u origin HEAD
             gh issue comment "$ISSUE_NUMBER" --body "Codex が変更を適用し、プッシュしました。PR でご確認ください。"
           else
             gh issue comment "$ISSUE_NUMBER" --body "Codex が実行しましたが、変更はありませんでした。"
