@@ -162,13 +162,11 @@ describe('runQuickClipBatch', () => {
     mockGetScores.mockResolvedValue([]);
     mockSpawn.mockImplementation(() => ({
       stderr: { on: jest.fn() },
-      on: jest
-        .fn()
-        .mockImplementation((event: string, handler: (code: number) => void) => {
-          if (event === 'close') {
-            handler(0);
-          }
-        }),
+      on: jest.fn().mockImplementation((event: string, handler: (code: number) => void) => {
+        if (event === 'close') {
+          handler(0);
+        }
+      }),
     }));
   });
 
@@ -314,9 +312,7 @@ describe('runQuickClipBatch', () => {
       })
     );
     expect(mockCreateMany).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ clipStatus: 'GENERATED' }),
-      ])
+      expect.arrayContaining([expect.objectContaining({ clipStatus: 'GENERATED' })])
     );
   });
 
