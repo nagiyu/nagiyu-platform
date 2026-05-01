@@ -169,19 +169,16 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          COMMENT_FILE=$(mktemp)
           if [ -n "$(git status --porcelain)" ]; then
             git add -A
             git commit -m "feat: Codex による自動実装 (#${ISSUE_NUMBER})"
             git push -u origin HEAD
-            COMMENT="Codex が変更を適用し、プッシュしました。PR でご確認ください。"
+            echo "Codex が変更を適用し、プッシュしました。PR でご確認ください。" > "$COMMENT_FILE"
           else
-            COMMENT="Codex が実行しましたが、変更はありませんでした。"
+            echo "Codex が実行しましたが、変更はありませんでした。" > "$COMMENT_FILE"
           fi
           if [ -n "${CODEX_OUTPUT}" ]; then
-            COMMENT="${COMMENT}
-
----
-
-${CODEX_OUTPUT}"
+            printf '\n---\n\n%s' "${CODEX_OUTPUT}" >> "$COMMENT_FILE"
           fi
-          gh issue comment "$ISSUE_NUMBER" --body "${COMMENT}"
+          gh issue comment "$ISSUE_NUMBER" --body-file "$COMMENT_FILE"
