@@ -1,0 +1,78 @@
+name: Agent - Codex
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' && github.event.label.name == 'agent:codex') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@codex'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ブランチ・Draft PR 作成
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+
+          TARGET_BRANCH=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body' | grep -oP '(?<=target-branch: )\S+' || echo 'develop')
+
+          SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g' | cut -c1-40)
+          BRANCH="feature/${ISSUE_NUMBER}-${SLUG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git commit --allow-empty -m "chore: start issue #${ISSUE_NUMBER}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "$ISSUE_TITLE" \
+            --body "Closes #${ISSUE_NUMBER}" \
+            --base "$TARGET_BRANCH" \
+            --head "$BRANCH" \
+            --draft
+
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+
+      - name: フェーズ判別
+        if: github.event_name == 'issues'
+        id: detect-phase
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          if echo "$ISSUE_TITLE" | grep -q 'タスクドキュメント'; then
+            echo "agent_file=.github/agents/task.proposal.agent.md" >> "$GITHUB_OUTPUT"
+          elif echo "$ISSUE_TITLE" | grep -q 'クリーンアップ'; then
+            echo "agent_file=.github/agents/docs.write.agent.md" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent_file=.github/agents/task.implement.agent.md" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ブランチをチェックアウト（Issue ラベルトリガー時）
+        if: github.event_name == 'issues'
+        run: git checkout "$BRANCH"
+
+      - name: Codex を起動
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.detect-phase.outputs.agent_file }}
+          sandbox: workspace-write
