@@ -126,7 +126,13 @@ export abstract class AbstractDynamoDBRepository<TEntity, TKey> {
 
       return this.mapToEntity(result.Item);
     } catch (error) {
-      if (error instanceof InvalidEntityDataError) {
+      // モジュールインスタンス差異への対応: instanceof が失敗するケースを name/message で補完
+      if (
+        error instanceof InvalidEntityDataError ||
+        (error instanceof Error &&
+          (error.name === 'InvalidEntityDataError' ||
+            error.message.startsWith('エンティティデータが無効です')))
+      ) {
         throw error;
       }
       throw new DatabaseError(
