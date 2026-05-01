@@ -447,6 +447,81 @@ test.describe('サマリー画面スモークテスト', () => {
     await expect(dialog.getByText('中立')).toBeVisible();
   });
 
+  test('サポート/レジスタンスチップをクリックして価格プリセット済みアラートを設定できる', async ({
+    page,
+  }) => {
+    await page.route('**/api/summaries', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          exchanges: [
+            {
+              exchangeId: 'test-exchange-id',
+              exchangeName: 'テスト取引所',
+              date: '2026-03-02',
+              summaries: [
+                {
+                  tickerId: 'TEST:AAA',
+                  symbol: 'AAA',
+                  name: 'AAA株式会社',
+                  open: 100,
+                  high: 115,
+                  low: 95,
+                  close: 105,
+                  updatedAt: '2026-03-02T00:00:00.000Z',
+                  buyPatternCount: 0,
+                  sellPatternCount: 0,
+                  patternDetails: [],
+                  aiAnalysisResult: {
+                    priceMovementAnalysis: 'テスト用の値動き分析です。',
+                    patternAnalysis: 'テスト用のパターン分析です。',
+                    supportLevels: [100, 99, 98],
+                    resistanceLevels: [110, 111, 112],
+                    relatedMarketTrend: 'テスト用の市場動向です。',
+                    investmentJudgment: { signal: 'NEUTRAL', reason: '様子見です。' },
+                  },
+                  holding: null,
+                },
+              ],
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto('/summaries');
+    await page.locator('tbody tr').first().click();
+
+    const dialog = page.getByRole('dialog');
+
+    // サポートレベルのチップをクリック → Buy/Sell 選択メニューが表示される
+    const supportChip = dialog.getByText('100', { exact: true }).first();
+    await supportChip.click();
+    await expect(page.getByRole('menuitem', { name: '買いアラートを設定' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: '売りアラートを設定' })).toBeVisible();
+
+    // 「買いアラートを設定」を選択 → 買いアラートモーダルが開き、価格 100 がプリセットされる
+    await page.getByRole('menuitem', { name: '買いアラートを設定' }).click();
+    const buyAlertDialog = page.getByRole('dialog', { name: 'アラート設定 (買いアラート)' });
+    await expect(buyAlertDialog).toBeVisible();
+    await expect(buyAlertDialog.getByLabel('目標価格')).toHaveValue('100');
+    await page.keyboard.press('Escape');
+    await expect(buyAlertDialog).toHaveCount(0);
+
+    // レジスタンスレベルのチップをクリック → Buy/Sell 選択メニューが表示される
+    const resistanceChip = dialog.getByText('110', { exact: true }).first();
+    await resistanceChip.click();
+    await expect(page.getByRole('menuitem', { name: '買いアラートを設定' })).toBeVisible();
+
+    // 「売りアラートを設定」を選択 → 売りアラートモーダルが開き、価格 110 がプリセットされる
+    await page.getByRole('menuitem', { name: '売りアラートを設定' }).click();
+    const sellAlertDialog = page.getByRole('dialog', { name: 'アラート設定 (売りアラート)' });
+    await expect(sellAlertDialog).toBeVisible();
+    await expect(sellAlertDialog.getByLabel('目標価格')).toHaveValue('110');
+    await page.keyboard.press('Escape');
+  });
+
   test('詳細ダイアログがモバイル幅で画面内に収まる', async ({ page }) => {
     await page.route('**/api/summaries', async (route) => {
       await route.fulfill({
