@@ -70,9 +70,17 @@ jobs:
         if: github.event_name == 'issues'
         run: git checkout "$BRANCH"
 
-      - name: Codex を起動
+      - name: Codex を起動（Issue ラベルトリガー）
+        if: github.event_name == 'issues'
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ steps.detect-phase.outputs.agent_file }}
+          sandbox: workspace-write
+
+      - name: Codex を起動（コメントトリガー）
+        if: github.event_name == 'issue_comment'
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           sandbox: workspace-write
