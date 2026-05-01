@@ -5,6 +5,7 @@ import { getAllServiceSlugs, getServiceDocument } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 import MarkdownContent from '@/components/MarkdownContent';
 import ServiceDocumentNav from '@/components/ServiceDocumentNav';
+import { buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
 
 type Params = {
   params: Promise<{ slug: string }>;
@@ -44,8 +45,18 @@ export default async function ServicePage({ params }: Params) {
   const serviceUrl = SERVICE_URLS[slug];
   const serviceName = SERVICE_NAMES[slug] ?? slug;
 
+  const breadcrumb = buildBreadcrumbJsonLd([
+    { name: 'ホーム', url: 'https://nagiyu.com/' },
+    { name: 'サービス', url: 'https://nagiyu.com/services' },
+    { name: serviceName, url: `https://nagiyu.com/services/${slug}` },
+  ]);
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }}
+      />
       <Typography variant="h4" component="h1" gutterBottom>
         {doc.title}
       </Typography>

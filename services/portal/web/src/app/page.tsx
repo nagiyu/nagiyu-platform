@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { getAllServiceSlugs, getServiceDocument, getAllArticles } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
+import { buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScript } from '@/lib/jsonLd';
 
 export const metadata: Metadata = {
   title: 'nagiyu - サービス一覧・技術ポータル',
@@ -46,6 +47,14 @@ export default async function HomePage() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(buildWebSiteJsonLd()) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(buildOrganizationJsonLd()) }}
+      />
       {/* ヒーローセクション */}
       <Box sx={{ mb: 6, textAlign: 'center' }}>
         <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 700 }}>
