@@ -122,6 +122,25 @@ jobs:
           } > "$PROMPT_FILE"
           echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
 
+      - name: ブランチをチェックアウト（コメントトリガー時）
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          # PR コメントなら PR のブランチ、Issue コメントなら feature ブランチを探す
+          if gh pr view "$ISSUE_NUMBER" --json headRefName > /dev/null 2>&1; then
+            BRANCH=$(gh pr view "$ISSUE_NUMBER" --json headRefName -q '.headRefName')
+          else
+            BRANCH=$(git branch -r | grep -m1 "origin/feature/${ISSUE_NUMBER}-" | tr -d ' ' | sed 's|origin/||' || echo '')
+          fi
+          if [ -n "$BRANCH" ]; then
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          fi
+
       - name: Codex を起動（Issue ラベルトリガー）
         if: github.event_name == 'issues'
         uses: openai/codex-action@v1
@@ -137,3 +156,21 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           prompt-file: ${{ steps.generate-comment-prompt.outputs.prompt_file }}
           sandbox: workspace-write
+
+      - name: コミット・プッシュ・Issue コメント投稿
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "feat: Codex による自動実装 (#${ISSUE_NUMBER})"
+            git push
+            gh issue comment "$ISSUE_NUMBER" --body "Codex が変更を適用し、プッシュしました。PR でご確認ください。"
+          else
+            gh issue comment "$ISSUE_NUMBER" --body "Codex が実行しましたが、変更はありませんでした。"
+          fi
