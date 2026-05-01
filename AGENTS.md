@@ -79,6 +79,10 @@ feature/**  →  integration/**  →  develop  →  master
 ```
 
 - 作業ブランチは `feature/{issue-number}-{slug}` 形式で作成する
+- `{issue-number}` は GitHub Issue 番号のみを入れる（例: `2835`）
+- `{slug}` は Issue タイトルや作業内容を英小文字・数字・ハイフンで短く要約する
+- `slug` は冗長にせず、ブランチ一覧で目的が分かる最小限の語にする
+- 例: Issue #2835「AGENTS.md にブランチ命名規則のガイドラインを追記する」では `feature/2835-agents-md`
 - PR のターゲットは原則 `integration/{service-name}` または `develop`
 
 ---
