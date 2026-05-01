@@ -174,7 +174,7 @@ const buildHighlights = async (
 
   console.info(`[buildHighlights] モーション・音量・文字起こし並列分析 開始: jobId=${jobId}`);
   const [motionScores, volumeScores, segments] = await Promise.all([
-    motionService.analyzeMotion(localPath).then(async (scores) => {
+    motionService.analyzeMotion(localPath, duration).then(async (scores) => {
       progress.motion = { status: 'done' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
       console.info(
@@ -182,7 +182,7 @@ const buildHighlights = async (
       );
       return scores;
     }),
-    volumeService.analyzeVolume(localPath).then(async (scores) => {
+    volumeService.analyzeVolume(localPath, duration).then(async (scores) => {
       progress.volume = { status: 'done' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
       console.info(`[buildHighlights] 音量分析 完了: jobId=${jobId} volumeScores=${scores.length}`);

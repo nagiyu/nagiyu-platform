@@ -152,6 +152,16 @@ describe('runQuickClipBatch', () => {
     mockGetScores.mockResolvedValue([]);
   });
 
+  it('analyzeMotion と analyzeVolume に duration が渡されること', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockGetDurationSec.mockResolvedValue(1200);
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    expect(mockAnalyzeMotion).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4', 1200);
+    expect(mockAnalyzeVolume).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4', 1200);
+  });
+
   it('NoSuchKey が一時的に発生してもリトライで取得できれば処理を継続する', async () => {
     jest.useFakeTimers();
     mockS3Send.mockRejectedValueOnce(TEST_ERRORS.NO_SUCH_KEY).mockResolvedValueOnce({

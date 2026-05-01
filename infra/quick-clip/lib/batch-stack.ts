@@ -75,7 +75,7 @@ export class BatchStack extends cdk.Stack {
       state: 'ENABLED',
       computeResources: {
         type: 'FARGATE',
-        maxvCpus: 8,
+        maxvCpus: 32,
         subnets: publicSubnetIds,
         securityGroupIds: [securityGroup.securityGroupId],
       },
@@ -150,8 +150,8 @@ export class BatchStack extends cdk.Stack {
       containerProperties: {
         image: batchImage,
         resourceRequirements: [
-          { type: 'VCPU', value: '4' },
-          { type: 'MEMORY', value: '8192' },
+          { type: 'VCPU', value: '8' },
+          { type: 'MEMORY', value: '16384' },
         ],
         executionRoleArn: executionRole.roleArn,
         jobRoleArn: jobRole.roleArn,
@@ -199,7 +199,7 @@ export class BatchStack extends cdk.Stack {
       containerProperties: {
         image: batchImage,
         resourceRequirements: [
-          { type: 'VCPU', value: '4' },
+          { type: 'VCPU', value: '8' },
           { type: 'MEMORY', value: '16384' },
         ],
         executionRoleArn: executionRole.roleArn,

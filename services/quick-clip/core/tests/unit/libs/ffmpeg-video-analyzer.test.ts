@@ -113,6 +113,88 @@ describe('FfmpegVideoAnalyzer', () => {
     ]);
   });
 
+  it('analyzeMotion: startSec が指定された場合、-ss が -i の前に挿入される', async () => {
+    spawnMock.mockReturnValue(createFfmpegProcessMock(''));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await analyzer.analyzeMotion('/tmp/input.mp4', 600);
+
+    const args: string[] = spawnMock.mock.calls[0][1] as string[];
+    const ssIndex = args.indexOf('-ss');
+    const iIndex = args.indexOf('-i');
+    expect(ssIndex).toBeGreaterThanOrEqual(0);
+    expect(iIndex).toBeGreaterThan(ssIndex);
+    expect(args[ssIndex + 1]).toBe('600');
+  });
+
+  it('analyzeMotion: durationSec が指定された場合、-t が -i の後に挿入される', async () => {
+    spawnMock.mockReturnValue(createFfmpegProcessMock(''));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await analyzer.analyzeMotion('/tmp/input.mp4', 600, 600);
+
+    const args: string[] = spawnMock.mock.calls[0][1] as string[];
+    const tIndex = args.indexOf('-t');
+    const iIndex = args.indexOf('-i');
+    expect(tIndex).toBeGreaterThan(iIndex);
+    expect(args[tIndex + 1]).toBe('600');
+  });
+
+  it('analyzeMotion: startSec/durationSec 未指定時は -ss/-t が含まれない', async () => {
+    spawnMock.mockReturnValue(
+      createFfmpegProcessMock('frame:1 pts:100 pts_time:10.5\nlavfi.scene_score=0.44')
+    );
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await analyzer.analyzeMotion('/tmp/input.mp4');
+
+    const args: string[] = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('-ss');
+    expect(args).not.toContain('-t');
+  });
+
+  it('analyzeVolume: startSec が指定された場合、-ss が -i の前に挿入される', async () => {
+    spawnMock.mockReturnValue(createFfmpegProcessMock('30 fps'));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await analyzer.analyzeVolume('/tmp/input.mp4', 600);
+
+    const args: string[] = spawnMock.mock.calls[0][1] as string[];
+    const ssIndex = args.indexOf('-ss');
+    const iIndex = args.indexOf('-i');
+    expect(ssIndex).toBeGreaterThanOrEqual(0);
+    expect(iIndex).toBeGreaterThan(ssIndex);
+    expect(args[ssIndex + 1]).toBe('600');
+  });
+
+  it('analyzeVolume: durationSec が指定された場合、-t が -i の後に挿入される', async () => {
+    spawnMock.mockReturnValue(createFfmpegProcessMock('30 fps'));
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await analyzer.analyzeVolume('/tmp/input.mp4', 600, 600);
+
+    const args: string[] = spawnMock.mock.calls[0][1] as string[];
+    const tIndex = args.indexOf('-t');
+    const iIndex = args.indexOf('-i');
+    expect(tIndex).toBeGreaterThan(iIndex);
+    expect(args[tIndex + 1]).toBe('600');
+  });
+
+  it('analyzeVolume: startSec/durationSec 未指定時は -ss/-t が含まれない', async () => {
+    spawnMock.mockReturnValue(
+      createFfmpegProcessMock(
+        '30 fps\nframe:300 pts:0 pts_time:10.0\nlavfi.astats.Overall.RMS_level=-20.0'
+      )
+    );
+
+    const analyzer = new FfmpegVideoAnalyzer();
+    await analyzer.analyzeVolume('/tmp/input.mp4');
+
+    const args: string[] = spawnMock.mock.calls[0][1] as string[];
+    expect(args).not.toContain('-ss');
+    expect(args).not.toContain('-t');
+  });
+
   it('analyzeMotion: ffmpeg が異常終了した場合はエラーを投げる', async () => {
     spawnMock.mockReturnValue(createFfmpegProcessMock('ffmpeg error', 2));
 

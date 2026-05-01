@@ -58,13 +58,13 @@ Phase 1・2 の実装完了後に判明した不具合・改善点。
 
 ## Phase 6: モーション・音量分析チャンク並列化 & Fargate スペックアップ
 
-- [ ] `services/quick-clip/core/src/libs/ffmpeg-video-analyzer.ts`: `analyzeMotion` と `analyzeVolume` に `startSec?: number, durationSec?: number` を追加する。指定時は `-ss {startSec}` を `-i` の前に、`-t {durationSec}` を `-i` の後に挿入する。既存の引数なし呼び出しは変更なし（依存: なし）
-- [ ] `services/quick-clip/core/src/libs/motion-highlight.service.ts`: `analyzeMotion` に `videoDurationSec: number` を追加し、チャンク並列化する。`ANALYSIS_CHUNK_DURATION_SEC = 600`、`MOTION_ANALYSIS_CONCURRENCY = 4`。`detectUniformIntervals` はフル動画1回、チャンク分析と `Promise.all` で並走。`runWithConcurrency` を同ファイルのモジュールスコープに定義する（依存: ffmpeg-video-analyzer 変更）
-- [ ] `services/quick-clip/core/src/libs/volume-highlight.service.ts`: `analyzeVolume` に `videoDurationSec: number` を追加し、チャンク並列化する。`ANALYSIS_CHUNK_DURATION_SEC = 600`、`VOLUME_ANALYSIS_CONCURRENCY = 4`。`runWithConcurrency` を同ファイルのモジュールスコープに定義する（依存: ffmpeg-video-analyzer 変更）
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: `buildHighlights` 内の `analyzeMotion` と `analyzeVolume` 呼び出しに第2引数 `duration` を渡す（依存: motion/volume サービス変更）
-- [ ] `services/quick-clip/core/src/libs/job-definition-selector.ts`: コメントを「最大 10 FFmpeg プロセス（motion×4 + detectUniform×2 + volume×4）、large/xlarge は 8 vCPU」に更新する（依存: なし）
-- [ ] `infra/quick-clip/lib/batch-stack.ts`: large を 8 vCPU / 16384 MB、xlarge を 8 vCPU / 16384 MB に変更する。`computeResources.maxvCpus` を 32 に変更する（依存: なし）
-- [ ] Phase 6 のテストを追加・更新する（依存: 上記すべて）:
+- [x] `services/quick-clip/core/src/libs/ffmpeg-video-analyzer.ts`: `analyzeMotion` と `analyzeVolume` に `startSec?: number, durationSec?: number` を追加する。指定時は `-ss {startSec}` を `-i` の前に、`-t {durationSec}` を `-i` の後に挿入する。既存の引数なし呼び出しは変更なし（依存: なし）
+- [x] `services/quick-clip/core/src/libs/motion-highlight.service.ts`: `analyzeMotion` に `videoDurationSec: number` を追加し、チャンク並列化する。`ANALYSIS_CHUNK_DURATION_SEC = 600`、`MOTION_ANALYSIS_CONCURRENCY = 4`。`detectUniformIntervals` はフル動画1回、チャンク分析と `Promise.all` で並走。`runWithConcurrency` を同ファイルのモジュールスコープに定義する（依存: ffmpeg-video-analyzer 変更）
+- [x] `services/quick-clip/core/src/libs/volume-highlight.service.ts`: `analyzeVolume` に `videoDurationSec: number` を追加し、チャンク並列化する。`ANALYSIS_CHUNK_DURATION_SEC = 600`、`VOLUME_ANALYSIS_CONCURRENCY = 4`。`runWithConcurrency` を同ファイルのモジュールスコープに定義する（依存: ffmpeg-video-analyzer 変更）
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: `buildHighlights` 内の `analyzeMotion` と `analyzeVolume` 呼び出しに第2引数 `duration` を渡す（依存: motion/volume サービス変更）
+- [x] `services/quick-clip/core/src/libs/job-definition-selector.ts`: コメントを「最大 10 FFmpeg プロセス（motion×4 + detectUniform×2 + volume×4）、large/xlarge は 8 vCPU」に更新する（依存: なし）
+- [x] `infra/quick-clip/lib/batch-stack.ts`: large を 8 vCPU / 16384 MB、xlarge を 8 vCPU / 16384 MB に変更する。`computeResources.maxvCpus` を 32 に変更する（依存: なし）
+- [x] Phase 6 のテストを追加・更新する（依存: 上記すべて）:
     - `ffmpeg-video-analyzer.test.ts`: `startSec`/`durationSec` 指定時に `-ss`/`-t` が args に含まれること
     - `motion-highlight.service.test.ts`: チャンク数・concurrency・`flat()` マージの動作確認。`videoDurationSec` に応じたチャンク分割の確認
     - `volume-highlight.service.test.ts`: 同上
