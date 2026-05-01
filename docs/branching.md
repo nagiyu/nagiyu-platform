@@ -52,12 +52,12 @@ integration/**
 
 以下は代表的なフロー例。
 
-1. 機能 A-1 の対応
-    - `feature/AppA/A-1` を作成し作業
-2. A-1 がまとまり次第
-    - `integration/AppA` にマージ  
+1. Issue #1234 の対応
+    - `feature/1234-add-login-form` を作成し作業
+2. Issue #1234 の作業がまとまり次第
+    - `integration/tools` にマージ
         → 開発環境へ自動デプロイ
-3. 機能 A 一式が揃ったら
+3. 機能一式が揃ったら
     - `develop` にマージ
 4. 全体としてリリース可能な状態になれば
     - `master` にマージ  
@@ -105,10 +105,32 @@ master
 
 | 種類     | ブランチ例              | デプロイ   | 目的           |
 | ------ | ------------------ | ------ | ------------ |
-| 作業ブランチ | `feature/AppA/A-1`    | ❌      | 個別作業・WIP     |
-| App 統合 | `integration/AppA` | ✅      | App 単位の統合・検証 |
+| 作業ブランチ | `feature/1234-add-login-form` | ❌      | 個別作業・WIP     |
+| App 統合 | `integration/tools` | ✅      | App 単位の統合・検証 |
 | 全体統合   | `develop`          | ✅      | 全サービス統合      |
 | 本番     | `master`           | 本番デプロイ | 安定版          |
+
+---
+
+## 作業ブランチの命名規則
+
+作業ブランチは、対応する GitHub Issue を基準に以下の形式で作成する。
+
+```text
+feature/{issue-number}-{slug}
+```
+
+- `{issue-number}` は対応する GitHub Issue 番号を使用する
+- `{slug}` は Issue タイトルまたは作業内容を短く表す英小文字 kebab-case とする
+- slug にはスペース、スラッシュ、日本語、記号を含めない
+- Issue 番号がない場合は原則ブランチを作成せず、先に Issue の作成または番号の確認を行う
+
+例:
+
+| Issue | ブランチ名 |
+| ----- | ---------- |
+| `#2835 AGENTS.md にブランチ命名規則のガイドラインを追記する` | `feature/2835-agents-md` |
+| `#1234 ログインフォームを追加する` | `feature/1234-add-login-form` |
 
 ---
 
