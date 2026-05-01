@@ -143,6 +143,7 @@ jobs:
 
       - name: Codex を起動（Issue ラベルトリガー）
         if: github.event_name == 'issues'
+        id: codex-issues
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -151,6 +152,7 @@ jobs:
 
       - name: Codex を起動（コメントトリガー）
         if: github.event_name == 'issue_comment'
+        id: codex-comments
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
@@ -162,6 +164,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CODEX_OUTPUT: ${{ steps.codex-issues.outputs.final-message || steps.codex-comments.outputs.final-message }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -170,7 +173,15 @@ jobs:
             git add -A
             git commit -m "feat: Codex による自動実装 (#${ISSUE_NUMBER})"
             git push -u origin HEAD
-            gh issue comment "$ISSUE_NUMBER" --body "Codex が変更を適用し、プッシュしました。PR でご確認ください。"
+            COMMENT="Codex が変更を適用し、プッシュしました。PR でご確認ください。"
           else
-            gh issue comment "$ISSUE_NUMBER" --body "Codex が実行しましたが、変更はありませんでした。"
+            COMMENT="Codex が実行しましたが、変更はありませんでした。"
           fi
+          if [ -n "${CODEX_OUTPUT}" ]; then
+            COMMENT="${COMMENT}
+
+---
+
+${CODEX_OUTPUT}"
+          fi
+          gh issue comment "$ISSUE_NUMBER" --body "${COMMENT}"
