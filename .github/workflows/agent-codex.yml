@@ -70,12 +70,64 @@ jobs:
         if: github.event_name == 'issues'
         run: git checkout "$BRANCH"
 
+      - name: プロンプトファイル生成（Issue ラベルトリガー時）
+        if: github.event_name == 'issues'
+        id: generate-prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          AGENT_FILE: ${{ steps.detect-phase.outputs.agent_file }}
+        run: |
+          set -euo pipefail
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+          PROMPT_FILE=$(mktemp --suffix=.md)
+          {
+            echo "## 対象 GitHub Issue"
+            echo ""
+            echo "Issue番号: ${ISSUE_NUMBER}"
+            echo "タイトル: ${ISSUE_TITLE}"
+            echo "本文:"
+            echo ""
+            echo "${ISSUE_BODY}"
+            echo ""
+            echo "---"
+            echo ""
+            cat "$AGENT_FILE"
+          } > "$PROMPT_FILE"
+          echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: プロンプトファイル生成（コメントトリガー時）
+        if: github.event_name == 'issue_comment'
+        id: generate-comment-prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+          PROMPT_FILE=$(mktemp --suffix=.md)
+          {
+            echo "## 対象 GitHub Issue"
+            echo ""
+            echo "Issue番号: ${ISSUE_NUMBER}"
+            echo "本文:"
+            echo ""
+            echo "${ISSUE_BODY}"
+            echo ""
+            echo "## コメント内容"
+            echo ""
+            echo "${COMMENT_BODY}"
+          } > "$PROMPT_FILE"
+          echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Codex を起動（Issue ラベルトリガー）
         if: github.event_name == 'issues'
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          prompt-file: ${{ steps.detect-phase.outputs.agent_file }}
+          prompt-file: ${{ steps.generate-prompt.outputs.prompt_file }}
           sandbox: workspace-write
 
       - name: Codex を起動（コメントトリガー）
@@ -83,4 +135,5 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.generate-comment-prompt.outputs.prompt_file }}
           sandbox: workspace-write
