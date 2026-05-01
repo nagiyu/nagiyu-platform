@@ -78,8 +78,37 @@ feature/**  →  integration/**  →  develop  →  master
            (Fast CI)      (Full CI)   (本番)
 ```
 
-- 作業ブランチは `feature/{issue-number}-{slug}` 形式で作成する
-- PR のターゲットは原則 `integration/{service-name}` または `develop`
+### ブランチ命名規則
+
+作業ブランチは必ず以下の形式で作成すること:
+
+```
+feature/{issue-number}-{slug}
+```
+
+**`{issue-number}`**: 対応する GitHub Issue の番号（例: `2835`）
+
+**`{slug}`**: Issue タイトルを kebab-case に変換した短い識別子
+
+- 英数字と `-` のみ使用（記号・スペース → `-`、日本語 → 意味を表す英単語に意訳）
+- 5 ワード程度に収める
+- 例: `add-branch-naming-guide`、`fix-login-redirect`、`refactor-auth-middleware`
+
+**具体例**:
+
+| Issue タイトル | ブランチ名 |
+|---|---|
+| `AGENTS.md にブランチ命名規則を追記` | `feature/2835-agents-md` |
+| `ログイン後にリダイレクトされない` | `feature/1234-fix-login-redirect` |
+| `認証ミドルウェアのリファクタリング` | `feature/5678-refactor-auth-middleware` |
+
+**MUST**:
+
+- Issue 番号を必ず含める（追跡可能性のため）
+- `feature/` プレフィックスを使用する（作業ブランチの識別）
+- 既存ブランチと重複しないことを確認する
+
+**PR のターゲット**: 原則 `integration/{service-name}` または `develop`
 
 ---
 
