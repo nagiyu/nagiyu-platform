@@ -118,3 +118,30 @@ export function getAllArticles(): ArticleMeta[] {
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
 }
+
+/**
+ * 指定記事に関連する記事を返す（タグ一致数の多い順、同数なら publishedAt 降順）
+ * @param currentSlug - 除外する自記事 slug
+ * @param tags - 比較対象のタグ配列
+ * @param limit - 返す件数（既定 3）
+ */
+export function getRelatedArticles(currentSlug: string, tags: string[], limit = 3): ArticleMeta[] {
+  const tagSet = new Set(tags);
+  const others = getAllArticles().filter((article) => article.slug !== currentSlug);
+
+  const scored = others
+    .map((article) => ({
+      article,
+      score: article.tags.filter((tag) => tagSet.has(tag)).length,
+    }))
+    .filter((entry) => entry.score > 0);
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return new Date(b.article.publishedAt).getTime() - new Date(a.article.publishedAt).getTime();
+  });
+
+  return scored.slice(0, limit).map((entry) => entry.article);
+}

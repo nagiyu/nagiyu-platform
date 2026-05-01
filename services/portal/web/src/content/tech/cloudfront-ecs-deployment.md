@@ -3,6 +3,8 @@ title: 'CloudFront+ECSでNext.jsをデプロイする構成解説'
 description: 'CloudFront + ECS FargateでNext.jsをデプロイするAWS構成を解説。ECSサービス設定・ALB構成・CloudFrontディストリビューション・キャッシュ設定・GitHub ActionsでのCI/CDまで詳しく説明します。'
 slug: 'cloudfront-ecs-deployment'
 publishedAt: '2026-04-10'
+updatedAt: '2026-05-01'
+author: 'なぎゆー'
 tags: ['AWS', 'CloudFront', 'ECS', 'Next.js']
 ---
 

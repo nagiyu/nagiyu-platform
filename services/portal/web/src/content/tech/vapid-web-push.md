@@ -3,7 +3,10 @@ title: 'Web Push通知をVAPIDキーで実装する方法'
 description: 'VAPIDキーを使ったWeb Push通知の実装方法を解説。サービスワーカーの設定・Push APIのサブスクリプション管理・web-pushライブラリでのサーバーサイド送信・ブラウザサポートまで詳しく説明します。'
 slug: 'vapid-web-push'
 publishedAt: '2026-04-10'
+updatedAt: '2026-05-01'
+author: 'なぎゆー'
 tags: ['Web Push', 'VAPID', '通知']
+relatedServices: ['stock-tracker', 'tools']
 ---
 
 ## はじめに
