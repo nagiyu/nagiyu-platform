@@ -60,19 +60,34 @@ jobs:
           ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           if echo "$ISSUE_TITLE" | grep -q 'タスクドキュメント'; then
-            echo "agent_file=.github/agents/task.proposal.agent.md" >> "$GITHUB_OUTPUT"
+            AGENT_FILE=".github/agents/task.proposal.agent.md"
           elif echo "$ISSUE_TITLE" | grep -q 'クリーンアップ'; then
-            echo "agent_file=.github/agents/docs.write.agent.md" >> "$GITHUB_OUTPUT"
+            AGENT_FILE=".github/agents/docs.write.agent.md"
           else
-            echo "agent_file=.github/agents/task.implement.agent.md" >> "$GITHUB_OUTPUT"
+            AGENT_FILE=".github/agents/task.implement.agent.md"
           fi
+          echo "agent_file=${AGENT_FILE}" >> "$GITHUB_OUTPUT"
+          {
+            echo "prompt<<AGENT_EOF"
+            cat "${AGENT_FILE}"
+            echo "AGENT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: ブランチをチェックアウト（Issue ラベルトリガー時）
         if: github.event_name == 'issues'
         run: git checkout "$BRANCH"
 
-      - name: Claude を起動
+      - name: Claude を起動（Issue ラベルトリガー）
+        if: github.event_name == 'issues'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt_file: ${{ steps.detect-phase.outputs.agent_file }}
+          label_trigger: 'agent:claude'
+          prompt: ${{ steps.detect-phase.outputs.prompt }}
+
+      - name: Claude を起動（コメントトリガー）
+        if: github.event_name == 'issue_comment'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          trigger_phrase: '@claude'
