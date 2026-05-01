@@ -200,17 +200,11 @@ export default function SummaryDetailDialog({
               </TableContainer>
               <Divider />
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button
-                  variant="outlined"
-                  onClick={() => openAlertModal('Buy', summary.close)}
-                >
+                <Button variant="outlined" onClick={() => openAlertModal('Buy', summary.close)}>
                   買いアラート設定
                 </Button>
                 {summary.holding && (
-                  <Button
-                    variant="outlined"
-                    onClick={() => openAlertModal('Sell', summary.close)}
-                  >
+                  <Button variant="outlined" onClick={() => openAlertModal('Sell', summary.close)}>
                     売りアラート設定
                   </Button>
                 )}
