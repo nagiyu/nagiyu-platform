@@ -83,11 +83,16 @@ jobs:
           ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
           PROMPT_FILE=$(mktemp --suffix=.md)
           {
-            printf "## 対象 GitHub Issue\n\n"
-            printf "- Issue番号: %s\n" "$ISSUE_NUMBER"
-            printf "- タイトル: %s\n" "$ISSUE_TITLE"
-            printf "- 本文:\n\n%s\n\n" "$ISSUE_BODY"
-            printf "---\n\n"
+            echo "## 対象 GitHub Issue"
+            echo ""
+            echo "Issue番号: ${ISSUE_NUMBER}"
+            echo "タイトル: ${ISSUE_TITLE}"
+            echo "本文:"
+            echo ""
+            echo "${ISSUE_BODY}"
+            echo ""
+            echo "---"
+            echo ""
             cat "$AGENT_FILE"
           } > "$PROMPT_FILE"
           echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
@@ -104,10 +109,16 @@ jobs:
           ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
           PROMPT_FILE=$(mktemp --suffix=.md)
           {
-            printf "## 対象 GitHub Issue\n\n"
-            printf "- Issue番号: %s\n" "$ISSUE_NUMBER"
-            printf "- 本文:\n\n%s\n\n" "$ISSUE_BODY"
-            printf "## コメント内容\n\n%s\n" "$COMMENT_BODY"
+            echo "## 対象 GitHub Issue"
+            echo ""
+            echo "Issue番号: ${ISSUE_NUMBER}"
+            echo "本文:"
+            echo ""
+            echo "${ISSUE_BODY}"
+            echo ""
+            echo "## コメント内容"
+            echo ""
+            echo "${COMMENT_BODY}"
           } > "$PROMPT_FILE"
           echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
 
