@@ -81,6 +81,22 @@ feature/**  →  integration/**  →  develop  →  master
 - 作業ブランチは `feature/{issue-number}-{slug}` 形式で作成する
 - PR のターゲットは原則 `integration/{service-name}` または `develop`
 
+### 作業ブランチ命名ガイドライン
+
+エージェントが作業ブランチを新規作成する場合は、以下の判断基準に従う。
+
+- GitHub Issue に紐づく作業は必ず `feature/{issue-number}-{slug}` 形式にする
+- `{issue-number}` は Issue 番号のみを使用し、`#` は含めない
+- `{slug}` は Issue タイトルから内容を表す短い英小文字の kebab-case にする
+- slug には英数字とハイフンのみを使用し、日本語・空白・記号は含めない
+- 既に同じ Issue 用のブランチが存在する場合は、新規作成せず既存ブランチを使用する
+- 複数サービスにまたがる作業でも、Issue 単位の作業ブランチとして `feature/{issue-number}-{slug}` を使用する
+
+例:
+
+- Issue `#2835`「AGENTS.md にブランチ命名規則のガイドラインを追記する」<br>
+  → `feature/2835-add-branch-naming-guidelines`
+
 ---
 
 ## ドキュメント駆動開発
