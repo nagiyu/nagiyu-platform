@@ -5,10 +5,7 @@
  */
 
 import { AbstractDynamoDBRepository } from '../../../src/dynamodb/abstract-repository.js';
-import {
-  InvalidEntityDataError,
-  DatabaseError,
-} from '../../../src/dynamodb/errors.js';
+import { InvalidEntityDataError, DatabaseError } from '../../../src/dynamodb/errors.js';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBItem } from '../../../src/dynamodb/types.js';
 
@@ -51,7 +48,14 @@ describe('AbstractDynamoDBRepository', () => {
   });
 
   describe('getById', () => {
-    const validItem = { PK: 'TEST#1', SK: 'METADATA', id: '1', name: 'Item', CreatedAt: 1000, UpdatedAt: 1000 };
+    const validItem = {
+      PK: 'TEST#1',
+      SK: 'METADATA',
+      id: '1',
+      name: 'Item',
+      CreatedAt: 1000,
+      UpdatedAt: 1000,
+    };
 
     it('存在しないアイテムの場合 null を返す', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Item: undefined });
@@ -67,21 +71,25 @@ describe('AbstractDynamoDBRepository', () => {
 
     it('InvalidEntityDataError をそのまま re-throw する（instanceof 成功ケース）', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Item: validItem });
-      jest.spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity').mockImplementation(() => {
-        throw new InvalidEntityDataError('フィールド "name" が不正');
-      });
+      jest
+        .spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity')
+        .mockImplementation(() => {
+          throw new InvalidEntityDataError('フィールド "name" が不正');
+        });
 
       await expect(repository.getById({ id: '1' })).rejects.toBeInstanceOf(InvalidEntityDataError);
     });
 
     it('Lambda モジュール不一致: name が InvalidEntityDataError のエラーを re-throw する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Item: validItem });
-      jest.spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity').mockImplementation(() => {
-        // Lambda バンドル環境で instanceof が失敗する場合のシミュレーション
-        const err = new Error('エンティティデータが無効です: フィールド "name" が不正');
-        err.name = 'InvalidEntityDataError';
-        throw err;
-      });
+      jest
+        .spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity')
+        .mockImplementation(() => {
+          // Lambda バンドル環境で instanceof が失敗する場合のシミュレーション
+          const err = new Error('エンティティデータが無効です: フィールド "name" が不正');
+          err.name = 'InvalidEntityDataError';
+          throw err;
+        });
 
       const rejected = repository.getById({ id: '1' });
       await expect(rejected).rejects.toMatchObject({ name: 'InvalidEntityDataError' });
@@ -90,9 +98,13 @@ describe('AbstractDynamoDBRepository', () => {
 
     it('Lambda モジュール不一致: メッセージプレフィックスが一致するエラーを re-throw する', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Item: validItem });
-      jest.spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity').mockImplementation(() => {
-        throw new Error('エンティティデータが無効です: フィールド "CreatedAt" がタイムスタンプではありません');
-      });
+      jest
+        .spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity')
+        .mockImplementation(() => {
+          throw new Error(
+            'エンティティデータが無効です: フィールド "CreatedAt" がタイムスタンプではありません'
+          );
+        });
 
       const rejected = repository.getById({ id: '1' });
       await expect(rejected).rejects.toMatchObject({
@@ -103,9 +115,11 @@ describe('AbstractDynamoDBRepository', () => {
 
     it('無関係なエラーは DatabaseError にラップする', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Item: validItem });
-      jest.spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity').mockImplementation(() => {
-        throw new Error('Network connection failed');
-      });
+      jest
+        .spyOn(repository as unknown as { mapToEntity: () => void }, 'mapToEntity')
+        .mockImplementation(() => {
+          throw new Error('Network connection failed');
+        });
 
       await expect(repository.getById({ id: '1' })).rejects.toBeInstanceOf(DatabaseError);
     });
