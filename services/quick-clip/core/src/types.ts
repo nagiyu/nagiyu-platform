@@ -1,7 +1,7 @@
 import type { EmotionLabel, HighlightSource } from './libs/highlight-extractor.service.js';
 
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type BatchStage = 'downloading' | 'analyzing' | 'aggregating';
+export type BatchStage = 'downloading' | 'analyzing' | 'clipping' | 'aggregating';
 
 export type AnalysisProgressItem = {
   status: 'in_progress' | 'done' | 'failed';

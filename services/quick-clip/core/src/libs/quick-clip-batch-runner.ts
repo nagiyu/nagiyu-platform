@@ -1,8 +1,9 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -41,10 +42,15 @@ const ERROR_MESSAGES = {
   DOWNLOAD_FAILED: '動画ファイルのダウンロードに失敗しました',
   SOURCE_VIDEO_NOT_FOUND: (sourceVideoKey: string): string =>
     `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
+  CLIP_SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
+const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
+  `outputs/${jobId}/clips/${highlightId}.mp4`;
+const CLIP_OUTPUT_PATH = (jobId: string, highlightId: string): string =>
+  `/tmp/quick-clip/${jobId}/clips/${highlightId}.mp4`;
 const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
 const DOWNLOAD_RETRY_TIMEOUT_MS = 30 * 60 * 1000;
 const DOWNLOAD_RETRY_COUNT = Math.floor(DOWNLOAD_RETRY_TIMEOUT_MS / DOWNLOAD_RETRY_INTERVAL_MS);
@@ -142,9 +148,71 @@ const persistHighlights = async (
       jobId,
       expiresAt,
       status: 'unconfirmed',
-      clipStatus: 'PENDING',
+      clipStatus: 'GENERATED',
     }))
   );
+};
+
+const generateClips = async (
+  jobId: string,
+  localVideoPath: string,
+  highlights: Highlight[],
+  bucketName: string,
+  awsRegion: string
+): Promise<void> => {
+  console.info(`[generateClips] 開始: jobId=${jobId} count=${highlights.length}`);
+  const s3Client = new S3Client({ region: awsRegion });
+
+  await Promise.all(
+    highlights.map(async (highlight) => {
+      const outputPath = CLIP_OUTPUT_PATH(jobId, highlight.highlightId);
+      const duration = Math.max(0, highlight.endSec - highlight.startSec);
+
+      await mkdir(dirname(outputPath), { recursive: true });
+
+      await new Promise<void>((resolve, reject) => {
+        const ffmpeg = spawn('ffmpeg', [
+          '-hide_banner',
+          '-ss',
+          String(highlight.startSec),
+          '-t',
+          String(duration),
+          '-i',
+          localVideoPath,
+          '-c',
+          'copy',
+          '-y',
+          outputPath,
+        ]);
+        let stderr = '';
+        ffmpeg.stderr.on('data', (chunk) => {
+          stderr += chunk.toString();
+        });
+        ffmpeg.on('error', (error) => {
+          reject(new Error(`${ERROR_MESSAGES.CLIP_SPLIT_FAILED}: ${error.message}`));
+        });
+        ffmpeg.on('close', (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(
+            new Error(`${ERROR_MESSAGES.CLIP_SPLIT_FAILED}: exit code ${code}, stderr: ${stderr}`)
+          );
+        });
+      });
+
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: CLIP_OUTPUT_KEY(jobId, highlight.highlightId),
+          Body: createReadStream(outputPath),
+        })
+      );
+    })
+  );
+
+  console.info(`[generateClips] 完了: jobId=${jobId}`);
 };
 
 const buildHighlights = async (
@@ -340,6 +408,10 @@ const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
     env.openAiApiKey,
     env.emotionFilter
   );
+
+  console.info(`[runExtract] clipping ステージ開始: jobId=${env.jobId}`);
+  await updateBatchStage(env.jobId, 'clipping', env.tableName, env.awsRegion);
+  await generateClips(env.jobId, localVideoPath, highlights, env.bucketName, env.awsRegion);
 
   console.info(`[runExtract] aggregating ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'aggregating', env.tableName, env.awsRegion);

@@ -2,6 +2,7 @@ const mockS3Send = jest.fn();
 const mockMkdir = jest.fn();
 const mockStat = jest.fn();
 const mockCreateWriteStream = jest.fn();
+const mockCreateReadStream = jest.fn();
 const mockPipeline = jest.fn();
 const mockUpdateBatchStage = jest.fn();
 const mockUpdateErrorMessage = jest.fn();
@@ -14,6 +15,8 @@ const mockAnalyzeMotion = jest.fn();
 const mockAnalyzeVolume = jest.fn();
 const mockTranscribe = jest.fn();
 const mockGetScores = jest.fn();
+const mockSpawn = jest.fn();
+const mockPutObjectCommand = jest.fn().mockImplementation((input: unknown) => input);
 const TEST_ERRORS = {
   NO_SUCH_KEY: { name: 'NoSuchKey', Code: 'NoSuchKey' } as const,
 };
@@ -25,6 +28,7 @@ jest.mock('@aws-sdk/client-s3', () => ({
     send: mockS3Send,
   })),
   GetObjectCommand: jest.fn().mockImplementation((input: unknown) => input),
+  PutObjectCommand: mockPutObjectCommand,
 }));
 
 jest.mock('@aws-sdk/client-dynamodb', () => ({
@@ -44,10 +48,15 @@ jest.mock('node:fs/promises', () => ({
 
 jest.mock('node:fs', () => ({
   createWriteStream: mockCreateWriteStream,
+  createReadStream: mockCreateReadStream,
 }));
 
 jest.mock('node:stream/promises', () => ({
   pipeline: mockPipeline,
+}));
+
+jest.mock('node:child_process', () => ({
+  spawn: mockSpawn,
 }));
 
 jest.mock('../../../src/repositories/dynamodb-job.repository.js', () => ({
@@ -138,6 +147,7 @@ describe('runQuickClipBatch', () => {
     mockMkdir.mockResolvedValue(undefined);
     mockStat.mockResolvedValue({ size: 10 * 1024 * 1024 });
     mockCreateWriteStream.mockReturnValue({} as NodeJS.WritableStream);
+    mockCreateReadStream.mockReturnValue({} as NodeJS.ReadableStream);
     mockPipeline.mockResolvedValue(undefined);
     mockCreateMany.mockResolvedValue(undefined);
     mockAggregate.mockReturnValue([]);
@@ -150,6 +160,16 @@ describe('runQuickClipBatch', () => {
     mockGetJob.mockResolvedValue({ expiresAt: JOB_EXPIRES_AT });
     mockTranscribe.mockResolvedValue([]);
     mockGetScores.mockResolvedValue([]);
+    mockSpawn.mockImplementation(() => ({
+      stderr: { on: jest.fn() },
+      on: jest
+        .fn()
+        .mockImplementation((event: string, handler: (code: number) => void) => {
+          if (event === 'close') {
+            handler(0);
+          }
+        }),
+    }));
   });
 
   it('analyzeMotion と analyzeVolume に duration が渡されること', async () => {
@@ -177,6 +197,7 @@ describe('runQuickClipBatch', () => {
     expect(mockS3Send).toHaveBeenCalledTimes(2);
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'downloading');
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'analyzing');
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'clipping');
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
     expect(mockGetDurationSec).toHaveBeenCalledWith('/tmp/quick-clip/job-1/input.mp4');
@@ -201,7 +222,7 @@ describe('runQuickClipBatch', () => {
     );
   });
 
-  it('extract コマンドで生成する見どころは clipStatus を PENDING で保存する', async () => {
+  it('extract コマンドで生成する見どころは clipStatus を GENERATED で保存する', async () => {
     mockS3Send.mockResolvedValue({
       Body: {
         pipe: jest.fn(),
@@ -226,7 +247,7 @@ describe('runQuickClipBatch', () => {
           order: 1,
           source: 'motion',
           status: 'unconfirmed',
-          clipStatus: 'PENDING',
+          clipStatus: 'GENERATED',
           expiresAt: JOB_EXPIRES_AT,
         }),
         expect.objectContaining({
@@ -236,7 +257,7 @@ describe('runQuickClipBatch', () => {
           order: 2,
           source: 'volume',
           status: 'unconfirmed',
-          clipStatus: 'PENDING',
+          clipStatus: 'GENERATED',
           expiresAt: JOB_EXPIRES_AT,
         }),
       ])
@@ -245,6 +266,57 @@ describe('runQuickClipBatch', () => {
       [{ second: 1, score: 100 }],
       [{ second: 5, score: 90 }],
       120
+    );
+  });
+
+  it('clipping ステージで全ハイライトが切り出され S3 にアップロードされること', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockAggregate.mockReturnValue([
+      { startSec: 0, endSec: 5, source: 'motion' },
+      { startSec: 10, endSec: 15, source: 'volume' },
+    ]);
+
+    await expect(runQuickClipBatch(input)).resolves.toBeUndefined();
+
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'clipping');
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
+    expect(mockSpawn).toHaveBeenCalledWith('ffmpeg', [
+      '-hide_banner',
+      '-ss',
+      '0',
+      '-t',
+      '5',
+      '-i',
+      '/tmp/quick-clip/job-1/input.mp4',
+      '-c',
+      'copy',
+      '-y',
+      expect.stringContaining('/tmp/quick-clip/job-1/clips/'),
+    ]);
+    expect(mockSpawn).toHaveBeenCalledWith('ffmpeg', [
+      '-hide_banner',
+      '-ss',
+      '10',
+      '-t',
+      '5',
+      '-i',
+      '/tmp/quick-clip/job-1/input.mp4',
+      '-c',
+      'copy',
+      '-y',
+      expect.stringContaining('/tmp/quick-clip/job-1/clips/'),
+    ]);
+    expect(mockPutObjectCommand).toHaveBeenCalledTimes(2);
+    expect(mockPutObjectCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Bucket: 'bucket',
+        Key: expect.stringMatching(/^outputs\/job-1\/clips\/.+\.mp4$/),
+      })
+    );
+    expect(mockCreateMany).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ clipStatus: 'GENERATED' }),
+      ])
     );
   });
 
@@ -281,7 +353,7 @@ describe('runQuickClipBatch', () => {
           source: 'emotion',
           dominantEmotion: 'excite',
           status: 'unconfirmed',
-          clipStatus: 'PENDING',
+          clipStatus: 'GENERATED',
           expiresAt: JOB_EXPIRES_AT,
         }),
       ])
@@ -308,6 +380,7 @@ describe('runQuickClipBatch', () => {
     await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
 
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
+    expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'clipping');
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
