@@ -29,12 +29,21 @@ export const metadata: Metadata = {
     description:
       'nagiyu が提供する各種サービスのドキュメント・技術記事を掲載したポータルサイトです。',
     siteName: 'nagiyu',
+    images: [
+      {
+        url: '/og-default.png',
+        width: 1200,
+        height: 630,
+        alt: 'nagiyu - サービス一覧・技術ポータル',
+      },
+    ],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'nagiyu - サービス一覧・技術ポータル',
     description:
       'nagiyu が提供する各種サービスのドキュメント・技術記事を掲載したポータルサイトです。',
+    images: ['/og-default.png'],
   },
 };
 
