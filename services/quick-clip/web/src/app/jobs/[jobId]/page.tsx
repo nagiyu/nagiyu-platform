@@ -44,6 +44,7 @@ const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'>
 const BATCH_STAGE_LABELS: Record<BatchStage, string> = {
   downloading: 'ダウンロード中',
   analyzing: '解析中',
+  clipping: '分割中',
   aggregating: '集計中',
 };
 

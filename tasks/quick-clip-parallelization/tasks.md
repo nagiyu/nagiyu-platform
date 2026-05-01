@@ -75,13 +75,13 @@ Phase 1・2 の実装完了後に判明した不具合・改善点。
 Batch がクリップ生成まで完了させることで、ハイライト画面を開いた瞬間にクリップが再生可能な状態にする。
 Lambda（clip）は時間調整・リトライ時の再生成専用となり、初回生成には使用しない。
 
-- [ ] `services/quick-clip/core/src/types.ts`: `BatchStage` に `'clipping'` を追加する（依存: なし）
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: `aggregating` ステージの前に `clipping` ステージを追加する。全ハイライトに対し、ローカルの動画ファイル（`/tmp/quick-clip/{jobId}/input.mp4`）から FFmpeg（`-c copy`、無エンコード）でクリップを切り出し、S3 の `outputs/{jobId}/clips/{highlightId}.mp4` にアップロードする。切り出しは `Promise.all` で全件並列実行する。Lambda（clip）は呼び出さない（依存: core types 変更）
-- [ ] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: `persistHighlights` の `clipStatus` を `'PENDING'` から `'GENERATED'` に変更する（依存: clipping ステージ実装）
-- [ ] `services/quick-clip/web/src/types/quick-clip.ts`: `BatchStage` に `'clipping'` を追加する（依存: なし）
-- [ ] `services/quick-clip/web/src/app/jobs/[jobId]/page.tsx`: `BATCH_STAGE_LABELS` に `clipping: '分割中'` を追加する（依存: web types 変更）
-- [ ] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`: `startInitialClipGeneration`（PENDING 検知 → Lambda 起動のロジック）を削除する。新規ジョブは PENDING で保存されなくなるため不要（依存: batch runner 変更）
-- [ ] Phase 7 のテストを追加・更新する（依存: 上記すべて）:
+- [x] `services/quick-clip/core/src/types.ts`: `BatchStage` に `'clipping'` を追加する（依存: なし）
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: `aggregating` ステージの前に `clipping` ステージを追加する。全ハイライトに対し、ローカルの動画ファイル（`/tmp/quick-clip/{jobId}/input.mp4`）から FFmpeg（`-c copy`、無エンコード）でクリップを切り出し、S3 の `outputs/{jobId}/clips/{highlightId}.mp4` にアップロードする。切り出しは `Promise.all` で全件並列実行する。Lambda（clip）は呼び出さない（依存: core types 変更）
+- [x] `services/quick-clip/core/src/libs/quick-clip-batch-runner.ts`: `persistHighlights` の `clipStatus` を `'PENDING'` から `'GENERATED'` に変更する（依存: clipping ステージ実装）
+- [x] `services/quick-clip/web/src/types/quick-clip.ts`: `BatchStage` に `'clipping'` を追加する（依存: なし）
+- [x] `services/quick-clip/web/src/app/jobs/[jobId]/page.tsx`: `BATCH_STAGE_LABELS` に `clipping: '分割中'` を追加する（依存: web types 変更）
+- [x] `services/quick-clip/web/src/app/api/jobs/[jobId]/highlights/route.ts`: `startInitialClipGeneration`（PENDING 検知 → Lambda 起動のロジック）を削除する。新規ジョブは PENDING で保存されなくなるため不要（依存: batch runner 変更）
+- [x] Phase 7 のテストを追加・更新する（依存: 上記すべて）:
     - `quick-clip-batch-runner.test.ts`: clipping ステージで全ハイライトが切り出され S3 にアップロードされること、persistHighlights が GENERATED で呼ばれること
     - `highlights/route.test.ts`: startInitialClipGeneration の削除に伴うテスト更新
 

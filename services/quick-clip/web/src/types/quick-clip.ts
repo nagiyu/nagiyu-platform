@@ -1,5 +1,5 @@
 export type JobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
-export type BatchStage = 'downloading' | 'analyzing' | 'aggregating';
+export type BatchStage = 'downloading' | 'analyzing' | 'clipping' | 'aggregating';
 
 export type HighlightStatus = 'accepted' | 'rejected' | 'unconfirmed';
 export type ClipStatus = 'PENDING' | 'GENERATING' | 'GENERATED' | 'FAILED';
