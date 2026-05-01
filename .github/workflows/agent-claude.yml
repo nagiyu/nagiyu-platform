@@ -79,6 +79,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           label_trigger: 'agent:claude'
+          claude_args: '--allowedTools Bash,Read,Edit,Write'
           prompt: |
             ${{ steps.detect-phase.outputs.agent_file }} に記載されているエージェント指示を読み込み、その内容に従って対象の Issue を処理してください。
             対象エージェント指示ファイル: ${{ steps.detect-phase.outputs.agent_file }}
@@ -90,6 +91,7 @@ jobs:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ github.token }}
           trigger_phrase: '@claude'
+          claude_args: '--allowedTools Bash,Read,Edit,Write'
 
       - name: 実行ログをアーティファクトとして保存
         if: always()
