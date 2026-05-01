@@ -67,11 +67,6 @@ jobs:
             AGENT_FILE=".github/agents/task.implement.agent.md"
           fi
           echo "agent_file=${AGENT_FILE}" >> "$GITHUB_OUTPUT"
-          {
-            echo "prompt<<AGENT_EOF"
-            cat "${AGENT_FILE}"
-            echo "AGENT_EOF"
-          } >> "$GITHUB_OUTPUT"
 
       - name: ブランチをチェックアウト（Issue ラベルトリガー時）
         if: github.event_name == 'issues'
@@ -82,12 +77,24 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           label_trigger: 'agent:claude'
-          prompt: ${{ steps.detect-phase.outputs.prompt }}
+          prompt: |
+            ${{ steps.detect-phase.outputs.agent_file }} に記載されているエージェント指示を読み込み、その内容に従って対象の Issue を処理してください。
+            対象エージェント指示ファイル: ${{ steps.detect-phase.outputs.agent_file }}
 
       - name: Claude を起動（コメントトリガー）
         if: github.event_name == 'issue_comment'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           trigger_phrase: '@claude'
+
+      - name: 実行ログをアーティファクトとして保存
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-execution-log-${{ github.run_id }}
+          path: /home/runner/work/_temp/claude-execution-output.json
+          if-no-files-found: ignore
