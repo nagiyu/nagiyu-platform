@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       target_branch:
-        description: PRのターゲットブランチ（例: develop, integration/stock-tracker）
+        description: "PRのターゲットブランチ（例: develop, integration/stock-tracker）"
         required: true
         default: develop
         type: string
