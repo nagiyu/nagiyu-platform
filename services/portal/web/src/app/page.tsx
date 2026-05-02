@@ -10,7 +10,14 @@ import {
   Button,
   Chip,
 } from '@mui/material';
-import { getAllServiceSlugs, getServiceDocument, getAllArticles, getAllTags } from '@/lib/content';
+import {
+  getAllServiceSlugs,
+  getServiceDocument,
+  getAllArticles,
+  getAllTags,
+  isLinkableTag,
+  tagToSlug,
+} from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 import { buildOrganizationJsonLd, buildWebSiteJsonLd, jsonLdScript } from '@/lib/jsonLd';
 
@@ -27,7 +34,7 @@ export default async function HomePage() {
   const slugs = getAllServiceSlugs();
   const articles = getAllArticles().slice(0, 6);
   const tags = getAllTags()
-    .filter((entry) => entry.count >= 2)
+    .filter((entry) => entry.count >= 2 && isLinkableTag(entry.tag))
     .slice(0, 8);
 
   const serviceCards = await Promise.all(
@@ -122,7 +129,7 @@ export default async function HomePage() {
                 key={entry.tag}
                 label={`${entry.tag} (${entry.count})`}
                 component="a"
-                href={`/tech/tags/${encodeURIComponent(entry.tag)}`}
+                href={`/tech/tags/${tagToSlug(entry.tag)}`}
                 clickable
                 variant="outlined"
               />

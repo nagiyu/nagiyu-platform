@@ -165,6 +165,40 @@ export function getAllTags(): { tag: string; count: number }[] {
 }
 
 /**
+ * タグ名を URL 用のスラッグに変換する
+ * - 小文字化
+ * - スペースとスラッシュをハイフンに置換
+ * - 連続するハイフンを 1 つに集約
+ *
+ * 例: "AWS Batch" → "aws-batch" / "Next.js" → "next.js"
+ *
+ * Next.js のルーティングで `%20`（エンコードされたスペース）が prerender-manifest と
+ * 照合されない不具合を回避するため、URL からスペースを排除する目的で導入。
+ */
+export function tagToSlug(tag: string): string {
+  return tag
+    .toLowerCase()
+    .replace(/[\s/]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * 非 ASCII を含むスラッグも Next.js のルーティングで安定しないため、
+ * ページ化対象は ASCII スラッグに収まるタグのみとする。
+ */
+export function isLinkableTag(tag: string): boolean {
+  return /^[a-z0-9.@_-]+$/.test(tagToSlug(tag));
+}
+
+/**
+ * スラッグからオリジナルのタグ名を逆引きする
+ */
+export function getTagBySlug(slug: string): string | null {
+  return getAllTags().find((entry) => tagToSlug(entry.tag) === slug)?.tag ?? null;
+}
+
+/**
  * 指定タグを持つ記事を publishedAt 降順で返す
  */
 export function getArticlesByTag(tag: string): ArticleMeta[] {
