@@ -4,7 +4,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import type { BatchStage, Job } from '../types.js';
+import type { AnalysisProgress, BatchStage, Job } from '../types.js';
 import type { JobRepository } from './job.repository.interface.js';
 
 type JobItem = {
@@ -19,6 +19,7 @@ type JobItem = {
   createdAt: number;
   expiresAt: number;
   errorMessage?: string;
+  analysisProgress?: AnalysisProgress;
 };
 
 export class DynamoDBJobRepository implements JobRepository {
@@ -106,6 +107,23 @@ export class DynamoDBJobRepository implements JobRepository {
     );
   }
 
+  public async updateAnalysisProgress(jobId: string, progress: AnalysisProgress): Promise<void> {
+    const key = this.buildKeys(jobId);
+    await this.docClient.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: key,
+        UpdateExpression: 'SET #analysisProgress = :analysisProgress',
+        ExpressionAttributeNames: {
+          '#analysisProgress': 'analysisProgress',
+        },
+        ExpressionAttributeValues: {
+          ':analysisProgress': progress,
+        },
+      })
+    );
+  }
+
   private buildKeys(jobId: string): { PK: string; SK: string } {
     return {
       PK: `JOB#${jobId}`,
@@ -123,6 +141,7 @@ export class DynamoDBJobRepository implements JobRepository {
       createdAt: item.createdAt,
       expiresAt: item.expiresAt,
       ...(item.errorMessage ? { errorMessage: item.errorMessage } : {}),
+      ...(item.analysisProgress ? { analysisProgress: item.analysisProgress } : {}),
     };
   }
 

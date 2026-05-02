@@ -39,8 +39,8 @@ type CreateJobRequest = {
 const UPLOAD_URL_EXPIRES_IN = 3600;
 const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
-const MULTIPART_UPLOAD_THRESHOLD_BYTES = 5 * 1024 * 1024 * 1024;
-const MULTIPART_CHUNK_SIZE_BYTES = 500 * 1024 * 1024;
+const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE_BYTES = 50 * 1024 * 1024;
 
 const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
   if (typeof body !== 'object' || body === null) {

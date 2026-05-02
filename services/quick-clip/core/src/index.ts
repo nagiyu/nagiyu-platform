@@ -7,6 +7,8 @@ export type {
   Highlight,
   CreateJobInput,
   UpdateHighlightInput,
+  AnalysisProgressItem,
+  AnalysisProgress,
 } from './types.js';
 
 export type { JobRepository } from './repositories/job.repository.interface.js';

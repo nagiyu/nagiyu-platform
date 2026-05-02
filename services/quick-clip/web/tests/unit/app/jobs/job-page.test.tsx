@@ -181,4 +181,88 @@ describe('JobPage', () => {
       ).toBeInTheDocument();
     });
   });
+
+  it('analysisProgress がある場合、解析サブ項目が表示される', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-8',
+        status: 'PROCESSING',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+        batchStage: 'analyzing',
+        analysisProgress: {
+          motion: { status: 'done' },
+          volume: { status: 'in_progress' },
+          transcription: { status: 'in_progress', completed: 1, total: 3 },
+        },
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-8' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('モーション解析')).toBeInTheDocument();
+      expect(screen.getByText('音量解析')).toBeInTheDocument();
+      expect(screen.getByText('文字起こし (1/3)')).toBeInTheDocument();
+    });
+  });
+
+  it('emotionScoring がある場合、感情分析サブ項目が表示される', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-9',
+        status: 'PROCESSING',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+        batchStage: 'analyzing',
+        analysisProgress: {
+          motion: { status: 'done' },
+          volume: { status: 'done' },
+          transcription: { status: 'done' },
+          emotionScoring: { status: 'in_progress' },
+        },
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-9' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('感情分析')).toBeInTheDocument();
+    });
+  });
+
+  it('status が failed の解析項目はスキップ表示になる', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        jobId: 'job-10',
+        status: 'PROCESSING',
+        originalFileName: 'movie.mp4',
+        fileSize: 1024,
+        createdAt: 1,
+        expiresAt: 1700000000,
+        batchStage: 'analyzing',
+        analysisProgress: {
+          motion: { status: 'done' },
+          volume: { status: 'done' },
+          transcription: { status: 'failed' },
+        },
+      }),
+    }) as jest.Mock;
+
+    render(<JobPage params={Promise.resolve({ jobId: 'job-10' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('文字起こし（スキップ）')).toBeInTheDocument();
+    });
+  });
 });

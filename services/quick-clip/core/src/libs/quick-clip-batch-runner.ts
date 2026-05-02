@@ -1,14 +1,15 @@
-import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'node:crypto';
-import { createWriteStream } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { mkdir, stat } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { HighlightAggregationService } from './highlight-aggregation.service.js';
 import { JobService } from './job.service.js';
-import type { BatchStage, Highlight } from '../types.js';
+import type { AnalysisProgress, BatchStage, Highlight } from '../types.js';
 import type { EmotionFilter, EmotionHighlightScore } from './highlight-extractor.service.js';
 import { FfmpegVideoAnalyzer } from './ffmpeg-video-analyzer.js';
 import { MotionHighlightService } from './motion-highlight.service.js';
@@ -17,6 +18,7 @@ import { DynamoDBHighlightRepository } from '../repositories/dynamodb-highlight.
 import { DynamoDBJobRepository } from '../repositories/dynamodb-job.repository.js';
 import { createOpenAIClient } from './openai-client.js';
 import { TranscriptionService } from './transcription.service.js';
+import type { TranscriptSegment } from './transcription.service.js';
 import { EmotionHighlightService } from './emotion-highlight.service.js';
 
 /** Batch 実行コマンド種別。 */
@@ -40,10 +42,15 @@ const ERROR_MESSAGES = {
   DOWNLOAD_FAILED: '動画ファイルのダウンロードに失敗しました',
   SOURCE_VIDEO_NOT_FOUND: (sourceVideoKey: string): string =>
     `アップロード済みの動画ファイルが見つかりません: ${sourceVideoKey}`,
+  CLIP_SPLIT_FAILED: 'クリップ分割に失敗しました',
 } as const;
 
 const VIDEO_INPUT_PATH = (jobId: string): string => `/tmp/quick-clip/${jobId}/input.mp4`;
 const SOURCE_VIDEO_KEY = (jobId: string): string => `uploads/${jobId}/input.mp4`;
+const CLIP_OUTPUT_KEY = (jobId: string, highlightId: string): string =>
+  `outputs/${jobId}/clips/${highlightId}.mp4`;
+const CLIP_OUTPUT_PATH = (jobId: string, highlightId: string): string =>
+  `/tmp/quick-clip/${jobId}/clips/${highlightId}.mp4`;
 const DOWNLOAD_RETRY_INTERVAL_MS = 3000;
 const DOWNLOAD_RETRY_TIMEOUT_MS = 30 * 60 * 1000;
 const DOWNLOAD_RETRY_COUNT = Math.floor(DOWNLOAD_RETRY_TIMEOUT_MS / DOWNLOAD_RETRY_INTERVAL_MS);
@@ -109,6 +116,9 @@ const downloadSourceVideo = async (
           missingSourceError.cause = error;
           throw missingSourceError;
         }
+        console.info(
+          `[downloadSourceVideo] NoSuchKey リトライ: ${retryCount}/${DOWNLOAD_RETRY_COUNT} key=${sourceVideoKey}`
+        );
         await wait(DOWNLOAD_RETRY_INTERVAL_MS);
         continue;
       }
@@ -138,39 +148,175 @@ const persistHighlights = async (
       jobId,
       expiresAt,
       status: 'unconfirmed',
-      clipStatus: 'PENDING',
+      clipStatus: 'GENERATED',
     }))
   );
+};
+
+const generateClips = async (
+  jobId: string,
+  localVideoPath: string,
+  highlights: Highlight[],
+  bucketName: string,
+  awsRegion: string
+): Promise<void> => {
+  console.info(`[generateClips] 開始: jobId=${jobId} count=${highlights.length}`);
+  const s3Client = new S3Client({ region: awsRegion });
+
+  await Promise.all(
+    highlights.map(async (highlight) => {
+      const outputPath = CLIP_OUTPUT_PATH(jobId, highlight.highlightId);
+      const duration = Math.max(0, highlight.endSec - highlight.startSec);
+
+      await mkdir(dirname(outputPath), { recursive: true });
+
+      await new Promise<void>((resolve, reject) => {
+        const ffmpeg = spawn('ffmpeg', [
+          '-hide_banner',
+          '-ss',
+          String(highlight.startSec),
+          '-t',
+          String(duration),
+          '-i',
+          localVideoPath,
+          '-c',
+          'copy',
+          '-y',
+          outputPath,
+        ]);
+        let stderr = '';
+        ffmpeg.stderr.on('data', (chunk) => {
+          stderr += chunk.toString();
+        });
+        ffmpeg.on('error', (error) => {
+          reject(new Error(`${ERROR_MESSAGES.CLIP_SPLIT_FAILED}: ${error.message}`));
+        });
+        ffmpeg.on('close', (code) => {
+          if (code === 0) {
+            resolve();
+            return;
+          }
+          reject(
+            new Error(`${ERROR_MESSAGES.CLIP_SPLIT_FAILED}: exit code ${code}, stderr: ${stderr}`)
+          );
+        });
+      });
+
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: bucketName,
+          Key: CLIP_OUTPUT_KEY(jobId, highlight.highlightId),
+          Body: createReadStream(outputPath),
+        })
+      );
+    })
+  );
+
+  console.info(`[generateClips] 完了: jobId=${jobId}`);
 };
 
 const buildHighlights = async (
   jobId: string,
   localPath: string,
+  tableName: string,
+  awsRegion: string,
   openAiApiKey?: string,
   emotionFilter?: EmotionFilter
 ): Promise<Highlight[]> => {
+  const { size: videoFileSizeBytes } = await stat(localPath);
+  console.info(`[buildHighlights] 開始: jobId=${jobId} videoFileSize=${videoFileSizeBytes}bytes`);
+
   const analyzer = new FfmpegVideoAnalyzer();
   const motionService = new MotionHighlightService(analyzer);
   const volumeService = new VolumeHighlightService(analyzer);
   const duration = await analyzer.getDurationSec(localPath);
-  const [motionScores, volumeScores] = await Promise.all([
-    motionService.analyzeMotion(localPath),
-    volumeService.analyzeVolume(localPath),
+
+  const initialProgress: AnalysisProgress = {
+    motion: { status: 'in_progress' },
+    volume: { status: 'in_progress' },
+    ...(openAiApiKey ? { transcription: { status: 'in_progress' } } : {}),
+  };
+  await updateAnalysisProgress(jobId, initialProgress, tableName, awsRegion);
+
+  const progress = { ...initialProgress };
+
+  console.info(`[buildHighlights] モーション・音量・文字起こし並列分析 開始: jobId=${jobId}`);
+  const [motionScores, volumeScores, segments] = await Promise.all([
+    motionService.analyzeMotion(localPath, duration).then(async (scores) => {
+      progress.motion = { status: 'done' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      console.info(
+        `[buildHighlights] モーション分析 完了: jobId=${jobId} motionScores=${scores.length}`
+      );
+      return scores;
+    }),
+    volumeService.analyzeVolume(localPath, duration).then(async (scores) => {
+      progress.volume = { status: 'done' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      console.info(`[buildHighlights] 音量分析 完了: jobId=${jobId} volumeScores=${scores.length}`);
+      return scores;
+    }),
+    openAiApiKey
+      ? ((): Promise<TranscriptSegment[]> => {
+          const transcriptionService = new TranscriptionService(createOpenAIClient(openAiApiKey));
+          console.info(`[buildHighlights] 文字起こし開始: jobId=${jobId}`);
+          return transcriptionService
+            .transcribe(localPath, async (completed, total) => {
+              progress.transcription = {
+                status: completed === total ? 'done' : 'in_progress',
+                ...(total > 1 ? { completed, total } : {}),
+              };
+              await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+            })
+            .then(async (segs) => {
+              progress.transcription = { status: 'done' };
+              await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+              console.info(
+                `[buildHighlights] 文字起こし完了: jobId=${jobId} segments=${segs.length}`
+              );
+              return segs;
+            })
+            .catch(async (err: unknown) => {
+              console.warn('[buildHighlights] 文字起こしをスキップします:', err);
+              progress.transcription = { status: 'failed' };
+              await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+              return [] as TranscriptSegment[];
+            });
+        })()
+      : Promise.resolve([] as TranscriptSegment[]),
   ]);
+  console.info(
+    `[buildHighlights] モーション・音量・文字起こし並列分析 完了: jobId=${jobId} motionScores=${motionScores.length} volumeScores=${volumeScores.length} segments=${segments.length}`
+  );
 
   let emotionScores: EmotionHighlightScore[] = [];
-  if (openAiApiKey) {
+  if (openAiApiKey && segments.length > 0) {
+    progress.emotionScoring = { status: 'in_progress' };
+    await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+
     try {
-      const openai = createOpenAIClient(openAiApiKey);
-      const transcriptionService = new TranscriptionService(openai);
-      const emotionService = new EmotionHighlightService(openai);
-      const segments = await transcriptionService.transcribe(localPath);
-      if (segments.length > 0) {
-        emotionScores = await emotionService.getScores(segments, emotionFilter ?? 'any');
-      }
+      const emotionService = new EmotionHighlightService(createOpenAIClient(openAiApiKey));
+      console.info(`[buildHighlights] 感情分析開始: jobId=${jobId}`);
+      emotionScores = await emotionService.getScores(
+        segments,
+        emotionFilter ?? 'any',
+        async (completed, total) => {
+          progress.emotionScoring = {
+            status: completed === total ? 'done' : 'in_progress',
+            ...(total > 1 ? { completed, total } : {}),
+          };
+          await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+        }
+      );
+      progress.emotionScoring = { status: 'done' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      console.info(
+        `[buildHighlights] 感情分析完了: jobId=${jobId} emotionScores=${emotionScores.length}`
+      );
     } catch (error) {
-      // 感情分析失敗は graceful degradation（motion・volume のみで継続）
       console.warn('[buildHighlights] 感情分析をスキップします:', error);
+      progress.emotionScoring = { status: 'failed' };
+      await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
     }
   }
 
@@ -206,6 +352,18 @@ const updateBatchStage = async (
   await service.updateBatchStage(jobId, batchStage);
 };
 
+const updateAnalysisProgress = async (
+  jobId: string,
+  progress: AnalysisProgress,
+  tableName: string,
+  awsRegion: string
+): Promise<void> => {
+  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const jobRepo = new DynamoDBJobRepository(docClient, tableName);
+  const service = new JobService(jobRepo);
+  await service.updateAnalysisProgress(jobId, progress);
+};
+
 const updateErrorMessage = async (
   jobId: string,
   errorMessage: string,
@@ -236,20 +394,30 @@ const getJobExpiresAt = async (
 const runExtract = async (env: QuickClipBatchRunInput): Promise<void> => {
   const localVideoPath = VIDEO_INPUT_PATH(env.jobId);
 
+  console.info(`[runExtract] downloading ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'downloading', env.tableName, env.awsRegion);
   await downloadSourceVideo(env.bucketName, env.jobId, localVideoPath, env.awsRegion);
 
+  console.info(`[runExtract] analyzing ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'analyzing', env.tableName, env.awsRegion);
   const highlights = await buildHighlights(
     env.jobId,
     localVideoPath,
+    env.tableName,
+    env.awsRegion,
     env.openAiApiKey,
     env.emotionFilter
   );
 
+  console.info(`[runExtract] clipping ステージ開始: jobId=${env.jobId}`);
+  await updateBatchStage(env.jobId, 'clipping', env.tableName, env.awsRegion);
+  await generateClips(env.jobId, localVideoPath, highlights, env.bucketName, env.awsRegion);
+
+  console.info(`[runExtract] aggregating ステージ開始: jobId=${env.jobId}`);
   await updateBatchStage(env.jobId, 'aggregating', env.tableName, env.awsRegion);
   const expiresAt = await getJobExpiresAt(env.jobId, env.tableName, env.awsRegion);
   await persistHighlights(env.jobId, highlights, expiresAt, env.tableName, env.awsRegion);
+  console.info(`[runExtract] ハイライト保存完了: jobId=${env.jobId} count=${highlights.length}`);
 };
 
 export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<void> => {

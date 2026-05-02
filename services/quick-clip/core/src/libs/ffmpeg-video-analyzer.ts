@@ -59,11 +59,19 @@ const parseTimeToSeconds = (value: string): number => {
 };
 
 export class FfmpegVideoAnalyzer {
-  public async analyzeMotion(videoFilePath: string): Promise<HighlightScore[]> {
+  public async analyzeMotion(
+    videoFilePath: string,
+    startSec?: number,
+    durationSec?: number
+  ): Promise<HighlightScore[]> {
+    const seekArgs = startSec !== undefined ? ['-ss', String(startSec)] : [];
+    const durationArgs = durationSec !== undefined ? ['-t', String(durationSec)] : [];
     const stderr = await this.runFfmpeg([
+      ...seekArgs,
       '-hide_banner',
       '-i',
       videoFilePath,
+      ...durationArgs,
       '-vf',
       'select=gt(scene\\,0.2),metadata=print',
       '-an',
@@ -98,11 +106,19 @@ export class FfmpegVideoAnalyzer {
     return sceneEntries;
   }
 
-  public async analyzeVolume(videoFilePath: string): Promise<HighlightScore[]> {
+  public async analyzeVolume(
+    videoFilePath: string,
+    startSec?: number,
+    durationSec?: number
+  ): Promise<HighlightScore[]> {
+    const seekArgs = startSec !== undefined ? ['-ss', String(startSec)] : [];
+    const durationArgs = durationSec !== undefined ? ['-t', String(durationSec)] : [];
     const stderr = await this.runFfmpeg([
+      ...seekArgs,
       '-hide_banner',
       '-i',
       videoFilePath,
+      ...durationArgs,
       '-vn',
       '-af',
       'astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level',

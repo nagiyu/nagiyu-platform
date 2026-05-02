@@ -239,4 +239,55 @@ describe('EmotionHighlightService', () => {
     expect(mockParse).toHaveBeenCalledTimes(2);
     expect(result).toHaveLength(2);
   });
+
+  it('並列化: 4チャンク（EMOTION_SCORING_CONCURRENCY=3）でも全チャンクの結果が順序通り結合される', async () => {
+    const segmentsPerChunk = 50;
+    const makeItems = (second: number) => [
+      { second, laugh: 0.1, excite: 0.2, touch: 0.3, tension: 0.4 },
+    ];
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(0.0) } })
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(50.0) } })
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(100.0) } })
+      .mockResolvedValueOnce({ output_parsed: { items: makeItems(150.0) } });
+
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(4 * segmentsPerChunk), 'any');
+    await jest.runAllTimersAsync();
+    const result = await promise;
+
+    expect(mockParse).toHaveBeenCalledTimes(4);
+    expect(result).toHaveLength(4);
+    expect(result[0].second).toBe(0.0);
+    expect(result[1].second).toBe(50.0);
+    expect(result[2].second).toBe(100.0);
+    expect(result[3].second).toBe(150.0);
+  });
+
+  it('onProgress コールバックはチャンク数 > 1 のみ各チャンク完了後に呼ばれる', async () => {
+    const segmentsPerChunk = 50;
+    mockParse
+      .mockResolvedValueOnce({ output_parsed: { items: [] } })
+      .mockResolvedValueOnce({ output_parsed: { items: [] } });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(makeSegments(2 * segmentsPerChunk), 'any', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).toHaveBeenCalledTimes(2);
+  });
+
+  it('onProgress コールバックはチャンク数 === 1 のときは呼ばれない', async () => {
+    mockParse.mockResolvedValueOnce({ output_parsed: { items: [] } });
+
+    const onProgress = jest.fn().mockResolvedValue(undefined);
+    const service = new EmotionHighlightService(mockClient);
+    const promise = service.getScores(testSegments, 'any', onProgress);
+    await jest.runAllTimersAsync();
+    await promise;
+
+    expect(onProgress).not.toHaveBeenCalled();
+  });
 });
