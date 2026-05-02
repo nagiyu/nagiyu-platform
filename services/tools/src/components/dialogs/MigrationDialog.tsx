@@ -69,7 +69,6 @@ export default function MigrationDialog() {
     <Dialog
       open={open}
       onClose={handleBackdropClick}
-      disableEscapeKeyDown={true}
       aria-labelledby="migration-dialog-title"
       aria-describedby="migration-dialog-description"
     >
