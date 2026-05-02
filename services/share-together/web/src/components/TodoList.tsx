@@ -71,6 +71,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
     void globalThis
       .fetch(createTodosApiPath(scope, targetListId, groupId), { signal: controller.signal })
       .then(async (response) => {
+        fetchControllerRef.current = null;
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
         }
@@ -81,6 +82,7 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
         if (error instanceof Error && error.name === 'AbortError') {
           return;
         }
+        fetchControllerRef.current = null;
         console.error(ERROR_MESSAGES.TODOS_FETCH_FAILED, { error, listId: targetListId });
         setSnackbarMessage(ERROR_MESSAGES.TODOS_FETCH_FAILED_NOTICE);
       });
