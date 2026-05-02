@@ -101,12 +101,14 @@ export default function SummaryDetailDialog({
         onClose={handleClose}
         maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: (theme) => ({
-            maxWidth: '100vw',
-            width: { xs: `calc(100vw - ${theme.spacing(2)})`, sm: '100%' },
-            overflow: 'hidden',
-          }),
+        slotProps={{
+          paper: {
+            sx: (theme) => ({
+              maxWidth: '100vw',
+              width: { xs: `calc(100vw - ${theme.spacing(2)})`, sm: '100%' },
+              overflow: 'hidden',
+            }),
+          },
         }}
       >
         <DialogTitle
@@ -254,7 +256,7 @@ export default function SummaryDetailDialog({
                                     ? 'text.disabled'
                                     : 'text.secondary'
                               }
-                              fontWeight="bold"
+                              sx={{ fontWeight: 'bold' }}
                             >
                               {pattern.status === 'MATCHED'
                                 ? '✓'
@@ -312,7 +314,7 @@ export default function SummaryDetailDialog({
                                     ? 'text.disabled'
                                     : 'text.secondary'
                               }
-                              fontWeight="bold"
+                              sx={{ fontWeight: 'bold' }}
                             >
                               {pattern.status === 'MATCHED'
                                 ? '✓'

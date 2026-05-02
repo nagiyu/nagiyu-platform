@@ -521,7 +521,7 @@ export default function ExchangesPage() {
                 onChange={handleInputChange('exchangeId')}
                 disabled={submitting}
               />
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ システム内部で使用する識別子（例: NASDAQ, NYSE, TSE）
               </Typography>
             </Box>
@@ -550,7 +550,7 @@ export default function ExchangesPage() {
                 onChange={handleInputChange('key')}
                 disabled={submitting}
               />
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ TradingView API で使用する取引所コード（例: NSDQ, NYSE, TSE）
               </Typography>
             </Box>
@@ -575,7 +575,7 @@ export default function ExchangesPage() {
                   ))}
                 </Select>
               </FormControl>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
               </Typography>
             </Box>
@@ -615,7 +615,7 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
@@ -651,7 +651,7 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
@@ -734,7 +734,7 @@ export default function ExchangesPage() {
                   ))}
                 </Select>
               </FormControl>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
               </Typography>
             </Box>
@@ -774,7 +774,7 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
@@ -810,7 +810,7 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
