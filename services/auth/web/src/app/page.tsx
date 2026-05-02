@@ -27,7 +27,7 @@ export default function HomePage() {
           Google でサインイン
         </Button>
 
-        <Typography variant="caption" display="block" sx={{ mt: 2 }} color="text.secondary">
+        <Typography variant="caption" sx={{ display: 'block', mt: 2 }} color="text.secondary">
           ※ 認証機能は次のタスクで実装予定です
         </Typography>
       </Paper>

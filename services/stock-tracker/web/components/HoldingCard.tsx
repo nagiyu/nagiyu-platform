@@ -311,7 +311,10 @@ export default function HoldingCard({
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
       <CardContent>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+        >
           <Typography variant="h6" component="h2">
             保有株式
           </Typography>

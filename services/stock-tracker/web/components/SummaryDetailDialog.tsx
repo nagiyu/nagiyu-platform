@@ -234,7 +234,11 @@ export default function SummaryDetailDialog({
                               </Typography>
                             </Tooltip>
                             {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography variant="caption" color="text.secondary" display="block">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                              >
                                 理由: {UI_ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
                               </Typography>
                             )}
@@ -288,7 +292,11 @@ export default function SummaryDetailDialog({
                               </Typography>
                             </Tooltip>
                             {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography variant="caption" color="text.secondary" display="block">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                              >
                                 理由: {UI_ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
                               </Typography>
                             )}
