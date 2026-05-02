@@ -575,6 +575,100 @@ describe('DynamoDBAlertRepository', () => {
         })
       );
     });
+
+    it('toEntity から InvalidEntityDataError 以外のエラーが投げられても、バッチ全体を壊さずにスキップする', async () => {
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+      };
+      const invalidItem = {
+        ...validItem,
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+      };
+
+      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
+        const record = item as unknown as { AlertID?: string };
+        if (record.AlertID === 'invalid-alert') {
+          // モジュールインスタンス差異など想定外の経路で `InvalidEntityDataError` 判定が
+          // すり抜けたケースをシミュレート: 名前/メッセージともに合致しない TypeError
+          throw new TypeError('Cannot read properties of undefined');
+        }
+
+        return {
+          AlertID: record.AlertID,
+          UserID: 'user-123',
+        } as unknown as ReturnType<AlertMapper['toEntity']>;
+      });
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [invalidItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({
+          sk: 'ALERT#invalid-alert',
+          error: 'Cannot read properties of undefined',
+        })
+      );
+      mapperSpy.mockRestore();
+    });
+
+    it('toEntity が DatabaseError でラップされたエラーを投げても、バッチを壊さずにスキップする', async () => {
+      // 本番再現: 何らかの理由で toEntity から DatabaseError 形式のエラーが投げられても
+      // 外側 catch で再ラップされて totalAlerts: 0 でクラッシュすることがあってはならない
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+      };
+      const invalidItem = {
+        ...validItem,
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+      };
+
+      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
+        const record = item as unknown as { AlertID?: string };
+        if (record.AlertID === 'invalid-alert') {
+          // すでに DatabaseError 形式に再ラップされたメッセージを持つエラーを擬似的に投げる
+          const wrapped = new Error(
+            'データベースエラーが発生しました: エンティティデータが無効です: フィールド "SubscriptionEndpoint" が文字列ではありません'
+          );
+          wrapped.name = 'DatabaseError';
+          throw wrapped;
+        }
+
+        return {
+          AlertID: record.AlertID,
+          UserID: 'user-123',
+        } as unknown as ReturnType<AlertMapper['toEntity']>;
+      });
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [invalidItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({ sk: 'ALERT#invalid-alert' })
+      );
+      mapperSpy.mockRestore();
+    });
   });
 
   describe('update', () => {

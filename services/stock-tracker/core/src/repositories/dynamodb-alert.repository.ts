@@ -11,12 +11,12 @@ import {
   DeleteCommand,
   QueryCommand,
   type DynamoDBDocumentClient,
+  type QueryCommandOutput,
 } from '@aws-sdk/lib-dynamodb';
 import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
-  InvalidEntityDataError,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -31,27 +31,6 @@ import { randomUUID } from 'crypto';
 const ERROR_MESSAGES = {
   NO_UPDATES_SPECIFIED: '更新するフィールドが指定されていません',
 } as const;
-
-const INVALID_ENTITY_DATA_ERROR_NAME = 'InvalidEntityDataError';
-const INVALID_ENTITY_DATA_MESSAGE_PREFIX = 'エンティティデータが無効です';
-
-const isInvalidEntityDataError = (error: unknown): error is Error => {
-  if (error instanceof InvalidEntityDataError) {
-    return true;
-  }
-
-  if (!(error instanceof Error)) {
-    return false;
-  }
-
-  // 実行環境差異により Error のクラス名解決が崩れるケースがあるため、
-  // 「name一致」または「InvalidEntityDataError のメッセージ接頭辞一致」の
-  // どちらかを満たす場合は無効データとして扱う。
-  return (
-    error.message.startsWith(INVALID_ENTITY_DATA_MESSAGE_PREFIX) ||
-    error.name === INVALID_ENTITY_DATA_ERROR_NAME
-  );
-};
 
 /**
  * DynamoDB Alert Repository
@@ -101,13 +80,14 @@ export class DynamoDBAlertRepository implements AlertRepository {
     userId: string,
     options?: PaginationOptions
   ): Promise<PaginatedResult<AlertEntity>> {
+    let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
       const exclusiveStartKey = options?.cursor
         ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
         : undefined;
 
-      const result = await this.docClient.send(
+      result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'UserIndex',
@@ -124,37 +104,37 @@ export class DynamoDBAlertRepository implements AlertRepository {
           ExclusiveStartKey: exclusiveStartKey,
         })
       );
-
-      const items: AlertEntity[] = [];
-      for (const item of result.Items || []) {
-        try {
-          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-        } catch (error) {
-          if (isInvalidEntityDataError(error)) {
-            const record = item as Record<string, unknown>;
-            logger.warn('無効なアラートデータをスキップしました', {
-              pk: record.PK,
-              sk: record.SK,
-              error: error.message,
-            });
-            continue;
-          }
-          throw error;
-        }
-      }
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
-
-      return {
-        items,
-        nextCursor,
-        count: result.Count,
-      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+
+    // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
+    // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
+    // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
+    const items: AlertEntity[] = [];
+    for (const item of result.Items || []) {
+      try {
+        items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+      } catch (error) {
+        const record = item as Record<string, unknown>;
+        logger.warn('無効なアラートデータをスキップしました', {
+          pk: record.PK,
+          sk: record.SK,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const nextCursor = result.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+      : undefined;
+
+    return {
+      items,
+      nextCursor,
+      count: result.Count,
+    };
   }
 
   /**
@@ -164,13 +144,14 @@ export class DynamoDBAlertRepository implements AlertRepository {
     frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
     options?: PaginationOptions
   ): Promise<PaginatedResult<AlertEntity>> {
+    let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
       const exclusiveStartKey = options?.cursor
         ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
         : undefined;
 
-      const result = await this.docClient.send(
+      result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'AlertIndex',
@@ -185,37 +166,37 @@ export class DynamoDBAlertRepository implements AlertRepository {
           ExclusiveStartKey: exclusiveStartKey,
         })
       );
-
-      const items: AlertEntity[] = [];
-      for (const item of result.Items || []) {
-        try {
-          items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
-        } catch (error) {
-          if (isInvalidEntityDataError(error)) {
-            const record = item as Record<string, unknown>;
-            logger.warn('無効なアラートデータをスキップしました', {
-              pk: record.PK,
-              sk: record.SK,
-              error: error.message,
-            });
-            continue;
-          }
-          throw error;
-        }
-      }
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
-
-      return {
-        items,
-        nextCursor,
-        count: result.Count,
-      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
+
+    // mapper.toEntity は同期的なデータ検証であり、ここから投げられるエラーは
+    // 全て個別アイテムの検証失敗。バッチ呼び出し全体を壊さないよう、
+    // エラー種別の判定に依存せず常にスキップ＆警告ログとする。
+    const items: AlertEntity[] = [];
+    for (const item of result.Items || []) {
+      try {
+        items.push(this.mapper.toEntity(item as unknown as DynamoDBItem));
+      } catch (error) {
+        const record = item as Record<string, unknown>;
+        logger.warn('無効なアラートデータをスキップしました', {
+          pk: record.PK,
+          sk: record.SK,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const nextCursor = result.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+      : undefined;
+
+    return {
+      items,
+      nextCursor,
+      count: result.Count,
+    };
   }
 
   /**
