@@ -1,22 +1,29 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Container, Typography, Box, Card, CardActionArea, CardContent, Chip } from '@mui/material';
-import { getAllTags, getArticlesByTag } from '@/lib/content';
+import {
+  getAllTags,
+  getArticlesByTag,
+  getTagBySlug,
+  isLinkableTag,
+  tagToSlug,
+} from '@/lib/content';
 import { buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
 
 type Params = { params: Promise<{ tag: string }> };
 
 export async function generateStaticParams() {
   return getAllTags()
-    .filter((entry) => entry.count >= 2)
-    .map((entry) => ({ tag: entry.tag }));
+    .filter((entry) => entry.count >= 2 && isLinkableTag(entry.tag))
+    .map((entry) => ({ tag: tagToSlug(entry.tag) }));
 }
 
 export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
-  const { tag } = await params;
-  const url = `https://nagiyu.com/tech/tags/${encodeURIComponent(tag)}`;
+  const { tag: slug } = await params;
+  const tag = getTagBySlug(slug) ?? slug;
+  const url = `https://nagiyu.com/tech/tags/${slug}`;
   return {
     title: `${tag} の記事一覧`,
     description: `nagiyu の技術記事のうち「${tag}」タグが付いた記事の一覧です。`,
@@ -32,14 +39,17 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 }
 
 export default async function TagPage({ params }: Params) {
-  const { tag } = await params;
+  const { tag: slug } = await params;
+  const tag = getTagBySlug(slug);
+  if (!tag) notFound();
+
   const articles = getArticlesByTag(tag);
   if (articles.length === 0) notFound();
 
   const breadcrumb = buildBreadcrumbJsonLd([
     { name: 'ホーム', url: 'https://nagiyu.com/' },
     { name: '技術記事', url: 'https://nagiyu.com/tech' },
-    { name: tag, url: `https://nagiyu.com/tech/tags/${encodeURIComponent(tag)}` },
+    { name: tag, url: `https://nagiyu.com/tech/tags/${slug}` },
   ]);
 
   return (
