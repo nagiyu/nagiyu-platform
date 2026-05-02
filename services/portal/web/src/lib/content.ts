@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import { remark } from 'remark';
+import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import DOMPurify from 'isomorphic-dompurify';
@@ -27,7 +28,11 @@ const TYPE_TO_FILENAME: Record<'overview' | 'guide' | 'faq', string> = {
  * Markdown 文字列を HTML に変換する
  */
 async function markdownToHtml(markdown: string): Promise<string> {
-  const result = await remark().use(remarkRehype).use(rehypeStringify).process(markdown);
+  const result = await remark()
+    .use(remarkGfm)
+    .use(remarkRehype)
+    .use(rehypeStringify)
+    .process(markdown);
   return DOMPurify.sanitize(result.toString());
 }
 
