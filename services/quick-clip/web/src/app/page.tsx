@@ -300,7 +300,7 @@ export default function Home() {
             }}
           >
             <CloudUploadIcon color="primary" sx={{ fontSize: 56, mb: 1 }} />
-            <Typography variant="body1" fontWeight={700}>
+            <Typography variant="body1" sx={{ fontWeight: 700 }}>
               ドラッグ&ドロップ または クリックして動画ファイルを選択
             </Typography>
             <Typography variant="body2" color="text.secondary">

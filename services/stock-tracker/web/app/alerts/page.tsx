@@ -289,14 +289,14 @@ function AlertsPageContent() {
           <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outlined">
             戻る
           </Button>
-          <Typography variant="h5" component="h1" fontWeight="bold">
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold' }}>
             アラート管理
           </Typography>
         </Box>
       </Box>
 
       {/* アラート一覧タイトル */}
-      <Typography variant="h6" component="h2" fontWeight="bold" sx={{ mb: 2 }}>
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold', mb: 2 }}>
         アラート一覧
       </Typography>
 
@@ -410,7 +410,7 @@ function AlertsPageContent() {
                       </TableCell>
                       <TableCell>{exchangeName}</TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                           {alert.symbol}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">

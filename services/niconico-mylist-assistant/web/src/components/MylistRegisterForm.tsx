@@ -192,7 +192,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             fullWidth
             margin="normal"
             required
-            inputProps={{ min: 1, max: 100 }}
+            slotProps={{ htmlInput: { min: 1, max: 100 } }}
             helperText="1〜100の範囲で指定してください"
           />
 
@@ -277,18 +277,20 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             margin="normal"
             required
             autoComplete="current-password"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    aria-label="toggle password visibility"
-                    onClick={handleTogglePasswordVisibility}
-                    edge="end"
-                  >
-                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                </InputAdornment>
-              ),
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label="toggle password visibility"
+                      onClick={handleTogglePasswordVisibility}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
             }}
           />
 

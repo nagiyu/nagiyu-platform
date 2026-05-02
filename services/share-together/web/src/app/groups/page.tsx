@@ -138,7 +138,10 @@ export default function GroupsPage() {
   return (
     <main>
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Stack
+          direction="row"
+          sx={{ alignItems: 'center', mb: 2, justifyContent: 'space-between' }}
+        >
           <Typography variant="h5" component="h1">
             グループ
           </Typography>

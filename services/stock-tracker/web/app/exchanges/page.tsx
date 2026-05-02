@@ -456,13 +456,13 @@ export default function ExchangesPage() {
                 exchanges.map((exchange) => (
                   <TableRow key={exchange.exchangeId} hover>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.exchangeId}
                       </Typography>
                     </TableCell>
                     <TableCell>{exchange.name}</TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.key}
                       </Typography>
                     </TableCell>
@@ -511,7 +511,7 @@ export default function ExchangesPage() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所ID
               </Typography>
               <TextField
@@ -527,7 +527,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所名
               </Typography>
               <TextField
@@ -540,7 +540,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 APIキー
               </Typography>
               <TextField
@@ -556,7 +556,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 タイムゾーン
               </Typography>
               <FormControl fullWidth disabled={submitting}>
@@ -581,7 +581,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引開始時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -621,7 +621,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引終了時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -678,7 +678,7 @@ export default function ExchangesPage() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所ID
               </Typography>
               <TextField
@@ -690,7 +690,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所名
               </Typography>
               <TextField
@@ -703,7 +703,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 APIキー
               </Typography>
               <TextField
@@ -715,7 +715,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 タイムゾーン
               </Typography>
               <FormControl fullWidth disabled={submitting}>
@@ -740,7 +740,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引開始時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -780,7 +780,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引終了時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

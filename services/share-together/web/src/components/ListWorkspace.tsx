@@ -264,7 +264,7 @@ export function ListWorkspace({
   };
 
   return (
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="flex-start">
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'flex-start' }}>
       <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
         <Stack spacing={2}>
           <FormControl fullWidth size="small">

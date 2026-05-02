@@ -330,10 +330,12 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
                     setTwoFAError(null);
                   }}
                   placeholder="000000"
-                  inputProps={{
-                    maxLength: 6,
-                    pattern: '[0-9]*',
-                    inputMode: 'numeric',
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 6,
+                      pattern: '[0-9]*',
+                      inputMode: 'numeric',
+                    },
                   }}
                   error={!!twoFAError}
                   helperText={twoFAError}
