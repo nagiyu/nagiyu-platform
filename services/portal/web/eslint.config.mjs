@@ -18,6 +18,13 @@ const eslintConfig = defineConfig([
     // E2E test files:
     'e2e/**',
   ]),
+  {
+    rules: {
+      // eslint-config-next 16.2.3で追加。既存コードへの影響が大きいため別途対応
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+    },
+  },
 ]);
 
 export default eslintConfig;
