@@ -102,7 +102,7 @@ export default function HomePage() {
 
         {/* サイトの概要説明 */}
         <Box sx={{ mb: 6, mt: 3 }}>
-          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem' , mb: 2}}>
+          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem', mb: 2 }}>
             Toolsは、日常作業で頻繁に発生する「整形」「変換」「検証」を素早く行うための無料ツール集です。
             乗り換え変換ツールでは経路情報を読みやすく整理し、JSON整形ツールではデータの整形・圧縮・検証を行えます。{' '}
             VAPIDキー生成ツールではWeb Push通知の実装に必要な鍵ペアをすぐに用意できます。{' '}
@@ -110,11 +110,11 @@ export default function HomePage() {
             URLエンコーダー/デコーダーではクエリやパラメータに使う文字列を扱いやすく変換できます。
             ハッシュ生成ツールではSHA-256 / SHA-512のハッシュ値をすばやく確認できます。
           </Typography>
-          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem' , mb: 2}}>
+          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem', mb: 2 }}>
             乗り換え変換ツール・JSON整形ツール・Base64エンコーダー/デコーダー・URLエンコーダー/デコーダー・ハッシュ生成ツールはブラウザ内で動作し、入力データは外部に送信されません。
             VAPIDキー生成ツールは入力データなしで、サーバー上で鍵ペアを生成します。
           </Typography>
-          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem' , mb: 2}}>
+          <Typography variant="body1" align="center" sx={{ fontSize: '1.1rem', mb: 2 }}>
             PWA（Progressive Web App）としてホーム画面に追加すれば、アプリのようにすぐ起動できます。
             通信が不安定な環境でも、サーバー通信が不要な基本機能を利用でき、外出先での作業にも適しています。
           </Typography>
