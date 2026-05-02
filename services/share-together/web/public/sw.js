@@ -37,6 +37,8 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') {
+    // GET 以外はネットワークへ直接パススルー（respondWith を明示的に呼ぶことで一部 Chromium の不具合を回避）
+    event.respondWith(fetch(event.request));
     return;
   }
 
