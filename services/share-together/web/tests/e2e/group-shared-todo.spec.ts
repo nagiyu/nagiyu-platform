@@ -84,6 +84,7 @@ test.describe('グループ共有 ToDo 管理', () => {
   test('共有リストの ToDo を完了にできる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
     await page.waitForLoadState('networkidle');
+    await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
     const checkbox = page.getByRole('checkbox', { name: `${EXISTING_TODO_TITLE}の完了チェック` });
     await expect(checkbox).not.toBeChecked();
@@ -94,6 +95,7 @@ test.describe('グループ共有 ToDo 管理', () => {
   test('共有リストの ToDo を編集できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
     await page.waitForLoadState('networkidle');
+    await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
     const updatedTitle = `編集後の共有タスク ${Date.now()}`;
     const todoRow = page.getByRole('listitem').filter({ hasText: EXISTING_TODO_TITLE });
@@ -109,6 +111,7 @@ test.describe('グループ共有 ToDo 管理', () => {
   test('共有リストの ToDo を削除できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
     await page.waitForLoadState('networkidle');
+    await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
     const todoRow = page.getByRole('listitem').filter({ hasText: EXISTING_TODO_TITLE });
     await todoRow.getByRole('button', { name: '削除' }).click();
