@@ -1,5 +1,16 @@
 import path from 'path';
-import { getAllServiceSlugs, getServiceDocument, getAllArticles, getArticle } from '@/lib/content';
+import {
+  getAllServiceSlugs,
+  getServiceDocument,
+  getAllArticles,
+  getArticle,
+  getRelatedArticles,
+  getAllTags,
+  getArticlesByTag,
+  getTagBySlug,
+  tagToSlug,
+  isLinkableTag,
+} from '@/lib/content';
 
 // ESM-only パッケージ（remark/rehype/unified）は Jest の CommonJS 環境では読み込めないためモック化する
 jest.mock('remark', () => ({
@@ -12,6 +23,7 @@ jest.mock('remark', () => ({
   }),
 }));
 jest.mock('remark-rehype', () => ({}));
+jest.mock('remark-gfm', () => ({}));
 jest.mock('rehype-stringify', () => ({}));
 
 // isomorphic-dompurify も jsdom 依存のためモック化する
@@ -89,6 +101,115 @@ describe('content', () => {
   describe('getArticle', () => {
     it('存在しない slug でエラーが発生する', async () => {
       await expect(getArticle('nonexistent')).rejects.toThrow('技術記事が見つかりません');
+    });
+
+    it('存在する記事を取得できる', async () => {
+      const article = await getArticle('test-article-1');
+      expect(article.slug).toBe('test-article-1');
+      expect(article.title).toBe('Test Article 1');
+      expect(article.tags).toContain('AWS');
+      expect(article.author).toBe('なぎゆー');
+      expect(typeof article.content).toBe('string');
+    });
+  });
+
+  describe('getAllArticles (詳細)', () => {
+    it('publishedAt 降順で並ぶ', () => {
+      const articles = getAllArticles();
+      expect(articles.length).toBeGreaterThan(0);
+      const dates = articles.map((a) => a.publishedAt);
+      const sorted = [...dates].sort().reverse();
+      expect(dates).toEqual(sorted);
+    });
+  });
+
+  describe('getRelatedArticles', () => {
+    it('タグ一致した別記事を返す', () => {
+      const related = getRelatedArticles('test-article-1', ['AWS']);
+      expect(related.length).toBeGreaterThan(0);
+      // 自分自身は除外される
+      expect(related.find((a) => a.slug === 'test-article-1')).toBeUndefined();
+      // タグが一致するものが含まれる
+      expect(related.find((a) => a.slug === 'test-article-2')).toBeDefined();
+    });
+
+    it('一致タグなしの場合は空配列を返す', () => {
+      const related = getRelatedArticles('test-article-1', ['NonExistentTag']);
+      expect(related).toEqual([]);
+    });
+
+    it('limit で件数を制限できる', () => {
+      const related = getRelatedArticles('test-article-1', ['AWS'], 1);
+      expect(related.length).toBeLessThanOrEqual(1);
+    });
+  });
+
+  describe('getAllTags', () => {
+    it('全タグを記事数の多い順に返す', () => {
+      const tags = getAllTags();
+      expect(tags.length).toBeGreaterThan(0);
+      // 件数降順
+      for (let i = 1; i < tags.length; i++) {
+        expect(tags[i - 1].count).toBeGreaterThanOrEqual(tags[i].count);
+      }
+      // AWS は複数記事にあるはず
+      const aws = tags.find((t) => t.tag === 'AWS');
+      expect(aws?.count).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('getArticlesByTag', () => {
+    it('指定タグの記事を返す', () => {
+      const articles = getArticlesByTag('AWS');
+      expect(articles.length).toBeGreaterThan(0);
+      articles.forEach((a) => expect(a.tags).toContain('AWS'));
+    });
+
+    it('存在しないタグでは空配列', () => {
+      expect(getArticlesByTag('NonExistentTag')).toEqual([]);
+    });
+  });
+
+  describe('tagToSlug', () => {
+    it('小文字化してスペースをハイフンに置換する', () => {
+      expect(tagToSlug('AWS Batch')).toBe('aws-batch');
+      expect(tagToSlug('App Router')).toBe('app-router');
+    });
+
+    it('スラッシュをハイフンに置換する', () => {
+      expect(tagToSlug('CI/CD')).toBe('ci-cd');
+    });
+
+    it('連続スペースは 1 つのハイフンに集約する', () => {
+      expect(tagToSlug('Foo  Bar')).toBe('foo-bar');
+    });
+
+    it('ピリオドはそのまま残す', () => {
+      expect(tagToSlug('Next.js')).toBe('next.js');
+    });
+  });
+
+  describe('isLinkableTag', () => {
+    it('ASCII にスラッグ化できるタグは true', () => {
+      expect(isLinkableTag('AWS')).toBe(true);
+      expect(isLinkableTag('AWS Batch')).toBe(true);
+      expect(isLinkableTag('Next.js')).toBe(true);
+      expect(isLinkableTag('CI/CD')).toBe(true);
+    });
+
+    it('日本語タグは false', () => {
+      expect(isLinkableTag('セキュリティ')).toBe(false);
+      expect(isLinkableTag('通知')).toBe(false);
+    });
+  });
+
+  describe('getTagBySlug', () => {
+    it('スラッグからタグを逆引きする', () => {
+      expect(getTagBySlug('aws')).toBe('AWS');
+    });
+
+    it('存在しないスラッグは null', () => {
+      expect(getTagBySlug('nonexistent-slug')).toBeNull();
     });
   });
 });

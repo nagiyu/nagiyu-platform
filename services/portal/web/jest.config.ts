@@ -73,11 +73,14 @@ const ESM_PACKAGES = [
   'devlop',
 ].join('|');
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-export default async () => {
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async.
+// 加えて next/jest が設定する transformIgnorePatterns を ESM_PACKAGES で上書きする。
+const buildConfig = async () => {
   const baseConfig = await createJestConfig(config)();
   return {
     ...baseConfig,
     transformIgnorePatterns: [`/node_modules/(?!(${ESM_PACKAGES})/)`],
   };
 };
+
+export default buildConfig;
