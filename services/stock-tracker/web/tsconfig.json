@@ -13,7 +13,8 @@
     ],
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    "rootDir": "."
   },
   "include": [
     "next-env.d.ts",

@@ -7,7 +7,9 @@
     // Web package uses TypeScript paths to directly reference core source files
     "declaration": false,
     "skipLibCheck": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]
