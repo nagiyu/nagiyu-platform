@@ -11,7 +11,7 @@
     "rootDir": ".",
     "types": ["jest", "@testing-library/jest-dom", "node"]
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "tests"],
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../common" }]
 }
