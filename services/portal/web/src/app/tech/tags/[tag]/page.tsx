@@ -9,24 +9,23 @@ type Params = { params: Promise<{ tag: string }> };
 export async function generateStaticParams() {
   return getAllTags()
     .filter((entry) => entry.count >= 2)
-    .map((entry) => ({ tag: encodeURIComponent(entry.tag) }));
+    .map((entry) => ({ tag: entry.tag }));
 }
 
 export const dynamicParams = false;
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { tag } = await params;
-  const decoded = decodeURIComponent(tag);
-  const url = `https://nagiyu.com/tech/tags/${tag}`;
+  const url = `https://nagiyu.com/tech/tags/${encodeURIComponent(tag)}`;
   return {
-    title: `${decoded} の記事一覧`,
-    description: `nagiyu の技術記事のうち「${decoded}」タグが付いた記事の一覧です。`,
+    title: `${tag} の記事一覧`,
+    description: `nagiyu の技術記事のうち「${tag}」タグが付いた記事の一覧です。`,
     alternates: { canonical: url },
     openGraph: {
       type: 'website',
       url,
-      title: `${decoded} の記事一覧`,
-      description: `nagiyu の技術記事のうち「${decoded}」タグが付いた記事の一覧です。`,
+      title: `${tag} の記事一覧`,
+      description: `nagiyu の技術記事のうち「${tag}」タグが付いた記事の一覧です。`,
       images: ['/og-default.png'],
     },
   };
@@ -34,14 +33,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function TagPage({ params }: Params) {
   const { tag } = await params;
-  const decoded = decodeURIComponent(tag);
-  const articles = getArticlesByTag(decoded);
+  const articles = getArticlesByTag(tag);
   if (articles.length === 0) notFound();
 
   const breadcrumb = buildBreadcrumbJsonLd([
     { name: 'ホーム', url: 'https://nagiyu.com/' },
     { name: '技術記事', url: 'https://nagiyu.com/tech' },
-    { name: decoded, url: `https://nagiyu.com/tech/tags/${tag}` },
+    { name: tag, url: `https://nagiyu.com/tech/tags/${encodeURIComponent(tag)}` },
   ]);
 
   return (
@@ -51,7 +49,7 @@ export default async function TagPage({ params }: Params) {
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }}
       />
       <Typography variant="h4" component="h1" gutterBottom>
-        {decoded} の記事一覧
+        {tag} の記事一覧
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         全 {articles.length} 件
