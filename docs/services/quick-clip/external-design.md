@@ -67,7 +67,7 @@ graph LR
 
 | 要素 | 種別 | 説明 |
 |-----|------|------|
-| フロー進捗ステッパー | Stepper（水平） | 常時表示。「アップロード → 解析 → 切り出し」の 3 ステップ。PROCESSING 時は batchStage のサブラベルを表示する（`downloading`: ダウンロード中、`analyzing`: 解析中、`aggregating`: 集計中） |
+| フロー進捗ステッパー | Stepper（水平） | 常時表示。「アップロード → 解析 → 切り出し」の 3 ステップ。PROCESSING 時は batchStage のサブラベルを表示する（`downloading`: ダウンロード中、`analyzing`: 解析中、`clipping`: 分割中、`aggregating`: 集計中）。`analyzing` 中で `analysisProgress` が存在する場合は、テキストの代わりに「モーション解析」「音量解析」「文字起こし」「感情分析」のサブ項目リストを表示する（CircularProgress / CheckCircle / Warning アイコン付き、チャンク数 > 1 のときは X/Y 進捗を表示。OpenAI API キー未設定時は文字起こし・感情分析サブ項目は非表示） |
 | ステータス表示 | テキスト | PENDING / PROCESSING / COMPLETED / FAILED |
 | ローディングスピナー | インジケーター | PENDING / PROCESSING 中に表示。5秒毎に自動ポーリングでステータスを更新 |
 | タブ閉じ通知 | テキスト | PENDING / PROCESSING 時に表示。「タブを閉じても処理は続きます。URLを控えておくと後で確認できます」 |
