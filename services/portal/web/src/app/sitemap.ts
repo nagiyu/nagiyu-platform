@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getAllArticles, getAllServiceSlugs } from '@/lib/content';
+import { getAllArticles, getAllServiceSlugs, getAllTags } from '@/lib/content';
 
 const SITE_URL = 'https://nagiyu.com';
 
@@ -33,5 +33,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  return [...staticEntries, ...serviceEntries, ...articleEntries];
+  const tagEntries: MetadataRoute.Sitemap = getAllTags()
+    .filter((entry) => entry.count >= 2)
+    .map((entry) => ({
+      url: `${SITE_URL}/tech/tags/${encodeURIComponent(entry.tag)}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.5,
+    }));
+
+  return [...staticEntries, ...serviceEntries, ...articleEntries, ...tagEntries];
 }

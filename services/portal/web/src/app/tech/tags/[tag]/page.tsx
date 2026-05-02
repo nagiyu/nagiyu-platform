@@ -1,0 +1,90 @@
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { Container, Typography, Box, Card, CardActionArea, CardContent, Chip } from '@mui/material';
+import { getAllTags, getArticlesByTag } from '@/lib/content';
+import { buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
+
+type Params = { params: Promise<{ tag: string }> };
+
+export async function generateStaticParams() {
+  return getAllTags()
+    .filter((entry) => entry.count >= 2)
+    .map((entry) => ({ tag: encodeURIComponent(entry.tag) }));
+}
+
+export const dynamicParams = false;
+
+export async function generateMetadata({ params }: Params): Promise<Metadata> {
+  const { tag } = await params;
+  const decoded = decodeURIComponent(tag);
+  const url = `https://nagiyu.com/tech/tags/${tag}`;
+  return {
+    title: `${decoded} の記事一覧`,
+    description: `nagiyu の技術記事のうち「${decoded}」タグが付いた記事の一覧です。`,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website',
+      url,
+      title: `${decoded} の記事一覧`,
+      description: `nagiyu の技術記事のうち「${decoded}」タグが付いた記事の一覧です。`,
+      images: ['/og-default.png'],
+    },
+  };
+}
+
+export default async function TagPage({ params }: Params) {
+  const { tag } = await params;
+  const decoded = decodeURIComponent(tag);
+  const articles = getArticlesByTag(decoded);
+  if (articles.length === 0) notFound();
+
+  const breadcrumb = buildBreadcrumbJsonLd([
+    { name: 'ホーム', url: 'https://nagiyu.com/' },
+    { name: '技術記事', url: 'https://nagiyu.com/tech' },
+    { name: decoded, url: `https://nagiyu.com/tech/tags/${tag}` },
+  ]);
+
+  return (
+    <Container maxWidth="md" sx={{ py: 4 }}>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }}
+      />
+      <Typography variant="h4" component="h1" gutterBottom>
+        {decoded} の記事一覧
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        全 {articles.length} 件
+      </Typography>
+
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {articles.map((article) => (
+          <Card key={article.slug} variant="outlined">
+            <CardActionArea href={`/tech/${article.slug}`}>
+              <CardContent>
+                <Typography variant="h6" component="h2" gutterBottom>
+                  {article.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {article.description}
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {article.tags.map((t) => (
+                    <Chip key={t} label={t} size="small" variant="outlined" />
+                  ))}
+                </Box>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ mt: 1, display: 'block' }}
+                >
+                  公開日: {article.publishedAt}
+                </Typography>
+              </CardContent>
+            </CardActionArea>
+          </Card>
+        ))}
+      </Box>
+    </Container>
+  );
+}
