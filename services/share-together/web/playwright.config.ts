@@ -36,6 +36,7 @@ export default defineConfig({
         ...devices['Pixel 5'],
         viewport: { width: 393, height: 851 },
         deviceScaleFactor: 2.75,
+        serviceWorkers: 'block',
       },
     },
     {

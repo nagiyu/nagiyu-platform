@@ -91,12 +91,18 @@ describe('sw.js', () => {
     expect(errorSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('GET以外のリクエストはservice workerで処理しない', () => {
-    const respondWith = jest.fn();
-    listeners.fetch({ request: { method: 'POST', url: 'https://example.com/post' }, respondWith });
+  it('GET以外のリクエストはネットワークへ直接パススルーする', async () => {
+    const mockResponse = { status: 200 };
+    fetchMock.mockResolvedValue(mockResponse);
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(respondWith).not.toHaveBeenCalled();
+    const respondWith = jest.fn();
+    const request = { method: 'POST', url: 'https://example.com/post' };
+    listeners.fetch({ request, respondWith });
+
+    expect(respondWith).toHaveBeenCalledTimes(1);
+    const responsePromise = respondWith.mock.calls[0][0];
+    await expect(responsePromise).resolves.toBe(mockResponse);
+    expect(fetchMock).toHaveBeenCalledWith(request);
   });
 
   it('status≠200またはtype≠basicのレスポンスはキャッシュ保存しない', async () => {
