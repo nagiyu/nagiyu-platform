@@ -145,3 +145,28 @@ export function getRelatedArticles(currentSlug: string, tags: string[], limit = 
 
   return scored.slice(0, limit).map((entry) => entry.article);
 }
+
+/**
+ * 全タグを記事数の多い順に返す
+ */
+export function getAllTags(): { tag: string; count: number }[] {
+  const counter = new Map<string, number>();
+  for (const article of getAllArticles()) {
+    for (const tag of article.tags) {
+      counter.set(tag, (counter.get(tag) ?? 0) + 1);
+    }
+  }
+  return [...counter.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.tag.localeCompare(b.tag);
+    });
+}
+
+/**
+ * 指定タグを持つ記事を publishedAt 降順で返す
+ */
+export function getArticlesByTag(tag: string): ArticleMeta[] {
+  return getAllArticles().filter((article) => article.tags.includes(tag));
+}
