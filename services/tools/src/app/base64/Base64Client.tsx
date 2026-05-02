@@ -101,7 +101,7 @@ export default function Base64Client() {
         Base64 エンコーダー / デコーダー
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center">
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
         テキストを Base64 形式にエンコード・デコードできます。
       </Typography>
 

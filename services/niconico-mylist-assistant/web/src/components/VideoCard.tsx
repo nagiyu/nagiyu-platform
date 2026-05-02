@@ -10,7 +10,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { Favorite, FavoriteBorder, RemoveCircle, RemoveCircleOutline } from '@mui/icons-material';
+import { Favorite, FavoriteBorder, RemoveCircle, RemoveCircleOutlined } from '@mui/icons-material';
 import type { VideoData } from '@nagiyu/niconico-mylist-assistant-core';
 
 interface VideoCardProps {
@@ -143,7 +143,7 @@ export default function VideoCard({
               color={isSkip ? 'warning' : 'default'}
               aria-label={isSkip ? 'スキップ解除' : 'スキップに設定'}
             >
-              {isSkip ? <RemoveCircle /> : <RemoveCircleOutline />}
+              {isSkip ? <RemoveCircle /> : <RemoveCircleOutlined />}
             </IconButton>
           </Tooltip>
         </Box>

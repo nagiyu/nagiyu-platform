@@ -106,9 +106,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             onChange={(event) => setKeyword(event.target.value)}
             disabled={loading}
             slotProps={{
-              input: {
-                inputProps: { maxLength: VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH },
-              },
+              htmlInput: { maxLength: VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH },
             }}
           />
           <Button

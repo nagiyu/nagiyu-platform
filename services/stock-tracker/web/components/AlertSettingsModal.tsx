@@ -1173,7 +1173,7 @@ export default function AlertSettingsModal({
             label="取引所"
             value={exchangeId}
             disabled
-            InputProps={{ readOnly: true }}
+            slotProps={{ input: { readOnly: true } }}
           />
 
           {/* ティッカー（表示のみ） */}
@@ -1182,7 +1182,7 @@ export default function AlertSettingsModal({
             label="ティッカー"
             value={symbol}
             disabled
-            InputProps={{ readOnly: true }}
+            slotProps={{ input: { readOnly: true } }}
           />
 
           {/* モード（表示のみ） */}
@@ -1191,7 +1191,7 @@ export default function AlertSettingsModal({
             label="モード"
             value={tradeMode === 'Buy' ? '買いアラート' : '売りアラート'}
             disabled
-            InputProps={{ readOnly: true }}
+            slotProps={{ input: { readOnly: true } }}
           />
 
           {/* 条件タイプ */}
@@ -1201,7 +1201,7 @@ export default function AlertSettingsModal({
               label="条件タイプ"
               value={formData.conditionMode === 'single' ? '単一条件' : '範囲指定'}
               disabled
-              InputProps={{ readOnly: true }}
+              slotProps={{ input: { readOnly: true } }}
             />
           ) : (
             <FormControl fullWidth>
@@ -1233,7 +1233,7 @@ export default function AlertSettingsModal({
                   label="条件"
                   value={formData.operator === 'gte' ? '価格 以上 (≥)' : '価格 以下 (≤)'}
                   disabled
-                  InputProps={{ readOnly: true }}
+                  slotProps={{ input: { readOnly: true } }}
                 />
               ) : (
                 <FormControl fullWidth error={!!formErrors.operator}>
@@ -1299,7 +1299,7 @@ export default function AlertSettingsModal({
                   }}
                   error={!!formErrors.targetPrice}
                   helperText={formErrors.targetPrice}
-                  inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                  slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
                 />
               )}
 
@@ -1374,7 +1374,7 @@ export default function AlertSettingsModal({
                   label="範囲タイプ"
                   value={formData.rangeType === 'inside' ? '範囲内（AND）' : '範囲外（OR）'}
                   disabled
-                  InputProps={{ readOnly: true }}
+                  slotProps={{ input: { readOnly: true } }}
                   helperText={
                     formData.rangeType === 'inside'
                       ? '価格が指定範囲内になったら通知'
@@ -1453,7 +1453,7 @@ export default function AlertSettingsModal({
                       formErrors.minPrice ||
                       (formData.rangeType === 'inside' ? 'この価格以上' : 'この価格以下で通知')
                     }
-                    inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                    slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
                   />
 
                   <TextField
@@ -1473,7 +1473,7 @@ export default function AlertSettingsModal({
                       formErrors.maxPrice ||
                       (formData.rangeType === 'inside' ? 'この価格以下' : 'この価格以上で通知')
                     }
-                    inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+                    slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
                   />
                 </>
               )}
@@ -1587,7 +1587,7 @@ export default function AlertSettingsModal({
               label="通知頻度"
               value={FREQUENCY_LABELS[formData.frequency]}
               disabled
-              InputProps={{ readOnly: true }}
+              slotProps={{ input: { readOnly: true } }}
             />
           ) : (
             <FormControl fullWidth error={!!formErrors.frequency}>
@@ -1658,7 +1658,7 @@ export default function AlertSettingsModal({
             fullWidth
             label="通知タイトル"
             value={formData.notificationTitle}
-            InputProps={{ readOnly: true }}
+            slotProps={{ input: { readOnly: true } }}
             error={!!formErrors.notificationTitle}
             helperText={formErrors.notificationTitle}
           />
@@ -1668,7 +1668,7 @@ export default function AlertSettingsModal({
             minRows={2}
             label="通知本文"
             value={formData.notificationBody}
-            InputProps={{ readOnly: true }}
+            slotProps={{ input: { readOnly: true } }}
             error={!!formErrors.notificationBody}
             helperText={formErrors.notificationBody}
           />

@@ -88,7 +88,7 @@ export default function FAQPage() {
         よくある質問 (FAQ)
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center" sx={{ mb: 4 }}>
+      <Typography variant="body1" color="text.secondary" align="center" sx={{ mb: 4 }}>
         Tools サイトに関するよくある質問と回答をまとめました。
         解決しない問題がある場合は、お問い合わせフォームからご連絡ください。
       </Typography>
@@ -118,7 +118,7 @@ export default function FAQPage() {
         <Typography variant="h6" component="h2" gutterBottom>
           その他のご質問
         </Typography>
-        <Typography variant="body2" paragraph>
+        <Typography variant="body2" sx={{ mb: 2 }}>
           上記以外のご質問がある場合は、お気軽にお問い合わせください。
         </Typography>
         <Typography variant="body2">

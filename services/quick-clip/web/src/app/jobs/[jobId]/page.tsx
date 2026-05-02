@@ -97,7 +97,7 @@ function AnalysisItem({ label, item }: AnalysisItemProps) {
         : label;
 
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center">
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
       {item.status === 'in_progress' && <CircularProgress size={12} />}
       {item.status === 'done' && <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />}
       {item.status === 'failed' && <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />}
@@ -191,7 +191,7 @@ export default function JobPage({ params }: JobPageProps) {
         </Typography>
 
         {isLoading && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
             <CircularProgress size={20} />
             <Typography>ステータスを確認しています...</Typography>
           </Stack>
@@ -214,7 +214,7 @@ export default function JobPage({ params }: JobPageProps) {
                   optional={
                     job.status === 'PROCESSING' && job.batchStage ? (
                       job.analysisProgress ? (
-                        <Stack spacing={0.5} alignItems="flex-start">
+                        <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
                           <AnalysisItem label="モーション解析" item={job.analysisProgress.motion} />
                           <AnalysisItem label="音量解析" item={job.analysisProgress.volume} />
                           {job.analysisProgress.transcription && (

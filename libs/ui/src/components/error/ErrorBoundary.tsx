@@ -8,7 +8,7 @@
 
 import React, { Component, ReactNode } from 'react';
 import { Box, Container, Typography, Button, Alert } from '@mui/material';
-import { ErrorOutline as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { ErrorOutlined as ErrorIcon, Refresh as RefreshIcon } from '@mui/icons-material';
 
 /**
  * ErrorBoundary Props

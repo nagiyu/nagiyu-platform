@@ -22,7 +22,7 @@ import {
   Favorite,
   FavoriteBorder,
   RemoveCircle,
-  RemoveCircleOutline,
+  RemoveCircleOutlined,
   Delete,
   OpenInNew,
 } from '@mui/icons-material';
@@ -321,7 +321,7 @@ export default function VideoDetailModal({
               <Button
                 variant={isSkip ? 'contained' : 'outlined'}
                 color={isSkip ? 'warning' : 'inherit'}
-                startIcon={isSkip ? <RemoveCircle /> : <RemoveCircleOutline />}
+                startIcon={isSkip ? <RemoveCircle /> : <RemoveCircleOutlined />}
                 onClick={handleToggleSkip}
                 disabled={isSaving}
                 fullWidth

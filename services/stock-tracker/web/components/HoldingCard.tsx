@@ -311,7 +311,10 @@ export default function HoldingCard({
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
       <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+        >
           <Typography variant="h6" component="h2">
             保有株式
           </Typography>
@@ -400,7 +403,7 @@ export default function HoldingCard({
               onChange={(e) => handleFormChange('quantity', e.target.value)}
               error={!!formErrors.quantity}
               helperText={formErrors.quantity}
-              inputProps={{ step: '0.0001', min: '0.0001', max: '1000000000' }}
+              slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
             />
             <TextField
               fullWidth
@@ -410,7 +413,7 @@ export default function HoldingCard({
               onChange={(e) => handleFormChange('averagePrice', e.target.value)}
               error={!!formErrors.averagePrice}
               helperText={formErrors.averagePrice}
-              inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+              slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
             />
             <FormControl fullWidth error={!!formErrors.currency}>
               <InputLabel id="holding-create-currency-label">通貨</InputLabel>
@@ -453,7 +456,7 @@ export default function HoldingCard({
               onChange={(e) => handleFormChange('quantity', e.target.value)}
               error={!!formErrors.quantity}
               helperText={formErrors.quantity}
-              inputProps={{ step: '0.0001', min: '0.0001', max: '1000000000' }}
+              slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
             />
             <TextField
               fullWidth
@@ -463,7 +466,7 @@ export default function HoldingCard({
               onChange={(e) => handleFormChange('averagePrice', e.target.value)}
               error={!!formErrors.averagePrice}
               helperText={formErrors.averagePrice}
-              inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+              slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
             />
             <TextField fullWidth label="通貨" value={formData.currency} disabled />
           </Box>

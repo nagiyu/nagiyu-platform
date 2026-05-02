@@ -606,7 +606,7 @@ export default function HoldingsPage() {
           <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/')} variant="outlined">
             戻る
           </Button>
-          <Typography variant="h5" component="h1" fontWeight="bold">
+          <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold' }}>
             保有株式管理
           </Typography>
         </Box>
@@ -635,7 +635,7 @@ export default function HoldingsPage() {
       )}
 
       {/* 保有株式一覧タイトル */}
-      <Typography variant="h6" component="h2" fontWeight="bold" sx={{ mb: 2 }}>
+      <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold', mb: 2 }}>
         保有株式一覧
       </Typography>
 
@@ -693,7 +693,7 @@ export default function HoldingsPage() {
                     <TableRow key={holding.holdingId} hover>
                       <TableCell>{exchangeName}</TableCell>
                       <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                           {holding.symbol}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -831,7 +831,7 @@ export default function HoldingsPage() {
               onChange={(e) => handleFormChange('quantity', e.target.value)}
               error={!!formErrors.quantity}
               helperText={formErrors.quantity}
-              inputProps={{ step: '0.0001', min: '0.0001', max: '1000000000' }}
+              slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
             />
 
             {/* 平均取得価格 */}
@@ -844,7 +844,7 @@ export default function HoldingsPage() {
               onChange={(e) => handleFormChange('averagePrice', e.target.value)}
               error={!!formErrors.averagePrice}
               helperText={formErrors.averagePrice}
-              inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+              slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
             />
 
             {/* 通貨 */}
@@ -900,7 +900,7 @@ export default function HoldingsPage() {
                   : ''
               }
               disabled
-              InputProps={{ readOnly: true }}
+              slotProps={{ input: { readOnly: true } }}
             />
 
             {/* ティッカー（表示のみ） */}
@@ -909,7 +909,7 @@ export default function HoldingsPage() {
               label="ティッカー"
               value={selectedHolding ? `${selectedHolding.symbol} - ${selectedHolding.name}` : ''}
               disabled
-              InputProps={{ readOnly: true }}
+              slotProps={{ input: { readOnly: true } }}
             />
 
             {/* 保有数 */}
@@ -922,7 +922,7 @@ export default function HoldingsPage() {
               onChange={(e) => handleFormChange('quantity', e.target.value)}
               error={!!formErrors.quantity}
               helperText={formErrors.quantity}
-              inputProps={{ step: '0.0001', min: '0.0001', max: '1000000000' }}
+              slotProps={{ htmlInput: { step: '0.0001', min: '0.0001', max: '1000000000' } }}
             />
 
             {/* 平均取得価格 */}
@@ -935,7 +935,7 @@ export default function HoldingsPage() {
               onChange={(e) => handleFormChange('averagePrice', e.target.value)}
               error={!!formErrors.averagePrice}
               helperText={formErrors.averagePrice}
-              inputProps={{ step: '0.01', min: '0.01', max: '1000000' }}
+              slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
             />
 
             {/* 通貨（表示のみ） */}
@@ -944,7 +944,7 @@ export default function HoldingsPage() {
               label="通貨"
               value={formData.currency}
               disabled
-              InputProps={{ readOnly: true }}
+              slotProps={{ input: { readOnly: true } }}
             />
           </Box>
         </DialogContent>

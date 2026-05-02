@@ -69,19 +69,18 @@ export default function MigrationDialog() {
     <Dialog
       open={open}
       onClose={handleBackdropClick}
-      disableEscapeKeyDown={true}
       aria-labelledby="migration-dialog-title"
       aria-describedby="migration-dialog-description"
     >
       <DialogTitle id="migration-dialog-title">Toolsアプリが新しくなりました</DialogTitle>
       <DialogContent id="migration-dialog-description">
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           このアプリは以前のバージョンから大幅にアップデートされました。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           以前のバージョンをインストールされている方は、お手数ですが以下の手順で再インストールをお願いします。
         </Typography>
-        <Typography variant="body1" component="div" paragraph>
+        <Typography variant="body1" component="div" sx={{ mb: 2 }}>
           <ol style={{ paddingLeft: '1.5rem', margin: 0 }}>
             <li>旧バージョンのアプリをアンインストール</li>
             <li>このページから新バージョンを再インストール</li>

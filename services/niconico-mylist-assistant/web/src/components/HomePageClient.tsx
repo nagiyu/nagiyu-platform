@@ -108,7 +108,7 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
         <Typography variant="h3" component="h1" gutterBottom>
           niconico-mylist-assistant
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           ニコニコ動画のマイリスト登録を自動化する補助ツールです。
         </Typography>
         {isAuthenticated ? (
@@ -146,7 +146,7 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
           </Box>
         ) : (
           <Box sx={{ mt: 3 }}>
-            <Typography variant="body1" paragraph>
+            <Typography variant="body1" sx={{ mb: 2 }}>
               このサービスを利用するには、ログインが必要です。
             </Typography>
             <Button

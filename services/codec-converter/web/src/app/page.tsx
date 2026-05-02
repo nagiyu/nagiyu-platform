@@ -193,7 +193,7 @@ export default function Home() {
           }}
         >
           <CloudUploadIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
-          <Typography variant="body1" fontWeight="bold" sx={{ mb: 1 }}>
+          <Typography variant="body1" sx={{ fontWeight: 'bold', mb: 1 }}>
             ファイルをドラッグ&ドロップ または クリックして選択
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -212,7 +212,7 @@ export default function Home() {
         {/* Selected File Info */}
         {file && (
           <Paper sx={{ p: 2, mb: 3, backgroundColor: 'grey.100' }}>
-            <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
               選択されたファイル:
             </Typography>
             <Typography variant="body2">
@@ -243,7 +243,7 @@ export default function Home() {
               control={<Radio />}
               label={
                 <Box>
-                  <Typography component="span" fontWeight="bold">
+                  <Typography component="span" sx={{ fontWeight: 'bold' }}>
                     H.264
                   </Typography>
                   <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>
@@ -257,7 +257,7 @@ export default function Home() {
               control={<Radio />}
               label={
                 <Box>
-                  <Typography component="span" fontWeight="bold">
+                  <Typography component="span" sx={{ fontWeight: 'bold' }}>
                     VP9
                   </Typography>
                   <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>
@@ -271,7 +271,7 @@ export default function Home() {
               control={<Radio />}
               label={
                 <Box>
-                  <Typography component="span" fontWeight="bold">
+                  <Typography component="span" sx={{ fontWeight: 'bold' }}>
                     AV1
                   </Typography>
                   <Typography component="span" color="text.secondary" sx={{ ml: 1 }}>

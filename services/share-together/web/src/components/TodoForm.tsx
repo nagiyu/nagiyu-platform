@@ -21,7 +21,7 @@ export function TodoForm({ onAdd }: TodoFormProps) {
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} display="flex" gap={1}>
+    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', gap: 1 }}>
       <TextField
         label="タイトル"
         value={title}

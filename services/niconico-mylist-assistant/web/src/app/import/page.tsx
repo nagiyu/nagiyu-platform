@@ -190,8 +190,10 @@ export default function ImportPage() {
                             <ListItemText
                               primary={`動画ID: ${item.videoId}`}
                               secondary={`エラー: ${item.error}`}
-                              primaryTypographyProps={{ fontWeight: 'medium' }}
-                              secondaryTypographyProps={{ color: 'error' }}
+                              slotProps={{
+                                primary: { sx: { fontWeight: 'medium' } },
+                                secondary: { sx: { color: 'error' } },
+                              }}
                             />
                           </ListItem>
                         ))}
