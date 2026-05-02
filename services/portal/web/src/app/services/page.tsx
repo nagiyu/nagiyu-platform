@@ -39,7 +39,7 @@ export default async function ServicesPage() {
         サービス一覧
       </Typography>
 
-      <Typography variant="body1" paragraph align="center" sx={{ mb: 4 }}>
+      <Typography variant="body1" align="center" sx={{ mb: 4 }}>
         nagiyu が提供する各種 Web
         サービスの一覧です。各サービスのドキュメントや使い方ガイドをご確認ください。
       </Typography>

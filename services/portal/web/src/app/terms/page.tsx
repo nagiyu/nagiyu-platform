@@ -21,7 +21,7 @@ export default function TermsPage() {
           </Typography>
           {section.contents.map((content, contentIndex) => (
             <Box key={contentIndex} sx={{ mb: 2 }}>
-              <Typography variant="body1" paragraph>
+              <Typography variant="body1" sx={{ mb: 2 }}>
                 {content.mainContent}
               </Typography>
               {content.subItems && (

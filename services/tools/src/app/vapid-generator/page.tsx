@@ -72,11 +72,11 @@ export default function VapidGeneratorPage() {
           VAPID キー生成ツール
         </Typography>
 
-        <Typography variant="body1" color="text.secondary" paragraph align="center">
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
           Web Push 通知で利用する VAPID の公開鍵・秘密鍵ペアを生成します。
         </Typography>
 
-        <Typography variant="body2" color="text.secondary" paragraph>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           生成される鍵は Base64url 形式です。
           <br />
           公開鍵はクライアント側、秘密鍵はサーバー側で安全に保管してください。
