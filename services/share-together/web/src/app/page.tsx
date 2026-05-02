@@ -1,8 +1,20 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Box, Button, Stack, Typography } from '@mui/material';
+import { isPersistablePath, loadLastVisitedPath } from '@/lib/lastVisitedPath';
 
 export default function Home() {
+  const router = useRouter();
+
+  useEffect(() => {
+    const lastPath = loadLastVisitedPath();
+    if (lastPath && isPersistablePath(lastPath)) {
+      router.replace(lastPath);
+    }
+  }, [router]);
+
   return (
     <main>
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>

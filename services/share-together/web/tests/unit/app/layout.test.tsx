@@ -38,6 +38,11 @@ jest.mock('@/components/UserRegistrationInitializer', () => ({
   default: () => <div>UserRegistrationInitializer</div>,
 }));
 
+jest.mock('@/components/LastVisitedPathTracker', () => ({
+  __esModule: true,
+  default: () => <div>LastVisitedPathTracker</div>,
+}));
+
 describe('RootLayout', () => {
   it('manifest.json をメタデータに設定する', () => {
     expect(metadata.manifest).toBe('/manifest.json');
@@ -52,6 +57,7 @@ describe('RootLayout', () => {
 
     expect(html).toContain('ServiceWorkerRegistration');
     expect(html).toContain('UserRegistrationInitializer');
+    expect(html).toContain('LastVisitedPathTracker');
     expect(html).toContain('Share Together');
     expect(html).toContain('Share Together ホームページに戻る');
     expect(html).toContain('Navigation');
