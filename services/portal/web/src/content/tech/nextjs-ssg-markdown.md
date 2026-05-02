@@ -3,6 +3,8 @@ title: 'Next.jsでMarkdownを静的ページに変換する実装方法'
 description: 'Next.jsのSSGとMarkdownファイルを組み合わせた静的サイト生成の実装方法を解説。gray-matterによるフロントマター解析・remark/rehypeによるレンダリング・generateStaticParamsの活用まで詳しく説明します。'
 slug: 'nextjs-ssg-markdown'
 publishedAt: '2026-04-10'
+updatedAt: '2026-05-01'
+author: 'なぎゆー'
 tags: ['Next.js', 'Markdown', 'SSG']
 ---
 

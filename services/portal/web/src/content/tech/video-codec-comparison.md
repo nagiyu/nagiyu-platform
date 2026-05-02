@@ -3,7 +3,10 @@ title: 'H.264・VP9・AV1のコーデック比較と使い分け'
 description: '動画コーデックH.264・VP9・AV1の詳細比較。圧縮効率・ブラウザサポート・エンコード速度・画質・用途ごとの使い分けをFFmpegのコマンド例とともに解説します。'
 slug: 'video-codec-comparison'
 publishedAt: '2026-04-10'
+updatedAt: '2026-05-01'
+author: 'なぎゆー'
 tags: ['動画', 'コーデック', 'H.264', 'AV1']
+relatedServices: ['codec-converter']
 ---
 
 ## はじめに

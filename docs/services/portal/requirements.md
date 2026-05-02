@@ -8,7 +8,9 @@
 
 nagiyu.com（ルートドメイン）で Google AdSense 承認を取得するために、クローラブルなテキストコンテンツを豊富に持つポータルサービスを新設した。
 
-従来ルートドメインで稼働していた Tools（ブラウザ完結型ユーティリティ）は `tools.nagiyu.com` に移行した。Portal はブログではなく **サービスドキュメント（マニュアル）＋技術紹介記事** を主体とし、定期的な記事投稿は不要。コンテンツはサービスの機能追加・変更に合わせて更新する。
+従来ルートドメインで稼働していた Tools（ブラウザ完結型ユーティリティ）は `tools.nagiyu.com` に移行した。Portal は **サービスドキュメント（マニュアル）＋技術ブログ** のハイブリッド構成とし、AdSense 審査・SEO 強化のため技術記事を計画的に追加（目標 25 本以上）する。サービスドキュメントは引き続きサービスの機能追加・変更に合わせて更新する。
+
+> 当初は「定期的な記事投稿は不要」のドキュメント型ポータルとして設計していたが、AdSense 審査落ち（「有用性の低いコンテンツ」、Issue #2867）を受けて方針見直し。詳細は `architecture.md` ADR-001 を参照。
 
 ### 1.2 対象ユーザー
 
@@ -69,11 +71,14 @@ nagiyu.com（ルートドメイン）で Google AdSense 承認を取得するた
 | F-002 | サービス概要ページ | 各サービスの詳細説明（8 サービス分） | 高 |
 | F-003 | 使い方ガイドページ | 手順・使い方の解説（8 サービス分） | 高 |
 | F-004 | FAQ ページ | よくある質問と回答（8 サービス分） | 高 |
-| F-005 | 技術記事一覧・詳細ページ | Markdown ベースの技術紹介記事 | 中 |
-| F-006 | About / プロフィールページ | 開発者情報・サービス全体の紹介 | 高 |
+| F-005 | 技術記事一覧・詳細ページ | Markdown ベースの技術記事（目標 25 本以上） | 高 |
+| F-006 | About / プロフィールページ | 開発者情報・サービス全体の紹介・編集ポリシー・お問い合わせ（E-E-A-T） | 高 |
 | F-007 | Google AdSense 組み込み | 本番環境での広告スクリプト読み込み | 高 |
 | F-008 | Google Analytics 組み込み | アクセス解析スクリプト読み込み | 中 |
 | F-009 | 利用規約・プライバシーポリシー | 各種法的ページ | 高 |
+| F-010 | 構造化データ（JSON-LD） | `WebSite` / `Organization` / `BlogPosting` / `BreadcrumbList` を各ページに埋め込む | 高 |
+| F-011 | OGP / Twitter カード | デフォルト OGP 画像（1200×630）+ ページ別 metadata | 高 |
+| F-012 | 関連記事・タグ動線 | 記事下部の関連記事リンク、タグカードによる内部リンク強化 | 中 |
 
 ---
 
@@ -110,9 +115,11 @@ nagiyu.com（ルートドメイン）で Google AdSense 承認を取得するた
 ### 3.5 SEO・クローラビリティ要件
 
 - SSG（静的サイト生成）による完全クローラブルなページ生成
-- 各ページに適切な `<title>` / `<meta description>` / OGP タグを設定
-- サイトマップ（`/sitemap.xml`）の自動生成
-- robots.txt の設置
+- 各ページに適切な `<title>` / `<meta description>` / OGP タグ / canonical URL を設定
+- サイトマップ（`/sitemap.xml`）の自動生成（Next.js App Router の `app/sitemap.ts` で動的生成）
+- robots.txt の設置（`app/robots.ts` で動的生成）
+- 構造化データ（JSON-LD）を全ページに埋め込み、Rich Results Test で検証可能な状態を維持
+- E-E-A-T シグナル（著者情報・編集ポリシー・お問い合わせ手段・更新日表示）を About と各記事に配置
 
 ---
 
@@ -122,7 +129,7 @@ nagiyu.com（ルートドメイン）で Google AdSense 承認を取得するた
 | ----------- | ---- |
 | Service | nagiyu が提供するサービス（Tools、Quick-Clip など 8 種） |
 | ServiceDocument | サービスに紐づく Markdown ドキュメント（概要・ガイド・FAQ の 3 種） |
-| Article | 技術紹介記事（タグ・公開日付き） |
+| Article | 技術記事（タグ・公開日・更新日・著者付き） |
 
 ---
 
@@ -142,5 +149,6 @@ nagiyu.com（ルートドメイン）で Google AdSense 承認を取得するた
 | ---- | ---- |
 | Portal | nagiyu.com のルートドメインで稼働するサービス紹介・ドキュメントサイト |
 | SSG | Static Site Generation。ビルド時に静的 HTML を生成する方式 |
-| E-A-T | Expertise（専門性）・Authoritativeness（権威性）・Trustworthiness（信頼性）。Google の品質評価基準 |
+| E-E-A-T | Experience（経験）・Expertise（専門性）・Authoritativeness（権威性）・Trustworthiness（信頼性）。Google の品質評価基準 |
+| JSON-LD | JSON-LD 形式の構造化データ。検索エンジンがページ内容を機械的に理解するためのメタデータ |
 | AdSense | Google の広告配信プログラム。サイトオーナーが承認を受けることで広告収益を得られる |

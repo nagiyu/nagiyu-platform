@@ -3,7 +3,10 @@ title: 'AWS Batchで重い処理をサーバーレス化する構成解説'
 description: '動画変換・画像処理などの重いバッチ処理をAWS Batchでサーバーレス化する構成を解説。ジョブ定義・ジョブキュー・コンピューティング環境・S3トリガー・コスト最適化まで詳しく説明します。'
 slug: 'aws-batch-architecture'
 publishedAt: '2026-04-10'
+updatedAt: '2026-05-01'
+author: 'なぎゆー'
 tags: ['AWS', 'AWS Batch', 'サーバーレス']
+relatedServices: ['quick-clip', 'codec-converter']
 ---
 
 ## はじめに
