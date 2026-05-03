@@ -62,6 +62,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
           id={checkboxId}
           checked={todo.isCompleted}
           onChange={() => onToggleComplete?.(todo.todoId)}
+          slotProps={{ input: { 'aria-label': `${todo.title}の完了チェック` } }}
         />
         {isEditing ? (
           <TextField
