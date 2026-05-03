@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { Box, Container, Paper, Typography, Button } from '@mui/material';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import Link from 'next/link';
 import { Suspense } from 'react';
 

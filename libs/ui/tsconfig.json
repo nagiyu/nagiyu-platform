@@ -8,7 +8,8 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "types": ["jest", "@testing-library/jest-dom"]
+    "rootDir": ".",
+    "types": ["jest", "@testing-library/jest-dom", "node"]
   },
   "include": ["src/**/*", "tests/**/*"],
   "exclude": ["node_modules", "dist"],

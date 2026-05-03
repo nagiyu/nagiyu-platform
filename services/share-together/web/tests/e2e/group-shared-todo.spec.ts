@@ -86,7 +86,10 @@ test.describe('グループ共有 ToDo 管理', () => {
     await page.waitForLoadState('networkidle');
     await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
-    const checkbox = page.getByRole('checkbox', { name: `${EXISTING_TODO_TITLE}の完了チェック` });
+    const checkbox = page
+      .getByRole('listitem')
+      .filter({ hasText: EXISTING_TODO_TITLE })
+      .getByRole('checkbox');
     await expect(checkbox).not.toBeChecked();
     await checkbox.click();
     await expect(checkbox).toBeChecked();

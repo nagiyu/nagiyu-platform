@@ -21,10 +21,10 @@ export default function ContactPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           お問い合わせ方法
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           バグ報告や機能要望は、GitHub Issues でお願いします。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           <Link
             href="https://github.com/nagiyu/nagiyu-platform/issues"
             target="_blank"
@@ -39,10 +39,10 @@ export default function ContactPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           その他のお問い合わせ
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           GitHub Issues 以外のお問い合わせは、下記のフォームをご利用ください。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           <Link
             href="https://forms.gle/oxzHNFBWBpFGNaKm7"
             target="_blank"

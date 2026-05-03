@@ -456,13 +456,13 @@ export default function ExchangesPage() {
                 exchanges.map((exchange) => (
                   <TableRow key={exchange.exchangeId} hover>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.exchangeId}
                       </Typography>
                     </TableCell>
                     <TableCell>{exchange.name}</TableCell>
                     <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                         {exchange.key}
                       </Typography>
                     </TableCell>
@@ -511,7 +511,7 @@ export default function ExchangesPage() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所ID
               </Typography>
               <TextField
@@ -521,13 +521,13 @@ export default function ExchangesPage() {
                 onChange={handleInputChange('exchangeId')}
                 disabled={submitting}
               />
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ システム内部で使用する識別子（例: NASDAQ, NYSE, TSE）
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所名
               </Typography>
               <TextField
@@ -540,7 +540,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 APIキー
               </Typography>
               <TextField
@@ -550,13 +550,13 @@ export default function ExchangesPage() {
                 onChange={handleInputChange('key')}
                 disabled={submitting}
               />
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ TradingView API で使用する取引所コード（例: NSDQ, NYSE, TSE）
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 タイムゾーン
               </Typography>
               <FormControl fullWidth disabled={submitting}>
@@ -575,13 +575,13 @@ export default function ExchangesPage() {
                   ))}
                 </Select>
               </FormControl>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引開始時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -615,13 +615,13 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引終了時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -651,7 +651,7 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
@@ -678,7 +678,7 @@ export default function ExchangesPage() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所ID
               </Typography>
               <TextField
@@ -690,7 +690,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引所名
               </Typography>
               <TextField
@@ -703,7 +703,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 APIキー
               </Typography>
               <TextField
@@ -715,7 +715,7 @@ export default function ExchangesPage() {
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 タイムゾーン
               </Typography>
               <FormControl fullWidth disabled={submitting}>
@@ -734,13 +734,13 @@ export default function ExchangesPage() {
                   ))}
                 </Select>
               </FormControl>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引開始時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -774,13 +774,13 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>
 
             <Box>
-              <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 取引終了時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -810,7 +810,7 @@ export default function ExchangesPage() {
                   </Select>
                 </FormControl>
               </Box>
-              <Typography variant="caption" color="text.secondary" fontStyle="italic">
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
               </Typography>
             </Box>

@@ -25,6 +25,6 @@
     "@nagiyu/aws": "*",
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
-    "next-auth": "^5.0.0-beta.30"
+    "next-auth": "^5.0.0-beta.31"
   }
 }

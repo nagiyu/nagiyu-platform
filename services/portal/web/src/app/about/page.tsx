@@ -22,12 +22,12 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           サイトの目的
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           nagiyu は、個人開発者が提供する各種 Web サービスのポータルサイトです。 Tools・Quick
           Clip・Codec Converter・Stock Tracker
           をはじめとする便利なサービスのドキュメント・使い方ガイド・技術記事を掲載しています。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           各サービスのドキュメントはサービスの機能追加・変更に合わせて随時更新しています。
           技術記事ではサービス開発で得た知見・アーキテクチャ解説を公開しています。
         </Typography>
@@ -37,10 +37,10 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           開発者プロフィール
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           {AUTHOR.name}（個人開発者）
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           モノレポ構成のプラットフォーム「nagiyu-platform」として複数の Web
           サービスを開発・運用しています。
           AWS（ECS・Lambda・CloudFront・Batch）を活用したサーバーレスアーキテクチャを採用し、
@@ -63,7 +63,7 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           運営方針
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           nagiyu-platform
           は個人開発のサイドプロジェクトとして長期的な運用を前提に設計しており、サービス・コンテンツともに継続的に更新します。
           各サービスは無料で公開し、運営費用は AdSense による広告収益で賄うことを目指しています。
@@ -218,11 +218,11 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           お問い合わせ
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           記事の誤り報告・サービスの不具合報告・改善要望などは、GitHub Issues
           からご連絡ください。技術的な質問・議論にも対応します。
         </Typography>
-        <Typography variant="body2" color="text.secondary" paragraph>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Issues:{' '}
           <Link
             href="https://github.com/nagiyu/nagiyu-platform/issues"
@@ -238,7 +238,7 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           プライバシーとセキュリティ
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           ユーザーのプライバシーを最優先に考えています。 Google Analytics
           による匿名のアクセス統計と、Google AdSense による広告配信のみ行っています。
         </Typography>

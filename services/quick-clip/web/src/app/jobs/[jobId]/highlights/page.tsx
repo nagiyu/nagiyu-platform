@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import ReplayIcon from '@mui/icons-material/Replay';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
 import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibilityButton';
 import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
@@ -114,7 +114,7 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
       size="small"
       type="number"
       value={draft}
-      inputProps={{ min, step: 1 }}
+      slotProps={{ htmlInput: { min, step: 1 } }}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => void handleBlur()}
     />
@@ -416,7 +416,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         </Typography>
 
         {isLoading && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
             <CircularProgress size={20} />
             <Typography>見どころを取得しています...</Typography>
           </Stack>
@@ -486,7 +486,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         borderRadius: 1,
                       }}
                     >
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <CircularProgress size={20} />
                         <Typography>クリップ生成中...</Typography>
                       </Stack>
@@ -505,7 +505,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         color: 'error.main',
                       }}
                     >
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <ErrorOutlineIcon />
                         <Typography>クリップ生成に失敗しました</Typography>
                       </Stack>
@@ -555,7 +555,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   </Box>
 
                   {/* 時間調整 */}
-                  <Stack direction="row" spacing={2} alignItems="center">
+                  <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                     <Box>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
                         開始(秒):
@@ -604,7 +604,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   }}
                 >
                   {hasPendingOrGenerating && (
-                    <Stack direction="row" spacing={1} alignItems="center">
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                       <CircularProgress size={16} />
                       <Typography variant="body2">
                         {generatedCount} / {highlights.length} 件生成済
@@ -645,7 +645,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                             {highlight.startSec}〜{highlight.endSec}
                           </TableCell>
                           <TableCell>
-                            <Stack direction="row" spacing={0.5} alignItems="center">
+                            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                               <Chip
                                 label={HIGHLIGHT_STATUS_LABELS[highlight.status]}
                                 size="small"

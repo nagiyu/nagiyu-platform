@@ -21,7 +21,7 @@ export default async function MylistPage() {
         <Typography variant="h4" component="h1" gutterBottom>
           動画管理
         </Typography>
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           動画の一覧を表示し、お気に入りやスキップの設定ができます。
         </Typography>
         <VideoList />

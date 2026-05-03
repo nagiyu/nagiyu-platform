@@ -33,6 +33,7 @@ test.describe('個人 ToDo 管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
+    await page.waitForLoadState('networkidle');
     await expect(page.getByText('E2E 未完了 ToDo')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'タイトル' })).toBeVisible();
   });
@@ -48,7 +49,10 @@ test.describe('個人 ToDo 管理', () => {
   });
 
   test('ToDo を完了にできる', async ({ page }) => {
-    const checkbox = page.getByRole('checkbox', { name: 'E2E 未完了 ToDoの完了チェック' });
+    const checkbox = page
+      .getByRole('listitem')
+      .filter({ hasText: 'E2E 未完了 ToDo' })
+      .getByRole('checkbox');
     await expect(checkbox).not.toBeChecked();
     await checkbox.click();
     await expect(checkbox).toBeChecked();

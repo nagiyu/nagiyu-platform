@@ -114,9 +114,7 @@ export default function InvitationsPage() {
                 <CardContent>
                   <Stack
                     direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    sx={{ mb: 1 }}
+                    sx={{ alignItems: 'center', mb: 1, justifyContent: 'space-between' }}
                   >
                     <Typography component="h2" variant="h6">
                       {invitation.groupName}

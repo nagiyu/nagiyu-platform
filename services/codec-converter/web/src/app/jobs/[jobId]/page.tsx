@@ -255,7 +255,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           <Stack spacing={1.5}>
             <Box>
-              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
                 ジョブID:
               </Typography>
               <Typography component="span" sx={{ fontFamily: 'monospace' }}>
@@ -264,28 +264,28 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
             </Box>
 
             <Box>
-              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
                 ファイル名:
               </Typography>
               <Typography component="span">{job.fileName}</Typography>
             </Box>
 
             <Box>
-              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
                 ファイルサイズ:
               </Typography>
               <Typography component="span">{formatFileSize(job.fileSize)}</Typography>
             </Box>
 
             <Box>
-              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
                 出力コーデック:
               </Typography>
               <Typography component="span">{CODEC_DISPLAY_NAME[job.outputCodec]}</Typography>
             </Box>
 
             <Box>
-              <Typography component="span" fontWeight="bold" sx={{ mr: 1 }}>
+              <Typography component="span" sx={{ fontWeight: 'bold', mr: 1 }}>
                 作成日時:
               </Typography>
               <Typography component="span">{formatDateTime(job.createdAt)}</Typography>
@@ -320,7 +320,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
           {/* エラーメッセージ表示（FAILED時） */}
           {job.status === 'FAILED' && job.errorMessage && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              <Typography variant="body2" fontWeight="bold" gutterBottom>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }} gutterBottom>
                 エラー詳細:
               </Typography>
               <Typography variant="body2">{job.errorMessage}</Typography>

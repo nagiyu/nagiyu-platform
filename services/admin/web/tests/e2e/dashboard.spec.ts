@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Dashboard', () => {
   test('should display the dashboard page', async ({ page }) => {
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check the page title
     await expect(page).toHaveTitle(/Admin Dashboard/);
@@ -13,6 +14,7 @@ test.describe('Dashboard', () => {
 
   test('should display user information card', async ({ page }) => {
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check user information card heading
     await expect(page.getByRole('heading', { name: 'ユーザー情報' })).toBeVisible();
@@ -31,6 +33,7 @@ test.describe('Dashboard', () => {
 
   test('should display authentication status card', async ({ page }) => {
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check authentication status card heading
     await expect(page.getByRole('heading', { name: '認証ステータス' })).toBeVisible();
@@ -46,6 +49,7 @@ test.describe('Dashboard', () => {
 
   test('should display logout button', async ({ page }) => {
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check logout button is displayed
     const logoutButton = page.getByRole('link', { name: 'ログアウト' });
@@ -54,6 +58,7 @@ test.describe('Dashboard', () => {
 
   test('should display Header with Admin title', async ({ page }) => {
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check Header title
     await expect(page.getByRole('link', { name: /Admin/ })).toBeVisible();
@@ -61,6 +66,7 @@ test.describe('Dashboard', () => {
 
   test('should display Footer with version info', async ({ page }) => {
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check Footer version (it should display version number)
     await expect(page.getByText(/v\d+\.\d+\.\d+/)).toBeVisible();
@@ -70,6 +76,7 @@ test.describe('Dashboard', () => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check main elements are visible on mobile
     await expect(page.getByRole('heading', { name: 'ダッシュボード', level: 1 })).toBeVisible();
@@ -82,6 +89,7 @@ test.describe('Dashboard', () => {
     // Set PC viewport
     await page.setViewportSize({ width: 1280, height: 720 });
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
 
     // Check main elements are visible on PC
     await expect(page.getByRole('heading', { name: 'ダッシュボード', level: 1 })).toBeVisible();

@@ -98,7 +98,7 @@ export default function UrlEncoderClient() {
         URL エンコーダー / デコーダー
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center">
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
         URLの文字列をエンコード・デコードできます。
       </Typography>
 

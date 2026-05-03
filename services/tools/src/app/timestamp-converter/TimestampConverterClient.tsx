@@ -133,10 +133,10 @@ export default function TimestampConverterClient() {
         タイムスタンプ変換ツール
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center">
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
         Unixタイムスタンプ（秒/ミリ秒）と日時文字列を相互変換できます。
       </Typography>
-      <Typography variant="body2" color="text.secondary" paragraph align="center">
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }} align="center">
         タイムゾーンは Stock Tracker で利用している取引所設定に合わせています。日時入力は
         YYYY-MM-DDTHH:mm または YYYY-MM-DDTHH:mm:ss 形式をサポートします。
       </Typography>

@@ -330,10 +330,12 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
                     setTwoFAError(null);
                   }}
                   placeholder="000000"
-                  inputProps={{
-                    maxLength: 6,
-                    pattern: '[0-9]*',
-                    inputMode: 'numeric',
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 6,
+                      pattern: '[0-9]*',
+                      inputMode: 'numeric',
+                    },
                   }}
                   error={!!twoFAError}
                   helperText={twoFAError}
@@ -378,14 +380,14 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
 
           {/* タイムスタンプ */}
           <Box sx={{ pt: 1, borderTop: 1, borderColor: 'divider' }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               作成日時: {new Date(state.createdAt).toLocaleString('ja-JP')}
             </Typography>
-            <Typography variant="caption" color="text.secondary" display="block">
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
               更新日時: {new Date(state.updatedAt).toLocaleString('ja-JP')}
             </Typography>
             {state.completedAt && (
-              <Typography variant="caption" color="text.secondary" display="block">
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                 完了日時: {new Date(state.completedAt).toLocaleString('ja-JP')}
               </Typography>
             )}

@@ -132,8 +132,10 @@ function NavigationMenuItem({ item }: { item: NavigationItem }) {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={() => setAnchorEl(null)}
-        MenuListProps={{
-          'aria-label': `${item.label} サブメニュー`,
+        slotProps={{
+          list: {
+            'aria-label': `${item.label} サブメニュー`,
+          },
         }}
       >
         {item.children.map((child) => (
