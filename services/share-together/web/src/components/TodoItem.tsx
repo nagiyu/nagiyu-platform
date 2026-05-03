@@ -42,10 +42,9 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
       <Box
         sx={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}
       >
-        <Box
-          component="label"
+        <label
           htmlFor={checkboxId}
-          sx={{
+          style={{
             position: 'absolute',
             width: '1px',
             height: '1px',
@@ -58,9 +57,9 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
           }}
         >
           {todo.title}の完了チェック
-        </Box>
+        </label>
         <Checkbox
-          slotProps={{ input: { id: checkboxId } }}
+          id={checkboxId}
           checked={todo.isCompleted}
           onChange={() => onToggleComplete?.(todo.todoId)}
         />
