@@ -2,10 +2,7 @@ import { handler } from '../../src/temporary-alert-expiry.js';
 import type { ScheduledEvent } from '../../src/temporary-alert-expiry.js';
 import * as awsClients from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
-import type {
-  ExchangeRepository,
-  TemporaryAlertCandidate,
-} from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository, TemporaryAlertCandidate } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as tradingHoursChecker from '@nagiyu/stock-tracker-core';
 import type { Exchange } from '@nagiyu/stock-tracker-core';

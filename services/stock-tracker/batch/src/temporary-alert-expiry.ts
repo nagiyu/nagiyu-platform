@@ -162,14 +162,8 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
     const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
 
-    const minuteCandidates = await getAllTemporaryCandidatesByFrequency(
-      alertRepo,
-      'MINUTE_LEVEL'
-    );
-    const hourlyCandidates = await getAllTemporaryCandidatesByFrequency(
-      alertRepo,
-      'HOURLY_LEVEL'
-    );
+    const minuteCandidates = await getAllTemporaryCandidatesByFrequency(alertRepo, 'MINUTE_LEVEL');
+    const hourlyCandidates = await getAllTemporaryCandidatesByFrequency(alertRepo, 'HOURLY_LEVEL');
     const candidates = [...minuteCandidates, ...hourlyCandidates];
     stats.totalAlerts = candidates.length;
 

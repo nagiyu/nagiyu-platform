@@ -537,9 +537,9 @@ describe('InMemoryAlertRepository', () => {
     });
 
     it('対象アラートが存在しない場合は EntityNotFoundError', async () => {
-      await expect(
-        repository.markTemporaryAsExpired('user-123', 'missing', 1)
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.markTemporaryAsExpired('user-123', 'missing', 1)).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
   });
 

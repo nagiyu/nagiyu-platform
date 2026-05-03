@@ -1018,9 +1018,9 @@ describe('DynamoDBAlertRepository', () => {
     it('データベースエラー時にDatabaseErrorをスローする', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('DB down'));
 
-      await expect(
-        repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL')
-      ).rejects.toThrow(DatabaseError);
+      await expect(repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL')).rejects.toThrow(
+        DatabaseError
+      );
     });
   });
 
@@ -1054,17 +1054,17 @@ describe('DynamoDBAlertRepository', () => {
       conditionalCheckError.name = 'ConditionalCheckFailedException';
       mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
 
-      await expect(
-        repository.markTemporaryAsExpired('user-1', 'alert-missing', 1)
-      ).rejects.toThrow(EntityNotFoundError);
+      await expect(repository.markTemporaryAsExpired('user-1', 'alert-missing', 1)).rejects.toThrow(
+        EntityNotFoundError
+      );
     });
 
     it('その他のエラーは DatabaseError にラップされる', async () => {
       mockDocClient.send.mockRejectedValueOnce(new Error('boom'));
 
-      await expect(
-        repository.markTemporaryAsExpired('user-1', 'alert-1', 1)
-      ).rejects.toThrow(DatabaseError);
+      await expect(repository.markTemporaryAsExpired('user-1', 'alert-1', 1)).rejects.toThrow(
+        DatabaseError
+      );
     });
   });
 });
