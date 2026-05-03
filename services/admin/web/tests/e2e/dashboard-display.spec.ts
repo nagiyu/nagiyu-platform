@@ -18,6 +18,7 @@ test.describe('Dashboard Display', () => {
     // SKIP_AUTH_CHECK=true の環境では認証チェックがスキップされるため、
     // 直接ダッシュボードにアクセス可能
     await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle');
   });
 
   test('should display user info on dashboard', async ({ page }) => {
