@@ -35,31 +35,12 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
     setIsEditing(false);
   };
 
-  const checkboxId = `todo-checkbox-${todo.todoId}`;
-
   return (
     <ListItem disablePadding>
       <Box
         sx={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}
       >
-        <label
-          htmlFor={checkboxId}
-          style={{
-            position: 'absolute',
-            width: '1px',
-            height: '1px',
-            padding: 0,
-            margin: '-1px',
-            overflow: 'hidden',
-            clip: 'rect(0, 0, 0, 0)',
-            whiteSpace: 'nowrap',
-            border: 0,
-          }}
-        >
-          {todo.title}の完了チェック
-        </label>
         <Checkbox
-          id={checkboxId}
           checked={todo.isCompleted}
           onChange={() => onToggleComplete?.(todo.todoId)}
           slotProps={{ input: { 'aria-label': `${todo.title}の完了チェック` } }}

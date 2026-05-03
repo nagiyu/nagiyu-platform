@@ -33,6 +33,7 @@ test.describe('個人 ToDo 管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
+    await page.waitForLoadState('networkidle');
     await expect(page.getByText('E2E 未完了 ToDo')).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'タイトル' })).toBeVisible();
   });
