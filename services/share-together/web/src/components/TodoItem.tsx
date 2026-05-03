@@ -60,7 +60,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
           {todo.title}の完了チェック
         </Box>
         <Checkbox
-          id={checkboxId}
+          slotProps={{ input: { id: checkboxId } }}
           checked={todo.isCompleted}
           onChange={() => onToggleComplete?.(todo.todoId)}
         />
