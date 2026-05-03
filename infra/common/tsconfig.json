@@ -9,6 +9,7 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": ".",
     "types": ["jest", "node"]
   },
   "include": ["src/**/*", "tests/**/*"],
