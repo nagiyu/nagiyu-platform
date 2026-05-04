@@ -74,4 +74,4 @@ jobs:
           echo "Environment: dev" >> $GITHUB_STEP_SUMMARY
           echo "Custom domain: https://dev-storybook.nagiyu.com" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Note:** 初回デプロイ時は手動で DNS の CNAME レコードを CloudFront ドメインへ設定する必要があります。" >> $GITHUB_STEP_SUMMARY
+          echo "DNS は Route53 の ALIAS レコードとして本スタック内で自動構成されています。" >> $GITHUB_STEP_SUMMARY

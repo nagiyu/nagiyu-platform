@@ -2,6 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as targets from 'aws-cdk-lib/aws-route53-targets';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -18,9 +20,13 @@ import * as path from 'path';
  * で発行済み）を SSM Parameter Store 経由で参照することで、本スタック単体での
  * 証明書発行を不要にする。
  *
+ * Route53 hosted zone（`infra/shared/lib/route53-stack.ts` で管理）を SSM 経由で
+ * 参照し、CloudFront へ向ける ALIAS A レコードを本スタック内で自動生成する。
+ * Issue #2919 で計画されている「各サービスの CloudFront スタックが ALIAS を
+ * 自前管理する」という最終形に最初から準拠する形とする。
+ *
  * 配信先ドメイン: dev-storybook.nagiyu.com
  * - dev 環境のみ提供（本番環境は不要のため未対応）
- * - DNS レコード（CNAME）は CloudFront 作成後に手動で設定する必要がある
  */
 export interface StorybookStackProps extends cdk.StackProps {
   /**
@@ -61,7 +67,6 @@ export class StorybookStack extends cdk.Stack {
     // CloudFront ディストリビューション
     // - S3 オリジン (Origin Access Control 自動構成)
     // - 静的サイト用キャッシュ最適化
-    // - SPA ではないため index.html フォールバックは設定しない
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `UI Storybook Distribution (${environment})`,
       defaultBehavior: {
@@ -107,6 +112,28 @@ export class StorybookStack extends cdk.Stack {
       memoryLimit: 1024,
     });
 
+    // Route53 hosted zone（共有スタック `infra/shared/lib/route53-stack.ts` 管理）
+    // を SSM 経由で参照し、CloudFront 向けの ALIAS A レコードを自動生成する。
+    const hostedZoneId = ssm.StringParameter.valueForStringParameter(
+      this,
+      '/nagiyu/shared/route53/hosted-zone-id'
+    );
+    const hostedZoneName = ssm.StringParameter.valueForStringParameter(
+      this,
+      '/nagiyu/shared/route53/hosted-zone-name'
+    );
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(this, 'HostedZone', {
+      hostedZoneId,
+      zoneName: hostedZoneName,
+    });
+
+    new route53.ARecord(this, 'AliasRecord', {
+      zone: hostedZone,
+      recordName: 'dev-storybook',
+      target: route53.RecordTarget.fromAlias(new targets.CloudFrontTarget(this.distribution)),
+      comment: 'UI Storybook (dev) - alias to CloudFront',
+    });
+
     // タグ付け
     cdk.Tags.of(this).add('Application', 'nagiyu');
     cdk.Tags.of(this).add('Service', 'ui-storybook');
@@ -126,12 +153,12 @@ export class StorybookStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'DistributionDomainName', {
       value: this.distribution.distributionDomainName,
-      description: 'CloudFront 配布ドメイン名（DNS の CNAME 設定先）',
+      description: 'CloudFront 配布ドメイン名',
     });
 
     new cdk.CfnOutput(this, 'CustomDomainName', {
       value: domainName,
-      description: 'Storybook カスタムドメイン名',
+      description: 'Storybook カスタムドメイン名（Route53 ALIAS で自動構成）',
     });
   }
 }
