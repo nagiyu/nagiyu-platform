@@ -35,11 +35,14 @@
 
 ### PR 0-3: CDK スタック追加
 
-- [ ] `infra/ui-storybook/` 配下に CDK スタックを作成
-- [ ] S3 + CloudFront による静的サイト配信
-- [ ] `storybook.nagiyu.com` ドメイン設定（DNS は人力）
-- [ ] CI で Storybook をビルドし dev デプロイ
-- [ ] 動作確認
+- [x] `infra/ui-storybook/` 配下に CDK スタックを作成（package / cdk.json / tsconfig / bin / lib）
+- [x] S3（OAC, public access ブロック）+ CloudFront による静的サイト配信
+- [x] 共有 ACM 証明書（`*.nagiyu.com` ワイルドカード）を SSM 経由で参照
+- [x] BucketDeployment による静的サイトアップロード + CloudFront キャッシュ無効化
+- [x] CI で Storybook をビルドし dev デプロイ（`.github/workflows/ui-storybook-deploy.yml`）
+- [x] ローカルで `cdk synth` 成功を確認
+- [ ] dev デプロイ後、`dev-storybook.nagiyu.com` の CNAME を CloudFront ドメインへ手動設定（人力作業）
+- [ ] DNS 反映後にブラウザで動作確認
 
 ### PR 0-4: テスト基盤強化
 
