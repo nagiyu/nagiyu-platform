@@ -30,11 +30,28 @@
 
 ### CNAME レコード
 
-| 名前 | タイプ | 値 | TTL | 用途・備考 |
-|---|---|---|---|---|
-| `tools.nagiyu.com` | CNAME | `xxxxxxxx.cloudfront.net` | | tools サービス（推定） |
-| `dev-tools.nagiyu.com` | CNAME | `xxxxxxxx.cloudfront.net` | | tools サービス dev（推定） |
-| ... | | | | |
+| 名前 | タイプ | 値 | 用途・備考 |
+|---|---|---|---|
+| `_795cd11835618eae1172367526630b7f.nagiyu.com` | CNAME | `_09095adf08f7ad2742324041fb053779.zfyfvmchrl.acm-validations.aws` | |
+| `dev-tools.nagiyu.com` | CNAME | `di5qiqkse31ld.cloudfront.net` | Tools (dev) |
+| `nagiyu.com` | CNAME | `d1k6ec293qn4f7.cloudfront.net` | ルート |
+| `tools.nagiyu.com` | CNAME | `dxsm9dplwcq8k.cloudfront.net` | Tools |
+| `dev-auth.nagiyu.com` | CNAME | `dqwp0hty66uo0.cloudfront.net` | Auth (Dev) |
+| `auth.nagiyu.com` | CNAME | `d34m95nq713g26.cloudfront.net` | Auth |
+| `dev-admin.nagiyu.com` | CNAME | `d20d90d0yxf3hy.cloudfront.net` | Admin (Dev) |
+| `dev-niconico-mylist-assistant.nagiyu.com` | CNAME | `d1m48o6sp5o6j9.cloudfront.net` | Niconico Mylist Assistant (Dev) |
+| `admin.nagiyu.com` | CNAME | `da84amiv79v4m.cloudfront.net` | Admin |
+| `dev-codec-converter.nagiyu.com` | CNAME | `dj528on1g8nw0.cloudfront.net` | Codec Converter (Dev) |
+| `dev-stock-tracker.nagiyu.com` | CNAME | `d1vh86o7kq78ya.cloudfront.net` | Stock Tracker (Dev) |
+| `stock-tracker.nagiyu.com` | CNAME | `d1n3pw1wiam9k0.cloudfront.net` | Stock Tracker |
+| `codec-converter.nagiyu.com` | CNAME | `d1bh7qvatnkglt.cloudfront.net` | Codec Converter |
+| `niconico-mylist-assistant.nagiyu.com` | CNAME | `d2jj4a3zh6zf5h.cloudfront.net` | Niconico Mylist Assistant |
+| `dev-share-together.nagiyu.com` | CNAME | `d3f8lnzpu25qxe.cloudfront.net` | Share Together (Dev) |
+| `share-together.nagiyu.com` | CNAME | `d3vh0c4lc7bae6.cloudfront.net` | Share Together |
+| `dev-quick-clip.nagiyu.com` | CNAME | `dh18sa23cobm6.cloudfront.net` | Quick Clip (Dev9) |
+| `dev.nagiyu.com` | CNAME | `d1p44g973egas4.cloudfront.net` | ルート (Dev) |
+| `hnjg6vgudcwv.nagiyu.com` | CNAME | `gv-d6lr3lnlnk6zbu.dv.googlehosted.com` | |
+| `quick-clip.nagiyu.com` | CNAME | `d1v96dysvz62zc.cloudfront.net` | Quick Clip |
 
 ### MX レコード（メール）
 
