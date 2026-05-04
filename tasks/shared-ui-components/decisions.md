@@ -109,6 +109,21 @@
 - 純粋な TS オブジェクト → JS 経由でしか使えず、CSS から参照できない。
 - Tailwind config 直書き → Tailwind ロックイン。
 
+### 実装時に判明した制約（PR 0-1）
+
+MUI の `palette` には CSS 変数（`var(--...)`）を渡せない。MUI 内部の
+`alpha()` / `decomposeColor()` が色値の文字列パースを行うため、リテラル
+の色形式（`#xxxxxx` / `rgb()` 等）が要求される。
+
+このため `libs/ui/src/styles/theme.ts` の `palette` は具体的な色値を保持し、
+`tokens.css` の Primitive と一致させる方針を採った。borderRadius / boxShadow /
+transition 等の非カラー値は MUI 内部での色解析が走らないため、CSS 変数を
+そのまま参照できる。
+
+将来 Phase 1 以降で実装する独自ラッパーコンポーネント（`Button` 等）は MUI
+Theme を経由せず、`tokens.css` の CSS 変数を直接参照することで、ライト/
+ダーク・サービス別アクセント等のテーマ切替に追従させる。
+
 ---
 
 ## D-8: Storybook の採用と配信

@@ -12,10 +12,15 @@
     "./service-layout": {
       "types": "./dist/src/components/layout/ServiceLayout.d.ts",
       "import": "./dist/src/components/layout/ServiceLayout.jsx"
-    }
+    },
+    "./tokens": {
+      "types": "./dist/src/styles/tokens.d.ts",
+      "import": "./dist/src/styles/tokens.js"
+    },
+    "./tokens.css": "./dist/src/styles/tokens.css"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node ./scripts/copy-assets.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",

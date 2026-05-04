@@ -1,5 +1,7 @@
 // Export UI components and theme here
 export { default as theme } from './styles/theme';
+export { tokens, breakpoints } from './styles/tokens';
+export type { ThemeMode, ColorRole, Size } from './styles/tokens';
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';

@@ -178,7 +178,16 @@ type Props = {
 
 - **CSS 変数**を `libs/ui/src/styles/tokens.css` に定義する。
 - TS 側からは `libs/ui/src/styles/tokens.ts` で参照ヘルパーと型を提供する。
-- MUI Theme は CSS 変数を参照する形に書き換える（`palette.primary.main = 'var(--color-action-primary)'`）。
+- 共通ラッパーコンポーネントは `tokens.css` の CSS 変数を直接参照する（MUI Theme を経由しない）。
+- MUI Theme（`libs/ui/src/styles/theme.ts`）は移行期の互換性のために維持するが、`palette` は MUI 内部の色解析（`alpha()` / `decomposeColor()`）の制約により具体的な色値を保持する。`tokens.css` の Primitive 値と一致させること。`borderRadius` / `boxShadow` / `transition` 等の非カラー値は CSS 変数をそのまま参照できる。
+
+### サービス側での読み込み
+
+サービスのルートレイアウト（`app/layout.tsx`）で `@nagiyu/ui/tokens.css` を import すること。これによりトークンが `:root` レベルで利用可能になる。
+
+```tsx
+import '@nagiyu/ui/tokens.css';
+```
 
 ### テーマ切替
 
