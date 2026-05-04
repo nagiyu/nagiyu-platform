@@ -59,12 +59,36 @@ const GOOGLE_SEARCH_CONSOLE_CNAME = {
 };
 
 /**
- * Phase 2: 既存 XServer DNS レコードを Route53 に複製するスタック
+ * ACM ワイルドカード証明書（*.nagiyu.com + nagiyu.com）の DNS 検証用 CNAME
+ *
+ * NS 切替前は XServer に同じ値が登録されていた。NS 切替後は世界中の
+ * リゾルバが Route53 を見るため、証明書の自動更新時（有効期限の 60 日前）
+ * に ACM が検証 CNAME を取得できるよう Route53 にも登録する。
+ *
+ * 値は AWS ACM コンソールまたは以下の AWS CLI で取得した実値:
+ *   aws acm describe-certificate --certificate-arn $CERT_ARN \
+ *     --query 'Certificate.DomainValidationOptions[*].ResourceRecord' \
+ *     --region us-east-1
+ *
+ * 既存証明書の置換リスクを避けるため acm-stack.ts の validation には
+ * 触らず、Route53 側に既存値を手動で複製する方針（plan.md の Phase 5
+ * 案 A から案 B に変更）。
+ */
+const ACM_VALIDATION_CNAME = {
+  recordName: '_795cd11835618eae1172367526630b7f',
+  target: '_09095adf08f7ad2742324041fb053779.zfyfvmchrl.acm-validations.aws',
+  comment: 'ACM DNS validation for *.nagiyu.com wildcard certificate',
+};
+
+/**
+ * Phase 2 + Phase 5: 既存 XServer DNS レコードと ACM 検証 CNAME を
+ * Route53 に複製するスタック
  *
  * - NS 切替（Phase 4）の前に、Route53 が XServer と同じ応答を返せる状態を作る
  * - すべての CloudFront 向けレコードは一旦 CNAME のまま複製（apex を除く）
  * - apex は Route53 の制約で CNAME 不可のため、最初から ALIAS で登録
- * - ACM 検証 CNAME は Phase 5 で自動化するため本スタックでは複製しない
+ * - ACM 検証 CNAME は Phase 5 で Route53 に追加（証明書の置換リスクを
+ *   避けるため、acm-stack.ts は変更せず既存検証値を手動で複製する方針）
  */
 export class Route53RecordsStack extends cdk.Stack {
   public constructor(scope: Construct, id: string, props: Route53RecordsStackProps) {
@@ -96,6 +120,14 @@ export class Route53RecordsStack extends cdk.Stack {
       domainName: GOOGLE_SEARCH_CONSOLE_CNAME.target,
       ttl: RECORD_TTL,
       comment: GOOGLE_SEARCH_CONSOLE_CNAME.comment,
+    });
+
+    new route53.CnameRecord(this, 'CnameAcmValidation', {
+      zone: hostedZone,
+      recordName: ACM_VALIDATION_CNAME.recordName,
+      domainName: ACM_VALIDATION_CNAME.target,
+      ttl: RECORD_TTL,
+      comment: ACM_VALIDATION_CNAME.comment,
     });
 
     new route53.ARecord(this, 'ApexAliasToCloudFront', {
