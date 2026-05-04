@@ -72,9 +72,10 @@ test.describe('グループ共有 ToDo 管理', () => {
 
   test('共有リストに ToDo を追加できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    await page.waitForLoadState('networkidle');
+    const titleField = page.getByRole('textbox', { name: 'タイトル' });
+    await expect(titleField).toBeVisible();
     const todoTitle = `E2E 共有ToDo ${Date.now()}`;
-    await page.getByRole('textbox', { name: 'タイトル' }).fill(todoTitle);
+    await titleField.fill(todoTitle);
     await page.getByRole('button', { name: '追加' }).click();
 
     await expect(page.getByText(todoTitle)).toBeVisible();
@@ -83,7 +84,6 @@ test.describe('グループ共有 ToDo 管理', () => {
 
   test('共有リストの ToDo を完了にできる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    await page.waitForLoadState('networkidle');
     await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
     const checkbox = page
@@ -97,7 +97,6 @@ test.describe('グループ共有 ToDo 管理', () => {
 
   test('共有リストの ToDo を編集できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    await page.waitForLoadState('networkidle');
     await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
     const updatedTitle = `編集後の共有タスク ${Date.now()}`;
@@ -113,7 +112,6 @@ test.describe('グループ共有 ToDo 管理', () => {
 
   test('共有リストの ToDo を削除できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    await page.waitForLoadState('networkidle');
     await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
 
     const todoRow = page.getByRole('listitem').filter({ hasText: EXISTING_TODO_TITLE });
@@ -152,7 +150,6 @@ test.describe('グループ共有 ToDo 管理', () => {
 
   test('他メンバーの変更を更新操作で確認できる', async ({ page }) => {
     await page.goto(`/lists?scope=shared&groupId=${GROUP_ID}&listId=${LIST_ID}`);
-    await page.waitForLoadState('networkidle');
     await expect(page.getByText(EXISTING_TODO_TITLE)).toBeVisible();
   });
 
