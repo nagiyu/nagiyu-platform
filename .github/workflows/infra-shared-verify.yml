@@ -28,6 +28,9 @@ jobs:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
 
+      - name: Lint
+        run: npm run lint --workspace=@nagiyu/infra-shared
+
       - name: Test
         run: npm run test --workspace=@nagiyu/infra-shared
 

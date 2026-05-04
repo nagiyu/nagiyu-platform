@@ -79,7 +79,7 @@ const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'NagiyuSharedI
 });
 
 // IAM Users スタックを作成（ポリシーに依存）
-const usersStack = new IamUsersStack(app, 'NagiyuSharedIamUsers', {
+new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
     core: corePolicyStack.policy,
     application: applicationPolicyStack.policy,
