@@ -1,19 +1,25 @@
 /**
  * 1時間間隔バッチ処理のLambda Handler
  * EventBridge Scheduler から rate(1 hour) で実行される
- * 一時通知アラートの期限切れを判定して削除する
+ *
+ * 期限切れの一時通知アラートを「無効化 + DynamoDB TTL」によって失効させる。
+ * - subscription / ConditionList などバッチ処理に不要な属性は読み込まない
+ * - 物理削除は DynamoDB TTL に委ねる（TTL_GRACE_DAYS 後を Unix 秒で TTL 設定）
  */
 
 import { logger } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type {
+  AlertRepository,
+  ExchangeRepository,
+  TemporaryAlertCandidate,
+} from '@nagiyu/stock-tracker-core';
 import {
   DynamoDBAlertRepository,
   DynamoDBExchangeRepository,
   getLastTradingDate,
   isTradingHours,
 } from '@nagiyu/stock-tracker-core';
-import type { Alert } from '@nagiyu/stock-tracker-core';
 
 export interface ScheduledEvent {
   version: string;
@@ -45,21 +51,28 @@ interface BatchStatistics {
 
 const MAX_PAGES_PER_FREQUENCY = 20;
 
-async function getAllAlertsByFrequency(
+/**
+ * 失効させたアラートに設定する TTL の猶予期間（日数）。
+ * バッチ実行時刻 + この日数を Unix 秒に変換して TTL 属性に設定する。
+ * DynamoDB TTL の発火遅延（最大 48 時間）を吸収できる長さを選ぶ。
+ */
+const EXPIRED_ALERT_TTL_GRACE_DAYS = 7;
+
+async function getAllTemporaryCandidatesByFrequency(
   alertRepo: AlertRepository,
   frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL'
-): Promise<Alert[]> {
-  const alerts: Alert[] = [];
+): Promise<TemporaryAlertCandidate[]> {
+  const candidates: TemporaryAlertCandidate[] = [];
   let cursor: string | undefined;
   let page = 0;
 
   while (page < MAX_PAGES_PER_FREQUENCY) {
-    const result = await alertRepo.getByFrequency(frequency, { cursor });
-    alerts.push(...result.items);
+    const result = await alertRepo.getTemporaryCandidatesByFrequency(frequency, { cursor });
+    candidates.push(...result.items);
     page++;
 
     if (!result.nextCursor) {
-      return alerts;
+      return candidates;
     }
 
     cursor = result.nextCursor;
@@ -68,57 +81,64 @@ async function getAllAlertsByFrequency(
   logger.warn('一時通知アラート取得のページ上限に達したため途中終了します', {
     frequency,
     maxPages: MAX_PAGES_PER_FREQUENCY,
-    fetchedAlerts: alerts.length,
+    fetchedAlerts: candidates.length,
   });
 
-  return alerts;
+  return candidates;
 }
 
-async function processAlert(
-  alert: Alert,
+function calculateTtlSeconds(now: number): number {
+  return Math.floor((now + EXPIRED_ALERT_TTL_GRACE_DAYS * 24 * 60 * 60 * 1000) / 1000);
+}
+
+async function processCandidate(
+  candidate: TemporaryAlertCandidate,
   alertRepo: AlertRepository,
   exchangeRepo: ExchangeRepository,
+  now: number,
   stats: BatchStatistics
 ): Promise<void> {
   try {
-    if (alert.Temporary !== true) {
+    // getTemporaryCandidatesByFrequency 側で Temporary=true && Enabled=true に絞っているが、
+    // InMemory / 将来の実装の差異で漏れた場合の保険として再チェックする。
+    if (!candidate.Temporary) {
       stats.skippedNonTemporary++;
       return;
     }
-    if (alert.Enabled !== true) {
+    if (!candidate.Enabled) {
       stats.skippedAlreadyDisabled++;
       return;
     }
-    if (!alert.TemporaryExpireDate) {
+    if (!candidate.TemporaryExpireDate) {
       stats.skippedInvalidData++;
       return;
     }
 
-    const exchange = await exchangeRepo.getById(alert.ExchangeID);
+    const exchange = await exchangeRepo.getById(candidate.ExchangeID);
     if (!exchange) {
       stats.errors++;
       return;
     }
 
-    const now = Date.now();
     if (isTradingHours(exchange, now)) {
       stats.skippedTradingHours++;
       return;
     }
 
     const lastTradingDate = getLastTradingDate(exchange, now);
-    if (lastTradingDate < alert.TemporaryExpireDate) {
+    if (lastTradingDate < candidate.TemporaryExpireDate) {
       stats.skippedNotExpired++;
       return;
     }
 
-    await alertRepo.delete(alert.UserID, alert.AlertID);
+    const ttlSeconds = calculateTtlSeconds(now);
+    await alertRepo.markTemporaryAsExpired(candidate.UserID, candidate.AlertID, ttlSeconds);
     stats.deactivated++;
   } catch (error) {
     stats.errors++;
     logger.error('一時通知アラートの失効処理でエラーが発生しました', {
-      alertId: alert.AlertID,
-      userId: alert.UserID,
+      alertId: candidate.AlertID,
+      userId: candidate.UserID,
       error: error instanceof Error ? error.message : String(error),
     });
   }
@@ -142,13 +162,14 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const alertRepo = new DynamoDBAlertRepository(docClient, tableName);
     const exchangeRepo = new DynamoDBExchangeRepository(docClient, tableName);
 
-    const minuteAlerts = await getAllAlertsByFrequency(alertRepo, 'MINUTE_LEVEL');
-    const hourlyAlerts = await getAllAlertsByFrequency(alertRepo, 'HOURLY_LEVEL');
-    const alerts = [...minuteAlerts, ...hourlyAlerts];
-    stats.totalAlerts = alerts.length;
+    const minuteCandidates = await getAllTemporaryCandidatesByFrequency(alertRepo, 'MINUTE_LEVEL');
+    const hourlyCandidates = await getAllTemporaryCandidatesByFrequency(alertRepo, 'HOURLY_LEVEL');
+    const candidates = [...minuteCandidates, ...hourlyCandidates];
+    stats.totalAlerts = candidates.length;
 
-    for (const alert of alerts) {
-      await processAlert(alert, alertRepo, exchangeRepo, stats);
+    const now = Date.now();
+    for (const candidate of candidates) {
+      await processCandidate(candidate, alertRepo, exchangeRepo, now, stats);
     }
 
     logger.info('一時通知アラート失効バッチが完了しました', {

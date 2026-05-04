@@ -433,6 +433,116 @@ describe('InMemoryAlertRepository', () => {
     });
   });
 
+  describe('getByUserId - enabledOnly', () => {
+    const baseInput: CreateAlertInput = {
+      UserID: 'user-123',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Mode: 'Buy',
+      Frequency: 'MINUTE_LEVEL',
+      Enabled: true,
+      ConditionList: [{ field: 'price', operator: 'lte', value: 150 }],
+      subscription: {
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'p', auth: 'a' },
+      },
+    };
+
+    it('enabledOnly: true で無効化済みアラートが除外される', async () => {
+      const enabled = await repository.create({ ...baseInput, Enabled: true });
+      const disabled = await repository.create({ ...baseInput, Enabled: false });
+
+      const result = await repository.getByUserId('user-123', { enabledOnly: true });
+
+      const ids = result.items.map((a) => a.AlertID);
+      expect(ids).toContain(enabled.AlertID);
+      expect(ids).not.toContain(disabled.AlertID);
+    });
+
+    it('enabledOnly 未指定では無効化済みアラートも返る', async () => {
+      await repository.create({ ...baseInput, Enabled: true });
+      await repository.create({ ...baseInput, Enabled: false });
+
+      const result = await repository.getByUserId('user-123');
+
+      expect(result.items).toHaveLength(2);
+    });
+  });
+
+  describe('getTemporaryCandidatesByFrequency', () => {
+    const baseInput: CreateAlertInput = {
+      UserID: 'user-123',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Mode: 'Buy',
+      Frequency: 'MINUTE_LEVEL',
+      Enabled: true,
+      ConditionList: [{ field: 'price', operator: 'lte', value: 150 }],
+      subscription: {
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'p', auth: 'a' },
+      },
+    };
+
+    it('Temporary かつ Enabled なアラートのみ候補として返す', async () => {
+      const temporaryEnabled = await repository.create({
+        ...baseInput,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      });
+      await repository.create({ ...baseInput }); // Temporary なし
+      await repository.create({
+        ...baseInput,
+        Enabled: false,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      });
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].AlertID).toBe(temporaryEnabled.AlertID);
+      expect(result.items[0].TemporaryExpireDate).toBe('2026-03-04');
+    });
+  });
+
+  describe('markTemporaryAsExpired', () => {
+    const baseInput: CreateAlertInput = {
+      UserID: 'user-123',
+      TickerID: 'NSDQ:AAPL',
+      ExchangeID: 'NASDAQ',
+      Mode: 'Buy',
+      Frequency: 'MINUTE_LEVEL',
+      Enabled: true,
+      ConditionList: [{ field: 'price', operator: 'lte', value: 150 }],
+      subscription: {
+        endpoint: 'https://example.com/push',
+        keys: { p256dh: 'p', auth: 'a' },
+      },
+      Temporary: true,
+      TemporaryExpireDate: '2026-03-04',
+    };
+
+    it('Enabled を false に更新し、TTL 属性をストアにセットする', async () => {
+      const created = await repository.create(baseInput);
+
+      await repository.markTemporaryAsExpired('user-123', created.AlertID, 1700000000);
+
+      const after = await repository.getById('user-123', created.AlertID);
+      expect(after?.Enabled).toBe(false);
+
+      // TTL は AlertEntity 型に含まれないため、ストア直接参照で検証する
+      const raw = store.get('USER#user-123', `ALERT#${created.AlertID}`);
+      expect(raw?.TTL).toBe(1700000000);
+    });
+
+    it('対象アラートが存在しない場合は EntityNotFoundError', async () => {
+      await expect(repository.markTemporaryAsExpired('user-123', 'missing', 1)).rejects.toThrow(
+        EntityNotFoundError
+      );
+    });
+  });
+
   describe('create - error handling', () => {
     it('作成時に予期しないエラーが発生した場合は再スローする', async () => {
       // storeのputメソッドをモックして予期しないエラーをスローさせる

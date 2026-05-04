@@ -22,8 +22,9 @@ import {
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import { logger } from '@nagiyu/common';
-import type { AlertRepository } from './alert.repository.interface.js';
+import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
 import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
+import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
 import { AlertMapper } from '../mappers/alert.mapper.js';
 import { randomUUID } from 'crypto';
 
@@ -74,11 +75,12 @@ export class DynamoDBAlertRepository implements AlertRepository {
   }
 
   /**
-   * ユーザーのアラート一覧を取得（GSI1使用）
+   * ユーザーのアラート一覧を取得（GSI1使用）。
+   * `enabledOnly: true` を指定すると、有効化済み（Enabled=true）のアラートのみ返す。
    */
   public async getByUserId(
     userId: string,
-    options?: PaginationOptions
+    options?: GetByUserIdOptions
   ): Promise<PaginatedResult<AlertEntity>> {
     let result: QueryCommandOutput;
     try {
@@ -87,19 +89,29 @@ export class DynamoDBAlertRepository implements AlertRepository {
         ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
         : undefined;
 
+      const expressionAttributeNames: Record<string, string> = {
+        '#gsi1pk': 'GSI1PK',
+        '#gsi1sk': 'GSI1SK',
+      };
+      const expressionAttributeValues: Record<string, unknown> = {
+        ':userId': userId,
+        ':prefix': 'Alert#',
+      };
+      let filterExpression: string | undefined;
+      if (options?.enabledOnly === true) {
+        expressionAttributeNames['#enabled'] = 'Enabled';
+        expressionAttributeValues[':enabledTrue'] = true;
+        filterExpression = '#enabled = :enabledTrue';
+      }
+
       result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
-          ExpressionAttributeNames: {
-            '#gsi1pk': 'GSI1PK',
-            '#gsi1sk': 'GSI1SK',
-          },
-          ExpressionAttributeValues: {
-            ':userId': userId,
-            ':prefix': 'Alert#',
-          },
+          ExpressionAttributeNames: expressionAttributeNames,
+          ExpressionAttributeValues: expressionAttributeValues,
+          ...(filterExpression ? { FilterExpression: filterExpression } : {}),
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         })
@@ -181,6 +193,83 @@ export class DynamoDBAlertRepository implements AlertRepository {
       } catch (error) {
         const record = item as Record<string, unknown>;
         logger.warn('無効なアラートデータをスキップしました', {
+          pk: record.PK,
+          sk: record.SK,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    const nextCursor = result.LastEvaluatedKey
+      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
+      : undefined;
+
+    return {
+      items,
+      nextCursor,
+      count: result.Count,
+    };
+  }
+
+  /**
+   * 一時アラート失効バッチ用の軽量取得（GSI2使用）。
+   *
+   * - ProjectionExpression で失効判定に必要な属性のみ取得し、subscription は読み込まない
+   * - FilterExpression で `Temporary = true AND Enabled = true` のアラートのみに絞る
+   *   （無効化済み一時アラートを再処理しない）
+   * - mapper.toTemporaryCandidate でアイテム単位検証し、失敗時は警告ログでスキップ
+   */
+  public async getTemporaryCandidatesByFrequency(
+    frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
+    options?: PaginationOptions
+  ): Promise<PaginatedResult<TemporaryAlertCandidate>> {
+    let result: QueryCommandOutput;
+    try {
+      const limit = options?.limit || 50;
+      const exclusiveStartKey = options?.cursor
+        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
+        : undefined;
+
+      result = await this.docClient.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'AlertIndex',
+          KeyConditionExpression: '#gsi2pk = :pk',
+          FilterExpression: '#temporary = :true AND #enabled = :true',
+          ProjectionExpression:
+            '#pk, #sk, #alertId, #userId, #exchangeId, #frequency, #enabled, #temporary, #temporaryExpireDate',
+          ExpressionAttributeNames: {
+            '#gsi2pk': 'GSI2PK',
+            '#temporary': 'Temporary',
+            '#enabled': 'Enabled',
+            '#pk': 'PK',
+            '#sk': 'SK',
+            '#alertId': 'AlertID',
+            '#userId': 'UserID',
+            '#exchangeId': 'ExchangeID',
+            '#frequency': 'Frequency',
+            '#temporaryExpireDate': 'TemporaryExpireDate',
+          },
+          ExpressionAttributeValues: {
+            ':pk': `ALERT#${frequency}`,
+            ':true': true,
+          },
+          Limit: limit,
+          ExclusiveStartKey: exclusiveStartKey,
+        })
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+
+    const items: TemporaryAlertCandidate[] = [];
+    for (const item of result.Items || []) {
+      try {
+        items.push(this.mapper.toTemporaryCandidate(item as unknown as DynamoDBItem));
+      } catch (error) {
+        const record = item as Record<string, unknown>;
+        logger.warn('無効な一時アラート候補をスキップしました', {
           pk: record.PK,
           sk: record.SK,
           error: error instanceof Error ? error.message : String(error),
@@ -368,6 +457,48 @@ export class DynamoDBAlertRepository implements AlertRepository {
       );
     } catch (error) {
       // 条件チェック失敗（アイテムが存在しない）
+      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+      }
+      const message = error instanceof Error ? error.message : String(error);
+      throw new DatabaseError(message, error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 一時アラートを失効状態にする（無効化 + TTL 設定）。
+   *
+   * subscription / ConditionList を読み書きせず、Enabled を false にしつつ
+   * DynamoDB TTL 属性をセットすることで、TTL 発火時に物理削除される。
+   */
+  public async markTemporaryAsExpired(
+    userId: string,
+    alertId: string,
+    ttlSeconds: number
+  ): Promise<void> {
+    try {
+      const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
+      const now = Date.now();
+
+      await this.docClient.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: { PK: pk, SK: sk },
+          UpdateExpression: 'SET #enabled = :enabled, #ttl = :ttl, #updatedAt = :updatedAt',
+          ExpressionAttributeNames: {
+            '#enabled': 'Enabled',
+            '#ttl': 'TTL',
+            '#updatedAt': 'UpdatedAt',
+          },
+          ExpressionAttributeValues: {
+            ':enabled': false,
+            ':ttl': ttlSeconds,
+            ':updatedAt': now,
+          },
+          ConditionExpression: 'attribute_exists(PK)',
+        })
+      );
+    } catch (error) {
       if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
         throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
       }
