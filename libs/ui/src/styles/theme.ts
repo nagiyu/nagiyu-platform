@@ -146,8 +146,7 @@ const theme = createTheme({
         root: {
           borderRadius: 'var(--radius-lg)',
           boxShadow: 'var(--shadow-md)',
-          transition:
-            'box-shadow var(--duration-slow) var(--easing-in-out)',
+          transition: 'box-shadow var(--duration-slow) var(--easing-in-out)',
           '&:hover': {
             boxShadow: 'var(--shadow-lg)',
           },

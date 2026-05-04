@@ -3,26 +3,13 @@ import { breakpoints, tokens } from '../../../src/styles/tokens';
 describe('tokens', () => {
   describe('color', () => {
     it('color.action.* が CSS 変数を参照する文字列であること', () => {
-      expect(tokens.color.action.primary.default).toBe(
-        'var(--color-action-primary)',
-      );
-      expect(tokens.color.action.danger.default).toBe(
-        'var(--color-action-danger)',
-      );
-      expect(tokens.color.action.success.default).toBe(
-        'var(--color-action-success)',
-      );
+      expect(tokens.color.action.primary.default).toBe('var(--color-action-primary)');
+      expect(tokens.color.action.danger.default).toBe('var(--color-action-danger)');
+      expect(tokens.color.action.success.default).toBe('var(--color-action-success)');
     });
 
     it('color.action.{role} に default / hover / active / subtle / fg が揃っていること', () => {
-      const roles = [
-        'primary',
-        'secondary',
-        'danger',
-        'warning',
-        'success',
-        'info',
-      ] as const;
+      const roles = ['primary', 'secondary', 'danger', 'warning', 'success', 'info'] as const;
       const states = ['default', 'hover', 'active', 'subtle', 'fg'] as const;
 
       for (const role of roles) {

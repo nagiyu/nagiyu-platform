@@ -12,9 +12,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
 
-const assets = [
-  { from: 'src/styles/tokens.css', to: 'dist/src/styles/tokens.css' },
-];
+const assets = [{ from: 'src/styles/tokens.css', to: 'dist/src/styles/tokens.css' }];
 
 for (const { from, to } of assets) {
   const src = resolve(root, from);
