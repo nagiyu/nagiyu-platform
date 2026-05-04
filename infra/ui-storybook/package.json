@@ -1,0 +1,23 @@
+{
+  "name": "@nagiyu/infra-ui-storybook",
+  "version": "1.0.0",
+  "description": "UI Storybook AWS CDK Infrastructure (S3 + CloudFront for dev-storybook.nagiyu.com)",
+  "main": "bin/ui-storybook.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "npx cdk",
+    "bootstrap": "npx cdk bootstrap",
+    "synth": "npx cdk synth",
+    "deploy": "npx cdk deploy",
+    "deploy:dev": "npx cdk deploy --context env=dev --all",
+    "diff": "npx cdk diff",
+    "diff:dev": "npx cdk diff --context env=dev",
+    "destroy": "npx cdk destroy"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.248.0",
+    "constructs": "^10.6.0",
+    "source-map-support": "^0.5.21"
+  }
+}
