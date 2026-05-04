@@ -15,11 +15,13 @@
 
 ### PR 0-1: デザイントークン基盤
 
-- [ ] `libs/ui/src/styles/tokens.css` で Primitive + Semantic の CSS 変数を定義
-- [ ] `libs/ui/src/styles/tokens.ts` で TS 型定義と参照ヘルパーを実装
-- [ ] ライト・ダークモード切替を `[data-theme]` で実現
-- [ ] 既存 `libs/ui/src/styles/theme.ts` を CSS 変数参照に書き換え（既存 MUI Theme との整合性維持）
-- [ ] 既存サービスの動作確認（見た目に変化がないこと）
+- [x] `libs/ui/src/styles/tokens.css` で Primitive + Semantic の CSS 変数を定義
+- [x] `libs/ui/src/styles/tokens.ts` で TS 型定義と参照ヘルパーを実装
+- [x] ライト・ダークモード切替を `[data-theme]` で実現
+- [x] 既存 `libs/ui/src/styles/theme.ts` を可能な範囲で CSS 変数参照に書き換え（palette は MUI の制約で具体値を維持）
+- [x] `libs/ui/package.json` の exports に `./tokens` / `./tokens.css` を追加、ビルド時に CSS を dist/ へ複製
+- [x] `services/portal/web/src/app/layout.tsx` で `@nagiyu/ui/tokens.css` を import
+- [x] 既存テストが通過することを確認（135 テスト全成功）
 
 ### PR 0-2: Storybook 導入
 

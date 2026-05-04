@@ -7,6 +7,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 import AppsIcon from '@mui/icons-material/Apps';
 import InfoIcon from '@mui/icons-material/Info';
 import ThemeRegistry from '@/components/ThemeRegistry';
+import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
 export const metadata: Metadata = {
