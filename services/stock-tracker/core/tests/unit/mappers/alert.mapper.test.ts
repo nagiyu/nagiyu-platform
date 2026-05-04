@@ -1014,4 +1014,89 @@ describe('AlertMapper', () => {
       expect(result).not.toHaveProperty('NotificationBody');
     });
   });
+
+  describe('toTemporaryCandidate', () => {
+    it('失効判定に必要な属性のみを軽量エンティティに変換する', () => {
+      const item: DynamoDBItem = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      };
+
+      const candidate = mapper.toTemporaryCandidate(item);
+
+      expect(candidate).toEqual({
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      });
+    });
+
+    it('subscription / ConditionList が undefined でも例外を投げない', () => {
+      const item: DynamoDBItem = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+        // subscription / ConditionList は意図的に省略
+      };
+
+      expect(() => mapper.toTemporaryCandidate(item)).not.toThrow();
+    });
+
+    it('Temporary !== true の場合、Temporary は false で返る', () => {
+      const item: DynamoDBItem = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: false,
+        TemporaryExpireDate: '2026-03-04',
+      };
+
+      const candidate = mapper.toTemporaryCandidate(item);
+
+      expect(candidate.Temporary).toBe(false);
+    });
+
+    it('AlertID 欠損時に InvalidEntityDataError を投げる', () => {
+      const item: DynamoDBItem = {
+        // AlertID が欠損
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      };
+
+      expect(() => mapper.toTemporaryCandidate(item)).toThrow(/AlertID/);
+    });
+
+    it('TemporaryExpireDate 欠損時に InvalidEntityDataError を投げる', () => {
+      const item: DynamoDBItem = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        // TemporaryExpireDate が欠損
+      };
+
+      expect(() => mapper.toTemporaryCandidate(item)).toThrow(/TemporaryExpireDate/);
+    });
+  });
 });

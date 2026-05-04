@@ -14,6 +14,7 @@ import {
 } from '@nagiyu/aws';
 import type { EntityMapper } from '@nagiyu/aws';
 import type { AlertEntity, AlertKey } from '../entities/alert.entity.js';
+import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
 import type { PushSubscription } from '@nagiyu/common';
 
 /**
@@ -131,6 +132,31 @@ export class AlertMapper implements EntityMapper<AlertEntity, AlertKey> {
     return {
       pk: `USER#${key.userId}`,
       sk: `ALERT#${key.alertId}`,
+    };
+  }
+
+  /**
+   * DynamoDB Item を一時アラート失効バッチ用の軽量候補オブジェクトに変換する。
+   *
+   * 失効判定に必要な属性のみを検証し、subscription / ConditionList 等の
+   * 通知送信時にだけ必要なフィールドは一切参照しない。これにより、
+   * subscription データの整合性に関係なくバッチが安全に動作する。
+   *
+   * @param item - DynamoDB Item（ProjectionExpression で属性が絞られていてもよい）
+   * @returns 一時アラート失効判定用の軽量エンティティ
+   */
+  public toTemporaryCandidate(item: DynamoDBItem): TemporaryAlertCandidate {
+    return {
+      AlertID: validateStringField(item.AlertID, 'AlertID'),
+      UserID: validateStringField(item.UserID, 'UserID'),
+      ExchangeID: validateStringField(item.ExchangeID, 'ExchangeID'),
+      Frequency: validateEnumField(item.Frequency, 'Frequency', [
+        'MINUTE_LEVEL',
+        'HOURLY_LEVEL',
+      ] as const),
+      Enabled: validateBooleanField(item.Enabled, 'Enabled'),
+      Temporary: item.Temporary === true,
+      TemporaryExpireDate: validateStringField(item.TemporaryExpireDate, 'TemporaryExpireDate'),
     };
   }
 
