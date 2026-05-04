@@ -134,6 +134,28 @@ export class IamApplicationPolicyStack extends cdk.Stack {
             ],
             resources: ['*'],
           }),
+          // Route53 Operations
+          new iam.PolicyStatement({
+            sid: 'Route53Operations',
+            effect: iam.Effect.ALLOW,
+            actions: [
+              // Hosted zone management
+              'route53:CreateHostedZone',
+              'route53:DeleteHostedZone',
+              'route53:GetHostedZone',
+              'route53:ListHostedZones',
+              'route53:ListHostedZonesByName',
+              'route53:UpdateHostedZoneComment',
+              // Resource record sets
+              'route53:ChangeResourceRecordSets',
+              'route53:ListResourceRecordSets',
+              'route53:GetChange',
+              // Tags
+              'route53:ChangeTagsForResource',
+              'route53:ListTagsForResource',
+            ],
+            resources: ['*'],
+          }),
           // CloudFront Operations
           new iam.PolicyStatement({
             sid: 'CloudFrontOperations',
