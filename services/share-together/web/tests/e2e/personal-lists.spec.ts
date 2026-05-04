@@ -272,7 +272,6 @@ test.describe('個人リスト管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
-    await page.waitForLoadState('networkidle');
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
 
     const scopeSelect = page.getByRole('combobox', { name: '表示範囲' }).first();
