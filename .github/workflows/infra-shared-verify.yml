@@ -3,6 +3,7 @@ name: Infra Shared - Verify
 on:
   pull_request:
     branches:
+      - develop
       - integration/**
     paths:
       - 'infra/shared/**'
