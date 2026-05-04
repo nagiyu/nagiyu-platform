@@ -10,7 +10,7 @@ nagiyu-platform では、Web アプリケーションを全世界に配信する
 
 ### 基本方針
 
-- **カスタムドメイン**: 外部 DNS サービスで管理するドメインを CloudFront に設定
+- **カスタムドメイン**: Route53 ホストゾーンで管理するドメインを CloudFront に設定
 - **SSL/TLS**: ACM で管理する証明書を使用
 - **オリジン**: S3、API Gateway、ALB、Lambda Function URL など
 - **キャッシュ戦略**: コンテンツの種類に応じて適切なキャッシュ設定
@@ -24,8 +24,10 @@ nagiyu-platform では、Web アプリケーションを全世界に配信する
 ```
 ユーザー
   ↓ (HTTPS)
-外部 DNS サービス
-  ↓ (CNAME: example.com → d123456.cloudfront.net)
+Route53 (権威 DNS)
+  ├─ apex: A (ALIAS) → CloudFront
+  └─ サブドメイン: CNAME → d123456.cloudfront.net
+  ↓
 CloudFront Distribution
   ↓ (オリジン)
 AWS リソース
@@ -38,7 +40,7 @@ AWS リソース
 ### データフロー
 
 1. **ユーザーリクエスト**: `https://example.com` にアクセス
-2. **DNS 解決**: 外部 DNS サービスが CloudFront のドメインを返す
+2. **DNS 解決**: Route53 が CloudFront のドメイン（または ALIAS で IP）を返す
 3. **CloudFront**: エッジロケーションでリクエストを受信
 4. **キャッシュチェック**: キャッシュがあれば即座にレスポンス
 5. **オリジンアクセス**: キャッシュがない場合、オリジンにリクエスト
@@ -98,39 +100,33 @@ CloudFront は複数のオリジンをサポートします。パスパターン
 
 ---
 
-## 外部 DNS サービスとの連携
+## Route53 との連携
 
 ### DNS レコード設定
 
-外部 DNS サービスの管理画面で、以下の CNAME レコードを設定します。
+Route53 のホストゾーンで以下のレコードを CDK で管理しています。
 
-| タイプ | 名前 | 値 | TTL |
-|-------|------|-----|-----|
-| CNAME | `example.com` または `www` | `d123456.cloudfront.net` | 300 |
-| CNAME | `dev` | `d789012.cloudfront.net` | 300 |
+| タイプ | 名前 | 値 | TTL | 備考 |
+|-------|------|-----|-----|------|
+| A (ALIAS) | apex (`example.com`) | `d123456.cloudfront.net` | - | Route53 が IP を直接返す |
+| CNAME | サブドメイン (`tools`, `dev` 等) | `d789012.cloudfront.net` | 300 | 1 ホップ経由 |
 
-**注意:**
-- `d123456.cloudfront.net` は CloudFront Distribution のドメイン名（スタック出力から取得）
-- Apex ドメイン (`example.com`) に CNAME を設定できない DNS サービスの場合、`www.example.com` を使用するか、ALIAS レコード相当の機能を使用
+詳細は [Route53 ドキュメント](./route53.md) を参照。新サービスのサブドメインを追加する場合は `infra/shared/lib/route53-records-stack.ts` を編集します。
 
 ### Apex ドメインの扱い
 
-**問題:**
-- 一部の DNS サービスでは、Apex ドメイン (`example.com`) に CNAME レコードを設定できない
+apex (`example.com`) は DNS の仕様上 CNAME を貼れませんが、Route53 の **ALIAS レコード**を使えば CloudFront を直接ターゲットにできます。CDK では:
 
-**解決策:**
+```typescript
+new ARecord(this, 'ApexAlias', {
+  zone,
+  target: RecordTarget.fromAlias(new CloudFrontTarget(distribution)),
+});
+```
 
-1. **ALIAS 相当の機能を使用** (推奨)
-    - 一部の外部 DNS サービスは ALIAS や ANAME レコードをサポート
-    - CloudFront のドメインを直接指定
+実装は [`infra/shared/lib/route53-records-stack.ts`](../../../infra/shared/lib/route53-records-stack.ts) の `ApexAliasToCloudFront` レコード参照。
 
-2. **www へリダイレクト**
-    - `example.com` を A レコードで固定 IP に向ける
-    - その IP で `www.example.com` へリダイレクト
-
-3. **www を正規ドメインとして使用**
-    - `www.example.com` を CloudFront に向ける
-    - `example.com` は使用しない、または別用途に使用
+> **将来**: 現状サブドメインは CNAME ですが、`CloudFrontStackBase` が ALIAS を自動生成するように改修予定（[#2919](https://github.com/nagiyu/nagiyu-platform/issues/2919)）。完了後は新サービス追加時の手動レコード登録も不要になります。
 
 ---
 
