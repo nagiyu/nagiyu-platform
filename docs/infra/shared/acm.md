@@ -60,14 +60,14 @@ ACM 証明書には以下のドメインを含めます:
 
 ### 検証方法
 
-**DNS 検証**を使用します。検証 CNAME は Route53 ホストゾーンに CDK で登録されており、`Route53RecordsStack` の `CnameAcmValidation` レコードがそれにあたります。
+**DNS 検証**を使用します。検証 CNAME は Route53 ホストゾーンに CDK で登録されており、共有インフラの Route53 レコード管理スタックがその役割を担います。
 
 **メリット:**
 - 証明書の自動更新に対応（有効期限の 60 日前から ACM が自動的に検証 CNAME を再確認）
 - 検証 CNAME も Git 管理されている
 
 **注意:**
-- 証明書を作り直す（domain や SANs を変更する）場合、ACM が新しい検証 CNAME 値を発行するため、`Route53RecordsStack` の `ACM_VALIDATION_CNAME` 定数を更新する必要がある
+- 証明書を作り直す（domain や SANs を変更する）場合、ACM が新しい検証 CNAME 値を発行するため、共有インフラ側の検証 CNAME 定義を更新する必要がある
 - 同一証明書のままなら検証 CNAME 値は変わらないので追加メンテナンス不要
 
 ---
@@ -181,20 +181,12 @@ aws acm describe-certificate \
 
 ### ステップ4: Route53 への検証 CNAME 登録
 
-ACM の検証 CNAME は `Route53RecordsStack` の `ACM_VALIDATION_CNAME` 定数で管理しています。新規証明書発行時など値が変わる場合は、ステップ 3 で取得した値を [`infra/shared/lib/route53-records-stack.ts`](../../../infra/shared/lib/route53-records-stack.ts) に反映して再デプロイします。
-
-```typescript
-const ACM_VALIDATION_CNAME = {
-  recordName: '_abc123', // ステップ 3 の Name から末尾の `.<domain>` を除いた部分
-  target: '_xyz789.acm-validations.aws',
-  comment: 'ACM DNS validation for *.example.com wildcard certificate',
-};
-```
+ACM の検証 CNAME は共有インフラの Route53 レコード管理スタックで管理しています。新規証明書発行時など値が変わる場合は、ステップ 3 で取得した名前と値を当該スタックの検証 CNAME 定義に反映して再デプロイします。
 
 **重要:**
 - 同一証明書を継続使用する場合は値が変わらないので追加対応不要
 - 検証が完了するまで、このレコードは削除しないでください
-- TTL は `Route53RecordsStack` 全体で 300 秒に統一されています
+- TTL は Route53 レコード管理スタック全体で 300 秒に統一されています
 
 ### ステップ5: 証明書の検証完了を待機
 
@@ -324,10 +316,10 @@ aws acm describe-certificate \
 
 証明書に新しいドメインを追加する場合:
 
-1. CDK スタックファイル (`infra/shared/lib/acm-stack.ts`) を編集（SANs に追加）
+1. ACM 共有スタックの定義を編集（SANs に追加）
 2. TypeScript をビルド: `npm run build`
 3. スタックを更新: `npx cdk deploy SharedAcm`
-4. 新しいドメインの DNS 検証レコードを Route53 に追加（`Route53RecordsStack` の `ACM_VALIDATION_CNAME` を更新）
+4. 新しいドメインの DNS 検証レコードを Route53 レコード管理スタックに追加
 
 ---
 
@@ -348,7 +340,7 @@ dig _abc123.example.com CNAME
 ```
 
 **解決策:**
-1. Route53 ホストゾーンに検証 CNAME が登録されているか確認（`Route53RecordsStack` をデプロイ済みか、`ACM_VALIDATION_CNAME` 定数の値が ACM コンソールの値と一致するか）
+1. Route53 ホストゾーンに検証 CNAME が登録されているか確認（共有インフラの Route53 レコード管理スタックをデプロイ済みか、定義値が ACM コンソールの値と一致するか）
 2. TTL が短い場合、伝播まで待つ（通常は数分〜30分）
 3. DNS キャッシュをクリア
 
