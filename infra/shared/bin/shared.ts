@@ -4,6 +4,7 @@ import * as cdk from 'aws-cdk-lib';
 import { VpcStack } from '../lib/vpc-stack';
 import { AcmStack } from '../lib/acm-stack';
 import { Route53Stack } from '../lib/route53-stack';
+import { Route53RecordsStack } from '../lib/route53-records-stack';
 import { IamCorePolicyStack } from '../lib/iam/iam-core-policy-stack';
 import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-stack';
 import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
@@ -54,6 +55,14 @@ new Route53Stack(app, 'NagiyuSharedRoute53', {
   domainName,
   env: stackEnv,
   description: 'Shared Route53 hosted zone for nagiyu.com',
+});
+
+// Route53 レコード（Phase 2: NS 切替前に既存レコードを Route53 に複製）
+// XServer 経由の現行 DNS には影響せず、NS 切替後にこのレコードが応答する
+new Route53RecordsStack(app, 'NagiyuSharedRoute53Records', {
+  domainName,
+  env: stackEnv,
+  description: 'Shared Route53 records replicated from XServer (Phase 2)',
 });
 
 // IAM Policies スタックを作成（環境非依存）
