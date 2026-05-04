@@ -25,18 +25,20 @@
 
 本プラットフォームでは、以下の構成で Web アプリケーションを配信します。
 
-- **外部ドメイン管理**: ドメインは外部レンタルサーバーで取得・管理
-- **外部 DNS サービス**: Route 53 は使用せず、外部 DNS サービスでドメイン解決
+- **ドメインレジストラ**: 外部レンタルサーバー（XServer）でドメインを取得・更新
+- **権威 DNS**: AWS Route53 のパブリックホストゾーンで管理（2026-05 に外部 DNS から移行）
 - **CloudFront**: カスタムドメインを設定し、AWS リソースを全世界に配信
-- **SSL/TLS**: ACM (AWS Certificate Manager) でワイルドカード証明書を管理
+- **SSL/TLS**: ACM (AWS Certificate Manager) でワイルドカード証明書を管理（DNS 検証は Route53 経由）
 
 #### 配信フロー
 
 ```
 ユーザー
   ↓ (HTTPS: https://example.com)
-外部 DNS サービス
-  ↓ (CNAME: example.com → d123456.cloudfront.net)
+Route53 (権威 DNS)
+  ├─ apex: A (ALIAS) → CloudFront
+  └─ サブドメイン: CNAME → d123456.cloudfront.net
+  ↓
 CloudFront Distribution
   ↓ (オリジン)
 AWS リソース
@@ -45,6 +47,8 @@ AWS リソース
   ├── ALB → ECS (Web アプリ)
   └── Lambda Function URL (サーバーレス関数)
 ```
+
+詳細は [Route53 ドキュメント](./shared/route53.md) を参照。
 
 ---
 

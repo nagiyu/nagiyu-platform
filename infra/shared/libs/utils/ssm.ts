@@ -7,6 +7,8 @@ export const SSM_PARAMETERS = {
   IGW_ID: (env: Environment) => `/nagiyu/shared/${env}/vpc/igw-id`,
   ACM_CERTIFICATE_ARN: '/nagiyu/shared/acm/certificate-arn',
   ACM_DOMAIN_NAME: '/nagiyu/shared/acm/domain-name',
+  ROUTE53_HOSTED_ZONE_ID: '/nagiyu/shared/route53/hosted-zone-id',
+  ROUTE53_HOSTED_ZONE_NAME: '/nagiyu/shared/route53/hosted-zone-name',
   ALB_DNS_NAME: (env: Environment) => `/nagiyu/root/${env}/alb/dns-name`,
   ALB_ARN: (env: Environment) => `/nagiyu/root/${env}/alb/arn`,
   ALB_TARGET_GROUP_ARN: (env: Environment) => `/nagiyu/root/${env}/alb/target-group-arn`,
