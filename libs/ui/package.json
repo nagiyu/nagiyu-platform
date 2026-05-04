@@ -26,7 +26,9 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.{ts,tsx} tests/**/*.{ts,tsx}",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build-storybook": "storybook build --output-dir storybook-static"
   },
   "peerDependencies": {
     "@emotion/react": "^11.14.0",

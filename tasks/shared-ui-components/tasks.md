@@ -25,10 +25,13 @@
 
 ### PR 0-2: Storybook 導入
 
-- [ ] `libs/ui` に Storybook v8 + Vite ビルダーを導入
-- [ ] グローバル設定（テーマ切替アドオン、ダークモード切替、ビューポート設定）
-- [ ] サンプルとして既存コンポーネント（`ErrorAlert` 等）の Stories を 1 つ作成
-- [ ] `npm run storybook` / `npm run build-storybook` のスクリプト追加
+- [x] `libs/ui` に Storybook v10 + Vite ビルダーを導入
+- [x] グローバル設定（`addon-themes` でライト/ダーク切替、`addon-a11y` でアクセシビリティチェック）
+- [x] サンプルとして既存コンポーネント（`ErrorAlert`）の Stories を作成
+- [x] `npm run storybook` / `npm run build-storybook` のスクリプト追加
+- [x] tsconfig.json で `*.stories.{ts,tsx}` を build 対象から除外
+- [x] .gitignore に `storybook-static/` を追加
+- [x] Storybook 関連 deps を root devDependencies に配置（npm workspaces の hoisting 制約対応）
 
 ### PR 0-3: CDK スタック追加
 
