@@ -258,6 +258,19 @@ libs/ui/
 | ビジュアルリグレッション | Playwright + Storybook | `tests/visual/`            |
 | インタラクションテスト   | Storybook Play 関数    | Stories 内（Phase 3 以降） |
 
+#### ビジュアルリグレッションテスト（Phase 1 以降で本格運用）
+
+`libs/ui/tests/visual/` 配下に Playwright のテストを配置し、Storybook の各 Story（`iframe.html?id=...`）をスクリーンショット差分で検証する。Phase 0-4 時点ではディレクトリ・設定とも未作成。Phase 1 以降の Button 実装と並行して以下の構成で導入する。
+
+```
+libs/ui/tests/visual/
+├── playwright.config.ts       # Storybook URL を baseURL に設定
+└── components/
+    └── Button.spec.ts         # 各 Story のスクリーンショット
+```
+
+運用は既存 Playwright（Fast CI: chromium-mobile のみ / Full CI: 全デバイス）の方針に揃える。差分があればテスト失敗 → 視覚レビューでベースライン更新を承認。
+
 ### カバレッジ閾値
 
 `libs/ui/` は既定（80%）より厳しめのカバレッジを要求する。最終目標は spec 値、現時点は段階的引き上げ中。
