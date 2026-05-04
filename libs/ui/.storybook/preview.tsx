@@ -7,6 +7,7 @@ import * as React from 'react';
 import theme from '../src/styles/theme';
 
 import '../src/styles/tokens.css';
+import './preview.css';
 
 /**
  * Storybook グローバル設定

@@ -1,0 +1,32 @@
+/*
+ * Storybook プレビュー専用の CSS
+ *
+ * 目的:
+ *   `tokens.css` で定義した CSS 変数（`--color-bg-canvas` / `--color-fg-default` 等）
+ *   を実際にプレビュー画面に適用し、ライト/ダーク切替が視覚的に確認できる状態に
+ *   する。
+ *
+ * 実装上の注意:
+ *   MUI の `<CssBaseline />` が `body { background: theme.palette.background.default }`
+ *   を適用するため、bare の `body` セレクタでは specificity が同点で打ち勝てない。
+ *   `html[data-theme] body` で specificity を上げ、addon-themes が
+ *   `html[data-theme="..."]` を付与する前提で確実に適用する。
+ *
+ * 配置の意図:
+ *   本ファイルは Storybook プレビュー専用。サービス側の `tokens.css` は変数定義に
+ *   留めて副作用を持たせない方針のため、こちらに切り出している。
+ */
+
+html[data-theme] body {
+  background-color: var(--color-bg-canvas);
+  color: var(--color-fg-default);
+  transition:
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+/* Storybook の Docs ページ（autodocs）でも canvas トークンを反映させる */
+html[data-theme] .sbdocs.sbdocs-preview {
+  background-color: var(--color-bg-canvas);
+  color: var(--color-fg-default);
+}
