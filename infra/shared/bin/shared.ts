@@ -3,6 +3,7 @@ import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { VpcStack } from '../lib/vpc-stack';
 import { AcmStack } from '../lib/acm-stack';
+import { Route53Stack } from '../lib/route53-stack';
 import { IamCorePolicyStack } from '../lib/iam/iam-core-policy-stack';
 import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-stack';
 import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
@@ -47,6 +48,14 @@ new AcmStack(app, 'NagiyuSharedAcm', {
   description: 'Shared ACM Certificate for CloudFront',
 });
 
+// Route53 ホストゾーン（環境非依存・グローバル）
+// Phase 1 時点ではホストゾーンを作成するのみで、XServer の NS 切替は実施しない
+new Route53Stack(app, 'NagiyuSharedRoute53', {
+  domainName,
+  env: stackEnv,
+  description: 'Shared Route53 hosted zone for nagiyu.com',
+});
+
 // IAM Policies スタックを作成（環境非依存）
 // ポリシーサイズ制限対策のため4つに分割
 const corePolicyStack = new IamCorePolicyStack(app, 'NagiyuSharedIamCore', {
@@ -70,7 +79,7 @@ const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'NagiyuSharedI
 });
 
 // IAM Users スタックを作成（ポリシーに依存）
-const usersStack = new IamUsersStack(app, 'NagiyuSharedIamUsers', {
+new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
     core: corePolicyStack.policy,
     application: applicationPolicyStack.policy,
