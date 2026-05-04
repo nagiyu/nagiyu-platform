@@ -3,7 +3,7 @@ import type { Highlight, Job, UpdateHighlightInput } from '@/types/quick-clip';
 export interface JobRepository {
   getById(jobId: string): Promise<Job | null>;
   create(job: Job): Promise<Job>;
-  updateStatus(jobId: string, status: Job['status'], errorMessage?: string): Promise<Job>;
+  updateBatchJobId(jobId: string, batchJobId: string): Promise<void>;
 }
 
 export interface HighlightRepository {

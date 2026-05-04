@@ -37,5 +37,50 @@ const config: Config = {
   },
 };
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-export default createJestConfig(config);
+// remark / rehype 系は ESM-only のため Jest の transform 対象に含める
+// next/jest が設定する transformIgnorePatterns のデフォルトを上書きするために
+// createJestConfig() の後で書き換える
+const ESM_PACKAGES = [
+  'remark',
+  'remark-gfm',
+  'remark-rehype',
+  'rehype',
+  'rehype-stringify',
+  'unified',
+  'bail',
+  'trough',
+  'is-plain-obj',
+  'micromark.*',
+  'mdast-util.*',
+  'hast-util.*',
+  'unist-util.*',
+  'vfile.*',
+  'decode-named-character-reference',
+  'character-entities.*',
+  'character-reference-invalid',
+  'ccount',
+  'escape-string-regexp',
+  'markdown-table',
+  'zwitch',
+  'longest-streak',
+  'html-void-elements',
+  'stringify-entities',
+  'space-separated-tokens',
+  'comma-separated-tokens',
+  'property-information',
+  'web-namespaces',
+  'fault',
+  'devlop',
+].join('|');
+
+// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async.
+// 加えて next/jest が設定する transformIgnorePatterns を ESM_PACKAGES で上書きする。
+const buildConfig = async () => {
+  const baseConfig = await createJestConfig(config)();
+  return {
+    ...baseConfig,
+    transformIgnorePatterns: [`/node_modules/(?!(${ESM_PACKAGES})/)`],
+  };
+};
+
+export default buildConfig;

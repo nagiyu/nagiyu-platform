@@ -41,7 +41,7 @@ export default function MylistRegisterPage() {
           マイリスト登録
         </Typography>
 
-        <Typography variant="body1" color="text.secondary" paragraph>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
           登録したい動画の条件を指定し、ニコニコ動画のマイリストに自動登録します。
         </Typography>
 

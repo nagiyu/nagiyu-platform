@@ -4,7 +4,8 @@
     "lib": ["ES2020"],
     "declaration": true,
     "outDir": "./dist/src",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "types": ["node"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "tests"]

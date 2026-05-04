@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
+import LastVisitedPathTracker from '@/components/LastVisitedPathTracker';
 import { Navigation } from '@/components/Navigation';
 import UserRegistrationInitializer from '@/components/UserRegistrationInitializer';
 
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ServiceWorkerRegistration />
         <UserRegistrationInitializer />
+        <LastVisitedPathTracker />
         <ServiceLayout
           headerProps={{ title: 'Share Together', ariaLabel: 'Share Together ホームページに戻る' }}
           headerSlot={<Navigation />}

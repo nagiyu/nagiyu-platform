@@ -6,6 +6,7 @@ const createRepositoryMock = (): jest.Mocked<HighlightRepository> => ({
   getByJobId: jest.fn(),
   getById: jest.fn(),
   update: jest.fn(),
+  createMany: jest.fn(),
 });
 
 const baseHighlight: Highlight = {
@@ -17,6 +18,7 @@ const baseHighlight: Highlight = {
   source: 'motion',
   status: 'unconfirmed',
   clipStatus: 'PENDING',
+  expiresAt: 1700000000,
 };
 
 describe('HighlightService', () => {

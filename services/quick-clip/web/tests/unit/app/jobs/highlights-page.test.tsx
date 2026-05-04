@@ -201,7 +201,8 @@ describe('HighlightsPage', () => {
           status: 'unconfirmed',
           clipStatus: 'GENERATING',
         }),
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -215,7 +216,7 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
+        3,
         '/api/jobs/job-1/highlights/h-1/regenerate',
         expect.objectContaining({ method: 'POST' })
       );
@@ -336,7 +337,8 @@ describe('HighlightsPage', () => {
           status: 'accepted',
           clipStatus: 'GENERATED',
         }),
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -350,7 +352,7 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
+        3,
         '/api/jobs/job-1/highlights/h-1',
         expect.objectContaining({
           method: 'PATCH',
@@ -403,13 +405,13 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
     jest.advanceTimersByTime(3000);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -456,13 +458,13 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
     jest.advanceTimersByTime(3000);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -491,13 +493,13 @@ describe('HighlightsPage', () => {
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
 
     jest.advanceTimersByTime(6000);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -533,7 +535,8 @@ describe('HighlightsPage', () => {
           status: 'accepted',
           clipStatus: 'GENERATING',
         }),
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -545,14 +548,14 @@ describe('HighlightsPage', () => {
     const startInputs = await screen.findAllByRole('spinbutton');
     fireEvent.change(startInputs[0], { target: { value: '11' } });
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
 
     fireEvent.blur(startInputs[0]);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
       expect(global.fetch).toHaveBeenNthCalledWith(
-        2,
+        3,
         '/api/jobs/job-1/highlights/h-1',
         expect.objectContaining({ method: 'PATCH' })
       );
@@ -560,24 +563,27 @@ describe('HighlightsPage', () => {
   });
 
   it('開始時刻が終了時刻以上の入力はエラー表示し、PATCHを呼ばない', async () => {
-    global.fetch = jest.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        highlights: [
-          {
-            highlightId: 'h-1',
-            jobId: 'job-1',
-            order: 1,
-            startSec: 10,
-            endSec: 20,
-            source: 'motion',
-            status: 'accepted',
-            clipStatus: 'GENERATED',
-            clipUrl: 'https://example.com/h-1.mp4',
-          },
-        ],
-      }),
-    }) as jest.Mock;
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'accepted',
+              clipStatus: 'GENERATED',
+              clipUrl: 'https://example.com/h-1.mp4',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -592,7 +598,7 @@ describe('HighlightsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('開始時刻は終了時刻より小さくしてください')).toBeInTheDocument();
-      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -619,7 +625,8 @@ describe('HighlightsPage', () => {
       })
       .mockResolvedValueOnce({
         ok: false,
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -635,7 +642,7 @@ describe('HighlightsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('見どころの更新に失敗しました')).toBeInTheDocument();
       expect(startInputs[0]).toHaveValue(10);
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -752,7 +759,8 @@ describe('HighlightsPage', () => {
             },
           ],
         }),
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -774,7 +782,7 @@ describe('HighlightsPage', () => {
     });
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
       expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
         'src',
         'https://example.com/h-1-url-1.mp4'
@@ -806,6 +814,8 @@ describe('HighlightsPage', () => {
           ],
         }),
       })
+      // expiresAt fetch
+      .mockResolvedValueOnce({ ok: false })
       // PATCH: time range update → returns GENERATING
       .mockResolvedValueOnce({
         ok: true,
@@ -838,7 +848,8 @@ describe('HighlightsPage', () => {
             },
           ],
         }),
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -862,7 +873,7 @@ describe('HighlightsPage', () => {
 
     // After PATCH returns GENERATING, spinner is shown and video is hidden
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
       expect(screen.getByText('クリップ生成中...')).toBeInTheDocument();
       expect(screen.queryByLabelText('見どころ動画プレビュー')).not.toBeInTheDocument();
     });
@@ -874,7 +885,7 @@ describe('HighlightsPage', () => {
 
     // After polling returns GENERATED with new URL, video should show new URL
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(3);
+      expect(global.fetch).toHaveBeenCalledTimes(4);
       expect(screen.getByLabelText('見どころ動画プレビュー')).toHaveAttribute(
         'src',
         'https://example.com/h-1-new.mp4'
@@ -915,6 +926,8 @@ describe('HighlightsPage', () => {
           ],
         }),
       })
+      // expiresAt fetch
+      .mockResolvedValueOnce({ ok: false })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -943,7 +956,8 @@ describe('HighlightsPage', () => {
             },
           ],
         }),
-      }) as jest.Mock;
+      })
+      .mockResolvedValue({ ok: false }) as jest.Mock;
 
     render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
 
@@ -965,7 +979,7 @@ describe('HighlightsPage', () => {
     });
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledTimes(2);
+      expect(global.fetch).toHaveBeenCalledTimes(3);
     });
 
     fireEvent.click(screen.getByText('#2'));
@@ -1116,6 +1130,106 @@ describe('HighlightsPage', () => {
     // 再度クリックしてOFFにする
     fireEvent.click(screen.getByRole('checkbox', { name: '抽出根拠' }));
     expect(screen.queryByText('モーション')).not.toBeInTheDocument();
+  });
+
+  it('hasPendingOrGenerating = true のとき「X / Y 件生成済」が表示される', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+          },
+          {
+            highlightId: 'h-2',
+            jobId: 'job-1',
+            order: 2,
+            startSec: 30,
+            endSec: 40,
+            source: 'volume',
+            status: 'unconfirmed',
+            clipStatus: 'PENDING',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('1 / 2 件生成済')).toBeInTheDocument();
+    });
+  });
+
+  it('hasPendingOrGenerating = false のとき「件生成済」が表示されない', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        highlights: [
+          {
+            highlightId: 'h-1',
+            jobId: 'job-1',
+            order: 1,
+            startSec: 10,
+            endSec: 20,
+            source: 'motion',
+            status: 'unconfirmed',
+            clipStatus: 'GENERATED',
+          },
+        ],
+      }),
+    }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('#1')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/件生成済/)).not.toBeInTheDocument();
+  });
+
+  it('有効期限がフェッチされて表示される', async () => {
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          highlights: [
+            {
+              highlightId: 'h-1',
+              jobId: 'job-1',
+              order: 1,
+              startSec: 10,
+              endSec: 20,
+              source: 'motion',
+              status: 'unconfirmed',
+              clipStatus: 'GENERATED',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          jobId: 'job-1',
+          status: 'COMPLETED',
+          expiresAt: 1700000000,
+        }),
+      }) as jest.Mock;
+
+    render(<HighlightsPage params={Promise.resolve({ jobId: 'job-1' })} />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/データの有効期限:/)).toBeInTheDocument();
+    });
   });
 });
 

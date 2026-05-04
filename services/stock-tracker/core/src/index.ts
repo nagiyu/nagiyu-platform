@@ -80,6 +80,7 @@ export type {
   CreateDailySummaryInput,
   DailySummaryKey,
 } from './entities/daily-summary.entity.js';
+export type { TemporaryAlertCandidate } from './entities/temporary-alert-candidate.entity.js';
 
 // Mappers
 export * from './mappers/alert.mapper.js';

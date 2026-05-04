@@ -10,6 +10,8 @@ import {
   DialogTitle,
   Divider,
   IconButton,
+  Menu,
+  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -22,6 +24,7 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';
 import StockChart from './StockChart';
 import type { PatternDetail, TickerSummary } from '@/types/stock';
+import type { AlertMode } from '@/types/alert';
 import { ERROR_MESSAGES } from '@/lib/error-messages';
 
 interface SummaryDetailDialogProps {
@@ -62,13 +65,25 @@ export default function SummaryDetailDialog({
   onClose,
   onAlertChanged,
 }: SummaryDetailDialogProps) {
-  const [isBuyAlertOpen, setIsBuyAlertOpen] = useState(false);
-  const [isSellAlertOpen, setIsSellAlertOpen] = useState(false);
+  const [alertModalState, setAlertModalState] = useState<{
+    open: boolean;
+    tradeMode: AlertMode;
+    initialPrice: number;
+  }>({ open: false, tradeMode: 'Buy', initialPrice: 0 });
+  const [chipMenuAnchor, setChipMenuAnchor] = useState<{
+    element: HTMLElement;
+    price: number;
+  } | null>(null);
 
   const handleClose = () => {
-    setIsBuyAlertOpen(false);
-    setIsSellAlertOpen(false);
+    setAlertModalState((s) => ({ ...s, open: false }));
+    setChipMenuAnchor(null);
     onClose();
+  };
+
+  const openAlertModal = (tradeMode: AlertMode, initialPrice: number) => {
+    setChipMenuAnchor(null);
+    setAlertModalState({ open: true, tradeMode, initialPrice });
   };
 
   const buyPatternDetails: PatternDetail[] = (summary?.patternDetails ?? []).filter(
@@ -86,12 +101,14 @@ export default function SummaryDetailDialog({
         onClose={handleClose}
         maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: (theme) => ({
-            maxWidth: '100vw',
-            width: { xs: `calc(100vw - ${theme.spacing(2)})`, sm: '100%' },
-            overflow: 'hidden',
-          }),
+        slotProps={{
+          paper: {
+            sx: (theme) => ({
+              maxWidth: '100vw',
+              width: { xs: `calc(100vw - ${theme.spacing(2)})`, sm: '100%' },
+              overflow: 'hidden',
+            }),
+          },
         }}
       >
         <DialogTitle
@@ -185,11 +202,11 @@ export default function SummaryDetailDialog({
               </TableContainer>
               <Divider />
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="outlined" onClick={() => setIsBuyAlertOpen(true)}>
+                <Button variant="outlined" onClick={() => openAlertModal('Buy', summary.close)}>
                   買いアラート設定
                 </Button>
                 {summary.holding && (
-                  <Button variant="outlined" onClick={() => setIsSellAlertOpen(true)}>
+                  <Button variant="outlined" onClick={() => openAlertModal('Sell', summary.close)}>
                     売りアラート設定
                   </Button>
                 )}
@@ -219,7 +236,11 @@ export default function SummaryDetailDialog({
                               </Typography>
                             </Tooltip>
                             {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography variant="caption" color="text.secondary" display="block">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                              >
                                 理由: {UI_ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
                               </Typography>
                             )}
@@ -235,7 +256,7 @@ export default function SummaryDetailDialog({
                                     ? 'text.disabled'
                                     : 'text.secondary'
                               }
-                              fontWeight="bold"
+                              sx={{ fontWeight: 'bold' }}
                             >
                               {pattern.status === 'MATCHED'
                                 ? '✓'
@@ -273,7 +294,11 @@ export default function SummaryDetailDialog({
                               </Typography>
                             </Tooltip>
                             {pattern.status === 'INSUFFICIENT_DATA' && (
-                              <Typography variant="caption" color="text.secondary" display="block">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                sx={{ display: 'block' }}
+                              >
                                 理由: {UI_ERROR_MESSAGES.INSUFFICIENT_DATA_REASON}
                               </Typography>
                             )}
@@ -289,7 +314,7 @@ export default function SummaryDetailDialog({
                                     ? 'text.disabled'
                                     : 'text.secondary'
                               }
-                              fontWeight="bold"
+                              sx={{ fontWeight: 'bold' }}
                             >
                               {pattern.status === 'MATCHED'
                                 ? '✓'
@@ -333,7 +358,15 @@ export default function SummaryDetailDialog({
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {summary.aiAnalysisResult.supportLevels.map((level, index) => (
-                          <Chip key={`support-${level}-${index}`} label={`${level}`} size="small" />
+                          <Chip
+                            key={`support-${level}-${index}`}
+                            label={`${level}`}
+                            size="small"
+                            clickable
+                            onClick={(e) =>
+                              setChipMenuAnchor({ element: e.currentTarget, price: level })
+                            }
+                          />
                         ))}
                       </Box>
                     </Box>
@@ -347,6 +380,10 @@ export default function SummaryDetailDialog({
                             key={`resistance-${level}-${index}`}
                             label={`${level}`}
                             size="small"
+                            clickable
+                            onClick={(e) =>
+                              setChipMenuAnchor({ element: e.currentTarget, price: level })
+                            }
                           />
                         ))}
                       </Box>
@@ -394,33 +431,31 @@ export default function SummaryDetailDialog({
           )}
         </DialogContent>
       </Dialog>
+      <Menu
+        anchorEl={chipMenuAnchor?.element ?? null}
+        open={Boolean(chipMenuAnchor)}
+        onClose={() => setChipMenuAnchor(null)}
+      >
+        <MenuItem onClick={() => openAlertModal('Buy', chipMenuAnchor!.price)}>
+          買いアラートを設定
+        </MenuItem>
+        <MenuItem onClick={() => openAlertModal('Sell', chipMenuAnchor!.price)}>
+          売りアラートを設定
+        </MenuItem>
+      </Menu>
       {summary && (
-        <>
-          <AlertSettingsModal
-            open={isBuyAlertOpen}
-            onClose={() => setIsBuyAlertOpen(false)}
-            onSuccess={onAlertChanged}
-            tickerId={summary.tickerId}
-            symbol={summary.symbol}
-            exchangeId={selectedTickerExchangeId}
-            mode="create"
-            tradeMode="Buy"
-            defaultTargetPrice={summary.close}
-            basePrice={summary.close}
-          />
-          <AlertSettingsModal
-            open={isSellAlertOpen}
-            onClose={() => setIsSellAlertOpen(false)}
-            onSuccess={onAlertChanged}
-            tickerId={summary.tickerId}
-            symbol={summary.symbol}
-            exchangeId={selectedTickerExchangeId}
-            mode="create"
-            tradeMode="Sell"
-            defaultTargetPrice={summary.close}
-            basePrice={summary.close}
-          />
-        </>
+        <AlertSettingsModal
+          open={alertModalState.open}
+          onClose={() => setAlertModalState((s) => ({ ...s, open: false }))}
+          onSuccess={onAlertChanged}
+          tickerId={summary.tickerId}
+          symbol={summary.symbol}
+          exchangeId={selectedTickerExchangeId}
+          mode="create"
+          tradeMode={alertModalState.tradeMode}
+          defaultTargetPrice={alertModalState.initialPrice}
+          basePrice={summary.close}
+        />
       )}
     </>
   );

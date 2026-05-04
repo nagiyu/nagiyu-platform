@@ -23,7 +23,7 @@ import {
   Typography,
 } from '@mui/material';
 import ReplayIcon from '@mui/icons-material/Replay';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
 import { ColumnVisibilityButton } from '@/components/highlights/ColumnVisibilityButton';
 import { HIGHLIGHT_TABLE_COLUMNS } from '@/constants/highlightTableColumns';
@@ -36,6 +36,10 @@ const ERROR_MESSAGES = {
   REGENERATE_FAILED: 'クリップの再生成に失敗しました',
   DOWNLOAD_FAILED: 'ダウンロードの開始に失敗しました',
   NO_HIGHLIGHTS: '見どころが検出されませんでした',
+} as const;
+
+const INFO_MESSAGES = {
+  EXPIRES_AT_PREFIX: 'データの有効期限: ',
 } as const;
 const HIGHLIGHT_SOURCE_LABELS = {
   motion: 'モーション',
@@ -110,7 +114,7 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
       size="small"
       type="number"
       value={draft}
-      inputProps={{ min, step: 1 }}
+      slotProps={{ htmlInput: { min, step: 1 } }}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => void handleBlur()}
     />
@@ -125,6 +129,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const isFetchingRef = useRef(false);
   const { visibilityMap, toggleColumn } = useColumnVisibility(COLUMN_DEFINITIONS);
 
@@ -200,6 +205,22 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
     void fetchHighlights({ isInitialLoad: true });
   }, [fetchHighlights, jobId]);
 
+  useEffect(() => {
+    if (!jobId) return;
+    const fetchExpiresAt = async () => {
+      try {
+        const res = await fetch(`/api/jobs/${jobId}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { expiresAt: number };
+        setExpiresAt(data.expiresAt);
+      } catch (error) {
+        // 有効期限取得失敗は非致命的
+        console.warn('有効期限の取得に失敗しました', error);
+      }
+    };
+    void fetchExpiresAt();
+  }, [jobId]);
+
   const selectedHighlight = useMemo(() => {
     const highlight = highlights.find((item) => item.highlightId === selectedId);
     if (!highlight) {
@@ -232,6 +253,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
 
   const acceptedCount = useMemo(
     () => highlights.filter((highlight) => highlight.status === 'accepted').length,
+    [highlights]
+  );
+  const generatedCount = useMemo(
+    () => highlights.filter((h) => h.clipStatus === 'GENERATED').length,
     [highlights]
   );
   const hasUngeneratedAcceptedClip = useMemo(
@@ -391,7 +416,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
         </Typography>
 
         {isLoading && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
             <CircularProgress size={20} />
             <Typography>見どころを取得しています...</Typography>
           </Stack>
@@ -401,6 +426,13 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           <Alert severity="error" sx={{ mb: 2 }}>
             {errorMessage}
           </Alert>
+        )}
+
+        {expiresAt !== null && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {INFO_MESSAGES.EXPIRES_AT_PREFIX}
+            {new Date(expiresAt * 1000).toLocaleString('ja-JP')}
+          </Typography>
         )}
 
         {!isLoading && highlights.length === 0 && (
@@ -454,7 +486,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         borderRadius: 1,
                       }}
                     >
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <CircularProgress size={20} />
                         <Typography>クリップ生成中...</Typography>
                       </Stack>
@@ -473,7 +505,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                         color: 'error.main',
                       }}
                     >
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                         <ErrorOutlineIcon />
                         <Typography>クリップ生成に失敗しました</Typography>
                       </Stack>
@@ -523,7 +555,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   </Box>
 
                   {/* 時間調整 */}
-                  <Stack direction="row" spacing={2} alignItems="center">
+                  <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
                     <Box>
                       <Typography variant="body2" sx={{ mb: 0.5 }}>
                         開始(秒):
@@ -564,7 +596,21 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
             {/* 右パネル: マスター一覧 */}
             <Box sx={{ width: 400, flexShrink: 0 }}>
               <Stack spacing={2}>
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    justifyContent: hasPendingOrGenerating ? 'space-between' : 'flex-end',
+                    alignItems: 'center',
+                  }}
+                >
+                  {hasPendingOrGenerating && (
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <CircularProgress size={16} />
+                      <Typography variant="body2">
+                        {generatedCount} / {highlights.length} 件生成済
+                      </Typography>
+                    </Stack>
+                  )}
                   <ColumnVisibilityButton
                     columns={OPTIONAL_COLUMNS}
                     visibilityMap={visibilityMap}
@@ -599,7 +645,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                             {highlight.startSec}〜{highlight.endSec}
                           </TableCell>
                           <TableCell>
-                            <Stack direction="row" spacing={0.5} alignItems="center">
+                            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                               <Chip
                                 label={HIGHLIGHT_STATUS_LABELS[highlight.status]}
                                 size="small"

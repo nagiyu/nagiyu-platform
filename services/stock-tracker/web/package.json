@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/stock-tracker-web",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -29,7 +29,7 @@
     "@nagiyu/ui": "*",
     "echarts": "^6.0.0",
     "echarts-for-react": "^3.0.5",
-    "next-auth": "^5.0.0-beta.30",
+    "next-auth": "^5.0.0-beta.31",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
@@ -38,7 +38,7 @@
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "dotenv": "^17.4.1",
-    "eslint-config-next": "^16.2.2",
+    "eslint-config-next": "^16.2.3",
     "tailwindcss": "^4"
   }
 }

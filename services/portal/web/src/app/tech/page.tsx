@@ -30,7 +30,7 @@ export default function TechPage() {
         技術記事
       </Typography>
 
-      <Typography variant="body1" paragraph align="center" sx={{ mb: 4 }}>
+      <Typography variant="body1" align="center" sx={{ mb: 4 }}>
         nagiyu のサービス開発で得た技術知見・アーキテクチャ解説を公開しています。
       </Typography>
 

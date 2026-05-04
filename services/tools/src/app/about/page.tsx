@@ -21,15 +21,15 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           サイトの目的
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           Tools は、日常的に便利なツール群を提供する無料の Web アプリケーションです。
           開発者や一般ユーザーを問わず、誰でも無料で利用できます。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           すべてのツールはブラウザ内で動作し、入力されたデータはサーバーに送信されません。
           プライバシーを重視した設計となっており、安心してご利用いただけます。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           乗り換え案内の整形や JSON データの整形など、実用性の高いツールを提供し、
           日常的な作業をより快適にすることを目指しています。
         </Typography>
@@ -39,16 +39,16 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           開発の経緯
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           このサイトは、開発者自身が日常的に必要とするツールを実装することから始まりました。
           市販の乗り換え案内アプリでは、コピー時に不要な情報が多く含まれており、
           メモアプリに整形して貼り付けるのが面倒でした。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           そこで、必要な情報だけを抽出して整形するツールを作成したのがきっかけです。
           その後、同じような日常的な小さなツールを統合したプラットフォームとして発展させました。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           「自分が使いたいツールを作る」という方針で開発を進めており、
           実用性とシンプルさを重視しています。
         </Typography>
@@ -134,7 +134,7 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           技術スタック
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           モダンな技術スタックを採用し、高速で使いやすいアプリケーションを実現しています。
         </Typography>
         <Box component="ul" sx={{ pl: 3 }}>
@@ -181,10 +181,10 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           開発者
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           なぎゆー（個人開発者）
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           モノレポ構成のプラットフォーム「nagiyu-platform」の一部として開発しています。
           オープンソースプロジェクトとして、GitHub でソースコードを公開しています。
         </Typography>
@@ -204,11 +204,11 @@ export default function AboutPage() {
         <Typography variant="h6" component="h2" gutterBottom sx={{ fontWeight: 600 }}>
           プライバシーとセキュリティ
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           ユーザーのプライバシーを最優先に考えています。
           すべてのツールはブラウザ内で動作し、入力データはサーバーに送信されません。
         </Typography>
-        <Typography variant="body1" paragraph>
+        <Typography variant="body1" sx={{ mb: 2 }}>
           個人を特定できる情報は一切収集していません。 Google Analytics による匿名のアクセス統計と、
           Google AdSense による広告配信のみ行っています。
         </Typography>

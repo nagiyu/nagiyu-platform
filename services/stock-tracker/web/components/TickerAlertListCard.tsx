@@ -109,7 +109,10 @@ export default function TickerAlertListCard({
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
       <CardContent>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Stack
+          direction="row"
+          sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 2 }}
+        >
           <Typography variant="h6" component="h2">
             アラート
           </Typography>
@@ -164,8 +167,7 @@ export default function TickerAlertListCard({
                 key={alert.alertId}
                 direction="row"
                 spacing={1}
-                alignItems="center"
-                flexWrap="wrap"
+                sx={{ alignItems: 'center', flexWrap: 'wrap' }}
               >
                 <Chip
                   label={alert.mode === 'Buy' ? '買い' : '売り'}

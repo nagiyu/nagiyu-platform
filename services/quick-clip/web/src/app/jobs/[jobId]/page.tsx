@@ -10,12 +10,17 @@ import {
   Container,
   Paper,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   Typography,
 } from '@mui/material';
-import type { Job, JobStatus } from '@/types/quick-clip';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import type { BatchStage, JobStatus } from '@/types/quick-clip';
 import { VideoAd } from './VideoAd';
 
-const POLLING_INTERVAL_MS = 10000;
+const POLLING_INTERVAL_MS = 5000;
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: 'ジョブ情報の取得に失敗しました',
@@ -36,17 +41,74 @@ const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'>
   FAILED: 'error',
 };
 
+const BATCH_STAGE_LABELS: Record<BatchStage, string> = {
+  downloading: 'ダウンロード中',
+  analyzing: '解析中',
+  clipping: '分割中',
+  aggregating: '集計中',
+};
+
+const INFO_MESSAGES = {
+  TAB_CLOSE_OK: 'タブを閉じても処理は続きます。URLを控えておくと後で確認できます。',
+  EXPIRES_AT_PREFIX: 'データの有効期限: ',
+} as const;
+
+type AnalysisProgressItem = {
+  status: 'in_progress' | 'done' | 'failed';
+  completed?: number;
+  total?: number;
+};
+
+type AnalysisProgress = {
+  motion: AnalysisProgressItem;
+  volume: AnalysisProgressItem;
+  transcription?: AnalysisProgressItem;
+  emotionScoring?: AnalysisProgressItem;
+};
+
 type JobPageProps = {
   params: Promise<{ jobId: string }>;
 };
 
-type JobApiResponse = Job & {
+type JobApiResponse = {
+  jobId: string;
+  status: JobStatus;
+  originalFileName: string;
+  fileSize: number;
+  createdAt: number;
+  expiresAt: number;
+  batchStage?: BatchStage;
+  errorMessage?: string;
   downloadUrl?: string;
+  analysisProgress?: AnalysisProgress;
 };
+
+type AnalysisItemProps = {
+  label: string;
+  item: AnalysisProgressItem;
+};
+
+function AnalysisItem({ label, item }: AnalysisItemProps) {
+  const text =
+    item.status === 'in_progress' && item.total !== undefined && item.total > 1
+      ? `${label} (${item.completed ?? 0}/${item.total})`
+      : item.status === 'failed'
+        ? `${label}（スキップ）`
+        : label;
+
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+      {item.status === 'in_progress' && <CircularProgress size={12} />}
+      {item.status === 'done' && <CheckCircleIcon sx={{ fontSize: 14, color: 'success.main' }} />}
+      {item.status === 'failed' && <WarningIcon sx={{ fontSize: 14, color: 'warning.main' }} />}
+      <Typography variant="caption">{text}</Typography>
+    </Stack>
+  );
+}
 
 export default function JobPage({ params }: JobPageProps) {
   const [jobId, setJobId] = useState<string>('');
-  const [job, setJob] = useState<Job | null>(null);
+  const [job, setJob] = useState<JobApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [adFinished, setAdFinished] = useState(false);
@@ -115,15 +177,21 @@ export default function JobPage({ params }: JobPageProps) {
     [job?.status, adFinished]
   );
 
+  const activeStep = useMemo(() => {
+    if (!job) return 1;
+    if (job.status === 'COMPLETED') return 2;
+    return 1; // PENDING, PROCESSING, FAILED
+  }, [job]);
+
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
       <Paper sx={{ p: 4 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          処理中画面
+          処理中
         </Typography>
 
         {isLoading && (
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 2 }}>
             <CircularProgress size={20} />
             <Typography>ステータスを確認しています...</Typography>
           </Stack>
@@ -137,6 +205,47 @@ export default function JobPage({ params }: JobPageProps) {
 
         {job && (
           <Stack spacing={2}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              <Step completed={true}>
+                <StepLabel>アップロード</StepLabel>
+              </Step>
+              <Step>
+                <StepLabel
+                  optional={
+                    job.status === 'PROCESSING' && job.batchStage ? (
+                      job.analysisProgress ? (
+                        <Stack spacing={0.5} sx={{ alignItems: 'flex-start' }}>
+                          <AnalysisItem label="モーション解析" item={job.analysisProgress.motion} />
+                          <AnalysisItem label="音量解析" item={job.analysisProgress.volume} />
+                          {job.analysisProgress.transcription && (
+                            <AnalysisItem
+                              label="文字起こし"
+                              item={job.analysisProgress.transcription}
+                            />
+                          )}
+                          {job.analysisProgress.emotionScoring && (
+                            <AnalysisItem
+                              label="感情分析"
+                              item={job.analysisProgress.emotionScoring}
+                            />
+                          )}
+                        </Stack>
+                      ) : (
+                        <Typography variant="caption">
+                          {BATCH_STAGE_LABELS[job.batchStage]}
+                        </Typography>
+                      )
+                    ) : undefined
+                  }
+                >
+                  解析
+                </StepLabel>
+              </Step>
+              <Step>
+                <StepLabel>切り出し</StepLabel>
+              </Step>
+            </Stepper>
+
             <Typography>ジョブID: {job.jobId}</Typography>
             <Chip
               label={STATUS_LABELS[job.status]}
@@ -145,10 +254,13 @@ export default function JobPage({ params }: JobPageProps) {
             />
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
-              <Typography color="text.secondary">
-                見どころ抽出を実行中です。10秒ごとに自動更新します。
-              </Typography>
+              <Typography color="text.secondary">{INFO_MESSAGES.TAB_CLOSE_OK}</Typography>
             )}
+
+            <Typography variant="body2" color="text.secondary">
+              {INFO_MESSAGES.EXPIRES_AT_PREFIX}
+              {new Date(job.expiresAt * 1000).toLocaleString('ja-JP')}
+            </Typography>
 
             {job.status === 'FAILED' && (
               <Typography color="error">{job.errorMessage ?? '処理に失敗しました'}</Typography>

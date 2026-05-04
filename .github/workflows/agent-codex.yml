@@ -1,0 +1,184 @@
+name: Agent - Codex
+
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'issues' && github.event.label.name == 'agent:codex') ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@codex'))
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ブランチ・Draft PR 作成
+        if: github.event_name == 'issues'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+
+          TARGET_BRANCH=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body' | grep -oP '(?<=target-branch: )\S+' || echo 'develop')
+
+          SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/-\+/-/g' | sed 's/^-\|-$//g' | cut -c1-40)
+          BRANCH="feature/${ISSUE_NUMBER}-${SLUG}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+          git commit --allow-empty -m "chore: start issue #${ISSUE_NUMBER}"
+          git push origin "$BRANCH"
+
+          gh pr create \
+            --title "$ISSUE_TITLE" \
+            --body "Closes #${ISSUE_NUMBER}" \
+            --base "$TARGET_BRANCH" \
+            --head "$BRANCH" \
+            --draft
+
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+
+      - name: フェーズ判別
+        if: github.event_name == 'issues'
+        id: detect-phase
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          if echo "$ISSUE_TITLE" | grep -q 'タスクドキュメント'; then
+            echo "agent_file=.github/agents/task.proposal.agent.md" >> "$GITHUB_OUTPUT"
+          elif echo "$ISSUE_TITLE" | grep -q 'クリーンアップ'; then
+            echo "agent_file=.github/agents/docs.write.agent.md" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent_file=.github/agents/task.implement.agent.md" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: ブランチをチェックアウト（Issue ラベルトリガー時）
+        if: github.event_name == 'issues'
+        run: git checkout "$BRANCH"
+
+      - name: プロンプトファイル生成（Issue ラベルトリガー時）
+        if: github.event_name == 'issues'
+        id: generate-prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          AGENT_FILE: ${{ steps.detect-phase.outputs.agent_file }}
+        run: |
+          set -euo pipefail
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+          PROMPT_FILE=$(mktemp --suffix=.md)
+          {
+            echo "## 対象 GitHub Issue"
+            echo ""
+            echo "Issue番号: ${ISSUE_NUMBER}"
+            echo "タイトル: ${ISSUE_TITLE}"
+            echo "本文:"
+            echo ""
+            echo "${ISSUE_BODY}"
+            echo ""
+            echo "---"
+            echo ""
+            cat "$AGENT_FILE"
+          } > "$PROMPT_FILE"
+          echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: プロンプトファイル生成（コメントトリガー時）
+        if: github.event_name == 'issue_comment'
+        id: generate-comment-prompt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          set -euo pipefail
+          ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+          PROMPT_FILE=$(mktemp --suffix=.md)
+          {
+            echo "## 対象 GitHub Issue"
+            echo ""
+            echo "Issue番号: ${ISSUE_NUMBER}"
+            echo "本文:"
+            echo ""
+            echo "${ISSUE_BODY}"
+            echo ""
+            echo "## コメント内容"
+            echo ""
+            echo "${COMMENT_BODY}"
+          } > "$PROMPT_FILE"
+          echo "prompt_file=$PROMPT_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: ブランチをチェックアウト（コメントトリガー時）
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          # PR コメントなら PR のブランチ、Issue コメントなら feature ブランチを探す
+          if gh pr view "$ISSUE_NUMBER" --json headRefName > /dev/null 2>&1; then
+            BRANCH=$(gh pr view "$ISSUE_NUMBER" --json headRefName -q '.headRefName')
+          else
+            BRANCH=$(git branch -r | grep -m1 "origin/feature/${ISSUE_NUMBER}-" | tr -d ' ' | sed 's|origin/||' || echo '')
+          fi
+          if [ -n "$BRANCH" ]; then
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          fi
+
+      - name: Codex を起動（Issue ラベルトリガー）
+        if: github.event_name == 'issues'
+        id: codex-issues
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.generate-prompt.outputs.prompt_file }}
+          sandbox: workspace-write
+
+      - name: Codex を起動（コメントトリガー）
+        if: github.event_name == 'issue_comment'
+        id: codex-comments
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: ${{ steps.generate-comment-prompt.outputs.prompt_file }}
+          sandbox: workspace-write
+
+      - name: コミット・プッシュ・Issue コメント投稿
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          CODEX_OUTPUT: ${{ steps.codex-issues.outputs.final-message || steps.codex-comments.outputs.final-message }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          COMMENT_FILE=$(mktemp)
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "feat: Codex による自動実装 (#${ISSUE_NUMBER})"
+            git push -u origin HEAD
+            echo "Codex が変更を適用し、プッシュしました。PR でご確認ください。" > "$COMMENT_FILE"
+          else
+            echo "Codex が実行しましたが、変更はありませんでした。" > "$COMMENT_FILE"
+          fi
+          if [ -n "${CODEX_OUTPUT}" ]; then
+            printf '\n---\n\n%s' "${CODEX_OUTPUT}" >> "$COMMENT_FILE"
+          fi
+          gh issue comment "$ISSUE_NUMBER" --body-file "$COMMENT_FILE"

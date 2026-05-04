@@ -273,6 +273,34 @@ describe('DynamoDBAlertRepository', () => {
       await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
     });
 
+    it('enabledOnly: true 指定時に FilterExpression が Enabled=true を要求する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      await repository.getByUserId('user-123', { enabledOnly: true });
+
+      const sendCall = mockDocClient.send.mock.calls[0][0] as {
+        input: {
+          FilterExpression?: string;
+          ExpressionAttributeNames?: Record<string, string>;
+          ExpressionAttributeValues?: Record<string, unknown>;
+        };
+      };
+      expect(sendCall.input.FilterExpression).toBe('#enabled = :enabledTrue');
+      expect(sendCall.input.ExpressionAttributeNames?.['#enabled']).toBe('Enabled');
+      expect(sendCall.input.ExpressionAttributeValues?.[':enabledTrue']).toBe(true);
+    });
+
+    it('enabledOnly 未指定時は FilterExpression を付けない', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      await repository.getByUserId('user-123');
+
+      const sendCall = mockDocClient.send.mock.calls[0][0] as {
+        input: { FilterExpression?: string };
+      };
+      expect(sendCall.input.FilterExpression).toBeUndefined();
+    });
+
     it('無効なアラートデータをスキップし、有効なデータのみ返す', async () => {
       const validItem = {
         PK: 'USER#user-123',
@@ -575,6 +603,100 @@ describe('DynamoDBAlertRepository', () => {
         })
       );
     });
+
+    it('toEntity から InvalidEntityDataError 以外のエラーが投げられても、バッチ全体を壊さずにスキップする', async () => {
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+      };
+      const invalidItem = {
+        ...validItem,
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+      };
+
+      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
+        const record = item as unknown as { AlertID?: string };
+        if (record.AlertID === 'invalid-alert') {
+          // モジュールインスタンス差異など想定外の経路で `InvalidEntityDataError` 判定が
+          // すり抜けたケースをシミュレート: 名前/メッセージともに合致しない TypeError
+          throw new TypeError('Cannot read properties of undefined');
+        }
+
+        return {
+          AlertID: record.AlertID,
+          UserID: 'user-123',
+        } as unknown as ReturnType<AlertMapper['toEntity']>;
+      });
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [invalidItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({
+          sk: 'ALERT#invalid-alert',
+          error: 'Cannot read properties of undefined',
+        })
+      );
+      mapperSpy.mockRestore();
+    });
+
+    it('toEntity が DatabaseError でラップされたエラーを投げても、バッチを壊さずにスキップする', async () => {
+      // 本番再現: 何らかの理由で toEntity から DatabaseError 形式のエラーが投げられても
+      // 外側 catch で再ラップされて totalAlerts: 0 でクラッシュすることがあってはならない
+      const validItem = {
+        PK: 'USER#user-123',
+        SK: 'ALERT#alert-1',
+        AlertID: 'alert-1',
+        UserID: 'user-123',
+      };
+      const invalidItem = {
+        ...validItem,
+        SK: 'ALERT#invalid-alert',
+        AlertID: 'invalid-alert',
+      };
+
+      const mapperSpy = jest.spyOn(AlertMapper.prototype, 'toEntity').mockImplementation((item) => {
+        const record = item as unknown as { AlertID?: string };
+        if (record.AlertID === 'invalid-alert') {
+          // すでに DatabaseError 形式に再ラップされたメッセージを持つエラーを擬似的に投げる
+          const wrapped = new Error(
+            'データベースエラーが発生しました: エンティティデータが無効です: フィールド "SubscriptionEndpoint" が文字列ではありません'
+          );
+          wrapped.name = 'DatabaseError';
+          throw wrapped;
+        }
+
+        return {
+          AlertID: record.AlertID,
+          UserID: 'user-123',
+        } as unknown as ReturnType<AlertMapper['toEntity']>;
+      });
+
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [invalidItem, validItem],
+        Count: 2,
+      });
+
+      const result = await repository.getByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]?.AlertID).toBe('alert-1');
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効なアラートデータをスキップしました',
+        expect.objectContaining({ sk: 'ALERT#invalid-alert' })
+      );
+      mapperSpy.mockRestore();
+    });
   });
 
   describe('update', () => {
@@ -788,6 +910,161 @@ describe('DynamoDBAlertRepository', () => {
       mockDocClient.send.mockRejectedValueOnce(dbError);
 
       await expect(repository.delete('user-123', 'alert-123')).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('getTemporaryCandidatesByFrequency', () => {
+    it('Temporary かつ Enabled な候補を軽量エンティティで返す', async () => {
+      const mockItems = [
+        {
+          PK: 'USER#user-1',
+          SK: 'ALERT#alert-1',
+          AlertID: 'alert-1',
+          UserID: 'user-1',
+          ExchangeID: 'NASDAQ',
+          Frequency: 'MINUTE_LEVEL',
+          Enabled: true,
+          Temporary: true,
+          TemporaryExpireDate: '2026-03-04',
+        },
+      ];
+
+      mockDocClient.send.mockResolvedValueOnce({ Items: mockItems, Count: 1 });
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0]).toMatchObject({
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        ExchangeID: 'NASDAQ',
+        Frequency: 'MINUTE_LEVEL',
+        Enabled: true,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      });
+    });
+
+    it('Query には Temporary=true AND Enabled=true の FilterExpression と ProjectionExpression が指定される', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
+
+      await repository.getTemporaryCandidatesByFrequency('HOURLY_LEVEL');
+
+      const sendCall = mockDocClient.send.mock.calls[0][0] as {
+        input: {
+          FilterExpression?: string;
+          ProjectionExpression?: string;
+          ExpressionAttributeNames?: Record<string, string>;
+          ExpressionAttributeValues?: Record<string, unknown>;
+        };
+      };
+      expect(sendCall.input.FilterExpression).toBe('#temporary = :true AND #enabled = :true');
+      expect(sendCall.input.ProjectionExpression).toContain('#alertId');
+      // subscription 関連の属性は ProjectionExpression に含めない
+      expect(sendCall.input.ProjectionExpression).not.toContain('subscription');
+      expect(sendCall.input.ExpressionAttributeValues?.[':true']).toBe(true);
+    });
+
+    it('subscription を含む不正データでも例外を投げず、必要属性さえ揃っていれば返す', async () => {
+      const mockItems = [
+        {
+          PK: 'USER#user-1',
+          SK: 'ALERT#alert-1',
+          AlertID: 'alert-1',
+          UserID: 'user-1',
+          ExchangeID: 'NASDAQ',
+          Frequency: 'MINUTE_LEVEL',
+          Enabled: true,
+          Temporary: true,
+          TemporaryExpireDate: '2026-03-04',
+          // subscription が無効でも軽量取得経路では参照しない
+          subscription: undefined,
+        },
+      ];
+
+      mockDocClient.send.mockResolvedValueOnce({ Items: mockItems, Count: 1 });
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(1);
+    });
+
+    it('必須属性が欠損したアイテムはスキップして警告ログを出す', async () => {
+      const mockItems = [
+        {
+          PK: 'USER#user-1',
+          SK: 'ALERT#alert-broken',
+          // AlertID が欠損
+          UserID: 'user-1',
+          ExchangeID: 'NASDAQ',
+          Frequency: 'MINUTE_LEVEL',
+          Enabled: true,
+          Temporary: true,
+          TemporaryExpireDate: '2026-03-04',
+        },
+      ];
+
+      mockDocClient.send.mockResolvedValueOnce({ Items: mockItems, Count: 1 });
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      expect(result.items).toHaveLength(0);
+      expect(logger.warn).toHaveBeenCalledWith(
+        '無効な一時アラート候補をスキップしました',
+        expect.objectContaining({ pk: 'USER#user-1', sk: 'ALERT#alert-broken' })
+      );
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('DB down'));
+
+      await expect(repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL')).rejects.toThrow(
+        DatabaseError
+      );
+    });
+  });
+
+  describe('markTemporaryAsExpired', () => {
+    it('Enabled=false, TTL, UpdatedAt を SET する UpdateItem を送信する', async () => {
+      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
+
+      await repository.markTemporaryAsExpired('user-1', 'alert-1', 1234567890);
+
+      const sendCall = mockDocClient.send.mock.calls[0][0] as {
+        input: {
+          UpdateExpression?: string;
+          ExpressionAttributeNames?: Record<string, string>;
+          ExpressionAttributeValues?: Record<string, unknown>;
+          ConditionExpression?: string;
+          Key?: Record<string, unknown>;
+        };
+      };
+      expect(sendCall.input.UpdateExpression).toBe(
+        'SET #enabled = :enabled, #ttl = :ttl, #updatedAt = :updatedAt'
+      );
+      expect(sendCall.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
+      expect(sendCall.input.ExpressionAttributeValues?.[':enabled']).toBe(false);
+      expect(sendCall.input.ExpressionAttributeValues?.[':ttl']).toBe(1234567890);
+      expect(sendCall.input.ConditionExpression).toBe('attribute_exists(PK)');
+      expect(sendCall.input.Key).toEqual({ PK: 'USER#user-1', SK: 'ALERT#alert-1' });
+    });
+
+    it('対象アラートが存在しない場合は EntityNotFoundError', async () => {
+      const conditionalCheckError = new Error('Conditional check failed');
+      conditionalCheckError.name = 'ConditionalCheckFailedException';
+      mockDocClient.send.mockRejectedValueOnce(conditionalCheckError);
+
+      await expect(repository.markTemporaryAsExpired('user-1', 'alert-missing', 1)).rejects.toThrow(
+        EntityNotFoundError
+      );
+    });
+
+    it('その他のエラーは DatabaseError にラップされる', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('boom'));
+
+      await expect(repository.markTemporaryAsExpired('user-1', 'alert-1', 1)).rejects.toThrow(
+        DatabaseError
+      );
     });
   });
 });

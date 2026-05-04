@@ -108,7 +108,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
         { status: 404 }
       );
     }
-    if (job.status !== 'PENDING') {
+    if (job.batchJobId !== undefined) {
       return NextResponse.json(
         {
           error: 'JOB_NOT_PENDING',
@@ -131,7 +131,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       })
     );
 
-    await getBatchClient().send(
+    const submitResponse = await getBatchClient().send(
       new SubmitJobCommand({
         jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
         jobQueue: getBatchJobQueueArn(),
@@ -149,7 +149,7 @@ export async function POST(request: Request, { params }: RouteParams): Promise<N
       })
     );
 
-    await jobService.updateStatus(job.jobId, 'PROCESSING');
+    await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
 
     return NextResponse.json({}, { status: 200 });
   } catch (error) {

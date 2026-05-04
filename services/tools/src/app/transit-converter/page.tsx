@@ -215,7 +215,7 @@ function TransitConverterContent() {
         乗り換え変換ツール
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center">
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
         乗り換え案内のテキストを貼り付けて、整形された形式に変換します。
       </Typography>
 
@@ -232,7 +232,7 @@ function TransitConverterContent() {
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1 }}>
                 ステップ1: 乗り換え案内のテキストを取得
               </Typography>
-              <Typography variant="body2" paragraph>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 乗り換え案内サイト（Yahoo!乗換案内、ジョルダンなど）で経路を検索し、
                 表示された経路情報をコピーします。
               </Typography>
@@ -240,7 +240,7 @@ function TransitConverterContent() {
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
                 ステップ2: テキストを入力
               </Typography>
-              <Typography variant="body2" paragraph>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 コピーしたテキストを入力欄に貼り付けます。
                 「クリップボードから読み取り」ボタンを使うと、
                 クリップボードの内容を自動で入力できます。
@@ -249,7 +249,7 @@ function TransitConverterContent() {
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
                 ステップ3: 表示設定を調整（任意）
               </Typography>
-              <Typography variant="body2" paragraph>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 表示したい項目をチェックボックスで選択できます。
                 デフォルトでは主要な情報（日付、出発地・到着地、時刻、運賃など）が選択されています。
                 設定は自動的に保存され、次回訪問時も反映されます。
@@ -258,7 +258,7 @@ function TransitConverterContent() {
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
                 ステップ4: 変換を実行
               </Typography>
-              <Typography variant="body2" paragraph>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 「変換」ボタンをクリックすると、テキストが解析され、
                 整形された結果が出力欄に表示されます。
               </Typography>
@@ -266,7 +266,7 @@ function TransitConverterContent() {
               <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
                 ステップ5: 結果をコピー
               </Typography>
-              <Typography variant="body2" paragraph>
+              <Typography variant="body2" sx={{ mb: 2 }}>
                 「コピー」ボタンをクリックすると、整形された結果がクリップボードにコピーされます。
                 メモアプリやメッセージアプリに貼り付けてご利用ください。
               </Typography>

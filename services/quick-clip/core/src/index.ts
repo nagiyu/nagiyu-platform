@@ -1,11 +1,14 @@
 export type {
   JobStatus,
+  BatchStage,
   HighlightStatus,
   ClipStatus,
   Job,
   Highlight,
   CreateJobInput,
   UpdateHighlightInput,
+  AnalysisProgressItem,
+  AnalysisProgress,
 } from './types.js';
 
 export type { JobRepository } from './repositories/job.repository.interface.js';

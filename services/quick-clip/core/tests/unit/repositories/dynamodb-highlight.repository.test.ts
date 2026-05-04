@@ -37,6 +37,7 @@ describe('DynamoDBHighlightRepository', () => {
         source: 'motion',
         status: 'unconfirmed',
         clipStatus: 'PENDING',
+        expiresAt: 1234567890,
       },
     ]);
 
@@ -50,6 +51,34 @@ describe('DynamoDBHighlightRepository', () => {
       ':clipStatus': 'PENDING',
       ':source': 'motion',
     });
+  });
+
+  it('createMany は expiresAt を保存する', async () => {
+    mockSend.mockResolvedValue({});
+
+    await repository.createMany([
+      {
+        highlightId: 'h1',
+        jobId: 'job-1',
+        order: 1,
+        startSec: 10,
+        endSec: 20,
+        source: 'motion',
+        status: 'unconfirmed',
+        clipStatus: 'PENDING',
+        expiresAt: 1234567890,
+      },
+    ]);
+
+    const sentCommand = mockSend.mock.calls[0]?.[0] as UpdateCommand;
+    expect(sentCommand).toBeInstanceOf(UpdateCommand);
+    expect(sentCommand.input.ExpressionAttributeNames).toMatchObject({
+      '#expiresAt': 'expiresAt',
+    });
+    expect(sentCommand.input.ExpressionAttributeValues).toMatchObject({
+      ':expiresAt': 1234567890,
+    });
+    expect(sentCommand.input.UpdateExpression).toContain('#expiresAt = :expiresAt');
   });
 
   it('createMany は dominantEmotion が指定された場合に保存する', async () => {
@@ -66,6 +95,7 @@ describe('DynamoDBHighlightRepository', () => {
         status: 'unconfirmed',
         clipStatus: 'PENDING',
         dominantEmotion: 'laugh',
+        expiresAt: 1234567890,
       },
     ]);
 
@@ -93,6 +123,7 @@ describe('DynamoDBHighlightRepository', () => {
         source: 'motion',
         status: 'unconfirmed',
         clipStatus: 'PENDING',
+        expiresAt: 1234567890,
       },
     ]);
 
@@ -118,6 +149,7 @@ describe('DynamoDBHighlightRepository', () => {
           source: 'both',
           status: 'unconfirmed',
           clipStatus: 'GENERATED',
+          expiresAt: 1234567890,
         },
       ],
     });
@@ -137,6 +169,7 @@ describe('DynamoDBHighlightRepository', () => {
         status: 'unconfirmed',
         clipStatus: 'GENERATED',
         dominantEmotion: undefined,
+        expiresAt: 1234567890,
       },
     ]);
   });
@@ -157,6 +190,7 @@ describe('DynamoDBHighlightRepository', () => {
           status: 'unconfirmed',
           clipStatus: 'PENDING',
           dominantEmotion: 'excite',
+          expiresAt: 1234567890,
         },
       ],
     });
@@ -180,6 +214,7 @@ describe('DynamoDBHighlightRepository', () => {
         source: 'volume',
         status: 'unconfirmed',
         clipStatus: 'FAILED',
+        expiresAt: 1234567890,
       },
     });
 
@@ -197,6 +232,7 @@ describe('DynamoDBHighlightRepository', () => {
       status: 'unconfirmed',
       clipStatus: 'FAILED',
       dominantEmotion: undefined,
+      expiresAt: 1234567890,
     });
   });
 
@@ -214,6 +250,7 @@ describe('DynamoDBHighlightRepository', () => {
         source: 'motion',
         status: 'unconfirmed',
         clipStatus: 'GENERATED',
+        expiresAt: 1234567890,
       },
     });
 

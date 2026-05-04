@@ -37,11 +37,13 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
 
   return (
     <ListItem disablePadding>
-      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+      <Box
+        sx={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}
+      >
         <Checkbox
           checked={todo.isCompleted}
           onChange={() => onToggleComplete?.(todo.todoId)}
-          inputProps={{ 'aria-label': `${todo.title}の完了チェック` }}
+          slotProps={{ input: { 'aria-label': `${todo.title}の完了チェック` } }}
         />
         {isEditing ? (
           <TextField

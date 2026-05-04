@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import matter from 'gray-matter';
 import { remark } from 'remark';
+import remarkGfm from 'remark-gfm';
 import remarkRehype from 'remark-rehype';
 import rehypeStringify from 'rehype-stringify';
 import DOMPurify from 'isomorphic-dompurify';
@@ -27,7 +28,11 @@ const TYPE_TO_FILENAME: Record<'overview' | 'guide' | 'faq', string> = {
  * Markdown 文字列を HTML に変換する
  */
 async function markdownToHtml(markdown: string): Promise<string> {
-  const result = await remark().use(remarkRehype).use(rehypeStringify).process(markdown);
+  const result = await remark()
+    .use(remarkGfm)
+    .use(remarkRehype)
+    .use(rehypeStringify)
+    .process(markdown);
   return DOMPurify.sanitize(result.toString());
 }
 
@@ -117,4 +122,90 @@ export function getAllArticles(): ArticleMeta[] {
   return articles.sort(
     (a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
   );
+}
+
+/**
+ * 指定記事に関連する記事を返す（タグ一致数の多い順、同数なら publishedAt 降順）
+ * @param currentSlug - 除外する自記事 slug
+ * @param tags - 比較対象のタグ配列
+ * @param limit - 返す件数（既定 3）
+ */
+export function getRelatedArticles(currentSlug: string, tags: string[], limit = 3): ArticleMeta[] {
+  const tagSet = new Set(tags);
+  const others = getAllArticles().filter((article) => article.slug !== currentSlug);
+
+  const scored = others
+    .map((article) => ({
+      article,
+      score: article.tags.filter((tag) => tagSet.has(tag)).length,
+    }))
+    .filter((entry) => entry.score > 0);
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) {
+      return b.score - a.score;
+    }
+    return new Date(b.article.publishedAt).getTime() - new Date(a.article.publishedAt).getTime();
+  });
+
+  return scored.slice(0, limit).map((entry) => entry.article);
+}
+
+/**
+ * 全タグを記事数の多い順に返す
+ */
+export function getAllTags(): { tag: string; count: number }[] {
+  const counter = new Map<string, number>();
+  for (const article of getAllArticles()) {
+    for (const tag of article.tags) {
+      counter.set(tag, (counter.get(tag) ?? 0) + 1);
+    }
+  }
+  return [...counter.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.tag.localeCompare(b.tag);
+    });
+}
+
+/**
+ * タグ名を URL 用のスラッグに変換する
+ * - 小文字化
+ * - スペースとスラッシュをハイフンに置換
+ * - 連続するハイフンを 1 つに集約
+ *
+ * 例: "AWS Batch" → "aws-batch" / "Next.js" → "next.js"
+ *
+ * Next.js のルーティングで `%20`（エンコードされたスペース）が prerender-manifest と
+ * 照合されない不具合を回避するため、URL からスペースを排除する目的で導入。
+ */
+export function tagToSlug(tag: string): string {
+  return tag
+    .toLowerCase()
+    .replace(/[\s/]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * 非 ASCII を含むスラッグも Next.js のルーティングで安定しないため、
+ * ページ化対象は ASCII スラッグに収まるタグのみとする。
+ */
+export function isLinkableTag(tag: string): boolean {
+  return /^[a-z0-9.@_-]+$/.test(tagToSlug(tag));
+}
+
+/**
+ * スラッグからオリジナルのタグ名を逆引きする
+ */
+export function getTagBySlug(slug: string): string | null {
+  return getAllTags().find((entry) => tagToSlug(entry.tag) === slug)?.tag ?? null;
+}
+
+/**
+ * 指定タグを持つ記事を publishedAt 降順で返す
+ */
+export function getArticlesByTag(tag: string): ArticleMeta[] {
+  return getAllArticles().filter((article) => article.tags.includes(tag));
 }

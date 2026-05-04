@@ -12,8 +12,9 @@ import {
   type PaginationOptions,
   type PaginatedResult,
 } from '@nagiyu/aws';
-import type { AlertRepository } from './alert.repository.interface.js';
+import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
 import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
+import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
 import { AlertMapper } from '../mappers/alert.mapper.js';
 import { randomUUID } from 'crypto';
 
@@ -56,7 +57,7 @@ export class InMemoryAlertRepository implements AlertRepository {
    */
   public async getByUserId(
     userId: string,
-    options?: PaginationOptions
+    options?: GetByUserIdOptions
   ): Promise<PaginatedResult<AlertEntity>> {
     const result = this.store.queryByAttribute(
       {
@@ -71,12 +72,15 @@ export class InMemoryAlertRepository implements AlertRepository {
       options
     );
 
-    const items = result.items.map((item) => this.mapper.toEntity(item));
+    let items = result.items.map((item) => this.mapper.toEntity(item));
+    if (options?.enabledOnly === true) {
+      items = items.filter((item) => item.Enabled === true);
+    }
 
     return {
       items,
       nextCursor: result.nextCursor,
-      count: result.count,
+      count: options?.enabledOnly === true ? items.length : result.count,
     };
   }
 
@@ -182,5 +186,64 @@ export class InMemoryAlertRepository implements AlertRepository {
       }
       throw error;
     }
+  }
+
+  /**
+   * 一時アラート失効バッチ用の軽量取得（Temporary=true かつ Enabled=true のみ）
+   */
+  public async getTemporaryCandidatesByFrequency(
+    frequency: 'MINUTE_LEVEL' | 'HOURLY_LEVEL',
+    options?: PaginationOptions
+  ): Promise<PaginatedResult<TemporaryAlertCandidate>> {
+    const result = this.store.queryByAttribute(
+      {
+        attributeName: 'GSI2PK',
+        attributeValue: `ALERT#${frequency}`,
+      },
+      options
+    );
+
+    const items: TemporaryAlertCandidate[] = [];
+    for (const item of result.items) {
+      if (item.Temporary !== true || item.Enabled !== true) {
+        continue;
+      }
+      try {
+        items.push(this.mapper.toTemporaryCandidate(item));
+      } catch {
+        // InMemory 実装では検証失敗時もテストの意図を壊さないようスキップ
+        continue;
+      }
+    }
+
+    return {
+      items,
+      nextCursor: result.nextCursor,
+      count: items.length,
+    };
+  }
+
+  /**
+   * 一時アラートを失効状態にする（Enabled=false + TTL 設定）
+   */
+  public async markTemporaryAsExpired(
+    userId: string,
+    alertId: string,
+    ttlSeconds: number
+  ): Promise<void> {
+    const { pk, sk } = this.mapper.buildKeys({ userId, alertId });
+    const existing = this.store.get(pk, sk);
+    if (!existing) {
+      throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+    }
+
+    const updated = {
+      ...existing,
+      Enabled: false,
+      TTL: ttlSeconds,
+      UpdatedAt: Date.now(),
+    };
+
+    this.store.put(updated);
   }
 }

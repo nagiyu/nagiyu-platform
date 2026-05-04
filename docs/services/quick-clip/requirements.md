@@ -128,7 +128,7 @@
 | F-004 | クリッププレビュー | 見どころをクリックして切り出し済みクリップをWeb上でプレビューする | 高 |
 | F-005 | 採否チェック | 見どころに「未確認 / 使える / 使えない」の3状態でステータスを設定する。初期値は「未確認」。時間調整確定時に status が accepted/rejected の場合は unconfirmed にリセットする | 高 |
 | F-006 | 時間調整 | 見どころの開始・終了時刻を前後に調整する。調整確定（onBlur）時にクリップ再生成が自動で開始される（clipStatus が GENERATING に遷移）。status が accepted/rejected の場合は unconfirmed にリセットされる | 高 |
-| F-010 | クリップ自動生成 | クリップ生成は以下の場合に自動で実行される: (1) 初回表示時に全クリップが PENDING の場合、一覧取得と同時に全件の生成を開始する (2) 時間調整確定時（onBlur）に対象クリップの生成を自動で開始する。FAILED クリップのみリトライボタンを左パネルに表示し、押下で再生成する。通常フローの再生成ボタンは廃止する | 高 |
+| F-010 | クリップ自動生成 | クリップ生成は以下の場合に自動で実行される: (1) 初回生成は Batch の `clipping` ステージで全ハイライト分を完了させ、見どころ画面を開いた時点で全クリップが `GENERATED` 状態になっている (2) 時間調整確定時（onBlur）に対象クリップを clip-regenerate Lambda で再生成する。FAILED クリップのみリトライボタンを左パネルに表示し、押下で再生成する。通常フローの再生成ボタンは廃止する | 高 |
 | F-007 | ZIPダウンロード | 採用した見どころの切り出し済みクリップをZIPでダウンロードする（採用クリップが全件生成済みの場合のみ実行可能） | 高 |
 | F-008 | ジョブステータス確認 | 処理中のジョブのステータスを確認する | 中 |
 | F-009 | 感情スコアによる見どころ抽出 | 文字起こし（gpt-4o-mini-transcribe）と感情分析（gpt-5-mini）から感情スコアを算出し、motion・volume と並列の第3ソースとして見どころ抽出に使用する。感情フィルタ（laugh / excite / touch / tension / any）でスコアリング対象の感情カテゴリを指定できる。`OPENAI_API_KEY` 未設定時は自動的にスキップされ、既存の motion・volume のみの動作となる | 高（Phase 2） |
@@ -136,6 +136,12 @@
 | F-012 | 広告完了ゲート | 広告再生完了（または全エラーパスのフォールバック）後かつ処理完了（COMPLETED）後のみ、見どころ確認ボタンを有効化する | 高 |
 | F-013 | 広告スキップ制御 | `NEXT_PUBLIC_VAST_TAG_URL` が空または未設定の場合、広告をスキップする（開発・テスト環境向け） | 高 |
 | F-014 | 列表示設定 | テーブルの各列の表示 / 非表示をユーザーが切り替えられる UI を提供する。固定列（No.・開始〜終了・採否）は常時表示。オプション列（抽出根拠）はデフォルト OFF で、列設定ボタンから ON/OFF を切り替え可能 | 高 |
+| F-015 | アップロード進捗表示 | アップロード中、バイト単位の進捗をプログレスバー（0〜100%）で表示する。小ファイル（< 100 MB）は XHR の upload イベントで進捗を追跡し、大ファイル（≥ 100 MB）はマルチパートアップロード時に並列 PUT の各チャンク完了ごとに進捗を更新する | 高 |
+| F-016 | 解析ステージ表示 | 処理中画面（SCR-002）に「アップロード → 解析 → 切り出し」の 3 段階ステッパーを常時表示する。PROCESSING 時は batchStage のサブラベル（ダウンロード中 / 解析中 / 分割中 / 集計中）を表示する | 高 |
+| F-017 | クリップ生成進捗表示 | 見どころ確認画面（SCR-003）にクリップ生成の進捗を「X / Y 件生成済」として表示する。生成中（PENDING または GENERATING が 1 件以上）のときのみ表示する | 高 |
+| F-018 | ユーザー制約通知 | アップロード画面（SCR-001）でタブ閉じ禁止と 24 時間失効の注意書きを常時表示する。処理中画面（SCR-002）でタブを閉じても処理が継続する旨を表示する | 高 |
+| F-019 | 有効期限表示 | 処理中画面（SCR-002）および見どころ確認画面（SCR-003）に、データの有効期限（`expiresAt` から算出した日時）を常時表示する | 高 |
+| F-020 | 解析進捗のサブ項目表示 | 処理中画面（SCR-002）の解析ステップ内にモーション分析・音量分析・文字起こし・感情分析それぞれの進捗をサブ項目として表示する。各項目は「実行中」「完了」「スキップ」（文字起こし・感情分析が graceful degradation で失敗した場合）の状態を示す。チャンク数が 2 以上の場合は「X/Y」形式で完了数を表示する。OpenAI API キー未設定時は文字起こし・感情分析サブ項目は表示しない | 高 |
 
 ### 2.3 想定画面の概要
 
@@ -143,15 +149,13 @@
 - 処理中画面（ジョブステータスの確認）
 - 見どころ一覧・確認画面（プレビュー・採否チェック・時間調整・ダウンロード）
 
-### 2.4 クリップ生成フロー（Phase 11 UX 改善後）
+### 2.4 クリップ生成フロー
 
-- 見どころ抽出バッチはクリップ生成を行わず、ハイライトの clipStatus を `PENDING`・status を `unconfirmed` として保存する
-- **初回表示時の自動生成**: 見どころ一覧取得（GET /highlights）時に PENDING のハイライトが 1 件以上存在する場合、全件の clip-regenerate Lambda を非同期 Invoke し clipStatus を `GENERATING` に更新して返却する
-- **時間調整時の自動生成**: 開始・終了時刻を調整して確定（onBlur）すると PATCH API が Lambda を非同期 Invoke し clipStatus を `GENERATING` に遷移させる。status が `accepted` または `rejected` の場合は `unconfirmed` にリセットする
-- API は clip-regenerate Lambda を非同期 Invoke し、clipStatus を `GENERATING` に更新して返却する
-- フロントは clipStatus が `PENDING` または `GENERATING` の行をローディング表示し、`GENERATED` になるまでポーリングで状態を追跡する
+- **初回生成（Batch 内）**: 見どころ抽出バッチは `analyzing` の後の `clipping` ステージで全ハイライトを FFmpeg（`-c copy` 無エンコード）で並列に切り出し、S3 にアップロードしてから DynamoDB に `clipStatus: GENERATED` で保存する。見どころ画面を開いた時点で全クリップが再生可能な状態となる
+- **時間調整時の自動再生成**: 開始・終了時刻を調整して確定（onBlur）すると PATCH API が clip-regenerate Lambda を非同期 Invoke し clipStatus を `GENERATING` に遷移させる。status が `accepted` または `rejected` の場合は `unconfirmed` にリセットする
+- フロントは clipStatus が `GENERATING` の行をローディング表示し、`GENERATED` になるまでポーリングで状態を追跡する
 - クリップの S3 パスは `outputs/{jobId}/clips/{highlightId}.mp4` として導出する（DynamoDB には保存しない）
-- **FAILED 時の再試行**: clipStatus が `FAILED` のクリップに対してのみ左パネルにリトライボタンを表示する。押下で `POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate` を呼び出し再生成する
+- **FAILED 時の再試行**: clipStatus が `FAILED` のクリップに対してのみ左パネルにリトライボタンを表示する。押下で `POST /api/jobs/{jobId}/highlights/{highlightId}/regenerate` を呼び出し clip-regenerate Lambda で再生成する
 - 通常フローの再生成ボタンは廃止する
 
 ---
@@ -167,7 +171,7 @@
 | ZIPダウンロード生成時間 | 30秒以内（目安）※ 難しければ多少の超過は許容 |
 | アップロード上限 | 20 GB まで受け付けること |
 | Batch 対応ファイルサイズ | 20 GB までの動画を OOM なく処理できること |
-| Batch リソース選択 | ファイルサイズに応じて自動的に適切な Batch Job Definition を選択すること（< 1 GiB: small、1 GiB 以上 8 GiB 未満: large、≥ 8 GiB: xlarge） |
+| Batch リソース選択 | ファイルサイズに応じて自動的に適切な Batch Job Definition を選択すること（< 1 GiB: small、1 GiB 以上 4 GiB 未満: large、≥ 4 GiB: xlarge）。large/xlarge は 8 vCPU・16 GiB メモリで motion/volume チャンク並列実行（最大 10 FFmpeg プロセス）に対応する |
 
 ### 3.2 セキュリティ要件
 
@@ -190,7 +194,7 @@ AWS サービスの可用性に依存する。個別の稼働率・RTO・RPO 目
 
 ### 3.5 その他の非機能要件
 
-- **ファイル保持期間**: アップロードファイル・生成クリップともに1日（S3 Lifecycle Policy および DynamoDB TTL で自動削除）
+- **ファイル保持期間**: アップロードファイル・生成クリップともに1日（S3 Lifecycle Policy および DynamoDB TTL で自動削除）。Highlight レコードにも Job の `expiresAt` と同値の TTL を設定し、Job と同じタイミングで自動削除される
 - **対応ブラウザ**: Chrome・Edge（最新版）
 - **対応デバイス**: PC（デスクトップ）のみ。スマートフォン対応・PWA 対応は行わない（codec-converter と同方針）
 

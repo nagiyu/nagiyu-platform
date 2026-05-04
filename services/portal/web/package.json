@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/portal-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -22,9 +22,10 @@
     "@nagiyu/nextjs": "*",
     "@nagiyu/ui": "*",
     "gray-matter": "^4.0.3",
-    "isomorphic-dompurify": "^3.7.1",
+    "isomorphic-dompurify": "^3.12.0",
     "rehype-stringify": "^10.0.1",
     "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
     "remark-rehype": "^11.1.1"
   }
 }

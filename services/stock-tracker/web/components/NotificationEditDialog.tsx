@@ -37,7 +37,7 @@ export default function NotificationEditDialog({
           label="通知タイトル"
           value={localTitle}
           onChange={(event) => setLocalTitle(event.target.value)}
-          inputProps={{ maxLength: 120 }}
+          slotProps={{ htmlInput: { maxLength: 120 } }}
           sx={{ mt: 1 }}
         />
         <TextField
@@ -47,7 +47,7 @@ export default function NotificationEditDialog({
           label="通知本文"
           value={localBody}
           onChange={(event) => setLocalBody(event.target.value)}
-          inputProps={{ maxLength: 500 }}
+          slotProps={{ htmlInput: { maxLength: 500 } }}
           sx={{ mt: 2 }}
         />
       </DialogContent>

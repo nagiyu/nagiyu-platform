@@ -39,8 +39,8 @@ type CreateJobRequest = {
 const UPLOAD_URL_EXPIRES_IN = 3600;
 const MULTIPART_UPLOAD_URL_EXPIRES_IN = 24 * 60 * 60;
 const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024 * 1024;
-const MULTIPART_UPLOAD_THRESHOLD_BYTES = 5 * 1024 * 1024 * 1024;
-const MULTIPART_CHUNK_SIZE_BYTES = 500 * 1024 * 1024;
+const MULTIPART_UPLOAD_THRESHOLD_BYTES = 100 * 1024 * 1024;
+const MULTIPART_CHUNK_SIZE_BYTES = 50 * 1024 * 1024;
 
 const isCreateJobRequest = (body: unknown): body is CreateJobRequest => {
   if (typeof body !== 'object' || body === null) {
@@ -152,7 +152,6 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json(
         {
           jobId: job.jobId,
-          status: job.status,
           multipart: {
             uploadId,
             uploadUrls,
@@ -174,7 +173,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       { expiresIn: UPLOAD_URL_EXPIRES_IN }
     );
 
-    await getBatchClient().send(
+    const submitResponse = await getBatchClient().send(
       new SubmitJobCommand({
         jobName: `quick-clip-extract-${job.jobId}`.slice(0, 128),
         jobQueue: getBatchJobQueueArn(),
@@ -192,10 +191,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       })
     );
 
+    await jobService.updateBatchJobId(job.jobId, submitResponse.jobId!);
+
     return NextResponse.json(
       {
         jobId: job.jobId,
-        status: job.status,
         uploadUrl,
         expiresIn: UPLOAD_URL_EXPIRES_IN,
       },

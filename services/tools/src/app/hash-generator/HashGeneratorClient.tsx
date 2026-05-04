@@ -91,7 +91,7 @@ export default function HashGeneratorClient() {
         ハッシュ生成ツール
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center">
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
         テキストから SHA-256 / SHA-512 のハッシュ値（Hex）を生成できます。
       </Typography>
 

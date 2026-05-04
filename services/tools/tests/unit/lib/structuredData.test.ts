@@ -22,9 +22,9 @@ describe('structuredData', () => {
       expect.arrayContaining([expect.objectContaining({ '@type': 'SoftwareApplication' })])
     );
     const software = graph.find(
-      (entry): entry is { '@type': string; featureList?: string[] } =>
+      (entry) =>
         typeof entry === 'object' && entry !== null && entry['@type'] === 'SoftwareApplication'
-    );
+    ) as { '@type': string; featureList?: string[] } | undefined;
     expect(software?.featureList).toContain('Base64文字列のエンコード・デコード');
   });
 

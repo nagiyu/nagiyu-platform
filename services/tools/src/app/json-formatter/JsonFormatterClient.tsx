@@ -130,7 +130,7 @@ export default function JsonFormatterClient() {
         JSON 整形ツール
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" paragraph align="center">
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }} align="center">
         JSON の整形・圧縮・検証ができます
       </Typography>
 
@@ -146,7 +146,7 @@ export default function JsonFormatterClient() {
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 1 }}>
               ステップ1: JSON を入力
             </Typography>
-            <Typography variant="body2" paragraph>
+            <Typography variant="body2" sx={{ mb: 2 }}>
               入力欄に JSON 文字列を貼り付けます。「クリップボードから読み取り」ボタンを使うと、
               クリップボード内の JSON をそのまま入力できます。
             </Typography>
@@ -154,7 +154,7 @@ export default function JsonFormatterClient() {
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
               ステップ2: 整形または圧縮を選ぶ
             </Typography>
-            <Typography variant="body2" paragraph>
+            <Typography variant="body2" sx={{ mb: 2 }}>
               「整形」はインデント付きで見やすく表示したいときに使用します。
               「圧縮」は改行や空白を削除し、1行のコンパクトな JSON にしたいときに使用します。
             </Typography>
@@ -162,7 +162,7 @@ export default function JsonFormatterClient() {
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
               ステップ3: 結果を確認してコピー
             </Typography>
-            <Typography variant="body2" paragraph>
+            <Typography variant="body2" sx={{ mb: 2 }}>
               出力欄に変換結果が表示されます。「コピー」ボタンで結果をクリップボードに保存し、
               ドキュメントやチャット、設定ファイルの編集にそのまま利用できます。
             </Typography>
@@ -191,12 +191,12 @@ export default function JsonFormatterClient() {
             <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 600, mt: 2 }}>
               ❓ FAQ
             </Typography>
-            <Typography variant="body2" paragraph>
+            <Typography variant="body2" sx={{ mb: 2 }}>
               <strong>Q. データはサーバーに送信されますか？</strong>
               <br />
               A. いいえ。変換処理はブラウザ内で完結するため、入力した JSON は外部に送信されません。
             </Typography>
-            <Typography variant="body2" paragraph>
+            <Typography variant="body2" sx={{ mb: 2 }}>
               <strong>Q. 整形時のインデント幅は変更できますか？</strong>
               <br />
               A. 現在は 2 スペース固定です。一般的な JSON 表示形式として読みやすさを優先しています。
