@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest",
+    "lint": "eslint bin/**/*.ts lib/**/*.ts libs/**/*.ts",
     "watch": "tsc -w",
     "cdk": "cdk",
     "bootstrap": "cdk bootstrap",
