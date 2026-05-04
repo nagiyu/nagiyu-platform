@@ -1,0 +1,40 @@
+name: Infra Shared - Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - integration/**
+    paths:
+      - 'infra/shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/infra-shared-verify.yml'
+
+jobs:
+  verify:
+    name: Verify infra/shared
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Test
+        run: npm run test --workspace=@nagiyu/infra-shared
+
+      - name: Build
+        run: npm run build --workspace=@nagiyu/infra-shared
+
+      - name: CDK Synth (dry-run)
+        env:
+          DOMAIN_NAME: example.com
+        run: npm run synth --workspace=@nagiyu/infra-shared -- --all --context env=dev

@@ -82,4 +82,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Environment**: ${{ steps.setup-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: us-east-1" >> $GITHUB_STEP_SUMMARY
-          echo "- **Stacks**: VPC, ACM, IAM Policies, IAM Users" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stacks**: VPC, ACM, Route53, IAM Policies, IAM Users, Docker Build Lock" >> $GITHUB_STEP_SUMMARY
