@@ -9,16 +9,6 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/infra-shared-verify.yml'
-  push:
-    branches:
-      - develop
-      - integration/**
-      - master
-    paths:
-      - 'infra/shared/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/infra-shared-verify.yml'
 
 jobs:
   lint:
