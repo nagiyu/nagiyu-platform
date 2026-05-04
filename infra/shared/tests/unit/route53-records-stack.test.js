@@ -12,15 +12,15 @@ describe('Route53RecordsStack', () => {
     return new Route53RecordsStack(app, 'TestRoute53RecordsStack', { domainName });
   };
 
-  it('CloudFront 向け CNAME を 17 件、Google Search Console を 1 件、apex ALIAS を 1 件作成する', () => {
+  it('CloudFront 向け CNAME を 17 件、Google Search Console / ACM 検証を各 1 件、apex ALIAS を 1 件作成する', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
-    // 17 (CloudFront subdomains) + 1 (Google Search Console) = 18 CNAME
-    template.resourceCountIs('AWS::Route53::RecordSet', 19);
+    // 17 (CloudFront) + 1 (Google) + 1 (ACM 検証) + 1 (apex ALIAS) = 20
+    template.resourceCountIs('AWS::Route53::RecordSet', 20);
   });
 
-  it('全 CloudFront 向け CNAME に TTL 300 秒を設定する', () => {
+  it('全 CNAME レコードに TTL 300 秒を設定する', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
@@ -28,7 +28,8 @@ describe('Route53RecordsStack', () => {
       Properties: { Type: 'CNAME' },
     });
 
-    expect(Object.keys(cnameRecords).length).toBe(18);
+    // 17 (CloudFront) + 1 (Google) + 1 (ACM 検証) = 19 CNAME
+    expect(Object.keys(cnameRecords).length).toBe(19);
     for (const [, resource] of Object.entries(cnameRecords)) {
       expect(resource.Properties.TTL).toBe('300');
     }
@@ -79,15 +80,15 @@ describe('Route53RecordsStack', () => {
     });
   });
 
-  it('ACM 検証 CNAME は Phase 5 で自動化するため複製しない', () => {
+  it('ACM 検証 CNAME を含む（証明書の自動更新で参照される）', () => {
     const stack = createStack();
     const template = Template.fromStack(stack);
 
-    const records = template.findResources('AWS::Route53::RecordSet');
-    const names = Object.values(records).map((r) => r.Properties.Name);
-
-    // ACM 検証 CNAME (_xxxx.nagiyu.com) が含まれないこと
-    expect(names.some((n) => /^_/.test(n))).toBe(false);
+    template.hasResourceProperties('AWS::Route53::RecordSet', {
+      Type: 'CNAME',
+      Name: '_795cd11835618eae1172367526630b7f.nagiyu.com.',
+      ResourceRecords: ['_09095adf08f7ad2742324041fb053779.zfyfvmchrl.acm-validations.aws'],
+    });
   });
 
   it('ホストゾーン参照は SSM パラメータから動的に解決する', () => {
