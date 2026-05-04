@@ -634,3 +634,4 @@ import { something } from '../components/Button';
 - [rules.md](./rules.md): コーディング規約・べからず集
 - [service-template.md](./service-template.md): サービステンプレート
 - [architecture.md](./architecture.md): アーキテクチャ方針
+- [shared-ui-components.md](./shared-ui-components.md): `libs/ui/` における共通 UI コンポーネントの設計方針・API 規約・開発フロー
