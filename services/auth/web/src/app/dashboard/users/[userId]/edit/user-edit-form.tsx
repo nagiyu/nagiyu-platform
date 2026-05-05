@@ -146,8 +146,8 @@ export function UserEditForm({ userId }: UserEditFormProps) {
           </FormGroup>
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button type="submit" variant="solid" loading={saving}>
-              保存
+            <Button type="submit" variant="solid" disabled={saving}>
+              {saving ? '保存中...' : '保存'}
             </Button>
             <Button
               variant="outline"
