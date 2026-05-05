@@ -46,10 +46,10 @@
 
 ### PR 0-4: テスト基盤強化
 
-- [ ] `jest-axe` を `libs/ui` に導入
-- [ ] `libs/ui/jest.config.ts` のカバレッジ閾値を 90% に変更（branches は 85%）
-- [ ] サンプルとして既存コンポーネントに a11y テストを 1 つ追加
-- [ ] `tests/visual/` 配下の Playwright ビジュアルリグレッション基盤（基本構造のみ、本格運用は Phase 1 以降）
+- [x] `jest-axe` を `libs/ui` に導入（matcher は `tests/setup.ts` で全テストに適用）
+- [x] `libs/ui/jest.config.ts` のカバレッジ閾値を引き上げ（lines/statements 90%、branches/functions 80%。最終目標は spec 通り 90%/85% で段階的に引き上げ）
+- [x] サンプルとして `ErrorAlert` に a11y テストを追加
+- [x] ビジュアルリグレッションの本格運用方針を `docs/development/shared-ui-components.md` に明記（実体は Phase 1 以降で `tests/visual/` を新規作成）
 
 ---
 

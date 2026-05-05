@@ -25,12 +25,12 @@
 
 `libs/ui/` 配下に共通コンポーネントとして実装する対象。
 
-| Phase | コンポーネント | 統合する MUI |
-|---|---|---|
-| 1 | `Button` / `TextField` / `Checkbox` / `Chip` / `Link` | 同名の MUI コンポーネント |
-| 2 | `Select` | `Select` + `MenuItem` + `FormControl` + `InputLabel` |
-| 3 | `Card` / `Tabs` / `List` | `Card` + `CardContent` + `CardActions` + `CardActionArea` / `Tabs` + `Tab` / `List` + `ListItem` |
-| 4 | `Snackbar` / `Pagination` / `Badge` / `Paper` | 同名の MUI コンポーネント |
+| Phase | コンポーネント                                        | 統合する MUI                                                                                     |
+| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1     | `Button` / `TextField` / `Checkbox` / `Chip` / `Link` | 同名の MUI コンポーネント                                                                        |
+| 2     | `Select`                                              | `Select` + `MenuItem` + `FormControl` + `InputLabel`                                             |
+| 3     | `Card` / `Tabs` / `List`                              | `Card` + `CardContent` + `CardActions` + `CardActionArea` / `Tabs` + `Tab` / `List` + `ListItem` |
+| 4     | `Snackbar` / `Pagination` / `Badge` / `Paper`         | 同名の MUI コンポーネント                                                                        |
 
 ### 対象外（MUI 直接利用 OK）
 
@@ -70,15 +70,15 @@
 ```typescript
 // OK
 type Props = {
-    variant: 'solid' | 'outline' | 'ghost';
-    color: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'neutral';
-    size: 'sm' | 'md' | 'lg';
+  variant: 'solid' | 'outline' | 'ghost';
+  color: 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'neutral';
+  size: 'sm' | 'md' | 'lg';
 };
 
 // NG
 type Props = {
-    variant: string;
-    color: string;
+  variant: string;
+  color: string;
 };
 ```
 
@@ -118,14 +118,14 @@ type Props = {
 
 ### 基本ルール
 
-| 種別 | 規約 | 例 |
-|---|---|---|
-| バリアント | `variant` | `variant: 'solid' \| 'outline' \| 'ghost'` |
-| サイズ | `size` | `size: 'sm' \| 'md' \| 'lg'` |
-| 色・意図 | `color` | `color: 'primary' \| 'secondary' \| 'danger' \| 'success' \| 'warning' \| 'neutral'` |
-| boolean | 接頭辞なし | `disabled` / `loading` / `open` |
-| イベント | React 標準 | `onClick` / `onChange` / `onOpenChange` |
-| Polymorphic | `asChild` | Radix の Slot パターンを採用 |
+| 種別        | 規約       | 例                                                                                   |
+| ----------- | ---------- | ------------------------------------------------------------------------------------ |
+| バリアント  | `variant`  | `variant: 'solid' \| 'outline' \| 'ghost'`                                           |
+| サイズ      | `size`     | `size: 'sm' \| 'md' \| 'lg'`                                                         |
+| 色・意図    | `color`    | `color: 'primary' \| 'secondary' \| 'danger' \| 'success' \| 'warning' \| 'neutral'` |
+| boolean     | 接頭辞なし | `disabled` / `loading` / `open`                                                      |
+| イベント    | React 標準 | `onClick` / `onChange` / `onOpenChange`                                              |
+| Polymorphic | `asChild`  | Radix の Slot パターンを採用                                                         |
 
 ### `asChild` の使い方
 
@@ -154,25 +154,25 @@ type Props = {
 
 トークンは **2 層構造** で定義する。
 
-| 層 | 役割 | 例 |
-|---|---|---|
-| **Primitive** | 生の値（色、px、フォント等） | `--primitive-blue-500: #3B82F6;` |
-| **Semantic** | 意味（文脈・用途） | `--color-action-primary: var(--primitive-blue-500);` |
+| 層            | 役割                         | 例                                                   |
+| ------------- | ---------------------------- | ---------------------------------------------------- |
+| **Primitive** | 生の値（色、px、フォント等） | `--primitive-blue-500: #3B82F6;`                     |
+| **Semantic**  | 意味（文脈・用途）           | `--color-action-primary: var(--primitive-blue-500);` |
 
 **コンポーネントは Semantic トークンのみ参照**する。テーマ切替（ライト・ダーク・サービス別アクセント）は Primitive の割り当てを変えることで実現する。
 
 ### カテゴリ
 
-| カテゴリ | 例 |
-|---|---|
-| color | `bg.surface` / `bg.subtle` / `fg.default` / `fg.muted` / `border.default` / `action.primary` / `action.danger` 等 |
-| spacing | `xs` / `sm` / `md` / `lg` / `xl` / `2xl` |
-| typography | `fontSize.{xs..xl}` / `fontWeight.{regular,medium,bold}` / `lineHeight.{tight,normal,loose}` / `fontFamily` |
-| radius | `none` / `sm` / `md` / `lg` / `full` |
-| shadow | `sm` / `md` / `lg` / `xl` |
-| breakpoint | `sm` / `md` / `lg` / `xl` |
-| zIndex | `dropdown` / `sticky` / `modal` / `toast` / `tooltip` |
-| transition | `duration.{fast,normal,slow}` / `easing.{linear,in,out,inOut}` |
+| カテゴリ   | 例                                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| color      | `bg.surface` / `bg.subtle` / `fg.default` / `fg.muted` / `border.default` / `action.primary` / `action.danger` 等 |
+| spacing    | `xs` / `sm` / `md` / `lg` / `xl` / `2xl`                                                                          |
+| typography | `fontSize.{xs..xl}` / `fontWeight.{regular,medium,bold}` / `lineHeight.{tight,normal,loose}` / `fontFamily`       |
+| radius     | `none` / `sm` / `md` / `lg` / `full`                                                                              |
+| shadow     | `sm` / `md` / `lg` / `xl`                                                                                         |
+| breakpoint | `sm` / `md` / `lg` / `xl`                                                                                         |
+| zIndex     | `dropdown` / `sticky` / `modal` / `toast` / `tooltip`                                                             |
+| transition | `duration.{fast,normal,slow}` / `easing.{linear,in,out,inOut}`                                                    |
 
 ### 実装方式
 
@@ -246,21 +246,36 @@ libs/ui/
 
 ### 必須テスト
 
-| 種別 | ツール | 配置 |
-|---|---|---|
-| ユニットテスト | Jest + Testing Library | `tests/components/{Component}/` |
-| アクセシビリティテスト | `jest-axe` | ユニットテスト内に同居 |
+| 種別                   | ツール                 | 配置                            |
+| ---------------------- | ---------------------- | ------------------------------- |
+| ユニットテスト         | Jest + Testing Library | `tests/components/{Component}/` |
+| アクセシビリティテスト | `jest-axe`             | ユニットテスト内に同居          |
 
 ### 推奨テスト
 
-| 種別 | ツール | 配置 |
-|---|---|---|
-| ビジュアルリグレッション | Playwright + Storybook | `tests/visual/` |
-| インタラクションテスト | Storybook Play 関数 | Stories 内（Phase 3 以降） |
+| 種別                     | ツール                 | 配置                       |
+| ------------------------ | ---------------------- | -------------------------- |
+| ビジュアルリグレッション | Playwright + Storybook | `tests/visual/`            |
+| インタラクションテスト   | Storybook Play 関数    | Stories 内（Phase 3 以降） |
+
+#### ビジュアルリグレッションテスト（Phase 1 以降で本格運用）
+
+`libs/ui/tests/visual/` 配下に Playwright のテストを配置し、Storybook の各 Story（`iframe.html?id=...`）をスクリーンショット差分で検証する。Phase 0-4 時点ではディレクトリ・設定とも未作成。Phase 1 以降の Button 実装と並行して以下の構成で導入する。
+
+```
+libs/ui/tests/visual/
+├── playwright.config.ts       # Storybook URL を baseURL に設定
+└── components/
+    └── Button.spec.ts         # 各 Story のスクリーンショット
+```
+
+運用は既存 Playwright（Fast CI: chromium-mobile のみ / Full CI: 全デバイス）の方針に揃える。差分があればテスト失敗 → 視覚レビューでベースライン更新を承認。
 
 ### カバレッジ閾値
 
-`libs/ui/` は既定（80%）より厳しめの **90%** を要求する。
+`libs/ui/` は既定（80%）より厳しめのカバレッジを要求する。最終目標は spec 値、現時点は段階的引き上げ中。
+
+**最終目標（spec）**:
 
 ```typescript
 coverageThreshold: {
@@ -272,6 +287,21 @@ coverageThreshold: {
     },
 }
 ```
+
+**現状値（PR 0-4 時点）**:
+
+```typescript
+coverageThreshold: {
+    global: {
+        branches: 80,
+        functions: 80,
+        lines: 90,
+        statements: 90,
+    },
+}
+```
+
+`branches` / `functions` は既存ラッパーの一部（`Header.tsx` 等）の網羅率不足により最終目標に届いていない。Phase 1 以降のテスト整備と並行して順次引き上げる。
 
 ---
 
@@ -339,12 +369,12 @@ import { CustomComponent } from '@mui/material';
 
 `@nagiyu/ui` のバージョン管理ルール。
 
-| 変更種別 | バージョン | 対応 |
-|---|---|---|
-| 新規コンポーネント追加 | minor | そのまま追加 |
-| Props 追加（オプショナル） | minor | そのまま追加 |
-| Props 削除・必須化・型変更 | **major** | 全サービス側を **同 PR で更新** |
-| デフォルト値の変更 | minor or major | 影響範囲次第 |
+| 変更種別                   | バージョン     | 対応                            |
+| -------------------------- | -------------- | ------------------------------- |
+| 新規コンポーネント追加     | minor          | そのまま追加                    |
+| Props 追加（オプショナル） | minor          | そのまま追加                    |
+| Props 削除・必須化・型変更 | **major**      | 全サービス側を **同 PR で更新** |
+| デフォルト値の変更         | minor or major | 影響範囲次第                    |
 
 モノレポ前提のため、破壊的変更は同 PR で全サービス更新を行う。段階的廃止が必要な場合のみ deprecation を 1 リリース挟む。
 
