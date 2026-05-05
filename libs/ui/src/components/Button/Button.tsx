@@ -25,12 +25,9 @@ export type ButtonColor = 'primary' | 'secondary' | 'danger' | 'success' | 'warn
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 /**
- * Button のプロパティ。
- *
- * 100% ライブラリ非依存の独自定義。MUI / Radix 等の Props 型は extends しない。
- * エスケープハッチは `className` のみ（`sx` / `style` は提供しない）。
+ * Button の共通プロパティ（asChild の有無に依らず使えるもの）。
  */
-export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
+type ButtonOwnPropsBase = {
   /**
    * バリアント。既定: `solid`
    */
@@ -47,24 +44,57 @@ export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonE
    * ローディング中はスピナーを表示し、操作を抑止する。
    */
   loading?: boolean;
-  /**
-   * `true` の場合、Radix Slot により子要素に Props をマージする。
-   * 子要素は単一の React 要素である必要がある（`<a>` / `<Link>` 等）。
-   */
-  asChild?: boolean;
-}
+};
+
+type ButtonHtmlProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'>;
+
+/**
+ * 通常モード（`asChild` 未指定または `false`）の Props。
+ * `startIcon` を受け付ける。
+ */
+type ButtonRegularProps = ButtonHtmlProps &
+  ButtonOwnPropsBase & {
+    asChild?: false;
+    /**
+     * ボタン左側に表示する装飾アイコン。`aria-hidden="true"` が自動付与される。
+     * `loading` 中は内部で非表示になり、スピナーに置き換わる。
+     */
+    startIcon?: React.ReactNode;
+  };
+
+/**
+ * `asChild` モードの Props。
+ * Radix `Slot` は単一子要素しか許容しないため、`startIcon` の同時指定は型エラーにする。
+ */
+type ButtonAsChildProps = ButtonHtmlProps &
+  ButtonOwnPropsBase & {
+    asChild: true;
+    /**
+     * `asChild` モードでは利用不可。子要素自身で構造を組み立てること。
+     */
+    startIcon?: never;
+  };
+
+/**
+ * Button のプロパティ。
+ *
+ * 100% ライブラリ非依存の独自定義。MUI / Radix 等の Props 型は extends しない。
+ * エスケープハッチは `className` のみ（`sx` / `style` は提供しない）。
+ */
+export type ButtonProps = ButtonRegularProps | ButtonAsChildProps;
 
 /**
  * 汎用ボタンコンポーネント。
  *
  * - `variant` × `color` × `size` の直交した API
  * - `loading` でスピナー表示（`aria-busy` 自動設定）
- * - `asChild` でリンク等への変身に対応（Radix Slot パターン）
+ * - `startIcon` で左側装飾アイコン（`aria-hidden` 自動付与）
+ * - `asChild` でリンク等への変身に対応（Radix Slot パターン、`startIcon` とは排他）
  *
  * @see docs/development/shared-ui-components.md
  */
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  {
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(props, ref) {
+  const {
     variant = 'solid',
     color = 'primary',
     size = 'md',
@@ -77,9 +107,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
     'aria-busy': ariaBusy,
     'aria-disabled': ariaDisabled,
     ...rest
-  },
-  ref
-) {
+  } = props;
+  // startIcon は asChild と排他のため、通常モード側でのみ取り出す。
+  const startIcon = asChild ? undefined : (props as ButtonRegularProps).startIcon;
+  // asChild と startIcon は型で排他にしているが、実際の rest からも除外する。
+  if ('startIcon' in rest) {
+    delete (rest as { startIcon?: unknown }).startIcon;
+  }
+
   const Comp: React.ElementType = asChild ? Slot : 'button';
   const isDisabled = disabled || loading;
 
@@ -125,7 +160,14 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
       {loading ? (
         <span className={styles.spinner} aria-hidden="true" data-testid="button-spinner" />
       ) : null}
-      <span className={loading ? styles.contentHidden : styles.content}>{children}</span>
+      <span className={loading ? styles.contentHidden : styles.content}>
+        {startIcon ? (
+          <span className={styles.startIcon} aria-hidden="true" data-testid="button-start-icon">
+            {startIcon}
+          </span>
+        ) : null}
+        {children}
+      </span>
     </Comp>
   );
 });

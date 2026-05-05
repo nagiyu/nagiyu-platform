@@ -192,6 +192,14 @@
   visibility: hidden;
 }
 
+/* startIcon: ラベル左側のアイコン。currentColor 継承で variant の文字色に追従する */
+.startIcon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: currentColor;
+}
+
 /* スピナー（CSS のみで実装し、SVG / 追加依存を避ける） */
 .spinner {
   position: absolute;
