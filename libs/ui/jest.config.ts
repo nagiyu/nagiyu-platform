@@ -20,6 +20,11 @@ const config: Config.InitialOptions = {
   },
   // Setup testing library
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  // CSS Modules: クラス名そのものを返すプロキシで `styles.foo === 'foo'` とする。
+  // ユニットテストはクラス名の存在確認に留めるため、ハッシュ化前の値で十分。
+  moduleNameMapper: {
+    '\\.module\\.css$': 'identity-obj-proxy',
+  },
   // Common coverage settings
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],

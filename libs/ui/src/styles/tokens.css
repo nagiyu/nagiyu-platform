@@ -223,6 +223,13 @@
   --color-action-info-subtle: var(--primitive-cyan-400);
   --color-action-info-fg: var(--primitive-white);
 
+  /* Action: neutral（淡いグレー基調・補助的アクション用） */
+  --color-action-neutral: var(--primitive-gray-200);
+  --color-action-neutral-hover: var(--primitive-gray-300);
+  --color-action-neutral-active: var(--primitive-gray-400);
+  --color-action-neutral-subtle: var(--primitive-gray-100);
+  --color-action-neutral-fg: var(--color-fg-default);
+
   /* Spacing */
   --spacing-xs: var(--primitive-space-1);
   --spacing-sm: var(--primitive-space-2);
@@ -344,4 +351,11 @@
   --color-action-info-active: var(--primitive-cyan-300);
   --color-action-info-subtle: var(--primitive-cyan-500);
   --color-action-info-fg: var(--primitive-gray-900);
+
+  /* Action: neutral */
+  --color-action-neutral: var(--primitive-gray-700);
+  --color-action-neutral-hover: var(--primitive-gray-600);
+  --color-action-neutral-active: var(--primitive-gray-500);
+  --color-action-neutral-subtle: var(--primitive-gray-800);
+  --color-action-neutral-fg: var(--color-fg-default);
 }

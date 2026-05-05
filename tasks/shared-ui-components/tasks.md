@@ -57,9 +57,9 @@
 
 ### Button
 
-- [ ] PR 1-1-A: `libs/ui` に `Button` 実装（variant: solid/outline/ghost、color: 6 種、size: sm/md/lg、`loading`、`asChild`）
-- [ ] PR 1-1-A: Stories 全パターン作成
-- [ ] PR 1-1-A: ユニット + a11y テスト（カバレッジ 90%）
+- [x] PR 1-1-A: `libs/ui` に `Button` 実装（variant: solid/outline/ghost、color: 6 種、size: sm/md/lg、`loading`、`asChild`）
+- [x] PR 1-1-A: Stories 全パターン作成（Default / Variants / Colors / Sizes / Loading / Disabled / AsChildLink / Matrix）
+- [x] PR 1-1-A: ユニット + a11y テスト（Button.tsx は 100% カバレッジ、ライブラリ全体は lines 93.2% / branches 88.37%）
 - [ ] PR 1-1-B: 全サービスで MUI `Button` → `@nagiyu/ui` の `Button` に置換
 - [ ] PR 1-1-C: ESLint で `@mui/material` の `Button` 直接 import を禁止
 
