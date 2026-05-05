@@ -105,9 +105,7 @@ describe('Button', () => {
 
   describe('startIcon', () => {
     it('startIcon を子要素ラベルの前に表示する', () => {
-      render(
-        <Button startIcon={<span data-testid="my-icon">★</span>}>追加</Button>
-      );
+      render(<Button startIcon={<span data-testid="my-icon">★</span>}>追加</Button>);
       const wrapper = screen.getByTestId('button-start-icon');
       expect(wrapper).toBeInTheDocument();
       expect(wrapper).toContainElement(screen.getByTestId('my-icon'));
@@ -127,7 +125,9 @@ describe('Button', () => {
 
     it('loading 中はスピナーを表示し、startIcon は contentHidden 内に隠れる', () => {
       render(
-        <Button loading startIcon={<span data-testid="my-icon">★</span>}>送信中</Button>
+        <Button loading startIcon={<span data-testid="my-icon">★</span>}>
+          送信中
+        </Button>
       );
       // スピナーは見える
       expect(screen.getByTestId('button-spinner')).toBeInTheDocument();
