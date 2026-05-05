@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -22,6 +21,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { HoldingResponse } from '@/types/holding';
 import type { AlertResponse } from '@/types/alert';
