@@ -284,13 +284,7 @@ export default function Home() {
         </FormControl>
 
         {/* Submit Button */}
-        <Button
-          type="submit"
-          variant="solid"
-          size="lg"
-          disabled={!file}
-          loading={isUploading}
-        >
+        <Button type="submit" variant="solid" size="lg" disabled={!file} loading={isUploading}>
           {isUploading ? 'アップロード中...' : '変換開始'}
         </Button>
       </form>

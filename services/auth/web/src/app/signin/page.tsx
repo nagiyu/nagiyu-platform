@@ -44,12 +44,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             }}
           >
             <Box sx={{ '& > button': { width: '100%' } }}>
-              <Button
-                type="submit"
-                variant="solid"
-                size="lg"
-                startIcon={<GoogleIcon />}
-              >
+              <Button type="submit" variant="solid" size="lg" startIcon={<GoogleIcon />}>
                 Google でサインイン
               </Button>
             </Box>

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Typography,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 
 /**
@@ -43,7 +37,9 @@ export default function NotificationPermissionDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} variant="ghost">キャンセル</Button>
+        <Button onClick={onClose} variant="ghost">
+          キャンセル
+        </Button>
         {!isSubscribed && (
           <Button onClick={onRequestPermission} variant="solid">
             通知を有効にする

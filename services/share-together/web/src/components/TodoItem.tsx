@@ -68,15 +68,19 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
         )}
         {isEditing ? (
           <>
-            <Button onClick={handleEditCancel}>キャンセル</Button>
-            <Button variant="contained" onClick={handleEditSave} disabled={isEditingTitleEmpty}>
+            <Button variant="ghost" onClick={handleEditCancel}>
+              キャンセル
+            </Button>
+            <Button variant="solid" onClick={handleEditSave} disabled={isEditingTitleEmpty}>
               保存
             </Button>
           </>
         ) : (
-          <Button onClick={handleEditStart}>編集</Button>
+          <Button variant="ghost" onClick={handleEditStart}>
+            編集
+          </Button>
         )}
-        <Button color="error" onClick={() => onDelete?.(todo.todoId)}>
+        <Button variant="ghost" color="danger" onClick={() => onDelete?.(todo.todoId)}>
           削除
         </Button>
       </Box>

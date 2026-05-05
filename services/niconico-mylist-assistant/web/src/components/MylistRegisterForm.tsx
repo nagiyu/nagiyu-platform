@@ -296,12 +296,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
 
           {/* 実行ボタン */}
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              type="submit"
-              variant="solid"
-              color="primary"
-              loading={loading}
-            >
+            <Button type="submit" variant="solid" color="primary" loading={loading}>
               {loading ? '登録中...' : 'マイリストに登録'}
             </Button>
           </Box>

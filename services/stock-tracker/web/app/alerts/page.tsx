@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense, useMemo } from 'react';
 import {
   Container,
   Box,
-  Button,
   Typography,
   Table,
   TableBody,
@@ -21,6 +20,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -286,7 +286,7 @@ function AlertsPageContent() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outlined">
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outline">
             戻る
           </Button>
           <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold' }}>
@@ -333,7 +333,7 @@ function AlertsPageContent() {
         </FormControl>
 
         <Button
-          variant="outlined"
+          variant="outline"
           onClick={handleClearFilters}
           disabled={!filterExchangeKey && !filterMode}
         >
@@ -429,18 +429,18 @@ function AlertsPageContent() {
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                           <Button
-                            variant="contained"
+                            variant="solid"
                             color="warning"
-                            size="small"
+                            size="sm"
                             startIcon={<EditIcon />}
                             onClick={() => handleOpenEditModal(alert)}
                           >
                             編集
                           </Button>
                           <Button
-                            variant="contained"
-                            color="error"
-                            size="small"
+                            variant="solid"
+                            color="danger"
+                            size="sm"
                             startIcon={<DeleteIcon />}
                             onClick={() => handleOpenDeleteDialog(alert)}
                           >

@@ -222,11 +222,7 @@ export function ListSidebar({
         {heading}
       </Typography>
       <Box sx={{ mb: 2, '& > button': { width: '100%' } }}>
-        <Button
-          variant="solid"
-          onClick={handleCreateList}
-          disabled={isPersonalListLimitReached}
-        >
+        <Button variant="solid" onClick={handleCreateList} disabled={isPersonalListLimitReached}>
           {createButtonLabel}
         </Button>
         {isPersonalListLimitReached ? (

@@ -114,11 +114,7 @@ export default function ImportPage() {
         </Box>
 
         <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={() => setSearchModalOpen(true)}
-          >
+          <Button variant="outline" size="lg" onClick={() => setSearchModalOpen(true)}>
             動画を検索して追加
           </Button>
           <Button

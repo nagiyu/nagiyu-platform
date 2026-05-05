@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   FormControl,
@@ -21,6 +20,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
@@ -165,7 +165,7 @@ export default function SummariesPage() {
           </Select>
         </FormControl>
         {hasManageDataPermission && (
-          <Button variant="contained" onClick={handleRefresh} disabled={isRefreshing}>
+          <Button variant="solid" onClick={handleRefresh} loading={isRefreshing}>
             サマリー更新
           </Button>
         )}

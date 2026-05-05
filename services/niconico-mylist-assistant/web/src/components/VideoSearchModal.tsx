@@ -114,8 +114,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             onClick={handleSearch}
             loading={loading}
             disabled={
-              !keyword.trim() ||
-              keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
+              !keyword.trim() || keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
             }
           >
             検索
@@ -173,7 +172,9 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} variant="ghost">閉じる</Button>
+        <Button onClick={onClose} variant="ghost">
+          閉じる
+        </Button>
       </DialogActions>
     </Dialog>
   );

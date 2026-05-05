@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { Box, Alert, Button, Typography } from '@mui/material';
+import { Box, Alert, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import type { APIError } from '@nagiyu/common';
 

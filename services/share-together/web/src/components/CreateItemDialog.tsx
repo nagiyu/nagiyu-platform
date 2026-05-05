@@ -1,13 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
-} from '@mui/material';
+import { Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 
 type CreateItemDialogProps = {
@@ -48,7 +42,9 @@ export function CreateItemDialog({ open, title, label, onClose, onCreate }: Crea
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} variant="ghost">キャンセル</Button>
+        <Button onClick={handleClose} variant="ghost">
+          キャンセル
+        </Button>
         <Button onClick={handleCreate} variant="solid" disabled={!name.trim()}>
           作成
         </Button>
