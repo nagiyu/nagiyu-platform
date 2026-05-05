@@ -72,7 +72,7 @@ export const Colors: Story = {
           <Button {...args} key={color} color={color}>
             {color}
           </Button>
-        ),
+        )
       )}
     </div>
   ),
@@ -123,13 +123,13 @@ export const Matrix: Story = {
     <div style={{ display: 'grid', gap: 12 }}>
       {(['solid', 'outline', 'ghost'] as const).map((variant) => (
         <div key={variant} style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          {(
-            ['primary', 'secondary', 'danger', 'success', 'warning', 'neutral'] as const
-          ).map((color) => (
-            <Button key={color} variant={variant} color={color}>
-              {variant}/{color}
-            </Button>
-          ))}
+          {(['primary', 'secondary', 'danger', 'success', 'warning', 'neutral'] as const).map(
+            (color) => (
+              <Button key={color} variant={variant} color={color}>
+                {variant}/{color}
+              </Button>
+            )
+          )}
         </div>
       ))}
     </div>

@@ -17,13 +17,7 @@ export type ButtonVariant = 'solid' | 'outline' | 'ghost';
 /**
  * Button の色（意味）。視覚的な色名（blue 等）ではなく必ず意味で指定する。
  */
-export type ButtonColor =
-  | 'primary'
-  | 'secondary'
-  | 'danger'
-  | 'success'
-  | 'warning'
-  | 'neutral';
+export type ButtonColor = 'primary' | 'secondary' | 'danger' | 'success' | 'warning' | 'neutral';
 
 /**
  * Button のサイズ。
@@ -36,8 +30,7 @@ export type ButtonSize = 'sm' | 'md' | 'lg';
  * 100% ライブラリ非依存の独自定義。MUI / Radix 等の Props 型は extends しない。
  * エスケープハッチは `className` のみ（`sx` / `style` は提供しない）。
  */
-export interface ButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
+export interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
   /**
    * バリアント。既定: `solid`
    */
@@ -85,7 +78,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
     'aria-disabled': ariaDisabled,
     ...rest
   },
-  ref,
+  ref
 ) {
   const Comp: React.ElementType = asChild ? Slot : 'button';
   const isDisabled = disabled || loading;

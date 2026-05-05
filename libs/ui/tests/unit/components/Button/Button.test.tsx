@@ -33,7 +33,7 @@ describe('Button', () => {
       render(
         <Button variant="outline" color="danger" size="lg">
           x
-        </Button>,
+        </Button>
       );
       const btn = screen.getByRole('button');
       expect(btn.className).toContain('variant-outline');
@@ -65,7 +65,7 @@ describe('Button', () => {
       render(
         <Button onClick={onClick} disabled>
           x
-        </Button>,
+        </Button>
       );
       await user.click(screen.getByRole('button'));
       expect(onClick).not.toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe('Button', () => {
       render(
         <Button onClick={onClick} loading>
           x
-        </Button>,
+        </Button>
       );
       await user.click(screen.getByRole('button'));
       expect(onClick).not.toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe('Button', () => {
       render(
         <Button asChild color="primary" variant="solid">
           <a href="/dashboard">go</a>
-        </Button>,
+        </Button>
       );
       const link = screen.getByRole('link', { name: 'go' });
       expect(link.tagName).toBe('A');
@@ -121,7 +121,7 @@ describe('Button', () => {
       render(
         <Button asChild disabled>
           <a href="/x">go</a>
-        </Button>,
+        </Button>
       );
       const link = screen.getByRole('link');
       expect(link).toHaveAttribute('aria-disabled', 'true');
@@ -132,7 +132,7 @@ describe('Button', () => {
       render(
         <Button asChild loading>
           <a href="/x">go</a>
-        </Button>,
+        </Button>
       );
       expect(screen.getByRole('link')).toHaveAttribute('aria-busy', 'true');
     });
@@ -155,14 +155,7 @@ describe('Button', () => {
 
     it('全 variant / color / size の組み合わせで a11y 違反がない', async () => {
       const variants = ['solid', 'outline', 'ghost'] as const;
-      const colors = [
-        'primary',
-        'secondary',
-        'danger',
-        'success',
-        'warning',
-        'neutral',
-      ] as const;
+      const colors = ['primary', 'secondary', 'danger', 'success', 'warning', 'neutral'] as const;
       const sizes = ['sm', 'md', 'lg'] as const;
 
       const { container } = render(
@@ -170,13 +163,18 @@ describe('Button', () => {
           {variants.flatMap((variant) =>
             colors.flatMap((color) =>
               sizes.map((size) => (
-                <Button key={`${variant}-${color}-${size}`} variant={variant} color={color} size={size}>
+                <Button
+                  key={`${variant}-${color}-${size}`}
+                  variant={variant}
+                  color={color}
+                  size={size}
+                >
                   {variant}-{color}-{size}
                 </Button>
-              )),
-            ),
+              ))
+            )
           )}
-        </div>,
+        </div>
       );
       const results = await axe(container);
       expect(results).toHaveNoViolations();
