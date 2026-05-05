@@ -41,7 +41,8 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "@nagiyu/browser": "*"
+    "@nagiyu/browser": "*",
+    "@radix-ui/react-slot": "^1.2.4"
   },
   "devDependencies": {
     "@types/jest-axe": "^3.5.9",

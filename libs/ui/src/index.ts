@@ -2,6 +2,8 @@
 export { default as theme } from './styles/theme';
 export { tokens, breakpoints } from './styles/tokens';
 export type { ThemeMode, ColorRole, Size } from './styles/tokens';
+export { default as Button } from './components/Button';
+export type { ButtonProps, ButtonVariant, ButtonColor, ButtonSize } from './components/Button';
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';
