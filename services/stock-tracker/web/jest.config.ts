@@ -6,6 +6,8 @@ const config: Config = {
   roots: ['<rootDir>/lib', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
   moduleNameMapper: {
+    // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
+    '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
