@@ -52,5 +52,5 @@ COPY --from=builder /app/services/stock-tracker/batch/package*.json ./services/s
 COPY --from=builder /app/services/stock-tracker/batch/dist ./services/stock-tracker/batch/dist
 
 # Lambda ハンドラーを指定
-# CMD は CDK の cmd オプションで上書きされる (例: services/stock-tracker/batch/dist/minute.handler)
-CMD ["services/stock-tracker/batch/dist/minute.handler"]
+# CMD は CDK の cmd オプションで上書きされる (例: services/stock-tracker/batch/dist/src/minute.handler)
+CMD ["services/stock-tracker/batch/dist/src/minute.handler"]
