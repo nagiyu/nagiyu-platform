@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   Box,
   TextField,
-  Button,
   FormControlLabel,
   Checkbox,
   Typography,
@@ -15,6 +14,7 @@ import {
   InputAdornment,
   IconButton,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
@@ -298,10 +298,9 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               type="submit"
-              variant="contained"
+              variant="solid"
               color="primary"
-              disabled={loading}
-              startIcon={loading && <CircularProgress size={20} />}
+              loading={loading}
             >
               {loading ? '登録中...' : 'マイリストに登録'}
             </Button>

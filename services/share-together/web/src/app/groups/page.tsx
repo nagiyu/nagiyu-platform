@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, Button, Snackbar, Stack, Typography } from '@mui/material';
+import { Box, Snackbar, Stack, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { GroupCard } from '@/components/GroupCard';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { GroupDetailClient } from '@/components/GroupDetailClient';
@@ -145,7 +146,7 @@ export default function GroupsPage() {
           <Typography variant="h5" component="h1">
             グループ
           </Typography>
-          <Button variant="contained" onClick={() => setCreateDialogOpen(true)}>
+          <Button variant="solid" onClick={() => setCreateDialogOpen(true)}>
             グループを作成
           </Button>
         </Stack>

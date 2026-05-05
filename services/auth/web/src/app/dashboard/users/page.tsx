@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
-import { Box, Container, Typography, Paper, Button } from '@mui/material';
+import { Box, Container, Typography, Paper } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import Link from 'next/link';
 import { UsersTable } from './users-table';
 import { getSession } from '@/lib/auth/session';
@@ -24,9 +25,9 @@ export default async function UsersListPage() {
           <Typography variant="h4" component="h1">
             ユーザー管理
           </Typography>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <Button variant="outlined">ダッシュボードに戻る</Button>
-          </Link>
+          <Button asChild variant="outline">
+            <Link href="/dashboard">ダッシュボードに戻る</Link>
+          </Button>
         </Box>
 
         <Paper sx={{ p: 3 }}>

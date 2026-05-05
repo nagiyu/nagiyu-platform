@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Badge, Button } from '@mui/material';
+import { Badge } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import type { InvitationsResponse } from '@/types';
 
 const ERROR_MESSAGES = {
@@ -36,10 +37,12 @@ export function InvitationBadge() {
   }, []);
 
   return (
-    <Button color="inherit" href="/invitations">
-      <Badge badgeContent={pendingInvitations} color="secondary" showZero>
-        招待
-      </Badge>
+    <Button asChild variant="ghost" color="neutral">
+      <a href="/invitations">
+        <Badge badgeContent={pendingInvitations} color="secondary" showZero>
+          招待
+        </Badge>
+      </a>
     </Button>
   );
 }

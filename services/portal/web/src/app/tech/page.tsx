@@ -7,9 +7,9 @@ import {
   Card,
   CardContent,
   CardActions,
-  Button,
   Chip,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { getAllArticles } from '@/lib/content';
 
 export const metadata: Metadata = {
@@ -64,8 +64,8 @@ export default function TechPage() {
                   </Box>
                 </CardContent>
                 <CardActions>
-                  <Button size="small" href={`/tech/${article.slug}`}>
-                    記事を読む
+                  <Button asChild size="sm" variant="ghost">
+                    <a href={`/tech/${article.slug}`}>記事を読む</a>
                   </Button>
                 </CardActions>
               </Card>

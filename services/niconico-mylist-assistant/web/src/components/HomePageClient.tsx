@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Container, Typography, Box, Button } from '@mui/material';
+import { Container, Typography, Box } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationPermissionDialog from './NotificationPermissionButton';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
@@ -112,26 +113,25 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
           ニコニコ動画のマイリスト登録を自動化する補助ツールです。
         </Typography>
         {isAuthenticated ? (
-          <Box sx={{ mt: 3 }}>
-            <Typography variant="body1" gutterBottom>
+          <Box sx={{ mt: 3, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="body1" gutterBottom sx={{ width: '100%' }}>
               ようこそ、{userName} さん
             </Typography>
-            <Button href="/register" variant="contained" color="primary" sx={{ mt: 2, mr: 2 }}>
-              マイリスト登録
+            <Button asChild variant="solid" color="primary">
+              <a href="/register">マイリスト登録</a>
             </Button>
-            <Button href="/import" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
-              動画インポート
+            <Button asChild variant="outline" color="primary">
+              <a href="/import">動画インポート</a>
             </Button>
-            <Button href="/mylist" variant="outlined" color="primary" sx={{ mt: 2, mr: 2 }}>
-              動画管理
+            <Button asChild variant="outline" color="primary">
+              <a href="/mylist">動画管理</a>
             </Button>
             {canUseNotificationApi && (
               <>
                 <Button
-                  variant="outlined"
+                  variant="outline"
                   startIcon={<NotificationsIcon />}
                   onClick={handleOpenNotificationDialog}
-                  sx={{ mt: 2, mr: 2 }}
                 >
                   通知設定
                 </Button>
@@ -149,13 +149,8 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
             <Typography variant="body1" sx={{ mb: 2 }}>
               このサービスを利用するには、ログインが必要です。
             </Typography>
-            <Button
-              href={`${authUrl}/signin?callbackUrl=${encodeURIComponent(appUrl)}`}
-              variant="contained"
-              color="primary"
-              size="large"
-            >
-              ログイン
+            <Button asChild variant="solid" color="primary" size="lg">
+              <a href={`${authUrl}/signin?callbackUrl=${encodeURIComponent(appUrl)}`}>ログイン</a>
             </Button>
           </Box>
         )}

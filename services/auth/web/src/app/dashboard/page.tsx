@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
-import { Box, Container, Paper, Typography, Card, CardContent, Chip, Button } from '@mui/material';
+import { Box, Container, Paper, Typography, Card, CardContent, Chip } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth/session';
 
@@ -56,9 +57,9 @@ export default async function DashboardPage() {
                 管理機能
               </Typography>
               <Box sx={{ mt: 2 }}>
-                <Link href="/dashboard/users" style={{ textDecoration: 'none' }}>
-                  <Button variant="contained">ユーザー管理</Button>
-                </Link>
+                <Button asChild variant="solid">
+                  <Link href="/dashboard/users">ユーザー管理</Link>
+                </Button>
               </Box>
             </CardContent>
           </Card>
