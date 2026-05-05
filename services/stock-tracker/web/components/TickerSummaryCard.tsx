@@ -1,16 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Grid,
-  Typography,
-} from '@mui/material';
+import { Box, Card, CardContent, Chip, CircularProgress, Grid, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import type { TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from './SummaryDetailDialog';
 
@@ -113,7 +105,7 @@ export default function TickerSummaryCard({
               </Typography>
             </Grid>
             <Grid size={12}>
-              <Button variant="outlined" size="small" onClick={() => setIsDetailDialogOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setIsDetailDialogOpen(true)}>
                 詳細
               </Button>
             </Grid>

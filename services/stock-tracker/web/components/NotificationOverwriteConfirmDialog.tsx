@@ -1,13 +1,7 @@
 'use client';
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 
 interface NotificationOverwriteConfirmDialogProps {
   open: boolean;
@@ -29,8 +23,10 @@ export default function NotificationOverwriteConfirmDialog({
         </Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>このまま維持する</Button>
-        <Button onClick={onConfirm} variant="contained">
+        <Button onClick={onCancel} variant="ghost">
+          このまま維持する
+        </Button>
+        <Button onClick={onConfirm} variant="solid">
           上書きする
         </Button>
       </DialogActions>

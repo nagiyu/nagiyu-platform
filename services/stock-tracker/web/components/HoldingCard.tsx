@@ -319,8 +319,8 @@ export default function HoldingCard({
             保有株式
           </Typography>
           <Button
-            variant="contained"
-            size="small"
+            variant="solid"
+            size="sm"
             startIcon={<AddIcon />}
             onClick={handleOpenCreateModal}
             disabled={!canAddHolding}
@@ -433,11 +433,11 @@ export default function HoldingCard({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateModalOpen(false)} disabled={submitting}>
+          <Button onClick={() => setCreateModalOpen(false)} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={() => void handleCreate()} variant="contained" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button onClick={() => void handleCreate()} variant="solid" loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -472,11 +472,11 @@ export default function HoldingCard({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditModalOpen(false)} disabled={submitting}>
+          <Button onClick={() => setEditModalOpen(false)} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={() => void handleUpdate()} variant="contained" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button onClick={() => void handleUpdate()} variant="solid" loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -534,16 +534,17 @@ export default function HoldingCard({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={submitting}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
           <Button
             onClick={() => void handleDelete()}
-            variant="contained"
-            color="error"
-            disabled={submitting || deleteDialogLoading}
+            variant="solid"
+            color="danger"
+            loading={submitting}
+            disabled={deleteDialogLoading}
           >
-            {submitting ? <CircularProgress size={24} /> : '削除'}
+            削除
           </Button>
         </DialogActions>
       </Dialog>

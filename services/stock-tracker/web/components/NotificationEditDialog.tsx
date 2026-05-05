@@ -1,14 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 
 interface NotificationEditDialogProps {
   open: boolean;
@@ -52,8 +46,10 @@ export default function NotificationEditDialog({
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>キャンセル</Button>
-        <Button onClick={() => onSave(localTitle, localBody)} variant="contained">
+        <Button onClick={onClose} variant="ghost">
+          キャンセル
+        </Button>
+        <Button onClick={() => onSave(localTitle, localBody)} variant="solid">
           保存
         </Button>
       </DialogActions>

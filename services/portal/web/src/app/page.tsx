@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   Container,
   Typography,
@@ -102,7 +103,7 @@ export default async function HomePage() {
                   </CardContent>
                   <CardActions>
                     <Button asChild size="sm" variant="ghost">
-                      <a href={`/tech/${article.slug}`}>記事を読む</a>
+                      <Link href={`/tech/${article.slug}`}>記事を読む</Link>
                     </Button>
                   </CardActions>
                 </Card>
@@ -111,7 +112,7 @@ export default async function HomePage() {
           </Grid>
           <Box sx={{ mt: 2, textAlign: 'center' }}>
             <Button asChild variant="outline">
-              <a href="/tech">すべての技術記事を見る</a>
+              <Link href="/tech">すべての技術記事を見る</Link>
             </Button>
           </Box>
         </Box>

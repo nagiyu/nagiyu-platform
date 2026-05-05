@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Container, Typography, Box } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import NotificationsIcon from '@mui/icons-material/Notifications';
@@ -118,13 +119,13 @@ export default function HomePageClient({ userName, isAuthenticated, appUrl }: Ho
               ようこそ、{userName} さん
             </Typography>
             <Button asChild variant="solid" color="primary">
-              <a href="/register">マイリスト登録</a>
+              <Link href="/register">マイリスト登録</Link>
             </Button>
             <Button asChild variant="outline" color="primary">
-              <a href="/import">動画インポート</a>
+              <Link href="/import">動画インポート</Link>
             </Button>
             <Button asChild variant="outline" color="primary">
-              <a href="/mylist">動画管理</a>
+              <Link href="/mylist">動画管理</Link>
             </Button>
             {canUseNotificationApi && (
               <>

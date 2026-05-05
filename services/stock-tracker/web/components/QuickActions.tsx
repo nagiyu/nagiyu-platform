@@ -1,6 +1,8 @@
 'use client';
 
-import { Box, Typography, Button } from '@mui/material';
+import Link from 'next/link';
+import { Box, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import {
   TrendingUp as TrendingUpIcon,
   Notifications as NotificationsIcon,
@@ -27,60 +29,45 @@ export default function QuickActions({ hasManageDataPermission }: QuickActionsPr
         }}
       >
         {/* 1. 保有株式管理 */}
-        <Button
-          variant="contained"
-          size="large"
-          href="/holdings"
-          startIcon={<TrendingUpIcon />}
-          sx={{ py: 2 }}
-        >
-          保有株式管理
+        <Button asChild variant="solid" size="lg">
+          <Link href="/holdings">
+            <TrendingUpIcon />
+            保有株式管理
+          </Link>
         </Button>
 
         {/* 2. アラート一覧 */}
-        <Button
-          variant="contained"
-          size="large"
-          href="/alerts"
-          startIcon={<NotificationsIcon />}
-          sx={{ py: 2 }}
-        >
-          アラート一覧
+        <Button asChild variant="solid" size="lg">
+          <Link href="/alerts">
+            <NotificationsIcon />
+            アラート一覧
+          </Link>
         </Button>
 
-        <Button
-          variant="contained"
-          size="large"
-          href="/summaries"
-          startIcon={<SummarizeIcon />}
-          sx={{ py: 2 }}
-        >
-          サマリー
+        <Button asChild variant="solid" size="lg">
+          <Link href="/summaries">
+            <SummarizeIcon />
+            サマリー
+          </Link>
         </Button>
 
         {/* 4. 取引所管理 (stock-admin のみ) */}
         {hasManageDataPermission && (
-          <Button
-            variant="outlined"
-            size="large"
-            href="/exchanges"
-            startIcon={<BusinessIcon />}
-            sx={{ py: 2 }}
-          >
-            取引所管理
+          <Button asChild variant="outline" size="lg">
+            <Link href="/exchanges">
+              <BusinessIcon />
+              取引所管理
+            </Link>
           </Button>
         )}
 
         {/* 5. ティッカー管理 (stock-admin のみ) */}
         {hasManageDataPermission && (
-          <Button
-            variant="outlined"
-            size="large"
-            href="/tickers"
-            startIcon={<ShowChartIcon />}
-            sx={{ py: 2 }}
-          >
-            ティッカー管理
+          <Button asChild variant="outline" size="lg">
+            <Link href="/tickers">
+              <ShowChartIcon />
+              ティッカー管理
+            </Link>
           </Button>
         )}
       </Box>

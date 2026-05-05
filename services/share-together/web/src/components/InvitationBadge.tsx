@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Badge } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import type { InvitationsResponse } from '@/types';
@@ -38,11 +39,11 @@ export function InvitationBadge() {
 
   return (
     <Button asChild variant="ghost" color="neutral">
-      <a href="/invitations">
+      <Link href="/invitations">
         <Badge badgeContent={pendingInvitations} color="secondary" showZero>
           招待
         </Badge>
-      </a>
+      </Link>
     </Button>
   );
 }

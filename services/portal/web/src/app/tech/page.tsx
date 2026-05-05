@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   Container,
   Typography,
@@ -65,7 +66,7 @@ export default function TechPage() {
                 </CardContent>
                 <CardActions>
                   <Button asChild size="sm" variant="ghost">
-                    <a href={`/tech/${article.slug}`}>記事を読む</a>
+                    <Link href={`/tech/${article.slug}`}>記事を読む</Link>
                   </Button>
                 </CardActions>
               </Card>

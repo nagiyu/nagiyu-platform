@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Typography,
-  Box,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Typography, Box } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import type { AlertResponse } from '../types/alert';
 

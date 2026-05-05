@@ -5,7 +5,6 @@ import {
   Container,
   Typography,
   TextField,
-  Button,
   Box,
   Snackbar,
   Alert,
@@ -15,6 +14,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
@@ -355,7 +355,7 @@ function TransitConverterContent() {
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
             aria-label="クリップボードから乗り換え案内テキストを読み取る"
@@ -363,12 +363,11 @@ function TransitConverterContent() {
             クリップボードから読み取り
           </Button>
           <Button
-            variant="contained"
-            startIcon={
-              isProcessing ? <CircularProgress size={20} aria-label="変換処理中" /> : <SyncIcon />
-            }
+            variant="solid"
+            startIcon={<SyncIcon />}
             onClick={handleConvert}
-            disabled={isProcessing || !inputText.trim()}
+            loading={isProcessing}
+            disabled={!inputText.trim()}
             aria-label="乗り換え案内テキストを変換する"
           >
             変換
@@ -401,7 +400,7 @@ function TransitConverterContent() {
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="contained"
+            variant="solid"
             startIcon={<ContentCopyIcon />}
             onClick={handleCopy}
             disabled={!outputText}
@@ -410,7 +409,7 @@ function TransitConverterContent() {
             コピー
           </Button>
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ClearIcon />}
             onClick={handleClear}
             disabled={!inputText && !outputText}

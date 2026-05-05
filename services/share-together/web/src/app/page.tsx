@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
@@ -27,10 +28,10 @@ export default function Home() {
         </Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <Button asChild variant="solid">
-            <a href="/lists">リストを開く</a>
+            <Link href="/lists">リストを開く</Link>
           </Button>
           <Button asChild variant="outline">
-            <a href="/groups">グループを管理</a>
+            <Link href="/groups">グループを管理</Link>
           </Button>
         </Stack>
       </Box>

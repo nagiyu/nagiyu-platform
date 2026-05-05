@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   Chip,
@@ -14,6 +13,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { AlertResponse } from '@/types/alert';
 import AlertSettingsModal from './AlertSettingsModal';
@@ -118,8 +118,8 @@ export default function TickerAlertListCard({
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
-              variant="contained"
-              size="small"
+              variant="solid"
+              size="sm"
               color="success"
               startIcon={<AddIcon />}
               onClick={() => setCreateTradeMode('Buy')}
@@ -128,8 +128,8 @@ export default function TickerAlertListCard({
               買い追加
             </Button>
             <Button
-              variant="contained"
-              size="small"
+              variant="solid"
+              size="sm"
               color="warning"
               startIcon={<AddIcon />}
               onClick={() => setCreateTradeMode('Sell')}
