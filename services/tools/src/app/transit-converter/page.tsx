@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import {
   Container,
   Typography,
-  TextField,
   Box,
   Snackbar,
   Alert,
@@ -14,7 +13,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ClearIcon from '@mui/icons-material/Clear';
 import SyncIcon from '@mui/icons-material/Sync';
@@ -337,18 +336,19 @@ function TransitConverterContent() {
         <Typography variant="subtitle1" gutterBottom>
           入力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={10}
-          label="乗り換え案内テキスト"
-          placeholder="乗り換え案内のテキストをここに貼り付けてください..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          error={!!error}
-          helperText={error}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={10}
+            label="乗り換え案内テキスト"
+            placeholder="乗り換え案内のテキストをここに貼り付けてください..."
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            error={!!error}
+            helperText={error}
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
@@ -380,20 +380,17 @@ function TransitConverterContent() {
         <Typography variant="subtitle1" gutterBottom>
           出力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={10}
-          label="変換結果"
-          placeholder="変換された結果がここに表示されます..."
-          value={outputText}
-          slotProps={{
-            input: {
-              readOnly: true,
-            },
-          }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={10}
+            label="変換結果"
+            placeholder="変換された結果がここに表示されます..."
+            value={outputText}
+            readOnly
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}

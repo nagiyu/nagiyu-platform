@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Box, Container, Snackbar, Stack, TextField, Typography } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Alert, Box, Container, Snackbar, Stack, Typography } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -120,22 +120,23 @@ export default function Base64Client() {
         <Typography variant="subtitle1" gutterBottom>
           入力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={8}
-          label={mode === 'encode' ? 'テキスト' : 'Base64文字列'}
-          placeholder={
-            mode === 'encode'
-              ? 'エンコードする文字列を入力してください...'
-              : 'デコードするBase64文字列を入力してください...'
-          }
-          value={inputText}
-          onChange={(event) => setInputText(event.target.value)}
-          error={!!error}
-          helperText={error}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={8}
+            label={mode === 'encode' ? 'テキスト' : 'Base64文字列'}
+            placeholder={
+              mode === 'encode'
+                ? 'エンコードする文字列を入力してください...'
+                : 'デコードするBase64文字列を入力してください...'
+            }
+            value={inputText}
+            onChange={(event) => setInputText(event.target.value)}
+            error={!!error}
+            helperText={error}
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
@@ -166,20 +167,17 @@ export default function Base64Client() {
         <Typography variant="subtitle1" gutterBottom>
           出力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={8}
-          label="結果"
-          placeholder="変換結果がここに表示されます..."
-          value={outputText}
-          slotProps={{
-            input: {
-              readOnly: true,
-            },
-          }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={8}
+            label="結果"
+            placeholder="変換結果がここに表示されます..."
+            value={outputText}
+            readOnly
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}

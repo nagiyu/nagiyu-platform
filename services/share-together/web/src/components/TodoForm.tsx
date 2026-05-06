@@ -27,7 +27,7 @@ export function TodoForm({ onAdd }: TodoFormProps) {
         label="タイトル"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        size="small"
+        size="sm"
         fullWidth
       />
       <Button type="submit" variant="solid" disabled={isTitleEmpty}>

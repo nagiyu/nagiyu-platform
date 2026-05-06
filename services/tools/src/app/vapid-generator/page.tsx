@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Box, Container, Snackbar, Stack, TextField, Typography } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Alert, Box, Container, Snackbar, Stack, Typography } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import { writeToClipboard } from '@nagiyu/browser';
@@ -91,15 +91,16 @@ export default function VapidGeneratorPage() {
             <Typography variant="subtitle1" gutterBottom>
               公開鍵（Public Key）
             </Typography>
-            <TextField
-              fullWidth
-              multiline
-              minRows={3}
-              value={keys?.publicKey ?? ''}
-              placeholder="生成後に公開鍵が表示されます"
-              slotProps={{ input: { readOnly: true } }}
-              sx={{ mb: 1.5 }}
-            />
+            <Box sx={{ mb: 1.5 }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                value={keys?.publicKey ?? ''}
+                placeholder="生成後に公開鍵が表示されます"
+                readOnly
+              />
+            </Box>
             <Button
               variant="outline"
               startIcon={<ContentCopyIcon />}
@@ -115,15 +116,16 @@ export default function VapidGeneratorPage() {
             <Typography variant="subtitle1" gutterBottom>
               秘密鍵（Private Key）
             </Typography>
-            <TextField
-              fullWidth
-              multiline
-              minRows={3}
-              value={keys?.privateKey ?? ''}
-              placeholder="生成後に秘密鍵が表示されます"
-              slotProps={{ input: { readOnly: true } }}
-              sx={{ mb: 1.5 }}
-            />
+            <Box sx={{ mb: 1.5 }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                value={keys?.privateKey ?? ''}
+                placeholder="生成後に秘密鍵が表示されます"
+                readOnly
+              />
+            </Box>
             <Button
               variant="outline"
               startIcon={<ContentCopyIcon />}
