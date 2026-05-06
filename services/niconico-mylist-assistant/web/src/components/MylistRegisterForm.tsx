@@ -5,8 +5,6 @@ import {
   Box,
   // eslint-disable-next-line no-restricted-imports -- パスワード表示切替の endAdornment（IconButton）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
-  FormControlLabel,
-  Checkbox,
   Typography,
   Alert,
   Card,
@@ -14,7 +12,7 @@ import {
   InputAdornment,
   IconButton,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Checkbox } from '@nagiyu/ui';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
@@ -196,34 +194,26 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             helperText="1〜100の範囲で指定してください"
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.favoriteOnly}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    favoriteOnly: e.target.checked,
-                  })
-                }
-              />
-            }
+          <Checkbox
             label="お気に入りのみを対象にする"
+            checked={formData.favoriteOnly}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                favoriteOnly: e.target.checked,
+              })
+            }
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.excludeSkip}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    excludeSkip: e.target.checked,
-                  })
-                }
-              />
-            }
+          <Checkbox
             label="スキップ動画を除外する"
+            checked={formData.excludeSkip}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                excludeSkip: e.target.checked,
+              })
+            }
           />
 
           {/* マイリスト名 */}

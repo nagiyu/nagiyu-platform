@@ -1,16 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControlLabel,
-  Checkbox,
-  Typography,
-} from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Typography } from '@mui/material';
+import { Button, Checkbox } from '@nagiyu/ui';
 import { getItem, setItem } from '@nagiyu/browser';
 
 const STORAGE_KEY = 'tools-migration-dialog-shown';
@@ -91,14 +83,10 @@ export default function MigrationDialog() {
         </Typography>
       </DialogContent>
       <DialogActions sx={{ flexDirection: 'column', alignItems: 'stretch', gap: 1, px: 3, pb: 2 }}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-            />
-          }
+        <Checkbox
           label="今後表示しない"
+          checked={dontShowAgain}
+          onChange={(e) => setDontShowAgain(e.target.checked)}
         />
         <Button onClick={handleClose} variant="solid">
           閉じる
