@@ -16,13 +16,18 @@ export default {
         paths: [
           {
             name: '@mui/material',
-            importNames: ['Button'],
+            importNames: ['Button', 'TextField'],
             message: '共通コンポーネントは @nagiyu/ui から import してください',
           },
         ],
         patterns: [
           {
-            group: ['@mui/material/Button', '@mui/material/Button/*'],
+            group: [
+              '@mui/material/Button',
+              '@mui/material/Button/*',
+              '@mui/material/TextField',
+              '@mui/material/TextField/*',
+            ],
             message: '共通コンポーネントは @nagiyu/ui から import してください',
           },
         ],

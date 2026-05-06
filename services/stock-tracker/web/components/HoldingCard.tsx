@@ -17,6 +17,7 @@ import {
   IconButton,
   Select,
   Stack,
+  // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   Tooltip,
   Typography,

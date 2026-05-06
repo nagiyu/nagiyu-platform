@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   Box,
+  // eslint-disable-next-line no-restricted-imports -- パスワード表示切替の endAdornment（IconButton）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   FormControlLabel,
   Checkbox,
