@@ -2,7 +2,9 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ECRStack } from '../lib/ecr-stack';
+import { BatchEcrStack } from '../lib/batch-ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
+import { BatchLambdaStack } from '../lib/batch-lambda-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { AdminStack } from '../lib/admin-stack';
 
@@ -50,6 +52,23 @@ new AdminStack(app, `NagiyuAdminInfra${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Admin Service Infra - ${env} environment`,
+});
+
+// Admin Batch (alarm-ingest / stream-handler Lambda) ECR スタック
+new BatchEcrStack(app, `NagiyuAdminBatchECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Batch ECR - ${env} environment`,
+});
+
+// Admin Batch Lambda スタック
+// - alarm-ingest: SNS (admin alarms) → DynamoDB (error-events)
+// - stream-handler: error-events DynamoDB Streams → Web Push fan-out
+new BatchLambdaStack(app, `NagiyuAdminBatchLambda${envSuffix}`, {
+  environment: env as 'dev' | 'prod',
+  batchEcrRepositoryName: `nagiyu-admin-batch-ecr-${env}`,
+  env: stackEnv,
+  description: `Admin Batch Lambda - ${env} environment`,
 });
 
 // CloudFront スタックを作成
