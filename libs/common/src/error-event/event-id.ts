@@ -5,16 +5,15 @@
  * 形式は実装非依存（呼び出し側は文字列としてのみ扱うこと）。
  */
 
-import { randomUUID } from 'node:crypto';
-
 /**
  * 新しい eventId を生成する。
  *
- * 現在の実装は UUID v4 を使用するが、将来の変更に備えて呼び出し側は
- * 形式に依存しないこと。
+ * 現在の実装は `globalThis.crypto.randomUUID()` を使用する。
+ * Node.js 19 以降と最新ブラウザの双方で動作するため、
+ * クライアント / サーバ両方の環境にバンドルされる場合でも問題ない。
  *
  * @returns 一意な eventId 文字列
  */
 export function generateEventId(): string {
-  return randomUUID();
+  return globalThis.crypto.randomUUID();
 }
