@@ -18,10 +18,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
@@ -111,10 +110,9 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
 
   return (
     <TextField
-      size="small"
+      size="sm"
       type="number"
       value={draft}
-      slotProps={{ htmlInput: { min, step: 1 } }}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => void handleBlur()}
     />

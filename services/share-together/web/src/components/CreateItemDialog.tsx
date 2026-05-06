@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Dialog, DialogActions, DialogContent, DialogTitle, Box } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 
 type CreateItemDialogProps = {
   open: boolean;
@@ -31,15 +31,16 @@ export function CreateItemDialog({ open, title, label, onClose, onCreate }: Crea
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
-        <TextField
-          autoFocus
-          fullWidth
-          label={label}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          size="small"
-          sx={{ mt: 1 }}
-        />
+        <Box sx={{ mt: 1 }}>
+          <TextField
+            autoFocus
+            fullWidth
+            label={label}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            size="sm"
+          />
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} variant="ghost">
