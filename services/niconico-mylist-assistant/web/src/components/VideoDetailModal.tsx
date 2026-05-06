@@ -6,7 +6,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Box,
   Typography,
   IconButton,
@@ -16,7 +15,7 @@ import {
   Chip,
   Stack,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import {
   Close,
   Favorite,

@@ -1,16 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-  TextField,
-} from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Box, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 
 interface VideoListFiltersProps {
   favoriteFilter: string;
@@ -98,14 +90,14 @@ export default function VideoListFilters({
         </Select>
       </FormControl>
 
-      <Box sx={{ display: 'flex', gap: 1 }}>
+      <Box sx={{ display: 'flex', gap: 1, minWidth: 240 }}>
         <TextField
-          size="small"
+          size="sm"
           value={inputKeyword}
           onChange={(event) => setInputKeyword(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="動画タイトルで検索"
-          sx={{ minWidth: 240 }}
+          fullWidth
         />
         <Button variant="solid" size="sm" onClick={handleSearch}>
           検索

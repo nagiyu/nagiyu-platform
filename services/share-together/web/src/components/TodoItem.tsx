@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Checkbox, ListItem, TextField, Typography } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Box, Checkbox, ListItem, Typography } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import type { TodoItem as TodoItemType } from '@/types';
 
 type TodoItemProps = {
@@ -51,7 +51,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
             label="タイトルを編集"
             value={editingTitle}
             onChange={(event) => setEditingTitle(event.target.value)}
-            size="small"
+            size="sm"
             fullWidth
           />
         ) : (

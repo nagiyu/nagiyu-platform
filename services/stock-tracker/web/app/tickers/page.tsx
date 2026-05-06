@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   FormControl,
   InputLabel,
   Select,
@@ -26,7 +25,7 @@ import {
   CircularProgress,
   SelectChangeEvent,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
 // エラーメッセージ定数

@@ -13,10 +13,9 @@ import {
   ListItemText,
   Snackbar,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { InviteForm } from '@/components/InviteForm';
@@ -278,7 +277,7 @@ export function GroupDetailClient({
             ) : null}
             <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
               <TextField
-                size="small"
+                size="sm"
                 fullWidth
                 label="新しい共有リスト名"
                 value={listName}

@@ -13,10 +13,9 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
@@ -105,9 +104,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             disabled={loading}
-            slotProps={{
-              htmlInput: { maxLength: VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH },
-            }}
+            maxLength={VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH}
           />
           <Button
             variant="solid"

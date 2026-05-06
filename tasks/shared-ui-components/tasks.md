@@ -68,8 +68,8 @@
 
 - [x] PR 1-2-A: `libs/ui` に `TextField` 実装（label 自動関連付け / multiline / error / readOnly / maxLength / fullWidth / size sm/md/lg）
 - [x] PR 1-2-A: Stories + ユニット + a11y テスト（TextField.tsx は statements/lines/functions 100%、branches 97.05%）
-- [ ] PR 1-2-B: 全サービスで置換
-- [ ] PR 1-2-C: ESLint 禁止追加
+- [x] PR 1-2-B: 全サービスで MUI `TextField` → `@nagiyu/ui` の `TextField` に置換（18 ファイル / API ギャップにより 7 ファイル MUI 残置：endAdornment 1・sx カラー指定 1・number step/min/max 3・select 化 2、PR 1-2-C で ESLint 例外コメント）
+- [ ] PR 1-2-C: ESLint 禁止追加（保留 7 ファイルは例外コメントで対応）
 
 ### Checkbox
 

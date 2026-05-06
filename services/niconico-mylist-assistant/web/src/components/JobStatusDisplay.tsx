@@ -11,9 +11,8 @@ import {
   LinearProgress,
   Chip,
   Stack,
-  TextField,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, TextField } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -330,13 +329,8 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
                     setTwoFAError(null);
                   }}
                   placeholder="000000"
-                  slotProps={{
-                    htmlInput: {
-                      maxLength: 6,
-                      pattern: '[0-9]*',
-                      inputMode: 'numeric',
-                    },
-                  }}
+                  maxLength={6}
+                  inputMode="numeric"
                   error={!!twoFAError}
                   helperText={twoFAError}
                   disabled={isSubmitting2FA}

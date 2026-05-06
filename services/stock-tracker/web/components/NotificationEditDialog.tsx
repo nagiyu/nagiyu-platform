@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Box, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 
 interface NotificationEditDialogProps {
   open: boolean;
@@ -26,24 +26,26 @@ export default function NotificationEditDialog({
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>通知設定を編集</DialogTitle>
       <DialogContent>
-        <TextField
-          fullWidth
-          label="通知タイトル"
-          value={localTitle}
-          onChange={(event) => setLocalTitle(event.target.value)}
-          slotProps={{ htmlInput: { maxLength: 120 } }}
-          sx={{ mt: 1 }}
-        />
-        <TextField
-          fullWidth
-          multiline
-          minRows={2}
-          label="通知本文"
-          value={localBody}
-          onChange={(event) => setLocalBody(event.target.value)}
-          slotProps={{ htmlInput: { maxLength: 500 } }}
-          sx={{ mt: 2 }}
-        />
+        <Box sx={{ mt: 1 }}>
+          <TextField
+            fullWidth
+            label="通知タイトル"
+            value={localTitle}
+            onChange={(event) => setLocalTitle(event.target.value)}
+            maxLength={120}
+          />
+        </Box>
+        <Box sx={{ mt: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label="通知本文"
+            value={localBody}
+            onChange={(event) => setLocalBody(event.target.value)}
+            maxLength={500}
+          />
+        </Box>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} variant="ghost">
