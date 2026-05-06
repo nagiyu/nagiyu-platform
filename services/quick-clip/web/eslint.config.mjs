@@ -1,5 +1,6 @@
 import { fixupConfigRules } from '@eslint/compat';
 import nextConfig from 'eslint-config-next';
+import noRestrictedMui from '../../../configs/eslint.config.no-restricted-mui.mjs';
 import tseslint from 'typescript-eslint';
 
 const eslintConfig = [
@@ -12,6 +13,7 @@ const eslintConfig = [
       'react-hooks/immutability': 'off',
     },
   },
+  noRestrictedMui,
 ];
 
 export default eslintConfig;
