@@ -73,7 +73,7 @@
 
 ### Checkbox
 
-- [ ] PR 1-3-A: 実装 + Stories + テスト
+- [x] PR 1-3-A: 実装 + Stories + テスト（label 自動関連付け / indeterminate / size sm/md/lg、native input + CSS で再描画。Checkbox.tsx は statements/lines/functions 100%、branches 95.45%）
 - [ ] PR 1-3-B: 置換
 - [ ] PR 1-3-C: ESLint 禁止追加
 

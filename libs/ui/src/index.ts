@@ -6,6 +6,8 @@ export { default as Button } from './components/Button';
 export type { ButtonProps, ButtonVariant, ButtonColor, ButtonSize } from './components/Button';
 export { default as TextField } from './components/TextField';
 export type { TextFieldProps, TextFieldSize, TextFieldType } from './components/TextField';
+export { default as Checkbox } from './components/Checkbox';
+export type { CheckboxProps, CheckboxSize } from './components/Checkbox';
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';
