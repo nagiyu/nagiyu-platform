@@ -75,7 +75,7 @@
 
 - [x] PR 1-3-A: 実装 + Stories + テスト（label 自動関連付け / indeterminate / size sm/md/lg、native input + CSS で再描画。Checkbox.tsx は statements/lines/functions 100%、branches 95.45%）
 - [x] PR 1-3-B: 置換（6 ファイル全置換完了。`<FormControlLabel control={<Checkbox/>} label=>` → `<Checkbox label=>` で 1 部品化、`slotProps.input.aria-label` → `aria-label`）
-- [ ] PR 1-3-C: ESLint 禁止追加
+- [x] PR 1-3-C: ESLint 禁止追加（共有 config の `importNames` / `patterns.group` に `Checkbox` を追加。保留ファイルゼロのため例外コメント不要）
 
 ### Chip
 
