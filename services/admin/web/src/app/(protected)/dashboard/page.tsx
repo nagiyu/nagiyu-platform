@@ -7,9 +7,11 @@ import NotifyButton from '@/components/notify/NotifyButton';
 export default async function DashboardPage() {
   const session = await getSession();
 
-  // Phase 2: JWT 検証実装後、session が null の場合にリダイレクト
+  // 通常は middleware が未認証時に Auth サービスの /signin へリダイレクトするが、
+  // フォールバックとして同等のリダイレクトを行う
   if (!session) {
-    redirect('/');
+    const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL || '';
+    redirect(`${authUrl}/signin`);
   }
 
   const { user } = session;

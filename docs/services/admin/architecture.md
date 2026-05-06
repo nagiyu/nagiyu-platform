@@ -270,6 +270,7 @@ services/admin/web/
 │   │   │   └── dashboard/
 │   │   │       └── page.tsx          # ダッシュボード
 │   │   ├── layout.tsx                # ルートレイアウト
+│   │   ├── page.tsx                  # ルート (`/`) → `/dashboard` へリダイレクト
 │   │   └── globals.css               # グローバルスタイル
 │   ├── components/                   # React コンポーネント
 │   │   ├── ThemeRegistry.tsx         # MUI テーマ + @nagiyu/ui レイアウト
