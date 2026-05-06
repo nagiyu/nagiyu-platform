@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Checkbox, ListItem, Typography } from '@mui/material';
-import { Button, TextField } from '@nagiyu/ui';
+import { Box, ListItem, Typography } from '@mui/material';
+import { Button, Checkbox, TextField } from '@nagiyu/ui';
 import type { TodoItem as TodoItemType } from '@/types';
 
 type TodoItemProps = {
@@ -44,7 +44,7 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
         <Checkbox
           checked={todo.isCompleted}
           onChange={() => onToggleComplete?.(todo.todoId)}
-          slotProps={{ input: { 'aria-label': `${todo.title}の完了チェック` } }}
+          aria-label={`${todo.title}の完了チェック`}
         />
         {isEditing ? (
           <TextField

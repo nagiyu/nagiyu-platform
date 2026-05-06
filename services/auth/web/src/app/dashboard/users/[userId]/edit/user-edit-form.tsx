@@ -2,17 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Box,
-  Typography,
-  Paper,
-  FormGroup,
-  FormControlLabel,
-  Checkbox,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Box, Typography, Paper, FormGroup, Alert, CircularProgress } from '@mui/material';
+import { Button, Checkbox } from '@nagiyu/ui';
 import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 
@@ -131,16 +122,12 @@ export function UserEditForm({ userId }: UserEditFormProps) {
 
           <FormGroup>
             {VALID_ROLES.map((role) => (
-              <FormControlLabel
+              <Checkbox
                 key={role}
-                control={
-                  <Checkbox
-                    checked={selectedRoles.includes(role)}
-                    onChange={() => handleRoleToggle(role)}
-                    disabled={saving}
-                  />
-                }
                 label={role}
+                checked={selectedRoles.includes(role)}
+                onChange={() => handleRoleToggle(role)}
+                disabled={saving}
               />
             ))}
           </FormGroup>
