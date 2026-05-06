@@ -31,3 +31,6 @@ export type { ErrorCode } from './constants/error-codes.js';
 export { COMMON_ERROR_MESSAGES } from './constants/error-messages.js';
 export type { CommonErrorMessageKey } from './constants/error-messages.js';
 export { HTTP_STATUS } from './constants/http-status.js';
+
+// ErrorEvent module - プラットフォーム共通のエラー通知型
+export * from './error-event/index.js';
