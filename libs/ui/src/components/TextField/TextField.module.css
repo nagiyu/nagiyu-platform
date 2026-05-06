@@ -1,0 +1,139 @@
+/*
+ * TextField コンポーネントのスタイル定義。
+ *
+ * - すべての色・余白・角丸は tokens.css の Semantic 変数を参照する。
+ * - MUI 等の特定ライブラリへの依存は持たない。
+ * - 状態は `:hover` / `:focus-visible` / `[aria-invalid='true']` / `:disabled` で表現。
+ */
+
+.wrapper {
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  font-family: var(--font-family-sans);
+  /* デフォルトは内容に応じた幅。fullWidth で 100% に */
+}
+
+.fullWidth {
+  display: flex;
+  width: 100%;
+}
+
+.label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-default);
+  line-height: var(--line-height-normal);
+}
+
+.requiredMark {
+  color: var(--color-action-danger);
+}
+
+.input {
+  /* Box */
+  appearance: none;
+  width: 100%;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--color-bg-surface);
+  color: var(--color-fg-default);
+
+  /* Typography */
+  font-family: inherit;
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+
+  /* Transition */
+  transition:
+    border-color var(--duration-fast) var(--easing-out),
+    box-shadow var(--duration-fast) var(--easing-out);
+}
+
+.input::placeholder {
+  color: var(--color-fg-muted);
+}
+
+.input:hover:not(:disabled):not(:read-only) {
+  border-color: var(--color-border-strong);
+}
+
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-action-primary);
+  box-shadow: 0 0 0 3px var(--color-action-primary-subtle);
+}
+
+.input:disabled {
+  background-color: var(--color-bg-subtle);
+  color: var(--color-fg-disabled);
+  cursor: not-allowed;
+}
+
+.input:read-only {
+  background-color: var(--color-bg-subtle);
+  cursor: default;
+}
+
+textarea.input {
+  resize: vertical;
+  min-height: 4rem;
+}
+
+.helperText {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-fg-muted);
+  line-height: var(--line-height-normal);
+}
+
+/* =========================================================================
+ * Size
+ * ========================================================================= */
+
+.size-sm .input {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  min-height: 32px;
+}
+
+.size-md .input {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-md);
+  min-height: 40px;
+}
+
+.size-lg .input {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-lg);
+  min-height: 48px;
+}
+
+/* =========================================================================
+ * Error state
+ * ========================================================================= */
+
+.error .input {
+  border-color: var(--color-action-danger);
+}
+
+.error .input:hover:not(:disabled):not(:read-only) {
+  border-color: var(--color-action-danger-hover);
+}
+
+.error .input:focus-visible {
+  border-color: var(--color-action-danger);
+  box-shadow: 0 0 0 3px var(--color-action-danger-subtle);
+}
+
+.error .helperText {
+  color: var(--color-action-danger);
+}
+
+/* =========================================================================
+ * Disabled wrapper（label もディム化）
+ * ========================================================================= */
+
+.disabled .label {
+  color: var(--color-fg-disabled);
+}
