@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config';
 import { fixupConfigRules } from '@eslint/compat';
 import baseConfig from '../../configs/eslint.config.base.mjs';
+import noRestrictedMui from '../../configs/eslint.config.no-restricted-mui.mjs';
 import nextVitals from 'eslint-config-next/core-web-vitals';
 import tseslint from 'typescript-eslint';
 
@@ -28,6 +29,7 @@ const eslintConfig = defineConfig([
       'react-hooks/immutability': 'off',
     },
   },
+  noRestrictedMui,
 ]);
 
 export default eslintConfig;

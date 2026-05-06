@@ -62,7 +62,7 @@
 - [x] PR 1-1-A: ユニット + a11y テスト（Button.tsx は 100% カバレッジ、ライブラリ全体は lines 93.2% / branches 88.37%）
 - [x] PR 1-1-B: Button に `startIcon` Props を追加（`asChild` と TS 排他、`endIcon` は不採用）
 - [x] PR 1-1-B: 全サービスで MUI `Button` → `@nagiyu/ui` の `Button` に置換（62 ファイル / Navigation 2 ファイルは AppBar 内 `color="inherit"` のため MUI 残置）
-- [ ] PR 1-1-C: ESLint で `@mui/material` の `Button` 直接 import を禁止（Navigation 2 ファイルは例外コメントで対応）
+- [x] PR 1-1-C: ESLint で `@mui/material` の `Button` 直接 import を禁止（共有 config `configs/eslint.config.no-restricted-mui.mjs` を 9 サービスから spread。Navigation 2 ファイルは `// eslint-disable-next-line no-restricted-imports -- 理由` で例外）
 
 ### TextField
 
