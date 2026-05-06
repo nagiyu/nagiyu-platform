@@ -28,6 +28,34 @@ jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
   ErrorAlert: ({ message }: { message: string }) =>
     React.createElement('div', { role: 'alert' }, message),
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    type,
+    asChild,
+    loading,
+    startIcon,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    type?: 'button' | 'submit' | 'reset';
+    asChild?: boolean;
+    loading?: boolean;
+    startIcon?: React.ReactNode;
+    [key: string]: unknown;
+  }) => {
+    void asChild;
+    void loading;
+    void startIcon;
+    return React.createElement(
+      'button',
+      { onClick, disabled, type: type ?? 'button', ...rest },
+      children
+    );
+  },
 }));
 
 jest.mock('../../../components/EmptyState', () => ({

@@ -5,7 +5,6 @@ import {
   Container,
   Typography,
   TextField,
-  Button,
   Box,
   Snackbar,
   Alert,
@@ -14,6 +13,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -234,7 +234,7 @@ export default function JsonFormatterClient() {
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
             aria-label="クリップボードから JSON を読み取る"
@@ -242,7 +242,7 @@ export default function JsonFormatterClient() {
             クリップボードから読み取り
           </Button>
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleFormat}
             disabled={!inputText.trim()}
             aria-label="JSON を整形する"
@@ -250,7 +250,7 @@ export default function JsonFormatterClient() {
             整形
           </Button>
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleMinify}
             disabled={!inputText.trim()}
             aria-label="JSON を圧縮する"
@@ -285,7 +285,7 @@ export default function JsonFormatterClient() {
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="contained"
+            variant="solid"
             startIcon={<ContentCopyIcon />}
             onClick={handleCopy}
             disabled={!outputText}
@@ -294,7 +294,7 @@ export default function JsonFormatterClient() {
             コピー
           </Button>
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ClearIcon />}
             onClick={handleClear}
             disabled={!inputText && !outputText}

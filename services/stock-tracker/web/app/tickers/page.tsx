@@ -5,7 +5,6 @@ import {
   Container,
   Box,
   Typography,
-  Button,
   Paper,
   Table,
   TableBody,
@@ -27,6 +26,7 @@ import {
   CircularProgress,
   SelectChangeEvent,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
 // エラーメッセージ定数
@@ -312,7 +312,7 @@ export default function TickersPage() {
           ティッカー管理
         </Typography>
         <Button
-          variant="contained"
+          variant="solid"
           color="primary"
           startIcon={<AddIcon />}
           onClick={openCreateModal}
@@ -459,10 +459,12 @@ export default function TickersPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeModals}>キャンセル</Button>
+          <Button onClick={closeModals} variant="ghost">
+            キャンセル
+          </Button>
           <Button
             onClick={handleCreate}
-            variant="contained"
+            variant="solid"
             color="primary"
             disabled={!formData.symbol || !formData.name || !formData.exchangeId}
           >
@@ -511,13 +513,10 @@ export default function TickersPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeModals}>キャンセル</Button>
-          <Button
-            onClick={handleUpdate}
-            variant="contained"
-            color="primary"
-            disabled={!formData.name}
-          >
+          <Button onClick={closeModals} variant="ghost">
+            キャンセル
+          </Button>
+          <Button onClick={handleUpdate} variant="solid" color="primary" disabled={!formData.name}>
             更新
           </Button>
         </DialogActions>
@@ -536,8 +535,10 @@ export default function TickersPage() {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeModals}>キャンセル</Button>
-          <Button onClick={handleDelete} variant="contained" color="error">
+          <Button onClick={closeModals} variant="ghost">
+            キャンセル
+          </Button>
+          <Button onClick={handleDelete} variant="solid" color="danger">
             削除
           </Button>
         </DialogActions>

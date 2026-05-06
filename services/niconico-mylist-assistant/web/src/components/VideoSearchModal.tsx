@@ -5,7 +5,6 @@ import type { NiconicoVideoInfo } from '@nagiyu/niconico-mylist-assistant-core';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   CardMedia,
@@ -17,6 +16,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
@@ -110,12 +110,11 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             }}
           />
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleSearch}
+            loading={loading}
             disabled={
-              loading ||
-              !keyword.trim() ||
-              keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
+              !keyword.trim() || keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
             }
           >
             検索
@@ -154,7 +153,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
                         </Typography>
                       </Box>
                       <Button
-                        variant={addStatus ? 'outlined' : 'contained'}
+                        variant={addStatus ? 'outline' : 'solid'}
                         disabled={Boolean(addStatus)}
                         onClick={() => handleAddVideo(video.videoId)}
                       >
@@ -173,7 +172,9 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>閉じる</Button>
+        <Button onClick={onClose} variant="ghost">
+          閉じる
+        </Button>
       </DialogActions>
     </Dialog>
   );

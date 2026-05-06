@@ -1,4 +1,5 @@
-import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material';
+import { Box, Card, CardContent, Typography, Chip } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
@@ -67,13 +68,8 @@ export default async function DashboardPage() {
       )}
 
       {/* ログアウトボタン */}
-      <Button
-        variant="outlined"
-        color="primary"
-        href={`${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`}
-        sx={{ mt: 2 }}
-      >
-        ログアウト
+      <Button asChild variant="outline" color="primary">
+        <a href={`${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`}>ログアウト</a>
       </Button>
     </Box>
   );

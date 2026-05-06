@@ -7,7 +7,6 @@ import {
   Container,
   Typography,
   Paper,
-  Button,
   Alert,
   FormControl,
   FormLabel,
@@ -16,6 +15,7 @@ import {
   Radio,
   Box,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 type UploadError = {
@@ -284,14 +284,7 @@ export default function Home() {
         </FormControl>
 
         {/* Submit Button */}
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={!file || isUploading}
-          fullWidth
-          sx={{ py: 1.5 }}
-        >
+        <Button type="submit" variant="solid" size="lg" disabled={!file} loading={isUploading}>
           {isUploading ? 'アップロード中...' : '変換開始'}
         </Button>
       </form>

@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   Box,
-  Button,
   Chip,
   Dialog,
   DialogContent,
@@ -20,6 +19,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';
 import StockChart from './StockChart';
@@ -202,11 +202,11 @@ export default function SummaryDetailDialog({
               </TableContainer>
               <Divider />
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="outlined" onClick={() => openAlertModal('Buy', summary.close)}>
+                <Button variant="outline" onClick={() => openAlertModal('Buy', summary.close)}>
                   買いアラート設定
                 </Button>
                 {summary.holding && (
-                  <Button variant="outlined" onClick={() => openAlertModal('Sell', summary.close)}>
+                  <Button variant="outline" onClick={() => openAlertModal('Sell', summary.close)}>
                     売りアラート設定
                   </Button>
                 )}

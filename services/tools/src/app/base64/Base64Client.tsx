@@ -1,16 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Container, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -108,14 +100,14 @@ export default function Base64Client() {
       <Box sx={{ mb: 3 }}>
         <Stack direction="row" spacing={2}>
           <Button
-            variant={mode === 'encode' ? 'contained' : 'outlined'}
+            variant={mode === 'encode' ? 'solid' : 'outline'}
             onClick={() => handleModeChange('encode')}
             aria-label="エンコードモードに切り替える"
           >
             エンコード
           </Button>
           <Button
-            variant={mode === 'decode' ? 'contained' : 'outlined'}
+            variant={mode === 'decode' ? 'solid' : 'outline'}
             onClick={() => handleModeChange('decode')}
             aria-label="デコードモードに切り替える"
           >
@@ -150,7 +142,7 @@ export default function Base64Client() {
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
             aria-label="クリップボードから入力を読み取る"
@@ -158,7 +150,7 @@ export default function Base64Client() {
             クリップボードから読み取り
           </Button>
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleConvert}
             disabled={!inputText.trim()}
             aria-label={
@@ -194,7 +186,7 @@ export default function Base64Client() {
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="contained"
+            variant="solid"
             startIcon={<ContentCopyIcon />}
             onClick={handleCopy}
             disabled={!outputText}
@@ -203,7 +195,7 @@ export default function Base64Client() {
             コピー
           </Button>
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ClearIcon />}
             onClick={handleClear}
             disabled={!inputText && !outputText}

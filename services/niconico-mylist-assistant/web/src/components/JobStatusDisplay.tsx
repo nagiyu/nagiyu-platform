@@ -12,8 +12,8 @@ import {
   Chip,
   Stack,
   TextField,
-  Button,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -343,9 +343,10 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
                   fullWidth
                 />
                 <Button
-                  variant="contained"
+                  variant="solid"
                   onClick={handleSubmit2FA}
-                  disabled={isSubmitting2FA || twoFactorAuthCode.length !== 6}
+                  loading={isSubmitting2FA}
+                  disabled={twoFactorAuthCode.length !== 6}
                 >
                   {isSubmitting2FA ? '送信中...' : 'コードを送信'}
                 </Button>

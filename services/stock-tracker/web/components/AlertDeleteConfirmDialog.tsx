@@ -1,15 +1,7 @@
 'use client';
 
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Box,
-  CircularProgress,
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Typography, Box } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import type { AlertResponse } from '../types/alert';
 
 interface AlertDeleteConfirmDialogProps {
@@ -96,11 +88,11 @@ export default function AlertDeleteConfirmDialog({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
+        <Button onClick={onClose} disabled={submitting} variant="ghost">
           キャンセル
         </Button>
-        <Button onClick={onConfirm} variant="contained" color="error" disabled={submitting}>
-          {submitting ? <CircularProgress size={24} /> : '削除'}
+        <Button onClick={onConfirm} variant="solid" color="danger" loading={submitting}>
+          削除
         </Button>
       </DialogActions>
     </Dialog>

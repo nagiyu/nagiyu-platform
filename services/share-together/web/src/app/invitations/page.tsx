@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   Box,
-  Button,
   Card,
   CardActions,
   CardContent,
@@ -14,6 +13,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
 
 export default function InvitationsPage() {
@@ -131,15 +131,15 @@ export default function InvitationsPage() {
                 <CardActions sx={{ px: 2, pb: 2 }}>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
-                      variant="contained"
+                      variant="solid"
                       color="primary"
                       onClick={() => handleAccept(invitation.groupId, invitation.groupName)}
                     >
                       承認
                     </Button>
                     <Button
-                      variant="outlined"
-                      color="inherit"
+                      variant="outline"
+                      color="neutral"
                       onClick={() => handleRejectRequest(invitation.groupId, invitation.groupName)}
                     >
                       拒否

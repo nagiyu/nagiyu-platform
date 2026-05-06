@@ -3,10 +3,20 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import Button from './Button';
 
 /**
+ * Storybook 用ダミーアイコン（プラス記号）。
+ * 実プロジェクトでは `@mui/icons-material` 等の SVG コンポーネントを渡す。
+ */
+const PlusIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+  </svg>
+);
+
+/**
  * `Button` は @nagiyu/ui の最小単位アクション部品。
  *
  * - `variant`（solid / outline / ghost）× `color`（6 種）× `size`（sm/md/lg）の直交した API
- * - `loading` でスピナー、`asChild` で `<a>` 等への変身（Radix Slot）
+ * - `loading` でスピナー、`startIcon` で左側装飾アイコン、`asChild` で `<a>` 等への変身（Radix Slot）
  *
  * MUI への依存は内部で完全に隠蔽されている（Props 型は 100% 独自）。
  */
@@ -97,6 +107,14 @@ export const Sizes: Story = {
 
 export const Loading: Story = {
   args: { loading: true, children: '送信中' },
+};
+
+export const WithStartIcon: Story = {
+  args: { startIcon: <PlusIcon />, children: '追加' },
+};
+
+export const WithStartIconLoading: Story = {
+  args: { startIcon: <PlusIcon />, loading: true, children: '送信中' },
 };
 
 export const Disabled: Story = {

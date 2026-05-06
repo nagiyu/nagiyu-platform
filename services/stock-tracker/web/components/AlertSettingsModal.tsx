@@ -6,19 +6,18 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Alert,
-  CircularProgress,
   Box,
   Typography,
   FormControlLabel,
   Switch,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
 import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
@@ -1651,7 +1650,7 @@ export default function AlertSettingsModal({
           <Typography variant="subtitle1" sx={{ mt: 1 }}>
             通知設定（任意）
           </Typography>
-          <Button variant="outlined" onClick={() => setNotificationEditDialogOpen(true)}>
+          <Button variant="outline" onClick={() => setNotificationEditDialogOpen(true)}>
             通知設定を編集
           </Button>
           <TextField
@@ -1683,11 +1682,11 @@ export default function AlertSettingsModal({
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={submitting}>
+        <Button onClick={onClose} disabled={submitting} variant="ghost">
           キャンセル
         </Button>
-        <Button onClick={handleSubmit} variant="contained" color="primary" disabled={submitting}>
-          {submitting ? <CircularProgress size={24} /> : '保存'}
+        <Button onClick={handleSubmit} variant="solid" color="primary" loading={submitting}>
+          保存
         </Button>
       </DialogActions>
 

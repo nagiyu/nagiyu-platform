@@ -7,7 +7,8 @@
  */
 
 import React from 'react';
-import { Box, Alert, Button, Typography } from '@mui/material';
+import { Box, Alert, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import type { APIError } from '@nagiyu/common';
 
@@ -76,7 +77,7 @@ export function ErrorDisplay({
 
       {showRetry && (
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Button variant="contained" startIcon={<RefreshIcon />} onClick={onRetry}>
+          <Button variant="solid" startIcon={<RefreshIcon />} onClick={onRetry}>
             再試行
           </Button>
         </Box>
@@ -105,7 +106,7 @@ export function LoadingError({
         {message}
       </Alert>
       {onRetry && (
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={onRetry} sx={{ mt: 2 }}>
+        <Button variant="outline" startIcon={<RefreshIcon />} onClick={onRetry}>
           再読み込み
         </Button>
       )}

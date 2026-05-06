@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Button, Stack, TextField, Typography } from '@mui/material';
+import { Box, Stack, TextField, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 type InviteFormProps = {
@@ -95,8 +96,9 @@ export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
           />
           <Button
             type="button"
-            variant="contained"
-            disabled={!isOwner || isSubmitting || isMemberLimitReached}
+            variant="solid"
+            loading={isSubmitting}
+            disabled={!isOwner || isMemberLimitReached}
             onClick={handleSubmit}
           >
             招待を送信

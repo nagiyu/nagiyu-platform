@@ -103,6 +103,47 @@ describe('Button', () => {
     });
   });
 
+  describe('startIcon', () => {
+    it('startIcon を子要素ラベルの前に表示する', () => {
+      render(<Button startIcon={<span data-testid="my-icon">★</span>}>追加</Button>);
+      const wrapper = screen.getByTestId('button-start-icon');
+      expect(wrapper).toBeInTheDocument();
+      expect(wrapper).toContainElement(screen.getByTestId('my-icon'));
+      // ラベル文字列が同じボタン内に存在する
+      expect(screen.getByRole('button', { name: '追加' })).toBeInTheDocument();
+    });
+
+    it('startIcon ラッパーに aria-hidden が自動付与される', () => {
+      render(<Button startIcon={<span>★</span>}>追加</Button>);
+      expect(screen.getByTestId('button-start-icon')).toHaveAttribute('aria-hidden', 'true');
+    });
+
+    it('startIcon を渡さなければ wrapper を描画しない', () => {
+      render(<Button>追加</Button>);
+      expect(screen.queryByTestId('button-start-icon')).not.toBeInTheDocument();
+    });
+
+    it('loading 中はスピナーを表示し、startIcon は contentHidden 内に隠れる', () => {
+      render(
+        <Button loading startIcon={<span data-testid="my-icon">★</span>}>
+          送信中
+        </Button>
+      );
+      // スピナーは見える
+      expect(screen.getByTestId('button-spinner')).toBeInTheDocument();
+      // startIcon 自体は DOM に存在するが visibility:hidden の親に包まれている
+      const iconWrapper = screen.getByTestId('button-start-icon');
+      expect(iconWrapper).toBeInTheDocument();
+      expect(iconWrapper.parentElement?.className).toContain('contentHidden');
+    });
+
+    it('startIcon があっても a11y 違反がない', async () => {
+      const { container } = render(<Button startIcon={<span>★</span>}>追加</Button>);
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    });
+  });
+
   describe('asChild', () => {
     it('子要素のタグをそのまま使い、props をマージする', () => {
       render(
@@ -135,6 +176,19 @@ describe('Button', () => {
         </Button>
       );
       expect(screen.getByRole('link')).toHaveAttribute('aria-busy', 'true');
+    });
+
+    it('asChild + startIcon は型レベルで禁止される（@ts-expect-error 検証）', () => {
+      render(
+        // @ts-expect-error startIcon は asChild と同時指定不可
+        <Button asChild startIcon={<span data-testid="icon-x">★</span>}>
+          <a href="/x">go</a>
+        </Button>
+      );
+      // 実装としても asChild モードでは startIcon を取り出さないため
+      // 描画されない（DOM に出ない）ことを確認する。
+      expect(screen.queryByTestId('icon-x')).not.toBeInTheDocument();
+      expect(screen.getByRole('link')).toBeInTheDocument();
     });
   });
 

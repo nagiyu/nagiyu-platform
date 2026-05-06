@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { Container, Typography, Grid, Card, CardContent, CardActions, Button } from '@mui/material';
+import Link from 'next/link';
+import { Container, Typography, Grid, Card, CardContent, CardActions } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { getAllServiceSlugs, getServiceDocument } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 
@@ -57,11 +59,13 @@ export default async function ServicesPage() {
                 </Typography>
               </CardContent>
               <CardActions>
-                <Button size="small" href={`/services/${card.slug}`}>
-                  ドキュメント
+                <Button asChild size="sm" variant="ghost">
+                  <Link href={`/services/${card.slug}`}>ドキュメント</Link>
                 </Button>
-                <Button size="small" href={card.url} target="_blank" rel="noopener noreferrer">
-                  サービスを開く
+                <Button asChild size="sm" variant="ghost">
+                  <a href={card.url} target="_blank" rel="noopener noreferrer">
+                    サービスを開く
+                  </a>
                 </Button>
               </CardActions>
             </Card>

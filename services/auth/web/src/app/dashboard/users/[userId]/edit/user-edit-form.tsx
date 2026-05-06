@@ -9,10 +9,10 @@ import {
   FormGroup,
   FormControlLabel,
   Checkbox,
-  Button,
   Alert,
   CircularProgress,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 
@@ -146,11 +146,11 @@ export function UserEditForm({ userId }: UserEditFormProps) {
           </FormGroup>
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button type="submit" variant="contained" disabled={saving}>
+            <Button type="submit" variant="solid" disabled={saving}>
               {saving ? '保存中...' : '保存'}
             </Button>
             <Button
-              variant="outlined"
+              variant="outline"
               onClick={() => router.push('/dashboard/users')}
               disabled={saving}
             >

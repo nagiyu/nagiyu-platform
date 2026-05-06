@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Container, Typography, Box, Button, Snackbar, Alert } from '@mui/material';
+import { Container, Typography, Box, Snackbar, Alert } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import JobStatusDisplay from '@/components/JobStatusDisplay';
@@ -65,7 +66,7 @@ export default function JobStatusPageClient({ jobId }: JobStatusPageClientProps)
       <Box sx={{ my: 4 }}>
         {/* ヘッダー */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={handleBack}>
+          <Button variant="outline" startIcon={<ArrowBackIcon />} onClick={handleBack}>
             登録画面に戻る
           </Button>
           <Typography variant="h4" component="h1">

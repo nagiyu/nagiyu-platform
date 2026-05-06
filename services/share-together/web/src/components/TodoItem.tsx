@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Button, Checkbox, ListItem, TextField, Typography } from '@mui/material';
+import { Box, Checkbox, ListItem, TextField, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import type { TodoItem as TodoItemType } from '@/types';
 
 type TodoItemProps = {
@@ -67,15 +68,19 @@ export function TodoItem({ todo, onToggleComplete, onDelete, onUpdate }: TodoIte
         )}
         {isEditing ? (
           <>
-            <Button onClick={handleEditCancel}>キャンセル</Button>
-            <Button variant="contained" onClick={handleEditSave} disabled={isEditingTitleEmpty}>
+            <Button variant="ghost" onClick={handleEditCancel}>
+              キャンセル
+            </Button>
+            <Button variant="solid" onClick={handleEditSave} disabled={isEditingTitleEmpty}>
               保存
             </Button>
           </>
         ) : (
-          <Button onClick={handleEditStart}>編集</Button>
+          <Button variant="ghost" onClick={handleEditStart}>
+            編集
+          </Button>
         )}
-        <Button color="error" onClick={() => onDelete?.(todo.todoId)}>
+        <Button variant="ghost" color="danger" onClick={() => onDelete?.(todo.todoId)}>
           削除
         </Button>
       </Box>

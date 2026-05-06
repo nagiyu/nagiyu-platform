@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import {
   Box,
-  Button,
   FormControl,
   InputLabel,
   Select,
@@ -11,6 +10,7 @@ import {
   SelectChangeEvent,
   TextField,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 
 interface VideoListFiltersProps {
   favoriteFilter: string;
@@ -107,7 +107,7 @@ export default function VideoListFilters({
           placeholder="動画タイトルで検索"
           sx={{ minWidth: 240 }}
         />
-        <Button variant="contained" size="small" onClick={handleSearch}>
+        <Button variant="solid" size="sm" onClick={handleSearch}>
           検索
         </Button>
       </Box>

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   Container,
   Box,
-  Button,
   Typography,
   Table,
   TableBody,
@@ -25,6 +24,7 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -603,7 +603,7 @@ export default function HoldingsPage() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/')} variant="outlined">
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/')} variant="outline">
             戻る
           </Button>
           <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold' }}>
@@ -612,7 +612,7 @@ export default function HoldingsPage() {
         </Box>
         <Button
           startIcon={<AddIcon />}
-          variant="contained"
+          variant="solid"
           color="primary"
           onClick={handleOpenCreateModal}
         >
@@ -707,12 +707,11 @@ export default function HoldingsPage() {
                       <TableCell>{holding.currency}</TableCell>
                       <TableCell align="center">
                         <Button
-                          variant="contained"
+                          variant="solid"
                           color={hasAlert ? 'primary' : 'success'}
-                          size="small"
+                          size="sm"
                           startIcon={hasAlert ? <CheckCircleIcon /> : <NotificationsNoneIcon />}
                           onClick={() => handleOpenAlertModal(holding)}
-                          sx={{ minWidth: 140 }}
                         >
                           {hasAlert ? 'アラート設定済' : '売りアラート'}
                         </Button>
@@ -720,18 +719,18 @@ export default function HoldingsPage() {
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                           <Button
-                            variant="contained"
+                            variant="solid"
                             color="warning"
-                            size="small"
+                            size="sm"
                             startIcon={<EditIcon />}
                             onClick={() => handleOpenEditModal(holding)}
                           >
                             編集
                           </Button>
                           <Button
-                            variant="contained"
-                            color="error"
-                            size="small"
+                            variant="solid"
+                            color="danger"
+                            size="sm"
                             startIcon={<DeleteIcon />}
                             onClick={() => handleOpenDeleteDialog(holding)}
                             disabled={submitting || deleteDialogLoading}
@@ -872,11 +871,11 @@ export default function HoldingsPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseCreateModal} disabled={submitting}>
+          <Button onClick={handleCloseCreateModal} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={handleCreate} variant="contained" color="primary" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button onClick={handleCreate} variant="solid" color="primary" loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -949,11 +948,11 @@ export default function HoldingsPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseEditModal} disabled={submitting}>
+          <Button onClick={handleCloseEditModal} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={handleUpdate} variant="contained" color="primary" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button onClick={handleUpdate} variant="solid" color="primary" loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -1007,11 +1006,11 @@ export default function HoldingsPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDeleteDialog} disabled={submitting}>
+          <Button onClick={handleCloseDeleteDialog} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={handleDelete} variant="contained" color="error" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '削除'}
+          <Button onClick={handleDelete} variant="solid" color="danger" loading={submitting}>
+            削除
           </Button>
         </DialogActions>
       </Dialog>

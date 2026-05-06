@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
   Container,
@@ -22,6 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
@@ -581,8 +581,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   {/* リトライボタン (FAILED 時のみ) */}
                   {selectedHighlight.clipStatus === 'FAILED' && (
                     <Button
-                      variant="outlined"
-                      color="error"
+                      variant="outline"
+                      color="danger"
                       startIcon={<ReplayIcon />}
                       onClick={() => void onRegenerate(selectedHighlight)}
                     >
@@ -673,9 +673,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                 </Typography>
 
                 <Button
-                  variant="contained"
+                  variant="solid"
                   onClick={onDownload}
-                  disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip || isDownloading}
+                  loading={isDownloading}
+                  disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip}
                 >
                   {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
                 </Button>

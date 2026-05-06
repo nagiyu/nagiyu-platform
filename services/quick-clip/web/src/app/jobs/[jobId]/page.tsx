@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Alert,
-  Button,
   Chip,
   CircularProgress,
   Container,
@@ -15,6 +14,7 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import type { BatchStage, JobStatus } from '@/types/quick-clip';
@@ -271,14 +271,14 @@ export default function JobPage({ params }: JobPageProps) {
             )}
 
             {canMoveToHighlights && (
-              <Button href={`/jobs/${job.jobId}/highlights`} component={Link} variant="contained">
-                見どころを確認する
+              <Button asChild variant="solid">
+                <Link href={`/jobs/${job.jobId}/highlights`}>見どころを確認する</Link>
               </Button>
             )}
 
             {job.status === 'FAILED' && (
-              <Button href="/" component={Link} variant="outlined">
-                再アップロードする
+              <Button asChild variant="outline">
+                <Link href="/">再アップロードする</Link>
               </Button>
             )}
           </Stack>

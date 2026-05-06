@@ -7,7 +7,6 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Box,
-  Button,
   IconButton,
   List,
   ListItem,
@@ -18,6 +17,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import type { ApiErrorResponse, PersonalListResponse, PersonalListsResponse } from '@/types';
 import { ERROR_MESSAGES as COMMON_ERROR_MESSAGES } from '@/lib/constants/errors';
 
@@ -221,13 +221,8 @@ export function ListSidebar({
       <Typography variant="h6" component="h3" gutterBottom>
         {heading}
       </Typography>
-      <Box sx={{ mb: 2 }}>
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={handleCreateList}
-          disabled={isPersonalListLimitReached}
-        >
+      <Box sx={{ mb: 2, '& > button': { width: '100%' } }}>
+        <Button variant="solid" onClick={handleCreateList} disabled={isPersonalListLimitReached}>
           {createButtonLabel}
         </Button>
         {isPersonalListLimitReached ? (

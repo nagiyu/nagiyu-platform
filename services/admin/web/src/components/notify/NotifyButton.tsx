@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Alert } from '@mui/material';
+import { Alert } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
 
 const ERROR_MESSAGES = {
@@ -92,7 +93,7 @@ export default function NotifyButton() {
 
   return (
     <>
-      <Button variant="contained" onClick={handleEnableNotification} disabled={isLoading}>
+      <Button variant="solid" onClick={handleEnableNotification} loading={isLoading}>
         通知を有効にする
       </Button>
       {message && (

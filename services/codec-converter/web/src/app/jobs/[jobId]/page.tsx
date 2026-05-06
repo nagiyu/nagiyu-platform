@@ -10,17 +10,8 @@ import {
   formatDateTime,
   formatJobId,
 } from '@nagiyu/codec-converter-core';
-import {
-  Container,
-  Typography,
-  Card,
-  CardContent,
-  Chip,
-  Button,
-  Alert,
-  Stack,
-  Box,
-} from '@mui/material';
+import { Container, Typography, Card, CardContent, Chip, Alert, Stack, Box } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
 import AddIcon from '@mui/icons-material/Add';
@@ -220,7 +211,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         <Alert severity="error" sx={{ mb: 3 }}>
           {error}
         </Alert>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewConversion}>
+        <Button variant="solid" startIcon={<AddIcon />} onClick={handleNewConversion}>
           新しい動画を変換
         </Button>
       </Container>
@@ -334,12 +325,11 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         {/* ステータス確認ボタン */}
         {showRefreshButton && (
           <Button
-            variant="contained"
-            size="large"
+            variant="solid"
+            size="lg"
             startIcon={<RefreshIcon />}
             onClick={handleRefresh}
-            disabled={isRefreshing}
-            fullWidth
+            loading={isRefreshing}
             aria-label="ジョブステータスを確認"
           >
             {isRefreshing ? '確認中...' : 'ステータス確認'}
@@ -349,12 +339,11 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         {/* ダウンロードボタン */}
         {showDownloadButton && (
           <Button
-            variant="contained"
-            size="large"
+            variant="solid"
+            size="lg"
             color="success"
             startIcon={<DownloadIcon />}
             onClick={handleDownload}
-            fullWidth
             aria-label="変換済みファイルをダウンロード"
           >
             ダウンロード
@@ -363,11 +352,10 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
         {/* 新規変換ボタン */}
         <Button
-          variant="outlined"
-          size="large"
+          variant="outline"
+          size="lg"
           startIcon={<AddIcon />}
           onClick={handleNewConversion}
-          fullWidth
           aria-label="新しい動画を変換する"
         >
           新しい動画を変換

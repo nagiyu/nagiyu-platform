@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { isPersistablePath, loadLastVisitedPath } from '@/lib/lastVisitedPath';
 
 export default function Home() {
@@ -25,11 +27,11 @@ export default function Home() {
           個人リストと共有リストの ToDo を、用途に応じて切り替えながら管理できます。
         </Typography>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <Button variant="contained" href="/lists">
-            リストを開く
+          <Button asChild variant="solid">
+            <Link href="/lists">リストを開く</Link>
           </Button>
-          <Button variant="outlined" href="/groups">
-            グループを管理
+          <Button asChild variant="outline">
+            <Link href="/groups">グループを管理</Link>
           </Button>
         </Stack>
       </Box>

@@ -1,16 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Container, Snackbar, Stack, TextField, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import { writeToClipboard } from '@nagiyu/browser';
@@ -84,10 +76,10 @@ export default function VapidGeneratorPage() {
 
         <Box sx={{ mb: 3, mt: 3 }}>
           <Button
-            variant="contained"
+            variant="solid"
             startIcon={<AutorenewIcon />}
             onClick={handleGenerate}
-            disabled={isGenerating}
+            loading={isGenerating}
             aria-label="VAPIDキーを生成する"
           >
             {isGenerating ? '生成中...' : 'VAPIDキーを生成'}
@@ -109,7 +101,7 @@ export default function VapidGeneratorPage() {
               sx={{ mb: 1.5 }}
             />
             <Button
-              variant="outlined"
+              variant="outline"
               startIcon={<ContentCopyIcon />}
               onClick={() => keys && handleCopy(keys.publicKey)}
               disabled={!keys?.publicKey}
@@ -133,7 +125,7 @@ export default function VapidGeneratorPage() {
               sx={{ mb: 1.5 }}
             />
             <Button
-              variant="outlined"
+              variant="outline"
               startIcon={<ContentCopyIcon />}
               onClick={() => keys && handleCopy(keys.privateKey)}
               disabled={!keys?.privateKey}

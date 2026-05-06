@@ -1,5 +1,6 @@
 import { signIn } from '@nagiyu/auth-core';
-import { Box, Button, Container, Paper, Typography } from '@mui/material';
+import { Box, Container, Paper, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import GoogleIcon from '@mui/icons-material/Google';
 
 interface SignInPageProps {
@@ -42,15 +43,11 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
               });
             }}
           >
-            <Button
-              type="submit"
-              variant="contained"
-              size="large"
-              startIcon={<GoogleIcon />}
-              fullWidth
-            >
-              Google でサインイン
-            </Button>
+            <Box sx={{ '& > button': { width: '100%' } }}>
+              <Button type="submit" variant="solid" size="lg" startIcon={<GoogleIcon />}>
+                Google でサインイン
+              </Button>
+            </Box>
           </form>
         </Paper>
       </Box>

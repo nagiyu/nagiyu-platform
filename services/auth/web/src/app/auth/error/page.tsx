@@ -1,7 +1,8 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Box, Container, Paper, Typography, Button } from '@mui/material';
+import { Box, Container, Paper, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import Link from 'next/link';
 import { Suspense } from 'react';
@@ -45,7 +46,7 @@ function ErrorContent() {
             {errorMessage}
           </Typography>
           <Link href="/signin" style={{ textDecoration: 'none' }}>
-            <Button variant="contained" size="large">
+            <Button variant="solid" size="lg">
               サインインページへ戻る
             </Button>
           </Link>

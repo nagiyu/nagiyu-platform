@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Container, Typography, Box, Button } from '@mui/material';
+import { Container, Typography, Box } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import { getAllServiceSlugs, getServiceDocument } from '@/lib/content';
 import { SERVICE_URLS, SERVICE_NAMES } from '@/lib/services';
 import MarkdownContent from '@/components/MarkdownContent';
@@ -67,8 +68,10 @@ export default async function ServicePage({ params }: Params) {
       {/* 外部リンク */}
       {serviceUrl && (
         <Box sx={{ mb: 3 }}>
-          <Button variant="contained" href={serviceUrl} target="_blank" rel="noopener noreferrer">
-            {serviceName} を開く
+          <Button asChild variant="solid">
+            <a href={serviceUrl} target="_blank" rel="noopener noreferrer">
+              {serviceName} を開く
+            </a>
           </Button>
         </Box>
       )}

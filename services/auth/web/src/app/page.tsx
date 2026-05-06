@@ -1,4 +1,5 @@
-import { Container, Typography, Button, Box, Paper } from '@mui/material';
+import { Container, Typography, Box, Paper } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import LoginIcon from '@mui/icons-material/Login';
 
 export default function HomePage() {
@@ -23,7 +24,7 @@ export default function HomePage() {
           サインインするには、以下のボタンをクリックしてください。
         </Typography>
 
-        <Button variant="contained" size="large" startIcon={<LoginIcon />} disabled sx={{ mt: 2 }}>
+        <Button variant="solid" size="lg" startIcon={<LoginIcon />} disabled>
           Google でサインイン
         </Button>
 

@@ -6,7 +6,6 @@ import {
   Box,
   Typography,
   TextField,
-  Button,
   Alert,
   Card,
   CardContent,
@@ -19,6 +18,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
 import VideoSearchModal from '@/components/VideoSearchModal';
@@ -113,20 +113,16 @@ export default function ImportPage() {
           />
         </Box>
 
-        <Box sx={{ mt: 2 }}>
-          <Button
-            variant="outlined"
-            size="large"
-            sx={{ mr: 2 }}
-            onClick={() => setSearchModalOpen(true)}
-          >
+        <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+          <Button variant="outline" size="lg" onClick={() => setSearchModalOpen(true)}>
             動画を検索して追加
           </Button>
           <Button
-            variant="contained"
-            size="large"
+            variant="solid"
+            size="lg"
             onClick={handleImport}
-            disabled={loading || !videoIds.trim()}
+            loading={loading}
+            disabled={!videoIds.trim()}
           >
             {loading ? <CircularProgress size={24} /> : 'インポート実行'}
           </Button>
@@ -203,7 +199,7 @@ export default function ImportPage() {
                 )}
 
                 <Box sx={{ mt: 2 }}>
-                  <Button variant="outlined" onClick={() => router.push('/')}>
+                  <Button variant="outline" onClick={() => router.push('/')}>
                     動画一覧を見る
                   </Button>
                 </Box>

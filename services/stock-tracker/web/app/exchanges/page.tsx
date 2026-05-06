@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
-  Button,
   Paper,
   Table,
   TableBody,
@@ -26,6 +25,7 @@ import {
   FormControl,
   InputLabel,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -396,12 +396,7 @@ export default function ExchangesPage() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/')}
-            sx={{ minWidth: 120 }}
-          >
+          <Button variant="outline" startIcon={<ArrowBackIcon />} onClick={() => router.push('/')}>
             戻る
           </Button>
           <Typography variant="h4" component="h1">
@@ -409,7 +404,7 @@ export default function ExchangesPage() {
           </Typography>
         </Box>
         <Button
-          variant="contained"
+          variant="solid"
           color="primary"
           startIcon={<AddIcon />}
           onClick={handleCreateOpen}
@@ -475,21 +470,18 @@ export default function ExchangesPage() {
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                         <Button
-                          variant="contained"
-                          size="small"
+                          variant="solid"
+                          color="warning"
+                          size="sm"
                           startIcon={<EditIcon />}
                           onClick={() => handleEditOpen(exchange)}
-                          sx={{
-                            backgroundColor: '#ffc107',
-                            '&:hover': { backgroundColor: '#ffa000' },
-                          }}
                         >
                           編集
                         </Button>
                         <Button
-                          variant="contained"
-                          size="small"
-                          color="error"
+                          variant="solid"
+                          size="sm"
+                          color="danger"
                           startIcon={<DeleteIcon />}
                           onClick={() => handleDeleteOpen(exchange)}
                         >
@@ -658,16 +650,11 @@ export default function ExchangesPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} sx={{ minWidth: 100 }}>
+          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button variant="solid" onClick={handleCreate} loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -817,16 +804,11 @@ export default function ExchangesPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} sx={{ minWidth: 100 }}>
+          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdate}
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button variant="solid" onClick={handleUpdate} loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -841,17 +823,11 @@ export default function ExchangesPage() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} sx={{ minWidth: 100 }}>
+          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleDelete}
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : '削除'}
+          <Button variant="solid" color="danger" onClick={handleDelete} loading={submitting}>
+            削除
           </Button>
         </DialogActions>
       </Dialog>

@@ -9,11 +9,11 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Button,
   Alert,
   CircularProgress,
   Box,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
 
@@ -88,14 +88,9 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
               </TableCell>
               <TableCell align="right">
                 {canAssignRoles && (
-                  <Link
-                    href={`/dashboard/users/${user.userId}/edit`}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Button variant="outlined" size="small">
-                      編集
-                    </Button>
-                  </Link>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/users/${user.userId}/edit`}>編集</Link>
+                  </Button>
                 )}
               </TableCell>
             </TableRow>

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Button, TextField } from '@mui/material';
+import { Box, TextField } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 
 type TodoFormProps = {
   onAdd?: (title: string) => void;
@@ -29,7 +30,7 @@ export function TodoForm({ onAdd }: TodoFormProps) {
         size="small"
         fullWidth
       />
-      <Button type="submit" variant="contained" disabled={isTitleEmpty}>
+      <Button type="submit" variant="solid" disabled={isTitleEmpty}>
         追加
       </Button>
     </Box>

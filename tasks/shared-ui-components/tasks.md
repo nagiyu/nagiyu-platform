@@ -60,8 +60,9 @@
 - [x] PR 1-1-A: `libs/ui` に `Button` 実装（variant: solid/outline/ghost、color: 6 種、size: sm/md/lg、`loading`、`asChild`）
 - [x] PR 1-1-A: Stories 全パターン作成（Default / Variants / Colors / Sizes / Loading / Disabled / AsChildLink / Matrix）
 - [x] PR 1-1-A: ユニット + a11y テスト（Button.tsx は 100% カバレッジ、ライブラリ全体は lines 93.2% / branches 88.37%）
-- [ ] PR 1-1-B: 全サービスで MUI `Button` → `@nagiyu/ui` の `Button` に置換
-- [ ] PR 1-1-C: ESLint で `@mui/material` の `Button` 直接 import を禁止
+- [x] PR 1-1-B: Button に `startIcon` Props を追加（`asChild` と TS 排他、`endIcon` は不採用）
+- [x] PR 1-1-B: 全サービスで MUI `Button` → `@nagiyu/ui` の `Button` に置換（62 ファイル / Navigation 2 ファイルは AppBar 内 `color="inherit"` のため MUI 残置）
+- [ ] PR 1-1-C: ESLint で `@mui/material` の `Button` 直接 import を禁止（Navigation 2 ファイルは例外コメントで対応）
 
 ### TextField
 
