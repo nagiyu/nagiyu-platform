@@ -7,13 +7,12 @@ import {
   Card,
   CardActions,
   CardContent,
-  Chip,
   Container,
   Snackbar,
   Stack,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Chip } from '@nagiyu/ui';
 import type { InvitationSummary, InvitationsResponse } from '@/types';
 
 export default function InvitationsPage() {
@@ -119,7 +118,9 @@ export default function InvitationsPage() {
                     <Typography component="h2" variant="h6">
                       {invitation.groupName}
                     </Typography>
-                    <Chip label="招待中" color="info" size="small" />
+                    <Chip color="primary" size="sm">
+                      招待中
+                    </Chip>
                   </Stack>
                   <Typography variant="body2" color="text.secondary">
                     招待者: {invitation.inviterName}

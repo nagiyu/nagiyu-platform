@@ -56,6 +56,33 @@ jest.mock('@nagiyu/ui', () => ({
       children
     );
   },
+  Chip: ({
+    children,
+    onClick,
+    asChild,
+    variant,
+    color,
+    size,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+    asChild?: boolean;
+    variant?: string;
+    color?: string;
+    size?: string;
+    [key: string]: unknown;
+  }) => {
+    void asChild;
+    void variant;
+    void color;
+    void size;
+    return React.createElement(
+      onClick ? 'button' : 'span',
+      { onClick, type: onClick ? 'button' : undefined, ...rest },
+      children
+    );
+  },
 }));
 
 jest.mock('../../../components/EmptyState', () => ({

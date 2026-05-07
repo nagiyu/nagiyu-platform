@@ -300,8 +300,12 @@ export default function VideoDetailModal({
 
             {/* メタデータ */}
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-              <Chip label={video.length} size="small" variant="outlined" />
-              <Chip label={formatDateTime(video.createdAt)} size="small" variant="outlined" />
+              <Chip size="sm" variant="outline">
+                {video.length}
+              </Chip>
+              <Chip size="sm" variant="outline">
+                {formatDateTime(video.createdAt)}
+              </Chip>
             </Stack>
 
             {/* お気に入り・スキップボタン */}

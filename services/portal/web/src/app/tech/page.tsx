@@ -1,16 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  Container,
-  Typography,
-  Grid,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Chip,
-} from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Container, Typography, Grid, Box, Card, CardContent, CardActions } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import { getAllArticles } from '@/lib/content';
 
 export const metadata: Metadata = {
@@ -60,7 +51,9 @@ export default function TechPage() {
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {article.tags.map((tag) => (
-                      <Chip key={tag} label={tag} size="small" variant="outlined" />
+                      <Chip key={tag} size="sm" variant="outline">
+                        {tag}
+                      </Chip>
                     ))}
                   </Box>
                 </CardContent>
