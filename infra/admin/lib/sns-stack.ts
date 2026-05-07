@@ -7,8 +7,21 @@ export interface SNSStackProps {
   environment: string;
 }
 
+/**
+ * Admin の SNS Topic 群を管理する。
+ *
+ * - **alarmTopic（本流）**: 各サービスの CloudWatch Alarm を集約する Topic。
+ *   Lambda subscription（alarm-ingest）が DynamoDB へ永続化し、その後
+ *   stream-handler が Web Push を fan-out する。HTTPS subscription は
+ *   持たない（本流の二重通知を防ぐ）。
+ * - **selfMonitoringTopic（自己監視）**: 新システム自身（alarm-ingest /
+ *   stream-handler / DLQ / error-events table）の障害アラームを受ける Topic。
+ *   既存の `/api/notify/sns` HTTPS subscription をこちらに付け替え、
+ *   新システムが障害中でも Push 通知が届く経路を確保する。
+ */
 export class SNSStack extends Construct {
   public readonly alarmTopic: sns.Topic;
+  public readonly selfMonitoringTopic: sns.Topic;
 
   constructor(scope: Construct, id: string, props: SNSStackProps) {
     super(scope, id);
@@ -19,22 +32,39 @@ export class SNSStack extends Construct {
         ? 'https://admin.nagiyu.com'
         : `https://${environment}-admin.nagiyu.com`;
 
+    // 本流: 各サービスの CloudWatch Alarm 集約用
+    // HTTPS subscription は意図的に付けない（alarm-ingest Lambda のみが subscribe する）
     this.alarmTopic = new sns.Topic(this, 'AlarmTopic', {
       topicName: `nagiyu-admin-alarms-${environment}`,
       displayName: `Admin Alarms (${environment})`,
     });
 
-    this.alarmTopic.addSubscription(
+    // 自己監視: 新システム自身の障害用
+    // HTTPS subscription で /api/notify/sns に流し、新システムを介さず
+    // Web Push を Admin 管理者へ届ける
+    this.selfMonitoringTopic = new sns.Topic(this, 'SelfMonitoringTopic', {
+      topicName: `nagiyu-admin-self-monitoring-${environment}`,
+      displayName: `Admin Self-Monitoring (${environment})`,
+    });
+    this.selfMonitoringTopic.addSubscription(
       new subscriptions.UrlSubscription(`${adminUrl}/api/notify/sns`)
     );
 
-    cdk.Tags.of(this.alarmTopic).add('Application', 'nagiyu');
-    cdk.Tags.of(this.alarmTopic).add('Service', 'admin');
-    cdk.Tags.of(this.alarmTopic).add('Environment', environment);
+    [this.alarmTopic, this.selfMonitoringTopic].forEach((topic) => {
+      cdk.Tags.of(topic).add('Application', 'nagiyu');
+      cdk.Tags.of(topic).add('Service', 'admin');
+      cdk.Tags.of(topic).add('Environment', environment);
+    });
 
     new cdk.CfnOutput(this, 'AlarmTopicArn', {
       value: this.alarmTopic.topicArn,
-      description: 'SNS Topic ARN for Admin alarm notifications',
+      description: 'SNS Topic ARN for Admin alarm notifications (mainstream)',
+    });
+
+    new cdk.CfnOutput(this, 'SelfMonitoringTopicArn', {
+      value: this.selfMonitoringTopic.topicArn,
+      description: 'SNS Topic ARN for self-monitoring of the error-events stack',
+      exportName: `nagiyu-admin-self-monitoring-topic-arn-${environment}`,
     });
   }
 }
