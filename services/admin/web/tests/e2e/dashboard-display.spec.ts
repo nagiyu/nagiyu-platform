@@ -34,9 +34,7 @@ test.describe('Dashboard Display', () => {
     for (const role of testUserRoles) {
       // user-role の testid が付いた Chip 要素内のロールを確認
       // （ヘッダーの "Admin" と区別するため、UI ライブラリのクラス名ではなく testid で特定する）
-      await expect(
-        page.locator(`[data-testid="user-role"]`, { hasText: role })
-      ).toBeVisible();
+      await expect(page.locator(`[data-testid="user-role"]`, { hasText: role })).toBeVisible();
     }
 
     // 認証ステータスが表示されることを確認
