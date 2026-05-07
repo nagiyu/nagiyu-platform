@@ -4,13 +4,13 @@ import {
   Container,
   Typography,
   Box,
-  Chip,
   Card,
   CardActionArea,
   CardContent,
   Divider,
   Link as MuiLink,
 } from '@mui/material';
+import { Chip } from '@nagiyu/ui';
 import { getAllArticles, getArticle, getRelatedArticles } from '@/lib/content';
 import MarkdownContent from '@/components/MarkdownContent';
 import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
@@ -126,7 +126,9 @@ export default async function TechArticlePage({ params }: Params) {
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 3 }}>
         {article.tags.map((tag) => (
-          <Chip key={tag} label={tag} size="small" variant="outlined" />
+          <Chip key={tag} size="sm" variant="outline">
+            {tag}
+          </Chip>
         ))}
       </Box>
 
@@ -158,7 +160,9 @@ export default async function TechArticlePage({ params }: Params) {
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {related.tags.map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
+                        <Chip key={tag} size="sm" variant="outline">
+                          {tag}
+                        </Chip>
                       ))}
                     </Box>
                   </CardContent>

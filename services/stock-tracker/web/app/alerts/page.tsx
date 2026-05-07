@@ -14,13 +14,12 @@ import {
   Paper,
   Alert,
   CircularProgress,
-  Chip,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Chip } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -402,11 +401,9 @@ function AlertsPageContent() {
                   return (
                     <TableRow key={alert.alertId} hover>
                       <TableCell>
-                        <Chip
-                          label={MODE_LABELS[alert.mode] || alert.mode}
-                          color={alert.mode === 'Buy' ? 'success' : 'warning'}
-                          size="small"
-                        />
+                        <Chip color={alert.mode === 'Buy' ? 'success' : 'warning'} size="sm">
+                          {MODE_LABELS[alert.mode] || alert.mode}
+                        </Chip>
                       </TableCell>
                       <TableCell>{exchangeName}</TableCell>
                       <TableCell>
@@ -420,11 +417,9 @@ function AlertsPageContent() {
                       <TableCell>{conditionText}</TableCell>
                       <TableCell>{FREQUENCY_LABELS[alert.frequency] || alert.frequency}</TableCell>
                       <TableCell align="center">
-                        <Chip
-                          label={alert.enabled ? '有効' : '無効'}
-                          color={alert.enabled ? 'success' : 'default'}
-                          size="small"
-                        />
+                        <Chip color={alert.enabled ? 'success' : 'neutral'} size="sm">
+                          {alert.enabled ? '有効' : '無効'}
+                        </Chip>
                       </TableCell>
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

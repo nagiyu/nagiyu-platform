@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import {
   Box,
-  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
@@ -19,7 +18,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Chip } from '@nagiyu/ui';
 import { Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';
 import StockChart from './StockChart';
@@ -360,13 +359,13 @@ export default function SummaryDetailDialog({
                         {summary.aiAnalysisResult.supportLevels.map((level, index) => (
                           <Chip
                             key={`support-${level}-${index}`}
-                            label={`${level}`}
-                            size="small"
-                            clickable
+                            size="sm"
                             onClick={(e) =>
                               setChipMenuAnchor({ element: e.currentTarget, price: level })
                             }
-                          />
+                          >
+                            {`${level}`}
+                          </Chip>
                         ))}
                       </Box>
                     </Box>
@@ -378,13 +377,13 @@ export default function SummaryDetailDialog({
                         {summary.aiAnalysisResult.resistanceLevels.map((level, index) => (
                           <Chip
                             key={`resistance-${level}-${index}`}
-                            label={`${level}`}
-                            size="small"
-                            clickable
+                            size="sm"
                             onClick={(e) =>
                               setChipMenuAnchor({ element: e.currentTarget, price: level })
                             }
-                          />
+                          >
+                            {`${level}`}
+                          </Chip>
                         ))}
                       </Box>
                     </Box>
@@ -401,21 +400,22 @@ export default function SummaryDetailDialog({
                         投資判断
                       </Typography>
                       <Chip
-                        label={
-                          INVESTMENT_SIGNAL_LABELS[
-                            summary.aiAnalysisResult.investmentJudgment.signal
-                          ]
-                        }
                         color={
                           summary.aiAnalysisResult.investmentJudgment.signal === 'BULLISH'
                             ? 'success'
                             : summary.aiAnalysisResult.investmentJudgment.signal === 'BEARISH'
-                              ? 'error'
-                              : 'default'
+                              ? 'danger'
+                              : 'neutral'
                         }
-                        size="small"
-                        sx={{ mb: 1 }}
-                      />
+                        size="sm"
+                        className="mb-1"
+                      >
+                        {
+                          INVESTMENT_SIGNAL_LABELS[
+                            summary.aiAnalysisResult.investmentJudgment.signal
+                          ]
+                        }
+                      </Chip>
                       <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {summary.aiAnalysisResult.investmentJudgment.reason}
                       </Typography>

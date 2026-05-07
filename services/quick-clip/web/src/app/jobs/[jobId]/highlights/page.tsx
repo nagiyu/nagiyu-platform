@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
-  Chip,
   CircularProgress,
   Container,
   FormControlLabel,
@@ -20,7 +19,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { Button, TextField } from '@nagiyu/ui';
+import { Button, Chip, TextField } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
@@ -53,11 +52,11 @@ const HIGHLIGHT_STATUS_LABELS = {
 } as const;
 const HIGHLIGHT_STATUS_COLORS: Record<
   'unconfirmed' | 'accepted' | 'rejected',
-  'default' | 'success' | 'error'
+  'neutral' | 'success' | 'danger'
 > = {
-  unconfirmed: 'default',
+  unconfirmed: 'neutral',
   accepted: 'success',
-  rejected: 'error',
+  rejected: 'danger',
 } as const;
 
 type HighlightsPageProps = {
@@ -644,11 +643,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           </TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                              <Chip
-                                label={HIGHLIGHT_STATUS_LABELS[highlight.status]}
-                                size="small"
-                                color={HIGHLIGHT_STATUS_COLORS[highlight.status]}
-                              />
+                              <Chip size="sm" color={HIGHLIGHT_STATUS_COLORS[highlight.status]}>
+                                {HIGHLIGHT_STATUS_LABELS[highlight.status]}
+                              </Chip>
                               {highlight.clipStatus === 'GENERATING' && (
                                 <CircularProgress size={12} />
                               )}

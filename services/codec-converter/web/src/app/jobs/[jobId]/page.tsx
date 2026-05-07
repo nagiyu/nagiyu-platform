@@ -10,8 +10,8 @@ import {
   formatDateTime,
   formatJobId,
 } from '@nagiyu/codec-converter-core';
-import { Container, Typography, Card, CardContent, Chip, Alert, Stack, Box } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Container, Typography, Card, CardContent, Alert, Stack, Box } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
 import AddIcon from '@mui/icons-material/Add';
@@ -23,11 +23,11 @@ const ERROR_MESSAGES = {
 } as const;
 
 // ステータスバッジの色設定（WCAG AA準拠）
-const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'> = {
+const STATUS_COLORS: Record<JobStatus, 'warning' | 'primary' | 'success' | 'danger'> = {
   PENDING: 'warning',
-  PROCESSING: 'info',
+  PROCESSING: 'primary',
   COMPLETED: 'success',
-  FAILED: 'error',
+  FAILED: 'danger',
 };
 
 // ステータス表示テキスト
@@ -298,11 +298,9 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
             ステータス
           </Typography>
 
-          <Chip
-            label={STATUS_TEXT[job.status]}
-            color={STATUS_COLORS[job.status]}
-            sx={{ mb: 1, fontWeight: 'bold' }}
-          />
+          <Chip color={STATUS_COLORS[job.status]} className="mb-1 font-bold">
+            {STATUS_TEXT[job.status]}
+          </Chip>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {STATUS_DESCRIPTION[job.status]}

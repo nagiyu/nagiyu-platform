@@ -9,10 +9,9 @@ import {
   CircularProgress,
   Alert,
   LinearProgress,
-  Chip,
   Stack,
 } from '@mui/material';
-import { Button, TextField } from '@nagiyu/ui';
+import { Button, Chip, TextField } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -227,10 +226,10 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
    */
   const getStatusColor = (
     status: BatchStatus
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  ): 'neutral' | 'primary' | 'secondary' | 'danger' | 'success' | 'warning' => {
     switch (status) {
       case 'SUBMITTED':
-        return 'info';
+        return 'primary';
       case 'RUNNING':
         return 'primary';
       case 'WAITING_FOR_2FA':
@@ -238,7 +237,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
       case 'SUCCEEDED':
         return 'success';
       case 'FAILED':
-        return 'error';
+        return 'danger';
     }
   };
 
@@ -269,7 +268,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
             <Typography variant="h6" component="h2">
               ジョブステータス
             </Typography>
-            <Chip label={getStatusLabel(state.status)} color={getStatusColor(state.status)} />
+            <Chip color={getStatusColor(state.status)}>{getStatusLabel(state.status)}</Chip>
           </Box>
 
           {/* エラー表示 */}

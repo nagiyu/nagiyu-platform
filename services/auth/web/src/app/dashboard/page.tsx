@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { hasPermission } from '@nagiyu/common';
-import { Box, Container, Paper, Typography, Card, CardContent, Chip } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Box, Container, Paper, Typography, Card, CardContent } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth/session';
 
@@ -34,16 +34,18 @@ export default async function DashboardPage() {
               <Typography variant="body1" sx={{ mt: 1 }}>
                 <strong>ユーザーID:</strong> {session.user.id}
               </Typography>
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="body1" component="span" sx={{ mr: 1 }}>
+              <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body1" component="span">
                   <strong>ロール:</strong>
                 </Typography>
                 {session.user.roles.length > 0 ? (
                   session.user.roles.map((role: string) => (
-                    <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />
+                    <Chip key={role} size="sm">
+                      {role}
+                    </Chip>
                   ))
                 ) : (
-                  <Chip label="なし" size="small" color="default" />
+                  <Chip size="sm">なし</Chip>
                 )}
               </Box>
             </Box>
