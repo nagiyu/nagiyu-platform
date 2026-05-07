@@ -1,0 +1,144 @@
+/*
+ * Chip コンポーネントのスタイル定義。
+ *
+ * - すべての色・余白・角丸は tokens.css の Semantic 変数を参照する。
+ * - MUI 等の特定ライブラリへの依存は持たない。
+ * - 状態は `:hover` / `:focus-visible` で表現（onClick あり時のみ反応）。
+ */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+
+  /* Typography */
+  font-family: var(--font-family-sans);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  white-space: nowrap;
+
+  /* Box */
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  user-select: none;
+
+  /* Reset for <button> */
+  background: none;
+  cursor: default;
+  text-decoration: none;
+  appearance: none;
+
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out),
+    color var(--duration-fast) var(--easing-out);
+}
+
+/* clickable / asChild の場合のみ、hover/active/focus に反応 */
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:focus-visible {
+  outline: 2px solid var(--color-action-primary);
+  outline-offset: 2px;
+}
+
+/* =========================================================================
+ * Size
+ * ========================================================================= */
+
+.size-sm {
+  padding: 2px var(--spacing-sm);
+  font-size: var(--font-size-xs);
+  min-height: 20px;
+}
+
+.size-md {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  min-height: 24px;
+}
+
+.size-lg {
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: var(--font-size-md);
+  min-height: 32px;
+}
+
+/* =========================================================================
+ * Variant × Color
+ * Button と同じく `--chip-*` カスタムプロパティで色を解決する。
+ * ========================================================================= */
+
+.color-primary {
+  --chip-bg: var(--color-action-primary);
+  --chip-bg-hover: var(--color-action-primary-hover);
+  --chip-fg: var(--color-action-primary-fg);
+  --chip-border: var(--color-action-primary);
+}
+
+.color-secondary {
+  --chip-bg: var(--color-action-secondary);
+  --chip-bg-hover: var(--color-action-secondary-hover);
+  --chip-fg: var(--color-action-secondary-fg);
+  --chip-border: var(--color-action-secondary);
+}
+
+.color-danger {
+  --chip-bg: var(--color-action-danger);
+  --chip-bg-hover: var(--color-action-danger-hover);
+  --chip-fg: var(--color-action-danger-fg);
+  --chip-border: var(--color-action-danger);
+}
+
+.color-success {
+  --chip-bg: var(--color-action-success);
+  --chip-bg-hover: var(--color-action-success-hover);
+  --chip-fg: var(--color-action-success-fg);
+  --chip-border: var(--color-action-success);
+}
+
+.color-warning {
+  --chip-bg: var(--color-action-warning);
+  --chip-bg-hover: var(--color-action-warning-hover);
+  --chip-fg: var(--color-action-warning-fg);
+  --chip-border: var(--color-action-warning);
+}
+
+.color-neutral {
+  --chip-bg: var(--color-action-neutral);
+  --chip-bg-hover: var(--color-action-neutral-hover);
+  --chip-fg: var(--color-action-neutral-fg);
+  --chip-border: var(--color-border-default);
+}
+
+/* solid: 塗りつぶし（既定） */
+.variant-solid {
+  background-color: var(--chip-bg);
+  color: var(--chip-fg);
+  border-color: var(--chip-border);
+}
+
+.variant-solid.interactive:hover {
+  background-color: var(--chip-bg-hover);
+  border-color: var(--chip-bg-hover);
+}
+
+/* outline: 枠線のみ */
+.variant-outline {
+  background-color: transparent;
+  color: var(--chip-bg);
+  border-color: var(--chip-border);
+}
+
+.variant-outline.interactive:hover {
+  background-color: var(--chip-bg);
+  color: var(--chip-fg);
+}
+
+/* neutral + outline は文字色を fg-default に倒す（バッジとして読みやすく） */
+.variant-outline.color-neutral {
+  color: var(--color-fg-default);
+}
