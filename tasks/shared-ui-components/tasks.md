@@ -81,7 +81,7 @@
 
 - [x] PR 1-4-A: 実装 + Stories + テスト（variant: solid/outline、color: 6 種、size: sm/md/lg、`onClick` で button 化、`asChild` で `<a>`/`<Link>` への変身。children ベース API。Chip.tsx は statements/lines/functions/branches すべて 100%）
 - [x] PR 1-4-B: 置換（20 ファイル全置換完了。`label="X"` → `>X</Chip>`、`variant="outlined"` → `"outline"`、`color="error"` → `"danger"`、portal の navigation Chip は `asChild` + `<Link>` パターンで対応）
-- [ ] PR 1-4-C: ESLint 禁止追加
+- [x] PR 1-4-C: ESLint 禁止追加（共有 config の `importNames` / `patterns.group` に `Chip` を追加。保留ファイルゼロのため例外コメント不要）
 
 ### Link
 
