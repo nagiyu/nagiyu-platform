@@ -45,6 +45,53 @@ Error
 
 ---
 
+### ErrorEvent 永続化 SDK（`error-events` モジュール）
+
+各サービスから直接 `nagiyu-error-events-{env}` テーブルに書き込むための薄い SDK を提供します。Admin はこのテーブルを Streams 経由で監視し、Web Push 通知と一覧表示を行います（詳細は `docs/services/admin/architecture.md` の ADR-003〜006 を参照）。
+
+#### 公開 API
+
+- `ErrorEventWriter` インタフェース（`put(event: ErrorEvent): Promise<void>`）
+- `DynamoDBErrorEventWriter` / `InMemoryErrorEventWriter` の 2 実装
+- `createErrorEventWriter(docClient?, tableName?)` ファクトリ — 環境変数 `USE_IN_MEMORY_DB=true` で in-memory 実装に切替
+- キー構築ヘルパー `buildErrorEventPK` / `buildErrorEventSK` / `computeErrorEventTtl`
+- 定数 `ERROR_EVENT_ENTITY_TYPE` / `ERROR_EVENT_GSI1_PK` / `ERROR_EVENT_TTL_DAYS`（180）
+
+#### 使用例
+
+```typescript
+import { generateEventId } from '@nagiyu/common';
+import { getDynamoDBDocumentClient, createErrorEventWriter } from '@nagiyu/aws';
+
+const writer = createErrorEventWriter(
+  getDynamoDBDocumentClient(),
+  process.env.ERROR_EVENTS_TABLE_NAME
+);
+
+await writer.put({
+  eventId: generateEventId(),
+  serviceId: 'stock-tracker',
+  source: 'cloudwatch-alarm',
+  severity: 'error',
+  title: 'stock-tracker-web-error-rate-prod (ALARM)',
+  message: 'Threshold Crossed: 0.6 > 0.05',
+  context: rawSnsMessage,
+  occurredAt: new Date().toISOString(),
+});
+```
+
+#### IAM 要件
+
+書き込み元 Lambda には対象テーブルに対する `dynamodb:PutItem` を付与してください。テーブル ARN は `arn:aws:dynamodb:{region}:{account}:table/nagiyu-error-events-{env}` で構成できます。
+
+#### 注意事項
+
+- 同一 `(serviceId, occurredAt, eventId)` の重複書き込みは PK/SK が一致するため上書きされます。`eventId` は `generateEventId()` で都度生成してください。
+- TTL は `occurredAt` から 180 日後を Unix epoch 秒で自動計算します（テーブル側の `ttl` 属性で参照）。
+- アプリケーションエラーから直接呼ぶ場合、PII の混入を sanitize するのは呼び出し側の責任です。
+
+---
+
 ## 利用方法
 
 ### インストール

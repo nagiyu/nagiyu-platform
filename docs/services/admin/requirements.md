@@ -85,19 +85,19 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
 - **代替フロー**: 必要なロールがない場合 → 403 Forbidden
 - **例外フロー**: JWT にロール情報が含まれない → Auth サービスへリダイレクト
 
-#### UC-004: SNS 通知を受信してプッシュ通知を送信する
+#### UC-004: SNS 通知を受信してプッシュ通知を送信する（自己監視専用）
 
-- **概要**: CloudWatch Alarm が SNS トピックに通知し、Admin サービスがそれを受け取ってプッシュ通知を送信する
-- **アクター**: AWS CloudWatch Alarms（自動）
-- **前提条件**: Admin SNS トピックが作成されており、Admin サービスの HTTP エンドポイントがサブスクリプションとして登録されている
+> **注**: 本 UC は当初は本流の通知経路だったが、UC-007 以降の永続化アーキテクチャ採用後は **自己監視（new error-events スタックの障害通知）専用** の経路として再定義された。本流の CloudWatch Alarm は UC-007 のフローで処理される。
+
+- **概要**: 自己監視 SNS トピック（`nagiyu-admin-self-monitoring-{env}`）からの通知を受け取り、永続化せずプッシュ通知のみ送信する
+- **アクター**: AWS CloudWatch Alarms（自己監視対象: alarm-ingest λ / stream-handler λ / DLQ / error-events table）
+- **前提条件**: 自己監視 SNS トピックが作成されており、Admin の `/api/notify/sns` エンドポイントが HTTPS サブスクリプションとして登録されている
 - **正常フロー**:
-    1. CloudWatch Alarm がアラーム状態に遷移し、SNS トピックに通知する
-    2. SNS が Admin サービスの通知受信エンドポイントに POST する
-    3. Admin サービスが SNS サブスクリプション確認（初回）または通知本文を検証する
-    4. Admin サービスが DynamoDB から有効なプッシュサブスクリプションを取得する
-    5. Web Push API 経由で各サブスクリプションにプッシュ通知を送信する
-- **代替フロー**: 有効なサブスクリプションが存在しない場合はプッシュ通知をスキップする
-- **例外フロー**: SNS 署名検証失敗 → 401 を返しログに記録する
+    1. 新システム自身の障害により CloudWatch Alarm が発火し、自己監視 SNS トピックに通知する
+    2. SNS が `/api/notify/sns` に POST する
+    3. SNS 署名検証 / SubscriptionConfirmation 処理を行う
+    4. DynamoDB から有効なプッシュサブスクリプションを取得し、Web Push を送信する
+- **設計上の意図**: 新システム自身が障害中でも管理者に Push が届くよう、本流とは独立した経路を確保する
 
 #### UC-005: 管理者端末がプッシュ通知を購読する
 
@@ -125,7 +125,54 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
     1. サーバーからプッシュイベントが配信される
     2. サービスワーカーが `push` イベントを受け取る
     3. サービスワーカーがシステム通知を表示する（タイトル・本文・アイコン）
-    4. 通知タップで Admin ダッシュボードを開く
+    4. 通知タップで `data.url` にあるエラー詳細ページ（`/errors/{eventId}?at=...&serviceId=...`）を開く
+
+#### UC-007: CloudWatch Alarm 由来エラーの永続化
+
+- **概要**: 各サービスの CloudWatch Alarm が発火した際、その内容を共通 DynamoDB テーブルに永続化し、Push 通知を発火する
+- **アクター**: AWS CloudWatch Alarms（自動）
+- **前提条件**: 本流 SNS Topic（`nagiyu-admin-alarms-{env}`）に Lambda subscription（`alarm-ingest`）が登録されており、`nagiyu-error-events-{env}` テーブルが存在する
+- **正常フロー**:
+    1. CloudWatch Alarm が `OK → ALARM` に遷移し、本流 SNS Topic に発行
+    2. `alarm-ingest` Lambda が SNS Notification を受信し、CloudWatch ペイロードを `ErrorEvent` に変換
+    3. `libs/aws/error-events` SDK 経由で `error-events` テーブルに `PutItem`
+    4. DynamoDB Streams（`NEW_IMAGE`）が `stream-handler` Lambda を起動
+    5. `stream-handler` が登録済み購読者全員に Web Push を送信（`data.url=/errors/{eventId}?at=...&serviceId=...`）
+- **例外フロー**:
+    - 書き込み失敗 → Lambda 例外で再試行 → 自己監視アラーム経由で通知
+    - Push 失敗（`410 Gone` 等）→ 既存ロジック通り購読を破棄
+    - Stream Handler の致命的失敗 → DLQ に積まれ、自己監視で検知
+
+#### UC-008: 永続化されたエラー履歴の一覧閲覧
+
+- **概要**: Admin 運用者が `/errors` ページで過去に発生したエラーを時系列降順で一覧する
+- **アクター**: 認証済み運用者（`errors:read` パーミッション保持）
+- **前提条件**: `errors:read` 権限を持つ
+- **正常フロー**:
+    1. ダッシュボードの「エラー履歴を表示」または直接 `/errors` にアクセス
+    2. サービス・期間でフィルタ可能な時系列一覧を表示
+    3. 行末の「詳細」ボタンから `/errors/{eventId}?at=...&serviceId=...` に遷移
+- **例外フロー**: 権限が無い場合は「権限がありません」のメッセージを表示
+
+#### UC-009: エラー詳細の閲覧
+
+- **概要**: 特定の eventId について全フィールド（メタ情報・本文・コンテキスト JSON）を確認する
+- **アクター**: 認証済み運用者（`errors:read`）
+- **前提条件**: `eventId` / `occurredAt` / `serviceId` が判明している（一覧 UI または Push 通知から遷移）
+- **正常フロー**:
+    1. `/errors/{eventId}?at={occurredAt}&serviceId={serviceId}` にアクセス
+    2. メタ情報カード・本文・コンテキスト JSON 整形表示を確認
+- **例外フロー**: TTL 経過で削除済み or 不正な eventId → 404
+
+#### UC-010: 通知タップで詳細ページに遷移する
+
+- **概要**: 受信した Push 通知をタップすると、対応するエラーの詳細ページが直接開く
+- **アクター**: 認証済み運用者（Push 購読済み）
+- **正常フロー**:
+    1. UC-007 の Push 通知を受信
+    2. タップ
+    3. ブラウザが `data.url`（`/errors/{eventId}?at=...&serviceId=...`）を開く
+    4. UC-009 の詳細ページを表示
 
 ### 2.2 機能一覧
 
@@ -145,6 +192,14 @@ Phase 1 は最小限の実装（MVP）とし、早期にデプロイ・動作検
 | F-012  | Web Push 送信          | Admin web: DynamoDB から全サブスクリプションを取得し Web Push を送信 | 高 |
 | F-013  | サービスワーカー（Push 受信）| Admin web: push イベントを受け取りシステム通知を表示する | 高  |
 | F-014  | 通知購読 UI            | Admin web: ダッシュボードに「通知を有効にする」ボタンを追加する | 高  |
+| F-015  | エラーイベント永続化      | インフラ: 共通 `nagiyu-error-events-{env}` テーブルにエラーを保存する（TTL 180 日、Streams 有効） | 高 |
+| F-016  | alarm-ingest Lambda    | Admin batch: 本流 SNS から CloudWatch ペイロードを読み取り `ErrorEvent` として永続化 | 高 |
+| F-017  | stream-handler Lambda  | Admin batch: error-events Streams INSERT を契機に Web Push を fan-out | 高 |
+| F-018  | エラー一覧 UI            | Admin web: `/errors` で時系列降順一覧、サービス・期間フィルタ・cursor ページング | 高 |
+| F-019  | エラー詳細 UI            | Admin web: `/errors/{eventId}?at=...&serviceId=...` でメタ情報・本文・コンテキスト整形表示 | 高 |
+| F-020  | 自己監視 SNS Topic       | インフラ: 新システム障害用に分離した SNS Topic + 既存 `/api/notify/sns` の HTTPS subscription | 高 |
+| F-021  | 自己監視アラーム          | インフラ: alarm-ingest / stream-handler / DLQ / error-events table の最小 5 アラーム | 高 |
+| F-022  | RBAC: errors:read       | libs/common: Admin の閲覧権限として `errors:read` を導入し admin ロールに付与 | 高 |
 | F-015  | DynamoDB テーブル（サブスクリプション）| インフラ: プッシュサブスクリプション保存用テーブルを Admin インフラに追加 | 高 |
 | F-016  | Stock Tracker アラームの移行 | インフラ: 既存の Stock Tracker CloudWatch Alarms を新トピックへ追加接続する | 中 |
 | F-017  | Admin Lambda への SNS トリガー権限 | インフラ: SNS → Admin Lambda の HTTPS 呼び出しを許可する IAM ポリシー | 高 |
