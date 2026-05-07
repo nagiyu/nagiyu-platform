@@ -1,0 +1,100 @@
+/*
+ * Link コンポーネントのスタイル定義。
+ *
+ * - スタイル付き <a> として動作。色・下線は CSS 変数で切替。
+ * - tokens.css の Semantic 変数のみ参照する（MUI 非依存）。
+ */
+
+.link {
+  /* 文字装飾の既定 */
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    color var(--duration-fast) var(--easing-out),
+    text-decoration-color var(--duration-fast) var(--easing-out);
+}
+
+/* focus-visible リング */
+.link:focus-visible {
+  outline: 2px solid var(--color-action-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* =========================================================================
+ * Color
+ * ========================================================================= */
+
+.color-primary {
+  color: var(--color-action-primary);
+}
+
+.color-primary:hover {
+  color: var(--color-action-primary-hover);
+}
+
+.color-secondary {
+  color: var(--color-action-secondary);
+}
+
+.color-secondary:hover {
+  color: var(--color-action-secondary-hover);
+}
+
+.color-danger {
+  color: var(--color-action-danger);
+}
+
+.color-danger:hover {
+  color: var(--color-action-danger-hover);
+}
+
+.color-success {
+  color: var(--color-action-success);
+}
+
+.color-success:hover {
+  color: var(--color-action-success-hover);
+}
+
+.color-warning {
+  color: var(--color-action-warning);
+}
+
+.color-warning:hover {
+  color: var(--color-action-warning-hover);
+}
+
+.color-neutral {
+  color: var(--color-fg-default);
+}
+
+.color-neutral:hover {
+  color: var(--color-fg-muted);
+}
+
+/* inherit は親の color を継承するためルール上書き不要 */
+.color-inherit {
+  color: inherit;
+}
+
+/* =========================================================================
+ * Underline
+ * ========================================================================= */
+
+.underline-none {
+  text-decoration: none;
+}
+
+.underline-hover {
+  text-decoration: none;
+}
+
+.underline-hover:hover {
+  text-decoration: underline;
+}
+
+.underline-always {
+  text-decoration: underline;
+}
