@@ -35,7 +35,7 @@ test.describe('Dashboard Display', () => {
       // user-role の testid が付いた Chip 要素内のロールを確認
       // （ヘッダーの "Admin" と区別するため、UI ライブラリのクラス名ではなく testid で特定する）
       await expect(
-        page.getByTestId('user-role').filter({ hasText: new RegExp(`^${role}$`) })
+        page.locator(`[data-testid="user-role"]`, { hasText: role })
       ).toBeVisible();
     }
 
