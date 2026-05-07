@@ -1,5 +1,5 @@
-import { Box, Card, CardContent, Typography, Chip } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Box, Card, CardContent, Typography } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
@@ -33,9 +33,11 @@ export default async function DashboardPage() {
           <Typography variant="body1" sx={{ mt: 1 }}>
             <strong>ロール:</strong>
           </Typography>
-          <Box sx={{ mt: 1 }}>
+          <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {user.roles.map((role) => (
-              <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />
+              <Chip key={role} size="sm">
+                {role}
+              </Chip>
             ))}
           </Box>
         </CardContent>
