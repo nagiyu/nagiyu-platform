@@ -3,7 +3,6 @@ import { hasPermission } from '@nagiyu/common';
 import type { ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader } from '@nagiyu/admin-core';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
 
@@ -103,7 +102,7 @@ export default async function ErrorDetailPage({
   return (
     <Box sx={{ p: 3, maxWidth: 1000, mx: 'auto' }}>
       <Box sx={{ mb: 2 }}>
-        <Button component={Link} href="/errors" variant="text">
+        <Button href="/errors" variant="text">
           ← エラー履歴に戻る
         </Button>
       </Box>

@@ -17,7 +17,6 @@ import { hasPermission } from '@nagiyu/common';
 import type { ErrorEvent, ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
 
@@ -218,6 +217,7 @@ export default async function ErrorsListPage({
                 <TableCell>サービス</TableCell>
                 <TableCell>重大度</TableCell>
                 <TableCell>タイトル / 概要</TableCell>
+                <TableCell></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -225,9 +225,6 @@ export default async function ErrorsListPage({
                 <TableRow
                   key={`${event.serviceId}#${event.occurredAt}#${event.eventId}`}
                   hover
-                  component={Link}
-                  href={buildDetailHref(event)}
-                  sx={{ textDecoration: 'none', cursor: 'pointer' }}
                 >
                   <TableCell>{formatJst(event.occurredAt)}</TableCell>
                   <TableCell>
@@ -248,6 +245,11 @@ export default async function ErrorsListPage({
                       {truncateMessage(event.message)}
                     </Typography>
                   </TableCell>
+                  <TableCell>
+                    <Button href={buildDetailHref(event)} size="small" variant="text">
+                      詳細
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -257,14 +259,14 @@ export default async function ErrorsListPage({
 
       {nextHref && (
         <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Button component={Link} href={nextHref} variant="outlined">
+          <Button href={nextHref} variant="outlined">
             次のページ
           </Button>
         </Box>
       )}
 
       <Box sx={{ mt: 3 }}>
-        <Button component={Link} href="/dashboard" variant="text">
+        <Button href="/dashboard" variant="text">
           ← ダッシュボードへ戻る
         </Button>
       </Box>

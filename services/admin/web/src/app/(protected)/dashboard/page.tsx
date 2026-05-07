@@ -2,7 +2,6 @@ import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material'
 import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
 import NotifyButton from '@/components/notify/NotifyButton';
 
 export default async function DashboardPage() {
@@ -78,7 +77,7 @@ export default async function DashboardPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               プラットフォーム上で発生したエラー通知の履歴を確認できます
             </Typography>
-            <Button component={Link} href="/errors" variant="contained">
+            <Button href="/errors" variant="contained">
               エラー履歴を表示
             </Button>
           </CardContent>
