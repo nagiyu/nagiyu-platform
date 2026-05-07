@@ -35,7 +35,7 @@ export default async function DashboardPage() {
           </Typography>
           <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {user.roles.map((role) => (
-              <Chip key={role} size="sm">
+              <Chip key={role} size="sm" data-testid="user-role">
                 {role}
               </Chip>
             ))}
