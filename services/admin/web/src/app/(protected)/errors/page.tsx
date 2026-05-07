@@ -222,10 +222,7 @@ export default async function ErrorsListPage({
             </TableHead>
             <TableBody>
               {items.map((event) => (
-                <TableRow
-                  key={`${event.serviceId}#${event.occurredAt}#${event.eventId}`}
-                  hover
-                >
+                <TableRow key={`${event.serviceId}#${event.occurredAt}#${event.eventId}`} hover>
                   <TableCell>{formatJst(event.occurredAt)}</TableCell>
                   <TableCell>
                     <Chip label={event.serviceId} size="small" />
