@@ -8,6 +8,8 @@ export { default as TextField } from './components/TextField';
 export type { TextFieldProps, TextFieldSize, TextFieldType } from './components/TextField';
 export { default as Checkbox } from './components/Checkbox';
 export type { CheckboxProps, CheckboxSize } from './components/Checkbox';
+export { default as Chip } from './components/Chip';
+export type { ChipProps, ChipVariant, ChipColor, ChipSize } from './components/Chip';
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';
