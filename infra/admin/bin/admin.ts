@@ -2,7 +2,10 @@
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { ECRStack } from '../lib/ecr-stack';
+import { BatchEcrStack } from '../lib/batch-ecr-stack';
 import { LambdaStack } from '../lib/lambda-stack';
+import { BatchLambdaStack } from '../lib/batch-lambda-stack';
+import { SelfMonitoringAlarmsStack } from '../lib/self-monitoring-alarms-stack';
 import { CloudFrontStack } from '../lib/cloudfront-stack';
 import { AdminStack } from '../lib/admin-stack';
 
@@ -50,6 +53,37 @@ new AdminStack(app, `NagiyuAdminInfra${envSuffix}`, {
   environment: env,
   env: stackEnv,
   description: `Admin Service Infra - ${env} environment`,
+});
+
+// Admin Batch (alarm-ingest / stream-handler Lambda) ECR スタック
+new BatchEcrStack(app, `NagiyuAdminBatchECR${envSuffix}`, {
+  environment: env,
+  env: stackEnv,
+  description: `Admin Batch ECR - ${env} environment`,
+});
+
+// Admin Batch Lambda スタック
+// - alarm-ingest: SNS (admin alarms) → DynamoDB (error-events)
+// - stream-handler: error-events DynamoDB Streams → Web Push fan-out
+const batchLambdaStack = new BatchLambdaStack(app, `NagiyuAdminBatchLambda${envSuffix}`, {
+  environment: env as 'dev' | 'prod',
+  batchEcrRepositoryName: `nagiyu-admin-batch-ecr-${env}`,
+  env: stackEnv,
+  description: `Admin Batch Lambda - ${env} environment`,
+});
+
+// 自己監視アラーム
+// 新システム (alarm-ingest / stream-handler / DLQ / error-events table) の障害を
+// 別 SNS Topic 経由で検知し、既存 /api/notify/sns へ HTTPS 配信する
+const selfMonitoringTopicArn = `arn:aws:sns:${stackEnv.region}:${process.env.CDK_DEFAULT_ACCOUNT}:nagiyu-admin-self-monitoring-${env}`;
+new SelfMonitoringAlarmsStack(app, `NagiyuAdminSelfMonitoring${envSuffix}`, {
+  environment: env as 'dev' | 'prod',
+  selfMonitoringTopicArn,
+  alarmIngestFunction: batchLambdaStack.alarmIngestFunction,
+  streamHandlerFunction: batchLambdaStack.streamHandlerFunction,
+  streamHandlerDeadLetterQueue: batchLambdaStack.streamHandlerDeadLetterQueue,
+  env: stackEnv,
+  description: `Admin Self-Monitoring Alarms - ${env} environment`,
 });
 
 // CloudFront スタックを作成

@@ -59,6 +59,7 @@ export type Permission =
   | 'users:write'
   | 'roles:assign'
   | 'notifications:write'
+  | 'errors:read'
   | 'stocks:read'
   | 'stocks:write-own'
   | 'stocks:manage-data'

@@ -70,19 +70,27 @@ jobs:
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
         run: |
-          echo "Deploying ECR stack..."
+          echo "Deploying ECR stacks..."
 
-          # Set stack name based on environment
+          # Set stack names based on environment
           if [[ "$ENVIRONMENT" == "prod" ]]; then
             ECR_STACK="NagiyuAdminECRProd"
+            BATCH_ECR_STACK="NagiyuAdminBatchECRProd"
           else
             ECR_STACK="NagiyuAdminECRDev"
+            BATCH_ECR_STACK="NagiyuAdminBatchECRDev"
           fi
 
-          # Deploy ECR stack
+          # Deploy Web ECR stack
           npm run deploy --workspace=@nagiyu/infra-admin -- \
             --context env=$ENVIRONMENT \
             "$ECR_STACK" \
+            --require-approval never
+
+          # Deploy Batch ECR stack（alarm-ingest / stream-handler 用）
+          npm run deploy --workspace=@nagiyu/infra-admin -- \
+            --context env=$ENVIRONMENT \
+            "$BATCH_ECR_STACK" \
             --require-approval never
 
       - name: Deploy Infrastructure (AdminInfra)
@@ -192,10 +200,78 @@ jobs:
 
           echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
+  build-batch:
+    name: Build and Push Batch Docker Image
+    runs-on: ubuntu-latest
+    needs: infrastructure
+
+    outputs:
+      image-uri: ${{ steps.build-image.outputs.image-uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Batch ECR repository from CDK outputs
+        id: get-ecr
+        env:
+          ENVIRONMENT: ${{ needs.infrastructure.outputs.environment }}
+        run: |
+          if [[ "$ENVIRONMENT" == "prod" ]]; then
+            ECR_STACK_NAME="NagiyuAdminBatchECRProd"
+          else
+            ECR_STACK_NAME="NagiyuAdminBatchECRDev"
+          fi
+
+          REPOSITORY_URI=$(aws cloudformation describe-stacks \
+            --stack-name "$ECR_STACK_NAME" \
+            --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" \
+            --output text \
+            --region "${{ env.AWS_REGION }}" 2>/dev/null || echo "")
+
+          if [ -z "$REPOSITORY_URI" ]; then
+            echo "Error: Could not find Batch ECR repository URI from $ECR_STACK_NAME"
+            exit 1
+          fi
+
+          echo "repository-uri=$REPOSITORY_URI" >> "$GITHUB_OUTPUT"
+          echo "Batch ECR Repository: $REPOSITORY_URI"
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Batch Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          dockerfile: services/admin/batch/Dockerfile
+          image-tag: ${{ steps.get-ecr.outputs.repository-uri }}:${{ github.sha }}
+
+      - name: Push Batch Docker image
+        id: build-image
+        env:
+          REPOSITORY_URI: ${{ steps.get-ecr.outputs.repository-uri }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker push "$REPOSITORY_URI:$IMAGE_TAG"
+
+          # Also tag as latest（CDK 側は :latest を参照する）
+          docker tag "$REPOSITORY_URI:$IMAGE_TAG" "$REPOSITORY_URI:latest"
+          docker push "$REPOSITORY_URI:latest"
+
+          echo "image-uri=$REPOSITORY_URI:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
   deploy:
     name: Deploy to AWS Lambda
     runs-on: ubuntu-latest
-    needs: [infrastructure, build]
+    needs: [infrastructure, build, build-batch]
 
     outputs:
       lambda-function-url: ${{ steps.get-lambda-url.outputs.function-url }}
@@ -295,6 +371,39 @@ jobs:
             --function-name "$FUNCTION_NAME" \
             --region "${{ env.AWS_REGION }}"
           echo "Lambda update completed successfully"
+
+      - name: Update Batch Lambda function code (alarm-ingest / stream-handler)
+        env:
+          BATCH_IMAGE_URI: ${{ needs.build-batch.outputs.image-uri }}
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          ALARM_INGEST="nagiyu-admin-alarm-ingest-$ENVIRONMENT"
+          STREAM_HANDLER="nagiyu-admin-stream-handler-$ENVIRONMENT"
+
+          echo "Updating $ALARM_INGEST with new image: $BATCH_IMAGE_URI"
+          aws lambda update-function-code \
+            --function-name "$ALARM_INGEST" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+          echo "Updating $STREAM_HANDLER with new image: $BATCH_IMAGE_URI"
+          aws lambda update-function-code \
+            --function-name "$STREAM_HANDLER" \
+            --image-uri "$BATCH_IMAGE_URI" \
+            --region "${{ env.AWS_REGION }}"
+
+      - name: Wait for Batch Lambda updates to complete
+        env:
+          ENVIRONMENT: ${{ needs.build.outputs.environment }}
+        run: |
+          echo "Waiting for batch Lambda updates to complete..."
+          aws lambda wait function-updated \
+            --function-name "nagiyu-admin-alarm-ingest-$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}"
+          aws lambda wait function-updated \
+            --function-name "nagiyu-admin-stream-handler-$ENVIRONMENT" \
+            --region "${{ env.AWS_REGION }}"
+          echo "Batch Lambda updates completed successfully"
 
       - name: Get Lambda Function URL
         id: get-lambda-url
@@ -460,9 +569,9 @@ jobs:
     name: Deployment Summary
     runs-on: ubuntu-latest
     if: always()
-    needs: [infrastructure, build, deploy, cloudfront-invalidation]
+    needs: [infrastructure, build, build-batch, deploy, cloudfront-invalidation]
     # TODO: Add post-deploy-e2e to needs when it is implemented
-    # needs: [infrastructure, build, deploy, cloudfront-invalidation, post-deploy-e2e]
+    # needs: [infrastructure, build, build-batch, deploy, cloudfront-invalidation, post-deploy-e2e]
 
     steps:
       - name: Configure AWS credentials
@@ -483,7 +592,8 @@ jobs:
           echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Infrastructure | ${{ needs.infrastructure.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build & Push | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Push (Web) | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Push (Batch) | ${{ needs.build-batch.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Lambda Deploy | ${{ needs.deploy.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| CloudFront Invalidation | ${{ needs.cloudfront-invalidation.result }} |" >> $GITHUB_STEP_SUMMARY
           # TODO: Uncomment when post-deploy E2E is implemented

@@ -68,6 +68,22 @@ export default async function DashboardPage() {
         </Card>
       )}
 
+      {hasPermission(user.roles, 'errors:read') && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              エラー履歴
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              プラットフォーム上で発生したエラー通知の履歴を確認できます
+            </Typography>
+            <Button href="/errors" variant="contained">
+              エラー履歴を表示
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ログアウトボタン */}
       <Button
         variant="outlined"

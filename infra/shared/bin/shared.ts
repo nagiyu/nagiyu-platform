@@ -11,6 +11,7 @@ import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
+import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
 
 const app = new cdk.App();
 
@@ -103,5 +104,17 @@ new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
   env: stackEnv,
   description: 'S3 bucket for Docker build lock semaphore',
 });
+
+// プラットフォーム共通のエラーイベント永続化テーブル
+// 各サービスから直接 PutItem され、Admin が読み取る共有リソース
+new ErrorEventsTableStack(
+  app,
+  `NagiyuErrorEventsTable${env.charAt(0).toUpperCase() + env.slice(1)}`,
+  {
+    environment: env as 'dev' | 'prod',
+    env: stackEnv,
+    description: `Platform Error Events DynamoDB Table - ${env} environment`,
+  }
+);
 
 app.synth();
