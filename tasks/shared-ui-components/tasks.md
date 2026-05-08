@@ -86,7 +86,7 @@
 ### Link
 
 - [x] PR 1-5-A: 実装 + Stories + テスト（color: 7 種（inherit 含む）/ underline: none/hover/always / asChild。Link.tsx は statements/lines/functions/branches すべて 100%）
-- [ ] PR 1-5-B: 置換
+- [x] PR 1-5-B: 置換（5 ファイル全置換完了。MUI 既定スタイル+default Props でそのまま代替可能だった）
 - [ ] PR 1-5-C: ESLint 禁止追加
 
 ---

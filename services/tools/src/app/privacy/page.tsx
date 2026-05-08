@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
-import { Container, Typography, Box, Link } from '@mui/material';
-import { privacyPolicySections } from '@nagiyu/ui';
+import { Container, Typography, Box } from '@mui/material';
+import { Link, privacyPolicySections } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
   title: 'プライバシーポリシー',
