@@ -33,10 +33,10 @@ test.describe('Video List Page', () => {
     await page.goto('/mylist');
 
     // お気に入りフィルター
-    await expect(page.getByLabel('お気に入り')).toBeVisible();
+    await expect(page.locator('#favorite-filter')).toBeVisible();
 
     // スキップフィルター
-    await expect(page.getByLabel('スキップ')).toBeVisible();
+    await expect(page.locator('#skip-filter')).toBeVisible();
 
     // タイトル検索フィールド
     await expect(page.getByPlaceholder('動画タイトルで検索')).toBeVisible();
@@ -47,7 +47,7 @@ test.describe('Video List Page', () => {
     await page.waitForLoadState('networkidle');
 
     // ユーザー設定未作成の状態では「お気に入りのみ」で0件になる
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     // 空の状態メッセージ
     await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();
@@ -227,7 +227,7 @@ test.describe('Video List Page', () => {
     await page.waitForResponse((res) => res.url().includes('/api/videos/'));
 
     // お気に入りフィルターを変更
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     // APIレスポンスを待つ
     const filterResponse = await page.waitForResponse((res) => res.url().includes('/api/videos'));
@@ -257,7 +257,7 @@ test.describe('Video List Page', () => {
     await page.waitForLoadState('networkidle');
 
     // スキップフィルターを変更
-    await page.getByLabel('スキップ').selectOption('false');
+    await page.locator('#skip-filter').selectOption('false');
 
     // APIレスポンスを待つ
     await page.waitForResponse((response) => response.url().includes('/api/videos'));
@@ -428,7 +428,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // お気に入りフィルターを変更
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
@@ -453,7 +453,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // スキップフィルターを変更
-    await page.getByLabel('スキップ').selectOption('false');
+    await page.locator('#skip-filter').selectOption('false');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?skip=false');
@@ -491,10 +491,10 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // お気に入りフィルターを変更
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     // スキップフィルターを変更
-    await page.getByLabel('スキップ').selectOption('false');
+    await page.locator('#skip-filter').selectOption('false');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?favorite=true&skip=false');
@@ -571,7 +571,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // フィルターを変更
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     // offsetがリセットされることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
@@ -606,7 +606,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // フィルターを変更
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
@@ -637,7 +637,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // フィルターを変更
-    await page.getByLabel('お気に入り').selectOption('true');
+    await page.locator('#favorite-filter').selectOption('true');
 
     await expect(page).toHaveURL('/mylist?favorite=true');
 
@@ -733,7 +733,7 @@ test.describe('Video List URL Synchronization', () => {
     // URL パラメータと Select 要素の value の両方が反映されることを確認
     await expect(page).toHaveURL(/favorite=true/);
     await expect(page).toHaveURL(/skip=false/);
-    await expect(page.getByLabel('お気に入り')).toHaveValue('true');
-    await expect(page.getByLabel('スキップ')).toHaveValue('false');
+    await expect(page.locator('#favorite-filter')).toHaveValue('true');
+    await expect(page.locator('#skip-filter')).toHaveValue('false');
   });
 });
