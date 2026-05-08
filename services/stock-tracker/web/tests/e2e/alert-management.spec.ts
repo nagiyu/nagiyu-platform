@@ -910,7 +910,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 入力方式ドロップダウンが表示されるか確認（basePriceが設定されている場合のみ）
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
 
       // basePriceが設定されていない場合はテストをスキップ
@@ -948,7 +948,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
@@ -985,7 +985,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
@@ -1022,7 +1022,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
@@ -1081,7 +1081,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
@@ -1093,7 +1093,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).not.toBeVisible();
 
       // 手動入力モードに戻す
-      await page.getByLabel('入力方式').selectOption('manual');
+      await page.locator('#input-mode-select').selectOption('manual');
       await expect(page.getByLabel('目標価格')).toBeVisible();
       await expect(page.locator('#percentage-select')).not.toBeVisible();
     });
@@ -1141,7 +1141,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.locator('#max-price')).toBeVisible();
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#range-input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
@@ -1182,7 +1182,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByLabel('条件タイプ').selectOption('range');
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#range-input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
@@ -1225,7 +1225,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.getByLabel('条件タイプ').selectOption('range');
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByLabel('入力方式');
+      const inputModeSelect = page.locator('#range-input-mode-select');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
