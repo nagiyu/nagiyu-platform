@@ -803,10 +803,14 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 不正な範囲を入力（下限価格 >= 上限価格）
       const maxPriceInput = page.locator('#max-price');
+      // webkit-mobile では直前の selectOption の影響で number input への fill が反映されないことがあるため、
+      // click でフォーカスを取得してから fill する
+      await minPriceInput.click();
       await minPriceInput.fill('120');
       await expect(minPriceInput).toHaveValue('120');
       // webkit-mobile では最小価格入力後に上書き確認ダイアログが表示され、未解決だと次の入力が不安定になる
       await resolveNotificationOverwriteDialogIfVisible(page);
+      await maxPriceInput.click();
       await maxPriceInput.fill('90');
       await resolveNotificationOverwriteDialogIfVisible(page);
       await expect(maxPriceInput).toHaveValue('90');

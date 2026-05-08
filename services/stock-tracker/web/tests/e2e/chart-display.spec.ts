@@ -308,7 +308,9 @@ test.describe('チャート表示のアクセシビリティ', () => {
     // フォーカスされていることを確認
     await expect(timeframeSelect).toBeFocused();
 
-    // ネイティブ select 要素は Playwright の selectOption で値を変更できる
+    // webkit-mobile では focus 中の native select に selectOption() を呼ぶとピッカー UI 経由
+    // 扱いになり change event が発火しないため、blur してから値変更を行う
+    await timeframeSelect.blur();
     await timeframeSelect.selectOption('5');
     await expect(timeframeSelect).toHaveValue('5');
   });
@@ -323,7 +325,8 @@ test.describe('チャート表示のアクセシビリティ', () => {
     // フォーカスされていることを確認
     await expect(barCountSelect).toBeFocused();
 
-    // ネイティブ select 要素は selectOption で値を変更できる
+    // webkit-mobile での native select の挙動回避: blur してから値変更（時間枠セレクタと同様）
+    await barCountSelect.blur();
     await barCountSelect.selectOption('10');
     await expect(barCountSelect).toHaveValue('10');
   });
