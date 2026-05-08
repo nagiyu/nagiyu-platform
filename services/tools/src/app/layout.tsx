@@ -5,6 +5,7 @@ import { Header, Footer, type NavigationItem } from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
 import InfoIcon from '@mui/icons-material/Info';
 import ThemeRegistry from '@/components/ThemeRegistry';
+import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
 export const metadata: Metadata = {

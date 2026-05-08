@@ -143,7 +143,7 @@ export default function SummariesPage() {
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
         日次サマリー
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <Box sx={{ minWidth: 220 }}>
           <Select
             id="exchange-filter"
@@ -182,7 +182,7 @@ export default function SummariesPage() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gap: 2 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         {isLoading ? (
           <Typography color="text.secondary">読み込み中...</Typography>
         ) : (
