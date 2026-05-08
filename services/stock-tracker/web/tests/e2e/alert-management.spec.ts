@@ -800,17 +800,16 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
 
       // 範囲タイプを「範囲外（OR）」に変更
       await page.getByLabel('範囲タイプ').selectOption('outside');
+      // 範囲タイプ変更時に上書き確認ダイアログが表示されると後続の input 操作を pointer events で
+      // 阻害するため、ここで先に解決しておく
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 不正な範囲を入力（下限価格 >= 上限価格）
       const maxPriceInput = page.locator('#max-price');
-      // webkit-mobile では直前の selectOption の影響で number input への fill が反映されないことがあるため、
-      // click でフォーカスを取得してから fill する
-      await minPriceInput.click();
       await minPriceInput.fill('120');
       await expect(minPriceInput).toHaveValue('120');
-      // webkit-mobile では最小価格入力後に上書き確認ダイアログが表示され、未解決だと次の入力が不安定になる
+      // 最小価格入力後に上書き確認ダイアログが再表示されることがあるため、未解決だと次の入力が不安定になる
       await resolveNotificationOverwriteDialogIfVisible(page);
-      await maxPriceInput.click();
       await maxPriceInput.fill('90');
       await resolveNotificationOverwriteDialogIfVisible(page);
       await expect(maxPriceInput).toHaveValue('90');
