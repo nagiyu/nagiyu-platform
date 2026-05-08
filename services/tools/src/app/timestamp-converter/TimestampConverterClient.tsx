@@ -5,14 +5,13 @@ import {
   Alert,
   Box,
   Container,
-  MenuItem,
   Snackbar,
   Stack,
-  // eslint-disable-next-line no-restricted-imports -- タイムゾーン選択で TextField の select プロップ（dropdown 化）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する（Select は PR 2-1-A で別実装予定）
+  // eslint-disable-next-line no-restricted-imports -- error/helperText の動的切替などの組み合わせで MUI TextField を利用する
   TextField,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Select } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { writeToClipboard } from '@nagiyu/browser';
@@ -143,19 +142,16 @@ export default function TimestampConverterClient() {
       </Typography>
 
       <Box sx={{ mb: 3 }}>
-        <TextField
-          select
+        <Select
           fullWidth
           label="タイムゾーン"
           value={timeZone}
-          onChange={(event) => setTimeZone(event.target.value)}
-        >
-          {STOCK_TRACKER_TIMEZONE_OPTIONS.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          onChange={setTimeZone}
+          options={STOCK_TRACKER_TIMEZONE_OPTIONS.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))}
+        />
       </Box>
 
       <Box sx={{ mb: 3 }}>
