@@ -8,6 +8,8 @@ const config: Config = {
   moduleNameMapper: {
     // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
     '\\.module\\.css$': 'identity-obj-proxy',
+    // @nagiyu/ui/tokens.css は CSS Modules ではないため別途スタブ化（layout 系テストで参照される）
+    '^@nagiyu/ui/tokens\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@nagiyu/share-together-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
