@@ -3,10 +3,7 @@
  */
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import {
-  createErrorEventReader,
-  resetErrorEventReader,
-} from '../../../src/errors/factory.js';
+import { createErrorEventReader, resetErrorEventReader } from '../../../src/errors/factory.js';
 import { DynamoDBErrorEventReader } from '../../../src/errors/dynamodb-reader.js';
 import { InMemoryErrorEventReader } from '../../../src/errors/in-memory-reader.js';
 

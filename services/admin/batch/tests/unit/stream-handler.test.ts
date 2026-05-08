@@ -135,10 +135,7 @@ describe('handler', () => {
 
   it('MODIFY と REMOVE は skip', async () => {
     const event: StreamHandlerEvent = {
-      Records: [
-        buildStreamRecord(sampleEvent, 'MODIFY'),
-        buildStreamRecord(sampleEvent, 'REMOVE'),
-      ],
+      Records: [buildStreamRecord(sampleEvent, 'MODIFY'), buildStreamRecord(sampleEvent, 'REMOVE')],
     };
     const result = await handler(event);
     expect(result).toEqual({ notified: 0, skipped: 2 });
@@ -154,15 +151,15 @@ describe('handler', () => {
 
   it('VAPID キー未設定で例外', async () => {
     delete process.env.VAPID_PUBLIC_KEY;
-    await expect(
-      handler({ Records: [buildStreamRecord(sampleEvent)] })
-    ).rejects.toThrow('VAPID キーが設定されていません');
+    await expect(handler({ Records: [buildStreamRecord(sampleEvent)] })).rejects.toThrow(
+      'VAPID キーが設定されていません'
+    );
   });
 
   it('APP_URL 未設定で例外', async () => {
     delete process.env.APP_URL;
-    await expect(
-      handler({ Records: [buildStreamRecord(sampleEvent)] })
-    ).rejects.toThrow('APP_URL が設定されていません');
+    await expect(handler({ Records: [buildStreamRecord(sampleEvent)] })).rejects.toThrow(
+      'APP_URL が設定されていません'
+    );
   });
 });

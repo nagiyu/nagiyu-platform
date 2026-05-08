@@ -65,8 +65,7 @@ export class InMemoryErrorEventReader implements ErrorEventReader {
   ): Promise<ErrorEvent | null> {
     return (
       this.records.find(
-        (e) =>
-          e.eventId === eventId && e.occurredAt === occurredAt && e.serviceId === serviceId
+        (e) => e.eventId === eventId && e.occurredAt === occurredAt && e.serviceId === serviceId
       ) ?? null
     );
   }
