@@ -71,13 +71,11 @@ test.describe('トップ画面レイアウト', () => {
 
   test('取引所を選択するとティッカーが有効になる', async ({ page }) => {
     // 初期状態ではティッカーは無効
-    const tickerSelect = page.getByLabel('ティッカー選択');
+    const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeDisabled();
 
     // 取引所を選択
-    const exchangeSelect = page.getByLabel('取引所選択');
-    await exchangeSelect.click();
-    await page.locator('[role="listbox"]').getByText('New York Stock Exchange').click();
+    await page.locator('#exchange-select').selectOption('NYSE');
 
     // ティッカーが有効になる
     await expect(tickerSelect).toBeEnabled();
@@ -90,25 +88,22 @@ test.describe('トップ画面レイアウト', () => {
 
     // 取引所を選択すると、ティッカーが有効になる
     const exchangeSelect = page.locator('#exchange-select');
-    await exchangeSelect.click();
-    await page.locator('[role="listbox"]').getByText('New York Stock Exchange').click();
+    await exchangeSelect.selectOption('NYSE');
     await expect(tickerSelect).toBeEnabled();
 
     // 異なる取引所に変更しても、ティッカーは有効のまま
-    await exchangeSelect.click();
-    await page.locator('[role="listbox"]').getByText('NASDAQ Stock Market').click();
+    await exchangeSelect.selectOption('NASDAQ');
     await expect(tickerSelect).toBeEnabled();
   });
 
   test('時間枠セレクトボックスの選択肢が正しい', async ({ page }) => {
-    const timeframeSelect = page.getByLabel('時間枠');
-    await timeframeSelect.click();
-
-    // 各時間枠が表示される
-    await expect(page.getByRole('option', { name: '1分足' })).toBeVisible();
-    await expect(page.getByRole('option', { name: '5分足' })).toBeVisible();
-    await expect(page.getByRole('option', { name: '1時間足' })).toBeVisible();
-    await expect(page.getByRole('option', { name: '日足' })).toBeVisible();
+    // ネイティブ <select> の <option> は DOM に存在するため、role=option として検出可能。
+    // ただし visible 判定は select が開かないと不可。option の存在のみ確認する。
+    const timeframeSelect = page.locator('#timeframe-select');
+    await expect(timeframeSelect.locator('option', { hasText: '1分足' })).toHaveCount(1);
+    await expect(timeframeSelect.locator('option', { hasText: '5分足' })).toHaveCount(1);
+    await expect(timeframeSelect.locator('option', { hasText: '1時間足' })).toHaveCount(1);
+    await expect(timeframeSelect.locator('option', { hasText: '日足' })).toHaveCount(1);
   });
 });
 

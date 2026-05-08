@@ -14,12 +14,8 @@ import {
   Paper,
   Alert,
   CircularProgress,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Button, Chip, Select } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -300,36 +296,39 @@ function AlertsPageContent() {
       </Typography>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
-        <FormControl size="small" sx={{ minWidth: 180, flex: '1 1 180px' }}>
-          <InputLabel id="exchange-filter-label">取引所フィルタ</InputLabel>
+        <Box sx={{ minWidth: 180, flex: '1 1 180px' }}>
           <Select
-            labelId="exchange-filter-label"
+            id="exchange-filter"
             label="取引所フィルタ"
+            size="sm"
+            fullWidth
             value={filterExchangeKey}
-            onChange={(event) => setFilterExchangeKey(event.target.value)}
-          >
-            <MenuItem value="">すべて</MenuItem>
-            {exchanges.map((exchange) => (
-              <MenuItem key={exchange.exchangeId} value={exchange.key}>
-                {exchange.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            onChange={setFilterExchangeKey}
+            options={[
+              { value: '', label: 'すべて' },
+              ...exchanges.map((exchange) => ({
+                value: exchange.key,
+                label: exchange.name,
+              })),
+            ]}
+          />
+        </Box>
 
-        <FormControl size="small" sx={{ minWidth: 180, flex: '1 1 180px' }}>
-          <InputLabel id="mode-filter-label">モードフィルタ</InputLabel>
+        <Box sx={{ minWidth: 180, flex: '1 1 180px' }}>
           <Select
-            labelId="mode-filter-label"
+            id="mode-filter"
             label="モードフィルタ"
+            size="sm"
+            fullWidth
             value={filterMode}
-            onChange={(event) => handleModeFilterChange(event.target.value)}
-          >
-            <MenuItem value="">すべて</MenuItem>
-            <MenuItem value="Buy">Buy（買い）</MenuItem>
-            <MenuItem value="Sell">Sell（売り）</MenuItem>
-          </Select>
-        </FormControl>
+            onChange={handleModeFilterChange}
+            options={[
+              { value: '', label: 'すべて' },
+              { value: 'Buy', label: 'Buy（買い）' },
+              { value: 'Sell', label: 'Sell（売り）' },
+            ]}
+          />
+        </Box>
 
         <Button
           variant="outline"

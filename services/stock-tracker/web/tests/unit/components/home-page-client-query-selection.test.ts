@@ -83,6 +83,55 @@ jest.mock('@nagiyu/ui', () => ({
       children
     );
   },
+  Select: ({
+    id,
+    label,
+    value,
+    onChange,
+    options,
+    disabled,
+    placeholder,
+    fullWidth,
+    size,
+    ...rest
+  }: {
+    id?: string;
+    label?: React.ReactNode;
+    value: string;
+    onChange: (value: string) => void;
+    options: ReadonlyArray<{ value: string; label: string; disabled?: boolean }>;
+    disabled?: boolean;
+    placeholder?: string;
+    fullWidth?: boolean;
+    size?: string;
+    [key: string]: unknown;
+  }) => {
+    void fullWidth;
+    void size;
+    return React.createElement(
+      'select',
+      {
+        id,
+        value,
+        disabled,
+        'aria-label': typeof label === 'string' ? label : undefined,
+        onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.target.value),
+        ...rest,
+      },
+      [
+        placeholder !== undefined
+          ? React.createElement('option', { key: '__placeholder', value: '' }, placeholder)
+          : null,
+        ...options.map((option) =>
+          React.createElement(
+            'option',
+            { key: option.value, value: option.value, disabled: option.disabled },
+            option.label
+          )
+        ),
+      ]
+    );
+  },
 }));
 
 jest.mock('../../../components/EmptyState', () => ({

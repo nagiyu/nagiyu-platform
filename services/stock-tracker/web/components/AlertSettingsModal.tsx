@@ -8,17 +8,13 @@ import {
   DialogActions,
   // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   Box,
   Typography,
   FormControlLabel,
   Switch,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Select } from '@nagiyu/ui';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
 import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
@@ -1143,22 +1139,18 @@ export default function AlertSettingsModal({
               gap: 2,
             }}
           >
-            <FormControl fullWidth size="small">
-              <InputLabel id="alert-timeframe-select-label">時間枠</InputLabel>
-              <Select
-                labelId="alert-timeframe-select-label"
-                id="alert-timeframe-select"
-                value={timeframe}
-                label="時間枠"
-                onChange={(e) => handleTimeframeChange(e.target.value)}
-              >
-                {(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => (
-                  <MenuItem key={key} value={key}>
-                    {TIMEFRAME_LABELS[key]}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Select
+              fullWidth
+              size="sm"
+              id="alert-timeframe-select"
+              label="時間枠"
+              value={timeframe}
+              onChange={handleTimeframeChange}
+              options={(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => ({
+                value: key,
+                label: TIMEFRAME_LABELS[key],
+              }))}
+            />
           </Box>
           <StockChart
             tickerId={tickerId}
@@ -1204,24 +1196,22 @@ export default function AlertSettingsModal({
               slotProps={{ input: { readOnly: true } }}
             />
           ) : (
-            <FormControl fullWidth>
-              <InputLabel id="condition-mode-label">条件タイプ</InputLabel>
-              <Select
-                labelId="condition-mode-label"
-                id="condition-mode-select"
-                value={formData.conditionMode}
-                label="条件タイプ"
-                onChange={(e) => {
-                  const nextConditionMode = e.target.value as FormData['conditionMode'];
-                  setConditionMode(nextConditionMode);
-                  updateConditionField('conditionMode', nextConditionMode);
-                  clearFieldError('conditionMode');
-                }}
-              >
-                <MenuItem value="single">単一条件（以上または以下）</MenuItem>
-                <MenuItem value="range">範囲指定</MenuItem>
-              </Select>
-            </FormControl>
+            <Select
+              fullWidth
+              id="condition-mode-select"
+              label="条件タイプ"
+              value={formData.conditionMode}
+              onChange={(value) => {
+                const nextConditionMode = value as FormData['conditionMode'];
+                setConditionMode(nextConditionMode);
+                updateConditionField('conditionMode', nextConditionMode);
+                clearFieldError('conditionMode');
+              }}
+              options={[
+                { value: 'single', label: '単一条件（以上または以下）' },
+                { value: 'range', label: '範囲指定' },
+              ]}
+            />
           )}
 
           {/* 単一条件モード */}
@@ -1236,51 +1226,44 @@ export default function AlertSettingsModal({
                   slotProps={{ input: { readOnly: true } }}
                 />
               ) : (
-                <FormControl fullWidth error={!!formErrors.operator}>
-                  <InputLabel id="operator-label">条件</InputLabel>
-                  <Select
-                    labelId="operator-label"
-                    id="operator-select"
-                    value={formData.operator}
-                    label="条件"
-                    onChange={(e) => {
-                      const nextOperator = e.target.value as FormData['operator'];
-                      setOperator(nextOperator);
-                      updateConditionField('operator', nextOperator);
-                      clearFieldError('operator');
-                    }}
-                  >
-                    <MenuItem value="gte">以上 (≥)</MenuItem>
-                    <MenuItem value="lte">以下 (≤)</MenuItem>
-                  </Select>
-                  {formErrors.operator && (
-                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      {formErrors.operator}
-                    </Typography>
-                  )}
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="operator-select"
+                  label="条件"
+                  value={formData.operator}
+                  onChange={(value) => {
+                    const nextOperator = value as FormData['operator'];
+                    setOperator(nextOperator);
+                    updateConditionField('operator', nextOperator);
+                    clearFieldError('operator');
+                  }}
+                  error={!!formErrors.operator}
+                  helperText={formErrors.operator}
+                  options={[
+                    { value: 'gte', label: '以上 (≥)' },
+                    { value: 'lte', label: '以下 (≤)' },
+                  ]}
+                />
               )}
 
               {/* 入力方式選択 */}
               {basePrice && basePrice > 0 && (
-                <FormControl fullWidth>
-                  <InputLabel id="input-mode-label">入力方式</InputLabel>
-                  <Select
-                    labelId="input-mode-label"
-                    id="input-mode-select"
-                    value={formData.inputMode}
-                    label="入力方式"
-                    onChange={(e) => {
-                      const nextInputMode = e.target.value as FormData['inputMode'];
-                      setInputMode(nextInputMode);
-                      clearFieldError('inputMode');
-                      updateTargetPriceFromPercentage(percentage, nextInputMode);
-                    }}
-                  >
-                    <MenuItem value="manual">手動入力</MenuItem>
-                    <MenuItem value="percentage">パーセンテージ</MenuItem>
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="input-mode-select"
+                  label="入力方式"
+                  value={formData.inputMode ?? 'manual'}
+                  onChange={(value) => {
+                    const nextInputMode = value as FormData['inputMode'];
+                    setInputMode(nextInputMode);
+                    clearFieldError('inputMode');
+                    updateTargetPriceFromPercentage(percentage, nextInputMode);
+                  }}
+                  options={[
+                    { value: 'manual', label: '手動入力' },
+                    { value: 'percentage', label: 'パーセンテージ' },
+                  ]}
+                />
               )}
 
               {/* 手動入力モード */}
@@ -1306,28 +1289,21 @@ export default function AlertSettingsModal({
               {/* パーセンテージモード */}
               {formData.inputMode === 'percentage' && basePrice && basePrice > 0 && (
                 <>
-                  <FormControl fullWidth>
-                    <InputLabel id="percentage-label">パーセンテージ</InputLabel>
-                    <Select
-                      labelId="percentage-label"
-                      id="percentage-select"
-                      value={formData.percentage}
-                      label="パーセンテージ"
-                      onChange={(e) => {
-                        const nextPercentage = e.target.value;
-                        setPercentage(nextPercentage);
-                        clearFieldError('percentage');
-                        updateTargetPriceFromPercentage(nextPercentage);
-                      }}
-                    >
-                      {PERCENTAGE_OPTIONS.map((percentage) => (
-                        <MenuItem key={percentage} value={percentage.toString()}>
-                          {percentage > 0 ? '+' : ''}
-                          {percentage}%
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Select
+                    fullWidth
+                    id="percentage-select"
+                    label="パーセンテージ"
+                    value={formData.percentage ?? ''}
+                    onChange={(nextPercentage) => {
+                      setPercentage(nextPercentage);
+                      clearFieldError('percentage');
+                      updateTargetPriceFromPercentage(nextPercentage);
+                    }}
+                    options={PERCENTAGE_OPTIONS.map((percentage) => ({
+                      value: percentage.toString(),
+                      label: `${percentage > 0 ? '+' : ''}${percentage}%`,
+                    }))}
+                  />
 
                   {/* 計算結果表示 */}
                   {formData.percentage && (
@@ -1382,55 +1358,51 @@ export default function AlertSettingsModal({
                   }
                 />
               ) : (
-                <FormControl fullWidth>
-                  <InputLabel id="range-type-label">範囲タイプ</InputLabel>
-                  <Select
-                    labelId="range-type-label"
-                    id="range-type-select"
-                    value={formData.rangeType}
-                    label="範囲タイプ"
-                    onChange={(e) => {
-                      const nextRangeType = e.target.value as FormData['rangeType'];
-                      setRangeType(nextRangeType);
-                      updateConditionField('rangeType', nextRangeType);
-                      clearFieldError('rangeType');
-                    }}
-                  >
-                    <MenuItem value="inside">範囲内（AND）</MenuItem>
-                    <MenuItem value="outside">範囲外（OR）</MenuItem>
-                  </Select>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 1.75 }}>
-                    {formData.rangeType === 'inside'
+                <Select
+                  fullWidth
+                  id="range-type-select"
+                  label="範囲タイプ"
+                  value={formData.rangeType}
+                  onChange={(value) => {
+                    const nextRangeType = value as FormData['rangeType'];
+                    setRangeType(nextRangeType);
+                    updateConditionField('rangeType', nextRangeType);
+                    clearFieldError('rangeType');
+                  }}
+                  helperText={
+                    formData.rangeType === 'inside'
                       ? '価格が指定範囲内になったら通知'
-                      : '価格が指定範囲外になったら通知'}
-                  </Typography>
-                </FormControl>
+                      : '価格が指定範囲外になったら通知'
+                  }
+                  options={[
+                    { value: 'inside', label: '範囲内（AND）' },
+                    { value: 'outside', label: '範囲外（OR）' },
+                  ]}
+                />
               )}
 
               {/* 入力方式選択（範囲指定） */}
               {basePrice && basePrice > 0 && (
-                <FormControl fullWidth>
-                  <InputLabel id="range-input-mode-label">入力方式</InputLabel>
-                  <Select
-                    labelId="range-input-mode-label"
-                    id="range-input-mode-select"
-                    value={formData.rangeInputMode}
-                    label="入力方式"
-                    onChange={(e) => {
-                      const nextRangeInputMode = e.target.value as FormData['rangeInputMode'];
-                      setRangeInputMode(nextRangeInputMode);
-                      clearFieldError('rangeInputMode');
-                      updateRangePriceFromPercentage(
-                        nextRangeInputMode,
-                        minPercentage,
-                        maxPercentage
-                      );
-                    }}
-                  >
-                    <MenuItem value="manual">手動入力</MenuItem>
-                    <MenuItem value="percentage">パーセンテージ</MenuItem>
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="range-input-mode-select"
+                  label="入力方式"
+                  value={formData.rangeInputMode ?? 'manual'}
+                  onChange={(value) => {
+                    const nextRangeInputMode = value as FormData['rangeInputMode'];
+                    setRangeInputMode(nextRangeInputMode);
+                    clearFieldError('rangeInputMode');
+                    updateRangePriceFromPercentage(
+                      nextRangeInputMode,
+                      minPercentage,
+                      maxPercentage
+                    );
+                  }}
+                  options={[
+                    { value: 'manual', label: '手動入力' },
+                    { value: 'percentage', label: 'パーセンテージ' },
+                  ]}
+                />
               )}
 
               {/* 手動入力モード */}
@@ -1481,59 +1453,45 @@ export default function AlertSettingsModal({
               {/* パーセンテージモード */}
               {formData.rangeInputMode === 'percentage' && basePrice && basePrice > 0 && (
                 <>
-                  <FormControl fullWidth>
-                    <InputLabel id="min-percentage-label">最小価格のパーセンテージ</InputLabel>
-                    <Select
-                      labelId="min-percentage-label"
-                      id="min-percentage-select"
-                      value={formData.minPercentage}
-                      label="最小価格のパーセンテージ"
-                      onChange={(e) => {
-                        const nextMinPercentage = e.target.value;
-                        setMinPercentage(nextMinPercentage);
-                        clearFieldError('minPercentage');
-                        updateRangePriceFromPercentage(
-                          rangeInputMode,
-                          nextMinPercentage,
-                          maxPercentage
-                        );
-                      }}
-                    >
-                      {PERCENTAGE_OPTIONS.map((percentage) => (
-                        <MenuItem key={percentage} value={percentage.toString()}>
-                          {percentage > 0 ? '+' : ''}
-                          {percentage}%
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Select
+                    fullWidth
+                    id="min-percentage-select"
+                    label="最小価格のパーセンテージ"
+                    value={formData.minPercentage ?? ''}
+                    onChange={(nextMinPercentage) => {
+                      setMinPercentage(nextMinPercentage);
+                      clearFieldError('minPercentage');
+                      updateRangePriceFromPercentage(
+                        rangeInputMode,
+                        nextMinPercentage,
+                        maxPercentage
+                      );
+                    }}
+                    options={PERCENTAGE_OPTIONS.map((percentage) => ({
+                      value: percentage.toString(),
+                      label: `${percentage > 0 ? '+' : ''}${percentage}%`,
+                    }))}
+                  />
 
-                  <FormControl fullWidth>
-                    <InputLabel id="max-percentage-label">最大価格のパーセンテージ</InputLabel>
-                    <Select
-                      labelId="max-percentage-label"
-                      id="max-percentage-select"
-                      value={formData.maxPercentage}
-                      label="最大価格のパーセンテージ"
-                      onChange={(e) => {
-                        const nextMaxPercentage = e.target.value;
-                        setMaxPercentage(nextMaxPercentage);
-                        clearFieldError('maxPercentage');
-                        updateRangePriceFromPercentage(
-                          rangeInputMode,
-                          minPercentage,
-                          nextMaxPercentage
-                        );
-                      }}
-                    >
-                      {PERCENTAGE_OPTIONS.map((percentage) => (
-                        <MenuItem key={percentage} value={percentage.toString()}>
-                          {percentage > 0 ? '+' : ''}
-                          {percentage}%
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <Select
+                    fullWidth
+                    id="max-percentage-select"
+                    label="最大価格のパーセンテージ"
+                    value={formData.maxPercentage ?? ''}
+                    onChange={(nextMaxPercentage) => {
+                      setMaxPercentage(nextMaxPercentage);
+                      clearFieldError('maxPercentage');
+                      updateRangePriceFromPercentage(
+                        rangeInputMode,
+                        minPercentage,
+                        nextMaxPercentage
+                      );
+                    }}
+                    options={PERCENTAGE_OPTIONS.map((percentage) => ({
+                      value: percentage.toString(),
+                      label: `${percentage > 0 ? '+' : ''}${percentage}%`,
+                    }))}
+                  />
 
                   {/* 計算結果表示 */}
                   {formData.minPercentage && formData.maxPercentage && (
@@ -1590,27 +1548,22 @@ export default function AlertSettingsModal({
               slotProps={{ input: { readOnly: true } }}
             />
           ) : (
-            <FormControl fullWidth error={!!formErrors.frequency}>
-              <InputLabel id="frequency-label">通知頻度</InputLabel>
-              <Select
-                labelId="frequency-label"
-                id="frequency-select"
-                value={formData.frequency}
-                label="通知頻度"
-                onChange={(e) => {
-                  setFrequency(e.target.value as FormData['frequency']);
-                  clearFieldError('frequency');
-                }}
-              >
-                <MenuItem value="MINUTE_LEVEL">1分間隔</MenuItem>
-                <MenuItem value="HOURLY_LEVEL">1時間間隔</MenuItem>
-              </Select>
-              {formErrors.frequency && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  {formErrors.frequency}
-                </Typography>
-              )}
-            </FormControl>
+            <Select
+              fullWidth
+              id="frequency-select"
+              label="通知頻度"
+              value={formData.frequency}
+              onChange={(value) => {
+                setFrequency(value as FormData['frequency']);
+                clearFieldError('frequency');
+              }}
+              error={!!formErrors.frequency}
+              helperText={formErrors.frequency}
+              options={[
+                { value: 'MINUTE_LEVEL', label: '1分間隔' },
+                { value: 'HOURLY_LEVEL', label: '1時間間隔' },
+              ]}
+            />
           )}
 
           <FormControlLabel

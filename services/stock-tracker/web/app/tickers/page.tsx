@@ -17,15 +17,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   CircularProgress,
-  SelectChangeEvent,
 } from '@mui/material';
-import { Button, TextField } from '@nagiyu/ui';
+import { Button, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
 // エラーメッセージ定数
@@ -165,8 +160,8 @@ export default function TickersPage() {
   }, [fetchTickers]);
 
   // 取引所フィルタ変更時の処理
-  const handleExchangeFilterChange = (event: SelectChangeEvent) => {
-    setExchangeFilter(event.target.value);
+  const handleExchangeFilterChange = (value: string) => {
+    setExchangeFilter(value);
   };
 
   // フォーム入力変更ハンドラー
@@ -334,26 +329,19 @@ export default function TickersPage() {
       )}
 
       {/* 取引所フィルタ */}
-      <Box sx={{ mb: 3 }}>
-        <FormControl fullWidth disabled={exchangesLoading || loading} sx={{ maxWidth: 300 }}>
-          <InputLabel id="exchange-filter-label">取引所でフィルタ</InputLabel>
-          <Select
-            labelId="exchange-filter-label"
-            id="exchange-filter"
-            value={exchangeFilter}
-            label="取引所でフィルタ"
-            onChange={handleExchangeFilterChange}
-          >
-            <MenuItem value="">
-              <em>すべて</em>
-            </MenuItem>
-            {exchanges.map((ex) => (
-              <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
-                {ex.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Box sx={{ mb: 3, maxWidth: 300 }}>
+        <Select
+          id="exchange-filter"
+          label="取引所でフィルタ"
+          fullWidth
+          disabled={exchangesLoading || loading}
+          value={exchangeFilter}
+          onChange={handleExchangeFilterChange}
+          options={[
+            { value: '', label: 'すべて' },
+            ...exchanges.map((ex) => ({ value: ex.exchangeId, label: ex.name })),
+          ]}
+        />
       </Box>
 
       {/* ティッカー一覧テーブル */}
@@ -437,21 +425,15 @@ export default function TickersPage() {
               required
               helperText="例: Apple Inc., NVIDIA Corporation"
             />
-            <FormControl fullWidth required>
-              <InputLabel id="create-exchange-label">取引所</InputLabel>
-              <Select
-                labelId="create-exchange-label"
-                value={formData.exchangeId}
-                label="取引所"
-                onChange={(e) => handleInputChange('exchangeId', e.target.value)}
-              >
-                {exchanges.map((ex) => (
-                  <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
-                    {ex.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Select
+              fullWidth
+              required
+              id="create-exchange"
+              label="取引所"
+              value={formData.exchangeId}
+              onChange={(value) => handleInputChange('exchangeId', value)}
+              options={exchanges.map((ex) => ({ value: ex.exchangeId, label: ex.name }))}
+            />
             <Alert severity="info">
               ティッカーIDは自動生成されます（形式: {'{取引所キー}:{シンボル}'}）
             </Alert>
@@ -498,16 +480,15 @@ export default function TickersPage() {
               fullWidth
               required
             />
-            <FormControl fullWidth disabled>
-              <InputLabel id="edit-exchange-label">取引所</InputLabel>
-              <Select labelId="edit-exchange-label" value={formData.exchangeId} label="取引所">
-                {exchanges.map((ex) => (
-                  <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
-                    {ex.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Select
+              fullWidth
+              disabled
+              id="edit-exchange"
+              label="取引所"
+              value={formData.exchangeId}
+              onChange={() => undefined}
+              options={exchanges.map((ex) => ({ value: ex.exchangeId, label: ex.name }))}
+            />
             <Alert severity="info">取引所は変更できません</Alert>
           </Box>
         </DialogContent>

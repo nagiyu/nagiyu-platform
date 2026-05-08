@@ -93,43 +93,15 @@ test.describe('Holding 管理フロー (E2E-003)', () => {
 
     // 取引所を選択 - テスト用の取引所を明示的に選択
     const exchangeSelect = page.locator('#create-exchange');
-    await exchangeSelect.click();
-
-    // テスト用の取引所を選択（exchangeIdで特定）
-    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
-    const exchangeCount = await exchangeOptions.count();
-
-    // テストデータが作成されているので、必ず取引所が存在する
-    expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
-
-    // テスト用の取引所を完全一致で選択（既存データではなく確実にテストデータを選択）
-    await page
-      .getByRole('option', {
-        name: new RegExp(`^${testTicker.exchange.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
-      })
-      .click();
+    await exchangeSelect.selectOption({ label: testTicker.exchange.name });
 
     // ティッカーがロードされるまで待つ
     await page.waitForTimeout(1000);
 
-    // ティッカーを選択 - テスト用のティッカーを明示的に選択
+    // ティッカーを選択 - テスト用のティッカーを明示的に選択（tickerId で特定）
     const tickerSelect = page.locator('#create-ticker');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    await tickerSelect.click();
-
-    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-    const tickerCount = await tickerOptions.count();
-
-    // テストデータが作成されているので、必ずティッカーが存在する
-    expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
-
-    // テスト用のティッカーを選択（既存データではなく確実にテストデータを選択）
-    // UI表示形式に合わせてシンボルで検索（部分一致でOK）
-    await page
-      .getByRole('option', {
-        name: new RegExp(testTicker.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')),
-      })
-      .click();
+    await tickerSelect.selectOption(testTicker.tickerId);
 
     // クリーンアップ用にtickerIdを保存
     const tickerId = testTicker.tickerId;
