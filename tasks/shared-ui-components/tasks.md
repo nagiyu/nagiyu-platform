@@ -86,8 +86,8 @@
 ### Link
 
 - [x] PR 1-5-A: 実装 + Stories + テスト（color: 7 種（inherit 含む）/ underline: none/hover/always / asChild。Link.tsx は statements/lines/functions/branches すべて 100%）
-- [x] PR 1-5-B: 置換（5 ファイル全置換完了。MUI 既定スタイル+default Props でそのまま代替可能だった）
-- [ ] PR 1-5-C: ESLint 禁止追加
+- [x] PR 1-5-B: 置換（5 ファイル全置換完了。MUI 既定スタイル+default Props でそのまま代替可能だった。※ PR 1-5-C で `tech/[slug]/page.tsx` 1 ファイル取りこぼしを追加置換）
+- [x] PR 1-5-C: ESLint 禁止追加（共有 config の `importNames` / `patterns.group` に `Link` を追加。`tech/[slug]/page.tsx` の `Link as MuiLink` 取りこぼし 1 ファイルを追加置換し、保留ファイルゼロのため例外コメント不要）
 
 ---
 

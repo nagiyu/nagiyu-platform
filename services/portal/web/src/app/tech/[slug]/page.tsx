@@ -8,9 +8,8 @@ import {
   CardActionArea,
   CardContent,
   Divider,
-  Link as MuiLink,
 } from '@mui/material';
-import { Chip } from '@nagiyu/ui';
+import { Chip, Link } from '@nagiyu/ui';
 import { getAllArticles, getArticle, getRelatedArticles } from '@/lib/content';
 import MarkdownContent from '@/components/MarkdownContent';
 import { buildBlogPostingJsonLd, buildBreadcrumbJsonLd, jsonLdScript } from '@/lib/jsonLd';
@@ -108,9 +107,7 @@ export default async function TechArticlePage({ params }: Params) {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>
         <Typography variant="caption" color="text.secondary">
           著者:{' '}
-          <MuiLink href="/about" underline="hover">
-            {authorName}
-          </MuiLink>
+          <Link href="/about">{authorName}</Link>
         </Typography>
         <Typography variant="caption" color="text.secondary">
           公開日: {article.publishedAt}

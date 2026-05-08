@@ -16,7 +16,7 @@ export default {
         paths: [
           {
             name: '@mui/material',
-            importNames: ['Button', 'TextField', 'Checkbox', 'Chip'],
+            importNames: ['Button', 'TextField', 'Checkbox', 'Chip', 'Link'],
             message: '共通コンポーネントは @nagiyu/ui から import してください',
           },
         ],
@@ -31,6 +31,8 @@ export default {
               '@mui/material/Checkbox/*',
               '@mui/material/Chip',
               '@mui/material/Chip/*',
+              '@mui/material/Link',
+              '@mui/material/Link/*',
             ],
             message: '共通コンポーネントは @nagiyu/ui から import してください',
           },
