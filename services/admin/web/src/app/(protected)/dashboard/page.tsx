@@ -8,9 +8,11 @@ import NotifyButton from '@/components/notify/NotifyButton';
 export default async function DashboardPage() {
   const session = await getSession();
 
-  // Phase 2: JWT 検証実装後、session が null の場合にリダイレクト
+  // 通常は middleware が未認証時に Auth サービスの /signin へリダイレクトするが、
+  // フォールバックとして同等のリダイレクトを行う
   if (!session) {
-    redirect('/');
+    const authUrl = process.env.NEXT_PUBLIC_AUTH_URL || process.env.NEXTAUTH_URL || '';
+    redirect(`${authUrl}/signin`);
   }
 
   const { user } = session;
@@ -65,6 +67,22 @@ export default async function DashboardPage() {
               通知設定
             </Typography>
             <NotifyButton />
+          </CardContent>
+        </Card>
+      )}
+
+      {hasPermission(user.roles, 'errors:read') && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              エラー履歴
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              プラットフォーム上で発生したエラー通知の履歴を確認できます
+            </Typography>
+            <Button href="/errors" variant="contained">
+              エラー履歴を表示
+            </Button>
           </CardContent>
         </Card>
       )}

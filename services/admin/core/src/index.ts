@@ -14,3 +14,20 @@ export {
 
 export type { PushNotificationPayload, SendAllResult } from './notify/web-push-sender.js';
 export { WebPushSender } from './notify/web-push-sender.js';
+
+export type {
+  ErrorEventReader,
+  ListErrorEventsQuery,
+  ListErrorEventsResult,
+} from './errors/index.js';
+export {
+  DEFAULT_LIST_LIMIT,
+  MAX_LIST_LIMIT,
+  encodeCursor,
+  decodeCursor,
+  normalizeLimit,
+  DynamoDBErrorEventReader,
+  InMemoryErrorEventReader,
+  createErrorEventReader,
+  resetErrorEventReader,
+} from './errors/index.js';

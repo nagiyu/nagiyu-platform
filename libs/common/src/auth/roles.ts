@@ -33,7 +33,13 @@ export const ROLES = {
     id: 'admin',
     name: '管理者',
     description: 'Phase 1 ではユーザー管理とロール割り当ての全権限を持つ',
-    permissions: ['users:read', 'users:write', 'roles:assign', 'notifications:write'],
+    permissions: [
+      'users:read',
+      'users:write',
+      'roles:assign',
+      'notifications:write',
+      'errors:read',
+    ],
   },
   'user-manager': {
     id: 'user-manager',
