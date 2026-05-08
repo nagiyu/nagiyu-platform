@@ -106,8 +106,7 @@ export default async function TechArticlePage({ params }: Params) {
       {/* メタ情報 */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, flexWrap: 'wrap' }}>
         <Typography variant="caption" color="text.secondary">
-          著者:{' '}
-          <Link href="/about">{authorName}</Link>
+          著者: <Link href="/about">{authorName}</Link>
         </Typography>
         <Typography variant="caption" color="text.secondary">
           公開日: {article.publishedAt}
