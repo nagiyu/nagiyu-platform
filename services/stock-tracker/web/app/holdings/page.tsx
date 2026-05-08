@@ -20,12 +20,8 @@ import {
   DialogActions,
   // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Select } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -766,60 +762,35 @@ export default function HoldingsPage() {
 
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* 取引所選択 */}
-            <FormControl fullWidth error={!!formErrors.exchangeId} disabled={exchangesLoading}>
-              <InputLabel id="create-exchange-label">取引所</InputLabel>
-              <Select
-                labelId="create-exchange-label"
-                id="create-exchange"
-                value={formData.exchangeId}
-                label="取引所"
-                onChange={(e) => handleFormChange('exchangeId', e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>選択してください</em>
-                </MenuItem>
-                {exchanges.map((ex) => (
-                  <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
-                    {ex.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              {formErrors.exchangeId && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  {formErrors.exchangeId}
-                </Typography>
-              )}
-            </FormControl>
+            <Select
+              fullWidth
+              id="create-exchange"
+              label="取引所"
+              disabled={exchangesLoading}
+              value={formData.exchangeId}
+              onChange={(value) => handleFormChange('exchangeId', value)}
+              error={!!formErrors.exchangeId}
+              helperText={formErrors.exchangeId}
+              placeholder="選択してください"
+              options={exchanges.map((ex) => ({ value: ex.exchangeId, label: ex.name }))}
+            />
 
             {/* ティッカー選択 */}
-            <FormControl
+            <Select
               fullWidth
-              error={!!formErrors.tickerId}
+              id="create-ticker"
+              label="ティッカー"
               disabled={!formData.exchangeId || tickersLoading}
-            >
-              <InputLabel id="create-ticker-label">ティッカー</InputLabel>
-              <Select
-                labelId="create-ticker-label"
-                id="create-ticker"
-                value={formData.tickerId}
-                label="ティッカー"
-                onChange={(e) => handleFormChange('tickerId', e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>選択してください</em>
-                </MenuItem>
-                {tickers.map((ticker) => (
-                  <MenuItem key={ticker.tickerId} value={ticker.tickerId}>
-                    {ticker.symbol} - {ticker.name}
-                  </MenuItem>
-                ))}
-              </Select>
-              {formErrors.tickerId && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  {formErrors.tickerId}
-                </Typography>
-              )}
-            </FormControl>
+              value={formData.tickerId}
+              onChange={(value) => handleFormChange('tickerId', value)}
+              error={!!formErrors.tickerId}
+              helperText={formErrors.tickerId}
+              placeholder="選択してください"
+              options={tickers.map((ticker) => ({
+                value: ticker.tickerId,
+                label: `${ticker.symbol} - ${ticker.name}`,
+              }))}
+            />
 
             {/* 保有数 */}
             <TextField
@@ -848,27 +819,16 @@ export default function HoldingsPage() {
             />
 
             {/* 通貨 */}
-            <FormControl fullWidth error={!!formErrors.currency}>
-              <InputLabel id="create-currency-label">通貨</InputLabel>
-              <Select
-                labelId="create-currency-label"
-                id="create-currency"
-                value={formData.currency}
-                label="通貨"
-                onChange={(e) => handleFormChange('currency', e.target.value)}
-              >
-                {CURRENCIES.map((currency) => (
-                  <MenuItem key={currency} value={currency}>
-                    {currency}
-                  </MenuItem>
-                ))}
-              </Select>
-              {formErrors.currency && (
-                <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                  {formErrors.currency}
-                </Typography>
-              )}
-            </FormControl>
+            <Select
+              fullWidth
+              id="create-currency"
+              label="通貨"
+              value={formData.currency}
+              onChange={(value) => handleFormChange('currency', value)}
+              error={!!formErrors.currency}
+              helperText={formErrors.currency}
+              options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
+            />
           </Box>
         </DialogContent>
         <DialogActions>

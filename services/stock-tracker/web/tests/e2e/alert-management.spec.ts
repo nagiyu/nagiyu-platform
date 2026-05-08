@@ -406,15 +406,13 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.locator('tbody td', { hasText: firstSellSymbol }).first()).toBeVisible();
       await expect(page.locator('tbody td', { hasText: secondSellSymbol }).first()).toBeVisible();
 
-      await page.getByLabel('取引所フィルタ').click();
-      await page.getByRole('option', { name: firstExchangeName }).click();
+      await page.getByLabel('取引所フィルタ').selectOption({ label: firstExchangeName });
 
       await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
       await expect(page.locator('tbody td', { hasText: firstSellSymbol }).first()).toBeVisible();
       await expect(page.locator('tbody td', { hasText: secondSellSymbol })).toHaveCount(0);
 
-      await page.getByLabel('モードフィルタ').click();
-      await page.getByRole('option', { name: 'Buy（買い）' }).click();
+      await page.getByLabel('モードフィルタ').selectOption('Buy');
 
       await expect(page.locator('tbody td', { hasText: firstBuySymbol }).first()).toBeVisible();
       await expect(page.locator('tbody td', { hasText: firstSellSymbol })).toHaveCount(0);
@@ -648,8 +646,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
 
       // 範囲タイプフィールドが表示されることを確認（デフォルト値は「範囲内（AND）」）
       await expect(page.getByLabel('範囲タイプ')).toBeVisible();
@@ -696,13 +693,11 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲タイプを「範囲外（OR）」に変更
-      await page.getByRole('combobox', { name: '範囲タイプ' }).click();
-      await page.getByRole('option', { name: /範囲外/ }).click();
+      await page.getByLabel('範囲タイプ').selectOption('outside');
 
       // 範囲を入力（90ドル以下または120ドル以上）
       await page.getByLabel(/下限価格/).fill('90');
@@ -748,13 +743,11 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
       const minPriceInput = page.locator('#min-price');
       // webkit-mobile では初回選択が反映されないことがあるため、未表示時は1回だけ再選択する
       if (!(await minPriceInput.isVisible().catch(() => false))) {
-        await page.getByRole('combobox', { name: '条件タイプ' }).click();
-        await page.getByRole('option', { name: '範囲指定' }).click();
+        await page.getByLabel('条件タイプ').selectOption('range');
       }
       await expect(minPriceInput).toBeVisible({ timeout: 10000 });
 
@@ -796,20 +789,17 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
       const minPriceInput = page.locator('#min-price');
       // webkit-mobile では初回選択が反映されないことがあるため、未表示時は1回だけ再選択する
       if (!(await minPriceInput.isVisible().catch(() => false))) {
-        await page.getByRole('combobox', { name: '条件タイプ' }).click();
-        await page.getByRole('option', { name: '範囲指定' }).click();
+        await page.getByLabel('条件タイプ').selectOption('range');
       }
       await expect(minPriceInput).toBeVisible({ timeout: 10000 });
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲タイプを「範囲外（OR）」に変更
-      await page.getByRole('combobox', { name: '範囲タイプ' }).click();
-      await page.getByRole('option', { name: /範囲外/ }).click();
+      await page.getByLabel('範囲タイプ').selectOption('outside');
 
       // 不正な範囲を入力（下限価格 >= 上限価格）
       const maxPriceInput = page.locator('#max-price');
@@ -853,10 +843,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(alertDialog.getByLabel('目標価格')).toBeVisible();
 
       // 範囲指定に切り替え
-      const conditionTypeCombobox = alertDialog.getByRole('combobox', { name: '条件タイプ' });
+      const conditionTypeCombobox = alertDialog.getByLabel('条件タイプ');
       await expect(conditionTypeCombobox).toBeVisible();
-      await conditionTypeCombobox.click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await conditionTypeCombobox.selectOption('range');
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 範囲指定のフィールドが表示される
@@ -869,8 +858,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(alertDialog.getByLabel('目標価格')).not.toBeVisible();
 
       // 単一条件に戻す
-      await conditionTypeCombobox.click();
-      await page.getByRole('option', { name: /単一条件/ }).click();
+      await conditionTypeCombobox.selectOption('single');
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 単一条件のフィールドが表示される
@@ -922,7 +910,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 入力方式ドロップダウンが表示されるか確認（basePriceが設定されている場合のみ）
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
 
       // basePriceが設定されていない場合はテストをスキップ
@@ -931,8 +919,7 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // パーセンテージ選択フィールドが表示される（IDで特定）
       await expect(page.locator('#percentage-select')).toBeVisible();
@@ -961,19 +948,17 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // パーセンテージで「+20%」を選択
-      await page.locator('#percentage-select').click();
-      await page.getByRole('option', { name: '+20%' }).click();
+      await page.locator('#percentage-select').selectOption('20');
 
       // 計算結果が表示される（基準価格100ドル × 1.2 = 120ドル）
       await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
@@ -1000,19 +985,17 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // パーセンテージで「-10%」を選択
-      await page.locator('#percentage-select').click();
-      await page.getByRole('option', { name: '-10%' }).click();
+      await page.locator('#percentage-select').selectOption('-10');
 
       // 計算結果が表示される（基準価格100ドル × 0.9 = 90ドル）
       await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
@@ -1039,19 +1022,17 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // パーセンテージで「+15%」を選択
-      await page.locator('#percentage-select').click();
-      await page.getByRole('option', { name: '+15%' }).click();
+      await page.locator('#percentage-select').selectOption('15');
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 計算結果が表示される（基準価格100ドル × 1.15 = 115ドル）
@@ -1100,21 +1081,19 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await expect(page.getByLabel('目標価格')).toBeVisible();
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // パーセンテージモードに切り替え
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
       await expect(page.locator('#percentage-select')).toBeVisible();
       await expect(page.getByLabel('目標価格')).not.toBeVisible();
 
       // 手動入力モードに戻す
-      await page.getByRole('combobox', { name: '入力方式' }).click();
-      await page.getByRole('option', { name: '手動入力' }).click();
+      await page.getByLabel('入力方式').selectOption('manual');
       await expect(page.getByLabel('目標価格')).toBeVisible();
       await expect(page.locator('#percentage-select')).not.toBeVisible();
     });
@@ -1155,23 +1134,21 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
 
       // 初期状態: 手動入力モードで価格入力フィールドが表示される
       await expect(page.locator('#min-price')).toBeVisible();
       await expect(page.locator('#max-price')).toBeVisible();
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // パーセンテージ選択フィールドが表示される
       await expect(page.locator('#min-percentage-select')).toBeVisible();
@@ -1202,27 +1179,23 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // 最小パーセンテージで「-10%」を選択
-      await page.locator('#min-percentage-select').click();
-      await page.getByRole('option', { name: '-10%' }).click();
+      await page.locator('#min-percentage-select').selectOption('-10');
 
       // 最大パーセンテージで「+10%」を選択
-      await page.locator('#max-percentage-select').click();
-      await page.getByRole('option', { name: '+10%' }).click();
+      await page.locator('#max-percentage-select').selectOption('10');
 
       // 計算結果が表示される（基準価格100ドル → 90ドル〜110ドル）
       await expect(page.getByText(/基準価格.*100\.00/)).toBeVisible();
@@ -1249,27 +1222,23 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
       await page.waitForTimeout(1000);
 
       // 条件タイプを「範囲指定」に変更
-      await page.getByRole('combobox', { name: '条件タイプ' }).click();
-      await page.getByRole('option', { name: '範囲指定' }).click();
+      await page.getByLabel('条件タイプ').selectOption('range');
 
       // 入力方式ドロップダウンの確認
-      const inputModeSelect = page.getByRole('combobox', { name: '入力方式' });
+      const inputModeSelect = page.getByLabel('入力方式');
       const isInputModeVisible = await inputModeSelect.isVisible().catch(() => false);
       if (!isInputModeVisible) {
         test.skip();
       }
 
       // 入力方式を「パーセンテージ」に変更
-      await inputModeSelect.click();
-      await page.getByRole('option', { name: 'パーセンテージ' }).click();
+      await inputModeSelect.selectOption('percentage');
 
       // 最小パーセンテージで「-5%」を選択
-      await page.locator('#min-percentage-select').click();
-      await page.getByRole('option', { name: '-5%' }).click();
+      await page.locator('#min-percentage-select').selectOption('-5');
 
       // 最大パーセンテージで「+5%」を選択
-      await page.locator('#max-percentage-select').click();
-      await page.getByRole('option', { name: '+5%' }).click();
+      await page.locator('#max-percentage-select').selectOption('5');
       await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 保存ボタンをクリック
