@@ -85,7 +85,7 @@
 
 ### Link
 
-- [ ] PR 1-5-A: 実装 + Stories + テスト
+- [x] PR 1-5-A: 実装 + Stories + テスト（color: 7 種（inherit 含む）/ underline: none/hover/always / asChild。Link.tsx は statements/lines/functions/branches すべて 100%）
 - [ ] PR 1-5-B: 置換
 - [ ] PR 1-5-C: ESLint 禁止追加
 
