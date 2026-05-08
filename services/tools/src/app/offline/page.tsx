@@ -1,6 +1,7 @@
 'use client';
 
-import { Box, Container, Typography, Button } from '@mui/material';
+import { Box, Container, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
@@ -31,10 +32,9 @@ export default function OfflinePage() {
         </Typography>
 
         <Button
-          variant="contained"
+          variant="solid"
           startIcon={<RefreshIcon />}
           onClick={() => window.location.reload()}
-          sx={{ mt: 2 }}
         >
           再読み込み
         </Button>

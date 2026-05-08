@@ -106,27 +106,20 @@ test.describe('取引所管理画面 (E2E-006)', () => {
       await page.locator('input[placeholder="NASDAQ Stock Market"]').fill('Test Exchange');
       await page.locator('input[placeholder="NSDQ"]').fill(testKey);
 
-      // タイムゾーンを選択 - フォームコントロールを特定して操作
-      // タイムゾーンのSelect（最初のSelect）
-      const selects = modal.locator('.MuiSelect-select');
-      await selects.nth(0).click();
-      await page.getByRole('option', { name: /America\/New_York/ }).click();
+      // タイムゾーン
+      await modal.locator('#exchange-timezone').selectOption('America/New_York');
 
       // 取引開始時間 - 時
-      await selects.nth(1).click();
-      await page.getByRole('option', { name: '09' }).first().click();
+      await modal.locator('#exchange-start-hour').selectOption('09');
 
       // 取引開始時間 - 分
-      await selects.nth(2).click();
-      await page.getByRole('option', { name: '30' }).first().click();
+      await modal.locator('#exchange-start-minute').selectOption('30');
 
       // 取引終了時間 - 時
-      await selects.nth(3).click();
-      await page.getByRole('option', { name: '16' }).first().click();
+      await modal.locator('#exchange-end-hour').selectOption('16');
 
       // 取引終了時間 - 分（00はデフォルトなのでスキップ可能だが、念のため）
-      await selects.nth(4).click();
-      await page.getByRole('option', { name: '00' }).first().click();
+      await modal.locator('#exchange-end-minute').selectOption('00');
 
       // 保存ボタンをクリック
       await page.locator('button:has-text("保存")').click();

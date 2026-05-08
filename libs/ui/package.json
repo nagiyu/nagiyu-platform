@@ -12,16 +12,23 @@
     "./service-layout": {
       "types": "./dist/src/components/layout/ServiceLayout.d.ts",
       "import": "./dist/src/components/layout/ServiceLayout.jsx"
-    }
+    },
+    "./tokens": {
+      "types": "./dist/src/styles/tokens.d.ts",
+      "import": "./dist/src/styles/tokens.js"
+    },
+    "./tokens.css": "./dist/src/styles/tokens.css"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node ./scripts/copy-assets.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/**/*.{ts,tsx} tests/**/*.{ts,tsx}",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "build-storybook": "storybook build --output-dir storybook-static"
   },
   "peerDependencies": {
     "@emotion/react": "^11.14.0",
@@ -34,6 +41,11 @@
     "react-dom": ">=19.0.0"
   },
   "dependencies": {
-    "@nagiyu/browser": "*"
+    "@nagiyu/browser": "*",
+    "@radix-ui/react-slot": "^1.2.4"
+  },
+  "devDependencies": {
+    "@types/jest-axe": "^3.5.9",
+    "jest-axe": "^10.0.0"
   }
 }

@@ -7,15 +7,16 @@ import {
   Container,
   Typography,
   Paper,
-  Button,
   Alert,
-  FormControl,
   FormLabel,
   RadioGroup,
   FormControlLabel,
   Radio,
   Box,
 } from '@mui/material';
+// eslint-disable-next-line no-restricted-imports -- Radio グループの fieldset/legend セマンティクス用途。共通 Select の構成要素ではないため統合対象外。
+import { FormControl } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 type UploadError = {
@@ -284,14 +285,7 @@ export default function Home() {
         </FormControl>
 
         {/* Submit Button */}
-        <Button
-          type="submit"
-          variant="contained"
-          size="large"
-          disabled={!file || isUploading}
-          fullWidth
-          sx={{ py: 1.5 }}
-        >
+        <Button type="submit" variant="solid" size="lg" disabled={!file} loading={isUploading}>
           {isUploading ? 'アップロード中...' : '変換開始'}
         </Button>
       </form>

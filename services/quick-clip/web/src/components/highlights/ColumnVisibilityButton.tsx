@@ -1,15 +1,8 @@
 'use client';
 
 import { type MouseEvent, useState } from 'react';
-import {
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  IconButton,
-  Paper,
-  Popover,
-  Tooltip,
-} from '@mui/material';
+import { FormGroup, IconButton, Paper, Popover, Tooltip } from '@mui/material';
+import { Checkbox } from '@nagiyu/ui';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import type { ColumnDefinition } from '../../constants/highlightTableColumns';
 import type { ColumnVisibilityMap } from '../../hooks/useColumnVisibility';
@@ -64,16 +57,12 @@ export function ColumnVisibilityButton({
         <Paper sx={{ p: 1 }}>
           <FormGroup>
             {columns.map((col) => (
-              <FormControlLabel
+              <Checkbox
                 key={col.id}
-                control={
-                  <Checkbox
-                    size="small"
-                    checked={visibilityMap[col.id] ?? false}
-                    onChange={() => onToggle(col.id)}
-                  />
-                }
+                size="sm"
                 label={col.label}
+                checked={visibilityMap[col.id] ?? false}
+                onChange={() => onToggle(col.id)}
               />
             ))}
           </FormGroup>

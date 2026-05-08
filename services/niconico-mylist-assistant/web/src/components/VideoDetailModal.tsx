@@ -6,17 +6,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
-  TextField,
   Box,
   Typography,
   IconButton,
   Tooltip,
   CircularProgress,
   Alert,
-  Chip,
   Stack,
 } from '@mui/material';
+import { Button, Chip, TextField } from '@nagiyu/ui';
 import {
   Close,
   Favorite,
@@ -302,29 +300,31 @@ export default function VideoDetailModal({
 
             {/* メタデータ */}
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
-              <Chip label={video.length} size="small" variant="outlined" />
-              <Chip label={formatDateTime(video.createdAt)} size="small" variant="outlined" />
+              <Chip size="sm" variant="outline">
+                {video.length}
+              </Chip>
+              <Chip size="sm" variant="outline">
+                {formatDateTime(video.createdAt)}
+              </Chip>
             </Stack>
 
             {/* お気に入り・スキップボタン */}
             <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
               <Button
-                variant={isFavorite ? 'contained' : 'outlined'}
-                color={isFavorite ? 'error' : 'inherit'}
+                variant={isFavorite ? 'solid' : 'outline'}
+                color={isFavorite ? 'danger' : 'neutral'}
                 startIcon={isFavorite ? <Favorite /> : <FavoriteBorder />}
                 onClick={handleToggleFavorite}
                 disabled={isSaving}
-                fullWidth
               >
                 {isFavorite ? 'お気に入り解除' : 'お気に入りに追加'}
               </Button>
               <Button
-                variant={isSkip ? 'contained' : 'outlined'}
-                color={isSkip ? 'warning' : 'inherit'}
+                variant={isSkip ? 'solid' : 'outline'}
+                color={isSkip ? 'warning' : 'neutral'}
                 startIcon={isSkip ? <RemoveCircle /> : <RemoveCircleOutlined />}
                 onClick={handleToggleSkip}
                 disabled={isSaving}
-                fullWidth
               >
                 {isSkip ? 'スキップ解除' : 'スキップに設定'}
               </Button>
@@ -346,9 +346,10 @@ export default function VideoDetailModal({
               />
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
                 <Button
-                  variant="contained"
+                  variant="solid"
                   onClick={handleSaveMemo}
-                  disabled={isSaving || memo.length > 1000}
+                  loading={isSaving}
+                  disabled={memo.length > 1000}
                 >
                   メモを保存
                 </Button>
@@ -363,26 +364,18 @@ export default function VideoDetailModal({
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
-                    variant="contained"
-                    color="error"
+                    variant="solid"
+                    color="danger"
                     onClick={handleDelete}
-                    disabled={isDeleting}
-                    startIcon={isDeleting ? <CircularProgress size={20} /> : <Delete />}
+                    loading={isDeleting}
+                    startIcon={<Delete />}
                   >
                     削除する
                   </Button>
                   <Button
-                    variant="outlined"
+                    variant="outline"
                     onClick={() => setShowDeleteConfirm(false)}
                     disabled={isDeleting}
-                    sx={{
-                      color: 'error.contrastText',
-                      borderColor: 'error.contrastText',
-                      '&:hover': {
-                        borderColor: 'error.contrastText',
-                        bgcolor: 'rgba(255, 255, 255, 0.1)',
-                      },
-                    }}
                   >
                     キャンセル
                   </Button>
@@ -391,8 +384,8 @@ export default function VideoDetailModal({
             ) : (
               <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                 <Button
-                  variant="outlined"
-                  color="error"
+                  variant="outline"
+                  color="danger"
                   startIcon={<Delete />}
                   onClick={() => setShowDeleteConfirm(true)}
                   disabled={isSaving || isDeleting}
@@ -406,7 +399,7 @@ export default function VideoDetailModal({
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={onClose} disabled={isSaving || isDeleting}>
+        <Button onClick={onClose} variant="ghost" disabled={isSaving || isDeleting}>
           閉じる
         </Button>
       </DialogActions>

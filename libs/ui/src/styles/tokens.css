@@ -1,0 +1,361 @@
+/*
+ * @nagiyu/ui デザイントークン
+ *
+ * 構造: Primitive 層（生の値） + Semantic 層（意味）
+ *
+ * - Primitive: --primitive-{category}-{scale}（例: --primitive-blue-600）
+ * - Semantic:  --{category}-{role}（例: --color-action-primary）
+ *
+ * コンポーネントは Semantic トークンのみ参照すること。
+ * テーマ切替は Primitive の割り当てを上書きすることで実現する。
+ *
+ * 詳細: docs/development/shared-ui-components.md
+ */
+
+/* =========================================================================
+ * Primitive: Color
+ * ========================================================================= */
+
+:root {
+  /* Common */
+  --primitive-white: #ffffff;
+  --primitive-black: #000000;
+
+  /* Gray */
+  --primitive-gray-50: #fafafa;
+  --primitive-gray-100: #f5f5f5;
+  --primitive-gray-200: #eeeeee;
+  --primitive-gray-300: #e0e0e0;
+  --primitive-gray-400: #bdbdbd;
+  --primitive-gray-500: #9e9e9e;
+  --primitive-gray-600: #757575;
+  --primitive-gray-700: #616161;
+  --primitive-gray-800: #424242;
+  --primitive-gray-900: #1b1b1b;
+
+  /* Blue */
+  --primitive-blue-50: #e3f2fd;
+  --primitive-blue-100: #bbdefb;
+  --primitive-blue-200: #90caf9;
+  --primitive-blue-300: #64b5f6;
+  --primitive-blue-400: #42a5f5;
+  --primitive-blue-500: #1976d2;
+  --primitive-blue-600: #1565c0;
+  --primitive-blue-700: #0d47a1;
+  --primitive-blue-800: #0a3576;
+  --primitive-blue-900: #062350;
+
+  /* Red */
+  --primitive-red-50: #ffebee;
+  --primitive-red-100: #ffcdd2;
+  --primitive-red-300: #ef5350;
+  --primitive-red-500: #d32f2f;
+  --primitive-red-600: #c62828;
+  --primitive-red-700: #b71c1c;
+
+  /* Amber (warning) */
+  --primitive-amber-50: #fff3e0;
+  --primitive-amber-300: #ffb74d;
+  --primitive-amber-400: #ff9800;
+  --primitive-amber-500: #ed6c02;
+  --primitive-amber-600: #e65100;
+
+  /* Cyan (info) */
+  --primitive-cyan-50: #e1f5fe;
+  --primitive-cyan-300: #4fc3f7;
+  --primitive-cyan-400: #03a9f4;
+  --primitive-cyan-500: #0288d1;
+  --primitive-cyan-600: #01579b;
+
+  /* Green (success) */
+  --primitive-green-50: #e8f5e9;
+  --primitive-green-300: #66bb6a;
+  --primitive-green-400: #4caf50;
+  --primitive-green-500: #2e7d32;
+  --primitive-green-600: #1b5e20;
+}
+
+/* =========================================================================
+ * Primitive: Spacing / Typography / Radius / Shadow / Breakpoint /
+ *            zIndex / Transition
+ *
+ * これらはテーマ切替の影響を受けない（モードに依存しない値）。
+ * ========================================================================= */
+
+:root {
+  /* Spacing (base 4px) */
+  --primitive-space-0: 0;
+  --primitive-space-1: 4px;
+  --primitive-space-2: 8px;
+  --primitive-space-3: 12px;
+  --primitive-space-4: 16px;
+  --primitive-space-5: 20px;
+  --primitive-space-6: 24px;
+  --primitive-space-8: 32px;
+  --primitive-space-10: 40px;
+  --primitive-space-12: 48px;
+  --primitive-space-16: 64px;
+
+  /* Font family */
+  --primitive-font-family-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+  --primitive-font-family-mono:
+    'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* Font size */
+  --primitive-font-size-xs: 0.75rem; /* 12px */
+  --primitive-font-size-sm: 0.875rem; /* 14px */
+  --primitive-font-size-md: 1rem; /* 16px */
+  --primitive-font-size-lg: 1.25rem; /* 20px */
+  --primitive-font-size-xl: 1.5rem; /* 24px */
+  --primitive-font-size-2xl: 1.75rem; /* 28px */
+  --primitive-font-size-3xl: 2rem; /* 32px */
+  --primitive-font-size-4xl: 2.5rem; /* 40px */
+
+  /* Font weight */
+  --primitive-font-weight-regular: 400;
+  --primitive-font-weight-medium: 500;
+  --primitive-font-weight-bold: 700;
+
+  /* Line height */
+  --primitive-line-height-tight: 1.2;
+  --primitive-line-height-normal: 1.5;
+  --primitive-line-height-loose: 1.66;
+
+  /* Radius */
+  --primitive-radius-none: 0;
+  --primitive-radius-sm: 4px;
+  --primitive-radius-md: 8px;
+  --primitive-radius-lg: 12px;
+  --primitive-radius-full: 9999px;
+
+  /* Shadow */
+  --primitive-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --primitive-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --primitive-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --primitive-shadow-xl: 0 8px 32px rgba(0, 0, 0, 0.16);
+
+  /* Breakpoint (参照値、CSS 変数として直接使うことは少ない) */
+  --primitive-breakpoint-sm: 600px;
+  --primitive-breakpoint-md: 900px;
+  --primitive-breakpoint-lg: 1200px;
+  --primitive-breakpoint-xl: 1536px;
+
+  /* zIndex */
+  --primitive-z-dropdown: 1000;
+  --primitive-z-sticky: 1100;
+  --primitive-z-modal: 1300;
+  --primitive-z-toast: 1400;
+  --primitive-z-tooltip: 1500;
+
+  /* Transition */
+  --primitive-duration-fast: 150ms;
+  --primitive-duration-normal: 250ms;
+  --primitive-duration-slow: 400ms;
+  --primitive-easing-linear: linear;
+  --primitive-easing-in: cubic-bezier(0.4, 0, 1, 1);
+  --primitive-easing-out: cubic-bezier(0, 0, 0.2, 1);
+  --primitive-easing-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* =========================================================================
+ * Semantic: ライトテーマ（既定）
+ * ========================================================================= */
+
+:root,
+[data-theme='light'] {
+  /* Background */
+  --color-bg-canvas: var(--primitive-gray-50);
+  --color-bg-surface: var(--primitive-white);
+  --color-bg-subtle: var(--primitive-gray-100);
+
+  /* Foreground (text) */
+  --color-fg-default: rgba(0, 0, 0, 0.87);
+  --color-fg-muted: rgba(0, 0, 0, 0.6);
+  --color-fg-disabled: rgba(0, 0, 0, 0.38);
+  --color-fg-on-accent: var(--primitive-white);
+
+  /* Border */
+  --color-border-default: var(--primitive-gray-300);
+  --color-border-subtle: var(--primitive-gray-200);
+  --color-border-strong: var(--primitive-gray-400);
+
+  /* Action: primary */
+  --color-action-primary: var(--primitive-blue-600);
+  --color-action-primary-hover: var(--primitive-blue-700);
+  --color-action-primary-active: var(--primitive-blue-800);
+  --color-action-primary-subtle: var(--primitive-blue-400);
+  --color-action-primary-fg: var(--primitive-white);
+
+  /* Action: secondary (neutral) */
+  --color-action-secondary: var(--primitive-gray-800);
+  --color-action-secondary-hover: var(--primitive-gray-900);
+  --color-action-secondary-active: var(--primitive-black);
+  --color-action-secondary-subtle: var(--primitive-gray-600);
+  --color-action-secondary-fg: var(--primitive-white);
+
+  /* Action: danger */
+  --color-action-danger: var(--primitive-red-500);
+  --color-action-danger-hover: var(--primitive-red-600);
+  --color-action-danger-active: var(--primitive-red-700);
+  --color-action-danger-subtle: var(--primitive-red-300);
+  --color-action-danger-fg: var(--primitive-white);
+
+  /* Action: warning */
+  --color-action-warning: var(--primitive-amber-500);
+  --color-action-warning-hover: var(--primitive-amber-600);
+  --color-action-warning-active: var(--primitive-amber-600);
+  --color-action-warning-subtle: var(--primitive-amber-400);
+  --color-action-warning-fg: var(--primitive-white);
+
+  /* Action: success */
+  --color-action-success: var(--primitive-green-500);
+  --color-action-success-hover: var(--primitive-green-600);
+  --color-action-success-active: var(--primitive-green-600);
+  --color-action-success-subtle: var(--primitive-green-400);
+  --color-action-success-fg: var(--primitive-white);
+
+  /* Action: info */
+  --color-action-info: var(--primitive-cyan-500);
+  --color-action-info-hover: var(--primitive-cyan-600);
+  --color-action-info-active: var(--primitive-cyan-600);
+  --color-action-info-subtle: var(--primitive-cyan-400);
+  --color-action-info-fg: var(--primitive-white);
+
+  /* Action: neutral（淡いグレー基調・補助的アクション用） */
+  --color-action-neutral: var(--primitive-gray-200);
+  --color-action-neutral-hover: var(--primitive-gray-300);
+  --color-action-neutral-active: var(--primitive-gray-400);
+  --color-action-neutral-subtle: var(--primitive-gray-100);
+  --color-action-neutral-fg: var(--color-fg-default);
+
+  /* Spacing */
+  --spacing-xs: var(--primitive-space-1);
+  --spacing-sm: var(--primitive-space-2);
+  --spacing-md: var(--primitive-space-4);
+  --spacing-lg: var(--primitive-space-6);
+  --spacing-xl: var(--primitive-space-8);
+  --spacing-2xl: var(--primitive-space-12);
+
+  /* Typography */
+  --font-family-sans: var(--primitive-font-family-sans);
+  --font-family-mono: var(--primitive-font-family-mono);
+
+  --font-size-xs: var(--primitive-font-size-xs);
+  --font-size-sm: var(--primitive-font-size-sm);
+  --font-size-md: var(--primitive-font-size-md);
+  --font-size-lg: var(--primitive-font-size-lg);
+  --font-size-xl: var(--primitive-font-size-xl);
+
+  --font-weight-regular: var(--primitive-font-weight-regular);
+  --font-weight-medium: var(--primitive-font-weight-medium);
+  --font-weight-bold: var(--primitive-font-weight-bold);
+
+  --line-height-tight: var(--primitive-line-height-tight);
+  --line-height-normal: var(--primitive-line-height-normal);
+  --line-height-loose: var(--primitive-line-height-loose);
+
+  /* Radius */
+  --radius-none: var(--primitive-radius-none);
+  --radius-sm: var(--primitive-radius-sm);
+  --radius-md: var(--primitive-radius-md);
+  --radius-lg: var(--primitive-radius-lg);
+  --radius-full: var(--primitive-radius-full);
+
+  /* Shadow */
+  --shadow-sm: var(--primitive-shadow-sm);
+  --shadow-md: var(--primitive-shadow-md);
+  --shadow-lg: var(--primitive-shadow-lg);
+  --shadow-xl: var(--primitive-shadow-xl);
+
+  /* zIndex */
+  --z-dropdown: var(--primitive-z-dropdown);
+  --z-sticky: var(--primitive-z-sticky);
+  --z-modal: var(--primitive-z-modal);
+  --z-toast: var(--primitive-z-toast);
+  --z-tooltip: var(--primitive-z-tooltip);
+
+  /* Transition */
+  --duration-fast: var(--primitive-duration-fast);
+  --duration-normal: var(--primitive-duration-normal);
+  --duration-slow: var(--primitive-duration-slow);
+  --easing-linear: var(--primitive-easing-linear);
+  --easing-in: var(--primitive-easing-in);
+  --easing-out: var(--primitive-easing-out);
+  --easing-in-out: var(--primitive-easing-in-out);
+}
+
+/* =========================================================================
+ * Semantic: ダークテーマ
+ *
+ * `<html data-theme="dark">` で明示指定された場合に適用される。
+ * モード依存の値（色）のみ上書きする。
+ * ========================================================================= */
+
+[data-theme='dark'] {
+  /* Background */
+  --color-bg-canvas: var(--primitive-gray-900);
+  --color-bg-surface: var(--primitive-gray-800);
+  --color-bg-subtle: var(--primitive-gray-700);
+
+  /* Foreground (text) */
+  --color-fg-default: rgba(255, 255, 255, 0.87);
+  --color-fg-muted: rgba(255, 255, 255, 0.6);
+  --color-fg-disabled: rgba(255, 255, 255, 0.38);
+  --color-fg-on-accent: var(--primitive-white);
+
+  /* Border */
+  --color-border-default: var(--primitive-gray-700);
+  --color-border-subtle: var(--primitive-gray-800);
+  --color-border-strong: var(--primitive-gray-600);
+
+  /* Action: primary（暗背景上で視認しやすい明るめにずらす） */
+  --color-action-primary: var(--primitive-blue-400);
+  --color-action-primary-hover: var(--primitive-blue-300);
+  --color-action-primary-active: var(--primitive-blue-200);
+  --color-action-primary-subtle: var(--primitive-blue-500);
+  --color-action-primary-fg: var(--primitive-gray-900);
+
+  /* Action: secondary */
+  --color-action-secondary: var(--primitive-gray-300);
+  --color-action-secondary-hover: var(--primitive-gray-200);
+  --color-action-secondary-active: var(--primitive-gray-100);
+  --color-action-secondary-subtle: var(--primitive-gray-400);
+  --color-action-secondary-fg: var(--primitive-gray-900);
+
+  /* Action: danger */
+  --color-action-danger: var(--primitive-red-300);
+  --color-action-danger-hover: var(--primitive-red-100);
+  --color-action-danger-active: var(--primitive-red-50);
+  --color-action-danger-subtle: var(--primitive-red-500);
+  --color-action-danger-fg: var(--primitive-gray-900);
+
+  /* Action: warning */
+  --color-action-warning: var(--primitive-amber-400);
+  --color-action-warning-hover: var(--primitive-amber-300);
+  --color-action-warning-active: var(--primitive-amber-300);
+  --color-action-warning-subtle: var(--primitive-amber-500);
+  --color-action-warning-fg: var(--primitive-gray-900);
+
+  /* Action: success */
+  --color-action-success: var(--primitive-green-400);
+  --color-action-success-hover: var(--primitive-green-300);
+  --color-action-success-active: var(--primitive-green-300);
+  --color-action-success-subtle: var(--primitive-green-500);
+  --color-action-success-fg: var(--primitive-gray-900);
+
+  /* Action: info */
+  --color-action-info: var(--primitive-cyan-400);
+  --color-action-info-hover: var(--primitive-cyan-300);
+  --color-action-info-active: var(--primitive-cyan-300);
+  --color-action-info-subtle: var(--primitive-cyan-500);
+  --color-action-info-fg: var(--primitive-gray-900);
+
+  /* Action: neutral */
+  --color-action-neutral: var(--primitive-gray-700);
+  --color-action-neutral-hover: var(--primitive-gray-600);
+  --color-action-neutral-active: var(--primitive-gray-500);
+  --color-action-neutral-subtle: var(--primitive-gray-800);
+  --color-action-neutral-fg: var(--color-fg-default);
+}

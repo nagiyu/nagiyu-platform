@@ -5,12 +5,9 @@ import {
   Container,
   Box,
   Typography,
-  TextField,
-  Button,
   Alert,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   Accordion,
   AccordionSummary,
@@ -19,6 +16,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
+import { Button, Chip, TextField } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
 import VideoSearchModal from '@/components/VideoSearchModal';
@@ -113,20 +111,16 @@ export default function ImportPage() {
           />
         </Box>
 
-        <Box sx={{ mt: 2 }}>
-          <Button
-            variant="outlined"
-            size="large"
-            sx={{ mr: 2 }}
-            onClick={() => setSearchModalOpen(true)}
-          >
+        <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+          <Button variant="outline" size="lg" onClick={() => setSearchModalOpen(true)}>
             動画を検索して追加
           </Button>
           <Button
-            variant="contained"
-            size="large"
+            variant="solid"
+            size="lg"
             onClick={handleImport}
-            disabled={loading || !videoIds.trim()}
+            loading={loading}
+            disabled={!videoIds.trim()}
           >
             {loading ? <CircularProgress size={24} /> : 'インポート実行'}
           </Button>
@@ -147,10 +141,10 @@ export default function ImportPage() {
                 </Typography>
 
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                  <Chip label={`合計: ${result.total} 件`} color="default" />
-                  <Chip label={`成功: ${result.success} 件`} color="success" />
-                  <Chip label={`スキップ: ${result.skipped} 件`} color="warning" />
-                  <Chip label={`失敗: ${result.failed} 件`} color="error" />
+                  <Chip>{`合計: ${result.total} 件`}</Chip>
+                  <Chip color="success">{`成功: ${result.success} 件`}</Chip>
+                  <Chip color="warning">{`スキップ: ${result.skipped} 件`}</Chip>
+                  <Chip color="danger">{`失敗: ${result.failed} 件`}</Chip>
                 </Box>
 
                 {result.success > 0 && (
@@ -203,7 +197,7 @@ export default function ImportPage() {
                 )}
 
                 <Box sx={{ mt: 2 }}>
-                  <Button variant="outlined" onClick={() => router.push('/')}>
+                  <Button variant="outline" onClick={() => router.push('/')}>
                     動画一覧を見る
                   </Button>
                 </Box>

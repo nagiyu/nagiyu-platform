@@ -1,0 +1,158 @@
+/*
+ * Checkbox コンポーネントのスタイル定義。
+ *
+ * - native input を視覚的に隠して、`.box` を CSS で描画する。
+ * - 状態は `:checked` / `:indeterminate` / `:focus-visible` / `:disabled` で表現。
+ * - すべての色・余白・角丸は tokens.css の Semantic 変数を参照する。
+ */
+
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-family: var(--font-family-sans);
+  cursor: pointer;
+  color: var(--color-fg-default);
+}
+
+.wrapper.disabled {
+  cursor: not-allowed;
+  color: var(--color-fg-disabled);
+}
+
+/* input + box をスタックする小さなコンテナ */
+.root {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* native input を視覚的に隠すが、フォーカス可能・操作可能な状態は維持する */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: inherit;
+  z-index: 1;
+}
+
+/* 視覚的なチェックボックスのボックス */
+.box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-bg-surface);
+  transition:
+    background-color var(--duration-fast) var(--easing-out),
+    border-color var(--duration-fast) var(--easing-out),
+    box-shadow var(--duration-fast) var(--easing-out);
+}
+
+/* hover （wrapper レベルで判定） */
+.wrapper:hover:not(.disabled) .input:not(:disabled) ~ .box {
+  border-color: var(--color-action-primary);
+}
+
+/* focus-visible リング */
+.input:focus-visible ~ .box {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--color-action-primary-subtle);
+}
+
+/* checked 状態 */
+.input:checked ~ .box {
+  background-color: var(--color-action-primary);
+  border-color: var(--color-action-primary);
+}
+
+/* indeterminate 状態 */
+.input:indeterminate ~ .box {
+  background-color: var(--color-action-primary);
+  border-color: var(--color-action-primary);
+}
+
+/* disabled 状態 */
+.input:disabled ~ .box {
+  background-color: var(--color-bg-subtle);
+  border-color: var(--color-border-default);
+  opacity: 0.6;
+}
+
+.input:disabled:checked ~ .box,
+.input:disabled:indeterminate ~ .box {
+  background-color: var(--color-action-primary-subtle);
+  border-color: var(--color-action-primary-subtle);
+}
+
+/* アイコン（チェックマーク・横棒）。既定は非表示 */
+.checkIcon,
+.dashIcon {
+  width: 100%;
+  height: 100%;
+  fill: var(--color-action-primary-fg);
+  display: none;
+}
+
+/* checked のときチェックマーク表示 */
+.input:checked:not(:indeterminate) ~ .box .checkIcon {
+  display: block;
+}
+
+/* indeterminate のとき横棒表示（checked より優先） */
+.input:indeterminate ~ .box .dashIcon {
+  display: block;
+}
+
+/* indeterminate のときチェックマークは隠す */
+.input:indeterminate ~ .box .checkIcon {
+  display: none;
+}
+
+.labelText {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+  user-select: none;
+}
+
+.requiredMark {
+  color: var(--color-action-danger);
+}
+
+/* =========================================================================
+ * Size
+ * ========================================================================= */
+
+.size-sm .root {
+  width: 16px;
+  height: 16px;
+}
+
+.size-sm .labelText {
+  font-size: var(--font-size-sm);
+}
+
+.size-md .root {
+  width: 20px;
+  height: 20px;
+}
+
+.size-md .labelText {
+  font-size: var(--font-size-md);
+}
+
+.size-lg .root {
+  width: 24px;
+  height: 24px;
+}
+
+.size-lg .labelText {
+  font-size: var(--font-size-lg);
+}

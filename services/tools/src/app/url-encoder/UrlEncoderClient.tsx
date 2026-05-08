@@ -1,16 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Container,
-  Snackbar,
-  Stack,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Container, Snackbar, Stack, Typography } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -105,14 +97,14 @@ export default function UrlEncoderClient() {
       <Box sx={{ mb: 3 }}>
         <Stack direction="row" spacing={2}>
           <Button
-            variant={mode === 'encode' ? 'contained' : 'outlined'}
+            variant={mode === 'encode' ? 'solid' : 'outline'}
             onClick={() => handleModeChange('encode')}
             aria-label="エンコードモードに切り替える"
           >
             エンコード
           </Button>
           <Button
-            variant={mode === 'decode' ? 'contained' : 'outlined'}
+            variant={mode === 'decode' ? 'solid' : 'outline'}
             onClick={() => handleModeChange('decode')}
             aria-label="デコードモードに切り替える"
           >
@@ -125,29 +117,30 @@ export default function UrlEncoderClient() {
         <Typography variant="subtitle1" gutterBottom>
           入力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={8}
-          label={mode === 'encode' ? 'テキスト' : 'URLエンコード文字列'}
-          placeholder={
-            mode === 'encode'
-              ? 'エンコードする文字列を入力してください...'
-              : 'デコードするURLエンコード文字列を入力してください...'
-          }
-          value={inputText}
-          onChange={(event) => setInputText(event.target.value)}
-          error={!!error}
-          helperText={error}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={8}
+            label={mode === 'encode' ? 'テキスト' : 'URLエンコード文字列'}
+            placeholder={
+              mode === 'encode'
+                ? 'エンコードする文字列を入力してください...'
+                : 'デコードするURLエンコード文字列を入力してください...'
+            }
+            value={inputText}
+            onChange={(event) => setInputText(event.target.value)}
+            error={!!error}
+            helperText={error}
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
             aria-label="クリップボードから入力を読み取る"
@@ -155,7 +148,7 @@ export default function UrlEncoderClient() {
             クリップボードから読み取り
           </Button>
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleConvert}
             disabled={!inputText.trim()}
             aria-label={
@@ -171,27 +164,24 @@ export default function UrlEncoderClient() {
         <Typography variant="subtitle1" gutterBottom>
           出力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={8}
-          label="結果"
-          placeholder="変換結果がここに表示されます..."
-          value={outputText}
-          slotProps={{
-            input: {
-              readOnly: true,
-            },
-          }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={8}
+            label="結果"
+            placeholder="変換結果がここに表示されます..."
+            value={outputText}
+            readOnly
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="contained"
+            variant="solid"
             startIcon={<ContentCopyIcon />}
             onClick={handleCopy}
             disabled={!outputText}
@@ -200,7 +190,7 @@ export default function UrlEncoderClient() {
             コピー
           </Button>
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ClearIcon />}
             onClick={handleClear}
             disabled={!inputText && !outputText}

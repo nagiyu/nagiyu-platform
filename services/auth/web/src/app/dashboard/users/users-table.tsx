@@ -8,12 +8,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
-  Button,
   Alert,
   CircularProgress,
   Box,
 } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
 
@@ -78,24 +77,23 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
               <TableCell>{user.name}</TableCell>
               <TableCell>{user.email}</TableCell>
               <TableCell>
-                {user.roles.length > 0 ? (
-                  user.roles.map((role) => (
-                    <Chip key={role} label={role} size="small" sx={{ mr: 0.5 }} />
-                  ))
-                ) : (
-                  <Chip label="なし" size="small" color="default" />
-                )}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {user.roles.length > 0 ? (
+                    user.roles.map((role) => (
+                      <Chip key={role} size="sm">
+                        {role}
+                      </Chip>
+                    ))
+                  ) : (
+                    <Chip size="sm">なし</Chip>
+                  )}
+                </Box>
               </TableCell>
               <TableCell align="right">
                 {canAssignRoles && (
-                  <Link
-                    href={`/dashboard/users/${user.userId}/edit`}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <Button variant="outlined" size="small">
-                      編集
-                    </Button>
-                  </Link>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/dashboard/users/${user.userId}/edit`}>編集</Link>
+                  </Button>
                 )}
               </TableCell>
             </TableRow>

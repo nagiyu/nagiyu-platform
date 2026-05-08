@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Box,
-  Button,
   Paper,
   Table,
   TableBody,
@@ -19,13 +18,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  // eslint-disable-next-line no-restricted-imports -- 編集モーダル内 TextField の sx={{ backgroundColor: '#f5f5f5' }} で背景色指定が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   Snackbar,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
 } from '@mui/material';
+import { Button, Select } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -396,12 +393,7 @@ export default function ExchangesPage() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push('/')}
-            sx={{ minWidth: 120 }}
-          >
+          <Button variant="outline" startIcon={<ArrowBackIcon />} onClick={() => router.push('/')}>
             戻る
           </Button>
           <Typography variant="h4" component="h1">
@@ -409,7 +401,7 @@ export default function ExchangesPage() {
           </Typography>
         </Box>
         <Button
-          variant="contained"
+          variant="solid"
           color="primary"
           startIcon={<AddIcon />}
           onClick={handleCreateOpen}
@@ -475,21 +467,18 @@ export default function ExchangesPage() {
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                         <Button
-                          variant="contained"
-                          size="small"
+                          variant="solid"
+                          color="warning"
+                          size="sm"
                           startIcon={<EditIcon />}
                           onClick={() => handleEditOpen(exchange)}
-                          sx={{
-                            backgroundColor: '#ffc107',
-                            '&:hover': { backgroundColor: '#ffa000' },
-                          }}
                         >
                           編集
                         </Button>
                         <Button
-                          variant="contained"
-                          size="small"
-                          color="error"
+                          variant="solid"
+                          size="sm"
+                          color="danger"
                           startIcon={<DeleteIcon />}
                           onClick={() => handleDeleteOpen(exchange)}
                         >
@@ -559,22 +548,15 @@ export default function ExchangesPage() {
               <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 タイムゾーン
               </Typography>
-              <FormControl fullWidth disabled={submitting}>
-                <Select
-                  value={formData.timezone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, timezone: e.target.value }))}
-                  displayEmpty
-                >
-                  <MenuItem value="">
-                    <em>選択してください</em>
-                  </MenuItem>
-                  {TIMEZONE_OPTIONS.map((tz) => (
-                    <MenuItem key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Select
+                fullWidth
+                id="exchange-timezone"
+                disabled={submitting}
+                value={formData.timezone}
+                onChange={(value) => setFormData((prev) => ({ ...prev, timezone: value }))}
+                placeholder="選択してください"
+                options={TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label }))}
+              />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
               </Typography>
@@ -585,35 +567,25 @@ export default function ExchangesPage() {
                 取引開始時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>時</InputLabel>
-                  <Select
-                    value={startHour}
-                    label="時"
-                    onChange={(e) => setStartHour(e.target.value)}
-                  >
-                    {HOURS.map((hour) => (
-                      <MenuItem key={hour} value={hour}>
-                        {hour}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-start-hour"
+                  label="時"
+                  disabled={submitting}
+                  value={startHour}
+                  onChange={setStartHour}
+                  options={HOURS.map((hour) => ({ value: hour, label: hour }))}
+                />
                 <Typography>:</Typography>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>分</InputLabel>
-                  <Select
-                    value={startMinute}
-                    label="分"
-                    onChange={(e) => setStartMinute(e.target.value)}
-                  >
-                    {MINUTES.map((minute) => (
-                      <MenuItem key={minute} value={minute}>
-                        {minute}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-start-minute"
+                  label="分"
+                  disabled={submitting}
+                  value={startMinute}
+                  onChange={setStartMinute}
+                  options={MINUTES.map((minute) => ({ value: minute, label: minute }))}
+                />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
@@ -625,31 +597,25 @@ export default function ExchangesPage() {
                 取引終了時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>時</InputLabel>
-                  <Select value={endHour} label="時" onChange={(e) => setEndHour(e.target.value)}>
-                    {HOURS.map((hour) => (
-                      <MenuItem key={hour} value={hour}>
-                        {hour}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-end-hour"
+                  label="時"
+                  disabled={submitting}
+                  value={endHour}
+                  onChange={setEndHour}
+                  options={HOURS.map((hour) => ({ value: hour, label: hour }))}
+                />
                 <Typography>:</Typography>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>分</InputLabel>
-                  <Select
-                    value={endMinute}
-                    label="分"
-                    onChange={(e) => setEndMinute(e.target.value)}
-                  >
-                    {MINUTES.map((minute) => (
-                      <MenuItem key={minute} value={minute}>
-                        {minute}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-end-minute"
+                  label="分"
+                  disabled={submitting}
+                  value={endMinute}
+                  onChange={setEndMinute}
+                  options={MINUTES.map((minute) => ({ value: minute, label: minute }))}
+                />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
@@ -658,16 +624,11 @@ export default function ExchangesPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} sx={{ minWidth: 100 }}>
+          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button variant="solid" onClick={handleCreate} loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -718,22 +679,15 @@ export default function ExchangesPage() {
               <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
                 タイムゾーン
               </Typography>
-              <FormControl fullWidth disabled={submitting}>
-                <Select
-                  value={formData.timezone}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, timezone: e.target.value }))}
-                  displayEmpty
-                >
-                  <MenuItem value="">
-                    <em>選択してください</em>
-                  </MenuItem>
-                  {TIMEZONE_OPTIONS.map((tz) => (
-                    <MenuItem key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Select
+                fullWidth
+                id="exchange-timezone"
+                disabled={submitting}
+                value={formData.timezone}
+                onChange={(value) => setFormData((prev) => ({ ...prev, timezone: value }))}
+                placeholder="選択してください"
+                options={TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label }))}
+              />
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 主要な取引所のタイムゾーン
               </Typography>
@@ -744,35 +698,25 @@ export default function ExchangesPage() {
                 取引開始時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>時</InputLabel>
-                  <Select
-                    value={startHour}
-                    label="時"
-                    onChange={(e) => setStartHour(e.target.value)}
-                  >
-                    {HOURS.map((hour) => (
-                      <MenuItem key={hour} value={hour}>
-                        {hour}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-start-hour"
+                  label="時"
+                  disabled={submitting}
+                  value={startHour}
+                  onChange={setStartHour}
+                  options={HOURS.map((hour) => ({ value: hour, label: hour }))}
+                />
                 <Typography>:</Typography>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>分</InputLabel>
-                  <Select
-                    value={startMinute}
-                    label="分"
-                    onChange={(e) => setStartMinute(e.target.value)}
-                  >
-                    {MINUTES.map((minute) => (
-                      <MenuItem key={minute} value={minute}>
-                        {minute}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-start-minute"
+                  label="分"
+                  disabled={submitting}
+                  value={startMinute}
+                  onChange={setStartMinute}
+                  options={MINUTES.map((minute) => ({ value: minute, label: minute }))}
+                />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
@@ -784,31 +728,25 @@ export default function ExchangesPage() {
                 取引終了時間
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>時</InputLabel>
-                  <Select value={endHour} label="時" onChange={(e) => setEndHour(e.target.value)}>
-                    {HOURS.map((hour) => (
-                      <MenuItem key={hour} value={hour}>
-                        {hour}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-end-hour"
+                  label="時"
+                  disabled={submitting}
+                  value={endHour}
+                  onChange={setEndHour}
+                  options={HOURS.map((hour) => ({ value: hour, label: hour }))}
+                />
                 <Typography>:</Typography>
-                <FormControl fullWidth disabled={submitting}>
-                  <InputLabel>分</InputLabel>
-                  <Select
-                    value={endMinute}
-                    label="分"
-                    onChange={(e) => setEndMinute(e.target.value)}
-                  >
-                    {MINUTES.map((minute) => (
-                      <MenuItem key={minute} value={minute}>
-                        {minute}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Select
+                  fullWidth
+                  id="exchange-end-minute"
+                  label="分"
+                  disabled={submitting}
+                  value={endMinute}
+                  onChange={setEndMinute}
+                  options={MINUTES.map((minute) => ({ value: minute, label: minute }))}
+                />
               </Box>
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 ※ 24時間形式で選択
@@ -817,16 +755,11 @@ export default function ExchangesPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} sx={{ minWidth: 100 }}>
+          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdate}
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button variant="solid" onClick={handleUpdate} loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -841,17 +774,11 @@ export default function ExchangesPage() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button onClick={handleCloseModals} disabled={submitting} sx={{ minWidth: 100 }}>
+          <Button onClick={handleCloseModals} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleDelete}
-            disabled={submitting}
-            sx={{ minWidth: 100 }}
-          >
-            {submitting ? <CircularProgress size={24} /> : '削除'}
+          <Button variant="solid" color="danger" onClick={handleDelete} loading={submitting}>
+            削除
           </Button>
         </DialogActions>
       </Dialog>

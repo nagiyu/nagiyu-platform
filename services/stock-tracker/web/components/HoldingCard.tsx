@@ -4,7 +4,6 @@ import { useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   CircularProgress,
@@ -12,16 +11,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
   IconButton,
-  Select,
   Stack,
+  // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Button, Select } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { HoldingResponse } from '@/types/holding';
 import type { AlertResponse } from '@/types/alert';
@@ -319,8 +316,8 @@ export default function HoldingCard({
             保有株式
           </Typography>
           <Button
-            variant="contained"
-            size="small"
+            variant="solid"
+            size="sm"
             startIcon={<AddIcon />}
             onClick={handleOpenCreateModal}
             disabled={!canAddHolding}
@@ -415,29 +412,23 @@ export default function HoldingCard({
               helperText={formErrors.averagePrice}
               slotProps={{ htmlInput: { step: '0.01', min: '0.01', max: '1000000' } }}
             />
-            <FormControl fullWidth error={!!formErrors.currency}>
-              <InputLabel id="holding-create-currency-label">通貨</InputLabel>
-              <Select
-                labelId="holding-create-currency-label"
-                value={formData.currency}
-                label="通貨"
-                onChange={(e) => handleFormChange('currency', e.target.value)}
-              >
-                {CURRENCIES.map((currency) => (
-                  <MenuItem key={currency} value={currency}>
-                    {currency}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Select
+              fullWidth
+              label="通貨"
+              value={formData.currency}
+              onChange={(value) => handleFormChange('currency', value)}
+              error={!!formErrors.currency}
+              helperText={formErrors.currency}
+              options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateModalOpen(false)} disabled={submitting}>
+          <Button onClick={() => setCreateModalOpen(false)} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={() => void handleCreate()} variant="contained" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button onClick={() => void handleCreate()} variant="solid" loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -472,11 +463,11 @@ export default function HoldingCard({
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditModalOpen(false)} disabled={submitting}>
+          <Button onClick={() => setEditModalOpen(false)} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
-          <Button onClick={() => void handleUpdate()} variant="contained" disabled={submitting}>
-            {submitting ? <CircularProgress size={24} /> : '保存'}
+          <Button onClick={() => void handleUpdate()} variant="solid" loading={submitting}>
+            保存
           </Button>
         </DialogActions>
       </Dialog>
@@ -534,16 +525,17 @@ export default function HoldingCard({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={submitting}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={submitting} variant="ghost">
             キャンセル
           </Button>
           <Button
             onClick={() => void handleDelete()}
-            variant="contained"
-            color="error"
-            disabled={submitting || deleteDialogLoading}
+            variant="solid"
+            color="danger"
+            loading={submitting}
+            disabled={deleteDialogLoading}
           >
-            {submitting ? <CircularProgress size={24} /> : '削除'}
+            削除
           </Button>
         </DialogActions>
       </Dialog>

@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense, useMemo } from 'react';
 import {
   Container,
   Box,
-  Button,
   Typography,
   Table,
   TableBody,
@@ -15,12 +14,8 @@ import {
   Paper,
   Alert,
   CircularProgress,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
+import { Button, Chip, Select } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -286,7 +281,7 @@ function AlertsPageContent() {
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outlined">
+          <Button startIcon={<ArrowBackIcon />} onClick={() => router.back()} variant="outline">
             戻る
           </Button>
           <Typography variant="h5" component="h1" sx={{ fontWeight: 'bold' }}>
@@ -301,39 +296,42 @@ function AlertsPageContent() {
       </Typography>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2, alignItems: 'flex-end' }}>
-        <FormControl size="small" sx={{ minWidth: 180, flex: '1 1 180px' }}>
-          <InputLabel id="exchange-filter-label">取引所フィルタ</InputLabel>
+        <Box sx={{ minWidth: 180, flex: '1 1 180px' }}>
           <Select
-            labelId="exchange-filter-label"
+            id="exchange-filter"
             label="取引所フィルタ"
+            size="sm"
+            fullWidth
             value={filterExchangeKey}
-            onChange={(event) => setFilterExchangeKey(event.target.value)}
-          >
-            <MenuItem value="">すべて</MenuItem>
-            {exchanges.map((exchange) => (
-              <MenuItem key={exchange.exchangeId} value={exchange.key}>
-                {exchange.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            onChange={setFilterExchangeKey}
+            options={[
+              { value: '', label: 'すべて' },
+              ...exchanges.map((exchange) => ({
+                value: exchange.key,
+                label: exchange.name,
+              })),
+            ]}
+          />
+        </Box>
 
-        <FormControl size="small" sx={{ minWidth: 180, flex: '1 1 180px' }}>
-          <InputLabel id="mode-filter-label">モードフィルタ</InputLabel>
+        <Box sx={{ minWidth: 180, flex: '1 1 180px' }}>
           <Select
-            labelId="mode-filter-label"
+            id="mode-filter"
             label="モードフィルタ"
+            size="sm"
+            fullWidth
             value={filterMode}
-            onChange={(event) => handleModeFilterChange(event.target.value)}
-          >
-            <MenuItem value="">すべて</MenuItem>
-            <MenuItem value="Buy">Buy（買い）</MenuItem>
-            <MenuItem value="Sell">Sell（売り）</MenuItem>
-          </Select>
-        </FormControl>
+            onChange={handleModeFilterChange}
+            options={[
+              { value: '', label: 'すべて' },
+              { value: 'Buy', label: 'Buy（買い）' },
+              { value: 'Sell', label: 'Sell（売り）' },
+            ]}
+          />
+        </Box>
 
         <Button
-          variant="outlined"
+          variant="outline"
           onClick={handleClearFilters}
           disabled={!filterExchangeKey && !filterMode}
         >
@@ -402,11 +400,9 @@ function AlertsPageContent() {
                   return (
                     <TableRow key={alert.alertId} hover>
                       <TableCell>
-                        <Chip
-                          label={MODE_LABELS[alert.mode] || alert.mode}
-                          color={alert.mode === 'Buy' ? 'success' : 'warning'}
-                          size="small"
-                        />
+                        <Chip color={alert.mode === 'Buy' ? 'success' : 'warning'} size="sm">
+                          {MODE_LABELS[alert.mode] || alert.mode}
+                        </Chip>
                       </TableCell>
                       <TableCell>{exchangeName}</TableCell>
                       <TableCell>
@@ -420,27 +416,25 @@ function AlertsPageContent() {
                       <TableCell>{conditionText}</TableCell>
                       <TableCell>{FREQUENCY_LABELS[alert.frequency] || alert.frequency}</TableCell>
                       <TableCell align="center">
-                        <Chip
-                          label={alert.enabled ? '有効' : '無効'}
-                          color={alert.enabled ? 'success' : 'default'}
-                          size="small"
-                        />
+                        <Chip color={alert.enabled ? 'success' : 'neutral'} size="sm">
+                          {alert.enabled ? '有効' : '無効'}
+                        </Chip>
                       </TableCell>
                       <TableCell align="center">
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
                           <Button
-                            variant="contained"
+                            variant="solid"
                             color="warning"
-                            size="small"
+                            size="sm"
                             startIcon={<EditIcon />}
                             onClick={() => handleOpenEditModal(alert)}
                           >
                             編集
                           </Button>
                           <Button
-                            variant="contained"
-                            color="error"
-                            size="small"
+                            variant="solid"
+                            color="danger"
+                            size="sm"
                             startIcon={<DeleteIcon />}
                             onClick={() => handleOpenDeleteDialog(alert)}
                           >

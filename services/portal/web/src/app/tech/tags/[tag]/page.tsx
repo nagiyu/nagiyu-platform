@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Container, Typography, Box, Card, CardActionArea, CardContent, Chip } from '@mui/material';
+import { Container, Typography, Box, Card, CardActionArea, CardContent } from '@mui/material';
+import { Chip } from '@nagiyu/ui';
 import {
   getAllTags,
   getArticlesByTag,
@@ -78,7 +79,9 @@ export default async function TagPage({ params }: Params) {
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {article.tags.map((t) => (
-                    <Chip key={t} label={t} size="small" variant="outlined" />
+                    <Chip key={t} size="sm" variant="outline">
+                      {t}
+                    </Chip>
                   ))}
                 </Box>
                 <Typography

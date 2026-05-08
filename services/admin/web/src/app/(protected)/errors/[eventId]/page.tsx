@@ -1,4 +1,14 @@
-import { Box, Button, Card, CardContent, Chip, Divider, Typography } from '@mui/material';
+import {
+  Box,
+  // eslint-disable-next-line no-restricted-imports -- href + variant="text" 連携が @nagiyu/ui Button 未対応のため保留 (Issue #2900 Phase 2 以降で置換予定)
+  Button,
+  Card,
+  CardContent,
+  // eslint-disable-next-line no-restricted-imports -- color="info" / label プロップが @nagiyu/ui Chip 未対応のため保留 (Issue #2900 Phase 2 以降で置換予定)
+  Chip,
+  Divider,
+  Typography,
+} from '@mui/material';
 import { hasPermission } from '@nagiyu/common';
 import type { ErrorSeverity } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';

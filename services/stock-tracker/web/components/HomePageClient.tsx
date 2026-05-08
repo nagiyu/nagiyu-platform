@@ -2,22 +2,10 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  Container,
-  Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Paper,
-  SelectChangeEvent,
-  CircularProgress,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
+import { Container, Box, Paper, IconButton, Tooltip } from '@mui/material';
 import PauseIcon from '@mui/icons-material/Pause';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import { ErrorAlert } from '@nagiyu/ui';
+import { ErrorAlert, Select } from '@nagiyu/ui';
 import type { Timeframe, ChartBarCount } from '@/types/stock';
 import type { TickerSummary } from '@/types/stock';
 import type { AlertResponse } from '@/types/alert';
@@ -318,22 +306,22 @@ export default function HomePageClient({ children }: HomePageClientProps) {
   }, [exchange, tickers, queryTickerId]);
 
   // イベントハンドラー
-  const handleExchangeChange = (event: SelectChangeEvent) => {
-    setExchange(event.target.value);
+  const handleExchangeChange = (value: string) => {
+    setExchange(value);
     // 取引所変更時はティッカーをリセット
     setTicker('');
   };
 
-  const handleTickerChange = (event: SelectChangeEvent) => {
-    setTicker(event.target.value);
+  const handleTickerChange = (value: string) => {
+    setTicker(value);
   };
 
-  const handleTimeframeChange = (event: SelectChangeEvent) => {
-    setTimeframe(event.target.value as Timeframe);
+  const handleTimeframeChange = (value: string) => {
+    setTimeframe(value as Timeframe);
   };
 
-  const handleBarCountChange = (event: SelectChangeEvent) => {
-    setBarCount(Number(event.target.value) as ChartBarCount);
+  const handleBarCountChange = (value: string) => {
+    setBarCount(Number(value) as ChartBarCount);
   };
 
   const handleAutoRefreshToggle = () => {
@@ -364,92 +352,57 @@ export default function HomePageClient({ children }: HomePageClientProps) {
         aria-label="チャート設定"
       >
         {/* 取引所選択 */}
-        <FormControl fullWidth disabled={exchangesLoading}>
-          <InputLabel id="exchange-select-label">取引所選択</InputLabel>
-          <Select
-            labelId="exchange-select-label"
-            id="exchange-select"
-            value={exchange}
-            label="取引所選択"
-            onChange={handleExchangeChange}
-            startAdornment={exchangesLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-            aria-busy={exchangesLoading}
-          >
-            <MenuItem value="">
-              <em>選択してください</em>
-            </MenuItem>
-            {exchanges.map((ex) => (
-              <MenuItem key={ex.exchangeId} value={ex.exchangeId}>
-                {ex.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Select
+          fullWidth
+          id="exchange-select"
+          label="取引所選択"
+          disabled={exchangesLoading}
+          value={exchange}
+          onChange={handleExchangeChange}
+          placeholder="選択してください"
+          options={exchanges.map((ex) => ({ value: ex.exchangeId, label: ex.name }))}
+        />
 
         {/* ティッカー選択 */}
-        <FormControl fullWidth disabled={!exchange || tickersLoading}>
-          <InputLabel id="ticker-select-label">ティッカー選択</InputLabel>
-          <Select
-            labelId="ticker-select-label"
-            id="ticker-select"
-            value={ticker}
-            label="ティッカー選択"
-            onChange={handleTickerChange}
-            startAdornment={tickersLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-            aria-busy={tickersLoading}
-            aria-describedby={!exchange ? 'ticker-hint' : undefined}
-          >
-            <MenuItem value="">
-              <em>選択してください</em>
-            </MenuItem>
-            {tickers.map((t) => (
-              <MenuItem key={t.tickerId} value={t.tickerId}>
-                {t.symbol} - {t.name}
-              </MenuItem>
-            ))}
-          </Select>
-          {!exchange && (
-            <span id="ticker-hint" style={{ display: 'none' }}>
-              先に取引所を選択してください
-            </span>
-          )}
-        </FormControl>
+        <Select
+          fullWidth
+          id="ticker-select"
+          label="ティッカー選択"
+          disabled={!exchange || tickersLoading}
+          value={ticker}
+          onChange={handleTickerChange}
+          placeholder="選択してください"
+          options={tickers.map((t) => ({
+            value: t.tickerId,
+            label: `${t.symbol} - ${t.name}`,
+          }))}
+        />
 
         {/* 時間枠選択 */}
-        <FormControl fullWidth>
-          <InputLabel id="timeframe-select-label">時間枠</InputLabel>
-          <Select
-            labelId="timeframe-select-label"
-            id="timeframe-select"
-            value={timeframe}
-            label="時間枠"
-            onChange={handleTimeframeChange}
-          >
-            {(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => (
-              <MenuItem key={key} value={key}>
-                {TIMEFRAME_LABELS[key]}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Select
+          fullWidth
+          id="timeframe-select"
+          label="時間枠"
+          value={timeframe}
+          onChange={handleTimeframeChange}
+          options={(Object.keys(TIMEFRAME_LABELS) as Timeframe[]).map((key) => ({
+            value: key,
+            label: TIMEFRAME_LABELS[key],
+          }))}
+        />
 
         {/* 表示本数選択 */}
-        <FormControl fullWidth>
-          <InputLabel id="barcount-select-label">表示本数</InputLabel>
-          <Select
-            labelId="barcount-select-label"
-            id="barcount-select"
-            value={String(barCount)}
-            label="表示本数"
-            onChange={handleBarCountChange}
-          >
-            {CHART_BAR_COUNTS.map((count) => (
-              <MenuItem key={count} value={String(count)}>
-                {CHART_BAR_COUNT_LABELS[count]}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Select
+          fullWidth
+          id="barcount-select"
+          label="表示本数"
+          value={String(barCount)}
+          onChange={handleBarCountChange}
+          options={CHART_BAR_COUNTS.map((count) => ({
+            value: String(count),
+            label: CHART_BAR_COUNT_LABELS[count],
+          }))}
+        />
       </Box>
 
       {/* チャート表示エリア */}

@@ -32,8 +32,9 @@ test.describe('Dashboard Display', () => {
     // ロールが表示されることを確認
     await expect(page.getByText('ロール:')).toBeVisible();
     for (const role of testUserRoles) {
-      // MuiChip 要素内のロールを確認（ヘッダーの "Admin" と区別するため）
-      await expect(page.locator('.MuiChip-label').getByText(role, { exact: true })).toBeVisible();
+      // user-role の testid が付いた Chip 要素内のロールを確認
+      // （ヘッダーの "Admin" と区別するため、UI ライブラリのクラス名ではなく testid で特定する）
+      await expect(page.locator(`[data-testid="user-role"]`, { hasText: role })).toBeVisible();
     }
 
     // 認証ステータスが表示されることを確認

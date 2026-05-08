@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Button, TextField } from '@mui/material';
+import { Box } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 
 type TodoFormProps = {
   onAdd?: (title: string) => void;
@@ -26,10 +27,10 @@ export function TodoForm({ onAdd }: TodoFormProps) {
         label="タイトル"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
-        size="small"
+        size="sm"
         fullWidth
       />
-      <Button type="submit" variant="contained" disabled={isTitleEmpty}>
+      <Button type="submit" variant="solid" disabled={isTitleEmpty}>
         追加
       </Button>
     </Box>

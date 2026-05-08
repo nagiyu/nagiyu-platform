@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Container, Typography, Box, Link } from '@mui/material';
+import { Container, Typography, Box } from '@mui/material';
+import { Link } from '@nagiyu/ui';
 
 export const metadata: Metadata = {
   title: 'Tools について',

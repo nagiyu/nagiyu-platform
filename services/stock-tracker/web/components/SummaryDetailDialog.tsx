@@ -3,15 +3,12 @@
 import { useState } from 'react';
 import {
   Box,
-  Button,
-  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
   Divider,
   IconButton,
   Menu,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -20,6 +17,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+// eslint-disable-next-line no-restricted-imports -- MUI Menu の子要素として利用。共通 Select の選択肢用途とは別物のため統合対象外。
+import { MenuItem } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import { Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';
 import StockChart from './StockChart';
@@ -202,11 +202,11 @@ export default function SummaryDetailDialog({
               </TableContainer>
               <Divider />
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="outlined" onClick={() => openAlertModal('Buy', summary.close)}>
+                <Button variant="outline" onClick={() => openAlertModal('Buy', summary.close)}>
                   買いアラート設定
                 </Button>
                 {summary.holding && (
-                  <Button variant="outlined" onClick={() => openAlertModal('Sell', summary.close)}>
+                  <Button variant="outline" onClick={() => openAlertModal('Sell', summary.close)}>
                     売りアラート設定
                   </Button>
                 )}
@@ -360,13 +360,13 @@ export default function SummaryDetailDialog({
                         {summary.aiAnalysisResult.supportLevels.map((level, index) => (
                           <Chip
                             key={`support-${level}-${index}`}
-                            label={`${level}`}
-                            size="small"
-                            clickable
+                            size="sm"
                             onClick={(e) =>
                               setChipMenuAnchor({ element: e.currentTarget, price: level })
                             }
-                          />
+                          >
+                            {`${level}`}
+                          </Chip>
                         ))}
                       </Box>
                     </Box>
@@ -378,13 +378,13 @@ export default function SummaryDetailDialog({
                         {summary.aiAnalysisResult.resistanceLevels.map((level, index) => (
                           <Chip
                             key={`resistance-${level}-${index}`}
-                            label={`${level}`}
-                            size="small"
-                            clickable
+                            size="sm"
                             onClick={(e) =>
                               setChipMenuAnchor({ element: e.currentTarget, price: level })
                             }
-                          />
+                          >
+                            {`${level}`}
+                          </Chip>
                         ))}
                       </Box>
                     </Box>
@@ -401,21 +401,22 @@ export default function SummaryDetailDialog({
                         投資判断
                       </Typography>
                       <Chip
-                        label={
-                          INVESTMENT_SIGNAL_LABELS[
-                            summary.aiAnalysisResult.investmentJudgment.signal
-                          ]
-                        }
                         color={
                           summary.aiAnalysisResult.investmentJudgment.signal === 'BULLISH'
                             ? 'success'
                             : summary.aiAnalysisResult.investmentJudgment.signal === 'BEARISH'
-                              ? 'error'
-                              : 'default'
+                              ? 'danger'
+                              : 'neutral'
                         }
-                        size="small"
-                        sx={{ mb: 1 }}
-                      />
+                        size="sm"
+                        className="mb-1"
+                      >
+                        {
+                          INVESTMENT_SIGNAL_LABELS[
+                            summary.aiAnalysisResult.investmentJudgment.signal
+                          ]
+                        }
+                      </Chip>
                       <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                         {summary.aiAnalysisResult.investmentJudgment.reason}
                       </Typography>

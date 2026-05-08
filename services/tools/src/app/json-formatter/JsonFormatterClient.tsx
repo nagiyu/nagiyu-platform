@@ -4,8 +4,6 @@ import { useState } from 'react';
 import {
   Container,
   Typography,
-  TextField,
-  Button,
   Box,
   Snackbar,
   Alert,
@@ -14,6 +12,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -216,25 +215,26 @@ export default function JsonFormatterClient() {
         <Typography variant="subtitle1" gutterBottom>
           入力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={10}
-          label="JSON 文字列"
-          placeholder="JSON を入力してください..."
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          error={!!error}
-          helperText={error}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={10}
+            label="JSON 文字列"
+            placeholder="JSON を入力してください..."
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            error={!!error}
+            helperText={error}
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ContentPasteIcon />}
             onClick={handleReadClipboard}
             aria-label="クリップボードから JSON を読み取る"
@@ -242,7 +242,7 @@ export default function JsonFormatterClient() {
             クリップボードから読み取り
           </Button>
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleFormat}
             disabled={!inputText.trim()}
             aria-label="JSON を整形する"
@@ -250,7 +250,7 @@ export default function JsonFormatterClient() {
             整形
           </Button>
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleMinify}
             disabled={!inputText.trim()}
             aria-label="JSON を圧縮する"
@@ -265,27 +265,24 @@ export default function JsonFormatterClient() {
         <Typography variant="subtitle1" gutterBottom>
           出力
         </Typography>
-        <TextField
-          fullWidth
-          multiline
-          rows={10}
-          label="結果"
-          placeholder="整形・圧縮された結果がここに表示されます..."
-          value={outputText}
-          slotProps={{
-            input: {
-              readOnly: true,
-            },
-          }}
-          sx={{ mb: 2 }}
-        />
+        <Box sx={{ mb: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            rows={10}
+            label="結果"
+            placeholder="整形・圧縮された結果がここに表示されます..."
+            value={outputText}
+            readOnly
+          />
+        </Box>
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
           spacing={2}
           sx={{ '& > button': { xs: { width: '100%' }, sm: { width: 'auto' } } }}
         >
           <Button
-            variant="contained"
+            variant="solid"
             startIcon={<ContentCopyIcon />}
             onClick={handleCopy}
             disabled={!outputText}
@@ -294,7 +291,7 @@ export default function JsonFormatterClient() {
             コピー
           </Button>
           <Button
-            variant="outlined"
+            variant="outline"
             startIcon={<ClearIcon />}
             onClick={handleClear}
             disabled={!inputText && !outputText}

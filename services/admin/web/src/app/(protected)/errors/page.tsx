@@ -1,8 +1,9 @@
 import {
   Box,
+  // eslint-disable-next-line no-restricted-imports -- href + variant="text" 連携が @nagiyu/ui Button 未対応のため保留 (Issue #2900 Phase 2 以降で置換予定)
   Button,
+  // eslint-disable-next-line no-restricted-imports -- color="info" / label プロップが @nagiyu/ui Chip 未対応のため保留 (Issue #2900 Phase 2 以降で置換予定)
   Chip,
-  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -10,6 +11,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  // eslint-disable-next-line no-restricted-imports -- sx={{ minWidth }} と size="small" の組み合わせが必要なため MUI TextField を利用する
   TextField,
   Typography,
 } from '@mui/material';
@@ -19,6 +21,7 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth/session';
+import PeriodFilterSelect from '@/components/errors/PeriodFilterSelect';
 
 const ERROR_MESSAGES = {
   ERROR_EVENTS_TABLE_NAME_REQUIRED: 'ERROR_EVENTS_TABLE_NAME が設定されていません',
@@ -183,20 +186,15 @@ export default async function ErrorsListPage({
               size="small"
               sx={{ minWidth: 200 }}
             />
-            <TextField
-              name="period"
-              label="期間"
-              select
-              defaultValue={periodValue}
-              size="small"
-              sx={{ minWidth: 200 }}
-            >
-              {PERIOD_PRESETS.map((preset) => (
-                <MenuItem key={preset.value} value={preset.value}>
-                  {preset.label}
-                </MenuItem>
-              ))}
-            </TextField>
+            <Box sx={{ minWidth: 200 }}>
+              <PeriodFilterSelect
+                defaultValue={periodValue}
+                options={PERIOD_PRESETS.map((preset) => ({
+                  value: preset.value,
+                  label: preset.label,
+                }))}
+              />
+            </Box>
             <Button type="submit" variant="contained">
               絞り込み
             </Button>

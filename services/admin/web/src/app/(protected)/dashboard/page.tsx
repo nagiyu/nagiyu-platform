@@ -1,6 +1,8 @@
-import { Box, Card, CardContent, Typography, Button, Chip } from '@mui/material';
+import { Box, Card, CardContent, Typography } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import { hasPermission } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import NotifyButton from '@/components/notify/NotifyButton';
 
@@ -34,9 +36,11 @@ export default async function DashboardPage() {
           <Typography variant="body1" sx={{ mt: 1 }}>
             <strong>ロール:</strong>
           </Typography>
-          <Box sx={{ mt: 1 }}>
+          <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {user.roles.map((role) => (
-              <Chip key={role} label={role} size="small" sx={{ mr: 1 }} />
+              <Chip key={role} size="sm" data-testid="user-role">
+                {role}
+              </Chip>
             ))}
           </Box>
         </CardContent>
@@ -77,21 +81,16 @@ export default async function DashboardPage() {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               プラットフォーム上で発生したエラー通知の履歴を確認できます
             </Typography>
-            <Button href="/errors" variant="contained">
-              エラー履歴を表示
+            <Button asChild variant="solid">
+              <Link href="/errors">エラー履歴を表示</Link>
             </Button>
           </CardContent>
         </Card>
       )}
 
       {/* ログアウトボタン */}
-      <Button
-        variant="outlined"
-        color="primary"
-        href={`${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`}
-        sx={{ mt: 2 }}
-      >
-        ログアウト
+      <Button asChild variant="outline" color="primary">
+        <a href={`${process.env.NEXT_PUBLIC_AUTH_URL || ''}/api/auth/signout`}>ログアウト</a>
       </Button>
     </Box>
   );

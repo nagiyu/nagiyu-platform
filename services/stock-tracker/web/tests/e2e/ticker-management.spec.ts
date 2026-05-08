@@ -88,10 +88,10 @@ test.describe('ティッカー管理', () => {
       await expect(page.getByRole('dialog')).toBeVisible();
       await expect(page.getByRole('heading', { name: 'ティッカー新規作成' })).toBeVisible();
 
-      // フォームフィールドが表示される（Material-UIのTextFieldはlabelテキストで検索）
+      // フォームフィールドが表示される
       const symbolField = page.getByRole('textbox', { name: /シンボル/ });
       const nameField = page.getByRole('textbox', { name: /銘柄名/ });
-      const exchangeField = page.getByRole('combobox', { name: /取引所/ });
+      const exchangeField = page.locator('#create-exchange');
 
       await expect(symbolField).toBeVisible();
       await expect(nameField).toBeVisible();
@@ -210,7 +210,7 @@ test.describe('ティッカー管理', () => {
       await expect(symbolField).toBeDisabled();
 
       // 取引所は変更不可（disabled）
-      const exchangeField = page.getByRole('combobox', { name: /取引所/ });
+      const exchangeField = page.locator('#edit-exchange');
       await expect(exchangeField).toBeDisabled();
 
       // 銘柄名のみ編集可能
@@ -237,37 +237,29 @@ test.describe('ティッカー管理', () => {
   });
 
   test('取引所フィルタが正しく動作する', async ({ page }) => {
-    // 取引所フィルタを開く
-    const exchangeFilter = page.getByRole('combobox', { name: /取引所でフィルタ/ });
-    await exchangeFilter.click();
-
-    // オプションを取得
-    const options = page.locator('[role="listbox"] [role="option"]');
+    const exchangeFilter = page.locator('#exchange-filter');
+    const options = exchangeFilter.locator('option');
     const optionCount = await options.count();
 
     if (optionCount > 1) {
-      // 「すべて」以外のオプションがある場合
-      // 最初の取引所を選択
-      await options.nth(1).click();
+      // 「すべて」以外のオプションがある場合、最初の取引所を選択
+      const firstExchangeValue = (await options.nth(1).getAttribute('value')) ?? '';
+      await exchangeFilter.selectOption(firstExchangeValue);
 
       // ページが更新されるまで待つ
       await page.waitForLoadState('networkidle');
 
       // テーブルに表示されるティッカーが選択した取引所のもののみであることを確認
-      // （データがある場合のみ）
       const rows = page.locator('table tbody tr');
       const rowCount = await rows.count();
 
       if (rowCount > 0) {
-        // 空のメッセージが表示されていないことを確認
         await expect(page.getByText('ティッカーが登録されていません')).not.toBeVisible();
       }
 
       // フィルタをクリア（「すべて」を選択）
-      await exchangeFilter.click();
-      await options.first().click();
+      await exchangeFilter.selectOption('');
 
-      // ページが更新されるまで待つ
       await page.waitForLoadState('networkidle');
     }
   });

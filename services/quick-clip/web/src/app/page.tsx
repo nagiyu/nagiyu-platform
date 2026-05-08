@@ -2,7 +2,8 @@
 
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Alert, Box, Button, Container, LinearProgress, Paper, Typography } from '@mui/material';
+import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const ERROR_MESSAGES = {
@@ -338,7 +339,7 @@ export default function Home() {
             </Box>
           )}
 
-          <Button type="submit" variant="contained" disabled={!file || isSubmitting}>
+          <Button type="submit" variant="solid" loading={isSubmitting} disabled={!file}>
             {!isSubmitting
               ? 'アップロードして処理開始'
               : (uploadProgress ?? 0) < 100

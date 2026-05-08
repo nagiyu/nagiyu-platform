@@ -5,7 +5,6 @@ import type { NiconicoVideoInfo } from '@nagiyu/niconico-mylist-assistant-core';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   CardMedia,
@@ -14,9 +13,9 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
@@ -105,17 +104,14 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
             disabled={loading}
-            slotProps={{
-              htmlInput: { maxLength: VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH },
-            }}
+            maxLength={VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH}
           />
           <Button
-            variant="contained"
+            variant="solid"
             onClick={handleSearch}
+            loading={loading}
             disabled={
-              loading ||
-              !keyword.trim() ||
-              keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
+              !keyword.trim() || keyword.trim().length > VALIDATION_LIMITS.SEARCH_KEYWORD_MAX_LENGTH
             }
           >
             検索
@@ -154,7 +150,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
                         </Typography>
                       </Box>
                       <Button
-                        variant={addStatus ? 'outlined' : 'contained'}
+                        variant={addStatus ? 'outline' : 'solid'}
                         disabled={Boolean(addStatus)}
                         onClick={() => handleAddVideo(video.videoId)}
                       >
@@ -173,7 +169,9 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>閉じる</Button>
+        <Button onClick={onClose} variant="ghost">
+          閉じる
+        </Button>
       </DialogActions>
     </Dialog>
   );

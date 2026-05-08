@@ -4,16 +4,15 @@ import { useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
-  Chip,
   CircularProgress,
   IconButton,
   Stack,
   Tooltip,
   Typography,
 } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { AlertResponse } from '@/types/alert';
 import AlertSettingsModal from './AlertSettingsModal';
@@ -118,8 +117,8 @@ export default function TickerAlertListCard({
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
-              variant="contained"
-              size="small"
+              variant="solid"
+              size="sm"
               color="success"
               startIcon={<AddIcon />}
               onClick={() => setCreateTradeMode('Buy')}
@@ -128,8 +127,8 @@ export default function TickerAlertListCard({
               買い追加
             </Button>
             <Button
-              variant="contained"
-              size="small"
+              variant="solid"
+              size="sm"
               color="warning"
               startIcon={<AddIcon />}
               onClick={() => setCreateTradeMode('Sell')}
@@ -169,11 +168,9 @@ export default function TickerAlertListCard({
                 spacing={1}
                 sx={{ alignItems: 'center', flexWrap: 'wrap' }}
               >
-                <Chip
-                  label={alert.mode === 'Buy' ? '買い' : '売り'}
-                  size="small"
-                  color={alert.mode === 'Buy' ? 'success' : 'warning'}
-                />
+                <Chip size="sm" color={alert.mode === 'Buy' ? 'success' : 'warning'}>
+                  {alert.mode === 'Buy' ? '買い' : '売り'}
+                </Chip>
                 <Typography variant="body2">
                   {alert.conditions
                     .map(
@@ -182,7 +179,9 @@ export default function TickerAlertListCard({
                     )
                     .join(', ')}
                 </Typography>
-                <Chip label={alert.enabled ? '有効' : '無効'} size="small" variant="outlined" />
+                <Chip size="sm" variant="outline">
+                  {alert.enabled ? '有効' : '無効'}
+                </Chip>
                 <Tooltip title="編集">
                   <IconButton
                     size="small"

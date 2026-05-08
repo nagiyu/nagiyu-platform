@@ -20,6 +20,7 @@ screenshots/
 out/
 build/
 dist/
+storybook-static/
 
 # Production
 *.tsbuildinfo

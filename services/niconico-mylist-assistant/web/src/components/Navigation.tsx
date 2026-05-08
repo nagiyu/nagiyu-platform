@@ -1,5 +1,6 @@
 'use client';
 
+// eslint-disable-next-line no-restricted-imports -- AppBar 内で color="inherit" によるコンテクスト色継承が必要なため、@nagiyu/ui ではなく MUI の Button をそのまま利用する
 import { AppBar, Toolbar, Typography, Button } from '@mui/material';
 import { useRouter } from 'next/navigation';
 

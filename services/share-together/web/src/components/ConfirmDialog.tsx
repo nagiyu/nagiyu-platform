@@ -1,13 +1,13 @@
 'use client';
 
 import {
-  Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
+import { Button } from '@nagiyu/ui';
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -35,8 +35,10 @@ export function ConfirmDialog({
         <DialogContentText>{description}</DialogContentText>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onCancel}>{cancelLabel}</Button>
-        <Button onClick={onConfirm} color="error" variant="contained">
+        <Button onClick={onCancel} variant="ghost">
+          {cancelLabel}
+        </Button>
+        <Button onClick={onConfirm} color="danger" variant="solid">
           {confirmLabel}
         </Button>
       </DialogActions>
