@@ -182,7 +182,7 @@ export default function SummariesPage() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gap: 2 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         {isLoading ? (
           <Typography color="text.secondary">読み込み中...</Typography>
         ) : (
