@@ -21,6 +21,7 @@ import {
 import { MenuItem } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import { Close as CloseIcon } from '@mui/icons-material';
+import AiAnalysisMarkdown from './AiAnalysisMarkdown';
 import AlertSettingsModal from './AlertSettingsModal';
 import StockChart from './StockChart';
 import type { PatternDetail, TickerSummary } from '@/types/stock';
@@ -340,17 +341,15 @@ export default function SummaryDetailDialog({
                       <Typography variant="subtitle2" color="text.secondary">
                         当日の値動き分析
                       </Typography>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {summary.aiAnalysisResult.priceMovementAnalysis}
-                      </Typography>
+                      <AiAnalysisMarkdown
+                        content={summary.aiAnalysisResult.priceMovementAnalysis}
+                      />
                     </Box>
                     <Box>
                       <Typography variant="subtitle2" color="text.secondary">
                         パターン分析
                       </Typography>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {summary.aiAnalysisResult.patternAnalysis}
-                      </Typography>
+                      <AiAnalysisMarkdown content={summary.aiAnalysisResult.patternAnalysis} />
                     </Box>
                     <Box>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -392,9 +391,7 @@ export default function SummaryDetailDialog({
                       <Typography variant="subtitle2" color="text.secondary">
                         関連市場・セクター動向
                       </Typography>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {summary.aiAnalysisResult.relatedMarketTrend}
-                      </Typography>
+                      <AiAnalysisMarkdown content={summary.aiAnalysisResult.relatedMarketTrend} />
                     </Box>
                     <Box>
                       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -417,9 +414,9 @@ export default function SummaryDetailDialog({
                           ]
                         }
                       </Chip>
-                      <Typography sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                        {summary.aiAnalysisResult.investmentJudgment.reason}
-                      </Typography>
+                      <AiAnalysisMarkdown
+                        content={summary.aiAnalysisResult.investmentJudgment.reason}
+                      />
                     </Box>
                   </Box>
                 ) : (
