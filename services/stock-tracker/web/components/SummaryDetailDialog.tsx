@@ -341,7 +341,9 @@ export default function SummaryDetailDialog({
                       <Typography variant="subtitle2" color="text.secondary">
                         当日の値動き分析
                       </Typography>
-                      <AiAnalysisMarkdown content={summary.aiAnalysisResult.priceMovementAnalysis} />
+                      <AiAnalysisMarkdown
+                        content={summary.aiAnalysisResult.priceMovementAnalysis}
+                      />
                     </Box>
                     <Box>
                       <Typography variant="subtitle2" color="text.secondary">
@@ -412,7 +414,9 @@ export default function SummaryDetailDialog({
                           ]
                         }
                       </Chip>
-                      <AiAnalysisMarkdown content={summary.aiAnalysisResult.investmentJudgment.reason} />
+                      <AiAnalysisMarkdown
+                        content={summary.aiAnalysisResult.investmentJudgment.reason}
+                      />
                     </Box>
                   </Box>
                 ) : (

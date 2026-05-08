@@ -79,7 +79,12 @@ export const MARKDOWN_COMPONENTS: Components = {
 
 export default function AiAnalysisMarkdown({ content, sx }: AiAnalysisMarkdownProps) {
   return (
-    <Box sx={[{ wordBreak: 'break-word', overflowWrap: 'anywhere' }, ...(sx == null ? [] : Array.isArray(sx) ? sx : [sx])]}>
+    <Box
+      sx={[
+        { wordBreak: 'break-word', overflowWrap: 'anywhere' },
+        ...(sx == null ? [] : Array.isArray(sx) ? sx : [sx]),
+      ]}
+    >
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
         {content}
       </ReactMarkdown>
