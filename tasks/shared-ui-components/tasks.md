@@ -95,8 +95,8 @@
 
 ### Select
 
-- [ ] PR 2-1-A: `libs/ui` に `Select` 実装（MUI の `FormControl` / `MenuItem` / `InputLabel` を統合）
-- [ ] PR 2-1-A: Stories + テスト
+- [x] PR 2-1-A: `libs/ui` に `Select` 実装（ネイティブ `<select>` ベース、`options` 配列 + 値直渡し `onChange` API。size sm/md/lg / placeholder / error / required / fullWidth / disabled / option.disabled。Select.tsx は statements/lines/functions/branches すべて 100%、ライブラリ全体 lines 95.19% / branches 92.82%）
+- [x] PR 2-1-A: Stories（Default / WithPlaceholder / WithHelperText / Required / Error / Disabled / DisabledOption / FullWidth / Sizes）+ ユニット + a11y テスト 25/25 pass
 - [ ] PR 2-1-B: 全サービスで置換
 - [ ] PR 2-1-C: ESLint 禁止追加（`Select` / `MenuItem` / `FormControl` / `InputLabel`）
 

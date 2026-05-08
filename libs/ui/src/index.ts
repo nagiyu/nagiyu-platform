@@ -12,6 +12,8 @@ export { default as Chip } from './components/Chip';
 export type { ChipProps, ChipVariant, ChipColor, ChipSize } from './components/Chip';
 export { default as Link } from './components/Link';
 export type { LinkProps, LinkColor, LinkUnderline } from './components/Link';
+export { default as Select } from './components/Select';
+export type { SelectProps, SelectSize, SelectOption } from './components/Select';
 export { default as Header } from './components/layout/Header';
 export type { HeaderProps, NavigationItem } from './components/layout/Header';
 export { default as Footer } from './components/layout/Footer';
