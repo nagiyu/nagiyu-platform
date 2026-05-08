@@ -4,11 +4,7 @@
 
 import { QueryCommand, type DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import type { ErrorEvent } from '@nagiyu/common';
-import {
-  buildErrorEventPK,
-  buildErrorEventSK,
-  ERROR_EVENT_GSI1_PK,
-} from '@nagiyu/aws';
+import { buildErrorEventPK, buildErrorEventSK, ERROR_EVENT_GSI1_PK } from '@nagiyu/aws';
 import { DynamoDBErrorEventReader } from '../../../src/errors/dynamodb-reader.js';
 import { encodeCursor } from '../../../src/errors/reader.js';
 

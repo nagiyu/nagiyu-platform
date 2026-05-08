@@ -88,7 +88,9 @@ describe('InMemoryErrorEventReader', () => {
 
   it('findById は不一致のとき null', async () => {
     reader.put(sampleEvent({ eventId: 'evt-1' }));
-    expect(await reader.findById('missing', '2026-01-01T00:00:00.000Z', 'stock-tracker')).toBeNull();
+    expect(
+      await reader.findById('missing', '2026-01-01T00:00:00.000Z', 'stock-tracker')
+    ).toBeNull();
   });
 
   it('reset で状態をクリア', async () => {

@@ -27,9 +27,7 @@ const buildSnsRecord = (
 
 describe('inferServiceIdFromAlarmName', () => {
   it('2 セグメント以上なら最初の 2 セグメントを連結する', () => {
-    expect(inferServiceIdFromAlarmName('stock-tracker-web-error-rate-prod')).toBe(
-      'stock-tracker'
-    );
+    expect(inferServiceIdFromAlarmName('stock-tracker-web-error-rate-prod')).toBe('stock-tracker');
   });
 
   it('1 セグメントならそのまま返す', () => {
