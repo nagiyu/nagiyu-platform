@@ -9,7 +9,6 @@ import {
   Divider,
   IconButton,
   Menu,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -18,6 +17,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+// eslint-disable-next-line no-restricted-imports -- MUI Menu の子要素として利用。共通 Select の選択肢用途とは別物のため統合対象外。
+import { MenuItem } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import { Close as CloseIcon } from '@mui/icons-material';
 import AlertSettingsModal from './AlertSettingsModal';

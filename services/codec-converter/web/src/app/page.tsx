@@ -8,13 +8,14 @@ import {
   Typography,
   Paper,
   Alert,
-  FormControl,
   FormLabel,
   RadioGroup,
   FormControlLabel,
   Radio,
   Box,
 } from '@mui/material';
+// eslint-disable-next-line no-restricted-imports -- Radio グループの fieldset/legend セマンティクス用途。共通 Select の構成要素ではないため統合対象外。
+import { FormControl } from '@mui/material';
 import { Button } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
