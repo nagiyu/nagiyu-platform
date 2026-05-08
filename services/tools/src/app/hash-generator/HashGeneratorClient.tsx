@@ -5,14 +5,13 @@ import {
   Alert,
   Box,
   Container,
-  MenuItem,
   Snackbar,
   Stack,
-  // eslint-disable-next-line no-restricted-imports -- アルゴリズム選択で TextField の select プロップ（dropdown 化）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する（Select は PR 2-1-A で別実装予定）
+  // eslint-disable-next-line no-restricted-imports -- multiline + slotProps.input.readOnly + sx 指定が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   Typography,
 } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, Select } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import ContentPasteIcon from '@mui/icons-material/ContentPaste';
@@ -97,19 +96,13 @@ export default function HashGeneratorClient() {
       </Typography>
 
       <Box sx={{ mb: 3 }}>
-        <TextField
-          select
+        <Select
           fullWidth
           label="アルゴリズム"
           value={algorithm}
-          onChange={(event) => setAlgorithm(event.target.value as HashAlgorithm)}
-        >
-          {HASH_ALGORITHMS.map((item) => (
-            <MenuItem key={item} value={item}>
-              {item}
-            </MenuItem>
-          ))}
-        </TextField>
+          onChange={(value) => setAlgorithm(value as HashAlgorithm)}
+          options={HASH_ALGORITHMS.map((item) => ({ value: item, label: item }))}
+        />
       </Box>
 
       <Box sx={{ mb: 3 }}>

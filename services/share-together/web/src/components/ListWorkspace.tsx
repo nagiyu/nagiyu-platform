@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Box, FormControl, InputLabel, MenuItem, Select, Snackbar, Stack } from '@mui/material';
+import { Box, Snackbar, Stack } from '@mui/material';
+import { Select, type SelectOption } from '@nagiyu/ui';
 import { CreateItemDialog } from '@/components/CreateItemDialog';
 import { ListSidebar } from '@/components/ListSidebar';
 import { TodoList } from '@/components/TodoList';
@@ -15,6 +16,11 @@ type SharedList = {
   listId: string;
   name: string;
 };
+
+const SCOPE_OPTIONS: ReadonlyArray<SelectOption> = [
+  { value: 'personal', label: '個人' },
+  { value: 'shared', label: '共有' },
+];
 
 const ERROR_MESSAGES = {
   SHARED_GROUPS_FETCH_FAILED: '共有グループ一覧の取得に失敗しました',
@@ -267,59 +273,50 @@ export function ListWorkspace({
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'flex-start' }}>
       <Box sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0 }}>
         <Stack spacing={2}>
-          <FormControl fullWidth size="small">
-            <InputLabel id="list-scope-select-label">表示範囲</InputLabel>
+          <Select
+            id="list-scope-select"
+            label="表示範囲"
+            size="sm"
+            fullWidth
+            value={scope}
+            onChange={(nextValue) => {
+              const nextScope = nextValue as 'personal' | 'shared';
+              setScope(nextScope);
+              if (nextScope === 'personal') {
+                setSelectedListId(initialListId);
+              }
+              let nextLists: readonly { listId: string; name: string }[] = [];
+              if (nextScope === 'shared') {
+                nextLists = sharedLists;
+              }
+              if (nextScope === 'shared' && !selectedGroupId && sharedGroups.length > 0) {
+                setSelectedGroupId(sharedGroups[0].groupId);
+              }
+              if (nextLists.length > 0) {
+                setSelectedListId(nextLists[0].listId);
+              }
+            }}
+            options={SCOPE_OPTIONS}
+          />
+          {scope === 'shared' ? (
             <Select
-              labelId="list-scope-select-label"
-              id="list-scope-select"
-              label="表示範囲"
-              value={scope}
-              onChange={(event) => {
-                const nextScope = event.target.value as 'personal' | 'shared';
-                setScope(nextScope);
-                if (nextScope === 'personal') {
-                  setSelectedListId(initialListId);
-                }
-                let nextLists: readonly { listId: string; name: string }[] = [];
-                if (nextScope === 'shared') {
-                  nextLists = sharedLists;
-                }
-                if (nextScope === 'shared' && !selectedGroupId && sharedGroups.length > 0) {
-                  setSelectedGroupId(sharedGroups[0].groupId);
-                }
+              id="shared-group-select"
+              label="グループ"
+              size="sm"
+              fullWidth
+              value={selectedGroupId}
+              onChange={(nextGroupId) => {
+                const nextLists = sharedListsByGroup[nextGroupId] ?? [];
+                setSelectedGroupId(nextGroupId);
                 if (nextLists.length > 0) {
                   setSelectedListId(nextLists[0].listId);
                 }
               }}
-            >
-              <MenuItem value="personal">個人</MenuItem>
-              <MenuItem value="shared">共有</MenuItem>
-            </Select>
-          </FormControl>
-          {scope === 'shared' ? (
-            <FormControl fullWidth size="small">
-              <InputLabel id="shared-group-select-label">グループ</InputLabel>
-              <Select
-                labelId="shared-group-select-label"
-                id="shared-group-select"
-                label="グループ"
-                value={selectedGroupId}
-                onChange={(event) => {
-                  const nextGroupId = event.target.value;
-                  const nextLists = sharedListsByGroup[nextGroupId] ?? [];
-                  setSelectedGroupId(nextGroupId);
-                  if (nextLists.length > 0) {
-                    setSelectedListId(nextLists[0].listId);
-                  }
-                }}
-              >
-                {sharedGroups.map((group) => (
-                  <MenuItem key={group.groupId} value={group.groupId}>
-                    {group.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+              options={sharedGroups.map((group) => ({
+                value: group.groupId,
+                label: group.name,
+              }))}
+            />
           ) : null}
           <ListSidebar
             heading={scope === 'personal' ? '個人リスト' : '共有リスト'}

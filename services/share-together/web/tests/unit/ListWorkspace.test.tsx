@@ -234,11 +234,10 @@ describe('ListWorkspace', () => {
   it('個人と共有を切り替えると共有グループと共有ToDoをAPIから表示する', async () => {
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
 
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: 'グループ' })).toBeInTheDocument();
+      expect(screen.getByLabelText('グループ')).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
@@ -248,14 +247,12 @@ describe('ListWorkspace', () => {
   it('共有から個人に戻したときに個人リストのToDoを取得する', async () => {
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
     await waitFor(() => {
       expect(screen.getByText('会議用の議題を共有する')).toBeInTheDocument();
     });
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '個人' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'personal' } });
     await waitFor(() => {
       expect(screen.getByText('個人ToDo(初期)')).toBeInTheDocument();
     });
@@ -267,15 +264,13 @@ describe('ListWorkspace', () => {
   it('共有スコープへ切り替えると選択グループの共有リストを表示できる', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 
-    expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    expect(screen.getByLabelText('表示範囲')).toHaveValue('personal');
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('共有');
+      expect(screen.getByLabelText('表示範囲')).toHaveValue('shared');
     });
-    fireEvent.mouseDown(screen.getByLabelText('グループ'));
-    fireEvent.click(screen.getByRole('option', { name: 'ルームメイト' }));
-    expect(screen.getByRole('combobox', { name: 'グループ' })).toHaveTextContent('ルームメイト');
+    fireEvent.change(screen.getByLabelText('グループ'), { target: { value: 'group-2' } });
+    expect(screen.getByLabelText('グループ')).toHaveValue('group-2');
     await waitFor(() => {
       expect(screen.getByText('ルームメイト家事分担')).toBeInTheDocument();
       expect(screen.getByText('ゴミ出し当番を確認する')).toBeInTheDocument();
@@ -285,9 +280,9 @@ describe('ListWorkspace', () => {
   it('個人リストAPI有効時は個人ToDoをAPIから取得する', async () => {
     render(<ListWorkspace initialListId="api-personal-list-1" />);
 
-    expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
+    expect(screen.getByLabelText('表示範囲')).toHaveValue('personal');
     expect(screen.getByRole('heading', { name: '個人リスト' })).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'グループ' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('グループ')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('API個人ToDo')).toBeInTheDocument();
     });
@@ -300,8 +295,7 @@ describe('ListWorkspace', () => {
   it('共有リスト選択時は URL を変更せず ToDo を切り替える', async () => {
     render(<ListWorkspace initialListId="group-list-2" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'ルームメイト家事分担' })).toBeInTheDocument();
     });
@@ -314,8 +308,7 @@ describe('ListWorkspace', () => {
   it('共有リストを作成するとAPIを呼び出してリストを追加する', async () => {
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '共有リストを作成' })).toBeInTheDocument();
@@ -348,8 +341,7 @@ describe('ListWorkspace', () => {
   it('共有リスト作成APIが失敗した場合はエラーメッセージを表示する', async () => {
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: '共有リストを作成' })).toBeInTheDocument();
@@ -371,8 +363,7 @@ describe('ListWorkspace', () => {
 
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
 
     await waitFor(() => {
       expect(
@@ -405,8 +396,7 @@ describe('ListWorkspace', () => {
 
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    fireEvent.mouseDown(screen.getByLabelText('表示範囲'));
-    fireEvent.click(screen.getByRole('option', { name: '共有' }));
+    fireEvent.change(screen.getByLabelText('表示範囲'), { target: { value: 'shared' } });
 
     await waitFor(() => {
       expect(
@@ -434,7 +424,7 @@ describe('ListWorkspace', () => {
   it('個人スコープでは共有リストの編集・削除ボタンが表示されない', async () => {
     render(<ListWorkspace initialListId="mock-default-list" />);
 
-    expect(screen.getByRole('combobox', { name: '表示範囲' })).toHaveTextContent('個人');
+    expect(screen.getByLabelText('表示範囲')).toHaveValue('personal');
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: /を編集$/ })).not.toBeInTheDocument();
     });
