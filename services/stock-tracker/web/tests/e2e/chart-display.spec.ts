@@ -1,8 +1,7 @@
-import { test, expect, type Page, type Response, type Locator } from '@playwright/test';
+import { test, expect, type Page, type Response } from '@playwright/test';
 import { TestDataFactory } from './utils/test-data-factory';
 
 const CHART_RENDER_TIMEOUT_MS = 15000;
-const SELECT_OPTIONS_TIMEOUT_MS = 10000;
 
 /**
  * チャート API レスポンスを待ってから、チャートまたはエラー/データなし表示を確認する。
@@ -44,22 +43,6 @@ async function waitForChartOrError(page: Page, responsePromise: Promise<Response
     )
     .toBeTruthy()
     .catch(() => undefined);
-}
-
-async function openSelectOptions(page: Page, label: string): Promise<Locator> {
-  const select = page.getByLabel(label);
-  await expect(select).toBeVisible();
-  await select.click();
-
-  const listbox = page.locator('[role="listbox"]').last();
-  await expect(listbox).toBeVisible({ timeout: SELECT_OPTIONS_TIMEOUT_MS });
-
-  const options = listbox.locator('[role="option"]');
-  await expect
-    .poll(async () => options.count(), { timeout: SELECT_OPTIONS_TIMEOUT_MS })
-    .toBeGreaterThan(0);
-
-  return options;
 }
 
 /**
@@ -114,26 +97,25 @@ test.describe('チャート表示機能', () => {
     await expect(autoRefreshButton).toBeVisible();
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'false');
 
-    // 取引所を選択
-    const exchangeOptions = await openSelectOptions(page, '取引所選択');
-    await exchangeOptions.nth(1).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // 取引所を選択（テストデータで作成した NASDAQ）
+    const testExchange = factory.exchanges[0];
+    expect(testExchange).toBeDefined();
+    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
 
-    // ティッカーを選択
-    const tickerSelect = page.getByLabel('ティッカー選択');
+    // ティッカーが有効になるのを待ち、テストデータで作成したティッカーを選択
+    const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
-    const tickerOptions = await openSelectOptions(page, 'ティッカー選択');
-    await tickerOptions.nth(1).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const testTicker = factory.tickers[0];
+    expect(testTicker).toBeDefined();
+    await tickerSelect.selectOption(testTicker.tickerId);
 
     // 自動更新を有効化
     await autoRefreshButton.click();
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
 
     // 時間枠変更後も自動更新状態を維持する
-    const timeframeOptions = await openSelectOptions(page, '時間枠');
-    await timeframeOptions.nth(1).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await page.locator('#timeframe-select').selectOption('5');
     await expect(autoRefreshButton).toHaveAttribute('aria-pressed', 'true');
 
     // 再クリックで自動更新を停止
@@ -142,36 +124,19 @@ test.describe('チャート表示機能', () => {
   });
 
   test('取引所・ティッカー選択後にチャートが表示される', async ({ page }) => {
+    const testExchange = factory.exchanges[0];
+    const testTicker = factory.tickers[0];
+
     // 取引所を選択
-    const exchangeOptions = await openSelectOptions(page, '取引所選択');
-    const exchangeCount = await exchangeOptions.count();
-
-    // テストデータが作成されているので、必ず取引所が存在する
-    expect(exchangeCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テスト取引所
-
-    // 最初の取引所を選択
-    await exchangeOptions.nth(1).click();
-
-    // リストボックスが閉じるまで待つ
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
 
     // ティッカーが有効になるのを待つ
-    const tickerSelect = page.getByLabel('ティッカー選択');
+    const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
     await page.waitForLoadState('networkidle');
 
     // ティッカーを選択
-    const tickerOptions = await openSelectOptions(page, 'ティッカー選択');
-    const tickerCount = await tickerOptions.count();
-
-    // テストデータが作成されているので、必ずティッカーが存在する
-    expect(tickerCount).toBeGreaterThanOrEqual(2); // 「選択してください」+ テストティッカー
-
-    // 最初のティッカーを選択
-    await tickerOptions.nth(1).click();
-
-    // リストボックスが閉じるまで待つ
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await tickerSelect.selectOption(testTicker.tickerId);
 
     // チャート表示を待つ（チャートが表示されるか、エラーが表示されるまで）
     await Promise.race([
@@ -213,69 +178,30 @@ test.describe('チャート表示機能', () => {
     const testTicker = testTickers[0];
 
     // 取引所とティッカーを選択
-    const exchangeOptions = await openSelectOptions(page, '取引所選択');
+    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
 
-    // テスト取引所が選択肢に表示されるまで待つ
-    await exchangeOptions.filter({ hasText: testExchange.name }).waitFor({ timeout: 10000 });
-
-    const exchangeCount = await exchangeOptions.count();
-
-    // テストデータが作成されているので、必ず取引所が存在する
-    expect(exchangeCount).toBeGreaterThanOrEqual(2);
-
-    // 作成したテスト取引所を明示的に選択
-    await exchangeOptions.filter({ hasText: testExchange.name }).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-    const tickerSelect = page.getByLabel('ティッカー選択');
+    const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
     await page.waitForLoadState('networkidle');
 
-    const tickerOptions = await openSelectOptions(page, 'ティッカー選択');
-
-    // テストティッカーが選択肢に表示されるまで待つ
-    await tickerOptions.filter({ hasText: testTicker.symbol }).waitFor({ timeout: 10000 });
-
-    const tickerCount = await tickerOptions.count();
-
-    // テストデータが作成されているので、必ずティッカーが存在する
-    expect(tickerCount).toBeGreaterThanOrEqual(2);
-
-    // ティッカー選択で初回チャート API が発火するので、クリック前にレスポンス待機をセットアップ
+    // ティッカー選択で初回チャート API が発火するので、選択前にレスポンス待機をセットアップ
     const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
       timeout: 30000,
     });
 
-    // 作成したテストティッカーを明示的に選択
-    await tickerOptions.filter({ hasText: testTicker.symbol }).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await tickerSelect.selectOption(testTicker.tickerId);
 
     // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
     await waitForChartOrError(page, initialChartResponse);
 
-    // 時間枠を変更
-    const timeframeSelect = page.getByLabel('時間枠');
-    await timeframeSelect.click();
+    // 時間枠を変更（'1' → '5'）
+    const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+      timeout: 30000,
+    });
+    await page.locator('#timeframe-select').selectOption('5');
 
-    const timeframeOptions = page.locator('[role="listbox"] [role="option"]');
-
-    // 別の時間枠を選択（例: 2番目のオプション）
-    const timeframeCount = await timeframeOptions.count();
-    if (timeframeCount > 1) {
-      // チャート API レスポンスの待機を、クリック **前** にセットアップする
-      const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
-        timeout: 30000,
-      });
-
-      // 現在選択されているオプションではないものを選択
-      await timeframeOptions.nth(1).click();
-
-      // リストボックスが閉じるまで待つ
-      await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-      // チャート API レスポンス完了を待ち、レンダリングを確認する
-      await waitForChartOrError(page, chartResponse);
-    }
+    // チャート API レスポンス完了を待ち、レンダリングを確認する
+    await waitForChartOrError(page, chartResponse);
   });
 
   test('表示本数切り替えが正常に動作する', async ({ page }) => {
@@ -290,108 +216,46 @@ test.describe('チャート表示機能', () => {
     const testTicker = testTickers[0];
 
     // 取引所とティッカーを選択
-    const exchangeSelect = page.getByLabel('取引所選択');
-    await exchangeSelect.click();
+    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
 
-    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
-
-    // テスト取引所が選択肢に表示されるまで待つ
-    await exchangeOptions.filter({ hasText: testExchange.name }).waitFor({ timeout: 10000 });
-
-    const exchangeCount = await exchangeOptions.count();
-
-    // テストデータが作成されているので、必ず取引所が存在する
-    expect(exchangeCount).toBeGreaterThanOrEqual(2);
-
-    // 作成したテスト取引所を明示的に選択
-    await exchangeOptions.filter({ hasText: testExchange.name }).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-    const tickerSelect = page.getByLabel('ティッカー選択');
+    const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
     await page.waitForLoadState('networkidle');
 
-    await tickerSelect.click();
-
-    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-
-    // テストティッカーが選択肢に表示されるまで待つ
-    await tickerOptions.filter({ hasText: testTicker.symbol }).waitFor({ timeout: 10000 });
-
-    const tickerCount = await tickerOptions.count();
-
-    // テストデータが作成されているので、必ずティッカーが存在する
-    expect(tickerCount).toBeGreaterThanOrEqual(2);
-
-    // ティッカー選択で初回チャート API が発火するので、クリック前にレスポンス待機をセットアップ
+    // ティッカー選択で初回チャート API が発火するので、選択前にレスポンス待機をセットアップ
     const initialChartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
       timeout: 30000,
     });
 
-    // 作成したテストティッカーを明示的に選択
-    await tickerOptions.filter({ hasText: testTicker.symbol }).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await tickerSelect.selectOption(testTicker.tickerId);
 
-    // 初回チャート API レスポンスの完了を待ち、チャートまたはエラーの表示を確認
     await waitForChartOrError(page, initialChartResponse);
 
-    // 表示本数を変更
-    const barCountSelect = page.getByLabel('表示本数');
+    // 表示本数を変更（'100' → '10'）
+    const barCountSelect = page.locator('#barcount-select');
     await expect(barCountSelect).toBeVisible();
+    await expect(barCountSelect).toHaveValue('100');
 
-    // 初期値が100本であることを確認
-    await expect(barCountSelect).toContainText('100本');
+    const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
+      timeout: 30000,
+    });
+    await barCountSelect.selectOption('10');
 
-    await barCountSelect.click();
-
-    const barCountOptions = page.locator('[role="listbox"] [role="option"]');
-
-    // 別の表示本数を選択（例: 10本）
-    const barCountCount = await barCountOptions.count();
-    if (barCountCount > 0) {
-      // チャート API レスポンスの待機を、クリック **前** にセットアップする
-      const chartResponse = page.waitForResponse((r) => r.url().includes('/api/chart/'), {
-        timeout: 30000,
-      });
-
-      // 10本を選択（最初のオプション）
-      await barCountOptions.first().click();
-
-      // リストボックスが閉じるまで待つ
-      await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-      // チャート API レスポンス完了を待ち、レンダリングを確認する
-      await waitForChartOrError(page, chartResponse);
-    }
+    await waitForChartOrError(page, chartResponse);
   });
 
   test('チャート表示エリアがレスポンシブである', async ({ page }) => {
+    const testExchange = factory.exchanges[0];
+    const testTicker = factory.tickers[0];
+
     // 取引所とティッカーを選択
-    const exchangeSelect = page.getByLabel('取引所選択');
-    await exchangeSelect.click();
+    await page.locator('#exchange-select').selectOption(testExchange.exchangeId);
 
-    const exchangeOptions = page.locator('[role="listbox"] [role="option"]');
-    const exchangeCount = await exchangeOptions.count();
-
-    // テストデータが作成されているので、必ず取引所が存在する
-    expect(exchangeCount).toBeGreaterThanOrEqual(2);
-
-    await exchangeOptions.nth(1).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
-
-    const tickerSelect = page.getByLabel('ティッカー選択');
+    const tickerSelect = page.locator('#ticker-select');
     await expect(tickerSelect).toBeEnabled({ timeout: 5000 });
     await page.waitForLoadState('networkidle');
 
-    await tickerSelect.click();
-    const tickerOptions = page.locator('[role="listbox"] [role="option"]');
-    const tickerCount = await tickerOptions.count();
-
-    // テストデータが作成されているので、必ずティッカーが存在する
-    expect(tickerCount).toBeGreaterThanOrEqual(2);
-
-    await tickerOptions.nth(1).click();
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    await tickerSelect.selectOption(testTicker.tickerId);
 
     // チャート表示を待つ
     await Promise.race([
@@ -444,17 +308,9 @@ test.describe('チャート表示のアクセシビリティ', () => {
     // フォーカスされていることを確認
     await expect(timeframeSelect).toBeFocused();
 
-    // Enterキーでドロップダウンを開く
-    await page.keyboard.press('Enter');
-
-    // リストボックスが表示される
-    await expect(page.locator('[role="listbox"]')).toBeVisible();
-
-    // Escapeキーでドロップダウンを閉じる
-    await page.keyboard.press('Escape');
-
-    // リストボックスが閉じる
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // ネイティブ select 要素は Playwright の selectOption で値を変更できる
+    await timeframeSelect.selectOption('5');
+    await expect(timeframeSelect).toHaveValue('5');
   });
 
   test('表示本数セレクタがキーボード操作可能である', async ({ page }) => {
@@ -467,16 +323,8 @@ test.describe('チャート表示のアクセシビリティ', () => {
     // フォーカスされていることを確認
     await expect(barCountSelect).toBeFocused();
 
-    // Enterキーでドロップダウンを開く
-    await page.keyboard.press('Enter');
-
-    // リストボックスが表示される
-    await expect(page.locator('[role="listbox"]')).toBeVisible();
-
-    // Escapeキーでドロップダウンを閉じる
-    await page.keyboard.press('Escape');
-
-    // リストボックスが閉じる
-    await expect(page.locator('[role="listbox"]')).not.toBeVisible();
+    // ネイティブ select 要素は selectOption で値を変更できる
+    await barCountSelect.selectOption('10');
+    await expect(barCountSelect).toHaveValue('10');
   });
 });

@@ -550,6 +550,7 @@ export default function ExchangesPage() {
               </Typography>
               <Select
                 fullWidth
+                id="exchange-timezone"
                 disabled={submitting}
                 value={formData.timezone}
                 onChange={(value) => setFormData((prev) => ({ ...prev, timezone: value }))}
@@ -568,6 +569,7 @@ export default function ExchangesPage() {
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Select
                   fullWidth
+                  id="exchange-start-hour"
                   label="時"
                   disabled={submitting}
                   value={startHour}
@@ -577,6 +579,7 @@ export default function ExchangesPage() {
                 <Typography>:</Typography>
                 <Select
                   fullWidth
+                  id="exchange-start-minute"
                   label="分"
                   disabled={submitting}
                   value={startMinute}
@@ -596,6 +599,7 @@ export default function ExchangesPage() {
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Select
                   fullWidth
+                  id="exchange-end-hour"
                   label="時"
                   disabled={submitting}
                   value={endHour}
@@ -605,6 +609,7 @@ export default function ExchangesPage() {
                 <Typography>:</Typography>
                 <Select
                   fullWidth
+                  id="exchange-end-minute"
                   label="分"
                   disabled={submitting}
                   value={endMinute}
@@ -676,6 +681,7 @@ export default function ExchangesPage() {
               </Typography>
               <Select
                 fullWidth
+                id="exchange-timezone"
                 disabled={submitting}
                 value={formData.timezone}
                 onChange={(value) => setFormData((prev) => ({ ...prev, timezone: value }))}
@@ -694,6 +700,7 @@ export default function ExchangesPage() {
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Select
                   fullWidth
+                  id="exchange-start-hour"
                   label="時"
                   disabled={submitting}
                   value={startHour}
@@ -703,6 +710,7 @@ export default function ExchangesPage() {
                 <Typography>:</Typography>
                 <Select
                   fullWidth
+                  id="exchange-start-minute"
                   label="分"
                   disabled={submitting}
                   value={startMinute}
@@ -722,6 +730,7 @@ export default function ExchangesPage() {
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Select
                   fullWidth
+                  id="exchange-end-hour"
                   label="時"
                   disabled={submitting}
                   value={endHour}
@@ -731,6 +740,7 @@ export default function ExchangesPage() {
                 <Typography>:</Typography>
                 <Select
                   fullWidth
+                  id="exchange-end-minute"
                   label="分"
                   disabled={submitting}
                   value={endMinute}
