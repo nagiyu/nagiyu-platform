@@ -138,9 +138,7 @@ export default function TickerAlertListCard({
             </Button>
           </Box>
         </Stack>
-        {localError && (
-          <ErrorAlert message={localError} onClose={() => setLocalError('')} />
-        )}
+        {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
           <Alert severity="success" sx={{ mb: 2 }} onClose={() => setLocalSuccess('')}>
             {localSuccess}

@@ -80,10 +80,7 @@ interface ResolvedError {
   canRetry: boolean;
 }
 
-function resolveError(args: {
-  message?: string;
-  error?: ErrorAlertError;
-}): ResolvedError | null {
+function resolveError(args: { message?: string; error?: ErrorAlertError }): ResolvedError | null {
   const { message, error } = args;
   if (message) {
     return { message, canRetry: true };
@@ -97,8 +94,7 @@ function resolveError(args: {
   const errorWithInfo = error as ErrorWithInfo;
   if (errorWithInfo.errorInfo) {
     return {
-      message:
-        errorWithInfo.errorInfo.message ?? error.message ?? 'エラーが発生しました',
+      message: errorWithInfo.errorInfo.message ?? error.message ?? 'エラーが発生しました',
       details: errorWithInfo.errorInfo.details,
       canRetry: errorWithInfo.errorInfo.shouldRetry !== false,
     };

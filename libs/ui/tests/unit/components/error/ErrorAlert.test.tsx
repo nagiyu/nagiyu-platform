@@ -116,9 +116,7 @@ describe('ErrorAlert', () => {
 
   describe('アクセシビリティ', () => {
     it('違反がない（jest-axe、message のみ）', async () => {
-      const { container } = render(
-        <ErrorAlert message="エラーが発生しました" title="エラー" />,
-      );
+      const { container } = render(<ErrorAlert message="エラーが発生しました" title="エラー" />);
       const results = await axe(container);
       expect(results).toHaveNoViolations();
     });
@@ -129,7 +127,7 @@ describe('ErrorAlert', () => {
           message="エラーが発生しました"
           details={['詳細1', '詳細2']}
           onRetry={() => {}}
-        />,
+        />
       );
       const results = await axe(container);
       expect(results).toHaveNoViolations();

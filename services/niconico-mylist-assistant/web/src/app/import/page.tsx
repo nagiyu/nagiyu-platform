@@ -156,9 +156,7 @@ export default function ImportPage() {
                 )}
 
                 {result.failed > 0 && (
-                  <ErrorAlert
-                    message={`${result.failed} 件の動画のインポートに失敗しました`}
-                  />
+                  <ErrorAlert message={`${result.failed} 件の動画のインポートに失敗しました`} />
                 )}
 
                 {result.failedDetails && result.failedDetails.length > 0 && (

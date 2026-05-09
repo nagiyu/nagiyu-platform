@@ -325,9 +325,7 @@ export default function HoldingCard({
             追加
           </Button>
         </Stack>
-        {localError && (
-          <ErrorAlert message={localError} onClose={() => setLocalError('')} />
-        )}
+        {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
           <Alert severity="success" sx={{ mb: 2 }} onClose={() => setLocalSuccess('')}>
             {localSuccess}
