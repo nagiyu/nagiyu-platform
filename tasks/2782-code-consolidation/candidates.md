@@ -71,19 +71,26 @@ libs 間: ui → browser → common（一方向、循環禁止）
 - **共通化案**: `libs/ui` に `<ConfirmDialog>` / `<AlertDialog>` を追加。`title`, `message`, `confirmLabel`, `onConfirm`, `severity` を Props で受ける。
 - **影響**: 中（3〜5 ファイル） / **工数**: M / **リスク**: 小 / **効果**: 中（UI 一貫性、新規ダイアログ実装コスト削減）
 
-### C. Snackbar/Toast Provider の libs/ui 昇格
+### C. Snackbar/Toast Provider の libs/ui 昇格（**スキップ**: 重複削減効果限定）
 
-- **該当ファイル**: `services/stock-tracker/web/components/SnackbarProvider.tsx`
-- **概要**: MUI Snackbar + Alert を Context Provider として包んだ通知機構。stock-tracker 限定で実装されているが、quick-clip / share-together でも同等の通知 UI が必要。
-- **共通化案**: `libs/ui` に `<SnackbarProvider>` と `useSnackbar()` を追加。複数トースト重複表示制御（Queue）も内包。
-- **影響**: 中（2〜4 サービス） / **工数**: M / **リスク**: 小 / **効果**: 中（トースト管理統一）
+- **状態**: 着手順 1（E）完了後の実装前確認で、他サービスでの Provider 化需要が薄いと判断し **スキップ**。詳細は §4 の「着手順 2」セクションを参照
+- **該当ファイル**: `services/stock-tracker/web/components/SnackbarProvider.tsx`（stock-tracker 限定の実装）
+- **概要**: MUI Snackbar + Alert を Context Provider として包んだ通知機構
+- **発見事実**: quick-clip / share-together は MUI Snackbar の直書き利用がほぼ無く、Provider 化したところで置換対象が乏しい。stock-tracker 内 1 箇所の Provider を libs/ui に持ち上げても重複削減効果が限定的
+- **将来候補**: 2 サービス以上で同様の通知 UI 需要が顕在化した時点で別 Issue として再評価
 
-### D. ErrorDisplay コンポーネントの libs/ui 化
+### D. ErrorDisplay を libs/ui ErrorAlert に統合（**ErrorAlert 機能拡張アプローチ**）
 
-- **該当ファイル**: `services/stock-tracker/web/components/ErrorDisplay.tsx`
-- **概要**: API エラーを MUI Alert で表示し、リトライボタンを伴うコンポーネント。`@nagiyu/common` の `APIError` 型を扱う。他サービスは inline の Alert で代用。
-- **共通化案**: `libs/ui` に `<ErrorDisplay>` を追加。`error: APIError`, `onRetry?: () => void` を Props に。
-- **影響**: 小（新規追加） / **工数**: S / **リスク**: なし / **効果**: 中（エラー UI の統一）
+- **該当ファイル**:
+  - `libs/ui/src/components/ErrorAlert/`（既存、機能拡張対象）
+  - `services/stock-tracker/web/components/ErrorDisplay.tsx`（廃止対象）
+  - 直書き置換対象: admin / auth / codec-converter / quick-clip / niconico-mylist-assistant の `setError + <Alert severity="error">` 該当箇所
+- **概要**: stock-tracker の `<ErrorDisplay>` は API エラーを MUI Alert で表示しリトライボタンを伴うコンポーネント。`@nagiyu/common` の `APIError` 型を扱う。他サービスは inline の Alert で代用。**libs/ui には既に `<ErrorAlert>` が存在する**ため、新規コンポーネント追加ではなく既存 ErrorAlert の機能拡張で統合する（重複コンポーネント防止）
+- **共通化案**: `libs/ui` の `<ErrorAlert>` に以下をオプション追加（既存呼出側は非破壊）:
+  - `error?: APIError | Error | string` で複数型をハンドリング
+  - `onRetry?: () => void` のリトライボタン表示
+  - severity / title / variant 等の既存 Props は維持
+- **影響**: 中（5+ サービスの直書き置換 + stock-tracker の ErrorDisplay 削除） / **工数**: S〜M / **リスク**: なし（既存 ErrorAlert 呼出側を非破壊維持） / **効果**: 中（エラー UI の統一、新規 ErrorDisplay コンポーネントを作らないことで重複防止）
 
 ### E. 数値・日付フォーマッタを libs/common へ集約
 
@@ -263,8 +270,8 @@ libs 間: ui → browser → common（一方向、循環禁止）
 |----|------|------|------|------|------|------|
 | A | エラーメッセージ集約 | 大 | M | 小 | 大 | 中 |
 | B | Confirmation Dialog | 中 | M | 小 | 中 | 中 |
-| C | Snackbar Provider | 中 | M | 小 | 中 | 中 |
-| D | ErrorDisplay | 小 | S | なし | 中 | 軽 |
+| C | Snackbar Provider | — | — | — | — | — | ※ 着手順 1 完了後の実装前確認で **重複削減効果限定**と判断し **スキップ**（将来 opt-in 候補として §5 へ降格） |
+| D | ErrorAlert 拡張（旧 ErrorDisplay 統合） | 中 | S〜M | なし | 中 | 軽 |
 | E | 数値・日付フォーマッタ | 小 | S | 小 | 中 | 軽 |
 | F | base64 / URL utility | 小 | S | 小 | 小 | 軽 |
 | G | localStorage マネージャ | — | — | — | — | — | ※ Phase A 後の実装前確認で **libs/browser に既に共通化済み**と判明したため **スキップ**（[#2782 コメント](https://github.com/nagiyu/nagiyu-platform/issues/2782) 参照） |
@@ -286,11 +293,15 @@ libs 間: ui → browser → common（一方向、循環禁止）
 
 ---
 
-## 4. 推奨（4 件構成、軽い順 → 重い順）
+## 4. 推奨（3 件構成、軽い順 → 重い順）
 
 軽い候補から integration ブランチに順次取り込む方針。dev 環境への影響を抑え、レビュー粒度も保ちやすい。
 
-> **更新（Phase A 後）**: 実装前確認の結果、G は **libs/browser に既に共通化済み**であることが判明したため **スキップ**。本計画は **4 件構成**（E → D+C → H → A）で進める。
+> **更新履歴**: 実装前確認を 2 段階で実施。
+> - **Phase A 直後**: G は **libs/browser に既に共通化済み**と判明し **スキップ**
+> - **着手順 1（E）完了後**: 着手順 2 を「D + C」から **「D のみ（ErrorAlert 拡張）」に変更**。C は他サービスでの Provider 化需要が薄く重複削減効果限定のため **スキップ**（§5 / §2.C 参照）
+>
+> 結果として本計画は **3 件構成**（E（完了済 / サブ Issue #2994 / PR #2995）→ **D 単独（サブ Issue #2996）** → H → A）で進める。
 
 ### ~~Top 5（最軽）: G. localStorage 名前空間マネージャを libs/browser へ~~（スキップ）
 
@@ -306,11 +317,13 @@ libs 間: ui → browser → common（一方向、循環禁止）
 - **想定差分**: libs/common 新規 5 ファイル + 既存置換 5〜6 ファイル
 - **完了条件**: libs/common のカバレッジ 80% 維持、codec-converter / stock-tracker のテスト全グリーン
 
-### 着手順 2: D + C. ErrorDisplay と Snackbar Provider の libs/ui 昇格
+### 着手順 2: D. ErrorDisplay を libs/ui ErrorAlert に統合（**サブ Issue #2996**）
 
-- **狙い**: stock-tracker の `<ErrorDisplay>` と `<SnackbarProvider>` を `libs/ui` に昇格。`useSnackbar()` フックも export し、複数サービスで利用可能にする。
-- **想定差分**: 新規 2〜3 ファイル、置換 2〜4 サービス
-- **完了条件**: storybook（あれば）追加、stock-tracker が libs/ui 版に切替、その他サービス（quick-clip / share-together）でも opt-in 可能
+- **狙い**: libs/ui の既存 `<ErrorAlert>` を機能拡張し、stock-tracker の `<ErrorDisplay>` を統合。あわせて admin / auth / codec-converter / quick-clip / niconico-mylist-assistant の `setError + <Alert severity="error">` 直書きパターンを置換する
+- **アプローチ**: 新規コンポーネント追加ではなく **既存 ErrorAlert の機能拡張**（重複コンポーネント防止）。`error`（`APIError | Error | string`）と `onRetry` を optional Props で追加し、既存呼出側は非破壊
+- **想定差分**: libs/ui 1〜2 ファイル拡張 + テスト追加、stock-tracker の `ErrorDisplay` 削除、5 サービスの直書き置換
+- **完了条件**: libs/ui のカバレッジ 80% 維持、stock-tracker のテスト全グリーン、5 サービスのビルド・lint 全 clean、ErrorAlert 既存呼出側の非破壊性確認
+- **C（SnackbarProvider）について**: 本着手順から外し、将来需要が顕在化した時点で別 Issue として再評価（§5 / §2.C 参照）
 
 ### 着手順 3: H. Repository Factory レジストリ拡張（libs/aws）
 
@@ -331,7 +344,8 @@ libs 間: ui → browser → common（一方向、循環禁止）
 以下の候補は重要だが、本 Issue（#2782）のスコープ外として **別 Issue で別途対応**する想定。
 
 - **K, L, M, R, S**（重い候補）: いずれも工数 L または波及範囲が API 全面に及ぶ。1 つの integration ブランチに含めると dev 安定性が損なわれるリスク。完了後に別途 Issue 起票して取り組む。
-- **B, F, I, J, N, O, P, Q, T, U, V**（中規模／個別最適）: 効果はあるが、今期の最優先には入れない。本 Issue（4 件構成）完了後の継続候補として candidates ドキュメントに残し、整理は parent Issue #2782 で更新する。
+- **B, F, I, J, N, O, P, Q, T, U, V**（中規模／個別最適）: 効果はあるが、今期の最優先には入れない。本 Issue（3 件構成）完了後の継続候補として candidates ドキュメントに残し、整理は parent Issue #2782 で更新する。
+- **C**（Snackbar Provider）: Phase A では着手順 2 に含めていたが、実装前確認で他サービスでの Provider 化需要が薄く重複削減効果が限定的と判明したため **スキップ**。2 サービス以上で需要が顕在化した時点で別 Issue として再評価
 - **G**: 上記の通り **既に共通化済み**（再掲）。
 
 ---
@@ -348,6 +362,6 @@ libs 間: ui → browser → common（一方向、循環禁止）
 
 ## 7. 次アクション
 
-Phase B として **着手順 1（E: 数値・ファイルサイズフォーマッタ、サブ Issue #2994）** から実装を進める。本 PR (#2994) は本ドキュメントの 4 件構成への更新も含む。
-
-着手順 1 の integration マージ + dev 反映確認後、着手順 2（D+C）→ 3（H）→ 4（A）を同様の流れで進める。
+- **着手順 1（E: formatHelpers、サブ Issue #2994）**: PR #2995 で `integration/2782-code-consolidation` へマージ済み（dev 反映確認後にサブ Issue クローズ予定）
+- **着手順 2（D: ErrorAlert 拡張、サブ Issue #2996）**: 次に着手。本 PR で本ドキュメントの 3 件構成への更新を行い、後続コミットで実装
+- 着手順 2 完了後、**着手順 3（H）→ 着手順 4（A）** を同様の流れで進める
