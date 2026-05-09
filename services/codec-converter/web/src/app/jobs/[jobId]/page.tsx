@@ -10,8 +10,8 @@ import {
   formatJobId,
 } from '@nagiyu/codec-converter-core';
 import { formatFileSize } from '@nagiyu/common';
-import { Container, Typography, Card, CardContent, Alert, Stack, Box } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Container, Typography, Card, CardContent, Stack, Box } from '@mui/material';
+import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
 import AddIcon from '@mui/icons-material/Add';
@@ -208,9 +208,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         <Typography variant="h4" component="h1" gutterBottom>
           変換ジョブ詳細
         </Typography>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
+        <ErrorAlert message={error} sx={{ mb: 3 }} />
         <Button variant="solid" startIcon={<AddIcon />} onClick={handleNewConversion}>
           新しい動画を変換
         </Button>
@@ -308,12 +306,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           {/* エラーメッセージ表示（FAILED時） */}
           {job.status === 'FAILED' && job.errorMessage && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }} gutterBottom>
-                エラー詳細:
-              </Typography>
-              <Typography variant="body2">{job.errorMessage}</Typography>
-            </Alert>
+            <ErrorAlert title="エラー詳細" message={job.errorMessage} sx={{ mt: 2, mb: 0 }} />
           )}
         </CardContent>
       </Card>

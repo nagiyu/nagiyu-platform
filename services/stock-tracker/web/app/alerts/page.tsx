@@ -15,7 +15,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { Button, Chip, Select } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, Select } from '@nagiyu/ui';
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
@@ -265,11 +265,7 @@ function AlertsPageContent() {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* エラーメッセージ表示 */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
       {/* 成功メッセージ表示 */}
       {successMessage && (

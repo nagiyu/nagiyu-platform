@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Typography, Paper, FormGroup, Alert, CircularProgress } from '@mui/material';
-import { Button, Checkbox } from '@nagiyu/ui';
+import { Box, Typography, Paper, FormGroup, CircularProgress } from '@mui/material';
+import { Button, Checkbox, ErrorAlert } from '@nagiyu/ui';
 import { VALID_ROLES } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 
@@ -83,11 +83,11 @@ export function UserEditForm({ userId }: UserEditFormProps) {
   }
 
   if (error && !user) {
-    return <Alert severity="error">{error}</Alert>;
+    return <ErrorAlert message={error} />;
   }
 
   if (!user) {
-    return <Alert severity="error">ユーザーが見つかりません</Alert>;
+    return <ErrorAlert message="ユーザーが見つかりません" />;
   }
 
   return (
@@ -114,11 +114,7 @@ export function UserEditForm({ userId }: UserEditFormProps) {
             ロール割り当て
           </Typography>
 
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           <FormGroup>
             {VALID_ROLES.map((role) => (

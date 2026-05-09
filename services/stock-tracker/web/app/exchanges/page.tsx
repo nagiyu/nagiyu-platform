@@ -13,7 +13,6 @@ import {
   TableRow,
   Typography,
   CircularProgress,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -22,7 +21,7 @@ import {
   TextField,
   Snackbar,
 } from '@mui/material';
-import { Button, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -384,11 +383,7 @@ export default function ExchangesPage() {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* エラーメッセージ表示 */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

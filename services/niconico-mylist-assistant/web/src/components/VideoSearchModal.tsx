@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import type { NiconicoVideoInfo } from '@nagiyu/niconico-mylist-assistant-core';
 import {
-  Alert,
   Box,
   Card,
   CardContent,
@@ -15,7 +14,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { Button, TextField } from '@nagiyu/ui';
+import { Button, ErrorAlert, TextField } from '@nagiyu/ui';
 import { ERROR_MESSAGES, VALIDATION_LIMITS } from '@/lib/constants/errors';
 
 interface VideoSearchModalProps {
@@ -118,11 +117,7 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
           </Button>
         </Stack>
 
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {error && <ErrorAlert message={error} sx={{ mt: 2 }} />}
 
         <Box sx={{ mt: 2 }}>
           {videos.length === 0 ? (

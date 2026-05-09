@@ -16,7 +16,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { Button, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
@@ -168,11 +168,7 @@ export default function SummariesPage() {
         )}
       </Box>
 
-      {errorMessage && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {errorMessage}
-        </Alert>
-      )}
+      {errorMessage && <ErrorAlert message={errorMessage} />}
       {refreshMessage && (
         <Alert
           severity={refreshMessage === ERROR_MESSAGES.REFRESH_SUCCESS ? 'success' : 'error'}

@@ -8,11 +8,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Alert,
   CircularProgress,
   Box,
 } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import Link from 'next/link';
 import type { User } from '@nagiyu/common';
 
@@ -57,7 +56,7 @@ export function UsersTable({ canAssignRoles }: UsersTableProps) {
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return <ErrorAlert message={error} />;
   }
 
   return (
