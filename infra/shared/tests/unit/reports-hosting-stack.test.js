@@ -76,4 +76,32 @@ describe('ReportsHostingStack', () => {
       Type: 'A',
     });
   });
+
+  it('末尾 / を index.html に書き換える CloudFront Function を作成する', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::CloudFront::Function', {
+      FunctionCode: Match.stringLikeRegexp('endsWith\\("/"\\)'),
+    });
+  });
+
+  it('CloudFront Function を viewer-request に紐付ける', () => {
+    const app = new cdk.App();
+    const stack = new ReportsHostingStack(app, 'TestReportsHostingStack', STACK_PROPS);
+
+    const template = Template.fromStack(stack);
+    template.hasResourceProperties('AWS::CloudFront::Distribution', {
+      DistributionConfig: Match.objectLike({
+        DefaultCacheBehavior: Match.objectLike({
+          FunctionAssociations: Match.arrayWith([
+            Match.objectLike({
+              EventType: 'viewer-request',
+            }),
+          ]),
+        }),
+      }),
+    });
+  });
 });
