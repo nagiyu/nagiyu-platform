@@ -2,13 +2,13 @@
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { isPersistablePath, saveLastVisitedPath } from '@/lib/lastVisitedPath';
+import { isRecordablePath, saveLastVisitedPath } from '@/lib/lastVisitedPath';
 
 export default function LastVisitedPathTracker() {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!pathname || !isPersistablePath(pathname)) {
+    if (!pathname || !isRecordablePath(pathname)) {
       return;
     }
     saveLastVisitedPath(pathname);

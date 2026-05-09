@@ -21,14 +21,20 @@ describe('LastVisitedPathTracker', () => {
     expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe('/lists');
   });
 
-  it('ルート "/" では保存しない', () => {
+  it('ルート "/" も LocalStorage に保存する', () => {
     mockUsePathname.mockReturnValue('/');
     render(<LastVisitedPathTracker />);
-    expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBe('/');
   });
 
   it('pathname が null の場合は保存しない', () => {
     mockUsePathname.mockReturnValue(null);
+    render(<LastVisitedPathTracker />);
+    expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBeNull();
+  });
+
+  it('"/" で始まらない不正な pathname は保存しない', () => {
+    mockUsePathname.mockReturnValue('lists');
     render(<LastVisitedPathTracker />);
     expect(window.localStorage.getItem(LAST_VISITED_PATH_STORAGE_KEY)).toBeNull();
   });

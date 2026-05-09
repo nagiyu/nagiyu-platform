@@ -4,8 +4,12 @@ export const LAST_VISITED_PATH_STORAGE_KEY = 'share-together:last-visited-path';
 
 const NON_PERSISTABLE_PATHS: ReadonlySet<string> = new Set(['/']);
 
+export function isRecordablePath(path: string): boolean {
+  return path.startsWith('/');
+}
+
 export function isPersistablePath(path: string): boolean {
-  if (!path.startsWith('/')) {
+  if (!isRecordablePath(path)) {
     return false;
   }
   return !NON_PERSISTABLE_PATHS.has(path);
