@@ -3,6 +3,7 @@
 import { useState, useRef, FormEvent, DragEvent, ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { validateFile, type CodecType } from '@nagiyu/codec-converter-core';
+import { formatFileSize } from '@nagiyu/common';
 import {
   Container,
   Typography,
@@ -138,13 +139,6 @@ export default function Home() {
       setError(errorMessage);
       setIsUploading(false);
     }
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024 * 1024) {
-      return `${(bytes / 1024).toFixed(2)} KB`;
-    }
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   };
 
   return (
