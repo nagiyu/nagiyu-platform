@@ -57,6 +57,26 @@ export class ReportsHostingStack extends cdk.Stack {
     );
     const certificate = acm.Certificate.fromCertificateArn(this, 'Certificate', certificateArn);
 
+    // CloudFront の defaultRootObject はディストリビューションの root (`/`) にしか
+    // 効かないため、`/foo/bar/` のようにサブディレクトリで終わるリクエストでは
+    // S3 にそのままキーが渡されて AccessDenied になる。
+    // Playwright HTML レポートは各ディレクトリに index.html がある構造なので、
+    // 末尾が `/` のとき index.html を補完する CloudFront Function を挟む。
+    const rewriteToIndexHtml = new cloudfront.Function(this, 'RewriteToIndexHtml', {
+      comment: 'Append index.html to URIs ending with /',
+      code: cloudfront.FunctionCode.fromInline(
+        [
+          'function handler(event) {',
+          '  var request = event.request;',
+          '  if (request.uri.endsWith("/")) {',
+          '    request.uri += "index.html";',
+          '  }',
+          '  return request;',
+          '}',
+        ].join('\n')
+      ),
+    });
+
     const reportsDomain = `${REPORTS_SUBDOMAIN}.${props.domainName}`;
 
     this.distribution = new cloudfront.Distribution(this, 'ReportsDistribution', {
@@ -68,6 +88,12 @@ export class ReportsHostingStack extends cdk.Stack {
         cachedMethods: cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         compress: true,
+        functionAssociations: [
+          {
+            function: rewriteToIndexHtml,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          },
+        ],
       },
       defaultRootObject: 'index.html',
       domainNames: [reportsDomain],
