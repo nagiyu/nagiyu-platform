@@ -12,6 +12,7 @@ import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-sta
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
+import { ReportsHostingStack } from '../lib/reports-hosting-stack';
 
 const app = new cdk.App();
 
@@ -116,5 +117,13 @@ new ErrorEventsTableStack(
     description: `Platform Error Events DynamoDB Table - ${env} environment`,
   }
 );
+
+// E2E HTML レポートのホスティング基盤（環境非依存）
+// 各サービスの Playwright HTML レポートを reports.nagiyu.com で公開する
+new ReportsHostingStack(app, 'NagiyuE2eReportsHosting', {
+  domainName,
+  env: stackEnv,
+  description: 'E2E HTML reports hosting (S3 + CloudFront)',
+});
 
 app.synth();
