@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ServiceWorkerRegistration } from '@nagiyu/ui';
 import ThemeRegistry from '@/components/ThemeRegistry';
+import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
 export const metadata: Metadata = {

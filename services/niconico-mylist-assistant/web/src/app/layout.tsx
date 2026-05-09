@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
 import { Navigation } from '@/components/Navigation';
+import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
 export const metadata: Metadata = {

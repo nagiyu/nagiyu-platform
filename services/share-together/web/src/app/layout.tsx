@@ -3,6 +3,7 @@ import { ServiceLayout, ServiceWorkerRegistration } from '@nagiyu/ui';
 import LastVisitedPathTracker from '@/components/LastVisitedPathTracker';
 import { Navigation } from '@/components/Navigation';
 import UserRegistrationInitializer from '@/components/UserRegistrationInitializer';
+import '@nagiyu/ui/tokens.css';
 
 export const metadata: Metadata = {
   title: 'Share Together',
