@@ -2,7 +2,6 @@ import {
   LAST_VISITED_PATH_STORAGE_KEY,
   clearLastVisitedPath,
   isPersistablePath,
-  isRecordablePath,
   loadLastVisitedPath,
   saveLastVisitedPath,
 } from '@/lib/lastVisitedPath';
@@ -12,26 +11,8 @@ describe('lastVisitedPath', () => {
     window.localStorage.clear();
   });
 
-  describe('isRecordablePath', () => {
-    it('通常のページパスは記録対象として true を返す', () => {
-      expect(isRecordablePath('/lists')).toBe(true);
-      expect(isRecordablePath('/groups')).toBe(true);
-      expect(isRecordablePath('/groups/abc-123')).toBe(true);
-    });
-
-    it('ルート "/" も記録対象として true を返す', () => {
-      expect(isRecordablePath('/')).toBe(true);
-    });
-
-    it('"/" で始まらない値は不正なパスとして false を返す', () => {
-      expect(isRecordablePath('lists')).toBe(false);
-      expect(isRecordablePath('https://example.com/lists')).toBe(false);
-      expect(isRecordablePath('')).toBe(false);
-    });
-  });
-
   describe('isPersistablePath', () => {
-    it('通常のページパスは復元先として true を返す', () => {
+    it('通常のページパスは保存対象として true を返す', () => {
       expect(isPersistablePath('/lists')).toBe(true);
       expect(isPersistablePath('/groups')).toBe(true);
       expect(isPersistablePath('/groups/abc-123')).toBe(true);
