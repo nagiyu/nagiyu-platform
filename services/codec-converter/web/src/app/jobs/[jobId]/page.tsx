@@ -6,10 +6,10 @@ import {
   type Job,
   type JobStatus,
   type CodecType,
-  formatFileSize,
   formatDateTime,
   formatJobId,
 } from '@nagiyu/codec-converter-core';
+import { formatFileSize } from '@nagiyu/common';
 import { Container, Typography, Card, CardContent, Alert, Stack, Box } from '@mui/material';
 import { Button, Chip } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';

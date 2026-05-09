@@ -6,7 +6,6 @@
 
 import {
   calculateTargetPriceFromPercentage,
-  formatPrice,
   PERCENTAGE_ERROR_MESSAGES,
 } from '../../../lib/percentage-helper';
 
@@ -157,34 +156,4 @@ describe('Percentage Helper', () => {
     });
   });
 
-  describe('formatPrice', () => {
-    it('整数値を小数点第2位までフォーマットする', () => {
-      expect(formatPrice(100)).toBe('100.00');
-    });
-
-    it('小数点第1位までの値を第2位までフォーマットする', () => {
-      expect(formatPrice(120.5)).toBe('120.50');
-    });
-
-    it('小数点第2位までの値をそのままフォーマットする', () => {
-      expect(formatPrice(120.99)).toBe('120.99');
-    });
-
-    it('小数点第3位以降は四捨五入される', () => {
-      expect(formatPrice(120.555)).toBe('120.56');
-      expect(formatPrice(120.554)).toBe('120.55');
-    });
-
-    it('0をフォーマットする', () => {
-      expect(formatPrice(0)).toBe('0.00');
-    });
-
-    it('非常に大きな値をフォーマットする', () => {
-      expect(formatPrice(1000000)).toBe('1000000.00');
-    });
-
-    it('非常に小さな値をフォーマットする', () => {
-      expect(formatPrice(0.01)).toBe('0.01');
-    });
-  });
 });

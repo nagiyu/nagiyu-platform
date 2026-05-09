@@ -16,7 +16,8 @@ import {
 } from '@mui/material';
 import { Button, Select } from '@nagiyu/ui';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
-import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
+import { formatPrice } from '@nagiyu/common';
+import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
 import { TIMEFRAME_LABELS } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';

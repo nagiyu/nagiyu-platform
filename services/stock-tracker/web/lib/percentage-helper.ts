@@ -41,16 +41,3 @@ export function calculateTargetPriceFromPercentage(basePrice: number, percentage
   return Math.round(targetPrice * 100) / 100;
 }
 
-/**
- * 計算結果をフォーマットして文字列に変換
- *
- * @param value - 数値
- * @returns 小数点第2位までフォーマットした文字列
- *
- * @example
- * formatPrice(120.5) // "120.50"
- * formatPrice(120) // "120.00"
- */
-export function formatPrice(value: number): string {
-  return value.toFixed(2);
-}

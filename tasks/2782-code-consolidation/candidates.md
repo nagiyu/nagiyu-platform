@@ -267,7 +267,7 @@ libs 間: ui → browser → common（一方向、循環禁止）
 | D | ErrorDisplay | 小 | S | なし | 中 | 軽 |
 | E | 数値・日付フォーマッタ | 小 | S | 小 | 中 | 軽 |
 | F | base64 / URL utility | 小 | S | 小 | 小 | 軽 |
-| G | localStorage マネージャ | 小 | S | なし | 小 | 軽 |
+| G | localStorage マネージャ | — | — | — | — | — | ※ Phase A 後の実装前確認で **libs/browser に既に共通化済み**と判明したため **スキップ**（[#2782 コメント](https://github.com/nagiyu/nagiyu-platform/issues/2782) 参照） |
 | H | Repository Factory レジストリ | 中 | M | 小 | 中 | 中 |
 | I | Web Push ペイロード Builder | 中 | M | 中 | 中 | 中 |
 | J | ThemeRegistry / ServiceLayout | 中 | M | 中 | 中 | 中 |
@@ -286,35 +286,39 @@ libs 間: ui → browser → common（一方向、循環禁止）
 
 ---
 
-## 4. Top 5 推奨（軽い順 → 重い順）
+## 4. 推奨（4 件構成、軽い順 → 重い順）
 
 軽い候補から integration ブランチに順次取り込む方針。dev 環境への影響を抑え、レビュー粒度も保ちやすい。
 
-### Top 5（最軽）: G. localStorage 名前空間マネージャを libs/browser へ
+> **更新（Phase A 後）**: 実装前確認の結果、G は **libs/browser に既に共通化済み**であることが判明したため **スキップ**。本計画は **4 件構成**（E → D+C → H → A）で進める。
 
-- **狙い**: `libs/browser` に SSR 安全な `createNamespacedStorage(prefix)` を追加し、share-together の lastVisitedPath を置き換える。今後の SPA UX（戻り先復帰、設定永続化）の基盤。
-- **想定差分**: 新規 1 ファイル（libs/browser）、既存置換 1〜2 ファイル
-- **完了条件**: 新ユーティリティの単体テスト追加、既存サービス（share-together）が新 API に移行、テスト全グリーン
+### ~~Top 5（最軽）: G. localStorage 名前空間マネージャを libs/browser へ~~（スキップ）
 
-### Top 4: E. 数値・日付フォーマッタを libs/common へ
+- **状態**: 実装前確認で **既に共通化済み**と判明、スキップ
+- **発見事実**: `libs/browser/src/localStorage.ts` に SSR 安全・JSON 自動 parse/stringify・容量超過ハンドリング付きの `getItem`/`setItem`/`removeItem` が既に存在。services 全体で `window.localStorage` 直接利用は 0 件、share-together / tools の利用箇所はいずれも `@nagiyu/browser` 経由（独自再実装ではない）
+- **判断**: Phase A 候補洗い出しが浅かった（Explore は libs の実装内容まで深く確認していなかった）。`createNamespacedStorage(prefix)` の追加は、現状の重複が無いため効果が限定的と判断しスキップ
 
-- **狙い**: `libs/common/src/format/` に formatNumber / formatCurrency / formatPercent / formatTimestamp を集約。tools / stock-tracker から抽出。
-- **想定差分**: 新規 1〜2 ファイル、置換 3〜5 ファイル
-- **完了条件**: ロケールオプションのテスト、stock-tracker の formatPrice / tools の timestamp が libs/common 経由に移行
+### 着手順 1: E. 数値・ファイルサイズフォーマッタを libs/common へ（**縮小スコープ**）
 
-### Top 3: D + C. ErrorDisplay と Snackbar Provider の libs/ui 昇格
+- **狙い**: `libs/common/src/format/` に `formatFileSize` と `formatPrice` を切り出し、サービス間でフォーマット書式を統一する基盤を作る
+- **対象**: codec-converter/core/src/format.ts の `formatFileSize`、stock-tracker/web/lib/percentage-helper.ts の `formatPrice` の 2 関数のみ
+- **対象外（ドメイン固有・据え置き）**: tools/timestamp（タイムゾーン処理）、admin の Intl.DateTimeFormat、codec-converter の formatDateTime / formatJobId、stock-tracker 内に散在する `toFixed(2)` 直書き（サービス内 DRY 問題）
+- **想定差分**: libs/common 新規 5 ファイル + 既存置換 5〜6 ファイル
+- **完了条件**: libs/common のカバレッジ 80% 維持、codec-converter / stock-tracker のテスト全グリーン
+
+### 着手順 2: D + C. ErrorDisplay と Snackbar Provider の libs/ui 昇格
 
 - **狙い**: stock-tracker の `<ErrorDisplay>` と `<SnackbarProvider>` を `libs/ui` に昇格。`useSnackbar()` フックも export し、複数サービスで利用可能にする。
 - **想定差分**: 新規 2〜3 ファイル、置換 2〜4 サービス
 - **完了条件**: storybook（あれば）追加、stock-tracker が libs/ui 版に切替、その他サービス（quick-clip / share-together）でも opt-in 可能
 
-### Top 2: H. Repository Factory レジストリ拡張（libs/aws）
+### 着手順 3: H. Repository Factory レジストリ拡張（libs/aws）
 
 - **狙い**: `libs/aws` の Factory 機構に複数 repository 一括 register API を追加。auth サービスにも適用し、4 サービスで統一。
 - **想定差分**: libs/aws 1〜2 ファイル拡張、サービス 4 つの factory リファクタ
 - **完了条件**: 各サービスの repository factory boilerplate 削減、テスト全グリーン、既存 InMemory 切替動作維持
 
-### Top 1（最重）: A. COMMON_ERROR_MESSAGES 拡張と全サービスのエラーメッセージ集約
+### 着手順 4（最重）: A. COMMON_ERROR_MESSAGES 拡張と全サービスのエラーメッセージ集約
 
 - **狙い**: `libs/common/src/constants/error-messages.ts` を拡張し、サービス固有メッセージのレジストリ機構を導入。`extractErrorMessage()` も `libs/common` に昇格。全サービスの ERROR_MESSAGES を整理。
 - **想定差分**: libs/common 拡張、10+ サービスファイルのリファクタ
@@ -322,12 +326,13 @@ libs 間: ui → browser → common（一方向、循環禁止）
 
 ---
 
-## 5. Top 5 に含めなかった候補について
+## 5. 上記に含めなかった候補について
 
 以下の候補は重要だが、本 Issue（#2782）のスコープ外として **別 Issue で別途対応**する想定。
 
 - **K, L, M, R, S**（重い候補）: いずれも工数 L または波及範囲が API 全面に及ぶ。1 つの integration ブランチに含めると dev 安定性が損なわれるリスク。完了後に別途 Issue 起票して取り組む。
-- **B, F, I, J, N, O, P, Q, T, U, V**（中規模／個別最適）: 効果はあるが、今期の最優先 5 件には入れない。Top 5 完了後の継続候補として candidates ドキュメントに残し、整理は parent Issue #2782 で更新する。
+- **B, F, I, J, N, O, P, Q, T, U, V**（中規模／個別最適）: 効果はあるが、今期の最優先には入れない。本 Issue（4 件構成）完了後の継続候補として candidates ドキュメントに残し、整理は parent Issue #2782 で更新する。
+- **G**: 上記の通り **既に共通化済み**（再掲）。
 
 ---
 
@@ -336,11 +341,13 @@ libs 間: ui → browser → common（一方向、循環禁止）
 - **依存ルール**: すべての候補で `ui → browser → common` / `core → common` を厳守する。共通化先の libs を間違えるとリファクタが大規模化するため、PR ごとに依存方向を確認する。
 - **テスト**: `coverageThreshold` 80% を維持する。共通化対象が utility 系なら新規テスト追加が容易。UI 系（C, D）はビジュアルリグレッションに注意。
 - **エラー文言**: CLAUDE.md「エラーメッセージは日本語 + 定数化」に従う。Top 1（A）はこれを徹底する位置づけ。
-- **integration ブランチ運用**: Top 5 → Top 1 を順次マージ。各サブ Issue は **integration マージ + dev 反映確認** をもってクローズ（今回の特例運用）。
+- **integration ブランチ運用**: 着手順 1 → 4 を順次マージ。各サブ Issue は **integration マージ + dev 反映確認** をもってクローズ（今回の特例運用）。
 - **クリーンアップ**: 全 Top 完了後、本ディレクトリ（`tasks/2782-code-consolidation/`）を削除し、永続化必要な内容は `docs/development/shared-libraries.md` 等に反映する（Phase C）。
 
 ---
 
 ## 7. 次アクション
 
-本ドキュメントのレビュー後、Phase B として **Top 5（G: localStorage マネージャ）** のサブ Issue を #2782 配下に起票し、`integration/2782-code-consolidation` 向けの作業ブランチを切る。
+Phase B として **着手順 1（E: 数値・ファイルサイズフォーマッタ、サブ Issue #2994）** から実装を進める。本 PR (#2994) は本ドキュメントの 4 件構成への更新も含む。
+
+着手順 1 の integration マージ + dev 反映確認後、着手順 2（D+C）→ 3（H）→ 4（A）を同様の流れで進める。

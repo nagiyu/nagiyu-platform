@@ -21,7 +21,7 @@ export {
 } from './validation';
 
 // Format utilities
-export { formatFileSize, formatDateTime, formatJobId } from './format';
+export { formatDateTime, formatJobId } from './format';
 
 // Resource selector
 export type { JobDefinitionSize } from './resource-selector';

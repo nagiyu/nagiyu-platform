@@ -9,6 +9,9 @@
 // Auth module - Authentication and Authorization utilities
 export * from './auth/index.js';
 
+// Format module - 表示用フォーマッタ（数値・ファイルサイズ等）
+export * from './format/index.js';
+
 // Validation module - Common validation utilities
 export * from './validation/index.js';
 // Logger module - Structured logging functionality
