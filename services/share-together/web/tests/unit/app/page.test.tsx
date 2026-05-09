@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import Home from '@/app/page';
 import { saveLastVisitedPath } from '@/lib/lastVisitedPath';
 
+const HOME_REDIRECT_SESSION_KEY = 'share-together:home-redirect-checked';
 const mockReplace = jest.fn();
 
 jest.mock('next/navigation', () => ({
@@ -14,6 +15,7 @@ jest.mock('next/navigation', () => ({
 describe('Home', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     mockReplace.mockReset();
   });
 
@@ -28,12 +30,13 @@ describe('Home', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('保存された最終訪問ページがあればそのページへリダイレクトする', () => {
+  it('セッション初回かつ最終訪問ページが保存されていればそのページへリダイレクトする', () => {
     saveLastVisitedPath('/lists');
 
     render(<Home />);
 
     expect(mockReplace).toHaveBeenCalledWith('/lists');
+    expect(window.sessionStorage.getItem(HOME_REDIRECT_SESSION_KEY)).toBe('1');
   });
 
   it('保存値がルート "/" の場合はリダイレクトしない', () => {
@@ -42,5 +45,17 @@ describe('Home', () => {
     render(<Home />);
 
     expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('同セッション内で 2 回目以降のトップ訪問ではリダイレクトしない', () => {
+    saveLastVisitedPath('/lists');
+    window.sessionStorage.setItem(HOME_REDIRECT_SESSION_KEY, '1');
+
+    render(<Home />);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Share Together へようこそ' })
+    ).toBeInTheDocument();
   });
 });
