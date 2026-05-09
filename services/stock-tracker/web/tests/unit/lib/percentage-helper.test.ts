@@ -155,5 +155,4 @@ describe('Percentage Helper', () => {
       });
     });
   });
-
 });

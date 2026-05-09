@@ -40,4 +40,3 @@ export function calculateTargetPriceFromPercentage(basePrice: number, percentage
   // 小数点第2位まで四捨五入して返す
   return Math.round(targetPrice * 100) / 100;
 }
-
