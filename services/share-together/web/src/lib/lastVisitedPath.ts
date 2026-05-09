@@ -2,17 +2,11 @@ import { getItem, removeItem, setItem } from '@nagiyu/browser';
 
 export const LAST_VISITED_PATH_STORAGE_KEY = 'share-together:last-visited-path';
 
-const NON_PERSISTABLE_PATHS: ReadonlySet<string> = new Set(['/']);
+// 既存セッションのフラグを引き継ぐため、PR #2982 で導入されたキー値をそのまま使用する。
+export const SESSION_BOOTSTRAP_STORAGE_KEY = 'share-together:home-redirect-checked';
 
 export function isRecordablePath(path: string): boolean {
   return path.startsWith('/');
-}
-
-export function isPersistablePath(path: string): boolean {
-  if (!isRecordablePath(path)) {
-    return false;
-  }
-  return !NON_PERSISTABLE_PATHS.has(path);
 }
 
 export function loadLastVisitedPath(): string | null {

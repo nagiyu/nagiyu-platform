@@ -1,32 +1,8 @@
-'use client';
-
-import { useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Box, Stack, Typography } from '@mui/material';
 import { Button } from '@nagiyu/ui';
-import { isPersistablePath, loadLastVisitedPath } from '@/lib/lastVisitedPath';
-
-const HOME_REDIRECT_SESSION_KEY = 'share-together:home-redirect-checked';
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (window.sessionStorage.getItem(HOME_REDIRECT_SESSION_KEY)) {
-      return;
-    }
-    window.sessionStorage.setItem(HOME_REDIRECT_SESSION_KEY, '1');
-
-    const lastPath = loadLastVisitedPath();
-    if (lastPath && isPersistablePath(lastPath)) {
-      router.replace(lastPath);
-    }
-  }, [router]);
-
   return (
     <main>
       <Box component="section" sx={{ p: 2, maxWidth: 720, mx: 'auto' }}>
