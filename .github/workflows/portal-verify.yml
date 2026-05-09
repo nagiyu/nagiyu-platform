@@ -206,7 +206,6 @@ jobs:
 
       - name: Upload Playwright HTML report to reports.nagiyu.com
         if: always()
-        continue-on-error: true
         run: |
           aws s3 sync services/portal/web/playwright-report/ \
             "s3://nagiyu-e2e-reports/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
@@ -273,7 +272,6 @@ jobs:
 
       - name: Upload Playwright HTML report to reports.nagiyu.com
         if: always()
-        continue-on-error: true
         run: |
           aws s3 sync services/portal/web/playwright-report/ \
             "s3://nagiyu-e2e-reports/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
@@ -340,7 +338,6 @@ jobs:
 
       - name: Upload Playwright HTML report to reports.nagiyu.com
         if: always()
-        continue-on-error: true
         run: |
           aws s3 sync services/portal/web/playwright-report/ \
             "s3://nagiyu-e2e-reports/portal/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
