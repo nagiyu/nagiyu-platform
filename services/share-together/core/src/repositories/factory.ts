@@ -1,5 +1,5 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { createRepositoryFactory } from '@nagiyu/aws';
+import { registerDynamoRepositories } from '@nagiyu/aws';
 import type { GroupRepository } from './group/group-repository.interface.js';
 import { DynamoDBGroupRepository } from './group/dynamodb-group-repository.js';
 import { InMemoryGroupRepository } from './group/in-memory-group-repository.js';
@@ -16,129 +16,78 @@ import type { TodoRepository } from './todo/todo-repository.interface.js';
 import { DynamoDBTodoRepository } from './todo/dynamodb-todo-repository.js';
 import { InMemoryTodoRepository } from './todo/in-memory-todo-repository.js';
 
-const ERROR_MESSAGES = {
-  DYNAMODB_PARAMS_REQUIRED: 'DynamoDB実装にはdocClientとtableNameが必要です',
-} as const;
-
-function requireDynamoParams(
-  docClient?: DynamoDBDocumentClient,
-  tableName?: string
-): { docClient: DynamoDBDocumentClient; tableName: string } {
-  if (!docClient || !tableName) {
-    throw new Error(ERROR_MESSAGES.DYNAMODB_PARAMS_REQUIRED);
-  }
-  return { docClient, tableName };
-}
+const repositoryRegistry = registerDynamoRepositories<{
+  group: GroupRepository;
+  user: UserRepository;
+  membership: MembershipRepository;
+  list: ListRepository;
+  todo: TodoRepository;
+}>(
+  {
+    group: {
+      createInMemoryRepository: () => new InMemoryGroupRepository(),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBGroupRepository(docClient, tableName),
+    },
+    user: {
+      createInMemoryRepository: () => new InMemoryUserRepository(),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBUserRepository(docClient, tableName),
+    },
+    membership: {
+      createInMemoryRepository: () => new InMemoryMembershipRepository(),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBMembershipRepository(docClient, tableName),
+    },
+    list: {
+      createInMemoryRepository: () => new InMemoryListRepository(),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBListRepository(docClient, tableName),
+    },
+    todo: {
+      createInMemoryRepository: () => new InMemoryTodoRepository(),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBTodoRepository(docClient, tableName),
+    },
+  },
+  { keyPrefix: 'share-together' }
+);
 
 export function resetInMemoryRepositories(): void {
-  groupRepositoryFactory.resetRepository();
-  userRepositoryFactory.resetRepository();
-  membershipRepositoryFactory.resetRepository();
-  listRepositoryFactory.resetRepository();
-  todoRepositoryFactory.resetRepository();
+  repositoryRegistry.resetAll();
 }
 
 export function createGroupRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): GroupRepository {
-  return groupRepositoryFactory.createRepository(docClient, tableName);
+  return repositoryRegistry.group.createRepository(docClient, tableName);
 }
 
 export function createUserRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): UserRepository {
-  return userRepositoryFactory.createRepository(docClient, tableName);
+  return repositoryRegistry.user.createRepository(docClient, tableName);
 }
 
 export function createMembershipRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): MembershipRepository {
-  return membershipRepositoryFactory.createRepository(docClient, tableName);
+  return repositoryRegistry.membership.createRepository(docClient, tableName);
 }
 
 export function createListRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): ListRepository {
-  return listRepositoryFactory.createRepository(docClient, tableName);
+  return repositoryRegistry.list.createRepository(docClient, tableName);
 }
 
 export function createTodoRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): TodoRepository {
-  return todoRepositoryFactory.createRepository(docClient, tableName);
+  return repositoryRegistry.todo.createRepository(docClient, tableName);
 }
-
-const groupRepositoryFactory = createRepositoryFactory<
-  GroupRepository,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->(
-  {
-    createInMemoryRepository: () => new InMemoryGroupRepository(),
-    createDynamoDBRepository: (docClient, tableName) => {
-      const params = requireDynamoParams(docClient, tableName);
-      return new DynamoDBGroupRepository(params.docClient, params.tableName);
-    },
-  },
-  'share-together-group'
-);
-
-const userRepositoryFactory = createRepositoryFactory<
-  UserRepository,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->(
-  {
-    createInMemoryRepository: () => new InMemoryUserRepository(),
-    createDynamoDBRepository: (docClient, tableName) => {
-      const params = requireDynamoParams(docClient, tableName);
-      return new DynamoDBUserRepository(params.docClient, params.tableName);
-    },
-  },
-  'share-together-user'
-);
-
-const membershipRepositoryFactory = createRepositoryFactory<
-  MembershipRepository,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->(
-  {
-    createInMemoryRepository: () => new InMemoryMembershipRepository(),
-    createDynamoDBRepository: (docClient, tableName) => {
-      const params = requireDynamoParams(docClient, tableName);
-      return new DynamoDBMembershipRepository(params.docClient, params.tableName);
-    },
-  },
-  'share-together-membership'
-);
-
-const listRepositoryFactory = createRepositoryFactory<
-  ListRepository,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->(
-  {
-    createInMemoryRepository: () => new InMemoryListRepository(),
-    createDynamoDBRepository: (docClient, tableName) => {
-      const params = requireDynamoParams(docClient, tableName);
-      return new DynamoDBListRepository(params.docClient, params.tableName);
-    },
-  },
-  'share-together-list'
-);
-
-const todoRepositoryFactory = createRepositoryFactory<
-  TodoRepository,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->(
-  {
-    createInMemoryRepository: () => new InMemoryTodoRepository(),
-    createDynamoDBRepository: (docClient, tableName) => {
-      const params = requireDynamoParams(docClient, tableName);
-      return new DynamoDBTodoRepository(params.docClient, params.tableName);
-    },
-  },
-  'share-together-todo'
-);

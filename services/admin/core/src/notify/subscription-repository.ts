@@ -2,10 +2,9 @@ import crypto from 'node:crypto';
 import type { PushSubscription } from '@nagiyu/common';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { DeleteCommand, PutCommand, QueryCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { AbstractDynamoDBRepository, createRepositoryFactory } from '@nagiyu/aws';
+import { AbstractDynamoDBRepository, registerDynamoRepositories } from '@nagiyu/aws';
 
 const ERROR_MESSAGES = {
-  DYNAMODB_PARAMS_REQUIRED: 'DynamoDB 実装には docClient と tableName が必要です',
   INVALID_ENDPOINT: 'endpoint は空文字にできません',
   INVALID_SUBSCRIPTION_ID: 'subscriptionId は空文字にできません',
   INVALID_USER_ID: 'userId は空文字にできません',
@@ -247,17 +246,6 @@ class InMemoryPushSubscriptionRepository implements PushSubscriptionRepository {
   }
 }
 
-function requireDynamoParams(
-  docClient?: DynamoDBDocumentClient,
-  tableName?: string
-): { docClient: DynamoDBDocumentClient; tableName: string } {
-  if (!docClient || !tableName) {
-    throw new Error(ERROR_MESSAGES.DYNAMODB_PARAMS_REQUIRED);
-  }
-
-  return { docClient, tableName };
-}
-
 /**
  * Endpoint URL から GSI2PK 用のハッシュ値を生成する。
  *
@@ -272,14 +260,13 @@ function hashEndpoint(endpoint: string): string {
   return crypto.createHash('sha256').update(endpoint).digest('hex');
 }
 
-const pushSubscriptionRepositoryFactory = createRepositoryFactory<
-  PushSubscriptionRepository,
-  [DynamoDBDocumentClient | undefined, string | undefined]
->({
-  createInMemoryRepository: () => new InMemoryPushSubscriptionRepository(),
-  createDynamoDBRepository: (docClient, tableName) => {
-    const params = requireDynamoParams(docClient, tableName);
-    return new DynamoDBPushSubscriptionRepository(params.docClient, params.tableName);
+const pushSubscriptionRegistry = registerDynamoRepositories<{
+  pushSubscription: PushSubscriptionRepository;
+}>({
+  pushSubscription: {
+    createInMemoryRepository: () => new InMemoryPushSubscriptionRepository(),
+    createDynamoDBRepository: ({ docClient, tableName }) =>
+      new DynamoDBPushSubscriptionRepository(docClient, tableName),
   },
 });
 
@@ -287,9 +274,9 @@ export function createPushSubscriptionRepository(
   docClient?: DynamoDBDocumentClient,
   tableName?: string
 ): PushSubscriptionRepository {
-  return pushSubscriptionRepositoryFactory.createRepository(docClient, tableName);
+  return pushSubscriptionRegistry.pushSubscription.createRepository(docClient, tableName);
 }
 
 export function resetPushSubscriptionRepository(): void {
-  pushSubscriptionRepositoryFactory.resetRepository();
+  pushSubscriptionRegistry.pushSubscription.resetRepository();
 }
