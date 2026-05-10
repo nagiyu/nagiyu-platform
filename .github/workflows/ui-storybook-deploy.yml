@@ -9,6 +9,7 @@ on:
     paths:
       - 'libs/ui/**'
       - 'libs/browser/**'
+      - 'libs/common/**'
       - 'infra/ui-storybook/**'
       - 'package.json'
       - 'package-lock.json'
@@ -48,8 +49,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Build dependencies (browser, ui)
+      - name: Build dependencies (common, browser, ui)
         run: |
+          npm run build --workspace=@nagiyu/common
           npm run build --workspace=@nagiyu/browser
           npm run build --workspace=@nagiyu/ui
 
