@@ -7,11 +7,10 @@ import {
   CardContent,
   Typography,
   CircularProgress,
-  Alert,
   LinearProgress,
   Stack,
 } from '@mui/material';
-import { Button, Chip, TextField } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -273,12 +272,10 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
 
           {/* エラー表示 */}
           {state.error && (
-            <Alert
-              severity="error"
+            <ErrorAlert
+              message={state.error}
               onClose={() => setState((prev) => ({ ...prev, error: undefined }))}
-            >
-              {state.error}
-            </Alert>
+            />
           )}
 
           {/* ステータス表示 */}

@@ -18,7 +18,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Button, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { HoldingResponse } from '@/types/holding';
 import type { AlertResponse } from '@/types/alert';
@@ -325,11 +325,7 @@ export default function HoldingCard({
             追加
           </Button>
         </Stack>
-        {localError && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLocalError('')}>
-            {localError}
-          </Alert>
-        )}
+        {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
           <Alert severity="success" sx={{ mb: 2 }} onClose={() => setLocalSuccess('')}>
             {localSuccess}

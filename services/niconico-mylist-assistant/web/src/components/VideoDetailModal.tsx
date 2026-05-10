@@ -11,10 +11,9 @@ import {
   IconButton,
   Tooltip,
   CircularProgress,
-  Alert,
   Stack,
 } from '@mui/material';
-import { Button, Chip, TextField } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   Close,
   Favorite,
@@ -259,9 +258,7 @@ export default function VideoDetailModal({
             <CircularProgress />
           </Box>
         ) : error ? (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
+          <ErrorAlert message={error} />
         ) : video ? (
           <Box>
             {/* サムネイル */}

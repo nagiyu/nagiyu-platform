@@ -3,7 +3,7 @@
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, ErrorAlert } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const ERROR_MESSAGES = {
@@ -322,11 +322,7 @@ export default function Home() {
             </Box>
           )}
 
-          {errorMessage && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {errorMessage}
-            </Alert>
-          )}
+          {errorMessage && <ErrorAlert message={errorMessage} />}
 
           {isSubmitting && (
             <Box sx={{ mb: 2 }}>

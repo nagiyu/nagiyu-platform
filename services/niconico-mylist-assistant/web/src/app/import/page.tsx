@@ -16,7 +16,7 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Button, Chip, TextField } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
 import VideoSearchModal from '@/components/VideoSearchModal';
@@ -127,9 +127,9 @@ export default function ImportPage() {
         </Box>
 
         {error && (
-          <Alert severity="error" sx={{ mt: 3 }}>
-            {error}
-          </Alert>
+          <Box sx={{ mt: 3 }}>
+            <ErrorAlert message={error} />
+          </Box>
         )}
 
         {result && (
@@ -160,9 +160,7 @@ export default function ImportPage() {
                 )}
 
                 {result.failed > 0 && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    {result.failed} 件の動画のインポートに失敗しました
-                  </Alert>
+                  <ErrorAlert message={`${result.failed} 件の動画のインポートに失敗しました`} />
                 )}
 
                 {result.failedDetails && result.failedDetails.length > 0 && (

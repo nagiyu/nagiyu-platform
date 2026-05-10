@@ -8,7 +8,6 @@ import {
   Container,
   Typography,
   Paper,
-  Alert,
   FormLabel,
   RadioGroup,
   FormControlLabel,
@@ -17,7 +16,7 @@ import {
 } from '@mui/material';
 // eslint-disable-next-line no-restricted-imports -- Radio グループの fieldset/legend セマンティクス用途。共通 Select の構成要素ではないため統合対象外。
 import { FormControl } from '@mui/material';
-import { Button } from '@nagiyu/ui';
+import { Button, ErrorAlert } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 type UploadError = {
@@ -218,9 +217,9 @@ export default function Home() {
 
         {/* Error Message */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
+          <Box sx={{ mb: 3 }}>
+            <ErrorAlert message={error} />
+          </Box>
         )}
 
         {/* Codec Selection */}

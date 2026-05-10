@@ -19,7 +19,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { Button, Chip, TextField } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
@@ -419,11 +419,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           </Stack>
         )}
 
-        {errorMessage && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {errorMessage}
-          </Alert>
-        )}
+        {errorMessage && <ErrorAlert message={errorMessage} />}
 
         {expiresAt !== null && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
