@@ -26,8 +26,13 @@ IAM ポリシーと IAM ユーザーは AWS CDK で管理されています。
 ```
 infra/shared/
 ├── lib/iam/
-│   ├── iam-policies-stack.ts    # IAM マネージドポリシー（4つ）
-│   └── iam-users-stack.ts       # IAM ユーザー（2つ）
+│   ├── iam-core-policy-stack.ts             # デプロイポリシー: Core
+│   ├── iam-application-policy-stack.ts      # デプロイポリシー: Application
+│   ├── iam-container-policy-stack.ts        # デプロイポリシー: Container
+│   ├── iam-integration-policy-stack.ts      # デプロイポリシー: Integration
+│   ├── iam-claude-readonly-policy-stack.ts  # Claude 用閲覧専用ポリシー
+│   ├── iam-policies-stack.ts                # 旧（4 ポリシーまとめ。互換用）
+│   └── iam-users-stack.ts                   # IAM ユーザー（3 ユーザー）
 ├── iam/                         # 旧 CloudFormation テンプレート（バックアップ）
 │   ├── policies/
 │   │   ├── backup/              # YAML ファイルのバックアップ
@@ -130,6 +135,37 @@ aws cloudformation deploy \
   --region us-east-1
 ```
 
+#### 1.5. Claude Read-Only Policy
+
+**CDK スタック名:** `NagiyuSharedIamClaudeReadonly`
+
+**概要:**
+Claude Code on the web のリモート環境から AWS リソースを「閲覧のみ」で調査するためのポリシー。
+デプロイポリシー（1.1〜1.4）とは独立した専用ポリシーで、List / Get / Describe / Scan / Query / Filter
+系のみを許可する。
+
+**主な許可（Allow）権限:**
+- **CloudFormation / CloudWatch / Logs**: スタック状態、メトリクス、ログ本文の取得
+- **Lambda / ECS / Batch / ECR**: 関数・コンテナ構成の閲覧、ECR イメージのメタデータ取得
+- **CloudFront / API Gateway / ACM / Route53**: 配信・API・証明書・DNS の構成把握
+- **DynamoDB / S3**: テーブル / バケットの構成と内容（後述の Deny 対象を除く）
+- **EC2 / VPC**: ネットワーク構成の Describe
+- **SNS / SQS / EventBridge**: メッセージング / イベント基盤の構成把握
+- **SSM / KMS**: パラメータ / キーのメタデータ閲覧（Decrypt は禁止）
+- **IAM**: 権限構成の Read（Get / List / SimulatePolicy）
+- **STS**: `GetCallerIdentity` で自身の identity 確認
+
+**明示 Deny:**
+- `secretsmanager:GetSecretValue` / `secretsmanager:GetRandomPassword`
+- `kms:Decrypt` / `kms:Encrypt` / `kms:ReEncrypt*` / `kms:GenerateDataKey*` / `kms:GenerateRandom`
+    - **副次効果**: SSM SecureString パラメータの値取得もこの Deny で実質的に防がれる
+- `dynamodb:GetItem` / `BatchGetItem` / `Scan` / `Query` を
+  `arn:aws:dynamodb:*:*:table/nagiyu-auth-users-*`（GSI 含む）に対して Deny
+    - PII（email / googleId / name 等）の閲覧経路を遮断
+
+**参照方法:**
+- `arn:aws:iam::{account}:policy/nagiyu-claude-readonly-policy`（`managedPolicyName` で固定）
+
 ### 2. GitHub Actions ユーザー
 
 **CDK スタック名:** `SharedIamUsers`（NagiyuGitHubActionsUser リソース）
@@ -203,6 +239,64 @@ aws configure --profile nagiyu-local-dev
 export AWS_PROFILE=nagiyu-local-dev
 ```
 
+### 4. Claude 閲覧専用ユーザー
+
+**CDK スタック名:** `SharedIamUsers`（NagiyuClaudeReadonlyUser リソース）
+
+**概要:**
+Claude Code on the web のリモート環境に投入し、Claude が AWS リソースを閲覧調査するための IAM ユーザー。
+
+**ユーザー名:** `nagiyu-claude-readonly`
+
+**アタッチされるポリシー:**
+- `nagiyu-claude-readonly-policy`（Claude Read-Only Policy 単独）
+
+**出力値（CfnOutput）:**
+- ユーザー ARN
+- ユーザー名
+
+**アクセスキー発行手順:**
+1. AWS マネジメントコンソールにログイン
+2. IAM → ユーザー → `nagiyu-claude-readonly` を選択
+3. 「セキュリティ認証情報」タブ → 「アクセスキーを作成」
+4. 用途は「サードパーティーサービス」を選択し、アクセスキー ID と
+   シークレットアクセスキーを安全に保存
+5. 発行後はユーザーごとに最大 2 本までしか保持できないため、不要になった旧キーは削除
+
+**Claude Code on the web への登録:**
+
+CDK / 設定ファイルではなく、**Claude Code on the web のリモート環境設定 UI** から
+セッション環境変数として投入する。
+
+| 環境変数名 | 値 |
+| --- | --- |
+| `AWS_ACCESS_KEY_ID` | 発行したアクセスキー ID |
+| `AWS_SECRET_ACCESS_KEY` | 発行したシークレットアクセスキー |
+| `AWS_REGION` | `us-east-1` |
+
+**動作確認:**
+
+Claude セッション内で以下が成功すること:
+
+```bash
+aws sts get-caller-identity
+aws logs describe-log-groups --region us-east-1
+aws cloudformation list-stacks --region us-east-1
+```
+
+同セッション内で以下が `AccessDenied` で失敗すること（保護が効いている証拠）:
+
+```bash
+aws secretsmanager get-secret-value --secret-id <任意のシークレット>
+aws dynamodb scan --table-name nagiyu-auth-users-dev
+aws ssm get-parameter --name <SecureString パラメータ> --with-decryption
+```
+
+**注意:**
+- このユーザーには **デプロイ権限を一切付与しない**（既存 4 ポリシーは添付しない）
+- ローカル開発・CI / CD では使わない（`nagiyu-local-dev` / `nagiyu-github-actions` を利用）
+- アクセスキーは Claude Code on the web 以外の環境にコピーしない
+
 ---
 
 ## デプロイ手順（CDK）
@@ -241,6 +335,21 @@ npx cdk deploy SharedIamPolicies --require-approval never
 - nagiyu-deploy-policy-container
 - nagiyu-deploy-policy-integration
 
+### ステップ2.5: Claude 閲覧専用ポリシーのデプロイ
+
+```bash
+cd infra/shared
+
+# 差分確認
+npx cdk diff NagiyuSharedIamClaudeReadonly
+
+# デプロイ
+npx cdk deploy NagiyuSharedIamClaudeReadonly --require-approval never
+```
+
+このコマンドで Claude 用の独立した閲覧専用ポリシー (`nagiyu-claude-readonly-policy`)
+がデプロイされる。デプロイポリシー（ステップ2）には影響を与えない。
+
 ### ステップ3: IAM ユーザーのデプロイ
 
 ポリシーのデプロイ完了後、IAM ユーザーをデプロイします。
@@ -255,9 +364,10 @@ npx cdk diff SharedIamUsers
 npx cdk deploy SharedIamUsers --require-approval never
 ```
 
-このコマンドで2つのユーザーが一度にデプロイされます:
+このコマンドで3つのユーザーが一度にデプロイされます:
 - nagiyu-github-actions
 - nagiyu-local-dev
+- nagiyu-claude-readonly
 
 ### ステップ4: 動作確認
 
