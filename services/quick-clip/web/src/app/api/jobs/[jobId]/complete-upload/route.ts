@@ -1,5 +1,7 @@
 import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
 import { CompleteMultipartUploadCommand } from '@aws-sdk/client-s3';
 import { NextResponse } from 'next/server';
@@ -17,8 +19,8 @@ import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
-  INVALID_REQUEST: 'リクエストが不正です',
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   JOB_NOT_PENDING: 'ジョブがアップロード完了可能な状態ではありません',
   INTERNAL_SERVER_ERROR: 'アップロード完了処理に失敗しました',
 } as const;

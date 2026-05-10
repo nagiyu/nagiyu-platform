@@ -9,7 +9,7 @@ import { getSession } from '@/lib/auth/session';
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
   FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
-  INVALID_REQUEST: 'リクエストボディが不正です',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   INVALID_SUBSCRIPTION: 'サブスクリプション情報が不正です',
   INTERNAL_ERROR: 'サブスクリプション処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',

@@ -1,5 +1,7 @@
 import { DynamoDBJobRepository, selectJobDefinition } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { EmotionFilter } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   CreateMultipartUploadCommand,
   PutObjectCommand,
@@ -22,7 +24,7 @@ import { VALID_EMOTION_FILTERS } from '@/lib/server/emotion-filter';
 import { JobDomainService } from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
-  INVALID_REQUEST: 'リクエストが不正です',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   INVALID_FILE_TYPE: 'MP4 形式の動画ファイルのみアップロードできます',
   INVALID_FILE_SIZE: 'ファイルサイズが不正です',
   MULTIPART_UPLOAD_ID_NOT_FOUND: 'マルチパートアップロード ID の取得に失敗しました',

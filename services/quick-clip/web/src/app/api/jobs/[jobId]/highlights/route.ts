@@ -1,5 +1,7 @@
 import { DynamoDBHighlightRepository, DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
@@ -11,7 +13,7 @@ import {
 import { HighlightDomainService, JobDomainService } from '@/lib/server/domain-services';
 
 const ERROR_MESSAGES = {
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   INTERNAL_SERVER_ERROR: '見どころ一覧の取得に失敗しました',
 } as const;
 

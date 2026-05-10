@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter } from 'next/navigation';
 import {
   type Job,
@@ -19,7 +20,7 @@ import AddIcon from '@mui/icons-material/Add';
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブ情報の取得に失敗しました',
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 // ステータスバッジの色設定（WCAG AA準拠）

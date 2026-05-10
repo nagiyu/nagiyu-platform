@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   TickerAlreadyExistsError,
   validateTickerCreateData,
@@ -30,7 +31,7 @@ const ERROR_MESSAGES = {
   EXCHANGE_NOT_FOUND: '取引所が見つかりません',
   TICKER_CREATE_FAILED: 'ティッカーの作成に失敗しました',
   TICKER_ALREADY_EXISTS: 'ティッカーは既に存在します',
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
 } as const;
 
 /**

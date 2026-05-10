@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import {
   createHoldingRepository,
@@ -21,7 +22,7 @@ import type { Holding } from '@nagiyu/stock-tracker-core';
  */
 const ERROR_MESSAGES = {
   INVALID_HOLDING_ID: '保有株式IDの形式が不正です',
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   VALIDATION_ERROR: '入力データが不正です',
   HOLDING_NOT_FOUND: '保有株式が見つかりません',
   FORBIDDEN_ACCESS: '他のユーザーの保有株式にはアクセスできません',
@@ -163,7 +164,7 @@ export const PUT = withAuth(
         return NextResponse.json(
           {
             error: 'INVALID_REQUEST',
-            message: '更新するフィールドが指定されていません',
+            message: COMMON_ERROR_MESSAGES.UPDATE_FIELDS_REQUIRED,
           },
           { status: 400 }
         );

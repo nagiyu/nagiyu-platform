@@ -14,12 +14,13 @@ import { getAuthError } from '@nagiyu/nextjs';
 import { createAlertRepository } from '../../../../lib/repository-factory';
 import { getSession } from '../../../../lib/auth';
 import type { ErrorResponse } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   MISSING_SUBSCRIPTION: 'サブスクリプション情報が必要です',
   INVALID_SUBSCRIPTION: 'サブスクリプション情報が不正です',
   INTERNAL_ERROR: 'サブスクリプションの更新に失敗しました',

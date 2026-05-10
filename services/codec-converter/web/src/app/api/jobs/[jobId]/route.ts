@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getAwsClients } from '@nagiyu/aws';
@@ -11,7 +13,7 @@ const PRESIGNED_URL_EXPIRES_IN = 86400;
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   INTERNAL_SERVER_ERROR: 'ジョブの取得に失敗しました',
 } as const;
 

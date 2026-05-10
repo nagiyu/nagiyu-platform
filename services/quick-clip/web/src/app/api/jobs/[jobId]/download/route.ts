@@ -1,5 +1,7 @@
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 import { NextResponse } from 'next/server';
 import { InvokeCommand } from '@aws-sdk/client-lambda';
@@ -14,7 +16,7 @@ import {
 } from '@/lib/server/aws';
 
 const ERROR_MESSAGES = {
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   NO_ACCEPTED_HIGHLIGHTS: '採用された見どころがありません',
   CLIP_GENERATION_INCOMPLETE: '採用された見どころのクリップ生成が完了していません',
   INTERNAL_SERVER_ERROR: 'ダウンロードの準備に失敗しました',

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   Box,
   Card,
@@ -25,8 +26,8 @@ import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-co
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
-  NOT_FOUND: '指定されたジョブが見つかりません',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
+  NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 /**

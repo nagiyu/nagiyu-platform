@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter } from 'next/navigation';
 import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/material';
 import { Button, ErrorAlert } from '@nagiyu/ui';
@@ -22,7 +23,7 @@ const LOG_MESSAGES = {
   COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
   INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
   UNKNOWN: 'アップロード処理の開始時に予期しないエラーが発生しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
 } as const;
 
 const CONSTRAINT_MESSAGES = {

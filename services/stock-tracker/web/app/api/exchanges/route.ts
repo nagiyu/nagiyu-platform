@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../lib/auth';
 import { createExchangeRepository } from '../../../lib/repository-factory';
@@ -8,7 +10,7 @@ import { createExchangeRepository } from '../../../lib/repository-factory';
 const ERROR_MESSAGES = {
   INTERNAL_ERROR: '取引所一覧の取得に失敗しました',
   CREATE_ERROR: '取引所の作成に失敗しました',
-  INVALID_REQUEST: 'リクエストが不正です',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   EXCHANGE_ALREADY_EXISTS: '取引所は既に存在します',
 } as const;
 

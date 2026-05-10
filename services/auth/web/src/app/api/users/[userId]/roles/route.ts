@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
-          error: 'リクエストボディが不正です',
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
           details: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
