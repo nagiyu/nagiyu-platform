@@ -274,7 +274,6 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
           {state.error && (
             <ErrorAlert
               message={state.error}
-              sx={{ mb: 0 }}
               onClose={() => setState((prev) => ({ ...prev, error: undefined }))}
             />
           )}

@@ -117,7 +117,11 @@ export default function VideoSearchModal({ open, onClose }: VideoSearchModalProp
           </Button>
         </Stack>
 
-        {error && <ErrorAlert message={error} sx={{ mt: 2 }} />}
+        {error && (
+          <Box sx={{ mt: 2 }}>
+            <ErrorAlert message={error} />
+          </Box>
+        )}
 
         <Box sx={{ mt: 2 }}>
           {videos.length === 0 ? (

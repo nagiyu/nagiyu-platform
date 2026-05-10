@@ -266,7 +266,11 @@ export default function VideoList() {
         onSearch={handleSearch}
       />
 
-      {error && <ErrorAlert message={error} sx={{ mb: 3 }} onClose={() => setError(null)} />}
+      {error && (
+        <Box sx={{ mb: 3 }}>
+          <ErrorAlert message={error} onClose={() => setError(null)} />
+        </Box>
+      )}
 
       {videos && videos.total === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>

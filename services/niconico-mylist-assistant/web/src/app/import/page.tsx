@@ -126,7 +126,11 @@ export default function ImportPage() {
           </Button>
         </Box>
 
-        {error && <ErrorAlert message={error} sx={{ mt: 3 }} />}
+        {error && (
+          <Box sx={{ mt: 3 }}>
+            <ErrorAlert message={error} />
+          </Box>
+        )}
 
         {result && (
           <Box sx={{ mt: 3 }}>

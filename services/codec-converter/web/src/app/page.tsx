@@ -216,7 +216,11 @@ export default function Home() {
         )}
 
         {/* Error Message */}
-        {error && <ErrorAlert message={error} sx={{ mb: 3 }} />}
+        {error && (
+          <Box sx={{ mb: 3 }}>
+            <ErrorAlert message={error} />
+          </Box>
+        )}
 
         {/* Codec Selection */}
         <FormControl component="fieldset" sx={{ mb: 3, width: '100%' }}>

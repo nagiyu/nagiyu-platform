@@ -2,7 +2,6 @@
 
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { Alert, AlertTitle, Box, Typography } from '@mui/material';
-import type { SxProps, Theme } from '@mui/material/styles';
 import { APIError } from '@nagiyu/common';
 
 import Button from '../Button';
@@ -19,6 +18,8 @@ export type ErrorAlertError = string | Error | APIError | null | undefined;
  * - message: 文字列メッセージ
  * - error: string / Error / APIError
  *   APIError の場合、errorInfo.details / shouldRetry も自動で利用する
+ *
+ * 配置・余白は呼出側の親要素で制御する（共通 UI 規約: sx props は受け付けない）。
  */
 export interface ErrorAlertProps {
   /**
@@ -50,10 +51,6 @@ export interface ErrorAlertProps {
    * 閉じるコールバック。指定時にアラートに ✕ ボタンを表示する。
    */
   onClose?: () => void;
-  /**
-   * MUI sx props
-   */
-  sx?: SxProps<Theme>;
   /**
    * エラーの重大度（デフォルト: 'error'）
    */
@@ -104,7 +101,6 @@ export default function ErrorAlert({
   onRetry,
   retryLabel = '再試行',
   onClose,
-  sx,
   severity = 'error',
 }: ErrorAlertProps) {
   const resolved = resolveError({ message, error });
@@ -123,7 +119,7 @@ export default function ErrorAlert({
       role="alert"
       aria-live="assertive"
       aria-atomic="true"
-      sx={showRetry ? { mb: 2 } : { mb: 2, ...sx }}
+      sx={{ mb: 2 }}
     >
       {title && <AlertTitle>{title}</AlertTitle>}
       {hasDetails ? (
@@ -150,13 +146,13 @@ export default function ErrorAlert({
   }
 
   return (
-    <Box sx={sx}>
+    <>
       {alertElement}
       <Box sx={{ display: 'flex', justifyContent: 'center' }}>
         <Button variant="solid" startIcon={<RefreshIcon />} onClick={onRetry}>
           {retryLabel}
         </Button>
       </Box>
-    </Box>
+    </>
   );
 }

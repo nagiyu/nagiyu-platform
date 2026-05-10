@@ -208,7 +208,9 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         <Typography variant="h4" component="h1" gutterBottom>
           変換ジョブ詳細
         </Typography>
-        <ErrorAlert message={error} sx={{ mb: 3 }} />
+        <Box sx={{ mb: 3 }}>
+          <ErrorAlert message={error} />
+        </Box>
         <Button variant="solid" startIcon={<AddIcon />} onClick={handleNewConversion}>
           新しい動画を変換
         </Button>
@@ -306,7 +308,9 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           {/* エラーメッセージ表示（FAILED時） */}
           {job.status === 'FAILED' && job.errorMessage && (
-            <ErrorAlert title="エラー詳細" message={job.errorMessage} sx={{ mt: 2, mb: 0 }} />
+            <Box sx={{ mt: 2 }}>
+              <ErrorAlert title="エラー詳細" message={job.errorMessage} />
+            </Box>
           )}
         </CardContent>
       </Card>
