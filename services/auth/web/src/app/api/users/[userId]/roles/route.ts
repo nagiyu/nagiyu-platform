@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { hasPermission, VALID_ROLES } from '@nagiyu/common';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
       );
     }
 
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
 
     // ロールを割り当て
     const updatedUser = await repo.assignRoles(userId, roles);

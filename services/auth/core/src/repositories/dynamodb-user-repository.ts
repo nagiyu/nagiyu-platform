@@ -7,22 +7,17 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import type { User, CreateUserInput, UpdateUserInput } from '../types';
+import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
+import {
+  UserNotFoundError,
+  type ListUsersResult,
+  type UpdateUserInput,
+  type UpsertUserInput,
+  type UserRepository,
+} from './user-repository';
 
-const ERROR_MESSAGES = {
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
-} as const;
-
-// カスタムエラークラス
-export class UserNotFoundError extends Error {
-  constructor(userId: string) {
-    super(`${ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
-    this.name = 'UserNotFoundError';
-  }
-}
-
-export class DynamoDBUserRepository {
+export class DynamoDBUserRepository implements UserRepository {
   private readonly dynamoDb: DynamoDBDocumentClient;
   private readonly tableName: string;
 
@@ -31,10 +26,7 @@ export class DynamoDBUserRepository {
     this.tableName = tableName ?? getTableName('nagiyu-auth-users-dev');
   }
 
-  /**
-   * Google ID でユーザーを取得 (GSI 使用)
-   */
-  async getUserByGoogleId(googleId: string): Promise<User | null> {
+  public async getUserByGoogleId(googleId: string): Promise<User | null> {
     const result = await this.dynamoDb.send(
       new QueryCommand({
         TableName: this.tableName,
@@ -49,10 +41,7 @@ export class DynamoDBUserRepository {
     return (result.Items?.[0] as User) || null;
   }
 
-  /**
-   * User ID でユーザーを取得
-   */
-  async getUserById(userId: string): Promise<User | null> {
+  public async getUserById(userId: string): Promise<User | null> {
     const result = await this.dynamoDb.send(
       new GetCommand({
         TableName: this.tableName,
@@ -63,13 +52,10 @@ export class DynamoDBUserRepository {
     return (result.Item as User) || null;
   }
 
-  /**
-   * 全ユーザーを取得 (ページネーション対応)
-   */
-  async listUsers(
+  public async listUsers(
     limit: number = 100,
     lastEvaluatedKey?: Record<string, unknown>
-  ): Promise<{ users: User[]; lastEvaluatedKey?: Record<string, unknown> }> {
+  ): Promise<ListUsersResult> {
     const result = await this.dynamoDb.send(
       new ScanCommand({
         TableName: this.tableName,
@@ -84,14 +70,10 @@ export class DynamoDBUserRepository {
     };
   }
 
-  /**
-   * ユーザーを作成または更新 (OAuth サインイン時)
-   */
-  async upsertUser(input: CreateUserInput): Promise<User> {
+  public async upsertUser(input: UpsertUserInput): Promise<User> {
     const existingUser = await this.getUserByGoogleId(input.googleId);
 
     if (existingUser) {
-      // 既存ユーザーの場合は名前と画像を更新
       const updatedUser: User = {
         ...existingUser,
         name: input.name,
@@ -107,34 +89,30 @@ export class DynamoDBUserRepository {
       );
 
       return updatedUser;
-    } else {
-      // 新規ユーザーの場合
-      const newUser: User = {
-        userId: randomUUID(),
-        googleId: input.googleId,
-        email: input.email,
-        name: input.name,
-        picture: input.picture,
-        roles: [], // 初期状態ではロールなし
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      await this.dynamoDb.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: newUser,
-        })
-      );
-
-      return newUser;
     }
+
+    const newUser: User = {
+      userId: randomUUID(),
+      googleId: input.googleId,
+      email: input.email,
+      name: input.name,
+      picture: input.picture,
+      roles: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    await this.dynamoDb.send(
+      new PutCommand({
+        TableName: this.tableName,
+        Item: newUser,
+      })
+    );
+
+    return newUser;
   }
 
-  /**
-   * ユーザー情報を更新
-   */
-  async updateUser(userId: string, input: UpdateUserInput): Promise<User> {
+  public async updateUser(userId: string, input: UpdateUserInput): Promise<User> {
     const existingUser = await this.getUserById(userId);
     if (!existingUser) {
       throw new UserNotFoundError(userId);
@@ -156,10 +134,7 @@ export class DynamoDBUserRepository {
     return updatedUser;
   }
 
-  /**
-   * ユーザーを削除
-   */
-  async deleteUser(userId: string): Promise<void> {
+  public async deleteUser(userId: string): Promise<void> {
     await this.dynamoDb.send(
       new DeleteCommand({
         TableName: this.tableName,
@@ -168,17 +143,11 @@ export class DynamoDBUserRepository {
     );
   }
 
-  /**
-   * ユーザーにロールを割り当て
-   */
-  async assignRoles(userId: string, roles: string[]): Promise<User> {
+  public async assignRoles(userId: string, roles: string[]): Promise<User> {
     return this.updateUser(userId, { roles });
   }
 
-  /**
-   * 最終ログイン日時を更新
-   */
-  async updateLastLogin(userId: string): Promise<void> {
+  public async updateLastLogin(userId: string): Promise<void> {
     const existingUser = await this.getUserById(userId);
     if (!existingUser) {
       throw new UserNotFoundError(userId);

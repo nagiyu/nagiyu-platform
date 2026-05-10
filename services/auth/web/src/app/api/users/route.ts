@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBUserRepository } from '@nagiyu/auth-core';
+import { createUserRepository } from '@nagiyu/auth-core';
 import { hasPermission } from '@nagiyu/common';
 import { ListUsersQuerySchema } from './schemas';
 import { ZodError } from 'zod';
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
     const searchParams = req.nextUrl.searchParams;
 
     // クエリパラメータのバリデーション
