@@ -8,18 +8,20 @@ export interface IamUsersStackProps extends cdk.StackProps {
     application: iam.IManagedPolicy;
     container: iam.IManagedPolicy;
     integration: iam.IManagedPolicy;
+    claudeReadonly: iam.IManagedPolicy;
   };
 }
 
 /**
  * IAM Users Stack
  *
- * GitHub Actions と ローカル開発用の IAM ユーザーを管理します。
+ * GitHub Actions / ローカル開発 / Claude Code on the web 用の IAM ユーザーを管理します。
  * アクセスキーは手動発行するため、このスタックでは作成しません。
  */
 export class IamUsersStack extends cdk.Stack {
   public readonly githubActionsUser: iam.IUser;
   public readonly localDevUser: iam.IUser;
+  public readonly claudeReadonlyUser: iam.IUser;
 
   constructor(scope: Construct, id: string, props: IamUsersStackProps) {
     super(scope, id, props);
@@ -53,6 +55,15 @@ export class IamUsersStack extends cdk.Stack {
 
 
     // ==========================================
+    // Claude Read-Only User
+    // ==========================================
+    this.claudeReadonlyUser = new iam.User(this, 'NagiyuClaudeReadonlyUser', {
+      userName: 'nagiyu-claude-readonly',
+      managedPolicies: [props.policies.claudeReadonly],
+    });
+
+
+    // ==========================================
     // Exports
     // ==========================================
     // GitHub Actions User
@@ -75,6 +86,17 @@ export class IamUsersStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'LocalDevUserNameExport', {
       value: this.localDevUser.userName,
       description: 'Local developer user name',
+    });
+
+    // Claude Read-Only User
+    new cdk.CfnOutput(this, 'ClaudeReadonlyUserArnExport', {
+      value: this.claudeReadonlyUser.userArn,
+      description: 'Claude readonly user ARN',
+    });
+
+    new cdk.CfnOutput(this, 'ClaudeReadonlyUserNameExport', {
+      value: this.claudeReadonlyUser.userName,
+      description: 'Claude readonly user name',
     });
   }
 }

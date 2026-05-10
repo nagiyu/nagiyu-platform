@@ -9,6 +9,7 @@ import { IamCorePolicyStack } from '../lib/iam/iam-core-policy-stack';
 import { IamApplicationPolicyStack } from '../lib/iam/iam-application-policy-stack';
 import { IamContainerPolicyStack } from '../lib/iam/iam-container-policy-stack';
 import { IamIntegrationPolicyStack } from '../lib/iam/iam-integration-policy-stack';
+import { IamClaudeReadonlyPolicyStack } from '../lib/iam/iam-claude-readonly-policy-stack';
 import { IamUsersStack } from '../lib/iam/iam-users-stack';
 import { DockerBuildLockStack } from '../lib/docker-build-lock-stack';
 import { ErrorEventsTableStack } from '../lib/error-events-table-stack';
@@ -89,6 +90,12 @@ const integrationPolicyStack = new IamIntegrationPolicyStack(app, 'NagiyuSharedI
   description: 'Shared IAM Integration and Security Deploy Policy (KMS, Secrets, SSM, SNS, SQS, EventBridge, Auto Scaling)',
 });
 
+// Claude Code on the web 用の閲覧専用ポリシー（環境非依存・既存 4 ポリシーから独立）
+const claudeReadonlyPolicyStack = new IamClaudeReadonlyPolicyStack(app, 'NagiyuSharedIamClaudeReadonly', {
+  env: stackEnv,
+  description: 'Shared IAM Claude Read-Only Policy (List/Get/Describe with explicit Deny on secrets/PII)',
+});
+
 // IAM Users スタックを作成（ポリシーに依存）
 new IamUsersStack(app, 'NagiyuSharedIamUsers', {
   policies: {
@@ -96,9 +103,10 @@ new IamUsersStack(app, 'NagiyuSharedIamUsers', {
     application: applicationPolicyStack.policy,
     container: containerPolicyStack.policy,
     integration: integrationPolicyStack.policy,
+    claudeReadonly: claudeReadonlyPolicyStack.policy,
   },
   env: stackEnv,
-  description: 'Shared IAM Users for GitHub Actions and Local Development',
+  description: 'Shared IAM Users for GitHub Actions, Local Development and Claude Code on the web',
 });
 
 new DockerBuildLockStack(app, 'NagiyuDockerBuildLock', {
