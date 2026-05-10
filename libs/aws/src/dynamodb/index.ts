@@ -37,6 +37,15 @@ export {
 } from './helpers.js';
 export { getDynamoDBDocumentClient, getTableName, clearDynamoDBClientCache } from './client.js';
 export { createRepositoryFactory } from './repository-factory.js';
+export {
+  registerDynamoRepositories,
+  requireDynamoParams,
+  type DynamoRepositoryParams,
+  type DynamoRepositoryDef,
+  type DynamoRepositoryHandle,
+  type DynamoRepositoryRegistry,
+  type RegisterDynamoRepositoriesOptions,
+} from './repository-registry.js';
 
 // 抽象基底クラス
 export { AbstractDynamoDBRepository } from './abstract-repository.js';

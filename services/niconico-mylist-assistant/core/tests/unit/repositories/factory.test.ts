@@ -5,13 +5,14 @@
 import {
   createVideoRepository,
   createUserSettingRepository,
+  createBatchJobRepository,
   resetRepositoryFactories,
 } from '../../../src/repositories/factory';
 import { InMemoryVideoRepository } from '../../../src/repositories/inmemory-video.repository';
 import { InMemoryUserSettingRepository } from '../../../src/repositories/inmemory-user-setting.repository';
+import { InMemoryBatchJobRepository } from '../../../src/repositories/inmemory-batch-job.repository';
 import { DynamoDBVideoRepository } from '../../../src/repositories/dynamodb-video.repository';
 import { DynamoDBUserSettingRepository } from '../../../src/repositories/dynamodb-user-setting.repository';
-import { getInMemoryStore, clearInMemoryStore } from '../../../src/repositories/store';
 import { mockClient } from 'aws-sdk-client-mock';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 
@@ -19,10 +20,8 @@ const ddbMock = mockClient(DynamoDBDocumentClient);
 
 describe('Repository Factory', () => {
   beforeEach(() => {
-    // 環境変数をクリア
     delete process.env.USE_IN_MEMORY_DB;
-    // ストアをクリア
-    clearInMemoryStore();
+    delete process.env.DYNAMODB_TABLE_NAME;
     resetRepositoryFactories();
     ddbMock.reset();
   });
@@ -36,7 +35,7 @@ describe('Repository Factory', () => {
       expect(repository).toBeInstanceOf(InMemoryVideoRepository);
     });
 
-    it('USE_IN_MEMORY_DB が設定されていない場合、DynamoDBVideoRepository を返す', () => {
+    it('引数明示時は DynamoDBVideoRepository を返す', () => {
       const docClient = ddbMock as unknown as DynamoDBDocumentClient;
       const tableName = 'test-table';
 
@@ -45,10 +44,10 @@ describe('Repository Factory', () => {
       expect(repository).toBeInstanceOf(DynamoDBVideoRepository);
     });
 
-    it('DynamoDB実装でdocClientまたはtableNameが指定されていない場合、エラーを投げる', () => {
+    it('tableName が引数・env のいずれでも未指定なら例外を投げる', () => {
       expect(() => {
         createVideoRepository();
-      }).toThrow('DynamoDB実装にはdocClientとtableNameが必要です');
+      }).toThrow('環境変数 DYNAMODB_TABLE_NAME が設定されていません');
     });
   });
 
@@ -61,7 +60,7 @@ describe('Repository Factory', () => {
       expect(repository).toBeInstanceOf(InMemoryUserSettingRepository);
     });
 
-    it('USE_IN_MEMORY_DB が設定されていない場合、DynamoDBUserSettingRepository を返す', () => {
+    it('引数明示時は DynamoDBUserSettingRepository を返す', () => {
       const docClient = ddbMock as unknown as DynamoDBDocumentClient;
       const tableName = 'test-table';
 
@@ -70,29 +69,45 @@ describe('Repository Factory', () => {
       expect(repository).toBeInstanceOf(DynamoDBUserSettingRepository);
     });
 
-    it('DynamoDB実装でdocClientまたはtableNameが指定されていない場合、エラーを投げる', () => {
+    it('tableName が引数・env のいずれでも未指定なら例外を投げる', () => {
       expect(() => {
         createUserSettingRepository();
-      }).toThrow('DynamoDB実装にはdocClientとtableNameが必要です');
+      }).toThrow('環境変数 DYNAMODB_TABLE_NAME が設定されていません');
     });
   });
 
-  describe('共通ストアの共有', () => {
-    it('VideoRepository と UserSettingRepository が同じ InMemorySingleTableStore を共有する', () => {
+  describe('createBatchJobRepository', () => {
+    it('USE_IN_MEMORY_DB=true の場合、InMemoryBatchJobRepository を返す', () => {
       process.env.USE_IN_MEMORY_DB = 'true';
 
-      const videoRepo = createVideoRepository() as InMemoryVideoRepository;
-      const userSettingRepo = createUserSettingRepository() as InMemoryUserSettingRepository;
+      const repository = createBatchJobRepository();
 
-      // 両リポジトリが同じストアインスタンスを使用していることを確認
-      const store = getInMemoryStore();
+      expect(repository).toBeInstanceOf(InMemoryBatchJobRepository);
+    });
+  });
 
-      // ストアのサイズを確認することで、同じストアが共有されていることを検証
-      expect(store.size()).toBe(0);
+  describe('シングルトンと resetRepositoryFactories', () => {
+    it('同一 factory は singleton として同じインスタンスを返す', () => {
+      process.env.USE_IN_MEMORY_DB = 'true';
 
-      // clearInMemoryStore() でクリアできることを確認
-      clearInMemoryStore();
-      expect(() => getInMemoryStore().size()).not.toThrow();
+      const repo1 = createVideoRepository();
+      const repo2 = createVideoRepository();
+
+      expect(repo1).toBe(repo2);
+    });
+
+    it('resetRepositoryFactories 後は全 factory が新規インスタンスを返す', () => {
+      process.env.USE_IN_MEMORY_DB = 'true';
+
+      const videoBefore = createVideoRepository();
+      const userSettingBefore = createUserSettingRepository();
+      const batchJobBefore = createBatchJobRepository();
+
+      resetRepositoryFactories();
+
+      expect(createVideoRepository()).not.toBe(videoBefore);
+      expect(createUserSettingRepository()).not.toBe(userSettingBefore);
+      expect(createBatchJobRepository()).not.toBe(batchJobBefore);
     });
   });
 });

@@ -6,23 +6,10 @@
 
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { createRepositoryFactory } from '../dynamodb/repository-factory.js';
+import { requireDynamoParams } from '../dynamodb/repository-registry.js';
 import { DynamoDBErrorEventWriter } from './dynamodb-writer.js';
 import { InMemoryErrorEventWriter } from './in-memory-writer.js';
 import type { ErrorEventWriter } from './writer.js';
-
-const ERROR_MESSAGES = {
-  DYNAMODB_PARAMS_REQUIRED: 'DynamoDB 実装には docClient と tableName が必要です',
-} as const;
-
-function requireDynamoParams(
-  docClient: DynamoDBDocumentClient | undefined,
-  tableName: string | undefined
-): { docClient: DynamoDBDocumentClient; tableName: string } {
-  if (!docClient || !tableName) {
-    throw new Error(ERROR_MESSAGES.DYNAMODB_PARAMS_REQUIRED);
-  }
-  return { docClient, tableName };
-}
 
 const errorEventWriterFactory = createRepositoryFactory<
   ErrorEventWriter,
