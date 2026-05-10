@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
 import { hasPermission } from '@nagiyu/common';
 import { UpdateUserSchema } from '../schemas';
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
 
   try {
     const { userId } = await params;
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
     const user = await repo.getUserById(userId);
 
     if (!user) {
@@ -101,7 +101,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
       );
     }
 
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
 
     // ユーザー情報を更新（リポジトリ層で存在チェックを実施）
     const updatedUser = await repo.updateUser(userId, validatedData);
@@ -166,7 +166,7 @@ export async function DELETE(
       return NextResponse.json({ error: ERROR_MESSAGES.CANNOT_DELETE_SELF }, { status: 400 });
     }
 
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
 
     // ユーザーを削除（DynamoDB の DeleteCommand は存在しない場合でも成功するため、事前の存在チェックは不要）
     await repo.deleteUser(userId);

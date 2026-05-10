@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
-import { DynamoDBUserRepository } from '../db/repositories/dynamodb-user-repository';
+import { createUserRepository } from '../repositories/factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -29,7 +29,7 @@ if (
 }
 
 // DynamoDB を使用してユーザー情報を永続化
-const userRepository = new DynamoDBUserRepository();
+const userRepository = createUserRepository();
 
 const sharedAuthConfig = createAuthConfig({
   jwt: async ({ token, user, account }) => {

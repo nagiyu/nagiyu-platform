@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { DynamoDBUserRepository } from '@nagiyu/auth-core';
+import { createUserRepository } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
@@ -23,7 +23,7 @@ export async function GET() {
   }
 
   try {
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
     const user = await repo.getUserById(session.user.id);
 
     if (!user) {
