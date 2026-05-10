@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
-import { hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { ListUsersQuerySchema } from './schemas';
 import { ZodError } from 'zod';
 import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
+  UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
 } as const;
 
 /**
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     if (error instanceof ZodError) {
       return NextResponse.json(
         {
-          error: 'リクエストパラメータが不正です',
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_PARAMS,
           details: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,

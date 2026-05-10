@@ -108,7 +108,7 @@ describe('/api/groups/[groupId]/lists route', () => {
     await expect(response.json()).resolves.toEqual({
       error: {
         code: 'FORBIDDEN',
-        message: 'アクセス権限がありません',
+        message: 'この操作を実行する権限がありません',
       },
     });
   });

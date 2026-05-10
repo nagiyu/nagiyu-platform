@@ -10,6 +10,9 @@ import type { Permission, Session } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
+ *
+ * NOTE: stock-tracker-batch の jest が src 経由で参照するときに COMMON_ERROR_MESSAGES が
+ * 解決できない問題を避けるため、本ファイルでは literal を維持する。
  */
 export const AUTH_ERROR_MESSAGES = {
   UNAUTHORIZED: '認証が必要です',

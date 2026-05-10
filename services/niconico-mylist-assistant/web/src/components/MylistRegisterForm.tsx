@@ -20,7 +20,7 @@ import {
   MylistRegisterRequest,
   MylistRegisterResponse,
 } from '@/types/mylist';
-import { extractErrorMessage } from '@/lib/error-utils';
+import { extractErrorMessage } from '@nagiyu/common';
 
 interface MylistRegisterFormProps {
   onSuccess?: (response: MylistRegisterResponse) => void;

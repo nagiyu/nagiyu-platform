@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
 import { createErrorResponse } from '@nagiyu/nextjs';
@@ -7,8 +7,8 @@ import { getSession } from '@/lib/auth/session';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
-  INVALID_REQUEST: 'リクエストパラメータが不正です',
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_PARAMS,
   INTERNAL_ERROR: 'エラー履歴の取得に失敗しました',
   ERROR_EVENTS_TABLE_NAME_REQUIRED: 'ERROR_EVENTS_TABLE_NAME が設定されていません',
 } as const;

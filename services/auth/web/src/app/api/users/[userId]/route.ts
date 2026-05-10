@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
-import { hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { UpdateUserSchema } from '../schemas';
 import { ZodError } from 'zod';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
+  UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
+  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   CANNOT_DELETE_SELF: '自分自身を削除することはできません',
 } as const;
 

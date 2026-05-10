@@ -1,12 +1,9 @@
 import type { User } from '@nagiyu/common';
-
-const ERROR_MESSAGES = {
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
-} as const;
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 export class UserNotFoundError extends Error {
   constructor(userId: string) {
-    super(`${ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
+    super(`${COMMON_ERROR_MESSAGES.USER_NOT_FOUND}: ${userId}`);
     this.name = 'UserNotFoundError';
   }
 }

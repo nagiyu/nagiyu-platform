@@ -1,3 +1,10 @@
+/**
+ * 任意のエラーオブジェクトからユーザー向けメッセージを抽出するヘルパー。
+ *
+ * - `errorData.message` (string) があればそれを返す
+ * - 無ければ `errorData.error.message` (string) を返す
+ * - どちらも無ければ `defaultMessage` を返す
+ */
 export function extractErrorMessage(errorData: unknown, defaultMessage: string): string {
   if (typeof errorData !== 'object' || errorData === null) {
     return defaultMessage;

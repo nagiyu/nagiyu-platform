@@ -1,8 +1,9 @@
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
 
 const ERROR_MESSAGES = {
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
+  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   USER_ALREADY_EXISTS: 'ユーザーは既に存在します',
   EMAIL_ALREADY_EXISTS: 'メールアドレスは既に存在します',
 } as const;

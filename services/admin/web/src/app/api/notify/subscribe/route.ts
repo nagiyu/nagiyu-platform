@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PushSubscription } from '@nagiyu/common';
-import { requirePermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, requirePermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse } from '@nagiyu/nextjs';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
@@ -8,7 +8,7 @@ import { getSession } from '@/lib/auth/session';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
   INVALID_REQUEST: 'リクエストボディが不正です',
   INVALID_SUBSCRIPTION: 'サブスクリプション情報が不正です',
   INTERNAL_ERROR: 'サブスクリプション処理に失敗しました',
