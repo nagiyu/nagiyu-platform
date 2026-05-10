@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateExchange } from '@nagiyu/stock-tracker-core';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import { createExchangeRepository } from '../../../../lib/repository-factory';
