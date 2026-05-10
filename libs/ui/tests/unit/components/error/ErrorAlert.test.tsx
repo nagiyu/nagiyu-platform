@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { axe } from 'jest-axe';
+import { APIError } from '@nagiyu/common';
 import ErrorAlert from '../../../../src/components/error/ErrorAlert';
 
 describe('ErrorAlert', () => {
@@ -45,10 +46,12 @@ describe('ErrorAlert', () => {
       expect(screen.getByText('Error 由来のメッセージ')).toBeInTheDocument();
     });
 
-    it('APIError 互換オブジェクトの errorInfo.message を優先表示する', () => {
-      const apiError = Object.assign(new Error('生メッセージ'), {
-        errorInfo: { message: '整形済みメッセージ', shouldRetry: true },
-      });
+    it('APIError の errorInfo.message を優先表示する', () => {
+      const apiError = new APIError(
+        500,
+        { type: 'error', message: '整形済みメッセージ', shouldRetry: true },
+        '生メッセージ'
+      );
       render(<ErrorAlert error={apiError} />);
       expect(screen.getByText('整形済みメッセージ')).toBeInTheDocument();
       expect(screen.queryByText('生メッセージ')).not.toBeInTheDocument();
@@ -68,10 +71,12 @@ describe('ErrorAlert', () => {
       expect(screen.getByText('詳細2')).toBeInTheDocument();
     });
 
-    it('APIError 互換の errorInfo.details を自動表示する', () => {
-      const apiError = Object.assign(new Error('e'), {
-        errorInfo: { message: 'メイン', details: ['errorInfo 詳細1'] },
-      });
+    it('APIError の errorInfo.details を自動表示する', () => {
+      const apiError = new APIError(
+        500,
+        { type: 'error', message: 'メイン', details: ['errorInfo 詳細1'] },
+        'e'
+      );
       render(<ErrorAlert error={apiError} />);
       expect(screen.getByText('errorInfo 詳細1')).toBeInTheDocument();
     });
@@ -96,9 +101,7 @@ describe('ErrorAlert', () => {
     });
 
     it('errorInfo.shouldRetry が false ならリトライボタンを表示しない', () => {
-      const apiError = Object.assign(new Error('e'), {
-        errorInfo: { message: 'm', shouldRetry: false },
-      });
+      const apiError = new APIError(500, { type: 'error', message: 'm', shouldRetry: false }, 'e');
       render(<ErrorAlert error={apiError} onRetry={() => {}} />);
       expect(screen.queryByRole('button', { name: '再試行' })).not.toBeInTheDocument();
     });

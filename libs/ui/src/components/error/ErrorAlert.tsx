@@ -3,36 +3,22 @@
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { Alert, AlertTitle, Box, Typography } from '@mui/material';
 import type { SxProps, Theme } from '@mui/material/styles';
+import { APIError } from '@nagiyu/common';
 
 import Button from '../Button';
 
 /**
- * APIError 互換のエラー情報（libs/common の APIError.errorInfo に対応）
- *
- * libs/ui は libs/common に直接依存しないため duck typing で扱う。
- */
-interface ErrorInfoLike {
-  message?: string;
-  details?: string[];
-  shouldRetry?: boolean;
-}
-
-interface ErrorWithInfo extends Error {
-  errorInfo?: ErrorInfoLike;
-}
-
-/**
  * ErrorAlert で受け付けるエラー値の型
  */
-export type ErrorAlertError = string | Error | ErrorWithInfo | null | undefined;
+export type ErrorAlertError = string | Error | APIError | null | undefined;
 
 /**
  * エラーアラートコンポーネントのプロパティ
  *
  * 表示メッセージは以下のいずれかから決定する（message が優先）:
  * - message: 文字列メッセージ
- * - error: string / Error / APIError 互換オブジェクト
- *   APIError 互換の場合、errorInfo.details / shouldRetry も自動で利用する
+ * - error: string / Error / APIError
+ *   APIError の場合、errorInfo.details / shouldRetry も自動で利用する
  */
 export interface ErrorAlertProps {
   /**
@@ -40,7 +26,7 @@ export interface ErrorAlertProps {
    */
   message?: string;
   /**
-   * エラーオブジェクト（string / Error / APIError 互換）
+   * エラーオブジェクト（string / Error / APIError）
    */
   error?: ErrorAlertError;
   /**
@@ -48,12 +34,12 @@ export interface ErrorAlertProps {
    */
   title?: string;
   /**
-   * 詳細リスト（明示指定。未指定でも APIError 互換なら errorInfo.details を表示する）
+   * 詳細リスト（明示指定。未指定でも APIError なら errorInfo.details を表示する）
    */
   details?: string[];
   /**
    * リトライコールバック。指定時にリトライボタンを表示する。
-   * APIError 互換で errorInfo.shouldRetry === false の場合は表示しない。
+   * APIError で errorInfo.shouldRetry === false の場合は表示しない。
    */
   onRetry?: () => void;
   /**
@@ -91,12 +77,11 @@ function resolveError(args: { message?: string; error?: ErrorAlertError }): Reso
   if (typeof error === 'string') {
     return { message: error, canRetry: true };
   }
-  const errorWithInfo = error as ErrorWithInfo;
-  if (errorWithInfo.errorInfo) {
+  if (error instanceof APIError) {
     return {
-      message: errorWithInfo.errorInfo.message ?? error.message ?? 'エラーが発生しました',
-      details: errorWithInfo.errorInfo.details,
-      canRetry: errorWithInfo.errorInfo.shouldRetry !== false,
+      message: error.errorInfo.message || error.message || 'エラーが発生しました',
+      details: error.errorInfo.details,
+      canRetry: error.errorInfo.shouldRetry !== false,
     };
   }
   return {

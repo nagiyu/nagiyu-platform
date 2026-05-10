@@ -22,8 +22,11 @@ const config: Config.InitialOptions = {
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   // CSS Modules: クラス名そのものを返すプロキシで `styles.foo === 'foo'` とする。
   // ユニットテストはクラス名の存在確認に留めるため、ハッシュ化前の値で十分。
+  // @nagiyu/common は build 済 dist ではなく src を直接読み込ませる（サービス側 jest と同じ方式）。
   moduleNameMapper: {
     '\\.module\\.css$': 'identity-obj-proxy',
+    '^@nagiyu/common$': '<rootDir>/../common/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   // Common coverage settings
   coverageDirectory: 'coverage',
