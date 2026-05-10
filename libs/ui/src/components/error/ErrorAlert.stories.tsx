@@ -54,3 +54,50 @@ export const Info: Story = {
     message: 'メンテナンスのため一時的にサービスが停止します。',
   },
 };
+
+export const WithRetry: Story = {
+  args: {
+    message: 'データの取得に失敗しました。',
+    onRetry: () => {
+      // Storybook 用のサンプル
+    },
+  },
+};
+
+export const WithDetails: Story = {
+  args: {
+    title: '入力エラー',
+    message: '以下の項目を確認してください。',
+    details: ['名前を入力してください', 'メールアドレス形式が不正です'],
+  },
+};
+
+export const WithClose: Story = {
+  args: {
+    message: '閉じるボタン付きのアラートです。',
+    onClose: () => {
+      // Storybook 用のサンプル
+    },
+  },
+};
+
+export const FromError: Story = {
+  args: {
+    error: new Error('Error オブジェクトから自動でメッセージを抽出します。'),
+  },
+};
+
+export const FromAPIError: Story = {
+  args: {
+    error: Object.assign(new Error('生メッセージ'), {
+      errorInfo: {
+        message: 'リクエストの検証に失敗しました',
+        details: ['name は必須です', 'email は形式が不正です'],
+        shouldRetry: false,
+      },
+    }) as Error,
+    onRetry: () => {
+      // shouldRetry: false のためボタンは表示されない
+    },
+  },
+};

@@ -14,9 +14,10 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
-import { Button, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { urlBase64ToUint8Array } from '@nagiyu/browser';
-import { calculateTargetPriceFromPercentage, formatPrice } from '../lib/percentage-helper';
+import { formatPrice } from '@nagiyu/common';
+import { calculateTargetPriceFromPercentage } from '../lib/percentage-helper';
 import type { Timeframe } from '../types/stock';
 import { TIMEFRAME_LABELS } from '../types/stock';
 import type { AlertResponse, AlertFrequency, AlertMode } from '../types/alert';
@@ -1124,11 +1125,7 @@ export default function AlertSettingsModal({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{dialogTitle}</DialogTitle>
       <DialogContent>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        {error && <ErrorAlert message={error} />}
 
         <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Typography variant="h6">株価チャート</Typography>

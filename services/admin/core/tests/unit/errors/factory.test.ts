@@ -8,17 +8,25 @@ import { DynamoDBErrorEventReader } from '../../../src/errors/dynamodb-reader.js
 import { InMemoryErrorEventReader } from '../../../src/errors/in-memory-reader.js';
 
 describe('createErrorEventReader', () => {
-  const original = process.env.USE_IN_MEMORY_DB;
+  const originalUseInMemory = process.env.USE_IN_MEMORY_DB;
+  const originalTableName = process.env.DYNAMODB_TABLE_NAME;
 
   beforeEach(() => {
     resetErrorEventReader();
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.DYNAMODB_TABLE_NAME;
   });
 
   afterEach(() => {
-    if (original === undefined) {
+    if (originalUseInMemory === undefined) {
       delete process.env.USE_IN_MEMORY_DB;
     } else {
-      process.env.USE_IN_MEMORY_DB = original;
+      process.env.USE_IN_MEMORY_DB = originalUseInMemory;
+    }
+    if (originalTableName === undefined) {
+      delete process.env.DYNAMODB_TABLE_NAME;
+    } else {
+      process.env.DYNAMODB_TABLE_NAME = originalTableName;
     }
     resetErrorEventReader();
   });
@@ -29,23 +37,18 @@ describe('createErrorEventReader', () => {
   });
 
   it('docClient + tableName で DynamoDB 実装', () => {
-    delete process.env.USE_IN_MEMORY_DB;
     const mockClient = { send: jest.fn() } as unknown as DynamoDBDocumentClient;
     expect(createErrorEventReader(mockClient, 'tbl')).toBeInstanceOf(DynamoDBErrorEventReader);
   });
 
-  it('docClient 欠落で例外', () => {
-    delete process.env.USE_IN_MEMORY_DB;
-    expect(() => createErrorEventReader(undefined, 'tbl')).toThrow(
-      'DynamoDB 実装には docClient と tableName が必要です'
-    );
+  it('引数省略時は env から tableName を取得して DynamoDB 実装', () => {
+    process.env.DYNAMODB_TABLE_NAME = 'tbl';
+    expect(createErrorEventReader()).toBeInstanceOf(DynamoDBErrorEventReader);
   });
 
-  it('tableName 欠落で例外', () => {
-    delete process.env.USE_IN_MEMORY_DB;
-    const mockClient = { send: jest.fn() } as unknown as DynamoDBDocumentClient;
-    expect(() => createErrorEventReader(mockClient, undefined)).toThrow(
-      'DynamoDB 実装には docClient と tableName が必要です'
+  it('tableName が引数・env のいずれでも未指定なら例外', () => {
+    expect(() => createErrorEventReader()).toThrow(
+      '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
     );
   });
 

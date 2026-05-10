@@ -13,7 +13,6 @@ import {
   TableRow,
   Typography,
   CircularProgress,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -22,7 +21,8 @@ import {
   TextField,
   Snackbar,
 } from '@mui/material';
-import { Button, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -61,8 +61,8 @@ const ERROR_MESSAGES = {
   CREATE_ERROR: '取引所の作成に失敗しました',
   UPDATE_ERROR: '取引所の更新に失敗しました',
   DELETE_ERROR: '取引所の削除に失敗しました',
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
+  UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
   VALIDATION_ERROR: '入力内容を確認してください',
 } as const;
 
@@ -384,11 +384,7 @@ export default function ExchangesPage() {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }}>
       {/* エラーメッセージ表示 */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
       {/* ヘッダー */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>

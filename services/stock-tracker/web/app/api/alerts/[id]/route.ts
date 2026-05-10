@@ -18,13 +18,14 @@ import {
 import { getSession } from '../../../../lib/auth';
 import type { AlertEntity, AlertCondition } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
   ALERT_NOT_FOUND: '指定されたアラートが見つかりません',
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   VALIDATION_ERROR: '入力データが不正です',
   UPDATE_ERROR: 'アラートの更新に失敗しました',
   DELETE_ERROR: 'アラートの削除に失敗しました',

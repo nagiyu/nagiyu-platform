@@ -21,7 +21,7 @@ import {
   // eslint-disable-next-line no-restricted-imports -- 数値入力の HTML 制約 step/min/max（slotProps.htmlInput）が必要なため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
 } from '@mui/material';
-import { Button, Select } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -572,17 +572,7 @@ export default function HoldingsPage() {
   return (
     <Container maxWidth="xl" sx={{ py: 3 }} role="main">
       {/* エラーメッセージ表示 */}
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => setError('')}
-          role="alert"
-          aria-live="assertive"
-        >
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorAlert message={error} onClose={() => setError('')} />}
 
       {/* 成功メッセージ表示 */}
       {successMessage && (
@@ -749,16 +739,8 @@ export default function HoldingsPage() {
       <Dialog open={createModalOpen} onClose={handleCloseCreateModal} maxWidth="sm" fullWidth>
         <DialogTitle>保有株式の登録</DialogTitle>
         <DialogContent>
-          {exchangesError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {exchangesError}
-            </Alert>
-          )}
-          {tickersError && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {tickersError}
-            </Alert>
-          )}
+          {exchangesError && <ErrorAlert message={exchangesError} />}
+          {tickersError && <ErrorAlert message={tickersError} />}
 
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* 取引所選択 */}

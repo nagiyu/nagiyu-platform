@@ -6,13 +6,12 @@ import {
   // eslint-disable-next-line no-restricted-imports -- パスワード表示切替の endAdornment（IconButton）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
   Typography,
-  Alert,
   Card,
   CardContent,
   InputAdornment,
   IconButton,
 } from '@mui/material';
-import { Button, Checkbox } from '@nagiyu/ui';
+import { Button, Checkbox, ErrorAlert } from '@nagiyu/ui';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
@@ -21,7 +20,7 @@ import {
   MylistRegisterRequest,
   MylistRegisterResponse,
 } from '@/types/mylist';
-import { extractErrorMessage } from '@/lib/error-utils';
+import { extractErrorMessage } from '@nagiyu/common';
 
 interface MylistRegisterFormProps {
   onSuccess?: (response: MylistRegisterResponse) => void;
@@ -153,11 +152,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
 
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
           {/* エラーメッセージ */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* 登録条件 */}
           <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>

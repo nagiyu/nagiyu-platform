@@ -1,7 +1,7 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
-import { DynamoDBUserRepository } from '../db/repositories/dynamodb-user-repository';
+import { createUserRepository } from '../repositories/factory';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -28,9 +28,8 @@ if (
   }
 }
 
-// DynamoDB を使用してユーザー情報を永続化
-const userRepository = new DynamoDBUserRepository();
-
+// UserRepository は Next.js のビルド時に初期化されないよう、コールバック内で都度取得する。
+// registry 側でシングルトン化されるため複数回呼び出しても同一インスタンスが返る。
 const sharedAuthConfig = createAuthConfig({
   jwt: async ({ token, user, account }) => {
     if (account && user) {
@@ -39,6 +38,7 @@ const sharedAuthConfig = createAuthConfig({
       token.name = user.name;
       token.picture = user.image;
 
+      const userRepository = createUserRepository();
       const dbUser = await userRepository.getUserByGoogleId(account.providerAccountId);
       token.userId = dbUser?.userId;
       token.roles = dbUser?.roles || [];
@@ -96,6 +96,7 @@ export const authConfig: NextAuthConfig = {
         return false;
       }
 
+      const userRepository = createUserRepository();
       await userRepository.upsertUser({
         googleId: account.providerAccountId,
         email: user.email,

@@ -1,17 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   Box,
   Card,
   CardContent,
   Typography,
   CircularProgress,
-  Alert,
   LinearProgress,
   Stack,
 } from '@mui/material';
-import { Button, Chip, TextField } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -26,8 +26,8 @@ import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-co
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
-  NOT_FOUND: '指定されたジョブが見つかりません',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
+  NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 /**
@@ -273,12 +273,10 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
 
           {/* エラー表示 */}
           {state.error && (
-            <Alert
-              severity="error"
+            <ErrorAlert
+              message={state.error}
               onClose={() => setState((prev) => ({ ...prev, error: undefined }))}
-            >
-              {state.error}
-            </Alert>
+            />
           )}
 
           {/* ステータス表示 */}

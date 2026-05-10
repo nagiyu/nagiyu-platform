@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import Link from 'next/link';
 import {
-  Alert,
   CircularProgress,
   Container,
   Paper,
@@ -13,7 +13,7 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import type { BatchStage, JobStatus } from '@/types/quick-clip';
@@ -23,7 +23,7 @@ const POLLING_INTERVAL_MS = 5000;
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: 'ジョブ情報の取得に失敗しました',
-  NOT_FOUND: '指定されたジョブが見つかりません',
+  NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -196,11 +196,7 @@ export default function JobPage({ params }: JobPageProps) {
           </Stack>
         )}
 
-        {errorMessage && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {errorMessage}
-          </Alert>
-        )}
+        {errorMessage && <ErrorAlert message={errorMessage} />}
 
         {job && (
           <Stack spacing={2}>

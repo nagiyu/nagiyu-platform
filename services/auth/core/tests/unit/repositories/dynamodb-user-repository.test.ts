@@ -1,9 +1,9 @@
 import {
   DynamoDBUserRepository,
   UserNotFoundError,
-} from '../../../../../src/db/repositories/dynamodb-user-repository';
+} from '../../../src/repositories/dynamodb-user-repository';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import type { User } from '../../../../../src/db/types';
+import type { User } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 
 const USERS_TABLE_NAME = 'test-users-table';

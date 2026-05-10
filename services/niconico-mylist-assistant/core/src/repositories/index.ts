@@ -24,6 +24,3 @@ export {
   createBatchJobRepository,
   resetRepositoryFactories,
 } from './factory.js';
-
-// Store
-export { getInMemoryStore, clearInMemoryStore } from './store.js';

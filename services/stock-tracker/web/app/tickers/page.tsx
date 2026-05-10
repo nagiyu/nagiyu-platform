@@ -20,7 +20,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { Button, Select, TextField } from '@nagiyu/ui';
+import { Button, ErrorAlert, Select, TextField } from '@nagiyu/ui';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
 // エラーメッセージ定数
@@ -317,11 +317,7 @@ export default function TickersPage() {
       </Box>
 
       {/* エラー・成功メッセージ */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
-          {error}
-        </Alert>
-      )}
+      {error && <ErrorAlert message={error} onClose={() => setError('')} />}
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess('')}>
           {success}

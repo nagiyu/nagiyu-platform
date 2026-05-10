@@ -1,26 +1,4 @@
-import { formatFileSize, formatDateTime, formatJobId } from '../../src/format';
-
-describe('formatFileSize', () => {
-  it('KB単位でフォーマット（1MB未満）', () => {
-    expect(formatFileSize(512 * 1024)).toBe('512.0 KB');
-    expect(formatFileSize(1023 * 1024)).toBe('1023.0 KB');
-  });
-
-  it('MB単位でフォーマット（1MB以上）', () => {
-    expect(formatFileSize(1024 * 1024)).toBe('1.0 MB');
-    expect(formatFileSize(50 * 1024 * 1024)).toBe('50.0 MB');
-    expect(formatFileSize(100 * 1024 * 1024)).toBe('100.0 MB');
-  });
-
-  it('小数点以下1桁まで表示', () => {
-    expect(formatFileSize(1.5 * 1024)).toBe('1.5 KB');
-    expect(formatFileSize(2.75 * 1024 * 1024)).toBe('2.8 MB');
-  });
-
-  it('0バイト', () => {
-    expect(formatFileSize(0)).toBe('0.0 KB');
-  });
-});
+import { formatDateTime, formatJobId } from '../../src/format';
 
 describe('formatDateTime', () => {
   it('Unix timestamp（秒）を日本語ロケールの日時文字列にフォーマット', () => {

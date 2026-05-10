@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Button, Chip } from '@nagiyu/ui';
+import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { AlertResponse } from '@/types/alert';
 import AlertSettingsModal from './AlertSettingsModal';
@@ -138,11 +138,7 @@ export default function TickerAlertListCard({
             </Button>
           </Box>
         </Stack>
-        {localError && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setLocalError('')}>
-            {localError}
-          </Alert>
-        )}
+        {localError && <ErrorAlert message={localError} onClose={() => setLocalError('')} />}
         {localSuccess && (
           <Alert severity="success" sx={{ mb: 2 }} onClose={() => setLocalSuccess('')}>
             {localSuccess}
