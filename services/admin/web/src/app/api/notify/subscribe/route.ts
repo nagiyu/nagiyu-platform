@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { PushSubscription } from '@nagiyu/common';
-import { requirePermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, requirePermission } from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse } from '@nagiyu/nextjs';
 import { createPushSubscriptionRepository } from '@nagiyu/admin-core';
