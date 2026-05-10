@@ -27,6 +27,7 @@ export {
   isRetryableError,
   extractErrorInfo,
 } from './error-handler.js';
+export { extractErrorMessage } from './error-utils.js';
 
 // Export API client
 export {

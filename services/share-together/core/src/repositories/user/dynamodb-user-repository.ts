@@ -6,6 +6,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import type { CreateUserInput, UpdateUserInput, User } from '../../types/index.js';
 import type { UserRepository } from './user-repository.interface.js';
 
@@ -15,7 +16,7 @@ const GSI2_INDEX_NAME = 'GSI2';
 const ERROR_MESSAGES = {
   INVALID_USER_DATA: 'ユーザー情報の形式が不正です',
   USER_ALREADY_EXISTS: 'ユーザーは既に存在します',
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
+  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
 } as const;
 
 export class DynamoDBUserRepository implements UserRepository {

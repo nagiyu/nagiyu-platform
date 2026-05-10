@@ -4,7 +4,7 @@ describe('ERROR_MESSAGES', () => {
   it('主要なエラーメッセージを日本語で提供する', () => {
     expect(ERROR_MESSAGES).toEqual({
       UNAUTHORIZED: '認証が必要です',
-      FORBIDDEN: 'アクセス権限がありません',
+      FORBIDDEN: 'この操作を実行する権限がありません',
       NOT_FOUND: '対象のデータが見つかりません',
       VALIDATION_ERROR: '入力内容が不正です',
       CONFLICT: 'データの競合が発生しました',

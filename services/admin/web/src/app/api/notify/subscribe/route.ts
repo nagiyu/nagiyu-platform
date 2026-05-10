@@ -8,7 +8,7 @@ import { getSession } from '@/lib/auth/session';
 
 const ERROR_MESSAGES = {
   UNAUTHORIZED: 'ログインが必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
   INVALID_REQUEST: 'リクエストボディが不正です',
   INVALID_SUBSCRIPTION: 'サブスクリプション情報が不正です',
   INTERNAL_ERROR: 'サブスクリプション処理に失敗しました',
