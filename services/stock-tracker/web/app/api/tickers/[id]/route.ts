@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
@@ -21,7 +22,7 @@ const ERROR_MESSAGES = {
   TICKER_UPDATE_FAILED: 'ティッカーの更新に失敗しました',
   TICKER_DELETE_FAILED: 'ティッカーの削除に失敗しました',
   RELATED_DATA_EXISTS: '関連するデータが存在するため削除できません',
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
 } as const;
 
 /**

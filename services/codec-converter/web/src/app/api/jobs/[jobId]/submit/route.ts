@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
@@ -8,7 +9,7 @@ import type { ErrorResponse } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
   INVALID_STATUS: 'ジョブは既に実行中または完了しています',
   FILE_NOT_FOUND: '入力ファイルが見つかりません',
   INVALID_JOB_DEFINITION: 'ジョブ定義の選択に失敗しました',

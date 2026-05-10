@@ -111,7 +111,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     if (error instanceof ZodError) {
       return NextResponse.json(
         {
-          error: 'リクエストボディが不正です',
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
           details: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,

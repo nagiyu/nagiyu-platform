@@ -17,6 +17,7 @@
  */
 
 import { NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   createPushSubscriptionRepository,
   validateSnsMessage,
@@ -27,7 +28,7 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse } from '@nagiyu/nextjs';
 
 const ERROR_MESSAGES = {
-  INVALID_REQUEST: 'リクエストボディが不正です',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   INVALID_SIGNATURE: 'SNS 署名の検証に失敗しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',

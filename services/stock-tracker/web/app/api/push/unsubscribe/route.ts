@@ -10,12 +10,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
 import type { ErrorResponse } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   MISSING_ENDPOINT: 'エンドポイント情報が必要です',
   INVALID_ENDPOINT: 'エンドポイント情報が不正です',
   INTERNAL_ERROR: 'サブスクリプションの解除に失敗しました',

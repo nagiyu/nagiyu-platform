@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   Dialog,
   DialogTitle,
@@ -37,7 +38,7 @@ const ERROR_MESSAGES = {
   FETCH_FAILED: '動画情報の取得に失敗しました',
   UPDATE_FAILED: '設定の更新に失敗しました',
   DELETE_FAILED: '動画の削除に失敗しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
   MEMO_TOO_LONG: 'メモは1000文字以内で入力してください',
 } as const;
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Grid, Box, Typography, CircularProgress } from '@mui/material';
 import { ErrorAlert } from '@nagiyu/ui';
@@ -12,7 +13,7 @@ import VideoDetailModal from './VideoDetailModal';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: '動画一覧の取得に失敗しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
 } as const;
 
 /**
