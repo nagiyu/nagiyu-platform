@@ -21,7 +21,10 @@ function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProp
     'roles' in session.user &&
     Array.isArray(session.user.roles) &&
     hasPermission(session.user.roles, 'stocks:read')
-      ? [{ label: 'サマリー', href: '/summaries' }]
+      ? [
+          { label: 'サマリー', href: '/summaries' },
+          { label: '予測精度', href: '/prediction-evaluation' },
+        ]
       : []),
     { label: '保有株式', href: '/holdings' },
     { label: 'アラート', href: '/alerts' },
