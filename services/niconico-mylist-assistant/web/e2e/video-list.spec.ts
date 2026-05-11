@@ -221,10 +221,14 @@ test.describe('Video List Page', () => {
     const firstCard = page.locator('[class*="MuiCard"]').first();
     await firstCard.getByRole('button', { name: /お気に入り/ }).click();
     await page.waitForResponse((res) => res.url().includes('/api/videos/'));
+    // 1 回目の toggle 後にリストが再フェッチ・再レンダリングされるため、
+    // ボタン表示が「お気に入り解除」に切り替わるまで待ってから次のクリックへ進む
+    await expect(firstCard.getByRole('button', { name: 'お気に入り解除' })).toBeVisible();
 
     const secondCard = page.locator('[class*="MuiCard"]').nth(1);
-    await secondCard.getByRole('button', { name: /お気に入り/ }).click();
+    await secondCard.getByRole('button', { name: 'お気に入りに追加' }).click();
     await page.waitForResponse((res) => res.url().includes('/api/videos/'));
+    await expect(secondCard.getByRole('button', { name: 'お気に入り解除' })).toBeVisible();
 
     // お気に入りフィルターを変更
     await page.locator('#favorite-filter').selectOption('true');
@@ -492,6 +496,9 @@ test.describe('Video List URL Synchronization', () => {
 
     // お気に入りフィルターを変更
     await page.locator('#favorite-filter').selectOption('true');
+    // フィルター変更ハンドラは現在の URL から他フィルター値を読み直すため、
+    // 1 回目の router.push がコミットされるのを待たないと 2 回目の変更で値が落ちる
+    await expect(page).toHaveURL('/mylist?favorite=true');
 
     // スキップフィルターを変更
     await page.locator('#skip-filter').selectOption('false');
