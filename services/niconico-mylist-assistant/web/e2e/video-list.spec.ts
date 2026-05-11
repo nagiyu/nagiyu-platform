@@ -201,30 +201,16 @@ test.describe('Video List Page', () => {
   });
 
   test('should filter videos by favorite', async ({ page, request }) => {
-    // 最初にいくつかの動画をインポート
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
+    // セットアップは UI クリックではなく test seed API でお気に入り 2 件を直接作成する。
+    // クリックで作ると VideoList の再フェッチ・再レンダリングと次のクリックが
+    // 競合してフレークになる（実 niconico API もフレーク要因）。
+    const seedResponse = await request.post('/api/test/videos', {
+      data: { count: 5, startId: 40000000, favoriteCount: 2 },
     });
-    const body = await response.json();
-
-    test.skip(
-      body.success < 3,
-      `Niconico API rejected too many videos (only ${body.success} imported)`
-    );
+    expect(seedResponse.ok()).toBeTruthy();
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
-
-    // 最初の2つの動画をお気に入りに設定
-    const firstCard = page.locator('[class*="MuiCard"]').first();
-    await firstCard.getByRole('button', { name: /お気に入り/ }).click();
-    await page.waitForResponse((res) => res.url().includes('/api/videos/'));
-
-    const secondCard = page.locator('[class*="MuiCard"]').nth(1);
-    await secondCard.getByRole('button', { name: /お気に入り/ }).click();
-    await page.waitForResponse((res) => res.url().includes('/api/videos/'));
 
     // お気に入りフィルターを変更
     await page.locator('#favorite-filter').selectOption('true');
@@ -492,6 +478,9 @@ test.describe('Video List URL Synchronization', () => {
 
     // お気に入りフィルターを変更
     await page.locator('#favorite-filter').selectOption('true');
+    // フィルター変更ハンドラは現在の URL から他フィルター値を読み直すため、
+    // 1 回目の router.push がコミットされるのを待たないと 2 回目の変更で値が落ちる
+    await expect(page).toHaveURL('/mylist?favorite=true');
 
     // スキップフィルターを変更
     await page.locator('#skip-filter').selectOption('false');

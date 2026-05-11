@@ -376,13 +376,12 @@ test.describe('Video Detail Modal', () => {
   }) => {
     const videoId = 'sm49990000';
 
+    // VideoBasicInfo のみ作成し UserSetting は作成しないことで、
+    // PUT /settings の create-on-missing 経路を検証できる前提条件をつくる
     const seedResponse = await request.post('/api/test/videos', {
-      data: { count: 1, startId: 49990000 },
+      data: { count: 1, startId: 49990000, skipUserSetting: true },
     });
     expect(seedResponse.ok()).toBeTruthy();
-
-    const deleteResponse = await request.delete(`/api/videos/${videoId}`);
-    expect(deleteResponse.ok()).toBeTruthy();
 
     const updateResponse = await request.put(`/api/videos/${videoId}/settings`, {
       data: { isFavorite: true },

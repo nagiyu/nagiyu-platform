@@ -13,6 +13,8 @@ interface SeedRequest {
   count: number;
   startId?: number;
   favoriteCount?: number;
+  // VideoBasicInfo のみ作成し UserSetting を作成しない（PUT /settings の create-on-missing 経路の検証用）
+  skipUserSetting?: boolean;
 }
 
 function isTestMode(): boolean {
@@ -37,6 +39,7 @@ export async function POST(request: NextRequest) {
     const count = body.count;
     const startId = body.startId ?? 50000000;
     const favoriteCount = body.favoriteCount ?? 0;
+    const skipUserSetting = body.skipUserSetting ?? false;
 
     for (let i = 0; i < count; i++) {
       const videoId = `sm${startId + i}`;
@@ -46,12 +49,14 @@ export async function POST(request: NextRequest) {
         thumbnailUrl: `https://example.com/${videoId}.jpg`,
         length: '3:00',
       });
-      await upsertUserVideoSetting({
-        userId: session.user.userId,
-        videoId,
-        isFavorite: i < favoriteCount,
-        isSkip: false,
-      });
+      if (!skipUserSetting) {
+        await upsertUserVideoSetting({
+          userId: session.user.userId,
+          videoId,
+          isFavorite: i < favoriteCount,
+          isSkip: false,
+        });
+      }
     }
 
     return NextResponse.json({ success: true, count });
