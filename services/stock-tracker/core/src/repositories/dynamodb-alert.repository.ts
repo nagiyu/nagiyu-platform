@@ -76,7 +76,10 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
   /**
    * ユーザーのアラート一覧を取得（GSI1使用）。
-   * `enabledOnly: true` を指定すると、有効化済み（Enabled=true）のアラートのみ返す。
+   *
+   * 論理削除待ち（TTL 属性が設定済み = 一時アラート失効バッチで `markTemporaryAsExpired`
+   * された）のアイテムは常に除外する。ユーザーが手動で無効化したアラート
+   * （`Enabled=false` で TTL は未設定）は引き続き返す。
    */
   public async getByUserId(
     userId: string,
@@ -92,26 +95,21 @@ export class DynamoDBAlertRepository implements AlertRepository {
       const expressionAttributeNames: Record<string, string> = {
         '#gsi1pk': 'GSI1PK',
         '#gsi1sk': 'GSI1SK',
+        '#ttl': 'TTL',
       };
       const expressionAttributeValues: Record<string, unknown> = {
         ':userId': userId,
         ':prefix': 'Alert#',
       };
-      let filterExpression: string | undefined;
-      if (options?.enabledOnly === true) {
-        expressionAttributeNames['#enabled'] = 'Enabled';
-        expressionAttributeValues[':enabledTrue'] = true;
-        filterExpression = '#enabled = :enabledTrue';
-      }
 
       result = await this.docClient.send(
         new QueryCommand({
           TableName: this.tableName,
           IndexName: 'UserIndex',
           KeyConditionExpression: '#gsi1pk = :userId AND begins_with(#gsi1sk, :prefix)',
+          FilterExpression: 'attribute_not_exists(#ttl)',
           ExpressionAttributeNames: expressionAttributeNames,
           ExpressionAttributeValues: expressionAttributeValues,
-          ...(filterExpression ? { FilterExpression: filterExpression } : {}),
           Limit: limit,
           ExclusiveStartKey: exclusiveStartKey,
         })

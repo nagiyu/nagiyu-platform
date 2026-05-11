@@ -53,7 +53,9 @@ export class InMemoryAlertRepository implements AlertRepository {
   }
 
   /**
-   * ユーザーのアラート一覧を取得
+   * ユーザーのアラート一覧を取得。
+   *
+   * 論理削除待ち（TTL 属性が設定済み）のアイテムは DynamoDB 実装に合わせて常に除外する。
    */
   public async getByUserId(
     userId: string,
@@ -72,15 +74,15 @@ export class InMemoryAlertRepository implements AlertRepository {
       options
     );
 
-    let items = result.items.map((item) => this.mapper.toEntity(item));
-    if (options?.enabledOnly === true) {
-      items = items.filter((item) => item.Enabled === true);
-    }
+    const filteredRawItems = result.items.filter(
+      (item) => (item as Record<string, unknown>).TTL === undefined
+    );
+    const items = filteredRawItems.map((item) => this.mapper.toEntity(item));
 
     return {
       items,
       nextCursor: result.nextCursor,
-      count: options?.enabledOnly === true ? items.length : result.count,
+      count: items.length,
     };
   }
 

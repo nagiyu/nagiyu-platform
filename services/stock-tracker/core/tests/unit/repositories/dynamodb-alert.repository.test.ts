@@ -273,32 +273,19 @@ describe('DynamoDBAlertRepository', () => {
       await expect(repository.getByUserId('user-123')).rejects.toThrow(DatabaseError);
     });
 
-    it('enabledOnly: true 指定時に FilterExpression が Enabled=true を要求する', async () => {
-      mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
-
-      await repository.getByUserId('user-123', { enabledOnly: true });
-
-      const sendCall = mockDocClient.send.mock.calls[0][0] as {
-        input: {
-          FilterExpression?: string;
-          ExpressionAttributeNames?: Record<string, string>;
-          ExpressionAttributeValues?: Record<string, unknown>;
-        };
-      };
-      expect(sendCall.input.FilterExpression).toBe('#enabled = :enabledTrue');
-      expect(sendCall.input.ExpressionAttributeNames?.['#enabled']).toBe('Enabled');
-      expect(sendCall.input.ExpressionAttributeValues?.[':enabledTrue']).toBe(true);
-    });
-
-    it('enabledOnly 未指定時は FilterExpression を付けない', async () => {
+    it('論理削除待ち（TTL 設定済み）アラートを除外する FilterExpression が常に付与される', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
 
       await repository.getByUserId('user-123');
 
       const sendCall = mockDocClient.send.mock.calls[0][0] as {
-        input: { FilterExpression?: string };
+        input: {
+          FilterExpression?: string;
+          ExpressionAttributeNames?: Record<string, string>;
+        };
       };
-      expect(sendCall.input.FilterExpression).toBeUndefined();
+      expect(sendCall.input.FilterExpression).toBe('attribute_not_exists(#ttl)');
+      expect(sendCall.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
     });
 
     it('無効なアラートデータをスキップし、有効なデータのみ返す', async () => {

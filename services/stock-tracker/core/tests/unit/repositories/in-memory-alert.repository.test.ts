@@ -433,7 +433,7 @@ describe('InMemoryAlertRepository', () => {
     });
   });
 
-  describe('getByUserId - enabledOnly', () => {
+  describe('getByUserId - 論理削除フィルタ', () => {
     const baseInput: CreateAlertInput = {
       UserID: 'user-123',
       TickerID: 'NSDQ:AAPL',
@@ -448,24 +448,30 @@ describe('InMemoryAlertRepository', () => {
       },
     };
 
-    it('enabledOnly: true で無効化済みアラートが除外される', async () => {
-      const enabled = await repository.create({ ...baseInput, Enabled: true });
-      const disabled = await repository.create({ ...baseInput, Enabled: false });
+    it('論理削除待ち（markTemporaryAsExpired で TTL 設定済み）アラートは結果から除外される', async () => {
+      const userDisabled = await repository.create({ ...baseInput, Enabled: false });
+      const pendingDeletion = await repository.create({
+        ...baseInput,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      });
+      await repository.markTemporaryAsExpired('user-123', pendingDeletion.AlertID, 1234567890);
 
-      const result = await repository.getByUserId('user-123', { enabledOnly: true });
+      const result = await repository.getByUserId('user-123');
 
       const ids = result.items.map((a) => a.AlertID);
-      expect(ids).toContain(enabled.AlertID);
-      expect(ids).not.toContain(disabled.AlertID);
+      expect(ids).toContain(userDisabled.AlertID);
+      expect(ids).not.toContain(pendingDeletion.AlertID);
     });
 
-    it('enabledOnly 未指定では無効化済みアラートも返る', async () => {
+    it('ユーザーが手動で無効化したアラート（Enabled=false、TTL なし）は引き続き返る', async () => {
       await repository.create({ ...baseInput, Enabled: true });
       await repository.create({ ...baseInput, Enabled: false });
 
       const result = await repository.getByUserId('user-123');
 
       expect(result.items).toHaveLength(2);
+      expect(result.items.map((a) => a.Enabled).sort()).toEqual([false, true]);
     });
   });
 
