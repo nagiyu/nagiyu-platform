@@ -33,11 +33,13 @@ describe('GET /api/alerts', () => {
     mockGetByUserId.mockResolvedValue({ items: [] });
   });
 
-  it('Web 一覧取得時に enabledOnly フィルタを付けずにリポジトリを呼ぶ', async () => {
+  it('Web 一覧取得時にページネーション以外のフィルタを付けずにリポジトリを呼ぶ', async () => {
     await GET(new NextRequest('http://localhost/api/alerts'));
 
     expect(mockGetByUserId).toHaveBeenCalledTimes(1);
     const [, options] = mockGetByUserId.mock.calls[0];
+    // 論理削除フィルタはリポジトリ側で常に適用されるため、ルート側は何も渡さない
+    expect(Object.keys(options)).toEqual(expect.arrayContaining(['limit', 'cursor']));
     expect(options).not.toHaveProperty('enabledOnly');
   });
 
