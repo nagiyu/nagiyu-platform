@@ -134,11 +134,8 @@ export const GET = withAuth(
       // ユーザーIDを取得
       const userId = session.user.userId;
 
-      // アラート一覧取得（無効化済みアラートは UI 上で「削除済み」と同等に扱うため除外）
-      const result = await alertRepo.getByUserId(userId, {
-        ...parsePagination(request),
-        enabledOnly: true,
-      });
+      // アラート一覧取得（無効化済みアラートも UI に表示するため除外しない）
+      const result = await alertRepo.getByUserId(userId, parsePagination(request));
 
       // TickerリポジトリでSymbolとNameを取得
       // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化
