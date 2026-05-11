@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateHolding } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { createHoldingRepository, createTickerRepository } from '../../../lib/repository-factory';
@@ -19,7 +20,7 @@ import type { Holding } from '@nagiyu/stock-tracker-core';
  */
 const ERROR_MESSAGES = {
   INVALID_LIMIT: 'limit は 1 から 100 の間で指定してください',
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   VALIDATION_ERROR: '入力データが不正です',
   INTERNAL_ERROR: '保有株式の取得に失敗しました',
   CREATE_ERROR: '保有株式の登録に失敗しました',

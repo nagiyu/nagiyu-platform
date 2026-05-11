@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
-import { hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
 import { UpdateUserSchema } from '../schemas';
 import { ZodError } from 'zod';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
+  UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
+  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   CANNOT_DELETE_SELF: '自分自身を削除することはできません',
 } as const;
 
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
 
   try {
     const { userId } = await params;
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
     const user = await repo.getUserById(userId);
 
     if (!user) {
@@ -101,7 +101,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
       );
     }
 
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
 
     // ユーザー情報を更新（リポジトリ層で存在チェックを実施）
     const updatedUser = await repo.updateUser(userId, validatedData);
@@ -111,7 +111,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
     if (error instanceof ZodError) {
       return NextResponse.json(
         {
-          error: 'リクエストボディが不正です',
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
           details: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
@@ -166,7 +166,7 @@ export async function DELETE(
       return NextResponse.json({ error: ERROR_MESSAGES.CANNOT_DELETE_SELF }, { status: 400 });
     }
 
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
 
     // ユーザーを削除（DynamoDB の DeleteCommand は存在しない場合でも成功するため、事前の存在チェックは不要）
     await repo.deleteUser(userId);

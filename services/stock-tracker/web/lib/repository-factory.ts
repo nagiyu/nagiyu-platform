@@ -1,18 +1,16 @@
 /**
  * Repository Factory
  *
- * 環境変数に基づいてリポジトリインスタンスを生成するファクトリー関数群
+ * 環境変数に基づいてリポジトリインスタンスを生成するファクトリー関数群。
+ * `@nagiyu/aws` の `registerDynamoRepositories` を利用し、5 リポジトリと
+ * 共有 InMemorySingleTableStore を一括管理する。
+ *
  * - USE_IN_MEMORY_DB=true の場合はインメモリ実装を返す
- * - それ以外の場合は DynamoDB 実装を返す
+ * - それ以外は DynamoDB 実装を返す（env から自動取得）
  * - シングルトンパターンでリポジトリインスタンスを管理
  */
 
-import {
-  InMemorySingleTableStore,
-  createRepositoryFactory,
-  getDynamoDBDocumentClient,
-  getTableName,
-} from '@nagiyu/aws';
+import { InMemorySingleTableStore, registerDynamoRepositories } from '@nagiyu/aws';
 import type {
   AlertRepository,
   HoldingRepository,
@@ -33,138 +31,72 @@ import {
   InMemoryExchangeRepository,
 } from '@nagiyu/stock-tracker-core';
 
-/**
- * エラーメッセージ定数
- */
-const ERROR_MESSAGES = {
-  MISSING_DYNAMODB_CONFIG: 'DynamoDB設定が不正です。環境変数を確認してください。',
-} as const;
-
-// InMemorySingleTableStore のシングルトン
-let memoryStore: InMemorySingleTableStore | null = null;
-
-/**
- * InMemorySingleTableStore のシングルトンインスタンスを取得または作成
- *
- * @returns InMemorySingleTableStore インスタンス
- */
-function getOrCreateMemoryStore(): InMemorySingleTableStore {
-  if (!memoryStore) {
-    memoryStore = new InMemorySingleTableStore();
+const repositoryRegistry = registerDynamoRepositories<
+  {
+    alert: AlertRepository;
+    holding: HoldingRepository;
+    ticker: TickerRepository;
+    exchange: ExchangeRepository;
+    dailySummary: DailySummaryRepository;
+  },
+  InMemorySingleTableStore
+>(
+  {
+    alert: {
+      createInMemoryRepository: (store) => new InMemoryAlertRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBAlertRepository(docClient, tableName),
+    },
+    holding: {
+      createInMemoryRepository: (store) => new InMemoryHoldingRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBHoldingRepository(docClient, tableName),
+    },
+    ticker: {
+      createInMemoryRepository: (store) => new InMemoryTickerRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBTickerRepository(docClient, tableName),
+    },
+    exchange: {
+      createInMemoryRepository: (store) => new InMemoryExchangeRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBExchangeRepository(docClient, tableName),
+    },
+    dailySummary: {
+      createInMemoryRepository: (store) => new InMemoryDailySummaryRepository(store),
+      createDynamoDBRepository: ({ docClient, tableName }) =>
+        new DynamoDBDailySummaryRepository(docClient, tableName),
+    },
+  },
+  {
+    createSharedStore: () => new InMemorySingleTableStore(),
   }
-  return memoryStore;
-}
+);
 
 /**
- * メモリストアと全リポジトリインスタンスをクリア
- *
- * テスト終了時に使用
+ * メモリストアと全リポジトリインスタンスをクリア。
+ * テスト終了時に使用。
  */
 export function clearMemoryStore(): void {
-  memoryStore = null;
-  alertRepositoryFactory.resetRepository();
-  holdingRepositoryFactory.resetRepository();
-  tickerRepositoryFactory.resetRepository();
-  exchangeRepositoryFactory.resetRepository();
-  dailySummaryRepositoryFactory.resetRepository();
+  repositoryRegistry.resetAll();
 }
 
-/**
- * Alert Repository を作成
- *
- * @returns AlertRepository インスタンス
- */
 export function createAlertRepository(): AlertRepository {
-  return alertRepositoryFactory.createRepository();
+  return repositoryRegistry.alert.createRepository();
 }
 
-/**
- * Holding Repository を作成
- *
- * @returns HoldingRepository インスタンス
- */
 export function createHoldingRepository(): HoldingRepository {
-  return holdingRepositoryFactory.createRepository();
+  return repositoryRegistry.holding.createRepository();
 }
 
-/**
- * Ticker Repository を作成
- *
- * @returns TickerRepository インスタンス
- */
 export function createTickerRepository(): TickerRepository {
-  return tickerRepositoryFactory.createRepository();
+  return repositoryRegistry.ticker.createRepository();
 }
 
-/**
- * Exchange Repository を作成
- *
- * @returns ExchangeRepository インスタンス
- */
 export function createExchangeRepository(): ExchangeRepository {
-  return exchangeRepositoryFactory.createRepository();
+  return repositoryRegistry.exchange.createRepository();
 }
 
-/**
- * DailySummary Repository を作成
- *
- * @returns DailySummaryRepository インスタンス
- */
 export function createDailySummaryRepository(): DailySummaryRepository {
-  return dailySummaryRepositoryFactory.createRepository();
+  return repositoryRegistry.dailySummary.createRepository();
 }
-
-function createDynamoDBRepository<TRepository>(
-  createRepository: (
-    docClient: ReturnType<typeof getDynamoDBDocumentClient>,
-    tableName: string
-  ) => TRepository
-): TRepository {
-  try {
-    const docClient = getDynamoDBDocumentClient();
-    const tableName = getTableName();
-    return createRepository(docClient, tableName);
-  } catch (error) {
-    throw new Error(ERROR_MESSAGES.MISSING_DYNAMODB_CONFIG, { cause: error });
-  }
-}
-
-const alertRepositoryFactory = createRepositoryFactory<AlertRepository>({
-  createInMemoryRepository: () => new InMemoryAlertRepository(getOrCreateMemoryStore()),
-  createDynamoDBRepository: () =>
-    createDynamoDBRepository(
-      (docClient, tableName) => new DynamoDBAlertRepository(docClient, tableName)
-    ),
-});
-
-const holdingRepositoryFactory = createRepositoryFactory<HoldingRepository>({
-  createInMemoryRepository: () => new InMemoryHoldingRepository(getOrCreateMemoryStore()),
-  createDynamoDBRepository: () =>
-    createDynamoDBRepository(
-      (docClient, tableName) => new DynamoDBHoldingRepository(docClient, tableName)
-    ),
-});
-
-const tickerRepositoryFactory = createRepositoryFactory<TickerRepository>({
-  createInMemoryRepository: () => new InMemoryTickerRepository(getOrCreateMemoryStore()),
-  createDynamoDBRepository: () =>
-    createDynamoDBRepository(
-      (docClient, tableName) => new DynamoDBTickerRepository(docClient, tableName)
-    ),
-});
-
-const exchangeRepositoryFactory = createRepositoryFactory<ExchangeRepository>({
-  createInMemoryRepository: () => new InMemoryExchangeRepository(getOrCreateMemoryStore()),
-  createDynamoDBRepository: () =>
-    createDynamoDBRepository(
-      (docClient, tableName) => new DynamoDBExchangeRepository(docClient, tableName)
-    ),
-});
-
-const dailySummaryRepositoryFactory = createRepositoryFactory<DailySummaryRepository>({
-  createInMemoryRepository: () => new InMemoryDailySummaryRepository(getOrCreateMemoryStore()),
-  createDynamoDBRepository: () =>
-    createDynamoDBRepository(
-      (docClient, tableName) => new DynamoDBDailySummaryRepository(docClient, tableName)
-    ),
-});

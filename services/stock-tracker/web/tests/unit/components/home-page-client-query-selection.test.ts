@@ -28,6 +28,110 @@ jest.mock('@nagiyu/ui', () => ({
   __esModule: true,
   ErrorAlert: ({ message }: { message: string }) =>
     React.createElement('div', { role: 'alert' }, message),
+  Button: ({
+    children,
+    onClick,
+    disabled,
+    type,
+    asChild,
+    loading,
+    startIcon,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    type?: 'button' | 'submit' | 'reset';
+    asChild?: boolean;
+    loading?: boolean;
+    startIcon?: React.ReactNode;
+    [key: string]: unknown;
+  }) => {
+    void asChild;
+    void loading;
+    void startIcon;
+    return React.createElement(
+      'button',
+      { onClick, disabled, type: type ?? 'button', ...rest },
+      children
+    );
+  },
+  Chip: ({
+    children,
+    onClick,
+    asChild,
+    variant,
+    color,
+    size,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    onClick?: (event: React.MouseEvent<HTMLElement>) => void;
+    asChild?: boolean;
+    variant?: string;
+    color?: string;
+    size?: string;
+    [key: string]: unknown;
+  }) => {
+    void asChild;
+    void variant;
+    void color;
+    void size;
+    return React.createElement(
+      onClick ? 'button' : 'span',
+      { onClick, type: onClick ? 'button' : undefined, ...rest },
+      children
+    );
+  },
+  Select: ({
+    id,
+    label,
+    value,
+    onChange,
+    options,
+    disabled,
+    placeholder,
+    fullWidth,
+    size,
+    ...rest
+  }: {
+    id?: string;
+    label?: React.ReactNode;
+    value: string;
+    onChange: (value: string) => void;
+    options: ReadonlyArray<{ value: string; label: string; disabled?: boolean }>;
+    disabled?: boolean;
+    placeholder?: string;
+    fullWidth?: boolean;
+    size?: string;
+    [key: string]: unknown;
+  }) => {
+    void fullWidth;
+    void size;
+    return React.createElement(
+      'select',
+      {
+        id,
+        value,
+        disabled,
+        'aria-label': typeof label === 'string' ? label : undefined,
+        onChange: (event: React.ChangeEvent<HTMLSelectElement>) => onChange(event.target.value),
+        ...rest,
+      },
+      [
+        placeholder !== undefined
+          ? React.createElement('option', { key: '__placeholder', value: '' }, placeholder)
+          : null,
+        ...options.map((option) =>
+          React.createElement(
+            'option',
+            { key: option.value, value: option.value, disabled: option.disabled },
+            option.label
+          )
+        ),
+      ]
+    );
+  },
 }));
 
 jest.mock('../../../components/EmptyState', () => ({

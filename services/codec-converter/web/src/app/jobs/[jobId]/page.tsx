@@ -1,26 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter } from 'next/navigation';
 import {
   type Job,
   type JobStatus,
   type CodecType,
-  formatFileSize,
   formatDateTime,
   formatJobId,
 } from '@nagiyu/codec-converter-core';
-import {
-  Container,
-  Typography,
-  Card,
-  CardContent,
-  Chip,
-  Button,
-  Alert,
-  Stack,
-  Box,
-} from '@mui/material';
+import { formatFileSize } from '@nagiyu/common';
+import { Container, Typography, Card, CardContent, Stack, Box } from '@mui/material';
+import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
 import AddIcon from '@mui/icons-material/Add';
@@ -28,15 +20,15 @@ import AddIcon from '@mui/icons-material/Add';
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブ情報の取得に失敗しました',
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 // ステータスバッジの色設定（WCAG AA準拠）
-const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'> = {
+const STATUS_COLORS: Record<JobStatus, 'warning' | 'primary' | 'success' | 'danger'> = {
   PENDING: 'warning',
-  PROCESSING: 'info',
+  PROCESSING: 'primary',
   COMPLETED: 'success',
-  FAILED: 'error',
+  FAILED: 'danger',
 };
 
 // ステータス表示テキスト
@@ -217,10 +209,10 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         <Typography variant="h4" component="h1" gutterBottom>
           変換ジョブ詳細
         </Typography>
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleNewConversion}>
+        <Box sx={{ mb: 3 }}>
+          <ErrorAlert message={error} />
+        </Box>
+        <Button variant="solid" startIcon={<AddIcon />} onClick={handleNewConversion}>
           新しい動画を変換
         </Button>
       </Container>
@@ -307,11 +299,9 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
             ステータス
           </Typography>
 
-          <Chip
-            label={STATUS_TEXT[job.status]}
-            color={STATUS_COLORS[job.status]}
-            sx={{ mb: 1, fontWeight: 'bold' }}
-          />
+          <Chip color={STATUS_COLORS[job.status]} className="mb-1 font-bold">
+            {STATUS_TEXT[job.status]}
+          </Chip>
 
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             {STATUS_DESCRIPTION[job.status]}
@@ -319,12 +309,9 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
           {/* エラーメッセージ表示（FAILED時） */}
           {job.status === 'FAILED' && job.errorMessage && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              <Typography variant="body2" sx={{ fontWeight: 'bold' }} gutterBottom>
-                エラー詳細:
-              </Typography>
-              <Typography variant="body2">{job.errorMessage}</Typography>
-            </Alert>
+            <Box sx={{ mt: 2 }}>
+              <ErrorAlert title="エラー詳細" message={job.errorMessage} />
+            </Box>
           )}
         </CardContent>
       </Card>
@@ -334,12 +321,11 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         {/* ステータス確認ボタン */}
         {showRefreshButton && (
           <Button
-            variant="contained"
-            size="large"
+            variant="solid"
+            size="lg"
             startIcon={<RefreshIcon />}
             onClick={handleRefresh}
-            disabled={isRefreshing}
-            fullWidth
+            loading={isRefreshing}
             aria-label="ジョブステータスを確認"
           >
             {isRefreshing ? '確認中...' : 'ステータス確認'}
@@ -349,12 +335,11 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         {/* ダウンロードボタン */}
         {showDownloadButton && (
           <Button
-            variant="contained"
-            size="large"
+            variant="solid"
+            size="lg"
             color="success"
             startIcon={<DownloadIcon />}
             onClick={handleDownload}
-            fullWidth
             aria-label="変換済みファイルをダウンロード"
           >
             ダウンロード
@@ -363,11 +348,10 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
 
         {/* 新規変換ボタン */}
         <Button
-          variant="outlined"
-          size="large"
+          variant="outline"
+          size="lg"
           startIcon={<AddIcon />}
           onClick={handleNewConversion}
-          fullWidth
           aria-label="新しい動画を変換する"
         >
           新しい動画を変換

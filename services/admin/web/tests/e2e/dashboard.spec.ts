@@ -27,7 +27,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('ロール:')).toBeVisible();
 
     // Check role chips are displayed (at least one chip should be visible)
-    const roleChips = page.locator('[class*="MuiChip"]');
+    const roleChips = page.locator('[data-testid="user-role"]');
     await expect(roleChips.first()).toBeVisible();
   });
 

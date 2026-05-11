@@ -335,11 +335,9 @@ export default function StockChart({
           minHeight: { xs: 400, sm: 500, md: 600 },
         }}
       >
-        <ErrorAlert
-          message={error}
-          title="チャート読み込みエラー"
-          sx={{ width: '100%', maxWidth: 600 }}
-        />
+        <Box sx={{ width: '100%', maxWidth: 600 }}>
+          <ErrorAlert message={error} title="チャート読み込みエラー" />
+        </Box>
       </Box>
     );
   }

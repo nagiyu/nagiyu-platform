@@ -18,12 +18,13 @@ import {
 import { getSession } from '../../../lib/auth';
 import type { AlertEntity, CreateAlertInput } from '@nagiyu/stock-tracker-core';
 import type { ErrorResponse } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
  */
 const ERROR_MESSAGES = {
-  INVALID_REQUEST_BODY: 'リクエストボディが不正です',
+  INVALID_REQUEST_BODY: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   VALIDATION_ERROR: '入力データが不正です',
   CREATE_ERROR: 'アラートの登録に失敗しました',
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
@@ -133,11 +134,8 @@ export const GET = withAuth(
       // ユーザーIDを取得
       const userId = session.user.userId;
 
-      // アラート一覧取得（無効化済みアラートは UI 上で「削除済み」と同等に扱うため除外）
-      const result = await alertRepo.getByUserId(userId, {
-        ...parsePagination(request),
-        enabledOnly: true,
-      });
+      // アラート一覧取得（無効化済みアラートも UI に表示するため除外しない）
+      const result = await alertRepo.getByUserId(userId, parsePagination(request));
 
       // TickerリポジトリでSymbolとNameを取得
       // TODO: Phase 1では簡易実装（N+1問題あり）。Phase 2でバッチ取得に最適化

@@ -1,15 +1,7 @@
 'use client';
 
-import {
-  Card,
-  CardMedia,
-  CardContent,
-  Typography,
-  Chip,
-  Box,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
+import { Card, CardMedia, CardContent, Typography, Box, IconButton, Tooltip } from '@mui/material';
+import { Chip } from '@nagiyu/ui';
 import { Favorite, FavoriteBorder, RemoveCircle, RemoveCircleOutlined } from '@mui/icons-material';
 import type { VideoData } from '@nagiyu/niconico-mylist-assistant-core';
 
@@ -119,7 +111,9 @@ export default function VideoCard({
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Chip label={video.length} size="small" variant="outlined" />
+          <Chip size="sm" variant="outline">
+            {video.length}
+          </Chip>
           <Typography variant="caption" color="text.secondary">
             {formatDate(video.createdAt)}
           </Typography>

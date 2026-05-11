@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
-  Chip,
   CircularProgress,
   Container,
   FormControlLabel,
@@ -19,9 +17,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from '@mui/material';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import type { Highlight } from '@/types/quick-clip';
@@ -54,11 +52,11 @@ const HIGHLIGHT_STATUS_LABELS = {
 } as const;
 const HIGHLIGHT_STATUS_COLORS: Record<
   'unconfirmed' | 'accepted' | 'rejected',
-  'default' | 'success' | 'error'
+  'neutral' | 'success' | 'danger'
 > = {
-  unconfirmed: 'default',
+  unconfirmed: 'neutral',
   accepted: 'success',
-  rejected: 'error',
+  rejected: 'danger',
 } as const;
 
 type HighlightsPageProps = {
@@ -111,10 +109,9 @@ function TimeInput({ value, min = 0, onCommit }: TimeInputProps) {
 
   return (
     <TextField
-      size="small"
+      size="sm"
       type="number"
       value={draft}
-      slotProps={{ htmlInput: { min, step: 1 } }}
       onChange={(event) => setDraft(event.target.value)}
       onBlur={() => void handleBlur()}
     />
@@ -422,11 +419,7 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
           </Stack>
         )}
 
-        {errorMessage && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {errorMessage}
-          </Alert>
-        )}
+        {errorMessage && <ErrorAlert message={errorMessage} />}
 
         {expiresAt !== null && (
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -581,8 +574,8 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                   {/* リトライボタン (FAILED 時のみ) */}
                   {selectedHighlight.clipStatus === 'FAILED' && (
                     <Button
-                      variant="outlined"
-                      color="error"
+                      variant="outline"
+                      color="danger"
                       startIcon={<ReplayIcon />}
                       onClick={() => void onRegenerate(selectedHighlight)}
                     >
@@ -646,11 +639,9 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                           </TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                              <Chip
-                                label={HIGHLIGHT_STATUS_LABELS[highlight.status]}
-                                size="small"
-                                color={HIGHLIGHT_STATUS_COLORS[highlight.status]}
-                              />
+                              <Chip size="sm" color={HIGHLIGHT_STATUS_COLORS[highlight.status]}>
+                                {HIGHLIGHT_STATUS_LABELS[highlight.status]}
+                              </Chip>
                               {highlight.clipStatus === 'GENERATING' && (
                                 <CircularProgress size={12} />
                               )}
@@ -673,9 +664,10 @@ export default function HighlightsPage({ params }: HighlightsPageProps) {
                 </Typography>
 
                 <Button
-                  variant="contained"
+                  variant="solid"
                   onClick={onDownload}
-                  disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip || isDownloading}
+                  loading={isDownloading}
+                  disabled={acceptedCount === 0 || hasUngeneratedAcceptedClip}
                 >
                   {isDownloading ? 'ダウンロード準備中...' : 'ZIP ダウンロード'}
                 </Button>

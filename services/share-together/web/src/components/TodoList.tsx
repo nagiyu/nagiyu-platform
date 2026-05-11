@@ -68,23 +68,37 @@ export function TodoList({ scope = 'personal', listId, groupId }: TodoListProps)
     fetchControllerRef.current?.abort();
     const controller = new AbortController();
     fetchControllerRef.current = controller;
+
     void globalThis
       .fetch(createTodosApiPath(scope, targetListId, groupId), { signal: controller.signal })
       .then(async (response) => {
-        fetchControllerRef.current = null;
         if (!response.ok) {
           throw new Error(`status: ${response.status}`);
         }
-        const result = (await response.json()) as TodosResponse;
+        return (await response.json()) as TodosResponse;
+      })
+      .then((result) => {
+        // mutation 等で abort 済みになった場合、レスポンスが先に届いていても state は更新しない。
+        // これにより GET レスポンスが mutation 後の最新 state を上書きする race を防ぐ。
+        if (controller.signal.aborted) {
+          return;
+        }
         setTodos(result.data.todos.map(toDisplayTodo));
       })
       .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
         if (error instanceof Error && error.name === 'AbortError') {
           return;
         }
-        fetchControllerRef.current = null;
         console.error(ERROR_MESSAGES.TODOS_FETCH_FAILED, { error, listId: targetListId });
         setSnackbarMessage(ERROR_MESSAGES.TODOS_FETCH_FAILED_NOTICE);
+      })
+      .finally(() => {
+        if (fetchControllerRef.current === controller) {
+          fetchControllerRef.current = null;
+        }
       });
   };
 

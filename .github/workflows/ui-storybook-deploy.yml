@@ -1,0 +1,79 @@
+name: Deploy UI Storybook
+
+on:
+  push:
+    branches:
+      - develop
+      - integration/**
+      - master
+    paths:
+      - 'libs/ui/**'
+      - 'libs/browser/**'
+      - 'libs/common/**'
+      - 'infra/ui-storybook/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ui-storybook-deploy.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy (dev only)'
+        required: true
+        type: choice
+        options:
+          - dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js and install dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          node-version: '24'
+          cache-dependency-path: package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Build dependencies (common, browser, ui)
+        run: |
+          npm run build --workspace=@nagiyu/common
+          npm run build --workspace=@nagiyu/browser
+          npm run build --workspace=@nagiyu/ui
+
+      - name: Build Storybook static site
+        run: npm run build-storybook --workspace=@nagiyu/ui
+
+      - name: CDK Bootstrap (if needed)
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          npm run bootstrap --workspace=@nagiyu/infra-ui-storybook -- aws://${ACCOUNT_ID}/us-east-1
+
+      - name: CDK Deploy
+        run: |
+          npm run deploy --workspace=@nagiyu/infra-ui-storybook -- --all \
+            --context env=dev \
+            --require-approval never
+
+      - name: Summary
+        run: |
+          echo "## UI Storybook Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Environment: dev" >> $GITHUB_STEP_SUMMARY
+          echo "Custom domain: https://dev-storybook.nagiyu.com" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "DNS は Route53 の ALIAS レコードとして本スタック内で自動構成されています。" >> $GITHUB_STEP_SUMMARY

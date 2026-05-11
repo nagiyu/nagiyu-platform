@@ -272,17 +272,14 @@ test.describe('個人リスト管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
-    await page.waitForLoadState('networkidle');
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
 
-    const scopeSelect = page.getByRole('combobox', { name: '表示範囲' }).first();
+    const scopeSelect = page.getByLabel('表示範囲').first();
 
-    await scopeSelect.click();
-    await page.getByRole('option', { name: '共有' }).click();
+    await scopeSelect.selectOption('shared');
     await expect(page.getByText('共有スコープToDo')).toBeVisible();
 
-    await scopeSelect.click();
-    await page.getByRole('option', { name: '個人' }).click();
+    await scopeSelect.selectOption('personal');
     await expect(page.getByText('個人スコープToDo')).toBeVisible();
     await expect(page.getByText('ToDo一覧の取得に失敗しました。')).not.toBeVisible();
   });
@@ -325,12 +322,9 @@ test.describe('個人リスト管理', () => {
     });
 
     await page.goto('/lists?listId=list-default');
-    const scopeSelect = page.getByRole('combobox', { name: '表示範囲' }).first();
-    await scopeSelect.click();
-    await page.getByRole('option', { name: '共有' }).click();
-    await expect(page.getByRole('combobox', { name: 'グループ' })).toHaveText(
-      '共有作成検証グループ'
-    );
+    const scopeSelect = page.getByLabel('表示範囲').first();
+    await scopeSelect.selectOption('shared');
+    await expect(page.getByLabel('グループ')).toHaveValue('shared-create-group');
     await expect(page.getByRole('button', { name: '共有リストを作成' })).toBeVisible();
 
     await page.getByRole('button', { name: '共有リストを作成' }).click();

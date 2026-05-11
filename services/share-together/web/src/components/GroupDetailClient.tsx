@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
   IconButton,
@@ -14,9 +13,9 @@ import {
   ListItemText,
   Snackbar,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
+import { Button, TextField } from '@nagiyu/ui';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { InviteForm } from '@/components/InviteForm';
@@ -247,11 +246,11 @@ export function GroupDetailClient({
             </List>
             <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
               {isOwner ? (
-                <Button variant="outlined" color="error" onClick={handleDeleteGroupRequest}>
+                <Button variant="outline" color="danger" onClick={handleDeleteGroupRequest}>
                   グループを削除
                 </Button>
               ) : (
-                <Button variant="outlined" color="warning" onClick={handleLeaveGroupRequest}>
+                <Button variant="outline" color="warning" onClick={handleLeaveGroupRequest}>
                   グループを脱退
                 </Button>
               )}
@@ -267,8 +266,8 @@ export function GroupDetailClient({
             <List>
               {groupLists.map((list) => (
                 <ListItem key={list.listId} disablePadding>
-                  <Button component={Link} href={createSharedListHref(list.listId)}>
-                    {list.name}
+                  <Button asChild variant="ghost">
+                    <Link href={createSharedListHref(list.listId)}>{list.name}</Link>
                   </Button>
                 </ListItem>
               ))}
@@ -278,15 +277,15 @@ export function GroupDetailClient({
             ) : null}
             <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
               <TextField
-                size="small"
+                size="sm"
                 fullWidth
                 label="新しい共有リスト名"
                 value={listName}
                 onChange={(event) => setListName(event.target.value)}
               />
               <Button
-                variant="contained"
-                disabled={isCreatingList}
+                variant="solid"
+                loading={isCreatingList}
                 onClick={() => {
                   if (!isCreatingList) {
                     void handleCreateGroupList();

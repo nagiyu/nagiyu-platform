@@ -4,14 +4,14 @@ import { useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Container,
-  MenuItem,
   Snackbar,
   Stack,
+  // eslint-disable-next-line no-restricted-imports -- error/helperText の動的切替などの組み合わせで MUI TextField を利用する
   TextField,
   Typography,
 } from '@mui/material';
+import { Button, Select } from '@nagiyu/ui';
 import ClearIcon from '@mui/icons-material/Clear';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { writeToClipboard } from '@nagiyu/browser';
@@ -142,19 +142,16 @@ export default function TimestampConverterClient() {
       </Typography>
 
       <Box sx={{ mb: 3 }}>
-        <TextField
-          select
+        <Select
           fullWidth
           label="タイムゾーン"
           value={timeZone}
-          onChange={(event) => setTimeZone(event.target.value)}
-        >
-          {STOCK_TRACKER_TIMEZONE_OPTIONS.map((option) => (
-            <MenuItem key={option.value} value={option.value}>
-              {option.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          onChange={setTimeZone}
+          options={STOCK_TRACKER_TIMEZONE_OPTIONS.map((option) => ({
+            value: option.value,
+            label: option.label,
+          }))}
+        />
       </Box>
 
       <Box sx={{ mb: 3 }}>
@@ -169,7 +166,7 @@ export default function TimestampConverterClient() {
           sx={{ mb: 2 }}
         />
         <Button
-          variant="contained"
+          variant="solid"
           onClick={handleConvertSeconds}
           disabled={!unixSecondsInput.trim()}
           aria-label="Unix秒を日時に変換する"
@@ -190,7 +187,7 @@ export default function TimestampConverterClient() {
           sx={{ mb: 2 }}
         />
         <Button
-          variant="contained"
+          variant="solid"
           onClick={handleConvertMilliseconds}
           disabled={!unixMillisecondsInput.trim()}
           aria-label="Unixミリ秒を日時に変換する"
@@ -211,7 +208,7 @@ export default function TimestampConverterClient() {
           sx={{ mb: 2 }}
         />
         <Button
-          variant="contained"
+          variant="solid"
           onClick={handleConvertDateTime}
           disabled={!dateTimeInput.trim()}
           aria-label="日時をUnixタイムスタンプに変換する"
@@ -254,7 +251,7 @@ export default function TimestampConverterClient() {
 
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
         <Button
-          variant="contained"
+          variant="solid"
           startIcon={<ContentCopyIcon />}
           onClick={handleCopy}
           disabled={!result}
@@ -263,7 +260,7 @@ export default function TimestampConverterClient() {
           結果をコピー
         </Button>
         <Button
-          variant="outlined"
+          variant="outline"
           startIcon={<ClearIcon />}
           onClick={handleClear}
           disabled={!hasAnyInput}

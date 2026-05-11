@@ -4,15 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Box,
-  Button,
   Card,
   CardContent,
-  FormControl,
   Container,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -21,6 +16,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { Button, ErrorAlert, Select } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
 import type { SummariesResponse, TickerSummary } from '@/types/stock';
@@ -147,35 +143,32 @@ export default function SummariesPage() {
       <Typography variant="h4" component="h1" sx={{ mb: 2 }}>
         日次サマリー
       </Typography>
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
-        <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel id="exchange-filter-label">取引所</InputLabel>
+      <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box sx={{ minWidth: 220 }}>
           <Select
-            labelId="exchange-filter-label"
-            value={selectedExchangeId}
+            id="exchange-filter"
             label="取引所"
-            onChange={(event) => setSelectedExchangeId(event.target.value)}
-          >
-            <MenuItem value="">すべての取引所</MenuItem>
-            {summaries.exchanges.map((exchange) => (
-              <MenuItem key={exchange.exchangeId} value={exchange.exchangeId}>
-                {exchange.exchangeName}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+            size="sm"
+            fullWidth
+            value={selectedExchangeId}
+            onChange={setSelectedExchangeId}
+            options={[
+              { value: '', label: 'すべての取引所' },
+              ...summaries.exchanges.map((exchange) => ({
+                value: exchange.exchangeId,
+                label: exchange.exchangeName,
+              })),
+            ]}
+          />
+        </Box>
         {hasManageDataPermission && (
-          <Button variant="contained" onClick={handleRefresh} disabled={isRefreshing}>
+          <Button variant="solid" onClick={handleRefresh} loading={isRefreshing}>
             サマリー更新
           </Button>
         )}
       </Box>
 
-      {errorMessage && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {errorMessage}
-        </Alert>
-      )}
+      {errorMessage && <ErrorAlert message={errorMessage} />}
       {refreshMessage && (
         <Alert
           severity={refreshMessage === ERROR_MESSAGES.REFRESH_SUCCESS ? 'success' : 'error'}
@@ -185,7 +178,7 @@ export default function SummariesPage() {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gap: 2 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         {isLoading ? (
           <Typography color="text.secondary">読み込み中...</Typography>
         ) : (

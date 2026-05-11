@@ -33,10 +33,10 @@ test.describe('Video List Page', () => {
     await page.goto('/mylist');
 
     // お気に入りフィルター
-    await expect(page.getByRole('combobox', { name: 'お気に入り' })).toBeVisible();
+    await expect(page.locator('#favorite-filter')).toBeVisible();
 
     // スキップフィルター
-    await expect(page.getByRole('combobox', { name: 'スキップ' })).toBeVisible();
+    await expect(page.locator('#skip-filter')).toBeVisible();
 
     // タイトル検索フィールド
     await expect(page.getByPlaceholder('動画タイトルで検索')).toBeVisible();
@@ -47,9 +47,7 @@ test.describe('Video List Page', () => {
     await page.waitForLoadState('networkidle');
 
     // ユーザー設定未作成の状態では「お気に入りのみ」で0件になる
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
 
     // 空の状態メッセージ
     await expect(page.getByText('動画が見つかりませんでした')).toBeVisible();
@@ -203,35 +201,19 @@ test.describe('Video List Page', () => {
   });
 
   test('should filter videos by favorite', async ({ page, request }) => {
-    // 最初にいくつかの動画をインポート
-    const response = await request.post('/api/videos/bulk-import', {
-      data: {
-        videoIds: ['sm40000000', 'sm40000001', 'sm40000002', 'sm40000003', 'sm40000004'],
-      },
+    // セットアップは UI クリックではなく test seed API でお気に入り 2 件を直接作成する。
+    // クリックで作ると VideoList の再フェッチ・再レンダリングと次のクリックが
+    // 競合してフレークになる（実 niconico API もフレーク要因）。
+    const seedResponse = await request.post('/api/test/videos', {
+      data: { count: 5, startId: 40000000, favoriteCount: 2 },
     });
-    const body = await response.json();
-
-    test.skip(
-      body.success < 3,
-      `Niconico API rejected too many videos (only ${body.success} imported)`
-    );
+    expect(seedResponse.ok()).toBeTruthy();
 
     await page.goto('/mylist');
     await page.waitForLoadState('networkidle');
 
-    // 最初の2つの動画をお気に入りに設定
-    const firstCard = page.locator('[class*="MuiCard"]').first();
-    await firstCard.getByRole('button', { name: /お気に入り/ }).click();
-    await page.waitForResponse((res) => res.url().includes('/api/videos/'));
-
-    const secondCard = page.locator('[class*="MuiCard"]').nth(1);
-    await secondCard.getByRole('button', { name: /お気に入り/ }).click();
-    await page.waitForResponse((res) => res.url().includes('/api/videos/'));
-
     // お気に入りフィルターを変更
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
 
     // APIレスポンスを待つ
     const filterResponse = await page.waitForResponse((res) => res.url().includes('/api/videos'));
@@ -261,9 +243,7 @@ test.describe('Video List Page', () => {
     await page.waitForLoadState('networkidle');
 
     // スキップフィルターを変更
-    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
-    await skipFilter.click();
-    await page.getByRole('option', { name: '通常動画のみ' }).click();
+    await page.locator('#skip-filter').selectOption('false');
 
     // APIレスポンスを待つ
     await page.waitForResponse((response) => response.url().includes('/api/videos'));
@@ -434,9 +414,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // お気に入りフィルターを変更
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
@@ -461,9 +439,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // スキップフィルターを変更
-    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
-    await skipFilter.click();
-    await page.getByRole('option', { name: '通常動画のみ' }).click();
+    await page.locator('#skip-filter').selectOption('false');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?skip=false');
@@ -501,14 +477,13 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // お気に入りフィルターを変更
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
+    // フィルター変更ハンドラは現在の URL から他フィルター値を読み直すため、
+    // 1 回目の router.push がコミットされるのを待たないと 2 回目の変更で値が落ちる
+    await expect(page).toHaveURL('/mylist?favorite=true');
 
     // スキップフィルターを変更
-    const skipFilter = page.getByRole('combobox', { name: 'スキップ' });
-    await skipFilter.click();
-    await page.getByRole('option', { name: '通常動画のみ' }).click();
+    await page.locator('#skip-filter').selectOption('false');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?favorite=true&skip=false');
@@ -585,9 +560,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // フィルターを変更
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
 
     // offsetがリセットされることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
@@ -622,9 +595,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // フィルターを変更
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
 
     // URLが更新されることを確認
     await expect(page).toHaveURL('/mylist?favorite=true');
@@ -655,9 +626,7 @@ test.describe('Video List URL Synchronization', () => {
     await page.waitForLoadState('networkidle');
 
     // フィルターを変更
-    const favoriteFilter = page.getByRole('combobox', { name: 'お気に入り' });
-    await favoriteFilter.click();
-    await page.getByRole('option', { name: 'お気に入りのみ' }).click();
+    await page.locator('#favorite-filter').selectOption('true');
 
     await expect(page).toHaveURL('/mylist?favorite=true');
 
@@ -750,10 +719,10 @@ test.describe('Video List URL Synchronization', () => {
     await page.goto('/mylist?favorite=true&skip=false');
     await page.waitForLoadState('networkidle');
 
-    // フィルターの状態が反映されることを確認
-    // Material-UI の Select コンポーネントは combobox ロールだが value を直接確認できないため、
-    // URLパラメータが正しく設定されていることを確認
+    // URL パラメータと Select 要素の value の両方が反映されることを確認
     await expect(page).toHaveURL(/favorite=true/);
     await expect(page).toHaveURL(/skip=false/);
+    await expect(page.locator('#favorite-filter')).toHaveValue('true');
+    await expect(page.locator('#skip-filter')).toHaveValue('false');
   });
 });

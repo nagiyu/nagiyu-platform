@@ -1,19 +1,17 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   Box,
   Card,
   CardContent,
   Typography,
   CircularProgress,
-  Alert,
   LinearProgress,
-  Chip,
   Stack,
-  TextField,
-  Button,
 } from '@mui/material';
+import { Button, Chip, ErrorAlert, TextField } from '@nagiyu/ui';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -28,8 +26,8 @@ import { TWO_FACTOR_AUTH_CODE_REGEX } from '@nagiyu/niconico-mylist-assistant-co
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: 'ジョブステータスの取得に失敗しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
-  NOT_FOUND: '指定されたジョブが見つかりません',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
+  NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 /**
@@ -228,10 +226,10 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
    */
   const getStatusColor = (
     status: BatchStatus
-  ): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+  ): 'neutral' | 'primary' | 'secondary' | 'danger' | 'success' | 'warning' => {
     switch (status) {
       case 'SUBMITTED':
-        return 'info';
+        return 'primary';
       case 'RUNNING':
         return 'primary';
       case 'WAITING_FOR_2FA':
@@ -239,7 +237,7 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
       case 'SUCCEEDED':
         return 'success';
       case 'FAILED':
-        return 'error';
+        return 'danger';
     }
   };
 
@@ -270,17 +268,15 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
             <Typography variant="h6" component="h2">
               ジョブステータス
             </Typography>
-            <Chip label={getStatusLabel(state.status)} color={getStatusColor(state.status)} />
+            <Chip color={getStatusColor(state.status)}>{getStatusLabel(state.status)}</Chip>
           </Box>
 
           {/* エラー表示 */}
           {state.error && (
-            <Alert
-              severity="error"
+            <ErrorAlert
+              message={state.error}
               onClose={() => setState((prev) => ({ ...prev, error: undefined }))}
-            >
-              {state.error}
-            </Alert>
+            />
           )}
 
           {/* ステータス表示 */}
@@ -330,22 +326,18 @@ export default function JobStatusDisplay({ jobId, onComplete, onError }: JobStat
                     setTwoFAError(null);
                   }}
                   placeholder="000000"
-                  slotProps={{
-                    htmlInput: {
-                      maxLength: 6,
-                      pattern: '[0-9]*',
-                      inputMode: 'numeric',
-                    },
-                  }}
+                  maxLength={6}
+                  inputMode="numeric"
                   error={!!twoFAError}
                   helperText={twoFAError}
                   disabled={isSubmitting2FA}
                   fullWidth
                 />
                 <Button
-                  variant="contained"
+                  variant="solid"
                   onClick={handleSubmit2FA}
-                  disabled={isSubmitting2FA || twoFactorAuthCode.length !== 6}
+                  loading={isSubmitting2FA}
+                  disabled={twoFactorAuthCode.length !== 6}
                 >
                   {isSubmitting2FA ? '送信中...' : 'コードを送信'}
                 </Button>

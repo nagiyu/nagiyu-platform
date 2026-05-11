@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Grid, Box, Typography, CircularProgress, Alert } from '@mui/material';
+import { Grid, Box, Typography, CircularProgress } from '@mui/material';
+import { ErrorAlert } from '@nagiyu/ui';
 import type { VideosListResponse } from '@nagiyu/niconico-mylist-assistant-core';
 import VideoCard from './VideoCard';
 import VideoListFilters from './VideoListFilters';
@@ -11,7 +13,7 @@ import VideoDetailModal from './VideoDetailModal';
 
 const ERROR_MESSAGES = {
   FETCH_FAILED: '動画一覧の取得に失敗しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
 } as const;
 
 /**
@@ -266,9 +268,9 @@ export default function VideoList() {
       />
 
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
+        <Box sx={{ mb: 3 }}>
+          <ErrorAlert message={error} onClose={() => setError(null)} />
+        </Box>
       )}
 
       {videos && videos.total === 0 ? (

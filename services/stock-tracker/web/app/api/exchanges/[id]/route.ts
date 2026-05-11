@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { validateExchange } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { getSession } from '../../../../lib/auth';
@@ -9,7 +10,7 @@ const ERROR_MESSAGES = {
   EXCHANGE_NOT_FOUND: '取引所が見つかりません',
   UPDATE_ERROR: '取引所の更新に失敗しました',
   DELETE_ERROR: '取引所の削除に失敗しました',
-  INVALID_REQUEST: 'リクエストが不正です',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.BAD_REQUEST,
   RELATED_TICKERS_EXIST: '関連するティッカーが存在するため削除できません',
 } as const;
 

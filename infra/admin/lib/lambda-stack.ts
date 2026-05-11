@@ -58,6 +58,15 @@ export class LambdaStack extends LambdaStackBase {
           `arn:aws:dynamodb:*:*:table/nagiyu-admin-main-${environment}/index/*`,
         ],
       }),
+      // 共通エラーイベントテーブルへの読み取り権限（/errors UI / API 用）
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['dynamodb:GetItem', 'dynamodb:Query'],
+        resources: [
+          `arn:aws:dynamodb:*:*:table/nagiyu-error-events-${environment}`,
+          `arn:aws:dynamodb:*:*:table/nagiyu-error-events-${environment}/index/*`,
+        ],
+      }),
     ];
 
     const baseProps: LambdaStackBaseProps = {
@@ -71,6 +80,8 @@ export class LambdaStack extends LambdaStackBase {
           NODE_ENV: environment,
           APP_VERSION: appVersion,
           DYNAMODB_TABLE_NAME: `nagiyu-admin-main-${environment}`,
+          // 共通エラーイベントテーブル（/errors UI / API で読み取り）
+          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
           // NextAuth v5 で使用される環境変数
           AUTH_SECRET: nextAuthSecret,
           // 自サービスのベース URL（callbackUrl 生成などに使用）

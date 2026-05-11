@@ -9,6 +9,9 @@
 // Auth module - Authentication and Authorization utilities
 export * from './auth/index.js';
 
+// Format module - 表示用フォーマッタ（数値・ファイルサイズ等）
+export * from './format/index.js';
+
 // Validation module - Common validation utilities
 export * from './validation/index.js';
 // Logger module - Structured logging functionality
@@ -31,3 +34,6 @@ export type { ErrorCode } from './constants/error-codes.js';
 export { COMMON_ERROR_MESSAGES } from './constants/error-messages.js';
 export type { CommonErrorMessageKey } from './constants/error-messages.js';
 export { HTTP_STATUS } from './constants/http-status.js';
+
+// ErrorEvent module - プラットフォーム共通のエラー通知型
+export * from './error-event/index.js';

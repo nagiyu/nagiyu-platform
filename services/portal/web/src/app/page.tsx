@@ -1,15 +1,7 @@
 import type { Metadata } from 'next';
-import {
-  Container,
-  Typography,
-  Grid,
-  Box,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  Chip,
-} from '@mui/material';
+import Link from 'next/link';
+import { Container, Typography, Grid, Box, Card, CardContent, CardActions } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import {
   getAllServiceSlugs,
   getServiceDocument,
@@ -96,13 +88,15 @@ export default async function HomePage() {
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {article.tags.map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
+                        <Chip key={tag} size="sm" variant="outline">
+                          {tag}
+                        </Chip>
                       ))}
                     </Box>
                   </CardContent>
                   <CardActions>
-                    <Button size="small" href={`/tech/${article.slug}`}>
-                      記事を読む
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href={`/tech/${article.slug}`}>記事を読む</Link>
                     </Button>
                   </CardActions>
                 </Card>
@@ -110,8 +104,8 @@ export default async function HomePage() {
             ))}
           </Grid>
           <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Button href="/tech" variant="outlined">
-              すべての技術記事を見る
+            <Button asChild variant="outline">
+              <Link href="/tech">すべての技術記事を見る</Link>
             </Button>
           </Box>
         </Box>
@@ -125,14 +119,11 @@ export default async function HomePage() {
           </Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
             {tags.map((entry) => (
-              <Chip
-                key={entry.tag}
-                label={`${entry.tag} (${entry.count})`}
-                component="a"
-                href={`/tech/tags/${tagToSlug(entry.tag)}`}
-                clickable
-                variant="outlined"
-              />
+              <Chip key={entry.tag} asChild variant="outline">
+                <Link href={`/tech/tags/${tagToSlug(entry.tag)}`}>
+                  {`${entry.tag} (${entry.count})`}
+                </Link>
+              </Chip>
             ))}
           </Box>
         </Box>
@@ -157,11 +148,13 @@ export default async function HomePage() {
                     </Typography>
                   </CardContent>
                   <CardActions>
-                    <Button size="small" href={`/services/${card.slug}`}>
-                      ドキュメント
+                    <Button asChild size="sm" variant="ghost">
+                      <a href={`/services/${card.slug}`}>ドキュメント</a>
                     </Button>
-                    <Button size="small" href={card.url} target="_blank" rel="noopener noreferrer">
-                      サービスを開く
+                    <Button asChild size="sm" variant="ghost">
+                      <a href={card.url} target="_blank" rel="noopener noreferrer">
+                        サービスを開く
+                      </a>
                     </Button>
                   </CardActions>
                 </Card>
@@ -176,8 +169,8 @@ export default async function HomePage() {
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           開発者プロフィール・運営方針・編集ポリシーは About ページをご覧ください。
         </Typography>
-        <Button href="/about" variant="text">
-          nagiyu について
+        <Button asChild variant="ghost">
+          <a href="/about">nagiyu について</a>
         </Button>
       </Box>
     </Container>

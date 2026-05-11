@@ -3,18 +3,15 @@
 import { useState } from 'react';
 import {
   Box,
+  // eslint-disable-next-line no-restricted-imports -- パスワード表示切替の endAdornment（IconButton）を使うため、@nagiyu/ui ではなく MUI の TextField をそのまま利用する
   TextField,
-  Button,
-  FormControlLabel,
-  Checkbox,
   Typography,
-  Alert,
-  CircularProgress,
   Card,
   CardContent,
   InputAdornment,
   IconButton,
 } from '@mui/material';
+import { Button, Checkbox, ErrorAlert } from '@nagiyu/ui';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
@@ -23,7 +20,7 @@ import {
   MylistRegisterRequest,
   MylistRegisterResponse,
 } from '@/types/mylist';
-import { extractErrorMessage } from '@/lib/error-utils';
+import { extractErrorMessage } from '@nagiyu/common';
 
 interface MylistRegisterFormProps {
   onSuccess?: (response: MylistRegisterResponse) => void;
@@ -155,11 +152,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
 
         <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
           {/* エラーメッセージ */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+          {error && <ErrorAlert message={error} />}
 
           {/* 登録条件 */}
           <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
@@ -196,34 +189,26 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
             helperText="1〜100の範囲で指定してください"
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.favoriteOnly}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    favoriteOnly: e.target.checked,
-                  })
-                }
-              />
-            }
+          <Checkbox
             label="お気に入りのみを対象にする"
+            checked={formData.favoriteOnly}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                favoriteOnly: e.target.checked,
+              })
+            }
           />
 
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={formData.excludeSkip}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    excludeSkip: e.target.checked,
-                  })
-                }
-              />
-            }
+          <Checkbox
             label="スキップ動画を除外する"
+            checked={formData.excludeSkip}
+            onChange={(e) =>
+              setFormData({
+                ...formData,
+                excludeSkip: e.target.checked,
+              })
+            }
           />
 
           {/* マイリスト名 */}
@@ -296,13 +281,7 @@ export default function MylistRegisterForm({ onSuccess }: MylistRegisterFormProp
 
           {/* 実行ボタン */}
           <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              disabled={loading}
-              startIcon={loading && <CircularProgress size={20} />}
-            >
+            <Button type="submit" variant="solid" color="primary" loading={loading}>
               {loading ? '登録中...' : 'マイリストに登録'}
             </Button>
           </Box>

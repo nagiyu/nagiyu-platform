@@ -1,7 +1,8 @@
 import {
   LAST_VISITED_PATH_STORAGE_KEY,
+  SESSION_BOOTSTRAP_STORAGE_KEY,
   clearLastVisitedPath,
-  isPersistablePath,
+  isRecordablePath,
   loadLastVisitedPath,
   saveLastVisitedPath,
 } from '@/lib/lastVisitedPath';
@@ -11,21 +12,18 @@ describe('lastVisitedPath', () => {
     window.localStorage.clear();
   });
 
-  describe('isPersistablePath', () => {
-    it('通常のページパスは保存対象として true を返す', () => {
-      expect(isPersistablePath('/lists')).toBe(true);
-      expect(isPersistablePath('/groups')).toBe(true);
-      expect(isPersistablePath('/groups/abc-123')).toBe(true);
-    });
-
-    it('ルート "/" は復元先になりえないため false を返す', () => {
-      expect(isPersistablePath('/')).toBe(false);
+  describe('isRecordablePath', () => {
+    it('"/" で始まる任意のパスは記録対象として true を返す', () => {
+      expect(isRecordablePath('/')).toBe(true);
+      expect(isRecordablePath('/lists')).toBe(true);
+      expect(isRecordablePath('/groups')).toBe(true);
+      expect(isRecordablePath('/groups/abc-123')).toBe(true);
     });
 
     it('"/" で始まらない値は不正なパスとして false を返す', () => {
-      expect(isPersistablePath('lists')).toBe(false);
-      expect(isPersistablePath('https://example.com/lists')).toBe(false);
-      expect(isPersistablePath('')).toBe(false);
+      expect(isRecordablePath('lists')).toBe(false);
+      expect(isRecordablePath('https://example.com/lists')).toBe(false);
+      expect(isRecordablePath('')).toBe(false);
     });
   });
 
@@ -44,6 +42,12 @@ describe('lastVisitedPath', () => {
       saveLastVisitedPath('/groups');
       clearLastVisitedPath();
       expect(loadLastVisitedPath()).toBeNull();
+    });
+  });
+
+  describe('SESSION_BOOTSTRAP_STORAGE_KEY', () => {
+    it('PR #2982 で導入された既存セッションのフラグを引き継ぐためキー値を維持している', () => {
+      expect(SESSION_BOOTSTRAP_STORAGE_KEY).toBe('share-together:home-redirect-checked');
     });
   });
 });

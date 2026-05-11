@@ -1,8 +1,10 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type DragEvent, type FormEvent } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter } from 'next/navigation';
-import { Alert, Box, Button, Container, LinearProgress, Paper, Typography } from '@mui/material';
+import { Alert, Box, Container, LinearProgress, Paper, Typography } from '@mui/material';
+import { Button, ErrorAlert } from '@nagiyu/ui';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 const ERROR_MESSAGES = {
@@ -21,7 +23,7 @@ const LOG_MESSAGES = {
   COMPLETE_UPLOAD_FAILED: 'マルチパートアップロード完了処理に失敗しました',
   INVALID_MULTIPART_PARAMETERS: 'マルチパートアップロードパラメータが不正です',
   UNKNOWN: 'アップロード処理の開始時に予期しないエラーが発生しました',
-  NETWORK_ERROR: 'ネットワークエラーが発生しました',
+  NETWORK_ERROR: COMMON_ERROR_MESSAGES.NETWORK_ERROR_OCCURRED,
 } as const;
 
 const CONSTRAINT_MESSAGES = {
@@ -321,11 +323,7 @@ export default function Home() {
             </Box>
           )}
 
-          {errorMessage && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {errorMessage}
-            </Alert>
-          )}
+          {errorMessage && <ErrorAlert message={errorMessage} />}
 
           {isSubmitting && (
             <Box sx={{ mb: 2 }}>
@@ -338,7 +336,7 @@ export default function Home() {
             </Box>
           )}
 
-          <Button type="submit" variant="contained" disabled={!file || isSubmitting}>
+          <Button type="submit" variant="solid" loading={isSubmitting} disabled={!file}>
             {!isSubmitting
               ? 'アップロードして処理開始'
               : (uploadProgress ?? 0) < 100

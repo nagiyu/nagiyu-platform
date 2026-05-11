@@ -1,4 +1,23 @@
+/**
+ * SNS Notification 受信エンドポイント（自己監視専用）
+ *
+ * 役割の変遷:
+ * - 旧: 全サービスの CloudWatch Alarm を SNS 経由で受け取り、Web Push を発火する本流経路だった
+ * - 新: 本流経路は alarm-ingest Lambda → DynamoDB → Streams → stream-handler Lambda
+ *       → Web Push に置き換わったため、このエンドポイントは
+ *       **新システム自身の障害監視（self-monitoring）専用** として残置している
+ *
+ * 接続先 SNS Topic:
+ * - `nagiyu-admin-self-monitoring-{env}`（新システムの障害アラームを集約する別 Topic）
+ *
+ * 仕様:
+ * - 永続化はしない。Push のみ送信する（自己監視は履歴を残す対象ではない）
+ * - 本流の CloudWatch Alarm は届かない（Topic が分離されているため）
+ * - 関連設計: `tasks/persist-error-notifications/design.md` セクション 4
+ */
+
 import { NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   createPushSubscriptionRepository,
   validateSnsMessage,
@@ -9,7 +28,7 @@ import { getDynamoDBDocumentClient } from '@nagiyu/aws';
 import { createErrorResponse } from '@nagiyu/nextjs';
 
 const ERROR_MESSAGES = {
-  INVALID_REQUEST: 'リクエストボディが不正です',
+  INVALID_REQUEST: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
   INVALID_SIGNATURE: 'SNS 署名の検証に失敗しました',
   INTERNAL_ERROR: 'SNS 通知処理に失敗しました',
   DYNAMODB_TABLE_NAME_REQUIRED: 'DYNAMODB_TABLE_NAME が設定されていません',

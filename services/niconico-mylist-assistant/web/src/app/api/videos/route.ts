@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import {
   listVideosWithSettings,
   type VideosListResponse,
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
         {
           error: {
             code: 'INVALID_REQUEST',
-            message: 'リクエストが不正です',
+            message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
             details: 'offset は 0 以上である必要があります',
           },
         },
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
           {
             error: {
               code: 'INVALID_REQUEST',
-              message: 'リクエストが不正です',
+              message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
               details: 'isFavorite は true または false である必要があります',
             },
           },
@@ -91,7 +92,7 @@ export async function GET(request: NextRequest) {
           {
             error: {
               code: 'INVALID_REQUEST',
-              message: 'リクエストが不正です',
+              message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
               details: 'isSkip は true または false である必要があります',
             },
           },
@@ -146,7 +147,7 @@ export async function GET(request: NextRequest) {
         {
           error: {
             code: 'INVALID_REQUEST',
-            message: 'リクエストが不正です',
+            message: COMMON_ERROR_MESSAGES.BAD_REQUEST,
             details: error.message,
           },
         },

@@ -153,6 +153,35 @@ Playwright を使用するバッチでは、npm パッケージと Docker イメ
 - どちらか一方を更新する際は、もう一方も同一バージョンに合わせて更新する
 - バージョンアップは必ず両箇所を同時に変更し、片方だけの更新は行わない
 
+### 2.12 動画削除時の他ユーザー UserVideoSetting の orphan（既知の制約）
+
+**`DELETE /api/videos/[id]` は VideoBasicInfo（グローバル）とリクエストユーザーの UserVideoSetting だけを消す。他ユーザーが同じ動画に持っていた UserVideoSetting は削除されず DB 上に残る。**
+
+シングルユーザー前提の現状運用では顕在化しないため対応していないが、複数ユーザーで運用する場合は以下を認識した上で利用すること。
+
+#### 起こること
+
+User A が `sm123` を削除した直後の DynamoDB は次の状態になる。
+
+```
+USER#alice / VIDEO#sm123  → 削除済み
+VIDEO#sm123 / VIDEO#sm123 → 削除済み
+USER#bob   / VIDEO#sm123  → 残る（orphan）
+```
+
+#### 副作用
+
+- **一覧 API には出ない**: `listVideosWithSettings` は VideoBasicInfo を起点にループするため、VideoBasicInfo が消えた瞬間にその videoId は反復対象から外れる。Bob 視点では一覧から該当動画が消えるだけで、orphan の存在に気付かない。
+- **UI 経由で掃除できない**: GET / PUT settings はどちらも `if (!basicInfo) return 404` で先に弾かれる。DELETE は本人が videoId を直接指定すれば消せるが、UI 上に該当動画への導線が無い。
+- **後の bulk-import でゾンビ蘇生する**: 誰かが同じ videoId を再 import すると VideoBasicInfo が作り直され、Bob の古い UserVideoSetting が `listVideosWithSettings` のマージ対象に復帰する。Bob の一覧に該当動画が「お気に入り」「スキップ」「メモ付き」のまま再出現する。
+
+#### 将来の対処方針（実施時）
+
+複数ユーザー運用に拡張する場合は、以下のいずれかで対処する想定。
+
+- `listVideosWithSettings` を UserVideoSetting 起点（Query `PK=USER#…`）に変える
+- DELETE 時に他ユーザーを含む UserVideoSetting を一掃する（GSI または Scan で `SK=VIDEO#sm123` を列挙して削除）
+
 ## 3. 技術スタック
 
 ### 3.1 フロントエンド

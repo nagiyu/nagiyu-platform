@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { DynamoDBUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
-import { hasPermission, VALID_ROLES } from '@nagiyu/common';
+import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
+import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/common';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  FORBIDDEN: 'この操作を実行する権限がありません',
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
+  UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
+  FORBIDDEN: COMMON_ERROR_MESSAGES.FORBIDDEN,
+  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
   INVALID_ROLES: '無効なロールが含まれています',
 } as const;
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
       );
     }
 
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
 
     // ロールを割り当て
     const updatedUser = await repo.assignRoles(userId, roles);
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
-          error: 'リクエストボディが不正です',
+          error: COMMON_ERROR_MESSAGES.INVALID_REQUEST_BODY,
           details: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,

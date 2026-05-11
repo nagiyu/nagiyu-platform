@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { DynamoDBUserRepository } from '@nagiyu/auth-core';
+import { createUserRepository } from '@nagiyu/auth-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  UNAUTHORIZED: '認証が必要です',
-  USER_NOT_FOUND: 'ユーザーが見つかりません',
+  UNAUTHORIZED: COMMON_ERROR_MESSAGES.UNAUTHORIZED,
+  USER_NOT_FOUND: COMMON_ERROR_MESSAGES.USER_NOT_FOUND,
 } as const;
 
 /**
@@ -23,7 +24,7 @@ export async function GET() {
   }
 
   try {
-    const repo = new DynamoDBUserRepository();
+    const repo = createUserRepository();
     const user = await repo.getUserById(session.user.id);
 
     if (!user) {

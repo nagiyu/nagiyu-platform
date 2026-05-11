@@ -1,16 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Chip,
-  CircularProgress,
-  Grid,
-  Typography,
-} from '@mui/material';
+import { Box, Card, CardContent, CircularProgress, Grid, Typography } from '@mui/material';
+import { Button, Chip } from '@nagiyu/ui';
 import type { TickerSummary } from '@/types/stock';
 import SummaryDetailDialog from './SummaryDetailDialog';
 
@@ -84,9 +76,10 @@ export default function TickerSummaryCard({
                   {supportLevels.map((level, index) => (
                     <Chip
                       key={`support-${summary.tickerId}-${level}-${String(index + 1)}`}
-                      label={`${level}`}
-                      size="small"
-                    />
+                      size="sm"
+                    >
+                      {`${level}`}
+                    </Chip>
                   ))}
                 </Box>
               </Grid>
@@ -100,9 +93,10 @@ export default function TickerSummaryCard({
                   {resistanceLevels.map((level, index) => (
                     <Chip
                       key={`resistance-${summary.tickerId}-${level}-${String(index + 1)}`}
-                      label={`${level}`}
-                      size="small"
-                    />
+                      size="sm"
+                    >
+                      {`${level}`}
+                    </Chip>
                   ))}
                 </Box>
               </Grid>
@@ -113,7 +107,7 @@ export default function TickerSummaryCard({
               </Typography>
             </Grid>
             <Grid size={12}>
-              <Button variant="outlined" size="small" onClick={() => setIsDetailDialogOpen(true)}>
+              <Button variant="outline" size="sm" onClick={() => setIsDetailDialogOpen(true)}>
                 詳細
               </Button>
             </Grid>

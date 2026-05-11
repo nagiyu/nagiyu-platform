@@ -123,6 +123,8 @@ describe('DynamoDBPushSubscriptionRepository', () => {
 describe('createPushSubscriptionRepository', () => {
   beforeEach(() => {
     resetPushSubscriptionRepository();
+    delete process.env.USE_IN_MEMORY_DB;
+    delete process.env.DYNAMODB_TABLE_NAME;
   });
 
   it('USE_IN_MEMORY_DB=true の場合はインメモリ実装を利用できる', async () => {
@@ -147,11 +149,11 @@ describe('createPushSubscriptionRepository', () => {
     expect(deleted).toBe(1);
   });
 
-  it('DynamoDB 実装時に必須引数が不足するとエラーを投げる', () => {
+  it('tableName が引数・env のいずれでも未指定なら例外を投げる', () => {
     process.env.USE_IN_MEMORY_DB = 'false';
 
     expect(() => createPushSubscriptionRepository()).toThrow(
-      'DynamoDB 実装には docClient と tableName が必要です'
+      '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
     );
   });
 });

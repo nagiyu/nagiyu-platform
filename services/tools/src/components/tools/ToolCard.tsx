@@ -1,4 +1,5 @@
-import { Card, CardContent, CardActionArea, Typography, Box, Chip } from '@mui/material';
+import { Card, CardContent, CardActionArea, Typography, Box } from '@mui/material';
+import { Chip } from '@nagiyu/ui';
 import { ReactNode } from 'react';
 
 interface ToolCardProps {
@@ -41,7 +42,7 @@ export default function ToolCard({ title, description, icon, href, category }: T
           {/* カテゴリ（将来実装） */}
           {category && (
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-              <Chip label={category} size="small" />
+              <Chip size="sm">{category}</Chip>
             </Box>
           )}
         </CardContent>

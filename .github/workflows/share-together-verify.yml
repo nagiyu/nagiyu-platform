@@ -261,6 +261,21 @@ jobs:
           path: services/share-together/web/test-results/
           retention-days: 30
 
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to reports.nagiyu.com
+        if: always()
+        run: |
+          aws s3 sync services/share-together/web/playwright-report/ \
+            "s3://nagiyu-e2e-reports/share-together/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-mobile/" \
+            --delete --no-progress
+
   e2e-test-web-chromium-desktop:
     name: E2E Tests (chromium-desktop)
     runs-on: ubuntu-latest
@@ -319,6 +334,21 @@ jobs:
           path: services/share-together/web/test-results/
           retention-days: 30
 
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to reports.nagiyu.com
+        if: always()
+        run: |
+          aws s3 sync services/share-together/web/playwright-report/ \
+            "s3://nagiyu-e2e-reports/share-together/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/chromium-desktop/" \
+            --delete --no-progress
+
   e2e-test-web-webkit-mobile:
     name: E2E Tests (webkit-mobile)
     runs-on: ubuntu-latest
@@ -376,6 +406,21 @@ jobs:
           name: test-results-webkit-mobile
           path: services/share-together/web/test-results/
           retention-days: 30
+
+      - name: Configure AWS credentials for report upload
+        if: always()
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload Playwright HTML report to reports.nagiyu.com
+        if: always()
+        run: |
+          aws s3 sync services/share-together/web/playwright-report/ \
+            "s3://nagiyu-e2e-reports/share-together/pr-${{ github.event.pull_request.number }}/${{ github.run_id }}/webkit-mobile/" \
+            --delete --no-progress
 
   synth-infra:
     name: Synthesize Infrastructure
@@ -466,18 +511,30 @@ jobs:
                 ? '## ❌ Some Full Checks Failed'
                 : '## ❌ Some Fast Checks Failed';
 
+            const reportBaseUrl = `https://reports.nagiyu.com/share-together/pr-${context.issue.number}/${context.runId}`;
+            const reportProjects = {
+              'E2E Tests (chromium-mobile)': 'chromium-mobile',
+              'E2E Tests (chromium-desktop)': 'chromium-desktop',
+              'E2E Tests (webkit-mobile)': 'webkit-mobile',
+            };
+
             let body = `${header}\n\n`;
             body += isFullVerification
               ? '**Share Together - Full Verification**\n\n'
               : '**Share Together - Fast Verification**\n\n';
-            body += '| Job | Status |\n';
-            body += '|-----|--------|\n';
+            body += '| Job | Status | Report |\n';
+            body += '|-----|--------|--------|\n';
 
             for (const [job, result] of Object.entries(results)) {
               const emoji = statusEmoji[result] || '❓';
-              body += `| ${job} | ${emoji} ${result} |\n`;
+              const project = reportProjects[job];
+              const reportLink = (project && (result === 'success' || result === 'failure'))
+                ? `[📊 View](${reportBaseUrl}/${project}/)`
+                : '-';
+              body += `| ${job} | ${emoji} ${result} | ${reportLink} |\n`;
             }
 
+            body += `\n_E2E HTML reports are retained for 3 days. Re-run CI to regenerate._\n`;
             body += `\n[View workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId})`;
 
             github.rest.issues.createComment({

@@ -1,16 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Box,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-  TextField,
-} from '@mui/material';
+import { Box } from '@mui/material';
+import { Button, Select, TextField, type SelectOption } from '@nagiyu/ui';
 
 interface VideoListFiltersProps {
   favoriteFilter: string;
@@ -20,6 +12,18 @@ interface VideoListFiltersProps {
   onSkipFilterChange: (value: string) => void;
   onSearch: (value: string) => void;
 }
+
+const FAVORITE_OPTIONS: ReadonlyArray<SelectOption> = [
+  { value: 'all', label: 'すべて' },
+  { value: 'true', label: 'お気に入りのみ' },
+  { value: 'false', label: 'お気に入り以外' },
+];
+
+const SKIP_OPTIONS: ReadonlyArray<SelectOption> = [
+  { value: 'all', label: 'すべて' },
+  { value: 'false', label: '通常動画のみ' },
+  { value: 'true', label: 'スキップ動画のみ' },
+];
 
 /**
  * 動画一覧フィルターコンポーネント
@@ -41,14 +45,6 @@ export default function VideoListFilters({
     setInputKeyword(searchKeyword);
   }, [searchKeyword]);
 
-  const handleFavoriteChange = (event: SelectChangeEvent) => {
-    onFavoriteFilterChange(event.target.value);
-  };
-
-  const handleSkipChange = (event: SelectChangeEvent) => {
-    onSkipFilterChange(event.target.value);
-  };
-
   const handleSearch = () => {
     onSearch(inputKeyword);
   };
@@ -68,46 +64,40 @@ export default function VideoListFilters({
         mb: 3,
       }}
     >
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel id="favorite-filter-label">お気に入り</InputLabel>
+      <Box sx={{ minWidth: 200 }}>
         <Select
-          labelId="favorite-filter-label"
           id="favorite-filter"
-          value={favoriteFilter}
           label="お気に入り"
-          onChange={handleFavoriteChange}
-        >
-          <MenuItem value="all">すべて</MenuItem>
-          <MenuItem value="true">お気に入りのみ</MenuItem>
-          <MenuItem value="false">お気に入り以外</MenuItem>
-        </Select>
-      </FormControl>
+          size="sm"
+          value={favoriteFilter}
+          onChange={onFavoriteFilterChange}
+          options={FAVORITE_OPTIONS}
+          fullWidth
+        />
+      </Box>
 
-      <FormControl size="small" sx={{ minWidth: 200 }}>
-        <InputLabel id="skip-filter-label">スキップ</InputLabel>
+      <Box sx={{ minWidth: 200 }}>
         <Select
-          labelId="skip-filter-label"
           id="skip-filter"
-          value={skipFilter}
           label="スキップ"
-          onChange={handleSkipChange}
-        >
-          <MenuItem value="all">すべて</MenuItem>
-          <MenuItem value="false">通常動画のみ</MenuItem>
-          <MenuItem value="true">スキップ動画のみ</MenuItem>
-        </Select>
-      </FormControl>
+          size="sm"
+          value={skipFilter}
+          onChange={onSkipFilterChange}
+          options={SKIP_OPTIONS}
+          fullWidth
+        />
+      </Box>
 
-      <Box sx={{ display: 'flex', gap: 1 }}>
+      <Box sx={{ display: 'flex', gap: 1, minWidth: 240 }}>
         <TextField
-          size="small"
+          size="sm"
           value={inputKeyword}
           onChange={(event) => setInputKeyword(event.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="動画タイトルで検索"
-          sx={{ minWidth: 240 }}
+          fullWidth
         />
-        <Button variant="contained" size="small" onClick={handleSearch}>
+        <Button variant="solid" size="sm" onClick={handleSearch}>
           検索
         </Button>
       </Box>

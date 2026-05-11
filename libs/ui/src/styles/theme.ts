@@ -1,5 +1,26 @@
 import { createTheme } from '@mui/material/styles';
 
+import { breakpoints } from './tokens';
+
+/**
+ * MUI Theme
+ *
+ * デザイントークン（`tokens.css`）と同じ Primitive 値を palette に直接展開する。
+ *
+ * NOTE: MUI 内部の `alpha()` / `decomposeColor()` は CSS 変数（`var(--...)`）
+ * を色として解釈できないため、palette には具体的な色値（#xxxxxx 等）を
+ * 与える必要がある。値は `tokens.css` の light テーマに対応する Primitive
+ * を反映している。
+ *
+ * 一方、サイズ・余白・角丸・影・トランジション等の非カラー値は CSS 変数を
+ * そのまま参照する（MUI 内部での色解析が走らないため）。
+ *
+ * 共通 UI コンポーネント（Phase 1 以降の `Button` 等）は MUI Theme に依存せず、
+ * 直接 `tokens.css` の CSS 変数を参照することで、ライト/ダーク・サービス別
+ * アクセント等のテーマ切替に追従する。
+ *
+ * 詳細: docs/development/shared-ui-components.md
+ */
 const theme = createTheme({
   palette: {
     primary: {
@@ -10,14 +31,14 @@ const theme = createTheme({
     },
     secondary: {
       main: '#424242',
-      light: '#6d6d6d',
+      light: '#757575',
       dark: '#1b1b1b',
       contrastText: '#ffffff',
     },
     error: {
       main: '#d32f2f',
       light: '#ef5350',
-      dark: '#c62828',
+      dark: '#b71c1c',
       contrastText: '#ffffff',
     },
     warning: {
@@ -47,20 +68,10 @@ const theme = createTheme({
       secondary: 'rgba(0, 0, 0, 0.6)',
       disabled: 'rgba(0, 0, 0, 0.38)',
     },
+    divider: '#e0e0e0',
   },
   typography: {
-    fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
-      'sans-serif',
-      '"Apple Color Emoji"',
-      '"Segoe UI Emoji"',
-      '"Segoe UI Symbol"',
-    ].join(','),
+    fontFamily: 'var(--font-family-sans)',
     h1: {
       fontSize: '2.5rem', // 40px
       fontWeight: 500,
@@ -113,25 +124,19 @@ const theme = createTheme({
     },
   },
   breakpoints: {
-    values: {
-      xs: 0, // スマートフォン
-      sm: 600, // タブレット（縦）
-      md: 900, // タブレット（横）、小型PC
-      lg: 1200, // デスクトップ
-      xl: 1536, // 大型ディスプレイ
-    },
+    values: breakpoints,
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
+          borderRadius: 'var(--radius-md)',
           padding: '8px 16px',
         },
         contained: {
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--shadow-sm)',
           },
         },
       },
@@ -139,11 +144,11 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 12,
-          boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.08)',
-          transition: 'box-shadow 0.3s ease-in-out',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: 'var(--shadow-md)',
+          transition: 'box-shadow var(--duration-slow) var(--easing-in-out)',
           '&:hover': {
-            boxShadow: '0px 4px 16px rgba(0, 0, 0, 0.12)',
+            boxShadow: 'var(--shadow-lg)',
           },
         },
       },
@@ -155,7 +160,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
+            borderRadius: 'var(--radius-md)',
           },
         },
       },

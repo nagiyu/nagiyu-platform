@@ -1,4 +1,5 @@
 import { DynamoDBJobRepository } from '@nagiyu/quick-clip-core';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { DescribeJobsCommand } from '@aws-sdk/client-batch';
 import { NextResponse } from 'next/server';
 import { getBatchClient, getDynamoDBDocumentClient, getTableName } from '@/lib/server/aws';
@@ -6,7 +7,7 @@ import { JobDomainService } from '@/lib/server/domain-services';
 import type { JobStatus } from '@/types/quick-clip';
 
 const ERROR_MESSAGES = {
-  JOB_NOT_FOUND: '指定されたジョブが見つかりません',
+  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 type RouteParams = {

@@ -5,7 +5,10 @@ const config: Config = {
   testEnvironment: 'node',
   roots: ['<rootDir>/lib', '<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  setupFiles: ['<rootDir>/tests/jest.setup.ts'],
   moduleNameMapper: {
+    // @nagiyu/ui の CSS Modules import をスタブ化（クラス名そのものを返す）
+    '\\.module\\.css$': 'identity-obj-proxy',
     '^@/(.*)$': '<rootDir>/$1',
     '^@nagiyu/stock-tracker-core$': '<rootDir>/../core/src/index.ts',
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',

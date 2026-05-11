@@ -38,9 +38,9 @@ jest.mock('@/components/UserRegistrationInitializer', () => ({
   default: () => <div>UserRegistrationInitializer</div>,
 }));
 
-jest.mock('@/components/LastVisitedPathTracker', () => ({
+jest.mock('@/components/LastVisitedPathController', () => ({
   __esModule: true,
-  default: () => <div>LastVisitedPathTracker</div>,
+  default: () => <div>LastVisitedPathController</div>,
 }));
 
 describe('RootLayout', () => {
@@ -57,7 +57,7 @@ describe('RootLayout', () => {
 
     expect(html).toContain('ServiceWorkerRegistration');
     expect(html).toContain('UserRegistrationInitializer');
-    expect(html).toContain('LastVisitedPathTracker');
+    expect(html).toContain('LastVisitedPathController');
     expect(html).toContain('Share Together');
     expect(html).toContain('Share Together ホームページに戻る');
     expect(html).toContain('Navigation');

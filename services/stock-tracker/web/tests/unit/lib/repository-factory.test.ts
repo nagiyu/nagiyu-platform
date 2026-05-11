@@ -41,7 +41,7 @@ describe('Repository Factory', () => {
     mockedAws.getTableName.mockImplementation(() => {
       const tableName = process.env.DYNAMODB_TABLE_NAME;
       if (!tableName) {
-        throw new Error('DYNAMODB_TABLE_NAME environment variable is not set');
+        throw new Error('環境変数 DYNAMODB_TABLE_NAME が設定されていません');
       }
       return tableName;
     });
@@ -215,19 +215,31 @@ describe('Repository Factory', () => {
     });
 
     it('DYNAMODB_TABLE_NAMEが未設定の場合エラーをスローする', () => {
-      expect(() => createAlertRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createAlertRepository()).toThrow(
+        '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
+      );
     });
 
     it('全リポジトリファクトリーがエラーをスローする', () => {
-      expect(() => createAlertRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createAlertRepository()).toThrow(
+        '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
+      );
       clearMemoryStore(); // クリアして新しいインスタンスを作成
-      expect(() => createHoldingRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createHoldingRepository()).toThrow(
+        '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
+      );
       clearMemoryStore();
-      expect(() => createTickerRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createTickerRepository()).toThrow(
+        '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
+      );
       clearMemoryStore();
-      expect(() => createExchangeRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createExchangeRepository()).toThrow(
+        '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
+      );
       clearMemoryStore();
-      expect(() => createDailySummaryRepository()).toThrow('DynamoDB設定が不正です');
+      expect(() => createDailySummaryRepository()).toThrow(
+        '環境変数 DYNAMODB_TABLE_NAME が設定されていません'
+      );
     });
   });
 });

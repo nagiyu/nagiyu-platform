@@ -20,15 +20,27 @@ const config: Config.InitialOptions = {
   },
   // Setup testing library
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  // CSS Modules: クラス名そのものを返すプロキシで `styles.foo === 'foo'` とする。
+  // ユニットテストはクラス名の存在確認に留めるため、ハッシュ化前の値で十分。
+  // @nagiyu/common は build 済 dist ではなく src を直接読み込ませる（サービス側 jest と同じ方式）。
+  moduleNameMapper: {
+    '\\.module\\.css$': 'identity-obj-proxy',
+    '^@nagiyu/common$': '<rootDir>/../common/src/index.ts',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   // Common coverage settings
   coverageDirectory: 'coverage',
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
+  // 共通 UI ライブラリは品質要求が高いためデフォルト 80% より厳しめに設定する。
+  // 最終目標は branches 85%・functions 90%・lines/statements 90%（spec）。
+  // 現状は branches 84.5%・functions 85.1% のため、安全な閾値で段階的に
+  // 引き上げる方針。詳細: docs/development/shared-ui-components.md
   coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,
-      lines: 80,
-      statements: 80,
+      lines: 90,
+      statements: 90,
     },
   },
 };

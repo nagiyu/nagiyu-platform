@@ -3,6 +3,7 @@ import {
   getVideoBasicInfo,
   getUserVideoSetting,
   deleteUserVideoSetting,
+  deleteVideoBasicInfo,
 } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -67,14 +68,22 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
     }
 
-    // ユーザー設定の存在確認
-    const setting = await getUserVideoSetting(session.user.userId, id);
-    if (!setting) {
+    // 動画本体（VideoBasicInfo）とユーザー設定（UserVideoSetting）の存在確認
+    // どちらか一方でも残っているケース（過去の片側削除で取り残されたゴミ）を
+    // 確実に掃除するため、両方を取得してから片方ずつ削除する
+    const [basicInfo, setting] = await Promise.all([
+      getVideoBasicInfo(id),
+      getUserVideoSetting(session.user.userId, id),
+    ]);
+
+    if (!basicInfo && !setting) {
       return NextResponse.json({ error: ERROR_MESSAGES.VIDEO_NOT_FOUND }, { status: 404 });
     }
 
-    // ユーザー設定を削除
-    await deleteUserVideoSetting(session.user.userId, id);
+    await Promise.all([
+      basicInfo ? deleteVideoBasicInfo(id) : Promise.resolve(),
+      setting ? deleteUserVideoSetting(session.user.userId, id) : Promise.resolve(),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import Link from 'next/link';
 import {
-  Alert,
-  Button,
-  Chip,
   CircularProgress,
   Container,
   Paper,
@@ -15,6 +13,7 @@ import {
   Stepper,
   Typography,
 } from '@mui/material';
+import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import type { BatchStage, JobStatus } from '@/types/quick-clip';
@@ -24,7 +23,7 @@ const POLLING_INTERVAL_MS = 5000;
 
 const ERROR_MESSAGES = {
   LOAD_FAILED: 'ジョブ情報の取得に失敗しました',
-  NOT_FOUND: '指定されたジョブが見つかりません',
+  NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
 } as const;
 
 const STATUS_LABELS: Record<JobStatus, string> = {
@@ -34,11 +33,11 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   FAILED: '処理失敗',
 };
 
-const STATUS_COLORS: Record<JobStatus, 'warning' | 'info' | 'success' | 'error'> = {
+const STATUS_COLORS: Record<JobStatus, 'warning' | 'primary' | 'success' | 'danger'> = {
   PENDING: 'warning',
-  PROCESSING: 'info',
+  PROCESSING: 'primary',
   COMPLETED: 'success',
-  FAILED: 'error',
+  FAILED: 'danger',
 };
 
 const BATCH_STAGE_LABELS: Record<BatchStage, string> = {
@@ -197,11 +196,7 @@ export default function JobPage({ params }: JobPageProps) {
           </Stack>
         )}
 
-        {errorMessage && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {errorMessage}
-          </Alert>
-        )}
+        {errorMessage && <ErrorAlert message={errorMessage} />}
 
         {job && (
           <Stack spacing={2}>
@@ -247,11 +242,9 @@ export default function JobPage({ params }: JobPageProps) {
             </Stepper>
 
             <Typography>ジョブID: {job.jobId}</Typography>
-            <Chip
-              label={STATUS_LABELS[job.status]}
-              color={STATUS_COLORS[job.status]}
-              sx={{ width: 'fit-content' }}
-            />
+            <Chip color={STATUS_COLORS[job.status]} className="w-fit">
+              {STATUS_LABELS[job.status]}
+            </Chip>
 
             {(job.status === 'PENDING' || job.status === 'PROCESSING') && (
               <Typography color="text.secondary">{INFO_MESSAGES.TAB_CLOSE_OK}</Typography>
@@ -271,14 +264,14 @@ export default function JobPage({ params }: JobPageProps) {
             )}
 
             {canMoveToHighlights && (
-              <Button href={`/jobs/${job.jobId}/highlights`} component={Link} variant="contained">
-                見どころを確認する
+              <Button asChild variant="solid">
+                <Link href={`/jobs/${job.jobId}/highlights`}>見どころを確認する</Link>
               </Button>
             )}
 
             {job.status === 'FAILED' && (
-              <Button href="/" component={Link} variant="outlined">
-                再アップロードする
+              <Button asChild variant="outline">
+                <Link href="/">再アップロードする</Link>
               </Button>
             )}
           </Stack>
