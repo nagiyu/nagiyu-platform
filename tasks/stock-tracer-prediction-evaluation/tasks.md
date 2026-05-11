@@ -315,8 +315,8 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 
 | 作業 | ブランチ | PR | ステータス | 担当セッション |
 |------|---------|----|-----------|---------------|
-| 0. 設計ドキュメント | `claude/3018-design-docs` | （本 PR） | 進行中 | — |
-| 1. UI PoC（モックデータ） | `claude/3018-ui-poc` | — | 未着手 | — |
+| 0. 設計ドキュメント | `claude/3018-design-docs` | #3020 | マージ済 | — |
+| 1. UI PoC（モックデータ） | `claude/3018-ui-poc` | — | 進行中 | Issue #3023 |
 | 2. PoC FB 反映で要件再確定 | `claude/3018-refine-docs` | — | 未着手 | — |
 | 3. Entity / Repository 拡張 | `claude/3018-entity` | — | 未着手 | — |
 | 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | — | 未着手 | — |
