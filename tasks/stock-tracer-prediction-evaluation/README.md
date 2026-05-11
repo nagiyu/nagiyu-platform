@@ -85,22 +85,29 @@ Phase 1 の蓄積データはすべて Phase 2〜4 の入力となるため、**
 develop
   └── integration/3018-stock-tracer-prediction-evaluation
         ├── claude/3018-design-docs       (作業 0: 本ドキュメント群)
-        ├── claude/3018-entity            (作業 1)
-        ├── claude/3018-judge-logic       (作業 2)
-        ├── claude/3018-batch             (作業 3)
-        ├── claude/3018-api               (作業 4)
-        └── claude/3018-ui                (作業 5)
+        ├── claude/3018-ui-poc            (作業 1: UI PoC / モックデータ)
+        ├── claude/3018-refine-docs       (作業 2: PoC FB を反映して要件再確定)
+        ├── claude/3018-entity            (作業 3)
+        ├── claude/3018-judge-logic       (作業 4)
+        ├── claude/3018-batch             (作業 5)
+        ├── claude/3018-api               (作業 6)
+        ├── claude/3018-ui-wire           (作業 7: UI を本物の API に接続)
+        └── claude/3018-docs-finalize     (作業 8: docs/ 統合 & tasks/ 配下削除)
 ```
 
-各作業は **integration ブランチへ Draft PR** を出す。全作業マージ後、人の確認を経て **integration → develop の Draft PR** を作成する。
+各作業は **integration ブランチへ Draft PR** を出す。作業 8 まで integration 上で完了させ、人の確認を経て **integration → develop の Draft PR** を作成する。develop には完成形のみ（`docs/` 更新済み + `tasks/` 配下なし）が入る。
+
+### UI 先行（PoC）方式
+
+実物の UI を見るまで指標の取捨選択や見せ方の微調整は判断しきれないため、作業 1 で UI を先回しに PoC として実装し、作業 2 でレビュー FB を反映して要件・設計を再確定してから backend 着手する。これにより API スキーマ・集計ロジックの後戻りを最小化する。
 
 ## 7. 作業着手時の手順（次セッション向け）
 
 新しいセッションで作業 N に着手する場合：
 
 1. 本 README を一読し、対象タスクの位置付けを確認
-2. `requirements.md` で対象タスクの受け入れ条件を確認
-3. `design.md` で対象タスクが触れる設計詳細を確認
+2. `requirements.md` で対象タスクの受け入れ条件を確認（**作業 3 以降は作業 2 で再確定された版を参照**）
+3. `design.md` で対象タスクが触れる設計詳細を確認（同上、API スキーマ・Evaluation\* フィールドは作業 2 後の版が確定版）
 4. `tasks.md` で対象タスクの依存関係・完了条件を確認
 5. integration ブランチから作業ブランチを切る
    ```bash
@@ -109,6 +116,10 @@ develop
    ```
 6. 実装 → コミット → push → integration への Draft PR
 7. 完了後、`tasks.md` の進捗チェックを更新する PR を併せて出すか、本作業 PR の中で更新する
+
+### 作業 2 の進め方（補足）
+
+作業 2 は実装コードを伴わないドキュメント PR。dev 環境にデプロイされた作業 1 の PoC を人に確認してもらい、FB を集めて `requirements.md` / `external-design.md` /（必要なら）`design.md` を更新する。FB 収集は issue コメント or チャットで行い、得られた指摘とその反映方針を PR 本文にまとめる。
 
 ## 8. 関連リンク
 

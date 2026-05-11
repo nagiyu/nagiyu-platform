@@ -2,11 +2,15 @@
 
 <!--
     このドキュメントは開発時のみ使用します。
-    開発完了後に docs/services/stock-tracker/external-design.md に統合し、削除します。
+    開発完了後（作業 8）に docs/services/stock-tracker/external-design.md に統合し、削除します。
 
     関連 Issue: #3018
     入口ドキュメント: tasks/stock-tracer-prediction-evaluation/README.md
 -->
+
+> **注記**: 本ドキュメントは **PoC 前の暫定案**。`tasks.md` の作業 1（UI PoC）で本案ベースに実物を作り、作業 2（PoC FB 反映で要件再確定）でレビュー結果を踏まえた **確定版** に更新する。確定版の内容は最終的に作業 8 で `docs/services/stock-tracker/external-design.md` に統合される。
+>
+> 作業 1 ではここに記載された画面構成・UI 要素を出発点として PoC を実装する。FB によって変わる可能性が高いのは：KPI カードの種類と並び、グラフの選択、銘柄テーブルの列構成、補助情報の見せ方、レスポンシブ時の縦積み順、空状態・エラーの文言。一方でほぼ変わらないと想定しているのは：認証ガード方式、Material-UI を使う前提、Fast CI の chromium-mobile を E2E に使う前提。
 
 ---
 

@@ -15,6 +15,10 @@
 
 ## 1. API 仕様
 
+> **注記**: 本章のレスポンス形式（`SummaryResponse` / `TickersResponse`）と `§3.3` の `AggregateOutput` 型は、`tasks.md` の作業 1（UI PoC）後の FB を反映する作業 2 で **再確定** される。本ドキュメントの内容は PoC 前の暫定案。
+>
+> 作業 1 ではここに記載されたモック JSON を `web/lib/prediction-evaluation/mock-data.ts` に置いて UI を先行実装する。作業 7（UI を本物の API に接続）でモック差し替えを最小コストで行うため、API レスポンス形と UI が期待する型は同一にする。
+
 ### 1.1 ベース URL・認証
 
 - ベース URL: 既存 stock-tracker web の API Routes（`/api/...`）
@@ -224,15 +228,17 @@ type DailySummaryEvaluationFields = {
 
 | モジュール | パス | 役割 |
 |-----------|------|------|
-| `GET /api/prediction-evaluation/summary` | `web/app/api/prediction-evaluation/summary/route.ts` | 集計 API |
-| `GET /api/prediction-evaluation/tickers` | `web/app/api/prediction-evaluation/tickers/route.ts` | 銘柄別 API |
-| `PredictionEvaluationPage` | `web/app/prediction-evaluation/page.tsx` | ダッシュボードページ |
-| `PeriodSelector` | `web/components/prediction-evaluation/PeriodSelector.tsx` | 期間切替 |
-| `KpiCards` | `web/components/prediction-evaluation/KpiCards.tsx` | KPI 4 カード |
-| `DailyTrendChart` | `web/components/prediction-evaluation/DailyTrendChart.tsx` | 推移折れ線 |
-| `SignalAccuracyChart` | `web/components/prediction-evaluation/SignalAccuracyChart.tsx` | シグナル別棒 |
-| `TickerAccuracyTable` | `web/components/prediction-evaluation/TickerAccuracyTable.tsx` | 銘柄別テーブル |
-| `ExchangeAccuracyTable` | `web/components/prediction-evaluation/ExchangeAccuracyTable.tsx` | 取引所別 |
+| `GET /api/prediction-evaluation/summary` | `web/app/api/prediction-evaluation/summary/route.ts` | 集計 API（作業 6 で実装） |
+| `GET /api/prediction-evaluation/tickers` | `web/app/api/prediction-evaluation/tickers/route.ts` | 銘柄別 API（作業 6 で実装） |
+| Mock fixture | `web/lib/prediction-evaluation/mock-data.ts` | 作業 1（UI PoC）で利用する `SummaryResponse` / `TickersResponse` 型のハードコード JSON。作業 7 で参照を削除またはテストフィクスチャへ移動 |
+| Data hook | `web/lib/prediction-evaluation/use-prediction-evaluation.ts` | UI からデータ取得を抽象化する custom hook。作業 1 ではモック JSON を返し、作業 7 で `fetch()` 実装に差し替える唯一の差し替え点 |
+| `PredictionEvaluationPage` | `web/app/prediction-evaluation/page.tsx` | ダッシュボードページ（作業 1 で実装） |
+| `PeriodSelector` | `web/components/prediction-evaluation/PeriodSelector.tsx` | 期間切替（作業 1） |
+| `KpiCards` | `web/components/prediction-evaluation/KpiCards.tsx` | KPI 4 カード（作業 1） |
+| `DailyTrendChart` | `web/components/prediction-evaluation/DailyTrendChart.tsx` | 推移折れ線（作業 1） |
+| `SignalAccuracyChart` | `web/components/prediction-evaluation/SignalAccuracyChart.tsx` | シグナル別棒（作業 1） |
+| `TickerAccuracyTable` | `web/components/prediction-evaluation/TickerAccuracyTable.tsx` | 銘柄別テーブル（作業 1） |
+| `ExchangeAccuracyTable` | `web/components/prediction-evaluation/ExchangeAccuracyTable.tsx` | 取引所別（作業 1） |
 
 #### infra
 
@@ -389,12 +395,13 @@ PredictedSignal = NEUTRAL のとき:  Hit = (-threshold < r < +threshold)
 
 ## 5. docs/ への移行メモ
 
-開発完了後、以下を `docs/` に反映してから本ディレクトリを削除する：
+この移行は `tasks.md` の **作業 8（docs/ 統合 & tasks/ 配下削除）** で実施する。作業 8 の PR で以下を漏れなく反映してから `tasks/stock-tracer-prediction-evaluation/` ディレクトリを削除する：
 
 - [ ] `docs/services/stock-tracker/requirements.md` に予測採点ユースケース（UC-001/UC-002）を追加
-- [ ] `docs/services/stock-tracker/external-design.md` に予測精度ダッシュボード（SCR-001）の画面設計を追加
+- [ ] `docs/services/stock-tracker/external-design.md` に予測精度ダッシュボード（SCR-001）の画面設計を追加（作業 2 で確定した版）
 - [ ] `docs/services/stock-tracker/architecture.md` に以下の ADR を追記
     - 採点結果を独立エンティティ化せず DailySummary に Evaluation\* フィールドとして統合した判断（紐づけキーが完全一致するため分離する利点が薄く、既存 `AiAnalysisResult` 同様「後から付与される派生属性」のパターンに合わせた）
     - 採点バッチを既存バッチに相乗りせず独立 Lambda にした判断（責務分離・スケジュール独立性）
     - 集計用 GSI を新設せず、既存 GSI4（ExchangeID × Date）を流用した判断（GSI 追加バックフィルを避け、Phase 1 の着手コストを最小化）
+    - UI 先行 PoC 方式を採用した判断（実物を見るまで指標の取捨選択や見せ方の微調整が判断しきれないため、要件再確定のループを設計に組み込んだ）
 - [ ] AI 改善ロードマップ（Phase 1〜4）を `docs/services/stock-tracker/` 配下のいずれかに記載
