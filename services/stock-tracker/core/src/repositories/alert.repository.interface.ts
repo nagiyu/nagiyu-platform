@@ -9,12 +9,13 @@ import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candid
 import type { PaginationOptions, PaginatedResult } from '@nagiyu/aws';
 
 /**
- * `getByUserId` のオプション。`enabledOnly: true` の場合、有効化済み（Enabled=true）の
- * アラートのみを返す。Web のアラート一覧表示など、無効化されたアラートを除外したい用途で使用する。
+ * `getByUserId` のオプション。
+ *
+ * 実装は常に「論理削除待ちのアラート（DynamoDB TTL 属性が設定されているアイテム）」を
+ * 結果から除外する。ユーザーが無効化したアラート（`Enabled=false` で TTL は未設定）は
+ * 引き続き返される。
  */
-export type GetByUserIdOptions = PaginationOptions & {
-  enabledOnly?: boolean;
-};
+export type GetByUserIdOptions = PaginationOptions;
 
 /**
  * Alert Repository インターフェース
@@ -35,7 +36,9 @@ export interface AlertRepository {
    * ユーザーのアラート一覧を取得
    *
    * @param userId - ユーザーID
-   * @param options - ページネーション + `enabledOnly` フィルタ
+   * 論理削除待ち（TTL 属性が設定済み）のアラートは常に結果から除外される。
+   *
+   * @param options - ページネーションオプション
    * @returns ページネーション結果
    */
   getByUserId(userId: string, options?: GetByUserIdOptions): Promise<PaginatedResult<AlertEntity>>;
@@ -56,7 +59,9 @@ export interface AlertRepository {
    * 一時アラート失効バッチ用の軽量取得。
    *
    * subscription / ConditionList などバッチ処理に不要な属性を取得・検証せず、
-   * `Temporary = true AND Enabled = true` のアラートのみを返す。
+   * `Temporary = true AND TTL 未設定` のアラートを返す。
+   * 既に `markTemporaryAsExpired` 済み（TTL あり）は除外する。
+   * Enabled=false でもユーザー手動無効化された一時アラートはバッチで回収するため候補に含める。
    *
    * @param frequency - 通知頻度
    * @param options - ページネーションオプション
