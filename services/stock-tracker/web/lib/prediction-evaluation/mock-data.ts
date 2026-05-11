@@ -14,11 +14,7 @@
  * 本ファイルはテストフィクスチャに移動するか削除される予定。
  */
 
-import type {
-  EvaluationPeriod,
-  SummaryResponse,
-  TickersResponse,
-} from './types';
+import type { EvaluationPeriod, SummaryResponse, TickersResponse } from './types';
 
 const NOW_MS = Date.UTC(2026, 4, 11, 12, 0, 0); // 2026-05-11 12:00 UTC（PoC 用の固定値）
 

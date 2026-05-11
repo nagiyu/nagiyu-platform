@@ -21,7 +21,8 @@ const DEFAULT_PERIOD: EvaluationPeriod = '7d';
 const DEFAULT_MIN_COUNT = 5;
 
 const UNAUTHORIZED_MESSAGE = '予測精度ダッシュボードを表示する権限がありません。';
-const POC_NOTICE = 'PoC 段階：本ダッシュボードはモックデータを表示しています（作業 7 で本物の API に差し替え予定）。';
+const POC_NOTICE =
+  'PoC 段階：本ダッシュボードはモックデータを表示しています（作業 7 で本物の API に差し替え予定）。';
 
 function PredictionEvaluationContent() {
   const { data: session, status } = useSession();

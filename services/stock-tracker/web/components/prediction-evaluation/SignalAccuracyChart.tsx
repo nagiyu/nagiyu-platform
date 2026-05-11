@@ -1,7 +1,17 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
+import {
+  Box,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@mui/material';
 import type { EChartsOption } from 'echarts';
 import { SIGNAL_LABELS, type SignalAccuracyEntry } from '@/lib/prediction-evaluation/types';
 

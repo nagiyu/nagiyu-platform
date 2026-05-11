@@ -1,5 +1,4 @@
 /** @jest-environment jsdom */
-import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 
 const searchParamsRef: { current: URLSearchParams } = { current: new URLSearchParams() };
@@ -57,9 +56,12 @@ describe('usePredictionEvaluationSummary', () => {
   });
 
   it('period 切替時に新しいデータを取得する', async () => {
-    const { result, rerender } = renderHook(({ period }) => usePredictionEvaluationSummary(period), {
-      initialProps: { period: '7d' as const },
-    });
+    const { result, rerender } = renderHook(
+      ({ period }) => usePredictionEvaluationSummary(period),
+      {
+        initialProps: { period: '7d' as const },
+      }
+    );
 
     await act(async () => {
       jest.advanceTimersByTime(500);

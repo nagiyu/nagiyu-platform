@@ -26,7 +26,9 @@ describe('buildSignalChartOption', () => {
   });
 
   it('null accuracy は値 0 として series に渡す', () => {
-    const option = buildSignalChartOption(ENTRIES) as { series: Array<{ data: Array<{ value: number }> }> };
+    const option = buildSignalChartOption(ENTRIES) as {
+      series: Array<{ data: Array<{ value: number }> }>;
+    };
     const values = option.series[0].data.map((d) => d.value);
     expect(values).toEqual([70, 0, 55]);
   });

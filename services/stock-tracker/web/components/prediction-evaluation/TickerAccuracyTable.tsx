@@ -56,11 +56,7 @@ export default function TickerAccuracyTable({ data, minCount }: TickerAccuracyTa
             </TableHead>
             <TableBody>
               {sorted.map((entry) => (
-                <TableRow
-                  key={entry.tickerId}
-                  hover
-                  data-testid={`ticker-row-${entry.tickerId}`}
-                >
+                <TableRow key={entry.tickerId} hover data-testid={`ticker-row-${entry.tickerId}`}>
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
                       {entry.tickerId}

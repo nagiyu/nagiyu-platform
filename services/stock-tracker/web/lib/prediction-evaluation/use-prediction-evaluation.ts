@@ -38,11 +38,7 @@ const resolveScenario = (raw: string | null): Scenario => {
   return 'normal';
 };
 
-const simulateFetch = <T>(
-  payload: T,
-  scenario: Scenario,
-  errorMessage: string
-): Promise<T> => {
+const simulateFetch = <T>(payload: T, scenario: Scenario, errorMessage: string): Promise<T> => {
   if (scenario === 'loading') {
     return new Promise<T>(() => {
       /* never resolve */
@@ -73,7 +69,9 @@ export const applyMinCountFilter = (
   };
 };
 
-export function usePredictionEvaluationSummary(period: EvaluationPeriod): FetchState<SummaryResponse> {
+export function usePredictionEvaluationSummary(
+  period: EvaluationPeriod
+): FetchState<SummaryResponse> {
   const searchParams = useSearchParams();
   const scenario = resolveScenario(searchParams?.get('scenario') ?? null);
 
