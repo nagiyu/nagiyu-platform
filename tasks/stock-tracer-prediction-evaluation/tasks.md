@@ -53,31 +53,31 @@
 
 UI を先行実装し、dev 環境で実物を確認できる状態にする。API はまだ存在しないため、`design.md` §1.3 の `SummaryResponse` / `TickersResponse` に準拠したハードコード JSON をモックとして使う。**この段階では backend / DB / 集計ロジックに一切触れない**。
 
-- [ ] `web/lib/prediction-evaluation/mock-data.ts` 作成
+- [x] `web/lib/prediction-evaluation/mock-data.ts` 作成
     - `MOCK_SUMMARY_RESPONSE: SummaryResponse`
     - `MOCK_TICKERS_RESPONSE: TickersResponse`
     - 内容バリエーション：複数日（日次推移を見られる程度の長さ）/ 複数銘柄 / 複数取引所 / 高精度・低精度ケース / 空状態（`judgedCount = 0`）/ 部分欠損（`accuracy = null`）を含め、UI の主要な状態を網羅
-- [ ] `web/lib/prediction-evaluation/use-prediction-evaluation.ts` 作成
+- [x] `web/lib/prediction-evaluation/use-prediction-evaluation.ts` 作成
     - `usePredictionEvaluationSummary(period)` / `usePredictionEvaluationTickers(period, minCount)` の 2 つの custom hook
     - PoC 段階ではモック JSON を Promise でラップして返す（loading / error 状態の UI も試せるよう setTimeout で小さな遅延を入れる、または error scenario 用のクエリパラメータで切替）
     - 作業 7 でここを fetch に差し替える「唯一の差し替え点」とする
-- [ ] `web/app/prediction-evaluation/page.tsx` 作成
+- [x] `web/app/prediction-evaluation/page.tsx` 作成
     - 既存認証フローでガード
     - 期間ステートを保持し、上記 hook を呼ぶ
     - ローディング / 空状態 / エラー UI
-- [ ] `web/components/prediction-evaluation/` 配下に各コンポーネント作成
+- [x] `web/components/prediction-evaluation/` 配下に各コンポーネント作成
     - `PeriodSelector.tsx`
     - `KpiCards.tsx`
     - `DailyTrendChart.tsx`
     - `SignalAccuracyChart.tsx`
     - `TickerAccuracyTable.tsx`
     - `ExchangeAccuracyTable.tsx`
-- [ ] 既存ナビゲーションに「予測精度」リンクを追加（既存ヘッダー / サイドバーに合わせる）
-- [ ] レスポンシブ対応（Material-UI ブレークポイント）
-- [ ] アクセシビリティ：グラフ値はテーブルで補助参照可能に
-- [ ] コンポーネントユニットテスト（モックデータを fixture として利用）
-- [ ] E2E：基本表示と期間切替の Fast CI 用シナリオ（`chromium-mobile`）
-- [ ] カバレッジ 80% 以上
+- [x] 既存ナビゲーションに「予測精度」リンクを追加（既存ヘッダー / サイドバーに合わせる）
+- [x] レスポンシブ対応（Material-UI ブレークポイント）
+- [x] アクセシビリティ：グラフ値はテーブルで補助参照可能に
+- [x] コンポーネントユニットテスト（モックデータを fixture として利用）
+- [x] E2E：基本表示と期間切替の Fast CI 用シナリオ（`chromium-mobile`）
+- [x] カバレッジ 80% 以上
 
 **完了条件**: dev 環境で `/prediction-evaluation`（仮）が表示され、KPI / 推移 / シグナル別 / 銘柄別 / 取引所別 / AI 失敗件数 / 空状態 / エラー の主要状態が確認できる。
 
