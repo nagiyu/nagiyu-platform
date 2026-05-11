@@ -30,12 +30,12 @@ test.describe('予測精度ダッシュボード PoC', () => {
     await page.goto('/prediction-evaluation');
 
     const headline = page.getByTestId('summary-headline');
-    await expect(headline).toContainText('直近 7 日');
+    await expect(headline).toContainText('直近 30 日');
     const initialText = await headline.textContent();
 
-    await page.getByLabel('集計期間').selectOption('30d');
+    await page.getByLabel('集計期間').selectOption('7d');
 
-    await expect(headline).toContainText('直近 30 日');
+    await expect(headline).toContainText('直近 7 日');
     await expect
       .poll(async () => await headline.textContent(), { timeout: 5000 })
       .not.toBe(initialText);

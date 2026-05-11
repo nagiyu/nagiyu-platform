@@ -89,30 +89,37 @@ UI を先行実装し、dev 環境で実物を確認できる状態にする。A
 
 ## 作業 2：PoC レビュー FB を反映して要件・設計を再確定
 
-**ブランチ**: `claude/3018-refine-docs`
+**ブランチ**: `claude/3018-refine-docs`（PR #3057：UI 簡素化） + `claude/3018-finalize-docs`（後続 PR：ドキュメント確定 + デフォルト期間調整）
 **依存**: 作業 1
-**主な変更箇所**: `tasks/stock-tracer-prediction-evaluation/`
+**主な変更箇所**: `tasks/stock-tracer-prediction-evaluation/`、追補で `services/stock-tracker/web/`
 
-作業 1 で dev に出た UI をレビューして、人から FB をもらい、ドキュメントを再確定する。**実装コードは触らない**（必要なら作業 1 の PoC に追補コミットを乗せる）。
+作業 1 で dev に出た UI に対する FB をユーザーと対話で収集し、まず UI コードに先行反映（PR #3057）してから、ドキュメントを確定版に更新する 2 段階運用とした。
 
-- [ ] dev 環境で PoC を確認した人から FB を収集（issue コメント or チャット）
-- [ ] `requirements.md` を更新
-    - 機能一覧（F-001〜F-013）の追加・削除・統合
-    - 受け入れ条件の調整
-- [ ] `external-design.md` を更新
-    - 画面レイアウト、UI 要素一覧、状態定義を確定版に
-    - 「PoC 前の暫定案」注記を外す
-- [ ] 必要なら `design.md` を更新
-    - §1.3 API スキーマ（`SummaryResponse` / `TickersResponse`）の確定
-    - §3.3 `aggregateEvaluatedSummaries` の `AggregateOutput` 型の確定
-    - `Evaluation*` フィールドの追加・削除（DailySummary の保存項目が増減する場合）
-- [ ] 必要なら `README.md` §4 決定事項表に項目追加（FB で大きな方針変更があった場合のみ）
+- [x] dev 環境で PoC を確認した人から FB を収集（本タスクのセッション対話で実施）
+- [x] `requirements.md` を確定版に更新
+    - 機能一覧の整理（F-008 を「主要指標テキスト表示」に変更、F-011〜F-013 を 2.2.1「将来拡張」に分離）
+    - UC-002 の正常フロー / 代替フロー / 例外フローを確定版 UI に合わせて更新
+    - §4.3 集計指標を Phase 1 UI に出すものだけに絞る
+    - 受け入れ条件を確定版 UI 構成に合わせて更新
+- [x] `external-design.md` を確定版に更新
+    - 「PoC 前の暫定案」注記を削除し、確定版として明記
+    - 画面レイアウト図・UI 要素表・ユーザーインタラクション・表示条件を確定版に
+    - ADR-003〜007 を追加（KPI カード廃止 / 単独カード廃止 / 銘柄別・取引所別オミット / 前期比未実装 / 過去データ遡及採点）
+- [x] `design.md` を確定版に更新
+    - §1.2 エンドポイント一覧から `/tickers` を削除、§1.4 として将来拡張に移動
+    - §1.3 `SummaryResponse` から `byExchange` / `KpiSummary.neutralRatio` / `KpiSummary.aiFailureCount` を削除
+    - §3.2 実装モジュール一覧の web 配下を Phase 1 実装ファイルに整理、`summary-headline.ts` を追記
+    - §3.3 `AggregateOutput` を `kpi` / `bySignal` / `dailyTrend` の 3 軸に絞り、`AggregateInput` から `exchangeNameById` / `tickerNameById` を削除
+    - §4.3 から銘柄別 minCount 関連を削除、§4.3 に `stocks:read` 権限チェックを追記
+    - §5 docs/ 移行メモに ADR 追記項目を補強
+- [x] PoC 実装側の追補：`DEFAULT_PERIOD` を `'7d'` → `'30d'` に変更（external-design.md と整合）+ e2e 期間切替シナリオを更新
 
 **完了条件**: ドキュメントが確定し、人が「これで backend 着手 OK」と判断できる状態になる。
 
 **注意**:
-- ここで Evaluation\* フィールドの増減が確定すれば、作業 3 以降の手戻りが避けられる
-- API スキーマも確定するので、作業 6（API）と作業 7（UI 配線）の互換性は機械的に保てる
+- Evaluation\* フィールドの確定（変更なし。作業 0 時点の 6 フィールドを維持）が再確認できたので、作業 3 以降は手戻りなし
+- API スキーマも確定したので、作業 6（API）と作業 7（UI 配線）の互換性は機械的に保てる
+- PoC 注記アラート（`Alert severity="info"`）は作業 7（本物 API への切替）が完了するまで残し、その時点で削除する
 
 ---
 
@@ -226,22 +233,18 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 **主な変更箇所**: `services/stock-tracker/web/app/api/`
 
 - [ ] `web/app/api/prediction-evaluation/summary/route.ts` 作成
-    - GET 実装、認証ミドルウェア通過
+    - GET 実装、認証ミドルウェア + `stocks:read` 権限チェックを通過
     - `period` バリデーション（enum）
     - 全 Exchange を `ExchangeRepository` で取得 → 各 Exchange について `DailySummaryRepository.getByExchangeAndDateRange`（既存 GSI4 ベース）で対象期間の DailySummary を取得 → メモリで `EvaluatedAt` あり & `AiAnalysisError` なし & `AiAnalysisResult` ありに絞り `aggregateEvaluatedSummaries` で集計 → `SummaryResponse` 形式で返却
-    - `aiFailureCount` は別途、同じ取得結果から `AiAnalysisError` ありの件数をカウント
-- [ ] `web/app/api/prediction-evaluation/tickers/route.ts` 作成
-    - GET 実装、認証ミドルウェア通過
-    - `period` バリデーション、`minCount` の上限バリデーション（例：1000）
-    - 上記と同じ取得・集計ロジックの `byTicker` 部分を `minCount` でフィルタして返却
 - [ ] エラーハンドリング：日本語エラーメッセージ定数化（`docs/development/rules.md` 準拠）
 - [ ] ユニットテスト
-    - 各エンドポイント：認証エラー・バリデーションエラー・正常系・空データ・採点済み 0 件
+    - 認証エラー・権限エラー・バリデーションエラー・正常系・空データ・採点済み 0 件
 - [ ] カバレッジ 80% 以上
 
 **注意**:
 - `DailySummaryRepository.getByExchangeAndDateRange` は作業 3 のスコープで追加済み前提
-- レスポンス形式は作業 1 のモック JSON と一致させる（作業 7 の差し替えを機械的にするため）
+- レスポンス形式は作業 1 のモック JSON（および確定版 `lib/prediction-evaluation/types.ts` の `SummaryResponse`）と一致させる（作業 7 の差し替えを機械的にするため）
+- `/tickers` / `/exchanges` / `/ai-failures` は Phase 1 のスコープ外（`design.md` §1.4 参照）。本作業 6 では実装しない
 
 **完了条件**: PR レビュー通過、API がローカル / dev 環境で動作確認できる。
 
@@ -316,8 +319,9 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 | 作業 | ブランチ | PR | ステータス | 担当セッション |
 |------|---------|----|-----------|---------------|
 | 0. 設計ドキュメント | `claude/3018-design-docs` | #3020 | マージ済 | — |
-| 1. UI PoC（モックデータ） | `claude/3018-ui-poc` | — | 進行中 | Issue #3023 |
-| 2. PoC FB 反映で要件再確定 | `claude/3018-refine-docs` | — | 未着手 | — |
+| 1. UI PoC（モックデータ） | `claude/3018-ui-poc` | #3035 | マージ済 | Issue #3023 |
+| 2. PoC FB 反映で要件再確定（UI 簡素化） | `claude/3018-refine-docs` | #3057 | マージ済 | Issue #3024 |
+| 2. PoC FB 反映で要件再確定（ドキュメント確定 + 30d デフォルト） | `claude/3018-finalize-docs` | 本 PR | 進行中 | Issue #3024 |
 | 3. Entity / Repository 拡張 | `claude/3018-entity` | — | 未着手 | — |
 | 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | — | 未着手 | — |
 | 5. 採点バッチ + cron | `claude/3018-batch` | — | 未着手 | — |

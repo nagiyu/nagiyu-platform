@@ -15,7 +15,7 @@ import {
 } from '@/lib/prediction-evaluation/summary-headline';
 import type { EvaluationPeriod } from '@/lib/prediction-evaluation/types';
 
-const DEFAULT_PERIOD: EvaluationPeriod = '7d';
+const DEFAULT_PERIOD: EvaluationPeriod = '30d';
 
 const UNAUTHORIZED_MESSAGE = '予測精度ダッシュボードを表示する権限がありません。';
 const POC_NOTICE =
