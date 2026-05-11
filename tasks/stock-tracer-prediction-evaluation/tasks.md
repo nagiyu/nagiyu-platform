@@ -37,32 +37,43 @@
 
 ---
 
-## 作業 1：PredictionOutcome エンティティ追加（core）
+## 作業 1：DailySummaryEntity 拡張（Evaluation\* フィールド追加）
 
 **ブランチ**: `claude/3018-entity`
 **依存**: 作業 0
 **主な変更箇所**: `services/stock-tracker/core/`
 
-- [ ] `core/src/entities/prediction-outcome.entity.ts` 作成
-    - `PredictionOutcomeEntity`、`CreatePredictionOutcomeInput`、`PredictionOutcomeKey` を定義
-    - `design.md` § 2.1 に従う
-- [ ] `core/src/mappers/prediction-outcome.mapper.ts` 作成
-    - `toItem` / `toEntity` / `buildKeys` を実装
-    - PK = `OUTCOME#{TickerID}`、SK = `DATE#{PredictionDate}`、`Type = PredictionOutcome`
-    - GSI5：GSI5PK = `OUTCOME_BY_DATE`、GSI5SK = `DATE#{PredictionDate}#{TickerID}`
-- [ ] `core/src/repositories/prediction-outcome.repository.interface.ts` 作成
-- [ ] `core/src/repositories/dynamodb-prediction-outcome.repository.ts` 作成
-    - `save` は `attribute_not_exists(PK)` 条件で冪等性を担保
-    - `findByDateRange` は GSI5 を Query
-- [ ] `core/src/repositories/in-memory-prediction-outcome.repository.ts` 作成（テスト用）
-- [ ] `core/src/index.ts` に export 追加
+A 案を採用し、独立エンティティではなく既存 `DailySummaryEntity` に Evaluation\* optional フィールドを追加する。新規 mapper / repository / GSI は作成しない。
+
+- [ ] `core/src/entities/daily-summary.entity.ts` を更新
+    - 以下 6 つの optional フィールドを追加（`design.md` §2.1 参照）
+        - `EvaluationDate?: string`
+        - `EvaluationClose?: number`
+        - `ActualReturn?: number`
+        - `Hit?: boolean`
+        - `EvaluationThresholdPercent?: number`
+        - `EvaluatedAt?: number`
+    - 既存の `CreateDailySummaryInput` 型は `Omit<...>` ベースなので追加対応のみ
+- [ ] `core/src/mappers/daily-summary.mapper.ts` を更新
+    - `toItem`：Evaluation\* を spread 条件付きで item に含める（既存 `AiAnalysisResult` 等と同パターン）
+    - `toEntity`：Evaluation\* を validation 関数で読み出す（不在時 undefined）
+- [ ] `core/src/repositories/daily-summary.repository.interface.ts` を更新
+    - `markAsEvaluated(key, fields)` メソッド追加（`design.md` §3.3 参照）
+    - `getByExchangeAndDateRange(exchangeId, fromDate, toDate)` メソッド追加（既存 `getByExchange` は単一日付 / 最新日のみ対応のため、期間集計用に新設）
+- [ ] `core/src/repositories/dynamodb-daily-summary.repository.ts`（既存）を更新
+    - `markAsEvaluated` を実装。`UpdateItemCommand` で `SET` 句、条件式 `attribute_not_exists(EvaluatedAt)`
+    - `ConditionalCheckFailedException` を独自エラーに変換するか throw 直し（呼び出し側で skip 判定可能にする）
+    - `getByExchangeAndDateRange` を実装。GSI4 で `KeyConditionExpression: #gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to`、`:from = "DATE#" + fromDate`、`:to = "DATE#" + toDate + "#~"`（`#~` は最大ソート文字、ticker 横断で当該日付までを含めるため）
+- [ ] `core/src/repositories/in-memory-daily-summary.repository.ts`（既存があれば）を更新
+    - `markAsEvaluated` / `getByExchangeAndDateRange` を実装。前者は既に `EvaluatedAt` がある場合に同じ条件でエラーを投げる
+- [ ] `core/src/index.ts` の export はインタフェース経由なので追加対応最小
 - [ ] ユニットテスト
-    - mapper：正常系・必須フィールド欠損・型不一致
-    - dynamodb repository：mock client で save / findByKey / findByDateRange / findByTicker
-    - in-memory repository：基本動作
+    - mapper：Evaluation\* 全 6 フィールドの round-trip、optional 不在時、partial（一部のみ存在）の場合の挙動を網羅
+    - dynamodb repository：`markAsEvaluated` の正常系・条件式違反・既存 update メソッドへの影響なし
+    - in-memory repository：`markAsEvaluated` の正常系と二重採点エラー
 - [ ] カバレッジ 80% 以上を確認
 
-**完了条件**: PR レビューが通り、`@nagiyu/stock-tracker-core` のテストがすべて green、integration にマージ。
+**完了条件**: PR レビューが通り、`@nagiyu/stock-tracker-core` の既存テストがすべて green かつ追加テストも green、integration にマージ。
 
 ---
 
@@ -77,14 +88,16 @@
     - 境界値の扱い：BULLISH/BEARISH は **以上 / 以下**、NEUTRAL は **より大きく / より小さく**（`design.md` § 3.4）
     - 純粋関数。副作用なし
 - [ ] `core/src/services/prediction-aggregator.ts` 作成
-    - `aggregatePredictions(input: AggregateInput): AggregateOutput`
+    - `aggregateEvaluatedSummaries(input: AggregateInput): AggregateOutput`
+    - 入力は採点済み DailySummary（Evaluation\* 全埋まり、`AiAnalysisResult` あり、`AiAnalysisError` なし）に絞った配列
+    - `PredictedSignal` は `AiAnalysisResult.investmentJudgment.signal` から導出
     - KPI / シグナル別 / 取引所別 / 銘柄別 / 日次推移 を一括算出
     - 入力が空のとき `accuracy = null`、`count = 0` を返す
     - 純粋関数
 - [ ] `core/src/index.ts` に export 追加
 - [ ] ユニットテスト
     - `judgePrediction`：シグナル × 境界値の網羅（境界値ちょうど + 内側 + 外側）
-    - `aggregatePredictions`：空入力・全 Hit・全 Miss・複数取引所・複数銘柄
+    - `aggregateEvaluatedSummaries`：空入力・全 Hit・全 Miss・複数取引所・複数銘柄・`AiAnalysisError` 混在（呼び出し側で除外する想定だが、防御的にもチェック）
 - [ ] カバレッジ 80% 以上
 
 **完了条件**: PR レビューが通り、テストがすべて green、integration にマージ。
@@ -100,29 +113,29 @@
 - `infra/stock-tracker/lib/`
 
 - [ ] `batch/src/lib/find-pending-evaluations.ts` 作成
-    - 入力：`PredictionOutcomeRepository`、`DailySummaryRepository`、`ExchangeRepository`、現在時刻
-    - 出力：採点対象の予測リスト（`{ tickerId, predictionDate, baseClose, signal, exchange }[]`）
-    - ロジック：全 Exchange を取得 → 翌営業日引け済み判定（`trading-hours-checker` 流用）→ 既存 GSI4 で対象 DailySummary を抽出 → 既存採点をスキップ
+    - 入力：`DailySummaryRepository`、`ExchangeRepository`、現在時刻
+    - 出力：採点対象 DailySummary のリスト（`{ summary: DailySummaryEntity, exchange: ExchangeEntity, evaluationDate: string }[]`）
+    - ロジック：全 Exchange を取得 → 翌営業日引け済み判定（`trading-hours-checker` 流用）→ 既存 GSI4 で対象期間の DailySummary を Query → メモリで「`AiAnalysisResult` あり & `AiAnalysisError` なし & `EvaluatedAt` 未設定」をフィルタ
 - [ ] `batch/src/evaluation.ts` 作成（Lambda エントリポイント）
     - `find-pending-evaluations` を呼び出し
     - 各対象について、TradingView API で翌営業日終値を取得
-    - `judgePrediction` で判定 → `PredictionOutcomeEntity` を `save`
-    - エラー処理：個別予測の失敗は continue、全体停止しない
-    - ログ出力（採点件数・失敗件数）
-- [ ] `infra/stock-tracker/lib/dynamodb-stack.ts` を更新し GSI5 追加
+    - `judgePrediction` で判定 → `DailySummaryRepository.markAsEvaluated(key, fields)` で書き込み
+    - `ConditionalCheckFailedException`（並列起動による既採点）は info ログを出して continue
+    - 個別予測の失敗（TradingView エラー等）も continue、全体停止しない
+    - ログ出力（採点件数・失敗件数・既採点スキップ件数）
 - [ ] `infra/stock-tracker/lib/lambda-stack.ts` に採点バッチ Lambda 追加（`batchEvaluationFunction`）
 - [ ] `infra/stock-tracker/lib/eventbridge-stack.ts` に 1 時間毎の cron ルール追加
-- [ ] `infra/stock-tracker/lib/iam-stack.ts` で採点 Lambda の必要権限を付与（DynamoDB read/write、Secrets Manager 等）
+- [ ] `infra/stock-tracker/lib/iam-stack.ts` で採点 Lambda の必要権限を付与（既存 DailySummary テーブルへの read/update、Secrets Manager 等）
 - [ ] ユニットテスト
-    - `find-pending-evaluations`：取引所・引け状況・採点済みのバリエーションで網羅
-    - `evaluation` ハンドラ：依存をモック化、TradingView 失敗時の continue、空入力時の no-op、二重起動時の冪等性
+    - `find-pending-evaluations`：取引所・引け状況・採点済み（`EvaluatedAt` あり）・AI 失敗のバリエーションで網羅
+    - `evaluation` ハンドラ：依存をモック化、TradingView 失敗時の continue、空入力時の no-op、`ConditionalCheckFailedException` 発生時の skip
 - [ ] カバレッジ 80% 以上
 - [ ] dev 環境デプロイで実際に Lambda が起動することを確認
 
-**完了条件**: dev 環境で採点バッチ Lambda が稼働し、新規予測に対して採点レコードが作成される。GSI5 のバックフィルが完了している。
+**完了条件**: dev 環境で採点バッチ Lambda が稼働し、新規予測に対して既存 DailySummary レコードへ Evaluation\* フィールドが書き込まれる。
 
 **注意**:
-- GSI 追加は既存 DynamoDB テーブルへの変更で、デプロイ時にバックフィル時間が発生する
+- DynamoDB GSI 追加はなし（既存 GSI4 を流用）。`infra/stock-tracker/lib/dynamodb-stack.ts` の変更は不要
 - TradingView API のクオータに注意（採点対象が多い場合は段階的なリリースを検討）
 
 ---
@@ -136,15 +149,19 @@
 - [ ] `web/app/api/prediction-evaluation/summary/route.ts` 作成
     - GET 実装、認証ミドルウェア通過
     - `period` バリデーション（enum）
-    - `PredictionOutcomeRepository.findByDateRange` で取得 → `aggregatePredictions` で集計 → `SummaryResponse` 形式で返却
+    - 全 Exchange を `ExchangeRepository` で取得 → 各 Exchange について `DailySummaryRepository.findByExchangeAndDateRange`（既存 GSI4 ベース）で対象期間の DailySummary を取得 → メモリで `EvaluatedAt` あり & `AiAnalysisError` なし & `AiAnalysisResult` ありに絞り `aggregateEvaluatedSummaries` で集計 → `SummaryResponse` 形式で返却
+    - `aiFailureCount` は別途、同じ取得結果から `AiAnalysisError` ありの件数をカウント
 - [ ] `web/app/api/prediction-evaluation/tickers/route.ts` 作成
     - GET 実装、認証ミドルウェア通過
     - `period` バリデーション、`minCount` の上限バリデーション（例：1000）
-    - 集計結果を銘柄別に絞って返却
+    - 上記と同じ取得・集計ロジックの `byTicker` 部分を `minCount` でフィルタして返却
 - [ ] エラーハンドリング：日本語エラーメッセージ定数化（`docs/development/rules.md` 準拠）
 - [ ] ユニットテスト
-    - 各エンドポイント：認証エラー・バリデーションエラー・正常系・空データ
+    - 各エンドポイント：認証エラー・バリデーションエラー・正常系・空データ・採点済み 0 件
 - [ ] カバレッジ 80% 以上
+
+**注意**:
+- `DailySummaryRepository.getByExchangeAndDateRange` は作業 1 のスコープで追加済み前提
 
 **完了条件**: PR レビュー通過、API がローカル / dev 環境で動作確認できる。
 

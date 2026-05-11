@@ -60,12 +60,13 @@ Phase 1 の蓄積データはすべて Phase 2〜4 の入力となるため、**
 | 5 | 判定タイミング | 新規独立 Lambda、EventBridge cron で 1 時間毎起動。「未判定 & 翌営業日引け済」のみ処理 | 既存バッチとの責務分離。複数取引所を 1 つの cron でカバーできる |
 | 6 | ダッシュボード | 既存 web に新規ページ。レベル 2（KPI / 推移 / シグナル別 / 銘柄別 / 取引所別） | 全体精度だけでなく「どこが悪いか」まで見えないと改善の手がかりにならない |
 | 7 | データ保持 | 永続保持（TTL なし） | Phase 2〜4 の学習素材として活用。古いデータほど価値があるケースもある |
+| 8 | 採点結果の格納方式 | 既存 `DailySummaryEntity` に Evaluation\* optional フィールドとして統合（独立エンティティを作らない） | キーが `(TickerID, Date)` で完全一致するため独立化のメリットが薄く、既存 `AiAnalysisResult` 同様 "後から付与される派生属性" のパターンに合わせる。新規 GSI 追加が不要になり Phase 1 の着手コストも下がる |
 
 ## 5. スコープ
 
 ### 含む
 
-- 判定結果格納用の新規エンティティ（`PredictionOutcomeEntity` 仮称）
+- 既存 `DailySummaryEntity` への Evaluation\* フィールド追加（採点結果の格納先。詳細は §4 項目 8 / `design.md` §2.1 参照）
 - 採点ロジック（純粋関数）
 - 採点バッチ Lambda + EventBridge cron（1 時間毎）
 - 精度集計 API（既存 web の API Routes）
