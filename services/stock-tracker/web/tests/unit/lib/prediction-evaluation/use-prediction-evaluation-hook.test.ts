@@ -8,10 +8,7 @@ jest.mock('next/navigation', () => ({
   useSearchParams: () => searchParamsRef.current,
 }));
 
-import {
-  usePredictionEvaluationSummary,
-  usePredictionEvaluationTickers,
-} from '../../../../lib/prediction-evaluation/use-prediction-evaluation';
+import { usePredictionEvaluationSummary } from '../../../../lib/prediction-evaluation/use-prediction-evaluation';
 
 describe('usePredictionEvaluationSummary', () => {
   beforeEach(() => {
@@ -55,6 +52,16 @@ describe('usePredictionEvaluationSummary', () => {
     expect(result.current.error).toContain('失敗しました');
   });
 
+  it('scenario=loading では loading=true のまま', () => {
+    searchParamsRef.current = new URLSearchParams('scenario=loading');
+    const { result } = renderHook(() => usePredictionEvaluationSummary('7d'));
+
+    // resolve/reject されないため永続 loading
+    expect(result.current.loading).toBe(true);
+    expect(result.current.data).toBeNull();
+    expect(result.current.error).toBeNull();
+  });
+
   it('period 切替時に新しいデータを取得する', async () => {
     const { result, rerender } = renderHook(
       ({ period }) => usePredictionEvaluationSummary(period),
@@ -75,51 +82,5 @@ describe('usePredictionEvaluationSummary', () => {
       jest.advanceTimersByTime(500);
     });
     await waitFor(() => expect(result.current.data?.period).toBe('30d'));
-  });
-});
-
-describe('usePredictionEvaluationTickers', () => {
-  beforeEach(() => {
-    jest.useFakeTimers();
-    searchParamsRef.current = new URLSearchParams();
-  });
-
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it('minCount に応じて結果がフィルタされる', async () => {
-    const { result } = renderHook(() => usePredictionEvaluationTickers('7d', 7));
-
-    await act(async () => {
-      jest.advanceTimersByTime(500);
-    });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-
-    expect(result.current.data?.minCount).toBe(7);
-    result.current.data?.tickers.forEach((ticker) => {
-      expect(ticker.count).toBeGreaterThanOrEqual(7);
-    });
-  });
-
-  it('scenario=error でエラーを返す', async () => {
-    searchParamsRef.current = new URLSearchParams('scenario=error');
-    const { result } = renderHook(() => usePredictionEvaluationTickers('7d', 5));
-
-    await act(async () => {
-      jest.advanceTimersByTime(500);
-    });
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(result.current.error).toContain('銘柄別精度');
-  });
-
-  it('scenario=loading では loading=true のまま', () => {
-    searchParamsRef.current = new URLSearchParams('scenario=loading');
-    const { result } = renderHook(() => usePredictionEvaluationTickers('7d', 5));
-
-    // resolve/reject されないため永続 loading
-    expect(result.current.loading).toBe(true);
-    expect(result.current.data).toBeNull();
-    expect(result.current.error).toBeNull();
   });
 });

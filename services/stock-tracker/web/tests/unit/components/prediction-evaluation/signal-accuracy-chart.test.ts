@@ -32,6 +32,16 @@ describe('buildSignalChartOption', () => {
     const values = option.series[0].data.map((d) => d.value);
     expect(values).toEqual([70, 0, 55]);
   });
+
+  it('ラベルフォーマッタは精度ありを %、null を「—」、範囲外を空文字に整形する', () => {
+    const option = buildSignalChartOption(ENTRIES) as {
+      series: Array<{ label: { formatter: (params: { dataIndex: number }) => string } }>;
+    };
+    const formatter = option.series[0].label.formatter;
+    expect(formatter({ dataIndex: 0 })).toBe('70.0%');
+    expect(formatter({ dataIndex: 1 })).toBe('—');
+    expect(formatter({ dataIndex: 999 })).toBe('');
+  });
 });
 
 describe('SignalAccuracyChart rendering', () => {
