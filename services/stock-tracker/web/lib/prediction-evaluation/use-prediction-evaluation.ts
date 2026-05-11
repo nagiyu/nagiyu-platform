@@ -13,8 +13,8 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { MOCK_SUMMARY_BY_PERIOD, MOCK_TICKERS_BY_PERIOD } from './mock-data';
-import type { EvaluationPeriod, SummaryResponse, TickersResponse } from './types';
+import { MOCK_SUMMARY_BY_PERIOD } from './mock-data';
+import type { EvaluationPeriod, SummaryResponse } from './types';
 
 export interface FetchState<T> {
   data: T | null;
@@ -26,7 +26,6 @@ const MOCK_DELAY_MS = 300;
 
 const ERROR_MESSAGES = {
   FETCH_SUMMARY: '予測精度サマリーの取得に失敗しました',
-  FETCH_TICKERS: '銘柄別精度の取得に失敗しました',
 } as const;
 
 type Scenario = 'normal' | 'loading' | 'error';
@@ -52,21 +51,6 @@ const simulateFetch = <T>(payload: T, scenario: Scenario, errorMessage: string):
   return new Promise<T>((resolve) => {
     setTimeout(() => resolve(payload), MOCK_DELAY_MS);
   });
-};
-
-/**
- * 銘柄テーブルの `minCount` フィルタはモック段階ではクライアントで適用する。
- * 作業 6（API 実装）後はサーバー側で適用されるため、本関数はそのまま削除される予定。
- */
-export const applyMinCountFilter = (
-  response: TickersResponse,
-  minCount: number
-): TickersResponse => {
-  return {
-    ...response,
-    minCount,
-    tickers: response.tickers.filter((ticker) => ticker.count >= minCount),
-  };
 };
 
 export function usePredictionEvaluationSummary(
@@ -103,45 +87,6 @@ export function usePredictionEvaluationSummary(
       cancelled = true;
     };
   }, [period, scenario]);
-
-  return state;
-}
-
-export function usePredictionEvaluationTickers(
-  period: EvaluationPeriod,
-  minCount: number
-): FetchState<TickersResponse> {
-  const searchParams = useSearchParams();
-  const scenario = resolveScenario(searchParams?.get('scenario') ?? null);
-
-  const [state, setState] = useState<FetchState<TickersResponse>>({
-    data: null,
-    loading: true,
-    error: null,
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    setState({ data: null, loading: true, error: null });
-
-    simulateFetch(MOCK_TICKERS_BY_PERIOD[period], scenario, ERROR_MESSAGES.FETCH_TICKERS)
-      .then((data) => {
-        if (cancelled) return;
-        setState({ data: applyMinCountFilter(data, minCount), loading: false, error: null });
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setState({
-          data: null,
-          loading: false,
-          error: err instanceof Error ? err.message : ERROR_MESSAGES.FETCH_TICKERS,
-        });
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [period, minCount, scenario]);
 
   return state;
 }

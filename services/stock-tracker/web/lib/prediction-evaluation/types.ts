@@ -31,12 +31,8 @@ export interface KpiSummary {
   totalAccuracy: number | null;
   /** 方向精度（%、BULLISH + BEARISH のみ） */
   directionalAccuracy: number | null;
-  /** NEUTRAL 比率（%） */
-  neutralRatio: number | null;
   /** 判定済み件数 */
   judgedCount: number;
-  /** 採点対象外（AiAnalysisError あり）件数 */
-  aiFailureCount: number;
 }
 
 export interface DailyTrendPoint {
@@ -52,13 +48,6 @@ export interface SignalAccuracyEntry {
   count: number;
 }
 
-export interface ExchangeAccuracyEntry {
-  exchangeId: string;
-  exchangeName: string;
-  accuracy: number | null;
-  count: number;
-}
-
 export interface SummaryResponse {
   period: EvaluationPeriod;
   /** 集計時刻（unix timestamp ms） */
@@ -66,24 +55,4 @@ export interface SummaryResponse {
   kpi: KpiSummary;
   dailyTrend: DailyTrendPoint[];
   bySignal: SignalAccuracyEntry[];
-  byExchange: ExchangeAccuracyEntry[];
-}
-
-export interface TickerAccuracyEntry {
-  tickerId: string;
-  tickerName: string;
-  exchangeId: string;
-  /** 方向精度ベース（NEUTRAL 除外） */
-  accuracy: number;
-  count: number;
-  bullishHit: number;
-  bullishTotal: number;
-  bearishHit: number;
-  bearishTotal: number;
-}
-
-export interface TickersResponse {
-  period: EvaluationPeriod;
-  minCount: number;
-  tickers: TickerAccuracyEntry[];
 }
