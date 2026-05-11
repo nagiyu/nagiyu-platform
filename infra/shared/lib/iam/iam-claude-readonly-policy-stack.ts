@@ -16,6 +16,11 @@ import { Construct } from 'constructs';
  *     - KMS: Decrypt / Encrypt / GenerateDataKey 系を Deny
  *       （副作用として SSM SecureString も復号不可になる）
  *     - DynamoDB: nagiyu-auth-users-* テーブルへの読み取りを Deny
+ *
+ * 例外:
+ * - DynamoDB の Scan / Query / GetItem が KMS 暗号化済みテーブルに対して
+ *   成功するよう、kms:ViaService が DynamoDB の場合に限り kms:Decrypt を許可
+ *   （SSM SecureString / Secrets Manager 経由の復号は引き続き Deny）
  */
 export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
   public readonly policy: iam.IManagedPolicy;
@@ -128,6 +133,7 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
           resources: ['*'],
         }),
         // 復号経路を遮断（SecureString パラメータの値取得もこれで防げる）
+        // ただし DynamoDB 経由の復号（kms:ViaService = dynamodb.*）は例外として Allow を別途許可
         new iam.PolicyStatement({
           sid: 'DenyKmsDataOperations',
           effect: iam.Effect.DENY,
@@ -140,6 +146,24 @@ export class IamClaudeReadonlyPolicyStack extends cdk.Stack {
             'kms:GenerateRandom',
           ],
           resources: ['*'],
+          conditions: {
+            StringNotEqualsIfExists: {
+              'kms:ViaService': ['dynamodb.us-east-1.amazonaws.com'],
+            },
+          },
+        }),
+        // DynamoDB が KMS 暗号化テーブルを読む際に内部で呼び出す Decrypt を許可
+        // kms:ViaService 条件で DynamoDB 経由のみに限定（CLI 直叩きや他サービス経由は許可されない）
+        new iam.PolicyStatement({
+          sid: 'AllowKmsDecryptViaDynamoDB',
+          effect: iam.Effect.ALLOW,
+          actions: ['kms:Decrypt'],
+          resources: ['*'],
+          conditions: {
+            StringEquals: {
+              'kms:ViaService': ['dynamodb.us-east-1.amazonaws.com'],
+            },
+          },
         }),
         // PII を含む auth-users テーブルへの読み取りを遮断
         new iam.PolicyStatement({
