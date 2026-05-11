@@ -41,11 +41,11 @@ export interface HandlerResponse {
 interface BatchStatistics {
   totalAlerts: number;
   skippedNonTemporary: number;
-  skippedAlreadyDisabled: number;
   skippedInvalidData: number;
   skippedTradingHours: number;
   skippedNotExpired: number;
   deactivated: number;
+  deactivatedManually: number;
   errors: number;
 }
 
@@ -99,18 +99,23 @@ async function processCandidate(
   stats: BatchStatistics
 ): Promise<void> {
   try {
-    // getTemporaryCandidatesByFrequency 側で Temporary=true && Enabled=true に絞っているが、
+    // getTemporaryCandidatesByFrequency 側で Temporary=true && TTL 未設定 に絞っているが、
     // InMemory / 将来の実装の差異で漏れた場合の保険として再チェックする。
     if (!candidate.Temporary) {
       stats.skippedNonTemporary++;
       return;
     }
-    if (!candidate.Enabled) {
-      stats.skippedAlreadyDisabled++;
-      return;
-    }
     if (!candidate.TemporaryExpireDate) {
       stats.skippedInvalidData++;
+      return;
+    }
+
+    // ユーザーが手動で無効化した一時アラートは取引時間 / 期限到来を待たず、
+    // 即時に TTL を付与して物理削除予約する。
+    if (!candidate.Enabled) {
+      const ttlSeconds = calculateTtlSeconds(now);
+      await alertRepo.markTemporaryAsExpired(candidate.UserID, candidate.AlertID, ttlSeconds);
+      stats.deactivatedManually++;
       return;
     }
 
@@ -148,11 +153,11 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   const stats: BatchStatistics = {
     totalAlerts: 0,
     skippedNonTemporary: 0,
-    skippedAlreadyDisabled: 0,
     skippedInvalidData: 0,
     skippedTradingHours: 0,
     skippedNotExpired: 0,
     deactivated: 0,
+    deactivatedManually: 0,
     errors: 0,
   };
 

@@ -932,7 +932,7 @@ describe('DynamoDBAlertRepository', () => {
       });
     });
 
-    it('Query には Temporary=true AND Enabled=true の FilterExpression と ProjectionExpression が指定される', async () => {
+    it('Query には Temporary=true AND TTL 未設定 の FilterExpression と ProjectionExpression が指定される', async () => {
       mockDocClient.send.mockResolvedValueOnce({ Items: [], Count: 0 });
 
       await repository.getTemporaryCandidatesByFrequency('HOURLY_LEVEL');
@@ -945,7 +945,10 @@ describe('DynamoDBAlertRepository', () => {
           ExpressionAttributeValues?: Record<string, unknown>;
         };
       };
-      expect(sendCall.input.FilterExpression).toBe('#temporary = :true AND #enabled = :true');
+      expect(sendCall.input.FilterExpression).toBe(
+        '#temporary = :true AND attribute_not_exists(#ttl)'
+      );
+      expect(sendCall.input.ExpressionAttributeNames?.['#ttl']).toBe('TTL');
       expect(sendCall.input.ProjectionExpression).toContain('#alertId');
       // subscription 関連の属性は ProjectionExpression に含めない
       expect(sendCall.input.ProjectionExpression).not.toContain('subscription');

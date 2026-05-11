@@ -59,7 +59,9 @@ export interface AlertRepository {
    * 一時アラート失効バッチ用の軽量取得。
    *
    * subscription / ConditionList などバッチ処理に不要な属性を取得・検証せず、
-   * `Temporary = true AND Enabled = true` のアラートのみを返す。
+   * `Temporary = true AND TTL 未設定` のアラートを返す。
+   * 既に `markTemporaryAsExpired` 済み（TTL あり）は除外する。
+   * Enabled=false でもユーザー手動無効化された一時アラートはバッチで回収するため候補に含める。
    *
    * @param frequency - 通知頻度
    * @param options - ページネーションオプション

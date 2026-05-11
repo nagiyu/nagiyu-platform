@@ -490,14 +490,14 @@ describe('InMemoryAlertRepository', () => {
       },
     };
 
-    it('Temporary かつ Enabled なアラートのみ候補として返す', async () => {
+    it('Temporary=true かつ TTL 未設定 のアラートを候補として返す（Enabled は問わない）', async () => {
       const temporaryEnabled = await repository.create({
         ...baseInput,
         Temporary: true,
         TemporaryExpireDate: '2026-03-04',
       });
       await repository.create({ ...baseInput }); // Temporary なし
-      await repository.create({
+      const temporaryUserDisabled = await repository.create({
         ...baseInput,
         Enabled: false,
         Temporary: true,
@@ -506,9 +506,21 @@ describe('InMemoryAlertRepository', () => {
 
       const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
 
-      expect(result.items).toHaveLength(1);
-      expect(result.items[0].AlertID).toBe(temporaryEnabled.AlertID);
-      expect(result.items[0].TemporaryExpireDate).toBe('2026-03-04');
+      const ids = result.items.map((c) => c.AlertID).sort();
+      expect(ids).toEqual([temporaryEnabled.AlertID, temporaryUserDisabled.AlertID].sort());
+    });
+
+    it('TTL が既に設定済み（markTemporaryAsExpired 済み）のアラートは候補に含めない', async () => {
+      const expired = await repository.create({
+        ...baseInput,
+        Temporary: true,
+        TemporaryExpireDate: '2026-03-04',
+      });
+      await repository.markTemporaryAsExpired('user-123', expired.AlertID, 9999999999);
+
+      const result = await repository.getTemporaryCandidatesByFrequency('MINUTE_LEVEL');
+
+      expect(result.items.map((c) => c.AlertID)).not.toContain(expired.AlertID);
     });
   });
 
