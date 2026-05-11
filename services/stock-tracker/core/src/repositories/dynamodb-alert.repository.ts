@@ -213,8 +213,9 @@ export class DynamoDBAlertRepository implements AlertRepository {
    * 一時アラート失効バッチ用の軽量取得（GSI2使用）。
    *
    * - ProjectionExpression で失効判定に必要な属性のみ取得し、subscription は読み込まない
-   * - FilterExpression で `Temporary = true AND Enabled = true` のアラートのみに絞る
-   *   （無効化済み一時アラートを再処理しない）
+   * - FilterExpression で `Temporary = true AND TTL 未設定` のアラートのみに絞る
+   *   （`markTemporaryAsExpired` 済みのものを再処理しない。Enabled=false でも
+   *   ユーザー手動無効化された一時アラートはバッチで回収して TTL を付与する）
    * - mapper.toTemporaryCandidate でアイテム単位検証し、失敗時は警告ログでスキップ
    */
   public async getTemporaryCandidatesByFrequency(
@@ -233,13 +234,14 @@ export class DynamoDBAlertRepository implements AlertRepository {
           TableName: this.tableName,
           IndexName: 'AlertIndex',
           KeyConditionExpression: '#gsi2pk = :pk',
-          FilterExpression: '#temporary = :true AND #enabled = :true',
+          FilterExpression: '#temporary = :true AND attribute_not_exists(#ttl)',
           ProjectionExpression:
             '#pk, #sk, #alertId, #userId, #exchangeId, #frequency, #enabled, #temporary, #temporaryExpireDate',
           ExpressionAttributeNames: {
             '#gsi2pk': 'GSI2PK',
             '#temporary': 'Temporary',
             '#enabled': 'Enabled',
+            '#ttl': 'TTL',
             '#pk': 'PK',
             '#sk': 'SK',
             '#alertId': 'AlertID',
