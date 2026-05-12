@@ -116,7 +116,22 @@ describe('ROLES', () => {
       expect(ROLES['stock-admin'].permissions).toContain('stocks:read');
       expect(ROLES['stock-admin'].permissions).toContain('stocks:write-own');
       expect(ROLES['stock-admin'].permissions).toContain('stocks:manage-data');
-      expect(ROLES['stock-admin'].permissions).toHaveLength(3);
+      expect(ROLES['stock-admin'].permissions).toContain('stocks:read-evaluation');
+      expect(ROLES['stock-admin'].permissions).toHaveLength(4);
+    });
+
+    it('stocks:read-evaluation 権限を持つべき（予測精度ダッシュボード閲覧）', () => {
+      expect(ROLES['stock-admin'].permissions).toContain('stocks:read-evaluation');
+    });
+  });
+
+  describe('stocks:read-evaluation 権限の付与範囲', () => {
+    it('stock-admin のみが stocks:read-evaluation を持つべき', () => {
+      expect(ROLES['stock-admin'].permissions).toContain('stocks:read-evaluation');
+      expect(ROLES['stock-viewer'].permissions).not.toContain('stocks:read-evaluation');
+      expect(ROLES['stock-user'].permissions).not.toContain('stocks:read-evaluation');
+      expect(ROLES.admin.permissions).not.toContain('stocks:read-evaluation');
+      expect(ROLES['user-manager'].permissions).not.toContain('stocks:read-evaluation');
     });
   });
 });

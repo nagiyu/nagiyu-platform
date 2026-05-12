@@ -14,15 +14,23 @@ interface ThemeRegistryProps {
 function ThemeRegistryContent({ children, version = '1.0.0' }: ThemeRegistryProps) {
   const { data: session } = useSession();
 
+  const hasStocksRead =
+    !!session?.user &&
+    'roles' in session.user &&
+    Array.isArray(session.user.roles) &&
+    hasPermission(session.user.roles, 'stocks:read');
+
+  const hasReadEvaluation =
+    !!session?.user &&
+    'roles' in session.user &&
+    Array.isArray(session.user.roles) &&
+    hasPermission(session.user.roles, 'stocks:read-evaluation');
+
   // ナビゲーションメニュー項目の定義
   const navigationItems: NavigationItem[] = [
     { label: 'チャート', href: '/' },
-    ...(session?.user &&
-    'roles' in session.user &&
-    Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:read')
-      ? [{ label: 'サマリー', href: '/summaries' }]
-      : []),
+    ...(hasStocksRead ? [{ label: 'サマリー', href: '/summaries' }] : []),
+    ...(hasReadEvaluation ? [{ label: '予測精度', href: '/prediction-evaluation' }] : []),
     { label: '保有株式', href: '/holdings' },
     { label: 'アラート', href: '/alerts' },
     // 権限ベースの管理メニュー（stocks:manage-data 権限が必要）

@@ -8,6 +8,9 @@ import {
   isTradingHours,
   getLastTradingDate,
   calculateTemporaryExpireDate,
+  countWeekdaysBetween,
+  formatDateInTimezone,
+  getNextWeekday,
   TRADING_HOURS_ERROR_MESSAGES,
 } from '../../../src/services/trading-hours-checker.js';
 import type { Exchange } from '../../../src/types.js';
@@ -306,6 +309,50 @@ describe('Trading Hours Checker Service', () => {
     });
   });
 
+  describe('getNextWeekday', () => {
+    it('平日 → 翌平日を返す', () => {
+      expect(getNextWeekday('2024-01-15')).toBe('2024-01-16'); // 月→火
+      expect(getNextWeekday('2024-01-18')).toBe('2024-01-19'); // 木→金
+    });
+
+    it('金曜日 → 翌週月曜日を返す', () => {
+      expect(getNextWeekday('2024-01-12')).toBe('2024-01-15');
+    });
+
+    it('土曜日 → 翌週月曜日を返す', () => {
+      expect(getNextWeekday('2024-01-13')).toBe('2024-01-15');
+    });
+
+    it('日曜日 → 翌日月曜日を返す', () => {
+      expect(getNextWeekday('2024-01-14')).toBe('2024-01-15');
+    });
+  });
+
+  describe('formatDateInTimezone', () => {
+    it('NY タイムゾーンで取引日に変換する', () => {
+      // 2024-01-15 23:00 UTC = 2024-01-15 18:00 EST
+      const ts = Date.UTC(2024, 0, 15, 23, 0, 0);
+      expect(formatDateInTimezone(ts, 'America/New_York')).toBe('2024-01-15');
+    });
+
+    it('東京タイムゾーンで日付が UTC と異なる場合', () => {
+      // 2024-01-15 23:00 UTC = 2024-01-16 08:00 JST
+      const ts = Date.UTC(2024, 0, 15, 23, 0, 0);
+      expect(formatDateInTimezone(ts, 'Asia/Tokyo')).toBe('2024-01-16');
+    });
+
+    it('UTC タイムゾーンはそのままの日付を返す', () => {
+      const ts = Date.UTC(2024, 0, 15, 12, 0, 0);
+      expect(formatDateInTimezone(ts, 'UTC')).toBe('2024-01-15');
+    });
+
+    it('無効なタイムゾーンの場合、エラーをスローする', () => {
+      expect(() => formatDateInTimezone(Date.now(), 'Invalid/Timezone')).toThrow(
+        TRADING_HOURS_ERROR_MESSAGES.INVALID_TIMEZONE
+      );
+    });
+  });
+
   describe('calculateTemporaryExpireDate', () => {
     it('取引時間内は当日を返す', () => {
       // 2024-01-17 (水) 10:00 EST = 2024-01-17 15:00 UTC
@@ -406,6 +453,42 @@ describe('Trading Hours Checker Service', () => {
           TRADING_HOURS_ERROR_MESSAGES.INVALID_CURRENT_TIME
         );
       });
+    });
+  });
+
+  describe('countWeekdaysBetween', () => {
+    it('同日は 0 を返す', () => {
+      expect(countWeekdaysBetween('2026-04-28', '2026-04-28')).toBe(0);
+    });
+
+    it('to < from のとき 0 を返す（防御的）', () => {
+      expect(countWeekdaysBetween('2026-04-28', '2026-04-27')).toBe(0);
+    });
+
+    it('翌平日（火→水）は 1 を返す', () => {
+      expect(countWeekdaysBetween('2026-04-28', '2026-04-29')).toBe(1);
+    });
+
+    it('週またぎ（金→月）は 1 を返す（土日をスキップ）', () => {
+      // 2026-05-01 (金) → 2026-05-04 (月)
+      expect(countWeekdaysBetween('2026-05-01', '2026-05-04')).toBe(1);
+    });
+
+    it('通常週の平日 5 日分は 5 を返す', () => {
+      // 月→翌週月: 月火水木金 = 5
+      // 2026-04-20 (月) → 2026-04-27 (月)
+      expect(countWeekdaysBetween('2026-04-20', '2026-04-27')).toBe(5);
+    });
+
+    it('GW 連休またぎ（祝日は平日扱い）: 2026-04-28 → 2026-05-05 は 5 を返す', () => {
+      // (4-28, 5-05]: 4-29(水),4-30(木),5-01(金),5-04(月),5-05(火) = 5
+      // 祝日（4-29昭和の日、5-04みどりの日、5-05こどもの日）は土日でないためカウント対象
+      expect(countWeekdaysBetween('2026-04-28', '2026-05-05')).toBe(5);
+    });
+
+    it('GW 連休またぎ: 2026-04-28 → 2026-05-06 は 6 を返す', () => {
+      // (4-28, 5-06]: 4-29,4-30,5-01,5-04,5-05,5-06 = 6
+      expect(countWeekdaysBetween('2026-04-28', '2026-05-06')).toBe(6);
     });
   });
 });

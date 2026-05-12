@@ -406,4 +406,187 @@ describe('DailySummaryMapper', () => {
       });
     });
   });
+
+  describe('Evaluation* フィールドのマッピング', () => {
+    const evaluationFields = {
+      EvaluationDate: '2026-02-28',
+      EvaluationClose: 184.5,
+      ActualReturn: 0.65,
+      Hit: true,
+      EvaluationThresholdPercent: 0.5,
+      EvaluatedAt: 1709078400000,
+    } as const;
+
+    it('全 Evaluation* フィールドが round-trip で保持される', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        ...evaluationFields,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1709078400000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.EvaluationDate).toBe('2026-02-28');
+      expect(item.EvaluationClose).toBe(184.5);
+      expect(item.ActualReturn).toBe(0.65);
+      expect(item.Hit).toBe(true);
+      expect(item.EvaluationThresholdPercent).toBe(0.5);
+      expect(item.EvaluatedAt).toBe(1709078400000);
+
+      const convertedEntity = mapper.toEntity(item);
+      expect(convertedEntity).toEqual(entity);
+    });
+
+    it('Hit が false の場合も正しく round-trip する', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        ...evaluationFields,
+        Hit: false,
+        ActualReturn: -1.2,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1709078400000,
+      };
+
+      const item = mapper.toItem(entity);
+      expect(item.Hit).toBe(false);
+      expect(item.ActualReturn).toBe(-1.2);
+
+      const convertedEntity = mapper.toEntity(item);
+      expect(convertedEntity.Hit).toBe(false);
+      expect(convertedEntity.ActualReturn).toBe(-1.2);
+    });
+
+    it('Evaluation* が全て不在のときは Item / Entity ともに undefined のまま', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      const item = mapper.toItem(entity);
+
+      expect(item.EvaluationDate).toBeUndefined();
+      expect(item.EvaluationClose).toBeUndefined();
+      expect(item.ActualReturn).toBeUndefined();
+      expect(item.Hit).toBeUndefined();
+      expect(item.EvaluationThresholdPercent).toBeUndefined();
+      expect(item.EvaluatedAt).toBeUndefined();
+
+      const convertedEntity = mapper.toEntity(item);
+      expect(convertedEntity.EvaluationDate).toBeUndefined();
+      expect(convertedEntity.Hit).toBeUndefined();
+      expect(convertedEntity.EvaluatedAt).toBeUndefined();
+    });
+
+    it('partial（Evaluation* の一部のみ）でも round-trip する', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        EvaluationDate: '2026-02-28',
+        EvaluationClose: 184.5,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      const item = mapper.toItem(entity);
+      expect(item.EvaluationDate).toBe('2026-02-28');
+      expect(item.EvaluationClose).toBe(184.5);
+      expect(item.ActualReturn).toBeUndefined();
+      expect(item.Hit).toBeUndefined();
+
+      const convertedEntity = mapper.toEntity(item);
+      expect(convertedEntity.EvaluationDate).toBe('2026-02-28');
+      expect(convertedEntity.EvaluationClose).toBe(184.5);
+      expect(convertedEntity.ActualReturn).toBeUndefined();
+      expect(convertedEntity.Hit).toBeUndefined();
+    });
+
+    it('Hit の型が boolean でない場合は toEntity でエラー', () => {
+      const item: DynamoDBItem = {
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        Hit: 'true',
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      } as DynamoDBItem;
+
+      expect(() => mapper.toEntity(item)).toThrow();
+    });
+
+    it('EvaluatedAt の型が不正な場合は toEntity でエラー', () => {
+      const item: DynamoDBItem = {
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-27',
+        Type: 'DailySummary',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        EvaluatedAt: -1,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1708992000000,
+      };
+
+      expect(() => mapper.toEntity(item)).toThrow();
+    });
+
+    it('既存フィールド（AiAnalysisResult / PatternResults）と共存できる', () => {
+      const entity: DailySummaryEntity = {
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 182.15,
+        High: 183.92,
+        Low: 181.44,
+        Close: 183.31,
+        PatternResults: { 'morning-star': 'MATCHED' },
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+        AiAnalysisResult: mockAiAnalysisResult,
+        ...evaluationFields,
+        CreatedAt: 1708992000000,
+        UpdatedAt: 1709078400000,
+      };
+
+      const item = mapper.toItem(entity);
+      const convertedEntity = mapper.toEntity(item);
+
+      expect(convertedEntity).toEqual(entity);
+    });
+  });
 });

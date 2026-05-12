@@ -8,11 +8,13 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { DatabaseError } from '@nagiyu/aws';
+import { DatabaseError, EntityAlreadyExistsError, EntityNotFoundError } from '@nagiyu/aws';
 import { DynamoDBDailySummaryRepository } from '../../../src/repositories/dynamodb-daily-summary.repository.js';
 import type { CreateDailySummaryInput } from '../../../src/entities/daily-summary.entity.js';
+import type { DailySummaryEvaluationFields } from '../../../src/repositories/daily-summary.repository.interface.js';
 
 describe('DynamoDBDailySummaryRepository', () => {
   let repository: DynamoDBDailySummaryRepository;
@@ -344,6 +346,213 @@ describe('DynamoDBDailySummaryRepository', () => {
           Low: 181.44,
           Close: 183.31,
         })
+      ).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('getByExchangeAndDateRange', () => {
+    it('GSI4 を BETWEEN クエリで利用し、期間内の項目を返す', async () => {
+      mockDocClient.send.mockResolvedValueOnce({
+        Items: [
+          {
+            PK: 'SUMMARY#NSDQ:AAPL',
+            SK: 'DATE#2026-02-27',
+            Type: 'DailySummary',
+            GSI4PK: 'NASDAQ',
+            GSI4SK: 'DATE#2026-02-27#NSDQ:AAPL',
+            TickerID: 'NSDQ:AAPL',
+            ExchangeID: 'NASDAQ',
+            Date: '2026-02-27',
+            Open: 182.15,
+            High: 183.92,
+            Low: 181.44,
+            Close: 183.31,
+            CreatedAt: 1708992000000,
+            UpdatedAt: 1708992000000,
+          },
+        ],
+      });
+
+      const result = await repository.getByExchangeAndDateRange(
+        'NASDAQ',
+        '2026-02-20',
+        '2026-02-27'
+      );
+
+      expect(result).toHaveLength(1);
+      const command = mockDocClient.send.mock.calls[0][0] as QueryCommand;
+      expect(command).toBeInstanceOf(QueryCommand);
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        IndexName: 'ExchangeSummaryIndex',
+        KeyConditionExpression: '#gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to',
+        ExpressionAttributeNames: {
+          '#gsi4pk': 'GSI4PK',
+          '#gsi4sk': 'GSI4SK',
+        },
+        ExpressionAttributeValues: {
+          ':exchangeId': 'NASDAQ',
+          ':from': 'DATE#2026-02-20',
+          ':to': 'DATE#2026-02-27#~',
+        },
+      });
+    });
+
+    it('複数ページを LastEvaluatedKey で連結して取得する', async () => {
+      mockDocClient.send
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              PK: 'SUMMARY#NSDQ:AAPL',
+              SK: 'DATE#2026-02-26',
+              Type: 'DailySummary',
+              GSI4PK: 'NASDAQ',
+              GSI4SK: 'DATE#2026-02-26#NSDQ:AAPL',
+              TickerID: 'NSDQ:AAPL',
+              ExchangeID: 'NASDAQ',
+              Date: '2026-02-26',
+              Open: 180.0,
+              High: 181.0,
+              Low: 179.0,
+              Close: 180.5,
+              CreatedAt: 1708905600000,
+              UpdatedAt: 1708905600000,
+            },
+          ],
+          LastEvaluatedKey: { PK: 'SUMMARY#NSDQ:AAPL', SK: 'DATE#2026-02-26' },
+        })
+        .mockResolvedValueOnce({
+          Items: [
+            {
+              PK: 'SUMMARY#NSDQ:MSFT',
+              SK: 'DATE#2026-02-27',
+              Type: 'DailySummary',
+              GSI4PK: 'NASDAQ',
+              GSI4SK: 'DATE#2026-02-27#NSDQ:MSFT',
+              TickerID: 'NSDQ:MSFT',
+              ExchangeID: 'NASDAQ',
+              Date: '2026-02-27',
+              Open: 405.0,
+              High: 408.0,
+              Low: 404.0,
+              Close: 407.5,
+              CreatedAt: 1708992000000,
+              UpdatedAt: 1708992000000,
+            },
+          ],
+        });
+
+      const result = await repository.getByExchangeAndDateRange(
+        'NASDAQ',
+        '2026-02-26',
+        '2026-02-27'
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result.map((item) => item.TickerID)).toEqual(['NSDQ:AAPL', 'NSDQ:MSFT']);
+      expect(mockDocClient.send).toHaveBeenCalledTimes(2);
+
+      const second = mockDocClient.send.mock.calls[1][0] as QueryCommand;
+      expect(second.input.ExclusiveStartKey).toEqual({
+        PK: 'SUMMARY#NSDQ:AAPL',
+        SK: 'DATE#2026-02-26',
+      });
+    });
+
+    it('データベースエラー時にDatabaseErrorをスローする', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Database connection failed'));
+
+      await expect(
+        repository.getByExchangeAndDateRange('NASDAQ', '2026-02-20', '2026-02-27')
+      ).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('markAsEvaluated', () => {
+    const fields: DailySummaryEvaluationFields = {
+      EvaluationDate: '2026-02-28',
+      EvaluationClose: 184.5,
+      ActualReturn: 0.65,
+      Hit: true,
+      EvaluationThresholdPercent: 0.5,
+      EvaluatedAt: 1709078400000,
+    };
+
+    it('UpdateItem を条件付きで送信し、Evaluation* と UpdatedAt を SET する', async () => {
+      const now = 1709100000000;
+      jest.spyOn(Date, 'now').mockReturnValue(now);
+
+      mockDocClient.send.mockResolvedValueOnce({ $metadata: {} });
+
+      await repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields);
+
+      expect(mockDocClient.send).toHaveBeenCalledTimes(1);
+      const command = mockDocClient.send.mock.calls[0][0] as UpdateCommand;
+      expect(command).toBeInstanceOf(UpdateCommand);
+      expect(command.input).toMatchObject({
+        TableName: TABLE_NAME,
+        Key: { PK: 'SUMMARY#NSDQ:AAPL', SK: 'DATE#2026-02-27' },
+        ConditionExpression: 'attribute_exists(PK) AND attribute_not_exists(EvaluatedAt)',
+      });
+      expect(command.input.ExpressionAttributeValues).toMatchObject({
+        ':evaluationDate': '2026-02-28',
+        ':evaluationClose': 184.5,
+        ':actualReturn': 0.65,
+        ':hit': true,
+        ':evaluationThresholdPercent': 0.5,
+        ':evaluatedAt': 1709078400000,
+        ':updatedAt': now,
+      });
+    });
+
+    it('既採点（条件式違反）の場合は EntityAlreadyExistsError をスローする', async () => {
+      const conditionalError = new Error('The conditional request failed');
+      conditionalError.name = 'ConditionalCheckFailedException';
+
+      mockDocClient.send
+        .mockRejectedValueOnce(conditionalError)
+        // 再確認の GetItem は既存レコードを返す
+        .mockResolvedValueOnce({
+          Item: {
+            PK: 'SUMMARY#NSDQ:AAPL',
+            SK: 'DATE#2026-02-27',
+            Type: 'DailySummary',
+            TickerID: 'NSDQ:AAPL',
+            ExchangeID: 'NASDAQ',
+            Date: '2026-02-27',
+            Open: 182.15,
+            High: 183.92,
+            Low: 181.44,
+            Close: 183.31,
+            EvaluatedAt: 1709000000000,
+            CreatedAt: 1708992000000,
+            UpdatedAt: 1709000000000,
+          },
+        });
+
+      await expect(
+        repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields)
+      ).rejects.toBeInstanceOf(EntityAlreadyExistsError);
+    });
+
+    it('対象 DailySummary が存在しない場合は EntityNotFoundError をスローする', async () => {
+      const conditionalError = new Error('The conditional request failed');
+      conditionalError.name = 'ConditionalCheckFailedException';
+
+      mockDocClient.send
+        .mockRejectedValueOnce(conditionalError)
+        .mockResolvedValueOnce({ Item: undefined });
+
+      await expect(
+        repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields)
+      ).rejects.toBeInstanceOf(EntityNotFoundError);
+    });
+
+    it('その他のデータベースエラーは DatabaseError に変換される', async () => {
+      mockDocClient.send.mockRejectedValueOnce(new Error('Throughput exceeded'));
+
+      await expect(
+        repository.markAsEvaluated({ tickerId: 'NSDQ:AAPL', date: '2026-02-27' }, fields)
       ).rejects.toThrow(DatabaseError);
     });
   });
