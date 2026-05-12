@@ -184,26 +184,59 @@ describe('temporary alert expiry batch handler', () => {
     expect(body.statistics.skippedNotExpired).toBe(1);
   });
 
-  it('ユーザー手動無効化された一時アラートは取引時間/期限を待たず即時 TTL 付与される', async () => {
-    const userDisabled = buildCandidate({ Enabled: false });
+  it('手動無効化された一時アラートは取引時間外であれば期限到来を待たず即時 TTL 付与される', async () => {
+    const userDisabled = buildCandidate({ Enabled: false, TemporaryExpireDate: '2099-12-31' });
 
     mockAlertRepo.getTemporaryCandidatesByFrequency
       .mockResolvedValueOnce({ items: [userDisabled] })
       .mockResolvedValueOnce({ items: [] });
-    // Enabled=false パスは exchange / trading hours を参照しない
-    (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
-    (tradingHoursChecker.getLastTradingDate as jest.Mock).mockReturnValue('1970-01-01');
+    mockExchangeRepo.getById.mockResolvedValue(NASDAQ);
+    (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
 
     const response = await handler(mockEvent);
     const body = JSON.parse(response.body);
 
     expect(response.statusCode).toBe(200);
-    expect(mockExchangeRepo.getById).not.toHaveBeenCalled();
-    expect(tradingHoursChecker.isTradingHours).not.toHaveBeenCalled();
+    expect(mockExchangeRepo.getById).toHaveBeenCalledTimes(1);
+    expect(tradingHoursChecker.isTradingHours).toHaveBeenCalledTimes(1);
     expect(mockAlertRepo.markTemporaryAsExpired).toHaveBeenCalledTimes(1);
     expect(body.statistics.deactivatedManually).toBe(1);
     expect(body.statistics.deactivated).toBe(0);
     expect(body.statistics.skippedTradingHours).toBe(0);
+  });
+
+  it('手動無効化された一時アラートは取引時間中であればスキップされる', async () => {
+    const userDisabled = buildCandidate({ Enabled: false });
+
+    mockAlertRepo.getTemporaryCandidatesByFrequency
+      .mockResolvedValueOnce({ items: [userDisabled] })
+      .mockResolvedValueOnce({ items: [] });
+    mockExchangeRepo.getById.mockResolvedValue(NASDAQ);
+    (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+
+    const response = await handler(mockEvent);
+    const body = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect(mockAlertRepo.markTemporaryAsExpired).not.toHaveBeenCalled();
+    expect(body.statistics.skippedTradingHours).toBe(1);
+    expect(body.statistics.deactivatedManually).toBe(0);
+  });
+
+  it('手動無効化された一時アラートで取引所情報が見つからない場合は errors を加算する', async () => {
+    const userDisabled = buildCandidate({ Enabled: false });
+
+    mockAlertRepo.getTemporaryCandidatesByFrequency
+      .mockResolvedValueOnce({ items: [userDisabled] })
+      .mockResolvedValueOnce({ items: [] });
+    mockExchangeRepo.getById.mockResolvedValue(null);
+
+    const response = await handler(mockEvent);
+    const body = JSON.parse(response.body);
+
+    expect(response.statusCode).toBe(200);
+    expect(mockAlertRepo.markTemporaryAsExpired).not.toHaveBeenCalled();
+    expect(body.statistics.errors).toBe(1);
   });
 
   it('markTemporaryAsExpired が失敗しても errors を加算して処理を継続する', async () => {
