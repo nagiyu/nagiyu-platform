@@ -233,6 +233,32 @@ describe('Permission Functions', () => {
       it('should have stocks:manage-data permission', () => {
         expect(hasPermission(['stock-admin'], 'stocks:manage-data')).toBe(true);
       });
+
+      it('should have stocks:read-evaluation permission', () => {
+        expect(hasPermission(['stock-admin'], 'stocks:read-evaluation')).toBe(true);
+      });
+    });
+
+    describe('stocks:read-evaluation permission', () => {
+      it('stock-admin should have stocks:read-evaluation', () => {
+        expect(hasPermission(['stock-admin'], 'stocks:read-evaluation')).toBe(true);
+      });
+
+      it('stock-viewer should not have stocks:read-evaluation', () => {
+        expect(hasPermission(['stock-viewer'], 'stocks:read-evaluation')).toBe(false);
+      });
+
+      it('stock-user should not have stocks:read-evaluation', () => {
+        expect(hasPermission(['stock-user'], 'stocks:read-evaluation')).toBe(false);
+      });
+
+      it('admin should not have stocks:read-evaluation', () => {
+        expect(hasPermission(['admin'], 'stocks:read-evaluation')).toBe(false);
+      });
+
+      it('user-manager should not have stocks:read-evaluation', () => {
+        expect(hasPermission(['user-manager'], 'stocks:read-evaluation')).toBe(false);
+      });
     });
 
     describe('Permission hierarchy validation', () => {
@@ -252,7 +278,7 @@ describe('Permission Functions', () => {
         expect(
           hasAllPermissions(
             ['stock-admin'],
-            ['stocks:read', 'stocks:write-own', 'stocks:manage-data']
+            ['stocks:read', 'stocks:write-own', 'stocks:manage-data', 'stocks:read-evaluation']
           )
         ).toBe(true);
       });
@@ -261,6 +287,7 @@ describe('Permission Functions', () => {
         expect(hasPermission(['admin'], 'stocks:read')).toBe(false);
         expect(hasPermission(['admin'], 'stocks:write-own')).toBe(false);
         expect(hasPermission(['admin'], 'stocks:manage-data')).toBe(false);
+        expect(hasPermission(['admin'], 'stocks:read-evaluation')).toBe(false);
       });
     });
 
@@ -277,6 +304,16 @@ describe('Permission Functions', () => {
 
       it('should not throw for stock-admin with stocks:manage-data', () => {
         expect(() => requirePermission(['stock-admin'], 'stocks:manage-data')).not.toThrow();
+      });
+
+      it('should not throw for stock-admin with stocks:read-evaluation', () => {
+        expect(() => requirePermission(['stock-admin'], 'stocks:read-evaluation')).not.toThrow();
+      });
+
+      it('should throw for stock-viewer with stocks:read-evaluation', () => {
+        expect(() => requirePermission(['stock-viewer'], 'stocks:read-evaluation')).toThrow(
+          'Permission denied: stocks:read-evaluation'
+        );
       });
     });
   });
