@@ -340,7 +340,8 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 | 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | #3061 | マージ済 | Issue #3026 |
 | 5. 採点バッチ + cron | `claude/3018-batch` | #3063 | マージ済 | Issue #3027 |
 | 6. 精度集計 API | `claude/3018-api` | #3064 | マージ済 | Issue #3028 |
-| 7. UI を本物の API に配線 | `claude/3018-ui-wire` | 本 PR | 進行中 | Issue #3029 |
+| 7. UI を本物の API に配線 | `claude/3018-ui-wire` | #3065 | マージ済 | Issue #3029 |
 | 8. docs/ 統合 & tasks/ 削除 | `claude/3018-docs-finalize` | — | 未着手 | — |
+| 9. 採点リトライ上限の導入（祝日連休で永久未採点になる予測を卒業させる） | `claude/3067-evaluation-retry-limit` | — | 進行中 | Issue #3067 |
 
 各作業 PR が出たら本テーブルを更新する。

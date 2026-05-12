@@ -11,6 +11,7 @@
  */
 
 import {
+  countWeekdaysBetween,
   formatDateInTimezone,
   getLastTradingDate,
   getNextWeekday,
@@ -44,6 +45,7 @@ export interface FindPendingEvaluationsOptions {
 
 const DEFAULT_WINDOW_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_EVALUATION_BUSINESS_DAYS = 5;
 
 function shiftDate(dateYmd: string, deltaDays: number): string {
   const base = new Date(`${dateYmd}T00:00:00Z`);
@@ -51,12 +53,17 @@ function shiftDate(dateYmd: string, deltaDays: number): string {
   return formatDateInTimezone(shifted.getTime(), 'UTC');
 }
 
-function isCandidate(summary: DailySummaryEntity): boolean {
-  return (
-    summary.AiAnalysisResult !== undefined &&
-    summary.AiAnalysisError === undefined &&
-    summary.EvaluatedAt === undefined
-  );
+function isCandidate(summary: DailySummaryEntity, lastTradingDate: string): boolean {
+  if (
+    summary.AiAnalysisResult === undefined ||
+    summary.AiAnalysisError !== undefined ||
+    summary.EvaluatedAt !== undefined
+  ) {
+    return false;
+  }
+  // 予測日から N 営業日経過しても採点できなければ卒業（祝日連休等で永久未採点になるのを防ぐ）
+  const businessDaysElapsed = countWeekdaysBetween(summary.Date, lastTradingDate);
+  return businessDaysElapsed < MAX_EVALUATION_BUSINESS_DAYS;
 }
 
 /**
@@ -82,7 +89,7 @@ export async function findPendingEvaluations(
     );
 
     for (const summary of summaries) {
-      if (!isCandidate(summary)) {
+      if (!isCandidate(summary, lastTradingDate)) {
         continue;
       }
       const evaluationDate = getNextWeekday(summary.Date);
