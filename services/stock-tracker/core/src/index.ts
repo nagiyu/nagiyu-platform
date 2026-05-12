@@ -49,7 +49,10 @@ export type { AlertRepository } from './repositories/alert.repository.interface.
 export type { HoldingRepository } from './repositories/holding.repository.interface.js';
 export type { TickerRepository } from './repositories/ticker.repository.interface.js';
 export type { ExchangeRepository } from './repositories/exchange.repository.interface.js';
-export type { DailySummaryRepository } from './repositories/daily-summary.repository.interface.js';
+export type {
+  DailySummaryRepository,
+  DailySummaryEvaluationFields,
+} from './repositories/daily-summary.repository.interface.js';
 
 // Entities (explicit exports to avoid conflicts with types.ts)
 export type {
@@ -109,6 +112,8 @@ export * from './services/alert-evaluator.js';
 export * from './services/price-calculator.js';
 export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
+export * from './services/prediction-judger.js';
+export * from './services/prediction-aggregator.js';
 
 // マッパー（新規エクスポート）
 export { AlertMapper } from './mappers/alert.mapper.js';

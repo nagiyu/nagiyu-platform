@@ -22,13 +22,30 @@ const config: Config = {
   },
   modulePathIgnorePatterns: ['<rootDir>/../../../package.json'],
   coverageDirectory: 'coverage',
-  collectCoverageFrom: ['lib/repository-factory.ts', 'lib/percentage-helper.ts'],
+  collectCoverageFrom: [
+    'lib/repository-factory.ts',
+    'lib/percentage-helper.ts',
+    'lib/prediction-evaluation/**/*.ts',
+    'components/prediction-evaluation/**/*.tsx',
+  ],
   coverageThreshold: {
     global: {
       branches: 100,
       functions: 100,
       lines: 100,
       statements: 100,
+    },
+    './lib/prediction-evaluation/': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
+    },
+    './components/prediction-evaluation/': {
+      branches: 80,
+      functions: 80,
+      lines: 80,
+      statements: 80,
     },
   },
 };
