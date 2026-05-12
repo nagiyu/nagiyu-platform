@@ -179,7 +179,7 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockUpdateTodo.mockRejectedValue(new Error('更新内容が指定されていません'));
+    mockUpdateTodo.mockRejectedValue(new Error('更新するフィールドが指定されていません'));
 
     const response = await PUT(createRequest({}), createContext());
 
