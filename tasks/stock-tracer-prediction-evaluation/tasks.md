@@ -226,27 +226,35 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 
 ---
 
-## 作業 6：精度集計 API（web）
+## 作業 6：精度集計 API（web）+ 専用 permission の追加
 
 **ブランチ**: `claude/3018-api`
 **依存**: 作業 3（作業 4 のロジック流用は集計 API でも行う）
-**主な変更箇所**: `services/stock-tracker/web/app/api/`
+**主な変更箇所**: `services/stock-tracker/web/app/api/`、`libs/common/src/auth/`
 
+- [ ] `libs/common/src/auth/types.ts` に新規 permission `stocks:read-evaluation` を追加（`Permission` 型に追記）
+- [ ] `libs/common/src/auth/roles.ts` の `stock-admin` ロールの `permissions` 配列に `stocks:read-evaluation` を追加
+    - 他ロール（`stock-viewer` / `stock-user`）には付与しない
+    - 既存テスト（ロール定義 / permission チェック関連）の追従更新
 - [ ] `web/app/api/prediction-evaluation/summary/route.ts` 作成
-    - GET 実装、認証ミドルウェア + `stocks:read` 権限チェックを通過
+    - GET 実装、認証ミドルウェア + `stocks:read-evaluation` 権限チェックを通過（`withAuth` の第 2 引数に渡す）
     - `period` バリデーション（enum）
     - 全 Exchange を `ExchangeRepository` で取得 → 各 Exchange について `DailySummaryRepository.getByExchangeAndDateRange`（既存 GSI4 ベース）で対象期間の DailySummary を取得 → メモリで `EvaluatedAt` あり & `AiAnalysisError` なし & `AiAnalysisResult` ありに絞り `aggregateEvaluatedSummaries` で集計 → `SummaryResponse` 形式で返却
+- [ ] PoC のガード差し替え（永続化部分）
+    - `services/stock-tracker/web/app/prediction-evaluation/page.tsx` の `hasPermission(..., 'stocks:read')` を `stocks:read-evaluation` に差し替え
+    - `services/stock-tracker/web/components/ThemeRegistry.tsx` の「予測精度」ナビゲーションリンク表示条件を同様に差し替え
 - [ ] エラーハンドリング：日本語エラーメッセージ定数化（`docs/development/rules.md` 準拠）
 - [ ] ユニットテスト
-    - 認証エラー・権限エラー・バリデーションエラー・正常系・空データ・採点済み 0 件
+    - 認証エラー・権限エラー（`stocks:read-evaluation` を持たない `stock-viewer` / `stock-user` が 403 になること）・バリデーションエラー・正常系・空データ・採点済み 0 件
 - [ ] カバレッジ 80% 以上
 
 **注意**:
 - `DailySummaryRepository.getByExchangeAndDateRange` は作業 3 のスコープで追加済み前提
 - レスポンス形式は作業 1 のモック JSON（および確定版 `lib/prediction-evaluation/types.ts` の `SummaryResponse`）と一致させる（作業 7 の差し替えを機械的にするため）
 - `/tickers` / `/exchanges` / `/ai-failures` は Phase 1 のスコープ外（`design.md` §1.4 参照）。本作業 6 では実装しない
+- permission 追加判断のラショナルは `external-design.md` ADR-008 を参照
 
-**完了条件**: PR レビュー通過、API がローカル / dev 環境で動作確認できる。
+**完了条件**: PR レビュー通過、API がローカル / dev 環境で動作確認できる。`stock-admin` ロールのみ予測精度ダッシュボードと API にアクセスできる。
 
 ---
 
