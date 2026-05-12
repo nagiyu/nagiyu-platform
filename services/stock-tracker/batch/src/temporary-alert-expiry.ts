@@ -110,15 +110,6 @@ async function processCandidate(
       return;
     }
 
-    // ユーザーが手動で無効化した一時アラートは取引時間 / 期限到来を待たず、
-    // 即時に TTL を付与して物理削除予約する。
-    if (!candidate.Enabled) {
-      const ttlSeconds = calculateTtlSeconds(now);
-      await alertRepo.markTemporaryAsExpired(candidate.UserID, candidate.AlertID, ttlSeconds);
-      stats.deactivatedManually++;
-      return;
-    }
-
     const exchange = await exchangeRepo.getById(candidate.ExchangeID);
     if (!exchange) {
       stats.errors++;
@@ -127,6 +118,14 @@ async function processCandidate(
 
     if (isTradingHours(exchange, now)) {
       stats.skippedTradingHours++;
+      return;
+    }
+
+    // ユーザーが手動で無効化した一時アラートは、期限到来を待たずに即時 TTL を付与して物理削除予約する。
+    if (!candidate.Enabled) {
+      const ttlSeconds = calculateTtlSeconds(now);
+      await alertRepo.markTemporaryAsExpired(candidate.UserID, candidate.AlertID, ttlSeconds);
+      stats.deactivatedManually++;
       return;
     }
 
