@@ -178,6 +178,9 @@ export default function TickerAlertListCard({
                 <Chip size="sm" variant="outline">
                   {alert.enabled ? '有効' : '無効'}
                 </Chip>
+                <Chip size="sm" color={alert.temporary ? 'warning' : 'neutral'}>
+                  {alert.temporary ? '一時' : '常設'}
+                </Chip>
                 <Tooltip title="編集">
                   <IconButton
                     size="small"
