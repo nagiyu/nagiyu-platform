@@ -1,19 +1,51 @@
 import { test, expect } from '@playwright/test';
+import type { SummaryResponse } from '../../lib/prediction-evaluation/types';
 
 /**
- * 予測精度ダッシュボード PoC のスモーク E2E。
+ * 予測精度ダッシュボード E2E。
  *
- * PoC 段階ではモックデータ（`lib/prediction-evaluation/mock-data.ts`）が
- * クライアント側で組み立てられるため、API モックは不要。`SKIP_AUTH_CHECK=true`
- * の E2E 環境でテストユーザー（stock-admin）として表示できる前提。
+ * API は `page.route()` でモックし、実 DynamoDB / Lambda に依存しない。
+ * `SKIP_AUTH_CHECK=true` の E2E 環境でテストユーザー（stock-admin）として
+ * 表示できる前提。
  */
 
-test.describe('予測精度ダッシュボード PoC', () => {
+const SUMMARY_WITH_DATA: SummaryResponse = {
+  period: '30d',
+  evaluatedAt: 1_000_000,
+  kpi: { totalAccuracy: 65.0, directionalAccuracy: 63.0, judgedCount: 40 },
+  dailyTrend: [{ date: '2026-05-10', directionalAccuracy: 63.0, judgedCount: 10 }],
+  bySignal: [
+    { signal: 'BULLISH', accuracy: 70.0, count: 20 },
+    { signal: 'NEUTRAL', accuracy: 50.0, count: 10 },
+    { signal: 'BEARISH', accuracy: 60.0, count: 10 },
+  ],
+};
+
+const SUMMARY_EMPTY: SummaryResponse = {
+  period: 'all',
+  evaluatedAt: 1_000_000,
+  kpi: { totalAccuracy: null, directionalAccuracy: null, judgedCount: 0 },
+  dailyTrend: [],
+  bySignal: [
+    { signal: 'BULLISH', accuracy: null, count: 0 },
+    { signal: 'NEUTRAL', accuracy: null, count: 0 },
+    { signal: 'BEARISH', accuracy: null, count: 0 },
+  ],
+};
+
+test.describe('予測精度ダッシュボード', () => {
   test('ダッシュボードの主要セクションが表示される', async ({ page }) => {
+    await page.route('**/api/prediction-evaluation/summary**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(SUMMARY_WITH_DATA),
+      });
+    });
+
     await page.goto('/prediction-evaluation');
 
     await expect(page.getByRole('heading', { name: '予測精度ダッシュボード' })).toBeVisible();
-    await expect(page.getByText(/PoC 段階/)).toBeVisible();
 
     // 主要指標テキスト（見出し直下）
     await expect(page.getByTestId('summary-headline')).toContainText('方向精度');
@@ -26,32 +58,52 @@ test.describe('予測精度ダッシュボード PoC', () => {
     await expect(page.getByRole('heading', { name: 'シグナル別の精度' })).toBeVisible();
   });
 
-  test('期間を切り替えると主要指標テキストが更新される', async ({ page }) => {
+  test('期間を切り替えると API リクエストが更新され主要指標テキストが変わる', async ({ page }) => {
+    await page.route('**/api/prediction-evaluation/summary**', async (route) => {
+      const url = new URL(route.request().url());
+      const period = url.searchParams.get('period') ?? '30d';
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...SUMMARY_WITH_DATA, period }),
+      });
+    });
+
     await page.goto('/prediction-evaluation');
 
     const headline = page.getByTestId('summary-headline');
     await expect(headline).toContainText('直近 30 日');
-    const initialText = await headline.textContent();
 
     await page.getByLabel('集計期間').selectOption('7d');
 
     await expect(headline).toContainText('直近 7 日');
-    await expect
-      .poll(async () => await headline.textContent(), { timeout: 5000 })
-      .not.toBe(initialText);
   });
 
-  test('全期間（all）では「採点済みの予測がありません」と表示される', async ({ page }) => {
-    await page.goto('/prediction-evaluation');
+  test('API が空データを返すと「採点済みの予測がありません」と表示される', async ({ page }) => {
+    await page.route('**/api/prediction-evaluation/summary**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(SUMMARY_EMPTY),
+      });
+    });
 
-    await page.getByLabel('集計期間').selectOption('all');
+    await page.goto('/prediction-evaluation');
 
     await expect(page.getByTestId('summary-headline')).toContainText('採点済みの予測がありません');
   });
 
-  test('scenario=error クエリでエラーアラートが表示される', async ({ page }) => {
-    await page.goto('/prediction-evaluation?scenario=error');
+  test('API がサーバーエラーを返すとエラーアラートが表示される', async ({ page }) => {
+    await page.route('**/api/prediction-evaluation/summary**', (route) => {
+      route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'INTERNAL_ERROR', message: 'サーバーエラー' }),
+      });
+    });
 
-    await expect(page.getByText('予測精度サマリーの取得に失敗しました')).toBeVisible();
+    await page.goto('/prediction-evaluation');
+
+    await expect(page.getByText(/サーバーエラー/)).toBeVisible();
   });
 });

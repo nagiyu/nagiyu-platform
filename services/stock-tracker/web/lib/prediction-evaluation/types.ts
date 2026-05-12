@@ -2,9 +2,6 @@
  * 予測精度ダッシュボード API レスポンス型定義
  *
  * `tasks/stock-tracer-prediction-evaluation/design.md` §1.3 に準拠する。
- * 本 PoC 段階では作業 6（精度集計 API）未実装のため、`mock-data.ts` で
- * これらの型を満たすハードコード JSON を返す。作業 2 の PoC FB 反映で
- * 内容（フィールド構成）が変わる可能性あり。
  */
 
 export type EvaluationPeriod = '7d' | '30d' | '90d' | 'all';
