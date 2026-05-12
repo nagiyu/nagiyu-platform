@@ -10,21 +10,11 @@ import type { DefaultSession } from 'next-auth';
 
 export type { TodoItem };
 
-export interface ApiError {
-  code: string;
-  message: string;
-  details?: unknown;
-}
-
-export interface ApiSuccessResponse<T> {
-  data: T;
-}
-
-export interface ApiErrorResponse {
-  error: ApiError;
-}
-
-export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
+export type {
+  ApiSuccessResponse,
+  ApiResponse,
+  ErrorResponse as ApiErrorResponse,
+} from '@nagiyu/common';
 
 export type HealthResponse = ApiSuccessResponse<{ status: 'ok' }>;
 export type UserResponse = ApiSuccessResponse<User>;

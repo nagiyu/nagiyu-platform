@@ -12,10 +12,8 @@ interface GroupSummary extends Group {
 
 function createErrorResponse(status: number, code: string, message: string): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code,
-      message,
-    },
+    error: code,
+    message,
   };
 
   return NextResponse.json(response, { status });
