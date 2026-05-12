@@ -27,10 +27,7 @@ import type {
   ExchangeEntity,
   ExchangeRepository,
 } from '@nagiyu/stock-tracker-core';
-import {
-  findPendingEvaluations,
-  type PendingEvaluation,
-} from './lib/find-pending-evaluations.js';
+import { findPendingEvaluations, type PendingEvaluation } from './lib/find-pending-evaluations.js';
 
 /**
  * Phase 1 で採点に使う閾値（%）
@@ -242,8 +239,7 @@ export async function handler(
         dailySummaryRepository: dependencies.dailySummaryRepository,
         getChartDataFn: dependencies.getChartDataFn ?? getChartData,
         nowFn: dependencies.nowFn ?? Date.now,
-        findPendingEvaluationsFn:
-          dependencies.findPendingEvaluationsFn ?? findPendingEvaluations,
+        findPendingEvaluationsFn: dependencies.findPendingEvaluationsFn ?? findPendingEvaluations,
       };
     } else {
       const docClient = getDynamoDBDocumentClient();
@@ -253,8 +249,7 @@ export async function handler(
         dailySummaryRepository: new DynamoDBDailySummaryRepository(docClient, tableName),
         getChartDataFn: dependencies?.getChartDataFn ?? getChartData,
         nowFn: dependencies?.nowFn ?? Date.now,
-        findPendingEvaluationsFn:
-          dependencies?.findPendingEvaluationsFn ?? findPendingEvaluations,
+        findPendingEvaluationsFn: dependencies?.findPendingEvaluationsFn ?? findPendingEvaluations,
       };
     }
 

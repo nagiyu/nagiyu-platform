@@ -22,9 +22,7 @@ const baseAiResult = (): AiAnalysisResult => ({
   },
 });
 
-function createSummaryInput(
-  override: Partial<CreateDailySummaryInput>
-): CreateDailySummaryInput {
+function createSummaryInput(override: Partial<CreateDailySummaryInput>): CreateDailySummaryInput {
   return {
     TickerID: 'NSDQ:AAPL',
     ExchangeID: 'NASDAQ',
@@ -67,11 +65,7 @@ describe('findPendingEvaluations', () => {
     it('AiAnalysisResult あり / AiAnalysisError なし / EvaluatedAt 未設定 の予測を返す', async () => {
       await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-26' }));
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toHaveLength(1);
       expect(result[0].summary.Date).toBe('2026-02-26');
@@ -84,11 +78,7 @@ describe('findPendingEvaluations', () => {
       // 現在 = 2026-02-27 18:00 EST、L = 2026-02-27 のため翌営業日はまだ未確定
       await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-27' }));
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toHaveLength(0);
     });
@@ -98,11 +88,7 @@ describe('findPendingEvaluations', () => {
       // 現在 = 2026-02-27（金）、L = 2026-02-27、2026-02-23 <= L → 採点対象
       await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-20' }));
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toHaveLength(1);
       expect(result[0].evaluationDate).toBe('2026-02-23');
@@ -116,11 +102,7 @@ describe('findPendingEvaluations', () => {
         })
       );
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toHaveLength(0);
     });
@@ -133,11 +115,7 @@ describe('findPendingEvaluations', () => {
         })
       );
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toHaveLength(0);
     });
@@ -155,11 +133,7 @@ describe('findPendingEvaluations', () => {
         })
       );
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toHaveLength(0);
     });
@@ -168,12 +142,9 @@ describe('findPendingEvaluations', () => {
       // 走査窓を 5 日に絞り、6 日前の予測は除外されることを確認
       await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-20' }));
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW,
-        { windowDays: 5 }
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW, {
+        windowDays: 5,
+      });
 
       expect(result).toHaveLength(0);
     });
@@ -199,11 +170,7 @@ describe('findPendingEvaluations', () => {
         })
       );
 
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       const exchangeIds = result.map((r) => r.exchange.ExchangeID).sort();
       expect(exchangeIds).toEqual(['NASDAQ', 'TSE']);
@@ -216,21 +183,13 @@ describe('findPendingEvaluations', () => {
       const emptyExchangeRepo = new InMemoryExchangeRepository(emptyStore);
       const emptyDailySummaryRepo = new InMemoryDailySummaryRepository(emptyStore);
 
-      const result = await findPendingEvaluations(
-        emptyExchangeRepo,
-        emptyDailySummaryRepo,
-        NOW
-      );
+      const result = await findPendingEvaluations(emptyExchangeRepo, emptyDailySummaryRepo, NOW);
 
       expect(result).toEqual([]);
     });
 
     it('採点対象がなければ空配列を返す', async () => {
-      const result = await findPendingEvaluations(
-        exchangeRepository,
-        dailySummaryRepository,
-        NOW
-      );
+      const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
 
       expect(result).toEqual([]);
     });
