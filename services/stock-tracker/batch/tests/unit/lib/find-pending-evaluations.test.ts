@@ -146,7 +146,11 @@ describe('findPendingEvaluations', () => {
       it('予測日からちょうど 5 営業日経過した予測は候補から除外される', async () => {
         await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-20' }));
 
-        const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
+        const result = await findPendingEvaluations(
+          exchangeRepository,
+          dailySummaryRepository,
+          NOW
+        );
 
         expect(result).toHaveLength(0);
       });
@@ -158,7 +162,11 @@ describe('findPendingEvaluations', () => {
       it('予測日から 4 営業日経過（5 日未満）の予測は候補に含まれる', async () => {
         await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-23' }));
 
-        const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
+        const result = await findPendingEvaluations(
+          exchangeRepository,
+          dailySummaryRepository,
+          NOW
+        );
 
         expect(result).toHaveLength(1);
         expect(result[0].summary.Date).toBe('2026-02-23');
@@ -168,7 +176,11 @@ describe('findPendingEvaluations', () => {
       it('予測日から 6 営業日経過した予測は候補から除外される', async () => {
         await dailySummaryRepository.upsert(createSummaryInput({ Date: '2026-02-19' }));
 
-        const result = await findPendingEvaluations(exchangeRepository, dailySummaryRepository, NOW);
+        const result = await findPendingEvaluations(
+          exchangeRepository,
+          dailySummaryRepository,
+          NOW
+        );
 
         expect(result).toHaveLength(0);
       });
