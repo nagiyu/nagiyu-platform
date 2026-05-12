@@ -20,10 +20,8 @@ export default auth(
       console.error(LOG_MESSAGES.AUTH_URL_NOT_SET);
       return NextResponse.json(
         {
-          error: {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-          },
+          error: 'INTERNAL_SERVER_ERROR',
+          message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
         },
         { status: 500 }
       );

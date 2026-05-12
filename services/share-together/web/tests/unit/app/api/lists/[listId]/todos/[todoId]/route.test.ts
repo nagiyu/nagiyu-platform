@@ -211,10 +211,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'FORBIDDEN',
-        message: ERROR_MESSAGES.FORBIDDEN,
-      },
+      error: 'FORBIDDEN',
+      message: ERROR_MESSAGES.FORBIDDEN,
     });
     expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
@@ -259,10 +257,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'FORBIDDEN',
-        message: ERROR_MESSAGES.FORBIDDEN,
-      },
+      error: 'FORBIDDEN',
+      message: ERROR_MESSAGES.FORBIDDEN,
     });
     expect(mockDeleteTodo).not.toHaveBeenCalled();
   });

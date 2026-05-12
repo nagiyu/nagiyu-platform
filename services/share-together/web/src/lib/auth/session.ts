@@ -39,10 +39,8 @@ export const getSession = getSessionFromAuth;
 export function createUnauthorizedResponse(): NextResponse {
   return NextResponse.json(
     {
-      error: {
-        code: 'UNAUTHORIZED',
-        message: ERROR_MESSAGES.UNAUTHORIZED,
-      },
+      error: 'UNAUTHORIZED',
+      message: ERROR_MESSAGES.UNAUTHORIZED,
     },
     { status: 401 }
   );
