@@ -6,7 +6,7 @@
     tasks/{feature-name}/ ディレクトリごと削除します。
 
     入力: tasks/{feature-name}/requirements.md
-    次に作成するドキュメント: tasks/{feature-name}/tasks.md
+    実装タスクのフェーズ分け・進捗管理は Issue 本文 + サブ Issue で行います。
 -->
 
 ## API 仕様

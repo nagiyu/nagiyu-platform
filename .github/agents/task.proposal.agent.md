@@ -47,9 +47,11 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 
     | 規模 | 条件 | 作成するファイル |
     |------|------|----------------|
-    | 小規模 | バグ修正・細かな機能追加 | `requirements.md` + `design.md` + `tasks.md` |
-    | 中規模 | 既存サービスへの機能追加 | 上記 + `external-design.md`（UI変更がある場合） |
-    | 大規模 | 新規サービス・大規模リファクタリング | 全ファイル |
+    | 小規模 | バグ修正・細かな機能追加 | `tasks/` は作成しない（Issue 本文に集約） |
+    | 中規模 | 既存サービスへの機能追加 | `requirements.md` + `design.md` + `external-design.md`（UI変更がある場合） |
+    | 大規模 | 新規サービス・大規模リファクタリング | `requirements.md` + `external-design.md` + `design.md` |
+
+    実装タスクのフェーズ分け・進捗管理は **Issue 本文 + サブ Issue** で行う（`tasks.md` は廃止）。
 
 3. **各ファイルの生成**
     テンプレートを参照しながら、Issueの内容に基づいて各ファイルを作成する。
@@ -63,7 +65,6 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
         ```
     - **`external-design.md`**（UI変更がある場合）: `docs/templates/services/external-design.md` をベースに、画面設計・概念データモデルを記述。同様の冒頭コメントを追加。
     - **`design.md`**: `tasks/templates/design.md` をベースに、技術設計（API仕様・データモデル・コンポーネント設計）を記述。「docs/ への移行メモ」セクションも記入する。
-    - **`tasks.md`**: `tasks/templates/tasks.md` をベースに、実装タスクをフェーズ別チェックリストで記述。
 
 4. **リポジトリルールの適用**
     - **インデント**: Markdownは4スペース（`.vscode/settings.json`準拠）
@@ -183,8 +184,9 @@ description: Issueの内容から実装の指針となるMarkdownドキュメン
 
 以下の全てを満たした時点で完了:
 
-- [ ] `tasks/{feature-name}/` ディレクトリが作成されている
-- [ ] 作業規模に応じたファイルが生成されている（`requirements.md`・`design.md`・`tasks.md` は必須）
+- [ ] 中規模・大規模対応の場合: `tasks/{feature-name}/` ディレクトリが作成されている（`requirements.md`・`design.md` は必須、`external-design.md` は条件付き）
+- [ ] 小規模対応の場合: Issue 本文に実装方針・対象ファイル・依存関係・実装上の注意点が記載されている
+- [ ] 実装タスクのフェーズ分けが Issue 本文（またはサブ Issue）に記載されている
 - [ ] Issueの内容が適切に整理されている
 - [ ] リポジトリルールに準拠している（4スペースインデント等）
 - [ ] ドキュメントが単体で理解可能である
