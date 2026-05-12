@@ -105,6 +105,5 @@ describe('getSession', () => {
       expect(session).toBeNull();
       expect(mockAuth).toHaveBeenCalledTimes(1);
     });
-
   });
 });

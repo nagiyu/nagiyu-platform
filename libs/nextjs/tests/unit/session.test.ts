@@ -89,9 +89,7 @@ describe('createSessionGetter', () => {
       user: { id: 'user-2', email: 'passthrough@example.com', roles: ['viewer'] },
       expires: '2026-06-01T00:00:00Z',
     };
-    const auth = jest
-      .fn<() => Promise<MockAuthSession | null>>()
-      .mockResolvedValue(mockSession);
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>().mockResolvedValue(mockSession);
     const getSession = createSessionGetter<MockAuthSession>({
       auth,
       createTestSession: () => ({ user: { id: 'test', email: 'test@example.com' }, expires: '' }),
