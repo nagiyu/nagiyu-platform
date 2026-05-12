@@ -212,11 +212,12 @@
 3. 各予測について、当日終値と翌営業日終値を TradingView API から取得
 4. リターン値と Hit/Miss を判定し、対象 `DailySummaryEntity` の Evaluation\* フィールド（`EvaluationDate`、`EvaluationClose`、`ActualReturn`、`Hit`、`EvaluationThresholdPercent`、`EvaluatedAt`）を条件付き UpdateItem で書き込む
 
-**代替フロー**: 翌営業日が祝日・週末の場合、その次の営業日の終値で判定する
+**代替フロー**: 翌営業日が週末（土日）の場合、その次の平日の終値で判定する。祝日カレンダーは Phase 1 では考慮しない（Stock Tracker 全体が土日のみスキップで統一されているため。判断の詳細は `architecture.md` § 2.16 を参照）
 
 **例外フロー**:
-- TradingView API 呼び出しが失敗した場合：当該予測は未採点のまま次回再試行
+- TradingView API 呼び出しが失敗した場合：当該予測は未採点のまま次回再試行（採点リトライ上限の挙動は `architecture.md` § 2.17 を参照）
 - 対象予測が `AiAnalysisError` を持つ場合：採点対象から除外
+- 翌平日が祝日にあたり TradingView API に終値が存在しない場合：採点リトライ上限（予測日から N 営業日）まで未採点のまま再試行し、上限超過後は採点候補から外れる
 
 #### UC-012: 予測精度ダッシュボード閲覧
 
