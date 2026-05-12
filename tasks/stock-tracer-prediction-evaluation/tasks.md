@@ -199,25 +199,30 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 - `services/stock-tracker/batch/`
 - `infra/stock-tracker/lib/`
 
-- [ ] `batch/src/lib/find-pending-evaluations.ts` 作成
-    - 入力：`DailySummaryRepository`、`ExchangeRepository`、現在時刻
+- [x] `core/src/services/trading-hours-checker.ts` から `getNextWeekday` / `formatDateInTimezone` を export（採点バッチで翌営業日算出と日足→取引日変換に流用）
+- [x] `batch/src/lib/find-pending-evaluations.ts` 作成
+    - 入力：`DailySummaryRepository`、`ExchangeRepository`、現在時刻、`windowDays`（デフォルト 30）
     - 出力：採点対象 DailySummary のリスト（`{ summary: DailySummaryEntity, exchange: ExchangeEntity, evaluationDate: string }[]`）
-    - ロジック：全 Exchange を取得 → 翌営業日引け済み判定（`trading-hours-checker` 流用）→ 既存 GSI4 で対象期間の DailySummary を Query → メモリで「`AiAnalysisResult` あり & `AiAnalysisError` なし & `EvaluatedAt` 未設定」をフィルタ
-- [ ] `batch/src/evaluation.ts` 作成（Lambda エントリポイント）
-    - `find-pending-evaluations` を呼び出し
-    - 各対象について、TradingView API で翌営業日終値を取得
+    - ロジック：全 Exchange を取得 → `getLastTradingDate` で直近完了取引日 L を算出 → `getByExchangeAndDateRange` で過去 `windowDays` 日分を Query → メモリで「`AiAnalysisResult` あり & `AiAnalysisError` なし & `EvaluatedAt` 未設定」+ 「`getNextWeekday(Date) <= L`」でフィルタ
+- [x] `batch/src/evaluation.ts` 作成（Lambda エントリポイント）
+    - `findPendingEvaluations` を呼び出し
+    - 各対象について、TradingView API（既存 `getChartData('D', count=60)`）で翌営業日終値を取得（日足を取引所タイムゾーン基準の YYYY-MM-DD に正規化して該当日を抽出）
     - `judgePrediction` で判定 → `DailySummaryRepository.markAsEvaluated(key, fields)` で書き込み
-    - `ConditionalCheckFailedException`（並列起動による既採点）は info ログを出して continue
-    - 個別予測の失敗（TradingView エラー等）も continue、全体停止しない
-    - ログ出力（採点件数・失敗件数・既採点スキップ件数）
-- [ ] `infra/stock-tracker/lib/lambda-stack.ts` に採点バッチ Lambda 追加（`batchEvaluationFunction`）
-- [ ] `infra/stock-tracker/lib/eventbridge-stack.ts` に 1 時間毎の cron ルール追加
-- [ ] `infra/stock-tracker/lib/iam-stack.ts` で採点 Lambda の必要権限を付与（既存 DailySummary テーブルへの read/update、Secrets Manager 等）
-- [ ] ユニットテスト
-    - `find-pending-evaluations`：取引所・引け状況・採点済み（`EvaluatedAt` あり）・AI 失敗のバリエーションで網羅
-    - `evaluation` ハンドラ：依存をモック化、TradingView 失敗時の continue、空入力時の no-op、`ConditionalCheckFailedException` 発生時の skip
-- [ ] カバレッジ 80% 以上
-- [ ] dev 環境デプロイで実際に Lambda が起動することを確認
+    - `EntityAlreadyExistsError`（並列起動による既採点）は info ログを出して continue
+    - 個別予測の失敗（TradingView エラー、判定エラー、終値欠損）も continue、全体停止しない
+    - ログ出力（採点件数 / 既採点スキップ / 終値欠損スキップ / 失敗件数 / 候補件数）
+- [x] `infra/stock-tracker/lib/lambda-stack.ts` に採点バッチ Lambda 追加（`BatchEvaluationFunction`、`evaluation.handler`、Batch ECR イメージ流用、`BATCH_TYPE=EVALUATION`）
+- [x] `infra/stock-tracker/lib/eventbridge-stack.ts` に `BatchEvaluationRule`（1 時間毎）を追加。`bin/stock-tracker.ts` の wiring も更新
+- [x] `infra/stock-tracker/lib/iam-stack.ts` は変更不要。既存 `BatchRuntimePolicy` が DailySummary テーブル本体 + 全 GSI に対する Query / GetItem / UpdateItem / PutItem を既に許可しており、採点バッチに必要な権限を網羅している（TradingView API は外部 WebSocket のため AWS Secrets Manager 不要）
+- [x] ユニットテスト
+    - `find-pending-evaluations`：取引所・引け状況（金曜翌週月曜含む）・採点済み（`EvaluatedAt` あり）・AI 失敗・windowDays 境界・複数取引所・空状態（10 ケース）
+    - `evaluation` ハンドラ：BULLISH/BEARISH/NEUTRAL 正常系、終値欠損 → missingClose、TradingView エラー継続、`EntityAlreadyExistsError` → alreadyEvaluatedSkipped、汎用書込みエラー → failed、AiAnalysisResult 欠損候補の防御スキップ、`judgePrediction` エラー、空状態、全体エラー（11 ケース）
+    - `core/services/trading-hours-checker`：`getNextWeekday` / `formatDateInTimezone` の追加ケース（境界値・無効 TZ）
+- [x] カバレッジ
+    - `find-pending-evaluations.ts`：100% (statements / branches / functions / lines)
+    - `evaluation.ts`：statements 95.2% / branches 59.4% / functions 100% / lines 95.2%（未到達分岐は本番 DynamoDB フォールバック経路で、既存 `summary.ts` と同じパターン）
+    - batch パッケージ全体：statements 96.1% / functions 97.9% / lines 96.0% / branches 77.8%（branches 80% 未満はリポジトリの既存状況。CI の coverage ゲートは core のみで batch にはかかっていない）
+- [ ] dev 環境デプロイで実際に Lambda が起動することを確認（人力）
 
 **完了条件**: dev 環境で採点バッチ Lambda が稼働し、新規予測に対して既存 DailySummary レコードへ Evaluation\* フィールドが書き込まれる。
 
@@ -332,8 +337,8 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 | 2. PoC FB 反映で要件再確定（UI 簡素化） | `claude/3018-refine-docs` | #3057 | マージ済 | Issue #3024 |
 | 2. PoC FB 反映で要件再確定（ドキュメント確定 + 30d デフォルト） | `claude/3018-finalize-docs` | 本 PR | 進行中 | Issue #3024 |
 | 3. Entity / Repository 拡張 | `claude/3018-entity` | #3060 | マージ済 | Issue #3025 |
-| 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | 本 PR | 進行中 | Issue #3026 |
-| 5. 採点バッチ + cron | `claude/3018-batch` | — | 未着手 | — |
+| 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | #3061 | マージ済 | Issue #3026 |
+| 5. 採点バッチ + cron | `claude/3018-batch` | 本 PR | 進行中 | Issue #3027 |
 | 6. 精度集計 API | `claude/3018-api` | — | 未着手 | — |
 | 7. UI を本物の API に配線 | `claude/3018-ui-wire` | — | 未着手 | — |
 | 8. docs/ 統合 & tasks/ 削除 | `claude/3018-docs-finalize` | — | 未着手 | — |

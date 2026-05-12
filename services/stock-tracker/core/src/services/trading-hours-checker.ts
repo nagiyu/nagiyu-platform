@@ -89,14 +89,30 @@ function formatYmd(date: Date): string {
 
 /**
  * YYYY-MM-DD の翌平日を返す
+ *
+ * 採点バッチで「予測日 → 採点に使う翌営業日」を算出するために使う。
+ * 祝日は Phase 1 では考慮しない（土日のみスキップ）。
  */
-function getNextWeekday(dateYmd: string): string {
+export function getNextWeekday(dateYmd: string): string {
   const base = new Date(`${dateYmd}T00:00:00Z`);
   let candidate = new Date(base.getTime() + 24 * 60 * 60 * 1000);
   while (candidate.getUTCDay() === 0 || candidate.getUTCDay() === 6) {
     candidate = new Date(candidate.getTime() + 24 * 60 * 60 * 1000);
   }
   return formatYmd(candidate);
+}
+
+/**
+ * Unix timestamp (ms) を指定タイムゾーンの YYYY-MM-DD に変換する
+ *
+ * TradingView API の日足バーから取引日を取り出す用途で、core 側に集約する。
+ */
+export function formatDateInTimezone(timestampMs: number, timezone: string): string {
+  const zoned = toZonedTime(new Date(timestampMs), timezone);
+  if (isNaN(zoned.getTime())) {
+    throw new Error(TRADING_HOURS_ERROR_MESSAGES.INVALID_TIMEZONE);
+  }
+  return formatYmd(zoned);
 }
 
 /**
