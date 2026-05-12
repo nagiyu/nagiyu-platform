@@ -25,10 +25,14 @@ jest.mock('@nagiyu/ui', () => ({
 }));
 
 jest.mock('@mui/material', () => {
-  const create =
-    (tag: string) =>
-    ({ children }: Record<string, unknown>) =>
+  const create = (tag: string) => {
+    const MockComponent = ({ children }: Record<string, unknown>) =>
       React.createElement(tag, null, children);
+    MockComponent.displayName = `Mock${tag}`;
+    return MockComponent;
+  };
+  const CircularProgress = () => React.createElement('span', null, '読み込み中...');
+  CircularProgress.displayName = 'MockCircularProgress';
   return {
     Container: create('div'),
     Box: create('div'),
@@ -41,7 +45,7 @@ jest.mock('@mui/material', () => {
     TableRow: create('tr'),
     Paper: create('div'),
     Alert: create('div'),
-    CircularProgress: () => React.createElement('span', null, '読み込み中...'),
+    CircularProgress,
   };
 });
 
