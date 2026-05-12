@@ -63,7 +63,12 @@ export const ROLES = {
     id: 'stock-admin',
     name: 'Stock 管理者',
     description: 'Stock Tracker のマスタデータ管理が可能',
-    permissions: ['stocks:read', 'stocks:write-own', 'stocks:manage-data', 'stocks:read-evaluation'],
+    permissions: [
+      'stocks:read',
+      'stocks:write-own',
+      'stocks:manage-data',
+      'stocks:read-evaluation',
+    ],
   },
 } as const satisfies Record<string, RoleDefinition>;
 

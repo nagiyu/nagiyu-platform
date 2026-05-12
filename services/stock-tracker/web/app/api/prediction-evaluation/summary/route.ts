@@ -11,7 +11,10 @@ import {
   createDailySummaryRepository,
   createExchangeRepository,
 } from '../../../../lib/repository-factory';
-import type { EvaluationPeriod, SummaryResponse } from '../../../../lib/prediction-evaluation/types';
+import type {
+  EvaluationPeriod,
+  SummaryResponse,
+} from '../../../../lib/prediction-evaluation/types';
 
 const EVALUATION_PERIODS = ['7d', '30d', '90d', 'all'] as const;
 

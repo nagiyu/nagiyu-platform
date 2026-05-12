@@ -228,9 +228,7 @@ describe('GET /api/prediction-evaluation/summary', () => {
         mockGetAllExchanges.mockResolvedValue([]);
 
         const response = await GET(
-          new NextRequest(
-            `http://localhost/api/prediction-evaluation/summary?period=${period}`
-          )
+          new NextRequest(`http://localhost/api/prediction-evaluation/summary?period=${period}`)
         );
 
         expect(response.status).toBe(200);
