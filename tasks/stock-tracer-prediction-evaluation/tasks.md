@@ -270,11 +270,11 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 **依存**: 作業 1、作業 6
 **主な変更箇所**: `services/stock-tracker/web/lib/prediction-evaluation/`
 
-- [ ] `use-prediction-evaluation.ts` のモック呼び出しを `fetch('/api/prediction-evaluation/...')` に差し替え
-- [ ] `mock-data.ts` はテストフィクスチャとして残すか、テストファイル配下に移動
-- [ ] エラーハンドリング：401（未認証）/ 4xx（バリデーション）/ 5xx（サーバー）を UI 側で分岐表示
+- [x] `use-prediction-evaluation.ts` のモック呼び出しを `fetch('/api/prediction-evaluation/...')` に差し替え
+- [x] `mock-data.ts` を削除（PoC 専用の実装のため、テストフィクスチャとしても不要と判断）
+- [x] エラーハンドリング：401（未認証）/ 4xx（バリデーション）/ 5xx（サーバー）を UI 側で分岐表示
 - [ ] dev 環境で実 API 接続を確認（採点済みデータがまだ無ければ「空状態」UI が出ることを確認）
-- [ ] E2E：実 API 想定の最小シナリオ（モック API ハンドラを差し込む形でも可）
+- [x] E2E：実 API 想定の最小シナリオ（`page.route()` で API モックを差し込む形で実装）
 
 **完了条件**: dev 環境でダッシュボードが本物の API 経由でデータを表示する。
 
@@ -335,12 +335,12 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 | 0. 設計ドキュメント | `claude/3018-design-docs` | #3020 | マージ済 | — |
 | 1. UI PoC（モックデータ） | `claude/3018-ui-poc` | #3035 | マージ済 | Issue #3023 |
 | 2. PoC FB 反映で要件再確定（UI 簡素化） | `claude/3018-refine-docs` | #3057 | マージ済 | Issue #3024 |
-| 2. PoC FB 反映で要件再確定（ドキュメント確定 + 30d デフォルト） | `claude/3018-finalize-docs` | 本 PR | 進行中 | Issue #3024 |
+| 2. PoC FB 反映で要件再確定（ドキュメント確定 + 30d デフォルト） | `claude/3018-finalize-docs` | #3058 | マージ済 | Issue #3024 |
 | 3. Entity / Repository 拡張 | `claude/3018-entity` | #3060 | マージ済 | Issue #3025 |
 | 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | #3061 | マージ済 | Issue #3026 |
-| 5. 採点バッチ + cron | `claude/3018-batch` | 本 PR | 進行中 | Issue #3027 |
-| 6. 精度集計 API | `claude/3018-api` | — | 未着手 | — |
-| 7. UI を本物の API に配線 | `claude/3018-ui-wire` | — | 未着手 | — |
+| 5. 採点バッチ + cron | `claude/3018-batch` | #3063 | マージ済 | Issue #3027 |
+| 6. 精度集計 API | `claude/3018-api` | #3064 | マージ済 | Issue #3028 |
+| 7. UI を本物の API に配線 | `claude/3018-ui-wire` | 本 PR | 進行中 | Issue #3029 |
 | 8. docs/ 統合 & tasks/ 削除 | `claude/3018-docs-finalize` | — | 未着手 | — |
 
 各作業 PR が出たら本テーブルを更新する。

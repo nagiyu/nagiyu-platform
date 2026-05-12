@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { Alert, Box, CircularProgress, Container, Typography } from '@mui/material';
+import { Box, CircularProgress, Container, Typography } from '@mui/material';
 import { ErrorAlert, LoadingState } from '@nagiyu/ui';
 import { useSession } from 'next-auth/react';
 import { hasPermission } from '@nagiyu/common';
@@ -18,8 +18,6 @@ import type { EvaluationPeriod } from '@/lib/prediction-evaluation/types';
 const DEFAULT_PERIOD: EvaluationPeriod = '30d';
 
 const UNAUTHORIZED_MESSAGE = '予測精度ダッシュボードを表示する権限がありません。';
-const POC_NOTICE =
-  'PoC 段階：本ダッシュボードはモックデータを表示しています（作業 7 で本物の API に差し替え予定）。';
 
 function PredictionEvaluationContent() {
   const { data: session, status } = useSession();
@@ -63,9 +61,6 @@ function PredictionEvaluationContent() {
         >
           {headline}
         </Typography>
-        <Alert severity="info" sx={{ mb: 2 }}>
-          {POC_NOTICE}
-        </Alert>
       </Box>
 
       <Box sx={{ mb: 3 }}>
