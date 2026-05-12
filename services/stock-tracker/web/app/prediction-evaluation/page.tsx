@@ -35,7 +35,7 @@ function PredictionEvaluationContent() {
     !!session?.user &&
     'roles' in session.user &&
     Array.isArray(session.user.roles) &&
-    hasPermission(session.user.roles, 'stocks:read');
+    hasPermission(session.user.roles, 'stocks:read-evaluation');
 
   if (!hasReadPermission) {
     return (
