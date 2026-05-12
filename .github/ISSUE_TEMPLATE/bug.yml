@@ -73,6 +73,57 @@ body:
         - docs/services/example/requirements.md
         - docs/services/example/basic-design.md
 
+  - type: markdown
+    attributes:
+      value: |
+        ## 実装方針（Sonnet 引き継ぎ用）
+
+        以下は実装フェーズで参照する情報です。Sonnet に実装を移譲する場合や、別セッションで再開する場合に備え、可能な限り詳細に記載してください。
+
+  - type: textarea
+    id: fix-approach
+    attributes:
+      label: 修正方針
+      description: 想定する修正アプローチ・根本原因への対処方針
+      placeholder: |
+        - 原因: XXX が YYY のとき null を返す
+        - 修正: ZZZ ガードを追加し、デフォルト値を返す
+    validations:
+      required: false
+
+  - type: textarea
+    id: target-files
+    attributes:
+      label: 対象ファイル・モジュール
+      description: 変更する主要なファイル・モジュール（パスを記載）
+      placeholder: |
+        - libs/common/src/utils/XXX.ts（修正）
+        - services/tools/src/app/page.tsx（修正）
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存関係・前提条件
+      description: 実装の前提となる既存機能・ライブラリ・ブロッカーになる別 Issue
+      placeholder: |
+        - @nagiyu/common の dist ビルドが必要
+        - #1234 のマージが先行する
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: 実装上の注意点
+      description: 設計判断・後方互換性・テスト方針・パフォーマンス・セキュリティなど
+      placeholder: |
+        - 既存テストへの影響を確認
+        - 再発防止のため境界値テストを追加
+    validations:
+      required: false
+
   - type: checkboxes
     id: implementation-checklist
     attributes:
