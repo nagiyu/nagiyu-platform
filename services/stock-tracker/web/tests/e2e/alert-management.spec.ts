@@ -425,6 +425,75 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
     });
   });
 
+  test.describe('アラート一覧の一時通知表示', () => {
+    // webkit-mobile では Service Worker の影響で API モックが不安定になるため、このスイートでは無効化する
+    test.use({ serviceWorkers: 'block' });
+
+    test('一時通知のアラートは「一時」、常設は「常設」が表示される', async ({ page }) => {
+      const suffix = Date.now().toString().slice(-6);
+      const temporarySymbol = `TMP${suffix}`;
+      const persistentSymbol = `PST${suffix}`;
+
+      await page.route('**/api/exchanges', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            exchanges: [{ exchangeId: `ex-${suffix}`, name: 'TEST', key: 'TEST' }],
+          }),
+        });
+      });
+
+      await page.route('**/api/alerts', async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            alerts: [
+              {
+                alertId: `alert-tmp-${suffix}`,
+                tickerId: `TEST:${temporarySymbol}`,
+                symbol: temporarySymbol,
+                name: 'Temporary Alert',
+                mode: 'Buy',
+                frequency: 'MINUTE_LEVEL',
+                conditions: [{ field: 'price', operator: 'gte', value: 100 }],
+                enabled: true,
+                temporary: true,
+                temporaryExpireDate: '2026-12-31',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+              },
+              {
+                alertId: `alert-pst-${suffix}`,
+                tickerId: `TEST:${persistentSymbol}`,
+                symbol: persistentSymbol,
+                name: 'Persistent Alert',
+                mode: 'Sell',
+                frequency: 'MINUTE_LEVEL',
+                conditions: [{ field: 'price', operator: 'gte', value: 200 }],
+                enabled: true,
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+              },
+            ],
+          }),
+        });
+      });
+
+      await page.goto('/alerts');
+      await page.waitForLoadState('networkidle');
+
+      const temporaryRow = page.locator('tbody tr', { hasText: temporarySymbol });
+      await expect(temporaryRow).toBeVisible();
+      await expect(temporaryRow.getByText('一時', { exact: true })).toBeVisible();
+
+      const persistentRow = page.locator('tbody tr', { hasText: persistentSymbol });
+      await expect(persistentRow).toBeVisible();
+      await expect(persistentRow.getByText('常設', { exact: true })).toBeVisible();
+    });
+  });
+
   test.describe('アラート編集の通知設定', () => {
     // webkit-mobile では Service Worker の影響で API モックが不安定になるため、このスイートでは無効化する
     test.use({ serviceWorkers: 'block' });
