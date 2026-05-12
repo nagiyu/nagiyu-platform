@@ -38,6 +38,18 @@ export interface DailySummaryEntity {
   AiAnalysisResult?: AiAnalysisResult;
   /** AI 解析生成失敗時のエラー情報 */
   AiAnalysisError?: string;
+  /** 採点に使った翌営業日 (YYYY-MM-DD)。採点バッチが書き込む */
+  EvaluationDate?: string;
+  /** 採点終値 (EvaluationDate の終値) */
+  EvaluationClose?: number;
+  /** 実績リターン (%)。(EvaluationClose - Close) / Close * 100 */
+  ActualReturn?: number;
+  /** 採点結果（予測シグナルと閾値に基づく Hit/Miss） */
+  Hit?: boolean;
+  /** 採点に使った閾値 (%)。Phase 1 では 0.5 固定 */
+  EvaluationThresholdPercent?: number;
+  /** 採点実行時刻 (Unix timestamp ms)。存在で採点済みと判定する */
+  EvaluatedAt?: number;
   /** 作成日時 (Unix timestamp ms) */
   CreatedAt: number;
   /** 更新日時 (Unix timestamp ms) */

@@ -131,7 +131,7 @@ UI を先行実装し、dev 環境で実物を確認できる状態にする。A
 
 A 案を採用し、独立エンティティではなく既存 `DailySummaryEntity` に Evaluation\* optional フィールドを追加する。新規 mapper / repository / GSI は作成しない。
 
-- [ ] `core/src/entities/daily-summary.entity.ts` を更新
+- [x] `core/src/entities/daily-summary.entity.ts` を更新
     - 以下 6 つの optional フィールドを追加（`design.md` §2.1 参照。作業 2 の FB で増減する可能性あり）
         - `EvaluationDate?: string`
         - `EvaluationClose?: number`
@@ -140,24 +140,25 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
         - `EvaluationThresholdPercent?: number`
         - `EvaluatedAt?: number`
     - 既存の `CreateDailySummaryInput` 型は `Omit<...>` ベースなので追加対応のみ
-- [ ] `core/src/mappers/daily-summary.mapper.ts` を更新
+- [x] `core/src/mappers/daily-summary.mapper.ts` を更新
     - `toItem`：Evaluation\* を spread 条件付きで item に含める（既存 `AiAnalysisResult` 等と同パターン）
     - `toEntity`：Evaluation\* を validation 関数で読み出す（不在時 undefined）
-- [ ] `core/src/repositories/daily-summary.repository.interface.ts` を更新
+- [x] `core/src/repositories/daily-summary.repository.interface.ts` を更新
     - `markAsEvaluated(key, fields)` メソッド追加（`design.md` §3.3 参照）
     - `getByExchangeAndDateRange(exchangeId, fromDate, toDate)` メソッド追加（既存 `getByExchange` は単一日付 / 最新日のみ対応のため、期間集計用に新設）
-- [ ] `core/src/repositories/dynamodb-daily-summary.repository.ts`（既存）を更新
-    - `markAsEvaluated` を実装。`UpdateItemCommand` で `SET` 句、条件式 `attribute_not_exists(EvaluatedAt)`
-    - `ConditionalCheckFailedException` を独自エラーに変換するか throw 直し（呼び出し側で skip 判定可能にする）
-    - `getByExchangeAndDateRange` を実装。GSI4 で `KeyConditionExpression: #gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to`、`:from = "DATE#" + fromDate`、`:to = "DATE#" + toDate + "#~"`（`#~` は最大ソート文字、ticker 横断で当該日付までを含めるため）
-- [ ] `core/src/repositories/in-memory-daily-summary.repository.ts`（既存があれば）を更新
-    - `markAsEvaluated` / `getByExchangeAndDateRange` を実装。前者は既に `EvaluatedAt` がある場合に同じ条件でエラーを投げる
-- [ ] `core/src/index.ts` の export はインタフェース経由なので追加対応最小
-- [ ] ユニットテスト
-    - mapper：Evaluation\* 全 6 フィールドの round-trip、optional 不在時、partial（一部のみ存在）の場合の挙動を網羅
-    - dynamodb repository：`markAsEvaluated` の正常系・条件式違反・既存 update メソッドへの影響なし
-    - in-memory repository：`markAsEvaluated` の正常系と二重採点エラー
-- [ ] カバレッジ 80% 以上を確認
+    - 採点結果フィールド集合を `DailySummaryEvaluationFields` として型エクスポート（呼び出し側で再利用）
+- [x] `core/src/repositories/dynamodb-daily-summary.repository.ts`（既存）を更新
+    - `markAsEvaluated` を実装。`UpdateCommand` で `SET` 句、条件式 `attribute_exists(PK) AND attribute_not_exists(EvaluatedAt)`
+    - `ConditionalCheckFailedException` を `EntityNotFoundError` / `EntityAlreadyExistsError` に変換（再 GetItem で 404 と既採点を区別、呼び出し側で skip 判定可能）
+    - `getByExchangeAndDateRange` を実装。GSI4 で `KeyConditionExpression: #gsi4pk = :exchangeId AND #gsi4sk BETWEEN :from AND :to`、`:from = "DATE#" + fromDate`、`:to = "DATE#" + toDate + "#~"`（`#~` は最大ソート文字、ticker 横断で当該日付までを含めるため）。LastEvaluatedKey ループ対応
+- [x] `core/src/repositories/in-memory-daily-summary.repository.ts` を更新
+    - `markAsEvaluated` / `getByExchangeAndDateRange` を実装。前者は既に `EvaluatedAt` がある場合に `EntityAlreadyExistsError`、対象不在時に `EntityNotFoundError` を投げる
+- [x] `core/src/index.ts` から `DailySummaryEvaluationFields` を追加 export
+- [x] ユニットテスト
+    - mapper：Evaluation\* 全 6 フィールドの round-trip、optional 不在時、partial（一部のみ存在）、boolean / timestamp 型不正、AI/Pattern との共存を網羅
+    - dynamodb repository：`markAsEvaluated` の正常系・条件式違反（既採点 / 未存在の区別）・DB エラー、`getByExchangeAndDateRange` の BETWEEN クエリ・ページング・DB エラー
+    - in-memory repository：`markAsEvaluated` の正常系・二重採点エラー・未存在エラー、`getByExchangeAndDateRange` の範囲フィルタ・空配列
+- [x] カバレッジ 80% 以上を確認（mapper 87.87% / dynamodb 100% statements / in-memory 100% statements）
 
 **完了条件**: PR レビューが通り、`@nagiyu/stock-tracker-core` の既存テストがすべて green かつ追加テストも green、integration にマージ。
 
