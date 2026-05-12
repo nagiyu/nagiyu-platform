@@ -15,23 +15,21 @@
 
 ## 1. API 仕様
 
-> **注記**: 本章のレスポンス形式（`SummaryResponse` / `TickersResponse`）と `§3.3` の `AggregateOutput` 型は、`tasks.md` の作業 1（UI PoC）後の FB を反映する作業 2 で **再確定** される。本ドキュメントの内容は PoC 前の暫定案。
->
-> 作業 1 ではここに記載されたモック JSON を `web/lib/prediction-evaluation/mock-data.ts` に置いて UI を先行実装する。作業 7（UI を本物の API に接続）でモック差し替えを最小コストで行うため、API レスポンス形と UI が期待する型は同一にする。
+> **本章は作業 2 の確定版**。作業 1（UI PoC）の FB を反映済み。
 
 ### 1.1 ベース URL・認証
 
 - ベース URL: 既存 stock-tracker web の API Routes（`/api/...`）
-- 認証方式: 既存 web 認証（NextAuth ベース）に準拠。認証済みユーザーのみアクセス可
+- 認証方式: 既存 web 認証（NextAuth ベース）に準拠。**`stocks:read-evaluation` 権限**（新規、Phase 1 では `stock-admin` ロールのみに付与）を持つ認証済みユーザーのみアクセス可
+- permission 追加自体は作業 6（精度集計 API）と同タイミングで `libs/common/src/auth/{types,roles}.ts` を更新する
 
 ### 1.2 エンドポイント一覧
 
 | メソッド | パス | 説明 | 認証 |
 |---------|------|------|------|
-| GET | `/api/prediction-evaluation/summary` | 期間指定で集計値（KPI + 推移 + シグナル別 + 取引所別）を返す | 要 |
-| GET | `/api/prediction-evaluation/tickers` | 期間指定で銘柄別ヒット率一覧を返す | 要 |
+| GET | `/api/prediction-evaluation/summary` | 期間指定で集計値（KPI + 日次推移 + シグナル別）を返す | 要 |
 
-エンドポイントを 2 つに分けるのは、「ダッシュボード上部の即時表示」と「銘柄テーブルの後追い表示」を別々に取得してファーストビューを高速化するため。
+`tickers`（銘柄別）/ `exchanges`（取引所別）の独立エンドポイントは Phase 1 では実装しない（`external-design.md` ADR-005 参照）。将来必要になった時点で別 API として追加する。
 
 ### 1.3 エンドポイント詳細
 
@@ -52,11 +50,9 @@ type SummaryResponse = {
   period: '7d' | '30d' | '90d' | 'all';
   evaluatedAt: number; // 集計時刻（unix timestamp ms）
   kpi: {
-    totalAccuracy: number | null; // 総合精度（%）。判定済み 0 件なら null
+    totalAccuracy: number | null;       // 総合精度（%）。判定済み 0 件なら null
     directionalAccuracy: number | null; // 方向精度（%、BULLISH+BEARISH のみ）
-    neutralRatio: number | null; // NEUTRAL 比率（%）
-    judgedCount: number; // 判定済み件数
-    aiFailureCount: number; // 採点対象外（AiAnalysisError あり）件数
+    judgedCount: number;                // 判定済み件数
   };
   dailyTrend: Array<{
     date: string; // YYYY-MM-DD
@@ -68,14 +64,10 @@ type SummaryResponse = {
     accuracy: number | null;
     count: number;
   }>;
-  byExchange: Array<{
-    exchangeId: string;
-    exchangeName: string;
-    accuracy: number | null;
-    count: number;
-  }>;
 };
 ```
+
+UI 側の `web/lib/prediction-evaluation/types.ts` と同一の型を維持する（作業 7 でモック → 実 API 差し替え時の互換性確保）。
 
 **エラーレスポンス**
 
@@ -83,38 +75,18 @@ type SummaryResponse = {
 |-----------|-------------|------|
 | 400 | VALIDATION_ERROR | `period` が不正な値 |
 | 401 | UNAUTHORIZED | 未認証 |
+| 403 | FORBIDDEN | `stocks:read-evaluation` 権限なし |
 | 500 | INTERNAL_ERROR | 集計失敗 |
 
-#### GET `/api/prediction-evaluation/tickers`
+### 1.4 将来拡張エンドポイント（Phase 1 では実装しない）
 
-**リクエスト**
+以下は ADR-005 に基づき Phase 1 のスコープ外。データは DB に蓄積されているため、必要になった時点で集計ロジック + エンドポイント追加のみで対応できる。
 
-```typescript
-type Query = {
-  period: '7d' | '30d' | '90d' | 'all';
-  minCount?: number; // デフォルト 5。これ以上の判定件数を持つ銘柄のみ返す
-};
-```
-
-**レスポンス（成功）**
-
-```typescript
-type TickersResponse = {
-  period: '7d' | '30d' | '90d' | 'all';
-  minCount: number;
-  tickers: Array<{
-    tickerId: string;
-    tickerName: string;
-    exchangeId: string;
-    accuracy: number; // 方向精度ベース（NEUTRAL 除外）
-    count: number;
-    bullishHit: number;
-    bullishTotal: number;
-    bearishHit: number;
-    bearishTotal: number;
-  }>;
-};
-```
+| メソッド | パス（予定） | 用途 |
+|---------|------|------|
+| GET | `/api/prediction-evaluation/tickers` | 銘柄別ヒット率一覧（最低件数フィルタ付き） |
+| GET | `/api/prediction-evaluation/exchanges` | 取引所別ヒット率一覧 |
+| GET | `/api/prediction-evaluation/ai-failures` | AI 解析失敗件数（運用監視。UI ではなく CloudWatch メトリクス化が筋という議論あり） |
 
 ---
 
@@ -214,7 +186,7 @@ type DailySummaryEvaluationFields = {
 | `DailySummaryMapper` 拡張 | `core/src/mappers/daily-summary.mapper.ts`（既存） | `toItem` / `toEntity` に Evaluation\* の入出力を追加 |
 | `DailySummaryRepository` 拡張 | `core/src/repositories/daily-summary.repository.interface.ts` および DynamoDB 実装（既存） | `markAsEvaluated(key, fields)` メソッドを追加。条件付き UpdateItem で Evaluation\* を書き込む |
 | `judgePrediction` | `core/src/services/prediction-judger.ts`（新規） | 純粋関数：シグナル + リターン → Hit 判定 |
-| `aggregateEvaluatedSummaries` | `core/src/services/prediction-aggregator.ts`（新規） | 純粋関数：採点済み DailySummary リスト → 集計値（KPI、シグナル別、銘柄別、取引所別、日次推移） |
+| `aggregateEvaluatedSummaries` | `core/src/services/prediction-aggregator.ts`（新規） | 純粋関数：採点済み DailySummary リスト → 集計値（KPI、シグナル別、日次推移）。銘柄別 / 取引所別は Phase 1 のスコープ外（ADR-005） |
 
 #### batch
 
@@ -229,16 +201,15 @@ type DailySummaryEvaluationFields = {
 | モジュール | パス | 役割 |
 |-----------|------|------|
 | `GET /api/prediction-evaluation/summary` | `web/app/api/prediction-evaluation/summary/route.ts` | 集計 API（作業 6 で実装） |
-| `GET /api/prediction-evaluation/tickers` | `web/app/api/prediction-evaluation/tickers/route.ts` | 銘柄別 API（作業 6 で実装） |
-| Mock fixture | `web/lib/prediction-evaluation/mock-data.ts` | 作業 1（UI PoC）で利用する `SummaryResponse` / `TickersResponse` 型のハードコード JSON。作業 7 で参照を削除またはテストフィクスチャへ移動 |
+| Mock fixture | `web/lib/prediction-evaluation/mock-data.ts` | 作業 1（UI PoC）で利用する `SummaryResponse` 型のハードコード JSON。作業 7 で参照を削除またはテストフィクスチャへ移動 |
 | Data hook | `web/lib/prediction-evaluation/use-prediction-evaluation.ts` | UI からデータ取得を抽象化する custom hook。作業 1 ではモック JSON を返し、作業 7 で `fetch()` 実装に差し替える唯一の差し替え点 |
+| Summary headline | `web/lib/prediction-evaluation/summary-headline.ts` | 見出し直下の主要指標テキスト組み立て（フォーマッタを独立化、テスト容易性のため） |
 | `PredictionEvaluationPage` | `web/app/prediction-evaluation/page.tsx` | ダッシュボードページ（作業 1 で実装） |
-| `PeriodSelector` | `web/components/prediction-evaluation/PeriodSelector.tsx` | 期間切替（作業 1） |
-| `KpiCards` | `web/components/prediction-evaluation/KpiCards.tsx` | KPI 4 カード（作業 1） |
-| `DailyTrendChart` | `web/components/prediction-evaluation/DailyTrendChart.tsx` | 推移折れ線（作業 1） |
-| `SignalAccuracyChart` | `web/components/prediction-evaluation/SignalAccuracyChart.tsx` | シグナル別棒（作業 1） |
-| `TickerAccuracyTable` | `web/components/prediction-evaluation/TickerAccuracyTable.tsx` | 銘柄別テーブル（作業 1） |
-| `ExchangeAccuracyTable` | `web/components/prediction-evaluation/ExchangeAccuracyTable.tsx` | 取引所別（作業 1） |
+| `PeriodSelector` | `web/components/prediction-evaluation/PeriodSelector.tsx` | 期間切替 |
+| `DailyTrendChart` | `web/components/prediction-evaluation/DailyTrendChart.tsx` | 日次推移グラフ（折れ線 + 件数棒 + 数値テーブル） |
+| `SignalAccuracyChart` | `web/components/prediction-evaluation/SignalAccuracyChart.tsx` | シグナル別棒グラフ + 数値テーブル |
+
+`KpiCards` / `TickerAccuracyTable` / `ExchangeAccuracyTable` は作業 2 で UI から外したため Phase 1 では実装しない（ADR-003 / ADR-005）。
 
 #### infra
 
@@ -269,7 +240,11 @@ export function judgePrediction(input: JudgeInput): JudgeResult;
 // core/src/services/prediction-aggregator.ts
 //
 // 入力は採点済み DailySummary（Evaluation* がすべて埋まっており、AiAnalysisResult があり
-// AiAnalysisError がない）に絞ってから渡す前提。除外件数は呼び出し側で別途集計する。
+// AiAnalysisError がない）に絞ってから渡す前提。
+//
+// AggregateOutput は SummaryResponse（§1.3）の `kpi` / `bySignal` / `dailyTrend` と完全一致させる
+// （API レイヤーは型変換のみで返却できる形）。銘柄別 / 取引所別 / NEUTRAL 比率 / AI 失敗件数は
+// 作業 2（ADR-003〜005）の判断で Phase 1 のスコープ外。
 export type EvaluatedDailySummary = DailySummaryEntity & {
   EvaluationDate: string;
   EvaluationClose: number;
@@ -281,14 +256,10 @@ export type EvaluatedDailySummary = DailySummaryEntity & {
 };
 export type AggregateInput = {
   evaluated: EvaluatedDailySummary[];
-  exchangeNameById: Record<string, string>;
-  tickerNameById: Record<string, string>;
 };
 export type AggregateOutput = {
-  kpi: { totalAccuracy: number | null; directionalAccuracy: number | null; neutralRatio: number | null; judgedCount: number };
+  kpi: { totalAccuracy: number | null; directionalAccuracy: number | null; judgedCount: number };
   bySignal: Array<{ signal: 'BULLISH' | 'NEUTRAL' | 'BEARISH'; accuracy: number | null; count: number }>;
-  byExchange: Array<{ exchangeId: string; exchangeName: string; accuracy: number | null; count: number }>;
-  byTicker: Array<{ tickerId: string; tickerName: string; exchangeId: string; accuracy: number; count: number; bullishHit: number; bullishTotal: number; bearishHit: number; bearishTotal: number }>;
   dailyTrend: Array<{ date: string; directionalAccuracy: number | null; judgedCount: number }>;
 };
 export function aggregateEvaluatedSummaries(input: AggregateInput): AggregateOutput;
@@ -364,13 +335,13 @@ PredictedSignal = NEUTRAL のとき:  Hit = (-threshold < r < +threshold)
 - 採点バッチでは未採点予測を抽出する際に、Exchange ごとにバッチ化して Query する（全 Ticker を 1 件ずつ走査しない）
 - TradingView API 呼び出しは既存と同じ rate limit 配慮で実装。同一銘柄・同一日の二重呼び出しを避ける
 - 集計 API はクエリベースで毎回計算する（Phase 1 ではキャッシュ不要、件数規模では 1 秒以内で十分）。件数が増えてきた場合に Phase 2 以降でキャッシュ層を追加検討
-- 銘柄別集計は API 側でデフォルト `minCount = 5` でフィルタする（ペイロードサイズ抑制）
 
 ### 4.3 セキュリティ考慮事項
 
-- 全 API Route で既存認証ミドルウェアを通す
+- 全 API Route で既存認証ミドルウェア + **`stocks:read-evaluation`** 権限チェックを通す（`external-design.md` ADR-008）
+    - 本 permission は Phase 1 で新設し、`stock-admin` ロールにのみ付与する
+    - 実装は作業 6 で `libs/common/src/auth/{types,roles}.ts` + `withAuth` 呼び出しの 3 点更新
 - `period` クエリパラメータは enum でバリデーション（任意文字列を受け付けない）
-- `minCount` は数値型バリデーション + 上限値（例：1000）で DoS を防ぐ
 - 採点結果には機密情報を含まない（公開市場データのみ）
 
 ### 4.4 冪等性
@@ -404,4 +375,7 @@ PredictedSignal = NEUTRAL のとき:  Hit = (-threshold < r < +threshold)
     - 採点バッチを既存バッチに相乗りせず独立 Lambda にした判断（責務分離・スケジュール独立性）
     - 集計用 GSI を新設せず、既存 GSI4（ExchangeID × Date）を流用した判断（GSI 追加バックフィルを避け、Phase 1 の着手コストを最小化）
     - UI 先行 PoC 方式を採用した判断（実物を見るまで指標の取捨選択や見せ方の微調整が判断しきれないため、要件再確定のループを設計に組み込んだ）
+    - KPI カード形式を採用せず、見出し直下の主要指標テキスト 1 行に集約した判断（`external-design.md` ADR-003）
+    - 銘柄別・取引所別・AI 失敗件数・NEUTRAL 比率を Phase 1 UI から外した判断（`external-design.md` ADR-004 / ADR-005）
+    - 専用 permission `stocks:read-evaluation` を新設し `stock-admin` のみに付与した判断（`external-design.md` ADR-008）
 - [ ] AI 改善ロードマップ（Phase 1〜4）を `docs/services/stock-tracker/` 配下のいずれかに記載
