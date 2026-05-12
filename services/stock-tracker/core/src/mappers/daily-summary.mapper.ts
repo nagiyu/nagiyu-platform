@@ -6,6 +6,7 @@
 
 import type { DynamoDBItem } from '@nagiyu/aws';
 import {
+  validateBooleanField,
   validateNumberField,
   validateStringField,
   validateTimestampField,
@@ -109,6 +110,14 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         ? { AiAnalysisResult: JSON.stringify(entity.AiAnalysisResult) }
         : {}),
       ...(entity.AiAnalysisError !== undefined ? { AiAnalysisError: entity.AiAnalysisError } : {}),
+      ...(entity.EvaluationDate !== undefined ? { EvaluationDate: entity.EvaluationDate } : {}),
+      ...(entity.EvaluationClose !== undefined ? { EvaluationClose: entity.EvaluationClose } : {}),
+      ...(entity.ActualReturn !== undefined ? { ActualReturn: entity.ActualReturn } : {}),
+      ...(entity.Hit !== undefined ? { Hit: entity.Hit } : {}),
+      ...(entity.EvaluationThresholdPercent !== undefined
+        ? { EvaluationThresholdPercent: entity.EvaluationThresholdPercent }
+        : {}),
+      ...(entity.EvaluatedAt !== undefined ? { EvaluatedAt: entity.EvaluatedAt } : {}),
       CreatedAt: entity.CreatedAt,
       UpdatedAt: entity.UpdatedAt,
     };
@@ -164,6 +173,27 @@ export class DailySummaryMapper implements EntityMapper<DailySummaryEntity, Dail
         item.AiAnalysisError === undefined
           ? undefined
           : validateStringField(item.AiAnalysisError, 'AiAnalysisError'),
+      EvaluationDate:
+        item.EvaluationDate === undefined
+          ? undefined
+          : validateStringField(item.EvaluationDate, 'EvaluationDate'),
+      EvaluationClose:
+        item.EvaluationClose === undefined
+          ? undefined
+          : validateNumberField(item.EvaluationClose, 'EvaluationClose'),
+      ActualReturn:
+        item.ActualReturn === undefined
+          ? undefined
+          : validateNumberField(item.ActualReturn, 'ActualReturn'),
+      Hit: item.Hit === undefined ? undefined : validateBooleanField(item.Hit, 'Hit'),
+      EvaluationThresholdPercent:
+        item.EvaluationThresholdPercent === undefined
+          ? undefined
+          : validateNumberField(item.EvaluationThresholdPercent, 'EvaluationThresholdPercent'),
+      EvaluatedAt:
+        item.EvaluatedAt === undefined
+          ? undefined
+          : validateTimestampField(item.EvaluatedAt, 'EvaluatedAt'),
       CreatedAt: validateTimestampField(item.CreatedAt, 'CreatedAt'),
       UpdatedAt: validateTimestampField(item.UpdatedAt, 'UpdatedAt'),
     };
