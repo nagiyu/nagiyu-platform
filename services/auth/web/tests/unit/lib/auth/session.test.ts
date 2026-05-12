@@ -9,14 +9,16 @@ jest.mock('@nagiyu/nextjs/session', () => ({
     (config: {
       auth: () => Promise<unknown>;
       createTestSession: () => unknown;
-      mapSession: (session: unknown) => unknown;
+      mapSession?: (session: unknown) => unknown;
     }) => {
       return async () => {
         if (process.env.SKIP_AUTH_CHECK === 'true') {
-          return config.mapSession(config.createTestSession());
+          const testSession = config.createTestSession();
+          return config.mapSession ? config.mapSession(testSession) : testSession;
         }
         const session = await config.auth();
-        return session ? config.mapSession(session) : null;
+        if (!session) return null;
+        return config.mapSession ? config.mapSession(session) : session;
       };
     }
   ),
@@ -71,7 +73,7 @@ describe('getSession', () => {
     expect(session).toBeNull();
   });
 
-  it('SKIP_AUTH_CHECK 未設定で auth が session を返すと mapSession 経由で返す', async () => {
+  it('SKIP_AUTH_CHECK 未設定で auth が session を返すとそのまま返す', async () => {
     delete process.env.SKIP_AUTH_CHECK;
     (mockedAuth as jest.Mock).mockResolvedValueOnce({
       user: { id: 'u1', email: 'u1@example.com', name: 'U1', roles: ['admin'] },
@@ -83,18 +85,5 @@ describe('getSession', () => {
 
     expect(session?.user?.id).toBe('u1');
     expect(session?.expires).toBe('2099-01-01T00:00:00.000Z');
-  });
-
-  it('expires 未指定なら mapSession でデフォルト値が補完される', async () => {
-    delete process.env.SKIP_AUTH_CHECK;
-    (mockedAuth as jest.Mock).mockResolvedValueOnce({
-      user: { id: 'u2', email: 'u2@example.com', name: 'U2', roles: [] },
-    });
-
-    const { getSession } = await import('../../../../src/lib/auth/session');
-    const session = await getSession();
-
-    expect(session?.expires).toBeDefined();
-    expect(new Date(session!.expires!).getTime()).toBeGreaterThan(Date.now());
   });
 });
