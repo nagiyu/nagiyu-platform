@@ -6,10 +6,9 @@
 
 import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
-import { sendWebPushNotification } from '@nagiyu/common/push';
+import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
 import {
-  getVapidConfig,
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';

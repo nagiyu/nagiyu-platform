@@ -1,4 +1,4 @@
-export { getVapidConfig } from '@nagiyu/common/push';
+import { DEFAULT_NOTIFICATION_ICON } from '@nagiyu/common/push';
 import type { NotificationPayload } from '@nagiyu/common';
 
 /**
@@ -30,7 +30,7 @@ export function createBatchCompletionPayload(
   return {
     title: 'マイリスト登録完了',
     body,
-    icon: '/icon-192x192.png',
+    icon: DEFAULT_NOTIFICATION_ICON,
     data: {
       jobId,
       registeredCount,
@@ -51,7 +51,7 @@ export function createTwoFactorAuthRequiredPayload(jobId: string): NotificationP
   return {
     title: '二段階認証が必要です',
     body: 'マイリスト登録を続行するには、二段階認証コードを入力してください',
-    icon: '/icon-192x192.png',
+    icon: DEFAULT_NOTIFICATION_ICON,
     data: {
       jobId,
       type: '2fa-required',
