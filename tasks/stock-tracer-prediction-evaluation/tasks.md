@@ -170,22 +170,22 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 **依存**: 作業 3
 **主な変更箇所**: `services/stock-tracker/core/`
 
-- [ ] `core/src/services/prediction-judger.ts` 作成
+- [x] `core/src/services/prediction-judger.ts` 作成
     - `judgePrediction(input: JudgeInput): JudgeResult`
     - 境界値の扱い：BULLISH/BEARISH は **以上 / 以下**、NEUTRAL は **より大きく / より小さく**（`design.md` § 3.4）
     - 純粋関数。副作用なし
-- [ ] `core/src/services/prediction-aggregator.ts` 作成
+- [x] `core/src/services/prediction-aggregator.ts` 作成
     - `aggregateEvaluatedSummaries(input: AggregateInput): AggregateOutput`
     - 入力は採点済み DailySummary（Evaluation\* 全埋まり、`AiAnalysisResult` あり、`AiAnalysisError` なし）に絞った配列
     - `PredictedSignal` は `AiAnalysisResult.investmentJudgment.signal` から導出
-    - KPI / シグナル別 / 取引所別 / 銘柄別 / 日次推移 を一括算出（作業 2 の FB で項目増減があれば反映）
+    - 作業 2 の確定版に従い、Phase 1 は **KPI / シグナル別 / 日次推移** の 3 軸のみ算出（銘柄別 / 取引所別 / NEUTRAL 比率 / AI 失敗件数は `external-design.md` ADR-003〜005 でスコープ外）
     - 入力が空のとき `accuracy = null`、`count = 0` を返す
     - 純粋関数
-- [ ] `core/src/index.ts` に export 追加
-- [ ] ユニットテスト
+- [x] `core/src/index.ts` に export 追加
+- [x] ユニットテスト
     - `judgePrediction`：シグナル × 境界値の網羅（境界値ちょうど + 内側 + 外側）
     - `aggregateEvaluatedSummaries`：空入力・全 Hit・全 Miss・複数取引所・複数銘柄・`AiAnalysisError` 混在（呼び出し側で除外する想定だが、防御的にもチェック）
-- [ ] カバレッジ 80% 以上
+- [x] カバレッジ 80% 以上を確認（statements 100% / branches 97.67% / functions 100% / lines 100%）
 
 **完了条件**: PR レビューが通り、テストがすべて green、integration にマージ。
 
@@ -331,8 +331,8 @@ A 案を採用し、独立エンティティではなく既存 `DailySummaryEnti
 | 1. UI PoC（モックデータ） | `claude/3018-ui-poc` | #3035 | マージ済 | Issue #3023 |
 | 2. PoC FB 反映で要件再確定（UI 簡素化） | `claude/3018-refine-docs` | #3057 | マージ済 | Issue #3024 |
 | 2. PoC FB 反映で要件再確定（ドキュメント確定 + 30d デフォルト） | `claude/3018-finalize-docs` | 本 PR | 進行中 | Issue #3024 |
-| 3. Entity / Repository 拡張 | `claude/3018-entity` | — | 未着手 | — |
-| 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | — | 未着手 | — |
+| 3. Entity / Repository 拡張 | `claude/3018-entity` | #3060 | マージ済 | Issue #3025 |
+| 4. 判定 / 集計ロジック | `claude/3018-judge-logic` | 本 PR | 進行中 | Issue #3026 |
 | 5. 採点バッチ + cron | `claude/3018-batch` | — | 未着手 | — |
 | 6. 精度集計 API | `claude/3018-api` | — | 未着手 | — |
 | 7. UI を本物の API に配線 | `claude/3018-ui-wire` | — | 未着手 | — |

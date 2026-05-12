@@ -112,6 +112,8 @@ export * from './services/alert-evaluator.js';
 export * from './services/price-calculator.js';
 export * from './services/trading-hours-checker.js';
 export * from './services/tradingview-client.js';
+export * from './services/prediction-judger.js';
+export * from './services/prediction-aggregator.js';
 
 // マッパー（新規エクスポート）
 export { AlertMapper } from './mappers/alert.mapper.js';
