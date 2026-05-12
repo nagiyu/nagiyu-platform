@@ -8,6 +8,8 @@ import {
   isTradingHours,
   getLastTradingDate,
   calculateTemporaryExpireDate,
+  formatDateInTimezone,
+  getNextWeekday,
   TRADING_HOURS_ERROR_MESSAGES,
 } from '../../../src/services/trading-hours-checker.js';
 import type { Exchange } from '../../../src/types.js';
@@ -303,6 +305,50 @@ describe('Trading Hours Checker Service', () => {
       // 08:00 < End(15:00) → 前日(日) → 前々日(土) → 前々々日(金) = 2024-01-12
       const now = Date.UTC(2024, 0, 14, 23, 0, 0);
       expect(getLastTradingDate(tse, now)).toBe('2024-01-12');
+    });
+  });
+
+  describe('getNextWeekday', () => {
+    it('平日 → 翌平日を返す', () => {
+      expect(getNextWeekday('2024-01-15')).toBe('2024-01-16'); // 月→火
+      expect(getNextWeekday('2024-01-18')).toBe('2024-01-19'); // 木→金
+    });
+
+    it('金曜日 → 翌週月曜日を返す', () => {
+      expect(getNextWeekday('2024-01-12')).toBe('2024-01-15');
+    });
+
+    it('土曜日 → 翌週月曜日を返す', () => {
+      expect(getNextWeekday('2024-01-13')).toBe('2024-01-15');
+    });
+
+    it('日曜日 → 翌日月曜日を返す', () => {
+      expect(getNextWeekday('2024-01-14')).toBe('2024-01-15');
+    });
+  });
+
+  describe('formatDateInTimezone', () => {
+    it('NY タイムゾーンで取引日に変換する', () => {
+      // 2024-01-15 23:00 UTC = 2024-01-15 18:00 EST
+      const ts = Date.UTC(2024, 0, 15, 23, 0, 0);
+      expect(formatDateInTimezone(ts, 'America/New_York')).toBe('2024-01-15');
+    });
+
+    it('東京タイムゾーンで日付が UTC と異なる場合', () => {
+      // 2024-01-15 23:00 UTC = 2024-01-16 08:00 JST
+      const ts = Date.UTC(2024, 0, 15, 23, 0, 0);
+      expect(formatDateInTimezone(ts, 'Asia/Tokyo')).toBe('2024-01-16');
+    });
+
+    it('UTC タイムゾーンはそのままの日付を返す', () => {
+      const ts = Date.UTC(2024, 0, 15, 12, 0, 0);
+      expect(formatDateInTimezone(ts, 'UTC')).toBe('2024-01-15');
+    });
+
+    it('無効なタイムゾーンの場合、エラーをスローする', () => {
+      expect(() => formatDateInTimezone(Date.now(), 'Invalid/Timezone')).toThrow(
+        TRADING_HOURS_ERROR_MESSAGES.INVALID_TIMEZONE
+      );
     });
   });
 

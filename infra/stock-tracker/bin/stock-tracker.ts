@@ -141,6 +141,7 @@ const eventBridgeStack = new EventBridgeStack(
     batchSummaryFunction: lambdaStack.batchSummaryFunction,
     batchDailyFunction: lambdaStack.batchDailyFunction,
     batchTemporaryAlertExpiryFunction: lambdaStack.batchTemporaryAlertExpiryFunction,
+    batchEvaluationFunction: lambdaStack.batchEvaluationFunction,
     env: stackEnv,
     description: `Stock Tracker EventBridge Scheduler - ${env} environment`,
   }
