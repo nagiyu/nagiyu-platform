@@ -26,38 +26,41 @@ docs/           ← 永続化ドキュメント（permanent）
 | `external-design.md` | ○（UI 変更がある場合のみ） | ○ | どんな UI・データ構造にするか |
 | `design.md` | ○ | なし | どう実装するか（API・コンポーネント・型定義） |
 | `architecture.md` | なし | ○ | なぜその設計を選んだか（ADR） |
-| `tasks.md` | ○ | なし | 実装タスクリスト |
+
+実装タスクのフェーズ分け・進捗管理は **Issue 本文 + サブ Issue** で行う（`tasks.md` は廃止）。
 
 ---
 
 ## 開発フロー
 
 ```
-Issue / 要件
+Issue 起票（実装方針・対象ファイル・依存関係・注意点を含む）
     ↓
-tasks/{feature-name}/ に開発時ドキュメントを作成
+[大規模対応のみ] tasks/{feature-name}/ に仕様ドキュメントを作成
     ↓
-実装（AI エージェントは tasks/ のドキュメントのみを参照）
+実装（AI エージェントは Issue 本文 + 存在すれば tasks/ を参照）
     ↓
-開発完了後：docs/ に永続化すべき情報を反映
-    ↓
-tasks/{feature-name}/ を削除
+[大規模対応のみ] 開発完了後：docs/ に永続化すべき情報を反映、tasks/ を削除
     ↓
 PR マージ
 ```
 
 ### 開発時ドキュメントの作成
 
-`tasks/{feature-name}/` ディレクトリを切り、以下のファイルを作成する。小規模改修であれば `requirements.md` と `tasks.md` のみでよい。
+**作成条件**:
+
+- **小規模対応**: `tasks/` ディレクトリは作成しない。Issue 本文に必要情報（実装方針・対象ファイル・依存関係・実装上の注意点）を集約する
+- **大規模対応**: `tasks/{feature-name}/` ディレクトリを切り、以下のファイルを作成する
 
 | ファイル | 使用テンプレート | 作成条件 |
 |---------|--------------|---------|
-| `requirements.md` | `docs/templates/services/requirements.md` | 常に作成（機能スコープで記述） |
+| `requirements.md` | `docs/templates/services/requirements.md` | 大規模時は常に作成（機能スコープで記述） |
 | `external-design.md` | `docs/templates/services/external-design.md` | 画面の追加・削除・大きな変更がある場合のみ |
-| `design.md` | `tasks/templates/design.md` | 常に作成 |
-| `tasks.md` | `tasks/templates/tasks.md` | 常に作成 |
+| `design.md` | `tasks/templates/design.md` | 大規模時は常に作成 |
 
 `requirements.md` と `external-design.md` は `docs/templates/services/` のテンプレートをそのまま使い、冒頭に開発時ドキュメントである旨のコメントを追加する。
+
+実装タスクのフェーズ分け・進捗管理は **Issue 本文 + サブ Issue** で行う（`tasks.md` は廃止）。
 
 ### docs/ への移行
 
@@ -97,7 +100,6 @@ PR マージ
 | テンプレート | 説明 |
 |------------|------|
 | `tasks/templates/design.md` | 開発時技術設計（API・データモデル・コンポーネント） |
-| `tasks/templates/tasks.md` | 実装タスクリスト |
 
 `requirements.md` と `external-design.md` は `docs/templates/services/` のテンプレートを流用する（→ [tasks/templates/README.md](../../tasks/templates/README.md)）。
 
@@ -163,10 +165,10 @@ ADR として記録すべき決定の例：
 ## FAQ
 
 **Q: 小規模なバグ修正の場合、tasks/ ドキュメントは必要か？**
-A: コードのみで完結するバグ修正は不要。ただし、バグの原因が設計上の問題であり `docs/architecture.md` に追記すべき教訓がある場合は、直接 `docs/` を更新する。
+A: 不要。Issue 本文に実装方針・対象ファイル・依存関係・実装上の注意点を集約する。バグの原因が設計上の問題であり `docs/architecture.md` に追記すべき教訓がある場合は、直接 `docs/` を更新する。
 
 **Q: 既存サービスへの機能追加の場合、どのファイルを作成するか？**
-A: 変更する範囲に応じて必要なファイルを作成する。ユースケースが変わるなら `requirements.md`、UI が変わるなら `external-design.md`、実装が伴うなら `design.md` と `tasks.md`。
+A: 変更する範囲に応じて必要なファイルを作成する。ユースケースが変わるなら `requirements.md`、UI が変わるなら `external-design.md`、実装が伴うなら `design.md`。実装タスクのフェーズ分けは Issue 本文 + サブ Issue で管理する。
 
 **Q: 開発中に仕様が変わった場合はどうするか？**
 A: `tasks/` のドキュメントのみを更新する。`docs/` は開発完了後に一括で更新する。途中で `docs/` を更新すると、仕様変更のたびに `tasks/` と `docs/` の両方を更新する二重管理になるため行わない。
