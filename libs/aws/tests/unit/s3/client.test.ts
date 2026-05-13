@@ -72,7 +72,30 @@ describe('S3 Client', () => {
     });
   });
 
+  describe('createS3Client - AWS_REGION フォールバック', () => {
+    it('AWS_REGION 環境変数が設定されている場合はそれを使う', () => {
+      process.env.AWS_REGION = 'eu-west-1';
+      try {
+        const client = createS3Client();
+        expect(client).toBeInstanceOf(S3Client);
+      } finally {
+        delete process.env.AWS_REGION;
+      }
+    });
+  });
+
   describe('getS3Client', () => {
+    it('AWS_REGION 環境変数が設定されている場合はそれをデフォルトリージョンとして使う', () => {
+      process.env.AWS_REGION = 'ap-northeast-1';
+      try {
+        const client = getS3Client();
+        expect(client).toBeInstanceOf(S3Client);
+      } finally {
+        delete process.env.AWS_REGION;
+        clearS3ClientCache();
+      }
+    });
+
     it('同一リージョンではシングルトンを返す', () => {
       const first = getS3Client('ap-northeast-1');
       const second = getS3Client('ap-northeast-1');
