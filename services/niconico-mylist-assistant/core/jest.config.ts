@@ -8,6 +8,7 @@ const config: Config = {
   moduleFileExtensions: ['ts', 'js'],
   moduleNameMapper: {
     '^@nagiyu/aws$': '<rootDir>/../../../libs/aws/src/index.ts',
+    '^@nagiyu/common$': '<rootDir>/../../../libs/common/src/index.ts',
     '^(\\.{1,2}/.*)\\.js$': '$1', // Remove .js extension for ts-jest
   },
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
