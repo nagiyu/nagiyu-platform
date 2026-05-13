@@ -1,4 +1,8 @@
-name: Auth Infrastructure - Verify
+name: Auth Infrastructure - Verification
+
+env:
+  SERVICE_ID: auth
+  SERVICE_DISPLAY_NAME: Auth Infrastructure
 
 on:
   pull_request:
@@ -98,7 +102,7 @@ jobs:
       - name: Upload CDK outputs as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cdk-out
+          name: ${{ env.SERVICE_ID }}-cdk-out
           path: infra/auth/cdk.out/
           retention-days: 7
 
@@ -133,8 +137,8 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ Auth Infrastructure Verification Passed'
-              : '## ❌ Auth Infrastructure Verification Failed';
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
 
             let body = `${header}\n\n`;
             body += '| Job | Status |\n';

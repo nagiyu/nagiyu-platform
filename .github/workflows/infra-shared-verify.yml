@@ -1,4 +1,8 @@
-name: Infra Shared - Verify
+name: Infra Shared - Verification
+
+env:
+  SERVICE_ID: infra-shared
+  SERVICE_DISPLAY_NAME: Infra Shared
 
 on:
   pull_request:
@@ -112,7 +116,7 @@ jobs:
       - name: Upload CDK outputs as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cdk-out
+          name: ${{ env.SERVICE_ID }}-cdk-out
           path: infra/shared/cdk.out/
           retention-days: 7
 
@@ -149,8 +153,8 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ Shared Infrastructure Verification Passed'
-              : '## ❌ Shared Infrastructure Verification Failed';
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
 
             let body = `${header}\n\n`;
             body += '| Job | Status |\n';

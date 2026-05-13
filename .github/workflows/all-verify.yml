@@ -1,4 +1,8 @@
-name: All Workspaces - Quality Checks
+name: All Workspaces - Verification
+
+env:
+  SERVICE_ID: all
+  SERVICE_DISPLAY_NAME: All Workspaces
 
 on:
   pull_request:
@@ -71,11 +75,10 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ All Quality Checks Passed'
-              : '## ❌ Some Quality Checks Failed';
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
 
             let body = `${header}\n\n`;
-            body += '**All Workspaces Quality Checks**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 
