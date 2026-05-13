@@ -2,10 +2,7 @@
  * reportErrorEvent / createErrorReporter の単体テスト
  */
 
-import {
-  reportErrorEvent,
-  createErrorReporter,
-} from '../../../src/error-events/report.js';
+import { reportErrorEvent, createErrorReporter } from '../../../src/error-events/report.js';
 import {
   createErrorEventWriter,
   resetErrorEventWriter,
