@@ -46,9 +46,8 @@ describe('ListWorkspace', () => {
               ok: false,
               status: 400,
               json: async () => ({
-                error: {
-                  message: '共有リスト名が不正です',
-                },
+                error: 'VALIDATION_ERROR',
+                message: '共有リスト名が不正です',
               }),
             } as Response);
           }

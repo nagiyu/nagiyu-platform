@@ -2,10 +2,7 @@
  * Unit tests for web-push-client
  */
 
-import {
-  getVapidConfig,
-  createAlertNotificationPayload,
-} from '../../../src/lib/web-push-client.js';
+import { createAlertNotificationPayload } from '../../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
@@ -14,10 +11,6 @@ describe('web-push-client', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    // Mock environment variables
-    process.env.VAPID_PUBLIC_KEY = 'test-public-key';
-    process.env.VAPID_PRIVATE_KEY = 'test-private-key';
 
     // Mock alert
     mockAlert = {
@@ -39,32 +32,6 @@ describe('web-push-client', () => {
       CreatedAt: Date.now(),
       UpdatedAt: Date.now(),
     };
-  });
-
-  afterEach(() => {
-    delete process.env.VAPID_PUBLIC_KEY;
-    delete process.env.VAPID_PRIVATE_KEY;
-  });
-
-  describe('getVapidConfig', () => {
-    it('VAPID設定を返す', () => {
-      expect(getVapidConfig()).toEqual({
-        publicKey: 'test-public-key',
-        privateKey: 'test-private-key',
-        subject: 'mailto:support@nagiyu.com',
-      });
-    });
-
-    it('VAPID環境変数未設定時は空文字を返す', () => {
-      delete process.env.VAPID_PUBLIC_KEY;
-      delete process.env.VAPID_PRIVATE_KEY;
-
-      expect(getVapidConfig()).toEqual({
-        publicKey: '',
-        privateKey: '',
-        subject: 'mailto:support@nagiyu.com',
-      });
-    });
   });
 
   describe('createAlertNotificationPayload', () => {

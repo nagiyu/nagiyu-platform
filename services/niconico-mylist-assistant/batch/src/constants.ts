@@ -68,3 +68,8 @@ export const VIDEO_REGISTRATION_WAIT = 2000; // 2秒
  * 二段階認証コードポーリング間隔（ミリ秒）
  */
 export const TWO_FACTOR_AUTH_POLL_INTERVAL = 5000; // 5秒
+
+/**
+ * デフォルトのマイリスト名に付与するプレフィックス
+ */
+export const DEFAULT_MYLIST_NAME_PREFIX = '自動登録';

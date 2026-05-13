@@ -142,10 +142,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'FORBIDDEN',
-        message: 'この操作を実行する権限がありません',
-      },
+      error: 'FORBIDDEN',
+      message: 'この操作を実行する権限がありません',
     });
   });
 
@@ -271,10 +269,8 @@ describe('/api/groups/[groupId]/lists/[listId]/todos/[todoId] route', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'NOT_FOUND',
-        message: '対象のデータが見つかりません',
-      },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 });

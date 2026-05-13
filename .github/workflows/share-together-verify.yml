@@ -1,5 +1,9 @@
 name: Share Together - Verification
 
+env:
+  SERVICE_ID: share-together
+  SERVICE_DISPLAY_NAME: Share Together
+
 on:
   pull_request:
     branches:
@@ -18,7 +22,7 @@ permissions:
 
 jobs:
   lint:
-    name: Lint Check
+    name: Lint Code
     runs-on: ubuntu-latest
 
     steps:
@@ -249,7 +253,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-chromium-mobile
           path: services/share-together/web/playwright-report/
           retention-days: 30
 
@@ -257,7 +261,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-chromium-mobile
           path: services/share-together/web/test-results/
           retention-days: 30
 
@@ -322,7 +326,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-playwright-report-chromium-desktop
           path: services/share-together/web/playwright-report/
           retention-days: 30
 
@@ -330,7 +334,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-test-results-chromium-desktop
           path: services/share-together/web/test-results/
           retention-days: 30
 
@@ -395,7 +399,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-webkit-mobile
           path: services/share-together/web/playwright-report/
           retention-days: 30
 
@@ -403,7 +407,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-webkit-mobile
           path: services/share-together/web/test-results/
           retention-days: 30
 
@@ -505,11 +509,11 @@ jobs:
             );
             const header = allSuccess
               ? isFullVerification
-                ? '## ✅ All Full Checks Passed'
-                : '## ✅ All Fast Checks Passed'
+                ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed'
+                : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed'
               : isFullVerification
-                ? '## ❌ Some Full Checks Failed'
-                : '## ❌ Some Fast Checks Failed';
+                ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed'
+                : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed';
 
             const reportBaseUrl = `https://reports.nagiyu.com/share-together/pr-${context.issue.number}/${context.runId}`;
             const reportProjects = {

@@ -355,6 +355,9 @@ function AlertsPageContent() {
                   状態
                 </TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
+                  一時通知
+                </TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 'bold' }} align="center">
                   操作
                 </TableCell>
               </TableRow>
@@ -362,7 +365,7 @@ function AlertsPageContent() {
             <TableBody>
               {filteredAlerts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 8, color: 'text.secondary' }}>
                     {alerts.length === 0
                       ? 'アラートがありません'
                       : 'フィルタ条件に一致するアラートがありません'}
@@ -414,6 +417,11 @@ function AlertsPageContent() {
                       <TableCell align="center">
                         <Chip color={alert.enabled ? 'success' : 'neutral'} size="sm">
                           {alert.enabled ? '有効' : '無効'}
+                        </Chip>
+                      </TableCell>
+                      <TableCell align="center">
+                        <Chip color={alert.temporary ? 'warning' : 'neutral'} size="sm">
+                          {alert.temporary ? '一時' : '常設'}
                         </Chip>
                       </TableCell>
                       <TableCell align="center">

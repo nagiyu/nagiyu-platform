@@ -6,16 +6,19 @@
 
 import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
-import { sendWebPushNotification } from '@nagiyu/common/push';
+import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
 import {
-  getVapidConfig,
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';
-import { sleep } from '@nagiyu/common';
-import { ERROR_MESSAGES, TIMEOUTS, TWO_FACTOR_AUTH_POLL_INTERVAL } from './constants.js';
-import { getTimestamp, generateDefaultMylistName } from './utils.js';
+import { sleep, getTimestamp, formatLocalDateTime } from '@nagiyu/common';
+import {
+  DEFAULT_MYLIST_NAME_PREFIX,
+  ERROR_MESSAGES,
+  TIMEOUTS,
+  TWO_FACTOR_AUTH_POLL_INTERVAL,
+} from './constants.js';
 import { MylistRegistrationJobParams } from './types.js';
 
 /**
@@ -53,7 +56,8 @@ function getJobParameters(): MylistRegistrationJobParams {
   const userId = process.env.USER_ID || '';
   const niconicoEmail = process.env.NICONICO_EMAIL || '';
   const encryptedPassword = process.env.ENCRYPTED_PASSWORD || '';
-  const mylistName = process.env.MYLIST_NAME || generateDefaultMylistName();
+  const mylistName =
+    process.env.MYLIST_NAME || `${DEFAULT_MYLIST_NAME_PREFIX} ${formatLocalDateTime()}`;
   const videoIdsJson = process.env.VIDEO_IDS || '[]';
   // AWS Batch が自動的に設定する環境変数からジョブIDを取得
   const jobId = process.env.AWS_BATCH_JOB_ID || '';

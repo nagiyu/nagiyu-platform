@@ -49,6 +49,7 @@ export interface Session {
  * - stocks:read - View charts, exchanges, and tickers
  * - stocks:write-own - Manage own alerts and holdings
  * - stocks:manage-data - Manage master data (exchanges and tickers)
+ * - stocks:read-evaluation - View prediction accuracy dashboard (stock-admin only)
  *
  * Auth Service permissions:
  * - auth:read - View auth configuration and user data
@@ -63,6 +64,7 @@ export type Permission =
   | 'stocks:read'
   | 'stocks:write-own'
   | 'stocks:manage-data'
+  | 'stocks:read-evaluation'
   | 'auth:read'
   | 'auth:write';
 

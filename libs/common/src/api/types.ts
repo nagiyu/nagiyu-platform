@@ -64,6 +64,18 @@ export interface PaginatedResponse<T> {
 }
 
 /**
+ * 成功レスポンス型
+ */
+export interface ApiSuccessResponse<T> {
+  data: T;
+}
+
+/**
+ * APIレスポンス型（成功・失敗のユニオン）
+ */
+export type ApiResponse<T> = ApiSuccessResponse<T> | APIErrorResponse;
+
+/**
  * APIエラー
  */
 export class APIError extends Error {

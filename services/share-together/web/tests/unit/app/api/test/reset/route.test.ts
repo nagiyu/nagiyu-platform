@@ -54,14 +54,15 @@ describe('POST /api/test/reset', () => {
     jest.clearAllMocks();
   });
 
-  it('テストモード以外は 404 を { error: { code, message } } 形式で返す', async () => {
+  it('テストモード以外は 404 を { error, message } 形式で返す', async () => {
     process.env.USE_IN_MEMORY_DB = 'false';
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'NOT_FOUND', message: '対象のデータが見つかりません' },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 
@@ -73,14 +74,15 @@ describe('POST /api/test/reset', () => {
     await expect(response.json()).resolves.toEqual({ data: { success: true } });
   });
 
-  it('例外発生時は 500 を { error: { code, message } } 形式で返す', async () => {
+  it('例外発生時は 500 を { error, message } 形式で返す', async () => {
     mockGetSessionOrUnauthorized.mockRejectedValue(new Error('予期しないエラー'));
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'INTERNAL_SERVER_ERROR', message: 'サーバーエラーが発生しました' },
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'サーバーエラーが発生しました',
     });
   });
 });
@@ -100,14 +102,15 @@ describe('DELETE /api/test/reset', () => {
     jest.clearAllMocks();
   });
 
-  it('テストモード以外は 404 を { error: { code, message } } 形式で返す', async () => {
+  it('テストモード以外は 404 を { error, message } 形式で返す', async () => {
     process.env.USE_IN_MEMORY_DB = 'false';
 
     const response = await DELETE();
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'NOT_FOUND', message: '対象のデータが見つかりません' },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 
@@ -119,14 +122,15 @@ describe('DELETE /api/test/reset', () => {
     await expect(response.json()).resolves.toEqual({ data: { success: true } });
   });
 
-  it('例外発生時は 500 を { error: { code, message } } 形式で返す', async () => {
+  it('例外発生時は 500 を { error, message } 形式で返す', async () => {
     mockGetSessionOrUnauthorized.mockRejectedValue(new Error('予期しないエラー'));
 
     const response = await DELETE();
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'INTERNAL_SERVER_ERROR', message: 'サーバーエラーが発生しました' },
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'サーバーエラーが発生しました',
     });
   });
 });

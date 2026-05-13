@@ -6,7 +6,7 @@ import { handler } from '../../src/hourly.js';
 import type { ScheduledEvent } from '../../src/hourly.js';
 import * as awsClients from '@nagiyu/aws';
 import * as webPushClient from '../../src/lib/web-push-client.js';
-import { sendWebPushNotification } from '@nagiyu/common/push';
+import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import * as alertEvaluator from '@nagiyu/stock-tracker-core';
@@ -133,7 +133,7 @@ describe('hourly batch handler', () => {
         title: 'Test Alert',
         body: 'Test body',
       });
-      (webPushClient.getVapidConfig as jest.Mock).mockReturnValue({
+      (getVapidConfig as jest.Mock).mockReturnValue({
         publicKey: 'test-public-key',
         privateKey: 'test-private-key',
         subject: 'mailto:support@nagiyu.com',

@@ -70,6 +70,59 @@ body:
         - docs/services/example/basic-design.md
         - docs/services/example/detailed-design.md
 
+  - type: markdown
+    attributes:
+      value: |
+        ## 実装方針（Sonnet 引き継ぎ用）
+
+        以下は実装フェーズで参照する情報です。Sonnet に実装を移譲する場合や、別セッションで再開する場合に備え、可能な限り詳細に記載してください。
+
+  - type: textarea
+    id: refactor-approach
+    attributes:
+      label: リファクタリング方針
+      description: 採用するリファクタリングアプローチ・段階的移行の有無・既存パターンの再利用
+      placeholder: |
+        - XXX を共通モジュールに切り出して再利用化
+        - 段階的に YYY を ZZZ に置き換え（既存呼び出し元は互換維持）
+    validations:
+      required: false
+
+  - type: textarea
+    id: target-files
+    attributes:
+      label: 対象ファイル・モジュール
+      description: 変更または新規作成する主要なファイル・モジュール（パスを記載）
+      placeholder: |
+        - libs/common/src/utils/XXX.ts（新規）
+        - services/tools/src/components/YYY.tsx（修正）
+        - services/tools/src/components/ZZZ.tsx（削除）
+    validations:
+      required: false
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 依存関係・前提条件
+      description: 実装の前提となる既存機能・ライブラリ・ブロッカーになる別 Issue
+      placeholder: |
+        - @nagiyu/common の dist ビルドが必要
+        - #1234 のマージが先行する
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: 実装上の注意点
+      description: 設計判断・後方互換性・テスト方針・パフォーマンス・セキュリティなど
+      placeholder: |
+        - 既存テストへの影響を確認
+        - 公開 API のシグネチャは変更しない
+        - リファクタ前後で挙動が変わらないことを回帰テストで担保
+    validations:
+      required: false
+
   - type: checkboxes
     id: implementation-checklist
     attributes:

@@ -14,6 +14,8 @@ export type {
   APIErrorResponse,
   ErrorResponse,
   PaginatedResponse,
+  ApiSuccessResponse,
+  ApiResponse,
 } from './types.js';
 export { APIError } from './types.js';
 export { COMMON_ERROR_MESSAGES } from '../constants/error-messages.js';

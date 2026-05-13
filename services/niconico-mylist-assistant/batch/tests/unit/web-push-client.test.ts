@@ -3,41 +3,10 @@
  */
 
 import {
-  getVapidConfig,
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from '../../src/lib/web-push-client.js';
 import { normalizeVapidKey } from '@nagiyu/common';
-describe('getVapidConfig', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    process.env.VAPID_PUBLIC_KEY = 'test-public-key';
-    process.env.VAPID_PRIVATE_KEY = 'test-private-key';
-  });
-
-  afterEach(() => {
-    delete process.env.VAPID_PUBLIC_KEY;
-    delete process.env.VAPID_PRIVATE_KEY;
-  });
-
-  test('VAPID設定を返す', () => {
-    expect(getVapidConfig()).toEqual({
-      publicKey: 'test-public-key',
-      privateKey: 'test-private-key',
-      subject: 'mailto:support@nagiyu.com',
-    });
-  });
-
-  test('VAPID環境変数未設定時は空文字を返す', () => {
-    delete process.env.VAPID_PUBLIC_KEY;
-    delete process.env.VAPID_PRIVATE_KEY;
-    expect(getVapidConfig()).toEqual({
-      publicKey: '',
-      privateKey: '',
-      subject: 'mailto:support@nagiyu.com',
-    });
-  });
-});
 
 describe('createBatchCompletionPayload', () => {
   test('全件成功時の通知ペイロード', () => {

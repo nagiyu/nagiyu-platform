@@ -54,46 +54,28 @@ jobs:
             echo "should_create=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Collect services and libraries list
-        id: service_list
-        if: steps.duplicate_check.outputs.should_create == 'true'
-        run: |
-          SERVICE_LIST=$( {
-            find services -mindepth 1 -maxdepth 1 -type d -printf '- services/%f\n' | sort
-            find libs -mindepth 1 -maxdepth 1 -type d -printf '- libs/%f\n' | sort
-          } )
-
-          {
-            echo 'service_list<<EOF'
-            echo "$SERVICE_LIST"
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
-
       - name: Prepare issue body from template
         id: issue_body
         if: steps.duplicate_check.outputs.should_create == 'true'
         env:
-          SERVICE_LIST: ${{ steps.service_list.outputs.service_list }}
           NEXT_DATE: ${{ steps.next_date.outputs.next_date }}
           CREATE_TIME: ${{ steps.date_info.outputs.create_time }}
         run: |
-          BODY=$(.github/workflows/scripts/prepare-refactoring-issue.sh)
-          {
-            echo 'issue_body<<EOF'
-            echo "$BODY"
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
+          .github/workflows/scripts/prepare-refactoring-issue.sh > "${RUNNER_TEMP}/issue_body.md"
+          echo "body_file=${RUNNER_TEMP}/issue_body.md" >> "$GITHUB_OUTPUT"
 
       - name: Create daily refactoring issue
         id: create_issue
         if: steps.duplicate_check.outputs.should_create == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ steps.date_info.outputs.title }}
+          ISSUE_BODY_FILE: ${{ steps.issue_body.outputs.body_file }}
         run: |
           ISSUE_URL=$(gh issue create \
-            --title "${{ steps.date_info.outputs.title }}" \
+            --title "$ISSUE_TITLE" \
             --label "refactoring,code-consolidation" \
-            --body "${{ steps.issue_body.outputs.issue_body }}")
+            --body-file "$ISSUE_BODY_FILE")
           ISSUE_NUMBER="${ISSUE_URL##*/}"
           echo "issue_url=$ISSUE_URL" >> "$GITHUB_OUTPUT"
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
