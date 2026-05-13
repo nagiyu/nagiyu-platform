@@ -5,7 +5,12 @@
  * CloudWatch Alarm 由来の取り込みには alarm-ingest を使用すること。
  */
 
-import { generateEventId, type ErrorEvent, type ErrorSeverity, type ErrorSource } from '@nagiyu/common';
+import {
+  generateEventId,
+  type ErrorEvent,
+  type ErrorSeverity,
+  type ErrorSource,
+} from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '../dynamodb/index.js';
 import { createErrorEventWriter } from './factory.js';
 
