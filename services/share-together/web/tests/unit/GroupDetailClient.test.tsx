@@ -173,7 +173,7 @@ describe('GroupDetailClient', () => {
   it('メンバー削除に失敗した場合はAPIエラーメッセージを表示する', async () => {
     (global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
-      json: async () => ({ error: { message: 'この操作はオーナーのみ実行できます' } }),
+      json: async () => ({ error: 'OWNER_ONLY', message: 'この操作はオーナーのみ実行できます' }),
     } as Response);
 
     render(

@@ -6,8 +6,8 @@
 
 import { logger, withRetry } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
-import { sendWebPushNotification } from '@nagiyu/common/push';
-import { getVapidConfig, createAlertNotificationPayload } from './lib/web-push-client.js';
+import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
+import { createAlertNotificationPayload } from './lib/web-push-client.js';
 import { runConcurrent } from './lib/concurrent-queue.js';
 import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';

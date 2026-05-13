@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import type { Permission, PushSubscription } from '@nagiyu/common';
 import { getAuthError } from './auth.js';
-import type { AuthFunction } from './auth.js';
+import type { AuthFunction, SessionWithRoles } from './auth.js';
 
 const ERROR_MESSAGES = {
   MISSING_VAPID_KEY: 'VAPID公開鍵が設定されていません',
@@ -130,7 +130,7 @@ type SubscribeErrorResponse = {
 };
 
 export interface CreatePushSubscribeRouteOptions {
-  getSession: AuthFunction;
+  getSession: AuthFunction<SessionWithRoles>;
   requiredPermission?: Permission;
 }
 

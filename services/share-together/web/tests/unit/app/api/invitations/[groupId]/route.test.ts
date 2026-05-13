@@ -117,10 +117,8 @@ describe('PUT /api/invitations/[groupId]', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: '入力内容が不正です',
-      },
+      error: 'VALIDATION_ERROR',
+      message: '入力内容が不正です',
     });
   });
 
@@ -178,10 +176,8 @@ describe('PUT /api/invitations/[groupId]', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'NOT_FOUND',
-        message: '対象のデータが見つかりません',
-      },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 
@@ -231,10 +227,8 @@ describe('PUT /api/invitations/[groupId]', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'ALREADY_RESPONDED',
-        message: 'この招待には既に応答済みです',
-      },
+      error: 'ALREADY_RESPONDED',
+      message: 'この招待には既に応答済みです',
     });
   });
 });

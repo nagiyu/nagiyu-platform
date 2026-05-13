@@ -1,4 +1,4 @@
-export { getVapidConfig } from '@nagiyu/common/push';
+import { DEFAULT_NOTIFICATION_ICON } from '@nagiyu/common/push';
 import type { NotificationPayload } from '@nagiyu/common';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
@@ -60,7 +60,7 @@ export function createAlertNotificationPayload(
   return {
     title: customTitle || defaultTitle,
     body: customBody || body,
-    icon: '/icon-192x192.png',
+    icon: DEFAULT_NOTIFICATION_ICON,
     data: {
       alertId: alert.AlertID,
       exchangeId: alert.ExchangeID,

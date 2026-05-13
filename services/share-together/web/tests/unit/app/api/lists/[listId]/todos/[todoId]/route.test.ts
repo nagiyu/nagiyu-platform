@@ -179,7 +179,7 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
         id: 'user-1',
       },
     } as SessionOrUnauthorized);
-    mockUpdateTodo.mockRejectedValue(new Error('更新内容が指定されていません'));
+    mockUpdateTodo.mockRejectedValue(new Error('更新するフィールドが指定されていません'));
 
     const response = await PUT(createRequest({}), createContext());
 
@@ -211,10 +211,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'FORBIDDEN',
-        message: ERROR_MESSAGES.FORBIDDEN,
-      },
+      error: 'FORBIDDEN',
+      message: ERROR_MESSAGES.FORBIDDEN,
     });
     expect(mockUpdateTodo).not.toHaveBeenCalled();
   });
@@ -259,10 +257,8 @@ describe('/api/lists/[listId]/todos/[todoId] route handlers', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'FORBIDDEN',
-        message: ERROR_MESSAGES.FORBIDDEN,
-      },
+      error: 'FORBIDDEN',
+      message: ERROR_MESSAGES.FORBIDDEN,
     });
     expect(mockDeleteTodo).not.toHaveBeenCalled();
   });

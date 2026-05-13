@@ -26,10 +26,8 @@ describe('session helper', () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: '認証が必要です',
-      },
+      error: 'UNAUTHORIZED',
+      message: '認証が必要です',
     });
   });
 

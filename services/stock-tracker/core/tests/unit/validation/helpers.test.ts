@@ -33,6 +33,12 @@ describe('Validation Helpers', () => {
       expect(isValidPrice(0.01)).toBe(true); // minimum
       expect(isValidPrice(1_000_000)).toBe(true); // maximum
     });
+
+    it('should reject non-finite numbers', () => {
+      expect(isValidPrice(NaN)).toBe(false);
+      expect(isValidPrice(Infinity)).toBe(false);
+      expect(isValidPrice(-Infinity)).toBe(false);
+    });
   });
 
   describe('isValidQuantity', () => {
@@ -58,6 +64,12 @@ describe('Validation Helpers', () => {
     it('should handle edge cases', () => {
       expect(isValidQuantity(0.0001)).toBe(true); // minimum
       expect(isValidQuantity(1_000_000_000)).toBe(true); // maximum
+    });
+
+    it('should reject non-finite numbers', () => {
+      expect(isValidQuantity(NaN)).toBe(false);
+      expect(isValidQuantity(Infinity)).toBe(false);
+      expect(isValidQuantity(-Infinity)).toBe(false);
     });
   });
 

@@ -207,6 +207,32 @@ ERROR_MESSAGES.REQUIRED = '変更不可';
 
 **配置**: `validation/helpers.ts` に集約する。
 
+### サービス固有の範囲チェックは preset 化する
+
+**SHOULD**: 価格・数量など、サービス固有の値域を持つ範囲チェックは、独自の判定ロジックを書かず、`@nagiyu/common` の `isValidNumber(value, min, max)` に委譲する。値域定数は `services/{service}/core/src/validation/presets.ts` に切り出して `as const` で凍結する。
+
+**理由**:
+
+- 値域の重複定義を防ぐ
+- `NaN` / `Infinity` の扱いを `isValidNumber` 側に集約し、サービス間で挙動を統一する
+- ドメイン固有性（値域の数字自体）は service 側に残しつつ、判定ロジックは共通化する
+
+```typescript
+// services/{service}/core/src/validation/presets.ts
+export const PRICE_RANGE = {
+    min: 0.01,
+    max: 1_000_000,
+} as const;
+
+// services/{service}/core/src/validation/helpers.ts
+import { isValidNumber } from '@nagiyu/common';
+import { PRICE_RANGE } from './presets.js';
+
+export function isValidPrice(price: number): boolean {
+    return isValidNumber(price, PRICE_RANGE.min, PRICE_RANGE.max);
+}
+```
+
 ---
 
 ## バリデーション関数の実装パターン

@@ -71,7 +71,7 @@ async function seedInMemoryData(seedData: ResetSeedData): Promise<void> {
 async function handleReset(request?: Request): Promise<NextResponse> {
   if (!isTestMode()) {
     return NextResponse.json(
-      { error: { code: 'NOT_FOUND', message: ERROR_MESSAGES.NOT_FOUND } },
+      { error: 'NOT_FOUND', message: ERROR_MESSAGES.NOT_FOUND },
       { status: 404 }
     );
   }
@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (error) {
     console.error('/api/test/reset POST の実行に失敗しました', { error });
     return NextResponse.json(
-      { error: { code: 'INTERNAL_SERVER_ERROR', message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR } },
+      { error: 'INTERNAL_SERVER_ERROR', message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR },
       { status: 500 }
     );
   }
@@ -108,7 +108,7 @@ export async function DELETE(): Promise<NextResponse> {
   } catch (error) {
     console.error('/api/test/reset DELETE の実行に失敗しました', { error });
     return NextResponse.json(
-      { error: { code: 'INTERNAL_SERVER_ERROR', message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR } },
+      { error: 'INTERNAL_SERVER_ERROR', message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR },
       { status: 500 }
     );
   }

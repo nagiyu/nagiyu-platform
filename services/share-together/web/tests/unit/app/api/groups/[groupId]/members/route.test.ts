@@ -143,10 +143,8 @@ describe('/api/groups/[groupId]/members route', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'FORBIDDEN',
-        message: 'この操作を実行する権限がありません',
-      },
+      error: 'FORBIDDEN',
+      message: 'この操作を実行する権限がありません',
     });
   });
 
@@ -233,10 +231,8 @@ describe('/api/groups/[groupId]/members route', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'OWNER_ONLY',
-        message: 'この操作はオーナーのみ実行できます',
-      },
+      error: 'OWNER_ONLY',
+      message: 'この操作はオーナーのみ実行できます',
     });
   });
 
@@ -327,10 +323,8 @@ describe('/api/groups/[groupId]/members route', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'ALREADY_INVITED',
-        message: '既に招待済みです',
-      },
+      error: 'ALREADY_INVITED',
+      message: '既に招待済みです',
     });
   });
 
@@ -367,10 +361,8 @@ describe('/api/groups/[groupId]/members route', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'MEMBER_LIMIT_EXCEEDED',
-        message: 'グループメンバーは最大5名です',
-      },
+      error: 'MEMBER_LIMIT_EXCEEDED',
+      message: 'グループメンバーは最大5名です',
     });
   });
 });

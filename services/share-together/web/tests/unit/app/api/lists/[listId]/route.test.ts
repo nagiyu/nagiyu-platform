@@ -180,10 +180,8 @@ describe('/api/lists/[listId] route handlers', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'DEFAULT_LIST_NOT_DELETABLE',
-        message: ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE,
-      },
+      error: 'DEFAULT_LIST_NOT_DELETABLE',
+      message: ERROR_MESSAGES.DEFAULT_LIST_NOT_DELETABLE,
     });
   });
 });

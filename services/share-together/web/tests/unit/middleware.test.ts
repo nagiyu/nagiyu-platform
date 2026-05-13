@@ -118,10 +118,8 @@ describe('middleware', () => {
       type: 'json',
       status: 500,
       body: {
-        error: {
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'サーバーエラーが発生しました',
-        },
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'サーバーエラーが発生しました',
       },
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(

@@ -199,10 +199,8 @@ describe('/api/lists route handlers', () => {
 
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'PERSONAL_LIST_LIMIT_EXCEEDED',
-        message: ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED,
-      },
+      error: 'PERSONAL_LIST_LIMIT_EXCEEDED',
+      message: ERROR_MESSAGES.PERSONAL_LIST_LIMIT_EXCEEDED,
     });
   });
 });
