@@ -215,9 +215,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     const shuffledAlerts = [...alerts].sort(() => Math.random() - 0.5);
 
     // 3. 並列度上限・時間予算ガードで各アラートを処理
-    const tasks = shuffledAlerts.map(
-      (alert) => () => processAlert(alert, exchangeRepo, stats)
-    );
+    const tasks = shuffledAlerts.map((alert) => () => processAlert(alert, exchangeRepo, stats));
 
     const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded);
 

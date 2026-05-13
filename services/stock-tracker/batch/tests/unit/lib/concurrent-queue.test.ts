@@ -7,11 +7,7 @@ import { runConcurrent } from '../../../src/lib/concurrent-queue.js';
 describe('runConcurrent', () => {
   describe('正常系: 全タスクを実行', () => {
     it('全タスクを実行し結果を返す', async () => {
-      const tasks = [
-        () => Promise.resolve(1),
-        () => Promise.resolve(2),
-        () => Promise.resolve(3),
-      ];
+      const tasks = [() => Promise.resolve(1), () => Promise.resolve(2), () => Promise.resolve(3)];
 
       const { results, skippedCount } = await runConcurrent(tasks, 10, () => false);
 
@@ -101,10 +97,7 @@ describe('runConcurrent', () => {
     });
 
     it('最初から予算超過の場合は全タスクをスキップする', async () => {
-      const tasks = [
-        () => Promise.resolve(1),
-        () => Promise.resolve(2),
-      ];
+      const tasks = [() => Promise.resolve(1), () => Promise.resolve(2)];
 
       const { results, skippedCount } = await runConcurrent(tasks, 10, () => true);
 

@@ -182,7 +182,9 @@ describe('minute batch handler', () => {
         mockExchange,
         expect.any(Number)
       );
-      expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', { timeout: 5000 });
+      expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', {
+        timeout: 5000,
+      });
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
       expect(sendWebPushNotification).toHaveBeenCalledWith(
         mockAlert.subscription,
@@ -804,9 +806,7 @@ describe('minute batch handler', () => {
     });
 
     it('時間予算超過後のアラートは skippedTimeBudget としてカウントされる', async () => {
-      const alerts = Array.from({ length: 5 }, (_, i) =>
-        makeAlert({ AlertID: `alert-${i}` })
-      );
+      const alerts = Array.from({ length: 5 }, (_, i) => makeAlert({ AlertID: `alert-${i}` }));
 
       mockAlertRepo.getByFrequency.mockResolvedValue({ items: alerts });
       mockExchangeRepo.getById.mockResolvedValue(mockExchange);
@@ -821,9 +821,7 @@ describe('minute batch handler', () => {
       expect(body.statistics.totalAlerts).toBe(5);
       expect(body.statistics.skippedTimeBudget).toBeGreaterThan(0);
       // processedAlerts + skippedTimeBudget = totalAlerts
-      expect(
-        body.statistics.processedAlerts + body.statistics.skippedTimeBudget
-      ).toBe(5);
+      expect(body.statistics.processedAlerts + body.statistics.skippedTimeBudget).toBe(5);
     });
 
     it('時間予算超過があっても statusCode 200 で正常終了する', async () => {
