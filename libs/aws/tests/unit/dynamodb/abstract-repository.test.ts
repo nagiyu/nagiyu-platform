@@ -179,9 +179,7 @@ describe('AbstractDynamoDBRepository', () => {
     };
 
     it('フィールドを更新して最新エンティティを返す', async () => {
-      mockDocClient.send
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({ Item: validItem });
+      mockDocClient.send.mockResolvedValueOnce({}).mockResolvedValueOnce({ Item: validItem });
       const result = await repository.update({ id: '1' }, { name: 'Updated Item' });
       expect(result.name).toBe('Updated Item');
     });
@@ -217,9 +215,7 @@ describe('AbstractDynamoDBRepository', () => {
     });
 
     it('更新後に getById が null を返すと EntityNotFoundError を throw する', async () => {
-      mockDocClient.send
-        .mockResolvedValueOnce({})
-        .mockResolvedValueOnce({ Item: undefined });
+      mockDocClient.send.mockResolvedValueOnce({}).mockResolvedValueOnce({ Item: undefined });
       await expect(repository.update({ id: '1' }, { name: 'x' })).rejects.toBeInstanceOf(
         EntityNotFoundError
       );
