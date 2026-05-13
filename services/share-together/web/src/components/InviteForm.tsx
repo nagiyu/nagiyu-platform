@@ -38,10 +38,10 @@ export function InviteForm({ groupId, isOwner, memberCount }: InviteFormProps) {
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as {
-          error?: { message?: string };
+          message?: string;
         } | null;
         setSubmitted(false);
-        setErrorMessage(body?.error?.message ?? ERROR_MESSAGES.INVITATION_SEND_FAILED);
+        setErrorMessage(body?.message ?? ERROR_MESSAGES.INVITATION_SEND_FAILED);
         return;
       }
 

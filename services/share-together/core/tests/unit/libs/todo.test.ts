@@ -109,7 +109,7 @@ describe('TodoService', () => {
 
   it('ToDo更新時に更新項目がない場合はエラーになる', async () => {
     await expect(todoService.updateTodo('list-1', 'todo-1', {}, 'user-1')).rejects.toThrow(
-      '更新内容が指定されていません'
+      '更新するフィールドが指定されていません'
     );
     expect(todoRepository.update).not.toHaveBeenCalled();
   });

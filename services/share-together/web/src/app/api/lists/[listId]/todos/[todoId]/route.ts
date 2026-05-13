@@ -28,10 +28,8 @@ interface UpdateTodoRequestBody {
 
 function createValidationErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code: 'VALIDATION_ERROR',
-      message: ERROR_MESSAGES.VALIDATION_ERROR,
-    },
+    error: 'VALIDATION_ERROR',
+    message: ERROR_MESSAGES.VALIDATION_ERROR,
   };
 
   return NextResponse.json(response, { status: 400 });
@@ -39,10 +37,8 @@ function createValidationErrorResponse(): NextResponse {
 
 function createNotFoundErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code: 'NOT_FOUND',
-      message: ERROR_MESSAGES.NOT_FOUND,
-    },
+    error: 'NOT_FOUND',
+    message: ERROR_MESSAGES.NOT_FOUND,
   };
 
   return NextResponse.json(response, { status: 404 });
@@ -50,10 +46,8 @@ function createNotFoundErrorResponse(): NextResponse {
 
 function createForbiddenErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code: 'FORBIDDEN',
-      message: ERROR_MESSAGES.FORBIDDEN,
-    },
+    error: 'FORBIDDEN',
+    message: ERROR_MESSAGES.FORBIDDEN,
   };
 
   return NextResponse.json(response, { status: 403 });
@@ -61,10 +55,8 @@ function createForbiddenErrorResponse(): NextResponse {
 
 function createInternalServerErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-    },
+    error: 'INTERNAL_SERVER_ERROR',
+    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   };
 
   return NextResponse.json(response, { status: 500 });

@@ -159,7 +159,7 @@ Cookie オプション（`domain`, `secure`, `sameSite`, `httpOnly` 等）・セ
 
 - `auth`: サービスの auth 関数を渡す
 - `createTestSession`: `SKIP_AUTH_CHECK` が有効な場合に返すモックセッションの生成関数を渡す
-- `mapSession`: NextAuth セッションをサービス固有のセッション型に変換する関数を渡す
+- `mapSession`: NextAuth セッションをサービス固有のセッション型に変換する関数を渡す（**省略可**）。省略時は NextAuth セッションをそのままパススルーする。`createAuthCallbacks` でセッション形状が正規化済みの場合は省略してよい
 
 セッション取得ロジックをサービス側で個別実装しない。
 

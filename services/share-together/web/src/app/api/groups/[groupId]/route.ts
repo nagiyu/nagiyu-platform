@@ -24,18 +24,10 @@ interface UpdateGroupRequestBody {
   name?: string;
 }
 
-function createErrorResponse(
-  status: number,
-  code: string,
-  message: string,
-  details?: unknown
-): NextResponse {
+function createErrorResponse(status: number, code: string, message: string): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code,
-      message,
-      details,
-    },
+    error: code,
+    message,
   };
 
   return NextResponse.json(response, { status });

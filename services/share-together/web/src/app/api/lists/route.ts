@@ -13,10 +13,8 @@ const VALIDATION_ERROR_MESSAGES: Set<string> = new Set([
 
 function createValidationErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code: 'VALIDATION_ERROR',
-      message: ERROR_MESSAGES.VALIDATION_ERROR,
-    },
+    error: 'VALIDATION_ERROR',
+    message: ERROR_MESSAGES.VALIDATION_ERROR,
   };
 
   return NextResponse.json(response, { status: 400 });
@@ -24,10 +22,8 @@ function createValidationErrorResponse(): NextResponse {
 
 function createInternalServerErrorResponse(): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code: 'INTERNAL_SERVER_ERROR',
-      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-    },
+    error: 'INTERNAL_SERVER_ERROR',
+    message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
   };
 
   return NextResponse.json(response, { status: 500 });
@@ -35,10 +31,8 @@ function createInternalServerErrorResponse(): NextResponse {
 
 function createConflictResponse(code: string, message: string): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code,
-      message,
-    },
+    error: code,
+    message,
   };
 
   return NextResponse.json(response, { status: 409 });

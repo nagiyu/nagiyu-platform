@@ -155,11 +155,8 @@ describe('/api/groups/[groupId] route handlers', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'OWNER_ONLY',
-        message: 'この操作はオーナーのみ実行できます',
-        details: undefined,
-      },
+      error: 'OWNER_ONLY',
+      message: 'この操作はオーナーのみ実行できます',
     });
   });
 
@@ -204,11 +201,8 @@ describe('/api/groups/[groupId] route handlers', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'OWNER_ONLY',
-        message: 'この操作はオーナーのみ実行できます',
-        details: undefined,
-      },
+      error: 'OWNER_ONLY',
+      message: 'この操作はオーナーのみ実行できます',
     });
     expect(mockDeleteByGroupId).not.toHaveBeenCalled();
     expect(mockDelete).not.toHaveBeenCalled();
@@ -235,11 +229,8 @@ describe('/api/groups/[groupId] route handlers', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'VALIDATION_ERROR',
-        message: '入力内容が不正です',
-        details: undefined,
-      },
+      error: 'VALIDATION_ERROR',
+      message: '入力内容が不正です',
     });
   });
 });
