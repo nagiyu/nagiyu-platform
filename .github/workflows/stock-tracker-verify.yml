@@ -314,6 +314,9 @@ jobs:
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/stock-tracker-web
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/stock-tracker/web
@@ -409,6 +412,9 @@ jobs:
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/stock-tracker-web
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/stock-tracker/web
@@ -503,6 +509,9 @@ jobs:
 
       - name: Build core package
         run: npm run build --workspace @nagiyu/stock-tracker-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/stock-tracker-web
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit
