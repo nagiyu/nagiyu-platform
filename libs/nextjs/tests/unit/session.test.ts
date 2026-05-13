@@ -83,4 +83,35 @@ describe('createSessionGetter', () => {
       email: 'test@example.com',
     });
   });
+
+  it('mapSession 省略時は認証済みセッションをそのまま返す', async () => {
+    const mockSession: MockAuthSession = {
+      user: { id: 'user-2', email: 'passthrough@example.com', roles: ['viewer'] },
+      expires: '2026-06-01T00:00:00Z',
+    };
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>().mockResolvedValue(mockSession);
+    const getSession = createSessionGetter<MockAuthSession>({
+      auth,
+      createTestSession: () => ({ user: { id: 'test', email: 'test@example.com' }, expires: '' }),
+    });
+
+    const session = await getSession();
+
+    expect(session).toEqual(mockSession);
+  });
+
+  it('mapSession 省略・SKIP_AUTH_CHECK=true の場合はテストセッションを返す', async () => {
+    process.env.SKIP_AUTH_CHECK = 'true';
+    const auth = jest.fn<() => Promise<MockAuthSession | null>>();
+    const testSession = { user: { id: 'test-id', email: 'test@example.com' }, expires: '' };
+    const getSession = createSessionGetter<MockAuthSession>({
+      auth,
+      createTestSession: () => testSession,
+    });
+
+    const session = await getSession();
+
+    expect(session).toEqual(testSession);
+    expect(auth).not.toHaveBeenCalled();
+  });
 });

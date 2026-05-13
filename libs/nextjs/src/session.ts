@@ -8,16 +8,17 @@ type SessionWithRequiredUser<TSession extends SessionWithOptionalUser> = TSessio
 
 export interface CreateSessionGetterOptions<
   TAuthSession extends SessionWithOptionalUser,
-  TSessionResult,
+  TSessionResult = SessionWithRequiredUser<TAuthSession>,
 > {
   auth: () => Promise<TAuthSession | null>;
   createTestSession: () => TSessionResult;
-  mapSession: (session: SessionWithRequiredUser<TAuthSession>) => TSessionResult;
+  mapSession?: (session: SessionWithRequiredUser<TAuthSession>) => TSessionResult;
 }
 
-export function createSessionGetter<TAuthSession extends SessionWithOptionalUser, TSessionResult>(
-  options: CreateSessionGetterOptions<TAuthSession, TSessionResult>
-) {
+export function createSessionGetter<
+  TAuthSession extends SessionWithOptionalUser,
+  TSessionResult = SessionWithRequiredUser<TAuthSession>,
+>(options: CreateSessionGetterOptions<TAuthSession, TSessionResult>) {
   const { auth, createTestSession, mapSession } = options;
 
   return async (): Promise<TSessionResult | null> => {
@@ -30,6 +31,9 @@ export function createSessionGetter<TAuthSession extends SessionWithOptionalUser
       return null;
     }
 
-    return mapSession(session as SessionWithRequiredUser<TAuthSession>);
+    const sessionWithUser = session as SessionWithRequiredUser<TAuthSession>;
+    return mapSession
+      ? mapSession(sessionWithUser)
+      : (sessionWithUser as unknown as TSessionResult);
   };
 }
