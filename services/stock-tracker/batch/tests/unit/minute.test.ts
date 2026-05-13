@@ -30,6 +30,38 @@ jest.mock('@nagiyu/stock-tracker-core', () => ({
   getCurrentPrice: jest.fn(),
 }));
 
+/** テスト用アラートファクトリ */
+function makeAlert(overrides: Partial<Alert> = {}): Alert {
+  return {
+    AlertID: 'alert-1',
+    UserID: 'user-1',
+    TickerID: 'NSDQ:AAPL',
+    ExchangeID: 'NASDAQ',
+    Mode: 'Sell',
+    Frequency: 'MINUTE_LEVEL',
+    Enabled: true,
+    ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+    subscription: {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+      keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
+    },
+    CreatedAt: Date.now(),
+    UpdatedAt: Date.now(),
+    ...overrides,
+  };
+}
+
+const mockExchange: Exchange = {
+  ExchangeID: 'NASDAQ',
+  Name: 'NASDAQ',
+  Key: 'NSDQ',
+  Timezone: 'America/New_York',
+  Start: '04:00',
+  End: '20:00',
+  CreatedAt: Date.now(),
+  UpdatedAt: Date.now(),
+};
+
 describe('minute batch handler', () => {
   let mockDocClient: unknown;
   let mockAlertRepo: jest.Mocked<DynamoDBAlertRepository>;
@@ -150,7 +182,7 @@ describe('minute batch handler', () => {
         mockExchange,
         expect.any(Number)
       );
-      expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL');
+      expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', { timeout: 5000 });
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
       expect(sendWebPushNotification).toHaveBeenCalledWith(
         mockAlert.subscription,
@@ -756,6 +788,81 @@ describe('minute batch handler', () => {
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
       expect(body.statistics.notificationsSent).toBe(1);
+    });
+  });
+
+  describe('正常系: 時間予算ガード', () => {
+    beforeEach(() => {
+      // -1 にすることで isBudgetExceeded が常に true を返す（Date.now() - startTime >= 0 > -1）
+      process.env.MINUTE_BATCH_TIME_BUDGET_MS = '-1';
+      process.env.MINUTE_BATCH_CONCURRENCY = '10';
+    });
+
+    afterEach(() => {
+      delete process.env.MINUTE_BATCH_TIME_BUDGET_MS;
+      delete process.env.MINUTE_BATCH_CONCURRENCY;
+    });
+
+    it('時間予算超過後のアラートは skippedTimeBudget としてカウントされる', async () => {
+      const alerts = Array.from({ length: 5 }, (_, i) =>
+        makeAlert({ AlertID: `alert-${i}` })
+      );
+
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: alerts });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(false);
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.totalAlerts).toBe(5);
+      expect(body.statistics.skippedTimeBudget).toBeGreaterThan(0);
+      // processedAlerts + skippedTimeBudget = totalAlerts
+      expect(
+        body.statistics.processedAlerts + body.statistics.skippedTimeBudget
+      ).toBe(5);
+    });
+
+    it('時間予算超過があっても statusCode 200 で正常終了する', async () => {
+      mockAlertRepo.getByFrequency.mockResolvedValue({
+        items: [makeAlert(), makeAlert({ AlertID: 'alert-2' })],
+      });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(false);
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+    });
+  });
+
+  describe('正常系: 並列実行', () => {
+    beforeEach(() => {
+      process.env.MINUTE_BATCH_CONCURRENCY = '3';
+    });
+
+    afterEach(() => {
+      delete process.env.MINUTE_BATCH_CONCURRENCY;
+    });
+
+    it('複数アラートを並列処理し全件の統計が集計される', async () => {
+      const alerts = Array.from({ length: 6 }, (_, i) =>
+        makeAlert({ AlertID: `alert-${i}`, Enabled: false })
+      );
+
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: alerts });
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.totalAlerts).toBe(6);
+      expect(body.statistics.processedAlerts).toBe(6);
+      expect(body.statistics.skippedDisabled).toBe(6);
+      expect(body.statistics.skippedTimeBudget).toBe(0);
     });
   });
 });
