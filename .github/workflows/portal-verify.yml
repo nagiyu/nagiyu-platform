@@ -1,5 +1,9 @@
 name: Portal - Verification
 
+env:
+  SERVICE_ID: portal
+  SERVICE_DISPLAY_NAME: Portal
+
 on:
   pull_request:
     branches:
@@ -184,7 +188,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-chromium-mobile
           path: services/portal/web/playwright-report/
           retention-days: 30
 
@@ -192,7 +196,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-chromium-mobile
           path: services/portal/web/test-results/
           retention-days: 30
 
@@ -250,7 +254,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-playwright-report-chromium-desktop
           path: services/portal/web/playwright-report/
           retention-days: 30
 
@@ -258,7 +262,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-test-results-chromium-desktop
           path: services/portal/web/test-results/
           retention-days: 30
 
@@ -316,7 +320,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-webkit-mobile
           path: services/portal/web/playwright-report/
           retention-days: 30
 
@@ -324,7 +328,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-webkit-mobile
           path: services/portal/web/test-results/
           retention-days: 30
 
@@ -399,8 +403,8 @@ jobs:
             const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
             const isFull = '${{ github.base_ref }}' === 'develop';
             const header = allSuccess
-              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
-              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
+              ? (isFull ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed' : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed')
+              : (isFull ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed' : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed');
 
             let body = `${header}\n\n`;
             body += isFull
