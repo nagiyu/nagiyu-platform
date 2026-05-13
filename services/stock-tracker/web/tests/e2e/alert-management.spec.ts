@@ -750,6 +750,9 @@ test.describe('アラート設定フロー (E2E-002 一部)', () => {
         await page.getByLabel('条件タイプ').selectOption('range');
       }
       await expect(minPriceInput).toBeVisible({ timeout: 10000 });
+      // 条件タイプ変更時に上書き確認ダイアログが表示されると後続の input 操作を pointer events で
+      // 阻害するため、ここで先に解決しておく
+      await resolveNotificationOverwriteDialogIfVisible(page);
 
       // 不正な範囲を入力（最小価格 > 最大価格）
       const maxPriceInput = page.locator('#max-price');
