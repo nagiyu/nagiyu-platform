@@ -1,5 +1,9 @@
 name: React Library - Verification
 
+env:
+  SERVICE_ID: react
+  SERVICE_DISPLAY_NAME: React Library
+
 on:
   pull_request:
     branches:
@@ -140,11 +144,10 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ All Checks Passed'
-              : '## ❌ Some Checks Failed';
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
 
             let body = `${header}\n\n`;
-            body += '**React Library Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 

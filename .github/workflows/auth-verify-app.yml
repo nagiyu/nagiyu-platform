@@ -1,5 +1,9 @@
 name: Auth App - Verification
 
+env:
+  SERVICE_ID: auth-app
+  SERVICE_DISPLAY_NAME: Auth App
+
 on:
   pull_request:
     branches:
@@ -165,7 +169,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-mobile
           path: services/auth/web/playwright-report/
           retention-days: 30
 
@@ -173,7 +177,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-mobile
           path: services/auth/web/test-results/
           retention-days: 30
 
@@ -237,7 +241,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-desktop
           path: services/auth/web/playwright-report/
           retention-days: 30
 
@@ -245,7 +249,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-desktop
           path: services/auth/web/test-results/
           retention-days: 30
 
@@ -309,7 +313,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-full-webkit-mobile
           path: services/auth/web/playwright-report/
           retention-days: 30
 
@@ -317,7 +321,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-full-webkit-mobile
           path: services/auth/web/test-results/
           retention-days: 30
 
@@ -439,8 +443,8 @@ jobs:
             const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
             const isFull = github.base_ref === 'develop';
             const header = allSuccess
-              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
-              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
+              ? (isFull ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed' : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed')
+              : (isFull ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed' : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed');
 
             let body = `${header}\n\n`;
             body += isFull

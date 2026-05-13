@@ -1,5 +1,9 @@
 name: Codec Converter - Verification
 
+env:
+  SERVICE_ID: codec-converter
+  SERVICE_DISPLAY_NAME: Codec Converter
+
 on:
   pull_request:
     branches:
@@ -159,7 +163,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-mobile
           path: services/codec-converter/web/playwright-report/
           retention-days: 30
 
@@ -167,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full-chromium-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-mobile
           path: services/codec-converter/web/test-results/
           retention-days: 30
 
@@ -229,7 +233,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-playwright-report-full-chromium-desktop
           path: services/codec-converter/web/playwright-report/
           retention-days: 30
 
@@ -237,7 +241,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full-chromium-desktop
+          name: ${{ env.SERVICE_ID }}-test-results-full-chromium-desktop
           path: services/codec-converter/web/test-results/
           retention-days: 30
 
@@ -299,7 +303,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-full-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-playwright-report-full-webkit-mobile
           path: services/codec-converter/web/playwright-report/
           retention-days: 30
 
@@ -307,7 +311,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-full-webkit-mobile
+          name: ${{ env.SERVICE_ID }}-test-results-full-webkit-mobile
           path: services/codec-converter/web/test-results/
           retention-days: 30
 
@@ -327,7 +331,7 @@ jobs:
             --delete --no-progress
 
   lint:
-    name: Lint Check
+    name: Lint Code
     runs-on: ubuntu-latest
 
     permissions:
@@ -480,7 +484,7 @@ jobs:
                'Integration Tests (chromium-mobile)': '${{ needs.integration-test-chromium-mobile.result }}',
                'Integration Tests (chromium-desktop)': '${{ needs.integration-test-chromium-desktop.result }}',
                'Integration Tests (webkit-mobile)': '${{ needs.integration-test-webkit-mobile.result }}',
-              'Lint Check': '${{ needs.lint.result }}',
+              'Lint Code': '${{ needs.lint.result }}',
               'Format Check': '${{ needs.format-check.result }}',
               'Infra Format Check': '${{ needs.infra-format-check.result }}',
               'Infra Type Check': '${{ needs.infra-type-check.result }}',
@@ -504,8 +508,8 @@ jobs:
             const allSuccess = Object.values(results).every(r => r === 'success' || r === 'skipped');
             const isFull = github.base_ref === 'develop' || github.base_ref === 'master';
             const header = allSuccess
-              ? (isFull ? '## ✅ All Full Checks Passed' : '## ✅ All Fast Checks Passed')
-              : (isFull ? '## ❌ Some Full Checks Failed' : '## ❌ Some Fast Checks Failed');
+              ? (isFull ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Passed' : '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Passed')
+              : (isFull ? '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Full Verification Failed' : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Fast Verification Failed');
 
             let body = `${header}\n\n`;
             body += isFull

@@ -1,5 +1,9 @@
 name: Browser Library - Verification
 
+env:
+  SERVICE_ID: browser
+  SERVICE_DISPLAY_NAME: Browser Library
+
 on:
   pull_request:
     branches:
@@ -131,11 +135,10 @@ jobs:
 
             const allSuccess = Object.values(results).every(r => r === 'success');
             const header = allSuccess
-              ? '## ✅ All Checks Passed'
-              : '## ❌ Some Checks Failed';
+              ? '## ✅ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Passed'
+              : '## ❌ [${{ env.SERVICE_DISPLAY_NAME }}] Verification Failed';
 
             let body = `${header}\n\n`;
-            body += '**Browser Library Verification**\n\n';
             body += '| Job | Status |\n';
             body += '|-----|--------|\n';
 
