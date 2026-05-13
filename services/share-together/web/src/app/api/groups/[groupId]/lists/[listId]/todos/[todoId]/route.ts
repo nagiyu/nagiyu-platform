@@ -37,10 +37,8 @@ const NOT_FOUND_ERROR_MESSAGES: Set<string> = new Set([ERROR_MESSAGES.TODO_NOT_F
 
 function createErrorResponse(code: string, message: string, status: number): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code,
-      message,
-    },
+    error: code,
+    message,
   };
 
   return NextResponse.json(response, { status });

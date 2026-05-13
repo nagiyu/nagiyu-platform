@@ -186,10 +186,8 @@ describe('/api/lists/[listId]/todos route handlers', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: {
-        code: 'NOT_FOUND',
-        message: '対象のデータが見つかりません',
-      },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 
