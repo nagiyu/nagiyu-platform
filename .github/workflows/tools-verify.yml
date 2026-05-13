@@ -127,6 +127,9 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/tools
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/tools
@@ -198,6 +201,9 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/tools
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/tools
@@ -268,6 +274,9 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/tools
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit

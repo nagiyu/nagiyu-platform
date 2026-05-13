@@ -2,47 +2,40 @@ import { defineConfig, devices } from '@playwright/test';
 import { config } from 'dotenv';
 import { resolve } from 'path';
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
 config({ path: resolve(__dirname, '.env.test') });
 
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
+const isCI = !!process.env.CI;
+
+// CI では本番ビルド済みの output に対して `next start` を使い、HMR / JIT compile /
+// React StrictMode の二重発火による flaky を抑止する。
+// ローカルでは開発体験のため `next dev` を維持する。
+const webServerCommand = isCI ? 'npm run start' : 'npm run dev';
+
 export default defineConfig({
   testDir: './tests/e2e',
-  /* Run tests in files in parallel */
   fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  forbidOnly: isCI,
+  retries: isCI ? 2 : 0,
+  workers: isCI ? 1 : undefined,
+  // CI のリソース変動を吸収するため、テスト全体のタイムアウトと expect の auto-retry を延長する。
+  timeout: isCI ? 60 * 1000 : 30 * 1000,
+  expect: {
+    timeout: isCI ? 15 * 1000 : 5 * 1000,
+  },
   reporter: [
     ['html', { outputFolder: 'playwright-report' }],
     ['json', { outputFile: 'test-results/results.json' }],
     ['list'],
   ],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.BASE_URL || 'http://localhost:3000',
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-
-    /* Screenshot on failure */
     screenshot: 'only-on-failure',
-
-    /* Video on failure */
     video: 'retain-on-failure',
+    actionTimeout: isCI ? 15 * 1000 : 0,
+    navigationTimeout: isCI ? 30 * 1000 : 30 * 1000,
   },
 
-  /* Configure projects for major browsers */
   projects: [
     {
       name: 'chromium-desktop',
@@ -52,16 +45,15 @@ export default defineConfig({
         deviceScaleFactor: 1,
       },
     },
-
     {
       name: 'chromium-mobile',
       use: {
         ...devices['Pixel 5'],
         viewport: { width: 393, height: 851 },
         deviceScaleFactor: 2.75,
+        serviceWorkers: 'block',
       },
     },
-
     {
       name: 'webkit-mobile',
       use: {
@@ -70,27 +62,16 @@ export default defineConfig({
         deviceScaleFactor: 3,
       },
     },
-
-    /* Test against branded browsers. */
-    // {
-    //   name: 'Microsoft Edge',
-    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
-    // },
-    // {
-    //   name: 'Google Chrome',
-    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
-    // },
   ].filter((project) => {
-    // Filter projects based on PROJECT environment variable
     const projectFilter = process.env.PROJECT;
     if (!projectFilter) return true;
     return project.name === projectFilter;
   }),
 
-  /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev',
+    command: webServerCommand,
     url: 'http://localhost:3000/api/health',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !isCI,
+    timeout: 2 * 60 * 1000,
   },
 });

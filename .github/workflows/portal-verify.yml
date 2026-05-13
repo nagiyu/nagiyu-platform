@@ -175,6 +175,9 @@ jobs:
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/portal-web
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/portal/web
@@ -241,6 +244,9 @@ jobs:
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/portal-web
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/portal/web
@@ -306,6 +312,9 @@ jobs:
           npm run build --workspace @nagiyu/browser
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/portal-web
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit

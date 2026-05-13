@@ -154,6 +154,9 @@ jobs:
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/admin
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/admin/web
@@ -227,6 +230,9 @@ jobs:
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
 
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/admin
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/admin/web
@@ -299,6 +305,9 @@ jobs:
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/admin
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit
