@@ -8,6 +8,7 @@ import { logger, withRetry } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
+import { runConcurrent } from './lib/concurrent-queue.js';
 import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
@@ -46,6 +47,7 @@ interface BatchStatistics {
   processedAlerts: number;
   skippedDisabled: number;
   skippedOffHours: number;
+  skippedTimeBudget: number;
   conditionsMet: number;
   notificationsSent: number;
   errors: number;
@@ -98,12 +100,16 @@ async function processAlert(
       return true;
     }
 
-    // 4. TradingView API で現在価格取得（リトライ付き）
-    const currentPrice = await withRetry<number>(() => getCurrentPrice(alert.TickerID), {
-      maxRetries: 2,
-      initialDelayMs: 500,
-      backoffMultiplier: 2,
-    });
+    // 4. TradingView API で現在価格取得
+    // timeout を 5s に短縮し maxRetries を 1 にすることで最悪所要時間を ~10.5s に抑える
+    const currentPrice = await withRetry<number>(
+      () => getCurrentPrice(alert.TickerID, { timeout: 5000 }),
+      {
+        maxRetries: 1,
+        initialDelayMs: 500,
+        backoffMultiplier: 2,
+      }
+    );
 
     logger.debug('現在価格を取得しました', {
       alertId: alert.AlertID,
@@ -164,6 +170,8 @@ async function processAlert(
  * EventBridge Scheduler から定期実行される
  */
 export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
+  const startTime = Date.now();
+
   logger.info('1分間隔バッチ処理を開始します', {
     eventId: event.id,
     eventTime: event.time,
@@ -175,10 +183,17 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     processedAlerts: 0,
     skippedDisabled: 0,
     skippedOffHours: 0,
+    skippedTimeBudget: 0,
     conditionsMet: 0,
     notificationsSent: 0,
     errors: 0,
   };
+
+  // 並列度・時間予算は環境変数で調整可能
+  // TIME_BUDGET_MS を 38s に設定し、in-flight タスクの完了（最大 ~10.5s）を含めて 50s 以内に収める
+  const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '10', 10);
+  const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '38000', 10);
+  const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
   try {
     // DynamoDB クライアントとリポジトリの初期化
@@ -196,10 +211,22 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       count: alerts.length,
     });
 
-    // 2. 各アラートに対して処理を実行
-    for (const alert of alerts) {
-      await processAlert(alert, exchangeRepo, stats);
-      stats.processedAlerts++;
+    // 2. 順序をシャッフルして特定アラートが常に後回しになることを防ぐ
+    const shuffledAlerts = [...alerts].sort(() => Math.random() - 0.5);
+
+    // 3. 並列度上限・時間予算ガードで各アラートを処理
+    const tasks = shuffledAlerts.map((alert) => () => processAlert(alert, exchangeRepo, stats));
+
+    const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded);
+
+    stats.processedAlerts = results.length;
+    stats.skippedTimeBudget = skippedCount;
+
+    if (skippedCount > 0) {
+      logger.warn('時間予算超過のためアラートをスキップしました', {
+        skippedCount,
+        elapsedMs: Date.now() - startTime,
+      });
     }
 
     // 最終統計をログ出力
