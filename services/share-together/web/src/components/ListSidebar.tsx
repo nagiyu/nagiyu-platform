@@ -54,8 +54,8 @@ const ERROR_MESSAGES = {
 async function getErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   try {
     const body = (await response.json()) as ApiErrorResponse;
-    if (body?.error?.message && typeof body.error.message === 'string') {
-      return body.error.message;
+    if (body?.message && typeof body.message === 'string') {
+      return body.message;
     }
   } catch {
     // no-op

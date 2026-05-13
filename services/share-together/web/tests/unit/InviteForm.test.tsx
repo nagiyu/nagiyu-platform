@@ -99,7 +99,7 @@ describe('InviteForm', () => {
   it('API がエラーを返した場合はエラーメッセージを表示する', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
-      json: async () => ({ error: { message: '既に招待済みです' } }),
+      json: async () => ({ error: 'ALREADY_INVITED', message: '既に招待済みです' }),
     } as Response);
     render(<InviteForm groupId="group-1" isOwner={true} memberCount={1} />);
 

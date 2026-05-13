@@ -55,9 +55,9 @@ export function ListWorkspace({
 
   const getErrorMessage = async (response: Response): Promise<string> => {
     try {
-      const data = (await response.json()) as { error?: { message?: string } };
-      if (typeof data.error?.message === 'string') {
-        return data.error.message;
+      const data = (await response.json()) as { message?: string };
+      if (typeof data.message === 'string') {
+        return data.message;
       }
     } catch {
       // noop

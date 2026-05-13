@@ -119,7 +119,8 @@ describe('ListSidebar', () => {
     const fetchMock = jest.fn().mockResolvedValue({
       ok: false,
       json: async () => ({
-        error: { message: '一覧取得に失敗しました。' },
+        error: 'INTERNAL_SERVER_ERROR',
+        message: '一覧取得に失敗しました。',
       }),
     } as Response);
     Object.defineProperty(globalThis, 'fetch', {

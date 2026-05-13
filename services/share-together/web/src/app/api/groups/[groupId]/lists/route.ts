@@ -12,10 +12,8 @@ type RouteParams = {
 
 function createErrorResponse(code: string, message: string, status: number): NextResponse {
   const response: ApiErrorResponse = {
-    error: {
-      code,
-      message,
-    },
+    error: code,
+    message,
   };
 
   return NextResponse.json(response, { status });

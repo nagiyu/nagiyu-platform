@@ -1,19 +1,18 @@
+import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 describe('ERROR_MESSAGES', () => {
-  it('主要なエラーメッセージを日本語で提供する', () => {
-    expect(ERROR_MESSAGES).toEqual({
-      UNAUTHORIZED: '認証が必要です',
-      FORBIDDEN: 'この操作を実行する権限がありません',
-      NOT_FOUND: '対象のデータが見つかりません',
-      VALIDATION_ERROR: '入力内容が不正です',
+  it('共通エラーメッセージを取り込んでいる', () => {
+    expect(ERROR_MESSAGES).toMatchObject(COMMON_ERROR_MESSAGES);
+  });
+
+  it('share-together 固有のエラーメッセージを日本語で提供する', () => {
+    expect(ERROR_MESSAGES).toMatchObject({
       CONFLICT: 'データの競合が発生しました',
-      INTERNAL_SERVER_ERROR: 'サーバーエラーが発生しました',
       USER_ID_REQUIRED: 'ユーザーIDは必須です',
       LIST_ID_REQUIRED: 'リストIDは必須です',
       TODO_ID_REQUIRED: 'ToDo IDは必須です',
       TODO_TITLE_INVALID: 'ToDoのタイトルは1〜200文字で入力してください',
-      UPDATE_FIELDS_REQUIRED: '更新内容が指定されていません',
       TODO_NOT_FOUND: 'ToDoが見つかりません',
       PERSONAL_LIST_NOT_FOUND: '個人リストが見つかりません',
       LIST_NAME_INVALID: 'リスト名は1〜100文字で入力してください',

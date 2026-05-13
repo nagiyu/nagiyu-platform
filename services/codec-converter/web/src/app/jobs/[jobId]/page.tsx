@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { useRouter } from 'next/navigation';
 import {
   type Job,
@@ -16,12 +15,7 @@ import { Button, Chip, ErrorAlert } from '@nagiyu/ui';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
 import AddIcon from '@mui/icons-material/Add';
-
-// エラーメッセージ定数
-const ERROR_MESSAGES = {
-  FETCH_FAILED: 'ジョブ情報の取得に失敗しました',
-  JOB_NOT_FOUND: COMMON_ERROR_MESSAGES.JOB_NOT_FOUND,
-} as const;
+import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 // ステータスバッジの色設定（WCAG AA準拠）
 const STATUS_COLORS: Record<JobStatus, 'warning' | 'primary' | 'success' | 'danger'> = {
@@ -135,7 +129,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
           if (response.status === 404) {
             setError(ERROR_MESSAGES.JOB_NOT_FOUND);
           } else {
-            setError(ERROR_MESSAGES.FETCH_FAILED);
+            setError(ERROR_MESSAGES.JOB_INFO_FETCH_FAILED);
           }
           return;
         }
@@ -145,7 +139,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         // Validate response structure
         if (!isGetJobResponse(data)) {
           console.error('Invalid job response structure:', data);
-          setError(ERROR_MESSAGES.FETCH_FAILED);
+          setError(ERROR_MESSAGES.JOB_INFO_FETCH_FAILED);
           return;
         }
 
@@ -153,7 +147,7 @@ export default function JobDetailsPage({ params }: JobDetailsPageProps) {
         setDownloadUrl(data.downloadUrl || null);
       } catch (err) {
         console.error('Failed to fetch job details:', err);
-        setError(ERROR_MESSAGES.FETCH_FAILED);
+        setError(ERROR_MESSAGES.JOB_INFO_FETCH_FAILED);
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);

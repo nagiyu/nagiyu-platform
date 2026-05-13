@@ -151,7 +151,8 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'OWNER_ONLY', message: 'この操作はオーナーのみ実行できます' },
+      error: 'OWNER_ONLY',
+      message: 'この操作はオーナーのみ実行できます',
     });
     expect(mockRemoveMember).not.toHaveBeenCalled();
   });
@@ -191,7 +192,8 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'NOT_FOUND', message: '対象のデータが見つかりません' },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 
@@ -207,7 +209,8 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
 
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'OWNER_CANNOT_LEAVE', message: 'オーナーはグループを脱退できません' },
+      error: 'OWNER_CANNOT_LEAVE',
+      message: 'オーナーはグループを脱退できません',
     });
   });
 
@@ -224,7 +227,8 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
 
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'NOT_FOUND', message: '対象のデータが見つかりません' },
+      error: 'NOT_FOUND',
+      message: '対象のデータが見つかりません',
     });
   });
 
@@ -241,7 +245,8 @@ describe('DELETE /api/groups/[groupId]/members/[userId]', () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: { code: 'INTERNAL_SERVER_ERROR', message: 'サーバーエラーが発生しました' },
+      error: 'INTERNAL_SERVER_ERROR',
+      message: 'サーバーエラーが発生しました',
     });
   });
 });

@@ -6,7 +6,7 @@ const ERROR_MESSAGES = {
   TODO_ID_REQUIRED: 'ToDo IDは必須です',
   USER_ID_REQUIRED: 'ユーザーIDは必須です',
   TITLE_INVALID: 'ToDoのタイトルは1〜200文字で入力してください',
-  UPDATE_FIELDS_REQUIRED: '更新内容が指定されていません',
+  UPDATE_FIELDS_REQUIRED: '更新するフィールドが指定されていません',
   TODO_NOT_FOUND: 'ToDoが見つかりません',
 } as const;
 
