@@ -8,6 +8,7 @@ import {
   resetErrorEventWriter,
 } from '../../../src/error-events/factory.js';
 import { InMemoryErrorEventWriter } from '../../../src/error-events/in-memory-writer.js';
+import { logger } from '@nagiyu/common';
 
 const TABLE_NAME = 'test-error-events';
 
@@ -16,16 +17,20 @@ function getInMemoryWriter(): InMemoryErrorEventWriter {
 }
 
 describe('reportErrorEvent', () => {
+  let loggerErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     process.env.USE_IN_MEMORY_DB = 'true';
     process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
     resetErrorEventWriter();
+    loggerErrorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     delete process.env.USE_IN_MEMORY_DB;
     delete process.env.ERROR_EVENTS_TABLE_NAME;
     resetErrorEventWriter();
+    loggerErrorSpy.mockRestore();
   });
 
   describe('デフォルト値', () => {
@@ -37,7 +42,7 @@ describe('reportErrorEvent', () => {
         message: 'エラーが発生しました',
       });
 
-      expect(event.source).toBe('application');
+      expect(event?.source).toBe('application');
     });
 
     it('context 未指定のとき "{}" が保存される', async () => {
@@ -48,7 +53,7 @@ describe('reportErrorEvent', () => {
         message: 'メッセージ',
       });
 
-      expect(event.context).toBe('{}');
+      expect(event?.context).toBe('{}');
     });
 
     it('eventId は自動採番される（UUID 形式）', async () => {
@@ -59,7 +64,7 @@ describe('reportErrorEvent', () => {
         message: 'メッセージ',
       });
 
-      expect(event.eventId).toMatch(
+      expect(event?.eventId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
       );
     });
@@ -74,8 +79,8 @@ describe('reportErrorEvent', () => {
       });
       const after = new Date().toISOString();
 
-      expect(event.occurredAt >= before).toBe(true);
-      expect(event.occurredAt <= after).toBe(true);
+      expect(event!.occurredAt >= before).toBe(true);
+      expect(event!.occurredAt <= after).toBe(true);
     });
   });
 
@@ -89,7 +94,7 @@ describe('reportErrorEvent', () => {
         source: 'manual',
       });
 
-      expect(event.source).toBe('manual');
+      expect(event?.source).toBe('manual');
     });
 
     it('context オブジェクトが JSON 文字列に変換される', async () => {
@@ -102,7 +107,7 @@ describe('reportErrorEvent', () => {
         context: ctx,
       });
 
-      expect(event.context).toBe(JSON.stringify(ctx));
+      expect(event?.context).toBe(JSON.stringify(ctx));
     });
 
     it('occurredAt を明示指定できる', async () => {
@@ -115,7 +120,7 @@ describe('reportErrorEvent', () => {
         occurredAt: ts,
       });
 
-      expect(event.occurredAt).toBe(ts);
+      expect(event?.occurredAt).toBe(ts);
     });
 
     it('eventId を明示指定できる', async () => {
@@ -127,7 +132,7 @@ describe('reportErrorEvent', () => {
         eventId: 'custom-event-id',
       });
 
-      expect(event.eventId).toBe('custom-event-id');
+      expect(event?.eventId).toBe('custom-event-id');
     });
   });
 
@@ -159,9 +164,27 @@ describe('reportErrorEvent', () => {
       expect(returned).toEqual(stored);
     });
 
-    it('ライターのエラーは呼び出し元に伝播する', async () => {
+    it('ライターのエラーは null を返し logger.error で警告する', async () => {
       const writer = getInMemoryWriter();
       jest.spyOn(writer, 'put').mockRejectedValueOnce(new Error('書き込み失敗'));
+
+      const result = await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'テスト',
+        message: 'メッセージ',
+      });
+
+      expect(result).toBeNull();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        '[reportErrorEvent] DynamoDB 書き込みに失敗しました',
+        expect.objectContaining({ error: '書き込み失敗' })
+      );
+    });
+
+    it('ライターのエラーで例外を投げない', async () => {
+      const writer = getInMemoryWriter();
+      jest.spyOn(writer, 'put').mockRejectedValueOnce(new Error('DynamoDB 障害'));
 
       await expect(
         reportErrorEvent({
@@ -170,12 +193,38 @@ describe('reportErrorEvent', () => {
           title: 'テスト',
           message: 'メッセージ',
         })
-      ).rejects.toThrow('書き込み失敗');
+      ).resolves.toBeNull();
     });
   });
 
   describe('環境変数チェック', () => {
-    it('ERROR_EVENTS_TABLE_NAME 未設定のとき例外を投げる', async () => {
+    it('ERROR_EVENTS_TABLE_NAME 未設定のとき null を返す', async () => {
+      delete process.env.ERROR_EVENTS_TABLE_NAME;
+
+      const result = await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'テスト',
+        message: 'メッセージ',
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('ERROR_EVENTS_TABLE_NAME 未設定のとき logger.error で警告する', async () => {
+      delete process.env.ERROR_EVENTS_TABLE_NAME;
+
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'テスト',
+        message: 'メッセージ',
+      });
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith('ERROR_EVENTS_TABLE_NAME が設定されていません');
+    });
+
+    it('ERROR_EVENTS_TABLE_NAME 未設定のとき例外を投げない', async () => {
       delete process.env.ERROR_EVENTS_TABLE_NAME;
 
       await expect(
@@ -185,22 +234,26 @@ describe('reportErrorEvent', () => {
           title: 'テスト',
           message: 'メッセージ',
         })
-      ).rejects.toThrow('ERROR_EVENTS_TABLE_NAME が設定されていません');
+      ).resolves.toBeNull();
     });
   });
 });
 
 describe('createErrorReporter', () => {
+  let loggerErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     process.env.USE_IN_MEMORY_DB = 'true';
     process.env.ERROR_EVENTS_TABLE_NAME = TABLE_NAME;
     resetErrorEventWriter();
+    loggerErrorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
     delete process.env.USE_IN_MEMORY_DB;
     delete process.env.ERROR_EVENTS_TABLE_NAME;
     resetErrorEventWriter();
+    loggerErrorSpy.mockRestore();
   });
 
   it('デフォルト serviceId が使われる', async () => {
@@ -211,7 +264,7 @@ describe('createErrorReporter', () => {
       message: 'メッセージ',
     });
 
-    expect(event.serviceId).toBe('stock-tracker');
+    expect(event?.serviceId).toBe('stock-tracker');
   });
 
   it('呼び出し側で serviceId をオーバーライドできる', async () => {
@@ -223,7 +276,7 @@ describe('createErrorReporter', () => {
       message: 'メッセージ',
     });
 
-    expect(event.serviceId).toBe('override-service');
+    expect(event?.serviceId).toBe('override-service');
   });
 
   it('source デフォルトは application', async () => {
@@ -234,7 +287,7 @@ describe('createErrorReporter', () => {
       message: 'メッセージ',
     });
 
-    expect(event.source).toBe('application');
+    expect(event?.source).toBe('application');
   });
 
   it('複数回呼び出せる', async () => {
@@ -244,5 +297,15 @@ describe('createErrorReporter', () => {
 
     const writer = getInMemoryWriter();
     expect(writer.getRecords()).toHaveLength(2);
+  });
+
+  it('書き込み失敗時は null を返す', async () => {
+    const writer = getInMemoryWriter();
+    jest.spyOn(writer, 'put').mockRejectedValueOnce(new Error('書き込み失敗'));
+
+    const reporter = createErrorReporter({ serviceId: 'stock-tracker' });
+    const result = await reporter.report({ severity: 'error', title: 'テスト', message: 'msg' });
+
+    expect(result).toBeNull();
   });
 });

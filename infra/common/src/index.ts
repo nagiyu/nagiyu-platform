@@ -52,6 +52,9 @@ export {
   SECURITY_HEADERS,
 } from './constants/security-headers';
 
+// IAM grant helpers
+export { grantErrorEventsWrite } from './grants/error-events-writer';
+
 // Stack base classes
 export { EcrStackBase } from './stacks/ecr-stack-base';
 export type { EcrStackBaseProps } from './stacks/ecr-stack-base';
