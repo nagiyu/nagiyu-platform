@@ -350,7 +350,8 @@ export async function processJob(
         errorMessage
       );
     } catch (updateError) {
-      const updateErrorMessage = updateError instanceof Error ? updateError.message : String(updateError);
+      const updateErrorMessage =
+        updateError instanceof Error ? updateError.message : String(updateError);
       console.error('Failed to update job status to FAILED:', updateError);
       await reportErrorEvent({
         serviceId: 'codec-converter',
@@ -365,7 +366,8 @@ export async function processJob(
     try {
       await cleanup([inputPath, outputPath]);
     } catch (cleanupError) {
-      const cleanupErrorMessage = cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
+      const cleanupErrorMessage =
+        cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
       console.error('Cleanup failed:', cleanupError);
       await reportErrorEvent({
         serviceId: 'codec-converter',
