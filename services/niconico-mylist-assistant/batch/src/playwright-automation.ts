@@ -13,7 +13,7 @@ import {
   VIDEO_REGISTRATION_WAIT,
 } from './constants.js';
 import { MylistRegistrationResult, LoginResult } from './types.js';
-import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
+import { createS3Client, uploadFile, getS3ObjectUrl, reportErrorEvent } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
 
 const VIDEO_RETRY_OPTIONS: Pick<
@@ -71,6 +71,16 @@ export async function login(page: Page, email: string, password: string): Promis
     return { requires2FA: false };
   } catch (error) {
     console.error('ログイン失敗:', error);
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'ニコニコログイン失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        step: 'login',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
     throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
   }
 }

@@ -1,4 +1,4 @@
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
@@ -43,8 +43,23 @@ function getUserSettingRepository(): UserSettingRepository {
 export async function createVideoBasicInfo(
   input: CreateVideoBasicInfoInput
 ): Promise<VideoBasicInfo> {
-  const entity = await getVideoRepository().create(input);
-  return entity as VideoBasicInfo;
+  try {
+    const entity = await getVideoRepository().create(input);
+    return entity as VideoBasicInfo;
+  } catch (error) {
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'DynamoDB 動画基本情報書き込み失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        videoId: input.videoId,
+        operation: 'createVideoBasicInfo',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    throw error;
+  }
 }
 
 /**
@@ -96,8 +111,24 @@ export async function createUserVideoSetting(
 export async function upsertUserVideoSetting(
   input: CreateUserSettingInput
 ): Promise<UserVideoSetting> {
-  const entity = await getUserSettingRepository().upsert(input);
-  return entity as UserVideoSetting;
+  try {
+    const entity = await getUserSettingRepository().upsert(input);
+    return entity as UserVideoSetting;
+  } catch (error) {
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'DynamoDB ユーザー設定書き込み失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        userId: input.userId,
+        videoId: input.videoId,
+        operation: 'upsertUserVideoSetting',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    throw error;
+  }
 }
 
 /**
@@ -122,8 +153,24 @@ export async function updateUserVideoSetting(
   videoId: string,
   update: VideoSettingUpdate
 ): Promise<UserVideoSetting> {
-  const entity = await getUserSettingRepository().update(userId, videoId, update);
-  return entity as UserVideoSetting;
+  try {
+    const entity = await getUserSettingRepository().update(userId, videoId, update);
+    return entity as UserVideoSetting;
+  } catch (error) {
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'DynamoDB ユーザー設定更新失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        userId,
+        videoId,
+        operation: 'updateUserVideoSetting',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
+    throw error;
+  }
 }
 
 /**
