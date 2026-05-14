@@ -212,12 +212,19 @@ describe('daily batch handler', () => {
       // Arrange
       const dbError = new Error('DynamoDB Error');
       mockDocClient.send.mockRejectedValue(dbError);
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
 
       // Assert
       expect(response.statusCode).toBe(500);
+      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+        })
+      );
       const body = JSON.parse(response.body);
       expect(body.message).toBe('日次バッチ処理でエラーが発生しました');
       expect(body.error).toBe('DynamoDB Error');

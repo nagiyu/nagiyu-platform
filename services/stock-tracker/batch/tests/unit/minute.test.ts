@@ -414,6 +414,7 @@ describe('minute batch handler', () => {
       (tradingviewClient.getCurrentPrice as jest.Mock).mockRejectedValue(
         new Error('TradingView API タイムアウト')
       );
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
@@ -421,6 +422,12 @@ describe('minute batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200); // バッチ全体は成功
       expect(sendWebPushNotification).not.toHaveBeenCalled();
+      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'warning',
+        })
+      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.errors).toBe(1);
@@ -471,12 +478,19 @@ describe('minute batch handler', () => {
     it('DynamoDB 接続エラーが発生した場合、500 エラーを返す', async () => {
       // Arrange
       mockAlertRepo.getByFrequency.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
 
       // Assert
       expect(response.statusCode).toBe(500);
+      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+        })
+      );
       const body = JSON.parse(response.body);
       expect(body.message).toContain('エラーが発生しました');
       expect(body.error).toContain('DynamoDB 接続エラー');

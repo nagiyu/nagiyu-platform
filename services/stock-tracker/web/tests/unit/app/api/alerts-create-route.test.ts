@@ -21,6 +21,11 @@ jest.mock('@nagiyu/nextjs', () => ({
   }),
 }));
 
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
 describe('POST /api/alerts', () => {
   const createRequest = (body: Record<string, unknown>) =>
     new NextRequest('http://localhost/api/alerts', {
@@ -60,4 +65,5 @@ describe('POST /api/alerts', () => {
     expect(response.status).toBe(400);
     expect(body.message).toBe('通知本文は必須です');
   });
+
 });
