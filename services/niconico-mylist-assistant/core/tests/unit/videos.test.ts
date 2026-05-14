@@ -1,6 +1,11 @@
 // テスト実行前にDYNAMODB_TABLE_NAMEを設定
 process.env.DYNAMODB_TABLE_NAME = 'test-table';
 
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
 import { mockClient } from 'aws-sdk-client-mock';
 import {
   DynamoDBDocumentClient,
@@ -22,6 +27,7 @@ import {
   listUserVideoSettings,
   deleteUserVideoSetting,
 } from '../../src/db/videos';
+import { reportErrorEvent } from '@nagiyu/aws';
 import type {
   CreateVideoBasicInfoInput,
   CreateUserSettingInput,
@@ -33,6 +39,7 @@ const ddbMock = mockClient(DynamoDBDocumentClient);
 describe('videos', () => {
   beforeEach(() => {
     ddbMock.reset();
+    jest.mocked(reportErrorEvent).mockClear();
   });
 
   describe('VIDEO エンティティ', () => {
@@ -81,6 +88,15 @@ describe('videos', () => {
         };
 
         await expect(createVideoBasicInfo(input)).rejects.toThrow('エンティティは既に存在します');
+
+        expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            serviceId: 'niconico-mylist-assistant',
+            severity: 'error',
+            title: 'DynamoDB 動画基本情報書き込み失敗',
+            context: expect.objectContaining({ videoId: 'sm12345678' }),
+          })
+        );
       });
     });
 
@@ -448,6 +464,15 @@ describe('videos', () => {
 
         await expect(updateUserVideoSetting('user123', 'sm99999999', update)).rejects.toThrow(
           'エンティティが見つかりません'
+        );
+
+        expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+          expect.objectContaining({
+            serviceId: 'niconico-mylist-assistant',
+            severity: 'error',
+            title: 'DynamoDB ユーザー設定更新失敗',
+            context: expect.objectContaining({ userId: 'user123', videoId: 'sm99999999' }),
+          })
         );
       });
     });

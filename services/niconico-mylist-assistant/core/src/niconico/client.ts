@@ -1,4 +1,5 @@
 import { parseStringPromise } from 'xml2js';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { NICONICO_ERROR_MESSAGES } from './constants.js';
 
 export interface NiconicoVideoInfo {
@@ -81,6 +82,16 @@ export async function getVideoInfo(videoId: string): Promise<NiconicoVideoInfo> 
     };
   } catch (error) {
     if (error instanceof NiconicoAPIError) {
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
+        title: 'Niconico API エラー',
+        message: error.message,
+        context: {
+          videoId: error.videoId,
+          errorCode: error.code,
+        },
+      });
       throw error;
     }
 
