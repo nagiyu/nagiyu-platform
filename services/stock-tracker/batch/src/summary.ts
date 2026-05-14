@@ -4,7 +4,7 @@
  */
 
 import { logger } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,
@@ -253,6 +253,17 @@ async function processExchange(
                   reason: errorMessage,
                 }
               );
+              await reportErrorEvent({
+                serviceId: 'stock-tracker',
+                severity: 'warning',
+                title: 'サマリーバッチ: AI解析用チャートデータ取得失敗',
+                message: errorMessage,
+                context: {
+                  exchangeId: exchange.ExchangeID,
+                  tickerId: ticker.TickerID,
+                  errorStack: error instanceof Error ? error.stack : undefined,
+                },
+              });
               stats.aiAnalysisSkipped++;
               continue;
             }
@@ -299,6 +310,17 @@ async function processExchange(
             tickerId: ticker.TickerID,
             reason: errorMessage,
           });
+          await reportErrorEvent({
+            serviceId: 'stock-tracker',
+            severity: 'warning',
+            title: 'サマリーバッチ: AI解析生成失敗',
+            message: errorMessage,
+            context: {
+              exchangeId: exchange.ExchangeID,
+              tickerId: ticker.TickerID,
+              errorStack: error instanceof Error ? error.stack : undefined,
+            },
+          });
           await dependencies.dailySummaryRepository.upsert({
             ...currentSummaryInput,
             AiAnalysisResult: undefined,
@@ -314,6 +336,17 @@ async function processExchange(
           executionTime: new Date(now).toISOString(),
           reason: errorMessage,
         });
+        await reportErrorEvent({
+          serviceId: 'stock-tracker',
+          severity: 'warning',
+          title: 'サマリーバッチ: ティッカー日足データ取得失敗',
+          message: errorMessage,
+          context: {
+            exchangeId: exchange.ExchangeID,
+            tickerId: ticker.TickerID,
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+        });
         stats.errors++;
       } finally {
         stats.processedTickers++;
@@ -324,6 +357,16 @@ async function processExchange(
     logger.error('取引所の日次サマリー処理に失敗しました', {
       exchangeId: exchange.ExchangeID,
       error: errorMessage,
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: 'サマリーバッチ: 取引所サマリー処理失敗',
+      message: errorMessage,
+      context: {
+        exchangeId: exchange.ExchangeID,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
     });
     stats.errors++;
   } finally {
@@ -410,6 +453,13 @@ export async function handler(
       eventId: event.id,
       error: errorMessage,
       statistics: stats,
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: 'サマリーバッチ: 致命的エラー',
+      message: errorMessage,
+      context: { eventId: event.id, statistics: stats },
     });
 
     return {

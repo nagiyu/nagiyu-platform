@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
 import { TickerNotFoundError, validateTickerUpdateData } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '../../../../lib/auth';
 import { createTickerRepository } from '../../../../lib/repository-factory';
 
@@ -122,6 +123,14 @@ export const PUT = withAuth(
         throw error;
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: ティッカー更新エラー',
+        message: errorMessage,
+        context: { errorStack: error instanceof Error ? error.stack : undefined },
+      });
       return handleApiError(error);
     }
   }
@@ -167,6 +176,14 @@ export const DELETE = withAuth(
         throw error;
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: ティッカー削除エラー',
+        message: errorMessage,
+        context: { errorStack: error instanceof Error ? error.stack : undefined },
+      });
       return handleApiError(error);
     }
   }

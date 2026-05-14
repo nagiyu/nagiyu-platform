@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAlert, calculateTemporaryExpireDate } from '@nagiyu/stock-tracker-core';
 import { withAuth, parsePagination, handleApiError } from '@nagiyu/nextjs';
+import { reportErrorEvent } from '@nagiyu/aws';
 import {
   createAlertRepository,
   createTickerRepository,
@@ -164,6 +165,14 @@ export const GET = withAuth(
         { status: 200 }
       );
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: アラート一覧取得エラー',
+        message: errorMessage,
+        context: { errorStack: error instanceof Error ? error.stack : undefined },
+      });
       return handleApiError(error);
     }
   }
@@ -323,6 +332,14 @@ export const POST = withAuth(
 
       return NextResponse.json(response, { status: 201 });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await reportErrorEvent({
+        serviceId: 'stock-tracker',
+        severity: 'error',
+        title: 'Web API: アラート作成エラー',
+        message: errorMessage,
+        context: { errorStack: error instanceof Error ? error.stack : undefined },
+      });
       return handleApiError(error);
     }
   }

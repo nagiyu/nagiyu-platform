@@ -14,7 +14,12 @@
  */
 
 import { logger } from '@nagiyu/common';
-import { EntityAlreadyExistsError, getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  getDynamoDBDocumentClient,
+  getTableName,
+  reportErrorEvent,
+} from '@nagiyu/aws';
 import {
   DynamoDBDailySummaryRepository,
   DynamoDBExchangeRepository,
@@ -143,6 +148,18 @@ async function evaluateOne(
       evaluationDate,
       reason: errorMessage,
     });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'warning',
+      title: '採点バッチ: 翌営業日終値取得失敗',
+      message: errorMessage,
+      context: {
+        tickerId: summary.TickerID,
+        date: summary.Date,
+        evaluationDate,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     stats.failed++;
     return;
   }
@@ -206,6 +223,18 @@ async function evaluateOne(
       date: summary.Date,
       evaluationDate,
       reason: errorMessage,
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'warning',
+      title: '採点バッチ: 採点結果書き込み失敗',
+      message: errorMessage,
+      context: {
+        tickerId: summary.TickerID,
+        date: summary.Date,
+        evaluationDate,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
     });
     stats.failed++;
   }
@@ -283,6 +312,13 @@ export async function handler(
       eventId: event.id,
       error: errorMessage,
       statistics: stats,
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: '採点バッチ: 致命的エラー',
+      message: errorMessage,
+      context: { eventId: event.id, statistics: stats },
     });
 
     return {

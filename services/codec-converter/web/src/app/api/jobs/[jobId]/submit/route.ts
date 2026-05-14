@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GetCommand } from '@aws-sdk/lib-dynamodb';
 import { HeadObjectCommand } from '@aws-sdk/client-s3';
 import { SubmitJobCommand } from '@aws-sdk/client-batch';
-import { getAwsClients } from '@nagiyu/aws';
+import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
 import { type Job, type JobStatus, selectJobDefinition } from '@nagiyu/codec-converter-core';
 import type { ErrorResponse } from '@nagiyu/common';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -36,9 +36,10 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ jobId: string }> }
 ): Promise<NextResponse<SubmitJobResponse | ErrorResponse>> {
+  let jobId: string | undefined;
   try {
     // パスパラメータの取得
-    const { jobId } = await params;
+    ({ jobId } = await params);
 
     // AWS クライアントと環境変数の取得
     const { DYNAMODB_TABLE, S3_BUCKET, BATCH_JOB_QUEUE, BATCH_JOB_DEFINITION_PREFIX, AWS_REGION } =
@@ -85,7 +86,19 @@ export async function POST(
         })
       );
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error('Input file not found in S3:', error);
+      await reportErrorEvent({
+        serviceId: 'codec-converter',
+        severity: 'error',
+        title: '入力ファイルがS3に存在しません',
+        message: errorMessage,
+        context: {
+          jobId,
+          s3Key: job.inputFile,
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+      });
       return NextResponse.json(
         {
           error: 'FILE_NOT_FOUND',
@@ -169,7 +182,18 @@ export async function POST(
       { status: 200 }
     );
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error submitting job:', error);
+    await reportErrorEvent({
+      serviceId: 'codec-converter',
+      severity: 'error',
+      title: 'Batchジョブの投入に失敗しました',
+      message: errorMessage,
+      context: {
+        jobId,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     return NextResponse.json(
       {
         error: 'INTERNAL_SERVER_ERROR',

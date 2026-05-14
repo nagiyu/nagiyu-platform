@@ -380,6 +380,7 @@ describe('hourly batch handler', () => {
       (tradingviewClient.getCurrentPrice as jest.Mock).mockRejectedValue(
         new Error('TradingView API タイムアウト')
       );
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
@@ -387,6 +388,12 @@ describe('hourly batch handler', () => {
       // Assert
       expect(response.statusCode).toBe(200); // バッチ全体は成功
       expect(sendWebPushNotification).not.toHaveBeenCalled();
+      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'warning',
+        })
+      );
 
       const body = JSON.parse(response.body);
       expect(body.statistics.errors).toBe(1);
@@ -437,12 +444,19 @@ describe('hourly batch handler', () => {
     it('DynamoDB 接続エラーが発生した場合、500 エラーを返す', async () => {
       // Arrange
       mockAlertRepo.getByFrequency.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+      (awsClients.reportErrorEvent as jest.Mock).mockResolvedValue(null);
 
       // Act
       const response = await handler(mockEvent);
 
       // Assert
       expect(response.statusCode).toBe(500);
+      expect(awsClients.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'stock-tracker',
+          severity: 'error',
+        })
+      );
       const body = JSON.parse(response.body);
       expect(body.message).toContain('エラーが発生しました');
       expect(body.error).toContain('DynamoDB 接続エラー');
@@ -756,6 +770,62 @@ describe('hourly batch handler', () => {
       const body = JSON.parse(response.body);
       expect(body.statistics.conditionsMet).toBe(1);
       expect(body.statistics.notificationsSent).toBe(1);
+    });
+  });
+
+  describe('異常系: 通知送信失敗', () => {
+    it('sendWebPushNotification が false を返した場合、errors カウンターが増加する', async () => {
+      const mockAlert: Alert = {
+        AlertID: 'alert-1',
+        UserID: 'user-1',
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Mode: 'Sell',
+        Frequency: 'HOURLY_LEVEL',
+        Enabled: true,
+        ConditionList: [{ field: 'price', operator: 'gte', value: 200.0 }],
+        subscription: {
+          endpoint: 'https://fcm.googleapis.com/fcm/send/test',
+          keys: { p256dh: 'test-p256dh', auth: 'test-auth' },
+        },
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      const mockExchange: Exchange = {
+        ExchangeID: 'NASDAQ',
+        Name: 'NASDAQ',
+        Key: 'NSDQ',
+        Timezone: 'America/New_York',
+        Start: '04:00',
+        End: '20:00',
+        CreatedAt: Date.now(),
+        UpdatedAt: Date.now(),
+      };
+
+      mockAlertRepo.getByFrequency.mockResolvedValue({ items: [mockAlert] });
+      mockExchangeRepo.getById.mockResolvedValue(mockExchange);
+      (tradingHoursChecker.isTradingHours as jest.Mock).mockReturnValue(true);
+      (tradingviewClient.getCurrentPrice as jest.Mock).mockResolvedValue(205.0);
+      (alertEvaluator.evaluateAlert as jest.Mock).mockReturnValue(true);
+      (sendWebPushNotification as jest.Mock).mockResolvedValue(false);
+      (webPushClient.createAlertNotificationPayload as jest.Mock).mockReturnValue({
+        title: 'Test Alert',
+        body: 'Test body',
+      });
+      (getVapidConfig as jest.Mock).mockReturnValue({
+        publicKey: 'test-public-key',
+        privateKey: 'test-private-key',
+        subject: 'mailto:support@nagiyu.com',
+      });
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body.statistics.conditionsMet).toBe(1);
+      expect(body.statistics.notificationsSent).toBe(0);
+      expect(body.statistics.errors).toBe(1);
     });
   });
 });

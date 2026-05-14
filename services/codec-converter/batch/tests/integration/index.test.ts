@@ -19,6 +19,13 @@ import type { ChildProcess } from 'child_process';
 import type { CodecType } from '@nagiyu/codec-converter-core';
 import type { SdkStream } from '@smithy/types';
 
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
+import { reportErrorEvent } from '@nagiyu/aws';
+const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
+
 // AWS SDK モック
 const s3Mock = mockClient(S3Client);
 const dynamodbMock = mockClient(DynamoDBDocumentClient);
@@ -402,6 +409,41 @@ describe('convertWithFFmpeg', () => {
     );
   });
 
+  it('FFmpeg stderr に time= が含まれる場合は進捗ログを出力する', async () => {
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: {
+        on: jest.fn((event, callback) => {
+          if (event === 'data') {
+            callback(Buffer.from('frame=10 time=00:00:05.00 bitrate=100'));
+          }
+        }),
+      },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(0);
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    await convertWithFFmpeg('/tmp/input.mp4', '/tmp/output.mp4', 'h264');
+    expect(spawnMock).toHaveBeenCalled();
+  });
+
+  it('FFmpeg プロセス自体がエラーを発生させた場合はエラー', async () => {
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: { on: jest.fn() },
+      on: jest.fn((event, callback) => {
+        if (event === 'error') callback(new Error('spawn error'));
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    await expect(convertWithFFmpeg('/tmp/input.mp4', '/tmp/output.mp4', 'h264')).rejects.toThrow(
+      'FFmpegの実行に失敗しました'
+    );
+  });
+
   it('FFmpegが失敗した場合はエラー', async () => {
     const mockFFmpeg = {
       stdout: { on: jest.fn() },
@@ -464,6 +506,132 @@ describe('processJob', () => {
     spawnMock.mockClear();
     unlinkMock.mockClear();
     unlinkMock.mockResolvedValue(undefined);
+    reportErrorEventMock.mockClear();
+  });
+
+  it('S3ダウンロード失敗時に reportErrorEvent が critical で呼ばれる', async () => {
+    s3Mock.on(GetObjectCommand).rejects(new Error('S3 download error'));
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    const env = {
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-id',
+      OUTPUT_CODEC: 'h264' as CodecType,
+    };
+
+    const s3Client = new S3Client({ region: 'us-east-1' });
+    const dynamodbClient = createMockDynamoDBClient();
+
+    await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
+
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        severity: 'critical',
+        context: expect.objectContaining({ jobId: 'test-job-id' }),
+      })
+    );
+  });
+
+  it('FFmpeg失敗時に reportErrorEvent が critical で呼ばれる', async () => {
+    const mockBody = Readable.from(['test content']);
+    s3Mock.on(GetObjectCommand).resolves({ Body: mockBody as SdkStream<Readable> });
+    dynamodbMock.on(UpdateCommand).resolves({});
+
+    const mockFFmpeg = {
+      stdout: { on: jest.fn() },
+      stderr: {
+        on: jest.fn((event, callback) => {
+          if (event === 'data') callback(Buffer.from('ffmpeg error output'));
+        }),
+      },
+      on: jest.fn((event, callback) => {
+        if (event === 'close') callback(1); // 異常終了
+      }),
+    } as unknown as ChildProcess;
+    spawnMock.mockReturnValue(mockFFmpeg);
+
+    const env = {
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-ffmpeg',
+      OUTPUT_CODEC: 'h264' as CodecType,
+    };
+
+    const s3Client = new S3Client({ region: 'us-east-1' });
+    const dynamodbClient = createMockDynamoDBClient();
+
+    await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
+
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'codec-converter',
+        severity: 'critical',
+        context: expect.objectContaining({ jobId: 'test-job-ffmpeg', outputCodec: 'h264' }),
+      })
+    );
+  });
+
+  it('ジョブステータス更新失敗時に reportErrorEvent が error で呼ばれる', async () => {
+    s3Mock.on(GetObjectCommand).rejects(new Error('S3 error'));
+    // 1回目（PROCESSING更新）は成功、2回目（FAILED更新）は失敗
+    let callCount = 0;
+    dynamodbMock.on(UpdateCommand).callsFake(() => {
+      callCount++;
+      if (callCount === 2) throw new Error('DynamoDB update failed');
+      return {};
+    });
+
+    const env = {
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-status',
+      OUTPUT_CODEC: 'vp9' as CodecType,
+    };
+
+    const s3Client = new S3Client({ region: 'us-east-1' });
+    const dynamodbClient = createMockDynamoDBClient();
+
+    await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
+
+    // critical（ジョブ失敗）と error（ステータス更新失敗）の2回呼ばれる
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'codec-converter', severity: 'critical' })
+    );
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'codec-converter', severity: 'error' })
+    );
+  });
+
+  it('エラー後のクリーンアップ失敗時に reportErrorEvent が warning で呼ばれる', async () => {
+    s3Mock.on(GetObjectCommand).rejects(new Error('S3 error'));
+    dynamodbMock.on(UpdateCommand).resolves({});
+    // FAILED ステータス更新後にクリーンアップが失敗するようにモックを設定
+    const permissionError = new Error('Permission denied');
+    (permissionError as NodeJS.ErrnoException).code = 'EACCES';
+    const unlinkMock = fs.unlink as jest.MockedFunction<typeof fs.unlink>;
+    unlinkMock.mockRejectedValue(permissionError);
+
+    const env = {
+      S3_BUCKET: 'test-bucket',
+      DYNAMODB_TABLE: 'test-table',
+      AWS_REGION: 'ap-northeast-1',
+      JOB_ID: 'test-job-cleanup',
+      OUTPUT_CODEC: 'h264' as CodecType,
+    };
+
+    const s3Client = new S3Client({ region: 'us-east-1' });
+    const dynamodbClient = createMockDynamoDBClient();
+
+    await expect(processJob(env, s3Client, dynamodbClient)).rejects.toThrow();
+
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'codec-converter', severity: 'warning' })
+    );
   });
 
   it.skip('ジョブ処理が成功する', async () => {
