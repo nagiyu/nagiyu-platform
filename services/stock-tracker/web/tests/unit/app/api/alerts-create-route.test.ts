@@ -65,5 +65,4 @@ describe('POST /api/alerts', () => {
     expect(response.status).toBe(400);
     expect(body.message).toBe('通知本文は必須です');
   });
-
 });

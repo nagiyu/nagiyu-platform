@@ -37,8 +37,7 @@ export class DynamoDBStack extends cdk.Stack {
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST, // オンデマンドキャパシティ
       pointInTimeRecovery: true, // PITR 有効（35日間保持）
       timeToLiveAttribute: 'TTL', // TTL 属性
-      removalPolicy:
-        environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       encryption: dynamodb.TableEncryption.AWS_MANAGED, // AWS マネージドキーで暗号化
     });
 
