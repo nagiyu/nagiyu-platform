@@ -1,3 +1,5 @@
+const mockChromiumLaunch = jest.fn();
+
 jest.mock('@nagiyu/aws', () => ({
   ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
@@ -8,14 +10,11 @@ jest.mock('@nagiyu/aws', () => ({
 
 jest.mock('playwright', () => ({
   chromium: {
-    launch: jest.fn().mockResolvedValue({
-      newPage: jest.fn(),
-      close: jest.fn(),
-    }),
+    launch: (...args: unknown[]) => mockChromiumLaunch(...args),
   },
 }));
 
-import { login } from '../../src/playwright-automation';
+import { login, executeMylistRegistration } from '../../src/playwright-automation';
 import { reportErrorEvent } from '@nagiyu/aws';
 import type { Page } from 'playwright';
 
@@ -52,6 +51,30 @@ describe('playwright-automation', () => {
           severity: 'error',
           title: 'ニコニコログイン失敗',
           context: expect.objectContaining({ step: 'login' }),
+        })
+      );
+    });
+  });
+
+  describe('executeMylistRegistration', () => {
+    it('ブラウザ起動失敗時に reportErrorEvent を呼ぶ', async () => {
+      mockChromiumLaunch.mockRejectedValue(new Error('Executable does not exist'));
+
+      const result = await executeMylistRegistration(
+        'test@example.com',
+        'password',
+        'test-mylist',
+        ['sm1', 'sm2']
+      );
+
+      expect(result.successVideoIds).toHaveLength(0);
+      expect(result.failedVideoIds).toEqual(['sm1', 'sm2']);
+      expect(jest.mocked(reportErrorEvent)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          serviceId: 'niconico-mylist-assistant',
+          severity: 'error',
+          title: 'Playwright 自動化処理失敗',
+          context: expect.objectContaining({ step: 'executeMylistRegistration' }),
         })
       );
     });

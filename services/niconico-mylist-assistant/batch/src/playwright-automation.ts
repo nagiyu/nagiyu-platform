@@ -723,6 +723,18 @@ export async function executeMylistRegistration(
 
     console.error('マイリスト登録処理でエラーが発生しました:', errorMessage);
 
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'Playwright 自動化処理失敗',
+      message: errorMessage,
+      context: {
+        step: 'executeMylistRegistration',
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+    });
+
     return {
       successVideoIds: [],
       failedVideoIds: videoIds,

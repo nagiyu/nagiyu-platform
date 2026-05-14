@@ -365,6 +365,18 @@ async function main() {
     // （全失敗の場合のみエラー終了）
     if (result.successVideoIds.length === 0 && result.failedVideoIds.length > 0) {
       console.error('全ての動画の登録に失敗しました');
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'critical',
+        title: 'バッチジョブ全失敗',
+        message: result.errorMessage ?? '全ての動画の登録に失敗しました',
+        context: {
+          jobId: params?.jobId,
+          userId: params?.userId,
+          failedCount: result.failedVideoIds.length,
+          errorMessage: result.errorMessage,
+        },
+      });
       process.exit(1);
     }
   } catch (error) {
