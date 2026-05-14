@@ -21,6 +21,7 @@
     "@aws-sdk/client-dynamodb": "^3.1024.0",
     "@aws-sdk/client-lambda": "^3.1024.0",
     "@aws-sdk/lib-dynamodb": "^3.1024.0",
+    "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",

@@ -5,7 +5,7 @@
  */
 
 import { logger, withRetry } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
 import { runConcurrent } from './lib/concurrent-queue.js';
@@ -160,6 +160,17 @@ async function processAlert(
       userId: alert.UserID,
       error: errorMessage,
     });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'warning',
+      title: '分次バッチ: アラート処理エラー',
+      message: errorMessage,
+      context: {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     stats.errors++;
     return false;
   }
@@ -248,6 +259,13 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       eventId: event.id,
       error: errorMessage,
       statistics: stats,
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: '分次バッチ: 致命的エラー',
+      message: errorMessage,
+      context: { eventId: event.id, statistics: stats },
     });
 
     return {

@@ -5,7 +5,7 @@
  */
 
 import { logger } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';
 
@@ -173,6 +173,18 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       eventId: event.id,
       error: errorMessage,
       statistics: {
+        totalAlerts: stats.totalAlerts,
+        validSubscriptions: stats.validSubscriptions,
+        invalidSubscriptions: stats.invalidSubscriptions,
+      },
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: '日次バッチ: 致命的エラー',
+      message: errorMessage,
+      context: {
+        eventId: event.id,
         totalAlerts: stats.totalAlerts,
         validSubscriptions: stats.validSubscriptions,
         invalidSubscriptions: stats.invalidSubscriptions,
