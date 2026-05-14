@@ -12,7 +12,7 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import { SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
 import { AppRuntimePolicy } from './policies/app-runtime-policy';
 import { LambdaExecutionRole } from './roles/lambda-execution-role';
 import { BatchJobRole } from './roles/batch-job-role';
@@ -141,6 +141,7 @@ export class CodecConverterStack extends cdk.Stack {
         storageBucket,
         jobsTable,
       });
+      grantErrorEventsWrite(this, batchJobRole, envName as 'dev' | 'prod');
 
       const vpcId = ssm.StringParameter.valueForStringParameter(
         this,
@@ -255,6 +256,10 @@ export class CodecConverterStack extends cdk.Stack {
                 name: 'AWS_REGION',
                 value: this.region,
               },
+              {
+                name: 'ERROR_EVENTS_TABLE_NAME',
+                value: `nagiyu-error-events-${envName}`,
+              },
             ],
           },
           retryStrategy: {
@@ -282,6 +287,7 @@ export class CodecConverterStack extends cdk.Stack {
       const lambdaExecutionRole = new LambdaExecutionRole(this, 'LambdaExecutionRole', {
         appRuntimePolicy,
       });
+      grantErrorEventsWrite(this, lambdaExecutionRole, envName as 'dev' | 'prod');
 
       // Development IAM User (shares the same runtime policy as Lambda)
       new DevUser(this, 'DevUser', {
@@ -312,6 +318,7 @@ export class CodecConverterStack extends cdk.Stack {
           S3_BUCKET: storageBucket.bucketName,
           BATCH_JOB_QUEUE: jobQueue.jobQueueName || `nagiyu-codec-converter-${envName}`,
           BATCH_JOB_DEFINITION_PREFIX: `nagiyu-codec-converter-${envName}`, // Prefix for all job definitions (e.g., nagiyu-codec-converter-dev-small)
+          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${envName}`,
           // AWS_REGION is automatically provided by Lambda runtime
         },
         // Note: Lambda Web Adapter must be included in the Docker image itself
