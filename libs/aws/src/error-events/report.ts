@@ -44,9 +44,7 @@ export interface ReportErrorEventInput {
  * - `ERROR_EVENTS_TABLE_NAME` 環境変数が未設定の場合は logger.error で警告して null を返す
  * - 書き込み失敗時も logger.error で警告して null を返す（例外は投げない）
  */
-export async function reportErrorEvent(
-  input: ReportErrorEventInput
-): Promise<ErrorEvent | null> {
+export async function reportErrorEvent(input: ReportErrorEventInput): Promise<ErrorEvent | null> {
   const tableName = process.env.ERROR_EVENTS_TABLE_NAME;
   if (!tableName) {
     logger.error(ERROR_MESSAGES.ERROR_EVENTS_TABLE_NAME_REQUIRED);
