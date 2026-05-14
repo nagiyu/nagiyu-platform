@@ -3,10 +3,14 @@
  *
  * `source: 'application'` や `source: 'manual'` のイベントを DynamoDB に書き込む。
  * CloudWatch Alarm 由来の取り込みには alarm-ingest を使用すること。
+ *
+ * 書き込み失敗時は例外を呼び出し元に伝播させず、logger.error で警告して null を返す。
+ * 書き込みは補助的なログ手段であり、アプリ本処理を巻き込まないことを優先する。
  */
 
 import {
   generateEventId,
+  logger,
   type ErrorEvent,
   type ErrorSeverity,
   type ErrorSource,
@@ -16,6 +20,7 @@ import { createErrorEventWriter } from './factory.js';
 
 const ERROR_MESSAGES = {
   ERROR_EVENTS_TABLE_NAME_REQUIRED: 'ERROR_EVENTS_TABLE_NAME が設定されていません',
+  WRITE_FAILED: '[reportErrorEvent] DynamoDB 書き込みに失敗しました',
 } as const;
 
 export interface ReportErrorEventInput {
@@ -36,13 +41,16 @@ export interface ReportErrorEventInput {
 /**
  * ErrorEvent を DynamoDB に書き込み、書き込んだイベントを返す。
  *
- * - `ERROR_EVENTS_TABLE_NAME` 環境変数が未設定の場合は例外を投げる
- * - 書き込み失敗は呼び出し元に伝播する（無音失敗しない）
+ * - `ERROR_EVENTS_TABLE_NAME` 環境変数が未設定の場合は logger.error で警告して null を返す
+ * - 書き込み失敗時も logger.error で警告して null を返す（例外は投げない）
  */
-export async function reportErrorEvent(input: ReportErrorEventInput): Promise<ErrorEvent> {
+export async function reportErrorEvent(
+  input: ReportErrorEventInput
+): Promise<ErrorEvent | null> {
   const tableName = process.env.ERROR_EVENTS_TABLE_NAME;
   if (!tableName) {
-    throw new Error(ERROR_MESSAGES.ERROR_EVENTS_TABLE_NAME_REQUIRED);
+    logger.error(ERROR_MESSAGES.ERROR_EVENTS_TABLE_NAME_REQUIRED);
+    return null;
   }
 
   const docClient =
@@ -60,14 +68,21 @@ export async function reportErrorEvent(input: ReportErrorEventInput): Promise<Er
     occurredAt: input.occurredAt ?? new Date().toISOString(),
   };
 
-  await writer.put(event);
-  return event;
+  try {
+    await writer.put(event);
+    return event;
+  } catch (error) {
+    logger.error(ERROR_MESSAGES.WRITE_FAILED, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 export interface ErrorReporter {
   report: (
     input: Omit<ReportErrorEventInput, 'serviceId'> & { serviceId?: string }
-  ) => Promise<ErrorEvent>;
+  ) => Promise<ErrorEvent | null>;
 }
 
 /**
