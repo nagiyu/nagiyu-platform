@@ -161,11 +161,18 @@ test.describe('Video List Page', () => {
       .getByRole('button', { name: /お気に入り/ });
     await expect(favoriteButton).toBeVisible();
 
+    // waitForResponse は click より前に登録しないとレースコンディションが発生するため先行登録
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/videos/') &&
+        response.url().includes('/settings') &&
+        response.request().method() === 'PUT' &&
+        response.status() === 200
+    );
+
     // ボタンをクリック
     await favoriteButton.click();
-
-    // レスポンスを待つ（適切なAPI呼び出しが行われることを確認）
-    await page.waitForResponse((response) => response.url().includes('/api/videos/'));
+    await responsePromise;
   });
 
   test('should toggle skip on video card', async ({ page, request }) => {
@@ -193,11 +200,18 @@ test.describe('Video List Page', () => {
       .getByRole('button', { name: /スキップ/ });
     await expect(skipButton).toBeVisible();
 
+    // waitForResponse は click より前に登録しないとレースコンディションが発生するため先行登録
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/videos/') &&
+        response.url().includes('/settings') &&
+        response.request().method() === 'PUT' &&
+        response.status() === 200
+    );
+
     // ボタンをクリック
     await skipButton.click();
-
-    // レスポンスを待つ
-    await page.waitForResponse((response) => response.url().includes('/api/videos/'));
+    await responsePromise;
   });
 
   test('should filter videos by favorite', async ({ page, request }) => {
