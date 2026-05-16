@@ -2,7 +2,7 @@ import { createGroup, type Group } from '@nagiyu/share-together-core';
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 
@@ -59,7 +59,15 @@ export async function GET(): Promise<NextResponse> {
     };
     return NextResponse.json(response);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('グループ一覧取得 API の実行に失敗しました', { error });
+    await reportErrorEvent({
+      serviceId: 'share-together',
+      severity: 'error',
+      title: 'Web API: グループ一覧取得エラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
   }
 }
@@ -101,7 +109,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     const response: ApiSuccessResponse<Group> = { data: group };
     return NextResponse.json(response, { status: 201 });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('グループ作成 API の実行に失敗しました', { error });
+    await reportErrorEvent({
+      serviceId: 'share-together',
+      severity: 'error',
+      title: 'Web API: グループ作成エラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
   }
 }

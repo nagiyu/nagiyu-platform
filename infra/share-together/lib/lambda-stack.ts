@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
+import { grantErrorEventsWrite, LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 
 export interface LambdaStackProps extends cdk.StackProps {
@@ -29,7 +29,8 @@ export class LambdaStack extends LambdaStackBase {
           NODE_ENV: environment,
           APP_VERSION: appVersion,
           DYNAMODB_TABLE_NAME: dynamoTable.tableName,
-          AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
+          AUTH_URL:
+            environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
           NEXT_PUBLIC_AUTH_URL:
             environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
           APP_URL:
@@ -37,12 +38,15 @@ export class LambdaStack extends LambdaStackBase {
               ? 'https://share-together.nagiyu.com'
               : 'https://dev-share-together.nagiyu.com',
           AUTH_SECRET: nextAuthSecret,
+          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         },
       },
       enableFunctionUrl: true,
     };
 
     super(scope, id, baseProps);
+
+    grantErrorEventsWrite(this, this.executionRole, environment as 'dev' | 'prod');
 
     this.webRuntimePolicy = new WebRuntimePolicy(this, 'WebRuntimePolicy', {
       dynamoTable,
