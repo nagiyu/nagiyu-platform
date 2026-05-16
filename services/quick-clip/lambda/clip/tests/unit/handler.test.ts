@@ -41,6 +41,11 @@ jest.mock('@nagiyu/quick-clip-core', () => ({
   },
 }));
 
+const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
+}));
+
 jest.mock('node:child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
 }));
@@ -116,5 +121,18 @@ describe('clip lambda handler', () => {
     const { handler } = await import('../../src/handler.js');
     await expect(handler(baseEvent)).rejects.toThrow('クリップ分割に失敗しました');
     expect(mockUpdate).toHaveBeenCalledWith('job-1', 'h-1', { clipStatus: 'FAILED' });
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        context: expect.objectContaining({ jobId: 'job-1', highlightId: 'h-1' }),
+      })
+    );
+  });
+
+  it('正常系では reportErrorEvent を呼ばない', async () => {
+    const { handler } = await import('../../src/handler.js');
+    await handler(baseEvent);
+    expect(mockReportErrorEvent).not.toHaveBeenCalled();
   });
 });

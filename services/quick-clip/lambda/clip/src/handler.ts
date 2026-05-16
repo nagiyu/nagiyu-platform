@@ -7,6 +7,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 
 const ERROR_MESSAGES = {
@@ -170,6 +171,18 @@ export const handler = async (event: ClipRegenerateEvent): Promise<ClipRegenerat
     return { clipStatus: 'GENERATED' };
   } catch (error) {
     await updateClipStatus(docClient, tableName, event, 'FAILED');
+    await reportErrorEvent({
+      serviceId: 'quick-clip',
+      severity: 'error',
+      title: 'QuickClip クリップ再生成に失敗しました',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        jobId: event.jobId,
+        highlightId: event.highlightId,
+        s3Key: CLIP_OUTPUT_KEY(event.jobId, event.highlightId),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     throw error;
   } finally {
     await rm(dirname(localOutputPath), { recursive: true, force: true });
