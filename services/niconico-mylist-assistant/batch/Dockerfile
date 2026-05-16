@@ -1,5 +1,5 @@
 # ベースイメージ: Playwright公式イメージ（ブラウザ含む）
-FROM mcr.microsoft.com/playwright:v1.59.1-jammy AS base
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy AS base
 
 # ビルドステージ
 FROM base AS builder
@@ -13,7 +13,7 @@ COPY services/niconico-mylist-assistant/core ./services/niconico-mylist-assistan
 COPY services/niconico-mylist-assistant/batch ./services/niconico-mylist-assistant/batch/
 
 # 依存関係をインストール（ソースコード存在下で実行）
-RUN npm install --omit=optional
+RUN npm ci --omit=optional
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
 RUN npm run build --workspace=@nagiyu/common
