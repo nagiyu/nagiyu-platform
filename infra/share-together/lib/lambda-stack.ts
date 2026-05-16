@@ -29,7 +29,8 @@ export class LambdaStack extends LambdaStackBase {
           NODE_ENV: environment,
           APP_VERSION: appVersion,
           DYNAMODB_TABLE_NAME: dynamoTable.tableName,
-          AUTH_URL: environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
+          AUTH_URL:
+            environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
           NEXT_PUBLIC_AUTH_URL:
             environment === 'prod' ? 'https://auth.nagiyu.com' : 'https://dev-auth.nagiyu.com',
           APP_URL:

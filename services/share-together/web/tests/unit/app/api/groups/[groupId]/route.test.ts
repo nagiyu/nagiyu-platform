@@ -242,10 +242,9 @@ describe('/api/groups/[groupId] route handlers', () => {
     } as SessionOrUnauthorized);
     mockGetById.mockRejectedValue(new Error('DynamoDB 接続エラー'));
 
-    const response = await PUT(
-      { json: async () => ({ name: '更新後' }) } as Request,
-      { params: Promise.resolve({ groupId: 'group-1' }) }
-    );
+    const response = await PUT({ json: async () => ({ name: '更新後' }) } as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
 
     expect(response.status).toBe(500);
     expect(mockReportErrorEvent).toHaveBeenCalledWith(
