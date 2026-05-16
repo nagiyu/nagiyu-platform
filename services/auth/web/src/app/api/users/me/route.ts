@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { getSession } from '@/lib/auth/session';
 
 // エラーメッセージ定数
@@ -33,6 +34,17 @@ export async function GET() {
 
     return NextResponse.json(user);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await reportErrorEvent({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: 自分のユーザー情報取得エラー',
+      message: errorMessage,
+      context: {
+        userId: session.user.id,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     console.error('Error fetching current user:', error);
     return NextResponse.json({ error: 'ユーザー情報の取得に失敗しました' }, { status: 500 });
   }

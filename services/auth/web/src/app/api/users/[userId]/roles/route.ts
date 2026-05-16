@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, VALID_ROLES, hasPermission } from '@nagiyu/common';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { z } from 'zod';
 import { getSession } from '@/lib/auth/session';
 
@@ -89,6 +90,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ use
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await reportErrorEvent({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: ロール割り当てエラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     console.error('Error assigning roles:', error);
     return NextResponse.json({ error: 'ロールの割り当てに失敗しました' }, { status: 500 });
   }
