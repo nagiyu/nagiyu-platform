@@ -2,7 +2,9 @@ import { reportErrorEvent } from '@nagiyu/aws';
 
 const mockUpsertUser = jest.fn();
 
-const capturedCallbacks: { jwt?: Function } = {};
+type AnyAsyncFn = (...args: unknown[]) => Promise<unknown>;
+
+const capturedCallbacks: { jwt?: AnyAsyncFn } = {};
 
 jest.mock('@nagiyu/aws', () => ({
   reportErrorEvent: jest.fn().mockResolvedValue(null),
@@ -100,11 +102,11 @@ describe('jwt コールバック', () => {
 });
 
 describe('redirect コールバック', () => {
-  let redirect: Function;
+  let redirect: AnyAsyncFn;
 
   beforeAll(async () => {
     const { authConfig } = await import('../../../src/auth/auth');
-    redirect = authConfig.callbacks!.redirect as Function;
+    redirect = authConfig.callbacks!.redirect as AnyAsyncFn;
   });
 
   it('baseUrl と同じ URL は許可する', async () => {
@@ -133,11 +135,11 @@ describe('redirect コールバック', () => {
 });
 
 describe('signIn コールバック', () => {
-  let signIn: Function;
+  let signIn: AnyAsyncFn;
 
   beforeAll(async () => {
     const { authConfig } = await import('../../../src/auth/auth');
-    signIn = authConfig.callbacks!.signIn as Function;
+    signIn = authConfig.callbacks!.signIn as AnyAsyncFn;
   });
 
   beforeEach(() => {
