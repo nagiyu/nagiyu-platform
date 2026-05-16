@@ -124,10 +124,17 @@ jest.mock('../../../src/libs/emotion-highlight.service.js', () => ({
   })),
 }));
 
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
+}));
+
+import { reportErrorEvent } from '@nagiyu/aws';
 import {
   runQuickClipBatch,
   type QuickClipBatchRunInput,
 } from '../../../src/libs/quick-clip-batch-runner.js';
+
+const reportErrorEventMock = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 
 const input: QuickClipBatchRunInput = {
   command: 'extract',
@@ -217,6 +224,14 @@ describe('runQuickClipBatch', () => {
     expect(mockUpdateErrorMessage).toHaveBeenCalledWith(
       'job-1',
       'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4'
+    );
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        message: 'アップロード済みの動画ファイルが見つかりません: uploads/job-1/input.mp4',
+        context: expect.objectContaining({ jobId: 'job-1', command: 'extract' }),
+      })
     );
   });
 
@@ -378,6 +393,25 @@ describe('runQuickClipBatch', () => {
     expect(mockAggregate).toHaveBeenCalledWith([], [], 120);
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'clipping');
     expect(mockUpdateBatchStage).toHaveBeenCalledWith('job-1', 'aggregating');
+    expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
+  });
+
+  it('感情分析の getScores が失敗した場合は reportErrorEvent を warning で呼びつつ処理を継続する', async () => {
+    mockS3Send.mockResolvedValue({ Body: { pipe: jest.fn() } });
+    mockTranscribe.mockResolvedValue([{ start: 1.0, end: 3.0, text: 'やばい！' }]);
+    mockGetScores.mockRejectedValue(new Error('emotion api failed'));
+
+    const inputWithKey: QuickClipBatchRunInput = { ...input, openAiApiKey: 'sk-test-key' };
+    await expect(runQuickClipBatch(inputWithKey)).resolves.toBeUndefined();
+
+    expect(reportErrorEventMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'warning',
+        message: 'emotion api failed',
+        context: expect.objectContaining({ jobId: 'job-1', stage: 'emotionScoring' }),
+      })
+    );
     expect(mockUpdateErrorMessage).not.toHaveBeenCalled();
   });
 
