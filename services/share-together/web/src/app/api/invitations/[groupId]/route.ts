@@ -5,7 +5,7 @@ import {
 import { NextResponse } from 'next/server';
 import type { ApiErrorResponse, ApiSuccessResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 
@@ -115,10 +115,22 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
       }
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('招待承認・拒否 API の実行に失敗しました', {
       groupId: requestedGroupId,
       action: requestedAction,
       error,
+    });
+    await reportErrorEvent({
+      serviceId: 'share-together',
+      severity: 'error',
+      title: 'Web API: 招待承認・拒否エラー',
+      message: errorMessage,
+      context: {
+        groupId: requestedGroupId,
+        action: requestedAction,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
     });
     return createInternalServerErrorResponse();
   }

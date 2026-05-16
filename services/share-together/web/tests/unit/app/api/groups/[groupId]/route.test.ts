@@ -27,6 +27,7 @@ jest.mock('@/lib/auth/session', () => ({
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -39,7 +40,7 @@ jest.mock('@nagiyu/share-together-core', () => ({
 import { DELETE, PUT } from '@/app/api/groups/[groupId]/route';
 import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -47,6 +48,7 @@ const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunc
 const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
   typeof getDynamoDBDocumentClient
 >;
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
@@ -232,5 +234,38 @@ describe('/api/groups/[groupId] route handlers', () => {
       error: 'VALIDATION_ERROR',
       message: '入力内容が不正です',
     });
+  });
+
+  it('PUT: 例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+
+    const response = await PUT(
+      { json: async () => ({ name: '更新後' }) } as Request,
+      { params: Promise.resolve({ groupId: 'group-1' }) }
+    );
+
+    expect(response.status).toBe(500);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
+    );
+  });
+
+  it('DELETE: 例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    mockGetById.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+
+    const response = await DELETE({} as Request, {
+      params: Promise.resolve({ groupId: 'group-1' }),
+    });
+
+    expect(response.status).toBe(500);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
+    );
   });
 });
