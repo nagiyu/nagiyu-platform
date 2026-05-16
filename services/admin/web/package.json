@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@nagiyu/admin-core": "*",
+    "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",
