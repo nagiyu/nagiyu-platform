@@ -98,7 +98,7 @@ jobs:
         with:
           workspace: '@nagiyu/quick-clip-web'
           shared-workspaces: >
-            @nagiyu/common,@nagiyu/browser,@nagiyu/react,
+            @nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,
             @nagiyu/nextjs,@nagiyu/ui,@nagiyu/quick-clip-core
 
       - name: Configure AWS credentials
