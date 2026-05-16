@@ -432,7 +432,11 @@ describe('DynamoDBUserRepository', () => {
       mockSend.mockRejectedValueOnce('db string error');
 
       await expect(
-        repository.upsertUser({ googleId: 'google-existing', email: 'old@example.com', name: '名前' })
+        repository.upsertUser({
+          googleId: 'google-existing',
+          email: 'old@example.com',
+          name: '名前',
+        })
       ).rejects.toBe('db string error');
 
       expect(reportErrorEvent).toHaveBeenCalledWith(

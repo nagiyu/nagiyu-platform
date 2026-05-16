@@ -2,19 +2,21 @@ jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn().mockReturnValue({}),
   getTableName: jest.fn().mockReturnValue('test-table'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
-  registerDynamoRepositories: jest.fn().mockImplementation((config: {
-    user: {
-      createInMemoryRepository: () => unknown;
-      createDynamoDBRepository: (opts: { docClient: unknown; tableName: string }) => unknown;
-    };
-  }) => {
-    config.user.createInMemoryRepository();
-    config.user.createDynamoDBRepository({ docClient: {}, tableName: 'test-table' });
-    return {
-      user: { createRepository: jest.fn().mockReturnValue({}) },
-      resetAll: jest.fn(),
-    };
-  }),
+  registerDynamoRepositories: jest.fn().mockImplementation(
+    (config: {
+      user: {
+        createInMemoryRepository: () => unknown;
+        createDynamoDBRepository: (opts: { docClient: unknown; tableName: string }) => unknown;
+      };
+    }) => {
+      config.user.createInMemoryRepository();
+      config.user.createDynamoDBRepository({ docClient: {}, tableName: 'test-table' });
+      return {
+        user: { createRepository: jest.fn().mockReturnValue({}) },
+        resetAll: jest.fn(),
+      };
+    }
+  ),
 }));
 
 import { registerDynamoRepositories } from '@nagiyu/aws';

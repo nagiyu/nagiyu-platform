@@ -108,17 +108,26 @@ describe('redirect コールバック', () => {
   });
 
   it('baseUrl と同じ URL は許可する', async () => {
-    const result = await redirect({ url: 'https://auth.nagiyu.com/signin', baseUrl: 'https://auth.nagiyu.com' });
+    const result = await redirect({
+      url: 'https://auth.nagiyu.com/signin',
+      baseUrl: 'https://auth.nagiyu.com',
+    });
     expect(result).toBe('https://auth.nagiyu.com/signin');
   });
 
   it('*.nagiyu.com へのリダイレクトは許可する', async () => {
-    const result = await redirect({ url: 'https://admin.nagiyu.com/', baseUrl: 'https://auth.nagiyu.com' });
+    const result = await redirect({
+      url: 'https://admin.nagiyu.com/',
+      baseUrl: 'https://auth.nagiyu.com',
+    });
     expect(result).toBe('https://admin.nagiyu.com/');
   });
 
   it('外部 URL は baseUrl にフォールバックする', async () => {
-    const result = await redirect({ url: 'https://evil.example.com/', baseUrl: 'https://auth.nagiyu.com' });
+    const result = await redirect({
+      url: 'https://evil.example.com/',
+      baseUrl: 'https://auth.nagiyu.com',
+    });
     expect(result).toBe('https://auth.nagiyu.com');
   });
 });
