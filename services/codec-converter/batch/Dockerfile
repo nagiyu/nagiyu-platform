@@ -23,6 +23,8 @@ COPY services/codec-converter ./services/codec-converter/
 RUN npm install --prefer-offline --no-audit
 
 # モノレポのルートからビルド（共通ライブラリも含めて）
+RUN npm run build --workspace=@nagiyu/common
+RUN npm run build --workspace=@nagiyu/aws
 RUN npm run build --workspace=@nagiyu/codec-converter-core
 RUN npm run build --workspace=@nagiyu/codec-converter-batch
 
@@ -37,6 +39,10 @@ COPY --from=builder /app/node_modules ./node_modules
 
 # 必要なビルド成果物とpackage.jsonをコピー
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/libs/common/package*.json ./libs/common/
+COPY --from=builder /app/libs/common/dist ./libs/common/dist
+COPY --from=builder /app/libs/aws/package*.json ./libs/aws/
+COPY --from=builder /app/libs/aws/dist ./libs/aws/dist
 COPY --from=builder /app/services/codec-converter/core/package*.json ./services/codec-converter/core/
 COPY --from=builder /app/services/codec-converter/core/dist ./services/codec-converter/core/dist
 COPY --from=builder /app/services/codec-converter/batch/package*.json ./services/codec-converter/batch/

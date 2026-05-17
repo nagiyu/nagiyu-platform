@@ -1,6 +1,7 @@
 import NextAuth, { type NextAuthConfig } from 'next-auth';
 import Google from 'next-auth/providers/google';
 import { createAuthConfig } from '@nagiyu/nextjs';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { createUserRepository } from '../repositories/factory';
 
 // エラーメッセージ定数
@@ -89,20 +90,49 @@ export const authConfig: NextAuthConfig = {
       // email と name の null チェック
       if (!user.email) {
         console.error(ERROR_MESSAGES.MISSING_USER_EMAIL);
+        await reportErrorEvent({
+          serviceId: 'auth',
+          severity: 'error',
+          title: 'signIn: OAuth ユーザー情報に email がありません',
+          message: ERROR_MESSAGES.MISSING_USER_EMAIL,
+          context: { step: 'signIn' },
+        });
         return false;
       }
       if (!user.name) {
         console.error(ERROR_MESSAGES.MISSING_USER_NAME);
+        await reportErrorEvent({
+          serviceId: 'auth',
+          severity: 'error',
+          title: 'signIn: OAuth ユーザー情報に name がありません',
+          message: ERROR_MESSAGES.MISSING_USER_NAME,
+          context: { step: 'signIn' },
+        });
         return false;
       }
 
       const userRepository = createUserRepository();
-      await userRepository.upsertUser({
-        googleId: account.providerAccountId,
-        email: user.email,
-        name: user.name,
-        picture: user.image || undefined,
-      });
+      try {
+        await userRepository.upsertUser({
+          googleId: account.providerAccountId,
+          email: user.email,
+          name: user.name,
+          picture: user.image || undefined,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await reportErrorEvent({
+          serviceId: 'auth',
+          severity: 'error',
+          title: 'signIn: ユーザー upsert エラー',
+          message: errorMessage,
+          context: {
+            step: 'upsertUser',
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+        });
+        return false;
+      }
 
       return true;
     },

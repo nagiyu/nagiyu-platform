@@ -5,7 +5,7 @@ import {
   encrypt,
   createBatchJob,
 } from '@nagiyu/niconico-mylist-assistant-core';
-import { getBatchClient } from '@nagiyu/aws';
+import { getBatchClient, reportErrorEvent } from '@nagiyu/aws';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -254,6 +254,16 @@ export async function POST(
       encryptedPasswordJson = JSON.stringify(encryptedData);
     } catch (error) {
       console.error('パスワード暗号化エラー:', error);
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
+        title: 'パスワード暗号化エラー',
+        message: error instanceof Error ? error.message : String(error),
+        context: {
+          userId: session.user.userId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
       return NextResponse.json(
         {
           error: 'ENCRYPTION_ERROR',
@@ -287,6 +297,16 @@ export async function POST(
     // ジョブIDの確認
     if (!submitResult.jobId) {
       console.error('Batch job submission returned no jobId:', submitResult.jobId);
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
+        title: 'Batch ジョブ ID 未取得',
+        message: 'SubmitJob のレスポンスにジョブ ID が含まれていませんでした',
+        context: {
+          userId: session.user.userId,
+          jobName,
+        },
+      });
       return NextResponse.json(
         {
           error: 'BATCH_ERROR',
@@ -309,6 +329,17 @@ export async function POST(
       console.log(`バッチジョブレコードを作成しました: ${submitResult.jobId}`);
     } catch (error) {
       console.error('バッチジョブレコード作成エラー:', error);
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'error',
+        title: 'DynamoDB バッチジョブレコード作成失敗',
+        message: error instanceof Error ? error.message : String(error),
+        context: {
+          userId: session.user.userId,
+          jobId: submitResult.jobId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      });
       // DynamoDB への保存に失敗した場合はエラーを返す
       // ジョブステータスが照会できないため
       return NextResponse.json(
@@ -334,6 +365,16 @@ export async function POST(
     );
   } catch (error) {
     console.error('バッチジョブ投入エラー:', error);
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'Batch ジョブ投入エラー',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+    });
 
     // AWS Batch エラー
     return NextResponse.json(

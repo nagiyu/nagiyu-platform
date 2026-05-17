@@ -7,7 +7,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { Construct } from 'constructs';
-import { SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -62,6 +62,7 @@ export class BatchStack extends cdk.Stack {
     });
     props.storageBucket.grantReadWrite(jobRole);
     props.jobsTable.grantReadWriteData(jobRole);
+    grantErrorEventsWrite(this, jobRole, props.environment);
 
     const batchLogGroup = new logs.LogGroup(this, 'BatchLogGroup', {
       logGroupName: `/aws/batch/nagiyu-quick-clip-${props.environment}`,
@@ -137,6 +138,10 @@ export class BatchStack extends cdk.Stack {
             name: 'OPENAI_API_KEY',
             value: props.openAiApiKey,
           },
+          {
+            name: 'ERROR_EVENTS_TABLE_NAME',
+            value: `nagiyu-error-events-${props.environment}`,
+          },
         ],
       },
       timeout: { attemptDurationSeconds: 3600 },
@@ -186,6 +191,10 @@ export class BatchStack extends cdk.Stack {
             name: 'OPENAI_API_KEY',
             value: props.openAiApiKey,
           },
+          {
+            name: 'ERROR_EVENTS_TABLE_NAME',
+            value: `nagiyu-error-events-${props.environment}`,
+          },
         ],
       },
       timeout: { attemptDurationSeconds: 3 * 3600 },
@@ -234,6 +243,10 @@ export class BatchStack extends cdk.Stack {
           {
             name: 'OPENAI_API_KEY',
             value: props.openAiApiKey,
+          },
+          {
+            name: 'ERROR_EVENTS_TABLE_NAME',
+            value: `nagiyu-error-events-${props.environment}`,
           },
         ],
       },

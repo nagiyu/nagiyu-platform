@@ -13,7 +13,7 @@ import {
   VIDEO_REGISTRATION_WAIT,
 } from './constants.js';
 import { MylistRegistrationResult, LoginResult } from './types.js';
-import { createS3Client, uploadFile, getS3ObjectUrl } from '@nagiyu/aws';
+import { createS3Client, uploadFile, getS3ObjectUrl, reportErrorEvent } from '@nagiyu/aws';
 import { readFile } from 'fs/promises';
 
 const VIDEO_RETRY_OPTIONS: Pick<
@@ -71,6 +71,16 @@ export async function login(page: Page, email: string, password: string): Promis
     return { requires2FA: false };
   } catch (error) {
     console.error('ログイン失敗:', error);
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'ニコニコログイン失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        step: 'login',
+        error: error instanceof Error ? error.message : String(error),
+      },
+    });
     throw new Error(ERROR_MESSAGES.LOGIN_FAILED);
   }
 }
@@ -712,6 +722,18 @@ export async function executeMylistRegistration(
     const errorMessage = error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR;
 
     console.error('マイリスト登録処理でエラーが発生しました:', errorMessage);
+
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'error',
+      title: 'Playwright 自動化処理失敗',
+      message: errorMessage,
+      context: {
+        step: 'executeMylistRegistration',
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+    });
 
     return {
       successVideoIds: [],

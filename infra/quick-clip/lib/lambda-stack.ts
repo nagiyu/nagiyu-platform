@@ -3,7 +3,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
-import { LambdaStackBase, LambdaStackBaseProps } from '@nagiyu/infra-common';
+import { LambdaStackBase, LambdaStackBaseProps, grantErrorEventsWrite } from '@nagiyu/infra-common';
 import type { QuickClipEnvironment } from './environment';
 
 const QUICK_CLIP_ALLOWED_ORIGINS: Record<QuickClipEnvironment, string[]> = {
@@ -80,6 +80,7 @@ export class LambdaStack extends LambdaStackBase {
           BATCH_JOB_DEFINITION_PREFIX: batchJobDefinitionPrefix,
           CLIP_REGENERATE_FUNCTION_NAME: `nagiyu-quick-clip-clip-regenerate-${environment}`,
           ZIP_GENERATOR_FUNCTION_NAME: `nagiyu-quick-clip-zip-generator-${environment}`,
+          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         },
       },
       additionalPolicyStatements: [
@@ -162,6 +163,7 @@ export class LambdaStack extends LambdaStackBase {
         DEPLOY_ENV: environment,
         DYNAMODB_TABLE_NAME: jobsTableName,
         S3_BUCKET: storageBucketName,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
     });
     this.clipFunction.addToRolePolicy(
@@ -199,6 +201,7 @@ export class LambdaStack extends LambdaStackBase {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         DEPLOY_ENV: environment,
         S3_BUCKET: storageBucketName,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
     });
     this.zipFunction.addToRolePolicy(
@@ -215,6 +218,10 @@ export class LambdaStack extends LambdaStackBase {
         resources: [`${storageBucketArn}/*`],
       })
     );
+
+    grantErrorEventsWrite(this, this.webFunction, environment);
+    grantErrorEventsWrite(this, this.clipFunction, environment);
+    grantErrorEventsWrite(this, this.zipFunction, environment);
 
     new cdk.CfnOutput(this, 'ClipRegenerateFunctionArn', {
       value: this.clipFunction.functionArn,

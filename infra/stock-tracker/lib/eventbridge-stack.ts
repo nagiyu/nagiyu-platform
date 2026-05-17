@@ -69,7 +69,9 @@ export class EventBridgeStack extends cdk.Stack {
       description: 'Trigger Stock Tracker Temporary Alert Expiry Batch every 1 hour',
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
     });
-    temporaryAlertExpiryRule.addTarget(new targets.LambdaFunction(batchTemporaryAlertExpiryFunction));
+    temporaryAlertExpiryRule.addTarget(
+      new targets.LambdaFunction(batchTemporaryAlertExpiryFunction)
+    );
 
     // EventBridge Rule - Evaluation（1時間間隔、予測精度の採点）
     const evaluationRule = new events.Rule(this, 'BatchEvaluationRule', {

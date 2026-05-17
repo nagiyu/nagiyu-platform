@@ -6,7 +6,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { getEcrRepositoryName, getDynamoDBTableName, SSM_PARAMETERS } from '@nagiyu/infra-common';
+import { getEcrRepositoryName, getDynamoDBTableName, SSM_PARAMETERS, grantErrorEventsWrite } from '@nagiyu/infra-common';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
 
 export interface BatchStackProps extends cdk.StackProps {
@@ -134,6 +134,7 @@ export class BatchStack extends cdk.Stack {
       description: 'Role for Batch job container runtime',
       managedPolicies: [this.batchRuntimePolicy],
     });
+    grantErrorEventsWrite(this, batchJobRole, env);
 
     // Batch Compute Environment (Fargate) - L1 construct for assignPublicIp support
     const computeEnvironment = new batch.CfnComputeEnvironment(this, 'ComputeEnvironment', {
@@ -212,6 +213,10 @@ export class BatchStack extends cdk.Stack {
           {
             name: 'VAPID_PRIVATE_KEY',
             value: vapidPrivateKey,
+          },
+          {
+            name: 'ERROR_EVENTS_TABLE_NAME',
+            value: `nagiyu-error-events-${env}`,
           },
           ...(screenshotBucketName
             ? [

@@ -16,6 +16,7 @@ jest.mock('@nagiyu/aws', () => {
   return {
     ...actualAws,
     getDynamoDBDocumentClient: jest.fn(),
+    reportErrorEvent: jest.fn().mockResolvedValue(null),
   };
 });
 
@@ -42,7 +43,7 @@ import {
 } from '@nagiyu/share-together-core';
 import { PUT } from '@/app/api/invitations/[groupId]/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -50,6 +51,7 @@ const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunc
 const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
   typeof getDynamoDBDocumentClient
 >;
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
@@ -230,5 +232,22 @@ describe('PUT /api/invitations/[groupId]', () => {
       error: 'ALREADY_RESPONDED',
       message: 'この招待には既に応答済みです',
     });
+  });
+
+  it('予期しない例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    mockRespondToInvitation.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+
+    const request = {
+      json: jest.fn().mockResolvedValue({ action: 'ACCEPT' }),
+    } as unknown as Request;
+    const response = await PUT(request, { params: Promise.resolve({ groupId: 'group-1' }) });
+
+    expect(response.status).toBe(500);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
+    );
   });
 });

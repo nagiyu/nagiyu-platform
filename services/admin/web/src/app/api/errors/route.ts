@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { createErrorEventReader, type ListErrorEventsQuery } from '@nagiyu/admin-core';
 import { createErrorResponse } from '@nagiyu/nextjs';
 import { getSession } from '@/lib/auth/session';
@@ -98,6 +98,16 @@ export async function GET(request: Request): Promise<NextResponse> {
     }
 
     console.error('エラー一覧取得 API の実行に失敗しました', { error });
+    await reportErrorEvent({
+      serviceId: 'admin',
+      severity: 'error',
+      title: 'エラー一覧取得 API の実行に失敗しました',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        endpoint: 'GET /api/errors',
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     return createErrorResponse(500, 'INTERNAL_ERROR', ERROR_MESSAGES.INTERNAL_ERROR);
   }
 }

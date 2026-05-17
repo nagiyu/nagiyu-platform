@@ -43,8 +43,7 @@ export class WebRuntimePolicy extends iam.ManagedPolicy {
   constructor(scope: Construct, id: string, props: WebRuntimePolicyProps) {
     super(scope, id, {
       managedPolicyName: `stock-tracker-web-runtime-${props.envName}`,
-      description:
-        'Stock Tracker Web runtime permissions (shared by Lambda and developers)',
+      description: 'Stock Tracker Web runtime permissions (shared by Lambda and developers)',
     });
 
     // DynamoDB 権限: Query, GetItem, PutItem, UpdateItem, DeleteItem

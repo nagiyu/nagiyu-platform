@@ -131,7 +131,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -149,7 +149,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/quick-clip-web'
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui,@nagiyu/quick-clip-core'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui,@nagiyu/quick-clip-core'
 
   build-batch:
     name: Build Batch Package
@@ -169,7 +169,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -195,7 +195,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -221,7 +221,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -268,7 +268,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -294,7 +294,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -320,7 +320,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -349,7 +349,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -374,6 +374,11 @@ jobs:
         with:
           node-version: '24'
           cache-dependency-path: './package-lock.json'
+
+      - name: Build shared libraries
+        uses: ./.github/actions/build-shared-workspaces
+        with:
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws'
 
       - name: Build lambda zip package
         run: npm run build --workspace=@nagiyu/quick-clip-lambda-zip
@@ -400,7 +405,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -546,7 +551,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -614,7 +619,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core
@@ -682,7 +687,7 @@ jobs:
       - name: Build shared libraries
         uses: ./.github/actions/build-shared-workspaces
         with:
-          shared-workspaces: '@nagiyu/common,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/nextjs,@nagiyu/ui'
 
       - name: Build core package
         run: npm run build --workspace=@nagiyu/quick-clip-core

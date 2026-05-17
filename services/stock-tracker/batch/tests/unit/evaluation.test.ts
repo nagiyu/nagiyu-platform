@@ -3,6 +3,7 @@
  */
 
 import { EntityAlreadyExistsError, InMemorySingleTableStore } from '@nagiyu/aws';
+import * as awsModule from '@nagiyu/aws';
 import {
   InMemoryDailySummaryRepository,
   InMemoryExchangeRepository,
@@ -79,6 +80,10 @@ describe('evaluation batch handler', () => {
       Start: '09:00',
       End: '17:00',
     });
+  });
+
+  beforeEach(() => {
+    jest.spyOn(awsModule, 'reportErrorEvent').mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -263,6 +268,9 @@ describe('evaluation batch handler', () => {
       expect(body.statistics.totalCandidates).toBe(2);
       expect(body.statistics.failed).toBe(1);
       expect(body.statistics.evaluated).toBe(1);
+      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ serviceId: 'stock-tracker', severity: 'warning' })
+      );
     });
 
     it('ConditionalCheck 違反（並列実行による既採点）は alreadyEvaluatedSkipped にカウント', async () => {
@@ -459,6 +467,22 @@ describe('evaluation batch handler', () => {
       expect(response.statusCode).toBe(500);
       const body = JSON.parse(response.body);
       expect(body.message).toContain('採点バッチでエラー');
+    });
+  });
+
+  describe('DynamoDB 初期化分岐', () => {
+    it('exchangeRepository / dailySummaryRepository を省略した場合、DynamoDB から初期化する', async () => {
+      jest.spyOn(awsModule, 'getDynamoDBDocumentClient').mockReturnValue({} as never);
+      jest.spyOn(awsModule, 'getTableName').mockReturnValue('test-table');
+
+      const response = await handler(buildEvent(), {
+        nowFn: () => NOW,
+        findPendingEvaluationsFn: jest.fn().mockResolvedValue([]),
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(awsModule.getDynamoDBDocumentClient).toHaveBeenCalled();
+      expect(awsModule.getTableName).toHaveBeenCalled();
     });
   });
 });

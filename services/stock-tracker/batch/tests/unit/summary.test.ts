@@ -3,7 +3,9 @@
  */
 
 import { InMemorySingleTableStore } from '@nagiyu/aws';
+import * as awsModule from '@nagiyu/aws';
 import {
+  DynamoDBExchangeRepository,
   InMemoryDailySummaryRepository,
   InMemoryExchangeRepository,
   InMemoryTickerRepository,
@@ -22,6 +24,8 @@ describe('summary batch handler', () => {
   let mockEvent: ScheduledEvent;
 
   beforeEach(() => {
+    jest.spyOn(awsModule, 'reportErrorEvent').mockResolvedValue(null);
+
     const store = new InMemorySingleTableStore();
     exchangeRepository = new InMemoryExchangeRepository(store);
     tickerRepository = new InMemoryTickerRepository(store);
@@ -231,6 +235,9 @@ describe('summary batch handler', () => {
           executionTime: '2026-02-28T23:00:00.000Z',
           reason: 'TradingView API Error',
         })
+      );
+      expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ serviceId: 'stock-tracker', severity: 'warning' })
       );
 
       const summary = await dailySummaryRepository.getByTickerAndDate('NSDQ:AAPL', '2026-02-26');
@@ -898,6 +905,54 @@ describe('summary batch handler', () => {
       });
     });
 
+    it('AI解析用chartData が空の場合でも historicalData を空配列にして AI 解析を実行する', async () => {
+      process.env.OPENAI_API_KEY = 'test-api-key';
+
+      const matchedPatternId = PATTERN_REGISTRY[0].definition.patternId;
+      const matchedPatternName = PATTERN_REGISTRY[0].definition.name;
+
+      await dailySummaryRepository.upsert({
+        TickerID: 'NSDQ:AAPL',
+        ExchangeID: 'NASDAQ',
+        Date: '2026-02-27',
+        Open: 90,
+        High: 95,
+        Low: 88,
+        Close: 92,
+        PatternResults: Object.fromEntries(
+          PATTERN_REGISTRY.map((pattern) => [
+            pattern.definition.patternId,
+            pattern.definition.patternId === matchedPatternId ? 'MATCHED' : 'NOT_MATCHED',
+          ])
+        ),
+        BuyPatternCount: 1,
+        SellPatternCount: 0,
+      });
+
+      const generateAiAnalysisFn = jest.fn().mockResolvedValue(mockAiAnalysisResult);
+      // needsStaticAnalysis が false のため、AI解析用の chartData 取得が走る（count: 50）
+      const getChartDataFn: jest.MockedFunction<typeof getChartData> = jest
+        .fn()
+        .mockResolvedValue([]);
+
+      await handler(mockEvent, {
+        exchangeRepository,
+        tickerRepository,
+        dailySummaryRepository,
+        getChartDataFn,
+        nowFn: jest.fn(() => Date.UTC(2026, 1, 27, 23, 0, 0)),
+        generateAiAnalysisFn,
+      });
+
+      expect(generateAiAnalysisFn).toHaveBeenCalledWith(
+        'test-api-key',
+        expect.objectContaining({
+          historicalData: [],
+          patternSummary: expect.stringContaining(matchedPatternName),
+        })
+      );
+    });
+
     it('チャート画像生成失敗時は画像なしで AI 解析を継続する', async () => {
       process.env.OPENAI_API_KEY = 'test-api-key';
 
@@ -1153,6 +1208,20 @@ describe('summary batch handler', () => {
         message: '日次サマリー生成バッチでエラーが発生しました',
         error: 'exchange fetch failed',
       });
+    });
+  });
+
+  describe('DynamoDB 初期化分岐', () => {
+    it('dependencies を省略した場合、DynamoDB から初期化する', async () => {
+      jest.spyOn(awsModule, 'getDynamoDBDocumentClient').mockReturnValue({} as never);
+      jest.spyOn(awsModule, 'getTableName').mockReturnValue('test-table');
+      jest.spyOn(DynamoDBExchangeRepository.prototype, 'getAll').mockResolvedValue([]);
+
+      const response = await handler(mockEvent);
+
+      expect(response.statusCode).toBe(200);
+      expect(awsModule.getDynamoDBDocumentClient).toHaveBeenCalled();
+      expect(awsModule.getTableName).toHaveBeenCalled();
     });
   });
 });

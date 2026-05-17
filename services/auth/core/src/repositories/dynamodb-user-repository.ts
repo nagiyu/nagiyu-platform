@@ -6,7 +6,7 @@ import {
   ScanCommand,
 } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -27,18 +27,32 @@ export class DynamoDBUserRepository implements UserRepository {
   }
 
   public async getUserByGoogleId(googleId: string): Promise<User | null> {
-    const result = await this.dynamoDb.send(
-      new QueryCommand({
-        TableName: this.tableName,
-        IndexName: 'googleId-index',
-        KeyConditionExpression: 'googleId = :googleId',
-        ExpressionAttributeValues: {
-          ':googleId': googleId,
+    try {
+      const result = await this.dynamoDb.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          IndexName: 'googleId-index',
+          KeyConditionExpression: 'googleId = :googleId',
+          ExpressionAttributeValues: {
+            ':googleId': googleId,
+          },
+        })
+      );
+      return (result.Items?.[0] as User) || null;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await reportErrorEvent({
+        serviceId: 'auth',
+        severity: 'error',
+        title: 'DB: getUserByGoogleId エラー',
+        message: errorMessage,
+        context: {
+          step: 'getUserByGoogleId',
+          errorStack: error instanceof Error ? error.stack : undefined,
         },
-      })
-    );
-
-    return (result.Items?.[0] as User) || null;
+      });
+      throw error;
+    }
   }
 
   public async getUserById(userId: string): Promise<User | null> {
@@ -81,12 +95,28 @@ export class DynamoDBUserRepository implements UserRepository {
         updatedAt: new Date().toISOString(),
       };
 
-      await this.dynamoDb.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: updatedUser,
-        })
-      );
+      try {
+        await this.dynamoDb.send(
+          new PutCommand({
+            TableName: this.tableName,
+            Item: updatedUser,
+          })
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await reportErrorEvent({
+          serviceId: 'auth',
+          severity: 'error',
+          title: 'DB: upsertUser (既存ユーザー更新) エラー',
+          message: errorMessage,
+          context: {
+            step: 'upsertUser',
+            userId: existingUser.userId,
+            errorStack: error instanceof Error ? error.stack : undefined,
+          },
+        });
+        throw error;
+      }
 
       return updatedUser;
     }
@@ -102,12 +132,27 @@ export class DynamoDBUserRepository implements UserRepository {
       updatedAt: new Date().toISOString(),
     };
 
-    await this.dynamoDb.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: newUser,
-      })
-    );
+    try {
+      await this.dynamoDb.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: newUser,
+        })
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await reportErrorEvent({
+        serviceId: 'auth',
+        severity: 'error',
+        title: 'DB: upsertUser (新規ユーザー作成) エラー',
+        message: errorMessage,
+        context: {
+          step: 'upsertUser',
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+      });
+      throw error;
+    }
 
     return newUser;
   }

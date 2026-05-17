@@ -58,10 +58,11 @@ export class LambdaStack extends LambdaStackBase {
           `arn:aws:dynamodb:*:*:table/nagiyu-admin-main-${environment}/index/*`,
         ],
       }),
-      // 共通エラーイベントテーブルへの読み取り権限（/errors UI / API 用）
+      // 共通エラーイベントテーブルへの読み取り権限（/errors UI / API 用）+
+      // アプリ層の自己監視（reportErrorEvent）のための書き込み権限
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['dynamodb:GetItem', 'dynamodb:Query'],
+        actions: ['dynamodb:GetItem', 'dynamodb:Query', 'dynamodb:PutItem'],
         resources: [
           `arn:aws:dynamodb:*:*:table/nagiyu-error-events-${environment}`,
           `arn:aws:dynamodb:*:*:table/nagiyu-error-events-${environment}/index/*`,

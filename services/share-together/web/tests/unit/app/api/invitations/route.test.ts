@@ -13,6 +13,7 @@ jest.mock('@/lib/auth/session', () => ({
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -26,7 +27,7 @@ import { BatchGetCommand } from '@aws-sdk/lib-dynamodb';
 import { DynamoDBGroupRepository, DynamoDBMembershipRepository } from '@nagiyu/share-together-core';
 import { GET } from '@/app/api/invitations/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -34,6 +35,7 @@ const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunc
 const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
   typeof getDynamoDBDocumentClient
 >;
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 const mockDynamoDBMembershipRepository = DynamoDBMembershipRepository as jest.MockedClass<
   typeof DynamoDBMembershipRepository
 >;
@@ -151,7 +153,7 @@ describe('GET /api/invitations', () => {
     });
   });
 
-  it('例外発生時は500レスポンスを返す', async () => {
+  it('例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
     mockGetSessionOrUnauthorized.mockResolvedValue({
       user: { id: 'user-1' },
     } as SessionOrUnauthorized);
@@ -164,5 +166,8 @@ describe('GET /api/invitations', () => {
       error: 'INTERNAL_SERVER_ERROR',
       message: 'サーバーエラーが発生しました',
     });
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
+    );
   });
 });

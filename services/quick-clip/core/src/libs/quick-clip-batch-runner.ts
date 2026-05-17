@@ -1,3 +1,4 @@
+import { reportErrorEvent } from '@nagiyu/aws';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
@@ -317,6 +318,17 @@ const buildHighlights = async (
       console.warn('[buildHighlights] 感情分析をスキップします:', error);
       progress.emotionScoring = { status: 'failed' };
       await updateAnalysisProgress(jobId, { ...progress }, tableName, awsRegion);
+      await reportErrorEvent({
+        serviceId: 'quick-clip',
+        severity: 'warning',
+        title: 'QuickClip 感情分析に失敗しスキップしました',
+        message: error instanceof Error ? error.message : String(error),
+        context: {
+          jobId,
+          stage: 'emotionScoring',
+          errorStack: error instanceof Error ? error.stack : undefined,
+        },
+      });
     }
   }
 
@@ -426,6 +438,17 @@ export const runQuickClipBatch = async (env: QuickClipBatchRunInput): Promise<vo
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await updateErrorMessage(env.jobId, message, env.tableName, env.awsRegion);
+    await reportErrorEvent({
+      serviceId: 'quick-clip',
+      severity: 'error',
+      title: 'QuickClip 抽出処理が失敗しました',
+      message,
+      context: {
+        jobId: env.jobId,
+        command: env.command,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     throw error;
   }
 };
