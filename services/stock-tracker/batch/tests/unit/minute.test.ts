@@ -183,7 +183,7 @@ describe('minute batch handler', () => {
         expect.any(Number)
       );
       expect(tradingviewClient.getCurrentPrice).toHaveBeenCalledWith('NSDQ:AAPL', {
-        timeout: 5000,
+        timeout: 8000,
       });
       expect(alertEvaluator.evaluateAlert).toHaveBeenCalledWith(mockAlert, 205.0);
       expect(sendWebPushNotification).toHaveBeenCalledWith(

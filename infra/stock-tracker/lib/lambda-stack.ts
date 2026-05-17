@@ -175,7 +175,7 @@ export class LambdaStack extends cdk.Stack {
         VAPID_PRIVATE_KEY: vapidPrivateKey,
         OPENAI_API_KEY: openAiApiKey,
         MINUTE_BATCH_CONCURRENCY: '10',
-        MINUTE_BATCH_TIME_BUDGET_MS: '38000',
+        MINUTE_BATCH_TIME_BUDGET_MS: '30000',
         ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
