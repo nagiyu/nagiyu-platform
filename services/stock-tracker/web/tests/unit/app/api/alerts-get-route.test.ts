@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { GET } from '../../../../app/api/alerts/route';
 import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
+import * as awsModule from '@nagiyu/aws';
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createAlertRepository: jest.fn(),
@@ -20,6 +21,11 @@ jest.mock('@nagiyu/nextjs', () => ({
   handleApiError: jest.fn((error) => {
     throw error;
   }),
+}));
+
+jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 describe('GET /api/alerts', () => {
@@ -79,5 +85,16 @@ describe('GET /api/alerts', () => {
       true,
       false,
     ]);
+  });
+
+  it('DynamoDB エラー時に reportErrorEvent が呼ばれる', async () => {
+    mockGetByUserId.mockRejectedValue(new Error('DynamoDB 接続エラー'));
+
+    await expect(GET(new NextRequest('http://localhost/api/alerts'))).rejects.toThrow(
+      'DynamoDB 接続エラー'
+    );
+    expect(awsModule.reportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'stock-tracker', severity: 'error' })
+    );
   });
 });

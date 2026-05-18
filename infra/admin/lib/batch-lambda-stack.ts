@@ -8,6 +8,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { SnsEventSource, DynamoEventSource } from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
+import { grantErrorEventsWrite } from '@nagiyu/infra-common';
 
 export interface BatchLambdaStackProps extends cdk.StackProps {
   environment: 'dev' | 'prod';
@@ -72,13 +73,7 @@ export class BatchLambdaStack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
       ],
     });
-    alarmIngestRole.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['dynamodb:PutItem'],
-        resources: [errorEventsTableArn],
-      })
-    );
+    grantErrorEventsWrite(this, alarmIngestRole, environment);
 
     this.alarmIngestFunction = new lambda.Function(this, 'AlarmIngestFunction', {
       functionName: `nagiyu-admin-alarm-ingest-${environment}`,

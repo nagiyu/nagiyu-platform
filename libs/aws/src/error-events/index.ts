@@ -18,3 +18,5 @@ export {
 export { DynamoDBErrorEventWriter } from './dynamodb-writer.js';
 export { InMemoryErrorEventWriter } from './in-memory-writer.js';
 export { createErrorEventWriter, resetErrorEventWriter } from './factory.js';
+export type { ReportErrorEventInput, ErrorReporter } from './report.js';
+export { reportErrorEvent, createErrorReporter } from './report.js';

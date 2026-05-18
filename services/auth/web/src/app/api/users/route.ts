@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { ListUsersQuerySchema } from './schemas';
 import { ZodError } from 'zod';
 import { getSession } from '@/lib/auth/session';
@@ -84,6 +85,14 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await reportErrorEvent({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: ユーザー一覧取得エラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     console.error('Error fetching users:', error);
     return NextResponse.json({ error: 'ユーザー一覧の取得に失敗しました' }, { status: 500 });
   }

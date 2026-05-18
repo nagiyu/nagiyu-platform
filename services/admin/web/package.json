@@ -1,6 +1,6 @@
 {
   "name": "@nagiyu/admin",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@nagiyu/admin-core": "*",
+    "@nagiyu/aws": "*",
     "@nagiyu/browser": "*",
     "@nagiyu/common": "*",
     "@nagiyu/nextjs": "*",

@@ -13,6 +13,7 @@ jest.mock('@/lib/auth/session', () => ({
 
 jest.mock('@nagiyu/aws', () => ({
   getDynamoDBDocumentClient: jest.fn(),
+  reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 
 jest.mock('@nagiyu/share-together-core', () => ({
@@ -30,7 +31,7 @@ import {
 } from '@nagiyu/share-together-core';
 import { GET, POST } from '@/app/api/groups/route';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 
 const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunction<
   typeof getSessionOrUnauthorized
@@ -38,6 +39,7 @@ const mockGetSessionOrUnauthorized = getSessionOrUnauthorized as jest.MockedFunc
 const mockGetDynamoDBDocumentClient = getDynamoDBDocumentClient as jest.MockedFunction<
   typeof getDynamoDBDocumentClient
 >;
+const mockReportErrorEvent = reportErrorEvent as jest.MockedFunction<typeof reportErrorEvent>;
 const mockDynamoDBGroupRepository = DynamoDBGroupRepository as jest.MockedClass<
   typeof DynamoDBGroupRepository
 >;
@@ -200,5 +202,35 @@ describe('/api/groups route', () => {
 
     expect(response.status).toBe(400);
     expect(mockCreateGroup).not.toHaveBeenCalled();
+  });
+
+  it('GET: 例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'user-1' },
+    } as SessionOrUnauthorized);
+    delete process.env.DYNAMODB_TABLE_NAME;
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
+    );
+  });
+
+  it('POST: 例外発生時は500レスポンスを返し reportErrorEvent を呼ぶ', async () => {
+    mockGetSessionOrUnauthorized.mockResolvedValue({
+      user: { id: 'owner-1' },
+    } as SessionOrUnauthorized);
+    delete process.env.DYNAMODB_TABLE_NAME;
+
+    const response = await POST({
+      json: async () => ({ name: '新規グループ' }),
+    } as Request);
+
+    expect(response.status).toBe(500);
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ serviceId: 'share-together', severity: 'error' })
+    );
   });
 });

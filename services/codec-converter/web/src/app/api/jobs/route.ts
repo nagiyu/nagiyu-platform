@@ -10,7 +10,7 @@ import {
   type CodecType,
 } from '@nagiyu/codec-converter-core';
 import type { ErrorResponse } from '@nagiyu/common';
-import { getAwsClients } from '@nagiyu/aws';
+import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
 // Presigned URLの有効期限（1時間 = 3600秒）
@@ -149,7 +149,15 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error creating job:', error);
+    await reportErrorEvent({
+      serviceId: 'codec-converter',
+      severity: 'error',
+      title: 'ジョブ作成に失敗しました',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     return NextResponse.json(
       {
         error: 'INTERNAL_SERVER_ERROR',

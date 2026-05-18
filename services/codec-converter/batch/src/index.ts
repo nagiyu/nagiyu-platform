@@ -6,6 +6,7 @@ import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import type { CodecType } from '@nagiyu/codec-converter-core';
+import { reportErrorEvent } from '@nagiyu/aws';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -326,6 +327,17 @@ export async function processJob(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
+    await reportErrorEvent({
+      serviceId: 'codec-converter',
+      severity: 'critical',
+      title: 'Batchジョブが失敗しました',
+      message: errorMessage,
+      context: {
+        jobId: env.JOB_ID,
+        outputCodec: env.OUTPUT_CODEC,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
 
     // ステータスをFAILEDに更新
     try {
@@ -338,14 +350,32 @@ export async function processJob(
         errorMessage
       );
     } catch (updateError) {
+      const updateErrorMessage =
+        updateError instanceof Error ? updateError.message : String(updateError);
       console.error('Failed to update job status to FAILED:', updateError);
+      await reportErrorEvent({
+        serviceId: 'codec-converter',
+        severity: 'error',
+        title: 'ジョブステータスのFAILD更新に失敗しました',
+        message: updateErrorMessage,
+        context: { jobId: env.JOB_ID, originalError: errorMessage },
+      });
     }
 
     // クリーンアップを試みる（エラーは無視）
     try {
       await cleanup([inputPath, outputPath]);
     } catch (cleanupError) {
+      const cleanupErrorMessage =
+        cleanupError instanceof Error ? cleanupError.message : String(cleanupError);
       console.error('Cleanup failed:', cleanupError);
+      await reportErrorEvent({
+        serviceId: 'codec-converter',
+        severity: 'warning',
+        title: '一時ファイルのクリーンアップに失敗しました',
+        message: cleanupErrorMessage,
+        context: { jobId: env.JOB_ID },
+      });
     }
 
     throw error;

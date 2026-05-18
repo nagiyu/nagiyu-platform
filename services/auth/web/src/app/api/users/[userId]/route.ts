@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository, UserNotFoundError } from '@nagiyu/auth-core';
 import { getSession } from '@/lib/auth/session';
 import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { UpdateUserSchema } from '../schemas';
 import { ZodError } from 'zod';
 
@@ -48,6 +49,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ user
 
     return NextResponse.json(user);
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await reportErrorEvent({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: ユーザー詳細取得エラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     console.error('Error fetching user:', error);
     return NextResponse.json({ error: 'ユーザー情報の取得に失敗しました' }, { status: 500 });
   }
@@ -126,6 +135,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ us
       return NextResponse.json({ error: ERROR_MESSAGES.USER_NOT_FOUND }, { status: 404 });
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await reportErrorEvent({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: ユーザー情報更新エラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     console.error('Error updating user:', error);
     return NextResponse.json({ error: 'ユーザー情報の更新に失敗しました' }, { status: 500 });
   }
@@ -173,6 +190,14 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'ユーザーが正常に削除されました' });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await reportErrorEvent({
+      serviceId: 'auth',
+      severity: 'error',
+      title: 'Web API: ユーザー削除エラー',
+      message: errorMessage,
+      context: { errorStack: error instanceof Error ? error.stack : undefined },
+    });
     console.error('Error deleting user:', error);
     return NextResponse.json({ error: 'ユーザーの削除に失敗しました' }, { status: 500 });
   }

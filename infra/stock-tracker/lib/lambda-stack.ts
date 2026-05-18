@@ -8,6 +8,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { WebRuntimePolicy } from './policies/web-runtime-policy';
 import { BatchRuntimePolicy } from './policies/batch-runtime-policy';
+import { grantErrorEventsWrite } from '@nagiyu/infra-common';
 
 export interface LambdaStackProps extends cdk.StackProps {
   environment: string;
@@ -95,6 +96,8 @@ export class LambdaStack extends cdk.Stack {
       ],
     });
 
+    grantErrorEventsWrite(this, webExecutionRole, environment as 'dev' | 'prod');
+
     // Web Lambda Function の作成
     this.webFunction = new lambda.Function(this, 'WebFunction', {
       functionName: `nagiyu-stock-tracker-web-${environment}`,
@@ -122,6 +125,7 @@ export class LambdaStack extends cdk.Stack {
             : 'https://dev-stock-tracker.nagiyu.com',
         AUTH_SECRET: nextAuthSecret,
         STOCK_TRACKER_SUMMARY_BATCH_FUNCTION_NAME: `nagiyu-stock-tracker-batch-summary-${environment}`,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE, // X-Ray トレーシング有効化
       logRetention: logs.RetentionDays.ONE_MONTH, // CloudWatch Logs 保持期間: 30日
@@ -148,6 +152,8 @@ export class LambdaStack extends cdk.Stack {
       ],
     });
 
+    grantErrorEventsWrite(this, batchExecutionRole, environment as 'dev' | 'prod');
+
     // Batch Lambda - Minute（1分間隔、MINUTE_LEVEL アラート処理）
     this.batchMinuteFunction = new lambda.Function(this, 'BatchMinuteFunction', {
       functionName: `nagiyu-stock-tracker-batch-minute-${environment}`,
@@ -169,7 +175,8 @@ export class LambdaStack extends cdk.Stack {
         VAPID_PRIVATE_KEY: vapidPrivateKey,
         OPENAI_API_KEY: openAiApiKey,
         MINUTE_BATCH_CONCURRENCY: '10',
-        MINUTE_BATCH_TIME_BUDGET_MS: '38000',
+        MINUTE_BATCH_TIME_BUDGET_MS: '30000',
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -194,6 +201,7 @@ export class LambdaStack extends cdk.Stack {
         VAPID_PUBLIC_KEY: vapidPublicKey,
         VAPID_PRIVATE_KEY: vapidPrivateKey,
         OPENAI_API_KEY: openAiApiKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -216,6 +224,7 @@ export class LambdaStack extends cdk.Stack {
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'SUMMARY',
         OPENAI_API_KEY: openAiApiKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -238,6 +247,7 @@ export class LambdaStack extends cdk.Stack {
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'DAILY',
         OPENAI_API_KEY: openAiApiKey,
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -259,6 +269,7 @@ export class LambdaStack extends cdk.Stack {
         NODE_ENV: environment,
         DYNAMODB_TABLE_NAME: dynamoTable.tableName,
         BATCH_TYPE: 'EVALUATION',
+        ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
       },
       tracing: lambda.Tracing.ACTIVE,
       logRetention: logs.RetentionDays.ONE_MONTH,
@@ -284,6 +295,7 @@ export class LambdaStack extends cdk.Stack {
           DYNAMODB_TABLE_NAME: dynamoTable.tableName,
           BATCH_TYPE: 'TEMPORARY_ALERT_EXPIRY',
           OPENAI_API_KEY: openAiApiKey,
+          ERROR_EVENTS_TABLE_NAME: `nagiyu-error-events-${environment}`,
         },
         tracing: lambda.Tracing.ACTIVE,
         logRetention: logs.RetentionDays.ONE_MONTH,

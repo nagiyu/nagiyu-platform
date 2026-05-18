@@ -151,6 +151,12 @@ jobs:
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
+      - name: Build auth-core
+        run: npm run build --workspace @nagiyu/auth-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/auth-web
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/auth/web
@@ -223,6 +229,12 @@ jobs:
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
 
+      - name: Build auth-core
+        run: npm run build --workspace @nagiyu/auth-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/auth-web
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
         working-directory: ./services/auth/web
@@ -294,6 +306,12 @@ jobs:
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/nextjs
+
+      - name: Build auth-core
+        run: npm run build --workspace @nagiyu/auth-core
+
+      - name: Build web application
+        run: npm run build --workspace @nagiyu/auth-web
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps webkit

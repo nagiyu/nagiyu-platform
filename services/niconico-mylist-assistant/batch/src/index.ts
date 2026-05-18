@@ -6,6 +6,7 @@
 
 import { decrypt, updateBatchJob, getBatchJob } from '@nagiyu/niconico-mylist-assistant-core';
 import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
+import { reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { executeMylistRegistration } from './playwright-automation.js';
 import {
@@ -123,6 +124,16 @@ async function decryptPassword(encryptedData: string, config: CryptoConfig): Pro
     return password;
   } catch (error) {
     console.error('パスワードの復号化に失敗しました:', error);
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'critical',
+      title: 'パスワード復号化失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     throw new Error(
       `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`
     );
@@ -354,6 +365,18 @@ async function main() {
     // （全失敗の場合のみエラー終了）
     if (result.successVideoIds.length === 0 && result.failedVideoIds.length > 0) {
       console.error('全ての動画の登録に失敗しました');
+      await reportErrorEvent({
+        serviceId: 'niconico-mylist-assistant',
+        severity: 'critical',
+        title: 'バッチジョブ全失敗',
+        message: result.errorMessage ?? '全ての動画の登録に失敗しました',
+        context: {
+          jobId: params?.jobId,
+          userId: params?.userId,
+          failedCount: result.failedVideoIds.length,
+          errorMessage: result.errorMessage,
+        },
+      });
       process.exit(1);
     }
   } catch (error) {
@@ -363,6 +386,19 @@ async function main() {
     console.error(`エラー時刻: ${getTimestamp()}`);
     console.error('エラー詳細:', error);
     console.error('========================================');
+
+    await reportErrorEvent({
+      serviceId: 'niconico-mylist-assistant',
+      severity: 'critical',
+      title: 'バッチジョブ全体の失敗',
+      message: error instanceof Error ? error.message : String(error),
+      context: {
+        jobId: params?.jobId,
+        userId: params?.userId,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+    });
 
     // ジョブステータスを FAILED に更新
     if (params?.jobId && params?.userId) {

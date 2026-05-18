@@ -24,6 +24,11 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
   getSignedUrl: (...args: unknown[]) => mockGetSignedUrl(...args),
 }));
 
+const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
+jest.mock('@nagiyu/aws', () => ({
+  reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
+}));
+
 describe('zip lambda handler', () => {
   beforeEach(() => {
     process.env.S3_BUCKET = 'bucket';
@@ -77,5 +82,29 @@ describe('zip lambda handler', () => {
         highlightIds: [],
       })
     ).rejects.toThrow('入力値が不正です');
+  });
+
+  it('クリップ取得に失敗した場合は reportErrorEvent を error で呼んで再スローする', async () => {
+    mockSend.mockImplementation((command: { constructor: { name: string } }) => {
+      if (command.constructor.name === 'GetObjectCommand') {
+        return Promise.reject(new Error('S3 get failed'));
+      }
+      return Promise.resolve({});
+    });
+
+    const { handler } = await import('../../src/handler.js');
+    await expect(
+      handler({
+        jobId: 'job-1',
+        highlightIds: ['h1'],
+      })
+    ).rejects.toThrow('S3 get failed');
+    expect(mockReportErrorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'quick-clip',
+        severity: 'error',
+        context: expect.objectContaining({ jobId: 'job-1', highlightIds: ['h1'] }),
+      })
+    );
   });
 });

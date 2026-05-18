@@ -10,6 +10,7 @@ const config: Config.InitialOptions = {
   // Support .js extensions in imports (ES modules)
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@nagiyu/common$': '<rootDir>/../../libs/common/src/index.ts',
   },
   // Common coverage settings
   coverageDirectory: 'coverage',

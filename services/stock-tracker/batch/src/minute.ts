@@ -5,7 +5,7 @@
  */
 
 import { logger, withRetry } from '@nagiyu/common';
-import { getDynamoDBDocumentClient, getTableName } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
 import { runConcurrent } from './lib/concurrent-queue.js';
@@ -101,9 +101,11 @@ async function processAlert(
     }
 
     // 4. TradingView API で現在価格取得
-    // timeout を 5s に短縮し maxRetries を 1 にすることで最悪所要時間を ~10.5s に抑える
+    // TradingView は呼び出しごとに WebSocket を張り直すため 5s では接続+初回ティック待ちで
+    // 誤タイムアウトが多発する。8s に緩和し、最悪所要時間を ~16.5s（8s + 0.5s + 8s）に抑える。
+    // 時間予算 30s 直前に開始したタスクでも 30 + 16.5 ≒ 46.5s < Lambda timeout 50s に収まる。
     const currentPrice = await withRetry<number>(
-      () => getCurrentPrice(alert.TickerID, { timeout: 5000 }),
+      () => getCurrentPrice(alert.TickerID, { timeout: 8000 }),
       {
         maxRetries: 1,
         initialDelayMs: 500,
@@ -160,6 +162,17 @@ async function processAlert(
       userId: alert.UserID,
       error: errorMessage,
     });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'warning',
+      title: '分次バッチ: アラート処理エラー',
+      message: errorMessage,
+      context: {
+        alertId: alert.AlertID,
+        userId: alert.UserID,
+        errorStack: error instanceof Error ? error.stack : undefined,
+      },
+    });
     stats.errors++;
     return false;
   }
@@ -190,9 +203,9 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   };
 
   // 並列度・時間予算は環境変数で調整可能
-  // TIME_BUDGET_MS を 38s に設定し、in-flight タスクの完了（最大 ~10.5s）を含めて 50s 以内に収める
+  // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~16.5s）を含めて 50s 以内に収める
   const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '10', 10);
-  const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '38000', 10);
+  const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
 
   try {
@@ -248,6 +261,13 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       eventId: event.id,
       error: errorMessage,
       statistics: stats,
+    });
+    await reportErrorEvent({
+      serviceId: 'stock-tracker',
+      severity: 'error',
+      title: '分次バッチ: 致命的エラー',
+      message: errorMessage,
+      context: { eventId: event.id, statistics: stats },
     });
 
     return {

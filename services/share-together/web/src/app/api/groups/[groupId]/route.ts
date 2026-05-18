@@ -6,7 +6,7 @@ import {
 import { NextResponse, type NextRequest } from 'next/server';
 import type { ApiErrorResponse, GroupResponse } from '@/types';
 import { getSessionOrUnauthorized } from '@/lib/auth/session';
-import { getDynamoDBDocumentClient } from '@nagiyu/aws';
+import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
 
@@ -113,7 +113,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams): Promis
       return notFoundResponse;
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('グループ更新 API の実行に失敗しました', { groupId, error });
+    await reportErrorEvent({
+      serviceId: 'share-together',
+      severity: 'error',
+      title: 'Web API: グループ更新エラー',
+      message: errorMessage,
+      context: { groupId, errorStack: error instanceof Error ? error.stack : undefined },
+    });
     return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
   }
 }
@@ -139,7 +147,15 @@ export async function DELETE(
       return notFoundResponse;
     }
 
+    const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('グループ削除 API の実行に失敗しました', { groupId, error });
+    await reportErrorEvent({
+      serviceId: 'share-together',
+      severity: 'error',
+      title: 'Web API: グループ削除エラー',
+      message: errorMessage,
+      context: { groupId, errorStack: error instanceof Error ? error.stack : undefined },
+    });
     return createErrorResponse(500, 'INTERNAL_SERVER_ERROR', ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
   }
 }
