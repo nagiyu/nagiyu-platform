@@ -630,6 +630,45 @@ export async function takeScreenshot(page: Page, filename: string): Promise<void
 }
 
 /**
+ * ニコニコ動画のお知らせオーバーレイバナー（OverlayBannerFrame）が出現したとき自動的に閉じる
+ * ハンドラを page に登録する。
+ *
+ * バナーが表示されない場合はハンドラが発火しないため、バナーの有無に関わらず安全に使える。
+ *
+ * @param page Playwright Page オブジェクト
+ */
+export async function registerOverlayBannerHandler(page: Page): Promise<void> {
+  const overlayLocator = page.locator('.OverlayBannerFrame');
+
+  await page.addLocatorHandler(
+    overlayLocator,
+    async () => {
+      console.log('お知らせオーバーレイバナーを検出しました。閉じます...');
+      try {
+        const closeButton = page.locator('.OverlayBannerFrame button').first();
+        const buttonCount = await closeButton.count();
+        if (buttonCount > 0) {
+          await closeButton.click({ timeout: 3000, force: true });
+          console.log('オーバーレイバナーを閉じました');
+        } else {
+          await page.evaluate(() => {
+            document.querySelector('.OverlayBannerFrame')?.remove();
+            document.querySelector('.NC-Modal-overlay')?.remove();
+          });
+          console.log('オーバーレイバナーを DOM から除去しました');
+        }
+      } catch (error) {
+        console.warn(
+          'オーバーレイバナーの除去に失敗しました（処理は継続します）:',
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    },
+    { noWaitAfter: true }
+  );
+}
+
+/**
  * ブラウザを起動する
  *
  * @returns Browser オブジェクト
@@ -675,6 +714,9 @@ export async function executeMylistRegistration(
     // ブラウザ起動
     browser = await launchBrowser();
     page = await browser.newPage();
+
+    // お知らせオーバーレイバナー自動 dismiss ハンドラを登録
+    await registerOverlayBannerHandler(page);
 
     // ログイン
     const loginResult = await login(page, email, password);
