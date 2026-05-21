@@ -17,6 +17,8 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -88,9 +90,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const expressionAttributeNames: Record<string, string> = {
         '#gsi1pk': 'GSI1PK',
@@ -136,9 +136,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -157,9 +155,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       result = await this.docClient.send(
         new QueryCommand({
@@ -198,9 +194,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -225,9 +219,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       result = await this.docClient.send(
         new QueryCommand({
@@ -277,9 +269,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,

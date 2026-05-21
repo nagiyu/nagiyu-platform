@@ -1,4 +1,10 @@
-import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import {
+  getDynamoDBDocumentClient,
+  getTableName,
+  reportErrorEvent,
+  encodeCursor,
+  decodeCursor,
+} from '@nagiyu/aws';
 import { createVideoRepository, createUserSettingRepository } from '../repositories/factory.js';
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
@@ -187,18 +193,14 @@ export async function listUserVideoSettings(
   }
 ): Promise<{ settings: UserVideoSetting[]; lastEvaluatedKey?: Record<string, string> }> {
   const limit = options?.limit || 100;
-  const cursor = options?.lastEvaluatedKey
-    ? Buffer.from(JSON.stringify(options.lastEvaluatedKey)).toString('base64')
-    : undefined;
+  const cursor = encodeCursor(options?.lastEvaluatedKey as Record<string, unknown> | undefined);
 
   const result = await getUserSettingRepository().getByUserId(userId, {
     limit,
     cursor,
   });
 
-  const lastEvaluatedKey = result.nextCursor
-    ? JSON.parse(Buffer.from(result.nextCursor, 'base64').toString('utf-8'))
-    : undefined;
+  const lastEvaluatedKey = decodeCursor(result.nextCursor);
 
   return {
     settings: result.items as UserVideoSetting[],

@@ -16,6 +16,8 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -83,9 +85,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
   ): Promise<PaginatedResult<UserSettingEntity>> {
     try {
       const limit = options?.limit || 100;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const result = await this.docClient.send(
         new QueryCommand({
@@ -102,9 +102,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       const items = (result.Items || []).map((item) => this.mapper.toEntity(item as DynamoDBItem));
 
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
+      const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
         items,
