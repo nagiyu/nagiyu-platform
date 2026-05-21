@@ -17,5 +17,9 @@
   },
   "dependencies": {
     "aws-cdk-lib": "^2.256.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "@types/source-map-support": "^0.5.10"
   }
 }
