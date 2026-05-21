@@ -23,7 +23,7 @@ jest.mock('@nagiyu/nextjs', () => ({
 
 describe('PUT /api/alerts/[id]', () => {
   const mockAlert = {
-    AlertID: 'alert-1',
+    AlertID: '550e8400-e29b-41d4-a716-446655440000',
     UserID: 'test-user',
     TickerID: 'NASDAQ:AAPL',
     ExchangeID: 'NASDAQ',
