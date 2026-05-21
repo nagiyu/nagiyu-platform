@@ -30,8 +30,6 @@ const ERROR_MESSAGES = {
   CREATE_ERROR: 'アラートの登録に失敗しました',
   SUBSCRIPTION_REQUIRED: 'Web Push サブスクリプション情報が必要です',
   EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
-  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
-  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
 } as const;
 
 /**
@@ -56,8 +54,7 @@ interface AlertResponse {
   enabled: boolean;
   temporary?: boolean;
   temporaryExpireDate?: string;
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -71,8 +68,7 @@ interface CreateAlertRequest {
   logicalOperator?: AlertEntity['LogicalOperator'];
   enabled?: boolean;
   temporary?: boolean;
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
   subscription?: {
     endpoint?: string;
     keys?: {
@@ -109,11 +105,8 @@ function mapAlertToResponse(
   if (alert.LogicalOperator) {
     response.logicalOperator = alert.LogicalOperator;
   }
-  if (alert.NotificationTitle) {
-    response.notificationTitle = alert.NotificationTitle;
-  }
-  if (alert.NotificationBody) {
-    response.notificationBody = alert.NotificationBody;
+  if (alert.CustomMessage) {
+    response.customMessage = alert.CustomMessage;
   }
 
   return response;
@@ -226,26 +219,6 @@ export const POST = withAuth(
         );
       }
 
-      if (typeof body.notificationTitle !== 'string' || body.notificationTitle.trim() === '') {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED,
-          },
-          { status: 400 }
-        );
-      }
-
-      if (typeof body.notificationBody !== 'string' || body.notificationBody.trim() === '') {
-        return NextResponse.json(
-          {
-            error: 'INVALID_REQUEST',
-            message: ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED,
-          },
-          { status: 400 }
-        );
-      }
-
       // ExchangeID の自動取得（tickerId から）
       const exchangeId = body.exchangeId || body.tickerId?.split(':')[0] || '';
 
@@ -265,8 +238,10 @@ export const POST = withAuth(
         LogicalOperator: body.logicalOperator,
         Temporary: body.temporary === true ? true : undefined,
         TemporaryExpireDate: undefined,
-        NotificationTitle: body.notificationTitle.trim(),
-        NotificationBody: body.notificationBody.trim(),
+        CustomMessage:
+          typeof body.customMessage === 'string' && body.customMessage.trim().length > 0
+            ? body.customMessage.trim()
+            : undefined,
         subscription: {
           endpoint: subscription.endpoint,
           keys: {

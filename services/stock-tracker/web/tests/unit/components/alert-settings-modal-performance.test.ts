@@ -98,7 +98,7 @@ jest.mock('@mui/material', () => {
 });
 
 describe('AlertSettingsModal performance', () => {
-  it('通知本文の入力では chartAlertLines を再計算しない', () => {
+  it('カスタムメッセージの入力では chartAlertLines を再計算しない', () => {
     const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<
       typeof computeAlertLines
     >;
@@ -116,35 +116,8 @@ describe('AlertSettingsModal performance', () => {
     );
 
     const initialCallCount = computeAlertLinesMock.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: '通知設定を編集' }));
-    fireEvent.change(screen.getAllByLabelText('通知本文')[1]!, {
-      target: { value: '通知本文テスト' },
-    });
-
-    expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);
-  });
-
-  it('通知タイトルの入力では chartAlertLines を再計算しない', () => {
-    const computeAlertLinesMock = computeAlertLines as jest.MockedFunction<
-      typeof computeAlertLines
-    >;
-
-    render(
-      React.createElement(AlertSettingsModal, {
-        open: true,
-        onClose: jest.fn(),
-        tickerId: 'NASDAQ:AAPL',
-        symbol: 'AAPL',
-        exchangeId: 'NASDAQ',
-        mode: 'create',
-        tradeMode: 'Buy',
-      })
-    );
-
-    const initialCallCount = computeAlertLinesMock.mock.calls.length;
-    fireEvent.click(screen.getByRole('button', { name: '通知設定を編集' }));
-    fireEvent.change(screen.getAllByLabelText('通知タイトル')[1]!, {
-      target: { value: '通知タイトルテスト' },
+    fireEvent.change(screen.getByLabelText('カスタムメッセージ（通知本文の末尾に追加されます）'), {
+      target: { value: 'カスタムメッセージテスト' },
     });
 
     expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);

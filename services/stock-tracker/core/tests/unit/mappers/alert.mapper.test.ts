@@ -311,7 +311,7 @@ describe('AlertMapper', () => {
       expect(item).not.toHaveProperty('TemporaryExpireDate');
     });
 
-    it('NotificationTitle と NotificationBody が指定されている場合、DynamoDBItem に含まれる', () => {
+    it('CustomMessage が指定されている場合、DynamoDBItem に含まれる', () => {
       const entity: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -321,8 +321,7 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        NotificationTitle: 'カスタムタイトル',
-        NotificationBody: 'カスタム本文',
+        CustomMessage: '戦略メモ',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -336,11 +335,10 @@ describe('AlertMapper', () => {
 
       const item = mapper.toItem(entity);
 
-      expect(item.NotificationTitle).toBe('カスタムタイトル');
-      expect(item.NotificationBody).toBe('カスタム本文');
+      expect(item.CustomMessage).toBe('戦略メモ');
     });
 
-    it('NotificationTitle と NotificationBody が空文字列の場合、DynamoDBItem に含まれない', () => {
+    it('CustomMessage が空文字列の場合、DynamoDBItem に含まれない', () => {
       const entity: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -350,8 +348,7 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        NotificationTitle: '',
-        NotificationBody: '',
+        CustomMessage: '',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -365,8 +362,7 @@ describe('AlertMapper', () => {
 
       const item = mapper.toItem(entity);
 
-      expect(item).not.toHaveProperty('NotificationTitle');
-      expect(item).not.toHaveProperty('NotificationBody');
+      expect(item).not.toHaveProperty('CustomMessage');
     });
   });
 
@@ -704,7 +700,7 @@ describe('AlertMapper', () => {
       expect(entity).not.toHaveProperty('TemporaryExpireDate');
     });
 
-    it('NotificationTitle と NotificationBody がある場合、エンティティに復元される', () => {
+    it('CustomMessage がある場合、エンティティに復元される', () => {
       const item: DynamoDBItem = {
         PK: 'USER#user-123',
         SK: 'ALERT#alert-123',
@@ -717,8 +713,7 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'lte', value: 150.0 }],
-        NotificationTitle: 'カスタムタイトル',
-        NotificationBody: 'カスタム本文',
+        CustomMessage: '戦略メモ',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -732,8 +727,7 @@ describe('AlertMapper', () => {
 
       const entity = mapper.toEntity(item);
 
-      expect(entity.NotificationTitle).toBe('カスタムタイトル');
-      expect(entity.NotificationBody).toBe('カスタム本文');
+      expect(entity.CustomMessage).toBe('戦略メモ');
     });
   });
 
@@ -924,7 +918,7 @@ describe('AlertMapper', () => {
       expect(result.ConditionList[0].basePrice).toBe(200.0);
     });
 
-    it('NotificationTitle/NotificationBody を含む Entity の往復変換', () => {
+    it('CustomMessage を含む Entity の往復変換', () => {
       const original: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -934,8 +928,7 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
-        NotificationTitle: 'カスタムタイトル',
-        NotificationBody: 'カスタム本文',
+        CustomMessage: '戦略メモ',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -953,7 +946,7 @@ describe('AlertMapper', () => {
       expect(result).toEqual(original);
     });
 
-    it('NotificationTitle/NotificationBody が undefined の Entity の往復変換', () => {
+    it('CustomMessage が undefined の Entity の往復変換', () => {
       const original: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -978,11 +971,10 @@ describe('AlertMapper', () => {
       const result = mapper.toEntity(item);
 
       expect(result).toEqual(original);
-      expect(result).not.toHaveProperty('NotificationTitle');
-      expect(result).not.toHaveProperty('NotificationBody');
+      expect(result).not.toHaveProperty('CustomMessage');
     });
 
-    it('NotificationTitle/NotificationBody が空文字列の Entity は往復後に未設定として扱われる', () => {
+    it('CustomMessage が空文字列の Entity は往復後に未設定として扱われる', () => {
       const original: AlertEntity = {
         AlertID: 'alert-123',
         UserID: 'user-123',
@@ -992,8 +984,7 @@ describe('AlertMapper', () => {
         Frequency: 'MINUTE_LEVEL',
         Enabled: true,
         ConditionList: [{ field: 'price', operator: 'gte', value: 210.0 }],
-        NotificationTitle: '',
-        NotificationBody: '',
+        CustomMessage: '',
         subscription: {
           endpoint: 'https://example.com/push',
           keys: {
@@ -1008,10 +999,8 @@ describe('AlertMapper', () => {
       const item = mapper.toItem(original);
       const result = mapper.toEntity(item);
 
-      expect(item).not.toHaveProperty('NotificationTitle');
-      expect(item).not.toHaveProperty('NotificationBody');
-      expect(result).not.toHaveProperty('NotificationTitle');
-      expect(result).not.toHaveProperty('NotificationBody');
+      expect(item).not.toHaveProperty('CustomMessage');
+      expect(result).not.toHaveProperty('CustomMessage');
     });
   });
 

@@ -39,8 +39,7 @@ interface AlertResponse {
   enabled: boolean;
   temporary?: boolean;
   temporaryExpireDate?: string;
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -68,11 +67,8 @@ function mapAlertToResponse(
   if (alert.LogicalOperator) {
     response.logicalOperator = alert.LogicalOperator;
   }
-  if (alert.NotificationTitle) {
-    response.notificationTitle = alert.NotificationTitle;
-  }
-  if (alert.NotificationBody) {
-    response.notificationBody = alert.NotificationBody;
+  if (alert.CustomMessage) {
+    response.customMessage = alert.CustomMessage;
   }
 
   return response;
