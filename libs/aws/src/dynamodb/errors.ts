@@ -64,3 +64,25 @@ export class DatabaseError extends RepositoryError {
     this.name = 'DatabaseError';
   }
 }
+
+/**
+ * DynamoDB の ConditionalCheckFailedException を Entity 例外にマッピングするヘルパー。
+ * `onExists` は conditional put（存在チェック）失敗時、`onMissing` は conditional update/delete
+ * （不在チェック）失敗時に呼ぶコールバックを渡す。
+ * ConditionalCheckFailedException 以外のエラーは無視し、呼び出し元で再スローする。
+ */
+export function mapConditionalCheckFailed(
+  error: unknown,
+  callbacks: {
+    onExists?: () => never;
+    onMissing?: () => never;
+  }
+): void {
+  if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+    if (callbacks.onExists) {
+      callbacks.onExists();
+    } else if (callbacks.onMissing) {
+      callbacks.onMissing();
+    }
+  }
+}
