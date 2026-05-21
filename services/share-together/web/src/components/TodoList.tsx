@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { List, Paper, Snackbar, Stack, Typography } from '@mui/material';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@nagiyu/ui';
 import { TodoForm } from '@/components/TodoForm';
 import { TodoItem } from '@/components/TodoItem';
 import type { TodoResponse, TodosResponse } from '@/types';
