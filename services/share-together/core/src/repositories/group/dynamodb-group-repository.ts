@@ -6,6 +6,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { mapConditionalCheckFailed } from '@nagiyu/aws';
 import type { CreateGroupInput, Group, UpdateGroupInput } from '../../types/index.js';
 import type { GroupRepository } from './group-repository.interface.js';
 
@@ -87,9 +88,9 @@ export class DynamoDBGroupRepository implements GroupRepository {
         })
       );
     } catch (error: unknown) {
-      if (this.isConditionalCheckFailedError(error)) {
-        throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS);
-      }
+      mapConditionalCheckFailed(error, {
+        onExists: () => { throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS); },
+      });
       throw error;
     }
 
@@ -128,9 +129,9 @@ export class DynamoDBGroupRepository implements GroupRepository {
         })
       );
     } catch (error: unknown) {
-      if (this.isConditionalCheckFailedError(error)) {
-        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => { throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND); },
+      });
       throw error;
     }
 
@@ -150,9 +151,9 @@ export class DynamoDBGroupRepository implements GroupRepository {
         })
       );
     } catch (error: unknown) {
-      if (this.isConditionalCheckFailedError(error)) {
-        throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => { throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND); },
+      });
       throw error;
     }
   }
@@ -187,12 +188,4 @@ export class DynamoDBGroupRepository implements GroupRepository {
     };
   }
 
-  private isConditionalCheckFailedError(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'name' in error &&
-      error.name === 'ConditionalCheckFailedException'
-    );
-  }
 }

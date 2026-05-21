@@ -6,6 +6,7 @@ import {
   UpdateCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
+import { mapConditionalCheckFailed } from '@nagiyu/aws';
 import type {
   CreateGroupListInput,
   CreatePersonalListInput,
@@ -101,9 +102,9 @@ export class DynamoDBListRepository implements ListRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailed(error)) {
-        throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
-      }
+      mapConditionalCheckFailed(error, {
+        onExists: () => { throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS); },
+      });
       throw error;
     }
 
@@ -233,9 +234,9 @@ export class DynamoDBListRepository implements ListRepository {
         })
       );
     } catch (error) {
-      if (this.isConditionalCheckFailed(error)) {
-        throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS);
-      }
+      mapConditionalCheckFailed(error, {
+        onExists: () => { throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS); },
+      });
       throw error;
     }
 
@@ -306,15 +307,6 @@ export class DynamoDBListRepository implements ListRepository {
 
   private buildGroupListSk(listId: string): string {
     return `${GROUP_LIST_SK_PREFIX}${listId}`;
-  }
-
-  private isConditionalCheckFailed(error: unknown): boolean {
-    return (
-      typeof error === 'object' &&
-      error !== null &&
-      'name' in error &&
-      error.name === 'ConditionalCheckFailedException'
-    );
   }
 
   private toPersonalList(item: Record<string, unknown>): PersonalList {

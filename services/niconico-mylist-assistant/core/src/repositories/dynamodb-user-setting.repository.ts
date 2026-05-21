@@ -16,6 +16,7 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  mapConditionalCheckFailed,
   encodeCursor,
   decodeCursor,
   type PaginationOptions,
@@ -192,13 +193,9 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError(
-          'UserSetting',
-          `userId=${input.userId}, videoId=${input.videoId}`
-        );
-      }
-
+      mapConditionalCheckFailed(error, {
+        onExists: () => { throw new EntityAlreadyExistsError('UserSetting', `userId=${input.userId}, videoId=${input.videoId}`); },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
@@ -294,10 +291,9 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
-      }
-
+      mapConditionalCheckFailed(error, {
+        onMissing: () => { throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`); },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
