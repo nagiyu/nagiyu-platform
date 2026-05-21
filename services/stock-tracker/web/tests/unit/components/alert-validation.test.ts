@@ -24,8 +24,7 @@ const ERROR_MESSAGES = {
     '計算された最小価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
   CALCULATED_MAX_PRICE_OUT_OF_RANGE:
     '計算された最大価格が有効な範囲（0.01～1,000,000）を超えています。別のパーセンテージを選択してください',
-  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
-  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
+  CUSTOM_MESSAGE_TOO_LONG: 'カスタムメッセージは500文字以内で入力してください',
 } as const;
 
 // FormData型定義（AlertSettingsModal.tsx から複製）
@@ -43,8 +42,7 @@ interface FormData {
   rangeInputMode?: 'manual' | 'percentage';
   minPercentage?: string;
   maxPercentage?: string;
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
 }
 
 // バリデーション関数（AlertSettingsModal.tsx から抽出）
@@ -182,12 +180,8 @@ function validateForm(
     }
   }
 
-  if ('notificationTitle' in formData && !formData.notificationTitle?.trim()) {
-    errors.notificationTitle = ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED;
-  }
-
-  if ('notificationBody' in formData && !formData.notificationBody?.trim()) {
-    errors.notificationBody = ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED;
+  if (formData.customMessage && formData.customMessage.length > 500) {
+    errors.customMessage = ERROR_MESSAGES.CUSTOM_MESSAGE_TOO_LONG;
   }
 
   return {
@@ -593,7 +587,7 @@ describe('AlertSettingsModal Validation', () => {
     });
   });
 
-  describe('通知設定バリデーション', () => {
+  describe('カスタムメッセージバリデーション', () => {
     const baseFormData: FormData = {
       conditionMode: 'single',
       operator: 'gte',
@@ -603,20 +597,24 @@ describe('AlertSettingsModal Validation', () => {
       maxPrice: '',
       frequency: 'MINUTE_LEVEL',
       inputMode: 'manual',
-      notificationTitle: 'タイトル',
-      notificationBody: '本文',
     };
 
-    it('異常系: 通知タイトルが空文字の場合、エラーが返される', () => {
-      const result = validateForm({ ...baseFormData, notificationTitle: '' });
-      expect(result.valid).toBe(false);
-      expect(result.errors.notificationTitle).toBe(ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED);
+    it('正常系: カスタムメッセージが未指定の場合、バリデーションが成功する', () => {
+      const result = validateForm(baseFormData);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toEqual({});
     });
 
-    it('異常系: 通知本文が空白のみの場合、エラーが返される', () => {
-      const result = validateForm({ ...baseFormData, notificationBody: '   ' });
+    it('正常系: カスタムメッセージが500文字ちょうどの場合、バリデーションが成功する', () => {
+      const result = validateForm({ ...baseFormData, customMessage: 'a'.repeat(500) });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toEqual({});
+    });
+
+    it('異常系: カスタムメッセージが501文字の場合、エラーが返される', () => {
+      const result = validateForm({ ...baseFormData, customMessage: 'a'.repeat(501) });
       expect(result.valid).toBe(false);
-      expect(result.errors.notificationBody).toBe(ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED);
+      expect(result.errors.customMessage).toBe(ERROR_MESSAGES.CUSTOM_MESSAGE_TOO_LONG);
     });
   });
 });

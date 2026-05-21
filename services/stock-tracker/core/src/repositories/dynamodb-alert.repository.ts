@@ -394,15 +394,10 @@ export class DynamoDBAlertRepository implements AlertRepository {
         expressionAttributeNames['#subscription'] = 'subscription';
         expressionAttributeValues[':subscription'] = updates.subscription;
       }
-      if (updates.NotificationTitle !== undefined) {
-        updateExpressions.push('#notificationTitle = :notificationTitle');
-        expressionAttributeNames['#notificationTitle'] = 'NotificationTitle';
-        expressionAttributeValues[':notificationTitle'] = updates.NotificationTitle;
-      }
-      if (updates.NotificationBody !== undefined) {
-        updateExpressions.push('#notificationBody = :notificationBody');
-        expressionAttributeNames['#notificationBody'] = 'NotificationBody';
-        expressionAttributeValues[':notificationBody'] = updates.NotificationBody;
+      if (updates.CustomMessage !== undefined) {
+        updateExpressions.push('#customMessage = :customMessage');
+        expressionAttributeNames['#customMessage'] = 'CustomMessage';
+        expressionAttributeValues[':customMessage'] = updates.CustomMessage;
       }
 
       // UpdatedAt を常に更新

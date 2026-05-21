@@ -236,29 +236,11 @@ describe('web-push-client', () => {
       });
     });
 
-    it('通知タイトルと通知本文が指定されている場合はカスタム値を使用する', () => {
+    it('CustomMessage が指定されている場合は本文の末尾に改行して追記する', () => {
       // Arrange
       const customAlert: Alert = {
         ...mockAlert,
-        NotificationTitle: 'カスタムタイトル',
-        NotificationBody: 'カスタム本文',
-      };
-      const currentPrice = 205.5;
-
-      // Act
-      const payload = createAlertNotificationPayload(customAlert, currentPrice);
-
-      // Assert
-      expect(payload.title).toBe('カスタムタイトル');
-      expect(payload.body).toBe('カスタム本文');
-    });
-
-    it('通知タイトルと通知本文が空文字の場合は自動生成値を使用する', () => {
-      // Arrange
-      const customAlert: Alert = {
-        ...mockAlert,
-        NotificationTitle: '',
-        NotificationBody: '',
+        CustomMessage: '戦略メモ: ブレイクアウト狙い',
       };
       const currentPrice = 205.5;
 
@@ -267,39 +249,21 @@ describe('web-push-client', () => {
 
       // Assert
       expect(payload.title).toBe('売りアラート: NSDQ:AAPL');
-      expect(payload.body).toBe('現在価格 $205.50 が目標価格 $200.00 以上になりました');
+      expect(payload.body).toBe(
+        '現在価格 $205.50 が目標価格 $200.00 以上になりました\n戦略メモ: ブレイクアウト狙い'
+      );
     });
 
-    it('通知タイトルのみ指定されている場合は本文のみ自動生成値を使用する', () => {
-      // Arrange
-      const customAlert: Alert = {
-        ...mockAlert,
-        NotificationTitle: 'タイトルのみカスタム',
-      };
+    it('CustomMessage が指定されていない場合は通常の本文を使用する', () => {
+      // Arrange (mockAlert に CustomMessage なし)
       const currentPrice = 205.5;
 
       // Act
-      const payload = createAlertNotificationPayload(customAlert, currentPrice);
-
-      // Assert
-      expect(payload.title).toBe('タイトルのみカスタム');
-      expect(payload.body).toBe('現在価格 $205.50 が目標価格 $200.00 以上になりました');
-    });
-
-    it('通知本文のみ指定されている場合はタイトルのみ自動生成値を使用する', () => {
-      // Arrange
-      const customAlert: Alert = {
-        ...mockAlert,
-        NotificationBody: '本文のみカスタム',
-      };
-      const currentPrice = 205.5;
-
-      // Act
-      const payload = createAlertNotificationPayload(customAlert, currentPrice);
+      const payload = createAlertNotificationPayload(mockAlert, currentPrice);
 
       // Assert
       expect(payload.title).toBe('売りアラート: NSDQ:AAPL');
-      expect(payload.body).toBe('本文のみカスタム');
+      expect(payload.body).toBe('現在価格 $205.50 が目標価格 $200.00 以上になりました');
     });
 
     it('無効な LogicalOperator の場合はエラーをスローする', () => {
