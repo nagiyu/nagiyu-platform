@@ -3,11 +3,10 @@ import { createReadStream } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { spawn } from 'node:child_process';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { reportErrorEvent, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
 import { DynamoDBHighlightRepository } from '@nagiyu/quick-clip-core';
 
 const ERROR_MESSAGES = {
@@ -33,13 +32,6 @@ export type ClipRegenerateEvent = {
 export type ClipRegenerateResult = {
   clipStatus: 'GENERATED' | 'FAILED';
 };
-
-const createDynamoDBDocumentClient = (region: string): DynamoDBDocumentClient =>
-  DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
-    marshallOptions: {
-      removeUndefinedValues: true,
-    },
-  });
 
 const validateEvent = (event: ClipRegenerateEvent): void => {
   if (!event.jobId || !event.highlightId) {
@@ -160,8 +152,8 @@ export const handler = async (event: ClipRegenerateEvent): Promise<ClipRegenerat
   // Lambda の /tmp は実行環境内で共有され得るため、衝突回避のために一意な作業ディレクトリを使う。
   const requestId = randomUUID();
   const localOutputPath = CLIP_OUTPUT_PATH(event.jobId, event.highlightId, requestId);
-  const s3Client = new S3Client({ region: awsRegion });
-  const docClient = createDynamoDBDocumentClient(awsRegion);
+  const s3Client = getS3Client(awsRegion);
+  const docClient = getDynamoDBDocumentClient(awsRegion);
 
   try {
     const inputSourceUrl = await createSourceVideoUrl(s3Client, bucketName, event.jobId);

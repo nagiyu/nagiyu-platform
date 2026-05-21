@@ -1,12 +1,11 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { spawn } from 'child_process';
 import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import type { CodecType } from '@nagiyu/codec-converter-core';
-import { reportErrorEvent } from '@nagiyu/aws';
+import { reportErrorEvent, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -404,10 +403,8 @@ export async function main(): Promise<void> {
     },
   });
 
-  const s3Client = new S3Client({ region: env.AWS_REGION });
-  const dynamodbClient = DynamoDBDocumentClient.from(
-    new DynamoDBClient({ region: env.AWS_REGION })
-  );
+  const s3Client = getS3Client(env.AWS_REGION);
+  const dynamodbClient = getDynamoDBDocumentClient(env.AWS_REGION);
 
   await processJob(env, s3Client, dynamodbClient);
   console.log(`Job ${env.JOB_ID} completed successfully`);

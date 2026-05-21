@@ -1,4 +1,4 @@
-import { reportErrorEvent } from '@nagiyu/aws';
+import { reportErrorEvent, getS3Client } from '@nagiyu/aws';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import JSZip from 'jszip';
@@ -120,7 +120,7 @@ const createDownloadUrl = async (
 export const handler = async (event: ZipGeneratorEvent): Promise<ZipGeneratorResult> => {
   validateEvent(event);
   const { bucketName, awsRegion } = validateEnvironment();
-  const s3Client = new S3Client({ region: awsRegion });
+  const s3Client = getS3Client(awsRegion);
   try {
     const zipBuffer = await buildZipBuffer(s3Client, bucketName, event);
     await uploadZip(s3Client, bucketName, event, zipBuffer);
