@@ -1457,9 +1457,7 @@ export default function AlertSettingsModal({
             }}
             slotProps={{ htmlInput: { maxLength: 500 } }}
             error={!!formErrors.customMessage}
-            helperText={
-              formErrors.customMessage || `${(formData.customMessage || '').length}/500`
-            }
+            helperText={formErrors.customMessage || `${(formData.customMessage || '').length}/500`}
           />
 
           {/* Web Push通知の説明 */}
@@ -1479,7 +1477,6 @@ export default function AlertSettingsModal({
           保存
         </Button>
       </DialogActions>
-
     </Dialog>
   );
 }
