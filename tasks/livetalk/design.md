@@ -68,6 +68,37 @@ dev 環境は Phase 0 で整備（Issue #3183 配下）。
 
 **リージョンは `us-east-1` で固定**（`infra/bin/nagiyu-platform.ts:19`）。CloudFront 関連の制約（ACM 証明書必須リージョン、Lambda@Edge 等）に合わせるための選択であり、`ap-northeast-1` 等への切替は不可。AZ は prod / dev 共に `us-east-1a + us-east-1b` を使用する。
 
+### 1.3 開発ブランチ戦略
+
+本プロジェクトでは **`integration/3183-livetalk` を共通の integration ブランチ**として使用する（Phase ごとには分けない）。
+
+```
+develop
+  └── integration/3183-livetalk    ← プロジェクト全体の統合先
+        ├── claude/...              ← 各 Sub Issue の作業ブランチ
+        ├── claude/...
+        └── ...
+```
+
+CLAUDE.md の原則「1 Issue につき 1 integration ブランチ」からは外れるが、Phase 横断的なリブトーク開発の継続性を優先した運用方針。
+
+#### サブセッション着手時のブランチ運用
+
+各 Sub Issue / 孫 Issue を実装する際は：
+
+1. `integration/3183-livetalk` から `claude/...` 作業ブランチを切る
+2. 実装・コミット
+3. `git push -u origin claude/...`
+4. Draft PR を作成（ターゲットは必ず `integration/3183-livetalk`）
+5. 人レビュー → Ready 化 → マージ（Claude は介入しない）
+
+#### Phase 完了後
+
+全 Phase の作業が完了したら：
+
+1. **人の確認を取った上で**、`integration/3183-livetalk` → `develop` の Draft PR を作成
+2. 人レビュー → Ready 化 → マージ
+
 ---
 
 ## 2. API 仕様
