@@ -116,10 +116,9 @@ describe('AlertSettingsModal performance', () => {
     );
 
     const initialCallCount = computeAlertLinesMock.mock.calls.length;
-    fireEvent.change(
-      screen.getByLabelText('カスタムメッセージ（通知本文の末尾に追加されます）'),
-      { target: { value: 'カスタムメッセージテスト' } }
-    );
+    fireEvent.change(screen.getByLabelText('カスタムメッセージ（通知本文の末尾に追加されます）'), {
+      target: { value: 'カスタムメッセージテスト' },
+    });
 
     expect(computeAlertLinesMock).toHaveBeenCalledTimes(initialCallCount);
   });
