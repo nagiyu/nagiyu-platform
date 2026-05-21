@@ -308,13 +308,13 @@ export default function AlertSettingsModal({
   // モーダルが開いた時にフォームをリセット
   useEffect(() => {
     if (open) {
-      applyFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice, tickerId }));
+      applyFormData(buildFormData({ mode, tradeMode, editTarget, defaultTargetPrice }));
       setFormErrors({});
       setError('');
       setSubscription(null);
       setTimeframe(DEFAULT_CHART_TIMEFRAME);
     }
-  }, [open, mode, tradeMode, editTarget, defaultTargetPrice, tickerId]);
+  }, [open, mode, tradeMode, editTarget, defaultTargetPrice]);
 
   // Web Push通知許可をリクエスト
   const requestNotificationPermission = async (): Promise<PushSubscription | null> => {
