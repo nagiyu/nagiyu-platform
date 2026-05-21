@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@nagiyu/infra-common": "*",
-    "aws-cdk-lib": "^2.248.0",
+    "aws-cdk-lib": "^2.256.1",
     "constructs": "^10.6.0"
   },
   "engines": {
