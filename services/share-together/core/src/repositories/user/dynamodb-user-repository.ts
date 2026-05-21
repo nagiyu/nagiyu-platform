@@ -95,7 +95,9 @@ export class DynamoDBUserRepository implements UserRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS); },
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.USER_ALREADY_EXISTS);
+        },
       });
       throw error;
     }
@@ -155,7 +157,9 @@ export class DynamoDBUserRepository implements UserRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new Error(ERROR_MESSAGES.USER_NOT_FOUND); },
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.USER_NOT_FOUND);
+        },
       });
       throw error;
     }

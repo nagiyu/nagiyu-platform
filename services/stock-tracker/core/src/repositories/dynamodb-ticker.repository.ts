@@ -245,7 +245,9 @@ export class DynamoDBTickerRepository
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('Ticker', tickerId); },
+        onMissing: () => {
+          throw new EntityNotFoundError('Ticker', tickerId);
+        },
       });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {

@@ -92,7 +92,9 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
       return entity;
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`); },
+        onExists: () => {
+          throw new EntityAlreadyExistsError('BatchJob', `${input.jobId}#${input.userId}`);
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -144,7 +146,9 @@ export class DynamoDBBatchJobRepository implements BatchJobRepository {
       return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`); },
+        onMissing: () => {
+          throw new EntityNotFoundError('BatchJob', `${jobId}#${userId}`);
+        },
       });
       if (error instanceof EntityNotFoundError) {
         throw error;

@@ -12,7 +12,12 @@ import {
   ScanCommand,
   type DynamoDBDocumentClient,
 } from '@aws-sdk/lib-dynamodb';
-import { EntityAlreadyExistsError, DatabaseError, mapConditionalCheckFailed, type DynamoDBItem } from '@nagiyu/aws';
+import {
+  EntityAlreadyExistsError,
+  DatabaseError,
+  mapConditionalCheckFailed,
+  type DynamoDBItem,
+} from '@nagiyu/aws';
 import type { VideoRepository } from './video.repository.interface.js';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
@@ -150,7 +155,9 @@ export class DynamoDBVideoRepository implements VideoRepository {
       return entity;
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new EntityAlreadyExistsError('Video', input.videoId); },
+        onExists: () => {
+          throw new EntityAlreadyExistsError('Video', input.videoId);
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);

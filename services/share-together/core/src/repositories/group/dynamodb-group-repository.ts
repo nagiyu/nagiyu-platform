@@ -89,7 +89,9 @@ export class DynamoDBGroupRepository implements GroupRepository {
       );
     } catch (error: unknown) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS); },
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.GROUP_ALREADY_EXISTS);
+        },
       });
       throw error;
     }
@@ -130,7 +132,9 @@ export class DynamoDBGroupRepository implements GroupRepository {
       );
     } catch (error: unknown) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND); },
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
+        },
       });
       throw error;
     }
@@ -152,7 +156,9 @@ export class DynamoDBGroupRepository implements GroupRepository {
       );
     } catch (error: unknown) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND); },
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.GROUP_NOT_FOUND);
+        },
       });
       throw error;
     }
@@ -187,5 +193,4 @@ export class DynamoDBGroupRepository implements GroupRepository {
       updatedAt,
     };
   }
-
 }

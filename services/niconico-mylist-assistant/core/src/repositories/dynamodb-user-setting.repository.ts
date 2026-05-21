@@ -194,7 +194,12 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
       return entity;
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new EntityAlreadyExistsError('UserSetting', `userId=${input.userId}, videoId=${input.videoId}`); },
+        onExists: () => {
+          throw new EntityAlreadyExistsError(
+            'UserSetting',
+            `userId=${input.userId}, videoId=${input.videoId}`
+          );
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -292,7 +297,9 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
       return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`); },
+        onMissing: () => {
+          throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);

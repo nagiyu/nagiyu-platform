@@ -306,7 +306,9 @@ export class DynamoDBAlertRepository implements AlertRepository {
       return entity;
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`); },
+        onExists: () => {
+          throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -419,7 +421,9 @@ export class DynamoDBAlertRepository implements AlertRepository {
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('Alert', `${userId}#${alertId}`); },
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
       });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
@@ -446,7 +450,9 @@ export class DynamoDBAlertRepository implements AlertRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('Alert', `${userId}#${alertId}`); },
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
@@ -488,7 +494,9 @@ export class DynamoDBAlertRepository implements AlertRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('Alert', `${userId}#${alertId}`); },
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
       });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);

@@ -93,7 +93,9 @@ export class DynamoDBTodoRepository implements TodoRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS); },
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.TODO_ALREADY_EXISTS);
+        },
       });
       throw error;
     }
@@ -156,7 +158,9 @@ export class DynamoDBTodoRepository implements TodoRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND); },
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
+        },
       });
       throw error;
     }
@@ -186,7 +190,9 @@ export class DynamoDBTodoRepository implements TodoRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND); },
+        onMissing: () => {
+          throw new Error(ERROR_MESSAGES.TODO_NOT_FOUND);
+        },
       });
       throw error;
     }
@@ -298,5 +304,4 @@ export class DynamoDBTodoRepository implements TodoRepository {
       updatedAt,
     };
   }
-
 }

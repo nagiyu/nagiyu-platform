@@ -103,7 +103,9 @@ export class DynamoDBListRepository implements ListRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS); },
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.PERSONAL_LIST_ALREADY_EXISTS);
+        },
       });
       throw error;
     }
@@ -235,7 +237,9 @@ export class DynamoDBListRepository implements ListRepository {
       );
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onExists: () => { throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS); },
+        onExists: () => {
+          throw new Error(ERROR_MESSAGES.GROUP_LIST_ALREADY_EXISTS);
+        },
       });
       throw error;
     }

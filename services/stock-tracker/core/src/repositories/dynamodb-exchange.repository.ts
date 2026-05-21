@@ -168,7 +168,9 @@ export class DynamoDBExchangeRepository
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
       mapConditionalCheckFailed(error, {
-        onMissing: () => { throw new EntityNotFoundError('Exchange', exchangeId); },
+        onMissing: () => {
+          throw new EntityNotFoundError('Exchange', exchangeId);
+        },
       });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
