@@ -66,6 +66,8 @@
 
 dev 環境は Phase 0 で整備（Issue #3183 配下）。
 
+**リージョンは `us-east-1` で固定**（`infra/bin/nagiyu-platform.ts:19`）。CloudFront 関連の制約（ACM 証明書必須リージョン、Lambda@Edge 等）に合わせるための選択であり、`ap-northeast-1` 等への切替は不可。AZ は prod / dev 共に `us-east-1a + us-east-1b` を使用する。
+
 ---
 
 ## 2. API 仕様
