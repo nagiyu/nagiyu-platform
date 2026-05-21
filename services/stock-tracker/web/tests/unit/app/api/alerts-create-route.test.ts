@@ -49,6 +49,7 @@ describe('POST /api/alerts', () => {
   };
 
   it('subscription が未指定の場合は 400 を返す', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { subscription: _sub, ...bodyWithoutSubscription } = validRequestBody;
     const response = await POST(createRequest(bodyWithoutSubscription));
     const body = await response.json();
