@@ -200,7 +200,7 @@ export async function listUserVideoSettings(
     cursor,
   });
 
-  const lastEvaluatedKey = decodeCursor(result.nextCursor);
+  const lastEvaluatedKey = decodeCursor(result.nextCursor) as Record<string, string> | undefined;
 
   return {
     settings: result.items as UserVideoSetting[],
