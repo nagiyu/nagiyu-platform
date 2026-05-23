@@ -31,6 +31,8 @@ export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfSer
 export type { TermsOfServiceDialogProps } from './components/dialogs/TermsOfServiceDialog';
 export { default as ConfirmDialog } from './components/dialogs/ConfirmDialog';
 export type { ConfirmDialogProps } from './components/dialogs/ConfirmDialog';
+export { default as AppThemeProvider } from './components/providers/AppThemeProvider';
+export type { AppThemeProviderProps } from './components/providers/AppThemeProvider';
 export { ErrorBoundary, useErrorHandler } from './components/error/ErrorBoundary';
 export type { ErrorBoundaryProps } from './components/error/ErrorBoundary';
 export { default as ErrorAlert } from './components/error/ErrorAlert';

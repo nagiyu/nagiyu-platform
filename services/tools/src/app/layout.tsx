@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import { Box } from '@mui/material';
-import { Header, Footer, type NavigationItem } from '@nagiyu/ui';
+import { AppThemeProvider, Header, Footer, type NavigationItem } from '@nagiyu/ui';
 import HomeIcon from '@mui/icons-material/Home';
 import InfoIcon from '@mui/icons-material/Info';
-import ThemeRegistry from '@/components/ThemeRegistry';
+import MigrationDialog from '@/components/dialogs/MigrationDialog';
 import '@nagiyu/ui/tokens.css';
 import './globals.css';
 
@@ -90,7 +90,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         )}
       </head>
       <body>
-        <ThemeRegistry>
+        <AppThemeProvider>
+          <MigrationDialog />
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <Header
               title="Tools"
@@ -110,7 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </Box>
             <Footer version={version} contactHref="/contact" />
           </Box>
-        </ThemeRegistry>
+        </AppThemeProvider>
       </body>
     </html>
   );

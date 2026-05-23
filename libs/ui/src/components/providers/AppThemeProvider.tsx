@@ -1,16 +1,16 @@
 'use client';
 
-import * as React from 'react';
-import { ThemeProvider } from '@mui/material/styles';
+import type { ReactNode } from 'react';
 import CssBaseline from '@mui/material/CssBaseline';
+import { ThemeProvider } from '@mui/material/styles';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v16-appRouter';
-import { theme } from '@nagiyu/ui';
+import theme from '../../styles/theme';
 
-interface ThemeRegistryProps {
-  children: React.ReactNode;
+export interface AppThemeProviderProps {
+  children: ReactNode;
 }
 
-export default function ThemeRegistry({ children }: ThemeRegistryProps) {
+export default function AppThemeProvider({ children }: AppThemeProviderProps) {
   return (
     <AppRouterCacheProvider>
       <ThemeProvider theme={theme}>
