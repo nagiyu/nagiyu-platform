@@ -78,7 +78,12 @@ export function mapConditionalCheckFailed(
     onMissing?: () => never;
   }
 ): void {
-  if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    (error as { name: unknown }).name === 'ConditionalCheckFailedException'
+  ) {
     if (callbacks.onExists) {
       callbacks.onExists();
     } else if (callbacks.onMissing) {

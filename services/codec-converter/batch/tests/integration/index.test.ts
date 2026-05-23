@@ -20,6 +20,7 @@ import type { CodecType } from '@nagiyu/codec-converter-core';
 import type { SdkStream } from '@smithy/types';
 
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: jest.fn().mockResolvedValue(null),
 }));
 

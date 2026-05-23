@@ -14,6 +14,7 @@ import {
   AbstractDynamoDBRepository,
   EntityNotFoundError,
   DatabaseError,
+  mapConditionalCheckFailed,
   type DynamoDBItem,
 } from '@nagiyu/aws';
 import type { ExchangeRepository } from './exchange.repository.interface.js';
@@ -166,10 +167,11 @@ export class DynamoDBExchangeRepository
 
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Exchange', exchangeId);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Exchange', exchangeId);
+        },
+      });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;

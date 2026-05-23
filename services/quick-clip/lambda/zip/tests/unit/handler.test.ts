@@ -26,6 +26,7 @@ jest.mock('@aws-sdk/s3-request-presigner', () => ({
 
 const mockReportErrorEvent = jest.fn().mockResolvedValue(null);
 jest.mock('@nagiyu/aws', () => ({
+  ...jest.requireActual('@nagiyu/aws'),
   reportErrorEvent: (...args: unknown[]) => mockReportErrorEvent(...args),
 }));
 

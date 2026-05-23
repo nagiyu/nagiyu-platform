@@ -17,6 +17,9 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  mapConditionalCheckFailed,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -88,9 +91,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const expressionAttributeNames: Record<string, string> = {
         '#gsi1pk': 'GSI1PK',
@@ -136,9 +137,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -157,9 +156,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       result = await this.docClient.send(
         new QueryCommand({
@@ -198,9 +195,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -225,9 +220,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
     let result: QueryCommandOutput;
     try {
       const limit = options?.limit || 50;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       result = await this.docClient.send(
         new QueryCommand({
@@ -277,9 +270,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       }
     }
 
-    const nextCursor = result.LastEvaluatedKey
-      ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-      : undefined;
+    const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
     return {
       items,
@@ -314,10 +305,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return entity;
     } catch (error) {
-      // 条件付き保存の失敗（既存アイテムが存在）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
-      }
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
+        },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
@@ -428,10 +420,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return this.mapper.toEntity(result.Attributes as unknown as DynamoDBItem);
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
+      });
       // EntityNotFoundError はそのまま投げる
       if (error instanceof EntityNotFoundError) {
         throw error;
@@ -456,10 +449,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      // 条件チェック失敗（アイテムが存在しない）
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
@@ -499,9 +493,11 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
-      }
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
+        },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }

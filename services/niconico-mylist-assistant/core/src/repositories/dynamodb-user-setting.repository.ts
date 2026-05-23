@@ -16,6 +16,9 @@ import {
   EntityNotFoundError,
   EntityAlreadyExistsError,
   DatabaseError,
+  mapConditionalCheckFailed,
+  encodeCursor,
+  decodeCursor,
   type PaginationOptions,
   type PaginatedResult,
   type DynamoDBItem,
@@ -83,9 +86,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
   ): Promise<PaginatedResult<UserSettingEntity>> {
     try {
       const limit = options?.limit || 100;
-      const exclusiveStartKey = options?.cursor
-        ? JSON.parse(Buffer.from(options.cursor, 'base64').toString('utf-8'))
-        : undefined;
+      const exclusiveStartKey = decodeCursor(options?.cursor);
 
       const result = await this.docClient.send(
         new QueryCommand({
@@ -102,9 +103,7 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       const items = (result.Items || []).map((item) => this.mapper.toEntity(item as DynamoDBItem));
 
-      const nextCursor = result.LastEvaluatedKey
-        ? Buffer.from(JSON.stringify(result.LastEvaluatedKey)).toString('base64')
-        : undefined;
+      const nextCursor = encodeCursor(result.LastEvaluatedKey);
 
       return {
         items,
@@ -194,13 +193,14 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return entity;
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityAlreadyExistsError(
-          'UserSetting',
-          `userId=${input.userId}, videoId=${input.videoId}`
-        );
-      }
-
+      mapConditionalCheckFailed(error, {
+        onExists: () => {
+          throw new EntityAlreadyExistsError(
+            'UserSetting',
+            `userId=${input.userId}, videoId=${input.videoId}`
+          );
+        },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
@@ -296,10 +296,11 @@ export class DynamoDBUserSettingRepository implements UserSettingRepository {
 
       return this.mapper.toEntity(result.Attributes as DynamoDBItem);
     } catch (error) {
-      if (error instanceof Error && error.name === 'ConditionalCheckFailedException') {
-        throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
-      }
-
+      mapConditionalCheckFailed(error, {
+        onMissing: () => {
+          throw new EntityNotFoundError('UserSetting', `userId=${userId}, videoId=${videoId}`);
+        },
+      });
       const message = error instanceof Error ? error.message : String(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }

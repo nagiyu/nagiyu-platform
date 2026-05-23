@@ -2,6 +2,9 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { EncryptedData, CryptoConfig } from './types.js';
 
+/**
+ * エラーメッセージ定数
+ */
 const ERROR_MESSAGES = {
   EMPTY_SECRET_NAME: 'シークレット名が指定されていません',
   EMPTY_PLAINTEXT: '暗号化する文字列が空です',
@@ -15,14 +18,35 @@ const ERROR_MESSAGES = {
   AUTHENTICATION_FAILED: '認証タグの検証に失敗しました（データが改ざんされている可能性があります）',
 } as const;
 
+/**
+ * 暗号化アルゴリズム（AES-256-GCM）
+ */
 const ALGORITHM = 'aes-256-gcm';
+
+/**
+ * 初期化ベクトルのサイズ（バイト）
+ */
 const IV_LENGTH = 12;
+
+/**
+ * 認証タグのサイズ（バイト）
+ */
 const AUTH_TAG_LENGTH = 16;
 
+/**
+ * Secrets Manager クライアントのキャッシュ
+ */
 let secretsManagerClient: SecretsManagerClient | null = null;
-/** @internal */
+
+/**
+ * 暗号化キーのキャッシュ
+ * @internal
+ */
 let cachedEncryptionKey: Buffer | null = null;
 
+/**
+ * Secrets Manager クライアントを取得
+ */
 function getSecretsManagerClient(region: string): SecretsManagerClient {
   if (!secretsManagerClient) {
     secretsManagerClient = new SecretsManagerClient({ region });
@@ -30,6 +54,15 @@ function getSecretsManagerClient(region: string): SecretsManagerClient {
   return secretsManagerClient;
 }
 
+/**
+ * Secrets Manager から暗号化キーを取得
+ *
+ * @param config - 暗号化設定
+ * @returns 暗号化キー（32バイト）
+ * @throws {Error} シークレット名が空の場合
+ * @throws {Error} シークレットが取得できない場合
+ * @throws {Error} シークレットの形式が不正な場合
+ */
 export async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
   if (cachedEncryptionKey) {
     return cachedEncryptionKey;
@@ -50,6 +83,7 @@ export async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
       throw new Error(ERROR_MESSAGES.SECRET_NOT_FOUND);
     }
 
+    // Secrets Manager が生成した文字列を UTF-8 バイト列として扱い、先頭 32 バイトを暗号化キーとする
     const keyBuffer = Buffer.from(response.SecretString, 'utf8');
 
     if (keyBuffer.length < 32) {
@@ -69,6 +103,22 @@ export async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
   }
 }
 
+/**
+ * 文字列を AES-256-GCM で暗号化
+ *
+ * @param plaintext - 暗号化する文字列
+ * @param config - 暗号化設定
+ * @returns 暗号化されたデータ
+ * @throws {Error} 平文が空の場合
+ * @throws {Error} 暗号化処理に失敗した場合
+ *
+ * @example
+ * ```typescript
+ * const config = { secretName: 'my-encryption-key' };
+ * const encrypted = await encrypt('password123', config);
+ * console.log(encrypted.ciphertext); // Base64エンコードされた暗号文
+ * ```
+ */
 export async function encrypt(plaintext: string, config: CryptoConfig): Promise<EncryptedData> {
   if (!plaintext) {
     throw new Error(ERROR_MESSAGES.EMPTY_PLAINTEXT);
@@ -89,6 +139,7 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
       authTag: authTag.toString('base64'),
     };
   } catch (error) {
+    // 既知のエラーメッセージの場合はそのままスロー
     const errorMessages = Object.values(ERROR_MESSAGES) as readonly string[];
     if (error instanceof Error && errorMessages.includes(error.message)) {
       throw error;
@@ -100,6 +151,23 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
   }
 }
 
+/**
+ * AES-256-GCM で暗号化されたデータを復号化
+ *
+ * @param encryptedData - 暗号化されたデータ
+ * @param config - 暗号化設定
+ * @returns 復号化された文字列
+ * @throws {Error} 暗号文、IV、または認証タグが空の場合
+ * @throws {Error} 復号化処理に失敗した場合
+ * @throws {Error} 認証タグの検証に失敗した場合
+ *
+ * @example
+ * ```typescript
+ * const config = { secretName: 'my-encryption-key' };
+ * const decrypted = await decrypt(encryptedData, config);
+ * console.log(decrypted); // 'password123'
+ * ```
+ */
 export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig): Promise<string> {
   if (!encryptedData.ciphertext) {
     throw new Error(ERROR_MESSAGES.EMPTY_CIPHERTEXT);
@@ -125,12 +193,14 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
 
     return decrypted.toString('utf8');
   } catch (error) {
+    // 認証タグエラー（decipher.final() が投げる）の場合は専用メッセージに置き換え
     const errorMessage = error instanceof Error ? error.message : String(error);
 
     if (errorMessage.includes('Unsupported state or unable to authenticate data')) {
       throw new Error(ERROR_MESSAGES.AUTHENTICATION_FAILED, { cause: error });
     }
 
+    // 既知のエラーメッセージの場合はそのままスロー
     const errorMessages = Object.values(ERROR_MESSAGES) as readonly string[];
     if (error instanceof Error && errorMessages.includes(error.message)) {
       throw error;
@@ -143,7 +213,10 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
   }
 }
 
-/** @internal テスト用: キャッシュをクリア */
+/**
+ * テスト用: キャッシュをクリア
+ * @internal
+ */
 export function clearCache(): void {
   cachedEncryptionKey = null;
   secretsManagerClient = null;
