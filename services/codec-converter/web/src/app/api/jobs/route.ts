@@ -9,8 +9,7 @@ import {
   type Job,
   type CodecType,
 } from '@nagiyu/codec-converter-core';
-import { toErrorMessage } from '@nagiyu/common';
-import type { ErrorResponse } from '@nagiyu/common';
+import { toErrorMessage, type ErrorResponse } from '@nagiyu/common';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 
