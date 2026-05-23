@@ -5,11 +5,11 @@ import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import type { CodecType } from '@nagiyu/codec-converter-core';
-import { reportErrorEvent, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import { reportErrorEvent, withErrorReporting, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import { requireEnv } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
-  MISSING_ENV: '必要な環境変数が設定されていません',
   INVALID_JOB_ID: 'ジョブIDが不正です',
   INVALID_OUTPUT_CODEC: '出力コーデックが不正です',
   S3_DOWNLOAD_FAILED: 'S3からのダウンロードに失敗しました',
@@ -67,23 +67,18 @@ const CODEC_PARAMS: Record<
  * 環境変数を検証して取得する
  */
 export function validateEnvironment(): EnvironmentVariables {
-  const required = ['S3_BUCKET', 'DYNAMODB_TABLE', 'AWS_REGION', 'JOB_ID', 'OUTPUT_CODEC'];
-  const missing = required.filter((key) => !process.env[key]);
+  const env = requireEnv(['S3_BUCKET', 'DYNAMODB_TABLE', 'AWS_REGION', 'JOB_ID', 'OUTPUT_CODEC']);
 
-  if (missing.length > 0) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: ${missing.join(', ')}`);
-  }
-
-  const outputCodec = process.env.OUTPUT_CODEC as CodecType;
+  const outputCodec = env.OUTPUT_CODEC as CodecType;
   if (!['h264', 'vp9', 'av1'].includes(outputCodec)) {
     throw new Error(ERROR_MESSAGES.INVALID_OUTPUT_CODEC);
   }
 
   return {
-    S3_BUCKET: process.env.S3_BUCKET!,
-    DYNAMODB_TABLE: process.env.DYNAMODB_TABLE!,
-    AWS_REGION: process.env.AWS_REGION!,
-    JOB_ID: process.env.JOB_ID!,
+    S3_BUCKET: env.S3_BUCKET,
+    DYNAMODB_TABLE: env.DYNAMODB_TABLE,
+    AWS_REGION: env.AWS_REGION,
+    JOB_ID: env.JOB_ID,
     OUTPUT_CODEC: outputCodec,
     JOB_DEFINITION_NAME: process.env.JOB_DEFINITION_NAME,
   };
@@ -410,12 +405,13 @@ export async function main(): Promise<void> {
   console.log(`Job ${env.JOB_ID} completed successfully`);
 }
 
-// スクリプトとして実行された場合のみmain()を呼び出す
-// テスト環境（NODE_ENV === 'test'）では実行しない
-const isMainModule = process.env.NODE_ENV !== 'test';
-if (isMainModule) {
-  main().catch((error) => {
-    console.error('Fatal error:', error);
-    process.exit(1);
-  });
-}
+withErrorReporting(
+  {
+    serviceId: 'codec-converter',
+    severity: 'critical',
+    title: 'コーデック変換バッチが起動時に失敗しました',
+    exitOnError: true,
+    runIfNotTest: true,
+  },
+  main
+);
