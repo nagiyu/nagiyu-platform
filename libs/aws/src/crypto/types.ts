@@ -1,3 +1,6 @@
+/**
+ * 暗号化結果
+ */
 export interface EncryptedData {
   /** 暗号化されたデータ（Base64エンコード） */
   ciphertext: string;
@@ -7,6 +10,9 @@ export interface EncryptedData {
   authTag: string;
 }
 
+/**
+ * 暗号化設定
+ */
 export interface CryptoConfig {
   /** Secrets Manager のシークレット名 */
   secretName: string;
