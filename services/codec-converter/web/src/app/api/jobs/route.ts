@@ -9,6 +9,7 @@ import {
   type Job,
   type CodecType,
 } from '@nagiyu/codec-converter-core';
+import { toErrorMessage } from '@nagiyu/common';
 import type { ErrorResponse } from '@nagiyu/common';
 import { getAwsClients, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
@@ -149,7 +150,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('Error creating job:', error);
     await reportErrorEvent({
       serviceId: 'codec-converter',

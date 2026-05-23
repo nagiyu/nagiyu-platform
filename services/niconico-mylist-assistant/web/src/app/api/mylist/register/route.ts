@@ -10,6 +10,7 @@ import type { CryptoConfig } from '@nagiyu/niconico-mylist-assistant-core';
 import { getSession } from '@/lib/auth/session';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import type { ErrorResponse } from '@nagiyu/common';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * リクエストボディの型定義
@@ -258,17 +259,17 @@ export async function POST(
         serviceId: 'niconico-mylist-assistant',
         severity: 'error',
         title: 'パスワード暗号化エラー',
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
         context: {
           userId: session.user.userId,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         },
       });
       return NextResponse.json(
         {
           error: 'ENCRYPTION_ERROR',
           message: ERROR_MESSAGES.PASSWORD_ENCRYPTION_FAILED,
-          details: [error instanceof Error ? error.message : String(error)],
+          details: [toErrorMessage(error)],
         },
         { status: 500 }
       );
@@ -333,11 +334,11 @@ export async function POST(
         serviceId: 'niconico-mylist-assistant',
         severity: 'error',
         title: 'DynamoDB バッチジョブレコード作成失敗',
-        message: error instanceof Error ? error.message : String(error),
+        message: toErrorMessage(error),
         context: {
           userId: session.user.userId,
           jobId: submitResult.jobId,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         },
       });
       // DynamoDB への保存に失敗した場合はエラーを返す
@@ -369,9 +370,9 @@ export async function POST(
       serviceId: 'niconico-mylist-assistant',
       severity: 'error',
       title: 'Batch ジョブ投入エラー',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       },
     });

@@ -1,6 +1,7 @@
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import type { EncryptedData, CryptoConfig } from './types.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * エラーメッセージ定数
@@ -97,7 +98,7 @@ export async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
       throw error;
     }
     throw new Error(
-      `${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${error instanceof Error ? error.message : String(error)}`,
+      `${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${toErrorMessage(error)}`,
       { cause: error }
     );
   }
@@ -145,7 +146,7 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
       throw error;
     }
     throw new Error(
-      `${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`,
+      `${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${toErrorMessage(error)}`,
       { cause: error }
     );
   }
@@ -194,7 +195,7 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
     return decrypted.toString('utf8');
   } catch (error) {
     // 認証タグエラー（decipher.final() が投げる）の場合は専用メッセージに置き換え
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
 
     if (errorMessage.includes('Unsupported state or unable to authenticate data')) {
       throw new Error(ERROR_MESSAGES.AUTHENTICATION_FAILED, { cause: error });
@@ -207,7 +208,7 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
     }
 
     throw new Error(
-      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`,
+      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`,
       { cause: error }
     );
   }

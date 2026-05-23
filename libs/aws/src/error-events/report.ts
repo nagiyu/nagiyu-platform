@@ -13,8 +13,8 @@ import {
   logger,
   type ErrorEvent,
   type ErrorSeverity,
-  type ErrorSource,
-} from '@nagiyu/common';
+  type ErrorSource,,
+  toErrorMessage} from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '../dynamodb/index.js';
 import { createErrorEventWriter } from './factory.js';
 
@@ -71,7 +71,7 @@ export async function reportErrorEvent(input: ReportErrorEventInput): Promise<Er
     return event;
   } catch (error) {
     logger.error(ERROR_MESSAGES.WRITE_FAILED, {
-      error: error instanceof Error ? error.message : String(error),
+      error: toErrorMessage(error),
     });
     return null;
   }

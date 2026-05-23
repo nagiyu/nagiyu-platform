@@ -8,6 +8,7 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import { createGroupRepository, createMembershipRepository } from '@nagiyu/share-together-core';
+import { toErrorMessage } from '@nagiyu/common';
 
 type RouteParams = {
   params: Promise<{ groupId: string }>;
@@ -115,7 +116,7 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Ne
       }
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('招待承認・拒否 API の実行に失敗しました', {
       groupId: requestedGroupId,
       action: requestedAction,

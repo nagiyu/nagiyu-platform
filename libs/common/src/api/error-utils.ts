@@ -1,3 +1,7 @@
+export function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * 任意のエラーオブジェクトからユーザー向けメッセージを抽出するヘルパー。
  *

@@ -21,6 +21,7 @@ import {
 import type { VideoRepository } from './video.repository.interface.js';
 import type { VideoEntity, CreateVideoInput } from '../entities/video.entity.js';
 import { VideoMapper } from '../mappers/video.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB Video Repository
@@ -66,7 +67,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -91,7 +92,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
 
       return this.mapper.toEntity(result.Item as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -126,7 +127,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
       }
       return items.map((item) => this.mapper.toEntity(item as DynamoDBItem));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -159,7 +160,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
           throw new EntityAlreadyExistsError('Video', input.videoId);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -178,7 +179,7 @@ export class DynamoDBVideoRepository implements VideoRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

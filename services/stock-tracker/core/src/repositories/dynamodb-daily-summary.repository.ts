@@ -27,6 +27,7 @@ import type {
   CreateDailySummaryInput,
 } from '../entities/daily-summary.entity.js';
 import { DailySummaryMapper } from '../mappers/daily-summary.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 /**
  * DynamoDB Daily Summary Repository
@@ -67,7 +68,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -124,7 +125,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return summaries.filter((summary) => summary.Date === latestDate);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -170,7 +171,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return items.map((item) => this.mapper.toEntity(item));
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -197,7 +198,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
 
       return entity;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -255,7 +256,7 @@ export class DynamoDBDailySummaryRepository implements DailySummaryRepository {
         }
         throw new EntityAlreadyExistsError('DailySummaryEvaluation', identifier);
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

@@ -7,6 +7,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
+import { toErrorMessage } from '@nagiyu/common';
 import type { User } from '@nagiyu/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -40,7 +41,7 @@ export class DynamoDBUserRepository implements UserRepository {
       );
       return (result.Items?.[0] as User) || null;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'auth',
         severity: 'error',
@@ -103,7 +104,7 @@ export class DynamoDBUserRepository implements UserRepository {
           })
         );
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = toErrorMessage(error);
         await reportErrorEvent({
           serviceId: 'auth',
           severity: 'error',
@@ -140,7 +141,7 @@ export class DynamoDBUserRepository implements UserRepository {
         })
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'auth',
         severity: 'error',

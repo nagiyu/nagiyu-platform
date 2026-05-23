@@ -30,6 +30,7 @@ import type {
   UpdateHoldingInput,
 } from '../entities/holding.entity.js';
 import { HoldingMapper } from '../mappers/holding.mapper.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -72,7 +73,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -117,7 +118,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
         count: result.Count,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -151,7 +152,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
           throw new EntityAlreadyExistsError('Holding', `${input.UserID}#${input.TickerID}`);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -226,7 +227,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -251,7 +252,7 @@ export class DynamoDBHoldingRepository implements HoldingRepository {
           throw new EntityNotFoundError('Holding', `${userId}#${tickerId}`);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

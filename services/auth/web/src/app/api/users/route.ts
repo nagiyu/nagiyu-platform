@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUserRepository } from '@nagiyu/auth-core';
-import { COMMON_ERROR_MESSAGES, hasPermission } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, hasPermission, toErrorMessage } from '@nagiyu/common';
 import { reportErrorEvent } from '@nagiyu/aws';
 import { ListUsersQuerySchema } from './schemas';
 import { ZodError } from 'zod';
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     await reportErrorEvent({
       serviceId: 'auth',
       severity: 'error',

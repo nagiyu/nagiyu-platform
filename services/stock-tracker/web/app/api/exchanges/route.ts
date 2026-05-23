@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { COMMON_ERROR_MESSAGES } from '@nagiyu/common';
+import { COMMON_ERROR_MESSAGES, toErrorMessage } from '@nagiyu/common';
 import { validateExchange, type ExchangeEntity } from '@nagiyu/stock-tracker-core';
 import { withAuth, handleApiError } from '@nagiyu/nextjs';
 import { reportErrorEvent } from '@nagiyu/aws';
@@ -48,7 +48,7 @@ export const GET = withAuth(getSession, 'stocks:read', async () => {
       })),
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     await reportErrorEvent({
       serviceId: 'stock-tracker',
       severity: 'error',
@@ -138,7 +138,7 @@ export const POST = withAuth(
         { status: 201 }
       );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = toErrorMessage(error);
       await reportErrorEvent({
         serviceId: 'stock-tracker',
         severity: 'error',

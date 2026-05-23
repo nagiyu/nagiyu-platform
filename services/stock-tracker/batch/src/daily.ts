@@ -4,7 +4,7 @@
  * データクリーンアップを実行する
  */
 
-import { logger } from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagiyu/aws';
 import { ScanCommand } from '@aws-sdk/lib-dynamodb';
 import type { Alert } from '@nagiyu/stock-tracker-core';
@@ -168,7 +168,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('日次バッチ処理でエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,

@@ -13,7 +13,8 @@ import {
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';
-import { sleep, getTimestamp, formatLocalDateTime } from '@nagiyu/common';
+import { sleep, getTimestamp, formatLocalDateTime,
+  toErrorMessage} from '@nagiyu/common';
 import {
   DEFAULT_MYLIST_NAME_PREFIX,
   ERROR_MESSAGES,
@@ -128,14 +129,14 @@ async function decryptPassword(encryptedData: string, config: CryptoConfig): Pro
       serviceId: 'niconico-mylist-assistant',
       severity: 'critical',
       title: 'パスワード復号化失敗',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       },
     });
     throw new Error(
-      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`
     );
   }
 }
@@ -391,11 +392,11 @@ async function main() {
       serviceId: 'niconico-mylist-assistant',
       severity: 'critical',
       title: 'バッチジョブ全体の失敗',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
         jobId: params?.jobId,
         userId: params?.userId,
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
         stack: error instanceof Error ? error.stack : undefined,
       },
     });
@@ -409,7 +410,7 @@ async function main() {
             registeredCount: 0,
             failedCount: 0,
             totalCount: 0,
-            errorMessage: error instanceof Error ? error.message : String(error),
+            errorMessage: toErrorMessage(error),
           },
           completedAt: Date.now(),
         });

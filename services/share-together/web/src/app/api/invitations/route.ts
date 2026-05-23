@@ -5,6 +5,7 @@ import { getSessionOrUnauthorized } from '@/lib/auth/session';
 import { getDynamoDBDocumentClient, reportErrorEvent } from '@nagiyu/aws';
 import { ERROR_MESSAGES } from '@/lib/constants/errors';
 import {
+import { toErrorMessage } from '@nagiyu/common';
   createGroupRepository,
   createMembershipRepository,
   createUserRepository,
@@ -95,7 +96,7 @@ export async function GET(): Promise<NextResponse> {
 
     return NextResponse.json(response);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error('招待一覧取得 API の実行に失敗しました', { error });
     await reportErrorEvent({
       serviceId: 'share-together',

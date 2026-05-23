@@ -13,7 +13,8 @@
  * 全体は停止しない。最後に統計をログ出力する。
  */
 
-import { logger } from '@nagiyu/common';
+import { logger,
+  toErrorMessage} from '@nagiyu/common';
 import {
   EntityAlreadyExistsError,
   getDynamoDBDocumentClient,
@@ -141,7 +142,7 @@ async function evaluateOne(
     });
     evaluationClose = findCloseForDate(chartData, exchange, evaluationDate);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.warn('翌営業日終値の取得に失敗したため当該予測の採点をスキップします', {
       tickerId: summary.TickerID,
       date: summary.Date,
@@ -183,7 +184,7 @@ async function evaluateOne(
       thresholdPercent: EVALUATION_THRESHOLD_PERCENT,
     });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.warn('判定ロジックでエラーが発生したため当該予測の採点をスキップします', {
       tickerId: summary.TickerID,
       date: summary.Date,
@@ -217,7 +218,7 @@ async function evaluateOne(
       stats.alreadyEvaluatedSkipped++;
       return;
     }
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.warn('採点結果の書き込みに失敗したため当該予測の採点をスキップします', {
       tickerId: summary.TickerID,
       date: summary.Date,
@@ -307,7 +308,7 @@ export async function handler(
       }),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     logger.error('予測精度の採点バッチでエラーが発生しました', {
       eventId: event.id,
       error: errorMessage,

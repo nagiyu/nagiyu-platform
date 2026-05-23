@@ -24,7 +24,7 @@ import {
   type PaginatedResult,
   type DynamoDBItem,
 } from '@nagiyu/aws';
-import { logger } from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import type { AlertRepository, GetByUserIdOptions } from './alert.repository.interface.js';
 import type { AlertEntity, CreateAlertInput, UpdateAlertInput } from '../entities/alert.entity.js';
 import type { TemporaryAlertCandidate } from '../entities/temporary-alert-candidate.entity.js';
@@ -72,7 +72,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
 
       return this.mapper.toEntity(result.Item as unknown as DynamoDBItem);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -116,7 +116,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
@@ -132,7 +132,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         logger.warn('無効なアラートデータをスキップしました', {
           pk: record.PK,
           sk: record.SK,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         });
       }
     }
@@ -174,7 +174,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
@@ -190,7 +190,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         logger.warn('無効なアラートデータをスキップしました', {
           pk: record.PK,
           sk: record.SK,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         });
       }
     }
@@ -252,7 +252,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         })
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
 
@@ -265,7 +265,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
         logger.warn('無効な一時アラート候補をスキップしました', {
           pk: record.PK,
           sk: record.SK,
-          error: error instanceof Error ? error.message : String(error),
+          error: toErrorMessage(error),
         });
       }
     }
@@ -310,7 +310,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityAlreadyExistsError('Alert', `${input.UserID}#(generated)`);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -429,7 +429,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
       if (error instanceof EntityNotFoundError) {
         throw error;
       }
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -454,7 +454,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }
@@ -498,7 +498,7 @@ export class DynamoDBAlertRepository implements AlertRepository {
           throw new EntityNotFoundError('Alert', `${userId}#${alertId}`);
         },
       });
-      const message = error instanceof Error ? error.message : String(error);
+      const message = toErrorMessage(error);
       throw new DatabaseError(message, error instanceof Error ? error : undefined);
     }
   }

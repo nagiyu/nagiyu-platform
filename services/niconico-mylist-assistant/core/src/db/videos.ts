@@ -9,6 +9,7 @@ import { createVideoRepository, createUserSettingRepository } from '../repositor
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
 import type {
+import { toErrorMessage } from '@nagiyu/common';
   VideoBasicInfo,
   UserVideoSetting,
   CreateVideoBasicInfoInput,
@@ -57,11 +58,11 @@ export async function createVideoBasicInfo(
       serviceId: 'niconico-mylist-assistant',
       severity: 'error',
       title: 'DynamoDB 動画基本情報書き込み失敗',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
         videoId: input.videoId,
         operation: 'createVideoBasicInfo',
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       },
     });
     throw error;
@@ -125,12 +126,12 @@ export async function upsertUserVideoSetting(
       serviceId: 'niconico-mylist-assistant',
       severity: 'error',
       title: 'DynamoDB ユーザー設定書き込み失敗',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
         userId: input.userId,
         videoId: input.videoId,
         operation: 'upsertUserVideoSetting',
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       },
     });
     throw error;
@@ -167,12 +168,12 @@ export async function updateUserVideoSetting(
       serviceId: 'niconico-mylist-assistant',
       severity: 'error',
       title: 'DynamoDB ユーザー設定更新失敗',
-      message: error instanceof Error ? error.message : String(error),
+      message: toErrorMessage(error),
       context: {
         userId,
         videoId,
         operation: 'updateUserVideoSetting',
-        error: error instanceof Error ? error.message : String(error),
+        error: toErrorMessage(error),
       },
     });
     throw error;

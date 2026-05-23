@@ -11,7 +11,7 @@ import {
   getDynamoDBDocumentClient,
   getS3Client,
 } from '@nagiyu/aws';
-import { requireEnv } from '@nagiyu/common';
+import { requireEnv, toErrorMessage } from '@nagiyu/common';
 
 // エラーメッセージ定数
 const ERROR_MESSAGES = {
@@ -129,7 +129,7 @@ export async function downloadFromS3(
     const writeStream = createWriteStream(localPath);
     await pipeline(readableStream, writeStream);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.S3_DOWNLOAD_FAILED}: ${message}`, { cause: error });
   }
 }
@@ -152,7 +152,7 @@ export async function uploadToS3(
     });
     await s3Client.send(command);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.S3_UPLOAD_FAILED}: ${message}`, { cause: error });
   }
 }
@@ -203,7 +203,7 @@ export async function updateJobStatus(
 
     await dynamodbClient.send(command);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = toErrorMessage(error);
     throw new Error(`${ERROR_MESSAGES.DYNAMODB_UPDATE_FAILED}: ${message}`, { cause: error });
   }
 }
@@ -281,7 +281,7 @@ export async function cleanup(paths: string[]): Promise<void> {
       await fs.unlink(path);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = toErrorMessage(error);
         errors.push(`${path}: ${message}`);
       }
     }
@@ -324,7 +324,7 @@ export async function processJob(
     // 一時ファイルをクリーンアップ
     await cleanup([inputPath, outputPath]);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorMessage = toErrorMessage(error);
     console.error(`Job ${env.JOB_ID} failed:`, errorMessage);
     await reportErrorEvent({
       serviceId: 'codec-converter',
