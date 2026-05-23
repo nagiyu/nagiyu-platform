@@ -5,7 +5,12 @@ import { createWriteStream, createReadStream, promises as fs } from 'fs';
 import { pipeline } from 'stream/promises';
 import { Readable } from 'stream';
 import type { CodecType } from '@nagiyu/codec-converter-core';
-import { reportErrorEvent, withErrorReporting, getDynamoDBDocumentClient, getS3Client } from '@nagiyu/aws';
+import {
+  reportErrorEvent,
+  withErrorReporting,
+  getDynamoDBDocumentClient,
+  getS3Client,
+} from '@nagiyu/aws';
 import { requireEnv } from '@nagiyu/common';
 
 // エラーメッセージ定数

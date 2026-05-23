@@ -35,7 +35,13 @@ const toEmotionFilter = (value: string | undefined): EmotionFilter => {
 };
 
 export const validateEnvironment = (): QuickClipBatchRunInput => {
-  const env = requireEnv(['BATCH_COMMAND', 'JOB_ID', 'DYNAMODB_TABLE_NAME', 'S3_BUCKET', 'AWS_REGION']);
+  const env = requireEnv([
+    'BATCH_COMMAND',
+    'JOB_ID',
+    'DYNAMODB_TABLE_NAME',
+    'S3_BUCKET',
+    'AWS_REGION',
+  ]);
 
   // BATCH_COMMAND は存在チェック済みのうえで値の妥当性を検証する
   const command = toBatchCommand(env.BATCH_COMMAND);
@@ -43,7 +49,12 @@ export const validateEnvironment = (): QuickClipBatchRunInput => {
     throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: BATCH_COMMAND`);
   }
 
-  const { JOB_ID: jobId, DYNAMODB_TABLE_NAME: tableName, S3_BUCKET: bucketName, AWS_REGION: awsRegion } = env;
+  const {
+    JOB_ID: jobId,
+    DYNAMODB_TABLE_NAME: tableName,
+    S3_BUCKET: bucketName,
+    AWS_REGION: awsRegion,
+  } = env;
 
   // 英数字・アンダースコア・ハイフンのみ許可し、S3キー/パス生成で安全に扱える形式に制限する。
   if (!/^[A-Za-z0-9_-]+$/.test(jobId)) {

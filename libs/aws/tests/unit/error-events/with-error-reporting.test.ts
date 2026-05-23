@@ -162,12 +162,9 @@ describe('withErrorReporting', () => {
       const onError = jest.fn().mockResolvedValue(undefined);
       const error = new Error('エラー');
       await expect(
-        withErrorReporting(
-          { serviceId: 'test-service', title: 'テスト', onError },
-          async () => {
-            throw error;
-          }
-        )
+        withErrorReporting({ serviceId: 'test-service', title: 'テスト', onError }, async () => {
+          throw error;
+        })
       ).rejects.toThrow();
 
       expect(onError).toHaveBeenCalledWith(error);
@@ -220,10 +217,7 @@ describe('withErrorReporting', () => {
     it('runIfNotTest が未指定のとき NODE_ENV に関係なく fn を実行する', async () => {
       process.env.NODE_ENV = 'test';
       const fn = jest.fn().mockResolvedValue('result');
-      const result = await withErrorReporting(
-        { serviceId: 'test-service', title: 'テスト' },
-        fn
-      );
+      const result = await withErrorReporting({ serviceId: 'test-service', title: 'テスト' }, fn);
       expect(fn).toHaveBeenCalledTimes(1);
       expect(result).toBe('result');
     });

@@ -47,7 +47,11 @@ const validateEvent = (event: ClipRegenerateEvent): void => {
 
 const validateEnvironment = (): { tableName: string; bucketName: string; awsRegion: string } => {
   const env = requireEnv(['DYNAMODB_TABLE_NAME', 'S3_BUCKET', 'AWS_REGION']);
-  return { tableName: env.DYNAMODB_TABLE_NAME, bucketName: env.S3_BUCKET, awsRegion: env.AWS_REGION };
+  return {
+    tableName: env.DYNAMODB_TABLE_NAME,
+    bucketName: env.S3_BUCKET,
+    awsRegion: env.AWS_REGION,
+  };
 };
 
 const createSourceVideoUrl = async (
