@@ -31,8 +31,6 @@ const ERROR_MESSAGES = {
   DELETE_ERROR: 'アラートの削除に失敗しました',
   NO_UPDATE_FIELDS: '更新する内容を指定してください',
   EXCHANGE_NOT_FOUND: '取引所情報が見つかりません',
-  NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
-  NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
 } as const;
 
 /**
@@ -57,8 +55,7 @@ interface AlertResponse {
   enabled: boolean;
   temporary?: boolean;
   temporaryExpireDate?: string;
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -80,8 +77,7 @@ interface UpdateAlertRequest {
   enabled?: boolean;
   temporary?: boolean;
   logicalOperator?: AlertEntity['LogicalOperator'];
-  notificationTitle?: string;
-  notificationBody?: string;
+  customMessage?: string;
 }
 
 /**
@@ -111,11 +107,8 @@ function mapAlertToResponse(
   if (alert.LogicalOperator) {
     response.logicalOperator = alert.LogicalOperator;
   }
-  if (alert.NotificationTitle) {
-    response.notificationTitle = alert.NotificationTitle;
-  }
-  if (alert.NotificationBody) {
-    response.notificationBody = alert.NotificationBody;
+  if (alert.CustomMessage) {
+    response.customMessage = alert.CustomMessage;
   }
 
   return response;
@@ -232,31 +225,9 @@ export const PUT = withAuth(
       if (body.logicalOperator !== undefined && body.logicalOperator !== null) {
         updates.LogicalOperator = body.logicalOperator;
       }
-      if (body.notificationTitle !== undefined) {
-        const notificationTitle = body.notificationTitle.trim();
-        if (notificationTitle === '') {
-          return NextResponse.json(
-            {
-              error: 'INVALID_REQUEST',
-              message: ERROR_MESSAGES.NOTIFICATION_TITLE_REQUIRED,
-            },
-            { status: 400 }
-          );
-        }
-        updates.NotificationTitle = notificationTitle;
-      }
-      if (body.notificationBody !== undefined) {
-        const notificationBody = body.notificationBody.trim();
-        if (notificationBody === '') {
-          return NextResponse.json(
-            {
-              error: 'INVALID_REQUEST',
-              message: ERROR_MESSAGES.NOTIFICATION_BODY_REQUIRED,
-            },
-            { status: 400 }
-          );
-        }
-        updates.NotificationBody = notificationBody;
+      if (body.customMessage !== undefined) {
+        updates.CustomMessage =
+          body.customMessage.trim().length > 0 ? body.customMessage.trim() : undefined;
       }
 
       // 更新フィールドが存在しない場合

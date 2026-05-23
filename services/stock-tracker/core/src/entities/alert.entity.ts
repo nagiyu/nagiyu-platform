@@ -52,10 +52,8 @@ export interface AlertEntity {
   ConditionList: AlertCondition[];
   /** 論理演算子 (AND: 範囲内, OR: 範囲外) - 2条件の場合のみ使用。未指定の場合はデフォルトで 'AND' として扱われる */
   LogicalOperator?: 'AND' | 'OR';
-  /** カスタム通知タイトル（未指定時は自動生成） */
-  NotificationTitle?: string;
-  /** カスタム通知本文（未指定時は自動生成） */
-  NotificationBody?: string;
+  /** カスタムメッセージ（通知本文の末尾に追加される任意テキスト） */
+  CustomMessage?: string;
   /** Web Push サブスクリプション情報 */
   subscription: PushSubscription;
   /** 作成日時 (Unix timestamp) */
@@ -84,8 +82,7 @@ export type UpdateAlertInput = Partial<
     | 'TemporaryExpireDate'
     | 'ConditionList'
     | 'LogicalOperator'
-    | 'NotificationTitle'
-    | 'NotificationBody'
+    | 'CustomMessage'
     | 'subscription'
   >
 >;

@@ -53,8 +53,7 @@ const editTarget: AlertResponse = {
   enabled: true,
   temporary: true,
   temporaryExpireDate: '2026-01-02',
-  notificationTitle: 'カスタム通知タイトル',
-  notificationBody: 'カスタム通知本文',
+  customMessage: '保存済みメッセージ',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -112,11 +111,10 @@ const editTargetRange: AlertResponse = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-const editTargetWithoutCustomNotification: AlertResponse = {
+const editTargetWithoutCustomMessage: AlertResponse = {
   ...editTarget,
   alertId: 'alert-4',
-  notificationTitle: undefined,
-  notificationBody: undefined,
+  customMessage: undefined,
 };
 
 describe('AlertSettingsModal mode', () => {
@@ -142,10 +140,7 @@ describe('AlertSettingsModal mode', () => {
     expect(html).not.toContain('表示本数');
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
-    expect(html).toContain('通知設定（任意）');
-    expect(html).toContain('通知設定を編集');
-    expect(html).toContain('通知タイトル');
-    expect(html).toContain('通知本文');
+    expect(html).toContain('カスタムメッセージ（任意）');
   });
 
   it('mode=create のとき Web Push 説明を表示する', () => {
@@ -165,13 +160,10 @@ describe('AlertSettingsModal mode', () => {
     expect(html).toContain('Web Push通知の許可をリクエスト');
     expect(html).toContain('StockChart:NASDAQ:AAPL:60:50');
     expect(html).toContain('一時通知（次の取引終了まで）');
-    expect(html).toContain('通知設定（任意）');
-    expect(html).toContain('通知設定を編集');
-    expect(html).toContain('通知タイトル');
-    expect(html).toContain('通知本文');
+    expect(html).toContain('カスタムメッセージ（任意）');
   });
 
-  it('mode=edit で通知タイトル・通知本文が未設定のとき、自動生成文言を初期値として表示する', () => {
+  it('mode=edit でカスタムメッセージが未設定のとき、空の入力欄が表示される', () => {
     const html = renderToStaticMarkup(
       React.createElement(AlertSettingsModal, {
         open: true,
@@ -181,15 +173,14 @@ describe('AlertSettingsModal mode', () => {
         exchangeId: 'NASDAQ',
         mode: 'edit',
         tradeMode: 'Buy',
-        editTarget: editTargetWithoutCustomNotification,
+        editTarget: editTargetWithoutCustomMessage,
       })
     );
 
-    expect(html).toContain('買いアラート: NASDAQ:AAPL');
-    expect(html).toContain('現在価格 が目標価格 $180.00 以下になりました');
+    expect(html).toContain('0/500');
   });
 
-  it('mode=edit で通知タイトル・通知本文が設定済みのとき、保存済みの値を初期値として表示する', () => {
+  it('mode=edit でカスタムメッセージが設定済みのとき、保存済みの値が表示される', () => {
     const html = renderToStaticMarkup(
       React.createElement(AlertSettingsModal, {
         open: true,
@@ -203,8 +194,7 @@ describe('AlertSettingsModal mode', () => {
       })
     );
 
-    expect(html).toContain('カスタム通知タイトル');
-    expect(html).toContain('カスタム通知本文');
+    expect(html).toContain('保存済みメッセージ');
   });
 
   it('mode=edit で isPercentage=true の条件を持つアラートのとき、パーセンテージ選択UIを表示する', () => {

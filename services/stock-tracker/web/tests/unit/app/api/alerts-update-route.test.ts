@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { PUT } from '../../../../app/api/alerts/[id]/route';
-import { createAlertRepository } from '../../../../lib/repository-factory';
+import { createAlertRepository, createTickerRepository } from '../../../../lib/repository-factory';
 
 jest.mock('../../../../lib/repository-factory', () => ({
   createAlertRepository: jest.fn(),
@@ -22,31 +22,34 @@ jest.mock('@nagiyu/nextjs', () => ({
 }));
 
 describe('PUT /api/alerts/[id]', () => {
+  const mockAlert = {
+    AlertID: '550e8400-e29b-41d4-a716-446655440000',
+    UserID: 'test-user',
+    TickerID: 'NASDAQ:AAPL',
+    ExchangeID: 'NASDAQ',
+    Mode: 'Buy',
+    Frequency: 'MINUTE_LEVEL',
+    Enabled: true,
+    ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
+    subscription: {
+      endpoint: 'https://example.com/endpoint',
+      keys: {
+        p256dh: 'p256dh-key',
+        auth: 'auth-key',
+      },
+    },
+    CreatedAt: Date.now(),
+    UpdatedAt: Date.now(),
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     (createAlertRepository as jest.Mock).mockReturnValue({
-      getById: jest.fn().mockResolvedValue({
-        AlertID: 'alert-1',
-        UserID: 'test-user',
-        TickerID: 'NASDAQ:AAPL',
-        ExchangeID: 'NASDAQ',
-        Mode: 'Buy',
-        Frequency: 'MINUTE_LEVEL',
-        Enabled: true,
-        ConditionList: [{ field: 'price', operator: 'lte', value: 100 }],
-        NotificationTitle: '既存タイトル',
-        NotificationBody: '既存本文',
-        subscription: {
-          endpoint: 'https://example.com/endpoint',
-          keys: {
-            p256dh: 'p256dh-key',
-            auth: 'auth-key',
-          },
-        },
-        CreatedAt: Date.now(),
-        UpdatedAt: Date.now(),
-      }),
-      update: jest.fn(),
+      getById: jest.fn().mockResolvedValue(mockAlert),
+      update: jest.fn().mockResolvedValue({ ...mockAlert }),
+    });
+    (createTickerRepository as jest.Mock).mockReturnValue({
+      getById: jest.fn().mockResolvedValue({ Symbol: 'AAPL', Name: 'Apple Inc.' }),
     });
   });
 
@@ -57,23 +60,28 @@ describe('PUT /api/alerts/[id]', () => {
       headers: { 'content-type': 'application/json' },
     });
 
-  it('notificationTitle が空文字の場合は 400 を返す', async () => {
-    const response = await PUT(createRequest({ notificationTitle: ' ' }), {
+  it('更新フィールドが空の場合は 400 を返す', async () => {
+    const response = await PUT(createRequest({}), {
       params: Promise.resolve({ id: 'alert-1' }),
     });
     const body = await response.json();
 
     expect(response.status).toBe(400);
-    expect(body.message).toBe('通知タイトルは必須です');
+    expect(body.message).toBe('更新する内容を指定してください');
   });
 
-  it('notificationBody が空文字の場合は 400 を返す', async () => {
-    const response = await PUT(createRequest({ notificationBody: '' }), {
+  it('customMessage を更新できる', async () => {
+    (createAlertRepository as jest.Mock).mockReturnValue({
+      getById: jest.fn().mockResolvedValue(mockAlert),
+      update: jest.fn().mockResolvedValue({ ...mockAlert, CustomMessage: '戦略メモ' }),
+    });
+
+    const response = await PUT(createRequest({ customMessage: '戦略メモ' }), {
       params: Promise.resolve({ id: 'alert-1' }),
     });
-    const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.message).toBe('通知本文は必須です');
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.customMessage).toBe('戦略メモ');
   });
 });

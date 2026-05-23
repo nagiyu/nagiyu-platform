@@ -91,8 +91,7 @@ const ERROR_MESSAGES = {
   ALERT_SUBSCRIPTION_ENDPOINT_REQUIRED: 'Web Pushサブスクリプションエンドポイントは必須です',
   ALERT_SUBSCRIPTION_KEYS_P256DH_REQUIRED: 'Web Push公開鍵は必須です',
   ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED: 'Web Push認証シークレットは必須です',
-  ALERT_NOTIFICATION_TITLE_REQUIRED: '通知タイトルは必須です',
-  ALERT_NOTIFICATION_BODY_REQUIRED: '通知本文は必須です',
+  ALERT_CUSTOM_MESSAGE_TOO_LONG: 'カスタムメッセージは500文字以内で入力してください',
   ALERT_CREATED_AT_REQUIRED: '作成日時は必須です',
   ALERT_CREATED_AT_INVALID: '作成日時が無効です',
   ALERT_UPDATED_AT_REQUIRED: '更新日時は必須です',
@@ -500,14 +499,9 @@ export function validateAlert(alert: unknown): ValidationResult {
     errors.push(ERROR_MESSAGES.ALERT_SUBSCRIPTION_KEYS_AUTH_REQUIRED);
   }
 
-  // NotificationTitle
-  if (!alt.NotificationTitle || !isNonEmptyString(alt.NotificationTitle)) {
-    errors.push(ERROR_MESSAGES.ALERT_NOTIFICATION_TITLE_REQUIRED);
-  }
-
-  // NotificationBody
-  if (!alt.NotificationBody || !isNonEmptyString(alt.NotificationBody)) {
-    errors.push(ERROR_MESSAGES.ALERT_NOTIFICATION_BODY_REQUIRED);
+  // CustomMessage（任意、最大500文字）
+  if (typeof alt.CustomMessage === 'string' && alt.CustomMessage.length > 500) {
+    errors.push(ERROR_MESSAGES.ALERT_CUSTOM_MESSAGE_TOO_LONG);
   }
 
   // CreatedAt
