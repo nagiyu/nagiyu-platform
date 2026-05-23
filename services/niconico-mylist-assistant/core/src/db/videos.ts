@@ -9,13 +9,13 @@ import { createVideoRepository, createUserSettingRepository } from '../repositor
 import type { VideoRepository } from '../repositories/video.repository.interface.js';
 import type { UserSettingRepository } from '../repositories/user-setting.repository.interface.js';
 import type {
-import { toErrorMessage } from '@nagiyu/common';
   VideoBasicInfo,
   UserVideoSetting,
   CreateVideoBasicInfoInput,
   CreateUserSettingInput,
   VideoSettingUpdate,
 } from '../types/index.js';
+import { toErrorMessage } from '@nagiyu/common';
 
 // Repository インスタンスの遅延作成
 // 環境変数 USE_IN_MEMORY_DB により、DynamoDB または InMemory 実装を切り替える

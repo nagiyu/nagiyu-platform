@@ -11,10 +11,11 @@
 import {
   generateEventId,
   logger,
+  toErrorMessage,
   type ErrorEvent,
   type ErrorSeverity,
-  type ErrorSource,,
-  toErrorMessage} from '@nagiyu/common';
+  type ErrorSource,
+} from '@nagiyu/common';
 import { getDynamoDBDocumentClient } from '../dynamodb/index.js';
 import { createErrorEventWriter } from './factory.js';
 

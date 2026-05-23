@@ -13,8 +13,7 @@
  * 全体は停止しない。最後に統計をログ出力する。
  */
 
-import { logger,
-  toErrorMessage} from '@nagiyu/common';
+import { logger, toErrorMessage } from '@nagiyu/common';
 import {
   EntityAlreadyExistsError,
   getDynamoDBDocumentClient,

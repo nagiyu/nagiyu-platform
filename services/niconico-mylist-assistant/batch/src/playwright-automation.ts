@@ -3,8 +3,7 @@
  */
 
 import { chromium, Browser, Page } from 'playwright';
-import { withRetry, sleep,
-  toErrorMessage} from '@nagiyu/common';
+import { sleep, toErrorMessage, withRetry } from '@nagiyu/common';
 import type { RetryOptions } from '@nagiyu/common';
 import {
   DEFAULT_RETRY_CONFIG,

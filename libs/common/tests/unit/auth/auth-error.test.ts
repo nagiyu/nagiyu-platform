@@ -25,7 +25,7 @@ describe('getAuthError', () => {
   });
 
   it('権限を持たないとき 403 を返す', () => {
-    const session = makeSession(['user']);
+    const session = makeSession(['stock-viewer']);
     const result = getAuthError(session, 'stocks:manage-data');
     expect(result).toEqual({
       message: COMMON_ERROR_MESSAGES.FORBIDDEN,
@@ -34,7 +34,7 @@ describe('getAuthError', () => {
   });
 
   it('権限を持つとき null を返す', () => {
-    const session = makeSession(['admin']);
+    const session = makeSession(['stock-admin']);
     expect(getAuthError(session, 'stocks:read')).toBeNull();
     expect(getAuthError(session, 'stocks:write-own')).toBeNull();
     expect(getAuthError(session, 'stocks:manage-data')).toBeNull();

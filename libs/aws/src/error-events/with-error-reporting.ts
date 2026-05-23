@@ -1,6 +1,5 @@
-import type { ErrorSeverity } from '@nagiyu/common';
+import { toErrorMessage, type ErrorSeverity } from '@nagiyu/common';
 import { reportErrorEvent } from './report.js';
-import { toErrorMessage } from '@nagiyu/common';
 
 export interface WithErrorReportingOptions {
   serviceId: string;

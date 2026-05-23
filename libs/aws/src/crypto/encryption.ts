@@ -97,10 +97,9 @@ export async function getEncryptionKey(config: CryptoConfig): Promise<Buffer> {
     if (error instanceof Error && error.message in ERROR_MESSAGES) {
       throw error;
     }
-    throw new Error(
-      `${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${toErrorMessage(error)}`,
-      { cause: error }
-    );
+    throw new Error(`${ERROR_MESSAGES.SECRET_NOT_FOUND}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 
@@ -145,10 +144,9 @@ export async function encrypt(plaintext: string, config: CryptoConfig): Promise<
     if (error instanceof Error && errorMessages.includes(error.message)) {
       throw error;
     }
-    throw new Error(
-      `${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${toErrorMessage(error)}`,
-      { cause: error }
-    );
+    throw new Error(`${ERROR_MESSAGES.ENCRYPTION_FAILED}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 
@@ -207,10 +205,9 @@ export async function decrypt(encryptedData: EncryptedData, config: CryptoConfig
       throw error;
     }
 
-    throw new Error(
-      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`,
-      { cause: error }
-    );
+    throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`, {
+      cause: error,
+    });
   }
 }
 

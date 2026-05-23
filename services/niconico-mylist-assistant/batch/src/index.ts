@@ -13,8 +13,7 @@ import {
   createBatchCompletionPayload,
   createTwoFactorAuthRequiredPayload,
 } from './lib/web-push-client.js';
-import { sleep, getTimestamp, formatLocalDateTime,
-  toErrorMessage} from '@nagiyu/common';
+import { formatLocalDateTime, getTimestamp, sleep, toErrorMessage } from '@nagiyu/common';
 import {
   DEFAULT_MYLIST_NAME_PREFIX,
   ERROR_MESSAGES,
@@ -135,9 +134,7 @@ async function decryptPassword(encryptedData: string, config: CryptoConfig): Pro
         stack: error instanceof Error ? error.stack : undefined,
       },
     });
-    throw new Error(
-      `${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`
-    );
+    throw new Error(`${ERROR_MESSAGES.DECRYPTION_FAILED}: ${toErrorMessage(error)}`);
   }
 }
 
