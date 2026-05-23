@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConfirmDialog } from '@nagiyu/ui';
 
 describe('ConfirmDialog', () => {
   it('タイトル・説明・ボタンを表示する', () => {

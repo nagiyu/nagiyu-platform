@@ -29,6 +29,8 @@ export { default as PrivacyPolicyDialog } from './components/dialogs/PrivacyPoli
 export type { PrivacyPolicyDialogProps } from './components/dialogs/PrivacyPolicyDialog';
 export { default as TermsOfServiceDialog } from './components/dialogs/TermsOfServiceDialog';
 export type { TermsOfServiceDialogProps } from './components/dialogs/TermsOfServiceDialog';
+export { default as ConfirmDialog } from './components/dialogs/ConfirmDialog';
+export type { ConfirmDialogProps } from './components/dialogs/ConfirmDialog';
 export { ErrorBoundary, useErrorHandler } from './components/error/ErrorBoundary';
 export type { ErrorBoundaryProps } from './components/error/ErrorBoundary';
 export { default as ErrorAlert } from './components/error/ErrorAlert';
