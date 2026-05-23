@@ -25,6 +25,7 @@ jest.mock('@nagiyu/auth-core', () => ({
 }));
 
 jest.mock('@nagiyu/common', () => ({
+  ...jest.requireActual('@nagiyu/common'),
   VALID_ROLES: ['admin', 'user-manager'],
   hasPermission: mockHasPermission,
 }));
