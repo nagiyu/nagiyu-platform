@@ -7,8 +7,13 @@
  */
 
 // Export React hooks
-export { useAPIRequest } from './hooks';
-export type { UseAPIRequestOptions, UseAPIRequestReturn } from './hooks';
+export { useAPIRequest, usePushSubscription } from './hooks';
+export type {
+  UseAPIRequestOptions,
+  UseAPIRequestReturn,
+  UsePushSubscriptionOptions,
+  UsePushSubscriptionReturn,
+} from './hooks';
 
 // Export API Client
 export { ApiClient, APIError } from './api-client';

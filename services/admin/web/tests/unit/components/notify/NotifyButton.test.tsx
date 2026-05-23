@@ -2,9 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import NotifyButton from '@/components/notify/NotifyButton';
 
-jest.mock('@nagiyu/browser', () => ({
-  urlBase64ToUint8Array: jest.fn(() => new Uint8Array([1, 2, 3])),
-}));
+beforeAll(() => {
+  // subscribePush の PushManager 対応チェック用に PushManager をグローバルに用意
+  (window as unknown as { PushManager?: unknown }).PushManager = function () {};
+});
+
+afterAll(() => {
+  delete (window as unknown as { PushManager?: unknown }).PushManager;
+});
 
 describe('NotifyButton', () => {
   beforeEach(() => {
@@ -61,7 +66,9 @@ describe('NotifyButton', () => {
           keys: { p256dh: 'p256dh', auth: 'auth' },
         }),
       });
-      expect(getRegistration).toHaveBeenCalledTimes(1);
+      // usePushSubscription の useEffect で初期状態チェックのため getRegistration を 1 回呼ぶ
+      // subscribe 時にも getRegistration が呼ばれるため合計 2 回
+      expect(getRegistration).toHaveBeenCalledTimes(2);
       expect(subscribe).toHaveBeenCalledTimes(1);
     });
 
