@@ -70,16 +70,17 @@ export class VpcStack extends cdk.Stack {
 
     // dev: VPC secondary CIDR を追加して 1b Subnet の CIDR 空間を確保
     // primary CIDR (10.0.0.0/24) の直接変更は VPC 再作成を招くため secondary で拡張する
+    // AWS の制約で 10.0.0.0/15 範囲（10.0.x.x / 10.1.x.x）の secondary 追加は restricted のため、10.2.0.0/24 を使う
     let devSecondaryCidr: ec2.CfnVPCCidrBlock | undefined;
     if (!isProd) {
       devSecondaryCidr = new ec2.CfnVPCCidrBlock(this, 'NagiyuVPCSecondaryCidr', {
         vpcId: this.vpc.ref,
-        cidrBlock: '10.0.1.0/24',
+        cidrBlock: '10.2.0.0/24',
       });
     }
 
     // Public Subnet 1b (dev/prod 共通)
-    const subnet1bCidr = isProd ? '10.1.0.128/25' : '10.0.1.0/24';
+    const subnet1bCidr = isProd ? '10.1.0.128/25' : '10.2.0.0/24';
     const publicSubnet1b = new ec2.CfnSubnet(this, 'NagiyuPublicSubnet1b', {
       vpcId: this.vpc.ref,
       cidrBlock: subnet1bCidr,
