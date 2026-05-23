@@ -75,6 +75,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
@@ -103,6 +104,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
@@ -150,6 +152,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
@@ -226,6 +229,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
@@ -302,6 +306,7 @@ jobs:
           npm run build --workspace @nagiyu/common
           npm run build --workspace @nagiyu/aws
           npm run build --workspace @nagiyu/browser
+          npm run build --workspace @nagiyu/react
           npm run build --workspace @nagiyu/ui
           npm run build --workspace @nagiyu/nextjs
           npm run build --workspace @nagiyu/admin-core
@@ -367,7 +372,7 @@ jobs:
         uses: ./.github/actions/build-web-app
         with:
           workspace: '@nagiyu/admin'
-          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
+          shared-workspaces: '@nagiyu/common,@nagiyu/aws,@nagiyu/browser,@nagiyu/react,@nagiyu/ui,@nagiyu/nextjs,@nagiyu/admin-core'
 
   docker-build:
     name: Docker Build Verification
