@@ -3,6 +3,7 @@ import type {
   QuickClipBatchCommand,
   QuickClipBatchRunInput,
 } from '@nagiyu/quick-clip-core';
+import { requireEnv } from '@nagiyu/common';
 
 const ERROR_MESSAGES = {
   MISSING_ENV: '必要な環境変数が設定されていません',
@@ -34,41 +35,37 @@ const toEmotionFilter = (value: string | undefined): EmotionFilter => {
 };
 
 export const validateEnvironment = (): QuickClipBatchRunInput => {
-  const command = toBatchCommand(process.env.BATCH_COMMAND);
-  const jobId = process.env.JOB_ID?.trim() ?? '';
-  const tableName = process.env.DYNAMODB_TABLE_NAME?.trim() ?? '';
-  const bucketName = process.env.S3_BUCKET?.trim() ?? '';
-  const awsRegion = process.env.AWS_REGION?.trim() ?? '';
-  const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || undefined;
-  const emotionFilter = toEmotionFilter(process.env.EMOTION_FILTER);
+  const env = requireEnv([
+    'BATCH_COMMAND',
+    'JOB_ID',
+    'DYNAMODB_TABLE_NAME',
+    'S3_BUCKET',
+    'AWS_REGION',
+  ]);
 
-  const missing: string[] = [];
+  // BATCH_COMMAND は存在チェック済みのうえで値の妥当性を検証する
+  const command = toBatchCommand(env.BATCH_COMMAND);
   if (!command) {
-    missing.push('BATCH_COMMAND');
-  }
-  if (jobId.length === 0) {
-    missing.push('JOB_ID');
-  }
-  if (tableName.length === 0) {
-    missing.push('DYNAMODB_TABLE_NAME');
-  }
-  if (bucketName.length === 0) {
-    missing.push('S3_BUCKET');
-  }
-  if (awsRegion.length === 0) {
-    missing.push('AWS_REGION');
+    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: BATCH_COMMAND`);
   }
 
-  if (missing.length > 0) {
-    throw new Error(`${ERROR_MESSAGES.MISSING_ENV}: ${missing.join(', ')}`);
-  }
+  const {
+    JOB_ID: jobId,
+    DYNAMODB_TABLE_NAME: tableName,
+    S3_BUCKET: bucketName,
+    AWS_REGION: awsRegion,
+  } = env;
+
   // 英数字・アンダースコア・ハイフンのみ許可し、S3キー/パス生成で安全に扱える形式に制限する。
   if (!/^[A-Za-z0-9_-]+$/.test(jobId)) {
     throw new Error(ERROR_MESSAGES.INVALID_JOB_ID);
   }
 
+  const openAiApiKey = process.env.OPENAI_API_KEY?.trim() || undefined;
+  const emotionFilter = toEmotionFilter(process.env.EMOTION_FILTER);
+
   return {
-    command: command as QuickClipBatchCommand,
+    command,
     jobId,
     tableName,
     bucketName,
