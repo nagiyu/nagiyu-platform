@@ -13,4 +13,6 @@ export const SSM_PARAMETERS = {
   ALB_SECURITY_GROUP_ID: (env: Environment) => `/nagiyu/root/${env}/alb/security-group-id`,
   ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-name`,
   ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-arn`,
+  LIVETALK_ECR_REPOSITORY_NAME: (env: Environment) => `/nagiyu/livetalk/${env}/ecr/repository-name`,
+  LIVETALK_ECR_REPOSITORY_URI: (env: Environment) => `/nagiyu/livetalk/${env}/ecr/repository-uri`,
 } as const;
