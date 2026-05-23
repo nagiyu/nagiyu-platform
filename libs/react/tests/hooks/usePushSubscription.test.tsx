@@ -27,11 +27,10 @@ const setupBrowser = (options: SetupOptions = {}) => {
     newSubscription,
   } = options;
 
-  const created: MockPushSubscription =
-    newSubscription ?? {
-      unsubscribe: jest.fn().mockResolvedValue(undefined),
-      toJSON: () => ({ endpoint: 'new' }),
-    };
+  const created: MockPushSubscription = newSubscription ?? {
+    unsubscribe: jest.fn().mockResolvedValue(undefined),
+    toJSON: () => ({ endpoint: 'new' }),
+  };
 
   const subscribeFn = jest.fn().mockResolvedValue(created);
   const getSubscriptionFn = jest.fn().mockResolvedValue(existingSubscription);
@@ -102,9 +101,7 @@ describe('usePushSubscription', () => {
   describe('初期状態', () => {
     it('未サポートブラウザでは supported=false', async () => {
       setupBrowser({ hasNotification: false });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
       expect(result.current.supported).toBe(false);
       expect(result.current.loading).toBe(false);
       expect(result.current.error).toBeNull();
@@ -112,9 +109,7 @@ describe('usePushSubscription', () => {
 
     it('サポート対応ブラウザでは supported=true', async () => {
       setupBrowser();
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
       expect(result.current.supported).toBe(true);
     });
 
@@ -123,17 +118,13 @@ describe('usePushSubscription', () => {
         unsubscribe: jest.fn().mockResolvedValue(undefined),
       };
       setupBrowser({ existingSubscription: existing });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
       await waitFor(() => expect(result.current.subscribed).toBe(true));
     });
 
     it('既存 subscription がなければ subscribed=false のまま', async () => {
       setupBrowser({ existingSubscription: null });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
       // 初期化処理が走った後も subscribed は false のまま
       await waitFor(() => {
         expect(result.current.subscribed).toBe(false);
@@ -142,9 +133,7 @@ describe('usePushSubscription', () => {
 
     it('permission は Notification.permission を反映する', async () => {
       setupBrowser({ permission: 'denied' });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
       expect(result.current.permission).toBe('denied');
     });
   });
@@ -152,9 +141,7 @@ describe('usePushSubscription', () => {
   describe('subscribe()', () => {
     it('成功時に subscribed=true, getVapidPublicKey が呼ばれる', async () => {
       setupBrowser({ permission: 'granted' });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
 
       await act(async () => {
         await result.current.subscribe();
@@ -169,9 +156,7 @@ describe('usePushSubscription', () => {
     it('onSubscribed コールバックが呼ばれる', async () => {
       const { created } = setupBrowser({ permission: 'granted' });
       const onSubscribed = jest.fn().mockResolvedValue(undefined);
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey, onSubscribed })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey, onSubscribed }));
 
       await act(async () => {
         await result.current.subscribe();
@@ -182,9 +167,7 @@ describe('usePushSubscription', () => {
 
     it('失敗時に error が設定され throw される', async () => {
       setupBrowser({ permission: 'denied' });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
 
       await act(async () => {
         await expect(result.current.subscribe()).rejects.toThrow();
@@ -232,9 +215,7 @@ describe('usePushSubscription', () => {
         unsubscribe: jest.fn().mockResolvedValue(undefined),
       };
       setupBrowser({ existingSubscription: existing });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
       await waitFor(() => expect(result.current.subscribed).toBe(true));
 
       await act(async () => {
@@ -265,9 +246,7 @@ describe('usePushSubscription', () => {
 
     it('未サポートブラウザでは何もせず subscribed=false', async () => {
       setupBrowser({ hasNotification: false });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
 
       await act(async () => {
         await result.current.unsubscribe();
@@ -279,9 +258,7 @@ describe('usePushSubscription', () => {
 
     it('既存 subscription がなくてもエラーにならない', async () => {
       setupBrowser({ existingSubscription: null });
-      const { result } = renderHook(() =>
-        usePushSubscription({ getVapidPublicKey })
-      );
+      const { result } = renderHook(() => usePushSubscription({ getVapidPublicKey }));
 
       await act(async () => {
         await result.current.unsubscribe();

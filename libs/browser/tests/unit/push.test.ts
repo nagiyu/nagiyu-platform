@@ -1,11 +1,7 @@
 /**
  * @jest-environment jsdom
  */
-import {
-  urlBase64ToUint8Array,
-  subscribePush,
-  PUSH_ERROR_MESSAGES,
-} from '../../src/push';
+import { urlBase64ToUint8Array, subscribePush, PUSH_ERROR_MESSAGES } from '../../src/push';
 
 describe('push utilities', () => {
   describe('urlBase64ToUint8Array', () => {
@@ -55,8 +51,7 @@ describe('push utilities', () => {
         toJSON: () => ({ endpoint: 'https://example.com/sub' }),
       };
 
-      const subscribeFn =
-        subscribeImpl ?? jest.fn().mockResolvedValue(createdSubscription);
+      const subscribeFn = subscribeImpl ?? jest.fn().mockResolvedValue(createdSubscription);
       const getSubscriptionFn = jest.fn().mockResolvedValue(existingSubscription);
       const registration = {
         pushManager: {
@@ -202,9 +197,9 @@ describe('push utilities', () => {
     it('onSubscribed が例外を投げた場合は伝播する', async () => {
       setupBrowser();
       const onSubscribed = jest.fn().mockRejectedValue(new Error('post failed'));
-      await expect(
-        subscribePush({ vapidPublicKey: VAPID_KEY, onSubscribed })
-      ).rejects.toThrow('post failed');
+      await expect(subscribePush({ vapidPublicKey: VAPID_KEY, onSubscribed })).rejects.toThrow(
+        'post failed'
+      );
     });
 
     it('vapidPublicKey に関数を渡せる（許可後に呼ばれる）', async () => {
@@ -217,9 +212,9 @@ describe('push utilities', () => {
     it('vapidPublicKey の関数は許可拒否時には呼ばれない', async () => {
       setupBrowser({ permission: 'denied' });
       const getKey = jest.fn().mockResolvedValue(VAPID_KEY);
-      await expect(
-        subscribePush({ vapidPublicKey: getKey })
-      ).rejects.toThrow(PUSH_ERROR_MESSAGES.PERMISSION_DENIED);
+      await expect(subscribePush({ vapidPublicKey: getKey })).rejects.toThrow(
+        PUSH_ERROR_MESSAGES.PERMISSION_DENIED
+      );
       expect(getKey).not.toHaveBeenCalled();
     });
 
