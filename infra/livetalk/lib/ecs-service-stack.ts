@@ -14,6 +14,12 @@ import {
 
 export interface LiveTalkEcsServiceStackProps extends cdk.StackProps {
   environment: Environment;
+  /**
+   * アプリバージョン（services/livetalk/web/package.json の version）。
+   * ECS Task の `APP_VERSION` env として container に渡し、ランタイムで
+   * `/api/health` の version フィールドに反映する。
+   */
+  appVersion?: string;
 }
 
 /**
@@ -37,7 +43,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: LiveTalkEcsServiceStackProps) {
     super(scope, id, props);
 
-    const { environment } = props;
+    const { environment, appVersion = '1.0.0' } = props;
 
     const vpcId = ssm.StringParameter.valueForStringParameter(
       this,
@@ -173,6 +179,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       environment: {
         NODE_ENV: environment === 'prod' ? 'production' : 'development',
         PORT: '3000',
+        APP_VERSION: appVersion,
       },
       portMappings: [
         {
