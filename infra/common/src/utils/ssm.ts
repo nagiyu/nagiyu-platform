@@ -13,6 +13,16 @@ export const SSM_PARAMETERS = {
   ALB_SECURITY_GROUP_ID: (env: Environment) => `/nagiyu/root/${env}/alb/security-group-id`,
   ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-name`,
   ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/root/${env}/ecs/cluster-arn`,
+  SHARED_ECS_CLUSTER_NAME: (env: Environment) => `/nagiyu/shared/${env}/ecs/cluster-name`,
+  SHARED_ECS_CLUSTER_ARN: (env: Environment) => `/nagiyu/shared/${env}/ecs/cluster-arn`,
   LIVETALK_ECR_REPOSITORY_NAME: (env: Environment) => `/nagiyu/livetalk/${env}/ecr/repository-name`,
   LIVETALK_ECR_REPOSITORY_URI: (env: Environment) => `/nagiyu/livetalk/${env}/ecr/repository-uri`,
+  LIVETALK_ALB_DNS_NAME: (env: Environment) => `/nagiyu/livetalk/${env}/alb/dns-name`,
+  LIVETALK_ALB_ARN: (env: Environment) => `/nagiyu/livetalk/${env}/alb/arn`,
+  LIVETALK_ALB_LISTENER_ARN: (env: Environment) => `/nagiyu/livetalk/${env}/alb/listener-arn`,
+  LIVETALK_ALB_SECURITY_GROUP_ID: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/alb/security-group-id`,
+  LIVETALK_ALB_TARGET_GROUP_ARN: (env: Environment) =>
+    `/nagiyu/livetalk/${env}/alb/target-group-arn`,
+  LIVETALK_ECS_SERVICE_NAME: (env: Environment) => `/nagiyu/livetalk/${env}/ecs/service-name`,
 } as const;

@@ -83,17 +83,28 @@ jobs:
       - name: Build CDK TypeScript
         run: npm run build --workspace=@nagiyu/infra-livetalk
 
-      - name: Synthesize CDK stack (dev)
+      - name: Run infra-livetalk unit tests
+        run: npm run test --workspace=@nagiyu/infra-livetalk
+
+      - name: Synthesize CDK stacks (dev)
         env:
           ENVIRONMENT: dev
           CDK_DEFAULT_ACCOUNT: '000000000000'
-        run: npm run synth --workspace=@nagiyu/infra-livetalk -- NagiyuLiveTalkEcrDev
+        run: |
+          npm run synth --workspace=@nagiyu/infra-livetalk -- \
+            NagiyuLiveTalkEcrDev \
+            NagiyuLiveTalkAlbDev \
+            NagiyuLiveTalkServiceDev
 
-      - name: Synthesize CDK stack (prod)
+      - name: Synthesize CDK stacks (prod)
         env:
           ENVIRONMENT: prod
           CDK_DEFAULT_ACCOUNT: '000000000000'
-        run: npm run synth --workspace=@nagiyu/infra-livetalk -- NagiyuLiveTalkEcrProd
+        run: |
+          npm run synth --workspace=@nagiyu/infra-livetalk -- \
+            NagiyuLiveTalkEcrProd \
+            NagiyuLiveTalkAlbProd \
+            NagiyuLiveTalkServiceProd
 
   build:
     name: Next.js Build Verification
