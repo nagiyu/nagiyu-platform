@@ -6,11 +6,12 @@ const { LiveTalkEcsServiceStack } = require('../../lib/ecs-service-stack');
 
 const STACK_ENV = { account: '000000000000', region: 'us-east-1' };
 
-const synth = (environment) => {
+const synth = (environment, props = {}) => {
   const app = new cdk.App();
   const stack = new LiveTalkEcsServiceStack(app, `TestLiveTalkService${environment}`, {
     environment,
     env: STACK_ENV,
+    ...props,
   });
   return Template.fromStack(stack);
 };
@@ -81,6 +82,30 @@ describe('LiveTalkEcsServiceStack', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::Service', {
       Tags: Match.arrayWith([{ Key: 'Component', Value: 'livetalk' }]),
+    });
+  });
+
+  it('APP_VERSION を container environment に注入する（明示指定）', () => {
+    const template = synth('dev', { appVersion: '1.2.3' });
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Environment: Match.arrayWith([{ Name: 'APP_VERSION', Value: '1.2.3' }]),
+        }),
+      ]),
+    });
+  });
+
+  it('APP_VERSION 未指定時は 1.0.0 をデフォルトで注入する', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          Environment: Match.arrayWith([{ Name: 'APP_VERSION', Value: '1.0.0' }]),
+        }),
+      ]),
     });
   });
 

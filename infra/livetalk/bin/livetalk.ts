@@ -19,6 +19,10 @@ const account = process.env.CDK_DEFAULT_ACCOUNT;
 const region = 'us-east-1';
 const stackEnv = { account, region };
 
+// CD ワークフローから渡されるアプリバージョン（package.json の version）
+// ECS Task の APP_VERSION env として /api/health の version 表示に利用される
+const appVersion = process.env.APP_VERSION || '1.0.0';
+
 // LiveTalk ECR Repository Stack（dev / prod 別に作成、Component: livetalk）
 new LiveTalkEcrStack(app, `NagiyuLiveTalkEcr${envSuffix}`, {
   env: stackEnv,
@@ -41,6 +45,7 @@ const ecsServiceStack = new LiveTalkEcsServiceStack(
   {
     env: stackEnv,
     environment,
+    appVersion,
     description: `LiveTalk ECS Service (${environment})`,
   }
 );

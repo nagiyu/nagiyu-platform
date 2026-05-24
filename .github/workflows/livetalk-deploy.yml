@@ -201,6 +201,9 @@ jobs:
           ENVIRONMENT: ${{ needs.build.outputs.environment }}
           STACK_SUFFIX: ${{ needs.build.outputs.stack-suffix }}
           IMAGE_TAG: ${{ github.sha }}
+          # CDK が process.env.APP_VERSION を読み、ECS Task の environment に注入する
+          # /api/health の version 表示に利用される
+          APP_VERSION: ${{ needs.build.outputs.app-version }}
         run: |
           npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy \
             NagiyuLiveTalkAlb${STACK_SUFFIX} \
