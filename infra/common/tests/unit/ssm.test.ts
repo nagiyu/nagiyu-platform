@@ -30,4 +30,13 @@ describe('ssm utilities', () => {
     expect(SSM_PARAMETERS.ECS_CLUSTER_NAME('dev')).toBe('/nagiyu/root/dev/ecs/cluster-name');
     expect(SSM_PARAMETERS.ECS_CLUSTER_ARN('prod')).toBe('/nagiyu/root/prod/ecs/cluster-arn');
   });
+
+  it('should generate LiveTalk ECR parameter names', () => {
+    expect(SSM_PARAMETERS.LIVETALK_ECR_REPOSITORY_NAME('dev')).toBe(
+      '/nagiyu/livetalk/dev/ecr/repository-name'
+    );
+    expect(SSM_PARAMETERS.LIVETALK_ECR_REPOSITORY_URI('prod')).toBe(
+      '/nagiyu/livetalk/prod/ecr/repository-uri'
+    );
+  });
 });
