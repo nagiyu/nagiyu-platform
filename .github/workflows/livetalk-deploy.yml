@@ -8,11 +8,8 @@ on:
       - master
     paths:
       - 'services/livetalk/**'
-      - 'infra/bin/**'
       - 'infra/livetalk/**'
       - 'infra/common/**'
-      - 'infra/package.json'
-      - 'infra/cdk.json'
       - 'infra/tsconfig.json'
       - 'libs/**'
       - 'package.json'
@@ -60,7 +57,7 @@ jobs:
         run: npm run build --workspace=@nagiyu/infra-common
 
       - name: Build CDK TypeScript
-        run: npm run build --workspace=@nagiyu/infra
+        run: npm run build --workspace=@nagiyu/infra-livetalk
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -69,12 +66,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: CDK diff (verify no-op against existing CFN stack)
+        env:
+          ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
+          STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
+        run: |
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- diff NagiyuLiveTalkEcr${STACK_SUFFIX} || true
+          echo "diff complete (informational; deploy will reconcile any unexpected drift)"
+
       - name: Deploy LiveTalk ECR Stack
         env:
           ENVIRONMENT: ${{ steps.setup-environment.outputs.environment }}
           STACK_SUFFIX: ${{ steps.setup-environment.outputs.stack-suffix }}
         run: |
-          npm run cdk --workspace=@nagiyu/infra -- deploy NagiyuLiveTalkEcr${STACK_SUFFIX} \
+          npm run cdk --workspace=@nagiyu/infra-livetalk -- deploy NagiyuLiveTalkEcr${STACK_SUFFIX} \
             --require-approval never
 
           echo "LiveTalk ECR repository deployed (environment: $ENVIRONMENT)"

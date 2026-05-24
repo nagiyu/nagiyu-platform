@@ -1,9 +1,12 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
-import { EcrStackBase, EcrStackBaseProps } from '../common/src/stacks/ecr-stack-base';
-import { Environment } from '../common/src/types/environment';
-import { SSM_PARAMETERS } from '../common/src/utils/ssm';
+import {
+  EcrStackBase,
+  EcrStackBaseProps,
+  Environment,
+  SSM_PARAMETERS,
+} from '@nagiyu/infra-common';
 
 export interface LiveTalkEcrStackProps extends cdk.StackProps {
   environment: string;

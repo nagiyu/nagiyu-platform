@@ -8,7 +8,6 @@ import { EcsServiceStack } from '../root/ecs-service-stack';
 import { CloudFrontStack } from '../root/cloudfront-stack';
 import { PortalLambdaStack } from '../root/portal-lambda-stack';
 import { CloudFrontLambdaStack } from '../root/cloudfront-lambda-stack';
-import { LiveTalkEcrStack } from '../livetalk/ecr-stack';
 
 const app = new cdk.App();
 
@@ -24,13 +23,6 @@ const ecrStack = new EcrStack(app, `NagiyuPortalEcr${envSuffix}`, {
   env: { account, region },
   environment,
   description: `Portal ECR Repository (${environment})`,
-});
-
-// LiveTalk ECR Repository Stack（dev / prod 別に作成、Component: livetalk）
-new LiveTalkEcrStack(app, `NagiyuLiveTalkEcr${envSuffix}`, {
-  env: { account, region },
-  environment,
-  description: `LiveTalk ECR Repository (${environment})`,
 });
 
 if (environment === 'dev') {
