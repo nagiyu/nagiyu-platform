@@ -94,7 +94,8 @@ jobs:
           npm run synth --workspace=@nagiyu/infra-livetalk -- \
             NagiyuLiveTalkEcrDev \
             NagiyuLiveTalkAlbDev \
-            NagiyuLiveTalkServiceDev
+            NagiyuLiveTalkServiceDev \
+            NagiyuLiveTalkCloudFrontDev
 
       - name: Synthesize CDK stacks (prod)
         env:

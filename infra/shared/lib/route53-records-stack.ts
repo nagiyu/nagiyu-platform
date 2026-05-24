@@ -49,6 +49,35 @@ const CLOUDFRONT_CNAMES: ReadonlyArray<{
 const APEX_CLOUDFRONT_DOMAIN = 'd1k6ec293qn4f7.cloudfront.net';
 
 /**
+ * 新規サービスの CloudFront 向け ALIAS レコード定義。
+ *
+ * 既存サービス（CLOUDFRONT_CNAMES）は XServer から複製した CNAME を維持しているが、
+ * これ以降に新規追加するサービスは ARecord ALIAS で登録する方針。
+ *
+ * `domainNameSsmParam` で指定された SSM パラメータからディストリビューションドメインを
+ * 取得するため、サービス側 CloudFront スタックが先にデプロイされている必要がある。
+ * 該当 SSM が存在しない環境を含めて配列に追加すると `route53-records-stack` の
+ * deploy で CloudFormation エラーになるため、追加は対象 CloudFront のデプロイ完了後に行う。
+ */
+const CLOUDFRONT_ALIAS_RECORDS: ReadonlyArray<{
+  recordName: string;
+  domainNameSsmParam: string;
+  comment: string;
+}> = [
+  {
+    recordName: 'dev-live-talk',
+    domainNameSsmParam: SSM_PARAMETERS.LIVETALK_CLOUDFRONT_DOMAIN_NAME('dev'),
+    comment: 'LiveTalk (dev) ALIAS to CloudFront',
+  },
+  // Phase 1d: prod 用 `live-talk` レコードは prod CloudFront デプロイ後の Phase で追加。
+  //   {
+  //     recordName: 'live-talk',
+  //     domainNameSsmParam: SSM_PARAMETERS.LIVETALK_CLOUDFRONT_DOMAIN_NAME('prod'),
+  //     comment: 'LiveTalk (prod) ALIAS to CloudFront',
+  //   },
+];
+
+/**
  * Google Search Console のドメイン所有権確認用 CNAME
  * NS 切替後も検証状態を維持するため Route53 にも複製する
  */
@@ -140,6 +169,24 @@ export class Route53RecordsStack extends cdk.Stack {
       }),
       comment: 'Root apex (alias to CloudFront, replaces XServer CNAME)',
     });
+
+    for (const spec of CLOUDFRONT_ALIAS_RECORDS) {
+      const distributionDomain = ssm.StringParameter.valueForStringParameter(
+        this,
+        spec.domainNameSsmParam,
+      );
+      new route53.ARecord(this, `Alias${this.toPascalCase(spec.recordName)}`, {
+        zone: hostedZone,
+        recordName: spec.recordName,
+        target: route53.RecordTarget.fromAlias({
+          bind: () => ({
+            dnsName: distributionDomain,
+            hostedZoneId: CLOUDFRONT_HOSTED_ZONE_ID,
+          }),
+        }),
+        comment: spec.comment,
+      });
+    }
   }
 
   private toPascalCase(value: string): string {
