@@ -1,12 +1,16 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('LiveTalk - Basic Functionality', () => {
-  test('should load the homepage', async ({ page }) => {
+  test('should load the homepage with chat UI', async ({ page }) => {
     await page.goto('/');
 
     await expect(page).toHaveTitle(/LiveTalk/);
 
-    await expect(page.getByRole('heading', { name: /Hello, LiveTalk!/ })).toBeVisible();
+    // 入力欄が表示されている（プレースホルダーから検索）
+    await expect(page.getByPlaceholder('メッセージを入力')).toBeVisible();
+
+    // VOICEVOX ライセンス表記が表示されている
+    await expect(page.getByText(/VOICEVOX/)).toBeVisible();
   });
 
   test('should respond from health endpoint', async ({ request }) => {
