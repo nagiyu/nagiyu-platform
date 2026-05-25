@@ -70,6 +70,12 @@ export const ROLES = {
       'stocks:read-evaluation',
     ],
   },
+  'livetalk-user': {
+    id: 'livetalk-user',
+    name: 'LiveTalk ユーザー',
+    description: 'LiveTalk のチャット UI および API にアクセス可能',
+    permissions: ['livetalk:chat'],
+  },
 } as const satisfies Record<string, RoleDefinition>;
 
 /**

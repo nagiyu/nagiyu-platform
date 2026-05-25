@@ -291,6 +291,34 @@ describe('Permission Functions', () => {
       });
     });
 
+    describe('livetalk-user role', () => {
+      it('should have livetalk:chat permission', () => {
+        expect(hasPermission(['livetalk-user'], 'livetalk:chat')).toBe(true);
+      });
+
+      it('should not have stocks:read permission', () => {
+        expect(hasPermission(['livetalk-user'], 'stocks:read')).toBe(false);
+      });
+
+      it('should not have users:read permission', () => {
+        expect(hasPermission(['livetalk-user'], 'users:read')).toBe(false);
+      });
+    });
+
+    describe('livetalk:chat permission', () => {
+      it('livetalk-user should have livetalk:chat', () => {
+        expect(hasPermission(['livetalk-user'], 'livetalk:chat')).toBe(true);
+      });
+
+      it('admin should not have livetalk:chat', () => {
+        expect(hasPermission(['admin'], 'livetalk:chat')).toBe(false);
+      });
+
+      it('stock-admin should not have livetalk:chat', () => {
+        expect(hasPermission(['stock-admin'], 'livetalk:chat')).toBe(false);
+      });
+    });
+
     describe('requirePermission with Stock Tracker roles', () => {
       it('should not throw for stock-user with stocks:read', () => {
         expect(() => requirePermission(['stock-user'], 'stocks:read')).not.toThrow();

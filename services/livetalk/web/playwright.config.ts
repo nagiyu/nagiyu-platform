@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+config({ path: resolve(__dirname, '.env.test') });
 
 const isCI = !!process.env.CI;
 
@@ -61,7 +65,7 @@ export default defineConfig({
 
   webServer: {
     command: webServerCommand,
-    url: 'http://localhost:3000',
+    url: 'http://localhost:3000/api/health',
     reuseExistingServer: !isCI,
     timeout: 2 * 60 * 1000,
   },
