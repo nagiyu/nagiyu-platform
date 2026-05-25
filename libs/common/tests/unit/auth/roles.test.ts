@@ -12,6 +12,7 @@ describe('VALID_ROLES', () => {
     expect(VALID_ROLES).toContain('stock-viewer');
     expect(VALID_ROLES).toContain('stock-user');
     expect(VALID_ROLES).toContain('stock-admin');
+    expect(VALID_ROLES).toContain('livetalk-user');
   });
 
   it('配列として提供されるべき', () => {
@@ -132,6 +133,32 @@ describe('ROLES', () => {
       expect(ROLES['stock-user'].permissions).not.toContain('stocks:read-evaluation');
       expect(ROLES.admin.permissions).not.toContain('stocks:read-evaluation');
       expect(ROLES['user-manager'].permissions).not.toContain('stocks:read-evaluation');
+    });
+  });
+
+  describe('livetalk-user role', () => {
+    it('正しい構造を持つべき', () => {
+      expect(ROLES['livetalk-user']).toBeDefined();
+      expect(ROLES['livetalk-user'].id).toBe('livetalk-user');
+      expect(ROLES['livetalk-user'].name).toBe('LiveTalk ユーザー');
+      expect(ROLES['livetalk-user'].description).toBeDefined();
+      expect(Array.isArray(ROLES['livetalk-user'].permissions)).toBe(true);
+    });
+
+    it('livetalk:chat 権限のみを持つべき', () => {
+      expect(ROLES['livetalk-user'].permissions).toContain('livetalk:chat');
+      expect(ROLES['livetalk-user'].permissions).toHaveLength(1);
+    });
+  });
+
+  describe('livetalk:chat 権限の付与範囲', () => {
+    it('livetalk-user のみが livetalk:chat を持つべき', () => {
+      expect(ROLES['livetalk-user'].permissions).toContain('livetalk:chat');
+      expect(ROLES.admin.permissions).not.toContain('livetalk:chat');
+      expect(ROLES['user-manager'].permissions).not.toContain('livetalk:chat');
+      expect(ROLES['stock-viewer'].permissions).not.toContain('livetalk:chat');
+      expect(ROLES['stock-user'].permissions).not.toContain('livetalk:chat');
+      expect(ROLES['stock-admin'].permissions).not.toContain('livetalk:chat');
     });
   });
 });
