@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next';
+import { ServiceLayout } from '@nagiyu/ui';
+import '@nagiyu/ui/tokens.css';
 
 export const metadata: Metadata = {
   title: 'LiveTalk',
@@ -10,9 +12,21 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const version = process.env.APP_VERSION || '0.1.0';
+
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body>
+        <ServiceLayout
+          headerProps={{
+            title: 'リブトーク',
+            ariaLabel: 'リブトーク ホームに戻る',
+          }}
+          footerProps={{ version }}
+        >
+          {children}
+        </ServiceLayout>
+      </body>
     </html>
   );
 }

@@ -416,7 +416,7 @@ type SafetyEvent = {
 
 | ライブラリ | 責務 | Phase |
 |---|---|---|
-| `libs/voicevox-client` | VOICEVOX HTTP API クライアント | 1 |
+| `services/livetalk/core/src/voicevox` | VOICEVOX HTTP API クライアント。当面リブトーク専用。複数サービス利用が見えた段階で `libs/voicevox-client/` へ昇格を検討 | 1 |
 | `libs/character-renderer` | CharacterDefinition、Live2D 描画ラッパー | 1 |
 | `libs/llm-client` | OpenAI / Anthropic 抽象化、ストリーミング統一 | 2 |
 | `libs/safety` | 危険発言検出、リソース管理 | 2 |
@@ -476,9 +476,9 @@ export type CharacterDefinition = {
     };
 };
 
-// libs/voicevox-client
+// services/livetalk/core/src/voicevox（複数サービスから使う必要が見えたら libs/voicevox-client へ昇格）
 export interface IVoiceClient {
-    synthesize(text: string, speakerId: number): Promise<ArrayBuffer>;
+    synthesize(text: string, speakerId?: number): Promise<ArrayBuffer>;
 }
 
 // libs/llm-client
@@ -574,5 +574,5 @@ VOICEVOX:冥鳴ひまり
     - ADR-010: 桃瀬ひより + 冥鳴ひまり MVP
     - ADR-011: 通知設計
     - ADR-012: 「勉強する」強制ゲート
-- [ ] `docs/development/shared-libraries.md` に新規ライブラリを追記（voicevox-client、character-renderer 等）
+- [ ] `docs/development/shared-libraries.md` に新規ライブラリを追記（character-renderer 等。voicevox は当面 `services/livetalk/core` 内に置き、必要になれば昇格）
 - [ ] `tasks/livetalk/` ディレクトリ削除
