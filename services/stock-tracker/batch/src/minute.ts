@@ -9,12 +9,12 @@ import { getDynamoDBDocumentClient, getTableName, reportErrorEvent } from '@nagi
 import { sendWebPushNotification, getVapidConfig } from '@nagiyu/common/push';
 import { createAlertNotificationPayload } from './lib/web-push-client.js';
 import { runConcurrent } from './lib/concurrent-queue.js';
-import type { AlertRepository, ExchangeRepository } from '@nagiyu/stock-tracker-core';
+import type { ExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { DynamoDBAlertRepository, DynamoDBExchangeRepository } from '@nagiyu/stock-tracker-core';
 import { evaluateAlert } from '@nagiyu/stock-tracker-core';
 import { isTradingHours } from '@nagiyu/stock-tracker-core';
-import { getCurrentPrice } from '@nagiyu/stock-tracker-core';
-import type { Alert, Exchange } from '@nagiyu/stock-tracker-core';
+import { TradingViewSession } from '@nagiyu/stock-tracker-core';
+import type { Alert } from '@nagiyu/stock-tracker-core';
 
 /**
  * Lambda Handlerイベント型
@@ -58,12 +58,14 @@ interface BatchStatistics {
  *
  * @param alert - 処理するアラート
  * @param exchangeRepo - Exchange リポジトリ
+ * @param session - invocation 共有の TradingView セッション
  * @param stats - バッチ統計情報
  * @returns 処理が成功した場合は true、失敗した場合は false
  */
 async function processAlert(
   alert: Alert,
   exchangeRepo: ExchangeRepository,
+  session: TradingViewSession,
   stats: BatchStatistics
 ): Promise<boolean> {
   try {
@@ -100,12 +102,11 @@ async function processAlert(
       return true;
     }
 
-    // 4. TradingView API で現在価格取得
-    // TradingView は呼び出しごとに WebSocket を張り直すため 5s では接続+初回ティック待ちで
-    // 誤タイムアウトが多発する。8s に緩和し、最悪所要時間を ~16.5s（8s + 0.5s + 8s）に抑える。
-    // 時間予算 30s 直前に開始したタスクでも 30 + 16.5 ≒ 46.5s < Lambda timeout 50s に収まる。
+    // 4. TradingView API で現在価格取得（invocation 共有セッションを再利用）
+    // セッション共有により WebSocket handshake を invocation あたり 1 回に削減する。
+    // タイムアウト 8s + リトライ 0.5s + 8s = 最悪 16.5s。
     const currentPrice = await withRetry<number>(
-      () => getCurrentPrice(alert.TickerID, { timeout: 8000 }),
+      () => session.getCurrentPrice(alert.TickerID, { timeout: 8000 }),
       {
         maxRetries: 1,
         initialDelayMs: 500,
@@ -203,10 +204,14 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
   };
 
   // 並列度・時間予算は環境変数で調整可能
+  // 並列度を 3 に下げることで WS 接続バーストを緩和する（jitter と併用）
   // TIME_BUDGET_MS を 30s に設定し、in-flight タスクの完了（最大 ~16.5s）を含めて 50s 以内に収める
-  const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '10', 10);
+  const concurrency = parseInt(process.env.MINUTE_BATCH_CONCURRENCY ?? '3', 10);
   const timeBudgetMs = parseInt(process.env.MINUTE_BATCH_TIME_BUDGET_MS ?? '30000', 10);
   const isBudgetExceeded = (): boolean => Date.now() - startTime > timeBudgetMs;
+
+  // invocation スコープで 1 つの TradingView WebSocket 接続を共有する
+  const session = new TradingViewSession();
 
   try {
     // DynamoDB クライアントとリポジトリの初期化
@@ -227,10 +232,14 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
     // 2. 順序をシャッフルして特定アラートが常に後回しになることを防ぐ
     const shuffledAlerts = [...alerts].sort(() => Math.random() - 0.5);
 
-    // 3. 並列度上限・時間予算ガードで各アラートを処理
-    const tasks = shuffledAlerts.map((alert) => () => processAlert(alert, exchangeRepo, stats));
+    // 3. 並列度上限・時間予算ガード・jitter でアラートを処理
+    const tasks = shuffledAlerts.map(
+      (alert) => () => processAlert(alert, exchangeRepo, session, stats)
+    );
 
-    const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded);
+    const { results, skippedCount } = await runConcurrent(tasks, concurrency, isBudgetExceeded, {
+      jitterMs: 150,
+    });
 
     stats.processedAlerts = results.length;
     stats.skippedTimeBudget = skippedCount;
@@ -278,5 +287,7 @@ export async function handler(event: ScheduledEvent): Promise<HandlerResponse> {
         statistics: stats,
       }),
     };
+  } finally {
+    await session.close();
   }
 }

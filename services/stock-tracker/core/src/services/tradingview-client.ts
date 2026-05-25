@@ -151,6 +151,103 @@ export async function getCurrentPrice(
 }
 
 /**
+ * invocation スコープで TradingView WebSocket 接続を共有するセッション
+ *
+ * 1 Lambda invocation 内で 1 つの Client（= 1 WebSocket 接続）を使い回し、
+ * ティッカーごとに Chart を生成する。WebSocket handshake 回数を N から 1 に削減し、
+ * TradingView 側のレート制限によるバースト障害を緩和する。
+ *
+ * - chart.delete() は getCurrentPrice 完了時に個別呼び出し
+ * - client.end() は invocation 末尾に close() で 1 回だけ呼び出す
+ */
+export class TradingViewSession {
+  private readonly client: TradingView.Client;
+
+  constructor() {
+    this.client = new TradingView.Client();
+  }
+
+  /**
+   * 既存 Client の接続を再利用して現在価格を取得する
+   *
+   * @param tickerId - ティッカーID（例: "NSDQ:AAPL"）
+   * @param options - 取得オプション
+   * @returns 現在価格（終値）
+   * @throws {Error} タイムアウト、接続エラー、データ取得失敗時
+   */
+  public async getCurrentPrice(
+    tickerId: string,
+    options: GetCurrentPriceOptions = {}
+  ): Promise<number> {
+    const { timeout = 10000, session = 'extended' } = options;
+
+    if (!tickerId || typeof tickerId !== 'string' || !tickerId.includes(':')) {
+      throw new Error(TRADINGVIEW_ERROR_MESSAGES.INVALID_TICKER);
+    }
+
+    const chart = new this.client.Session.Chart();
+
+    try {
+      return await new Promise<number>((resolve, reject) => {
+        let resolved = false;
+
+        const timeoutId = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            reject(new Error(TRADINGVIEW_ERROR_MESSAGES.TIMEOUT));
+          }
+        }, timeout);
+
+        chart.setMarket(tickerId, { timeframe: '1', session });
+
+        chart.onUpdate(() => {
+          if (!resolved && chart.periods && chart.periods.length > 0) {
+            const currentPrice = chart.periods[0]?.close;
+            if (currentPrice !== undefined && currentPrice !== null) {
+              resolved = true;
+              clearTimeout(timeoutId);
+              resolve(currentPrice);
+            }
+          }
+        });
+
+        chart.onError((error: Error) => {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timeoutId);
+            const errorMessage = error.message || '';
+            if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
+              reject(new Error(TRADINGVIEW_ERROR_MESSAGES.RATE_LIMIT));
+            } else {
+              reject(new Error(`${TRADINGVIEW_ERROR_MESSAGES.CONNECTION_ERROR}: ${errorMessage}`));
+            }
+          }
+        });
+      });
+    } finally {
+      try {
+        chart.delete();
+      } catch {
+        // chart.delete() のエラーは無視
+      }
+    }
+  }
+
+  /**
+   * セッション（WebSocket 接続）を閉じる
+   *
+   * invocation 末尾で必ず呼ぶこと。
+   */
+  public async close(): Promise<void> {
+    try {
+      this.client.end();
+    } catch {
+      // client.end() のエラーは無視
+    }
+  }
+}
+
+/**
  * 最大取得件数
  *
  * チャートデータの最大取得件数（API 仕様に準拠）
