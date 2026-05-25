@@ -17,14 +17,14 @@ const synth = (environment, props = {}) => {
 };
 
 describe('LiveTalkEcsServiceStack', () => {
-  it('Task Definition family を環境名込みで作成する', () => {
+  it('Task Definition family を環境名込みで作成する（VOICEVOX 同居のため Memory 3072）', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::TaskDefinition', {
       Family: 'nagiyu-livetalk-task-dev',
       RequiresCompatibilities: ['FARGATE'],
       NetworkMode: 'awsvpc',
       Cpu: '1024',
-      Memory: '2048',
+      Memory: '3072',
     });
   });
 
@@ -40,13 +40,50 @@ describe('LiveTalkEcsServiceStack', () => {
     });
   });
 
-  it('ECS Service 名を環境名込みで作成する', () => {
+  it('VOICEVOX コンテナを port 50021 で定義し、healthCheck の startPeriod を 60 秒以上にする', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'voicevox',
+          Image: 'voicevox/voicevox_engine:cpu-latest',
+          Essential: true,
+          PortMappings: Match.arrayWith([Match.objectLike({ ContainerPort: 50021 })]),
+          HealthCheck: Match.objectLike({
+            StartPeriod: 60,
+          }),
+        }),
+      ]),
+    });
+  });
+
+  it('livetalk-web は VOICEVOX の HEALTHY を dependsOn し、VOICEVOX_URL を env で渡す', () => {
+    const template = synth('dev');
+    template.hasResourceProperties('AWS::ECS::TaskDefinition', {
+      ContainerDefinitions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'livetalk-web',
+          DependsOn: Match.arrayWith([
+            Match.objectLike({
+              ContainerName: 'voicevox',
+              Condition: 'HEALTHY',
+            }),
+          ]),
+          Environment: Match.arrayWith([
+            { Name: 'VOICEVOX_URL', Value: 'http://localhost:50021' },
+          ]),
+        }),
+      ]),
+    });
+  });
+
+  it('ECS Service 名を環境名込みで作成し、VOICEVOX 起動待ちを含む 120 秒の grace period を持つ', () => {
     const template = synth('dev');
     template.hasResourceProperties('AWS::ECS::Service', {
       ServiceName: 'nagiyu-livetalk-service-dev',
       DesiredCount: 1,
       LaunchType: 'FARGATE',
-      HealthCheckGracePeriodSeconds: 60,
+      HealthCheckGracePeriodSeconds: 120,
     });
   });
 

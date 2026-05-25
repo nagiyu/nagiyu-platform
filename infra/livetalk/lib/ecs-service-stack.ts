@@ -171,18 +171,47 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
 
     const imageTag = process.env.IMAGE_TAG || 'latest';
 
-    // Phase 1f で VOICEVOX コンテナを同一 Task に追加できるよう、CPU/メモリは Next.js 単体の
-    // 必要量 + VOICEVOX 想定（CPU 1024 / メモリ 2048）に対応できる枠を確保しておく。
-    // Phase 1c 時点では Next.js 1 コンテナのみだが、リソース枠は将来分も見込んで設定する。
+    // Phase 1f で VOICEVOX コンテナを同一 Task に追加。
+    // メモリ内訳: VOICEVOX 2GB + Next.js 0.5GB + オーバーヘッド ≈ 3GB
+    // Fargate の CPU/Memory 組み合わせ制約に従い 1 vCPU / 3072 MiB を使用（dev 想定の最小値、
+    // prod でメモリ・CPU 不足が見えた段階で引き上げる）。
     this.taskDefinition = new ecs.FargateTaskDefinition(this, 'TaskDefinition', {
       family: `nagiyu-livetalk-task-${environment}`,
       cpu: 1024,
-      memoryLimitMiB: 2048,
+      memoryLimitMiB: 3072,
       executionRole: taskExecutionRole,
       taskRole,
     });
 
-    this.taskDefinition.addContainer('livetalk-web', {
+    // VOICEVOX エンジン公式 Docker イメージ。
+    // - 1 ECS Task 内に web と同居し、web からは localhost:50021 で接続される
+    // - 外部公開不要（Service の Security Group 経由でも 50021 は通さない）
+    // - 起動時のモデルロードに 30〜60 秒かかるため startPeriod は 60s
+    // - 公式イメージは Docker Hub から直接 pull（ECR ミラー化は将来課題）
+    const voicevoxContainer = this.taskDefinition.addContainer('voicevox', {
+      containerName: 'voicevox',
+      image: ecs.ContainerImage.fromRegistry('voicevox/voicevox_engine:cpu-latest'),
+      essential: true,
+      logging: ecs.LogDriver.awsLogs({
+        streamPrefix: 'ecs',
+        logGroup,
+      }),
+      portMappings: [
+        {
+          containerPort: 50021,
+          protocol: ecs.Protocol.TCP,
+        },
+      ],
+      healthCheck: {
+        command: ['CMD-SHELL', 'curl -f http://localhost:50021/version || exit 1'],
+        interval: cdk.Duration.seconds(15),
+        timeout: cdk.Duration.seconds(5),
+        retries: 5,
+        startPeriod: cdk.Duration.seconds(60),
+      },
+    });
+
+    const webContainer = this.taskDefinition.addContainer('livetalk-web', {
       containerName: 'livetalk-web',
       image: ecs.ContainerImage.fromRegistry(`${ecrRepositoryUri}:${imageTag}`),
       logging: ecs.LogDriver.awsLogs({
@@ -202,6 +231,8 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
         NEXT_PUBLIC_AUTH_URL: authUrl,
         // 自サービスのベース URL（callbackUrl 生成用）
         APP_URL: appUrl,
+        // VOICEVOX エンジンの接続先（同 Task 内 localhost）
+        VOICEVOX_URL: 'http://localhost:50021',
       },
       portMappings: [
         {
@@ -211,8 +242,15 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       ],
     });
 
-    // VOICEVOX 同居（Phase 1f）を見越して startPeriod は 60s 以上を要件にしているが、
-    // Phase 1c 時点では Next.js 単体なので Service の healthCheckGracePeriod のみで対応。
+    // VOICEVOX が HEALTHY になるまで web コンテナの起動を遅延させる。
+    // これにより /api/echo 初回呼び出しで VOICEVOX 接続不可になる事故を防ぐ。
+    webContainer.addContainerDependencies({
+      container: voicevoxContainer,
+      condition: ecs.ContainerDependencyCondition.HEALTHY,
+    });
+
+    // VOICEVOX 起動待ちを含む Service の healthCheckGracePeriod を確保する（VOICEVOX の
+    // startPeriod 60s に余裕を持たせる）。
     this.service = new ecs.FargateService(this, 'Service', {
       cluster,
       taskDefinition: this.taskDefinition,
@@ -223,7 +261,7 @@ export class LiveTalkEcsServiceStack extends cdk.Stack {
       vpcSubnets: {
         subnets: vpc.publicSubnets,
       },
-      healthCheckGracePeriod: cdk.Duration.seconds(60),
+      healthCheckGracePeriod: cdk.Duration.seconds(120),
     });
 
     this.service.attachToApplicationTargetGroup(targetGroup);
